@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>BERAMETHODE — Réponse invitation</title>
+  <style>
+    body { font-family: system-ui, Segoe UI, sans-serif; background: #f8fafc; color: #0f172a; margin: 0; padding: 24px; }
+    .card { max-width: 420px; margin: 0 auto; background: #fff; border-radius: 16px; padding: 24px; box-shadow: 0 4px 24px rgba(0,0,0,.08); border: 1px solid #e2e8f0; }
+    h1 { font-size: 18px; margin: 0 0 8px; }
+    p { font-size: 13px; color: #64748b; margin: 0 0 16px; line-height: 1.5; }
+    label { display: block; font-size: 12px; font-weight: 600; color: #374151; margin-bottom: 6px; }
+    input { width: 100%; box-sizing: border-box; padding: 10px 12px; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 14px; margin-bottom: 14px; }
+    .row { display: flex; gap: 10px; flex-wrap: wrap; }
+    button { flex: 1; min-width: 120px; padding: 12px 16px; border: none; border-radius: 8px; font-weight: 600; font-size: 14px; cursor: pointer; }
+    .ok { background: #2149c1; color: #fff; }
+    .no { background: #fee2e2; color: #991b1b; }
+    #msg { margin-top: 14px; font-size: 13px; font-weight: 600; }
+    .err { color: #b91c1c; }
+    .good { color: #047857; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Invitation effectif</h1>
+    <p>Si votre employeur vous a envoyé ce lien, vous pouvez <strong>accepter</strong> ou <strong>refuser</strong> l’embauche proposée (nouvelle fiche dans leur BERAMETHODE).</p>
+    <label for="token">Jeton d’invitation (pré-rempli si le lien est complet)</label>
+    <input id="token" type="text" autocomplete="off" placeholder="Collez le jeton ici" />
+    <div class="row">
+      <button type="button" class="ok" id="btnAccept">Accepter</button>
+      <button type="button" class="no" id="btnRefuse">Refuser</button>
+    </div>
+    <div id="msg"></div>
+  </div>
+  <script>
+    (function () {
+      var u = new URLSearchParams(window.location.search);
+      var t = u.get('token') || '';
+      document.getElementById('token').value = t;
+      function api(path, body) {
+        return fetch(path, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        });
+      }
+      function setMsg(text, ok) {
+        var el = document.getElementById('msg');
+        el.textContent = text;
+        el.className = ok ? 'good' : 'err';
+      }
+      async function respond(decision) {
+        var token = document.getElementById('token').value.trim();
+        if (!token) { setMsg('Indiquez le jeton.', false); return; }
+        setMsg('Envoi…', true);
+        try {
+          var r = await api('/api/hr/invitations/respond', { token: token, decision: decision });
+          var j = await r.json().catch(function () { return {}; });
+          if (!r.ok) {
+            setMsg(j.message || ('Erreur ' + r.status), false);
+            return;
+          }
+          if (j.status === 'ACCEPTED') {
+            setMsg('Invitation acceptée. Fiche créée (ID : ' + (j.workerId || '') + ').', true);
+          } else if (j.status === 'REFUSED') {
+            setMsg('Invitation refusée.', true);
+          } else {
+            setMsg(JSON.stringify(j), true);
+          }
+        } catch (e) {
+          setMsg('Réseau indisponible.', false);
+        }
+      }
+      document.getElementById('btnAccept').onclick = function () { respond('ACCEPT'); };
+      document.getElementById('btnRefuse').onclick = function () { respond('REFUSE'); };
+    })();
+  </script>
+</body>
+</html>

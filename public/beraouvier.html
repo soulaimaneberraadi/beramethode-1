@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="fr" dir="ltr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+  <title>BERAOUVIER — Mon Suivi</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #F0F4FF;
+      min-height: 100vh;
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      padding: 24px 16px;
+    }
+    .container { width: 100%; max-width: 420px; }
+    .header {
+      text-align: center;
+      margin-bottom: 28px;
+    }
+    .logo { font-size: 22px; font-weight: 800; color: #2149C1; letter-spacing: -0.5px; }
+    .logo span { color: #10B981; }
+    .subtitle { font-size: 13px; color: #64748B; margin-top: 4px; }
+
+    .card {
+      background: #fff;
+      border-radius: 16px;
+      padding: 24px;
+      box-shadow: 0 4px 20px rgba(33, 73, 193, 0.10);
+      margin-bottom: 20px;
+    }
+    .card-title { font-size: 15px; font-weight: 700; color: #0F172A; margin-bottom: 16px; }
+
+    label { display: block; font-size: 12px; font-weight: 600; color: #374151; margin-bottom: 6px; }
+    input {
+      width: 100%; padding: 12px 14px; border: 2px solid #E2E8F0; border-radius: 10px;
+      font-size: 16px; color: #0F172A; outline: none; transition: border-color 0.2s;
+      letter-spacing: 2px;
+    }
+    input:focus { border-color: #2149C1; }
+    .btn {
+      width: 100%; padding: 13px; background: #2149C1; color: #fff;
+      border: none; border-radius: 10px; font-size: 15px; font-weight: 700;
+      cursor: pointer; margin-top: 14px; transition: background 0.2s;
+    }
+    .btn:hover { background: #1a3ba5; }
+    .btn:disabled { background: #93C5FD; cursor: not-allowed; }
+
+    .profile-card {
+      background: linear-gradient(135deg, #2149C1 0%, #1a3ba5 100%);
+      border-radius: 16px; padding: 20px 24px; color: #fff;
+      margin-bottom: 20px;
+    }
+    .profile-name { font-size: 20px; font-weight: 800; }
+    .profile-role {
+      display: inline-block; margin-top: 6px;
+      background: rgba(255,255,255,0.2); padding: 3px 10px;
+      border-radius: 20px; font-size: 12px; font-weight: 600;
+    }
+    .profile-chaine { font-size: 12px; color: rgba(255,255,255,0.7); margin-top: 4px; }
+
+    .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px; }
+    .stat-card {
+      background: #fff; border-radius: 12px; padding: 16px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.07);
+      text-align: center;
+    }
+    .stat-icon { font-size: 22px; margin-bottom: 6px; }
+    .stat-value { font-size: 24px; font-weight: 800; color: #0F172A; }
+    .stat-label { font-size: 11px; color: #94A3B8; font-weight: 500; margin-top: 2px; }
+
+    .status-badge {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 6px 14px; border-radius: 20px; font-size: 13px; font-weight: 700;
+    }
+    .status-dot { width: 8px; height: 8px; border-radius: 50%; }
+
+    .info-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #F1F5F9; }
+    .info-row:last-child { border-bottom: none; }
+    .info-row .key { font-size: 13px; color: #64748B; }
+    .info-row .val { font-size: 13px; font-weight: 600; color: #0F172A; }
+
+    .error-box {
+      background: #FEE2E2; border-radius: 10px; padding: 14px 16px;
+      font-size: 13px; color: #991B1B; font-weight: 600;
+      text-align: center; margin-top: 12px;
+    }
+    .loading { text-align: center; padding: 20px; color: #64748B; font-size: 14px; }
+    .hidden { display: none; }
+
+    .back-btn {
+      background: none; border: none; color: #2149C1; font-size: 13px; font-weight: 600;
+      cursor: pointer; padding: 0; margin-bottom: 16px; display: flex; align-items: center; gap: 4px;
+    }
+    .footer { text-align: center; font-size: 11px; color: #94A3B8; margin-top: 24px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div class="logo">BERA<span>OUVIER</span></div>
+      <div class="subtitle">Consultez votre présence & production</div>
+    </div>
+
+    <!-- LOGIN SECTION -->
+    <div id="loginSection" class="card">
+      <div class="card-title">Entrez votre CIN</div>
+      <label for="cinInput">Numéro CIN (Carte Nationale)</label>
+      <input type="text" id="cinInput" placeholder="AB123456" maxlength="10" autocomplete="off"
+        style="text-transform: uppercase;" />
+      <div id="loginError" class="hidden error-box"></div>
+      <button class="btn" id="checkBtn" onclick="checkWorker()">Consulter mon suivi →</button>
+    </div>
+
+    <!-- WORKER DASHBOARD -->
+    <div id="dashboard" class="hidden">
+      <button class="back-btn" onclick="goBack()">← Retour</button>
+
+      <div id="profileCard" class="profile-card">
+        <div class="profile-name" id="workerName">—</div>
+        <div><span class="profile-role" id="workerRole">—</span></div>
+        <div class="profile-chaine" id="workerChaine"></div>
+      </div>
+
+      <div class="stat-grid">
+        <div class="stat-card">
+          <div class="stat-icon">📋</div>
+          <div class="stat-value" id="statStatut">—</div>
+          <div class="stat-label">Statut aujourd'hui</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon">⏱️</div>
+          <div class="stat-value" id="statHeures">—</div>
+          <div class="stat-label">Heures travaillées</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon">👕</div>
+          <div class="stat-value" id="statPieces">—</div>
+          <div class="stat-label">Pièces produites</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon">📅</div>
+          <div class="stat-value" id="statDate">—</div>
+          <div class="stat-label">Date</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Détail Pointage</div>
+        <div id="pointageDetail">
+          <div class="loading">Chargement...</div>
+        </div>
+      </div>
+
+      <div class="footer">
+        Données en lecture seule — Aucune information financière • BERAMETHODE V1
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const STATUT_CONFIG = {
+      PRESENT:  { label: 'Présent',  color: '#065F46', bg: '#D1FAE5' },
+      RETARD:   { label: 'Retard',   color: '#92400E', bg: '#FEF3C7' },
+      ABSENT:   { label: 'Absent',   color: '#991B1B', bg: '#FEE2E2' },
+      CONGE:    { label: 'Congé',    color: '#1E40AF', bg: '#DBEAFE' },
+      MALADIE:  { label: 'Maladie',  color: '#6B21A8', bg: '#F3E8FF' },
+      MISSION:  { label: 'Mission',  color: '#0F766E', bg: '#CCFBF1' },
+      FERIE:    { label: 'Férié',    color: '#374151', bg: '#F3F4F6' },
+    };
+    const ROLE_LABELS = {
+      OPERATOR: 'Opérateur', SUPERVISOR: 'Superviseur', MECHANIC: 'Mécanicien',
+      ADMIN: 'Admin', QC: 'Contrôle Qualité', IRON: 'Repassage', CUTTER: 'Coupeur', PACKER: 'Emballage'
+    };
+
+    let currentCin = '';
+
+    document.getElementById('cinInput').addEventListener('keydown', e => {
+      if (e.key === 'Enter') checkWorker();
+    });
+
+    async function checkWorker() {
+      const cin = document.getElementById('cinInput').value.trim().toUpperCase();
+      if (!cin || cin.length < 4) {
+        showError('Veuillez entrer un numéro CIN valide');
+        return;
+      }
+      currentCin = cin;
+      const btn = document.getElementById('checkBtn');
+      btn.disabled = true;
+      btn.textContent = 'Vérification...';
+      hideError();
+
+      try {
+        const [workerRes, ptgRes, prodRes] = await Promise.all([
+          fetch(`/api/worker/${cin}`),
+          fetch(`/api/worker/${cin}/pointage`),
+          fetch(`/api/worker/${cin}/production`),
+        ]);
+
+        if (!workerRes.ok || workerRes.status === 404) {
+          showError('CIN introuvable. Vérifiez votre numéro et réessayez.');
+          btn.disabled = false; btn.textContent = 'Consulter mon suivi →';
+          return;
+        }
+
+        const worker = await workerRes.json();
+        if (!worker) { showError('CIN introuvable.'); btn.disabled = false; btn.textContent = 'Consulter mon suivi →'; return; }
+
+        const ptg = ptgRes.ok ? await ptgRes.json() : null;
+        const prod = prodRes.ok ? await prodRes.json() : null;
+
+        renderDashboard(worker, ptg, prod);
+        document.getElementById('loginSection').classList.add('hidden');
+        document.getElementById('dashboard').classList.remove('hidden');
+      } catch (e) {
+        showError('Erreur de connexion. Réessayez.');
+      }
+      btn.disabled = false; btn.textContent = 'Consulter mon suivi →';
+    }
+
+    function renderDashboard(worker, ptg, prod) {
+      document.getElementById('workerName').textContent = worker.full_name || '—';
+      document.getElementById('workerRole').textContent = ROLE_LABELS[worker.role] || worker.role || '—';
+      document.getElementById('workerChaine').textContent = worker.chaine_id ? `Chaîne: ${worker.chaine_id}` : '';
+
+      const today = new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
+      document.getElementById('statDate').textContent = new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' });
+
+      // Statut
+      if (ptg) {
+        const sc = STATUT_CONFIG[ptg.statut] || { label: ptg.statut, color: '#374151', bg: '#F3F4F6' };
+        document.getElementById('statStatut').innerHTML =
+          `<span style="font-size:13px;padding:4px 10px;border-radius:20px;background:${sc.bg};color:${sc.color};font-weight:700">${sc.label}</span>`;
+        document.getElementById('statHeures').textContent = ptg.heures_travaillees ? `${parseFloat(ptg.heures_travaillees).toFixed(1)}h` : '—';
+      } else {
+        document.getElementById('statStatut').textContent = 'Non saisi';
+        document.getElementById('statHeures').textContent = '—';
+      }
+
+      // Pièces
+      document.getElementById('statPieces').textContent = prod?.total != null ? prod.total : '—';
+
+      // Détail pointage
+      const detail = document.getElementById('pointageDetail');
+      if (ptg) {
+        const rows = [
+          { key: 'Date', val: ptg.date || '—' },
+          { key: 'Heure entrée', val: ptg.heure_entree || '—' },
+          { key: 'Heure sortie', val: ptg.heure_sortie || '—' },
+          { key: 'Heures normales', val: ptg.heures_normales ? `${ptg.heures_normales}h` : '—' },
+          { key: 'Heures supp. 25%', val: ptg.heures_supp_25 ? `${ptg.heures_supp_25}h` : '—' },
+          { key: 'Heures supp. 50%', val: ptg.heures_supp_50 ? `${ptg.heures_supp_50}h` : '—' },
+        ];
+        detail.innerHTML = rows.map(r => `
+          <div class="info-row">
+            <span class="key">${r.key}</span>
+            <span class="val">${r.val}</span>
+          </div>
+        `).join('');
+      } else {
+        detail.innerHTML = '<div style="text-align:center;padding:20px;color:#94A3B8;font-size:13px;">Aucun pointage enregistré pour aujourd\'hui</div>';
+      }
+    }
+
+    function goBack() {
+      document.getElementById('dashboard').classList.add('hidden');
+      document.getElementById('loginSection').classList.remove('hidden');
+      document.getElementById('cinInput').value = '';
+      hideError();
+    }
+
+    function showError(msg) {
+      const el = document.getElementById('loginError');
+      el.textContent = msg;
+      el.classList.remove('hidden');
+    }
+    function hideError() {
+      document.getElementById('loginError').classList.add('hidden');
+    }
+  </script>
+</body>
+</html>

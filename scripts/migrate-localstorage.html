@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BERAMETHODE V1 - Migration Tool</title>
+    <style>
+        body { font-family: system-ui, -apple-system, sans-serif; max-width: 800px; margin: 40px auto; padding: 0 20px; color: #1e293b; background: #f8fafc; }
+        .card { background: white; border-radius: 12px; padding: 24px; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1); margin-bottom: 24px; }
+        h1 { color: #0f172a; margin-top: 0; }
+        .btn { background: #3b82f6; color: white; border: none; padding: 10px 20px; border-radius: 6px; font-weight: bold; cursor: pointer; }
+        .btn:hover { background: #2563eb; }
+        .btn[disabled] { opacity: 0.6; cursor: not-allowed; }
+        .success { color: #16a34a; font-weight: bold; }
+        .error { color: #dc2626; font-weight: bold; }
+        .log-box { background: #1e293b; color: #10b981; padding: 16px; border-radius: 8px; font-family: monospace; height: 200px; overflow-y: auto; font-size: 13px; }
+        .input-group { margin-bottom: 16px; }
+        input { padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; width: 100%; box-sizing: border-box; margin-top: 4px; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h1>Phase 1 Migration Tool</h1>
+        <p>This tool migrates your local browser data (`beramethode_planning`, `beramethode_suivis`, `beramethode_demandesAppro`) into the new SQLite backend.</p>
+        
+        <div id="loginSection">
+            <h3>Authentication</h3>
+            <p>You must authenticate to link your data to your identity (owner_id).</p>
+            <div class="input-group">
+                <label>Email</label>
+                <input type="email" id="email" value="admin1@admin.com">
+            </div>
+            <div class="input-group">
+                <label>Password</label>
+                <input type="password" id="password" value="y123">
+            </div>
+            <button class="btn" id="loginBtn">Login</button>
+            <p id="authStatus"></p>
+        </div>
+
+        <div id="migrationSection" style="display: none; margin-top: 30px;">
+            <h3>Start Migration</h3>
+            <p>Data found in LocalStorage:</p>
+            <ul>
+                <li>Planning Events: <strong id="cPlanning">0</strong></li>
+                <li>Suivis: <strong id="cSuivis">0</strong></li>
+                <li>Demandes Appro: <strong id="cDemandes">0</strong></li>
+            </ul>
+            <button class="btn" id="migrateBtn">Migrate Now</button>
+            
+            <h4 style="margin-top: 24px;">Logs</h4>
+            <div class="log-box" id="logs"> Waiting...</div>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = '/api'; // Relative route, run from within the same domain OR adjust if needed.
+        let authToken = '';
+
+        function log(msg) {
+            const l = document.getElementById('logs');
+            l.innerHTML += `> ${msg}<br>`;
+            l.scrollTop = l.scrollHeight;
+        }
+
+        document.getElementById('loginBtn').addEventListener('click', async () => {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            
+            try {
+                // Perform login
+                const res = await fetch(`${API_URL}/auth/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password })
+                });
+                
+                if (res.ok) {
+                    const data = await res.json();
+                    document.getElementById('authStatus').innerHTML = `<span class="success">Connected as ${data.user.name}</span>`;
+                    document.getElementById('loginSection').style.opacity = '0.5';
+                    document.getElementById('migrationSection').style.display = 'block';
+                    loadStats();
+                } else {
+                    const err = await res.json();
+                    document.getElementById('authStatus').innerHTML = `<span class="error">${err.message || 'Login failed'}</span>`;
+                }
+            } catch (e) {
+                document.getElementById('authStatus').innerHTML = `<span class="error">Connection error: ${e.message}</span>`;
+            }
+        });
+
+        const pData = JSON.parse(localStorage.getItem('beramethode_planning') || '[]');
+        const sData = JSON.parse(localStorage.getItem('beramethode_suivis') || '[]');
+        const dData = JSON.parse(localStorage.getItem('beramethode_demandesAppro') || '[]');
+
+        function loadStats() {
+            document.getElementById('cPlanning').innerText = pData.length;
+            document.getElementById('cSuivis').innerText = sData.length;
+            document.getElementById('cDemandes').innerText = dData.length;
+            if (pData.length === 0 && sData.length === 0 && dData.length === 0) {
+                log("No data found to migrate.");
+                document.getElementById('migrateBtn').disabled = true;
+            }
+        }
+
+        document.getElementById('migrateBtn').addEventListener('click', async () => {
+            document.getElementById('migrateBtn').disabled = true;
+            log("Starting migration...");
+
+            // Planning
+            if (pData.length > 0) {
+                log(`Migrating ${pData.length} Planning Events...`);
+                try {
+                    const r = await fetch(`${API_URL}/planning`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ events: pData })
+                    });
+                    if (r.ok) log("<span class='success'>Planning migrated successfully!</span>");
+                    else log("<span class='error'>Failed planning migration</span>");
+                } catch(e) { log(`<span class='error'>${e.message}</span>`); }
+            }
+
+            // Suivis
+            if (sData.length > 0) {
+                log(`Migrating ${sData.length} Suivis...`);
+                try {
+                    const r = await fetch(`${API_URL}/suivi`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ suivis: sData })
+                    });
+                    if (r.ok) log("<span class='success'>Suivis migrated successfully!</span>");
+                    else log("<span class='error'>Failed suivis migration</span>");
+                } catch(e) { log(`<span class='error'>${e.message}</span>`); }
+            }
+
+            // Demandes Appro
+            if (dData.length > 0) {
+                log(`Migrating ${dData.length} Demandes Appro...`);
+                try {
+                    const r = await fetch(`${API_URL}/demandes-appro`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ demandes: dData })
+                    });
+                    if (r.ok) log("<span class='success'>Demandes Appro migrated successfully!</span>");
+                    else log("<span class='error'>Failed demandes appro migration</span>");
+                } catch(e) { log(`<span class='error'>${e.message}</span>`); }
+            }
+
+            log("Migration complete!");
+        });
+    </script>
+</body>
+</html>

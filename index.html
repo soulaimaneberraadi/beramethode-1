@@ -1,0 +1,173 @@
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg viewBox='0 0 512 512' fill='black' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M110 420 L230 80 H150 L30 420 H110 Z' /%3E%3Cpath d='M260 80 H380 C430 80 470 110 470 170 C470 210 440 240 400 250 C450 260 480 300 480 350 C480 410 430 440 370 440 H200 L245 320 H360 C390 320 400 310 400 290 C400 270 380 260 350 260 H300 L320 200 H 370 C400 200 410 190 410 170 C410 150 390 140 360 140 H280 L260 80 Z' /%3E%3C/svg%3E" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>BERAMETHODE</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;700;900&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
+    <style>
+      /* Premium subtle scrollbars */
+      ::-webkit-scrollbar {
+        width: 6px;
+        height: 6px;
+      }
+      ::-webkit-scrollbar-track {
+        background: transparent;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: rgba(0, 0, 0, 0.1);
+        border-radius: 10px;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: rgba(0, 0, 0, 0.2);
+      }
+      * {
+        scrollbar-width: thin;
+        scrollbar-color: rgba(0, 0, 0, 0.1) transparent;
+      }
+
+      /* Premium UI Animations */
+      @keyframes pulse {
+        0%, 100% { opacity: 1; transform: scale(1); }
+        50% { opacity: 0.5; transform: scale(0.85); }
+      }
+      @keyframes fadeInUp {
+        from { opacity: 0; transform: translateY(8px); }
+        to   { opacity: 1; transform: translateY(0); }
+      }
+      @keyframes shimmer {
+        0%   { background-position: -200% 0; }
+        100% { background-position:  200% 0; }
+      }
+      @keyframes float {
+        0%, 100% { transform: translateY(0px); }
+        50% { transform: translateY(-10px); }
+      }
+      @keyframes rotate-glow {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
+
+      .premium-glow {
+        position: relative;
+        overflow: hidden;
+      }
+      .premium-glow::before {
+        content: "";
+        position: absolute;
+        top: -50%;
+        left: -50%;
+        width: 200%;
+        height: 200%;
+        background: radial-gradient(circle, rgba(99, 102, 241, 0.1) 0%, transparent 70%);
+        animation: rotate-glow 20s linear infinite;
+        pointer-events: none;
+        z-index: 0;
+      }
+
+      .glass-card {
+        background: rgba(255, 255, 255, 0.7);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        border: 1px solid rgba(255, 255, 255, 0.3);
+      }
+
+      .glass-card-dark {
+        background: rgba(15, 23, 42, 0.8);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+      }
+
+      .status-glow-ok {
+        box-shadow: 0 0 12px rgba(16, 185, 129, 0.5);
+        animation: pulse 2s infinite;
+      }
+      .status-glow-warn {
+        box-shadow: 0 0 12px rgba(245, 158, 11, 0.5);
+        animation: pulse 2s infinite;
+      }
+      .status-glow-error {
+        box-shadow: 0 0 12px rgba(244, 63, 94, 0.5);
+        animation: pulse 2s infinite;
+      }
+
+      .hover-lift {
+        transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.3s ease;
+      }
+      .hover-lift:hover {
+        transform: translateY(-5px) scale(1.02);
+        box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+      }
+
+      /* Pointage table row hover */
+      .ptg-row:hover {
+        background: #f8fafc !important;
+      }
+      .ptg-row:hover td:first-child {
+        background: #f8fafc !important;
+      }
+
+      /* Smooth tranche button transitions */
+      .tranche-btn {
+        transition: background 0.15s ease, transform 0.1s ease, box-shadow 0.15s ease;
+      }
+      .tranche-btn:hover:not(:disabled) {
+        transform: scale(1.1);
+      }
+      .tranche-btn:active:not(:disabled) {
+        transform: scale(0.95);
+      }
+
+      /* KPI card gradient shimmer on hover */
+      .kpi-card:hover {
+        filter: brightness(1.03);
+        transition: filter 0.2s ease;
+      }
+
+      /* Pointage — mobile : pas de largeur forcée, grille 2×2 sous ~560px */
+      .pointage-kpi-grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 4px;
+        width: 100%;
+        min-width: 0;
+      }
+      @media (max-width: 560px) {
+        .pointage-kpi-grid {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+      }
+
+      .gestion-rh-tabs-scroll {
+        display: flex;
+        gap: 4px;
+        overflow-x: auto;
+        overflow-y: hidden;
+        -webkit-overflow-scrolling: touch;
+        padding-bottom: 2px;
+        margin-bottom: -2px;
+      }
+      .gestion-rh-tabs-scroll button {
+        flex-shrink: 0;
+      }
+
+      @media (max-width: 560px) {
+        .gestion-rh-head-compact {
+          padding: 10px 12px !important;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/index.tsx"></script>
+  </body>
+</html>
