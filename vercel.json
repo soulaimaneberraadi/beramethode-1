@@ -2,5 +2,8 @@
   "buildCommand": "npm run build:static",
   "outputDirectory": "dist",
   "installCommand": "npm install",
+  "env": {
+    "VITE_STATIC_MODE": "true"
+  },
   "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
 }
