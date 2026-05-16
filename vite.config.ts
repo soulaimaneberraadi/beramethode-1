@@ -3,7 +3,7 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import obfuscator from 'vite-plugin-javascript-obfuscator';
 
-export default defineConfig(() => ({
+export default defineConfig(({ mode }) => ({
     // « npx vite » / « vite preview » : le port est ≠ 8000 pour laisser **npm run dev** (Express + API) sur 8000.
     // Le proxy envoie /api vers le backend — sans ça, /api renvoie index.html → erreur « HTML au lieu de JSON ».
     server: {
@@ -35,7 +35,7 @@ export default defineConfig(() => ({
     },
     plugins: [
       react(),
-      obfuscator({
+      ...(mode !== 'static' ? [obfuscator({
         include: ['src/**/*.ts', 'src/**/*.tsx', 'components/**/*.ts', 'components/**/*.tsx', 'App.tsx'],
         exclude: [/node_modules/],
         apply: 'build',
@@ -51,7 +51,7 @@ export default defineConfig(() => ({
           stringArray: true,
           stringArrayEncoding: ['base64'],
         }
-      })
+      })] : [])
     ],
     optimizeDeps: {
       include: [
