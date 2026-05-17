@@ -16,16 +16,15 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+const IS_STATIC = import.meta.env.VITE_STATIC_MODE === 'true';
+const STATIC_USER: User = { id: 0, email: 'local@beramethode.ma', name: 'Local', role: 'user' };
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState<User | null>(IS_STATIC ? STATIC_USER : null);
+  const [loading, setLoading] = useState(!IS_STATIC);
 
   useEffect(() => {
-    if (import.meta.env.VITE_STATIC_MODE === 'true') {
-      setUser({ id: 0, email: 'local@beramethode.ma', name: 'Local', role: 'user' });
-      setLoading(false);
-      return;
-    }
+    if (IS_STATIC) return;
     const checkAuth = async () => {
       try {
         const res = await fetch('/api/auth/me', { credentials: 'include' });
