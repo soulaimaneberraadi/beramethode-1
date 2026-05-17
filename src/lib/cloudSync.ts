@@ -1,4 +1,5 @@
 import { supabase } from './supabaseClient';
+import { SCHEMA_VERSION, migrateSnapshot } from './dataVersion';
 
 // Keys synchronisées vers Supabase (toutes les données qui doivent suivre l'utilisateur entre appareils)
 const SYNC_KEYS = [
@@ -49,6 +50,12 @@ const applySnapshotToLocal = (snapshot: Record<string, unknown> | null) => {
         } catch {}
       }
     }
+    // Données serveur (lecture seule, non re-synchronisées)
+    if ('__sqlite_export__' in snapshot) {
+      try {
+        localStorage.setItem('__bera_sqlite_export__', JSON.stringify(snapshot.__sqlite_export__));
+      } catch {}
+    }
   } finally {
     isApplyingRemote = false;
   }
@@ -57,7 +64,7 @@ const applySnapshotToLocal = (snapshot: Record<string, unknown> | null) => {
 
 export const pushSnapshotToCloud = async (userId: string) => {
   if (!userId || isApplyingRemote) return;
-  const snapshot = collectLocalSnapshot();
+  const snapshot = { ...collectLocalSnapshot(), __schema_version: SCHEMA_VERSION };
   try {
     await supabase.from(TABLE).upsert(
       { user_id: userId, data: snapshot, updated_at: new Date().toISOString() },
@@ -68,6 +75,8 @@ export const pushSnapshotToCloud = async (userId: string) => {
   }
 };
 
+const RELOAD_FLAG = 'beramethode_pulled_once';
+
 export const pullSnapshotFromCloud = async (userId: string): Promise<boolean> => {
   if (!userId) return false;
   try {
@@ -77,7 +86,17 @@ export const pullSnapshotFromCloud = async (userId: string): Promise<boolean> =>
       .eq('user_id', userId)
       .maybeSingle();
     if (error || !data?.data) return false;
-    applySnapshotToLocal(data.data as Record<string, unknown>);
+    let snap = data.data as Record<string, unknown>;
+    const v = typeof snap.__schema_version === 'number' ? (snap.__schema_version as number) : 0;
+    if (v < SCHEMA_VERSION) snap = migrateSnapshot(snap, v);
+    const wasEmpty = !sessionStorage.getItem(RELOAD_FLAG);
+    applySnapshotToLocal(snap);
+    if (wasEmpty) {
+      // Premier pull de la session: recharger pour que tous les useState
+      // initialisés depuis localStorage récupèrent les nouvelles données.
+      sessionStorage.setItem(RELOAD_FLAG, '1');
+      setTimeout(() => window.location.reload(), 200);
+    }
     return true;
   } catch (err) {
     console.warn('Cloud pull failed:', err);

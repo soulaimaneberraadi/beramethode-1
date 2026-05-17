@@ -4,6 +4,15 @@ import App from './App';
 import { AuthProvider } from './src/context/AuthContext';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { ClickToComponent } from 'click-to-react-component';
+import { installApiShim } from './src/lib/apiShim';
+import { APP_VERSION } from './src/lib/dataVersion';
+
+// En static mode (Vercel), on intercepte les /api/* pour les servir depuis
+// le snapshot cloud localStorage. Aucun serveur backend n'est requis.
+if (import.meta.env.VITE_STATIC_MODE === 'true') {
+  installApiShim();
+  console.log(`%cBERAMETHODE ${APP_VERSION} (static + Supabase sync)`, 'color:#10b981;font-weight:bold');
+}
 
 const rootElement = document.getElementById('root');
 if (!rootElement) {

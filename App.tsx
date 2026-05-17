@@ -494,19 +494,13 @@ export default function App() {
         setAuthView('login');
     };
 
-    const [currentView, setCurrentView] = useState<'dashboard' | 'ingenierie' | 'atelier' | 'library' | 'coupe' | 'effectifs' | 'gestionRh' | 'planning' | 'suivi' | 'magasin' | 'export' | 'config' | 'profil' | 'admin' | 'rendement' | 'pageMachine' | 'machin' | 'objectifs' | 'facturation' | 'atelierProd'>(
-      import.meta.env.VITE_STATIC_MODE === 'true' ? 'ingenierie' : 'dashboard'
-    );
+    const [currentView, setCurrentView] = useState<'dashboard' | 'ingenierie' | 'atelier' | 'library' | 'coupe' | 'effectifs' | 'gestionRh' | 'planning' | 'suivi' | 'magasin' | 'export' | 'config' | 'profil' | 'admin' | 'rendement' | 'pageMachine' | 'machin' | 'objectifs' | 'facturation' | 'atelierProd'>('dashboard');
     const [directSuiviModelId, setDirectSuiviModelId] = useState<string | null>(null);
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-    // In static mode (Vercel deployment), hide modules that require backend API.
-    // Keep only modules that work purely with localStorage / pure computation.
-    const IS_STATIC_BUILD = import.meta.env.VITE_STATIC_MODE === 'true';
-    const STATIC_HIDDEN_MODULES = new Set(['dashboard', 'gestionRh', 'effectifs', 'suivi', 'magasin', 'facturation', 'admin', 'atelierProd', 'rendement']);
-    const fullNavOrder = ['dashboard', 'ingenierie', 'atelierProd', 'library', 'coupe', 'effectifs', 'gestionRh', 'planning', 'suivi', 'rendement', 'magasin', 'export', 'facturation', 'config', 'pageMachine', 'machin', 'objectifs', 'admin'];
-    const defaultNavOrder = IS_STATIC_BUILD
-      ? fullNavOrder.filter(m => !STATIC_HIDDEN_MODULES.has(m))
-      : fullNavOrder;
+    // En static mode, on garde tous les modules visibles — leurs données viennent de Supabase
+    // via cloud sync (snapshot localStorage). Les fetch /api/* qui échouent sont absorbés
+    // par les .catch() existants ou les fallbacks localStorage.
+    const defaultNavOrder = ['dashboard', 'ingenierie', 'atelierProd', 'library', 'coupe', 'effectifs', 'gestionRh', 'planning', 'suivi', 'rendement', 'magasin', 'export', 'facturation', 'config', 'pageMachine', 'machin', 'objectifs', 'admin'];
     const [navConfig, setNavConfig] = useState<{ enabled: boolean; order: string[]; hidden: string[] }>(() => {
         try { const s = localStorage.getItem('bera_nav_config'); if (s) return JSON.parse(s); } catch {}
         return { enabled: true, order: [], hidden: [] };
