@@ -3,7 +3,9 @@
   "outputDirectory": "dist",
   "installCommand": "npm install",
   "env": {
-    "VITE_STATIC_MODE": "true"
+    "VITE_STATIC_MODE": "true",
+    "VITE_SUPABASE_URL": "https://jiscgwioxwsulaopsivc.supabase.co",
+    "VITE_SUPABASE_KEY": "sb_publishable_ltaNA7nnVozoSCOcZIjg"
   },
   "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
 }
