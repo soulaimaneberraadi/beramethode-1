@@ -54,24 +54,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return;
     }
 
-    // Supabase auth (static mode)
+    // Supabase auth (static mode) — never block loading on cloud sync
     let mounted = true;
-    supabase.auth.getSession().then(async ({ data }) => {
+    supabase.auth.getSession().then(({ data }) => {
       if (!mounted) return;
       const u = mapSupabaseUser(data.session?.user as never);
       setUser(u);
+      setLoading(false);
       if (u) {
-        await pullSnapshotFromCloud(String(u.id));
+        // Pull et sync en arrière-plan (non bloquant)
+        pullSnapshotFromCloud(String(u.id)).catch(() => {});
         startCloudSync(String(u.id));
       }
-      setLoading(false);
+    }).catch(() => {
+      if (mounted) setLoading(false);
     });
 
-    const { data: sub } = supabase.auth.onAuthStateChange(async (_event, session) => {
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
       const u = mapSupabaseUser(session?.user as never);
       setUser(u);
       if (u) {
-        await pullSnapshotFromCloud(String(u.id));
+        pullSnapshotFromCloud(String(u.id)).catch(() => {});
         startCloudSync(String(u.id));
       } else {
         stopCloudSync();
