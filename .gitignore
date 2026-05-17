@@ -16,7 +16,6 @@ dist-ssr
 .env
 .env.local
 .env.production
-.env.static
 
 # Claude Code local session files
 .claude/settings.local.json
