@@ -9,7 +9,7 @@ export default function Login({ onSwitch, onGuest }: { onSwitch: () => void, onG
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const { login } = useAuth();
+  const { login, staticLogin } = useAuth();
   
   // Forgot Password State
   const [showForgotPassword, setShowForgotPassword] = useState(false);
@@ -143,6 +143,13 @@ export default function Login({ onSwitch, onGuest }: { onSwitch: () => void, onG
       if (hasLocalDraftMarker()) {
         markPendingDraftAttachToEmail(email.trim());
       }
+
+      if (staticLogin) {
+        const result = staticLogin(email, password);
+        if (!result.ok) throw new Error(result.message || 'E-mail ou mot de passe incorrect.');
+        return;
+      }
+
       const res = await fetch('/api/auth/login', {
         credentials: 'include',
         method: 'POST',
