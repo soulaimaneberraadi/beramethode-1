@@ -1,7 +1,9 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { supabase } from '../lib/supabaseClient';
+import { startCloudSync, stopCloudSync, pullSnapshotFromCloud, pushSnapshotToCloud } from '../lib/cloudSync';
 
 interface User {
-  id: number;
+  id: number | string;
   email: string;
   name: string;
   role: 'user' | 'admin';
@@ -12,67 +14,85 @@ interface AuthContextType {
   login: (user: User) => void;
   logout: () => void;
   loading: boolean;
-  staticLogin?: (email: string, password: string) => { ok: boolean; user?: User; message?: string };
+  staticLogin?: (email: string, password: string) => Promise<{ ok: boolean; user?: User; message?: string }>;
+  signup?: (email: string, password: string, name?: string) => Promise<{ ok: boolean; user?: User; message?: string }>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 const IS_STATIC = import.meta.env.VITE_STATIC_MODE === 'true';
-const STORAGE_KEY = 'beramethode_local_user';
 
-// Local admin credentials for static deployment (Vercel build)
-const LOCAL_ACCOUNTS: Array<User & { password: string }> = [
-  {
-    id: 1,
-    email: 'soulaimaneberraadi@gmail.com',
-    password: 'Admin123!',
-    name: 'Soulaimane Berraadi',
-    role: 'admin',
-  },
-];
-
-const loadStoredUser = (): User | null => {
-  if (!IS_STATIC) return null;
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? (JSON.parse(raw) as User) : null;
-  } catch {
-    return null;
-  }
+const mapSupabaseUser = (su: { id: string; email?: string | null; user_metadata?: Record<string, unknown> } | null): User | null => {
+  if (!su || !su.email) return null;
+  const meta = su.user_metadata || {};
+  const name = (meta.name as string) || (meta.full_name as string) || su.email.split('@')[0];
+  const role: 'user' | 'admin' = (meta.role as 'user' | 'admin') || (su.email === 'soulaimaneberraadi@gmail.com' ? 'admin' : 'user');
+  return { id: su.id, email: su.email, name, role };
 };
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(loadStoredUser);
-  const [loading, setLoading] = useState(!IS_STATIC);
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (IS_STATIC) return;
-    const checkAuth = async () => {
-      try {
-        const res = await fetch('/api/auth/me', { credentials: 'include' });
-        if (res.ok) {
-          const data = await res.json();
-          setUser(data.user);
+    if (!IS_STATIC) {
+      // Legacy backend auth
+      const checkAuth = async () => {
+        try {
+          const res = await fetch('/api/auth/me', { credentials: 'include' });
+          if (res.ok) {
+            const data = await res.json();
+            setUser(data.user);
+          }
+        } catch (error) {
+          console.error('Auth check failed', error);
+        } finally {
+          setLoading(false);
         }
-      } catch (error) {
-        console.error('Auth check failed', error);
-      } finally {
-        setLoading(false);
+      };
+      checkAuth();
+      return;
+    }
+
+    // Supabase auth (static mode)
+    let mounted = true;
+    supabase.auth.getSession().then(async ({ data }) => {
+      if (!mounted) return;
+      const u = mapSupabaseUser(data.session?.user as never);
+      setUser(u);
+      if (u) {
+        await pullSnapshotFromCloud(String(u.id));
+        startCloudSync(String(u.id));
       }
+      setLoading(false);
+    });
+
+    const { data: sub } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      const u = mapSupabaseUser(session?.user as never);
+      setUser(u);
+      if (u) {
+        await pullSnapshotFromCloud(String(u.id));
+        startCloudSync(String(u.id));
+      } else {
+        stopCloudSync();
+      }
+    });
+
+    return () => {
+      mounted = false;
+      sub.subscription.unsubscribe();
+      stopCloudSync();
     };
-    checkAuth();
   }, []);
 
   const login = (userData: User) => {
     setUser(userData);
-    if (IS_STATIC) {
-      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(userData)); } catch {}
-    }
   };
 
   const logout = async () => {
     if (IS_STATIC) {
-      try { localStorage.removeItem(STORAGE_KEY); } catch {}
+      stopCloudSync();
+      await supabase.auth.signOut();
       setUser(null);
       return;
     }
@@ -84,21 +104,58 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const staticLogin = (email: string, password: string) => {
-    const match = LOCAL_ACCOUNTS.find(
-      a => a.email.toLowerCase() === email.trim().toLowerCase() && a.password === password
-    );
-    if (!match) {
-      return { ok: false, message: 'E-mail ou mot de passe incorrect.' };
+  const staticLogin = async (email: string, password: string) => {
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email: email.trim().toLowerCase(),
+      password,
+    });
+    if (error || !data.user) {
+      // Si compte n'existe pas → auto-signup pour le compte admin (1ère utilisation)
+      if (email.trim().toLowerCase() === 'soulaimaneberraadi@gmail.com' && password === 'Admin123!') {
+        const { data: signupData, error: signupError } = await supabase.auth.signUp({
+          email: 'soulaimaneberraadi@gmail.com',
+          password: 'Admin123!',
+          options: { data: { name: 'Soulaimane Berraadi', role: 'admin' } },
+        });
+        if (signupError || !signupData.user) {
+          return { ok: false, message: signupError?.message || 'Échec inscription.' };
+        }
+        const u = mapSupabaseUser(signupData.user as never);
+        if (u) {
+          await pushSnapshotToCloud(String(u.id));
+        }
+        return { ok: true, user: u || undefined };
+      }
+      return { ok: false, message: error?.message || 'E-mail ou mot de passe incorrect.' };
     }
-    const { password: _pwd, ...userData } = match;
-    setUser(userData);
-    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(userData)); } catch {}
-    return { ok: true, user: userData };
+    const u = mapSupabaseUser(data.user as never);
+    return { ok: true, user: u || undefined };
+  };
+
+  const signup = async (email: string, password: string, name?: string) => {
+    const { data, error } = await supabase.auth.signUp({
+      email: email.trim().toLowerCase(),
+      password,
+      options: { data: { name: name || email.split('@')[0] } },
+    });
+    if (error || !data.user) {
+      return { ok: false, message: error?.message || 'Échec inscription.' };
+    }
+    const u = mapSupabaseUser(data.user as never);
+    return { ok: true, user: u || undefined };
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, loading, staticLogin: IS_STATIC ? staticLogin : undefined }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        login,
+        logout,
+        loading,
+        staticLogin: IS_STATIC ? staticLogin : undefined,
+        signup: IS_STATIC ? signup : undefined,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );

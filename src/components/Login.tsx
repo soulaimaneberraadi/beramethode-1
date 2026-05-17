@@ -145,7 +145,7 @@ export default function Login({ onSwitch, onGuest }: { onSwitch: () => void, onG
       }
 
       if (staticLogin) {
-        const result = staticLogin(email, password);
+        const result = await staticLogin(email, password);
         if (!result.ok) throw new Error(result.message || 'E-mail ou mot de passe incorrect.');
         return;
       }
