@@ -36,6 +36,12 @@ const collectLocalSnapshot = (): Record<string, unknown> => {
       if (raw != null) out[k] = raw;
     }
   }
+  // Préserve les données serveur seed importées (workers, HR, magasin)
+  // pour qu'elles ne soient pas effacées par un push subséquent.
+  try {
+    const exp = localStorage.getItem('__bera_sqlite_export__');
+    if (exp) out.__sqlite_export__ = JSON.parse(exp);
+  } catch {}
   return out;
 };
 
