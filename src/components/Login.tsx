@@ -126,10 +126,7 @@ export default function Login({ onSwitch, onGuest }: { onSwitch: () => void, onG
       msg === 'Load failed' ||
       msg.startsWith('NetworkError')
     ) {
-      return (
-        'Impossible de joindre le serveur. Lancez « npm run dev » puis ouvrez http://localhost:8000. ' +
-        'Si vous utilisez uniquement « npm run dev:ui » (port 5173), le backend doit tourner sur le port 8000.'
-      );
+      return 'Connexion impossible. Vérifiez votre connexion internet.';
     }
     return msg;
   };

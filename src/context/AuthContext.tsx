@@ -113,6 +113,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       password,
     });
     if (error || !data.user) {
+      // Email non confirmé → message clair au lieu de silence
+      if (error?.message?.toLowerCase().includes('email not confirmed') ||
+          error?.message?.toLowerCase().includes('email_not_confirmed')) {
+        return { ok: false, message: 'Email non confirmé. Vérifiez votre boîte mail et cliquez sur le lien de confirmation.' };
+      }
       // Si compte n'existe pas → auto-signup pour le compte admin (1ère utilisation)
       if (email.trim().toLowerCase() === 'soulaimaneberraadi@gmail.com' && password === 'Admin123!') {
         const { data: signupData, error: signupError } = await supabase.auth.signUp({
@@ -122,6 +127,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         });
         if (signupError || !signupData.user) {
           return { ok: false, message: signupError?.message || 'Échec inscription.' };
+        }
+        // Si session nulle → Supabase attend confirmation email
+        if (!signupData.session) {
+          return { ok: false, message: 'Compte créé ! Vérifiez votre boîte mail et cliquez sur le lien de confirmation avant de vous connecter.' };
         }
         const u = mapSupabaseUser(signupData.user as never);
         if (u) {
