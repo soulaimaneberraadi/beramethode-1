@@ -10,7 +10,8 @@ export default function Signup({ onSwitch, onGuest }: { onSwitch: () => void; on
   const [name, setName] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const { login } = useAuth();
+  const [confirmationSent, setConfirmationSent] = useState(false);
+  const { login, signup } = useAuth();
 
   // Theme State: 'dark' or 'light'
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
@@ -31,7 +32,20 @@ export default function Signup({ onSwitch, onGuest }: { onSwitch: () => void; on
     setIsLoading(true);
 
     try {
-      const res = await fetch('/api/auth/register', { credentials: 'include', 
+      // Static mode (Vercel) → use Supabase signup directly
+      if (signup) {
+        const result = await signup(email, password, name);
+        if (!result.ok) throw new Error(result.message || 'Échec inscription.');
+        if (result.requiresConfirmation) {
+          setConfirmationSent(true);
+          return;
+        }
+        // Session established → onAuthStateChange will set the user automatically
+        return;
+      }
+
+      // Legacy backend mode
+      const res = await fetch('/api/auth/register', { credentials: 'include',
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password, name }),
@@ -162,7 +176,27 @@ export default function Signup({ onSwitch, onGuest }: { onSwitch: () => void; on
           </p>
         </motion.div>
 
-        <form className="mt-8 space-y-5" onSubmit={handleSubmit}>
+        {/* Email confirmation pending screen */}
+        {confirmationSent && (
+          <motion.div variants={itemVariants} className="mt-8 text-center space-y-4">
+            <div className={`w-16 h-16 mx-auto rounded-full flex items-center justify-center ${isDark ? 'bg-emerald-500/10' : 'bg-emerald-50'}`}>
+              <Mail className="w-8 h-8 text-emerald-500" />
+            </div>
+            <h3 className={`text-lg font-bold ${isDark ? 'text-white' : 'text-slate-800'}`}>Vérifiez votre boîte mail</h3>
+            <p className={`text-sm ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+              Un lien de confirmation a été envoyé à <span className="font-semibold text-emerald-500">{email}</span>.<br />
+              Cliquez sur ce lien puis revenez vous connecter.
+            </p>
+            <button
+              onClick={onSwitch}
+              className={`mt-4 w-full py-4 px-4 rounded-xl text-sm font-bold text-white bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 transition-all`}
+            >
+              Aller à la connexion
+            </button>
+          </motion.div>
+        )}
+
+        <form className={`mt-8 space-y-5 ${confirmationSent ? 'hidden' : ''}`} onSubmit={handleSubmit}>
           <motion.div variants={itemVariants} className="space-y-4">
             <div className="relative group">
               <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">

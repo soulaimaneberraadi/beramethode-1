@@ -21,7 +21,7 @@ export type DataOwnerMode = 'none' | 'server' | 'local_draft';
 
 export interface DataOwnerSnapshot {
   mode: DataOwnerMode;
-  serverUserId: number | null;
+  serverUserId: number | string | null;
   email: string | null;
   /** Présent uniquement en mode `local_draft` (invité sans cookie API). */
   localDraftSessionId: string | null;
@@ -113,20 +113,20 @@ export function namespacedStorageKey(baseKey: string, ctx: DataOwnerSnapshot): s
   if (ctx.mode === 'local_draft' && ctx.localDraftSessionId) {
     return `${baseKey}::draft:${ctx.localDraftSessionId}`;
   }
-  if (ctx.mode === 'server' && ctx.serverUserId != null && ctx.serverUserId > 0) {
+  if (ctx.mode === 'server' && ctx.serverUserId != null && ctx.serverUserId !== 0 && ctx.serverUserId !== '0') {
     return `${baseKey}::user:${ctx.serverUserId}`;
   }
   return baseKey;
 }
 
 export function buildDataOwnerSnapshot(
-  user: { id: number; email: string } | null,
+  user: { id: number | string; email: string } | null,
   isGuestFlag: boolean,
 ): DataOwnerSnapshot {
   if (!user) {
     return { mode: 'none', serverUserId: null, email: null, localDraftSessionId: null };
   }
-  if (user.id === 0 && isGuestFlag) {
+  if ((user.id === 0 || user.id === '0') && isGuestFlag) {
     return {
       mode: 'local_draft',
       serverUserId: null,

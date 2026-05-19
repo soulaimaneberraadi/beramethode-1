@@ -3,7 +3,7 @@ import { buildDataOwnerSnapshot, type DataOwnerSnapshot } from '../../lib/dataId
 
 const DataOwnerContext = createContext<DataOwnerSnapshot | undefined>(undefined);
 
-export type DataOwnerUserInput = { id: number; email: string } | null;
+export type DataOwnerUserInput = { id: number | string; email: string } | null;
 
 export const DataOwnerProvider: React.FC<{
   user: DataOwnerUserInput;
