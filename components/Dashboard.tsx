@@ -346,7 +346,7 @@ export default function Dashboard({ models, suivis, planningEvents, settings, se
   const todayStr = new Date().toISOString().split('T')[0];
   // Phase 26 requires: "عرض المهام الحالية والمهام غير المنجزة"
   // Which means PENDING tasks that are due today OR earlier (overdue).
-  const pendingTasks = (settings.tasks || []).filter(t => t.status === 'PENDING' && t.date <= todayStr);
+  const pendingTasks = (settings.tasks || []).filter(t => t.status === 'PENDING' && t.date != null && t.date <= todayStr);
 
 
   return (
@@ -472,8 +472,8 @@ export default function Dashboard({ models, suivis, planningEvents, settings, se
                     >
                       <div className="flex justify-between items-start mb-1">
                         <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">{task.assigneeName} {task.assigneeRole ? `(${task.assigneeRole})` : ''}</span>
-                        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded flex items-center gap-1 ${task.date < todayStr ? 'text-rose-600 bg-rose-50 border border-rose-200' : 'text-amber-500 bg-amber-50'}`}>
-                          <CalendarClock className="w-3 h-3" /> {task.date} {task.date < todayStr ? '(Retard)' : ''}
+                        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded flex items-center gap-1 ${(task.date ?? '') < todayStr ? 'text-rose-600 bg-rose-50 border border-rose-200' : 'text-amber-500 bg-amber-50'}`}>
+                          <CalendarClock className="w-3 h-3" /> {task.date ?? ''} {(task.date ?? '') < todayStr ? '(Retard)' : ''}
                         </span>
                       </div>
                       <p className="text-sm font-bold text-slate-700 leading-tight group-hover:text-indigo-700 transition-colors">{task.text}</p>
@@ -626,7 +626,7 @@ export default function Dashboard({ models, suivis, planningEvents, settings, se
                     <RechartsTooltip
                       cursor={{ fill: '#f8fafc' }}
                       contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                      formatter={(val: number) => [`${val}%`, 'Rendement']}
+                      formatter={(val: unknown) => [`${val}%`, 'Rendement']}
                     />
                     <Bar dataKey="rendement" radius={[0, 6, 6, 0]} maxBarSize={30}>
                       {

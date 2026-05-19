@@ -1476,7 +1476,7 @@ export default function App() {
     };
 
     return (
-        <DataOwnerProvider user={user} isGuest={isGuest}>
+        <DataOwnerProvider user={user ? { id: typeof user.id === 'number' ? user.id : Number(user.id) || 0, email: user.email } : null} isGuest={isGuest}>
             <div className="flex flex-col h-screen bg-white text-gray-800 font-sans overflow-hidden" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
                 {/* HEADER TOP BAR - COMPACT (h-12) & CLEAN */}
                 <header className="bg-white border-b border-gray-100 shadow-[0_1px_2px_0_rgba(0,0,0,0.02)] z-50 shrink-0 h-12 sticky top-0 print:hidden">

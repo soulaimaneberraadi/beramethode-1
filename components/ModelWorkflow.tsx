@@ -354,7 +354,7 @@ export default function ModelWorkflow({
                         <Gamme
                             machines={machines}
                             operations={operations} setOperations={setOperations}
-                            articleName={articleName} setArticleName={setArticleName}
+                            articleName={articleName} setArticleName={setArticleName as React.Dispatch<React.SetStateAction<string>>}
                             efficiency={efficiency} setEfficiency={setEfficiency}
                             numWorkers={numWorkers} setNumWorkers={setNumWorkers}
                             presenceTime={presenceTime} setPresenceTime={setPresenceTime}

@@ -1023,8 +1023,9 @@ export default function SuiviProduction({
         setSuivis(prev => prev.map(s => {
             if (s.id === id) {
                 const newSorties = { ...s.sorties, [hourKey]: val === -1 ? undefined : val };
-                const totalHeure = Object.values(newSorties).reduce((a, b) => (a || 0) + (b || 0), 0);
-                return { ...s, sorties: newSorties, totalHeure };
+                const filteredSorties = Object.fromEntries(Object.entries(newSorties).filter(([, v]) => v !== undefined)) as Record<string, number>;
+                const totalHeure = Object.values(filteredSorties).reduce((a, b) => a + b, 0);
+                return { ...s, sorties: filteredSorties, totalHeure };
             }
             return s;
         }));
@@ -1424,7 +1425,7 @@ export default function SuiviProduction({
                                 ) : (
                                     <button
                                         type="button"
-                                        onClick={() => setLockedContext({ planningId: file.plan.id, date: contextDate })}
+                                        onClick={() => setLockedContext({ planningId: file.plan?.id ?? '', date: contextDate })}
                                         className="inline-flex items-center justify-center gap-2 px-3 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-900 rounded-lg text-xs font-bold border border-indigo-200"
                                     >
                                         Verrouiller ce contexte

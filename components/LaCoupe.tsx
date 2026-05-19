@@ -292,7 +292,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
         const newSizesList = newSizeInput.split(/[\s,]+/).filter(s => s.trim() !== '');
         if (newSizesList.length === 0) return;
 
-        const updatedSizes = [...currentFiche.sizes, ...newSizesList.map(s => s.toUpperCase())];
+        const updatedSizes = [...(currentFiche.sizes ?? []), ...newSizesList.map(s => s.toUpperCase())];
         const updatedFiche = { ...currentFiche, sizes: updatedSizes };
 
         setModels(prev => prev.map(m => m.id === selectedModel.id ? { ...m, ficheData: updatedFiche } : m));
@@ -315,7 +315,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
             unitCost: 0, clientPrice: 0, observations: '', costMinute: 0.85
         };
         const newColor = { id: Date.now().toString(), name: newColorInput.trim() };
-        const updatedColors = [...currentFiche.colors, newColor];
+        const updatedColors = [...(currentFiche.colors ?? []), newColor];
         const updatedFiche = { ...currentFiche, colors: updatedColors };
 
         setModels(prev => prev.map(m => m.id === selectedModel.id ? { ...m, ficheData: updatedFiche } : m));
@@ -401,7 +401,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
         };
         const detectedName = hexToColorName(hex);
         const newColor = { id: hex, name: detectedName };
-        const updatedColors = [...currentFiche.colors, newColor];
+        const updatedColors = [...(currentFiche.colors ?? []), newColor];
         const updatedFiche = { ...currentFiche, colors: updatedColors };
 
         setModels(prev => prev.map(m => m.id === selectedModel.id ? { ...m, ficheData: updatedFiche } : m));
@@ -431,7 +431,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
     const removeSize = (sizeIndex: number) => {
         if (!selectedModel) return;
         const fiche = buildFiche();
-        const updatedSizes = fiche.sizes.filter((_: any, i: number) => i !== sizeIndex);
+        const updatedSizes = (fiche.sizes ?? []).filter((_: any, i: number) => i !== sizeIndex);
         // Remap gridQuantities: remove deleted index, shift higher indices down
         const newGrid: Record<string, number> = {};
         Object.entries(fiche.gridQuantities || {}).forEach(([key, val]) => {
@@ -447,7 +447,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
     const removeColor = (colorId: string) => {
         if (!selectedModel) return;
         const fiche = buildFiche();
-        const updatedColors = fiche.colors.filter((c: any) => {
+        const updatedColors = (fiche.colors ?? []).filter((c: any) => {
             const id = c.id || (typeof c === 'string' ? c : c.name);
             return id !== colorId;
         });
@@ -462,7 +462,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
     const editSize = (sizeIndex: number, newValue: string) => {
         if (!selectedModel || !newValue.trim()) return;
         const fiche = buildFiche();
-        const updatedSizes = [...fiche.sizes];
+        const updatedSizes = [...(fiche.sizes ?? [])];
         updatedSizes[sizeIndex] = newValue.trim().toUpperCase();
         applyFicheUpdate({ ...fiche, sizes: updatedSizes });
         setEditingMatrixItem(null);
@@ -471,7 +471,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
     const editColor = (colorId: string, newName: string) => {
         if (!selectedModel || !newName.trim()) return;
         const fiche = buildFiche();
-        const updatedColors = fiche.colors.map((c: any) => {
+        const updatedColors = (fiche.colors ?? []).map((c: any) => {
             const id = c.id || (typeof c === 'string' ? c : c.name);
             if (id === colorId) return { ...c, name: newName.trim() };
             return c;
@@ -648,7 +648,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                 >
                                     <div className={`w-16 h-16 rounded-xl overflow-hidden shrink-0 flex items-center justify-center transition-colors ${isSelected ? 'bg-white/20' : 'bg-slate-100'}`}>
                                         {model.image || model.images?.front ? (
-                                            <img src={model.image || model.images?.front} alt="Model" className="w-full h-full object-cover" />
+                                            <img src={model.image || model.images?.front || undefined} alt="Model" className="w-full h-full object-cover" />
                                         ) : (
                                             <FileText className={`w-6 h-6 ${isSelected ? 'text-white' : 'text-slate-300'}`} />
                                         )}
@@ -699,7 +699,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                         <div className="flex gap-6 items-center">
                                             <div className="w-24 h-24 bg-white/10 p-2 rounded-2xl backdrop-blur-md border border-white/20 shrink-0">
                                                 {(selectedModel.image || selectedModel.images?.front) ? (
-                                                    <img src={selectedModel.image || selectedModel.images?.front} alt="Model" className="w-full h-full object-cover rounded-xl" />
+                                                    <img src={selectedModel.image || selectedModel.images?.front || undefined} alt="Model" className="w-full h-full object-cover rounded-xl" />
                                                 ) : (
                                                     <div className="w-full h-full bg-white/5 rounded-xl flex items-center justify-center">
                                                         <Scissors className="w-10 h-10 text-white/50" />

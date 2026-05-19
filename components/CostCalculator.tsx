@@ -602,7 +602,7 @@ export default function CostCalculator({
                                                     <Pie data={costDataForChart} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={30} outerRadius={60} stroke="none">
                                                         {costDataForChart.map((entry, index) => (<Cell key={`cell-${index}`} fill={entry.color} />))}
                                                     </Pie>
-                                                    <RechartsTooltip formatter={(val: number) => `${fmt(val)} ${currency}`} />
+                                                    <RechartsTooltip formatter={(val: unknown) => `${fmt(val as number)} ${currency}`} />
                                                     <Legend layout="horizontal" verticalAlign="bottom" align="center" iconType="circle" wrapperStyle={{ fontSize: '10px' }} />
                                                 </PieChart>
                                             </ResponsiveContainer>

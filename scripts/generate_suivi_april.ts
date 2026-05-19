@@ -5,7 +5,7 @@ import fs from 'fs';
 const OWNER_ID = 1; // Assuming default owner
 
 function generate() {
-  const suivis = [];
+  const suivis: any[] = [];
   const roles = [
     { id: 'recta', category: 'Les chaines' },
     { id: 'sujet', category: 'Les chaines' },

@@ -13,7 +13,7 @@ const settings = {
     workingHoursEnd: '17:00',
     pauses: [],
     calendarExceptions: {},
-} as AppSettings;
+} as unknown as AppSettings;
 
 const d = materialReadyDate('2026-05-04', 2, settings);
 assert.match(d, /^\d{4}-\d{2}-\d{2}$/);

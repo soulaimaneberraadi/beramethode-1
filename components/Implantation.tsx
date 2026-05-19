@@ -792,7 +792,7 @@ export default function Implantation({
                 } else {
                     const assignedOps = operations.filter(op => assignments?.[op.id]?.includes(p.id));
                     assignedOps.forEach(op => {
-                        const numAssigned = assignments[op.id]?.length || 1;
+                        const numAssigned = assignments?.[op.id]?.length || 1;
                         totalTime += (op.time || 0) / numAssigned;
                     });
                 }
@@ -1754,7 +1754,7 @@ export default function Implantation({
             } else {
                 assignedOps.forEach(op => {
                     let sharingCount = 1;
-                    if (p.originalId) { sharingCount = postes.filter(x => x.originalId === p.originalId).length; } else { sharingCount = assignments[op.id]?.length || 1; }
+                    if (p.originalId) { sharingCount = postes.filter(x => x.originalId === p.originalId).length; } else { sharingCount = assignments?.[op.id]?.length || 1; }
                     totalTime += (op.time || 0) / sharingCount;
                 });
                 const nTheo = bf > 0 ? totalTime / bf : 0;
@@ -2757,7 +2757,7 @@ export default function Implantation({
                                             stations={workstations}
                                             showLinks={showLinks}
                                             zoom={zoom}
-                                            containerRef={scrollContainerRef}
+                                            containerRef={scrollContainerRef as React.RefObject<HTMLDivElement>}
                                             onRemoveLink={handleRemoveLink}
                                             onEditLabel={handleEditLinkLabel}
                                         />

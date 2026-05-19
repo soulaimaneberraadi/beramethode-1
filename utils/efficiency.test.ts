@@ -11,7 +11,7 @@ const settings: AppSettings = {
     workingHoursEnd: '17:00',
     pauses: [],
     calendarExceptions: {},
-} as AppSettings;
+} as unknown as AppSettings;
 
 const ev: PlanningEvent = {
     id: 'p1',

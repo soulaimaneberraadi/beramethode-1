@@ -2670,7 +2670,7 @@ export default function Magasin({ models = [], planningEvents = [], lang = 'fr',
                                                 <div className="bg-rose-50 border-b border-rose-100 p-4 flex gap-4 items-center">
                                                     <div className="w-12 h-12 bg-white rounded-xl shadow-sm overflow-hidden shrink-0">
                                                         {mn.model.images?.front || mn.model.image ? (
-                                                            <img src={mn.model.images?.front || mn.model.image} className="w-full h-full object-cover" />
+                                                            <img src={mn.model.images?.front || mn.model.image || undefined} className="w-full h-full object-cover" />
                                                         ) : (
                                                             <Package className="w-6 h-6 m-3 text-rose-300" />
                                                         )}

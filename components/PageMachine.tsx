@@ -627,7 +627,7 @@ export default function PageMachine({
                    )}
                    <div>
                      <span className="inline-block mb-2 px-2.5 py-0.5 bg-slate-50 text-slate-600 text-[10px] font-bold uppercase tracking-widest rounded-md border border-slate-100/50">
-                       {activeModel.ficheData?.client || activeData.clientName || 'Client N/A'}
+                       {activeModel.ficheData?.client || activeData?.clientName || 'Client N/A'}
                      </span>
                      <h2 className="text-[22px] font-black text-slate-800 tracking-tight leading-none mb-1.5">
                        {activeModel.meta_data.nom_modele}
@@ -644,14 +644,14 @@ export default function PageMachine({
                       <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1 flex items-center gap-1.5">
                          <Clock className="w-3 h-3" /> Lancement
                       </p>
-                      <p className="text-sm font-bold text-slate-800">{(activeData.startDate || '').split('T')[0]}</p>
+                      <p className="text-sm font-bold text-slate-800">{(activeData?.startDate || '').split('T')[0]}</p>
                    </div>
                    <div className="bg-slate-50/80 rounded-2xl p-4 border border-slate-100/50">
                       <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1 flex items-center gap-1.5">
                          <Layers className="w-3 h-3" /> Avancement
                       </p>
                       <p className="text-sm font-bold text-slate-800">
-                         <span className="text-emerald-600">{activeData.qteProduite || 0}</span> <span className="text-slate-400 font-medium mx-0.5">/</span> {activeData.qteTotal || activeModel.meta_data.quantity || 0} pces
+                         <span className="text-emerald-600">{activeData?.qteProduite || 0}</span> <span className="text-slate-400 font-medium mx-0.5">/</span> {activeData?.qteTotal || activeModel.meta_data.quantity || 0} pces
                       </p>
                    </div>
                 </div>
@@ -1196,7 +1196,7 @@ export default function PageMachine({
             setExitModalOpen(false);
             setExitModalInitialId(null);
           }}
-          initialMachineId={exitModalInitialId || undefined}
+          initialMachineId={exitModalInitialId}
           defaultActorName={defaultFleetActorName}
         />
       )}
