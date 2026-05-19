@@ -64,9 +64,14 @@ export default defineConfig(({ mode }) => ({
         'react-qr-code'
       ]
     },
-    resolve: {
+resolve: {
       alias: {
         '@': path.resolve('.'),
       }
+    },
+    build: {
+      chunkSizeWarningLimit: 600,
+      sourcemap: false,
+      minify: 'esbuild',
     }
-}));
+  }));

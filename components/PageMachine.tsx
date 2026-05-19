@@ -22,7 +22,7 @@ function formatLaunch(ev: PlanningEvent, model: ModelData | null): string {
 
 interface PageMachineProps {
   planningEvents: PlanningEvent[];
-  models: ModelData[];
+  models: ModelData[]; 
   settings: AppSettings;
   machines: Machine[]; // Used as the Class/Type Catalog
   machineInstances?: MachineInstance[]; // The real inventory
@@ -37,6 +37,7 @@ interface PageMachineProps {
 }
 
 type TabType = 'OVERVIEW' | 'INVENTORY' | 'MAINTENANCE' | 'HISTORY';
+const NON_SHORTAGE_MACHINE_CLASSES = new Set(['MAN', 'MANUEL', 'FER', 'BR']);
 
 export default function PageMachine({ 
   planningEvents = [], 
@@ -138,6 +139,66 @@ export default function PageMachine({
     return { breakdown, total: instances.length };
   };
 
+  const getOperationMachineClass = (op: ModelData['gamme_operatoire'][number]) => {
+    const rawClass = (op.machineClass || '').trim();
+    if (rawClass) {
+      const normalizedClass = rawClass.toUpperCase();
+      return NON_SHORTAGE_MACHINE_CLASSES.has(normalizedClass) ? undefined : rawClass;
+    }
+
+    const byId = op.machineId ? machines.find(m => m.id === op.machineId) : undefined;
+    if (byId?.classe) {
+      const normalizedClass = byId.classe.toUpperCase();
+      return NON_SHORTAGE_MACHINE_CLASSES.has(normalizedClass) ? undefined : byId.classe;
+    }
+
+    const rawName = (op.machineName || '').trim();
+    if (!rawName || /^p\d+(?:\.\d+)?$/i.test(rawName)) return undefined;
+
+    const normalized = rawName.toLowerCase();
+    const byName = machines.find(m =>
+      m.name?.trim().toLowerCase() === normalized ||
+      m.classe?.trim().toLowerCase() === normalized ||
+      m.machineCategory?.trim().toLowerCase() === normalized
+    );
+    const resolvedClass = byName?.classe || rawName;
+    return NON_SHORTAGE_MACHINE_CLASSES.has(resolvedClass.toUpperCase()) ? undefined : resolvedClass;
+  };
+
+  const getModelMachineRequirements = (model: ModelData | null): Record<string, number> => {
+    if (!model?.gamme_operatoire?.length) return {};
+    const required: Record<string, number> = {};
+    model.gamme_operatoire.forEach(op => {
+      const cls = getOperationMachineClass(op);
+      if (!cls) return;
+      required[cls] = (required[cls] || 0) + 1;
+    });
+    return required;
+  };
+
+  const getMachineGap = (chainId: string, model: ModelData | null) => {
+    const required = getModelMachineRequirements(model);
+    const actual = getMachineBreakdown(chainId).breakdown;
+    const gap: { cls: string; required: number; actual: number; missing: number; excess: number }[] = [];
+    const allClasses = new Set(Object.keys(required));
+    allClasses.forEach(cls => {
+      const req = required[cls] || 0;
+      const act = actual[cls] || 0;
+      const missing = Math.max(0, req - act);
+      const excess = Math.max(0, act - req);
+      gap.push({ cls, required: req, actual: act, missing, excess });
+    });
+    return gap.filter(g => g.required > 0 || g.actual > 0).sort((a, b) => b.required - a.required);
+  };
+
+  const getMachineDisplayMeta = (machineClass: string) => {
+    const machineDef = machines.find(m => m.classe === machineClass || m.id === machineClass || m.machineCategory === machineClass);
+    return {
+      label: machineDef?.classe || machineClass,
+      type: machineDef?.machineCategory || machineDef?.name || 'Type non defini',
+    };
+  };
+
   const renderOverviewMap = () => {
     const brokenCount = machineInstances.filter(m => (!m.chainId || m.chainId === '') && (m.status === 'PANNE' || m.status === 'MAINT')).length;
     const unassignedMachinesLength = getMachineBreakdown(null).total;
@@ -148,120 +209,179 @@ export default function PageMachine({
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6, ease: "easeOut" }}
-        className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6"
+        className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5 md:gap-6"
       >
-      {filteredChains.map((chain) => {
+      {filteredChains.map((chain, idx) => {
         const activeData = planningEvents.find(e => e.chaineId === chain.id && (e.status === 'IN_PROGRESS' || e.status === 'READY'));
         const activeModel = activeData ? models.find(m => m.id === activeData.modelId) : null;
+        if (activeModel && !activeModel.meta_data.reference?.trim() && activeModel.meta_data.nom_modele?.trim()) {
+          activeModel.meta_data.reference = activeModel.meta_data.nom_modele;
+        }
         
         const qteProduite = activeData?.qteProduite || 0;
         const qteTotal = activeData?.qteTotal || activeModel?.meta_data.quantity || 0;
         const progress = qteTotal > 0 ? Math.min(100, Math.round((qteProduite / qteTotal) * 100)) : 0;
+        
+        const machineGap = activeModel ? getMachineGap(chain.id, activeModel) : [];
+        const totalRequired = machineGap.reduce((s, g) => s + g.required, 0);
+        const totalActual = machineGap.reduce((s, g) => s + g.actual, 0);
+        const totalMissing = machineGap.reduce((s, g) => s + g.missing, 0);
+        const machineReadiness = totalRequired > 0 ? Math.round((totalActual / totalRequired) * 100) : 0;
+        const topNeeds = [...machineGap]
+          .sort((a, b) => {
+            if (b.missing !== a.missing) return b.missing - a.missing;
+            if (b.required !== a.required) return b.required - a.required;
+            return a.cls.localeCompare(b.cls);
+          })
+          .slice(0, 3);
+        const machineInventory = Object.entries(getMachineBreakdown(chain.id).breakdown)
+          .sort((a, b) => b[1] - a[1]);
 
         return (
-          <motion.div 
-            key={chain.id} 
-            whileHover={{ y: -8, scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
+          <motion.div
+            key={chain.id}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, delay: idx * 0.06, ease: [0.22, 1, 0.36, 1] }}
+            whileHover={{ y: -4, boxShadow: '0 20px 40px -12px rgba(0,0,0,0.1)' }}
+            whileTap={{ scale: 0.99 }}
             onClick={() => { setSelectedChainId(chain.id); setViewingModelId(null); }}
-            className={`group cursor-pointer rounded-3xl shadow-xl border transition-all duration-500 flex flex-col h-full relative overflow-hidden ${activeData ? 'bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-emerald-900 via-slate-900 to-black border-emerald-700/40 hover:shadow-emerald-500/30 hover:border-emerald-500/60' : 'bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-slate-800 via-slate-900 to-black border-slate-700/50 hover:shadow-indigo-500/20 hover:border-indigo-500/30'}`}
+            className="group cursor-pointer rounded-2xl bg-white border border-slate-200 flex flex-col h-full overflow-hidden transition-all duration-300 hover:border-slate-300"
           >
-            {/* Dynamic Background Glows */}
-            <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
-               {activeData ? (
-                 <>
-                   <div className="absolute -top-16 -right-16 w-56 h-56 bg-emerald-500/30 rounded-full blur-3xl group-hover:bg-emerald-400/50 group-hover:scale-125 transition-all duration-700" />
-                   <div className="absolute -bottom-16 -left-16 w-48 h-48 bg-teal-600/20 rounded-full blur-3xl group-hover:bg-teal-500/35 transition-all duration-700" />
-                 </>
-               ) : (
-                 <>
-                   <div className="absolute -top-16 -right-16 w-48 h-48 bg-indigo-500/20 rounded-full blur-3xl group-hover:bg-indigo-400/35 group-hover:scale-125 transition-all duration-700" />
-                   <div className="absolute -bottom-16 -left-16 w-48 h-48 bg-slate-600/20 rounded-full blur-3xl group-hover:bg-slate-500/30 transition-all duration-700" />
-                 </>
-               )}
-               <div className="absolute top-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-white/20 to-transparent"></div>
-            </div>
+            {activeData && (
+              <div className="h-1 w-full bg-gradient-to-r from-emerald-400 via-emerald-500 to-teal-400 shrink-0" />
+            )}
 
-            <div className="p-6 flex flex-col h-full relative z-10">
-              {/* Header: Title + Status + Machine Count */}
-              <div className="flex justify-between items-start mb-6">
-                <div className="flex flex-col gap-2">
-                  <h3 className="font-black text-white text-xl tracking-tight drop-shadow-md">{chain.name}</h3>
+            <div className="p-5 flex flex-col h-full gap-4">
+              {/* Header: Chain Name + Status + Machine Count */}
+              <div className="flex items-start justify-between">
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-bold text-slate-900 text-lg tracking-tight leading-none mb-2">{chain.name}</h3>
                   {activeData ? (
-                    <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/15 text-emerald-300 text-[11px] font-black tracking-wide border border-emerald-500/30 backdrop-blur-sm status-glow-ok">
-                      <span className="relative flex h-2 w-2">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                        <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400"></span>
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 text-[10px] font-bold border border-emerald-200">
+                      <span className="relative flex h-1.5 w-1.5">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                        <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500" />
                       </span>
                       En Production
                     </span>
                   ) : (
-                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/5 text-slate-400 text-[11px] font-black tracking-wide border border-white/10 backdrop-blur-sm">
-                      <div className="w-1.5 h-1.5 rounded-full bg-slate-500" />
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-50 text-slate-500 text-[10px] font-bold border border-slate-200">
+                      <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />
                       Disponible
                     </span>
                   )}
                 </div>
-
-                <div className="w-11 h-11 rounded-[14px] bg-white/5 flex items-center justify-center text-white font-black text-sm border border-white/10 shadow-sm backdrop-blur-md group-hover:bg-white/15 transition-all duration-300">
-                  {getMachineBreakdown(chain.id).total}
+                <div className={`flex flex-col items-center justify-center min-w-[64px] h-[64px] rounded-xl border shrink-0 transition-colors ${
+                  activeData ? 'bg-emerald-50 border-emerald-200' : 'bg-slate-50 border-slate-200'
+                }`}>
+                  <span className={`text-2xl font-black leading-none ${activeData ? 'text-emerald-600' : 'text-slate-700'}`}>
+                    {getMachineBreakdown(chain.id).total}
+                  </span>
+                  <span className="text-[9px] font-semibold text-slate-400 uppercase tracking-wider mt-0.5">Machines</span>
                 </div>
               </div>
 
-              {/* Body: Model Info or Empty State */}
               {activeData && activeModel ? (
-                <div className="flex flex-col flex-1 justify-end">
-                  <div className="flex gap-4 items-center mb-6 bg-white/5 backdrop-blur-md p-3.5 rounded-[20px] border border-white/10 shadow-sm group-hover:bg-white/10 transition-colors">
-                     {activeModel.image ? (
-                       <img src={activeModel.image} className="w-16 h-16 rounded-[14px] object-cover shadow-sm border border-white/10 shrink-0 group-hover:scale-105 transition-transform duration-500" />
-                     ) : (
-                       <div className="w-16 h-16 rounded-[14px] bg-white/5 flex items-center justify-center text-white/30 border border-white/10 shadow-inner shrink-0">
-                          <Component className="w-6 h-6" />
-                       </div>
-                     )}
-                     <div className="flex-1 min-w-0">
-                       <p className="text-[10px] font-black text-emerald-400 uppercase tracking-widest mb-0.5">{activeModel.ficheData?.client || activeData.clientName || 'Client N/A'}</p>
-                       <p className="font-black text-white text-[16px] leading-tight truncate drop-shadow-md">{activeModel.meta_data.nom_modele}</p>
-                       <p className="text-[11px] font-bold text-white/50 truncate mt-0.5">Réf: <span className="text-white/70">{activeModel.meta_data.reference || '-'}</span></p>
-                       <p className="text-[10px] font-bold text-white/40 mt-1 flex items-center gap-1">
-                         <Clock className="w-3 h-3 text-white/30"/> Lancement: {(activeData.startDate || '').split('T')[0]}
-                       </p>
-                     </div>
+                <div className="flex flex-col flex-1">
+                  {/* Model Info Card */}
+                  <div className="flex gap-3 items-center mb-4 p-3.5 rounded-xl bg-slate-50 border border-slate-100">
+                    {activeModel.image ? (
+                      <img src={activeModel.image} className="w-14 h-14 rounded-xl object-cover border border-slate-200 shrink-0" alt="" />
+                    ) : (
+                      <div className="w-14 h-14 rounded-xl bg-slate-100 flex items-center justify-center border border-slate-200 shrink-0">
+                        <Component className="w-5 h-5 text-slate-400" />
+                      </div>
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[9px] font-bold text-indigo-600 uppercase tracking-wider mb-0.5 truncate">{activeModel.ficheData?.client || activeData.clientName || '—'}</p>
+                      <p className="font-bold text-slate-900 text-sm leading-tight truncate">{activeModel.meta_data.nom_modele}</p>
+                      <p className="text-[11px] text-slate-500 mt-0.5 truncate">Ref: {activeModel.meta_data.reference || '—'}</p>
+                    </div>
                   </div>
 
-                  {/* Progress Section */}
-                  <div className="space-y-2 mt-auto mb-2 relative z-10">
-                     <div className="flex justify-between text-[11px] font-black uppercase tracking-widest">
-                        <span className="text-white/40">Progression</span>
-                        <span className="text-white/80">{qteProduite} <span className="text-white/30">/</span> {qteTotal}</span>
-                     </div>
-                     <div className="h-2 w-full bg-white/10 rounded-full overflow-hidden shadow-inner border border-white/5">
-                       <div className="h-full bg-gradient-to-r from-emerald-400 to-teal-400 rounded-full transition-all duration-700 relative overflow-hidden" style={{ width: `${progress}%` }}>
-                          <div className="absolute inset-0 bg-white/20 animate-[shimmer_2s_infinite] -skew-x-12"></div>
-                       </div>
-                     </div>
+                  {/* Machine Readiness Section */}
+                  {machineGap.length > 0 && (
+                    <div className="mb-4">
+                      {/* Header: Label + Total + Deficit */}
+                      <div className="flex items-center justify-between mb-3">
+                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Matériel</span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-bold text-slate-700">{totalActual} <span className="text-slate-400">/</span> {totalRequired}</span>
+                          {totalMissing > 0 && (
+                            <span className="px-2 py-0.5 rounded-lg bg-rose-50 text-rose-600 text-xs font-black border border-rose-200">-{totalMissing}</span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Progress Bar */}
+                      <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden mb-3">
+                        <div
+                          className={`h-full rounded-full transition-all duration-700 ${machineReadiness >= 100 ? 'bg-emerald-500' : machineReadiness >= 60 ? 'bg-amber-500' : 'bg-rose-500'}`}
+                          style={{ width: `${Math.min(100, machineReadiness)}%` }}
+                        />
+                      </div>
+
+                      {/* Machine Type Grid */}
+                      <div className="space-y-1.5">
+                        {machineGap.slice(0, 6).map(g => {
+                          const meta = getMachineDisplayMeta(g.cls);
+                          const displayName = meta.label !== g.cls ? meta.label : g.cls;
+                          return (
+                            <div key={g.cls} className="flex items-center justify-between px-3 py-2 rounded-xl bg-slate-50 border border-slate-100">
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs font-bold text-slate-700">{displayName}</span>
+                                {meta.label !== g.cls && (
+                                  <span className="text-[9px] font-semibold text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">{g.cls}</span>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs font-bold text-slate-600">{g.actual}<span className="text-slate-400">/{g.required}</span></span>
+                                {g.missing > 0 && <span className="text-xs font-black text-rose-500">-{g.missing}</span>}
+                                {g.excess > 0 && <span className="text-xs font-black text-amber-500">+{g.excess}</span>}
+                                {g.missing === 0 && g.excess === 0 && <span className="text-xs text-emerald-500">✓</span>}
+                              </div>
+                            </div>
+                          );
+                        })}
+                        {machineGap.length > 6 && (
+                          <div className="flex items-center justify-center py-2 rounded-xl bg-slate-50 border border-slate-100">
+                            <span className="text-[10px] font-bold text-slate-400">+{machineGap.length - 6} autres</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Progression Section */}
+                  <div className="mt-auto space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Progression</span>
+                      <span className="text-[10px] font-bold text-slate-600">{qteProduite}<span className="text-slate-400"> / </span>{qteTotal}</span>
+                    </div>
+                    <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden">
+                      <div className="h-full bg-gradient-to-r from-emerald-400 to-emerald-500 rounded-full transition-all duration-700" style={{ width: `${progress}%` }} />
+                    </div>
                   </div>
                 </div>
               ) : (
-                <div className="flex flex-col flex-1 items-center justify-center py-6 relative z-10">
-                   <ActivitySquare className="w-12 h-12 mb-3 text-white/15 group-hover:scale-110 group-hover:rotate-3 transition-transform duration-500" />
-                   <span className="text-[11px] font-black text-white/30 uppercase tracking-widest">Aucun modèle</span>
+                <div className="flex flex-col flex-1 items-center justify-center py-8">
+                  <ActivitySquare className="w-10 h-10 text-slate-200 mb-3" />
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Aucun modèle assigné</span>
                 </div>
               )}
 
-              {/* Footer: Machine Breakdown */}
-              <div className="mt-auto pt-4 border-t border-white/10 flex items-center overflow-x-auto pb-1 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-                <div className="flex items-center gap-2 shrink-0">
-                  {Object.entries(getMachineBreakdown(chain.id).breakdown).map(([name, count]) => (
-                    <div key={name} className="flex items-center gap-2 bg-black/40 backdrop-blur-md border border-white/5 rounded-lg pl-3 pr-1 py-1 shrink-0 hover:bg-black/60 transition-colors shadow-inner">
-                      <span className="text-[10px] font-black text-white/50 uppercase tracking-widest">{name}</span>
-                      <span className="w-5 h-5 rounded-md bg-white/10 border border-white/5 flex items-center justify-center text-[10px] font-black text-white shadow-sm">{count}</span>
-                    </div>
-                  ))}
-                  {getMachineBreakdown(chain.id).total === 0 && (
-                    <span className="text-[10px] font-bold text-white/25 italic">Aucun matériel assigné</span>
-                  )}
-                </div>
+              {/* Machine Inventory Footer */}
+              <div className="mt-4 pt-3 border-t border-slate-100 flex items-center gap-1.5 overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+                {Object.entries(getMachineBreakdown(chain.id).breakdown).map(([name, count]) => (
+                  <div key={name} className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-50 border border-slate-100 shrink-0">
+                    <span className="text-[9px] font-semibold text-slate-500 uppercase">{name}</span>
+                    <span className="text-[10px] font-black text-slate-700">{count}</span>
+                  </div>
+                ))}
+                {getMachineBreakdown(chain.id).total === 0 && (
+                  <span className="text-[9px] text-slate-300 italic">Aucun matériel</span>
+                )}
               </div>
             </div>
           </motion.div>
@@ -270,57 +390,54 @@ export default function PageMachine({
 
       {/* Magasin Central Card */}
       <motion.div 
-        whileHover={{ y: -8, scale: 1.02 }}
+        whileHover={{ y: -6, scale: 1.01 }}
         whileTap={{ scale: 0.98 }}
         onClick={() => { setSelectedChainId('MAGASIN'); setViewingModelId(null); }}
-        className="group cursor-pointer bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-indigo-900 via-slate-900 to-black rounded-3xl shadow-xl border border-indigo-700/50 hover:shadow-2xl hover:shadow-indigo-500/40 hover:border-indigo-400/60 transition-all duration-500 flex flex-col h-full relative overflow-hidden"
+        className="group cursor-pointer bg-white rounded-2xl border border-indigo-200 hover:border-indigo-300 hover:shadow-[0_20px_40px_-12px_rgba(99,102,241,0.15)] transition-all duration-300 flex flex-col h-full relative overflow-hidden"
       >
         <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
-          <div className="absolute -top-16 -right-16 w-56 h-56 bg-indigo-500/40 rounded-full blur-3xl group-hover:bg-indigo-400/60 group-hover:scale-125 transition-all duration-700" />
-          <div className="absolute -bottom-16 -left-16 w-56 h-56 bg-violet-600/25 rounded-full blur-3xl group-hover:bg-violet-500/45 transition-all duration-700" />
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-40 h-40 bg-blue-500/10 rounded-full blur-2xl group-hover:bg-blue-400/20 transition-all duration-700" />
-          <div className="absolute top-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-indigo-400/60 to-transparent"></div>
-          <div className="absolute bottom-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-violet-500/30 to-transparent"></div>
+          <div className="absolute -top-20 -right-20 w-64 h-64 bg-indigo-100 rounded-full blur-[60px] group-hover:bg-indigo-200 transition-all duration-700" />
+          <div className="absolute -bottom-20 -left-20 w-56 h-56 bg-violet-100 rounded-full blur-[50px] group-hover:bg-violet-200 transition-all duration-700" />
         </div>
         
-        <div className="p-6 flex flex-col h-full relative z-10">
+        <div className="p-5 md:p-6 flex flex-col h-full relative z-10">
           {/* Header */}
-          <div className="flex justify-between items-start mb-6">
+          <div className="flex justify-between items-start mb-5">
             <div className="flex flex-col gap-2">
-              <h3 className="font-black text-white text-xl tracking-tight drop-shadow-md">Magasin Central</h3>
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-500/10 text-indigo-300 text-[11px] font-black tracking-wide border border-indigo-500/20 backdrop-blur-sm shadow-inner">
+              <h3 className="font-bold text-slate-900 text-lg md:text-xl tracking-tight">Magasin Central</h3>
+              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-indigo-50 text-indigo-600 text-[10px] font-bold tracking-wide border border-indigo-200">
                 <Database className="w-3 h-3" /> Stock Principal
               </span>
             </div>
             
-            <div className="w-11 h-11 rounded-[14px] bg-white/5 flex items-center justify-center text-indigo-300 font-black text-sm border border-white/10 shadow-sm backdrop-blur-md group-hover:bg-indigo-500/30 group-hover:text-white transition-all duration-300">
+            <div className="w-12 h-12 rounded-xl bg-indigo-50 flex items-center justify-center text-indigo-600 font-black text-sm border border-indigo-200 group-hover:bg-indigo-100 transition-all duration-300">
               {getMachineBreakdown(null).total}
             </div>
           </div>
           
           {/* Body: Status summary */}
           <div className="flex flex-col flex-1 justify-end space-y-3 mb-2">
-             <div className="flex justify-between items-center bg-white/5 backdrop-blur-md p-3.5 rounded-2xl border border-white/10 shadow-sm group-hover:bg-white/10 transition-colors">
-               <span className="flex items-center gap-2 text-xs font-black text-emerald-400 uppercase tracking-widest drop-shadow-sm"><CheckCircle2 className="w-4 h-4"/> Prêtes (OK)</span>
-               <span className="text-base font-black text-white drop-shadow-md">{okC}</span>
+             <div className="flex justify-between items-center bg-emerald-50 p-3 md:p-4 rounded-xl border border-emerald-100 group-hover:bg-emerald-100 transition-colors">
+               <span className="flex items-center gap-2 text-[10px] font-bold text-emerald-700 uppercase tracking-wider"><CheckCircle2 className="w-4 h-4"/> Prêtes (OK)</span>
+               <span className="text-lg font-black text-emerald-700">{okC}</span>
              </div>
-             <div className="flex justify-between items-center bg-white/5 backdrop-blur-md p-3.5 rounded-2xl border border-white/10 shadow-sm group-hover:bg-white/10 transition-colors">
-               <span className="flex items-center gap-2 text-xs font-black text-rose-400 uppercase tracking-widest drop-shadow-sm"><AlertTriangle className="w-4 h-4"/> En Réparation</span>
-               <span className="text-base font-black text-white drop-shadow-md">{brokenCount}</span>
+             <div className="flex justify-between items-center bg-rose-50 p-3 md:p-4 rounded-xl border border-rose-100 group-hover:bg-rose-100 transition-colors">
+               <span className="flex items-center gap-2 text-[10px] font-bold text-rose-700 uppercase tracking-wider"><AlertTriangle className="w-4 h-4"/> En Réparation</span>
+               <span className="text-lg font-black text-rose-700">{brokenCount}</span>
              </div>
           </div>
           
           {/* Footer: Machine Breakdown */}
-          <div className="mt-5 pt-4 border-t border-white/10 flex items-center overflow-x-auto pb-1 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+          <div className="mt-5 pt-4 border-t border-slate-100 flex items-center overflow-x-auto pb-1 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
              <div className="flex items-center gap-2 shrink-0">
                {Object.entries(getMachineBreakdown(null).breakdown).map(([name, count]) => (
-                 <div key={name} className="flex items-center gap-2 bg-black/40 backdrop-blur-md border border-white/5 rounded-lg pl-3 pr-1 py-1 shrink-0 hover:bg-black/60 transition-colors shadow-inner">
-                   <span className="text-[10px] font-black text-indigo-300 uppercase tracking-widest drop-shadow-sm">{name}</span>
-                   <span className="w-5 h-5 rounded-md bg-white/10 border border-white/5 flex items-center justify-center text-[10px] font-black text-white shadow-sm">{count}</span>
+                 <div key={name} className="flex items-center gap-2 bg-slate-50 border border-slate-100 rounded-lg pl-3 pr-2 py-1.5 shrink-0 group-hover:bg-slate-100 transition-colors">
+                   <span className="text-[9px] font-semibold text-slate-600 uppercase tracking-wider">{name}</span>
+                   <span className="w-5 h-5 rounded-md bg-white border border-slate-200 flex items-center justify-center text-[10px] font-black text-slate-700">{count}</span>
                  </div>
                ))}
                {getMachineBreakdown(null).total === 0 && (
-                 <span className="text-[10px] font-bold text-slate-500">Magasin vide</span>
+                 <span className="text-[9px] font-bold text-slate-400">Magasin vide</span>
                )}
              </div>
           </div>
@@ -544,6 +661,9 @@ export default function PageMachine({
 
     const activeData = planningEvents.find(e => e.chaineId === chain.id && (e.status === 'IN_PROGRESS' || e.status === 'READY'));
     const activeModel = activeData ? models.find(m => m.id === activeData.modelId) : null;
+    if (activeModel && !activeModel.meta_data.reference?.trim() && activeModel.meta_data.nom_modele?.trim()) {
+      activeModel.meta_data.reference = activeModel.meta_data.nom_modele;
+    }
     
     // Find next model
     const upcomingEvents = planningEvents.filter(e => e.chaineId === chain.id && e.id !== activeData?.id && (e.status === 'READY' || (e.status as string) === 'PENDING')).sort((a, b) => new Date(a.startDate || 0).getTime() - new Date(b.startDate || 0).getTime());
@@ -1033,52 +1153,52 @@ export default function PageMachine({
   );
 
   return (
-    <div className="w-full min-h-screen bg-[#fafcff] text-slate-900 pb-32 font-sans selection:bg-indigo-100 selection:text-indigo-900">
+    <div className="w-full min-h-screen bg-gradient-to-br from-slate-50 via-white to-indigo-50/30 text-slate-900 pb-32 font-sans selection:bg-indigo-100 selection:text-indigo-900">
       <style>{`
         @keyframes shimmer {
           100% { transform: translateX(100%); }
         }
       `}</style>
       {/* ULTRA COMPACT SAAS HEADER & TOOLBAR */}
-      <div className="bg-white/80 backdrop-blur-xl border-b border-slate-200/50 sticky top-0 z-30 shadow-[0_4px_20px_-10px_rgba(0,0,0,0.05)] transition-all">
-        <div className="max-w-[1600px] mx-auto px-4 md:px-8 h-16 flex items-center justify-between gap-4">
+      <div className="bg-gradient-to-b from-white/90 to-white/70 backdrop-blur-2xl border-b border-slate-200/40 sticky top-0 z-30 shadow-[0_4px_30px_-10px_rgba(0,0,0,0.08)] transition-all">
+        <div className="max-w-[1600px] mx-auto px-3 md:px-6 lg:px-8 h-14 md:h-16 flex items-center justify-between gap-3 md:gap-4">
           
-          <div className="flex items-center gap-4 md:gap-6">
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-[10px] bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg shadow-indigo-500/20 shrink-0 border border-indigo-400/20">
-                 <Component className="w-4.5 h-4.5 text-white" strokeWidth={2.5} />
+          <div className="flex items-center gap-3 md:gap-5">
+            <div className="flex items-center gap-2.5 md:gap-3">
+              <div className="w-8 h-8 md:w-9 md:h-9 rounded-[10px] bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 flex items-center justify-center shadow-lg shadow-indigo-500/25 shrink-0 border border-white/20">
+                 <Component className="w-4 h-4 md:w-4.5 md:h-4.5 text-white" strokeWidth={2.5} />
               </div>
-              <h1 className="text-lg font-black text-slate-900 tracking-tight hidden sm:block drop-shadow-sm">Inventaire</h1>
+              <h1 className="text-base md:text-lg font-black text-slate-900 tracking-tight hidden sm:block drop-shadow-sm">Inventaire</h1>
             </div>
 
-            <div className="h-6 w-px bg-slate-200 hidden md:block" />
+            <div className="h-5 w-px bg-slate-200/60 hidden md:block" />
 
-            <div className="hidden lg:flex items-center gap-3 text-[10px] font-black tracking-widest uppercase">
-               <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-slate-50 border border-slate-100 text-slate-500 shadow-sm">
-                 TOTAL <span className="text-slate-800 ml-0.5 text-[11px]">{fleetStats.total}</span>
+            <div className="hidden lg:flex items-center gap-2 text-[9px] font-black tracking-widest uppercase">
+               <span className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-slate-50/80 border border-slate-100 text-slate-500 shadow-sm">
+                 TOTAL <span className="text-slate-800 ml-0.5 text-[10px]">{fleetStats.total}</span>
                </span>
-               <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-emerald-50 border border-emerald-100 text-emerald-600 shadow-sm">
-                 PRÊTES <span className="text-emerald-700 ml-0.5 text-[11px]">{fleetStats.ok}</span>
+               <span className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-emerald-50/80 border border-emerald-100/50 text-emerald-600 shadow-sm">
+                 PRÊTES <span className="text-emerald-700 ml-0.5 text-[10px]">{fleetStats.ok}</span>
                </span>
-               <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-rose-50 border border-rose-100 text-rose-600 shadow-sm">
-                 PANNE <span className="text-rose-700 ml-0.5 text-[11px]">{fleetStats.panne}</span>
+               <span className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-rose-50/80 border border-rose-100/50 text-rose-600 shadow-sm">
+                 PANNE <span className="text-rose-700 ml-0.5 text-[10px]">{fleetStats.panne}</span>
                </span>
             </div>
           </div>
 
-          <div className="flex items-center gap-2 md:gap-4 flex-1 justify-end">
+          <div className="flex items-center gap-2 md:gap-3 flex-1 justify-end">
             
             {(selectedChainId || viewingModelId) && (
                <button 
                  onClick={() => viewingModelId ? setViewingModelId(null) : setSelectedChainId(null)} 
-                 className="flex items-center gap-1.5 mr-auto px-3 py-1.5 bg-white text-slate-600 hover:text-slate-900 hover:bg-slate-50 rounded-lg text-[11px] font-black uppercase tracking-widest transition-all border border-slate-200 shadow-sm hover:shadow-md"
+                 className="flex items-center gap-1 mr-auto px-2.5 md:px-3 py-1.5 bg-white text-slate-600 hover:text-slate-900 hover:bg-slate-50 rounded-lg text-[10px] md:text-[11px] font-black uppercase tracking-widest transition-all border border-slate-200 shadow-sm hover:shadow-md"
                >
-                 <ArrowLeft className="w-3.5 h-3.5" /> Retour
+                 <ArrowLeft className="w-3.5 h-3.5" /> <span className="hidden sm:inline">Retour</span>
                </button>
             )}
 
             <>
-              <div className="flex items-center gap-1 bg-slate-100/80 p-1 rounded-[10px] border border-slate-200/50 overflow-x-auto hide-scrollbar shrink-0 shadow-inner">
+              <div className="flex items-center gap-0.5 bg-slate-100/60 p-0.5 rounded-[10px] border border-slate-200/40 overflow-x-auto hide-scrollbar shrink-0 shadow-inner">
                   {[
                     { id: 'OVERVIEW', label: 'Vue Globale' },
                     { id: 'INVENTORY', label: 'Inventaire' },
@@ -1088,10 +1208,10 @@ export default function PageMachine({
                     <button
                       key={tab.id}
                       onClick={() => { setActiveTab(tab.id as TabType); setSelectedChainId(null); setViewingModelId(null); }}
-                      className={`px-3.5 py-1.5 rounded-md text-[11px] font-black transition-all whitespace-nowrap uppercase tracking-wider ${
+                      className={`px-2.5 md:px-3.5 py-1.5 rounded-md text-[9px] md:text-[11px] font-black transition-all whitespace-nowrap uppercase tracking-wider ${
                         activeTab === tab.id 
-                          ? 'bg-white text-indigo-600 shadow-sm border border-slate-200/80 drop-shadow-sm' 
-                          : 'text-slate-500 hover:text-slate-800 hover:bg-slate-200/50'
+                          ? 'bg-white text-indigo-600 shadow-md shadow-indigo-500/10 border border-slate-200/60' 
+                          : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/40'
                       }`}
                     >
                       {tab.label}
@@ -1099,22 +1219,22 @@ export default function PageMachine({
                   ))}
                 </div>
 
-                <div className="h-6 w-px bg-slate-200 hidden xl:block mx-1" />
+                <div className="h-5 w-px bg-slate-200/50 hidden xl:block mx-1" />
 
-                <div className="flex items-center gap-2 shrink-0">
-                   <div className="relative hidden xl:block w-56 group">
-                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-indigo-500 transition-colors" />
+                <div className="flex items-center gap-1.5 md:gap-2 shrink-0">
+                   <div className="relative hidden xl:block w-48 md:w-56 group">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 md:w-4 md:h-4 text-slate-400 group-focus-within:text-indigo-500 transition-colors" />
                       <input 
                         type="text" 
                         value={searchTerm}
                         onChange={e => setSearchTerm(e.target.value)}
                         placeholder="Filtrer..." 
-                        className="w-full bg-slate-50 border border-slate-200 rounded-lg py-2 pl-9 pr-3 text-xs font-bold text-slate-800 placeholder-slate-400 focus:outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-500/10 focus:bg-white transition-all shadow-sm"
+                        className="w-full bg-slate-50/80 border border-slate-200/60 rounded-lg py-1.5 md:py-2 pl-8 md:pl-9 pr-3 text-xs font-bold text-slate-800 placeholder-slate-400 focus:outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-500/10 focus:bg-white transition-all shadow-sm"
                       />
                    </div>
                    
-                   <button onClick={() => { setEditingInstance(null); setInstanceEditorOpen(true); }} className="flex items-center justify-center gap-1.5 px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white text-[11px] font-black rounded-lg shadow-md shadow-indigo-500/20 hover:shadow-lg hover:shadow-indigo-500/30 hover:-translate-y-0.5 transition-all tracking-widest uppercase border border-indigo-400/20">
-                     <Plus className="w-4 h-4" /> <span className="hidden sm:inline">Ajouter</span>
+                   <button onClick={() => { setEditingInstance(null); setInstanceEditorOpen(true); }} className="flex items-center justify-center gap-1.5 px-3 md:px-4 py-1.5 md:py-2 bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 text-white text-[10px] md:text-[11px] font-black rounded-lg shadow-md shadow-indigo-500/25 hover:shadow-lg hover:shadow-indigo-500/35 hover:-translate-y-0.5 transition-all tracking-widest uppercase border border-white/10">
+                     <Plus className="w-3.5 h-3.5 md:w-4 md:h-4" /> <span className="hidden sm:inline">Ajouter</span>
                    </button>
                 </div>
               </>
@@ -1123,7 +1243,7 @@ export default function PageMachine({
         </div>
       </div>
 
-      <div className="max-w-[1600px] mx-auto px-4 md:px-8 mt-6 md:mt-8">
+      <div className="max-w-[1600px] mx-auto px-3 md:px-6 lg:px-8 mt-4 md:mt-6 lg:mt-8">
         <AnimatePresence mode="wait">
           <motion.div
             key={activeTab + (selectedChainId || '') + (viewingModelId || '')}
@@ -1263,40 +1383,40 @@ function InstanceEditorModal({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-slate-900/30 backdrop-blur-md animate-in fade-in duration-300">
-      <div className="bg-white rounded-[32px] shadow-2xl shadow-indigo-500/10 w-full max-w-md overflow-hidden flex flex-col scale-in-center border border-slate-100">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-slate-900/40 backdrop-blur-lg animate-in fade-in duration-300">
+      <div className="bg-white rounded-[28px] shadow-2xl shadow-indigo-500/10 w-full max-w-md overflow-hidden flex flex-col scale-in-center border border-slate-100/80">
         
         {/* Header */}
-        <div className="p-8 pb-6 flex items-start justify-between relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-48 h-48 bg-indigo-50 rounded-full blur-3xl opacity-60 -mr-10 -mt-10 pointer-events-none" />
+        <div className="p-6 pb-5 flex items-start justify-between relative overflow-hidden bg-gradient-to-br from-indigo-50/50 via-white to-purple-50/30">
+          <div className="absolute top-0 right-0 w-40 h-40 bg-indigo-100/50 rounded-full blur-3xl opacity-60 -mr-10 -mt-10 pointer-events-none" />
           
-          <div className="flex gap-4 items-center relative z-10">
-            <div className="w-12 h-12 rounded-[20px] bg-indigo-50 border border-indigo-100/50 flex items-center justify-center shrink-0 shadow-sm">
-               <Component className="w-6 h-6 text-indigo-600" />
+          <div className="flex gap-3.5 items-center relative z-10">
+            <div className="w-11 h-11 rounded-[16px] bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shrink-0 shadow-lg shadow-indigo-500/25">
+               <Component className="w-5 h-5 text-white" />
             </div>
             <div>
-              <h2 className="font-black text-slate-900 text-xl tracking-tight leading-none mb-1.5">
+              <h2 className="font-black text-slate-900 text-lg tracking-tight leading-none mb-1">
                 {instance ? 'Gérer la Machine' : 'Ajouter une Machine'}
               </h2>
-              <p className="text-xs font-bold text-slate-400">Configurez les paramètres du parc</p>
+              <p className="text-[10px] font-bold text-slate-400">Configurez les paramètres du parc</p>
             </div>
           </div>
-          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-full bg-slate-50 border border-slate-100 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors relative z-10"><XCircle className="w-4 h-4"/></button>
+          <button onClick={onClose} className="w-7 h-7 flex items-center justify-center rounded-full bg-slate-100/80 border border-slate-200/60 text-slate-400 hover:bg-slate-200 hover:text-slate-600 transition-colors relative z-10"><XCircle className="w-4 h-4"/></button>
         </div>
         
         {/* Body Form */}
-        <div className="px-8 pb-8 flex flex-col gap-5 relative z-10">
+        <div className="px-6 pb-6 flex flex-col gap-4 relative z-10">
           
           {/* Classe Lookup */}
-          <div className="bg-slate-50/80 p-5 rounded-2xl border border-slate-100/80">
-            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-1.5"><Layers className="w-3 h-3" /> Classe & Type</label>
-            <div className="flex gap-3">
+          <div className="bg-gradient-to-br from-slate-50 to-indigo-50/30 p-4 rounded-2xl border border-slate-100/80">
+            <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-1.5"><Layers className="w-3 h-3" /> Classe & Type</label>
+            <div className="flex gap-2.5">
               <input 
                 list="classes-list"
                 value={classId}
                 onChange={e => setClassId(e.target.value)}
                 placeholder="Ex: 301, 516..."
-                className="flex-1 bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold text-slate-800 focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition-all placeholder-slate-300 shadow-sm"
+                className="flex-1 bg-white border border-slate-200/80 rounded-xl px-3.5 py-2.5 text-sm font-bold text-slate-800 focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition-all placeholder-slate-300 shadow-sm"
               />
               <datalist id="classes-list">
                 {classes.map(c => <option key={c.id} value={c.classe}>{c.name}</option>)}
@@ -1305,64 +1425,64 @@ function InstanceEditorModal({
               {!isClassKnown && classId.trim().length > 0 && (
                 <button 
                   onClick={() => onAddClassShortcut(classId.trim())}
-                  className="px-4 py-2.5 bg-indigo-600 text-white text-[10px] font-black uppercase tracking-wider rounded-xl hover:bg-indigo-700 transition-colors whitespace-nowrap shadow-sm"
+                  className="px-3.5 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 text-white text-[9px] font-black uppercase tracking-wider rounded-xl hover:shadow-lg hover:shadow-indigo-500/20 transition-all whitespace-nowrap"
                 >
                   + Créer
                 </button>
               )}
             </div>
             {!isClassKnown && classId.trim().length > 0 && (
-              <p className="text-[10px] text-amber-500 font-bold mt-2.5 flex items-center gap-1.5">
+              <p className="text-[9px] text-amber-500 font-bold mt-2 flex items-center gap-1.5">
                 <AlertTriangle className="w-3.5 h-3.5" /> Classe inconnue, création automatique possible
               </p>
             )}
           </div>
 
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-3 gap-3">
             <div>
-              <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1">Réf / Matricule</label>
+              <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-0.5">Réf / Matricule</label>
               <input 
                 type="text" value={matricule} onChange={e => setMatricule(e.target.value)}
                 placeholder="MAC-001"
-                className={`w-full bg-slate-50 border rounded-xl px-4 py-2.5 text-sm font-bold text-slate-800 focus:bg-white focus:outline-none focus:ring-2 transition-all uppercase placeholder-slate-300 ${instances.some(i => i.id !== instance?.id && i.matricule && i.matricule === matricule) ? 'border-rose-400 focus:border-rose-500 focus:ring-rose-100 text-rose-600' : 'border-slate-200 focus:border-indigo-400 focus:ring-indigo-100'}`}
+                className={`w-full bg-slate-50/80 border rounded-xl px-3.5 py-2.5 text-sm font-bold text-slate-800 focus:bg-white focus:outline-none focus:ring-2 transition-all uppercase placeholder-slate-300 ${instances.some(i => i.id !== instance?.id && i.matricule && i.matricule === matricule) ? 'border-rose-400 focus:border-rose-500 focus:ring-rose-100 text-rose-600' : 'border-slate-200/80 focus:border-indigo-400 focus:ring-indigo-100'}`}
               />
               {instances.some(i => i.id !== instance?.id && i.matricule && i.matricule === matricule) && (
-                <p className="text-[9px] font-bold text-rose-500 mt-1 ml-1">Déjà utilisé</p>
+                <p className="text-[8px] font-bold text-rose-500 mt-1 ml-0.5">Déjà utilisé</p>
               )}
             </div>
             <div>
-              <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1">Marque</label>
+              <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-0.5">Marque</label>
               <input 
                 type="text" value={brand} onChange={e => setBrand(e.target.value)}
                 placeholder="Brother, Juki..."
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold text-slate-800 focus:bg-white focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition-all placeholder-slate-300"
+                className="w-full bg-slate-50/80 border border-slate-200/80 rounded-xl px-3.5 py-2.5 text-sm font-bold text-slate-800 focus:bg-white focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition-all placeholder-slate-300"
               />
             </div>
             <div>
-              <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1">N° de Série</label>
+              <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-0.5">N° de Série</label>
               <input 
                 type="text" value={serialNumber} onChange={e => setSerialNumber(e.target.value)}
                 placeholder="SN-123456789"
-                className={`w-full bg-slate-50 border rounded-xl px-4 py-2.5 text-sm font-bold text-slate-800 focus:bg-white focus:outline-none focus:ring-2 transition-all placeholder-slate-300 ${instances.some(i => i.id !== instance?.id && i.serialNumber && i.serialNumber === serialNumber) ? 'border-rose-400 focus:border-rose-500 focus:ring-rose-100 text-rose-600' : 'border-slate-200 focus:border-indigo-400 focus:ring-indigo-100'}`}
+                className={`w-full bg-slate-50/80 border rounded-xl px-3.5 py-2.5 text-sm font-bold text-slate-800 focus:bg-white focus:outline-none focus:ring-2 transition-all placeholder-slate-300 ${instances.some(i => i.id !== instance?.id && i.serialNumber && i.serialNumber === serialNumber) ? 'border-rose-400 focus:border-rose-500 focus:ring-rose-100 text-rose-600' : 'border-slate-200/80 focus:border-indigo-400 focus:ring-indigo-100'}`}
               />
               {instances.some(i => i.id !== instance?.id && i.serialNumber && i.serialNumber === serialNumber) && (
-                <p className="text-[9px] font-bold text-rose-500 mt-1 ml-1">Déjà utilisé</p>
+                <p className="text-[8px] font-bold text-rose-500 mt-1 ml-0.5">Déjà utilisé</p>
               )}
             </div>
           </div>
           {(!matricule.trim() && !serialNumber.trim()) && (
-            <p className="text-[10px] font-bold text-amber-500 flex items-center gap-1.5 -mt-2">
+            <p className="text-[9px] font-bold text-amber-500 flex items-center gap-1.5 -mt-1">
               <AlertTriangle className="w-3.5 h-3.5" /> Veuillez renseigner au moins une Référence ou un N° de Série.
             </p>
           )}
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1">Affectation</label>
+              <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-0.5">Affectation</label>
               <select
                 value={chainId}
                 onChange={e => setChainId(e.target.value)}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold text-slate-800 focus:bg-white focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition-all appearance-none cursor-pointer"
+                className="w-full bg-slate-50/80 border border-slate-200/80 rounded-xl px-3.5 py-2.5 text-sm font-bold text-slate-800 focus:bg-white focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition-all appearance-none cursor-pointer"
               >
                 <option value="">Magasin (Libre)</option>
                 {Array.from({ length: 6 }).map((_, i) => (
@@ -1373,15 +1493,15 @@ function InstanceEditorModal({
               </select>
             </div>
             <div>
-              <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1">Statut</label>
-              <div className="flex p-1 gap-1 bg-slate-100 rounded-xl border border-slate-200/60 h-[42px]">
+              <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-0.5">Statut</label>
+              <div className="flex p-0.5 gap-0.5 bg-slate-100/80 rounded-xl border border-slate-200/50 h-[42px]">
                 {(['OK', 'MAINT', 'PANNE'] as const).map(s => (
                   <button
                     key={s}
                     onClick={() => setStatus(s)}
-                    className={`flex-1 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all flex items-center justify-center ${
+                    className={`flex-1 rounded-lg text-[8px] font-black uppercase tracking-widest transition-all flex items-center justify-center ${
                       status === s 
-                        ? s === 'OK' ? 'bg-emerald-500 text-white shadow-sm' : s === 'MAINT' ? 'bg-amber-500 text-white shadow-sm' : 'bg-rose-500 text-white shadow-sm'
+                        ? s === 'OK' ? 'bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-md shadow-emerald-500/20' : s === 'MAINT' ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-md shadow-amber-500/20' : 'bg-gradient-to-r from-rose-500 to-pink-500 text-white shadow-md shadow-rose-500/20'
                         : 'text-slate-400 hover:text-slate-600 hover:bg-slate-200/50'
                     }`}
                   >
@@ -1392,25 +1512,25 @@ function InstanceEditorModal({
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1">Photo Machine</label>
-              <div className="relative border-2 border-dashed border-slate-200 rounded-xl p-3 flex flex-col items-center justify-center bg-slate-50 hover:bg-slate-100 transition-colors cursor-pointer group overflow-hidden h-[80px]">
+              <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-0.5">Photo Machine</label>
+              <div className="relative border-2 border-dashed border-slate-200/60 rounded-xl p-2.5 flex flex-col items-center justify-center bg-slate-50/50 hover:bg-slate-100/50 transition-colors cursor-pointer group overflow-hidden h-[72px]">
                  <input type="file" accept="image/*" className="absolute inset-0 opacity-0 cursor-pointer z-10" onChange={handlePhotoUpload} />
                  {photos.length > 0 && (
-                   <img src={photos[0]} className="absolute inset-0 w-full h-full object-cover opacity-60 group-hover:opacity-40 transition-opacity" />
+                   <img src={photos[0]} className="absolute inset-0 w-full h-full object-cover opacity-50 group-hover:opacity-30 transition-opacity" />
                  )}
-                 <Printer className="w-5 h-5 text-slate-400 group-hover:text-indigo-500 mb-1 z-10 transition-colors" />
-                 <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest z-10 bg-white/80 px-2 py-0.5 rounded-full">{photos.length > 0 ? 'Modifier Photo' : 'Ajouter Photo'}</span>
+                 <Printer className="w-4 h-4 text-slate-400 group-hover:text-indigo-500 mb-0.5 z-10 transition-colors" />
+                 <span className="text-[8px] font-bold text-slate-500 uppercase tracking-widest z-10 bg-white/80 px-2 py-0.5 rounded-full">{photos.length > 0 ? 'Modifier' : 'Ajouter'}</span>
               </div>
             </div>
             <div>
-              <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1">Fichier (PDF/Excel)</label>
-              <div className="relative border-2 border-dashed border-slate-200 rounded-xl p-3 flex flex-col items-center justify-center bg-slate-50 hover:bg-slate-100 transition-colors cursor-pointer group h-[80px] overflow-hidden">
+              <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-0.5">Fichier (PDF/Excel)</label>
+              <div className="relative border-2 border-dashed border-slate-200/60 rounded-xl p-2.5 flex flex-col items-center justify-center bg-slate-50/50 hover:bg-slate-100/50 transition-colors cursor-pointer group h-[72px] overflow-hidden">
                  <input type="file" accept=".pdf,.xls,.xlsx,.doc,.docx" className="absolute inset-0 opacity-0 cursor-pointer z-10" onChange={handleManualUpload} />
-                 <Layers className="w-5 h-5 text-slate-400 group-hover:text-indigo-500 mb-1 z-10 transition-colors" />
-                 <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest text-center truncate w-full px-2 z-10 bg-white/80 rounded-full py-0.5">
-                   {manuals.length > 0 ? manuals[0].name : 'Joindre Fichier'}
+                 <Layers className="w-4 h-4 text-slate-400 group-hover:text-indigo-500 mb-0.5 z-10 transition-colors" />
+                 <span className="text-[8px] font-bold text-slate-500 uppercase tracking-widest text-center truncate w-full px-2 z-10 bg-white/80 rounded-full py-0.5">
+                   {manuals.length > 0 ? manuals[0].name : 'Joindre'}
                  </span>
               </div>
             </div>
@@ -1418,18 +1538,18 @@ function InstanceEditorModal({
         </div>
 
         {/* Footer */}
-        <div className="p-6 pt-5 border-t border-slate-100 bg-slate-50/50 flex items-center justify-between mt-auto">
+        <div className="p-5 pt-4 border-t border-slate-100/80 bg-gradient-to-r from-slate-50/50 to-indigo-50/30 flex items-center justify-between mt-auto">
           {instance ? (
              <button 
                onClick={() => onDelete(instance.id)}
-               className="px-4 py-2 text-xs font-bold text-rose-500 hover:bg-rose-50 hover:text-rose-600 rounded-xl transition-colors"
+               className="px-4 py-2 text-[10px] font-bold text-rose-500 hover:bg-rose-50 hover:text-rose-600 rounded-xl transition-colors"
              >
                Supprimer
              </button>
           ) : <div />}
           
-          <div className="flex gap-3">
-            <button onClick={onClose} className="px-5 py-2.5 text-xs font-bold text-slate-500 hover:bg-slate-100 hover:text-slate-800 rounded-xl transition-colors">Annuler</button>
+          <div className="flex gap-2.5">
+            <button onClick={onClose} className="px-4 py-2.5 text-[10px] font-bold text-slate-500 hover:bg-slate-100 hover:text-slate-800 rounded-xl transition-colors">Annuler</button>
             <button 
               onClick={() => {
                 const matchedClass = classes.find(c => c.classe === classId);
@@ -1449,7 +1569,7 @@ function InstanceEditorModal({
                 instances.some(i => i.id !== instance?.id && i.matricule && i.matricule === matricule) ||
                 instances.some(i => i.id !== instance?.id && i.serialNumber && i.serialNumber === serialNumber)
               }
-              className="px-7 py-2.5 bg-slate-900 text-white text-[11px] font-black uppercase tracking-widest rounded-xl shadow-md hover:bg-indigo-600 hover:shadow-lg hover:shadow-indigo-500/20 disabled:opacity-50 disabled:hover:bg-slate-900 transition-all"
+              className="px-6 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 text-white text-[10px] font-black uppercase tracking-widest rounded-xl shadow-md shadow-indigo-500/20 hover:shadow-lg hover:shadow-indigo-500/30 disabled:opacity-50 disabled:hover:shadow-md transition-all"
             >
               Enregistrer
             </button>
@@ -1484,78 +1604,78 @@ function ClassEditorModal({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 sm:p-6 bg-slate-900/30 backdrop-blur-md animate-in fade-in duration-300">
-      <div className="bg-white rounded-[32px] shadow-2xl shadow-indigo-500/10 w-full max-w-md overflow-hidden flex flex-col scale-in-center border border-slate-100">
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-3 sm:p-6 bg-slate-900/40 backdrop-blur-lg animate-in fade-in duration-300">
+      <div className="bg-white rounded-[28px] shadow-2xl shadow-emerald-500/10 w-full max-w-md overflow-hidden flex flex-col scale-in-center border border-slate-100/80">
         
         {/* Header */}
-        <div className="p-8 pb-6 flex items-start justify-between relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-48 h-48 bg-emerald-50 rounded-full blur-3xl opacity-60 -mr-10 -mt-10 pointer-events-none" />
+        <div className="p-6 pb-5 flex items-start justify-between relative overflow-hidden bg-gradient-to-br from-emerald-50/50 via-white to-teal-50/30">
+          <div className="absolute top-0 right-0 w-40 h-40 bg-emerald-100/50 rounded-full blur-3xl opacity-60 -mr-10 -mt-10 pointer-events-none" />
           
-          <div className="flex gap-4 items-center relative z-10">
-            <div className="w-12 h-12 rounded-[20px] bg-emerald-50 border border-emerald-100/50 flex items-center justify-center shrink-0 shadow-sm">
-               <Plus className="w-6 h-6 text-emerald-600" />
+          <div className="flex gap-3.5 items-center relative z-10">
+            <div className="w-11 h-11 rounded-[16px] bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shrink-0 shadow-lg shadow-emerald-500/25">
+               <Plus className="w-5 h-5 text-white" />
             </div>
             <div>
-              <h2 className="font-black text-slate-900 text-xl tracking-tight leading-none mb-1.5">
+              <h2 className="font-black text-slate-900 text-lg tracking-tight leading-none mb-1">
                 Créer la Classe
               </h2>
-              <p className="text-xs font-bold text-slate-400">Définissez ce nouveau type</p>
+              <p className="text-[10px] font-bold text-slate-400">Définissez ce nouveau type</p>
             </div>
           </div>
-          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-full bg-slate-50 border border-slate-100 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors relative z-10"><XCircle className="w-4 h-4"/></button>
+          <button onClick={onClose} className="w-7 h-7 flex items-center justify-center rounded-full bg-slate-100/80 border border-slate-200/60 text-slate-400 hover:bg-slate-200 hover:text-slate-600 transition-colors relative z-10"><XCircle className="w-4 h-4"/></button>
         </div>
         
         {/* Body Form */}
-        <div className="px-8 pb-8 flex flex-col gap-5 relative z-10">
+        <div className="px-6 pb-6 flex flex-col gap-4 relative z-10">
           
           <div>
-            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1">Nom *</label>
+            <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-0.5">Nom *</label>
             <input 
               type="text" value={name} onChange={e => setName(e.target.value)}
               placeholder="Ex: Surjeteuse 5 Fils"
-              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold text-slate-800 focus:bg-white focus:outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 transition-all placeholder-slate-300"
+              className="w-full bg-slate-50/80 border border-slate-200/80 rounded-xl px-3.5 py-2.5 text-sm font-bold text-slate-800 focus:bg-white focus:outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 transition-all placeholder-slate-300"
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1">Type (Famille)</label>
+              <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-0.5">Type (Famille)</label>
               <input 
                 type="text" value={machineCategory} onChange={e => setMachineCategory(e.target.value)}
                 placeholder="Ex: Surjeteuse"
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold text-slate-800 focus:bg-white focus:outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 transition-all placeholder-slate-300"
+                className="w-full bg-slate-50/80 border border-slate-200/80 rounded-xl px-3.5 py-2.5 text-sm font-bold text-slate-800 focus:bg-white focus:outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 transition-all placeholder-slate-300"
               />
             </div>
             <div>
-              <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1">Classe *</label>
+              <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-0.5">Classe *</label>
               <input 
                 type="text" value={classe} onChange={e => setClasse(e.target.value)}
                 placeholder="Ex: 516"
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold text-slate-800 focus:bg-white focus:outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 transition-all placeholder-slate-300"
+                className="w-full bg-slate-50/80 border border-slate-200/80 rounded-xl px-3.5 py-2.5 text-sm font-bold text-slate-800 focus:bg-white focus:outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 transition-all placeholder-slate-300"
               />
             </div>
           </div>
 
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-3 gap-3">
             <div>
-              <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1">Vitesse</label>
+              <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-0.5">Vitesse</label>
               <input 
                 type="number" value={speed} onChange={e => setSpeed(Number(e.target.value))}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold text-slate-800 focus:bg-white focus:outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 transition-all"
+                className="w-full bg-slate-50/80 border border-slate-200/80 rounded-xl px-3.5 py-2.5 text-sm font-bold text-slate-800 focus:bg-white focus:outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 transition-all"
               />
             </div>
             <div>
-              <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1">Majoration</label>
+              <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-0.5">Majoration</label>
               <input 
                 type="number" step="0.01" value={speedMajor} onChange={e => setSpeedMajor(Number(e.target.value))}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold text-slate-800 focus:bg-white focus:outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 transition-all"
+                className="w-full bg-slate-50/80 border border-slate-200/80 rounded-xl px-3.5 py-2.5 text-sm font-bold text-slate-800 focus:bg-white focus:outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 transition-all"
               />
             </div>
             <div>
-              <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1">COFS</label>
+              <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-0.5">COFS</label>
               <input 
                 type="number" step="0.01" value={cofs} onChange={e => setCofs(Number(e.target.value))}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold text-slate-800 focus:bg-white focus:outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 transition-all"
+                className="w-full bg-slate-50/80 border border-slate-200/80 rounded-xl px-3.5 py-2.5 text-sm font-bold text-slate-800 focus:bg-white focus:outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 transition-all"
               />
             </div>
           </div>
@@ -1563,9 +1683,9 @@ function ClassEditorModal({
         </div>
 
         {/* Footer */}
-        <div className="p-6 pt-5 border-t border-slate-100 bg-slate-50/50 flex items-center justify-end mt-auto">
-          <div className="flex gap-3">
-            <button onClick={onClose} className="px-5 py-2.5 text-xs font-bold text-slate-500 hover:bg-slate-100 hover:text-slate-800 rounded-xl transition-colors">Annuler</button>
+        <div className="p-5 pt-4 border-t border-slate-100/80 bg-gradient-to-r from-slate-50/50 to-emerald-50/30 flex items-center justify-end mt-auto">
+          <div className="flex gap-2.5">
+            <button onClick={onClose} className="px-4 py-2.5 text-[10px] font-bold text-slate-500 hover:bg-slate-100 hover:text-slate-800 rounded-xl transition-colors">Annuler</button>
             <button 
               onClick={() => {
                 onSave({
@@ -1580,7 +1700,7 @@ function ClassEditorModal({
                 });
               }}
               disabled={!name.trim() || !classe.trim()}
-              className="px-7 py-2.5 bg-emerald-600 text-white text-[11px] font-black uppercase tracking-widest rounded-xl shadow-md hover:bg-emerald-700 hover:shadow-lg hover:shadow-emerald-500/20 disabled:opacity-50 disabled:hover:bg-emerald-600 transition-all"
+              className="px-6 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 text-white text-[10px] font-black uppercase tracking-widest rounded-xl shadow-md shadow-emerald-500/20 hover:shadow-lg hover:shadow-emerald-500/30 disabled:opacity-50 disabled:hover:shadow-md transition-all"
             >
               Enregistrer
             </button>

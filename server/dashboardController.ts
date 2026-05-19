@@ -14,8 +14,8 @@ export const getDashboardKPIs = (req: Request, res: Response) => {
         // ── Planning actif ──────────────────────────────────
         const planning = db.prepare(`
             SELECT COUNT(*) as total,
-                   SUM(CASE WHEN status = 'en_cours' THEN 1 ELSE 0 END) as en_cours,
-                   SUM(CASE WHEN status = 'termine' THEN 1 ELSE 0 END) as termines,
+                   SUM(CASE WHEN status = 'IN_PROGRESS' THEN 1 ELSE 0 END) as en_cours,
+                   SUM(CASE WHEN status = 'DONE' THEN 1 ELSE 0 END) as termines,
                    SUM(qteTotal) as qte_total,
                    SUM(qteProduite) as qte_produite
             FROM planning_events WHERE owner_id = ?
