@@ -6,13 +6,29 @@
 import Database from 'better-sqlite3';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
+import { readFileSync } from 'node:fs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+// Charger .env manuellement (pas de dépendance dotenv)
+try {
+  const envContent = readFileSync(path.join(__dirname, '..', '.env'), 'utf8');
+  for (const line of envContent.split('\n')) {
+    const [key, ...rest] = line.split('=');
+    if (key && rest.length) process.env[key.trim()] = rest.join('=').trim();
+  }
+} catch {}
+
 const DB_PATH = path.join(__dirname, '..', 'database.sqlite');
-const SUPABASE_URL = 'https://jiscgwioxwsulaopsivc.supabase.co';
-const ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imppc2Nnd2lveHdzdWxhb3BzaXZjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU5OTcwNTgsImV4cCI6MjA5MTU3MzA1OH0.-jRI1RlbjxecLyN2b83xmjuJCKhs7ti_7_-RWXNCNgk';
-const EMAIL = 'soulaimaneberraadi@gmail.com';
-const PASSWORD = 'Admin123!';
+const SUPABASE_URL = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
+const ANON_KEY = process.env.VITE_SUPABASE_KEY || process.env.SUPABASE_KEY;
+const EMAIL = process.env.SUPABASE_ADMIN_EMAIL;
+const PASSWORD = process.env.SUPABASE_ADMIN_PASSWORD;
+
+if (!SUPABASE_URL || !ANON_KEY || !EMAIL || !PASSWORD) {
+  console.error('❌ Variables manquantes dans .env: VITE_SUPABASE_URL, VITE_SUPABASE_KEY, SUPABASE_ADMIN_EMAIL, SUPABASE_ADMIN_PASSWORD');
+  process.exit(1);
+}
 
 const db = new Database(DB_PATH, { readonly: true });
 

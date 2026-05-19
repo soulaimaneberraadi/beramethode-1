@@ -396,6 +396,10 @@ export interface ModelData {
     hala?: 'EN_COURS' | 'TERMINE' | 'EN_ATTENTE' | 'BLOQUE';
   };
   gamme_operatoire: Operation[];
+  bf?: number;
+  numWorkers?: number;
+  presenceTime?: number;
+  efficiency?: number;
   // Added for Implantation persistence
   implantation?: {
     postes: Poste[];

@@ -364,22 +364,22 @@ export default function PageMachine({
 
            <div className="w-full h-[600px] relative bg-slate-50">
              <Implantation
-                bf={(model as any).bf || 1}
+                bf={model.bf || 1}
                 operations={gamme}
                 setOperations={() => {}}
-                numWorkers={(model as any).numWorkers || 1}
+                numWorkers={model.numWorkers || 1}
                 setNumWorkers={() => {}}
-                presenceTime={(model as any).presenceTime || 480}
+                presenceTime={model.presenceTime || 480}
                 setPresenceTime={() => {}}
-                efficiency={(model as any).efficiency || 100}
+                efficiency={model.efficiency || 100}
                 setEfficiency={() => {}}
                 articleName={model.meta_data.nom_modele || ''}
-                assignments={model.implantation?.assignments || (model as any).assignments || {}}
-                postes={model.implantation?.postes || (model as any).postes || []}
+                assignments={model.implantation?.assignments || {}}
+                postes={model.implantation?.postes || []}
                 setPostes={() => {}}
-                layoutMemory={model.implantation?.layoutMemory || (model as any).layoutMemory || {}}
+                layoutMemory={model.implantation?.layoutMemory || {}}
                 setLayoutMemory={() => {}}
-                activeLayout={model.implantation?.activeLayout || (model as any).activeLayout || 'zigzag'}
+                activeLayout={model.implantation?.activeLayout || 'zigzag'}
                 setActiveLayout={() => {}}
                 machines={machines}
                 speedFactors={[]}

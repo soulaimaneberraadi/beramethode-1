@@ -63,7 +63,7 @@ export default function MachineQuickScanModal({ open, onClose, machineInstances,
     } else {
       const parsed = parseMachineQrFromString(qrText.trim());
       if (!parsed) { setIdentifyError('QR invalide ou non reconnu.'); return; }
-      inst = findInstance((parsed as any).mat || parsed.id);
+      inst = findInstance(parsed.matricule || parsed.id);
       if (!inst) { setIdentifyError("Machine du QR introuvable dans l'inventaire."); return; }
     }
     setIdentified(inst);
@@ -79,7 +79,7 @@ export default function MachineQuickScanModal({ open, onClose, machineInstances,
       setQrText(raw);
       const parsed = parseMachineQrFromString(raw);
       if (!parsed) { setIdentifyError('QR décodé mais format non reconnu.'); setScanning(false); return; }
-      const inst = findInstance((parsed as any).mat || parsed.id);
+      const inst = findInstance(parsed.matricule || parsed.id);
       if (!inst) { setIdentifyError("Machine du QR introuvable dans l'inventaire."); setScanning(false); return; }
       setIdentified(inst);
       setIdentifyError('');
