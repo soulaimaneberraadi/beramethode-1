@@ -67,6 +67,8 @@ type HistoryState = {
     postes: Poste[];
 };
 
+const IS_STATIC = import.meta.env.VITE_STATIC_MODE === 'true';
+
 export default function App() {
     const { user, loading: authLoading, logout: authLogout, login } = useAuth();
     const [authView, setAuthView] = useState<'login' | 'signup'>('login');
@@ -231,22 +233,36 @@ export default function App() {
     }, [effectifsDirty, currentView]);
 
     useEffect(() => {
-        if (user) {
+        const loadFromLocal = () => {
+            try { const s = localStorage.getItem('beramethode_planning'); setPlanningEvents(s ? JSON.parse(s) : []); } catch { setPlanningEvents([]); }
+            try { const s = localStorage.getItem('beramethode_suivis'); setSuivis(s ? JSON.parse(s) : []); } catch { setSuivis([]); }
+            try { const s = localStorage.getItem('beramethode_demandesAppro'); setDemandesAppro(s ? JSON.parse(s) : []); } catch { setDemandesAppro([]); }
+        };
+        if (user && !IS_STATIC) {
             fetch('/api/planning', { credentials: 'include' }).then(r => r.ok ? r.json() : []).then(data => setPlanningEvents(Array.isArray(data) ? data : [])).catch(() => setPlanningEvents([]));
             fetch('/api/suivi', { credentials: 'include' }).then(r => r.ok ? r.json() : []).then(data => setSuivis(Array.isArray(data) ? data : [])).catch(() => setSuivis([]));
             fetch('/api/demandes-appro', { credentials: 'include' }).then(r => r.ok ? r.json() : []).then(data => setDemandesAppro(Array.isArray(data) ? data : [])).catch(() => setDemandesAppro([]));
         } else {
-            try { const s = localStorage.getItem('beramethode_planning'); setPlanningEvents(s ? JSON.parse(s) : []); } catch { setPlanningEvents([]); }
-            try { const s = localStorage.getItem('beramethode_suivis'); setSuivis(s ? JSON.parse(s) : []); } catch { setSuivis([]); }
-            try { const s = localStorage.getItem('beramethode_demandesAppro'); setDemandesAppro(s ? JSON.parse(s) : []); } catch { setDemandesAppro([]); }
+            // Static mode (Vercel) or guest: localStorage is the source of truth.
+            // Supabase cloudSync populates localStorage on login and dispatches
+            // 'beramethode:cloud-sync-applied' after pulling a remote snapshot.
+            loadFromLocal();
+        }
+        if (IS_STATIC) {
+            const onCloudApplied = () => loadFromLocal();
+            window.addEventListener('beramethode:cloud-sync-applied', onCloudApplied);
+            return () => window.removeEventListener('beramethode:cloud-sync-applied', onCloudApplied);
         }
     }, [user]);
 
     useEffect(() => {
-        if (!user) {
+        if (!user || IS_STATIC) {
+            // Guest & static (Vercel): persist to localStorage; cloudSync handles upstream sync.
             localStorage.setItem('beramethode_planning', JSON.stringify(planningEvents));
-            localStorage.setItem('beramethode_suivis', JSON.stringify(suivis));
-            localStorage.setItem('beramethode_demandesAppro', JSON.stringify(demandesAppro));
+            if (!user) {
+                localStorage.setItem('beramethode_suivis', JSON.stringify(suivis));
+                localStorage.setItem('beramethode_demandesAppro', JSON.stringify(demandesAppro));
+            }
             return;
         }
         const timer = setTimeout(() => {
@@ -257,6 +273,10 @@ export default function App() {
 
     useEffect(() => {
         if (!user) return;
+        if (IS_STATIC) {
+            localStorage.setItem('beramethode_suivis', JSON.stringify(suivis));
+            return;
+        }
         const timer = setTimeout(() => {
             fetch('/api/suivi', { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ suivis }) }).catch(() => { });
         }, 1200);
@@ -363,7 +383,7 @@ export default function App() {
     const [serverSettingsHydrated, setServerSettingsHydrated] = useState(true);
 
     useEffect(() => {
-        if (!user) return;
+        if (!user || IS_STATIC) return;
         const timer = setTimeout(() => {
             fetch('/api/settings', { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ global_settings: globalSettings }) }).catch(() => { });
         }, 1500);
@@ -371,7 +391,7 @@ export default function App() {
     }, [globalSettings, user]);
 
     useEffect(() => {
-        if (!user) {
+        if (!user || IS_STATIC) {
             setServerSettingsHydrated(true);
             return;
         }
@@ -431,7 +451,7 @@ export default function App() {
 
     /** Parc machines : même persistance que les autres réglages (`owner_id` = utilisateur connecté). */
     useEffect(() => {
-        if (!user || !serverSettingsHydrated) return;
+        if (!user || !serverSettingsHydrated || IS_STATIC) return;
         const timer = setTimeout(() => {
             fetch('/api/settings', {
                 method: 'POST',
@@ -445,7 +465,7 @@ export default function App() {
 
     /** Historique parc (entrées / sorties) — même persistance `owner_id`. */
     useEffect(() => {
-        if (!user || !serverSettingsHydrated) return;
+        if (!user || !serverSettingsHydrated || IS_STATIC) return;
         const timer = setTimeout(() => {
             fetch('/api/settings', {
                 method: 'POST',
@@ -696,7 +716,7 @@ export default function App() {
     const [ficheImages, setFicheImages] = useState<{ front: string | null; back: string | null }>({ front: null, back: null });
 
     useEffect(() => {
-        if (!user) return;
+        if (!user || IS_STATIC) return;
         fetch('/api/settings', { credentials: 'include' })
             .then(r => r.ok ? r.json() : null)
             .then(data => {
@@ -731,7 +751,7 @@ export default function App() {
                 console.error('Auto-save failed (likely quota exceeded)', e);
                 setSaveStatus('unsaved');
             }
-            if (user) {
+            if (user && !IS_STATIC) {
                 fetch('/api/settings', { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ autosave_workspace: dataToSave }) }).catch(() => { });
             }
         }, 2000);
@@ -740,7 +760,7 @@ export default function App() {
 
     useEffect(() => {
         localStorage.setItem('beramethode_manual_links', JSON.stringify(manualLinks));
-        if (!user) return;
+        if (!user || IS_STATIC) return;
         const timer = setTimeout(() => {
             fetch('/api/settings', { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ manual_links: manualLinks }) }).catch(() => { });
         }, 1500);
@@ -757,7 +777,20 @@ export default function App() {
     const [models, setModels] = useState<ModelData[]>([]);
 
     useEffect(() => {
-        if (user) {
+        const loadFromLocal = () => {
+            const savedLibrary = localStorage.getItem(LIBRARY_KEY);
+            if (savedLibrary) {
+                try {
+                    const parsed = JSON.parse(savedLibrary);
+                    if (Array.isArray(parsed)) setModels(parsed);
+                } catch (e) {
+                    console.error("Failed to load Library", e);
+                }
+            } else {
+                setModels([]);
+            }
+        };
+        if (user && !IS_STATIC) {
             const fetchModels = () => {
                 fetch('/api/models', { credentials: 'include' })
                     .then(res => { if (res.ok) return res.json(); throw new Error('Failed to fetch models'); })
@@ -766,37 +799,30 @@ export default function App() {
             };
 
             fetchModels();
-            
+
             // Synchronisation en temps réel (Polling + Focus)
             const interval = setInterval(fetchModels, 10000);
             window.addEventListener('focus', fetchModels);
-            
+
             return () => {
                 clearInterval(interval);
                 window.removeEventListener('focus', fetchModels);
             };
-        } else {
-            // Load from LocalStorage (Guest)
-            const savedLibrary = localStorage.getItem(LIBRARY_KEY);
-            if (savedLibrary) {
-                try {
-                    const parsed = JSON.parse(savedLibrary);
-                    if (Array.isArray(parsed)) {
-                        setModels(parsed);
-                    }
-                } catch (e) {
-                    console.error("Failed to load Library", e);
-                }
-            }
+        }
+
+        // Static (Vercel) or guest: localStorage is the source of truth.
+        loadFromLocal();
+        if (IS_STATIC) {
+            const onCloudApplied = () => loadFromLocal();
+            window.addEventListener('beramethode:cloud-sync-applied', onCloudApplied);
+            return () => window.removeEventListener('beramethode:cloud-sync-applied', onCloudApplied);
         }
     }, [user]);
 
     // 2. Persist Library on Change (Server or Local)
-    // Note: For server, we usually save individually, but here we might need to refactor saveCurrentModel
-    // to call API directly instead of relying on this effect.
-    // For now, let's keep LocalStorage sync for Guest, and disable it for User (handled in saveCurrentModel)
+    // Static (Vercel) writes to localStorage; cloudSync upstreams to Supabase.
     useEffect(() => {
-        if (!user && models.length > 0) {
+        if ((!user || IS_STATIC) && models.length > 0) {
             try {
                 localStorage.setItem(LIBRARY_KEY, JSON.stringify(models));
             } catch (e) {

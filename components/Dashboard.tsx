@@ -110,19 +110,52 @@ export default function Dashboard({ models, suivis, planningEvents, settings, se
   const [liveKPIs, setLiveKPIs] = useState<any>(null);
   const [kpiLoading, setKpiLoading] = useState(true);
 
+  const IS_STATIC = import.meta.env.VITE_STATIC_MODE === 'true';
+
   const fetchKPIs = useCallback(() => {
+    if (IS_STATIC) {
+      // No backend in static (Vercel) mode — KPIs derive from local state below.
+      setKpiLoading(false);
+      return;
+    }
     setKpiLoading(true);
     fetch('/api/dashboard/kpis', { credentials: 'include' })
       .then(r => r.ok ? r.json() : null)
       .then(data => { if (data) setLiveKPIs(data); setKpiLoading(false); })
       .catch(() => setKpiLoading(false));
-  }, []);
+  }, [IS_STATIC]);
 
   useEffect(() => {
     fetchKPIs();
+    if (IS_STATIC) return;
     const interval = setInterval(fetchKPIs, 30000);
     return () => clearInterval(interval);
-  }, [fetchKPIs]);
+  }, [fetchKPIs, IS_STATIC]);
+
+  // Derive a minimal KPI shape from local state when the backend is absent
+  // (Vercel static deployment). Stock / HR cards still read '—' because that
+  // data lives in tables that are not synced to Supabase.
+  const staticLiveKPIs = useMemo(() => {
+    if (!IS_STATIC) return null;
+    const en_cours = planningEvents.filter(e => e.status === 'IN_PROGRESS').length;
+    const planned = planningEvents.filter(e => e.status === 'IN_PROGRESS' || e.status === 'READY').length;
+    let avancementSum = 0;
+    let avancementCount = 0;
+    planningEvents.forEach(e => {
+      if (e.status === 'IN_PROGRESS' || e.status === 'DONE') {
+        const target = (e as any).quantity || 0;
+        const done = (e as any).piecesProduites || 0;
+        if (target > 0) {
+          avancementSum += Math.min(100, Math.round((done / target) * 100));
+          avancementCount += 1;
+        }
+      }
+    });
+    const avancement = avancementCount > 0 ? Math.round(avancementSum / avancementCount) : 0;
+    return { planning: { en_cours, planned, avancement } };
+  }, [IS_STATIC, planningEvents]);
+
+  const effectiveLiveKPIs = liveKPIs ?? staticLiveKPIs;
 
   const activeModelsCount = useMemo(() => {
     const activeModelIds = new Set<string>();
@@ -206,7 +239,7 @@ export default function Dashboard({ models, suivis, planningEvents, settings, se
     return { totalEffectif: effectif, globalTRS: overallTRS, pJournaliere: totalH, productionData: pData, efficiencyData: eData, andonAlerts: alerts };
   }, [suivis, planningEvents, todayDateStr]);
 
-  const mergedDashboardKpis = useDashboardKpis(liveKPIs, activeModelsCount, productionStats.totalEffectif, productionStats.globalTRS, productionStats.pJournaliere);
+  const mergedDashboardKpis = useDashboardKpis(effectiveLiveKPIs, activeModelsCount, productionStats.totalEffectif, productionStats.globalTRS, productionStats.pJournaliere);
 
   const [skipReasonModal, setSkipReasonModal] = useState<AppTask | null>(null);
   const [skipReasonText, setSkipReasonText] = useState('');
