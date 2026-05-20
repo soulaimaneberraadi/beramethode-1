@@ -63,6 +63,7 @@ import {
 import { getDashboardKPIs } from './server/dashboardController';
 import { authenticateToken } from './server/middleware';
 import { postAnalyzeTextile, postSuggestVocabulary, postGenerateOperations } from './server/geminiController';
+import { supabaseSyncMiddleware, logSupabaseSyncStatus } from './server/supabaseSync';
 
 async function startServer() {
   const app = express();
@@ -161,6 +162,7 @@ async function startServer() {
   app.use(cookieParser());
   app.use('/api/', apiLimiter);
   app.use('/api/auth/', authLimiter);
+  app.use(supabaseSyncMiddleware);
 
   app.post('/api/auth/register', register);
   app.post('/api/auth/login', login);
@@ -458,6 +460,7 @@ async function startServer() {
         }
         console.log(`  └─ Mode:    ${process.env.NODE_ENV || 'development'}`);
         console.log(`  └─ CWD:    ${process.cwd()} (database.sqlite doit être ici)\n`);
+        logSupabaseSyncStatus();
         resolve();
       });
     };
