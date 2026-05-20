@@ -300,6 +300,7 @@ async function startServer() {
 
   // BERAOUVIER standalone app
   app.get('/beraouvier', (_req, res) => res.sendFile('public/beraouvier.html', { root: process.cwd() }));
+  app.get('/sync-to-cloud', (_req, res) => res.sendFile('public/sync-to-cloud.html', { root: process.cwd() }));
 
   // Admin: Export ALL data from ALL users as JSON (for migration / consolidation)
   app.get('/api/admin/export-all-data', authenticateToken, isAdmin, (_req, res) => {

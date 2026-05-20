@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BERAMETHODE — Sync to Cloud</title>
+  <style>
+    :root { color-scheme: light; }
+    * { box-sizing: border-box; }
+    body { font-family: system-ui, -apple-system, sans-serif; max-width: 720px; margin: 32px auto; padding: 0 20px; color: #1e293b; background: #f1f5f9; }
+    .card { background: white; border-radius: 14px; padding: 24px; box-shadow: 0 4px 12px rgba(15,23,42,.06); margin-bottom: 20px; }
+    h1 { color: #0f172a; margin: 0 0 8px; font-size: 22px; letter-spacing: -.01em; }
+    .lede { color: #475569; margin: 0 0 20px; font-size: 14px; line-height: 1.55; }
+    label { display: block; font-size: 13px; font-weight: 600; color: #334155; margin: 14px 0 6px; }
+    input { width: 100%; padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 14px; }
+    input:focus { outline: 2px solid #4f46e5; outline-offset: -1px; border-color: #4f46e5; }
+    .btn { background: #4f46e5; color: white; border: none; padding: 12px 22px; border-radius: 9px; font-weight: 700; font-size: 14px; cursor: pointer; transition: background .15s; }
+    .btn:hover:not(:disabled) { background: #4338ca; }
+    .btn:disabled { background: #94a3b8; cursor: not-allowed; }
+    .log { background: #0f172a; color: #a7f3d0; padding: 14px 16px; border-radius: 10px; font-family: ui-monospace, monospace; font-size: 12.5px; line-height: 1.55; max-height: 280px; overflow-y: auto; white-space: pre-wrap; }
+    .log .err { color: #fca5a5; }
+    .log .ok { color: #6ee7b7; }
+    .log .info { color: #93c5fd; }
+    .counts { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin: 10px 0 0; font-size: 13px; }
+    .counts div { padding: 6px 10px; background: #f8fafc; border-radius: 6px; }
+    .counts strong { color: #0f172a; }
+    .hint { font-size: 12px; color: #64748b; margin-top: 6px; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Synchroniser ce PC vers le cloud</h1>
+    <p class="lede">
+      Cette page lit les données du serveur Express local (<code>database.sqlite</code>) et les pousse vers Supabase
+      sous votre compte. Ouvrez l'application sur mobile avec le même e-mail — les données apparaîtront.
+      <br>À exécuter uniquement depuis le PC où tourne <code>npm run dev:app</code>.
+    </p>
+
+    <label>E-mail Supabase</label>
+    <input type="email" id="email" value="soulaimaneberraadi@gmail.com" autocomplete="email">
+
+    <label>Mot de passe Supabase</label>
+    <input type="password" id="password" placeholder="Admin123!" autocomplete="current-password">
+    <p class="hint">Le mot de passe n'est utilisé que dans ce navigateur pour s'authentifier auprès de Supabase. Il n'est ni stocké, ni envoyé au serveur Express.</p>
+
+    <div style="margin-top: 18px; display: flex; gap: 10px; align-items: center;">
+      <button class="btn" id="goBtn">Pousser vers Supabase</button>
+      <span id="status" style="font-size: 13px; color: #475569;"></span>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3 style="margin: 0 0 10px;">Journal</h3>
+    <div class="log" id="log">En attente…</div>
+    <div class="counts" id="counts" style="display: none;"></div>
+  </div>
+
+  <script>
+    const SUPABASE_URL = 'https://jiscgwioxwsulaopsivc.supabase.co';
+    const ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imppc2Nnd2lveHdzdWxhb3BzaXZjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU5OTcwNTgsImV4cCI6MjA5MTU3MzA1OH0.-jRI1RlbjxecLyN2b83xmjuJCKhs7ti_7_-RWXNCNgk';
+
+    const logEl = document.getElementById('log');
+    const goBtn = document.getElementById('goBtn');
+    const statusEl = document.getElementById('status');
+    const countsEl = document.getElementById('counts');
+
+    const log = (msg, type) => {
+      const line = document.createElement('span');
+      if (type) line.className = type;
+      line.textContent = msg + '\n';
+      if (logEl.textContent === 'En attente…') logEl.textContent = '';
+      logEl.appendChild(line);
+      logEl.scrollTop = logEl.scrollHeight;
+    };
+
+    const fetchJSON = async (path) => {
+      try {
+        const res = await fetch(path, { credentials: 'include' });
+        if (!res.ok) { log(`  ↳ ${path}: HTTP ${res.status}`, 'err'); return null; }
+        const data = await res.json();
+        return data;
+      } catch (e) {
+        log(`  ↳ ${path}: ${e.message}`, 'err');
+        return null;
+      }
+    };
+
+    const countOf = (v) => Array.isArray(v) ? v.length : (v && typeof v === 'object' ? Object.keys(v).length : 0);
+
+    goBtn.addEventListener('click', async () => {
+      const email = document.getElementById('email').value.trim().toLowerCase();
+      const password = document.getElementById('password').value;
+      if (!email || !password) { log('E-mail et mot de passe requis.', 'err'); return; }
+
+      goBtn.disabled = true;
+      statusEl.textContent = 'En cours…';
+      logEl.textContent = '';
+      countsEl.style.display = 'none';
+
+      log('1/4  Lecture des données locales (/api/*)…', 'info');
+      const [models, planning, suivis, demandesAppro, workers, workerSkills, workerPointage, posteSuivi,
+             magasinProducts, magasinLots, magasinMouvements, magasinCommandes, magasinDemandes,
+             hrWorkers, hrPointage, hrProduction, hrAvances, settings] = await Promise.all([
+        fetchJSON('/api/models'),
+        fetchJSON('/api/planning'),
+        fetchJSON('/api/suivi'),
+        fetchJSON('/api/demandes-appro'),
+        fetchJSON('/api/workers'),
+        fetchJSON('/api/worker-skills'),
+        fetchJSON('/api/worker-pointage'),
+        fetchJSON('/api/poste-suivi'),
+        fetchJSON('/api/magasin/products'),
+        fetchJSON('/api/magasin/lots'),
+        fetchJSON('/api/magasin/mouvements'),
+        fetchJSON('/api/magasin/commandes'),
+        fetchJSON('/api/magasin/demandes'),
+        fetchJSON('/api/hr/workers'),
+        fetchJSON('/api/hr/pointage'),
+        fetchJSON('/api/hr/production'),
+        fetchJSON('/api/hr/avances'),
+        fetchJSON('/api/settings'),
+      ]);
+
+      const counts = {
+        models: countOf(models),
+        planning: countOf(planning),
+        suivis: countOf(suivis),
+        demandesAppro: countOf(demandesAppro),
+        workers: countOf(workers),
+        workerSkills: countOf(workerSkills),
+        workerPointage: countOf(workerPointage),
+        magasinProducts: countOf(magasinProducts),
+        magasinLots: countOf(magasinLots),
+        magasinMouvements: countOf(magasinMouvements),
+        hrWorkers: countOf(hrWorkers),
+        hrPointage: countOf(hrPointage),
+        hrProduction: countOf(hrProduction),
+        hrAvances: countOf(hrAvances),
+      };
+      countsEl.innerHTML = Object.entries(counts).map(([k,v]) => `<div>${k}: <strong>${v}</strong></div>`).join('');
+      countsEl.style.display = 'grid';
+      log('  ✓ Lectures terminées.', 'ok');
+
+      log('2/4  Authentification Supabase…', 'info');
+      let access_token, userId;
+      try {
+        const res = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', apikey: ANON_KEY },
+          body: JSON.stringify({ email, password }),
+        });
+        if (!res.ok) {
+          const body = await res.text();
+          log(`  ✗ Login refusé (${res.status}): ${body.slice(0, 200)}`, 'err');
+          statusEl.textContent = 'Échec';
+          goBtn.disabled = false;
+          return;
+        }
+        const data = await res.json();
+        access_token = data.access_token;
+        userId = data.user.id;
+        log(`  ✓ Connecté : ${data.user.email} (id=${userId})`, 'ok');
+      } catch (e) {
+        log(`  ✗ Erreur réseau : ${e.message}`, 'err');
+        statusEl.textContent = 'Échec';
+        goBtn.disabled = false;
+        return;
+      }
+
+      log('3/4  Construction du snapshot…', 'info');
+      const snapshot = {
+        beramethode_library: Array.isArray(models) ? models : [],
+        beramethode_planning: Array.isArray(planning) ? planning : [],
+        beramethode_suivis: Array.isArray(suivis) ? suivis : [],
+        beramethode_demandesAppro: Array.isArray(demandesAppro) ? demandesAppro : [],
+        beramethode_settings: settings || {},
+        __sqlite_export__: {
+          exported_at: new Date().toISOString(),
+          counts,
+          workers: Array.isArray(workers) ? workers : [],
+          workerSkills: Array.isArray(workerSkills) ? workerSkills : [],
+          workerPointage: Array.isArray(workerPointage) ? workerPointage : [],
+          posteSuivi: Array.isArray(posteSuivi) ? posteSuivi : [],
+          magasin: {
+            products: Array.isArray(magasinProducts) ? magasinProducts : [],
+            lots: Array.isArray(magasinLots) ? magasinLots : [],
+            mouvements: Array.isArray(magasinMouvements) ? magasinMouvements : [],
+            commandes: Array.isArray(magasinCommandes) ? magasinCommandes : [],
+            demandes: Array.isArray(magasinDemandes) ? magasinDemandes : [],
+          },
+          hr: {
+            workers: Array.isArray(hrWorkers) ? hrWorkers : [],
+            pointage: Array.isArray(hrPointage) ? hrPointage : [],
+            production: Array.isArray(hrProduction) ? hrProduction : [],
+            avances: Array.isArray(hrAvances) ? hrAvances : [],
+          },
+        },
+      };
+      const sizeKB = (JSON.stringify(snapshot).length / 1024).toFixed(1);
+      log(`  ✓ Snapshot prêt (${sizeKB} KB).`, 'ok');
+
+      log('4/4  Upload vers Supabase user_data…', 'info');
+      try {
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/user_data?on_conflict=user_id`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            apikey: ANON_KEY,
+            Authorization: `Bearer ${access_token}`,
+            Prefer: 'resolution=merge-duplicates',
+          },
+          body: JSON.stringify({ user_id: userId, data: snapshot, updated_at: new Date().toISOString() }),
+        });
+        if (!res.ok) {
+          const body = await res.text();
+          log(`  ✗ Upload refusé (${res.status}): ${body.slice(0, 200)}`, 'err');
+          statusEl.textContent = 'Échec';
+          goBtn.disabled = false;
+          return;
+        }
+        log('  ✓ Snapshot synchronisé.', 'ok');
+        log('', '');
+        log('Terminé ! Ouvrez https://beramethode-1.vercel.app sur mobile, reconnectez-vous : les données doivent apparaître.', 'ok');
+        statusEl.textContent = 'Succès';
+      } catch (e) {
+        log(`  ✗ Erreur réseau : ${e.message}`, 'err');
+        statusEl.textContent = 'Échec';
+      } finally {
+        goBtn.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>
