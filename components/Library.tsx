@@ -307,12 +307,17 @@ export default function Library({
 
     // --- FILTER & SORT ---
     const filteredModels = models
+        .filter(m => m && m.meta_data)
         .filter(m => m.isPublishedToLibrary !== false)
         .filter(m => modelMatchesLibrarySearch(m, searchQuery))
         .sort((a, b) => {
-            if (sortBy === 'date') return new Date(b.meta_data.date_creation).getTime() - new Date(a.meta_data.date_creation).getTime();
-            if (sortBy === 'name') return a.meta_data.nom_modele.localeCompare(b.meta_data.nom_modele);
-            if (sortBy === 'time') return b.meta_data.total_temps - a.meta_data.total_temps;
+            if (sortBy === 'date') {
+                const ta = a.meta_data.date_creation ? new Date(a.meta_data.date_creation).getTime() : 0;
+                const tb = b.meta_data.date_creation ? new Date(b.meta_data.date_creation).getTime() : 0;
+                return tb - ta;
+            }
+            if (sortBy === 'name') return (a.meta_data.nom_modele || '').localeCompare(b.meta_data.nom_modele || '');
+            if (sortBy === 'time') return (b.meta_data.total_temps || 0) - (a.meta_data.total_temps || 0);
             return 0;
         });
 
@@ -588,7 +593,7 @@ export default function Library({
                                                 </span>
                                                 <span className="text-[10px] text-slate-400 flex items-center gap-1">
                                                     <Calendar className="w-3 h-3" />
-                                                    {new Date(model.meta_data.date_creation).toLocaleDateString()}
+                                                    {model.meta_data.date_creation ? new Date(model.meta_data.date_creation).toLocaleDateString() : '—'}
                                                 </span>
                                             </div>
                                         </div>
