@@ -293,9 +293,9 @@ export default function Configuration({ settings, setSettings, lang, machines }:
 
     const toggleWorkingDay = (dayIndex: number) => {
         setSettings(prev => {
-            const days = prev.workingDays.includes(dayIndex)
-                ? prev.workingDays.filter(d => d !== dayIndex)
-                : [...prev.workingDays, dayIndex].sort((a, b) => a - b);
+            const days = (prev.workingDays ?? []).includes(dayIndex)
+                ? (prev.workingDays ?? []).filter(d => d !== dayIndex)
+                : [...(prev.workingDays ?? []), dayIndex].sort((a, b) => a - b);
             return { ...prev, workingDays: days };
         });
     };
@@ -629,7 +629,7 @@ export default function Configuration({ settings, setSettings, lang, machines }:
                             </div>
                             <div className="grid grid-cols-4 sm:flex sm:flex-wrap gap-2">
                                 {[1, 2, 3, 4, 5, 6, 7].map((dayCode, idx) => {
-                                    const isActive = settings.workingDays.includes(dayCode);
+                                    const isActive = (settings.workingDays ?? []).includes(dayCode);
                                     return (
                                         <button
                                             key={dayCode}
