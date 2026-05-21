@@ -293,9 +293,10 @@ export default function Configuration({ settings, setSettings, lang, machines }:
 
     const toggleWorkingDay = (dayIndex: number) => {
         setSettings(prev => {
-            const days = prev.workingDays.includes(dayIndex)
-                ? prev.workingDays.filter(d => d !== dayIndex)
-                : [...prev.workingDays, dayIndex].sort((a, b) => a - b);
+            const current = prev.workingDays || [];
+            const days = current.includes(dayIndex)
+                ? current.filter(d => d !== dayIndex)
+                : [...current, dayIndex].sort((a, b) => a - b);
             return { ...prev, workingDays: days };
         });
     };
@@ -303,14 +304,14 @@ export default function Configuration({ settings, setSettings, lang, machines }:
     const addPause = () => {
         setSettings(prev => ({
             ...prev,
-            pauses: [...prev.pauses, { id: Date.now().toString(), name: 'Nouvelle Pause', start: '12:00', end: '13:00', durationMin: 60 }]
+            pauses: [...(prev.pauses || []), { id: Date.now().toString(), name: 'Nouvelle Pause', start: '12:00', end: '13:00', durationMin: 60 }]
         }));
     };
 
     const updatePause = (id: string, field: 'start' | 'end' | 'name', value: string) => {
         setSettings(prev => ({
             ...prev,
-            pauses: prev.pauses.map(p => {
+            pauses: (prev.pauses || []).map(p => {
                 if (p.id !== id) return p;
                 const updated = { ...p, [field]: value };
                 if ((field === 'start' || field === 'end') && updated.start && updated.end) {
@@ -328,7 +329,7 @@ export default function Configuration({ settings, setSettings, lang, machines }:
     const removePause = (id: string) => {
         setSettings(prev => ({
             ...prev,
-            pauses: prev.pauses.filter(p => p.id !== id)
+            pauses: (prev.pauses || []).filter(p => p.id !== id)
         }));
     };
 
@@ -619,7 +620,7 @@ export default function Configuration({ settings, setSettings, lang, machines }:
                         {/* Working Days */}
                         <div>
                             <div className="flex items-center justify-between mb-2">
-                                <label className="flex items-center gap-2 block text-xs font-bold uppercase text-slate-500">{t.workingDays} <span className="text-[10px] text-indigo-500 bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-100 font-black tracking-widest">{settings.workingDays.length}/7</span></label>
+                                <label className="flex items-center gap-2 block text-xs font-bold uppercase text-slate-500">{t.workingDays} <span className="text-[10px] text-indigo-500 bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-100 font-black tracking-widest">{(settings.workingDays || []).length}/7</span></label>
                                 <div className="flex gap-2">
                                     <button onClick={() => setSettings(prev => ({ ...prev, workingDays: [1, 2, 3, 4, 5, 6, 7] }))} className="text-xs font-bold text-slate-500 hover:text-indigo-600 transition-colors uppercase pr-2 border-r border-slate-200 hidden sm:block">Tous</button>
                                     <button onClick={() => setShowAgenda(true)} className="text-[11px] font-bold bg-indigo-50 text-indigo-600 hover:text-indigo-700 hover:bg-indigo-100 border border-indigo-100 px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5 shadow-sm active:scale-95">
@@ -629,7 +630,7 @@ export default function Configuration({ settings, setSettings, lang, machines }:
                             </div>
                             <div className="grid grid-cols-4 sm:flex sm:flex-wrap gap-2">
                                 {[1, 2, 3, 4, 5, 6, 7].map((dayCode, idx) => {
-                                    const isActive = settings.workingDays.includes(dayCode);
+                                    const isActive = (settings.workingDays || []).includes(dayCode);
                                     return (
                                         <button
                                             key={dayCode}
@@ -659,7 +660,7 @@ export default function Configuration({ settings, setSettings, lang, machines }:
                             </div>
 
                             <div className="space-y-3">
-                                {settings.pauses.map((pause, index) => (
+                                {(settings.pauses || []).map((pause, index) => (
                                     <div key={pause.id} className="flex flex-col sm:flex-row items-center gap-3 bg-slate-50 p-3 rounded-xl border border-slate-200 hover:border-indigo-200 transition-colors">
                                         <span className="text-xs font-bold text-slate-400 w-6 text-center">{index + 1}.</span>
                                         <div className="flex-1 flex flex-col xl:flex-row gap-3 w-full">
@@ -687,7 +688,7 @@ export default function Configuration({ settings, setSettings, lang, machines }:
                                         </button>
                                     </div>
                                 ))}
-                                {settings.pauses.length === 0 && (
+                                {(settings.pauses || []).length === 0 && (
                                     <p className="text-sm text-slate-500 italic text-center py-4 bg-slate-50 rounded-lg border border-dashed border-slate-200">Aucune pause définie pour le moment.</p>
                                 )}
                             </div>
