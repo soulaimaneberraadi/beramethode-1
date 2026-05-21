@@ -619,7 +619,7 @@ export default function Configuration({ settings, setSettings, lang, machines }:
                         {/* Working Days */}
                         <div>
                             <div className="flex items-center justify-between mb-2">
-                                <label className="flex items-center gap-2 block text-xs font-bold uppercase text-slate-500">{t.workingDays} <span className="text-[10px] text-indigo-500 bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-100 font-black tracking-widest">{settings.workingDays.length}/7</span></label>
+                                <label className="flex items-center gap-2 block text-xs font-bold uppercase text-slate-500">{t.workingDays} <span className="text-[10px] text-indigo-500 bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-100 font-black tracking-widest">{(settings.workingDays ?? []).length}/7</span></label>
                                 <div className="flex gap-2">
                                     <button onClick={() => setSettings(prev => ({ ...prev, workingDays: [1, 2, 3, 4, 5, 6, 7] }))} className="text-xs font-bold text-slate-500 hover:text-indigo-600 transition-colors uppercase pr-2 border-r border-slate-200 hidden sm:block">Tous</button>
                                     <button onClick={() => setShowAgenda(true)} className="text-[11px] font-bold bg-indigo-50 text-indigo-600 hover:text-indigo-700 hover:bg-indigo-100 border border-indigo-100 px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5 shadow-sm active:scale-95">
