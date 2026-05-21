@@ -12,6 +12,7 @@
 
 import db from './db';
 import { Request, Response, NextFunction } from 'express';
+import { markLocalPushing, isApplyingRemoteSnapshot } from './supabaseRealtime';
 
 const SUPABASE_URL = process.env.SUPABASE_URL || 'https://jiscgwioxwsulaopsivc.supabase.co';
 const SUPABASE_ANON_KEY =
@@ -158,7 +159,11 @@ const ensureSession = async (): Promise<Session | null> => {
 const pushNow = async () => {
   if (!enabled) return;
   if (pushInFlight) { pendingAfterFlight = true; return; }
+  // Don't push while we're applying a remote snapshot — the writes that
+  // triggered this push are from the remote, not from the user.
+  if (isApplyingRemoteSnapshot()) return;
   pushInFlight = true;
+  markLocalPushing();
   try {
     const sess = await ensureSession();
     if (!sess) return;

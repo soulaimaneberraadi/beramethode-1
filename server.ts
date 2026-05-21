@@ -70,6 +70,7 @@ import { getDashboardKPIs } from './server/dashboardController';
 import { authenticateToken } from './server/middleware';
 import { postAnalyzeTextile, postSuggestVocabulary, postGenerateOperations, postOptimizePlanning } from './server/geminiController';
 import { supabaseSyncMiddleware, logSupabaseSyncStatus } from './server/supabaseSync';
+import { startSupabaseRealtime } from './server/supabaseRealtime';
 
 async function startServer() {
   const app = express();
@@ -480,6 +481,8 @@ async function startServer() {
         console.log(`  └─ Mode:    ${process.env.NODE_ENV || 'development'}`);
         console.log(`  └─ CWD:    ${process.cwd()} (database.sqlite doit être ici)\n`);
         logSupabaseSyncStatus();
+        // Start realtime listener (Vercel/phone → PC) — fire and forget
+        void startSupabaseRealtime();
         resolve();
       });
     };
