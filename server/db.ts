@@ -164,6 +164,9 @@ try { db.prepare("ALTER TABLE magasin_products ADD COLUMN fournisseurContact TEX
 try { db.prepare("ALTER TABLE magasin_products ADD COLUMN fournisseurNotes TEXT").run(); } catch(e) {}
 try { db.prepare("ALTER TABLE magasin_products ADD COLUMN fournisseurLogo TEXT").run(); } catch(e) {}
 try { db.prepare("ALTER TABLE magasin_lots ADD COLUMN quantiteReservee REAL DEFAULT 0").run(); } catch(e) {}
+try { db.prepare("ALTER TABLE planning_events ADD COLUMN isSubcontracted INTEGER DEFAULT 0").run(); } catch(e) {}
+try { db.prepare("ALTER TABLE planning_events ADD COLUMN subcontractorName TEXT").run(); } catch(e) {}
+try { db.prepare("ALTER TABLE planning_events ADD COLUMN subcontractStatus TEXT DEFAULT 'PENDING'").run(); } catch(e) {}
 
 // CREATE SETTINGS TABLE (multi-tenant: composite PK)
 db.exec(`
@@ -275,14 +278,27 @@ CREATE TABLE IF NOT EXISTS suivi_data (
   id TEXT PRIMARY KEY,
   owner_id INTEGER NOT NULL,
   planningId TEXT NOT NULL,
+  modelId TEXT,
+  chaineId TEXT,
   date TEXT NOT NULL,
-  pJournaliere INTEGER,
-  totalWorkers INTEGER,
+  entrer INTEGER DEFAULT 0,
+  sorties_json TEXT,
+  totalHeure INTEGER DEFAULT 0,
+  pJournaliere INTEGER DEFAULT 400,
+  enCour INTEGER DEFAULT 0,
+  resteEntrer INTEGER DEFAULT 0,
+  resteSortie INTEGER DEFAULT 0,
+  totalWorkers INTEGER DEFAULT 0,
+  absent INTEGER DEFAULT 0,
   trs REAL,
+  activeSection TEXT,
+  created_by TEXT,
+  source TEXT DEFAULT 'PLANNING',
   raw_data TEXT NOT NULL,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE CASCADE,
+  FOREIGN KEY (planningId) REFERENCES planning_events(id) ON DELETE CASCADE,
   UNIQUE(planningId, date)
 );
 
@@ -299,6 +315,17 @@ CREATE TABLE IF NOT EXISTS demandes_appro (
   statut TEXT NOT NULL,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS planning_reservations (
+  id TEXT PRIMARY KEY,
+  planningId TEXT NOT NULL,
+  productId TEXT NOT NULL,
+  lotId TEXT NOT NULL,
+  quantite REAL NOT NULL,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (planningId) REFERENCES planning_events(id) ON DELETE CASCADE,
+  FOREIGN KEY (lotId) REFERENCES magasin_lots(id) ON DELETE CASCADE
 );
 `);
 
@@ -439,6 +466,73 @@ INSERT OR IGNORE INTO downtime_codes (code, label_fr, label_ar, color, is_planne
   ('ABSENCE', 'Absence ouvrier', 'غياب عامل', '#ef4444', 0),
   ('FORMATION', 'Formation', 'تكوين', '#06b6d4', 1),
   ('AUTRE', 'Autre', 'أخرى', '#475569', 0);
+`);
+
+// ── TABLES SUIVI ──────────────────────────────────────────────────────────────
+db.exec(`
+CREATE TABLE IF NOT EXISTS suivi_sorties_horaires (
+  id TEXT PRIMARY KEY,
+  suivi_id TEXT NOT NULL,
+  heure_key TEXT NOT NULL,
+  quantite INTEGER DEFAULT 0,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (suivi_id) REFERENCES suivi_data(id) ON DELETE CASCADE,
+  UNIQUE(suivi_id, heure_key)
+);
+
+CREATE TABLE IF NOT EXISTS suivi_effectifs (
+  id TEXT PRIMARY KEY,
+  suivi_id TEXT NOT NULL,
+  role TEXT NOT NULL,
+  nombre INTEGER DEFAULT 0,
+  tag_texte TEXT,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (suivi_id) REFERENCES suivi_data(id) ON DELETE CASCADE,
+  UNIQUE(suivi_id, role)
+);
+
+CREATE TABLE IF NOT EXISTS suivi_defauts (
+  id TEXT PRIMARY KEY,
+  suivi_id TEXT NOT NULL,
+  heure TEXT NOT NULL,
+  type TEXT NOT NULL,
+  quantite INTEGER NOT NULL,
+  notes TEXT,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (suivi_id) REFERENCES suivi_data(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS suivi_downtimes (
+  id TEXT PRIMARY KEY,
+  suivi_id TEXT NOT NULL,
+  code TEXT NOT NULL,
+  duree_minutes INTEGER DEFAULT 0,
+  heure_debut TEXT,
+  heure_fin TEXT,
+  notes TEXT,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (suivi_id) REFERENCES suivi_data(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS suivi_comments (
+  id TEXT PRIMARY KEY,
+  suivi_id TEXT NOT NULL,
+  auteur TEXT,
+  texte TEXT NOT NULL,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (suivi_id) REFERENCES suivi_data(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS suivi_sections (
+  id TEXT PRIMARY KEY,
+  suivi_id TEXT NOT NULL,
+  section TEXT NOT NULL,
+  effectif INTEGER DEFAULT 0,
+  output INTEGER DEFAULT 0,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (suivi_id) REFERENCES suivi_data(id) ON DELETE CASCADE,
+  UNIQUE(suivi_id, section)
+);
 `);
 
 // Extend suivi_data with scrap / downtime / comments / metadata (idempotent)
@@ -700,6 +794,28 @@ try {
   }
 } catch(e) {}
 
+// CREATE SUBCONTRACT ORDERS TABLE
+db.exec(`
+  CREATE TABLE IF NOT EXISTS subcontract_orders (
+    id TEXT PRIMARY KEY,
+    owner_id INTEGER NOT NULL,
+    modelId TEXT NOT NULL,
+    modelName TEXT,
+    clientName TEXT,
+    totalQuantity INTEGER NOT NULL,
+    subcontractorName TEXT NOT NULL,
+    pricePerPiece REAL DEFAULT 0,
+    deliveryDate TEXT NOT NULL,
+    status TEXT DEFAULT 'PENDING',
+    sizes_json TEXT,
+    colors_json TEXT,
+    notes TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE CASCADE
+  )
+`);
+
 // 🚀 CRÉATION DES INDEX POUR OPTIMISER LES PERFORMANCES (Lectures / Jointures)
 db.exec(`
   -- Index généraux
@@ -714,7 +830,19 @@ db.exec(`
   -- Index Production & Planification
   CREATE INDEX IF NOT EXISTS idx_planning_events_owner ON planning_events(owner_id);
   CREATE INDEX IF NOT EXISTS idx_suivi_data_planning ON suivi_data(planningId, date);
+  CREATE INDEX IF NOT EXISTS idx_suivi_data_owner ON suivi_data(owner_id);
+  CREATE INDEX IF NOT EXISTS idx_suivi_data_date ON suivi_data(date);
+  CREATE INDEX IF NOT EXISTS idx_suivi_data_model ON suivi_data(modelId, date);
+  CREATE INDEX IF NOT EXISTS idx_suivi_data_chaine ON suivi_data(chaineId, date);
   CREATE INDEX IF NOT EXISTS idx_poste_suivi_planning ON poste_suivi(planningId, posteId, date);
+
+  -- Index Suivi Tables
+  CREATE INDEX IF NOT EXISTS idx_suivi_sorties_suivi ON suivi_sorties_horaires(suivi_id);
+  CREATE INDEX IF NOT EXISTS idx_suivi_effectifs_suivi ON suivi_effectifs(suivi_id);
+  CREATE INDEX IF NOT EXISTS idx_suivi_defauts_suivi ON suivi_defauts(suivi_id);
+  CREATE INDEX IF NOT EXISTS idx_suivi_downtimes_suivi ON suivi_downtimes(suivi_id);
+  CREATE INDEX IF NOT EXISTS idx_suivi_comments_suivi ON suivi_comments(suivi_id);
+  CREATE INDEX IF NOT EXISTS idx_suivi_sections_suivi ON suivi_sections(suivi_id);
 
   -- Index Workers (Standard)
   CREATE INDEX IF NOT EXISTS idx_workers_owner ON workers(owner_id);
@@ -955,4 +1083,27 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_factures_type ON factures(type);
 `);
 
+// ============================================================================
+// MIGRATIONS FOR SUBCONTRACT ORDERS ADVANCED FIELDS
+// ============================================================================
+try {
+  db.exec("ALTER TABLE subcontract_orders ADD COLUMN tissuStatus TEXT DEFAULT 'PENDING'");
+} catch(e) {}
+try {
+  db.exec("ALTER TABLE subcontract_orders ADD COLUMN fournituresStatus TEXT DEFAULT 'PENDING'");
+} catch(e) {}
+try {
+  db.exec("ALTER TABLE subcontract_orders ADD COLUMN ficheTechniqueSent INTEGER DEFAULT 0");
+} catch(e) {}
+try {
+  db.exec("ALTER TABLE subcontract_orders ADD COLUMN qtyAccepted INTEGER DEFAULT 0");
+} catch(e) {}
+try {
+  db.exec("ALTER TABLE subcontract_orders ADD COLUMN qtyToRepair INTEGER DEFAULT 0");
+} catch(e) {}
+try {
+  db.exec("ALTER TABLE subcontract_orders ADD COLUMN qtyRejected INTEGER DEFAULT 0");
+} catch(e) {}
+
 export default db;
+

@@ -146,6 +146,9 @@ const pushNow = async () => {
     const sess = await ensureSession();
     if (!sess) return;
     const snapshot = buildSnapshot();
+    const bodyStr = JSON.stringify({ user_id: sess.userId, data: snapshot, updated_at: new Date().toISOString() });
+    const sizeKb = (bodyStr.length / 1024).toFixed(1);
+    console.log(`[supabaseSync] 📤 pushing ${sizeKb} KB...`);
     const res = await fetch(`${SUPABASE_URL}/rest/v1/user_data?on_conflict=user_id`, {
       method: 'POST',
       headers: {
@@ -154,13 +157,16 @@ const pushNow = async () => {
         Authorization: `Bearer ${sess.accessToken}`,
         Prefer: 'resolution=merge-duplicates',
       },
-      body: JSON.stringify({ user_id: sess.userId, data: snapshot, updated_at: new Date().toISOString() }),
+      body: bodyStr,
     });
     if (!res.ok) {
       const body = await res.text().catch(() => '');
       console.warn(`[supabaseSync] upsert failed (${res.status}): ${body.slice(0, 200)}`);
       // Force re-login on next push if token was rejected.
       if (res.status === 401 || res.status === 403) session = null;
+    } else {
+      const c = (snapshot as any).__sqlite_export__?.counts || {};
+      console.log(`[supabaseSync] ✅ pushed snapshot — models=${c.models||0} planning=${c.planningEvents||0} workers=${c.workers||0} hrWorkers=${c.hrWorkers||0}`);
     }
   } catch (err) {
     console.warn('[supabaseSync] push error:', err);

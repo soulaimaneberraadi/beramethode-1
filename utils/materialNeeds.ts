@@ -55,6 +55,52 @@ export function availableQtyForProduct(productId: string, lots: MagasinLotRef[])
         .reduce((s, l) => s + (l.quantiteRestante - (l.quantiteReservee || 0)), 0);
 }
 
+export function allocateFIFO(
+    lines: { name: string; qty: number }[],
+    products: any[],
+    lots: any[]
+): { productId: string; lotId: string; quantite: number }[] {
+    const allocations: { productId: string; lotId: string; quantite: number }[] = [];
+    
+    for (const line of lines) {
+        const pid = matchMagasinProductId(line.name, products);
+        if (!pid) continue;
+        
+        const productLots = lots
+            .filter((l: any) => l.productId === pid)
+            .map((l: any) => ({
+                ...l,
+                available: Math.max(0, (l.quantiteRestante || 0) - (l.quantiteReservee || 0)),
+            }))
+            .filter((l: any) => l.available > 0);
+            
+        productLots.sort((a: any, b: any) => {
+            const dateA = a.dateEntree || '';
+            const dateB = b.dateEntree || '';
+            if (dateA !== dateB) {
+                return dateA.localeCompare(dateB);
+            }
+            return (a.id || '').localeCompare(b.id || '');
+        });
+        
+        let remainingNeed = line.qty;
+        for (const lot of productLots) {
+            if (remainingNeed <= 0) break;
+            const take = Math.min(remainingNeed, lot.available);
+            if (take > 0) {
+                allocations.push({
+                    productId: pid,
+                    lotId: lot.id,
+                    quantite: Number(take.toFixed(4)),
+                });
+                remainingNeed -= take;
+            }
+        }
+    }
+    
+    return allocations;
+}
+
 /**
  * Compare les besoins agrégés au stock disponible (reste − réservé par lot).
  * Si le catalogue magasin est vide, retourne ok: true (pas de blocage automatique).

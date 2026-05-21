@@ -18,11 +18,12 @@ import {
     Menu,
     X,
     Target,
+    Truck,
 } from 'lucide-react';
 import type { Lang } from './constants';
 import { TRANSLATIONS } from './constants';
 
-type ViewType = 'dashboard' | 'ingenierie' | 'atelier' | 'library' | 'coupe' | 'effectifs' | 'gestionRh' | 'planning' | 'suivi' | 'magasin' | 'export' | 'config' | 'profil' | 'admin' | 'rendement' | 'pageMachine' | 'machin' | 'objectifs' | 'facturation' | 'atelierProd' | 'vuegenerale';
+type ViewType = 'dashboard' | 'ingenierie' | 'atelier' | 'library' | 'coupe' | 'effectifs' | 'gestionRh' | 'planning' | 'suivi' | 'magasin' | 'export' | 'config' | 'profil' | 'admin' | 'rendement' | 'pageMachine' | 'machin' | 'objectifs' | 'facturation' | 'atelierProd' | 'vuegenerale' | 'sousTraitance';
 
 interface AppHeaderProps {
     currentView: ViewType;
@@ -161,6 +162,9 @@ export default function AppHeader({
                     <NavButton view="atelierProd" currentView={currentView} onClick={handleNavigation}
                         activeClass="bg-orange-50 border-orange-100 text-orange-700"
                         icon={<Factory className="w-3.5 h-3.5" />} label="Atelier P°" />
+                    <NavButton view="sousTraitance" currentView={currentView} onClick={handleNavigation}
+                        activeClass="bg-indigo-50 border-indigo-100 text-indigo-700"
+                        icon={<Truck className="w-3.5 h-3.5" />} label="Sous-traitance" />
                     {user?.role === 'admin' && (
                         <NavButton view="admin" currentView={currentView} onClick={handleNavigation}
                             activeClass="bg-purple-50 border-purple-100 text-purple-700"

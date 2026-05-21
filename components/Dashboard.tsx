@@ -423,8 +423,8 @@ export default function Dashboard({ models, suivis, planningEvents, settings, se
                 </div>
                 <div className="p-3 sm:p-4 md:p-5">
                   <div className="grid grid-cols-7 gap-0.5 sm:gap-1 text-center mb-2 sm:mb-3">
-                    {['L','M','M','J','V','S','D'].map(d => (
-                      <div key={d} className="text-[9px] sm:text-[10px] font-bold text-slate-400 py-1 sm:py-1.5">{d}</div>
+                    {['L','M','M','J','V','S','D'].map((d, idx) => (
+                      <div key={idx} className="text-[9px] sm:text-[10px] font-bold text-slate-400 py-1 sm:py-1.5">{d}</div>
                     ))}
                   </div>
                   <div className="grid grid-cols-7 gap-0.5 sm:gap-1.5">

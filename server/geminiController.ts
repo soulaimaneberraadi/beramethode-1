@@ -3,6 +3,7 @@ import {
   analyzeTextileContextServer,
   suggestTextileVocabularyServer,
   generateTextileOperationsServer,
+  optimizePlanningServer,
 } from './geminiAi';
 
 export const postAnalyzeTextile = async (req: Request, res: Response) => {
@@ -55,5 +56,20 @@ export const postGenerateOperations = async (req: Request, res: Response) => {
   } catch (e: any) {
     console.error('postGenerateOperations:', e);
     res.status(500).json({ message: e?.message || 'Erreur IA' });
+  }
+};
+
+export const postOptimizePlanning = async (req: Request, res: Response) => {
+  try {
+    const { events, machines, settings } = req.body;
+    const result = await optimizePlanningServer(
+      Array.isArray(events) ? events : [],
+      Array.isArray(machines) ? machines : [],
+      settings || {}
+    );
+    res.json(result);
+  } catch (e: any) {
+    console.error('postOptimizePlanning error:', e);
+    res.status(500).json({ message: e?.message || 'Erreur IA lors de l\'optimisation' });
   }
 };

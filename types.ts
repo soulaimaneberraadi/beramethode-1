@@ -40,6 +40,8 @@ export type MachineInstance = {
   machineManuals?: MachinePdfAttachment[];
   chainId?: string;
   serialNumber?: string;
+  downtimeStartYmd?: string;
+  downtimeEndYmd?: string;
 };
 
 /** Alias rétrocompatibilité — Planning, SuiviProduction, machineMatch utilisent Machine */
@@ -51,6 +53,8 @@ export type Machine = MachineClass & {
   status?: 'OK' | 'PANNE' | 'MAINT';
   chainId?: string;
   serialNumber?: string;
+  downtimeStartYmd?: string;
+  downtimeEndYmd?: string;
 };
 
 /** Entrée / sortie machine conservée hors parc actif (traçabilité). */
@@ -471,6 +475,10 @@ export type PlanningEvent = {
   materialShortages?: { name: string; unit?: string; productId?: string; required: number; available: number; missing: number; unmatched?: boolean }[];
   /** Phase 6 — bons de commande brouillon liés à l'OF (sans API SQLite pour l'instant) */
   purchaseOrdersDraft?: PlanningPurchaseDraft[];
+  /** Phase 7 — Sous-traitance */
+  isSubcontracted?: boolean;
+  subcontractorName?: string;
+  subcontractStatus?: 'PENDING' | 'SENT' | 'COMPLETED';
 };
 
 /** Ligne de BC générée depuis le planning (persistance JSON / raw_data) */
@@ -484,6 +492,29 @@ export type PlanningPurchaseDraft = {
   expectedArrivalYmd: string;
   status: 'DRAFT';
 };
+
+export interface SubcontractOrder {
+  id: string;
+  modelId: string;
+  modelName?: string;
+  clientName?: string;
+  totalQuantity: number;
+  subcontractorName: string;
+  pricePerPiece?: number;
+  deliveryDate: string;
+  status: 'PENDING' | 'IN_COUPE' | 'IN_COUTURE' | 'IN_FINITION' | 'LIVRE_PARTIEL' | 'COMPLETED';
+  sizes_json?: string; // format: JSON string representing Record<string, number>
+  colors_json?: string; // format: JSON string representing Record<string, number>
+  notes?: string;
+  tissuStatus?: 'PENDING' | 'SENT';
+  fournituresStatus?: 'PENDING' | 'DELIVERED';
+  ficheTechniqueSent?: number; // 0 or 1
+  qtyAccepted?: number;
+  qtyToRepair?: number;
+  qtyRejected?: number;
+  created_at?: string;
+  updated_at?: string;
+}
 
 export interface Lot {
   id: string;

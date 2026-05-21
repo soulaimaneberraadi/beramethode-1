@@ -1,0 +1,167 @@
+import React, { useMemo } from 'react';
+import type { ModelData, PlanningEvent } from '../../../types';
+import { evClientName, evEndYmd, evModelName, evModelThumb, evProgressPct, evQty, evStartYmd } from '../shared/eventAccessors';
+import { getClientColor } from '../shared/clientColors';
+import { STATUS_META, toWorkStatus, type WorkStatus } from '../shared/statusConfig';
+import { delayOf } from '../hooks/useDelayIndicator';
+import { DELAY_META } from '../shared/statusConfig';
+import { Package, Calendar, Clock } from 'lucide-react';
+import { fmtShort } from '../shared/dateFmt';
+
+interface Props {
+    events: PlanningEvent[];
+    models: ModelData[];
+    onSelectEvent: (id: string) => void;
+    onEditEvent: (id: string) => void;
+}
+
+const COLUMNS: { status: WorkStatus; label: string }[] = [
+    { status: 'READY', label: 'Prêts à lancer' },
+    { status: 'IN_PROGRESS', label: 'En cours' },
+    { status: 'BLOCKED', label: 'Bloqués' },
+    { status: 'DONE', label: 'Terminés' },
+];
+
+export default function CardsView({ events, models, onSelectEvent, onEditEvent }: Props) {
+    const grouped = useMemo(() => {
+        const map: Record<WorkStatus, PlanningEvent[]> = {
+            READY: [], IN_PROGRESS: [], BLOCKED: [], DONE: [],
+        };
+        for (const ev of events) {
+            const ws = toWorkStatus(ev.status);
+            map[ws].push(ev);
+        }
+        return map;
+    }, [events]);
+
+    return (
+        <div className="p-6 bg-slate-50/30 min-h-full">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                {COLUMNS.map(col => {
+                    const items = grouped[col.status];
+                    const meta = STATUS_META[col.status];
+                    return (
+                        <div key={col.status} className="bg-white rounded-xl border border-slate-100 flex flex-col min-h-[200px]">
+                            {/* Column header */}
+                            <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                    <span className={`w-1.5 h-1.5 rounded-full ${meta.dot}`} />
+                                    <span className="text-[12px] font-semibold text-slate-900">{col.label}</span>
+                                </div>
+                                <span className="text-[11px] text-slate-400 tabular-nums">{items.length}</span>
+                            </div>
+
+                            {/* Cards */}
+                            <div className="p-2 space-y-2 flex-1">
+                                {items.length === 0 && (
+                                    <div className="text-center text-[11px] text-slate-400 py-8">
+                                        Aucun ordre
+                                    </div>
+                                )}
+                                {items.map(ev => (
+                                    <EventCard
+                                        key={ev.id}
+                                        event={ev}
+                                        models={models}
+                                        onClick={() => onSelectEvent(ev.id)}
+                                        onDoubleClick={() => onEditEvent(ev.id)}
+                                    />
+                                ))}
+                            </div>
+                        </div>
+                    );
+                })}
+            </div>
+        </div>
+    );
+}
+
+function EventCard({
+    event, models, onClick, onDoubleClick,
+}: { event: PlanningEvent; models: ModelData[]; onClick: () => void; onDoubleClick: () => void }) {
+    const client = evClientName(event, models);
+    const modelName = evModelName(event, models);
+    const thumb = evModelThumb(event, models);
+    const accent = event.color || getClientColor(client);
+    const qty = evQty(event);
+    const progress = evProgressPct(event);
+    const delay = delayOf(event);
+    const delayMeta = DELAY_META[delay];
+    const isSub = !!event.isSubcontracted;
+
+    return (
+        <button
+            type="button"
+            onClick={onClick}
+            onDoubleClick={onDoubleClick}
+            className={`group w-full text-left hover:shadow-[0_2px_8px_rgba(15,23,42,0.04)] rounded-lg p-3 transition-all ${
+                isSub
+                    ? 'bg-indigo-50/10 border border-dashed border-indigo-400 hover:border-indigo-500'
+                    : 'bg-white border border-slate-100 hover:border-slate-200'
+            }`}
+        >
+            <div className="flex items-start gap-2.5 mb-2">
+                {thumb ? (
+                    <img src={thumb} alt="" className="w-9 h-9 rounded-md object-cover ring-1 ring-slate-200 shrink-0" />
+                ) : (
+                    <div className="w-9 h-9 rounded-md bg-slate-100 flex items-center justify-center shrink-0">
+                        <Package className="w-3.5 h-3.5 text-slate-400" strokeWidth={1.75} />
+                    </div>
+                )}
+                <div className="min-w-0 flex-1">
+                    <div className="flex items-center justify-between gap-1.5 mb-0.5">
+                        <div className="flex items-center gap-1.5 min-w-0">
+                            <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: accent }} />
+                            <span className="text-[10px] text-slate-500 truncate">{client}</span>
+                        </div>
+                        {isSub && (
+                            <span className={`text-[8px] font-black uppercase px-1.5 py-0.25 rounded shrink-0 ${
+                                event.subcontractStatus === 'COMPLETED' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' :
+                                event.subcontractStatus === 'SENT' ? 'bg-blue-50 text-blue-700 border border-blue-200' :
+                                'bg-slate-50 text-slate-600 border border-slate-200'
+                            }`} title={event.subcontractorName}>
+                                {event.subcontractStatus || 'PENDING'}
+                            </span>
+                        )}
+                    </div>
+                    <div className="text-[12px] font-semibold text-slate-900 truncate">{modelName}</div>
+                    {isSub && event.subcontractorName && (
+                        <div className="text-[9px] text-indigo-600 font-medium truncate mt-0.5">
+                            S-T: {event.subcontractorName}
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            <div className="space-y-2">
+                <div className="flex items-center justify-between text-[10px]">
+                    <span className="text-slate-400 tabular-nums">{qty} pcs</span>
+                    <span className="text-slate-700 font-medium tabular-nums">{progress}%</span>
+                </div>
+                <div className="h-1 bg-slate-100 rounded-full overflow-hidden">
+                    <div className="h-full rounded-full transition-[width]" style={{ width: `${progress}%`, background: accent }} />
+                </div>
+
+                <div className="flex items-center justify-between text-[10px] text-slate-500 pt-1">
+                    <div className="flex items-center gap-1">
+                        <Calendar className="w-2.5 h-2.5" strokeWidth={1.75} />
+                        <span className="tabular-nums">{fmtShort(evStartYmd(event))}</span>
+                    </div>
+                    {event.strictDeadline_DDS && (
+                        <div className={`flex items-center gap-1 ${delay === 'LATE' ? 'text-red-600' : ''}`}>
+                            <Clock className="w-2.5 h-2.5" strokeWidth={1.75} />
+                            <span className="tabular-nums">{fmtShort(event.strictDeadline_DDS)}</span>
+                        </div>
+                    )}
+                </div>
+
+                {delay !== 'ON_TIME' && !isSub && (
+                    <div className={`inline-flex items-center gap-1 text-[10px] font-medium ${delayMeta.text}`}>
+                        <span className={`w-1.5 h-1.5 rounded-full ${delayMeta.dot}`} />
+                        {delayMeta.label}
+                    </div>
+                )}
+            </div>
+        </button>
+    );
+}

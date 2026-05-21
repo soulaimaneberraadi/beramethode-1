@@ -31,7 +31,13 @@ import {
   deleteMagasinDechet,
 } from './server/magasinController';
 import { getSettings, saveSettings } from './server/settingsController';
-import { getPlanningEvents, savePlanningEvents, deletePlanningEvent } from './server/planningController';
+import { getPlanningEvents, savePlanningEvents, deletePlanningEvent, getReservations, saveReservations, deductReservations, releaseReservations } from './server/planningController';
+import {
+  getSubcontractOrders,
+  createSubcontractOrder,
+  updateSubcontractOrder,
+  deleteSubcontractOrder
+} from './server/subcontractController';
 import { getSuiviData, saveSuiviData, getSuiviStats } from './server/suiviController';
 import { getPosteSuivi, savePosteSuivi, deletePosteSuivi } from './server/posteSuiviController';
 import { getDemandesAppro, saveDemandesAppro, updateDemandeApproStatut } from './server/demandesApproController';
@@ -62,7 +68,7 @@ import {
 } from './server/facturationController';
 import { getDashboardKPIs } from './server/dashboardController';
 import { authenticateToken } from './server/middleware';
-import { postAnalyzeTextile, postSuggestVocabulary, postGenerateOperations } from './server/geminiController';
+import { postAnalyzeTextile, postSuggestVocabulary, postGenerateOperations, postOptimizePlanning } from './server/geminiController';
 import { supabaseSyncMiddleware, logSupabaseSyncStatus } from './server/supabaseSync';
 
 async function startServer() {
@@ -209,6 +215,17 @@ async function startServer() {
   app.post('/api/planning', authenticateToken, savePlanningEvents);
   app.delete('/api/planning/:id', authenticateToken, deletePlanningEvent);
 
+  app.get('/api/planning/reservations/:planningId', authenticateToken, getReservations);
+  app.post('/api/planning/reservations/:planningId', authenticateToken, saveReservations);
+  app.post('/api/planning/reservations/:planningId/deduct', authenticateToken, deductReservations);
+  app.delete('/api/planning/reservations/:planningId', authenticateToken, releaseReservations);
+
+  // Subcontracting Routes
+  app.get('/api/subcontract', authenticateToken, getSubcontractOrders);
+  app.post('/api/subcontract', authenticateToken, createSubcontractOrder);
+  app.put('/api/subcontract/:id', authenticateToken, updateSubcontractOrder);
+  app.delete('/api/subcontract/:id', authenticateToken, deleteSubcontractOrder);
+
   app.get('/api/suivi', authenticateToken, getSuiviData);
   app.post('/api/suivi', authenticateToken, saveSuiviData);
   app.get('/api/suivi/stats', authenticateToken, getSuiviStats);
@@ -291,6 +308,7 @@ async function startServer() {
   app.post('/api/ai/analyze-textile', authenticateToken, postAnalyzeTextile);
   app.post('/api/ai/suggest-vocabulary', authenticateToken, postSuggestVocabulary);
   app.post('/api/ai/generate-operations', authenticateToken, postGenerateOperations);
+  app.post('/api/ai/optimize-planning', authenticateToken, postOptimizePlanning);
 
   // BERAOUVIER — Read-Only (no financial data); rate-limited, minimal fields
   app.get('/api/worker/:cin', beraouvierPublicLimiter, getWorkerByCin);

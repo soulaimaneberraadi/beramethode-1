@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
-import { Package, Truck, Sparkles, ClipboardList } from 'lucide-react';
+import { Package, Truck, Sparkles, ClipboardList, CheckCircle2, AlertCircle, Ban, RefreshCw, Trash2 } from 'lucide-react';
 import type { AppSettings, ModelData, PlanningEvent, PlanningPurchaseDraft } from '../../types';
-import { aggregateMaterialNeeds } from '../../utils/materialNeeds';
+import { aggregateMaterialNeeds, allocateFIFO } from '../../utils/materialNeeds';
 import { computeMaterialArrivalPlan, materialReadyDate, type CatalogProductForEta } from '../../utils/supplierLeadtime';
 
 const DEFAULT_LEAD_WORKING_DAYS = 7;
@@ -17,6 +17,8 @@ export interface MaterialArrivalTimelineProps {
     settings: AppSettings;
     /** Produits magasin (délai + fournisseur) — optionnel ; sinon délai par défaut pour toutes les lignes. */
     catalogProducts?: CatalogProductForEta[];
+    catalogLots?: any[];
+    onReloadStock?: () => void;
     /** Jours ouvrés après commande au lancement si pas de délai sur le produit magasin. */
     defaultSupplierLeadWorkingDays?: number;
     /** Renseigne `fournisseurDate` sur l’OF avec la pire date d’arrivée estimée. */
@@ -35,6 +37,8 @@ export default function MaterialArrivalTimeline({
     event,
     settings,
     catalogProducts = [],
+    catalogLots = [],
+    onReloadStock,
     defaultSupplierLeadWorkingDays = DEFAULT_LEAD_WORKING_DAYS,
     onApplyWorstSupplierDate,
     onAppendDraftPurchaseOrders,
@@ -44,6 +48,117 @@ export default function MaterialArrivalTimeline({
     const launchYmd = (event.startDate || event.dateLancement || '').split('T')[0];
     const fournYmd = event.fournisseurDate?.trim()?.split('T')[0];
     const hasFourn = !!fournYmd;
+
+    const [reservations, setReservations] = React.useState<any[]>([]);
+    const [loadingRes, setLoadingRes] = React.useState(false);
+    const [actionError, setActionError] = React.useState<string | null>(null);
+
+    React.useEffect(() => {
+        if (!event.id) return;
+        let active = true;
+        const fetchRes = async () => {
+            setLoadingRes(true);
+            setActionError(null);
+            try {
+                const res = await fetch(`/api/planning/reservations/${event.id}`, { credentials: 'include' });
+                if (res.ok) {
+                    const data = await res.json();
+                    if (active) setReservations(data);
+                }
+            } catch (err: any) {
+                console.error(err);
+            } finally {
+                if (active) setLoadingRes(false);
+            }
+        };
+        fetchRes();
+        return () => { active = false; };
+    }, [event.id]);
+
+    const handleReserveFIFO = async () => {
+        if (!catalogLots || !catalogProducts) {
+            setActionError("Les données de stock ne sont pas chargées.");
+            return;
+        }
+        setActionError(null);
+        setLoadingRes(true);
+        try {
+            const allocations = allocateFIFO(lines, catalogProducts, catalogLots);
+            if (allocations.length === 0) {
+                setActionError("Aucune matière correspondante trouvée en stock à réserver (FIFO).");
+                setLoadingRes(false);
+                return;
+            }
+            
+            const res = await fetch(`/api/planning/reservations/${event.id}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ allocations }),
+                credentials: 'include'
+            });
+            if (!res.ok) {
+                const data = await res.json();
+                throw new Error(data.message || "Erreur lors de la réservation");
+            }
+            // Refresh reservations
+            const freshRes = await fetch(`/api/planning/reservations/${event.id}`, { credentials: 'include' });
+            if (freshRes.ok) {
+                const data = await freshRes.json();
+                setReservations(data);
+            }
+            // Reload stock globally
+            onReloadStock?.();
+        } catch (err: any) {
+            setActionError(err.message || "Une erreur est survenue lors de la réservation.");
+        } finally {
+            setLoadingRes(false);
+        }
+    };
+
+    const handleReleaseReservations = async () => {
+        setActionError(null);
+        setLoadingRes(true);
+        try {
+            const res = await fetch(`/api/planning/reservations/${event.id}`, {
+                method: 'DELETE',
+                credentials: 'include'
+            });
+            if (!res.ok) {
+                const data = await res.json();
+                throw new Error(data.message || "Erreur lors de la libération");
+            }
+            setReservations([]);
+            onReloadStock?.();
+        } catch (err: any) {
+            setActionError(err.message || "Une erreur est survenue lors de la libération.");
+        } finally {
+            setLoadingRes(false);
+        }
+    };
+
+    const handleDeductReservations = async () => {
+        if (!confirm("Voulez-vous vraiment déduire ces matières du stock physique ? Cette action enregistrera un mouvement de sortie.")) {
+            return;
+        }
+        setActionError(null);
+        setLoadingRes(true);
+        try {
+            const res = await fetch(`/api/planning/reservations/${event.id}/deduct`, {
+                method: 'POST',
+                credentials: 'include'
+            });
+            if (!res.ok) {
+                const data = await res.json();
+                throw new Error(data.message || "Erreur lors de la déduction");
+            }
+            setReservations([]);
+            onReloadStock?.();
+        } catch (err: any) {
+            setActionError(err.message || "Une erreur est survenue lors de la déduction.");
+        } finally {
+            setLoadingRes(false);
+        }
+    };
 
     const plan = useMemo(
         () =>
@@ -86,6 +201,97 @@ export default function MaterialArrivalTimeline({
 
     return (
         <div className={`space-y-3 ${className}`}>
+            {/* Stock Reservation card */}
+            <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm space-y-3">
+                <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                        <Package className="h-4 w-4 text-slate-700" />
+                        <h4 className="text-[12px] font-bold text-slate-900 uppercase tracking-wider">Réservation de stock (حجز المخزون)</h4>
+                    </div>
+                    {loadingRes && <RefreshCw className="h-3.5 w-3.5 text-slate-400 animate-spin" />}
+                </div>
+
+                {actionError && (
+                    <div className="flex items-start gap-1.5 rounded-lg bg-red-50 p-2.5 text-[11px] text-red-800 border border-red-100">
+                        <AlertCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                        <div>{actionError}</div>
+                    </div>
+                )}
+
+                {reservations.length > 0 ? (
+                    <div className="space-y-3">
+                        <div className="flex items-start gap-2 rounded-lg bg-emerald-50/70 border border-emerald-100 p-2.5 text-[11px] text-emerald-800">
+                            <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600 mt-0.5" />
+                            <div>
+                                <span className="font-bold">Stock réservé avec succès (حجز مؤكد) :</span>
+                                <p className="mt-0.5 text-slate-600">Ces matières sont verrouillées pour cet OF. Vous pouvez les déduire physiquement lors du lancement de la production.</p>
+                            </div>
+                        </div>
+
+                        <div className="overflow-hidden rounded-lg border border-slate-100 bg-slate-50/40 text-[11px]">
+                            <table className="w-full text-left">
+                                <thead>
+                                    <tr className="border-b border-slate-100 bg-slate-100/60 font-semibold text-slate-600">
+                                        <th className="px-2.5 py-1.5">Matière</th>
+                                        <th className="px-2.5 py-1.5">Bain / Var.</th>
+                                        <th className="px-2.5 py-1.5 text-right">Qté Rés.</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {reservations.map((r, i) => (
+                                        <tr key={i} className="border-b border-slate-100 last:border-0">
+                                            <td className="px-2.5 py-1.5 font-medium text-slate-800">{r.productName || `ID: ${r.productId}`}</td>
+                                            <td className="px-2.5 py-1.5 text-slate-500 font-mono">
+                                                {r.numBain ? `B:${r.numBain}` : ''} {r.variante ? `V:${r.variante}` : ''} {!r.numBain && !r.variante ? '—' : ''}
+                                            </td>
+                                            <td className="px-2.5 py-1.5 text-right font-mono font-bold text-slate-900 tabular-nums">
+                                                {r.quantite}
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                            <button
+                                type="button"
+                                onClick={handleDeductReservations}
+                                disabled={loadingRes}
+                                className="flex-1 h-8 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold shadow-sm transition-colors flex items-center justify-center gap-1.5 disabled:opacity-50"
+                            >
+                                <CheckCircle2 className="h-3.5 w-3.5" />
+                                Déduire (الخصم الفعلي)
+                            </button>
+                            <button
+                                type="button"
+                                onClick={handleReleaseReservations}
+                                disabled={loadingRes}
+                                className="h-8 px-3 rounded-lg border border-slate-200 hover:bg-slate-50 text-slate-700 text-[11px] font-bold transition-colors flex items-center justify-center gap-1.5 disabled:opacity-50"
+                            >
+                                <Ban className="h-3.5 w-3.5 text-slate-400" />
+                                Libérer (إلغاء الحجز)
+                            </button>
+                        </div>
+                    </div>
+                ) : (
+                    <div className="space-y-3">
+                        <p className="text-[11px] text-slate-500 leading-normal">
+                            Aucune réservation physique de stock n'a été effectuée pour cet OF. Vous pouvez réserver automatiquement les matières disponibles selon la règle FIFO.
+                        </p>
+                        <button
+                            type="button"
+                            onClick={handleReserveFIFO}
+                            disabled={loadingRes || !catalogLots.length}
+                            className="w-full h-8 px-3 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-[11px] font-bold shadow-sm transition-colors flex items-center justify-center gap-1.5 disabled:opacity-50"
+                        >
+                            <Sparkles className="h-3.5 w-3.5" />
+                            Réserver via FIFO (حجز تلقائي)
+                        </button>
+                    </div>
+                )}
+            </div>
+
             {hasFourn ? (
                 <div className="flex items-start gap-2 rounded-xl border border-emerald-200/90 bg-emerald-50/90 px-3 py-2.5">
                     <Truck className="mt-0.5 h-4 w-4 shrink-0 text-emerald-700" aria-hidden />

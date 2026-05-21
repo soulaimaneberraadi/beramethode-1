@@ -17,7 +17,9 @@ import {
     Target,
     Shield,
     CheckCircle2,
-    X
+    X,
+    Truck,
+    Share2
 } from 'lucide-react';
 import { useAuth } from './src/context/AuthContext';
 import { DataOwnerProvider } from './src/context/DataOwnerContext';
@@ -50,6 +52,7 @@ const PageMachine = lazy(() => import('./components/PageMachine'));
 const VueGenerale = lazy(() => import('./components/VueGenerale'));
 const TasksAndHR = lazy(() => import('./components/TasksAndHR'));
 const Atelier = lazy(() => import('./components/Atelier'));
+const SousTraitance = lazy(() => import('./components/SousTraitance'));
 
 // ── Extracted modules ──
 import { TRANSLATIONS, Lang, DEFAULT_MACHINES, DEFAULT_GUIDES, AUTO_SAVE_KEY, LIBRARY_KEY, MANUAL_LINKS_BY_MODEL_KEY, MACHINES_STORAGE_KEY, MACHINE_INSTANCES_KEY, MACHINE_FLEET_HISTORY_KEY, MAX_MACHINE_FLEET_HISTORY, defaultNavOrder } from './app/constants';
@@ -170,22 +173,38 @@ export default function App() {
         setAuthView('login');
     };
 
-    const [currentView, setCurrentView] = useState<'dashboard' | 'ingenierie' | 'atelier' | 'library' | 'coupe' | 'effectifs' | 'gestionRh' | 'planning' | 'suivi' | 'magasin' | 'export' | 'config' | 'profil' | 'admin' | 'rendement' | 'pageMachine' | 'machin' | 'objectifs' | 'facturation' | 'atelierProd' | 'vuegenerale'>('dashboard');
+    const [currentView, setCurrentView] = useState<'dashboard' | 'ingenierie' | 'atelier' | 'library' | 'coupe' | 'effectifs' | 'gestionRh' | 'planning' | 'suivi' | 'magasin' | 'export' | 'config' | 'profil' | 'admin' | 'rendement' | 'pageMachine' | 'machin' | 'objectifs' | 'facturation' | 'atelierProd' | 'vuegenerale' | 'sousTraitance'>('dashboard');
     const [directSuiviModelId, setDirectSuiviModelId] = useState<string | null>(null);
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     // En static mode, on garde tous les modules visibles — leurs données viennent de Supabase
     // via cloud sync (snapshot localStorage). Les fetch /api/* qui échouent sont absorbés
     // par les .catch() existants ou les fallbacks localStorage.
-    const defaultNavOrder = ['vuegenerale', 'dashboard', 'ingenierie', 'atelierProd', 'library', 'coupe', 'effectifs', 'gestionRh', 'planning', 'suivi', 'rendement', 'magasin', 'export', 'facturation', 'config', 'pageMachine', 'machin', 'objectifs', 'admin'];
+    const defaultNavOrder = ['vuegenerale', 'dashboard', 'ingenierie', 'atelierProd', 'library', 'coupe', 'effectifs', 'gestionRh', 'planning', 'suivi', 'rendement', 'magasin', 'export', 'facturation', 'config', 'pageMachine', 'machin', 'objectifs', 'admin', 'sousTraitance'];
     const [navConfig, setNavConfig] = useState<{ enabled: boolean; order: string[]; hidden: string[] }>(() => {
-        try { const s = localStorage.getItem('bera_nav_config'); if (s) return JSON.parse(s); } catch {}
+        try {
+            const s = localStorage.getItem('bera_nav_config');
+            if (s) {
+                const parsed = JSON.parse(s);
+                // Merge any new views that aren't in the saved order yet
+                if (parsed.order && parsed.order.length) {
+                    const savedSet = new Set(parsed.order);
+                    const missing = defaultNavOrder.filter(v => !savedSet.has(v));
+                    if (missing.length > 0) {
+                        parsed.order = [...parsed.order, ...missing];
+                        localStorage.setItem('bera_nav_config', JSON.stringify(parsed));
+                    }
+                }
+                return parsed;
+            }
+        } catch {}
         return { enabled: true, order: [], hidden: [] };
     });
     const saveNavConfig = (cfg: typeof navConfig) => { setNavConfig(cfg); localStorage.setItem('bera_nav_config', JSON.stringify(cfg)); };
     const navOrder = navConfig.order.length ? navConfig.order : defaultNavOrder;
 
+
     useEffect(() => {
-        const ALLOW = new Set(['dashboard', 'ingenierie', 'atelier', 'library', 'coupe', 'effectifs', 'gestionRh', 'planning', 'suivi', 'magasin', 'export', 'config', 'profil', 'admin', 'rendement', 'pageMachine', 'machin', 'objectifs', 'facturation', 'atelierProd', 'vuegenerale']);
+        const ALLOW = new Set(['dashboard', 'ingenierie', 'atelier', 'library', 'coupe', 'effectifs', 'gestionRh', 'planning', 'suivi', 'magasin', 'export', 'config', 'profil', 'admin', 'rendement', 'pageMachine', 'machin', 'objectifs', 'facturation', 'atelierProd', 'vuegenerale', 'sousTraitance']);
         const applyHash = () => {
             const h = window.location.hash.replace(/^#\/?/, '').toLowerCase();
             if (h && ALLOW.has(h)) setCurrentView(h as typeof currentView);
@@ -996,12 +1015,13 @@ export default function App() {
                                         machin: { label: 'Catalogue Machines', icon: <Layers className="w-4 h-4" />, active: 'bg-indigo-50 border-indigo-100 text-indigo-700' },
                                         config: { label: t.configuration, icon: <SettingsIcon className="w-4 h-4" />, active: 'bg-amber-50 border-amber-100 text-amber-700' },
                                         objectifs: { label: 'Objectifs', icon: <Target className="w-4 h-4" />, active: 'bg-rose-50 border-rose-100 text-rose-700' },
+                                        sousTraitance: { label: 'Sous-traitance', icon: <Truck className="w-4 h-4" />, active: 'bg-indigo-50 border-indigo-100 text-indigo-700' },
                                         admin: { label: t.admin, icon: <Shield className="w-4 h-4" />, active: 'bg-purple-50 border-purple-100 text-purple-700' },
                                     };
 
                                     const sections = [
                                         { title: 'Principal', items: ['dashboard', 'vuegenerale', 'planning', 'suivi', 'rendement'] },
-                                        { title: 'Production', items: ['ingenierie', 'atelierProd', 'coupe'] },
+                                        { title: 'Production', items: ['ingenierie', 'atelierProd', 'coupe', 'sousTraitance'] },
                                         { title: 'Ressources Humaines', items: ['effectifs', 'gestionRh'] },
                                         { title: 'Logistique', items: ['magasin', 'export', 'facturation'] },
                                         { title: 'Configuration', items: ['library', 'pageMachine', 'machin', 'config', 'objectifs'] },
@@ -1369,6 +1389,14 @@ export default function App() {
                     )}
 
                     {currentView === 'admin' && user?.role === 'admin' && <AdminDashboard />}
+
+                    {currentView === 'sousTraitance' && (
+                        <div className="flex-1 min-h-0 flex flex-col overflow-hidden w-full">
+                            <Suspense fallback={<div className="p-8 text-center text-gray-500">Chargement...</div>}>
+                                <SousTraitance models={models} settings={globalSettings} />
+                            </Suspense>
+                        </div>
+                    )}
 
                     {/* --- FLOATING RETURN BUTTON --- */}
                     {navigationContext && (currentView === 'atelier' || currentView === 'library') && (

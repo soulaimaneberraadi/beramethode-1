@@ -300,3 +300,176 @@ export async function generateTextileOperationsServer(articleDescription: string
     return fallbackGenerateOperations(articleDescription, availableMachines);
   }
 }
+
+function fallbackOptimizePlanning(events: any[], machines: any[], settings: any): any {
+  const suggestions: any[] = [];
+  const actions: any[] = [];
+  let analysis = "🤖 **Analyse de planification (Mode hors-ligne / Quota épuisé)**\n\n";
+
+  const brokenMachines = machines.filter(m => m.status === 'PANNE' || m.active === false);
+  const activeEvents = events.filter(e => e.status !== 'DONE' && e.status !== 'COMPLETED');
+
+  if (brokenMachines.length > 0) {
+    analysis += `⚠️ **Alerte Machines :** ${brokenMachines.length} machine(s) indisponible(s) (PANNE / INACTIVE) :\n`;
+    brokenMachines.forEach(m => {
+      analysis += `- Machine **${m.name}** (Classe: ${m.classe}) sur la chaîne **${m.chainId || 'Non spécifiée'}**\n`;
+    });
+    analysis += `\n`;
+  }
+
+  for (const ev of activeEvents) {
+    const chainId = ev.chaineId || ev.chainId;
+    const modelName = ev.modelName || ev.modelId;
+    
+    const hasBrokenMachine = brokenMachines.some(m => m.chainId === chainId);
+    if (hasBrokenMachine) {
+      const alternativeChains = ['CHAINE 1', 'CHAINE 2', 'CHAINE 3'].filter(c => c !== chainId);
+      const targetChain = alternativeChains[0] || 'CHAINE 2';
+      
+      suggestions.push({
+        eventId: ev.id,
+        modelName,
+        chaineId: chainId,
+        message: `L'OF **${modelName}** (${ev.clientName || 'Client'}) est planifié sur la chaîne **${chainId}** qui a des machines en panne. Il est recommandé de le déplacer sur la chaîne **${targetChain}**.`,
+        type: 'MOVE_EVENT'
+      });
+
+      actions.push({
+        type: 'MOVE_EVENT',
+        eventId: ev.id,
+        targetChainId: targetChain
+      });
+    }
+  }
+
+  for (const ev of activeEvents) {
+    if (ev.estimatedEndDate && ev.dateExport && ev.estimatedEndDate > ev.dateExport) {
+      suggestions.push({
+        eventId: ev.id,
+        modelName: ev.modelName || ev.modelId,
+        chaineId: ev.chaineId || ev.chainId,
+        message: `L'OF **${ev.modelName || ev.modelId}** dépasse la date limite de livraison client (${ev.dateExport}). Il est recommandé d'allouer plus de capacité ou de le diviser.`,
+        type: 'SPLIT_EVENT'
+      });
+    }
+  }
+
+  if (suggestions.length === 0) {
+    analysis += "✅ **Aucun conflit majeur détecté.** Le planning actuel semble équilibré en termes de capacité machine et de délais de livraison.\n";
+  } else {
+    analysis += `💡 **Recommandations d'optimisation :**\n`;
+    suggestions.forEach((s, idx) => {
+      analysis += `${idx + 1}. ${s.message}\n`;
+    });
+  }
+
+  return {
+    analysis,
+    suggestions,
+    actions
+  };
+}
+
+export async function optimizePlanningServer(
+  events: any[],
+  machines: any[],
+  settings: any
+): Promise<any> {
+  const apiKey = getGeminiApiKey();
+  if (!apiKey) return fallbackOptimizePlanning(events, machines, settings);
+
+  try {
+    return await withRetry(async () => {
+      const client = new GoogleGenAI({ apiKey });
+      const response = await client.models.generateContent({
+        model: 'gemini-2.0-flash',
+        contents: `Tu es un expert en planification industrielle dans une usine de confection textile (ERP BERAMETHODE).
+        
+        DONNÉES DU PLANNING ACTUEL :
+        - Événements / Ordres de Fabrication (OFs) planifiés :
+        ${JSON.stringify(events.map(e => ({
+          id: e.id,
+          modelName: e.modelName || e.modelId,
+          clientName: e.clientName,
+          chaineId: e.chaineId || e.chainId,
+          startDate: e.startDate || e.dateLancement,
+          endDate: e.estimatedEndDate || e.dateExport,
+          deadline: e.dateExport,
+          quantity: e.qteTotal || e.totalQuantity,
+          status: e.status
+        })))}
+        
+        - Liste des Machines et leur statut :
+        ${JSON.stringify(machines.map(m => ({
+          name: m.name,
+          classe: m.classe,
+          status: m.status,
+          chainId: m.chainId,
+          downtimeStart: m.downtimeStartYmd,
+          downtimeEnd: m.downtimeEndYmd
+        })))}
+        
+        TA MISSION :
+        1. Analyser le planning actuel pour détecter des goulots d'étranglement :
+           - Des retards : lorsque la date de fin estimée (endDate) dépasse la date limite demandée par le client (deadline).
+           - Des pannes : lorsqu'un OF est planifié sur une chaîne (chaineId) pendant une période de panne ou maintenance d'une machine requise sur cette chaîne.
+           - Surcharge de chaîne : lorsqu'une chaîne a trop d'événements superposés.
+        2. Proposer un plan d'optimisation intelligent pour rééquilibrer le planning :
+           - Déplacer un événement vers une autre chaîne compatible et moins chargée.
+           - Modifier les dates de début si nécessaire.
+           - Suggérer de diviser (split) un grand lot si cela peut accélérer le processus.
+        3. Rédiger un court texte d'analyse générale en français.
+        4. Fournir une liste d'actions structurées à appliquer.
+        
+        Format de retour : Tu dois retourner STRICTEMENT un objet JSON avec la structure spécifiée dans le schéma.`,
+        config: {
+          responseMimeType: 'application/json',
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              analysis: { type: Type.STRING, description: 'General optimization report in French' },
+              suggestions: {
+                type: Type.ARRAY,
+                items: {
+                  type: Type.OBJECT,
+                  properties: {
+                    eventId: { type: Type.STRING },
+                    modelName: { type: Type.STRING },
+                    chaineId: { type: Type.STRING },
+                    message: { type: Type.STRING },
+                    type: { type: Type.STRING, enum: ['MOVE_EVENT', 'SPLIT_EVENT'] },
+                  },
+                  required: ['eventId', 'modelName', 'chaineId', 'message', 'type'],
+                },
+              },
+              actions: {
+                type: Type.ARRAY,
+                items: {
+                  type: Type.OBJECT,
+                  properties: {
+                    type: { type: Type.STRING, enum: ['MOVE_EVENT'] },
+                    eventId: { type: Type.STRING },
+                    targetChainId: { type: Type.STRING },
+                    targetStartDate: { type: Type.STRING },
+                    targetEndDate: { type: Type.STRING },
+                  },
+                  required: ['type', 'eventId', 'targetChainId'],
+                },
+              },
+            },
+            required: ['analysis', 'suggestions', 'actions'],
+          },
+          temperature: 0.2,
+        },
+      });
+
+      const text = response.text;
+      if (!text) throw new Error('Réponse vide de l\'IA');
+      return JSON.parse(text);
+    });
+  } catch (e: any) {
+    console.warn('[Gemini] optimizePlanning fallback:', e?.status || e?.message);
+    return fallbackOptimizePlanning(events, machines, settings);
+  }
+}
+
