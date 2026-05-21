@@ -71,6 +71,22 @@ const applySnapshotToLocal = (snapshot: Record<string, unknown> | null) => {
 export const pushSnapshotToCloud = async (userId: string) => {
   if (!userId || isApplyingRemote) return;
   const snapshot = { ...collectLocalSnapshot(), __schema_version: SCHEMA_VERSION };
+
+  // Garde-fou: ne JAMAIS écraser une donnée distante avec un snapshot vide.
+  // Si la bibliothèque ET le planning ET le sqlite_export sont tous vides,
+  // on suppose que c'est un push prématuré (avant que le pull n'ait peuplé
+  // localStorage) et on l'annule.
+  const lib = (snapshot as any).beramethode_library;
+  const plan = (snapshot as any).beramethode_planning;
+  const sqlExp = (snapshot as any).__sqlite_export__;
+  const libEmpty = !Array.isArray(lib) || lib.length === 0;
+  const planEmpty = !Array.isArray(plan) || plan.length === 0;
+  const sqlEmpty = !sqlExp || Object.keys(sqlExp).length === 0;
+  if (libEmpty && planEmpty && sqlEmpty) {
+    console.warn('[cloudSync] push annulé: snapshot local vide (probable push prématuré)');
+    return;
+  }
+
   try {
     await supabase.from(TABLE).upsert(
       { user_id: userId, data: snapshot, updated_at: new Date().toISOString() },

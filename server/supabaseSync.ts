@@ -65,15 +65,32 @@ const buildSnapshot = () => {
   const hrProduction = safe('SELECT * FROM hr_production');
   const hrAvances = safe('SELECT * FROM hr_avances');
 
-  // The model JSON is stored in the `data` column; surface it under
-  // `beramethode_library` so the frontend reads the same shape as the
-  // /api/models GET (raw model objects, not the SQL row wrapper).
-  const libraryModels = models.map((row: any) => {
-    if (row && typeof row.data === 'string') {
-      try { return JSON.parse(row.data); } catch { /* fall through */ }
+  // Supabase a un statement_timeout court (~8s en Free tier). Les images
+  // base64 (champs image/images/photo) gonflent le snapshot bien au-delà
+  // de ce que l'UPSERT peut digérer. On les strip pour la sync cloud —
+  // les utilisateurs peuvent ré-uploader si besoin.
+  const stripImages = (o: any): any => {
+    if (!o || typeof o !== 'object') return o;
+    if (Array.isArray(o)) return o.map(stripImages);
+    const out: any = {};
+    for (const k of Object.keys(o)) {
+      if (k === 'image' || k === 'images' || k === 'photo' || k === 'fournisseurLogo') continue;
+      out[k] = stripImages(o[k]);
     }
-    return parseJsonFields(row);
+    return out;
+  };
+
+  const libraryModels = models.map((row: any) => {
+    let m: any;
+    if (row && typeof row.data === 'string') {
+      try { m = JSON.parse(row.data); } catch { m = parseJsonFields(row); }
+    } else {
+      m = parseJsonFields(row);
+    }
+    return stripImages(m);
   });
+
+  const slimProducts = magasinProducts.map(parseJsonFields).map(stripImages);
 
   return {
     beramethode_library: libraryModels,
@@ -96,7 +113,7 @@ const buildSnapshot = () => {
       workerPointage: workerPointage.map(parseJsonFields),
       posteSuivi: posteSuivi.map(parseJsonFields),
       magasin: {
-        products: magasinProducts.map(parseJsonFields),
+        products: slimProducts,
         lots: magasinLots.map(parseJsonFields),
         mouvements: magasinMouvements.map(parseJsonFields),
         commandes: magasinCommandes.map(parseJsonFields),

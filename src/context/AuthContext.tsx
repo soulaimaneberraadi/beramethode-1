@@ -62,9 +62,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setUser(u);
       setLoading(false);
       if (u) {
-        // Pull et sync en arrière-plan (non bloquant)
-        pullSnapshotFromCloud(String(u.id)).catch(() => {});
-        startCloudSync(String(u.id));
+        // IMPORTANT: pull doit terminer AVANT de démarrer le sync, sinon
+        // le localStorage vide est pushé et écrase la donnée distante.
+        pullSnapshotFromCloud(String(u.id))
+          .catch(() => {})
+          .finally(() => startCloudSync(String(u.id)));
       }
     }).catch(() => {
       if (mounted) setLoading(false);
@@ -74,8 +76,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const u = mapSupabaseUser(session?.user as never);
       setUser(u);
       if (u) {
-        pullSnapshotFromCloud(String(u.id)).catch(() => {});
-        startCloudSync(String(u.id));
+        pullSnapshotFromCloud(String(u.id))
+          .catch(() => {})
+          .finally(() => startCloudSync(String(u.id)));
       } else {
         stopCloudSync();
       }
