@@ -95,12 +95,28 @@ export const pullSnapshotFromCloud = async (userId: string): Promise<boolean> =>
     let snap = data.data as Record<string, unknown>;
     const v = typeof snap.__schema_version === 'number' ? (snap.__schema_version as number) : 0;
     if (v < SCHEMA_VERSION) snap = migrateSnapshot(snap, v);
-    const wasEmpty = !sessionStorage.getItem(RELOAD_FLAG);
+
+    // Détecte si le snapshot remote diffère vraiment du local (signature légère).
+    const sig = (() => {
+      try {
+        const lib = (snap as any).beramethode_library;
+        const plan = (snap as any).beramethode_planning;
+        return [
+          Array.isArray(lib) ? lib.length : 0,
+          Array.isArray(plan) ? plan.length : 0,
+          (snap as any).__sqlite_export__?.exported_at || '',
+        ].join('|');
+      } catch { return ''; }
+    })();
+    const lastSig = sessionStorage.getItem('beramethode_last_pull_sig');
+
     applySnapshotToLocal(snap);
-    if (wasEmpty) {
-      // Premier pull de la session: recharger pour que tous les useState
-      // initialisés depuis localStorage récupèrent les nouvelles données.
+
+    const wasEmpty = !sessionStorage.getItem(RELOAD_FLAG);
+    const sigChanged = sig && sig !== lastSig;
+    if (wasEmpty || sigChanged) {
       sessionStorage.setItem(RELOAD_FLAG, '1');
+      if (sig) sessionStorage.setItem('beramethode_last_pull_sig', sig);
       setTimeout(() => window.location.reload(), 200);
     }
     return true;
