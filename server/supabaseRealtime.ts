@@ -120,25 +120,41 @@ const mergeSnapshotIntoSqlite = (snapshot: any, userId: string) => {
       if (exp.hr?.avances) summary.hrAvances = applyArrayToTable('hr_avances', exp.hr.avances);
     }
 
-    // Tombstones — apply soft delete by removing rows past their 1h grace.
-    // (Recent tombstones < 1h are kept so they show in Corbeille on the
-    // frontend; the actual SQLite row stays until pg_cron purges.)
-    if (Array.isArray(snapshot.tombstones)) {
+    // Tombstones — apply hard delete on SQLite for entries past their 1h
+    // grace window. Recent tombstones (<1h) stay so Corbeille can restore.
+    // Tombstone types come from apiShim STORES; mirror them to SQLite tables.
+    const tombstones = snapshot.beramethode_tombstones || snapshot.tombstones;
+    if (Array.isArray(tombstones)) {
+      const TYPE_TO_TABLE: Record<string, string> = {
+        models: 'models',
+        planning: 'planning_events',
+        suivi: 'suivi_data',
+        'demandes-appro': 'demandes_appro',
+        workers: 'workers',
+        'worker-skills': 'worker_skills',
+        'worker-pointage': 'worker_pointage',
+        'poste-suivi': 'poste_suivi',
+        'magasin/products': 'magasin_products',
+        'magasin/lots': 'magasin_lots',
+        'magasin/mouvements': 'magasin_mouvements',
+        'magasin/commandes': 'magasin_commandes',
+        'magasin/demandes': 'magasin_demandes',
+        'hr/workers': 'hr_workers',
+        'hr/pointage': 'hr_pointage',
+        'hr/production': 'hr_production',
+        'hr/avances': 'hr_avances',
+      };
       const ONE_HOUR = 60 * 60 * 1000;
       const now = Date.now();
-      for (const t of snapshot.tombstones) {
+      let purged = 0;
+      for (const t of tombstones) {
         if (!t?.id || !t?.type) continue;
         const deletedAt = t.deleted_at ? new Date(t.deleted_at).getTime() : 0;
         if (!deletedAt || now - deletedAt < ONE_HOUR) continue;
-        const tableMap: Record<string, string> = {
-          model: 'models',
-          planning: 'planning_events',
-          worker: 'hr_workers',
-          product: 'magasin_products',
-        };
-        const table = tableMap[t.type];
-        if (table) safeDeleteById(table, t.id);
+        const table = TYPE_TO_TABLE[t.type];
+        if (table) { safeDeleteById(table, t.id); purged++; }
       }
+      if (purged > 0) summary.tombstonesPurged = purged;
     }
   } finally {
     isApplyingRemote = false;

@@ -13,6 +13,7 @@ const SYNC_KEYS = [
   'beramethode_machines_fleet_history_v1',
   'beramethode_manual_links',
   'beramethode_demandesAppro',
+  'beramethode_tombstones', // soft-delete markers ({type,id,deleted_at})
   'bera_nav_config',
   'BERA_CUSTOM_ROLES',
   'BERA_CUSTOM_PARTITIONS',
