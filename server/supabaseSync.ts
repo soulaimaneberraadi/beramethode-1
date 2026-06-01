@@ -46,6 +46,20 @@ const parseJsonFields = (row: any) => {
   return out;
 };
 
+// planning_events and suivi_data store the full object in `raw_data TEXT`.
+// The Express API returns JSON.parse(r.raw_data), so the snapshot must do
+// the same — otherwise Vercel reads rows with raw_data nested one level
+// deeper than expected (suivi.raw_data.sorties instead of suivi.sorties).
+const extractRawData = (rows: any[]): any[] =>
+  rows.map((row: any) => {
+    if (!row) return row;
+    const raw = row.raw_data;
+    if (typeof raw === 'string' && raw.length > 0) {
+      try { return JSON.parse(raw); } catch { /* fall through */ }
+    }
+    return parseJsonFields(row);
+  });
+
 const buildSnapshot = () => {
   const models = safe('SELECT * FROM models');
   const planningEvents = safe('SELECT * FROM planning_events');
@@ -95,8 +109,8 @@ const buildSnapshot = () => {
 
   return {
     beramethode_library: libraryModels,
-    beramethode_planning: planningEvents.map(parseJsonFields),
-    beramethode_suivis: suiviData.map(parseJsonFields),
+    beramethode_planning: extractRawData(planningEvents),
+    beramethode_suivis: extractRawData(suiviData),
     beramethode_demandesAppro: demandesAppro.map(parseJsonFields),
     beramethode_settings: appSettings.length === 1 ? parseJsonFields(appSettings[0]) : appSettings.map(parseJsonFields),
     __sqlite_export__: {
