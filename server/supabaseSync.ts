@@ -24,6 +24,11 @@ const OWNER_EMAIL = (process.env.SUPABASE_OWNER_EMAIL || '').trim().toLowerCase(
 const OWNER_PASSWORD = process.env.SUPABASE_OWNER_PASSWORD || '';
 const PUSH_DELAY_MS = Number(process.env.SUPABASE_SYNC_DEBOUNCE_MS || 2000);
 const STORAGE_BUCKET = 'bera-assets';
+// When Storage upload fails (e.g. bucket missing / no service_role), keep the
+// image inline in user_data instead of stripping it — as long as it stays
+// under this base64 size. Larger images are still stripped to avoid bloating
+// the UPSERT payload. Override with SUPABASE_INLINE_IMAGE_MAX (bytes).
+const INLINE_IMAGE_MAX = Number(process.env.SUPABASE_INLINE_IMAGE_MAX || 700_000);
 
 const enabled = Boolean(OWNER_EMAIL && OWNER_PASSWORD);
 
@@ -185,6 +190,9 @@ const replaceImages = async (o: any, accessToken: string): Promise<any> => {
       if (typeof v === 'string' && v.startsWith('data:')) {
         const url = await uploadBase64(v, accessToken);
         if (url) out[k] = url;
+        // Fallback: upload failed (bucket missing / no service_role) → keep
+        // the image inline if small enough, so it still displays on Vercel.
+        else if (v.length <= INLINE_IMAGE_MAX) out[k] = v;
         // else: field omitted (stripped) — keeps the UPSERT payload small
       } else if (v) {
         out[k] = v; // already a URL or empty string
@@ -193,7 +201,9 @@ const replaceImages = async (o: any, accessToken: string): Promise<any> => {
     } else if (IMAGE_ARRAY_FIELDS.has(k) && Array.isArray(v)) {
       const urls = await Promise.all(v.map(async (item: any) => {
         if (typeof item === 'string' && item.startsWith('data:')) {
-          return uploadBase64(item, accessToken);
+          const url = await uploadBase64(item, accessToken);
+          // Fallback to inline if upload failed and image is small enough
+          return url || (item.length <= INLINE_IMAGE_MAX ? item : null);
         }
         return item; // already a URL
       }));
