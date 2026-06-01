@@ -2,14 +2,16 @@
  * Auto-sync the local SQLite snapshot to Supabase `user_data` so the same
  * account can read the data on the Vercel static deployment (mobile / web).
  *
+ * Images (base64) are uploaded to Supabase Storage (bucket `bera-assets`)
+ * and replaced with public URLs so they display on Vercel without bloating
+ * the user_data UPSERT payload.
+ *
  * Disabled unless SUPABASE_OWNER_EMAIL + SUPABASE_OWNER_PASSWORD are set in
  * the environment. Push is debounced (PUSH_DELAY_MS) and triggered from a
  * middleware that watches successful API writes.
- *
- * The snapshot shape matches `scripts/export-to-supabase.mjs` so the
- * frontend (cloudSync + apiShim) reads it transparently.
  */
 
+import { createHash } from 'crypto';
 import db from './db';
 import { Request, Response, NextFunction } from 'express';
 import { markLocalPushing, isApplyingRemoteSnapshot } from './supabaseRealtime';
@@ -21,6 +23,7 @@ const SUPABASE_ANON_KEY =
 const OWNER_EMAIL = (process.env.SUPABASE_OWNER_EMAIL || '').trim().toLowerCase();
 const OWNER_PASSWORD = process.env.SUPABASE_OWNER_PASSWORD || '';
 const PUSH_DELAY_MS = Number(process.env.SUPABASE_SYNC_DEBOUNCE_MS || 2000);
+const STORAGE_BUCKET = 'bera-assets';
 
 const enabled = Boolean(OWNER_EMAIL && OWNER_PASSWORD);
 
@@ -29,6 +32,13 @@ let session: Session | null = null;
 let pushTimer: NodeJS.Timeout | null = null;
 let pushInFlight = false;
 let pendingAfterFlight = false;
+
+// In-memory cache: MD5 filename → public URL (avoids re-uploading same image)
+const imageUrlCache = new Map<string, string>();
+// Track whether the bucket has been confirmed to exist this session
+let bucketReady: boolean | null = null;
+
+// ─── DB helpers ───────────────────────────────────────────────────────────────
 
 const safe = <T = any>(sql: string): T[] => {
   try { return db.prepare(sql).all() as T[]; } catch { return []; }
@@ -60,7 +70,150 @@ const extractRawData = (rows: any[]): any[] =>
     return parseJsonFields(row);
   });
 
-const buildSnapshot = () => {
+// ─── Supabase Storage helpers ─────────────────────────────────────────────────
+
+const ensureBucket = async (accessToken: string): Promise<boolean> => {
+  if (bucketReady === true) return true;
+  try {
+    // Check if bucket exists
+    const res = await fetch(`${SUPABASE_URL}/storage/v1/bucket/${STORAGE_BUCKET}`, {
+      headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${accessToken}` },
+    });
+    if (res.ok) { bucketReady = true; return true; }
+
+    // Try to create it (public so images are accessible without auth on Vercel)
+    const createRes = await fetch(`${SUPABASE_URL}/storage/v1/bucket`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        apikey: SUPABASE_ANON_KEY,
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify({ id: STORAGE_BUCKET, name: STORAGE_BUCKET, public: true }),
+    });
+    bucketReady = createRes.ok;
+    if (!bucketReady) {
+      const body = await createRes.text().catch(() => '');
+      console.warn(`[supabaseSync] could not create bucket (${createRes.status}): ${body.slice(0, 120)}`);
+    }
+    return bucketReady;
+  } catch (e) {
+    console.warn('[supabaseSync] ensureBucket error:', e);
+    bucketReady = false;
+    return false;
+  }
+};
+
+/**
+ * Upload a base64 data-URL to Supabase Storage.
+ * Uses MD5 of the raw bytes as filename → deterministic, dedup-safe.
+ * Returns the public URL, or null on failure.
+ */
+const uploadBase64 = async (dataUrl: string, accessToken: string): Promise<string | null> => {
+  try {
+    const m = dataUrl.match(/^data:(image\/([^;]+));base64,(.+)$/s);
+    if (!m) return null;
+    const [, contentType, rawExt, b64data] = m;
+    const ext = rawExt === 'jpeg' ? 'jpg' : rawExt;
+
+    const hash = createHash('md5').update(b64data).digest('hex');
+    const filename = `${hash}.${ext}`;
+
+    if (imageUrlCache.has(filename)) return imageUrlCache.get(filename)!;
+
+    // Check if already uploaded (server restart case)
+    const headRes = await fetch(
+      `${SUPABASE_URL}/storage/v1/object/info/public/${STORAGE_BUCKET}/${filename}`,
+      { headers: { apikey: SUPABASE_ANON_KEY } },
+    );
+    if (headRes.ok) {
+      const url = `${SUPABASE_URL}/storage/v1/object/public/${STORAGE_BUCKET}/${filename}`;
+      imageUrlCache.set(filename, url);
+      return url;
+    }
+
+    const buffer = Buffer.from(b64data, 'base64');
+    const uploadRes = await fetch(
+      `${SUPABASE_URL}/storage/v1/object/${STORAGE_BUCKET}/${filename}`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': contentType,
+          Authorization: `Bearer ${accessToken}`,
+          apikey: SUPABASE_ANON_KEY,
+          'x-upsert': 'true',
+        },
+        body: buffer,
+      },
+    );
+
+    if (!uploadRes.ok) {
+      const body = await uploadRes.text().catch(() => '');
+      console.warn(`[supabaseSync] image upload failed (${uploadRes.status}): ${body.slice(0, 100)}`);
+      return null;
+    }
+
+    const url = `${SUPABASE_URL}/storage/v1/object/public/${STORAGE_BUCKET}/${filename}`;
+    imageUrlCache.set(filename, url);
+    return url;
+  } catch (e) {
+    console.warn('[supabaseSync] uploadBase64 error:', e);
+    return null;
+  }
+};
+
+/**
+ * Walk an object tree and:
+ * - if a field is a base64 image → upload to Storage → replace with URL
+ * - if upload fails → strip the field (keep snapshot small)
+ * - if field is already a URL → keep as-is
+ */
+const IMAGE_FIELDS = new Set(['image', 'photo', 'fournisseurLogo']);
+const IMAGE_ARRAY_FIELDS = new Set(['images', 'machinePhotos']);
+
+const replaceImages = async (o: any, accessToken: string): Promise<any> => {
+  if (!o || typeof o !== 'object') return o;
+  if (Array.isArray(o)) {
+    return Promise.all(o.map(item => replaceImages(item, accessToken)));
+  }
+
+  const out: any = {};
+  for (const k of Object.keys(o)) {
+    const v = o[k];
+
+    if (IMAGE_FIELDS.has(k)) {
+      if (typeof v === 'string' && v.startsWith('data:')) {
+        const url = await uploadBase64(v, accessToken);
+        if (url) out[k] = url;
+        // else: field omitted (stripped) — keeps the UPSERT payload small
+      } else if (v) {
+        out[k] = v; // already a URL or empty string
+      }
+
+    } else if (IMAGE_ARRAY_FIELDS.has(k) && Array.isArray(v)) {
+      const urls = await Promise.all(v.map(async (item: any) => {
+        if (typeof item === 'string' && item.startsWith('data:')) {
+          return uploadBase64(item, accessToken);
+        }
+        return item; // already a URL
+      }));
+      const valid = urls.filter(Boolean);
+      if (valid.length > 0) out[k] = valid;
+
+    } else if (Array.isArray(v)) {
+      out[k] = await replaceImages(v, accessToken);
+    } else if (v && typeof v === 'object') {
+      out[k] = await replaceImages(v, accessToken);
+    } else {
+      out[k] = v;
+    }
+  }
+  return out;
+};
+
+// ─── Snapshot builder ─────────────────────────────────────────────────────────
+
+const buildSnapshot = async (accessToken: string) => {
   const models = safe('SELECT * FROM models');
   const planningEvents = safe('SELECT * FROM planning_events');
   const suiviData = safe('SELECT * FROM suivi_data');
@@ -80,32 +233,31 @@ const buildSnapshot = () => {
   const hrProduction = safe('SELECT * FROM hr_production');
   const hrAvances = safe('SELECT * FROM hr_avances');
 
-  // Supabase a un statement_timeout court (~8s en Free tier). Les images
-  // base64 (champs image/images/photo) gonflent le snapshot bien au-delà
-  // de ce que l'UPSERT peut digérer. On les strip pour la sync cloud —
-  // les utilisateurs peuvent ré-uploader si besoin.
-  const stripImages = (o: any): any => {
-    if (!o || typeof o !== 'object') return o;
-    if (Array.isArray(o)) return o.map(stripImages);
-    const out: any = {};
-    for (const k of Object.keys(o)) {
-      if (k === 'image' || k === 'images' || k === 'photo' || k === 'fournisseurLogo') continue;
-      out[k] = stripImages(o[k]);
-    }
-    return out;
-  };
+  // Upload images to Storage and replace base64 with public URLs.
+  // This runs in parallel per-model for speed.
+  const libraryModels = await Promise.all(
+    models.map(async (row: any) => {
+      let m: any;
+      if (row && typeof row.data === 'string') {
+        try { m = JSON.parse(row.data); } catch { m = parseJsonFields(row); }
+      } else {
+        m = parseJsonFields(row);
+      }
+      return replaceImages(m, accessToken);
+    }),
+  );
 
-  const libraryModels = models.map((row: any) => {
-    let m: any;
-    if (row && typeof row.data === 'string') {
-      try { m = JSON.parse(row.data); } catch { m = parseJsonFields(row); }
-    } else {
-      m = parseJsonFields(row);
-    }
-    return stripImages(m);
-  });
+  const slimProducts = await Promise.all(
+    magasinProducts.map(async (row: any) => replaceImages(parseJsonFields(row), accessToken)),
+  );
 
-  const slimProducts = magasinProducts.map(parseJsonFields).map(stripImages);
+  const slimWorkers = await Promise.all(
+    workers.map(async (row: any) => replaceImages(parseJsonFields(row), accessToken)),
+  );
+
+  const slimHrWorkers = await Promise.all(
+    hrWorkers.map(async (row: any) => replaceImages(parseJsonFields(row), accessToken)),
+  );
 
   return {
     beramethode_library: libraryModels,
@@ -119,11 +271,11 @@ const buildSnapshot = () => {
         models: libraryModels.length,
         planningEvents: planningEvents.length,
         suiviData: suiviData.length,
-        workers: workers.length,
+        workers: slimWorkers.length,
         magasinProducts: magasinProducts.length,
-        hrWorkers: hrWorkers.length,
+        hrWorkers: slimHrWorkers.length,
       },
-      workers: workers.map(parseJsonFields),
+      workers: slimWorkers,
       workerSkills: workerSkills.map(parseJsonFields),
       workerPointage: workerPointage.map(parseJsonFields),
       posteSuivi: posteSuivi.map(parseJsonFields),
@@ -135,7 +287,7 @@ const buildSnapshot = () => {
         demandes: magasinDemandes.map(parseJsonFields),
       },
       hr: {
-        workers: hrWorkers.map(parseJsonFields),
+        workers: slimHrWorkers,
         pointage: hrPointage.map(parseJsonFields),
         production: hrProduction.map(parseJsonFields),
         avances: hrAvances.map(parseJsonFields),
@@ -143,6 +295,8 @@ const buildSnapshot = () => {
     },
   };
 };
+
+// ─── Auth ─────────────────────────────────────────────────────────────────────
 
 const ensureSession = async (): Promise<Session | null> => {
   if (session && session.expiresAt - Date.now() > 60_000) return session;
@@ -170,18 +324,22 @@ const ensureSession = async (): Promise<Session | null> => {
   }
 };
 
+// ─── Push ─────────────────────────────────────────────────────────────────────
+
 const pushNow = async () => {
   if (!enabled) return;
   if (pushInFlight) { pendingAfterFlight = true; return; }
-  // Don't push while we're applying a remote snapshot — the writes that
-  // triggered this push are from the remote, not from the user.
   if (isApplyingRemoteSnapshot()) return;
   pushInFlight = true;
   markLocalPushing();
   try {
     const sess = await ensureSession();
     if (!sess) return;
-    const snapshot = buildSnapshot();
+
+    // Ensure the storage bucket exists before uploading images
+    await ensureBucket(sess.accessToken);
+
+    const snapshot = await buildSnapshot(sess.accessToken);
     const bodyStr = JSON.stringify({ user_id: sess.userId, data: snapshot, updated_at: new Date().toISOString() });
     const sizeKb = (bodyStr.length / 1024).toFixed(1);
     console.log(`[supabaseSync] 📤 pushing ${sizeKb} KB...`);
@@ -198,11 +356,10 @@ const pushNow = async () => {
     if (!res.ok) {
       const body = await res.text().catch(() => '');
       console.warn(`[supabaseSync] upsert failed (${res.status}): ${body.slice(0, 200)}`);
-      // Force re-login on next push if token was rejected.
       if (res.status === 401 || res.status === 403) session = null;
     } else {
       const c = (snapshot as any).__sqlite_export__?.counts || {};
-      console.log(`[supabaseSync] ✅ pushed snapshot — models=${c.models||0} planning=${c.planningEvents||0} workers=${c.workers||0} hrWorkers=${c.hrWorkers||0}`);
+      console.log(`[supabaseSync] ✅ pushed — models=${c.models||0} planning=${c.planningEvents||0} workers=${c.workers||0} hrWorkers=${c.hrWorkers||0} (images→Storage)`);
     }
   } catch (err) {
     console.warn('[supabaseSync] push error:', err);
@@ -223,15 +380,12 @@ export const schedulePush = () => {
 
 /**
  * Express middleware: after a successful write to /api/*, schedule a push.
- * Mount this AFTER routes are declared (so res.statusCode is final) by
- * listening on res.on('finish').
  */
 export const supabaseSyncMiddleware = (req: Request, res: Response, next: NextFunction) => {
   if (!enabled) return next();
   if (!req.path.startsWith('/api/')) return next();
   const method = req.method.toUpperCase();
   if (method === 'GET' || method === 'HEAD' || method === 'OPTIONS') return next();
-  // Auth routes don't change app data.
   if (req.path.startsWith('/api/auth/')) return next();
   res.on('finish', () => {
     if (res.statusCode >= 200 && res.statusCode < 300) schedulePush();
