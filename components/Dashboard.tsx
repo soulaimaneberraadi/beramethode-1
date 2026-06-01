@@ -185,7 +185,7 @@ export default function Dashboard({ models, suivis, planningEvents, settings, se
       const target = suivi.pJournaliere || 400;
       totalTarget += target;
       Object.keys(hourlyAccumulator).forEach(key => {
-        hourlyAccumulator[key] += (suivi.sorties[key as keyof typeof suivi.sorties] || 0) as number;
+        hourlyAccumulator[key] += (suivi.sorties?.[key as keyof typeof suivi.sorties] || 0) as number;
       });
       const event = planningEvents.find(e => e.id === suivi.planningId);
       if (event) {
@@ -197,7 +197,7 @@ export default function Dashboard({ models, suivis, planningEvents, settings, se
       let hoursWorked = 0;
       let totalDowntimePenalty = 0;
       ['h0830','h0930','h1030','h1130','h1430','h1530','h1630','h1730','h1830','h1930'].forEach(key => {
-        const val = suivi.sorties[key as keyof typeof suivi.sorties] as number | undefined;
+        const val = suivi.sorties?.[key as keyof typeof suivi.sorties] as number | undefined;
         if (val !== undefined && val >= 0) { hoursWorked++; if (suivi.downtimes && suivi.downtimes[key]) totalDowntimePenalty += 0.2; }
       });
       if (hoursWorked > 0) {
