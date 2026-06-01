@@ -407,10 +407,19 @@ export default function Effectifs({ onOpenGestionRH, suivis = [], setSuivis, pla
       if (existingIndex >= 0) {
         s = { ...updatedArray[existingIndex] };
       } else {
+        // For chain-type entries, link to the active planning event so SuiviProduction can read totalWorkers
+        const activePlan = type === 'chain'
+          ? planningEvents.find(p =>
+              p.chaineId === targetId &&
+              p.dateLancement <= selectedDate &&
+              p.dateExport >= selectedDate
+            )
+          : undefined;
         s = {
           id: `effectif_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-          planningId: type === 'chain' ? '' : 'standalone',
+          planningId: type === 'chain' ? (activePlan?.id || '') : 'standalone',
           chaineId: targetId,
+          modelId: activePlan?.modelId,
           date: selectedDate,
           entrer: 0,
           sorties: {},
@@ -502,6 +511,20 @@ export default function Effectifs({ onOpenGestionRH, suivis = [], setSuivis, pla
 
     return displayChains.map(c => ({ id: c, label: getChainLabel(c), type: 'chain' as const }));
   }, [categoryConfigs, customPartitions, displayChains, activeSuivisForDate, roles, settings]);
+
+  /** Active planning event per chain for selectedDate — used for color badges and planningId linkage. */
+  const chainActivePlans = useMemo(() => {
+    const map: Record<string, PlanningEvent | undefined> = {};
+    allKnownChains.forEach(chainId => {
+      map[chainId] = planningEvents.find(p =>
+        p.chaineId === chainId &&
+        p.dateLancement <= selectedDate &&
+        p.dateExport >= selectedDate &&
+        p.status !== 'DONE'
+      );
+    });
+    return map;
+  }, [allKnownChains, planningEvents, selectedDate]);
 
   const calculateTotalForRow = (roleId: string, category: string) => {
     const cols = getColumnsForCategory(category);
@@ -1374,10 +1397,24 @@ export default function Effectifs({ onOpenGestionRH, suivis = [], setSuivis, pla
                               {colNotesCount > 9 ? '9+' : colNotesCount}
                             </span>
                           )}
-                          <div className="flex flex-col items-center">
+                          <div className="flex flex-col items-center gap-0.5">
                             <span>{c.label}</span>
-                            <span className="text-xs font-medium text-indigo-500 bg-indigo-50 px-2 py-0.5 rounded-full mt-1">
-                              Total: {calculateTotalForCol(c.id, c.type, category)}
+                            {c.type === 'chain' && chainActivePlans[c.id] && (() => {
+                              const plan = chainActivePlans[c.id]!;
+                              const color = plan.color || '#6366f1';
+                              const name = plan.modelName || plan.modelId || 'OF';
+                              return (
+                                <span
+                                  className="text-[10px] font-bold px-1.5 py-0.5 rounded-full truncate max-w-[7rem] leading-tight"
+                                  style={{ backgroundColor: color + '22', color, border: `1px solid ${color}55` }}
+                                  title={name}
+                                >
+                                  {name}
+                                </span>
+                              );
+                            })()}
+                            <span className="text-xs font-medium text-indigo-500 bg-indigo-50 px-2 py-0.5 rounded-full">
+                              {calculateTotalForCol(c.id, c.type, category)}
                             </span>
                           </div>
                         </th>

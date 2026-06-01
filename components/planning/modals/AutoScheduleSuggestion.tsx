@@ -45,7 +45,7 @@ export default function AutoScheduleSuggestion({ open, models, onClose, suggest,
         <Modal
             open={open}
             onClose={onClose}
-            title="Jdwala automatique"
+            title="Planification automatique"
             subtitle="L'algorithme choisit la meilleure chaîne disponible"
             size="md"
             footer={

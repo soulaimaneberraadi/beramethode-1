@@ -48,6 +48,22 @@ export const saveSuiviData = (req: Request, res: Response) => {
                     s.id, userId, s.planningId, s.date, s.pJournaliere || 0, s.totalWorkers || 0, s.trs || 0,
                     JSON.stringify(s)
                 );
+
+                // Auto-sync progress to Plan Master (planning_events)
+                const rows = db.prepare(`SELECT raw_data FROM suivi_data WHERE planningId = ?`).all(s.planningId);
+                let totalProduced = 0;
+                for (const r of rows) {
+                    try {
+                        const parsed = JSON.parse((r as any).raw_data);
+                        totalProduced += parsed.totalHeure || 0;
+                    } catch(e) {}
+                }
+
+                const plan = db.prepare(`SELECT qteTotal FROM planning_events WHERE id = ?`).get(s.planningId);
+                if (plan) {
+                    const status = totalProduced >= (plan as any).qteTotal ? 'DONE' : (totalProduced > 0 ? 'IN_PROGRESS' : 'PLANNING');
+                    db.prepare(`UPDATE planning_events SET qteProduite = ?, status = ? WHERE id = ?`).run(totalProduced, status, s.planningId);
+                }
             }
         });
 

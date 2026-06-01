@@ -17,6 +17,7 @@ export interface DateTimePickerProps {
     disabledDays?: (d: Date) => boolean;
     /** Affiche le bouton déclencheur avec le même style que les inputs Planning */
     inputClassName?: string;
+    showIcon?: boolean;
 }
 
 function pad(n: number) {
@@ -52,6 +53,7 @@ export default function DateTimePicker({
     maxDate,
     disabledDays,
     inputClassName,
+    showIcon = true,
 }: DateTimePickerProps) {
     const uid = useId();
     const [open, setOpen] = useState(false);
@@ -213,7 +215,7 @@ export default function DateTimePicker({
                 className={baseInp}
             >
                 <span className={datePart ? 'text-slate-800' : 'text-slate-400'}>{datePart ? displayLabel : 'Choisir…'}</span>
-                <Calendar className="h-4 w-4 shrink-0 text-slate-400" />
+                {showIcon && <Calendar className="h-4 w-4 shrink-0 text-slate-400" />}
             </button>
             {typeof document !== 'undefined' && open && createPortal(pop, document.body)}
         </div>

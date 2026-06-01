@@ -26,7 +26,7 @@ import Balancing from './Balancing';
 import Implantation from './Implantation';
 import CostCalculator from './CostCalculator';
 
-import { Machine, Operation, ComplexityFactor, StandardTime, Guide, Poste, FicheData, Material, ChronoData, AppSettings, ManualLink } from '../types';
+import { Machine, Operation, ComplexityFactor, StandardTime, Guide, Poste, FicheData, Material, ChronoData, AppSettings, ManualLink, PlanningEvent } from '../types';
 
 interface ModelWorkflowProps {
     // Shared Data Props
@@ -95,6 +95,11 @@ interface ModelWorkflowProps {
     // Global Settings
     settings: AppSettings;
     setSettings: React.Dispatch<React.SetStateAction<AppSettings>>;
+
+    // Planned events
+    currentModelId: string | null;
+    planningEvents: PlanningEvent[];
+    setPlanningEvents: React.Dispatch<React.SetStateAction<PlanningEvent[]>>;
 }
 
 // Stepper label translations
@@ -144,7 +149,8 @@ export default function ModelWorkflow({
     onSaveToLibrary,
     onUndo, onRedo, canUndo, canRedo,
     lang = 'fr',
-    settings, setSettings
+    settings, setSettings,
+    currentModelId, planningEvents, setPlanningEvents
 }: ModelWorkflowProps) {
     const st = STEP_LABELS[lang];
 
@@ -232,7 +238,7 @@ export default function ModelWorkflow({
         <div className="flex flex-col h-full overflow-hidden">
 
             {/* STEPPER HEADER + NAVIGATION */}
-            <div className="bg-white border-b border-slate-200 px-4 py-3 shrink-0 flex items-center justify-between gap-4 shadow-sm z-20">
+            <div className="bg-white border-b border-slate-200 px-3 sm:px-4 py-2 sm:py-3 shrink-0 flex flex-wrap items-center justify-between gap-y-2 gap-x-4 shadow-sm z-20">
 
                 {/* DATA UNDO/REDO NAVIGATION (Left) */}
                 <div className="flex items-center gap-1 bg-slate-50 p-1 rounded-lg border border-slate-200 shrink-0 mr-2 shadow-sm">
@@ -269,7 +275,7 @@ export default function ModelWorkflow({
                 </div>
 
                 {/* CENTER: STEPS LIST (Scrollable) */}
-                <div className="flex-1 flex items-center justify-center overflow-hidden">
+                <div className="order-last w-full md:order-none md:w-auto md:flex-1 flex items-center justify-start md:justify-center overflow-hidden">
                     <div className="flex items-center gap-1 overflow-x-auto no-scrollbar max-w-full px-2">
                         {steps.map((step, index) => {
                             const isActive = currentStep === step.id;
@@ -287,7 +293,8 @@ export default function ModelWorkflow({
                                     >
                                         {isPast ? <CheckCircle2 className="w-3.5 h-3.5" /> : <step.icon className={`w-3.5 h-3.5 ${isActive ? 'text-indigo-200' : 'text-slate-400'}`} />}
                                         <span className="hidden md:inline">{step.label}</span>
-                                        <span className="md:hidden">{index + 1}</span>
+                                        {/* Mobile : label complet sur l'étape active, numéro sinon */}
+                                        <span className="md:hidden">{isActive ? step.label : index + 1}</span>
                                     </button>
                                     {index < steps.length - 1 && <div className="w-4 h-px bg-slate-200 shrink-0 hidden sm:block"></div>}
                                 </React.Fragment>
@@ -347,6 +354,9 @@ export default function ModelWorkflow({
                             lang={lang}
                             articleNameError={validationError?.includes(lang === 'ar' ? 'مرجع' : 'référence') || false}
                             settings={settings}
+                            currentModelId={currentModelId}
+                            planningEvents={planningEvents}
+                            setPlanningEvents={setPlanningEvents}
                         />
                     )}
 

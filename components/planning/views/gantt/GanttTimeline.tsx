@@ -41,7 +41,7 @@ export default function GanttTimeline({ dates, dayWidth, settings }: Props) {
     }
 
     return (
-        <div className="sticky top-0 z-20 bg-white">
+        <div className="sticky top-0 z-[29] bg-white">
             {/* Bande année (uniquement si très dézoomé) */}
             {showYears && (
                 <div className="flex h-5 border-b border-slate-100">

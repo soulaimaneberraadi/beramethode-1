@@ -1,8 +1,9 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { AlertTriangle } from 'lucide-react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { AlertTriangle, Plus, Minus, Package, Truck, Calendar, Grid3X3 } from 'lucide-react';
 import Modal from '../shared/Modal';
 import Button from '../shared/Button';
 import { Input, Select } from '../shared/Input';
+import ModelSelector from './ModelSelector';
 import type { ModelData, PlanningEvent } from '../../../types';
 import type { PlanningChain } from '../hooks/usePlanningChains';
 import { evClientName, evQty, evStartYmd } from '../shared/eventAccessors';
@@ -29,13 +30,22 @@ interface Props {
         isSubcontracted?: boolean;
         subcontractorName?: string;
         subcontractStatus?: 'PENDING' | 'SENT' | 'COMPLETED';
+        subcontractorPhone?: string;
+        subcontractorRating?: number;
+        subcontractorAvailabilityDate?: string;
+        subcontractPricePerPiece?: number;
+        subcontractSizeColorDistribution?: Record<string, Record<string, number>>;
+        sizeColorDistribution?: Record<string, Record<string, number>>;
+        subcontractDeadline?: string;
+        subcontractQuantity?: number;
     }) => void;
     checkDraft?: (draft: {
         modelId: string; chaineId: string; startDate: string; quantity: number; strictDeadline_DDS?: string;
     }) => Issue[];
+    onOpenInIngenierie?: (modelId: string) => void;
 }
 
-export default function EventEditor({ open, mode, initial, models, chains, onClose, onSubmit, checkDraft }: Props) {
+export default function EventEditor({ open, mode, initial, models, chains, onClose, onSubmit, checkDraft, onOpenInIngenierie }: Props) {
     const [modelId, setModelId] = useState('');
     const [chaineId, setChaineId] = useState(chains[0]?.id || 'CHAINE 1');
     const [startDate, setStartDate] = useState(todayYmd());
@@ -46,41 +56,243 @@ export default function EventEditor({ open, mode, initial, models, chains, onClo
     const [isSubcontracted, setIsSubcontracted] = useState(false);
     const [subcontractorName, setSubcontractorName] = useState('');
     const [subcontractStatus, setSubcontractStatus] = useState<'PENDING' | 'SENT' | 'COMPLETED'>('PENDING');
-
-    useEffect(() => {
-        if (!open) return;
-        if (mode === 'edit' && initial) {
-            setModelId(initial.modelId);
-            setChaineId(initial.chaineId);
-            setStartDate(evStartYmd(initial) || todayYmd());
-            setQuantity(evQty(initial));
-            setClientName(evClientName(initial, models));
-            setStrictDeadline((initial.strictDeadline_DDS || '').split('T')[0]);
-            setFournisseurDate((initial.fournisseurDate || '').split('T')[0]);
-            setIsSubcontracted(!!initial.isSubcontracted);
-            setSubcontractorName(initial.subcontractorName || '');
-            setSubcontractStatus(initial.subcontractStatus || 'PENDING');
-        } else {
-            setModelId('');
-            setChaineId(chains[0]?.id || 'CHAINE 1');
-            setStartDate(todayYmd());
-            setQuantity(0);
-            setClientName('');
-            setStrictDeadline('');
-            setFournisseurDate('');
-            setIsSubcontracted(false);
-            setSubcontractorName('');
-            setSubcontractStatus('PENDING');
-        }
-    }, [open, mode, initial, chains, models]);
+    const [subcontractorPhone, setSubcontractorPhone] = useState('');
+    const [subcontractorRating, setSubcontractorRating] = useState<number>(5);
+    const [subcontractorAvailabilityDate, setSubcontractorAvailabilityDate] = useState('');
+    const [subcontractPricePerPiece, setSubcontractPricePerPiece] = useState<number>(0);
+    const [subcontractDist, setSubcontractDist] = useState<Record<string, Record<string, number>>>({});
+    const [showSubcontractDist, setShowSubcontractDist] = useState(false);
+    const [subcontractQuantity, setSubcontractQuantity] = useState(0);
+    const [subcontractDeadline, setSubcontractDeadline] = useState('');
+    const [totalQuantity, setTotalQuantity] = useState(0);
+    
+    // Distribution state: { colorId: { size: qty } }
+    const [distribution, setDistribution] = useState<Record<string, Record<string, number>>>({});
+    const [showDistribution, setShowDistribution] = useState(false);
 
     const selectedModel = models.find(m => m.id === modelId);
+
+    const lastOpenRef = useRef(false);
+    const lastInitialRef = useRef<PlanningEvent | null | undefined>(undefined);
+    const lastModeRef = useRef<'create' | 'edit' | undefined>(undefined);
+
+    useEffect(() => {
+        if (!open) {
+            lastOpenRef.current = false;
+            return;
+        }
+
+        const modeChanged = lastModeRef.current !== mode;
+        const initialChanged = lastInitialRef.current !== initial;
+        const opened = !lastOpenRef.current;
+
+        if (opened || modeChanged || initialChanged) {
+            lastOpenRef.current = true;
+            lastModeRef.current = mode;
+            lastInitialRef.current = initial;
+
+            if (mode === 'edit' && initial) {
+                setModelId(initial.modelId);
+                setChaineId(initial.chaineId);
+                setStartDate(evStartYmd(initial) || todayYmd());
+                setQuantity(initial.isSubcontracted ? 0 : evQty(initial));
+                setClientName(evClientName(initial, models));
+                setStrictDeadline((initial.strictDeadline_DDS || '').split('T')[0]);
+                setFournisseurDate((initial.fournisseurDate || '').split('T')[0]);
+                setIsSubcontracted(!!initial.isSubcontracted);
+                setSubcontractorName(initial.subcontractorName || '');
+                setSubcontractStatus(initial.subcontractStatus || 'PENDING');
+                setSubcontractorPhone(initial.subcontractorPhone || '');
+                setSubcontractorRating(initial.subcontractorRating || 5);
+                setSubcontractorAvailabilityDate((initial.subcontractorAvailabilityDate || '').split('T')[0]);
+                setSubcontractPricePerPiece(initial.subcontractPricePerPiece || 0);
+                setSubcontractDeadline(initial.isSubcontracted ? (initial.strictDeadline_DDS || '').split('T')[0] : (initial.subcontractorAvailabilityDate || '').split('T')[0] || (initial.strictDeadline_DDS || '').split('T')[0]);
+
+                if (initial.subcontractSizeColorDistribution) {
+                    setSubcontractDist(initial.subcontractSizeColorDistribution);
+                    setShowSubcontractDist(true);
+                } else {
+                    setSubcontractDist({});
+                    setShowSubcontractDist(false);
+                }
+
+                // Restore distribution if exists
+                if (initial.sizeColorDistribution) {
+                    setDistribution(initial.sizeColorDistribution);
+                    setShowDistribution(true);
+                } else {
+                    setDistribution({});
+                    setShowDistribution(false);
+                }
+
+                let subQty = (initial as any).subcontractQuantity || 0;
+                if (!subQty && initial.subcontractSizeColorDistribution) {
+                    subQty = Object.values(initial.subcontractSizeColorDistribution).reduce(
+                        (sum, cm) => sum + Object.values(cm).reduce((s, q) => s + q, 0), 0
+                    );
+                }
+                setSubcontractQuantity(subQty);
+                setTotalQuantity(initial.isSubcontracted ? evQty(initial) : evQty(initial) + subQty);
+            } else {
+                setModelId('');
+                setChaineId(chains[0]?.id || 'CHAINE 1');
+                setStartDate(todayYmd());
+                setQuantity(0);
+                setClientName('');
+                setStrictDeadline('');
+                setFournisseurDate('');
+                setIsSubcontracted(false);
+                setSubcontractorName('');
+                setSubcontractStatus('PENDING');
+                setSubcontractorPhone('');
+                setSubcontractorRating(5);
+                setSubcontractorAvailabilityDate('');
+                setSubcontractPricePerPiece(0);
+                setSubcontractDist({});
+                setShowSubcontractDist(false);
+                setDistribution({});
+                setShowDistribution(false);
+                setSubcontractQuantity(0);
+                setSubcontractDeadline('');
+                setTotalQuantity(0);
+            }
+        }
+    }, [open, mode, initial, chains, models]);
 
     useEffect(() => {
         if (mode === 'create' && selectedModel && !clientName) {
             setClientName(selectedModel.ficheData?.client || '');
         }
-    }, [modelId, selectedModel, mode]); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [modelId, selectedModel, mode]);
+
+    // Initialize distribution structure when model changes
+    useEffect(() => {
+        if (selectedModel && showDistribution) {
+            const colors = selectedModel.meta_data?.colors || [];
+            const sizes = selectedModel.meta_data?.sizes || [];
+            
+            // Only initialize if empty
+            if (Object.keys(distribution).length === 0 && colors.length > 0 && sizes.length > 0) {
+                const newDist: Record<string, Record<string, number>> = {};
+                colors.forEach(c => {
+                    newDist[c.id] = {};
+                    sizes.forEach(s => {
+                        newDist[c.id][s] = 0;
+                    });
+                });
+                setDistribution(newDist);
+            }
+        }
+    }, [selectedModel, showDistribution]);
+
+    // Initialize subcontract distribution structure when model changes
+    useEffect(() => {
+        if (selectedModel && isSubcontracted) {
+            const colors = selectedModel.meta_data?.colors || [];
+            const sizes = selectedModel.meta_data?.sizes || [];
+            
+            // Only initialize if empty
+            if (Object.keys(subcontractDist).length === 0 && colors.length > 0 && sizes.length > 0) {
+                const newDist: Record<string, Record<string, number>> = {};
+                colors.forEach(c => {
+                    newDist[c.id] = {};
+                    sizes.forEach(s => {
+                        newDist[c.id][s] = 0;
+                    });
+                });
+                setSubcontractDist(newDist);
+            }
+        }
+    }, [selectedModel, isSubcontracted, subcontractDist]);
+
+    // Calculate total from distribution
+    const calculatedTotal = useMemo(() => {
+        let total = 0;
+        Object.values(distribution).forEach(colorMap => {
+            Object.values(colorMap).forEach(qty => {
+                total += qty;
+            });
+        });
+        return total;
+    }, [distribution]);
+
+    // Calculate total from subcontract distribution
+    const calculatedSubcontractTotal = useMemo(() => {
+        let total = 0;
+        Object.values(subcontractDist).forEach(colorMap => {
+            Object.values(colorMap).forEach(qty => {
+                total += qty;
+            });
+        });
+        return total;
+    }, [subcontractDist]);
+
+    // Sync quantities when showDistribution is true
+    useEffect(() => {
+        if (showDistribution) {
+            setTotalQuantity(calculatedTotal);
+            setSubcontractQuantity(calculatedSubcontractTotal);
+            const localQty = isSubcontracted 
+                ? Math.max(0, calculatedTotal - calculatedSubcontractTotal)
+                : calculatedTotal;
+            setQuantity(localQty);
+        }
+    }, [calculatedTotal, calculatedSubcontractTotal, showDistribution, isSubcontracted]);
+
+    // Sync quantities when showDistribution is false
+    useEffect(() => {
+        if (!showDistribution) {
+            const localQty = isSubcontracted
+                ? Math.max(0, totalQuantity - subcontractQuantity)
+                : totalQuantity;
+            setQuantity(localQty);
+        }
+    }, [totalQuantity, subcontractQuantity, showDistribution, isSubcontracted]);
+
+    // Ensure subcontract distribution does not exceed total distribution
+    useEffect(() => {
+        if (showDistribution && isSubcontracted) {
+            let changed = false;
+            const newSubDist = { ...subcontractDist };
+            Object.keys(subcontractDist).forEach(colorId => {
+                if (subcontractDist[colorId]) {
+                    newSubDist[colorId] = { ...subcontractDist[colorId] };
+                    Object.keys(subcontractDist[colorId]).forEach(size => {
+                        const maxVal = distribution[colorId]?.[size] || 0;
+                        if ((subcontractDist[colorId]?.[size] || 0) > maxVal) {
+                            newSubDist[colorId][size] = maxVal;
+                            changed = true;
+                        }
+                    });
+                }
+            });
+            if (changed) {
+                setSubcontractDist(newSubDist);
+            }
+        }
+    }, [distribution, showDistribution, isSubcontracted, subcontractDist]);
+
+    const updateDistribution = (colorId: string, size: string, value: number) => {
+        setDistribution(prev => ({
+            ...prev,
+            [colorId]: {
+                ...prev[colorId],
+                [size]: value,
+            },
+        }));
+    };
+
+    const updateSubcontractDistribution = (colorId: string, size: string, value: number) => {
+        const maxVal = distribution[colorId]?.[size] || 0;
+        const clampedVal = Math.max(0, Math.min(value, maxVal));
+        setSubcontractDist(prev => ({
+            ...prev,
+            [colorId]: {
+                ...prev[colorId],
+                [size]: clampedVal,
+            },
+        }));
+    };
 
     const draftIssues = useMemo<Issue[]>(() => {
         if (!checkDraft || !modelId || quantity <= 0) return [];
@@ -90,16 +302,48 @@ export default function EventEditor({ open, mode, initial, models, chains, onClo
     const color = getClientColor(clientName);
 
     const submit = () => {
-        if (!modelId || quantity <= 0) return;
+        const finalTotalQty = showDistribution ? calculatedTotal : totalQuantity;
+        const finalSubcontractQty = showDistribution ? calculatedSubcontractTotal : subcontractQuantity;
+        if (!modelId || finalTotalQty <= 0) return;
+        
+        let localQty = quantity;
+        let localDist = showDistribution ? distribution : undefined;
+        
+        if (isSubcontracted && showDistribution && calculatedSubcontractTotal > 0) {
+            localQty = Math.max(0, calculatedTotal - calculatedSubcontractTotal);
+            const computedLocal: Record<string, Record<string, number>> = {};
+            Object.keys(distribution).forEach(colorId => {
+                computedLocal[colorId] = {};
+                Object.keys(distribution[colorId]).forEach(size => {
+                    const totalVal = distribution[colorId][size] || 0;
+                    const subVal = subcontractDist[colorId]?.[size] || 0;
+                    computedLocal[colorId][size] = Math.max(0, totalVal - subVal);
+                });
+            });
+            localDist = computedLocal;
+        }
+
         onSubmit({
-            modelId, chaineId, startDate, quantity,
+            modelId, chaineId, startDate, 
+            quantity: localQty, 
             clientName, strictDeadline_DDS: strictDeadline,
             fournisseurDate, color,
             isSubcontracted,
             subcontractorName: isSubcontracted ? subcontractorName : undefined,
             subcontractStatus: isSubcontracted ? subcontractStatus : undefined,
+            subcontractorPhone: isSubcontracted ? subcontractorPhone : undefined,
+            subcontractorRating: isSubcontracted ? subcontractorRating : undefined,
+            subcontractorAvailabilityDate: isSubcontracted ? subcontractorAvailabilityDate : undefined,
+            subcontractPricePerPiece: isSubcontracted ? subcontractPricePerPiece : undefined,
+            subcontractSizeColorDistribution: isSubcontracted && calculatedSubcontractTotal > 0 ? subcontractDist : undefined,
+            sizeColorDistribution: localDist,
+            subcontractDeadline: isSubcontracted ? subcontractDeadline : undefined,
+            subcontractQuantity: isSubcontracted ? finalSubcontractQty : undefined,
         });
     };
+
+    const colors = selectedModel?.meta_data?.colors || [];
+    const sizes = selectedModel?.meta_data?.sizes || [];
 
     return (
         <Modal
@@ -107,36 +351,46 @@ export default function EventEditor({ open, mode, initial, models, chains, onClo
             onClose={onClose}
             title={mode === 'create' ? 'Nouvel ordre' : 'Modifier l\'ordre'}
             subtitle={mode === 'create' ? 'Configurez les paramètres principaux' : initial?.modelName}
-            size="md"
+            size="lg"
             footer={
                 <>
                     <Button variant="ghost" onClick={onClose}>Annuler</Button>
-                    <Button variant="primary" onClick={submit} disabled={!modelId || quantity <= 0}>
+                    <Button variant="primary" onClick={submit} disabled={!modelId || (showDistribution ? calculatedTotal <= 0 : totalQuantity <= 0)}>
                         {mode === 'create' ? 'Créer l\'ordre' : 'Enregistrer'}
                     </Button>
                 </>
             }
         >
-            <div className="space-y-4">
-                {/* Modèle — full width */}
-                <Select label="Modèle" value={modelId} onChange={(e) => setModelId(e.target.value)}>
-                    <option value="">— Choisir —</option>
-                    {models.map(m => (
-                        <option key={m.id} value={m.id}>
-                            {m.meta_data?.nom_modele || m.id}
-                        </option>
-                    ))}
-                </Select>
+            <div className="space-y-5">
+                {/* Modèle */}
+                <ModelSelector
+                    models={models}
+                    value={modelId}
+                    onChange={(id) => setModelId(id)}
+                    label="Modèle"
+                    planningEvents={[]}
+                    chainEfficiency={chains.find(c => c.id === chaineId)?.efficiency || 0.85}
+                    quantity={quantity}
+                    startDate={startDate}
+                    strictDeadline={strictDeadline}
+                    onOpenInIngenierie={onOpenInIngenierie}
+                />
 
                 {/* Grid 2 cols */}
                 <div className="grid grid-cols-2 gap-3">
                     <Input
-                        label="Quantité"
+                        label={isSubcontracted ? "Quantité totale" : "Quantité"}
                         type="number"
-                        value={quantity || ''}
-                        onChange={(e) => setQuantity(Number(e.target.value) || 0)}
+                        value={showDistribution ? (calculatedTotal || '') : (totalQuantity || '')}
+                        onChange={(e) => {
+                            if (!showDistribution) {
+                                setTotalQuantity(Number(e.target.value) || 0);
+                            }
+                        }}
                         placeholder="0"
                         min={0}
+                        readOnly={showDistribution}
+                        className={showDistribution ? 'opacity-50 cursor-not-allowed' : ''}
                     />
                     <Select label="Chaîne" value={chaineId} onChange={(e) => setChaineId(e.target.value)}>
                         {chains.map(c => (
@@ -184,7 +438,313 @@ export default function EventEditor({ open, mode, initial, models, chains, onClo
                     />
                 </div>
 
-                {/* Subcontracting toggle and inputs */}
+                {/* Répartition Tailles / Couleurs */}
+                {selectedModel && colors.length > 0 && sizes.length > 0 && (
+                    <div className="border-t border-slate-100 pt-4 mt-4 space-y-4">
+                        <div className="flex items-center justify-between mb-3">
+                            <label className="flex items-center gap-2 cursor-pointer">
+                                <input
+                                    type="checkbox"
+                                    checked={showDistribution}
+                                    onChange={(e) => setShowDistribution(e.target.checked)}
+                                    className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                                />
+                                <span className="text-[12px] font-semibold text-slate-800 flex items-center gap-1.5">
+                                    <Grid3X3 className="w-4 h-4 text-indigo-600" />
+                                    Répartition (Tailles / Couleurs)
+                                </span>
+                            </label>
+                            {showDistribution && (
+                                <span className="text-[11px] font-bold text-indigo-600 bg-indigo-50 px-2 py-1 rounded-md">
+                                    Total: {calculatedTotal} pcs
+                                </span>
+                            )}
+                        </div>
+
+                        {showDistribution && (
+                            <div className="space-y-4">
+                                <div className="flex items-center justify-between">
+                                    <span className="text-[12px] font-semibold text-slate-800">
+                                        Répartition Totale (Commande)
+                                    </span>
+                                </div>
+                                <div className="bg-slate-50 rounded-xl border border-slate-200 overflow-hidden animate-[planning-slide-in-right_150ms_ease-out]">
+                                    <div className="overflow-x-auto">
+                                        <table className="w-full text-sm">
+                                            <thead>
+                                                <tr className="bg-slate-100 border-b border-slate-200">
+                                                    <th className="px-4 py-3 text-left text-[11px] font-bold text-slate-600 uppercase tracking-wider sticky left-0 bg-slate-100 z-10">
+                                                        Couleur \ Taille
+                                                    </th>
+                                                    {sizes.map(size => (
+                                                        <th key={size} className="px-4 py-3 text-center text-[11px] font-bold text-slate-600 uppercase tracking-wider min-w-[80px]">
+                                                            {size}
+                                                        </th>
+                                                    ))}
+                                                    <th className="px-4 py-3 text-center text-[11px] font-bold text-white bg-indigo-600 uppercase tracking-wider min-w-[80px]">
+                                                        Total
+                                                    </th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-slate-200">
+                                                {colors.map(color => {
+                                                    const colorTotal = Object.values(distribution[color.id] || {}).reduce((a, b) => a + b, 0);
+                                                    return (
+                                                        <tr key={color.id} className="hover:bg-white/50 transition-colors">
+                                                            <td className="px-4 py-2 sticky left-0 bg-slate-50 z-10 border-r border-slate-200">
+                                                                <div className="flex items-center gap-2">
+                                                                    <div 
+                                                                        className="w-3 h-3 rounded-full border border-slate-300 shadow-sm" 
+                                                                        style={{ background: color.id || '#888' }} 
+                                                                    />
+                                                                    <span className="text-[12px] font-medium text-slate-800 truncate max-w-[120px]">
+                                                                        {color.name}
+                                                                    </span>
+                                                                </div>
+                                                            </td>
+                                                            {sizes.map(size => (
+                                                                <td key={size} className="px-2 py-2">
+                                                                    <input
+                                                                        type="number"
+                                                                        value={distribution[color.id]?.[size] || ''}
+                                                                        onChange={(e) => updateDistribution(color.id, size, Number(e.target.value) || 0)}
+                                                                        className="w-full h-8 px-2 text-center text-[12px] tabular-nums bg-white border border-slate-200 rounded-md focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 outline-none transition-all"
+                                                                        min={0}
+                                                                        placeholder="0"
+                                                                    />
+                                                                </td>
+                                                            ))}
+                                                            <td className="px-4 py-2 text-center bg-indigo-50/30">
+                                                                <span className="text-[13px] font-bold text-indigo-700 tabular-nums">
+                                                                    {colorTotal}
+                                                                </span>
+                                                            </td>
+                                                        </tr>
+                                                    );
+                                                })}
+                                            </tbody>
+                                            <tfoot>
+                                                <tr className="bg-slate-100 border-t-2 border-slate-300">
+                                                    <td className="px-4 py-3 text-right text-[11px] font-bold text-slate-700 uppercase sticky left-0 bg-slate-100 z-10">
+                                                        Total
+                                                    </td>
+                                                    {sizes.map(size => {
+                                                        const sizeTotal = colors.reduce((sum, c) => sum + (distribution[c.id]?.[size] || 0), 0);
+                                                        return (
+                                                            <td key={size} className="px-4 py-3 text-center">
+                                                                <span className="text-[12px] font-semibold text-slate-700 tabular-nums">
+                                                                    {sizeTotal}
+                                                                </span>
+                                                            </td>
+                                                        );
+                                                    })}
+                                                    <td className="px-4 py-3 text-center bg-indigo-600">
+                                                        <span className="text-[14px] font-bold text-white tabular-nums">
+                                                            {calculatedTotal}
+                                                        </span>
+                                                    </td>
+                                                </tr>
+                                            </tfoot>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {showDistribution && isSubcontracted && (
+                            <div className="mt-4 space-y-4">
+                                <div className="flex items-center justify-between">
+                                    <span className="text-[12px] font-semibold text-indigo-800 flex items-center gap-1.5">
+                                        <Truck className="w-4 h-4 text-indigo-600" />
+                                        Répartition Sous-traitance (المناولة)
+                                    </span>
+                                    <span className="text-[11px] font-bold text-indigo-600 bg-indigo-50 px-2 py-1 rounded-md">
+                                        Total sous-traité: {calculatedSubcontractTotal} pcs
+                                    </span>
+                                </div>
+                                <div className="bg-slate-50 rounded-xl border border-slate-200 overflow-hidden animate-[planning-slide-in-right_150ms_ease-out]">
+                                    <div className="overflow-x-auto">
+                                        <table className="w-full text-sm">
+                                            <thead>
+                                                <tr className="bg-slate-100 border-b border-slate-200">
+                                                    <th className="px-4 py-3 text-left text-[11px] font-bold text-slate-600 uppercase tracking-wider sticky left-0 bg-slate-100 z-10">
+                                                        Couleur \ Taille
+                                                    </th>
+                                                    {sizes.map(size => (
+                                                        <th key={size} className="px-4 py-3 text-center text-[11px] font-bold text-slate-600 uppercase tracking-wider min-w-[80px]">
+                                                            {size}
+                                                        </th>
+                                                    ))}
+                                                    <th className="px-4 py-3 text-center text-[11px] font-bold text-white bg-indigo-600 uppercase tracking-wider min-w-[80px]">
+                                                        Total
+                                                    </th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-slate-200">
+                                                {colors.map(color => {
+                                                    const colorTotal = Object.values(subcontractDist[color.id] || {}).reduce((a, b) => a + b, 0);
+                                                    return (
+                                                        <tr key={color.id} className="hover:bg-white/50 transition-colors">
+                                                            <td className="px-4 py-2 sticky left-0 bg-slate-50 z-10 border-r border-slate-200">
+                                                                <div className="flex items-center gap-2">
+                                                                    <div 
+                                                                        className="w-3 h-3 rounded-full border border-slate-300 shadow-sm" 
+                                                                        style={{ background: color.id || '#888' }} 
+                                                                    />
+                                                                    <span className="text-[12px] font-medium text-slate-800 truncate max-w-[120px]">
+                                                                        {color.name}
+                                                                    </span>
+                                                                </div>
+                                                            </td>
+                                                            {sizes.map(size => (
+                                                                <td key={size} className="px-2 py-2">
+                                                                    <input
+                                                                        type="number"
+                                                                        value={subcontractDist[color.id]?.[size] || ''}
+                                                                        onChange={(e) => updateSubcontractDistribution(color.id, size, Number(e.target.value) || 0)}
+                                                                        className="w-full h-8 px-2 text-center text-[12px] tabular-nums bg-white border border-slate-200 rounded-md focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 outline-none transition-all"
+                                                                        min={0}
+                                                                        max={distribution[color.id]?.[size] || 0}
+                                                                        placeholder="0"
+                                                                    />
+                                                                </td>
+                                                            ))}
+                                                            <td className="px-4 py-2 text-center bg-indigo-50/30">
+                                                                <span className="text-[13px] font-bold text-indigo-700 tabular-nums">
+                                                                    {colorTotal}
+                                                                </span>
+                                                            </td>
+                                                        </tr>
+                                                    );
+                                                })}
+                                            </tbody>
+                                            <tfoot>
+                                                <tr className="bg-slate-100 border-t-2 border-slate-300">
+                                                    <td className="px-4 py-3 text-right text-[11px] font-bold text-slate-700 uppercase sticky left-0 bg-slate-100 z-10">
+                                                        Total
+                                                    </td>
+                                                    {sizes.map(size => {
+                                                        const sizeTotal = colors.reduce((sum, c) => sum + (subcontractDist[c.id]?.[size] || 0), 0);
+                                                        return (
+                                                            <td key={size} className="px-4 py-3 text-center">
+                                                                <span className="text-[12px] font-semibold text-slate-700 tabular-nums">
+                                                                    {sizeTotal}
+                                                                </span>
+                                                            </td>
+                                                        );
+                                                    })}
+                                                    <td className="px-4 py-3 text-center bg-indigo-600">
+                                                        <span className="text-[14px] font-bold text-white tabular-nums">
+                                                            {calculatedSubcontractTotal}
+                                                        </span>
+                                                    </td>
+                                                </tr>
+                                            </tfoot>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {showDistribution && isSubcontracted && (
+                            <div className="mt-4 space-y-4">
+                                <div className="flex items-center justify-between">
+                                    <span className="text-[12px] font-semibold text-emerald-800 flex items-center gap-1.5">
+                                        <Package className="w-4 h-4 text-emerald-600" />
+                                        Reste en Production Interne (Chaîne)
+                                    </span>
+                                    <span className="text-[11px] font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-md">
+                                        Reste interne: {Math.max(0, calculatedTotal - calculatedSubcontractTotal)} pcs
+                                    </span>
+                                </div>
+                                <div className="bg-emerald-50/20 rounded-xl border border-emerald-100 overflow-hidden animate-[planning-slide-in-right_150ms_ease-out]">
+                                    <div className="overflow-x-auto">
+                                        <table className="w-full text-sm">
+                                            <thead>
+                                                <tr className="bg-emerald-50/50 border-b border-emerald-100">
+                                                    <th className="px-4 py-3 text-left text-[11px] font-bold text-emerald-800 uppercase tracking-wider sticky left-0 bg-emerald-50/50 z-10">
+                                                        Couleur \ Taille
+                                                    </th>
+                                                    {sizes.map(size => (
+                                                        <th key={size} className="px-4 py-3 text-center text-[11px] font-bold text-emerald-800 uppercase tracking-wider min-w-[80px]">
+                                                            {size}
+                                                        </th>
+                                                    ))}
+                                                    <th className="px-4 py-3 text-center text-[11px] font-bold text-white bg-emerald-600 uppercase tracking-wider min-w-[80px]">
+                                                        Total
+                                                    </th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-emerald-100">
+                                                {colors.map(color => {
+                                                    const colorTotalTotal = Object.values(distribution[color.id] || {}).reduce((a, b) => a + b, 0);
+                                                    const colorSubTotal = Object.values(subcontractDist[color.id] || {}).reduce((a, b) => a + b, 0);
+                                                    const colorTotal = Math.max(0, colorTotalTotal - colorSubTotal);
+                                                    return (
+                                                        <tr key={color.id} className="hover:bg-white/50 transition-colors">
+                                                            <td className="px-4 py-2 sticky left-0 bg-emerald-50/30 z-10 border-r border-emerald-100">
+                                                                <div className="flex items-center gap-2">
+                                                                    <div 
+                                                                        className="w-3 h-3 rounded-full border border-slate-300 shadow-sm" 
+                                                                        style={{ background: color.id || '#888' }} 
+                                                                    />
+                                                                    <span className="text-[12px] font-medium text-slate-800 truncate max-w-[120px]">
+                                                                        {color.name}
+                                                                    </span>
+                                                                </div>
+                                                            </td>
+                                                            {sizes.map(size => {
+                                                                const cellTotalVal = distribution[color.id]?.[size] || 0;
+                                                                const cellSubVal = subcontractDist[color.id]?.[size] || 0;
+                                                                const cellVal = Math.max(0, cellTotalVal - cellSubVal);
+                                                                return (
+                                                                    <td key={size} className="px-2 py-2 text-center text-[12px] font-medium text-slate-800 tabular-nums">
+                                                                        {cellVal}
+                                                                    </td>
+                                                                );
+                                                            })}
+                                                            <td className="px-4 py-2 text-center bg-emerald-50/50">
+                                                                <span className="text-[13px] font-bold text-emerald-700 tabular-nums">
+                                                                    {colorTotal}
+                                                                </span>
+                                                            </td>
+                                                        </tr>
+                                                    );
+                                                })}
+                                            </tbody>
+                                            <tfoot>
+                                                <tr className="bg-emerald-50/40 border-t-2 border-emerald-200">
+                                                    <td className="px-4 py-3 text-right text-[11px] font-bold text-emerald-800 uppercase sticky left-0 bg-emerald-50/40 z-10">
+                                                        Total
+                                                    </td>
+                                                    {sizes.map(size => {
+                                                        const sizeTotalTotal = colors.reduce((sum, c) => sum + (distribution[c.id]?.[size] || 0), 0);
+                                                        const sizeSubTotal = colors.reduce((sum, c) => sum + (subcontractDist[c.id]?.[size] || 0), 0);
+                                                        const sizeTotal = Math.max(0, sizeTotalTotal - sizeSubTotal);
+                                                        return (
+                                                            <td key={size} className="px-4 py-3 text-center">
+                                                                <span className="text-[12px] font-semibold text-emerald-800 tabular-nums">
+                                                                    {sizeTotal}
+                                                                </span>
+                                                            </td>
+                                                        );
+                                                    })}
+                                                    <td className="px-4 py-3 text-center bg-emerald-600">
+                                                        <span className="text-[14px] font-bold text-white tabular-nums">
+                                                            {Math.max(0, calculatedTotal - calculatedSubcontractTotal)}
+                                                        </span>
+                                                    </td>
+                                                </tr>
+                                            </tfoot>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                )}
+
+                {/* Subcontracting */}
                 <div className="border-t border-slate-100 pt-3 mt-3">
                     <label className="flex items-center gap-2 cursor-pointer">
                         <input
@@ -197,28 +757,104 @@ export default function EventEditor({ open, mode, initial, models, chains, onClo
                     </label>
                     
                     {isSubcontracted && (
-                        <div className="grid grid-cols-2 gap-3 mt-3 animate-[planning-slide-in-right_150ms_ease-out]">
-                            <Input
-                                label="Nom du sous-traitant (اسم المناول)"
-                                type="text"
-                                value={subcontractorName}
-                                onChange={(e) => setSubcontractorName(e.target.value)}
-                                placeholder="Ex: Atelier X"
-                            />
-                            <Select
-                                label="Statut (الحالة)"
-                                value={subcontractStatus}
-                                onChange={(e) => setSubcontractStatus(e.target.value as any)}
-                            >
-                                <option value="PENDING">En attente (في الانتظار)</option>
-                                <option value="SENT">Envoyé (تم الإرسال)</option>
-                                <option value="COMPLETED">Complété (مكتمل)</option>
-                            </Select>
+                        <div className="mt-4 p-4 bg-slate-50/50 border border-slate-200 rounded-xl space-y-4 animate-[planning-slide-in-right_150ms_ease-out]">
+                            <h4 className="text-[12px] font-bold text-slate-800 flex items-center gap-1.5 border-b border-slate-100 pb-2">
+                                <Truck className="w-4 h-4 text-indigo-600" />
+                                Détails du Partenaire Sous-traitant
+                            </h4>
+                            
+                            <div className="grid grid-cols-2 gap-3">
+                                <Input
+                                    label="Nom du sous-traitant"
+                                    type="text"
+                                    value={subcontractorName}
+                                    onChange={(e) => setSubcontractorName(e.target.value)}
+                                    placeholder="Ex: Atelier X"
+                                />
+                                <Input
+                                    label="Téléphone"
+                                    type="tel"
+                                    value={subcontractorPhone}
+                                    onChange={(e) => setSubcontractorPhone(e.target.value)}
+                                    placeholder="Ex: +212 600000000"
+                                />
+                                
+                                <div className="space-y-1.5">
+                                    <label className="block text-[11px] font-medium text-slate-600">Note / Évaluation</label>
+                                    <select
+                                        value={subcontractorRating}
+                                        onChange={(e) => setSubcontractorRating(Number(e.target.value) || 5)}
+                                        className="w-full h-9 px-3 text-[13px] text-slate-900 bg-white border border-slate-200 rounded-md focus:border-slate-400 focus:ring-2 focus:ring-slate-100 outline-none transition-colors"
+                                    >
+                                        <option value={5}>★★★★★ (5/5)</option>
+                                        <option value={4}>★★★★☆ (4/5)</option>
+                                        <option value={3}>★★★☆☆ (3/5)</option>
+                                        <option value={2}>★★☆☆☆ (2/5)</option>
+                                        <option value={1}>★☆☆☆☆ (1/5)</option>
+                                    </select>
+                                </div>
+
+                                <Select
+                                    label="Statut"
+                                    value={subcontractStatus}
+                                    onChange={(e) => setSubcontractStatus(e.target.value as any)}
+                                >
+                                    <option value="PENDING">En attente</option>
+                                    <option value="SENT">Envoyé</option>
+                                    <option value="COMPLETED">Complété</option>
+                                </Select>
+
+                                <Input
+                                    label="Date de disponibilité"
+                                    type="date"
+                                    value={subcontractorAvailabilityDate}
+                                    onChange={(e) => setSubcontractorAvailabilityDate(e.target.value)}
+                                />
+
+                                <Input
+                                    label="Date de livraison prévue"
+                                    type="date"
+                                    value={subcontractDeadline}
+                                    onChange={(e) => setSubcontractDeadline(e.target.value)}
+                                />
+
+                                {!showDistribution && (
+                                    <Input
+                                        label="Quantité sous-traitée"
+                                        type="number"
+                                        value={subcontractQuantity || ''}
+                                        onChange={(e) => {
+                                            const val = Number(e.target.value) || 0;
+                                            setSubcontractQuantity(Math.min(val, totalQuantity));
+                                        }}
+                                        placeholder="0"
+                                        min={0}
+                                        max={totalQuantity}
+                                    />
+                                )}
+
+                                <Input
+                                    label="Prix par pièce (DH)"
+                                    type="number"
+                                    step="0.01"
+                                    value={subcontractPricePerPiece || ''}
+                                    onChange={(e) => setSubcontractPricePerPiece(Number(e.target.value) || 0)}
+                                    placeholder="0.00"
+                                    min={0}
+                                />
+                            </div>
+
+                            <div className="flex justify-between items-center bg-indigo-50/50 p-3 rounded-lg border border-indigo-100">
+                                <span className="text-[12px] font-semibold text-slate-700">Coût total estimé :</span>
+                                <span className="text-[14px] font-bold text-indigo-700 tabular-nums">
+                                    {((showDistribution ? calculatedSubcontractTotal : subcontractQuantity) * subcontractPricePerPiece).toFixed(2)} DH
+                                </span>
+                            </div>
                         </div>
                     )}
                 </div>
 
-                {/* Live validation hints */}
+                {/* Validation */}
                 {draftIssues.length > 0 && (
                     <div className="rounded-lg bg-amber-50/40 border border-amber-100 p-3 space-y-1.5">
                         <div className="flex items-center gap-1.5 text-[11px] font-medium text-amber-800">

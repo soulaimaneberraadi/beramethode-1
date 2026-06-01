@@ -810,6 +810,9 @@ db.exec(`
     sizes_json TEXT,
     colors_json TEXT,
     notes TEXT,
+    subcontractorPhone TEXT,
+    subcontractorRating REAL DEFAULT 5,
+    subcontractorAvailabilityDate TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE CASCADE
@@ -1104,6 +1107,83 @@ try {
 try {
   db.exec("ALTER TABLE subcontract_orders ADD COLUMN qtyRejected INTEGER DEFAULT 0");
 } catch(e) {}
+try {
+  db.exec("ALTER TABLE subcontract_orders ADD COLUMN subcontractorPhone TEXT");
+} catch(e) {}
+try {
+  db.exec("ALTER TABLE subcontract_orders ADD COLUMN subcontractorRating REAL DEFAULT 5");
+} catch(e) {}
+try {
+  db.exec("ALTER TABLE subcontract_orders ADD COLUMN subcontractorAvailabilityDate TEXT");
+} catch(e) {}
+
+// ════════════════════════════════════════════════════════════════════════════════
+// APS — Advanced Planning & Scheduling (Blueprint Engine) 🧠
+// ════════════════════════════════════════════════════════════════════════════════
+
+// Taux d'activité Q par chaîne (Work Sampling)
+db.exec(`
+  CREATE TABLE IF NOT EXISTS chain_activity_rates (
+    id TEXT PRIMARY KEY,
+    owner_id INTEGER NOT NULL,
+    chain_id TEXT NOT NULL,
+    rate REAL NOT NULL DEFAULT 0.85,
+    source TEXT DEFAULT 'MANUAL',
+    sample_date TEXT,
+    total_observations INTEGER,
+    active_observations INTEGER,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE CASCADE,
+    UNIQUE(owner_id, chain_id)
+  );
+`);
+
+// Profils de courbe d'apprentissage
+db.exec(`
+  CREATE TABLE IF NOT EXISTS learning_curve_profiles (
+    id TEXT PRIMARY KEY,
+    owner_id INTEGER NOT NULL,
+    name TEXT NOT NULL DEFAULT 'Standard Textile',
+    day1 REAL DEFAULT 0.55,
+    day2 REAL DEFAULT 0.75,
+    day3 REAL DEFAULT 0.90,
+    day4 REAL DEFAULT 0.95,
+    day5_plus REAL DEFAULT 1.00,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE CASCADE
+  );
+`);
+
+// Alertes et propositions de crise
+db.exec(`
+  CREATE TABLE IF NOT EXISTS crisis_alerts (
+    id TEXT PRIMARY KEY,
+    owner_id INTEGER NOT NULL,
+    planning_id TEXT NOT NULL,
+    alert_type TEXT NOT NULL,
+    severity TEXT NOT NULL,
+    cr_value REAL,
+    deficit_pieces INTEGER,
+    proposed_action TEXT,
+    status TEXT DEFAULT 'PENDING',
+    resolved_at DATETIME,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (planning_id) REFERENCES planning_events(id) ON DELETE CASCADE
+  );
+  CREATE INDEX IF NOT EXISTS idx_crisis_alerts_owner ON crisis_alerts(owner_id, status);
+  CREATE INDEX IF NOT EXISTS idx_crisis_alerts_planning ON crisis_alerts(planning_id);
+`);
+
+// Ajout colonnes APS sur planning_events (idempotent)
+const apsAddCol = (sql: string) => {
+  try { db.prepare(sql).run(); } catch { /* colonne existe déjà */ }
+};
+apsAddCol('ALTER TABLE planning_events ADD COLUMN cr_value REAL');
+apsAddCol('ALTER TABLE planning_events ADD COLUMN cr_status TEXT');
+apsAddCol('ALTER TABLE planning_events ADD COLUMN accumulated_deficit INTEGER DEFAULT 0');
+apsAddCol('ALTER TABLE planning_events ADD COLUMN learning_curve_profile_id TEXT');
+apsAddCol('ALTER TABLE planning_events ADD COLUMN activity_rate_override REAL');
 
 export default db;
 

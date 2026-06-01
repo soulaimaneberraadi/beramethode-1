@@ -418,64 +418,73 @@ export const saveHRPointage = (req: Request, res: Response) => {
                     motif_absence=excluded.motif_absence,
                     grille_presence=excluded.grille_presence
             `);
+
+            // Batch fetch valid worker IDs to avoid N+1 queries
+            const workerIds = [...new Set(records.map((r: any) => r.worker_id).filter(Boolean))];
+            const validWorkerIds = new Set<string>();
+            if (workerIds.length > 0) {
+                const placeholders = workerIds.map(() => '?').join(',');
+                const validRows = db.prepare(`SELECT id FROM hr_workers WHERE id IN (${placeholders}) AND owner_id = ?`)
+                    .all(...workerIds, userId) as { id: string }[];
+                for (const row of validRows) validWorkerIds.add(row.id);
+            }
+
             for (const r of records) {
-                const w = db.prepare('SELECT id FROM hr_workers WHERE id = ? AND owner_id = ?').get(r.worker_id, userId);
-                if (w) {
-                    const hasGrilleKey = Object.prototype.hasOwnProperty.call(r, 'grille_presence');
-                    let grillePresence: string | null;
-                    if (hasGrilleKey) {
-                        grillePresence = (r as { grille_presence?: string | null }).grille_presence ?? null;
-                    } else {
-                        const ex = db
-                            .prepare('SELECT grille_presence FROM hr_pointage WHERE worker_id = ? AND date = ?')
-                            .get(r.worker_id, r.date) as { grille_presence?: string | null } | undefined;
-                        grillePresence = ex?.grille_presence ?? null;
-                    }
-
-                    const hEntree = r.heureEntree || r.heure_entree || null;
-                    const hSortie = r.heureSortie || r.heure_sortie || null;
-                    const pDebut = r.pauseDebut || r.pause_debut || null;
-                    const pFin = r.pauseFin || r.pause_fin || null;
-
-                    let travail = Number(r.heuresTravaillees || r.heures_travaillees || 0);
-                    let norm = Number(r.heuresNormales || r.heures_normales || 0);
-                    let s25 = Number(r.heuresSupp25 || r.heures_supp_25 || 0);
-                    let s50 = Number(r.heuresSupp50 || r.heures_supp_50 || 0);
-
-                    const tSage = getSageTimesForHeuresCalc(hEntree, hSortie, pDebut, pFin, sageRules);
-                    const calc = calculerHeures(tSage.entree, tSage.sortie, tSage.pauseDebut, tSage.pauseFin, r.date);
-
-                    if (autoOvertime) {
-                        travail = calc.travaillees;
-                        norm = calc.normales;
-                        s25 = calc.supp25;
-                        s50 = calc.supp50;
-                    } else {
-                        // Si désactivé, on recalcule quand même le "travail" si l'utilisateur ne l'a pas fourni, 
-                        // mais on respecte input client pour les heures normales et sup
-                        if (!travail && (hEntree && hSortie)) {
-                            travail = calc.travaillees;
-                            norm = travail; // par defaut tout en normal
-                        }
-                    }
-
-                    stmt.run(
-                        r.id || uuidv4(), 
-                        r.worker_id, 
-                        r.date, 
-                        hEntree, 
-                        hSortie, 
-                        pDebut,
-                        pFin,
-                        travail, 
-                        norm, 
-                        s25, 
-                        s50, 
-                        r.statut, 
-                        r.motif_absence || null,
-                        grillePresence
-                    );
+                if (!validWorkerIds.has(r.worker_id)) continue;
+                const hasGrilleKey = Object.prototype.hasOwnProperty.call(r, 'grille_presence');
+                let grillePresence: string | null;
+                if (hasGrilleKey) {
+                    grillePresence = (r as { grille_presence?: string | null }).grille_presence ?? null;
+                } else {
+                    const ex = db
+                        .prepare('SELECT grille_presence FROM hr_pointage WHERE worker_id = ? AND date = ?')
+                        .get(r.worker_id, r.date) as { grille_presence?: string | null } | undefined;
+                    grillePresence = ex?.grille_presence ?? null;
                 }
+
+                const hEntree = r.heureEntree || r.heure_entree || null;
+                const hSortie = r.heureSortie || r.heure_sortie || null;
+                const pDebut = r.pauseDebut || r.pause_debut || null;
+                const pFin = r.pauseFin || r.pause_fin || null;
+
+                let travail = Number(r.heuresTravaillees || r.heures_travaillees || 0);
+                let norm = Number(r.heuresNormales || r.heures_normales || 0);
+                let s25 = Number(r.heuresSupp25 || r.heures_supp_25 || 0);
+                let s50 = Number(r.heuresSupp50 || r.heures_supp_50 || 0);
+
+                const tSage = getSageTimesForHeuresCalc(hEntree, hSortie, pDebut, pFin, sageRules);
+                const calc = calculerHeures(tSage.entree, tSage.sortie, tSage.pauseDebut, tSage.pauseFin, r.date);
+
+                if (autoOvertime) {
+                    travail = calc.travaillees;
+                    norm = calc.normales;
+                    s25 = calc.supp25;
+                    s50 = calc.supp50;
+                } else {
+                    // Si désactivé, on recalcule quand même le "travail" si l'utilisateur ne l'a pas fourni, 
+                    // mais on respecte input client pour les heures normales et sup
+                    if (!travail && (hEntree && hSortie)) {
+                        travail = calc.travaillees;
+                        norm = travail; // par defaut tout en normal
+                    }
+                }
+
+                stmt.run(
+                    r.id || uuidv4(), 
+                    r.worker_id, 
+                    r.date, 
+                    hEntree, 
+                    hSortie, 
+                    pDebut,
+                    pFin,
+                    travail, 
+                    norm, 
+                    s25, 
+                    s50, 
+                    r.statut, 
+                    r.motif_absence || null,
+                    grillePresence
+                );
             }
         });
         transaction();

@@ -90,7 +90,7 @@ export function computeChainEfficiency(
         totalPresenceMin += (s.totalWorkers || 0) * minutesPerWorkerDay;
     }
 
-    const raw = totalPresenceMin > 0 ? totalProducedMin / totalPresenceMin : 0.85;
-    const eff = Math.max(0.4, Math.min(1.2, raw));
+    const raw = totalPresenceMin > 0 ? totalProducedMin / totalPresenceMin : 0;
+    const eff = relevantSuivis.length > 0 ? Math.max(0.4, Math.min(1.2, raw)) : 0;
     return { eff, n: relevantSuivis.length };
 }

@@ -109,28 +109,101 @@ export default function Dashboard({ models, suivis, planningEvents, settings, se
 
   const [liveKPIs, setLiveKPIs] = useState<any>(null);
   const [kpiLoading, setKpiLoading] = useState(true);
+  // "live" turns true as soon as the SSE stream delivers its first message.
+  // Used only by the small refresh button — no banner, no toast.
+  const [liveConnected, setLiveConnected] = useState(false);
+  const [lastUpdate, setLastUpdate] = useState<number | null>(null);
 
   const IS_STATIC = import.meta.env.VITE_STATIC_MODE === 'true';
 
+  // One-shot fetch — used for the manual Refresh button and as a fallback
+  // when the SSE stream is unavailable (e.g. static deploy, proxy issue).
+  // We only flip kpiLoading when the SSE stream is *not* connected, so a
+  // manual refresh while live doesn't briefly grey out the values.
   const fetchKPIs = useCallback(() => {
     if (IS_STATIC) {
-      // No backend in static (Vercel) mode — KPIs derive from local state below.
       setKpiLoading(false);
       return;
     }
-    setKpiLoading(true);
+    setKpiLoading((prev) => (liveConnected ? prev : true));
     fetch('/api/dashboard/kpis', { credentials: 'include' })
       .then(r => r.ok ? r.json() : null)
-      .then(data => { if (data) setLiveKPIs(data); setKpiLoading(false); })
+      .then(data => {
+        if (data) {
+          setLiveKPIs(data);
+          setLastUpdate(Date.now());
+        }
+        setKpiLoading(false);
+      })
       .catch(() => setKpiLoading(false));
-  }, [IS_STATIC]);
+  }, [IS_STATIC, liveConnected]);
 
+  // Instant push updates via Server-Sent Events (WhatsApp-style).
+  // The server pushes a new payload only when the underlying data changes
+  // (event-driven via the in-process bus), so the UI stays in sync with
+  // effectively zero perceptible delay.
   useEffect(() => {
-    fetchKPIs();
-    if (IS_STATIC) return;
-    const interval = setInterval(fetchKPIs, 30000);
-    return () => clearInterval(interval);
-  }, [fetchKPIs, IS_STATIC]);
+    if (IS_STATIC) {
+      setKpiLoading(false);
+      return;
+    }
+
+    let es: EventSource | null = null;
+    let pollFallback: ReturnType<typeof setInterval> | null = null;
+    let cancelled = false;
+    let consecutiveErrors = 0;
+    const MAX_ERRORS_BEFORE_FALLBACK = 3;
+
+    const startPollingFallback = () => {
+      if (pollFallback || cancelled) return;
+      setLiveConnected(false);
+      fetchKPIs();
+      pollFallback = setInterval(fetchKPIs, 5000);
+    };
+
+    try {
+      es = new EventSource('/api/dashboard/kpis/stream', { withCredentials: true });
+
+      es.addEventListener('kpis', (evt: MessageEvent) => {
+        consecutiveErrors = 0; // any successful push resets the failure budget
+        try {
+          const data = JSON.parse(evt.data);
+          setLiveKPIs(data);
+          setLastUpdate(Date.now());
+          setLiveConnected(true);
+          setKpiLoading(false);
+        } catch (err) {
+          console.error('SSE parse error', err);
+        }
+      });
+
+      es.onopen = () => {
+        consecutiveErrors = 0;
+      };
+
+      es.onerror = () => {
+        consecutiveErrors += 1;
+        // EventSource silently retries forever; we need our own ceiling so a
+        // 401 / 404 / server shutdown eventually triggers the HTTP fallback
+        // instead of looping invisibly in the background.
+        const definitivelyClosed = es && es.readyState === 2;
+        const tooManyFailures = consecutiveErrors >= MAX_ERRORS_BEFORE_FALLBACK;
+        if (definitivelyClosed || tooManyFailures) {
+          setLiveConnected(false);
+          if (es) { es.close(); es = null; }
+          startPollingFallback();
+        }
+      };
+    } catch {
+      startPollingFallback();
+    }
+
+    return () => {
+      cancelled = true;
+      if (es) { es.close(); es = null; }
+      if (pollFallback) { clearInterval(pollFallback); pollFallback = null; }
+    };
+  }, [IS_STATIC, fetchKPIs]);
 
   // Derive a minimal KPI shape from local state when the backend is absent
   // (Vercel static deployment). Stock / HR cards still read '—' because that
@@ -306,17 +379,32 @@ export default function Dashboard({ models, suivis, planningEvents, settings, se
           </div>
         </div>
         <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-          <div className={`flex items-center gap-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl border transition-all ${
-            kpiLoading
-              ? 'bg-indigo-50 border-indigo-200/70 text-indigo-700'
-              : 'bg-emerald-50 border-emerald-200/70 text-emerald-700'
-          }`}>
+          {/* Bouton Refresh manuel — discret, sans bannière. Les KPIs se
+              mettent a jour en temps reel via SSE (push instantane). */}
+          <button
+            type="button"
+            onClick={fetchKPIs}
+            disabled={kpiLoading}
+            title={
+              liveConnected
+                ? `En direct${lastUpdate ? ` - dernier MAJ ${new Date(lastUpdate).toLocaleTimeString()}` : ''}`
+                : 'Hors ligne - cliquer pour rafraichir'
+            }
+            aria-label="Rafraichir les KPIs"
+            className="relative w-9 h-9 sm:w-10 sm:h-10 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 active:scale-95 transition-all flex items-center justify-center text-slate-600 hover:text-slate-900 disabled:opacity-60 disabled:cursor-not-allowed"
+          >
             <RefreshCw className={`w-4 h-4 ${kpiLoading ? 'animate-spin' : ''}`} />
-            <div className="flex flex-col leading-none">
-              <span className="text-[10px] font-black uppercase tracking-[0.18em]">{kpiLoading ? 'Sync' : 'Auto'}</span>
-              <span className="text-[11px] sm:text-xs font-semibold normal-case tracking-normal">{kpiLoading ? 'Mise a jour...' : 'Synchro 30s'}</span>
-            </div>
-          </div>
+            {/* Live status dot: green pulse when SSE stream is active,
+                amber when we fell back to polling. */}
+            <span
+              className={`absolute top-1 right-1 w-1.5 h-1.5 rounded-full ${
+                liveConnected
+                  ? 'bg-emerald-500 animate-pulse'
+                  : 'bg-amber-400'
+              }`}
+              aria-hidden
+            />
+          </button>
         </div>
       </div>
 

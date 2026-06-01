@@ -12,6 +12,10 @@ export const PLANNING_ANIMATIONS_CSS = `
     from { transform: translateX(16px); opacity: 0; }
     to { transform: translateX(0); opacity: 1; }
 }
+@keyframes planning-slide-in-up {
+    from { transform: translateY(100%); opacity: 0.6; }
+    to { transform: translateY(0); opacity: 1; }
+}
 @keyframes planning-scale-in {
     from { opacity: 0; transform: scale(0.97) translateY(2px); }
     to { opacity: 1; transform: scale(1) translateY(0); }

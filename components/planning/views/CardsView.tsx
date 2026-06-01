@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import type { ModelData, PlanningEvent } from '../../../types';
 import { evClientName, evEndYmd, evModelName, evModelThumb, evProgressPct, evQty, evStartYmd } from '../shared/eventAccessors';
 import { getClientColor } from '../shared/clientColors';
+import { getModelColor } from '../shared/modelColors';
 import { STATUS_META, toWorkStatus, type WorkStatus } from '../shared/statusConfig';
 import { delayOf } from '../hooks/useDelayIndicator';
 import { DELAY_META } from '../shared/statusConfig';
@@ -82,7 +83,8 @@ function EventCard({
     const client = evClientName(event, models);
     const modelName = evModelName(event, models);
     const thumb = evModelThumb(event, models);
-    const accent = event.color || getClientColor(client);
+    const modelKey = event.modelId || modelName || client;
+    const accent = (event.modelId || modelName) ? getModelColor(event.modelId || modelName) : (event.color || getModelColor(modelKey));
     const qty = evQty(event);
     const progress = evProgressPct(event);
     const delay = delayOf(event);
@@ -111,7 +113,7 @@ function EventCard({
                 <div className="min-w-0 flex-1">
                     <div className="flex items-center justify-between gap-1.5 mb-0.5">
                         <div className="flex items-center gap-1.5 min-w-0">
-                            <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: accent }} />
+                            <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: getClientColor(client) }} title={`Client: ${client}`} />
                             <span className="text-[10px] text-slate-500 truncate">{client}</span>
                         </div>
                         {isSub && (

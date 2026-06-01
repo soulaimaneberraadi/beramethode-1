@@ -695,12 +695,12 @@ export default function Balancing({
   }, [sortedOperations, bf, machines]);
 
   return (
-    <div className="space-y-6 pb-32 animate-in fade-in slide-in-from-bottom-4 duration-500">
+    <div className="space-y-4 sm:space-y-6 pb-32 animate-in fade-in slide-in-from-bottom-4 duration-500">
        
        {/* 1. SINGLE ROW HEADER - RESPONSIVE */}
        <div className="bg-white rounded-xl border border-slate-200 shadow-sm mb-4 p-2 flex flex-nowrap items-center gap-2 overflow-x-auto no-scrollbar">
             {/* OUVRIERS / HEURES */}
-            <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-50 rounded-lg border border-slate-100 shrink-0">
+            <div className="flex items-center gap-2 px-2 py-1 sm:px-3 sm:py-1.5 bg-slate-50 rounded-lg border border-slate-100 shrink-0">
                 <div className="flex flex-col items-center border-r border-slate-200 pr-3 mr-3">
                     <span className="text-[9px] font-bold text-slate-400 uppercase">Ouvriers</span>
                     <input 
@@ -725,7 +725,7 @@ export default function Balancing({
             </div>
 
             {/* BF / MIN TOTALES */}
-            <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-50/50 rounded-lg border border-emerald-100 shrink-0">
+            <div className="flex items-center gap-2 px-2 py-1 sm:px-3 sm:py-1.5 bg-emerald-50/50 rounded-lg border border-emerald-100 shrink-0">
                 <div className="flex flex-col items-center border-r border-emerald-100 pr-3 mr-3">
                     <span className="text-[9px] font-bold text-emerald-600 uppercase flex items-center gap-1"><Zap className="w-3 h-3" /> BF (s)</span>
                     <span className="font-black text-emerald-700 text-sm">{(bf * 60).toFixed(1)}</span>
@@ -737,7 +737,7 @@ export default function Balancing({
             </div>
 
             {/* P/H 100% */}
-            <div className="flex flex-col items-center px-3 py-1.5 shrink-0">
+            <div className="flex flex-col items-center px-2 py-1 sm:px-3 sm:py-1.5 shrink-0">
                 <span className="text-[9px] font-bold text-orange-400 uppercase">P/H (100%)</span>
                 <span className="font-black text-orange-500 text-lg leading-none">
                     {tempsArticle > 0 ? Math.round((presenceTime * numWorkers) / tempsArticle / (presenceTime / 60)) : 0}
@@ -745,7 +745,7 @@ export default function Balancing({
             </div>
 
             {/* RENDU */}
-            <div className="flex flex-col items-center px-3 py-1.5 bg-indigo-50/50 rounded-lg border border-indigo-100 shrink-0">
+            <div className="flex flex-col items-center px-2 py-1 sm:px-3 sm:py-1.5 bg-indigo-50/50 rounded-lg border border-indigo-100 shrink-0">
                 <span className="text-[9px] font-bold text-indigo-400 uppercase">% Rendu</span>
                 <div className="flex items-baseline gap-0.5">
                     <input 
@@ -951,9 +951,9 @@ export default function Balancing({
                 </div>
 
                 {/* Charts & Needs - Moved here to be visible in Matrix View too */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-6">
                     {/* Charts Section */}
-                    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 h-96">
+                    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-3 sm:p-4 h-80 sm:h-96">
                         <h3 className="text-sm font-bold text-slate-700 mb-4 flex items-center gap-2"><BarChart3 className="w-4 h-4" /> Équilibrage & Saturation</h3>
                         <ResponsiveContainer width="100%" height="100%">
                             <ComposedChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 60 }}>
@@ -974,8 +974,8 @@ export default function Balancing({
                     </div>
 
                     {/* Machine Requirements Table */}
-                    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden h-96 flex flex-col">
-                        <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between shrink-0">
+                    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden h-80 sm:h-96 flex flex-col">
+                        <div className="px-4 py-3 sm:px-6 sm:py-4 border-b border-slate-100 flex items-center justify-between shrink-0">
                             <h3 className="font-bold text-slate-700 flex items-center gap-2"><Cpu className="w-4 h-4 text-emerald-500" /> Besoin Matériel</h3>
                         </div>
                         <div className="overflow-auto flex-1 custom-scrollbar">

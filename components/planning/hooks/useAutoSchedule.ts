@@ -25,7 +25,9 @@ interface Args {
 /** Trouve le prochain jour ouvré ≥ from. */
 function nextWorkingDay(from: Date, settings: AppSettings): Date {
     const d = new Date(from);
-    while (!isPlanningWorkingDay(d, settings)) {
+    let safety = 0;
+    while (!isPlanningWorkingDay(d, settings) && safety < 10000) {
+        safety++;
         d.setDate(d.getDate() + 1);
     }
     return d;
@@ -113,7 +115,9 @@ export function useAutoSchedule({ chains, planningEvents, models, machines, sett
         }
 
         candidates.sort((a, b) => b.score - a.score);
-        return candidates[0] || null;
+        const best = candidates[0];
+        if (!best || best.score < 30) return null;
+        return best;
     }, [chains, planningEvents, models, machines, settings]);
 
     return { suggest };

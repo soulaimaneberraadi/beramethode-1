@@ -50,6 +50,9 @@ export default function SousTraitance({ models, settings }: SousTraitanceProps) 
   const [formPricePerPiece, setFormPricePerPiece] = useState<number>(0);
   const [formTotalQuantity, setFormTotalQuantity] = useState<number>(0);
   const [formNotes, setFormNotes] = useState('');
+  const [formSubcontractorPhone, setFormSubcontractorPhone] = useState('');
+  const [formSubcontractorRating, setFormSubcontractorRating] = useState<number>(5);
+  const [formSubcontractorAvailabilityDate, setFormSubcontractorAvailabilityDate] = useState('');
   
   // Advanced features state fields (Logistics tracking)
   const [formTissuStatus, setFormTissuStatus] = useState<'PENDING' | 'SENT'>('PENDING');
@@ -284,6 +287,9 @@ export default function SousTraitance({ models, settings }: SousTraitanceProps) 
     setFormTissuStatus('PENDING');
     setFormFournituresStatus('PENDING');
     setFormFicheTechniqueSent(false);
+    setFormSubcontractorPhone('');
+    setFormSubcontractorRating(5);
+    setFormSubcontractorAvailabilityDate('');
     
     // Initial batch
     setBatches([{
@@ -367,7 +373,10 @@ export default function SousTraitance({ models, settings }: SousTraitanceProps) 
           ficheTechniqueSent: formFicheTechniqueSent ? 1 : 0,
           qtyAccepted: 0,
           qtyToRepair: 0,
-          qtyRejected: 0
+          qtyRejected: 0,
+          subcontractorPhone: formSubcontractorPhone || null,
+          subcontractorRating: formSubcontractorRating,
+          subcontractorAvailabilityDate: formSubcontractorAvailabilityDate || null
         };
 
         const res = await fetch('/api/subcontract', {
@@ -410,6 +419,9 @@ export default function SousTraitance({ models, settings }: SousTraitanceProps) 
     setFormQtyAccepted(order.qtyAccepted || 0);
     setFormQtyToRepair(order.qtyToRepair || 0);
     setFormQtyRejected(order.qtyRejected || 0);
+    setFormSubcontractorPhone(order.subcontractorPhone || '');
+    setFormSubcontractorRating(order.subcontractorRating || 5);
+    setFormSubcontractorAvailabilityDate(order.subcontractorAvailabilityDate || '');
 
     // Reconstruct grid structure from JSONs
     let initialGrid: Record<string, Record<string, number>> = {};
@@ -493,7 +505,10 @@ export default function SousTraitance({ models, settings }: SousTraitanceProps) 
       ficheTechniqueSent: formFicheTechniqueSent ? 1 : 0,
       qtyAccepted: formQtyAccepted,
       qtyToRepair: formQtyToRepair,
-      qtyRejected: formQtyRejected
+      qtyRejected: formQtyRejected,
+      subcontractorPhone: formSubcontractorPhone || null,
+      subcontractorRating: formSubcontractorRating,
+      subcontractorAvailabilityDate: formSubcontractorAvailabilityDate || null
     };
 
     try {
@@ -1241,6 +1256,45 @@ export default function SousTraitance({ models, settings }: SousTraitanceProps) 
                     />
                   </div>
 
+                  {/* Subcontractor Phone */}
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Téléphone (الهاتف)</label>
+                    <input
+                      type="tel"
+                      placeholder="Ex: +212 600000000"
+                      value={formSubcontractorPhone}
+                      onChange={(e) => setFormSubcontractorPhone(e.target.value)}
+                      className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm font-bold text-slate-700 bg-white focus:outline-none focus:border-indigo-500"
+                    />
+                  </div>
+
+                  {/* Subcontractor Rating */}
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Note / Évaluation (التقييم)</label>
+                    <select
+                      value={formSubcontractorRating}
+                      onChange={(e) => setFormSubcontractorRating(Number(e.target.value) || 5)}
+                      className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm font-bold text-slate-700 bg-white focus:outline-none focus:border-indigo-500"
+                    >
+                      <option value={5}>★★★★★ (5/5)</option>
+                      <option value={4}>★★★★☆ (4/5)</option>
+                      <option value={3}>★★★☆☆ (3/5)</option>
+                      <option value={2}>★★☆☆☆ (2/5)</option>
+                      <option value={1}>★☆☆☆☆ (1/5)</option>
+                    </select>
+                  </div>
+
+                  {/* Subcontractor Availability Date */}
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Disponible à partir de (تاريخ التوفر)</label>
+                    <input
+                      type="date"
+                      value={formSubcontractorAvailabilityDate}
+                      onChange={(e) => setFormSubcontractorAvailabilityDate(e.target.value)}
+                      className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm font-bold text-slate-700 bg-white focus:outline-none focus:border-indigo-500"
+                    />
+                  </div>
+
                   {/* Price Per Piece */}
                   <div>
                     <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Prix par قطعة (ثمن القطعة بالدرهم)</label>
@@ -1269,6 +1323,16 @@ export default function SousTraitance({ models, settings }: SousTraitanceProps) 
                       onChange={(e) => setFormTotalQuantity(parseInt(e.target.value) || 0)}
                       className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm font-black text-indigo-900 bg-white focus:outline-none focus:border-indigo-500"
                     />
+                  </div>
+
+                  {/* Total Cost summary */}
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Coût total estimé (المبلغ الإجمالي)</label>
+                    <div className="flex items-center gap-2 p-2.5 bg-indigo-50 border border-indigo-100 rounded-xl">
+                      <span className="text-sm font-black text-indigo-700 font-mono">
+                        {(formTotalQuantity * formPricePerPiece).toFixed(2)} DH
+                      </span>
+                    </div>
                   </div>
 
                   {/* Mock Fabric/Warehouse verification */}
@@ -1607,6 +1671,45 @@ export default function SousTraitance({ models, settings }: SousTraitanceProps) 
                   />
                 </div>
 
+                {/* Subcontractor Phone */}
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Téléphone</label>
+                  <input
+                    type="tel"
+                    placeholder="Ex: +212 600000000"
+                    value={formSubcontractorPhone}
+                    onChange={(e) => setFormSubcontractorPhone(e.target.value)}
+                    className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm font-bold text-slate-700 bg-white"
+                  />
+                </div>
+
+                {/* Subcontractor Rating */}
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Note / Évaluation</label>
+                  <select
+                    value={formSubcontractorRating}
+                    onChange={(e) => setFormSubcontractorRating(Number(e.target.value) || 5)}
+                    className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm font-bold text-slate-700 bg-white"
+                  >
+                    <option value={5}>★★★★★ (5/5)</option>
+                    <option value={4}>★★★★☆ (4/5)</option>
+                    <option value={3}>★★★☆☆ (3/5)</option>
+                    <option value={2}>★★☆☆☆ (2/5)</option>
+                    <option value={1}>★☆☆☆☆ (1/5)</option>
+                  </select>
+                </div>
+
+                {/* Subcontractor Availability Date */}
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Disponible à partir de</label>
+                  <input
+                    type="date"
+                    value={formSubcontractorAvailabilityDate}
+                    onChange={(e) => setFormSubcontractorAvailabilityDate(e.target.value)}
+                    className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm font-bold text-slate-700 bg-white"
+                  />
+                </div>
+
                 {/* Price Per Piece */}
                 <div>
                   <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Prix par pièce</label>
@@ -1630,6 +1733,16 @@ export default function SousTraitance({ models, settings }: SousTraitanceProps) 
                     onChange={(e) => setFormTotalQuantity(parseInt(e.target.value) || 0)}
                     className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm font-black text-indigo-900 bg-white"
                   />
+                </div>
+
+                {/* Total Cost summary */}
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Coût total estimé</label>
+                  <div className="flex items-center gap-2 p-2 bg-indigo-50 border border-indigo-100 rounded-xl">
+                    <span className="text-sm font-black text-indigo-700 font-mono">
+                      {(formTotalQuantity * formPricePerPiece).toFixed(2)} DH
+                    </span>
+                  </div>
                 </div>
 
                 {/* Delivery Date */}
@@ -1887,6 +2000,34 @@ export default function SousTraitance({ models, settings }: SousTraitanceProps) 
                   <p className="text-slate-800 font-bold">{detailOrder.deliveryDate}</p>
                 </div>
               </div>
+
+              {(detailOrder.subcontractorPhone || detailOrder.subcontractorRating !== undefined || detailOrder.subcontractorAvailabilityDate) && (
+                <div className="grid grid-cols-2 gap-4 border-b border-slate-100 pb-3">
+                  {detailOrder.subcontractorPhone && (
+                    <div>
+                      <span className="text-[10px] font-black text-slate-400 uppercase">Téléphone (الهاتف)</span>
+                      <p className="text-slate-800 font-bold">
+                        <a href={`tel:${detailOrder.subcontractorPhone}`} className="text-indigo-600 hover:underline">{detailOrder.subcontractorPhone}</a>
+                      </p>
+                    </div>
+                  )}
+                  {detailOrder.subcontractorRating !== undefined && (
+                    <div>
+                      <span className="text-[10px] font-black text-slate-400 uppercase">Évaluation (التقييم)</span>
+                      <p className="text-amber-500 font-bold">
+                        {'★'.repeat(Math.max(0, Math.min(5, Math.round(detailOrder.subcontractorRating)))) + '☆'.repeat(Math.max(0, 5 - Math.max(0, Math.min(5, Math.round(detailOrder.subcontractorRating)))))}
+                        <span className="text-slate-400 text-[10px] font-normal ml-1">({detailOrder.subcontractorRating}/5)</span>
+                      </p>
+                    </div>
+                  )}
+                  {detailOrder.subcontractorAvailabilityDate && (
+                    <div className="col-span-2">
+                      <span className="text-[10px] font-black text-slate-400 uppercase">Disponible à partir de</span>
+                      <p className="text-slate-800">{detailOrder.subcontractorAvailabilityDate}</p>
+                    </div>
+                  )}
+                </div>
+              )}
 
               <div className="grid grid-cols-3 gap-4 border-b border-slate-100 pb-3">
                 <div>

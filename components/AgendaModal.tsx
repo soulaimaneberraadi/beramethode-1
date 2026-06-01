@@ -209,13 +209,14 @@ const TRANSLATIONS = {
 };
 
 export default function AgendaModal({ isOpen, onClose, settings, setSettings, lang }: AgendaModalProps) {
-    if (!isOpen) return null;
     const t = TRANSLATIONS[lang];
 
     const [currentDate, setCurrentDate] = useState(new Date());
     const [selectedDate, setSelectedDate] = useState<string | null>(null);
     const [note, setNote] = useState('');
     const [isWorking, setIsWorking] = useState(false);
+
+    if (!isOpen) return null;
 
     const currency = settings.currency || 'MAD';
     const countryLabel = COUNTRY_LABEL[currency] || currency;

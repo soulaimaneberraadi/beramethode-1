@@ -545,7 +545,7 @@ export default function Chronometrage({ operations, chronoData, setChronoData, p
     /** Colonnes + récap P° Max / P° Rdt (ou P/H) : indépendant du bouton P/J vs P/H. */
     const [showThroughputKpi, setShowThroughputKpi] = useState(true);
     /** Barre stats + outils : sticky en haut de #workflow-content ou défile avec le contenu. */
-    const [stickyToolbar, setStickyToolbar] = useState(true);
+    const [stickyToolbar, setStickyToolbar] = useState(false);
 
     const filteredOperations = useMemo(() => {
         if (sectionFilter === 'ALL') return operations;
@@ -1007,7 +1007,7 @@ export default function Chronometrage({ operations, chronoData, setChronoData, p
 
             {/* ─── GAMME-STYLE COMPACT STAT BAR (option sticky : Pin ON = fixée au scroll dans #workflow-content) ─── */}
             <div
-                className={`rounded-xl border border-slate-200 shadow-sm p-3 sm:p-4 flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between xl:gap-6 min-w-0 ${
+                className={`rounded-xl border border-slate-200 shadow-sm p-2 sm:p-4 flex flex-col gap-2.5 sm:gap-4 xl:flex-row xl:items-start xl:justify-between xl:gap-6 min-w-0 ${
                     stickyToolbar
                         ? 'sticky top-[1px] z-40 bg-white/95 backdrop-blur-sm'
                         : 'relative z-auto bg-white'
@@ -1015,23 +1015,23 @@ export default function Chronometrage({ operations, chronoData, setChronoData, p
             >
                 
                 {/* Stats Section — wrap dès sm ; côte-à-côte avec la toolbar seulement ≥ xl pour éviter le tassement ~1024–1280px */}
-                <div className="flex flex-wrap items-stretch gap-3 min-w-0 flex-1 max-xl:w-full overflow-x-auto max-sm:pb-2 max-sm:-mx-3 max-sm:px-3 sm:overflow-visible custom-scrollbar-hide">
-                    <div className="flex items-center gap-3 px-3 py-2 bg-slate-50 rounded-lg border border-slate-100 shadow-sm shrink-0">
+                <div className="flex flex-wrap items-stretch gap-2 sm:gap-3 min-w-0 flex-1 max-xl:w-full overflow-x-auto max-sm:pb-2 max-sm:-mx-3 max-sm:px-3 sm:overflow-visible custom-scrollbar-hide">
+                    <div className="flex items-center gap-1.5 sm:gap-3 px-2 py-1 sm:px-3 sm:py-2 bg-slate-50 rounded-lg border border-slate-100 shadow-sm shrink-0">
                         <div className="flex flex-col items-center border-r border-slate-200 pr-3">
                             <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Opérations</span>
-                            <span className="font-black text-slate-800 text-base">{operations.length}</span>
+                            <span className="font-black text-slate-800 text-xs sm:text-base">{operations.length}</span>
                         </div>
                         <div className="flex flex-col items-center">
                             <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Chrono.</span>
-                            <span className="font-black text-indigo-600 text-base">{totals.filledCount}</span>
+                            <span className="font-black text-indigo-600 text-xs sm:text-base">{totals.filledCount}</span>
                         </div>
                     </div>
 
-                    <div className="flex items-center gap-3 px-3 py-2 bg-indigo-50/50 rounded-lg border border-indigo-100 shadow-sm shrink-0">
+                    <div className="flex items-center gap-1.5 sm:gap-3 px-2 py-1 sm:px-3 sm:py-2 bg-indigo-50/50 rounded-lg border border-indigo-100 shadow-sm shrink-0">
                         <div className="flex flex-col items-center">
                             <span className="text-[10px] font-bold text-indigo-500 uppercase tracking-wider flex items-center gap-1"><Zap className="w-3 h-3" /> BF (s)</span>
                             <span
-                                className="font-black text-indigo-700 text-base"
+                                className="font-black text-indigo-700 text-xs sm:text-base"
                                 title={hasChronoCycle
                                     ? `BF chrono ≈ ${chronoBfMinutes.toFixed(3)} min (cycle chrono ${totals.tempMajore.toFixed(2)} min, ${numWorkers} ouvrier(s), rendement ${clampedEfficiency}%)`
                                     : `BF global ≈ ${bf.toFixed(3)} min (en attente des relevés chrono)`}
@@ -1041,7 +1041,7 @@ export default function Chronometrage({ operations, chronoData, setChronoData, p
                         </div>
                     </div>
 
-                    <div className="flex items-center gap-3 px-3 py-2 bg-emerald-50/50 rounded-lg border border-emerald-100 shadow-sm shrink-0">
+                    <div className="flex items-center gap-1.5 sm:gap-3 px-2 py-1 sm:px-3 sm:py-2 bg-emerald-50/50 rounded-lg border border-emerald-100 shadow-sm shrink-0">
                         <div className="flex flex-col items-center">
                             <span
                                 className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider flex items-center gap-1"
@@ -1049,14 +1049,14 @@ export default function Chronometrage({ operations, chronoData, setChronoData, p
                             >
                                 <Zap className="w-3 h-3" /> T.Maj Σ (m)
                             </span>
-                            <span className="font-black text-emerald-700 text-base">{formatVal(totals.tempMajore)}</span>
+                            <span className="font-black text-emerald-700 text-xs sm:text-base">{formatVal(totals.tempMajore)}</span>
                         </div>
                     </div>
 
                     {showThroughputKpi && (
-                        <div className="flex flex-col items-center px-3 py-2 bg-orange-50/50 rounded-lg border border-orange-100 shadow-sm shrink-0">
+                        <div className="flex flex-col items-center px-2 py-1 sm:px-3 sm:py-2 bg-orange-50/50 rounded-lg border border-orange-100 shadow-sm shrink-0">
                             <span className="text-[10px] font-bold text-orange-500 uppercase tracking-wider">{outputMode === 'PJ' ? 'P° Max' : 'P/H Max'}</span>
-                            <span className="font-black text-orange-600 text-base">{formatProductionCell(totals.pMaxGlobal || undefined, outputMode)}</span>
+                            <span className="font-black text-orange-600 text-xs sm:text-base">{formatProductionCell(totals.pMaxGlobal || undefined, outputMode)}</span>
                         </div>
                     )}
 
@@ -1073,7 +1073,7 @@ export default function Chronometrage({ operations, chronoData, setChronoData, p
                     <button
                         type="button"
                         onClick={() => setStickyToolbar(v => !v)}
-                        className={`shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold transition-all border shadow-sm min-h-[40px] focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-slate-400 focus:outline-none ${stickyToolbar ? 'bg-slate-100 text-slate-800 border-slate-300' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}
+                        className={`shrink-0 flex items-center gap-1.5 px-2 py-1 sm:px-3 sm:py-2 rounded-lg text-[11px] sm:text-xs font-bold transition-all border shadow-sm min-h-[28px] sm:min-h-[40px] focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-slate-400 focus:outline-none ${stickyToolbar ? 'bg-slate-100 text-slate-800 border-slate-300' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}
                         title={stickyToolbar ? 'Désactiver : la barre défile avec la page' : 'Activer : la barre reste fixée en haut au scroll'}
                     >
                         <Pin className={`w-4 h-4 shrink-0 ${stickyToolbar ? '' : 'opacity-60'}`} /> <span className="hidden sm:inline">Pin:</span>{stickyToolbar ? 'ON' : 'OFF'}
@@ -1081,7 +1081,7 @@ export default function Chronometrage({ operations, chronoData, setChronoData, p
                     <button
                         type="button"
                         onClick={() => setShowTsColumn(v => !v)}
-                        className={`shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold transition-all border shadow-sm min-h-[40px] focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-amber-400 focus:outline-none ${showTsColumn ? 'bg-amber-50 text-amber-800 border-amber-200' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}
+                        className={`shrink-0 flex items-center gap-1.5 px-2 py-1 sm:px-3 sm:py-2 rounded-lg text-[11px] sm:text-xs font-bold transition-all border shadow-sm min-h-[28px] sm:min-h-[40px] focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-amber-400 focus:outline-none ${showTsColumn ? 'bg-amber-50 text-amber-800 border-amber-200' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}
                         title="Afficher ou masquer la colonne TS (temps standard gamme)"
                     >
                         <Columns3 className="w-4 h-4" /> TS:{showTsColumn ? 'ON' : 'OFF'}
@@ -1092,7 +1092,7 @@ export default function Chronometrage({ operations, chronoData, setChronoData, p
                             setTrEnabled(v => !v);
                             setShowTrConfig(false);
                         }}
-                        className={`shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold transition-all border shadow-sm min-h-[40px] focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-emerald-400 focus:outline-none ${trEnabled ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}
+                        className={`shrink-0 flex items-center gap-1.5 px-2 py-1 sm:px-3 sm:py-2 rounded-lg text-[11px] sm:text-xs font-bold transition-all border shadow-sm min-h-[28px] sm:min-h-[40px] focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-emerald-400 focus:outline-none ${trEnabled ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}
                         title="Activer / désactiver TR"
                     >
                         <Timer className="w-4 h-4" /> TR:{trEnabled ? 'ON' : 'OFF'}
@@ -1101,7 +1101,7 @@ export default function Chronometrage({ operations, chronoData, setChronoData, p
                     <button
                         onClick={() => setShowTrConfig(!showTrConfig)}
                         disabled={!trEnabled}
-                        className={`shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold transition-all border shadow-sm min-h-[40px] focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-indigo-400 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed ${showTrConfig ? 'bg-indigo-100 text-indigo-700 border-indigo-200' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}
+                        className={`shrink-0 flex items-center gap-1.5 px-2 py-1 sm:px-3 sm:py-2 rounded-lg text-[11px] sm:text-xs font-bold transition-all border shadow-sm min-h-[28px] sm:min-h-[40px] focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-indigo-400 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed ${showTrConfig ? 'bg-indigo-100 text-indigo-700 border-indigo-200' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}
                     >
                         <Settings className="w-4 h-4" /> {trCount} lancers
                     </button>
@@ -1128,7 +1128,7 @@ export default function Chronometrage({ operations, chronoData, setChronoData, p
                     <button
                         type="button"
                         onClick={() => setShowThroughputKpi(v => !v)}
-                        className={`shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold transition-all border shadow-sm min-h-[40px] focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-orange-400 focus:outline-none ${showThroughputKpi ? 'bg-orange-50 text-orange-800 border-orange-200' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}
+                        className={`shrink-0 flex items-center gap-1.5 px-2 py-1 sm:px-3 sm:py-2 rounded-lg text-[11px] sm:text-xs font-bold transition-all border shadow-sm min-h-[28px] sm:min-h-[40px] focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-orange-400 focus:outline-none ${showThroughputKpi ? 'bg-orange-50 text-orange-800 border-orange-200' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}
                         title="Afficher/masquer P° Max / P° Rdt"
                     >
                         <Target className="w-4 h-4" /> P° KPI
@@ -1194,13 +1194,13 @@ export default function Chronometrage({ operations, chronoData, setChronoData, p
             <div className="bg-white rounded-xl sm:rounded-2xl border border-slate-200 shadow-lg overflow-hidden">
 
                 {/* Table Header */}
-                <div className="px-4 py-4 sm:px-6 sm:py-5 border-b border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-4">
-                    <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center shrink-0">
-                            <BarChart3 className="w-5 h-5 text-indigo-600" />
+                <div className="px-3 py-3 sm:px-6 sm:py-5 border-b border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-3 sm:gap-4">
+                    <div className="flex items-center gap-2.5 sm:gap-3">
+                        <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center shrink-0">
+                            <BarChart3 className="w-4 h-4 sm:w-5 sm:h-5 text-indigo-600" />
                         </div>
                         <div>
-                            <h3 className="font-black text-slate-800 text-lg leading-tight">Relevés Terrain</h3>
+                            <h3 className="font-black text-slate-800 text-base sm:text-lg leading-tight">Relevés Terrain</h3>
                             <p className="text-slate-500 text-xs sm:text-sm font-medium mt-0.5">
                                 {trCount} relevés configurés • Unité : <strong className="text-indigo-600 bg-indigo-50 px-1 rounded">{unitLabel}</strong>
                             </p>
@@ -1537,9 +1537,9 @@ export default function Chronometrage({ operations, chronoData, setChronoData, p
                             }).length;
 
                             return (
-                                <div key={op.id} className="p-4 bg-white">
+                                <div key={op.id} className="p-3 sm:p-4 bg-white">
                                     {/* Name + Expand */}
-                                    <div className="flex items-center justify-between mb-3">
+                                    <div className="flex items-center justify-between mb-2 sm:mb-3">
                                         <div className="flex items-center gap-2 flex-1 min-w-0">
                                             <span
                                                 className={`w-6 h-6 shrink-0 rounded-lg flex items-center justify-center font-mono text-[10px] font-bold shadow-sm ${primaryPosteColor ? 'text-white ring-1 ring-black/10' : 'bg-slate-100 text-slate-500'}`}

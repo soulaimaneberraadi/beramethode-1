@@ -13,6 +13,8 @@ interface Props {
     onToggleClient: (c: string) => void;
     onToggleStatus: (s: WorkStatus) => void;
     onReset: () => void;
+    showCRColors?: boolean;
+    onToggleCRColors?: () => void;
 }
 
 const STATUS_ORDER: WorkStatus[] = ['READY', 'IN_PROGRESS', 'BLOCKED', 'DONE'];
@@ -26,6 +28,8 @@ export default function QuickFilters({
     onToggleClient,
     onToggleStatus,
     onReset,
+    showCRColors,
+    onToggleCRColors,
 }: Props) {
     if (!open) return null;
 
@@ -91,6 +95,27 @@ export default function QuickFilters({
                                 </span>
                             )}
                         </div>
+                    </div>
+                )}
+
+                {/* Visualisation Mode section */}
+                {onToggleCRColors && (
+                    <div className="flex items-center gap-2">
+                        <span className="text-[10px] font-medium text-slate-400 uppercase tracking-wider mr-1">
+                            Affichage
+                        </span>
+                        <button
+                            type="button"
+                            onClick={onToggleCRColors}
+                            className={`inline-flex items-center gap-1.5 h-6 px-2 rounded text-[11px] font-medium transition-colors ${
+                                showCRColors
+                                    ? 'bg-red-50 text-red-700 ring-1 ring-red-200 shadow-[0_1px_2px_rgba(15,23,42,0.04)] font-bold'
+                                    : 'text-slate-500 hover:text-slate-700 hover:bg-white/60'
+                            }`}
+                        >
+                            <span className={`w-1.5 h-1.5 rounded-full ${showCRColors ? 'bg-red-500 animate-pulse' : 'bg-slate-300'}`} />
+                            Taux Critique (CR)
+                        </button>
                     </div>
                 )}
 

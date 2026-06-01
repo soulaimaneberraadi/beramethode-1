@@ -1,3 +1,4 @@
+// v2
 import React, { useEffect, useMemo, useState } from 'react';
 import type { AppSettings, Machine, ModelData, PlanningEvent, SuiviData } from '../types';
 
@@ -12,14 +13,17 @@ import ContextMenu from './planning/panels/ContextMenu';
 
 import EventEditor from './planning/modals/EventEditor';
 import SplitModal from './planning/modals/SplitModal';
+import SplitResultModal from './planning/modals/SplitResultModal';
 import AutoScheduleSuggestion from './planning/modals/AutoScheduleSuggestion';
 import CommandPalette, { type CommandAction } from './planning/modals/CommandPalette';
 import AIOptimizationModal from './planning/modals/AIOptimizationModal';
+import BatchOrderModal, { type BatchOrderResult } from './planning/modals/BatchOrderModal';
 import ShortcutsHint from './planning/shared/ShortcutsHint';
 import PlanningAnimations from './planning/shared/PlanningAnimations';
 import FocusBanner from './planning/shared/FocusBanner';
-import { evClientName as evClientNameUtil, evModelName as evModelNameUtil } from './planning/shared/eventAccessors';
-import { Plus, Sparkles, Calendar as CalIcon, LayoutGrid, Rows, Printer as PrinterIcon, Filter as FilterIcon, Eye, X as XIcon, Flame, Minimize2, Maximize2 } from 'lucide-react';
+import { evClientName as evClientNameUtil, evModelName as evModelNameUtil, evQty } from './planning/shared/eventAccessors';
+import { useIsMobile } from './planning/shared/useIsMobile';
+import { Plus, Sparkles, Calendar as CalIcon, LayoutGrid, Rows, Printer as PrinterIcon, Filter as FilterIcon, Eye, X as XIcon, Flame, Minimize2, Maximize2, Zap, Check, AlertCircle, Layers } from 'lucide-react';
 
 import GanttView from './planning/views/gantt/GanttView';
 import CalendarView from './planning/views/CalendarView';
@@ -28,12 +32,16 @@ import CardsView from './planning/views/CardsView';
 import { usePlanningChains } from './planning/hooks/usePlanningChains';
 import { usePlanningStock } from './planning/hooks/usePlanningStock';
 import { usePlanningEvents } from './planning/hooks/usePlanningEvents';
+import { usePlanningHistory } from './planning/hooks/usePlanningHistory';
 import { usePlanningValidation, checkEventDraft } from './planning/hooks/usePlanningValidation';
 import { usePlanningFilters } from './planning/hooks/usePlanningFilters';
 import { useAutoSchedule } from './planning/hooks/useAutoSchedule';
 import { usePlanningPrint } from './planning/hooks/usePlanningPrint';
 import { delayOf } from './planning/hooks/useDelayIndicator';
 import { toWorkStatus } from './planning/shared/statusConfig';
+
+import { useCriticalRatio } from './planning/hooks/useCriticalRatio';
+import CrisisAlertPanel from './planning/panels/CrisisAlertPanel';
 
 interface PlanningProps {
     models: ModelData[];
@@ -46,14 +54,16 @@ interface PlanningProps {
     settings: AppSettings;
     machines: Machine[];
     onOpenSuivi?: (planningEventId: string) => void;
+    onOpenInIngenierie?: (modelId: string) => void;
 }
 
 export default function Planning({
     models, planningEvents, suivis,
     setPlanningEvents, settings, machines,
-    onOpenSuivi,
+    onOpenSuivi, onOpenInIngenierie,
 }: PlanningProps) {
 
+    const isMobile = useIsMobile();
     const [view, setView] = useState<ViewKind>('gantt');
     const [zoom, setZoom] = useState<ZoomLevel>(() => {
         try {
@@ -68,6 +78,16 @@ export default function Planning({
     const [showHeatMap, setShowHeatMap] = useState<boolean>(() => {
         try { return localStorage.getItem('planning_heatmap') === '1'; } catch { return false; }
     });
+    const [showCRColors, setShowCRColors] = useState<boolean>(() => {
+        try { return localStorage.getItem('planning_cr_colors') === '1'; } catch { return false; }
+    });
+    const [toastMessage, setToastMessage] = useState<{ text: string, type: 'success' | 'error' } | null>(null);
+    
+    const showToast = (text: string, type: 'success' | 'error' = 'success') => {
+        setToastMessage({ text, type });
+        setTimeout(() => setToastMessage(null), 4000);
+    };
+
     const [density, setDensity] = useState<'comfortable' | 'compact'>(() => {
         try { return localStorage.getItem('planning_density') === 'compact' ? 'compact' : 'comfortable'; } catch { return 'comfortable'; }
     });
@@ -79,22 +99,30 @@ export default function Planning({
         try { localStorage.setItem('planning_heatmap', showHeatMap ? '1' : '0'); } catch {}
     }, [showHeatMap]);
     useEffect(() => {
+        try { localStorage.setItem('planning_cr_colors', showCRColors ? '1' : '0'); } catch {}
+    }, [showCRColors]);
+    useEffect(() => {
         try { localStorage.setItem('planning_density', density); } catch {}
     }, [density]);
     const [currentDate, setCurrentDate] = useState(new Date());
     const [selectedId, setSelectedId] = useState<string | null>(null);
+    const [multiIds, setMultiIds] = useState<Set<string>>(new Set());
+    const lastAnchorRef = React.useRef<string | null>(null);
     const [focusedId, setFocusedId] = useState<string | null>(null);
     const [editorOpen, setEditorOpen] = useState(false);
     const [editorMode, setEditorMode] = useState<'create' | 'edit'>('create');
     const [editorInitial, setEditorInitial] = useState<PlanningEvent | null>(null);
     const [splitOpen, setSplitOpen] = useState<PlanningEvent | null>(null);
+    const [splitResult, setSplitResult] = useState<{ original: PlanningEvent; newEvents: PlanningEvent[] } | null>(null);
     const [autoOpen, setAutoOpen] = useState(false);
     const [contextMenu, setContextMenu] = useState<{ x: number; y: number; id: string } | null>(null);
+    const [chainCtxMenu, setChainCtxMenu] = useState<{ x: number; y: number; chainId: string } | null>(null);
     const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
     const [filtersOpen, setFiltersOpen] = useState(false);
     const [soloChainId, setSoloChainId] = useState<string | null>(null);
     const [paletteOpen, setPaletteOpen] = useState(false);
     const [aiOptimizeOpen, setAiOptimizeOpen] = useState(false);
+    const [batchOpen, setBatchOpen] = useState(false);
 
     // Panel width — resizable, persisté
     const [panelWidth, setPanelWidth] = useState<number>(() => {
@@ -153,9 +181,11 @@ export default function Planning({
 
     const stock = usePlanningStock();
     const chains = usePlanningChains({ settings, suivis, planningEvents, models });
-    const eventsApi = usePlanningEvents({ planningEvents, setPlanningEvents, models, chains, settings, stock: stock.stock });
+    const history = usePlanningHistory({ planningEvents, setPlanningEvents });
+    const eventsApi = usePlanningEvents({ planningEvents, setPlanningEvents: history.setWithHistory, models, chains, settings, stock: stock.stock });
     const issues = usePlanningValidation({ planningEvents, models, machines, settings });
-    const filtersApi = usePlanningFilters(planningEvents, models);
+    const { eventsWithCR, crisisEvents } = useCriticalRatio({ planningEvents, models, settings, chains });
+    const filtersApi = usePlanningFilters(eventsWithCR, models);
     const { suggest } = useAutoSchedule({ chains, planningEvents, models, machines, settings });
     const print = usePlanningPrint();
 
@@ -181,6 +211,7 @@ export default function Planning({
                 setSelectedId(null);
                 setContextMenu(null);
                 setFocusedId(null);
+                setMultiIds(new Set());
             }
             if (e.key === 'n' && !e.ctrlKey && !e.metaKey) {
                 e.preventDefault();
@@ -202,6 +233,15 @@ export default function Planning({
                 e.preventDefault();
                 setPaletteOpen(true);
             }
+            if ((e.key === 'z' || e.key === 'Z') && (e.ctrlKey || e.metaKey) && !e.shiftKey) {
+                e.preventDefault();
+                history.undo();
+            }
+            if (((e.key === 'y' || e.key === 'Y') && (e.ctrlKey || e.metaKey))
+                || ((e.key === 'z' || e.key === 'Z') && (e.ctrlKey || e.metaKey) && e.shiftKey)) {
+                e.preventDefault();
+                history.redo();
+            }
             if (e.key === '/' && !e.ctrlKey && !e.metaKey) {
                 const input = document.querySelector('input[placeholder*="Rechercher"]') as HTMLInputElement | null;
                 if (input) {
@@ -212,7 +252,7 @@ export default function Planning({
         };
         document.addEventListener('keydown', onKey);
         return () => document.removeEventListener('keydown', onKey);
-    }, [selectedId, print]);
+    }, [selectedId, print, history.undo, history.redo]);
 
     const stats = useMemo(() => {
         let active = 0, blocked = 0, late = 0;
@@ -243,39 +283,158 @@ export default function Planning({
         isSubcontracted?: boolean;
         subcontractorName?: string;
         subcontractStatus?: 'PENDING' | 'SENT' | 'COMPLETED';
+        subcontractorPhone?: string;
+        subcontractorRating?: number;
+        subcontractorAvailabilityDate?: string;
+        subcontractPricePerPiece?: number;
+        subcontractSizeColorDistribution?: Record<string, Record<string, number>>;
+        sizeColorDistribution?: Record<string, Record<string, number>>;
+        subcontractDeadline?: string;
+        subcontractQuantity?: number;
     }) => {
+        const hasOutsource = !!(data.isSubcontracted && (
+            (data.subcontractSizeColorDistribution && Object.values(data.subcontractSizeColorDistribution).some(colorMap => 
+                Object.values(colorMap).some(qty => qty > 0)
+            )) || 
+            (data.subcontractQuantity && data.subcontractQuantity > 0)
+        ));
+
+        let outsourceQty = 0;
+        if (hasOutsource) {
+            if (data.subcontractSizeColorDistribution) {
+                Object.values(data.subcontractSizeColorDistribution).forEach(colorMap => {
+                    Object.values(colorMap).forEach(qty => {
+                        outsourceQty += qty;
+                    });
+                });
+            } else if (data.subcontractQuantity) {
+                outsourceQty = data.subcontractQuantity;
+            }
+        }
+
+        const hasLocal = data.quantity > 0;
+
         if (editorMode === 'create') {
-            eventsApi.addEvent({
-                modelId: data.modelId,
-                chaineId: data.chaineId,
-                startDate: data.startDate,
-                quantity: data.quantity,
-                clientName: data.clientName,
-                strictDeadline_DDS: data.strictDeadline_DDS,
-                fournisseurDate: data.fournisseurDate,
-                color: data.color,
-                isSubcontracted: data.isSubcontracted,
-                subcontractorName: data.subcontractorName,
-                subcontractStatus: data.subcontractStatus,
-            });
+            if (hasLocal) {
+                eventsApi.addEvent({
+                    modelId: data.modelId,
+                    chaineId: data.chaineId,
+                    startDate: data.startDate,
+                    quantity: data.quantity,
+                    clientName: data.clientName,
+                    strictDeadline_DDS: data.strictDeadline_DDS,
+                    fournisseurDate: data.fournisseurDate,
+                    color: data.color,
+                    isSubcontracted: false,
+                    sizeColorDistribution: data.sizeColorDistribution,
+                });
+            }
+            if (hasOutsource) {
+                eventsApi.addEvent({
+                    modelId: data.modelId,
+                    chaineId: data.chaineId,
+                    startDate: data.startDate,
+                    quantity: outsourceQty,
+                    clientName: data.clientName,
+                    strictDeadline_DDS: data.subcontractDeadline || data.strictDeadline_DDS || undefined,
+                    fournisseurDate: data.fournisseurDate || undefined,
+                    color: data.color,
+                    isSubcontracted: true,
+                    subcontractorName: data.subcontractorName,
+                    subcontractStatus: data.subcontractStatus,
+                    subcontractorPhone: data.subcontractorPhone,
+                    subcontractorRating: data.subcontractorRating,
+                    subcontractorAvailabilityDate: data.subcontractorAvailabilityDate,
+                    subcontractPricePerPiece: data.subcontractPricePerPiece,
+                    sizeColorDistribution: data.subcontractSizeColorDistribution,
+                });
+            }
         } else if (editorInitial) {
-            eventsApi.updateEvent(editorInitial.id, {
-                modelId: data.modelId,
-                chaineId: data.chaineId,
-                startDate: data.startDate,
-                dateLancement: data.startDate,
-                totalQuantity: data.quantity,
-                qteTotal: data.quantity,
-                clientName: data.clientName,
-                strictDeadline_DDS: data.strictDeadline_DDS || undefined,
-                fournisseurDate: data.fournisseurDate || undefined,
-                color: data.color,
-                isSubcontracted: data.isSubcontracted,
-                subcontractorName: data.subcontractorName,
-                subcontractStatus: data.subcontractStatus,
-            });
+            if (hasLocal && hasOutsource) {
+                // Split case: Update original event to be local only
+                eventsApi.updateEvent(editorInitial.id, {
+                    modelId: data.modelId,
+                    chaineId: data.chaineId,
+                    startDate: data.startDate,
+                    dateLancement: data.startDate,
+                    totalQuantity: data.quantity,
+                    qteTotal: data.quantity,
+                    clientName: data.clientName,
+                    strictDeadline_DDS: data.strictDeadline_DDS || undefined,
+                    fournisseurDate: data.fournisseurDate || undefined,
+                    color: data.color,
+                    isSubcontracted: false,
+                    subcontractorName: undefined,
+                    subcontractStatus: undefined,
+                    subcontractorPhone: undefined,
+                    subcontractorRating: undefined,
+                    subcontractorAvailabilityDate: undefined,
+                    subcontractPricePerPiece: undefined,
+                    subcontractSizeColorDistribution: undefined,
+                    sizeColorDistribution: data.sizeColorDistribution,
+                });
+
+                // Create new outsourced event for the split off portion
+                eventsApi.addEvent({
+                    modelId: data.modelId,
+                    chaineId: data.chaineId,
+                    startDate: data.startDate,
+                    quantity: outsourceQty,
+                    clientName: data.clientName,
+                    strictDeadline_DDS: data.subcontractDeadline || data.strictDeadline_DDS || undefined,
+                    fournisseurDate: data.fournisseurDate || undefined,
+                    color: data.color,
+                    isSubcontracted: true,
+                    subcontractorName: data.subcontractorName,
+                    subcontractStatus: data.subcontractStatus,
+                    subcontractorPhone: data.subcontractorPhone,
+                    subcontractorRating: data.subcontractorRating,
+                    subcontractorAvailabilityDate: data.subcontractorAvailabilityDate,
+                    subcontractPricePerPiece: data.subcontractPricePerPiece,
+                    sizeColorDistribution: data.subcontractSizeColorDistribution,
+                });
+            } else {
+                // Either purely local or purely outsourced (no split needed)
+                eventsApi.updateEvent(editorInitial.id, {
+                    modelId: data.modelId,
+                    chaineId: data.chaineId,
+                    startDate: data.startDate,
+                    dateLancement: data.startDate,
+                    totalQuantity: data.quantity > 0 ? data.quantity : outsourceQty,
+                    qteTotal: data.quantity > 0 ? data.quantity : outsourceQty,
+                    clientName: data.clientName,
+                    strictDeadline_DDS: data.isSubcontracted ? (data.subcontractDeadline || data.strictDeadline_DDS || undefined) : (data.strictDeadline_DDS || undefined),
+                    fournisseurDate: data.fournisseurDate || undefined,
+                    color: data.color,
+                    isSubcontracted: data.isSubcontracted,
+                    subcontractorName: data.subcontractorName,
+                    subcontractStatus: data.subcontractStatus,
+                    subcontractorPhone: data.subcontractorPhone,
+                    subcontractorRating: data.subcontractorRating,
+                    subcontractorAvailabilityDate: data.subcontractorAvailabilityDate,
+                    subcontractPricePerPiece: data.subcontractPricePerPiece,
+                    subcontractSizeColorDistribution: data.subcontractSizeColorDistribution,
+                    sizeColorDistribution: data.isSubcontracted ? data.subcontractSizeColorDistribution : data.sizeColorDistribution,
+                });
+            }
         }
         setEditorOpen(false);
+    };
+
+    const handleBatchSubmit = (orders: BatchOrderResult[]) => {
+        orders.forEach(order => {
+            eventsApi.addEvent({
+                modelId: order.modelId,
+                chaineId: order.chaineId,
+                startDate: order.startDate,
+                quantity: order.quantity,
+                clientName: order.clientName,
+                strictDeadline_DDS: order.strictDeadline_DDS || undefined,
+                color: order.color,
+            });
+        });
+        setBatchOpen(false);
+        showToast(`${orders.length} ordre${orders.length > 1 ? 's' : ''} planifié${orders.length > 1 ? 's' : ''} avec succès !`);
     };
 
     const handleAutoAccept = (data: { modelId: string; chaineId: string; startDate: string; quantity: number; deadlineDDS?: string }) => {
@@ -287,6 +446,60 @@ export default function Planning({
             strictDeadline_DDS: data.deadlineDDS,
         });
         setAutoOpen(false);
+    };
+
+    const handleSelectEvent = (id: string, modifiers?: { ctrl?: boolean; shift?: boolean }) => {
+        const ctrl = !!modifiers?.ctrl;
+        const shift = !!modifiers?.shift;
+        if (!ctrl && !shift) {
+            setSelectedId(id);
+            setMultiIds(new Set());
+            lastAnchorRef.current = id;
+            return;
+        }
+        if (ctrl) {
+            setMultiIds(prev => {
+                const next = new Set(prev);
+                if (selectedId && next.size === 0) next.add(selectedId);
+                if (next.has(id)) next.delete(id);
+                else next.add(id);
+                return next;
+            });
+            lastAnchorRef.current = id;
+            setSelectedId(null);
+            return;
+        }
+        if (shift) {
+            const anchor = lastAnchorRef.current || selectedId;
+            const order = filtersApi.filtered.map(e => e.id);
+            if (!anchor || !order.includes(anchor)) {
+                setMultiIds(new Set([id]));
+                lastAnchorRef.current = id;
+                setSelectedId(null);
+                return;
+            }
+            const a = order.indexOf(anchor);
+            const b = order.indexOf(id);
+            if (b === -1) return;
+            const [lo, hi] = a < b ? [a, b] : [b, a];
+            setMultiIds(new Set(order.slice(lo, hi + 1)));
+            setSelectedId(null);
+        }
+    };
+
+    const handleBulkDelete = () => {
+        const ids = Array.from(multiIds);
+        ids.forEach(id => eventsApi.deleteEvent(id));
+        setMultiIds(new Set());
+    };
+    const handleBulkStatus = (status: any) => {
+        Array.from(multiIds).forEach(id => eventsApi.setStatus(id, status));
+    };
+    const handleBulkMove = (chaineId: string) => {
+        Array.from(multiIds).forEach(id => {
+            const ev = planningEvents.find(e => e.id === id);
+            if (ev) eventsApi.updateEvent(id, { chaineId });
+        });
     };
 
     const handleContextMenu = (e: React.MouseEvent, id: string) => {
@@ -303,7 +516,7 @@ export default function Planning({
     const paletteActions = useMemo<CommandAction[]>(() => {
         const list: CommandAction[] = [
             { id: 'new', label: 'Nouvel ordre', icon: Plus, group: 'Actions', shortcut: 'N', onRun: openCreate },
-            { id: 'auto', label: 'Jdwala automatique', icon: Sparkles, group: 'Actions', shortcut: 'A', onRun: () => setAutoOpen(true) },
+            { id: 'auto', label: 'Planification automatique', icon: Sparkles, group: 'Actions', shortcut: 'A', onRun: () => setAutoOpen(true) },
             { id: 'print', label: 'Imprimer / Exporter PDF', icon: PrinterIcon, group: 'Actions', shortcut: '⌘P', onRun: print },
             { id: 'today', label: 'Aller à aujourd\'hui', icon: CalIcon, group: 'Navigation', onRun: () => setCurrentDate(new Date()) },
             { id: 'view-gantt', label: 'Vue Gantt', icon: Rows, group: 'Vues', onRun: () => setView('gantt') },
@@ -311,6 +524,7 @@ export default function Planning({
             { id: 'view-cards', label: 'Vue Cartes', icon: LayoutGrid, group: 'Vues', onRun: () => setView('cards') },
             { id: 'filters', label: filtersOpen ? 'Masquer les filtres' : 'Afficher les filtres', icon: FilterIcon, group: 'Affichage', onRun: () => setFiltersOpen(v => !v) },
             { id: 'heatmap', label: showHeatMap ? 'Masquer la carte de charge' : 'Afficher la carte de charge', icon: Flame, group: 'Affichage', onRun: () => setShowHeatMap(v => !v) },
+            { id: 'crcolors', label: showCRColors ? 'Masquer les couleurs de taux critique' : 'Afficher les couleurs de taux critique', icon: Zap, group: 'Affichage', onRun: () => setShowCRColors(v => !v) },
             { id: 'density', label: density === 'compact' ? 'Affichage confortable' : 'Affichage compact', icon: density === 'compact' ? Maximize2 : Minimize2, group: 'Affichage', onRun: () => setDensity(d => d === 'compact' ? 'comfortable' : 'compact') },
         ];
         if (soloChainId) {
@@ -334,7 +548,7 @@ export default function Planning({
             });
         }
         return list;
-    }, [filtersOpen, soloChainId, filtersApi, planningEvents, models, print]);
+    }, [filtersOpen, soloChainId, filtersApi, planningEvents, models, print, showHeatMap, showCRColors, density]);
 
     return (
         <div className="h-full flex flex-col bg-white font-sans select-none text-slate-800 antialiased relative">
@@ -352,6 +566,7 @@ export default function Planning({
                 onToday={() => { setCurrentDate(new Date()); setPulseToday(Date.now()); }}
                 onAddEvent={openCreate}
                 onAutoSchedule={() => setAutoOpen(true)}
+                onBatchSchedule={() => setBatchOpen(true)}
                 onPrint={print}
                 searchText={filtersApi.filters.searchText}
                 onSearch={filtersApi.setSearchText}
@@ -359,6 +574,10 @@ export default function Planning({
                 onToggleFilters={() => setFiltersOpen(v => !v)}
                 hasActiveFilters={filtersApi.hasActiveFilters}
                 onOptimizePlanning={() => setAiOptimizeOpen(true)}
+                canUndo={history.canUndo}
+                canRedo={history.canRedo}
+                onUndo={history.undo}
+                onRedo={history.redo}
             />
 
             <QuickFilters
@@ -370,6 +589,8 @@ export default function Planning({
                 onToggleClient={filtersApi.toggleClient}
                 onToggleStatus={filtersApi.toggleStatus}
                 onReset={filtersApi.resetFilters}
+                showCRColors={showCRColors}
+                onToggleCRColors={() => setShowCRColors(v => !v)}
             />
 
             <IssuesPanel
@@ -379,8 +600,19 @@ export default function Planning({
                 onJumpToEvent={(id) => { setSelectedId(id); setFocusedId(id); }}
             />
 
+            <CrisisAlertPanel
+                crisisEvents={crisisEvents}
+                eventsWithCR={eventsWithCR}
+                models={models}
+                settings={settings}
+                onUpdateEvent={eventsApi.updateEvent}
+                onAddEvent={eventsApi.addEvent}
+                onJumpToEvent={(id) => { setSelectedId(id); setFocusedId(id); }}
+                showToast={showToast}
+            />
+
             <div className="flex-1 flex overflow-hidden">
-              <div className="flex-1 relative overflow-hidden min-w-0">
+              <div className="flex-1 relative overflow-hidden min-w-0 flex flex-col">
                 {view === 'gantt' && (
                     <GanttView
                         chains={chains}
@@ -393,16 +625,19 @@ export default function Planning({
                         onZoomChange={setZoom}
                         pulseToday={pulseToday}
                         selectedId={selectedId}
+                        selectedIds={multiIds}
                         focusedId={focusedId}
-                        onSelectEvent={(id) => setSelectedId(id)}
+                        onSelectEvent={handleSelectEvent}
                         onEditEvent={openEdit}
                         onContextMenu={handleContextMenu}
+                        onChainContextMenu={(e, chainId) => { e.preventDefault(); setChainCtxMenu({ x: e.clientX, y: e.clientY, chainId }); }}
                         onMoveEvent={eventsApi.moveEvent}
                         onAddEvent={openCreate}
                         onResetFilters={filtersApi.resetFilters}
                         soloChainId={soloChainId}
                         onToggleSolo={(id) => setSoloChainId(prev => prev === id ? null : id)}
                         showHeatMap={showHeatMap}
+                        showCRColors={showCRColors}
                         density={density}
                         machines={machines}
                     />
@@ -481,6 +716,7 @@ export default function Planning({
                 chains={chains}
                 onClose={() => setEditorOpen(false)}
                 onSubmit={handleSubmit}
+                onOpenInIngenierie={onOpenInIngenierie}
                 checkDraft={(d) => checkEventDraft(d, {
                     planningEvents,
                     models,
@@ -490,15 +726,57 @@ export default function Planning({
                 })}
             />
 
+            <BatchOrderModal
+                open={batchOpen}
+                models={models}
+                chains={chains}
+                computeEndDate={eventsApi.computeEndDate}
+                onClose={() => setBatchOpen(false)}
+                onSubmit={handleBatchSubmit}
+            />
+
             <SplitModal
                 open={!!splitOpen}
                 event={splitOpen}
                 models={models}
                 onClose={() => setSplitOpen(null)}
-                onSubmit={(qty) => {
-                    if (splitOpen) eventsApi.splitEvent(splitOpen.id, qty);
+                onSubmit={(qty, lots) => {
+                    if (splitOpen) {
+                        const origId = splitOpen.id;
+                        const origSnapshot = { ...splitOpen };
+                        
+                        if (lots && lots.length > 0) {
+                            eventsApi.splitEventWithLots(origId, lots);
+                        } else {
+                            eventsApi.splitEvent(origId, qty);
+                        }
+                        
+                        // Find the new events created from the split
+                        setTimeout(() => {
+                            const newEvts = planningEvents.filter(e => 
+                                e.id !== origId && 
+                                (e.id.startsWith(`event_${origId.replace('event_', '')}`) || 
+                                 e.id.startsWith('event_') && e.id.includes(origId.replace('event_', '')))
+                            );
+                            
+                            if (newEvts.length > 0) {
+                                setSplitResult({
+                                    original: { ...origSnapshot, totalQuantity: evQty(origSnapshot) - (lots ? lots.reduce((s, l) => s + l.quantity, 0) : qty) },
+                                    newEvents: newEvts
+                                });
+                            }
+                        }, 100);
+                    }
                     setSplitOpen(null);
                 }}
+            />
+
+            <SplitResultModal
+                open={!!splitResult}
+                originalEvent={splitResult?.original || null}
+                newEvents={splitResult?.newEvents || []}
+                models={models}
+                onClose={() => setSplitResult(null)}
             />
 
             <AutoScheduleSuggestion
@@ -535,6 +813,97 @@ export default function Planning({
             />
 
             <ShortcutsHint />
+
+            {/* Chain context menu */}
+            {chainCtxMenu && (
+                <div
+                    style={{ position: 'fixed', top: chainCtxMenu.y, left: chainCtxMenu.x, zIndex: 9999 }}
+                    className="bg-white border border-slate-200 rounded-xl shadow-xl py-1 min-w-[200px] animate-[planning-fade-up_80ms_ease-out]"
+                    onMouseLeave={() => setChainCtxMenu(null)}
+                >
+                    <div className="px-3 py-1.5 border-b border-slate-100">
+                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">
+                            {chainCtxMenu.chainId}
+                        </span>
+                    </div>
+                    <button
+                        type="button"
+                        onClick={() => { setSoloChainId(prev => prev === chainCtxMenu.chainId ? null : chainCtxMenu.chainId); setChainCtxMenu(null); }}
+                        className="w-full flex items-center gap-2.5 px-3 py-2 text-[12px] text-slate-700 hover:bg-slate-50 transition-colors"
+                    >
+                        <Eye className="w-3.5 h-3.5 text-slate-400" />
+                        {soloChainId === chainCtxMenu.chainId ? 'Désactiver isolation' : 'Isoler cette chaîne'}
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => {
+                            setSoloChainId(chainCtxMenu.chainId);
+                            filtersApi.resetFilters();
+                            setChainCtxMenu(null);
+                        }}
+                        className="w-full flex items-center gap-2.5 px-3 py-2 text-[12px] text-slate-700 hover:bg-slate-50 transition-colors"
+                    >
+                        <Layers className="w-3.5 h-3.5 text-indigo-500" />
+                        Voir seule (modèles)
+                    </button>
+                    {soloChainId && (
+                        <button
+                            type="button"
+                            onClick={() => { setSoloChainId(null); setChainCtxMenu(null); }}
+                            className="w-full flex items-center gap-2.5 px-3 py-2 text-[12px] text-slate-500 hover:bg-slate-50 transition-colors border-t border-slate-100"
+                        >
+                            <XIcon className="w-3.5 h-3.5 text-slate-400" />
+                            Tout afficher
+                        </button>
+                    )}
+                </div>
+            )}
+
+            {multiIds.size > 0 && (
+                <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 bg-slate-900 text-white rounded-xl shadow-[0_12px_40px_rgba(15,23,42,0.35)] flex items-stretch overflow-hidden animate-[planning-fade-up_180ms_ease-out]">
+                    <div className="flex items-center gap-2 px-4 py-2.5 border-r border-white/10">
+                        <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-white/10 text-[11px] font-bold tabular-nums">{multiIds.size}</span>
+                        <span className="text-[12px] font-medium">sélectionné{multiIds.size > 1 ? 's' : ''}</span>
+                    </div>
+                    <select
+                        onChange={(e) => { if (e.target.value) { handleBulkMove(e.target.value); e.target.value = ''; } }}
+                        defaultValue=""
+                        className="px-3 text-[12px] bg-transparent text-white border-r border-white/10 outline-none cursor-pointer hover:bg-white/5"
+                    >
+                        <option value="" disabled className="text-slate-900">Déplacer vers…</option>
+                        {chains.map(c => (
+                            <option key={c.id} value={c.id} className="text-slate-900">{c.name}</option>
+                        ))}
+                    </select>
+                    <select
+                        onChange={(e) => { if (e.target.value) { handleBulkStatus(e.target.value); e.target.value = ''; } }}
+                        defaultValue=""
+                        className="px-3 text-[12px] bg-transparent text-white border-r border-white/10 outline-none cursor-pointer hover:bg-white/5"
+                    >
+                        <option value="" disabled className="text-slate-900">Changer statut…</option>
+                        <option value="READY" className="text-slate-900">Prêt</option>
+                        <option value="IN_PROGRESS" className="text-slate-900">En cours</option>
+                        <option value="BLOCKED_STOCK" className="text-slate-900">Bloqué stock</option>
+                        <option value="EXTERNAL_PROCESS" className="text-slate-900">Proc. Externe</option>
+                        <option value="DONE" className="text-slate-900">Terminé</option>
+                    </select>
+                    <button
+                        type="button"
+                        onClick={handleBulkDelete}
+                        className="px-3 text-[12px] font-medium text-red-300 hover:bg-red-500 hover:text-white transition-colors"
+                    >
+                        Supprimer
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => setMultiIds(new Set())}
+                        className="px-3 text-[12px] text-white/70 hover:bg-white/10 hover:text-white transition-colors"
+                        aria-label="Annuler la sélection"
+                    >
+                        <XIcon className="w-3.5 h-3.5" />
+                    </button>
+                </div>
+            )}
 
             {focusedId && (() => {
                 const ev = planningEvents.find(e => e.id === focusedId);
@@ -588,6 +957,15 @@ export default function Planning({
                             </button>
                         </div>
                     </div>
+                </div>
+            )}
+
+            {toastMessage && (
+                <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] flex items-center gap-3 px-5 py-3.5 rounded-2xl shadow-xl border bg-white border-slate-100 animate-[planning-fade-up_150ms_ease-out]">
+                    <div className={`p-1 rounded-full ${toastMessage.type === 'success' ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600'}`}>
+                        {toastMessage.type === 'success' ? <Check className="w-4 h-4" /> : <AlertCircle className="w-4 h-4" />}
+                    </div>
+                    <span className="text-xs font-bold text-slate-800">{toastMessage.text}</span>
                 </div>
             )}
         </div>

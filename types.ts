@@ -329,6 +329,25 @@ export interface AppSettings {
   hrSageApply?: boolean;
   /** Référence documentaire compta / facturation : base de temps pour valorisation (V1). */
   hrComptaPointageRef?: 'pointees' | 'normales_paie';
+
+  // ═══════════════════════════════════════════════════════════
+  // APS — Advanced Planning & Scheduling (Blueprint Engine)
+  // ═══════════════════════════════════════════════════════════
+
+  /** Mode de calcul de la capacité : STATIC = pcs/jour fixe, DYNAMIC = Opérateurs × Minutes × η / SAM */
+  capacityMode?: 'STATIC' | 'DYNAMIC';
+  /** Nombre d'opérateurs par chaîne (ex: { "CHAINE 1": 30, "CHAINE 2": 25 }) */
+  chainOperators?: Record<string, number>;
+  /** Spécialités par chaîne (ex: { "CHAINE 1": ["JACKET", "COAT"] }) */
+  chainSpeciality?: Record<string, string[]>;
+  /** Taux d'activité Q par chaîne (0.5–1.0, défaut 0.85) — issu du Work Sampling */
+  chainActivityRate?: Record<string, number>;
+  /** ID du profil de courbe d'apprentissage par défaut */
+  learningCurveProfileId?: string;
+  /** Coût horaire des heures supplémentaires (MAD/h) — pour comparaison Overtime vs Sous-traitance */
+  overtimeCostPerHour?: number;
+  /** Coût par pièce sous-traitance par défaut (MAD/pièce) */
+  subcontractDefaultCostPerPiece?: number;
 }
 
 export interface PdfSettings {
@@ -479,6 +498,28 @@ export type PlanningEvent = {
   isSubcontracted?: boolean;
   subcontractorName?: string;
   subcontractStatus?: 'PENDING' | 'SENT' | 'COMPLETED';
+  subcontractorPhone?: string;
+  subcontractorRating?: number;
+  subcontractorAvailabilityDate?: string;
+  subcontractPricePerPiece?: number;
+  subcontractSizeColorDistribution?: Record<string, Record<string, number>>;
+  /** Répartition par couleur et taille (ex: { "red": { "S": 10, "M": 20 } }) */
+  sizeColorDistribution?: Record<string, Record<string, number>>;
+
+  // ═══════════════════════════════════════════════════════════
+  // APS — Critical Ratio & Re-scheduling fields
+  // ═══════════════════════════════════════════════════════════
+
+  /** Valeur CR calculée (Critical Ratio) — mis à jour après chaque suivi */
+  crValue?: number;
+  /** Statut CR : CRITICAL / AT_RISK / ON_TRACK / AHEAD */
+  crStatus?: 'CRITICAL' | 'AT_RISK' | 'ON_TRACK' | 'AHEAD';
+  /** Déficit accumulé en pièces (somme des écarts cible-réel) */
+  accumulatedDeficit?: number;
+  /** ID du profil courbe d'apprentissage (override par OF) */
+  learningCurveProfileId?: string;
+  /** Taux d'activité Q override (par OF) */
+  activityRateOverride?: number;
 };
 
 /** Ligne de BC générée depuis le planning (persistance JSON / raw_data) */
@@ -512,6 +553,9 @@ export interface SubcontractOrder {
   qtyAccepted?: number;
   qtyToRepair?: number;
   qtyRejected?: number;
+  subcontractorPhone?: string;
+  subcontractorRating?: number;
+  subcontractorAvailabilityDate?: string;
   created_at?: string;
   updated_at?: string;
 }
@@ -526,6 +570,7 @@ export interface Lot {
   dateDelivered?: string;
   producedQuantity?: number;
   modelId?: string;
+  sizeColorDistribution?: Record<string, Record<string, number>>;
 }
 
 export interface SectionEffectif {

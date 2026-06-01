@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Edit2, Split, Copy, Trash2, Eye } from 'lucide-react';
+import { useIsMobile } from '../shared/useIsMobile';
 
 interface Props {
     x: number;
@@ -23,6 +24,7 @@ const ITEMS: { id: string; label: string; Icon: typeof Eye; danger?: boolean }[]
 
 export default function ContextMenu({ x, y, onClose, onView, onEdit, onSplit, onDuplicate, onDelete }: Props) {
     const ref = useRef<HTMLDivElement>(null);
+    const isMobile = useIsMobile();
 
     useEffect(() => {
         const onOutside = (e: MouseEvent) => {
@@ -43,28 +45,51 @@ export default function ContextMenu({ x, y, onClose, onView, onEdit, onSplit, on
         view: onView, edit: onEdit, split: onSplit, duplicate: onDuplicate, delete: onDelete,
     };
 
-    return createPortal(
+    // Desktop : positionne au curseur en gardant le menu dans le viewport.
+    // Mobile : feuille en bas (bottom sheet) pleine largeur.
+    const MENU_W = 200;
+    const MENU_H = ITEMS.length * 40 + 8;
+    const clampedLeft = typeof window !== 'undefined' ? Math.min(x, window.innerWidth - MENU_W - 8) : x;
+    const clampedTop = typeof window !== 'undefined' ? Math.min(y, window.innerHeight - MENU_H - 8) : y;
+
+    const menu = (
         <div
             ref={ref}
-            className="fixed z-[100] min-w-[180px] bg-white rounded-xl shadow-xl shadow-slate-900/10 ring-1 ring-slate-200 py-1 animate-[fadeIn_120ms_ease]"
-            style={{ left: x, top: y }}
+            className={
+                isMobile
+                    ? 'fixed inset-x-0 bottom-0 z-[100] bg-white rounded-t-2xl shadow-xl shadow-slate-900/20 ring-1 ring-slate-200 py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] animate-[fadeIn_120ms_ease]'
+                    : 'fixed z-[100] min-w-[180px] bg-white rounded-xl shadow-xl shadow-slate-900/10 ring-1 ring-slate-200 py-1 animate-[fadeIn_120ms_ease]'
+            }
+            style={isMobile ? undefined : { left: Math.max(8, clampedLeft), top: Math.max(8, clampedTop) }}
         >
+            {isMobile && <div className="mx-auto mb-1 h-1 w-10 rounded-full bg-slate-300" />}
             {ITEMS.map(({ id, label, Icon, danger }) => (
                 <button
                     key={id}
                     type="button"
                     onClick={() => { handlers[id](); onClose(); }}
-                    className={`w-full px-3 py-1.5 text-left text-[11px] flex items-center gap-2 transition-colors ${
+                    className={`w-full text-left flex items-center gap-2 transition-colors ${
+                        isMobile ? 'px-5 py-3 text-sm' : 'px-3 py-1.5 text-[11px]'
+                    } ${
                         danger
                             ? 'text-red-600 hover:bg-red-50'
                             : 'text-slate-700 hover:bg-slate-50'
                     }`}
                 >
-                    <Icon className="w-3.5 h-3.5" />
+                    <Icon className={isMobile ? 'w-4 h-4' : 'w-3.5 h-3.5'} />
                     {label}
                 </button>
             ))}
-        </div>,
+        </div>
+    );
+
+    return createPortal(
+        isMobile
+            ? <>
+                <div className="fixed inset-0 z-[99] bg-black/30 animate-[fadeIn_120ms_ease]" onClick={onClose} />
+                {menu}
+              </>
+            : menu,
         document.body
     );
 }

@@ -1,9 +1,10 @@
 import { useMemo } from 'react';
 import type { AppSettings, Machine, ModelData, PlanningEvent } from '../../../types';
-import { getChainDailyCapacity, maxDayLoadRatioInSpan, overloadDaysInSpan } from '../../../utils/capacity';
+import { getChainDailyCapacity, maxDayLoadRatioInSpan } from '../../../utils/capacity';
 import { getChainMachineIds, validateMachineCoverage } from '../../../utils/machineMatch';
 import { evEndYmd, evQty, evStartYmd } from '../shared/eventAccessors';
 import { delayOf } from './useDelayIndicator';
+import { parsePlanningDateAtNoon, planningLocalDateKey } from '../../../utils/planning';
 
 export type IssueSeverity = 'error' | 'warning' | 'info';
 export type IssueType = 'capacity' | 'machines' | 'stock' | 'deadline';
@@ -29,6 +30,33 @@ export function usePlanningValidation({ planningEvents, models, machines, settin
     return useMemo(() => {
         const issues: Issue[] = [];
 
+        // ⚡ Pre-index: build per-chain per-day load map ONCE → O(N×D) instead of O(N²×D)
+        const chainDayLoad = new Map<string, Map<string, number>>();
+        for (const ev of planningEvents) {
+            const startRaw = (ev.startDate || ev.dateLancement || '').split('T')[0];
+            const endRaw = (ev.estimatedEndDate || ev.dateExport || ev.strictDeadline_DDS || '').split('T')[0];
+            if (!startRaw || !endRaw) continue;
+            const sT = parsePlanningDateAtNoon(startRaw).getTime();
+            const eT = parsePlanningDateAtNoon(endRaw).getTime();
+            if (Number.isNaN(sT) || Number.isNaN(eT) || eT < sT) continue;
+            const spanDays = Math.max(1, Math.round((eT - sT) / 86400000) + 1);
+            const qty = ev.qteTotal || ev.totalQuantity || 0;
+            const perDay = qty / spanDays;
+            let chainMap = chainDayLoad.get(ev.chaineId);
+            if (!chainMap) { chainMap = new Map(); chainDayLoad.set(ev.chaineId, chainMap); }
+            const limit = Math.min(eT, sT + 1000 * 86400000);
+            for (let t = sT; t <= limit; t += 86400000) {
+                const key = planningLocalDateKey(new Date(t));
+                chainMap.set(key, (chainMap.get(key) ?? 0) + perDay);
+            }
+        }
+
+        // ⚡ Pre-index models by id → O(1) lookup instead of O(M)
+        const modelsMap = new Map(models.map(m => [m.id, m]));
+
+        // ⚡ Cache machine coverage per chain (same chain → same result)
+        const machineCoverageCache = new Map<string, ReturnType<typeof validateMachineCoverage>>();
+
         for (const ev of planningEvents) {
             if (ev.status === 'DONE') continue;
 
@@ -47,11 +75,16 @@ export function usePlanningValidation({ planningEvents, models, machines, settin
             }
 
             // 2. Couverture machines
-            const model = models.find(m => m.id === ev.modelId);
+            const model = modelsMap.get(ev.modelId);
             if (model) {
                 const ops = model.gamme_operatoire ?? [];
-                const ids = getChainMachineIds(ev.chaineId, settings, machines);
-                const mc = validateMachineCoverage(ops, machines, ids);
+                const cacheKey = `${ev.chaineId}::${ev.modelId}`;
+                let mc = machineCoverageCache.get(cacheKey);
+                if (!mc) {
+                    const ids = getChainMachineIds(ev.chaineId, settings, machines);
+                    mc = validateMachineCoverage(ops, machines, ids);
+                    machineCoverageCache.set(cacheKey, mc);
+                }
                 if (!mc.ok && mc.missingClasses.length) {
                     issues.push({
                         id: `${ev.id}-machines`,
@@ -65,23 +98,37 @@ export function usePlanningValidation({ planningEvents, models, machines, settin
                 }
             }
 
-            // 3. Capacité
+            // 3. Capacité (utilise l'index pré-calculé → O(D) au lieu de O(N×D))
             const start = evStartYmd(ev);
             const end = evEndYmd(ev);
             if (start && end) {
                 const cap = getChainDailyCapacity(settings.chainCapacityPerDay, ev.chaineId, 1000);
-                const maxR = maxDayLoadRatioInSpan(planningEvents, ev.chaineId, cap, start, end);
-                if (maxR > 1.0001) {
-                    const overloaded = overloadDaysInSpan(planningEvents, ev.chaineId, cap, start, end, 3);
-                    issues.push({
-                        id: `${ev.id}-capacity`,
-                        eventId: ev.id,
-                        severity: 'warning',
-                        type: 'capacity',
-                        title: 'Capacité dépassée',
-                        detail: `Pic ~${Math.round(maxR * 100)} % (${cap} pcs/j) — ${overloaded.length} jour(s) en surcharge`,
-                        suggestion: 'Réduire la quantité, fractionner, ou changer de chaîne',
-                    });
+                const chainMap = chainDayLoad.get(ev.chaineId);
+                if (chainMap && cap > 0) {
+                    const sT = parsePlanningDateAtNoon(start).getTime();
+                    const eT = parsePlanningDateAtNoon(end).getTime();
+                    let maxLoad = 0;
+                    let overCount = 0;
+                    if (!Number.isNaN(sT) && !Number.isNaN(eT)) {
+                        for (let t = sT; t <= eT; t += 86400000) {
+                            const key = planningLocalDateKey(new Date(t));
+                            const load = chainMap.get(key) ?? 0;
+                            if (load > maxLoad) maxLoad = load;
+                            if (load / cap > 1.0001) overCount++;
+                        }
+                    }
+                    const maxR = maxLoad / cap;
+                    if (maxR > 1.0001) {
+                        issues.push({
+                            id: `${ev.id}-capacity`,
+                            eventId: ev.id,
+                            severity: 'warning',
+                            type: 'capacity',
+                            title: 'Capacité dépassée',
+                            detail: `Pic ~${Math.round(maxR * 100)} % (${cap} pcs/j) — ${overCount} jour(s) en surcharge`,
+                            suggestion: 'Réduire la quantité, fractionner, ou changer de chaîne',
+                        });
+                    }
                 }
             }
 

@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, Edit2, Split, Copy, Trash2, Calendar, Package, Clock, Truck, AlertTriangle, Plus } from 'lucide-react';
+import { X, Edit2, Split, Copy, Trash2, Calendar, Package, Clock, Truck, AlertTriangle, Plus, CheckCircle2 } from 'lucide-react';
 import type { ModelData, PlanningEvent, AppSettings } from '../../../types';
 import MaterialArrivalTimeline from '../MaterialArrivalTimeline';
 import { evClientName, evModelName, evModelThumb, evProduced, evQty, evProgressPct, evStartYmd, evEndYmd, evDeadlineYmd } from '../shared/eventAccessors';
@@ -7,6 +7,42 @@ import { fmtLong, daysBetween, todayYmd } from '../shared/dateFmt';
 import { delayOf } from '../hooks/useDelayIndicator';
 import { DELAY_META, STATUS_META, toWorkStatus } from '../shared/statusConfig';
 import { getClientColor } from '../shared/clientColors';
+import { getModelColor } from '../shared/modelColors';
+import { useIsMobile } from '../shared/useIsMobile';
+import { calculateRollingEndDate } from '../../../utils/planning';
+
+const getExtendedStatusMeta = (status: string | undefined) => {
+    if (status === 'EXTERNAL_PROCESS') {
+        return {
+            label: 'Proc. Externe',
+            dot: 'bg-amber-500',
+            text: 'text-amber-700',
+            bg: 'bg-amber-50',
+            border: 'border-amber-200/50',
+            softBg: 'bg-amber-50/60',
+        };
+    }
+    if (status === 'BLOCKED_STOCK') {
+        return {
+            label: 'Bloqué stock',
+            dot: 'bg-red-500',
+            text: 'text-red-700',
+            bg: 'bg-red-50',
+            border: 'border-red-200',
+            softBg: 'bg-red-50/60',
+        };
+    }
+    const ws = toWorkStatus(status);
+    const meta = STATUS_META[ws];
+    return {
+        label: meta.label,
+        dot: meta.dot,
+        text: meta.text,
+        bg: meta.bg,
+        border: meta.border,
+        softBg: meta.softBg,
+    };
+};
 
 interface Props {
     event: PlanningEvent | null;
@@ -57,32 +93,139 @@ export default function EventDetailPanel({
     const client = evClientName(event, models);
     const modelName = evModelName(event, models);
     const thumb = evModelThumb(event, models);
-    const accent = event.color || getClientColor(client);
+    const modelKey = event.modelId || modelName || client;
+    const accent = (event.modelId || modelName) ? getModelColor(event.modelId || modelName) : (event.color || getModelColor(modelKey));
     const qty = evQty(event);
     const produced = evProduced(event);
     const progress = evProgressPct(event);
     const startYmd = evStartYmd(event);
     const endYmd = evEndYmd(event);
+    const model = models.find(m => m.id === event.modelId);
+    let rollingEndYmd = endYmd;
+    if (model && qty > 0) {
+        const sam = Number(model.meta_data?.total_temps) || 15;
+        const eff = chainEfficiency ?? 0.85;
+        rollingEndYmd = calculateRollingEndDate(event, sam, eff, settings).split('T')[0];
+    }
     const ddsYmd = evDeadlineYmd(event);
-    const ws = toWorkStatus(event.status);
-    const wsMeta = STATUS_META[ws];
+    const wsMeta = getExtendedStatusMeta(event.status);
     const delay = delayOf(event);
     const delayMeta = DELAY_META[delay];
     const daysToDDS = ddsYmd ? daysBetween(todayYmd(), ddsYmd) : null;
 
+    const isMobile = useIsMobile();
+    const containerCls = isMobile
+        ? 'fixed inset-x-0 bottom-0 top-12 z-40 bg-white rounded-t-2xl shadow-[0_-12px_40px_rgba(15,23,42,0.18)] flex flex-col animate-[planning-slide-in-up_220ms_ease-out]'
+        : 'relative shrink-0 bg-white border-l border-slate-100 flex flex-col animate-[planning-slide-in-right_180ms_ease-out]';
+    const containerStyle = isMobile ? undefined : { width };
+
+    // Chronology calculation
+    const chronoItems = React.useMemo(() => {
+        interface ChronoItem {
+            date: string;
+            icon: any;
+            label: string;
+            time?: string;
+            description?: string;
+            accent?: string;
+        }
+
+        const items: ChronoItem[] = [];
+
+        // 1. Création
+        if (startYmd) {
+            items.push({
+                date: startYmd,
+                icon: Calendar,
+                label: "Création de l'OF",
+                time: fmtLong(startYmd),
+                description: `${qty} pcs sur ${chainName || event.chaineId}`,
+            });
+        }
+
+        // 2. Réception matières prévue
+        if (event.fournisseurDate) {
+            const fYmd = event.fournisseurDate.split('T')[0];
+            items.push({
+                date: fYmd,
+                icon: Truck,
+                label: "Réception matières prévue",
+                time: fmtLong(fYmd),
+            });
+        }
+
+        // 3. DDS
+        if (ddsYmd) {
+            items.push({
+                date: ddsYmd,
+                icon: AlertTriangle,
+                label: "DDS (deadline client)",
+                time: fmtLong(ddsYmd),
+                accent: delay === 'LATE' ? 'text-red-600 font-medium' : '',
+            });
+        }
+
+        // 4. Progress / Produced
+        if (produced > 0) {
+            items.push({
+                date: todayYmd(),
+                icon: Clock,
+                label: `${produced} pcs produites`,
+                description: `${progress}% complété`,
+                time: "Aujourd'hui",
+            });
+        }
+
+        // 5. Fin estimée
+        if (rollingEndYmd) {
+            items.push({
+                date: rollingEndYmd,
+                icon: Clock,
+                label: "Fin estimée",
+                time: fmtLong(rollingEndYmd),
+            });
+        }
+
+        const getPriority = (label: string) => {
+            if (label.startsWith("Création")) return 1;
+            if (label.startsWith("Réception")) return 2;
+            if (label.includes("produites")) return 3;
+            if (label.startsWith("Fin")) return 4;
+            if (label.startsWith("DDS")) return 5;
+            return 6;
+        };
+
+        return items.sort((a, b) => {
+            const cmp = a.date.localeCompare(b.date);
+            if (cmp !== 0) return cmp;
+            return getPriority(a.label) - getPriority(b.label);
+        });
+    }, [startYmd, qty, chainName, event.chaineId, event.fournisseurDate, ddsYmd, delay, produced, progress, rollingEndYmd]);
+
     return (
-        <aside
-            className="relative shrink-0 bg-white border-l border-slate-100 flex flex-col animate-[planning-slide-in-right_180ms_ease-out]"
-            style={{ width }}
-        >
-            {/* Drag handle */}
-            <div
-                onMouseDown={onResizeStart}
-                className="absolute -left-1 top-0 bottom-0 w-2 cursor-col-resize z-30 group/handle"
-                title="Glissez pour redimensionner"
-            >
-                <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-0.5 h-12 rounded-full bg-transparent group-hover/handle:bg-slate-300 transition-colors" />
-            </div>
+        <aside className={containerCls} style={containerStyle}>
+            {isMobile && (
+                <div
+                    className="fixed inset-0 -z-10 bg-slate-950/30 backdrop-blur-[2px] animate-[planning-fade-in_180ms_ease-out]"
+                    style={{ left: '-9999px' }}
+                    aria-hidden
+                />
+            )}
+            {isMobile && (
+                <div className="pt-2 pb-1 flex items-center justify-center shrink-0">
+                    <span className="w-10 h-1 rounded-full bg-slate-300" />
+                </div>
+            )}
+            {/* Drag handle (desktop only) */}
+            {!isMobile && (
+                <div
+                    onMouseDown={onResizeStart}
+                    className="absolute -left-1 top-0 bottom-0 w-2 cursor-col-resize z-30 group/handle"
+                    title="Glissez pour redimensionner"
+                >
+                    <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-0.5 h-12 rounded-full bg-transparent group-hover/handle:bg-slate-300 transition-colors" />
+                </div>
+            )}
 
             {/* Hero */}
             <header className="relative px-6 pt-5 pb-4 border-b border-slate-100">
@@ -105,7 +248,7 @@ export default function EventDetailPanel({
                     )}
                     <div className="min-w-0">
                         <div className="flex items-center gap-2 mb-0.5">
-                            <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: accent }} />
+                            <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: getClientColor(client) }} title={`Client: ${client}`} />
                             <span className="text-[11px] text-slate-500 truncate">{client}</span>
                         </div>
                         <h3 className="text-[16px] font-semibold text-slate-900 tracking-tight leading-tight">
@@ -211,7 +354,7 @@ export default function EventDetailPanel({
                 {/* Properties */}
                 <section className="px-6 py-4 space-y-3 border-b border-slate-50">
                     <PropertyRow icon={Calendar} label="Début" value={fmtLong(startYmd)} />
-                    <PropertyRow icon={Clock} label="Fin estimée" value={fmtLong(endYmd)} />
+                    <PropertyRow icon={Clock} label="Fin estimée" value={fmtLong(rollingEndYmd)} />
                     {ddsYmd && (
                         <PropertyRow
                             icon={AlertTriangle}
@@ -250,13 +393,52 @@ export default function EventDetailPanel({
                 {/* Subcontracting details block */}
                 {event.isSubcontracted && (
                     <section className="px-6 py-4 border-b border-slate-50 bg-indigo-50/10">
-                        <div className="text-[10px] font-bold text-indigo-600 uppercase tracking-wider mb-2">Sous-traitance (المناولة)</div>
-                        <div className="space-y-2">
+                        <div className="text-[10px] font-bold text-indigo-600 uppercase tracking-wider mb-3">Sous-traitance (المناولة)</div>
+                        <div className="space-y-2.5">
                             <div className="flex items-center justify-between text-[12px]">
                                 <span className="text-slate-500">Sous-traitant :</span>
                                 <span className="font-semibold text-slate-900">{event.subcontractorName || 'Non spécifié'}</span>
                             </div>
-                            <div className="flex items-center justify-between text-[12px]">
+                            {event.subcontractorPhone && (
+                                <div className="flex items-center justify-between text-[12px]">
+                                    <span className="text-slate-500">Téléphone :</span>
+                                    <a href={`tel:${event.subcontractorPhone}`} className="font-semibold text-indigo-600 hover:underline">{event.subcontractorPhone}</a>
+                                </div>
+                            )}
+                            {event.subcontractorRating !== undefined && (
+                                <div className="flex items-center justify-between text-[12px]">
+                                    <span className="text-slate-500">Évaluation :</span>
+                                    <span className="font-semibold text-amber-500">
+                                        {'★'.repeat(Math.max(0, Math.min(5, Math.round(event.subcontractorRating)))) + '☆'.repeat(Math.max(0, 5 - Math.max(0, Math.min(5, Math.round(event.subcontractorRating)))))}
+                                        <span className="text-slate-400 text-[11px] ml-1">({event.subcontractorRating}/5)</span>
+                                    </span>
+                                </div>
+                            )}
+                            {event.subcontractorAvailabilityDate && (
+                                <div className="flex items-center justify-between text-[12px]">
+                                    <span className="text-slate-500">Disponibilité :</span>
+                                    <span className="font-semibold text-slate-900">{fmtLong(event.subcontractorAvailabilityDate.split('T')[0])}</span>
+                                </div>
+                            )}
+                            {event.strictDeadline_DDS && (
+                                <div className="flex items-center justify-between text-[12px]">
+                                    <span className="text-slate-500">Livraison prévue :</span>
+                                    <span className="font-semibold text-slate-900">{fmtLong(event.strictDeadline_DDS.split('T')[0])}</span>
+                                </div>
+                            )}
+                            {event.subcontractPricePerPiece !== undefined && event.subcontractPricePerPiece > 0 && (
+                                <>
+                                    <div className="flex items-center justify-between text-[12px]">
+                                        <span className="text-slate-500">Prix par pièce :</span>
+                                        <span className="font-semibold text-slate-900">{event.subcontractPricePerPiece.toFixed(2)} DH</span>
+                                    </div>
+                                    <div className="flex items-center justify-between text-[12px] pt-1 border-t border-slate-100/50">
+                                        <span className="font-medium text-slate-700">Coût total :</span>
+                                        <span className="font-bold text-indigo-700 font-mono">{(evQty(event) * event.subcontractPricePerPiece).toFixed(2)} DH</span>
+                                    </div>
+                                </>
+                            )}
+                            <div className="flex items-center justify-between text-[12px] pt-2 border-t border-slate-100/50">
                                 <span className="text-slate-500">Statut :</span>
                                 <select
                                     value={event.subcontractStatus || 'PENDING'}
@@ -304,9 +486,9 @@ export default function EventDetailPanel({
                 <section className="px-6 py-4">
                     <div className="text-[10px] font-medium text-slate-400 uppercase tracking-wider mb-2">Changer le statut</div>
                     <div className="grid grid-cols-2 gap-1.5">
-                        {(['READY', 'IN_PROGRESS', 'BLOCKED_STOCK', 'DONE'] as const).map(s => {
+                        {(['READY', 'IN_PROGRESS', 'BLOCKED_STOCK', 'EXTERNAL_PROCESS', 'DONE'] as const).map(s => {
                             const isActive = event.status === s;
-                            const meta = STATUS_META[toWorkStatus(s)];
+                            const meta = getExtendedStatusMeta(s);
                             return (
                                 <button
                                     key={s}
@@ -334,39 +516,16 @@ export default function EventDetailPanel({
                             Chronologie
                         </div>
                         <ol className="relative border-l border-slate-200 ml-1.5 space-y-4">
-                            <ActivityItem
-                                icon={Calendar}
-                                label="Création de l'OF"
-                                time={fmtLong(startYmd)}
-                                description={`${qty} pcs sur ${chainName || event.chaineId}`}
-                            />
-                            {event.fournisseurDate && (
+                            {chronoItems.map((item, idx) => (
                                 <ActivityItem
-                                    icon={Truck}
-                                    label="Réception matières prévue"
-                                    time={fmtLong(event.fournisseurDate)}
+                                    key={idx}
+                                    icon={item.icon}
+                                    label={item.label}
+                                    time={item.time}
+                                    description={item.description}
+                                    accent={item.accent}
                                 />
-                            )}
-                            {ddsYmd && (
-                                <ActivityItem
-                                    icon={AlertTriangle}
-                                    label="DDS (deadline client)"
-                                    time={fmtLong(ddsYmd)}
-                                    accent={delay === 'LATE' ? 'text-red-600' : ''}
-                                />
-                            )}
-                            {produced > 0 && (
-                                <ActivityItem
-                                    icon={Clock}
-                                    label={`${produced} pcs produites`}
-                                    description={`${progress}% complété`}
-                                />
-                            )}
-                            <ActivityItem
-                                icon={Clock}
-                                label="Fin estimée"
-                                time={fmtLong(endYmd)}
-                            />
+                            ))}
                         </ol>
                     </div>
                 )}
@@ -414,7 +573,19 @@ export default function EventDetailPanel({
                     <ActionBtn onClick={onSplit} icon={Split}>Diviser</ActionBtn>
                     <ActionBtn onClick={onDuplicate} icon={Copy} />
                 </div>
-                <ActionBtn onClick={onDelete} icon={Trash2} danger />
+                <div className="flex items-center gap-1">
+                    {progress === 100 && (
+                        <button
+                            type="button"
+                            onClick={() => onChangeStatus('DONE')}
+                            className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-md text-[11px] font-bold bg-emerald-600 text-white hover:bg-emerald-700 transition-colors"
+                        >
+                            <CheckCircle2 className="w-3 h-3" />
+                            Modèle fini
+                        </button>
+                    )}
+                    <ActionBtn onClick={onDelete} icon={Trash2} danger />
+                </div>
             </footer>
         </aside>
     );

@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import type { ModelData, PlanningEvent } from '../../../types';
 import { evClientName, evEndYmd, evModelName, evStartYmd } from '../shared/eventAccessors';
 import { getClientColor } from '../shared/clientColors';
+import { getModelColor } from '../shared/modelColors';
 import { parsePlanningDateAtNoon, planningLocalDateKey } from '../../../utils/planning';
 import { fmtMonthYear } from '../shared/dateFmt';
 
@@ -48,7 +49,10 @@ export default function CalendarView({ events, models, currentDate, pulseToday, 
             if (!start) continue;
             const s = parsePlanningDateAtNoon(start).getTime();
             const e = parsePlanningDateAtNoon(end).getTime();
-            for (let t = s; t <= e; t += 86400000) {
+            if (Number.isNaN(s) || Number.isNaN(e) || e < s) continue;
+            // Cap at 1000 days to avoid freeze on massive date intervals
+            const limit = Math.min(e, s + 1000 * 86400000);
+            for (let t = s; t <= limit; t += 86400000) {
                 const k = planningLocalDateKey(new Date(t));
                 if (!map.has(k)) map.set(k, []);
                 map.get(k)!.push(ev);
@@ -112,7 +116,9 @@ export default function CalendarView({ events, models, currentDate, pulseToday, 
                             <div className="space-y-1">
                                 {dayEvents.slice(0, 3).map(ev => {
                                     const client = evClientName(ev, models);
-                                    const accent = ev.color || getClientColor(client);
+                                    const modelName = evModelName(ev, models);
+                                    const modelKey = ev.modelId || modelName || client;
+                                    const accent = (ev.modelId || modelName) ? getModelColor(ev.modelId || modelName) : (ev.color || getModelColor(modelKey));
                                     return (
                                         <button
                                             key={ev.id}

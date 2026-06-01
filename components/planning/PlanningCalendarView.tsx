@@ -35,7 +35,9 @@ export default function PlanningCalendarView({
         }
         
         // Add all days of current month
-        while (date.getMonth() === month) {
+        let safety = 0;
+        while (date.getMonth() === month && safety < 100) {
+            safety++;
             days.push(new Date(date));
             date.setDate(date.getDate() + 1);
         }

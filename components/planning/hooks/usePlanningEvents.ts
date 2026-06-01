@@ -1,5 +1,5 @@
 import { useCallback, useMemo } from 'react';
-import type { AppSettings, Machine, ModelData, PlanningEvent } from '../../../types';
+import type { AppSettings, Lot, Machine, ModelData, PlanningEvent } from '../../../types';
 import { calculateEndDate } from '../../../utils/planning';
 import { evaluateStockForPlanning, formatStockBlockedReason } from '../../../utils/materialNeeds';
 import type { MagasinStock } from './usePlanningStock';
@@ -28,6 +28,73 @@ export interface NewEventInput {
     isSubcontracted?: boolean;
     subcontractorName?: string;
     subcontractStatus?: 'PENDING' | 'SENT' | 'COMPLETED';
+    subcontractorPhone?: string;
+    subcontractorRating?: number;
+    subcontractorAvailabilityDate?: string;
+    subcontractPricePerPiece?: number;
+    subcontractSizeColorDistribution?: Record<string, Record<string, number>>;
+    sizeColorDistribution?: Record<string, Record<string, number>>;
+}
+
+function scaleDistribution(
+    dist: Record<string, Record<string, number>> | undefined,
+    targetQty: number,
+    totalQty: number
+): { scaled: Record<string, Record<string, number>>; remaining: Record<string, Record<string, number>> } | undefined {
+    if (!dist || totalQty <= 0 || targetQty <= 0) return undefined;
+    
+    const scaled: Record<string, Record<string, number>> = {};
+    const remaining: Record<string, Record<string, number>> = {};
+    
+    let scaledSum = 0;
+    const flatList: { colorId: string; size: string; qty: number }[] = [];
+    
+    Object.keys(dist).forEach(colorId => {
+        scaled[colorId] = {};
+        remaining[colorId] = {};
+        Object.keys(dist[colorId]).forEach(size => {
+            const qty = dist[colorId][size] || 0;
+            const factor = targetQty / totalQty;
+            const sQty = Math.round(qty * factor);
+            scaled[colorId][size] = sQty;
+            scaledSum += sQty;
+            flatList.push({ colorId, size, qty });
+        });
+    });
+    
+    let diff = targetQty - scaledSum;
+    if (diff !== 0 && flatList.length > 0) {
+        flatList.sort((a, b) => b.qty - a.qty);
+        let idx = 0;
+        let safety = 0;
+        while (diff !== 0 && safety < 10000) {
+            safety++;
+            const item = flatList[idx % flatList.length];
+            const currentScaled = scaled[item.colorId][item.size];
+            if (diff > 0) {
+                if (currentScaled < item.qty) {
+                    scaled[item.colorId][item.size]++;
+                    diff--;
+                }
+            } else {
+                if (currentScaled > 0) {
+                    scaled[item.colorId][item.size]--;
+                    diff++;
+                }
+            }
+            idx++;
+        }
+    }
+    
+    Object.keys(dist).forEach(colorId => {
+        Object.keys(dist[colorId]).forEach(size => {
+            const origQty = dist[colorId][size] || 0;
+            const sQty = scaled[colorId][size] || 0;
+            remaining[colorId][size] = Math.max(0, origQty - sQty);
+        });
+    });
+    
+    return { scaled, remaining };
 }
 
 export function usePlanningEvents({
@@ -115,6 +182,12 @@ export function usePlanningEvents({
             isSubcontracted: input.isSubcontracted,
             subcontractorName: input.subcontractorName,
             subcontractStatus: input.subcontractStatus,
+            subcontractorPhone: input.subcontractorPhone,
+            subcontractorRating: input.subcontractorRating,
+            subcontractorAvailabilityDate: input.subcontractorAvailabilityDate,
+            subcontractPricePerPiece: input.subcontractPricePerPiece,
+            subcontractSizeColorDistribution: input.subcontractSizeColorDistribution,
+            sizeColorDistribution: input.sizeColorDistribution,
         };
         const stocked = applyStock(baseEv, input.quantity);
         setPlanningEvents(prev => [...prev, stocked]);
@@ -166,12 +239,25 @@ export function usePlanningEvents({
         const newOrigEnd = computeEndDate(orig.modelId, orig.chaineId, startRaw, remQty);
         const newSplitEnd = computeEndDate(orig.modelId, orig.chaineId, startRaw, splitQty);
 
+        let origDist = orig.sizeColorDistribution;
+        let splitDist: Record<string, Record<string, number>> | undefined = undefined;
+        let remDist: Record<string, Record<string, number>> | undefined = undefined;
+
+        if (origDist) {
+            const scaledResult = scaleDistribution(origDist, splitQty, origQty);
+            if (scaledResult) {
+                splitDist = scaledResult.scaled;
+                remDist = scaledResult.remaining;
+            }
+        }
+
         const updatedOrig: PlanningEvent = {
             ...orig,
             totalQuantity: remQty,
             qteTotal: remQty,
             estimatedEndDate: newOrigEnd,
             dateExport: newOrigEnd,
+            sizeColorDistribution: remDist,
         };
         const cloned: PlanningEvent = {
             ...orig,
@@ -183,10 +269,93 @@ export function usePlanningEvents({
             status: 'READY',
             estimatedEndDate: newSplitEnd,
             dateExport: newSplitEnd,
+            sizeColorDistribution: splitDist,
         };
         const stockedOrig = applyStock(updatedOrig, remQty);
         const stockedClone = applyStock(cloned, splitQty);
         setPlanningEvents(prev => [...prev.map(e => e.id === id ? stockedOrig : e), stockedClone]);
+    }, [planningEvents, computeEndDate, applyStock, setPlanningEvents]);
+
+    /** Fractionne un OF en plusieurs lots selon les livraisons client. */
+    const splitEventWithLots = useCallback((id: string, lots: { 
+        id: string; 
+        label: string; 
+        quantity: number; 
+        client: string; 
+        deliveryDate: string; 
+        status: string;
+        sizeColorDistribution?: Record<string, Record<string, number>>;
+    }[]) => {
+        const orig = planningEvents.find(e => e.id === id);
+        if (!orig || lots.length === 0) return;
+
+        const newEvents: PlanningEvent[] = [];
+        let remainingQty = evQty(orig);
+
+        let remainingDist: Record<string, Record<string, number>> | undefined = undefined;
+        if (orig.sizeColorDistribution) {
+            remainingDist = JSON.parse(JSON.stringify(orig.sizeColorDistribution));
+        }
+
+        for (const lot of lots) {
+            if (lot.quantity <= 0 || lot.quantity > remainingQty) continue;
+            const startRaw = evStartYmd(orig);
+            const endIso = computeEndDate(orig.modelId, orig.chaineId, startRaw, lot.quantity);
+
+            if (remainingDist && lot.sizeColorDistribution) {
+                Object.keys(lot.sizeColorDistribution).forEach(colorId => {
+                    if (!remainingDist![colorId]) return;
+                    Object.keys(lot.sizeColorDistribution![colorId]).forEach(size => {
+                        const qty = lot.sizeColorDistribution![colorId][size] || 0;
+                        remainingDist![colorId][size] = Math.max(0, (remainingDist![colorId][size] || 0) - qty);
+                    });
+                });
+            }
+
+            newEvents.push({
+                ...orig,
+                id: `event_${Date.now()}_${lot.id}`,
+                totalQuantity: lot.quantity,
+                qteTotal: lot.quantity,
+                producedQuantity: 0,
+                qteProduite: 0,
+                status: 'READY',
+                estimatedEndDate: endIso,
+                dateExport: endIso,
+                clientName: lot.client || orig.clientName,
+                strictDeadline_DDS: lot.deliveryDate || orig.strictDeadline_DDS,
+                modelName: `${orig.modelName || ''} — ${lot.label}`,
+                sizeColorDistribution: lot.sizeColorDistribution,
+                lots_data: [{
+                    id: lot.id,
+                    taille: '',
+                    couleur: '',
+                    quantite: lot.quantity,
+                    deadline: lot.deliveryDate,
+                    status: (lot.status === 'DELIVERED' ? 'DELIVERED' : lot.status === 'READY' ? 'READY' : 'PENDING') as Lot['status'],
+                }],
+            });
+            remainingQty -= lot.quantity;
+        }
+
+        // Update original with remaining quantity
+        if (remainingQty > 0) {
+            const startRaw = evStartYmd(orig);
+            const endIso = computeEndDate(orig.modelId, orig.chaineId, startRaw, remainingQty);
+            const updatedOrig: PlanningEvent = {
+                ...orig,
+                totalQuantity: remainingQty,
+                qteTotal: remainingQty,
+                estimatedEndDate: endIso,
+                dateExport: endIso,
+                sizeColorDistribution: remainingDist,
+            };
+            const stockedOrig = applyStock(updatedOrig, remainingQty);
+            setPlanningEvents(prev => [...prev.map(e => e.id === id ? stockedOrig : e), ...newEvents.map(e => applyStock(e, e.totalQuantity || 0))]);
+        } else {
+            // All quantity distributed to lots, remove original
+            setPlanningEvents(prev => [...prev.filter(e => e.id !== id), ...newEvents.map(e => applyStock(e, e.totalQuantity || 0))]);
+        }
     }, [planningEvents, computeEndDate, applyStock, setPlanningEvents]);
 
     const duplicateEvent = useCallback((id: string) => {
@@ -216,6 +385,7 @@ export function usePlanningEvents({
         updateEvent,
         moveEvent,
         splitEvent,
+        splitEventWithLots,
         duplicateEvent,
         deleteEvent,
         setStatus,

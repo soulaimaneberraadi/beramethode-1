@@ -251,6 +251,48 @@ export default function App() {
         return () => window.removeEventListener('beforeunload', onBeforeUnload);
     }, [effectifsDirty, currentView]);
 
+    // Reactive functional effect to sync Suivi hourly outputs to Plan Master progress & status
+    useEffect(() => {
+        if (suivis.length === 0) return;
+
+        setPlanningEvents(prev => {
+            if (prev.length === 0) return prev;
+            let changed = false;
+            const next = prev.map(evt => {
+                // Filter suivis by planning ID or model & chain fallback
+                const totalProduced = suivis
+                    .filter(s => s.planningId === evt.id || (s.modelId === evt.modelId && s.chaineId === evt.chaineId))
+                    .reduce((sum, s) => sum + (s.totalHeure || 0), 0);
+
+                const newQty = totalProduced;
+                let newStatus = evt.status;
+                
+                // Keep status strings aligned with PlanningStatus type definitions
+                if (newQty >= evt.qteTotal) {
+                    newStatus = 'DONE';
+                } else if (newQty > 0) {
+                    newStatus = 'IN_PROGRESS';
+                }
+
+                if (evt.qteProduite !== newQty || evt.status !== newStatus) {
+                    changed = true;
+                    return { ...evt, qteProduite: newQty, status: newStatus };
+                }
+                return evt;
+            });
+
+            if (changed) {
+                if (!user) {
+                    try {
+                        localStorage.setItem('beramethode_planning', JSON.stringify(next));
+                    } catch (e) {}
+                }
+                return next;
+            }
+            return prev;
+        });
+    }, [suivis, user]);
+
     useEffect(() => {
         const loadFromLocal = () => {
             try { const s = localStorage.getItem('beramethode_planning'); setPlanningEvents(s ? JSON.parse(s) : []); } catch { setPlanningEvents([]); }
@@ -1138,6 +1180,10 @@ export default function App() {
                             ficheImages={ficheImages}
                             setFicheImages={setFicheImages}
 
+                            currentModelId={currentModelId}
+                            planningEvents={planningEvents}
+                            setPlanningEvents={setPlanningEvents}
+
                             settings={globalSettings}
                             setSettings={setGlobalSettings}
 
@@ -1258,6 +1304,10 @@ export default function App() {
                             setModels={setModels}
                             setSuivis={setSuivis}
                             setCurrentView={setCurrentView}
+                            onOpenInIngenierie={(modelId) => {
+                                const m = models.find(x => x.id === modelId);
+                                if (m) { loadModel(m, 'planning'); setCurrentView('ingenierie'); }
+                            }}
                             onOpenSuivi={(planningEventId) => {
                                 const ev = planningEvents.find(e => e.id === planningEventId);
                                 if (ev) setDirectSuiviModelId(ev.modelId);
@@ -1399,24 +1449,18 @@ export default function App() {
                     )}
 
                     {/* --- FLOATING RETURN BUTTON --- */}
-                    {navigationContext && (currentView === 'atelier' || currentView === 'library') && (
-                        <div className="absolute bottom-8 right-8 z-[100] animate-in fade-in slide-in-from-bottom-8 duration-500">
+                    {navigationContext && (currentView === 'atelier' || currentView === 'library' || currentView === 'ingenierie') && (
+                        <div className="absolute bottom-4 right-4 z-[100] animate-in fade-in slide-in-from-bottom-4 duration-300">
                             <button
                                 onClick={() => {
                                     setCurrentView(navigationContext);
                                     setNavigationContext(null); // Clear context after returning
                                 }}
-                                className="group flex flex-col items-center gap-2 bg-slate-900 border border-slate-700 text-white rounded-2xl p-4 shadow-2xl hover:bg-slate-800 hover:-translate-y-1 transition-all"
+                                title={`Retourner au ${navigationContext === 'coupe' ? 'La Coupe' : 'Planning'}`}
+                                className="group flex items-center gap-2 bg-slate-900 border border-slate-700 text-white rounded-full pl-2.5 pr-3.5 py-1.5 shadow-lg hover:bg-slate-800 hover:-translate-y-0.5 transition-all"
                             >
-                                <div className="flex items-center gap-3">
-                                    <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center shrink-0">
-                                        <LogOut className="w-4 h-4 text-white rotate-180" />
-                                    </div>
-                                    <div className="text-left leading-tight">
-                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest group-hover:text-slate-300">Quitter le composant</p>
-                                        <p className="font-black text-sm">Retourner au {navigationContext === 'coupe' ? 'La Coupe' : 'Planning'}</p>
-                                    </div>
-                                </div>
+                                <LogOut className="w-3.5 h-3.5 text-white rotate-180 shrink-0" />
+                                <span className="text-[11px] font-semibold whitespace-nowrap">Retour {navigationContext === 'coupe' ? 'La Coupe' : 'Planning'}</span>
                             </button>
                         </div>
                     )}

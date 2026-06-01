@@ -1,7 +1,8 @@
 import React, { useMemo, useRef } from 'react';
 import type { PlanningEvent, ModelData } from '../../../../types';
-import { evClientName, evEndYmd, evStartYmd } from '../../shared/eventAccessors';
+import { evClientName, evEndYmd, evModelName, evStartYmd } from '../../shared/eventAccessors';
 import { getClientColor } from '../../shared/clientColors';
+import { getModelColor } from '../../shared/modelColors';
 import { parsePlanningDateAtNoon, planningLocalDateKey } from '../../../../utils/planning';
 import type { PlanningChain } from '../../hooks/usePlanningChains';
 
@@ -86,7 +87,7 @@ export default function MiniMap({
                         const widthRatio = Math.max(0.005, (e - s) / totalMs);
                         const chainIdx = chains.findIndex(c => c.id === ev.chaineId);
                         if (chainIdx < 0) return null;
-                        const color = ev.color || getClientColor(evClientName(ev, models));
+                        const color = (ev.modelId || evModelName(ev, models)) ? getModelColor(ev.modelId || evModelName(ev, models)) : (ev.color || getModelColor(evClientName(ev, models)));
                         const topRatio = chainIdx / chains.length;
                         return (
                             <div

@@ -24,13 +24,16 @@ const isWorkingDay = (d: Date, settings: AppSettings): boolean => {
   const exc = settings.calendarExceptions?.[iso];
   if (exc) return exc.isWorking;
   const dow = d.getDay() === 0 ? 7 : d.getDay(); // ISO: Mon=1..Sun=7
-  return (settings.workingDays || [1, 2, 3, 4, 5]).includes(dow);
+  const wDays = settings.workingDays && settings.workingDays.length > 0 ? settings.workingDays : [1, 2, 3, 4, 5];
+  return wDays.includes(dow);
 };
 
 export const addWorkingDays = (start: Date, days: number, settings: AppSettings): Date => {
   const d = new Date(start);
   let remaining = Math.max(0, Math.ceil(days));
-  while (remaining > 0) {
+  let safety = 0;
+  while (remaining > 0 && safety < 10000) {
+    safety++;
     d.setDate(d.getDate() + 1);
     if (isWorkingDay(d, settings)) remaining--;
   }
@@ -39,7 +42,7 @@ export const addWorkingDays = (start: Date, days: number, settings: AppSettings)
 
 const workMinutesPerDay = (settings: AppSettings): number => {
   const [sh, sm] = (settings.workingHoursStart || '08:00').split(':').map(Number);
-  const [eh, em] = (settings.workingHoursEnd || '17:00').split(':').map(Number);
+  const [eh, em] = (settings.workingHoursEnd || '18:00').split(':').map(Number);
   const total = (eh * 60 + em) - (sh * 60 + sm);
   const pauses = (settings.pauses || []).reduce((acc, p) => acc + (p.durationMin || 0), 0);
   const v = total - pauses;
@@ -152,7 +155,8 @@ export function isPlanningWorkingDay(date: Date, settings: AppSettings): boolean
   const exception = settings.calendarExceptions?.[iso];
   if (exception) return exception.isWorking;
   const converted = date.getDay() === 0 ? 7 : date.getDay();
-  return (settings.workingDays || [1, 2, 3, 4, 5]).includes(converted);
+  const wDays = settings.workingDays && settings.workingDays.length > 0 ? settings.workingDays : [1, 2, 3, 4, 5];
+  return wDays.includes(converted);
 }
 
 /** Heures nettes par jour pour calcul fin OF (défaut fin 18:00 — aligné Planning). */
@@ -168,7 +172,9 @@ export function getNetWorkHours(settings: AppSettings): number {
 export function addWorkingDaysFromLaunchIso(startIso: string, daysNeeded: number, settings: AppSettings): Date {
   const d = parsePlanningDateAtNoon(startIso);
   let remaining = daysNeeded;
-  while (remaining > 0) {
+  let safety = 0;
+  while (remaining > 0 && safety < 10000) {
+    safety++;
     d.setDate(d.getDate() + 1);
     if (isPlanningWorkingDay(d, settings)) remaining--;
   }
@@ -190,3 +196,94 @@ export function calculateEndDate(
   const end = addWorkingDaysFromLaunchIso(startIso, Math.max(1, daysNeeded), settings);
   return end.toISOString();
 }
+
+// ═══════════════════════════════════════════════════════════════════
+// APS — Contraintes multi-matériaux pour date de démarrage
+// ═══════════════════════════════════════════════════════════════════
+
+export interface ConstrainedStartResult {
+  /** Date de démarrage effective (après application de toutes les contraintes) */
+  startDate: string;
+  /** True si la date a été décalée par rapport à la date libre du ligne */
+  isDelayed: boolean;
+  /** Raison du décalage (matière critique, fournisseur, etc.) */
+  delayReason?: string;
+  /** Nombre de jours ouvrés de retard */
+  delayDays: number;
+}
+
+/**
+ * Date de démarrage contrainte :
+ *   Earliest Start = max(Line Free Date, worst Material Arrival, fournisseurDate)
+ * 
+ * Si un fournisseur ou une matière retarde la production, le système
+ * décale automatiquement le démarrage et signale la raison.
+ * 
+ * @param lineFreeDate — Date où la ligne sera disponible (YYYY-MM-DD)
+ * @param worstMaterialArrivalYmd — Date d'arrivée de la matière la plus tardive (ou null)
+ * @param criticalMaterialName — Nom de la matière critique (ou null)
+ * @param fournisseurDate — Date d'arrivée fournisseur principal (ou undefined)
+ * @returns Résultat avec date effective, décalage et raison
+ */
+export function computeConstrainedStartDate(
+    lineFreeDate: string,
+    worstMaterialArrivalYmd: string | null,
+    criticalMaterialName: string | null,
+    fournisseurDate?: string
+): ConstrainedStartResult {
+    const candidates: { date: string; source: string }[] = [
+        { date: lineFreeDate, source: 'ligne' },
+    ];
+
+    if (worstMaterialArrivalYmd) {
+        candidates.push({ date: worstMaterialArrivalYmd, source: criticalMaterialName || 'matière' });
+    }
+    if (fournisseurDate) {
+        candidates.push({ date: fournisseurDate, source: 'fournisseur' });
+    }
+
+    // Tri par date décroissante → la plus tardive en premier
+    candidates.sort((a, b) => b.date.localeCompare(a.date));
+    const latest = candidates[0];
+
+    const isDelayed = latest.date > lineFreeDate;
+    let delayDays = 0;
+    if (isDelayed) {
+        const lineDate = parsePlanningDateAtNoon(lineFreeDate);
+        const latestDate = parsePlanningDateAtNoon(latest.date);
+        delayDays = Math.max(0, Math.round((latestDate.getTime() - lineDate.getTime()) / 86400000));
+    }
+
+    return {
+        startDate: latest.date,
+        isDelayed,
+        delayReason: isDelayed ? `Retardé par : ${latest.source} (+${delayDays}j)` : undefined,
+        delayDays,
+    };
+}
+
+/** Fin estimée roulante OF : prend en compte la quantité restante à produire à partir d'aujourd'hui. */
+export function calculateRollingEndDate(
+  event: PlanningEvent,
+  sam: number,
+  efficiency: number,
+  settings: AppSettings
+): string {
+  const start = (event.startDate || event.dateLancement || '').split('T')[0];
+  const qty = Number(event.totalQuantity ?? event.qteTotal ?? 0);
+  const produced = Number(event.producedQuantity ?? event.qteProduite ?? 0);
+  const done = event.status === 'DONE';
+
+  if (done || produced >= qty) {
+    return calculateEndDate(start, qty, sam, efficiency, settings);
+  }
+
+  const todayStr = planningLocalDateKey(new Date());
+  if (start && start < todayStr) {
+    const remQty = Math.max(0, qty - produced);
+    return calculateEndDate(todayStr, remQty, sam, efficiency, settings);
+  }
+
+  return calculateEndDate(start, qty, sam, efficiency, settings);
+}
+

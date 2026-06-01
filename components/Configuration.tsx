@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import { Settings, Clock, Calendar, Coins, Users, Shield, Save, Building, Plus, Trash2, CheckCircle, ListTodo, CalendarClock, AlertTriangle, Check, X, SkipForward, Factory } from 'lucide-react';
+import { Settings, Clock, Calendar, Coins, Users, Shield, Save, Building, Plus, Trash2, CheckCircle, ListTodo, CalendarClock, AlertTriangle, Check, X, SkipForward, Factory, Zap } from 'lucide-react';
 import { AppSettings, AppTask, Machine } from '../types';
 import { isMachineOperational } from '../utils/machineMatch';
 import AgendaModal from './AgendaModal';
@@ -68,6 +68,16 @@ const TRANSLATIONS = {
         rhTranchesDel: 'Suppr.',
         rhTranchesReset: 'Générer depuis horaires atelier',
         rhTranchesSave: 'Enregistrer les tranches',
+        apsTitle: 'Configuration Moteur APS (Advanced Planning)',
+        apsDesc: 'Optimisation de la planification, des taux critiques et de la résolution des retards.',
+        apsCapacityMode: 'Mode de calcul de la capacité',
+        apsModeStatic: 'Statique (capacité fixe en pièces/jour)',
+        apsModeDynamic: 'Dynamique (Opérateurs × Horaires × Efficacité × Q × Lc / SAM)',
+        apsOvertimeCost: 'Coût horaire heures supplémentaires (MAD/h)',
+        apsSubcontractCost: 'Coût sous-traitance par pièce par défaut (MAD/pc)',
+        apsChainConfig: 'Paramètres APS par chaîne',
+        apsOperators: 'Opérateurs',
+        apsActivityRate: 'Taux Q (Activité)',
     },
     ar: {
         title: 'الإعدادات العامة',
@@ -117,6 +127,16 @@ const TRANSLATIONS = {
         rhTranchesDel: 'حذف',
         rhTranchesReset: 'توليد من ساعات الورشة',
         rhTranchesSave: 'حفظ الشرائح',
+        apsTitle: 'إعدادات محرك التخطيط APS',
+        apsDesc: 'تحسين الجدولة التلقائية وتتبع نسب التأخير وحلول الطوارئ.',
+        apsCapacityMode: 'طريقة احتساب القدرة الإنتاجية',
+        apsModeStatic: 'ثابت (عدد القطع/يوم لكل خط)',
+        apsModeDynamic: 'ديناميكي (العمال × الدقائق × الكفاءة × Q × Lc / SAM)',
+        apsOvertimeCost: 'تكلفة الساعة الإضافية (درهم/ساعة)',
+        apsSubcontractCost: 'تكلفة المناولة/القطعة الافتراضية (درهم/قطعة)',
+        apsChainConfig: 'إعدادات APS لكل خط إنتاج',
+        apsOperators: 'العمال/الخياطين',
+        apsActivityRate: 'معامل Q (النشاط)',
     }
 };
 
@@ -952,6 +972,158 @@ export default function Configuration({ settings, setSettings, lang, machines }:
                         </div>
                     </div>
 
+                </div>
+            </div>
+
+            {/* FULL WIDTH BLOCK: Config Moteur APS */}
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden flex flex-col mt-6">
+                <div className="px-5 py-4 bg-slate-50 border-b border-slate-100 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                        <Zap className="w-5 h-5 text-amber-500" />
+                        <h2 className="font-bold text-slate-800">{t.apsTitle}</h2>
+                    </div>
+                </div>
+                <div className="p-6 md:p-8 space-y-6">
+                    <p className="text-sm text-slate-500 font-medium">
+                        {t.apsDesc}
+                    </p>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        {/* Mode de calcul */}
+                        <div className="space-y-2">
+                            <label className="block text-xs font-bold uppercase text-slate-500 tracking-wider">
+                                {t.apsCapacityMode}
+                            </label>
+                            <div className="flex flex-col gap-2">
+                                <label className="inline-flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
+                                    <input
+                                        type="radio"
+                                        name="capacityMode"
+                                        value="STATIC"
+                                        checked={(settings.capacityMode || 'STATIC') === 'STATIC'}
+                                        onChange={() => setSettings(prev => ({ ...prev, capacityMode: 'STATIC' }))}
+                                        className="text-indigo-600 focus:ring-indigo-500"
+                                    />
+                                    <span>{t.apsModeStatic}</span>
+                                </label>
+                                <label className="inline-flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
+                                    <input
+                                        type="radio"
+                                        name="capacityMode"
+                                        value="DYNAMIC"
+                                        checked={settings.capacityMode === 'DYNAMIC'}
+                                        onChange={() => setSettings(prev => ({ ...prev, capacityMode: 'DYNAMIC' }))}
+                                        className="text-indigo-600 focus:ring-indigo-500"
+                                    />
+                                    <span>{t.apsModeDynamic}</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        {/* Coût heures supp */}
+                        <div className="space-y-2">
+                            <label className="block text-xs font-bold uppercase text-slate-500 tracking-wider">
+                                {t.apsOvertimeCost}
+                            </label>
+                            <input
+                                type="number"
+                                value={settings.overtimeCostPerHour ?? 25}
+                                onChange={e => {
+                                    const val = parseFloat(e.target.value) || 0;
+                                    setSettings(prev => ({ ...prev, overtimeCostPerHour: val }));
+                                }}
+                                className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 text-sm font-bold text-slate-700 transition-all"
+                                min={0}
+                            />
+                        </div>
+
+                        {/* Coût sous-traitance */}
+                        <div className="space-y-2">
+                            <label className="block text-xs font-bold uppercase text-slate-500 tracking-wider">
+                                {t.apsSubcontractCost}
+                            </label>
+                            <input
+                                type="number"
+                                value={settings.subcontractDefaultCostPerPiece ?? 15}
+                                onChange={e => {
+                                    const val = parseFloat(e.target.value) || 0;
+                                    setSettings(prev => ({ ...prev, subcontractDefaultCostPerPiece: val }));
+                                }}
+                                className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 text-sm font-bold text-slate-700 transition-all"
+                                min={0}
+                            />
+                        </div>
+                    </div>
+
+                    <hr className="border-slate-100" />
+
+                    {/* Paramètres APS par chaîne */}
+                    <div className="space-y-4">
+                        <h3 className="text-sm font-bold text-slate-700">{t.apsChainConfig}</h3>
+                        <div className="overflow-x-auto border border-slate-200 rounded-xl">
+                            <table className="w-full text-left border-collapse">
+                                <thead>
+                                    <tr className="bg-slate-50 border-b border-slate-200 text-xs font-bold uppercase text-slate-500 tracking-wider">
+                                        <th className="px-6 py-3">{lang === 'fr' ? 'Chaîne' : 'الخط'}</th>
+                                        <th className="px-6 py-3">{t.apsOperators}</th>
+                                        <th className="px-6 py-3">{t.apsActivityRate}</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-100 text-sm font-medium text-slate-700">
+                                    {Array.from({ length: settings.chainsCount }).map((_, i) => {
+                                        const chainKey = `CHAINE ${i + 1}`;
+                                        const chainDisplayName = settings.chainNames?.[chainKey] || chainKey;
+                                        const operators = settings.chainOperators?.[chainKey] ?? 30;
+                                        const rate = settings.chainActivityRate?.[chainKey] ?? 0.85;
+
+                                        return (
+                                            <tr key={chainKey} className="hover:bg-slate-50/50">
+                                                <td className="px-6 py-4 font-bold">{chainDisplayName}</td>
+                                                <td className="px-6 py-4">
+                                                    <input
+                                                        type="number"
+                                                        value={operators}
+                                                        onChange={e => {
+                                                            const val = parseInt(e.target.value, 10) || 0;
+                                                            setSettings(prev => ({
+                                                                ...prev,
+                                                                chainOperators: {
+                                                                    ...(prev.chainOperators || {}),
+                                                                    [chainKey]: val,
+                                                                },
+                                                            }));
+                                                        }}
+                                                        className="w-24 bg-white border border-slate-200 rounded-lg px-3 py-1.5 outline-none focus:border-indigo-500 text-sm font-bold text-slate-700"
+                                                        min={0}
+                                                    />
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    <input
+                                                        type="number"
+                                                        step="0.01"
+                                                        value={rate}
+                                                        onChange={e => {
+                                                            const val = parseFloat(e.target.value) || 0;
+                                                            setSettings(prev => ({
+                                                                ...prev,
+                                                                chainActivityRate: {
+                                                                    ...(prev.chainActivityRate || {}),
+                                                                    [chainKey]: val,
+                                                                },
+                                                            }));
+                                                        }}
+                                                        className="w-24 bg-white border border-slate-200 rounded-lg px-3 py-1.5 outline-none focus:border-indigo-500 text-sm font-bold text-slate-700"
+                                                        min={0}
+                                                        max={1}
+                                                    />
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
                 </div>
             </div>
 

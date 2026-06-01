@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { AppSettings, Machine, ModelData, PlanningEvent } from '../../../../types';
 import type { PlanningChain } from '../../hooks/usePlanningChains';
 import GanttTimeline from './GanttTimeline';
@@ -8,13 +8,15 @@ import DragPreview from './DragPreview';
 import MiniMap from './MiniMap';
 import { calculateEndDate } from '../../../../utils/planning';
 import { getChainDailyCapacity, maxDayLoadRatioInSpan } from '../../../../utils/capacity';
-import { evQty } from '../../shared/eventAccessors';
+import { evQty, evStartYmd, evEndYmd } from '../../shared/eventAccessors';
 import EmptyState from '../../shared/EmptyState';
+import { useIsMobile } from '../../shared/useIsMobile';
 import { Layers, SearchX } from 'lucide-react';
 
 import { ZOOM_MIN, ZOOM_MAX } from '../../header/ZoomSwitcher';
 
-const SIDEBAR_W = 192; // w-48
+const SIDEBAR_W_DESKTOP = 192; // w-48
+const SIDEBAR_W_MOBILE = 96;   // w-24
 
 interface Props {
     chains: PlanningChain[];
@@ -27,16 +29,19 @@ interface Props {
     onZoomChange?: (z: number) => void;
     pulseToday?: number; // timestamp, déclenche un flash sur la today-line
     selectedId: string | null;
+    selectedIds?: Set<string>;
     focusedId: string | null;
-    onSelectEvent: (id: string) => void;
+    onSelectEvent: (id: string, modifiers?: { ctrl?: boolean; shift?: boolean }) => void;
     onEditEvent: (id: string) => void;
     onContextMenu: (e: React.MouseEvent, id: string) => void;
+    onChainContextMenu?: (e: React.MouseEvent, chaineId: string) => void;
     onMoveEvent: (id: string, chaineId: string, dateKey: string) => void;
     onAddEvent?: () => void;
     onResetFilters?: () => void;
     soloChainId?: string | null;
     onToggleSolo?: (chaineId: string) => void;
     showHeatMap?: boolean;
+    showCRColors?: boolean;
     density?: 'comfortable' | 'compact';
     showMiniMap?: boolean;
     machines: Machine[];
@@ -45,14 +50,19 @@ interface Props {
 export default function GanttView({
     chains, events, totalEvents, models, settings,
     currentDate, zoom, onZoomChange, pulseToday,
-    selectedId, focusedId,
-    onSelectEvent, onEditEvent, onContextMenu, onMoveEvent,
+    showCRColors,
+    selectedId, selectedIds, focusedId,
+    onSelectEvent, onEditEvent, onContextMenu, onChainContextMenu, onMoveEvent,
     onAddEvent, onResetFilters,
     soloChainId, onToggleSolo,
     showHeatMap, density = 'comfortable', showMiniMap = true,
     machines = [],
 }: Props) {
-    const rowHeight = density === 'compact' ? 48 : 80;
+    const isMobile = useIsMobile();
+    const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+    const rowHeight = isMobile ? (density === 'compact' ? 44 : 64) : (density === 'compact' ? 48 : 80);
+    const SIDEBAR_W_FULL = isMobile ? SIDEBAR_W_MOBILE : SIDEBAR_W_DESKTOP;
+    const SIDEBAR_W = sidebarCollapsed ? 28 : SIDEBAR_W_FULL;
     const visibleChains = soloChainId ? chains.filter(c => c.id === soloChainId) : chains;
     const dayWidth = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, zoom));
 
@@ -78,18 +88,37 @@ export default function GanttView({
     const [dragOver, setDragOver] = useState<{ chaineId: string; dateKey: string } | null>(null);
     const [cursorPos, setCursorPos] = useState<{ x: number; y: number } | null>(null);
     const [scrollState, setScrollState] = useState({ left: 0, width: 0, content: 0 });
+    const arrowLeftRef = useRef<HTMLButtonElement>(null);
+    const arrowRightRef = useRef<HTMLButtonElement>(null);
+    const todayOffsetRef = useRef(0);
 
     useEffect(() => {
         const el = scrollRef.current;
         if (!el) return;
-        const update = () => setScrollState({ left: el.scrollLeft, width: el.clientWidth, content: el.scrollWidth });
+        let raf = 0;
+        const update = () => {
+            if (raf) return;
+            raf = requestAnimationFrame(() => {
+                raf = 0;
+                setScrollState({ left: el.scrollLeft, width: el.clientWidth, content: el.scrollWidth });
+                // Update arrow indicators directly via DOM (no re-render)
+                const t = todayOffsetRef.current;
+                if (arrowLeftRef.current) {
+                    arrowLeftRef.current.style.opacity = t < el.scrollLeft - 10 ? '1' : '0';
+                }
+                if (arrowRightRef.current) {
+                    arrowRightRef.current.style.opacity = t > el.scrollLeft + el.clientWidth + 10 ? '1' : '0';
+                }
+            });
+        };
         update();
-        el.addEventListener('scroll', update);
+        el.addEventListener('scroll', update, { passive: true });
         const ro = new ResizeObserver(update);
         ro.observe(el);
         return () => {
             el.removeEventListener('scroll', update);
             ro.disconnect();
+            if (raf) cancelAnimationFrame(raf);
         };
     }, [dates, chains.length, dayWidth]);
 
@@ -141,8 +170,13 @@ export default function GanttView({
         const origin = new Date(first.getFullYear(), first.getMonth(), first.getDate(), 12, 0, 0, 0);
         const t = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 12, 0, 0, 0);
         const diff = (t.getTime() - origin.getTime()) / 86400000;
-        return diff * dayWidth + SIDEBAR_W;
+        return diff * dayWidth + SIDEBAR_W + dayWidth / 2;
     }, [dates, dayWidth]);
+
+    // Sync todayOffset into ref for the scroll handler
+    useEffect(() => {
+        todayOffsetRef.current = todayOffset;
+    }, [todayOffset]);
 
     // wheel → scroll horizontal · Ctrl+wheel → zoom (centré sur le curseur)
     useEffect(() => {
@@ -169,25 +203,32 @@ export default function GanttView({
                 }
                 return;
             }
-            if (el.scrollWidth <= el.clientWidth + 2) return;
-            if (Math.abs(e.deltaX) >= Math.abs(e.deltaY) && Math.abs(e.deltaX) > 0) return;
-            if (e.deltaY === 0) return;
-            const maxL = el.scrollWidth - el.clientWidth;
-            const next = Math.max(0, Math.min(maxL, el.scrollLeft + e.deltaY));
-            if (next === el.scrollLeft) return;
-            e.preventDefault();
-            el.scrollLeft = next;
+            const hasVerticalOverflow = el.scrollHeight > el.clientHeight;
+            const shouldScrollHorizontally = e.shiftKey || !hasVerticalOverflow;
+
+            if (shouldScrollHorizontally) {
+                if (el.scrollWidth <= el.clientWidth + 2) return;
+                if (Math.abs(e.deltaX) >= Math.abs(e.deltaY) && Math.abs(e.deltaX) > 0) return;
+                if (e.deltaY === 0) return;
+                const maxL = el.scrollWidth - el.clientWidth;
+                const next = Math.max(0, Math.min(maxL, el.scrollLeft + e.deltaY));
+                if (next === el.scrollLeft) return;
+                e.preventDefault();
+                el.scrollLeft = next;
+            }
         };
         el.addEventListener('wheel', onWheel, { passive: false });
         return () => el.removeEventListener('wheel', onWheel);
     }, [dayWidth, onZoomChange]);
 
-    // Auto-scroll vers aujourd'hui — au montage initial seulement
+    // Auto-scroll vers aujourd'hui — au montage
     useEffect(() => {
         const el = scrollRef.current;
         if (!el) return;
-        const target = Math.max(0, todayOffset - el.clientWidth / 3);
-        el.scrollLeft = target;
+        const t = setTimeout(() => {
+            el.scrollLeft = Math.max(0, todayOffset - el.clientWidth / 3);
+        }, 50);
+        return () => clearTimeout(t);
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
@@ -196,16 +237,32 @@ export default function GanttView({
         if (!pulseToday) return;
         const el = scrollRef.current;
         if (!el) return;
-        const target = Math.max(0, todayOffset - el.clientWidth / 3);
-        el.scrollTo({ left: target, behavior: 'smooth' });
+        el.scrollTo({ left: Math.max(0, todayOffset - el.clientWidth / 3), behavior: 'smooth' });
     }, [pulseToday, todayOffset]);
 
-    const handleDrop = (chaineId: string, dateKey: string) => {
+    const handleDrop = useCallback((chaineId: string, dateKey: string) => {
         if (!dragging) return;
         onMoveEvent(dragging, chaineId, dateKey);
         setDragging(null);
         setDragOver(null);
-    };
+    }, [dragging, onMoveEvent]);
+
+    const handleToggleSolo = useCallback((id: string) => {
+        onToggleSolo?.(id);
+    }, [onToggleSolo]);
+
+    const handleDragStart = useCallback((id: string) => {
+        setDragging(id);
+    }, []);
+
+    const handleDragOverCell = useCallback((chaineId: string, dateKey: string) => {
+        setDragOver({ chaineId, dateKey });
+    }, []);
+
+    const handleDragEnd = useCallback(() => {
+        setDragging(null);
+        setDragOver(null);
+    }, []);
 
     if (events.length === 0) {
         if (totalEvents === 0) {
@@ -213,7 +270,7 @@ export default function GanttView({
                 <EmptyState
                     icon={Layers}
                     title="Aucun ordre planifié"
-                    description="Commencez par planifier votre premier ordre de fabrication ou utilisez la jdwala automatique."
+                    description="Commencez par planifier votre premier ordre de fabrication ou utilisez la planification automatique."
                     action={onAddEvent ? { label: 'Planifier un ordre', onClick: onAddEvent } : undefined}
                 />
             );
@@ -228,19 +285,64 @@ export default function GanttView({
         );
     }
 
-    const totalHeight = 36 + 36 /* timeline */ + visibleChains.length * rowHeight + 24;
+    const totalHeight = useMemo(() => {
+        let h = 36 + 36; // timeline height
+        for (const chain of visibleChains) {
+            const chainEvents = events.filter(e => e.chaineId === chain.id);
+            const sorted = [...chainEvents].sort((a, b) => {
+                const sa = evStartYmd(a);
+                const sb = evStartYmd(b);
+                if (sa !== sb) return sa.localeCompare(sb);
+                return evEndYmd(a).localeCompare(evEndYmd(b));
+            });
+
+            const lanes: string[] = [];
+            for (const ev of sorted) {
+                const start = evStartYmd(ev);
+                const end = evEndYmd(ev);
+                if (!start || !end) continue;
+
+                let assignedLane = -1;
+                for (let i = 0; i < lanes.length; i++) {
+                    if (start > lanes[i]) {
+                        assignedLane = i;
+                        lanes[i] = end;
+                        break;
+                    }
+                }
+
+                if (assignedLane === -1) {
+                    lanes.push(end);
+                }
+            }
+            const laneCount = Math.max(1, lanes.length);
+            h += rowHeight * laneCount;
+        }
+        return h + 24;
+    }, [visibleChains, events, rowHeight]);
 
     return (
-      <div className="flex-1 flex flex-col overflow-hidden">
+      <div className="flex-1 flex flex-col overflow-hidden relative">
         <div ref={scrollRef} className="flex-1 overflow-auto bg-white relative">
             <div style={{ minWidth: SIDEBAR_W + dates.length * dayWidth }}>
                 {/* Header timeline */}
                 <div className="flex">
-                    <div className="shrink-0 w-48 sticky left-0 z-30 bg-white border-r border-slate-100">
-                        <div className="h-[64px] flex items-end px-4 pb-2 border-b border-slate-100">
-                            <span className="text-[10px] font-medium text-slate-400 uppercase tracking-wider">
-                                Chaînes · {chains.length}
-                            </span>
+                    <div className="shrink-0 sticky left-0 z-[31] bg-white border-r border-slate-100 relative" style={{ width: SIDEBAR_W }}>
+                        <div className="h-[64px] flex items-center justify-between border-b border-slate-100 overflow-hidden">
+                            {!sidebarCollapsed && (
+                                <span className="text-[10px] font-medium text-slate-400 uppercase tracking-wider px-3 whitespace-nowrap">
+                                    Chaînes · {chains.length}
+                                </span>
+                            )}
+                            {/* Toggle button - integrated in header */}
+                            <button
+                                type="button"
+                                onClick={() => setSidebarCollapsed(v => !v)}
+                                title={sidebarCollapsed ? 'Afficher les chaînes' : 'Réduire la colonne'}
+                                className={`w-5 h-5 ${sidebarCollapsed ? 'mx-auto' : 'mr-1.5'} text-slate-400 hover:text-indigo-600 hover:bg-slate-100 rounded transition-all flex items-center justify-center text-[12px] font-bold`}
+                            >
+                                {sidebarCollapsed ? '›' : '‹'}
+                            </button>
                         </div>
                     </div>
                     <div className="flex-1">
@@ -256,8 +358,10 @@ export default function GanttView({
                             index={idx}
                             chain={chain}
                             soloChainId={soloChainId ?? null}
-                            onToggleSolo={(id) => onToggleSolo?.(id)}
+                            onToggleSolo={handleToggleSolo}
                             showHeatMap={showHeatMap}
+                            showCRColors={showCRColors}
+                            sidebarCollapsed={sidebarCollapsed}
                             rowHeight={rowHeight}
                             events={events}
                             models={models}
@@ -265,15 +369,18 @@ export default function GanttView({
                             timelineDates={dates}
                             dayWidth={dayWidth}
                             selectedId={selectedId}
+                            selectedIds={selectedIds}
                             focusedId={focusedId}
                             dragOverDateKey={dragOver?.chaineId === chain.id ? dragOver.dateKey : null}
                             onSelectEvent={onSelectEvent}
                             onEditEvent={onEditEvent}
                             onContextMenu={onContextMenu}
-                            onDragStart={(id) => setDragging(id)}
-                            onDragOverCell={(chaineId, dateKey) => setDragOver({ chaineId, dateKey })}
+                            onChainContextMenu={onChainContextMenu}
+                            sidebarW={SIDEBAR_W}
+                            onDragStart={handleDragStart}
+                            onDragOverCell={handleDragOverCell}
                             onDropOnCell={handleDrop}
-                            onDragEnd={() => { setDragging(null); setDragOver(null); }}
+                            onDragEnd={handleDragEnd}
                             machines={machines}
                         />
                     ))}
@@ -295,7 +402,35 @@ export default function GanttView({
             )}
         </div>
 
-        {showMiniMap && (
+        {/* Flèches indicatrices quand aujourd'hui est hors écran — mise à jour DOM directe, zéro re-render */}
+        <button
+            ref={arrowLeftRef}
+            type="button"
+            onClick={() => {
+                const el = scrollRef.current;
+                if (el) el.scrollTo({ left: Math.max(0, todayOffset - el.clientWidth / 3), behavior: 'smooth' });
+            }}
+            style={{ opacity: 0, transition: 'opacity 0.15s' }}
+            className="absolute top-1/2 -translate-y-1/2 left-2 z-[35] flex items-center gap-1 px-2 py-1 rounded-full bg-red-500 text-white text-[10px] font-bold uppercase tracking-wider shadow-lg hover:bg-red-600 cursor-pointer"
+            aria-label="Aujourd'hui est à gauche"
+        >
+            <span className="text-[14px] rotate-180">›</span>
+        </button>
+        <button
+            ref={arrowRightRef}
+            type="button"
+            onClick={() => {
+                const el = scrollRef.current;
+                if (el) el.scrollTo({ left: Math.max(0, todayOffset - el.clientWidth / 3), behavior: 'smooth' });
+            }}
+            style={{ opacity: 0, transition: 'opacity 0.15s' }}
+            className="absolute top-1/2 -translate-y-1/2 right-2 z-[35] flex items-center gap-1 px-2 py-1 rounded-full bg-red-500 text-white text-[10px] font-bold uppercase tracking-wider shadow-lg hover:bg-red-600 cursor-pointer"
+            aria-label="Aujourd'hui est à droite"
+        >
+            <span className="text-[14px]">›</span>
+        </button>
+
+        {showMiniMap && !isMobile && (
             <MiniMap
                 chains={visibleChains}
                 events={events}

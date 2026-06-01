@@ -66,11 +66,18 @@ import {
   getBonsLivraison, saveBonLivraison, deleteBonLivraison,
   getPaiementsParFacture, savePaiement, deletePaiement
 } from './server/facturationController';
-import { getDashboardKPIs } from './server/dashboardController';
+import { getDashboardKPIs, streamDashboardKPIs } from './server/dashboardController';
 import { authenticateToken } from './server/middleware';
 import { postAnalyzeTextile, postSuggestVocabulary, postGenerateOperations, postOptimizePlanning } from './server/geminiController';
 import { supabaseSyncMiddleware, logSupabaseSyncStatus } from './server/supabaseSync';
+import { dataChangeNotifier } from './server/eventBus';
 import { startSupabaseRealtime } from './server/supabaseRealtime';
+import {
+  getActivityRates, saveActivityRate,
+  getLearningCurves, saveLearningCurve, deleteLearningCurve,
+  getCrisisAlerts, saveCrisisAlert, updateCrisisAlert,
+  updateAllCR
+} from './server/schedulingController';
 
 async function startServer() {
   const app = express();
@@ -109,7 +116,10 @@ async function startServer() {
     limit: 8000,
     standardHeaders: true,
     legacyHeaders: false,
-    skip: () => !isProd,
+    // Skip the SSE stream (one long-lived connection per dashboard tab —
+    // counting it against the request budget would penalize live users)
+    // and skip entirely in dev.
+    skip: (req) => !isProd || req.path === '/api/dashboard/kpis/stream',
     handler: (_req, res) => {
       res.status(429).json({ message: 'Trop de requêtes. Réessayez dans 15 minutes.' });
     },
@@ -170,6 +180,9 @@ async function startServer() {
   app.use('/api/', apiLimiter);
   app.use('/api/auth/', authLimiter);
   app.use(supabaseSyncMiddleware);
+  // Emits an in-process event after every successful write so SSE clients
+  // can push the new snapshot instantly (no polling).
+  app.use(dataChangeNotifier);
 
   app.post('/api/auth/register', register);
   app.post('/api/auth/login', login);
@@ -290,6 +303,8 @@ async function startServer() {
 
   // Phase 6 — Dashboard KPIs
   app.get('/api/dashboard/kpis', authenticateToken, getDashboardKPIs);
+  // SSE — instant push updates (WhatsApp-style, no 30s polling banner)
+  app.get('/api/dashboard/kpis/stream', authenticateToken, streamDashboardKPIs);
 
   // Phase: Facturation (Achat, Vente, Devis, BL)
   app.get('/api/facturation/factures', authenticateToken, getFactures);
@@ -310,6 +325,17 @@ async function startServer() {
   app.post('/api/ai/suggest-vocabulary', authenticateToken, postSuggestVocabulary);
   app.post('/api/ai/generate-operations', authenticateToken, postGenerateOperations);
   app.post('/api/ai/optimize-planning', authenticateToken, postOptimizePlanning);
+
+  // APS — Advanced Planning & Scheduling (Blueprint Engine) 🧠
+  app.get('/api/scheduling/activity-rates', authenticateToken, getActivityRates);
+  app.post('/api/scheduling/activity-rates', authenticateToken, saveActivityRate);
+  app.get('/api/scheduling/learning-curves', authenticateToken, getLearningCurves);
+  app.post('/api/scheduling/learning-curves', authenticateToken, saveLearningCurve);
+  app.delete('/api/scheduling/learning-curves/:id', authenticateToken, deleteLearningCurve);
+  app.get('/api/scheduling/crisis-alerts', authenticateToken, getCrisisAlerts);
+  app.post('/api/scheduling/crisis-alerts', authenticateToken, saveCrisisAlert);
+  app.put('/api/scheduling/crisis-alerts/:id', authenticateToken, updateCrisisAlert);
+  app.post('/api/scheduling/update-cr', authenticateToken, updateAllCR);
 
   // BERAOUVIER — Read-Only (no financial data); rate-limited, minimal fields
   app.get('/api/worker/:cin', beraouvierPublicLimiter, getWorkerByCin);

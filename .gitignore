@@ -47,3 +47,24 @@ scratch/
 
 # Old Python scripts
 *.py
+
+# Database backups (sensitive user data — NEVER commit)
+*.bak
+*.bak-*
+database.sqlite.bak-*
+backup_ai_files/
+
+# Claude Code / agents local dirs
+.agents/
+.claude/skills/
+.claude/worktrees/
+.claude/launch.json
+
+# Tooling / temp
+.playwright-mcp/
+opencode.json
+OPENCODE.md
+patch_card.js
+test-dashboard.js
+test-suivi-explore.cjs
+test-suivi-seed.cjs

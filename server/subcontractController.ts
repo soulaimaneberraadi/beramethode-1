@@ -23,7 +23,8 @@ export const createSubcontractOrder = (req: Request, res: Response) => {
         subcontractorName, pricePerPiece, deliveryDate,
         status, sizes_json, colors_json, notes,
         tissuStatus, fournituresStatus, ficheTechniqueSent,
-        qtyAccepted, qtyToRepair, qtyRejected
+        qtyAccepted, qtyToRepair, qtyRejected,
+        subcontractorPhone, subcontractorRating, subcontractorAvailabilityDate
     } = req.body;
 
     if (!modelId || !totalQuantity || !subcontractorName || !deliveryDate) {
@@ -38,8 +39,9 @@ export const createSubcontractOrder = (req: Request, res: Response) => {
                 subcontractorName, pricePerPiece, deliveryDate, status,
                 sizes_json, colors_json, notes,
                 tissuStatus, fournituresStatus, ficheTechniqueSent,
-                qtyAccepted, qtyToRepair, qtyRejected
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                qtyAccepted, qtyToRepair, qtyRejected,
+                subcontractorPhone, subcontractorRating, subcontractorAvailabilityDate
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `);
 
         stmt.run(
@@ -61,7 +63,10 @@ export const createSubcontractOrder = (req: Request, res: Response) => {
             ficheTechniqueSent !== undefined ? ficheTechniqueSent : 0,
             qtyAccepted !== undefined ? qtyAccepted : 0,
             qtyToRepair !== undefined ? qtyToRepair : 0,
-            qtyRejected !== undefined ? qtyRejected : 0
+            qtyRejected !== undefined ? qtyRejected : 0,
+            subcontractorPhone || null,
+            subcontractorRating !== undefined ? subcontractorRating : 5,
+            subcontractorAvailabilityDate || null
         );
 
         res.status(201).json({ message: 'Subcontract order created successfully', id });
@@ -80,7 +85,8 @@ export const updateSubcontractOrder = (req: Request, res: Response) => {
         subcontractorName, pricePerPiece, deliveryDate,
         status, sizes_json, colors_json, notes,
         tissuStatus, fournituresStatus, ficheTechniqueSent,
-        qtyAccepted, qtyToRepair, qtyRejected
+        qtyAccepted, qtyToRepair, qtyRejected,
+        subcontractorPhone, subcontractorRating, subcontractorAvailabilityDate
     } = req.body;
 
     try {
@@ -104,6 +110,9 @@ export const updateSubcontractOrder = (req: Request, res: Response) => {
                 qtyAccepted = COALESCE(?, qtyAccepted),
                 qtyToRepair = COALESCE(?, qtyToRepair),
                 qtyRejected = COALESCE(?, qtyRejected),
+                subcontractorPhone = COALESCE(?, subcontractorPhone),
+                subcontractorRating = COALESCE(?, subcontractorRating),
+                subcontractorAvailabilityDate = COALESCE(?, subcontractorAvailabilityDate),
                 updated_at = CURRENT_TIMESTAMP
             WHERE id = ? AND owner_id = ?
         `);
@@ -126,6 +135,9 @@ export const updateSubcontractOrder = (req: Request, res: Response) => {
             qtyAccepted !== undefined ? qtyAccepted : null,
             qtyToRepair !== undefined ? qtyToRepair : null,
             qtyRejected !== undefined ? qtyRejected : null,
+            subcontractorPhone || null,
+            subcontractorRating !== undefined ? subcontractorRating : null,
+            subcontractorAvailabilityDate || null,
             id,
             userId
         );
