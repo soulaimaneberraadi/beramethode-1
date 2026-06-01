@@ -1,6 +1,8 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
+import { useAuth } from '../src/context/AuthContext';
+import { pushSnapshotToCloud } from '../src/lib/cloudSync';
 import {
     Search,
     FolderOpen,
@@ -133,6 +135,24 @@ export default function Library({
 
     // Status for Backup/Restore
     const [dbStatus, setDbStatus] = useState<'idle' | 'processing' | 'success' | 'error'>('idle');
+
+    // Photo sync (Vercel/static mode only)
+    const [syncPhotoStatus, setSyncPhotoStatus] = useState<'idle' | 'syncing' | 'done' | 'error'>('idle');
+    const { user } = useAuth();
+    const IS_STATIC = import.meta.env.VITE_STATIC_MODE === 'true' || !window.location.hostname.includes('localhost');
+
+    const handleSyncPhotos = async () => {
+        if (!user || syncPhotoStatus === 'syncing') return;
+        setSyncPhotoStatus('syncing');
+        try {
+            await pushSnapshotToCloud(String(user.id));
+            setSyncPhotoStatus('done');
+        } catch {
+            setSyncPhotoStatus('error');
+        } finally {
+            setTimeout(() => setSyncPhotoStatus('idle'), 3000);
+        }
+    };
 
     // Close context menu on global click
     useEffect(() => {
@@ -350,6 +370,30 @@ export default function Library({
                         </button>
 
                         <div className="h-6 w-px bg-slate-200 mx-1 hidden xl:block"></div>
+
+                        {/* Sync Photos Button — static/Vercel mode */}
+                        {IS_STATIC && user && (
+                            <button
+                                onClick={handleSyncPhotos}
+                                disabled={syncPhotoStatus === 'syncing'}
+                                title="Resynchroniser les photos des modèles vers le cloud"
+                                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold border transition-all active:scale-95
+                                    ${syncPhotoStatus === 'done' ? 'bg-emerald-500 text-white border-emerald-500' :
+                                      syncPhotoStatus === 'error' ? 'bg-red-500 text-white border-red-500' :
+                                      'bg-indigo-50 text-indigo-700 border-indigo-200 hover:bg-indigo-100'}`}
+                            >
+                                {syncPhotoStatus === 'syncing'
+                                    ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                    : syncPhotoStatus === 'done'
+                                    ? <CheckCircle2 className="w-3.5 h-3.5" />
+                                    : <UploadCloud className="w-3.5 h-3.5" />}
+                                <span className="hidden sm:inline">
+                                    {syncPhotoStatus === 'syncing' ? 'Sync...' :
+                                     syncPhotoStatus === 'done' ? 'Synced ✓' :
+                                     syncPhotoStatus === 'error' ? 'Erreur' : 'Sync Photos'}
+                                </span>
+                            </button>
+                        )}
 
                         {/* DB Management Group */}
                         <div className="flex items-center bg-slate-100 rounded-lg p-0.5 border border-slate-200">

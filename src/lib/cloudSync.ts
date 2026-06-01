@@ -1,7 +1,6 @@
 import { supabase } from './supabaseClient';
 import { SCHEMA_VERSION, migrateSnapshot } from './dataVersion';
 
-// Keys synchronisées vers Supabase (toutes les données qui doivent suivre l'utilisateur entre appareils)
 const SYNC_KEYS = [
   'beramethode_autosave_v1',
   'beramethode_library',
@@ -13,7 +12,7 @@ const SYNC_KEYS = [
   'beramethode_machines_fleet_history_v1',
   'beramethode_manual_links',
   'beramethode_demandesAppro',
-  'beramethode_tombstones', // soft-delete markers ({type,id,deleted_at})
+  'beramethode_tombstones',
   'bera_nav_config',
   'BERA_CUSTOM_ROLES',
   'BERA_CUSTOM_PARTITIONS',
@@ -27,81 +26,102 @@ let syncTimer: ReturnType<typeof setTimeout> | null = null;
 let isApplyingRemote = false;
 let realtimeChannel: ReturnType<typeof supabase.channel> | null = null;
 
-// ─── Image upload helpers ─────────────────────────────────────────────────────
+// ─── Image processing ─────────────────────────────────────────────────────────
 
-const imgUrlCache = new Map<string, string>();
 const IMAGE_FIELDS = new Set(['image', 'photo', 'fournisseurLogo']);
 const IMAGE_ARRAY_FIELDS = new Set(['images', 'machinePhotos']);
+const imgUrlCache = new Map<string, string>();
 
-const hashB64 = async (b64: string): Promise<string> => {
-  try {
-    const enc = new TextEncoder();
-    // Hash first 4KB + length — enough for dedup, avoids hashing huge strings
-    const sample = b64.slice(0, 4096) + String(b64.length);
-    const buf = await crypto.subtle.digest('SHA-256', enc.encode(sample));
-    return Array.from(new Uint8Array(buf))
-      .map(b => b.toString(16).padStart(2, '0'))
-      .join('')
-      .slice(0, 32);
-  } catch {
-    // Fallback: length + first 32 chars (non-cryptographic, still useful)
-    return `${b64.length}_${b64.slice(0, 32).replace(/[^a-zA-Z0-9]/g, '')}`;
-  }
-};
+// Max dimension and quality for compressed thumbnails stored inline in user_data
+const IMG_MAX_DIM = 700;
+const IMG_QUALITY = 0.72;
+// ~100KB in base64 (133 chars ≈ 100 bytes); images above this are stripped
+const IMG_MAX_INLINE_B64 = 140_000;
 
 /**
- * Upload a base64 data-URL to Supabase Storage.
- * Returns the public URL, or null on failure (caller should strip the field).
+ * Compress a base64 image using Canvas.
+ * Returns a compressed JPEG data-URL, or null if compression fails / output
+ * is still too large to store inline.
  */
-const uploadBase64 = async (dataUrl: string): Promise<string | null> => {
+const compressImage = (dataUrl: string): Promise<string | null> =>
+  new Promise(resolve => {
+    const img = new Image();
+    img.onload = () => {
+      try {
+        let w = img.naturalWidth;
+        let h = img.naturalHeight;
+        if (!w || !h) { resolve(null); return; }
+        const ratio = Math.min(IMG_MAX_DIM / w, IMG_MAX_DIM / h, 1);
+        w = Math.round(w * ratio);
+        h = Math.round(h * ratio);
+        const canvas = document.createElement('canvas');
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) { resolve(null); return; }
+        ctx.drawImage(img, 0, 0, w, h);
+        const out = canvas.toDataURL('image/jpeg', IMG_QUALITY);
+        resolve(out.length <= IMG_MAX_INLINE_B64 ? out : null);
+      } catch { resolve(null); }
+    };
+    img.onerror = () => resolve(null);
+    img.src = dataUrl;
+  });
+
+/**
+ * Process a single image field value:
+ * 1. Try uploading to Supabase Storage → return permanent public URL (best)
+ * 2. Fallback: compress inline → return compressed data-URL (no bucket needed)
+ * 3. If both fail → return null (field will be stripped from snapshot)
+ */
+const processImage = async (dataUrl: string): Promise<string | null> => {
+  if (!dataUrl.startsWith('data:')) return dataUrl; // already a URL
+
+  // ── 1. Try Supabase Storage ───────────────────────────────────────────────
   try {
     const m = dataUrl.match(/^data:(image\/([^;]+));base64,(.+)$/s);
-    if (!m) return null;
-    const [, contentType, rawExt, b64data] = m;
-    const ext = rawExt === 'jpeg' ? 'jpg' : rawExt;
+    if (m) {
+      const [, contentType, rawExt, b64data] = m;
+      const ext = rawExt === 'jpeg' ? 'jpg' : rawExt;
 
-    const hash = await hashB64(b64data);
-    const filename = `${hash}.${ext}`;
-    const cacheKey = filename;
+      // Deterministic filename via SHA-256 (first 4KB + length sample)
+      let filename: string;
+      try {
+        const enc = new TextEncoder();
+        const sample = b64data.slice(0, 4096) + String(b64data.length);
+        const buf = await crypto.subtle.digest('SHA-256', enc.encode(sample));
+        const hex = Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('').slice(0, 32);
+        filename = `${hex}.${ext}`;
+      } catch {
+        filename = `${b64data.length}_${b64data.slice(0, 16).replace(/\W/g, '')}.${ext}`;
+      }
 
-    if (imgUrlCache.has(cacheKey)) return imgUrlCache.get(cacheKey)!;
+      if (imgUrlCache.has(filename)) return imgUrlCache.get(filename)!;
 
-    // Build public URL first — check if file already exists (avoid re-upload)
-    const { data: urlData } = supabase.storage.from(STORAGE_BUCKET).getPublicUrl(filename);
-    const publicUrl = urlData.publicUrl;
+      // Check if already uploaded (avoids re-upload on repeated pushes)
+      const { data: urlData } = supabase.storage.from(STORAGE_BUCKET).getPublicUrl(filename);
+      const publicUrl = urlData.publicUrl;
+      const headOk = await fetch(publicUrl, { method: 'HEAD' }).then(r => r.ok).catch(() => false);
+      if (headOk) { imgUrlCache.set(filename, publicUrl); return publicUrl; }
 
-    const headRes = await fetch(publicUrl, { method: 'HEAD' }).catch(() => null);
-    if (headRes?.ok) {
-      imgUrlCache.set(cacheKey, publicUrl);
-      return publicUrl;
+      // Upload
+      const byteArray = Uint8Array.from(atob(b64data), c => c.charCodeAt(0));
+      const blob = new Blob([byteArray], { type: contentType });
+      const { error } = await supabase.storage.from(STORAGE_BUCKET).upload(filename, blob, { contentType, upsert: true });
+      if (!error) { imgUrlCache.set(filename, publicUrl); return publicUrl; }
     }
+  } catch { /* fall through to compression */ }
 
-    // Convert base64 → Uint8Array → Blob
-    const byteArray = Uint8Array.from(atob(b64data), c => c.charCodeAt(0));
-    const blob = new Blob([byteArray], { type: contentType });
-
-    const { error } = await supabase.storage.from(STORAGE_BUCKET).upload(filename, blob, {
-      contentType,
-      upsert: true,
-    });
-
-    if (error) {
-      console.warn('[cloudSync] image upload failed:', error.message);
-      return null;
-    }
-
-    imgUrlCache.set(cacheKey, publicUrl);
-    return publicUrl;
-  } catch (e) {
-    console.warn('[cloudSync] uploadBase64 error:', e);
-    return null;
-  }
+  // ── 2. Compress inline (works without Storage bucket) ─────────────────────
+  const compressed = await compressImage(dataUrl);
+  return compressed; // null if still too large → caller strips the field
 };
 
 /**
- * Walk a snapshot object tree and replace any base64 image fields
- * with Supabase Storage URLs. Fields that fail to upload are stripped
- * (keeps the user_data UPSERT payload small and avoids timeouts).
+ * Walk snapshot tree and replace base64 image fields:
+ * - with a Storage URL if upload succeeds
+ * - with a compressed data-URL if upload fails but compression fits
+ * - field is omitted if both fail (keeps user_data small, avoids UPSERT timeout)
  */
 const replaceImages = async (o: any): Promise<any> => {
   if (!o || typeof o !== 'object') return o;
@@ -110,26 +130,20 @@ const replaceImages = async (o: any): Promise<any> => {
   const out: any = {};
   for (const k of Object.keys(o)) {
     const v = o[k];
-
     if (IMAGE_FIELDS.has(k)) {
       if (typeof v === 'string' && v.startsWith('data:')) {
-        const url = await uploadBase64(v);
-        if (url) out[k] = url; // replaced with Storage URL
-        // else: field omitted (stripped) to keep payload small
+        const result = await processImage(v);
+        if (result) out[k] = result;
       } else if (v) {
-        out[k] = v; // already a URL or empty
+        out[k] = v;
       }
-
     } else if (IMAGE_ARRAY_FIELDS.has(k) && Array.isArray(v)) {
-      const urls = await Promise.all(v.map(async (item: any) => {
-        if (typeof item === 'string' && item.startsWith('data:')) {
-          return uploadBase64(item);
-        }
-        return item; // already a URL
+      const results = await Promise.all(v.map(async (item: any) => {
+        if (typeof item === 'string' && item.startsWith('data:')) return processImage(item);
+        return item;
       }));
-      const valid = urls.filter(Boolean);
-      if (valid.length > 0) out[k] = valid;
-
+      const valid = results.filter(Boolean);
+      if (valid.length) out[k] = valid;
     } else if (v && typeof v === 'object') {
       out[k] = await replaceImages(v);
     } else {
@@ -152,8 +166,6 @@ const collectLocalSnapshot = (): Record<string, unknown> => {
       if (raw != null) out[k] = raw;
     }
   }
-  // Préserve les données serveur seed importées (workers, HR, magasin)
-  // pour qu'elles ne soient pas effacées par un push subséquent.
   try {
     const exp = localStorage.getItem('__bera_sqlite_export__');
     if (exp) out.__sqlite_export__ = JSON.parse(exp);
@@ -167,16 +179,11 @@ const applySnapshotToLocal = (snapshot: Record<string, unknown> | null) => {
   try {
     for (const k of SYNC_KEYS) {
       if (k in snapshot) {
-        try {
-          localStorage.setItem(k, JSON.stringify(snapshot[k]));
-        } catch {}
+        try { localStorage.setItem(k, JSON.stringify(snapshot[k])); } catch {}
       }
     }
-    // Données serveur (lecture seule, non re-synchronisées)
     if ('__sqlite_export__' in snapshot) {
-      try {
-        localStorage.setItem('__bera_sqlite_export__', JSON.stringify(snapshot.__sqlite_export__));
-      } catch {}
+      try { localStorage.setItem('__bera_sqlite_export__', JSON.stringify(snapshot.__sqlite_export__)); } catch {}
     }
   } finally {
     isApplyingRemote = false;
@@ -190,20 +197,16 @@ export const pushSnapshotToCloud = async (userId: string) => {
   if (!userId || isApplyingRemote) return;
   let snapshot: Record<string, unknown> = { ...collectLocalSnapshot(), __schema_version: SCHEMA_VERSION };
 
-  // Garde-fou: ne JAMAIS écraser une donnée distante avec un snapshot vide.
+  // Garde-fou: ne jamais écraser avec un snapshot vide
   const lib = (snapshot as any).beramethode_library;
   const plan = (snapshot as any).beramethode_planning;
   const sqlExp = (snapshot as any).__sqlite_export__;
-  const libEmpty = !Array.isArray(lib) || lib.length === 0;
-  const planEmpty = !Array.isArray(plan) || plan.length === 0;
-  const sqlEmpty = !sqlExp || Object.keys(sqlExp).length === 0;
-  if (libEmpty && planEmpty && sqlEmpty) {
-    console.warn('[cloudSync] push annulé: snapshot local vide (probable push prématuré)');
+  if ((!Array.isArray(lib) || !lib.length) && (!Array.isArray(plan) || !plan.length) && (!sqlExp || !Object.keys(sqlExp).length)) {
+    console.warn('[cloudSync] push annulé: snapshot local vide');
     return;
   }
 
-  // Upload base64 images to Supabase Storage and replace with public URLs.
-  // This keeps the user_data row small and makes images visible on all devices.
+  // Replace base64 images with Storage URLs (or compressed inline data-URLs)
   try {
     snapshot = await replaceImages(snapshot) as Record<string, unknown>;
   } catch (e) {
@@ -237,7 +240,6 @@ export const pullSnapshotFromCloud = async (userId: string): Promise<boolean> =>
     const v = typeof snap.__schema_version === 'number' ? (snap.__schema_version as number) : 0;
     if (v < SCHEMA_VERSION) snap = migrateSnapshot(snap, v);
 
-    // Détecte si le snapshot remote diffère vraiment du local (signature légère).
     const sig = (() => {
       try {
         const lib = (snap as any).beramethode_library;
@@ -272,7 +274,6 @@ export const pullSnapshotFromCloud = async (userId: string): Promise<boolean> =>
 export const startCloudSync = (userId: string) => {
   if (!userId) return;
 
-  // Intercepter writes à localStorage pour déclencher un push debouncé
   const originalSetItem = Storage.prototype.setItem;
   Storage.prototype.setItem = function (key: string, value: string) {
     originalSetItem.call(this, key, value);
@@ -282,7 +283,6 @@ export const startCloudSync = (userId: string) => {
     }
   };
 
-  // Realtime: écouter les changements depuis d'autres appareils
   if (realtimeChannel) realtimeChannel.unsubscribe();
   realtimeChannel = supabase
     .channel(`user_data_${userId}`)
@@ -298,12 +298,6 @@ export const startCloudSync = (userId: string) => {
 };
 
 export const stopCloudSync = () => {
-  if (syncTimer) {
-    clearTimeout(syncTimer);
-    syncTimer = null;
-  }
-  if (realtimeChannel) {
-    realtimeChannel.unsubscribe();
-    realtimeChannel = null;
-  }
+  if (syncTimer) { clearTimeout(syncTimer); syncTimer = null; }
+  if (realtimeChannel) { realtimeChannel.unsubscribe(); realtimeChannel = null; }
 };
