@@ -20,6 +20,11 @@ interface ChronometrageProps {
     postes?: Poste[];
     currentModelId?: string | null;
     articleName?: string;
+    setPresenceTime?: React.Dispatch<React.SetStateAction<number>>;
+    setNumWorkers?: React.Dispatch<React.SetStateAction<number>>;
+    setEfficiency?: React.Dispatch<React.SetStateAction<number>>;
+    activeLayout?: 'zigzag' | 'free' | 'line' | 'double-zigzag';
+    toleranceSaturation?: number;
 }
 
 /** Snapshot d'une séance de chronométrage (relevés figés à un instant T). */
@@ -544,8 +549,44 @@ function AdvancedStopwatch({ onRecord, onClear, onAdvance, onPrev, onNext, onUnd
 }
 
 
+interface Workstation extends Poste {
+    index: number;
+    originalIndex: number;
+    operations: Operation[];
+    totalTime: number;
+    saturation: number;
+    operators: number;
+    color: typeof POSTE_COLORS[0];
+    groups: string[];
+    feedsInto?: string;
+    isFeeder?: boolean;
+    targetStationName?: string;
+    gammeOrderMin: number;
+    isPlaced?: boolean;
+    status?: 'ok' | 'panne';
+    dominantSection?: 'PREPARATION' | 'MONTAGE' | 'GLOBAL';
+}
+
 /* ─── MAIN COMPONENT ─── */
-export default function Chronometrage({ operations, chronoData, setChronoData, presenceTime, bf, numWorkers, efficiency, machines = [], assignments = {}, postes = [], currentModelId = null, articleName = '' }: ChronometrageProps) {
+export default function Chronometrage({
+    operations,
+    chronoData,
+    setChronoData,
+    presenceTime,
+    bf,
+    numWorkers,
+    efficiency,
+    machines = [],
+    assignments = {},
+    postes = [],
+    currentModelId = null,
+    articleName = '',
+    setPresenceTime,
+    setNumWorkers,
+    setEfficiency,
+    activeLayout = 'zigzag',
+    toleranceSaturation = 115
+}: ChronometrageProps) {
 
     const [activeRowId, setActiveRowId] = useState<string | null>(null);
     const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
@@ -809,40 +850,756 @@ export default function Chronometrage({ operations, chronoData, setChronoData, p
         return { ...row, tm, tmManual, majoration: maj, tempMajore, pMax, p85 };
     };
 
-    const handleCellChange = (opId: string, field: keyof ChronoData, value: string) => {
+    const workstationsList = useMemo(() => {
+        if (postes && postes.length > 0 && assignments) {
+            const toleranceRatio = (toleranceSaturation ?? 115) / 100;
+            let initialStations: Workstation[] = postes.map((p, realIndex) => {
+                let totalTime = 0; let saturation = 0; let operators = 1;
+                const assignedOps = operations.filter(op => assignments[op.id]?.some(aid => aid === p.id || (p.originalId && aid === p.originalId)));
+                const groups = [...new Set(assignedOps.map(op => op.groupId).filter(Boolean) as string[])];
+                const gammeOrderMin = assignedOps.length > 0 ? Math.min(...assignedOps.map(o => o.order)) : 9999;
+
+                if (p.timeOverride !== undefined) {
+                    totalTime = p.timeOverride;
+                    if (bf > 0) {
+                        operators = 1;
+                        saturation = (totalTime / bf) * 100;
+                    }
+                } else {
+                    assignedOps.forEach(op => {
+                        let sharingCount = 1;
+                        if (p.originalId) {
+                            sharingCount = postes.filter(x => x.originalId === p.originalId).length;
+                        } else {
+                            sharingCount = assignments[op.id]?.length || 1;
+                        }
+
+                        const data = ensureRow(op.id, chronoData[`${p.id}__${op.id}`] || chronoData[op.id]);
+                        const row = recalcRow(data, unit);
+                        const opTime = row.tempMajore !== undefined ? row.tempMajore : (op.time || 0);
+
+                        totalTime += opTime / sharingCount;
+                    });
+
+                    const nTheo = bf > 0 ? totalTime / bf : 0;
+                    operators = nTheo > toleranceRatio ? Math.ceil(nTheo) : (nTheo > 0 ? 1 : 0);
+
+                    if (p.originalId) {
+                        operators = 1;
+                    }
+
+                    saturation = (operators > 0 && bf > 0) ? (totalTime / (operators * bf)) * 100 : 0;
+                }
+                operators = Math.max(1, operators);
+                const pNum = parseInt(p.name.replace(/^P/i, ''));
+                const effectiveIndex = !isNaN(pNum) ? pNum - 1 : realIndex;
+                
+                // Color mapping logic
+                let color = POSTE_COLORS[effectiveIndex % POSTE_COLORS.length];
+                if (p.colorName) {
+                    const existingColor = POSTE_COLORS.find(c => c.name === p.colorName);
+                    if (existingColor) color = existingColor;
+                }
+
+                let feedsInto: string | undefined = undefined;
+                let isFeeder = false;
+
+                for (const op of assignedOps) {
+                    if (op.targetOperationId) {
+                        const targetStation = postes.find(st => assignments[op.targetOperationId!]?.includes(st.id));
+                        if (targetStation && targetStation.id !== p.id) {
+                            feedsInto = targetStation.id;
+                            isFeeder = true;
+                            break;
+                        }
+                    }
+                }
+
+                const isBroken = p.notes?.includes('#PANNE');
+                const sectionTimes: Record<string, number> = { PREPARATION: 0, MONTAGE: 0, GLOBAL: 0 };
+                assignedOps.forEach(o => { sectionTimes[o.section || 'GLOBAL'] += (o.time || 0); });
+                const dominantSection: 'PREPARATION' | 'MONTAGE' | 'GLOBAL' =
+                    sectionTimes.PREPARATION > sectionTimes.MONTAGE && sectionTimes.PREPARATION > sectionTimes.GLOBAL ? 'PREPARATION'
+                        : sectionTimes.MONTAGE > sectionTimes.GLOBAL ? 'MONTAGE'
+                            : 'GLOBAL';
+                return { ...p, index: 0, originalIndex: realIndex, operations: assignedOps, totalTime, saturation, operators, color, groups, feedsInto, isFeeder, gammeOrderMin, isPlaced: p.isPlaced, status: isBroken ? 'panne' as const : 'ok' as const, x: p.x, y: p.y, rotation: p.rotation, shape: p.shape, dominantSection };
+            });
+
+            const expandedResult: Workstation[] = [];
+            initialStations.forEach((st) => {
+                const showOnCanvas = st.machine !== 'VIDE';
+                if (showOnCanvas) {
+                    if (st.originalId || st.operators <= 1) {
+                        expandedResult.push({ ...st, index: expandedResult.length + 1, isPlaced: true });
+                    } else {
+                        for (let i = 1; i <= st.operators; i++) {
+                            expandedResult.push({
+                                ...st,
+                                id: `${st.id}__${i}`,
+                                name: st.operators > 1 ? `${st.name.replace('P', '').split('.')[0]}.${i}` : st.name,
+                                index: expandedResult.length + 1,
+                                totalTime: st.totalTime / st.operators,
+                                isPlaced: true
+                            });
+                        }
+                    }
+                }
+            });
+            return expandedResult;
+        }
+        return [];
+    }, [operations, bf, assignments, postes, toleranceSaturation, chronoData, unit, trEnabled, trCount, efficiency]);
+
+    const structureSections = useMemo(() => {
+        if (!workstationsList || workstationsList.length === 0) return [];
+        
+        const prep = workstationsList.filter(st => st.dominantSection === 'PREPARATION');
+        const montage = workstationsList.filter(st => st.dominantSection === 'MONTAGE');
+        const global = workstationsList.filter(st => st.dominantSection === 'GLOBAL');
+
+        const sections = [];
+        if (prep.length > 0) sections.push({ 
+            id: 'PREPARATION', 
+            name: 'PRÉPARATION', 
+            stations: prep, 
+            theme: 'amber'
+        });
+        if (montage.length > 0) sections.push({ 
+            id: 'MONTAGE', 
+            name: 'MONTAGE', 
+            stations: montage, 
+            theme: 'sky'
+        });
+        if (global.length > 0) sections.push({ 
+            id: 'GLOBAL', 
+            name: (prep.length || montage.length) ? 'ZONE COMMUNE' : 'PRODUCTION GLOBALE', 
+            stations: global, 
+            theme: 'indigo'
+        });
+        
+        if (prep.length === 0 && montage.length === 0 && global.length === 0 && workstationsList.length > 0) {
+             sections.push({
+                id: 'GLOBAL',
+                name: 'Flux de Production',
+                stations: workstationsList,
+                theme: 'indigo'
+             });
+        }
+        
+        return sections;
+    }, [workstationsList]);
+
+    const getSaturationBadgeStyles = (sat: number) => {
+        const tolerance = toleranceSaturation ?? 115;
+        if (sat > tolerance) return 'text-rose-700 bg-rose-50 border-rose-200';
+        if (sat >= 70) return 'text-emerald-700 bg-emerald-50 border-emerald-200';
+        if (sat >= 40) return 'text-amber-700 bg-amber-50 border-amber-200';
+        return 'text-slate-600 bg-slate-50 border-slate-200';
+    };
+
+    const isWorkstationCompleted = (st: Workstation) => {
+        return st.operations.every(op => {
+            const data = ensureRow(op.id, chronoData[`${st.id}__${op.id}`] || chronoData[op.id]);
+            const filledTRs = trSlots.filter(n => data[`tr${n}` as keyof ChronoData] !== undefined).length;
+            return trEnabled ? (filledTRs >= trCount) : (data.tm !== undefined);
+        });
+    };
+
+    const renderStationCells = (st: Workstation | undefined) => {
+        if (!st) {
+            return (
+                <>
+                    <td className="border-none py-4"></td>
+                    <td className="border-none py-4"></td>
+                    <td className="border-none py-4"></td>
+                    <td className="border-none py-4"></td>
+                    <td className="border-none py-4"></td>
+                    <td className="border-none py-4"></td>
+                    <td className="border-none py-4"></td>
+                    <td className="border-none py-4"></td>
+                </>
+            );
+        }
+
+        const fill = st.color?.fill || '#64748b';
+        const sat = Math.round(st.saturation || 0);
+        const isCompleted = isWorkstationCompleted(st);
+        
+        const stationMeasuredTime = st.operations.reduce((acc, op) => {
+            const row = recalcRow(ensureRow(op.id, chronoData[op.id]), unit);
+            const timeInSec = row.tempMajore ? (row.tempMajore * 60) : (op.time * 60);
+            return acc + timeInSec;
+        }, 0);
+        
+        const photos = st.operations.map(op => op.photo).filter(Boolean) as string[];
+
+        return (
+            <>
+                <td className="py-2.5 px-2 text-center align-middle w-10">
+                    <div className={`w-5 h-5 rounded border-2 flex items-center justify-center mx-auto transition-colors ${isCompleted ? 'border-emerald-500 bg-emerald-500 text-white' : 'border-slate-300 bg-white'}`}>
+                        {isCompleted && (
+                            <svg className="w-3.5 h-3.5 stroke-current stroke-[3]" fill="none" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                            </svg>
+                        )}
+                    </div>
+                </td>
+                <td className="py-2.5 px-2 align-middle w-24">
+                    {photos.length > 0 ? (
+                        <div className="flex flex-wrap gap-1">
+                            {photos.slice(0, 3).map((p, idx) => (
+                                <img key={idx} src={p} className="w-8 h-8 object-cover rounded-lg border border-slate-200" alt="Op" />
+                            ))}
+                        </div>
+                    ) : (
+                        <span className="text-slate-300 text-xs">—</span>
+                    )}
+                </td>
+                <td className="py-2.5 px-2 font-black text-slate-800 align-middle w-24 border-l-4 text-left" style={{ borderLeftColor: fill }}>
+                    <div className="flex items-center gap-1.5 justify-start">
+                        <span className="bg-slate-100 text-slate-700 text-[10px] px-1.5 py-0.5 rounded border font-extrabold shrink-0">#{st.index}</span>
+                        <span className="text-xs font-black truncate">{st.name}</span>
+                    </div>
+                </td>
+                <td className="py-2.5 px-2 text-slate-700 font-bold align-middle w-24 text-[11px] truncate max-w-[100px] text-left">{st.machine}</td>
+                <td className="py-2.5 px-2 align-middle text-left">
+                    <div className="flex flex-col gap-1.5">
+                        {st.operations.map(op => {
+                            const isOpActive = op.id === activeRowId;
+                            const data = ensureRow(op.id, chronoData[op.id]);
+                            const filled = trSlots.filter(n => data[`tr${n}` as keyof ChronoData] !== undefined).length;
+                            const statusVal = getRowValidity(op.id);
+                            
+                            let dotColor = 'bg-slate-200';
+                            if (statusVal === 'valid') dotColor = 'bg-emerald-500';
+                            else if (statusVal === 'warn') dotColor = 'bg-amber-400';
+                            else if (statusVal === 'invalid') dotColor = 'bg-rose-500';
+                            
+                            return (
+                                <button
+                                    key={op.id}
+                                    type="button"
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        setActiveRowId(isOpActive ? null : op.id);
+                                        setExpandedRows(prev => {
+                                            const next = new Set(prev);
+                                            if (isOpActive) next.delete(op.id); else next.add(op.id);
+                                            return next;
+                                        });
+                                    }}
+                                    className={`flex items-center justify-between text-left p-1.5 rounded-lg border transition-all w-full focus:outline-none ${isOpActive ? 'bg-indigo-600 text-white border-indigo-600 shadow' : 'bg-slate-50 hover:bg-slate-100 text-slate-800 border-slate-200'}`}
+                                >
+                                    <span className="font-extrabold text-[11px] truncate flex-1 leading-tight pr-1" title={op.description}>
+                                        • {op.description}
+                                    </span>
+                                    <div className="flex items-center gap-1.5 shrink-0">
+                                        {trEnabled && (
+                                            <span className={`text-[9px] font-black font-mono ${isOpActive ? 'text-indigo-200' : 'text-slate-400'}`}>
+                                                {filled}/{trCount}
+                                            </span>
+                                        )}
+                                        <span className={`w-1.5 h-1.5 rounded-full ${dotColor}`} />
+                                    </div>
+                                </button>
+                            );
+                        })}
+                    </div>
+                </td>
+                <td className="py-2.5 px-2 font-black text-indigo-700 align-middle w-20 text-center font-mono text-xs">{Math.round(stationMeasuredTime)}s</td>
+                <td className="py-2.5 px-2 align-middle w-20 text-center">
+                    <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-black border ${getSaturationBadgeStyles(sat)}`}>
+                        {sat}%
+                    </span>
+                </td>
+                <td className="py-2.5 px-2 text-slate-500 align-middle w-24 text-xs font-semibold text-left">{st.operatorName || '—'}</td>
+            </>
+        );
+    };
+
+    const renderOpChronoDetailPanel = (opId: string) => {
+        const op = operationsById[opId];
+        if (!op) return null;
+        const data = ensureRow(op.id, chronoData[op.id]);
+        const row = recalcRow(data, unit);
+        const filledTRs = trSlots.filter(n => data[`tr${n}` as keyof ChronoData] !== undefined).length;
+        const rowTRs = getRowTRs(data);
+        const median = getMedian(rowTRs);
+
+        return (
+            <div className="max-w-4xl mx-auto bg-white rounded-2xl shadow-2xl border border-indigo-100 overflow-hidden animate-in zoom-in-95 duration-200 flex flex-col text-left">
+                {/* Header Info */}
+                <div className="bg-gradient-to-r from-indigo-50/50 to-white px-5 py-4 border-b border-indigo-50 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-left">
+                    <div>
+                        <span className="text-[10px] font-extrabold uppercase tracking-wider text-indigo-500 bg-indigo-50 px-2 py-0.5 rounded-md border border-indigo-100">
+                            Chronométrage Actif
+                        </span>
+                        <h4 className="font-black text-slate-800 text-sm mt-1.5 leading-snug line-clamp-2">{op.description}</h4>
+                        <p className="text-slate-500 text-[11px] font-medium mt-0.5 flex items-center gap-1.5">
+                            <span className="font-semibold text-slate-400">Machine :</span> 
+                            <strong className="text-indigo-600 bg-indigo-50/50 px-1.5 py-0.5 rounded border border-indigo-100/50">{getMachineLabel(op.id)}</strong>
+                        </p>
+                    </div>
+                    {showTsColumn && (
+                        <div className="shrink-0 text-left sm:text-right">
+                            <span className="text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2.5 py-1 rounded-lg inline-block">
+                                TS: {formatTsSeconds(op.time)} s
+                            </span>
+                        </div>
+                    )}
+                </div>
+
+                {/* Stopwatch Component */}
+                <AdvancedStopwatch
+                    key={op.id}
+                    onRecord={(time) => handleStopwatchRecord(op.id, time)}
+                    onClear={() => clearAllTRs(op.id)}
+                    onAdvance={() => advanceToNextOp(op.id)}
+                    onPrev={() => goToPrevOp(op.id)}
+                    onNext={() => goToNextOp(op.id)}
+                    onUndoLast={() => clearLastTR(op.id)}
+                    trCount={trCount}
+                    filledCount={filledTRs}
+                />
+
+                {/* TR Inputs & Calculations (Only needed in plantation because columns don't exist) */}
+                <div className="p-5 border-t border-slate-100 bg-slate-50/50 text-left">
+                    <div className="flex items-center justify-between mb-3">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Saisie des Relevés (Unité : {unitShort})</span>
+                        {!trEnabled && (
+                            <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">TR OFF</span>
+                        )}
+                    </div>
+
+                    {trEnabled ? (
+                        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-4">
+                            {trSlots.map(trNum => {
+                                const val = data[`tr${trNum}` as keyof ChronoData];
+                                const hasVal = val !== undefined && val !== null && (val as number) > 0;
+                                const status = hasVal ? classifyTR(val as number, median) : 'normal';
+                                return (
+                                    <div key={trNum} className="relative group/cell text-center">
+                                        <span className="text-[10px] font-bold text-slate-400 uppercase mb-1 block">TR {trNum}</span>
+                                        <div className="relative">
+                                            <input
+                                                type="number" step="0.01" min="0"
+                                                className={`w-full py-2 px-2 text-center text-sm font-mono font-bold border rounded-lg bg-slate-50 focus:bg-white focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 outline-none transition-all placeholder:text-slate-300 ${INPUT_NO_SPIN} ${hasVal ? trStatusStyles[status] : 'text-indigo-600 border-slate-200 bg-white shadow-sm'}`}
+                                                placeholder="—"
+                                                value={hasVal && typeof val === 'number' ? displayValue(val) : ''}
+                                                onChange={e => handleCellChange(op.id, `tr${trNum}` as keyof ChronoData, e.target.value)}
+                                            />
+                                            {hasVal && (
+                                                <button
+                                                    type="button"
+                                                    aria-label={`Supprimer TR ${trNum}`}
+                                                    onClick={(e) => handleClearTRClick(e, op.id, trNum)}
+                                                    className="absolute -top-1.5 -right-1.5 z-10 flex h-[16px] w-[16px] items-center justify-center rounded-full border border-rose-200 bg-white text-rose-500 shadow-sm opacity-0 scale-90 transition-all duration-200 group-hover/cell:opacity-100 group-hover/cell:scale-100 hover:bg-rose-50 hover:text-rose-600"
+                                                    title="Supprimer"
+                                                >
+                                                    <X className="w-2.5 h-2.5" />
+                                                </button>
+                                            )}
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    ) : (
+                        <div className="text-center py-3 bg-slate-50 border border-dashed border-slate-200 rounded-xl text-slate-400 text-xs font-semibold mb-4">
+                            Les relevés individuels (TR) sont désactivés. Vous pouvez saisir directement le temps moyen (T. Moyen) ci-dessous.
+                        </div>
+                    )}
+
+                    {/* Calculations strip */}
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 bg-white border border-slate-200/80 rounded-xl p-4 shadow-sm">
+                        <div className="text-center">
+                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">T. Moyen</span>
+                            <div className="mt-1 relative flex flex-col items-center">
+                                <input
+                                    type="number"
+                                    step="0.01"
+                                    min="0"
+                                    className={`w-full max-w-[6.5rem] px-2.5 py-1.5 text-center text-sm font-black text-indigo-700 font-mono border border-slate-200 rounded-lg bg-slate-50 focus:bg-white focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 outline-none ${INPUT_NO_SPIN} shadow-inner`}
+                                    placeholder="—"
+                                    value={displayValue(row.tm)}
+                                    onChange={e => handleCellChange(op.id, 'tm', e.target.value)}
+                                />
+                                {row.tmManual && (
+                                    <span className="text-[8px] font-bold text-slate-400 uppercase tracking-wider mt-0.5">manuel</span>
+                                )}
+                            </div>
+                        </div>
+                        
+                        <div className="text-center">
+                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Majoration</span>
+                            <input
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                className={`mt-1 w-full max-w-[5rem] mx-auto px-2.5 py-1.5 text-center text-sm font-mono font-bold text-slate-700 border border-slate-200 rounded-lg bg-slate-50 focus:bg-white focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 outline-none ${INPUT_NO_SPIN} shadow-inner`}
+                                value={displayValue(data.majoration)}
+                                onChange={e => handleCellChange(op.id, 'majoration', e.target.value)}
+                            />
+                        </div>
+                        
+                        <div className="text-center flex flex-col justify-center border-l border-slate-100 pl-2">
+                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">T. Majoré</span>
+                            <span className="mt-1.5 text-sm font-black text-emerald-700 font-mono block">
+                                {formatTempMajoreInUnit(row.tempMajore)}
+                            </span>
+                        </div>
+                        
+                        {showThroughputKpi && (
+                            <div className="text-center flex flex-col justify-center border-l border-slate-100 pl-2">
+                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">
+                                    {outputMode === 'PJ' ? 'P° Rdt (85%)' : 'P/H Rdt'}
+                                </span>
+                                <span className="mt-1.5 text-sm font-black text-slate-800 font-mono block">
+                                    {formatProductionCell(row.p85, outputMode)}
+                                </span>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Footer buttons */}
+                    <div className="flex justify-end gap-2 mt-4 pt-3 border-t border-slate-100">
+                        <button
+                            type="button"
+                            onClick={() => {
+                                setActiveRowId(null);
+                                setExpandedRows(prev => {
+                                    const next = new Set(prev);
+                                    next.delete(op.id);
+                                    return next;
+                                });
+                            }}
+                            className="px-4 py-2 rounded-lg text-xs font-black bg-slate-100 hover:bg-slate-200 text-slate-600 transition-colors flex items-center gap-1.5 active:scale-95 shadow-sm"
+                        >
+                            <X className="w-3.5 h-3.5" /> Fermer
+                        </button>
+                    </div>
+                </div>
+            </div>
+        );
+    };
+    const handlePlantationAdvance = (stId: string, currentOpId: string) => {
+        const st = workstationsList.find(s => s.id === stId);
+        if (!st) return;
+        const currentIdx = st.operations.findIndex(op => op.id === currentOpId);
+        for (let i = currentIdx + 1; i < st.operations.length; i++) {
+            const nextOp = st.operations[i];
+            const data = ensureRow(nextOp.id, chronoData[`${stId}__${nextOp.id}`]);
+            let hasFree = false;
+            for (let t = 1; t <= trCount; t++) {
+                const v = data[`tr${t}` as keyof ChronoData];
+                if (v === undefined || v === null) { hasFree = true; break; }
+            }
+            if (hasFree) {
+                const key = `${stId}__${nextOp.id}`;
+                setActiveRowId(key);
+                setExpandedRows(prev => {
+                    const next = new Set(prev);
+                    next.delete(currentOpId);
+                    next.add(nextOp.id);
+                    return next;
+                });
+                return;
+            }
+        }
+        setActiveRowId(null);
+    };
+
+    const handlePlantationPrev = (stId: string, currentOpId: string) => {
+        const st = workstationsList.find(s => s.id === stId);
+        if (!st) return;
+        const idx = st.operations.findIndex(op => op.id === currentOpId);
+        if (idx <= 0) return;
+        const prevOp = st.operations[idx - 1];
+        const key = `${stId}__${prevOp.id}`;
+        setActiveRowId(key);
+        setExpandedRows(prev => {
+            const next = new Set(prev);
+            next.delete(currentOpId);
+            next.add(prevOp.id);
+            return next;
+        });
+    };
+
+    const handlePlantationNext = (stId: string, currentOpId: string) => {
+        const st = workstationsList.find(s => s.id === stId);
+        if (!st) return;
+        const idx = st.operations.findIndex(op => op.id === currentOpId);
+        if (idx < 0 || idx >= st.operations.length - 1) return;
+        const nextOp = st.operations[idx + 1];
+        const key = `${stId}__${nextOp.id}`;
+        setActiveRowId(key);
+        setExpandedRows(prev => {
+            const next = new Set(prev);
+            next.delete(currentOpId);
+            next.add(nextOp.id);
+            return next;
+        });
+    };
+
+    const renderPlantationChronoPanel = (opId: string, stId: string) => {
+        const op = operationsById[opId];
+        if (!op) return null;
+        const key = `${stId}__${opId}`;
+        const data = ensureRow(op.id, chronoData[key] || chronoData[op.id]);
+        const row = recalcRow(data, unit);
+        const filledTRs = trSlots.filter(n => data[`tr${n}` as keyof ChronoData] !== undefined).length;
+        const rowTRs = getRowTRs(data);
+        const median = getMedian(rowTRs);
+
+        return (
+            <div className="w-full mt-3 p-1 animate-in slide-in-from-top-1 duration-200">
+                {/* Calculations card: T.MOY | MAJ | T.MAJ */}
+                <div className="grid grid-cols-3 bg-white border border-slate-200 rounded-xl p-3 shadow-sm mb-3 text-left">
+                    <div className="text-center flex flex-col items-center justify-between">
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">T.MOY</span>
+                        <div className="mt-1 relative flex flex-col items-center w-full">
+                            <input
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                className={`w-full max-w-[5.5rem] py-1 px-1.5 text-center text-xs font-mono font-bold text-slate-700 bg-slate-50 border border-slate-255 rounded-md focus:bg-white focus:border-indigo-400 outline-none ${INPUT_NO_SPIN}`}
+                                placeholder="—"
+                                value={row.tm !== undefined ? displayValue(row.tm) : ''}
+                                onChange={e => handleCellChange(op.id, 'tm', e.target.value, stId)}
+                            />
+                            {row.tmManual && (
+                                <span className="text-[8px] font-bold text-indigo-500 uppercase tracking-wider mt-0.5">manuel</span>
+                            )}
+                        </div>
+                    </div>
+                    
+                    <div className="w-px h-8 bg-slate-200 self-center mx-auto" />
+                    
+                    <div className="text-center flex flex-col items-center justify-between">
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">MAJ</span>
+                        <input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            className={`mt-1 w-full max-w-[4.5rem] py-1 px-1.5 text-center text-xs font-mono font-bold text-slate-700 bg-slate-50 border border-slate-255 rounded-md focus:bg-white focus:border-indigo-400 outline-none ${INPUT_NO_SPIN}`}
+                            value={data.majoration !== undefined ? displayValue(data.majoration) : ''}
+                            onChange={e => handleCellChange(op.id, 'majoration', e.target.value, stId)}
+                        />
+                    </div>
+                    
+                    <div className="w-px h-8 bg-slate-200 self-center mx-auto" />
+                    
+                    <div className="text-center flex flex-col items-center justify-between">
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">T.MAJ</span>
+                        <span className="mt-2 text-sm font-black text-emerald-600 font-mono block">
+                            {row.tempMajore !== undefined ? formatTempMajoreInUnit(row.tempMajore) : '—'}
+                        </span>
+                    </div>
+                </div>
+
+                {/* Compact TR inputs if trEnabled */}
+                {trEnabled && (
+                    <div className="bg-slate-50 border border-slate-100 rounded-xl p-2.5 mb-3 text-left">
+                        <div className="flex items-center justify-between mb-1.5 px-1">
+                            <span className="text-[9px] font-bold uppercase tracking-wider text-slate-450">Saisie Relevés (TR)</span>
+                            <span className="text-[8px] font-bold text-slate-400 bg-slate-100 px-1 py-0.5 rounded">Config: {trCount}</span>
+                        </div>
+                        <div className="flex flex-wrap gap-1.5 justify-center">
+                            {trSlots.map(trNum => {
+                                const val = data[`tr${trNum}` as keyof ChronoData];
+                                const hasVal = val !== undefined && val !== null && (val as number) > 0;
+                                const status = hasVal ? classifyTR(val as number, median) : 'normal';
+                                return (
+                                    <div key={trNum} className="relative group/cell w-11 text-center">
+                                        <div className="relative">
+                                            <input
+                                                type="number" step="0.01" min="0"
+                                                className={`w-full py-1 text-center text-xs font-mono font-bold border rounded-md bg-white focus:border-indigo-400 outline-none transition-all placeholder:text-slate-300 ${INPUT_NO_SPIN} ${hasVal ? trStatusStyles[status] : 'text-indigo-600 border-slate-200'}`}
+                                                placeholder={`TR${trNum}`}
+                                                value={hasVal && typeof val === 'number' ? displayValue(val) : ''}
+                                                onChange={e => handleCellChange(op.id, `tr${trNum}` as keyof ChronoData, e.target.value, stId)}
+                                            />
+                                            {hasVal && (
+                                                <button
+                                                    type="button"
+                                                    aria-label={`Supprimer TR ${trNum}`}
+                                                    onClick={(e) => handleClearTRClick(e, op.id, trNum, stId)}
+                                                    className="absolute -top-1 -right-1 z-10 flex h-[12px] w-[12px] items-center justify-center rounded-full border border-rose-200 bg-white text-rose-500 shadow-sm opacity-0 scale-90 transition-all duration-200 group-hover/cell:opacity-100 group-hover/cell:scale-100 hover:bg-rose-50 hover:text-rose-600"
+                                                    title="Supprimer"
+                                                >
+                                                    <X className="w-2 h-2" />
+                                                </button>
+                                            )}
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                )}
+
+                {/* Stopwatch Component */}
+                <AdvancedStopwatch
+                    key={op.id}
+                    onRecord={(time) => handleStopwatchRecord(op.id, time, stId)}
+                    onClear={() => clearAllTRs(op.id, stId)}
+                    onAdvance={() => handlePlantationAdvance(stId, op.id)}
+                    onPrev={() => handlePlantationPrev(stId, op.id)}
+                    onNext={() => handlePlantationNext(stId, op.id)}
+                    onUndoLast={() => clearLastTR(op.id, stId)}
+                    trCount={trCount}
+                    filledCount={filledTRs}
+                />
+            </div>
+        );
+    };
+
+    const renderPlantationStationCard = (st: Workstation) => {
+        const fill = st.color?.fill || '#64748b';
+        const sat = Math.round(st.saturation || 0);
+        const isCompleted = isWorkstationCompleted(st);
+        
+        const stationMeasuredTime = st.operations.reduce((acc, op) => {
+            const row = recalcRow(ensureRow(op.id, chronoData[`${st.id}__${op.id}`] || chronoData[op.id]), unit);
+            const timeInSec = row.tempMajore ? (row.tempMajore * 60) : (op.time * 60);
+            return acc + timeInSec;
+        }, 0);
+        
+        const photos = st.operations.map(op => op.photo).filter(Boolean) as string[];
+
+        return (
+            <div
+                key={st.id}
+                className="bg-white rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow p-4 relative flex flex-col gap-3 border-l-[6px] text-left"
+                style={{ borderLeftColor: fill }}
+            >
+                {/* Card Header */}
+                <div className="flex items-center justify-between gap-2 pb-2.5 border-b border-slate-100">
+                    <div className="flex items-center gap-2.5">
+                        {/* Checkbox */}
+                        <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-colors shrink-0 ${isCompleted ? 'border-emerald-500 bg-emerald-500 text-white shadow-sm' : 'border-slate-300 bg-white'}`}>
+                            {isCompleted && (
+                                <svg className="w-3.5 h-3.5 stroke-current stroke-[3]" fill="none" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                                </svg>
+                            )}
+                        </div>
+                        {/* Index Badge */}
+                        <span className="bg-indigo-650 text-white text-[10px] px-1.5 py-0.5 rounded font-black tracking-wide shrink-0">
+                            #{st.index}
+                        </span>
+                        {/* Station Name & Operator */}
+                        <div className="flex flex-col text-left">
+                            <span className="text-sm font-black text-slate-800 leading-tight">{st.name}</span>
+                            <span className="text-[10px] font-semibold text-slate-400 leading-none mt-0.5">{st.operatorName || '—'}</span>
+                        </div>
+                    </div>
+                    
+                    {/* Time & Saturation */}
+                    <div className="flex items-center gap-2">
+                        <span className="font-mono font-black text-indigo-700 text-xs shrink-0 bg-indigo-50 border border-indigo-100/50 px-2 py-0.5 rounded-lg">
+                            {Math.round(stationMeasuredTime)}s
+                        </span>
+                        <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-black border shadow-sm ${getSaturationBadgeStyles(sat)} shrink-0`}>
+                            {sat}%
+                        </span>
+                    </div>
+                </div>
+
+                {/* Photos Row */}
+                {photos.length > 0 && (
+                    <div className="flex gap-1.5 flex-wrap">
+                        {photos.slice(0, 3).map((p, idx) => (
+                            <img
+                                key={idx}
+                                src={p}
+                                className="w-16 h-16 object-cover rounded-xl border border-slate-200 shadow-sm"
+                                alt="Aperçu"
+                            />
+                        ))}
+                    </div>
+                )}
+
+                {/* Operations List */}
+                <div className="flex flex-col gap-2">
+                    {st.operations.map(op => {
+                        const isOpActive = `${st.id}__${op.id}` === activeRowId;
+                        
+                        return (
+                            <div key={op.id} className="flex flex-col">
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        const key = `${st.id}__${op.id}`;
+                                        setActiveRowId(activeRowId === key ? null : key);
+                                        setExpandedRows(prev => {
+                                            const next = new Set(prev);
+                                            if (activeRowId === key) next.delete(op.id); else next.add(op.id);
+                                            return next;
+                                        });
+                                    }}
+                                    className={`flex items-center justify-between text-left p-2.5 rounded-xl border transition-all w-full focus:outline-none ${isOpActive ? 'bg-indigo-600 text-white border-indigo-600 shadow-md font-extrabold' : 'bg-slate-50 hover:bg-slate-100 text-slate-800 border-slate-200/85 font-semibold'}`}
+                                >
+                                    <span className="text-xs truncate flex-1 leading-tight pr-2" title={op.description}>
+                                        #{op.order} {op.description}
+                                    </span>
+                                    
+                                    <div className="flex items-center gap-1.5 shrink-0">
+                                        <span className={`text-[10px] font-bold font-mono ${isOpActive ? 'text-indigo-200' : 'text-slate-500'}`}>
+                                            {(() => {
+                                                const row = recalcRow(ensureRow(op.id, chronoData[`${st.id}__${op.id}`] || chronoData[op.id]), unit);
+                                                return row.tempMajore ? `${Math.round(row.tempMajore * 60)}s` : '— Sec';
+                                            })()}
+                                        </span>
+                                        <Timer className={`w-3.5 h-3.5 ${isOpActive ? 'text-indigo-200' : 'text-slate-400'}`} />
+                                    </div>
+                                </button>
+
+                                {/* Timing panel nested inside the active operation */}
+                                {isOpActive && renderPlantationChronoPanel(op.id, st.id)}
+                            </div>
+                        );
+                    })}
+                </div>
+            </div>
+        );
+    };
+
+    const handleCellChange = (opId: string, field: keyof ChronoData, value: string, stId?: string) => {
+        const key = stId ? `${stId}__${opId}` : opId;
         if (field === 'tm') {
             if (value === '') {
                 setChronoData(prev => {
-                    const current = ensureRow(opId, prev[opId]);
-                    return { ...prev, [opId]: recalcRow({ ...current, tm: undefined, tmManual: false }) };
+                    const current = ensureRow(opId, prev[key]);
+                    return { ...prev, [key]: recalcRow({ ...current, tm: undefined, tmManual: false }) };
                 });
                 return;
             }
             const num = parseFloat(value);
             if (isNaN(num) || num < 0) return;
             setChronoData(prev => {
-                const current = ensureRow(opId, prev[opId]);
-                return { ...prev, [opId]: recalcRow({ ...current, tm: roundValue(num), tmManual: true }) };
+                const current = ensureRow(opId, prev[key]);
+                return { ...prev, [key]: recalcRow({ ...current, tm: roundValue(num), tmManual: true }) };
             });
             return;
         }
 
         if (value === '') {
             setChronoData(prev => {
-                const current = ensureRow(opId, prev[opId]);
+                const current = ensureRow(opId, prev[key]);
                 let next: ChronoData = { ...current, [field]: undefined };
                 if (String(field).match(/^tr\d+/)) next = { ...next, tmManual: false };
-                return { ...prev, [opId]: recalcRow(next) };
+                return { ...prev, [key]: recalcRow(next) };
             });
             return;
         }
         const num = parseFloat(value);
         if (isNaN(num) || num < 0) return;
         setChronoData(prev => {
-            const current = ensureRow(opId, prev[opId]);
+            const current = ensureRow(opId, prev[key]);
             let next: ChronoData = { ...current, [field]: roundValue(num) };
             if (String(field).match(/^tr\d+/)) next = { ...next, tmManual: false };
-            return { ...prev, [opId]: recalcRow(next) };
+            return { ...prev, [key]: recalcRow(next) };
         });
     };
 
@@ -874,7 +1631,6 @@ export default function Chronometrage({ operations, chronoData, setChronoData, p
 
     const trStatusStyles: Record<TRStatus, string> = {
         normal: '',
-        // Any non-normal relevé is highlighted in red.
         slow: 'bg-rose-50 text-rose-700 border-rose-200',
         fast: 'bg-rose-50 text-rose-700 border-rose-200',
         outlier: 'bg-rose-100 text-rose-800 border-rose-300 ring-1 ring-rose-200',
@@ -894,11 +1650,11 @@ export default function Chronometrage({ operations, chronoData, setChronoData, p
 
         setChronoData(prev => {
             const nextData: Record<string, ChronoData> = {};
-            Object.entries(prev).forEach(([opId, row]) => {
+            Object.entries(prev).forEach(([key, row]) => {
                 const converted: ChronoData = { ...row };
                 for (let i = 1; i <= 10; i++) {
-                    const key = `tr${i}` as keyof ChronoData;
-                    const val = converted[key];
+                    const trKey = `tr${i}` as keyof ChronoData;
+                    const val = converted[trKey];
                     if (val !== undefined && val !== null && !isNaN(val as number)) {
                         (converted as unknown as Record<string, number | undefined>)[`tr${i}`] = convertUnitValue(val as number, sourceUnit, unit);
                     }
@@ -906,7 +1662,7 @@ export default function Chronometrage({ operations, chronoData, setChronoData, p
                 if (converted.tm !== undefined && converted.tm !== null && !isNaN(converted.tm)) {
                     converted.tm = convertUnitValue(converted.tm, sourceUnit, unit);
                 }
-                nextData[opId] = recalcRow(converted, unit);
+                nextData[key] = recalcRow(converted, unit);
             });
             return nextData;
         });
@@ -918,9 +1674,9 @@ export default function Chronometrage({ operations, chronoData, setChronoData, p
         if (trEnabled) return;
         setChronoData(prev => {
             const nextData: Record<string, ChronoData> = {};
-            Object.entries(prev).forEach(([opId, row]) => {
+            Object.entries(prev).forEach(([key, row]) => {
                 const recalculated = recalcRow(row, unit);
-                nextData[opId] = {
+                nextData[key] = {
                     ...recalculated,
                     tm: recalculated.tm,
                     tmManual: recalculated.tm !== undefined
@@ -933,16 +1689,17 @@ export default function Chronometrage({ operations, chronoData, setChronoData, p
     useEffect(() => {
         setChronoData(prev => {
             const nextData: Record<string, ChronoData> = {};
-            Object.entries(prev).forEach(([opId, row]) => {
-                nextData[opId] = recalcRow(row, unit);
+            Object.entries(prev).forEach(([key, row]) => {
+                nextData[key] = recalcRow(row, unit);
             });
             return nextData;
         });
     }, [efficiency, setChronoData]);
 
     /** Returns the number of filled TR slots for an operation. */
-    const countFilledTRs = useCallback((opId: string): number => {
-        const data = ensureRow(opId, chronoData[opId]);
+    const countFilledTRs = useCallback((opId: string, stId?: string): number => {
+        const key = stId ? `${stId}__${opId}` : opId;
+        const data = ensureRow(opId, chronoData[key]);
         let count = 0;
         for (let i = 1; i <= trCount; i++) {
             const val = data[`tr${i}` as keyof ChronoData];
@@ -951,47 +1708,47 @@ export default function Chronometrage({ operations, chronoData, setChronoData, p
         return count;
     }, [chronoData, trCount]);
 
-    const handleStopwatchRecord = useCallback((opId: string, timeInSeconds: number) => {
-        const data = ensureRow(opId, chronoData[opId]);
-        // Find the first empty TR slot
+    const handleStopwatchRecord = useCallback((opId: string, timeInSeconds: number, stId?: string) => {
+        const key = stId ? `${stId}__${opId}` : opId;
+        const data = ensureRow(opId, chronoData[key]);
         for (let i = 1; i <= trCount; i++) {
-            const key = `tr${i}` as keyof ChronoData;
-            if (data[key] === undefined || data[key] === null) {
+            const trKey = `tr${i}` as keyof ChronoData;
+            if (data[trKey] === undefined || data[trKey] === null) {
                 const value = fromSeconds(timeInSeconds, unit);
-                handleCellChange(opId, key, value.toString());
+                handleCellChange(opId, trKey, value.toString(), stId);
                 return;
             }
         }
-        // Silent guard — stopwatch already prevents over-recording
     }, [chronoData, trCount, unit, handleCellChange]);
 
-    /** Clears ALL TR slots for a given operation (called from stopwatch 'Effacer la ligne') */
-    const clearAllTRs = useCallback((opId: string) => {
+    /** Clears ALL TR slots for a given operation */
+    const clearAllTRs = useCallback((opId: string, stId?: string) => {
         for (let i = 1; i <= trCount; i++) {
-            handleCellChange(opId, `tr${i}` as keyof ChronoData, '');
+            handleCellChange(opId, `tr${i}` as keyof ChronoData, '', stId);
         }
     }, [trCount, handleCellChange]);
 
-    const clearTR = (opId: string, trNum: number) => {
-        handleCellChange(opId, `tr${trNum}` as keyof ChronoData, '');
+    const clearTR = (opId: string, trNum: number, stId?: string) => {
+        handleCellChange(opId, `tr${trNum}` as keyof ChronoData, '', stId);
     };
 
     /** Removes the most recent TR entry for an operation row (Undo) */
-    const clearLastTR = useCallback((opId: string) => {
-        const data = ensureRow(opId, chronoData[opId]);
-        // Find the last filled slot
+    const clearLastTR = useCallback((opId: string, stId?: string) => {
+        const key = stId ? `${stId}__${opId}` : opId;
+        const data = ensureRow(opId, chronoData[key]);
         for (let i = trCount; i >= 1; i--) {
-            const key = `tr${i}` as keyof ChronoData;
-            if (data[key] !== undefined && data[key] !== null) {
-                handleCellChange(opId, key, '');
+            const trKey = `tr${i}` as keyof ChronoData;
+            if (data[trKey] !== undefined && data[trKey] !== null) {
+                handleCellChange(opId, trKey, '', stId);
                 return;
             }
         }
     }, [chronoData, trCount, handleCellChange]);
 
-    /** Computes CV-based validity for a row (requires >= 2 filled TRs) */
-    const getRowValidity = useCallback((opId: string): 'valid' | 'warn' | 'invalid' | 'empty' => {
-        const data = ensureRow(opId, chronoData[opId]);
+    /** Computes CV-based validity for a row */
+    const getRowValidity = useCallback((opId: string, stId?: string): 'valid' | 'warn' | 'invalid' | 'empty' => {
+        const key = stId ? `${stId}__${opId}` : opId;
+        const data = ensureRow(opId, chronoData[key]);
         const vals: number[] = [];
         for (let i = 1; i <= trCount; i++) {
             const v = data[`tr${i}` as keyof ChronoData];
@@ -1008,10 +1765,10 @@ export default function Chronometrage({ operations, chronoData, setChronoData, p
         return 'invalid';
     }, [chronoData, trCount]);
 
-    const handleClearTRClick = (e: React.MouseEvent<HTMLButtonElement>, opId: string, trNum: number) => {
+    const handleClearTRClick = (e: React.MouseEvent<HTMLButtonElement>, opId: string, trNum: number, stId?: string) => {
         e.preventDefault();
         e.stopPropagation();
-        clearTR(opId, trNum);
+        clearTR(opId, trNum, stId);
     };
 
     const toggleRowExpand = useCallback((opId: string) => {
@@ -1399,446 +2156,504 @@ export default function Chronometrage({ operations, chronoData, setChronoData, p
                     </div>
                 </div>
 
-                {/* Table - Cards on mobile, table on desktop */}
-                <div className="hidden md:block overflow-x-auto">
-                    <table className="w-full text-sm border-collapse">
-                        <thead>
-                            <tr className="bg-slate-50 text-slate-500 border-b-2 border-slate-200 text-[11px] uppercase tracking-wider font-bold">
-                                <th className="py-3 px-3 text-left w-10">#</th>
-                                <th className="py-3 px-3 text-left min-w-[160px]">Opération</th>
-                                {showTsColumn && (
-                                    <th
-                                        className="py-3 px-3 text-center bg-amber-50/50 text-amber-600 border-x border-slate-100 w-16"
-                                        title="Temps standard (gamme), affiché en secondes — indépendant de l’unité des relevés"
-                                    >
-                                        TS <span className="normal-case font-semibold text-[10px]">(s)</span>
-                                    </th>
-                                )}
-                                {trEnabled && trSlots.map(n => (
-                                    <th key={n} className="py-3 px-1 text-center w-14 bg-slate-100/50">TR {n}</th>
-                                ))}
-                                <th className="py-3 px-2 text-center bg-indigo-50/60 text-indigo-700 w-16 border-l border-slate-200">T.Moy</th>
-                                <th
-                                    className="py-3 px-1 text-center w-14"
-                                    title="Majoration : coefficient multiplicateur (ex. 1,15 = +15 % sur le temps moyen)"
-                                >
-                                    Maj.
-                                </th>
-                                <th
-                                    className={`py-3 px-2 text-center bg-emerald-50/60 text-emerald-700 w-[5.25rem] ${!showThroughputKpi ? 'rounded-tr-lg' : ''}`}
-                                    title={`Temps majoré = T.Moy × Maj. Affichage en ${getUnitMeta(unit).name} (${unitShort}).`}
-                                >
-                                    <span className="block leading-tight">T.Maj</span>
-                                    <span className="block text-[9px] font-semibold normal-case tracking-normal text-emerald-600/90">× Maj</span>
-                                </th>
-                                {showThroughputKpi && (
-                                    <>
-                                        <th className="py-3 px-2 text-center w-14 text-slate-500">{outputMode === 'PJ' ? 'P° Max' : 'P/H Max'}</th>
-                                        <th className="py-3 px-2 text-center bg-slate-800 text-white rounded-tr-lg w-16">{outputMode === 'PJ' ? 'P° Rdt' : 'P/H Rdt'}</th>
-                                    </>
-                                )}
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100">
-                            {filteredOperations.length === 0 ? (
-                                <tr>
-                                    <td colSpan={desktopColSpan} className="px-8 py-16 text-center">
-                                        <div className="flex flex-col items-center gap-3">
-                                            <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center">
-                                                <ClipboardList className="w-8 h-8 text-slate-300" />
-                                            </div>
-                                            <p className="text-slate-500 font-bold text-lg">Aucune opération</p>
-                                            <p className="text-slate-400 text-sm">Veuillez d'abord remplir la Gamme Opératoire (étape 2).</p>
+                {orderSource === 'plantation' ? (
+                    <div className="space-y-6 p-4 bg-slate-50/50">
+                        {structureSections.map(section => {
+                            const isAlternating = activeLayout === 'double-zigzag' || activeLayout === 'zigzag';
+                            
+                            if (isAlternating) {
+                                const sideA = section.stations.filter((_, idx) => idx % 2 === 0); // P1, P3, P5...
+                                const sideB = section.stations.filter((_, idx) => idx % 2 !== 0); // P2, P4, P6...
+
+                                return (
+                                    <div key={section.id} className="bg-slate-100/50 rounded-2xl border border-slate-205 p-4 sm:p-6 mb-6">
+                                        <div className="flex items-center gap-2 mb-4 flex-wrap">
+                                            <span className={`px-3 py-1 rounded-lg text-xs font-black tracking-wide text-white uppercase bg-${section.theme}-600`}>
+                                                {section.name}
+                                            </span>
+                                            <span className="text-xs text-slate-500 font-bold">{section.stations.length} postes</span>
                                         </div>
-                                    </td>
-                                </tr>
+
+                                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+                                            {/* Left side: odd stations */}
+                                            <div className="flex flex-col gap-4">
+                                                <div className="bg-indigo-50 border border-indigo-100 text-indigo-850 py-2 px-3 rounded-xl font-black text-center text-xs uppercase tracking-wide">
+                                                    CÔTÉ GAUCHE (POSTES IMPAIRS)
+                                                </div>
+                                                {sideA.map(st => renderPlantationStationCard(st))}
+                                            </div>
+
+                                            {/* Right side: even stations */}
+                                            <div className="flex flex-col gap-4">
+                                                <div className="bg-slate-100 border border-slate-250 text-slate-750 py-2 px-3 rounded-xl font-black text-center text-xs uppercase tracking-wide">
+                                                    CÔTÉ DROIT (POSTES PAIRS)
+                                                </div>
+                                                {sideB.map(st => renderPlantationStationCard(st))}
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            } else {
+                                return (
+                                    <div key={section.id} className="bg-slate-100/50 rounded-2xl border border-slate-205 p-4 sm:p-6 mb-6">
+                                        <div className="flex items-center gap-2 mb-4 flex-wrap">
+                                            <span className={`px-3 py-1 rounded-lg text-xs font-black tracking-wide text-white uppercase bg-${section.theme}-600`}>
+                                                {section.name}
+                                            </span>
+                                            <span className="text-xs text-slate-500 font-bold">{section.stations.length} postes</span>
+                                        </div>
+
+                                        <div className="grid grid-cols-1 gap-4">
+                                            {section.stations.map(st => renderPlantationStationCard(st))}
+                                        </div>
+                                    </div>
+                                );
+                            }
+                        })}
+                    </div>
+                ) : (
+                    <>
+                        <div className="hidden md:block overflow-x-auto">
+                            <table className="w-full text-sm border-collapse">
+                                <thead>
+                                    <tr className="bg-slate-50 text-slate-500 border-b-2 border-slate-200 text-[11px] uppercase tracking-wider font-bold">
+                                        <th className="py-3 px-3 text-left w-10">#</th>
+                                        <th className="py-3 px-3 text-left min-w-[160px]">Opération</th>
+                                        {showTsColumn && (
+                                            <th
+                                                className="py-3 px-3 text-center bg-amber-50/50 text-amber-600 border-x border-slate-100 w-16"
+                                                title="Temps standard (gamme), affiché en secondes — indépendant de l’unité des relevés"
+                                            >
+                                                TS <span className="normal-case font-semibold text-[10px]">(s)</span>
+                                            </th>
+                                        )}
+                                        {trEnabled && trSlots.map(n => (
+                                            <th key={n} className="py-3 px-1 text-center w-14 bg-slate-100/50">TR {n}</th>
+                                        ))}
+                                        <th className="py-3 px-2 text-center bg-indigo-50/60 text-indigo-700 w-16 border-l border-slate-200">T.Moy</th>
+                                        <th
+                                            className="py-3 px-1 text-center w-14"
+                                            title="Majoration : coefficient multiplicateur (ex. 1,15 = +15 % sur le temps moyen)"
+                                        >
+                                            Maj.
+                                        </th>
+                                        <th
+                                            className={`py-3 px-2 text-center bg-emerald-50/60 text-emerald-700 w-[5.25rem] ${!showThroughputKpi ? 'rounded-tr-lg' : ''}`}
+                                            title={`Temps majoré = T.Moy × Maj. Affichage en ${getUnitMeta(unit).name} (${unitShort}).`}
+                                        >
+                                            <span className="block leading-tight">T.Maj</span>
+                                            <span className="block text-[9px] font-semibold normal-case tracking-normal text-emerald-600/90">× Maj</span>
+                                        </th>
+                                        {showThroughputKpi && (
+                                            <>
+                                                <th className="py-3 px-2 text-center w-14 text-slate-500">{outputMode === 'PJ' ? 'P° Max' : 'P/H Max'}</th>
+                                                <th className="py-3 px-2 text-center bg-slate-800 text-white rounded-tr-lg w-16">{outputMode === 'PJ' ? 'P° Rdt' : 'P/H Rdt'}</th>
+                                            </>
+                                        )}
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-100">
+                                    {filteredOperations.length === 0 ? (
+                                        <tr>
+                                            <td colSpan={desktopColSpan} className="px-8 py-16 text-center">
+                                                <div className="flex flex-col items-center gap-3">
+                                                    <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center">
+                                                        <ClipboardList className="w-8 h-8 text-slate-300" />
+                                                    </div>
+                                                    <p className="text-slate-500 font-bold text-lg">Aucune opération</p>
+                                                    <p className="text-slate-400 text-sm">Veuillez d'abord remplir la Gamme Opératoire (étape 2).</p>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ) : (
+                                        filteredOperations.map((op, index) => {
+                                            const data = ensureRow(op.id, chronoData[op.id]);
+                                            const row = recalcRow(data, unit);
+                                            const isExpanded = expandedRows.has(op.id);
+                                            const isActive = activeRowId === op.id;
+                                            const assignedPostes = assignments[op.id] || [];
+                                            const primaryPosteColor = assignedPostes.length > 0 ? posteColorById.get(assignedPostes[0]) : undefined;
+        
+                                            const filledTRs = trSlots.filter(n => {
+                                                const v = data[`tr${n}` as keyof ChronoData];
+                                                return v !== undefined && v !== null;
+                                            }).length;
+        
+                                            return (
+                                                <React.Fragment key={op.id}>
+                                                    <tr
+                                                        className={`group transition-colors duration-200 cursor-pointer ${isActive ? 'bg-indigo-50/60 ring-1 ring-inset ring-indigo-200 shadow-sm' : 'hover:bg-slate-50/90'}`}
+                                                        onClick={() => setActiveRowId(isActive ? null : op.id)}
+                                                    >
+                                                        <td
+                                                            className={`px-3 py-3 transition-colors ${isActive ? 'bg-transparent' : 'bg-white group-hover:bg-slate-50/90'}`}
+                                                        >
+                                                            <div className="flex items-center justify-center">
+                                                                <span
+                                                                    className={`w-8 h-8 rounded-lg flex items-center justify-center font-mono font-black text-xs shadow-sm transition-colors ${primaryPosteColor ? 'text-white ring-1 ring-black/10' : 'bg-slate-100 text-slate-500 group-hover:bg-indigo-100 group-hover:text-indigo-700'}`}
+                                                                    style={primaryPosteColor ? { backgroundColor: primaryPosteColor.fill ?? '#6366f1' } : undefined}
+                                                                >
+                                                                    {index + 1}
+                                                                </span>
+                                                            </div>
+                                                        </td>
+                                                        <td className="px-3 py-3">
+                                                            <div className="flex items-center gap-3">
+                                                                <div className="flex-1 min-w-0">
+                                                                    <p className="font-black text-slate-800 truncate text-sm" title={op.description}>{op.description}</p>
+                                                                    <div className="flex items-center gap-2 mt-1 flex-wrap">
+                                                                        {trEnabled && filledTRs >= 2 && (() => {
+                                                                            const v = getRowValidity(op.id);
+                                                                            const cfg = v === 'valid'
+                                                                                ? { dot: 'bg-emerald-400', title: 'Série valide (CV<10%)' }
+                                                                                : v === 'warn'
+                                                                                ? { dot: 'bg-amber-400', title: 'Série à vérifier (CV 10-15%)' }
+                                                                                : { dot: 'bg-rose-500',   title: 'Série invalide (CV>15%)' };
+                                                                            if (v === 'empty') return null;
+                                                                            return <span className={`w-2 h-2 rounded-full shrink-0 ${cfg.dot} mb-0.5`} title={cfg.title} />;
+                                                                        })()}
+                                                                        <span className="text-[10px] px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 border border-slate-200 truncate max-w-[140px] font-semibold" title={getMachineLabel(op.id)}>
+                                                                            {getMachineLabel(op.id)}
+                                                                        </span>
+                                                                        <div className="flex items-center gap-1.5 opacity-80 hover:opacity-100 transition-opacity">
+                                                                            <div className="w-12 h-1.5 bg-slate-200 rounded-full overflow-hidden">
+                                                                                <div className={`h-full rounded-full transition-all ${filledTRs === trCount ? 'bg-emerald-500' : 'bg-indigo-500'}`} style={{ width: `${(filledTRs / Math.max(1, trCount)) * 100}%` }} />
+                                                                            </div>
+                                                                            <span className="text-[10px] text-slate-500 font-bold">{trEnabled ? `${filledTRs}/${trCount}` : 'TR OFF'}</span>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                                <button
+                                                                    onClick={(e) => { e.stopPropagation(); toggleRowExpand(op.id); }}
+                                                                    className="w-8 h-8 rounded-lg bg-slate-100 hover:bg-indigo-100 flex items-center justify-center text-slate-500 hover:text-indigo-600 transition-all shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400"
+                                                                    title={isExpanded ? 'Réduire' : 'Chronométrer'}
+                                                                >
+                                                                    {isExpanded ? <ChevronUp className="w-4 h-4" /> : <Timer className="w-4 h-4" />}
+                                                                </button>
+                                                            </div>
+                                                        </td>
+                                                        {showTsColumn && (
+                                                            <td
+                                                                className="px-2 py-3 text-center font-bold text-amber-700 bg-amber-50/40 border-x border-slate-100 font-mono text-xs"
+                                                                title="Temps standard gamme (secondes)"
+                                                            >
+                                                                {formatTsSeconds(op.time)}
+                                                            </td>
+                                                        )}
+                                                        {trEnabled && (() => {
+                                                            const rowTRs = getRowTRs(data);
+                                                            const median = getMedian(rowTRs);
+                                                            return trSlots.map((trNum) => {
+                                                                const val = data[`tr${trNum}` as keyof ChronoData];
+                                                                const hasVal = val !== undefined && val !== null && (val as number) > 0;
+                                                                const status: TRStatus = hasVal ? classifyTR(val as number, median) : 'normal';
+                                                                return (
+                                                                    <td key={trNum} className={`px-0.5 py-1.5 ${trNum === trCount ? 'border-r border-slate-200' : ''} relative group/cell`}>
+                                                                        <input
+                                                                            type="number" step="0.01" min="0"
+                                                                            className={`w-full pl-1 pr-6 py-1.5 text-center text-[13px] font-mono font-bold border border-transparent rounded-md hover:bg-slate-50 hover:border-slate-200 focus:bg-white focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 outline-none transition-all placeholder:text-slate-300 cursor-text shadow-sm ${INPUT_NO_SPIN} ${hasVal ? trStatusStyles[status] : 'bg-transparent text-indigo-600'}`}
+                                                                            placeholder="—"
+                                                                            value={hasVal && typeof val === 'number' ? displayValue(val) : ''}
+                                                                            onClick={(e) => { e.stopPropagation(); }}
+                                                                            onChange={e => handleCellChange(op.id, `tr${trNum}` as keyof ChronoData, e.target.value)}
+                                                                        />
+                                                                        {hasVal && (
+                                                                            <button
+                                                                            type="button"
+                                                                            aria-label={`Supprimer TR ${trNum}`}
+                                                                            onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                                                                            onClick={(e) => handleClearTRClick(e, op.id, trNum)}
+                                                                            className="absolute right-0.5 top-1/2 -translate-y-1/2 z-10 flex h-[18px] w-[18px] items-center justify-center rounded-md border border-rose-200 bg-white/95 text-rose-500 shadow-sm opacity-0 scale-90 pointer-events-none transition-all duration-200 group-hover/cell:opacity-100 group-hover/cell:scale-100 group-hover/cell:pointer-events-auto group-focus-within/cell:opacity-100 group-focus-within/cell:scale-100 group-focus-within/cell:pointer-events-auto hover:bg-rose-50 hover:text-rose-600 hover:shadow active:scale-95"
+                                                                                title="Supprimer ce relevé"
+                                                                            >
+                                                                                <X className="w-2.5 h-2.5" />
+                                                                            </button>
+                                                                        )}
+                                                                    </td>
+                                                                );
+                                                            });
+                                                        })()}
+                                                        <td
+                                                            className="px-1.5 py-2 text-center align-middle border-l border-slate-200 bg-indigo-50/20"
+                                                            onClick={(e) => e.stopPropagation()}
+                                                        >
+                                                            <input
+                                                                type="number"
+                                                                step="0.01"
+                                                                min="0"
+                                                                className={`w-full min-w-[3.5rem] px-1 py-1 text-center text-[13px] font-mono font-black rounded-md border border-transparent hover:bg-white hover:border-slate-300 focus:bg-white focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 outline-none transition-all ${INPUT_NO_SPIN} text-indigo-700 shadow-sm`}
+                                                                placeholder="—"
+                                                                title={row.tmManual ? 'T.Moy manuel — T.Maj / P° recalculés' : 'Moyenne des TR — ou saisie manuelle ici'}
+                                                                value={displayValue(row.tm)}
+                                                                onChange={e => handleCellChange(op.id, 'tm', e.target.value)}
+                                                            />
+                                                            {row.tmManual && (
+                                                                <span className="block text-[9px] font-bold text-indigo-400 leading-none mt-1 uppercase tracking-wider">manuel</span>
+                                                            )}
+                                                        </td>
+                                                        <td className="px-1.5 py-1.5 text-center" onClick={(e) => e.stopPropagation()}>
+                                                            <input
+                                                                type="number" step="0.01" min="0"
+                                                                className={`w-14 mx-auto px-1 py-1 text-center text-[13px] font-mono font-bold text-slate-700 border border-slate-200 rounded-md shadow-sm focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 outline-none transition-all ${INPUT_NO_SPIN}`}
+                                                                value={displayValue(data.majoration)}
+                                                                onChange={e => handleCellChange(op.id, 'majoration', e.target.value)}
+                                                            />
+                                                        </td>
+                                                        <td
+                                                            className="px-2 py-3 text-center font-mono font-bold text-emerald-700 bg-emerald-50/30 text-xs"
+                                                            title={
+                                                                row.tempMajore !== undefined
+                                                                    ? `T.Moy × Maj. → ${row.tempMajore.toFixed(3)} min (affiché : ${formatTempMajoreInUnit(row.tempMajore)} ${unitShort})`
+                                                                    : undefined
+                                                            }
+                                                        >
+                                                            {formatTempMajoreInUnit(row.tempMajore)}
+                                                        </td>
+                                                        {showThroughputKpi && (
+                                                            <>
+                                                                <td className="px-2 py-3 text-center font-mono text-slate-500 font-medium text-xs">
+                                                                    {formatProductionCell(row.pMax, outputMode)}
+                                                                </td>
+                                                                <td className="px-2 py-3 text-center font-mono font-black text-slate-800 bg-slate-50 group-hover:bg-indigo-50 transition-colors text-xs">
+                                                                    {formatProductionCell(row.p85, outputMode)}
+                                                                </td>
+                                                            </>
+                                                        )}
+                                                    </tr>
+        
+                                                    {/* ─── EXPANDED: STOPWATCH ─── */}
+                                                    {isExpanded && (
+                                                        <tr>
+                                                            <td colSpan={desktopColSpan} className="px-6 py-8 bg-slate-50/50 border-b border-slate-200 shadow-inner">
+                                                                <div className="max-w-4xl mx-auto bg-white rounded-2xl shadow-2xl border border-indigo-100 overflow-hidden animate-in zoom-in-95 duration-200">
+                                                                    <AdvancedStopwatch
+                                                                        key={op.id}
+                                                                        onRecord={(time) => handleStopwatchRecord(op.id, time)}
+                                                                        onClear={() => clearAllTRs(op.id)}
+                                                                        onAdvance={() => advanceToNextOp(op.id)}
+                                                                        onPrev={() => goToPrevOp(op.id)}
+                                                                        onNext={() => goToNextOp(op.id)}
+                                                                        onUndoLast={() => clearLastTR(op.id)}
+                                                                        trCount={trCount}
+                                                                        filledCount={filledTRs}
+                                                                    />
+                                                                </div>
+                                                            </td>
+                                                        </tr>
+                                                    )}
+                                                </React.Fragment>
+                                            );
+                                        })
+                                    )}
+                                </tbody>
+        
+                                {/* Footer Totals */}
+                                {operations.length > 0 && (
+                                    <tfoot>
+                                        <tr className="border-t-2 border-slate-800 bg-gradient-to-r from-slate-50 to-slate-100">
+                                            <td colSpan={2} className="px-4 py-4 text-right font-black uppercase tracking-wider text-slate-700 text-xs">
+                                                Total Général
+                                            </td>
+                                            {showTsColumn && (
+                                                <td
+                                                    className="px-2 py-4 text-center font-black font-mono text-amber-600 border-x border-slate-200 bg-amber-50/50 text-xs"
+                                                    title="Σ temps gamme (secondes)"
+                                                >
+                                                    {totalTsSeconds.toFixed(2)}
+                                                </td>
+                                            )}
+                                            {trEnabled && (
+                                                <td colSpan={visibleTrCount} className="border-r border-slate-200 px-3 py-4 text-center">
+                                                    <span className="text-[10px] font-bold text-slate-400 uppercase">— Relevés Individuels —</span>
+                                                </td>
+                                            )}
+                                            <td className="px-2 py-4 text-center font-black font-mono text-indigo-700 bg-indigo-100/70 text-sm border-l border-slate-200">
+                                                {totals.tm.toFixed(2)}
+                                            </td>
+                                            <td className="px-2 py-4"></td>
+                                            <td
+                                                className={`px-2 py-4 text-center font-black font-mono text-emerald-700 bg-emerald-100/70 text-sm ${!showThroughputKpi ? 'rounded-br-lg' : ''}`}
+                                                title={`Σ (T.Moy × Maj.) : ${totals.tempMajore.toFixed(3)} min — affiché en ${unitShort}`}
+                                            >
+                                                {formatTempMajoreInUnit(totals.tempMajore)}
+                                            </td>
+                                            {showThroughputKpi && (
+                                                <>
+                                                    <td className="px-2 py-4 text-center font-bold font-mono text-slate-600 text-xs" title={footerPMaxTitle}>
+                                                        {formatProductionCell(totals.pMaxGlobal || undefined, outputMode)}
+                                                    </td>
+                                                    <td
+                                                        className="px-2 py-4 text-center font-black font-mono text-white bg-slate-800 text-sm rounded-br-lg"
+                                                        title={footerPRdtTitle}
+                                                    >
+                                                        {formatProductionCell(totals.p85Global || undefined, outputMode)}
+                                                    </td>
+                                                </>
+                                            )}
+                                        </tr>
+                                    </tfoot>
+                                )}
+                            </table>
+                        </div>
+        
+                        {/* ─── MOBILE CARD VIEW ─── */}
+                        <div className="md:hidden divide-y divide-slate-100">
+                            {filteredOperations.length === 0 ? (
+                                <div className="px-6 py-12 text-center">
+                                    <div className="w-12 h-12 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                                        <ClipboardList className="w-6 h-6 text-slate-300" />
+                                    </div>
+                                    <p className="text-slate-500 font-bold">Aucune opération</p>
+                                    <p className="text-slate-400 text-xs mt-1">Remplir la Gamme Opératoire d'abord.</p>
+                                </div>
                             ) : (
                                 filteredOperations.map((op, index) => {
                                     const data = ensureRow(op.id, chronoData[op.id]);
                                     const row = recalcRow(data, unit);
                                     const isExpanded = expandedRows.has(op.id);
-                                    const isActive = activeRowId === op.id;
                                     const assignedPostes = assignments[op.id] || [];
                                     const primaryPosteColor = assignedPostes.length > 0 ? posteColorById.get(assignedPostes[0]) : undefined;
-
                                     const filledTRs = trSlots.filter(n => {
                                         const v = data[`tr${n}` as keyof ChronoData];
                                         return v !== undefined && v !== null;
                                     }).length;
-
+        
                                     return (
-                                        <React.Fragment key={op.id}>
-                                            <tr
-                                                className={`group transition-colors duration-200 cursor-pointer ${isActive ? 'bg-indigo-50/60 ring-1 ring-inset ring-indigo-200 shadow-sm' : 'hover:bg-slate-50/90'}`}
-                                                onClick={() => setActiveRowId(isActive ? null : op.id)}
-                                            >
-                                                <td
-                                                    className={`px-3 py-3 transition-colors ${isActive ? 'bg-transparent' : 'bg-white group-hover:bg-slate-50/90'}`}
-                                                >
-                                                    <div className="flex items-center justify-center">
-                                                        <span
-                                                            className={`w-8 h-8 rounded-lg flex items-center justify-center font-mono font-black text-xs shadow-sm transition-colors ${primaryPosteColor ? 'text-white ring-1 ring-black/10' : 'bg-slate-100 text-slate-500 group-hover:bg-indigo-100 group-hover:text-indigo-700'}`}
-                                                            style={primaryPosteColor ? { backgroundColor: primaryPosteColor.fill ?? '#6366f1' } : undefined}
-                                                        >
-                                                            {index + 1}
-                                                        </span>
-                                                    </div>
-                                                </td>
-                                                <td className="px-3 py-3">
-                                                    <div className="flex items-center gap-3">
-                                                        <div className="flex-1 min-w-0">
-                                                            <p className="font-black text-slate-800 truncate text-sm" title={op.description}>{op.description}</p>
-                                                            <div className="flex items-center gap-2 mt-1 flex-wrap">
-                                                                {trEnabled && filledTRs >= 2 && (() => {
-                                                                    const v = getRowValidity(op.id);
-                                                                    const cfg = v === 'valid'
-                                                                        ? { dot: 'bg-emerald-400', title: 'Série valide (CV<10%)' }
-                                                                        : v === 'warn'
-                                                                        ? { dot: 'bg-amber-400', title: 'Série à vérifier (CV 10-15%)' }
-                                                                        : { dot: 'bg-rose-500',   title: 'Série invalide (CV>15%)' };
-                                                                    if (v === 'empty') return null;
-                                                                    return <span className={`w-2 h-2 rounded-full shrink-0 ${cfg.dot} mb-0.5`} title={cfg.title} />;
-                                                                })()}
-                                                                <span className="text-[10px] px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 border border-slate-200 truncate max-w-[140px] font-semibold" title={getMachineLabel(op.id)}>
-                                                                    {getMachineLabel(op.id)}
-                                                                </span>
-                                                                <div className="flex items-center gap-1.5 opacity-80 hover:opacity-100 transition-opacity">
-                                                                    <div className="w-12 h-1.5 bg-slate-200 rounded-full overflow-hidden">
-                                                                        <div className={`h-full rounded-full transition-all ${filledTRs === trCount ? 'bg-emerald-500' : 'bg-indigo-500'}`} style={{ width: `${(filledTRs / Math.max(1, trCount)) * 100}%` }} />
-                                                                    </div>
-                                                                    <span className="text-[10px] text-slate-500 font-bold">{trEnabled ? `${filledTRs}/${trCount}` : 'TR OFF'}</span>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                        <button
-                                                            onClick={(e) => { e.stopPropagation(); toggleRowExpand(op.id); }}
-                                                            className="w-8 h-8 rounded-lg bg-slate-100 hover:bg-indigo-100 flex items-center justify-center text-slate-500 hover:text-indigo-600 transition-all shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400"
-                                                            title={isExpanded ? 'Réduire' : 'Chronométrer'}
-                                                        >
-                                                            {isExpanded ? <ChevronUp className="w-4 h-4" /> : <Timer className="w-4 h-4" />}
-                                                        </button>
-                                                    </div>
-                                                </td>
-                                                {showTsColumn && (
-                                                    <td
-                                                        className="px-2 py-3 text-center font-bold text-amber-700 bg-amber-50/40 border-x border-slate-100 font-mono text-xs"
-                                                        title="Temps standard gamme (secondes)"
+                                        <div key={op.id} className="p-3 sm:p-4 bg-white">
+                                            {/* Name + Expand */}
+                                            <div className="flex items-center justify-between mb-2 sm:mb-3">
+                                                <div className="flex items-center gap-2 flex-1 min-w-0">
+                                                    <span
+                                                        className={`w-6 h-6 shrink-0 rounded-lg flex items-center justify-center font-mono text-[10px] font-bold shadow-sm ${primaryPosteColor ? 'text-white ring-1 ring-black/10' : 'bg-slate-100 text-slate-500'}`}
+                                                        style={primaryPosteColor ? { backgroundColor: primaryPosteColor.fill ?? '#6366f1' } : undefined}
                                                     >
-                                                        {formatTsSeconds(op.time)}
-                                                    </td>
-                                                )}
-                                                {trEnabled && (() => {
-                                                    const rowTRs = getRowTRs(data);
-                                                    const median = getMedian(rowTRs);
-                                                    return trSlots.map((trNum) => {
-                                                        const val = data[`tr${trNum}` as keyof ChronoData];
-                                                        const hasVal = val !== undefined && val !== null && (val as number) > 0;
-                                                        const status: TRStatus = hasVal ? classifyTR(val as number, median) : 'normal';
-                                                        return (
-                                                            <td key={trNum} className={`px-0.5 py-1.5 ${trNum === trCount ? 'border-r border-slate-200' : ''} relative group/cell`}>
-                                                                <input
-                                                                    type="number" step="0.01" min="0"
-                                                                    className={`w-full pl-1 pr-6 py-1.5 text-center text-[13px] font-mono font-bold border border-transparent rounded-md hover:bg-slate-50 hover:border-slate-200 focus:bg-white focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 outline-none transition-all placeholder:text-slate-300 cursor-text shadow-sm ${INPUT_NO_SPIN} ${hasVal ? trStatusStyles[status] : 'bg-transparent text-indigo-600'}`}
-                                                                    placeholder="—"
-                                                                    value={hasVal && typeof val === 'number' ? displayValue(val) : ''}
-                                                                    onClick={(e) => { e.stopPropagation(); }}
-                                                                    onChange={e => handleCellChange(op.id, `tr${trNum}` as keyof ChronoData, e.target.value)}
-                                                                />
-                                                                {hasVal && (
-                                                                    <button
-                                                                    type="button"
-                                                                    aria-label={`Supprimer TR ${trNum}`}
-                                                                    onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); }}
-                                                                    onClick={(e) => handleClearTRClick(e, op.id, trNum)}
-                                                                    className="absolute right-0.5 top-1/2 -translate-y-1/2 z-10 flex h-[18px] w-[18px] items-center justify-center rounded-md border border-rose-200 bg-white/95 text-rose-500 shadow-sm opacity-0 scale-90 pointer-events-none transition-all duration-200 group-hover/cell:opacity-100 group-hover/cell:scale-100 group-hover/cell:pointer-events-auto group-focus-within/cell:opacity-100 group-focus-within/cell:scale-100 group-focus-within/cell:pointer-events-auto hover:bg-rose-50 hover:text-rose-600 hover:shadow active:scale-95"
-                                                                        title="Supprimer ce relevé"
-                                                                    >
-                                                                        <X className="w-2.5 h-2.5" />
-                                                                    </button>
-                                                                )}
-                                                            </td>
-                                                        );
-                                                    });
-                                                })()}
-                                                <td
-                                                    className="px-1.5 py-2 text-center align-middle border-l border-slate-200 bg-indigo-50/20"
-                                                    onClick={(e) => e.stopPropagation()}
-                                                >
+                                                        {index + 1}
+                                                    </span>
+                                                    <div className="min-w-0">
+                                                        <p className="font-bold text-slate-800 text-sm truncate">{op.description}</p>
+                                                        <div className="flex items-center gap-1 mt-0.5 flex-wrap">
+                                                            <span className="text-[9px] px-1.5 py-0.5 rounded-md bg-blue-50 text-blue-700 border border-blue-100 truncate max-w-[140px]">
+                                                                {getMachineLabel(op.id)}
+                                                            </span>
+                                                            {showTsColumn && (
+                                                                <span
+                                                                    className="text-[9px] font-mono font-bold text-amber-600 px-1.5 py-0.5 rounded-md bg-amber-50/80 border border-amber-100"
+                                                                    title="Temps standard gamme (s)"
+                                                                >
+                                                                    TS {formatTsSeconds(op.time)} s
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <button onClick={() => toggleRowExpand(op.id)} className="w-7 h-7 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
+                                                    {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                                                </button>
+                                            </div>
+        
+                                            {/* TR Grid */}
+                                            {trEnabled && (
+                                            <div className="grid grid-cols-3 gap-2 mb-3">
+                                                {trSlots.map(trNum => {
+                                                    const val = data[`tr${trNum}` as keyof ChronoData];
+                                                    return (
+                                                        <div key={trNum} className="relative">
+                                                            <label className="text-[9px] font-bold text-slate-400 uppercase mb-0.5 block text-center">TR {trNum}</label>
+                                                            <input
+                                                                type="number" step="0.01"
+                                                                className={`w-full px-2 py-2 text-center text-sm font-mono font-bold border border-slate-200 rounded-lg bg-slate-50 focus:bg-white focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 outline-none transition-all ${INPUT_NO_SPIN}`}
+                                                                placeholder="—"
+                                                                value={typeof val === 'number' && !isNaN(val) ? displayValue(val) : ''}
+                                                                onChange={e => handleCellChange(op.id, `tr${trNum}` as keyof ChronoData, e.target.value)}
+                                                            />
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                            )}
+        
+                                            {/* Results Strip */}
+                                            <div className="bg-slate-50 rounded-xl p-2.5 space-y-2">
+                                                <div className="flex items-center justify-between gap-2">
+                                                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">Majoration</label>
                                                     <input
                                                         type="number"
                                                         step="0.01"
                                                         min="0"
-                                                        className={`w-full min-w-[3.5rem] px-1 py-1 text-center text-[13px] font-mono font-black rounded-md border border-transparent hover:bg-white hover:border-slate-300 focus:bg-white focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 outline-none transition-all ${INPUT_NO_SPIN} text-indigo-700 shadow-sm`}
-                                                        placeholder="—"
-                                                        title={row.tmManual ? 'T.Moy manuel — T.Maj / P° recalculés' : 'Moyenne des TR — ou saisie manuelle ici'}
-                                                        value={displayValue(row.tm)}
-                                                        onChange={e => handleCellChange(op.id, 'tm', e.target.value)}
-                                                    />
-                                                    {row.tmManual && (
-                                                        <span className="block text-[9px] font-bold text-indigo-400 leading-none mt-1 uppercase tracking-wider">manuel</span>
-                                                    )}
-                                                </td>
-                                                <td className="px-1.5 py-1.5 text-center" onClick={(e) => e.stopPropagation()}>
-                                                    <input
-                                                        type="number" step="0.01" min="0"
-                                                        className={`w-14 mx-auto px-1 py-1 text-center text-[13px] font-mono font-bold text-slate-700 border border-slate-200 rounded-md shadow-sm focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 outline-none transition-all ${INPUT_NO_SPIN}`}
+                                                        className={`w-20 px-2 py-1 text-center text-sm font-mono font-bold border border-slate-200 rounded-lg bg-white focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 outline-none transition-all ${INPUT_NO_SPIN}`}
                                                         value={displayValue(data.majoration)}
                                                         onChange={e => handleCellChange(op.id, 'majoration', e.target.value)}
                                                     />
-                                                </td>
-                                                <td
-                                                    className="px-2 py-3 text-center font-mono font-bold text-emerald-700 bg-emerald-50/30 text-xs"
-                                                    title={
-                                                        row.tempMajore !== undefined
-                                                            ? `T.Moy × Maj. → ${row.tempMajore.toFixed(3)} min (affiché : ${formatTempMajoreInUnit(row.tempMajore)} ${unitShort})`
-                                                            : undefined
-                                                    }
-                                                >
-                                                    {formatTempMajoreInUnit(row.tempMajore)}
-                                                </td>
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                <div className="flex-1 text-center min-w-0">
+                                                    <p className="text-[9px] font-bold text-slate-400 uppercase">T.Moy</p>
+                                                    <input
+                                                        type="number"
+                                                        step="0.01"
+                                                        min="0"
+                                                        className={`mt-0.5 w-full max-w-[5rem] mx-auto px-1 py-1 text-center text-sm font-black text-indigo-700 font-mono border border-slate-200 rounded-lg bg-white focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 outline-none ${INPUT_NO_SPIN}`}
+                                                        placeholder="—"
+                                                        value={displayValue(row.tm)}
+                                                        onChange={e => handleCellChange(op.id, 'tm', e.target.value)}
+                                                    />
+                                                    {row.tmManual && <span className="text-[8px] font-bold text-slate-400">manuel</span>}
+                                                </div>
+                                                <div className="w-px h-6 bg-slate-200"></div>
+                                                <div className="flex-1 text-center">
+                                                    <p className="text-[9px] font-bold text-slate-400 uppercase" title="T.Moy × Maj.">T.Maj × Maj ({unitShort})</p>
+                                                    <p className="text-sm font-black text-emerald-700 font-mono">{formatTempMajoreInUnit(row.tempMajore)}</p>
+                                                </div>
                                                 {showThroughputKpi && (
                                                     <>
-                                                        <td className="px-2 py-3 text-center font-mono text-slate-500 font-medium text-xs">
-                                                            {formatProductionCell(row.pMax, outputMode)}
-                                                        </td>
-                                                        <td className="px-2 py-3 text-center font-mono font-black text-slate-800 bg-slate-50 group-hover:bg-indigo-50 transition-colors text-xs">
-                                                            {formatProductionCell(row.p85, outputMode)}
-                                                        </td>
+                                                        <div className="w-px h-6 bg-slate-200"></div>
+                                                        <div className="flex-1 text-center">
+                                                            <p className="text-[9px] font-bold text-slate-400 uppercase">{outputMode === 'PJ' ? 'P° Rdt' : 'P/H Rdt'}</p>
+                                                            <p className="text-sm font-black text-slate-800 font-mono">{formatProductionCell(row.p85, outputMode)}</p>
+                                                        </div>
                                                     </>
                                                 )}
-                                            </tr>
-
-                                            {/* ─── EXPANDED: STOPWATCH ─── */}
-                                            {isExpanded && (
-                                                <tr>
-                                                    <td colSpan={desktopColSpan} className="px-6 py-8 bg-slate-50/50 border-b border-slate-200 shadow-inner">
-                                                        <div className="max-w-4xl mx-auto bg-white rounded-2xl shadow-2xl border border-indigo-100 overflow-hidden animate-in zoom-in-95 duration-200">
-                                                            <AdvancedStopwatch
-                                                                key={op.id}
-                                                                onRecord={(time) => handleStopwatchRecord(op.id, time)}
-                                                                onClear={() => clearAllTRs(op.id)}
-                                                                onAdvance={() => advanceToNextOp(op.id)}
-                                                                onPrev={() => goToPrevOp(op.id)}
-                                                                onNext={() => goToNextOp(op.id)}
-                                                                onUndoLast={() => clearLastTR(op.id)}
-                                                                trCount={trCount}
-                                                                filledCount={filledTRs}
-                                                            />
+                                                <div className="w-px h-6 bg-slate-200"></div>
+                                                <div className="text-center px-2">
+                                                    <p className="text-[9px] font-bold text-slate-400 uppercase">{trEnabled ? `${filledTRs}/${trCount}` : 'TR OFF'}</p>
+                                                    <div className="flex items-center justify-center gap-1 mt-1">
+                                                        <div className="w-8 h-1 bg-slate-200 rounded-full overflow-hidden">
+                                                            <div className={`h-full rounded-full ${filledTRs === trCount ? 'bg-emerald-500' : 'bg-indigo-400'}`} style={{ width: `${(filledTRs / Math.max(1, trCount)) * 100}%` }} />
                                                         </div>
-                                                    </td>
-                                                </tr>
+                                                        {trEnabled && filledTRs >= 2 && (() => {
+                                                            const v = getRowValidity(op.id);
+                                                            const dot = v === 'valid' ? 'bg-emerald-400' : v === 'warn' ? 'bg-amber-400' : 'bg-rose-500';
+                                                            const tip = v === 'valid' ? 'Série valide' : v === 'warn' ? 'Vérifier CV' : 'Série invalide';
+                                                            return <span className={`w-2 h-2 rounded-full shrink-0 ${dot}`} title={tip} />;
+                                                        })()}
+                                                    </div>
+                                                </div>
+                                                </div>
+                                            </div>
+        
+                                            {/* Expanded Stopwatch */}
+                                            {isExpanded && (
+                                                <div className="mt-3 bg-gradient-to-br from-indigo-50 to-cyan-50 rounded-xl p-4 border border-indigo-100 animate-in fade-in slide-in-from-top-2 duration-200">
+                                                    <AdvancedStopwatch
+                                                        key={op.id}
+                                                        onRecord={(time) => handleStopwatchRecord(op.id, time)}
+                                                        onClear={() => clearAllTRs(op.id)}
+                                                        onAdvance={() => advanceToNextOp(op.id)}
+                                                        onPrev={() => goToPrevOp(op.id)}
+                                                        onNext={() => goToNextOp(op.id)}
+                                                        onUndoLast={() => clearLastTR(op.id)}
+                                                        trCount={trCount}
+                                                        filledCount={filledTRs}
+                                                    />
+                                                </div>
                                             )}
-                                        </React.Fragment>
+                                        </div>
                                     );
                                 })
                             )}
-                        </tbody>
-
-                        {/* Footer Totals */}
-                        {operations.length > 0 && (
-                            <tfoot>
-                                <tr className="border-t-2 border-slate-800 bg-gradient-to-r from-slate-50 to-slate-100">
-                                    <td colSpan={2} className="px-4 py-4 text-right font-black uppercase tracking-wider text-slate-700 text-xs">
-                                        Total Général
-                                    </td>
-                                    {showTsColumn && (
-                                        <td
-                                            className="px-2 py-4 text-center font-black font-mono text-amber-600 border-x border-slate-200 bg-amber-50/50 text-xs"
-                                            title="Σ temps gamme (secondes)"
-                                        >
-                                            {totalTsSeconds.toFixed(2)}
-                                        </td>
-                                    )}
-                                    {trEnabled && (
-                                        <td colSpan={visibleTrCount} className="border-r border-slate-200 px-3 py-4 text-center">
-                                            <span className="text-[10px] font-bold text-slate-400 uppercase">— Relevés Individuels —</span>
-                                        </td>
-                                    )}
-                                    <td className="px-2 py-4 text-center font-black font-mono text-indigo-700 bg-indigo-100/70 text-sm border-l border-slate-200">
-                                        {totals.tm.toFixed(2)}
-                                    </td>
-                                    <td className="px-2 py-4"></td>
-                                    <td
-                                        className={`px-2 py-4 text-center font-black font-mono text-emerald-700 bg-emerald-100/70 text-sm ${!showThroughputKpi ? 'rounded-br-lg' : ''}`}
-                                        title={`Σ (T.Moy × Maj.) : ${totals.tempMajore.toFixed(3)} min — affiché en ${unitShort}`}
-                                    >
-                                        {formatTempMajoreInUnit(totals.tempMajore)}
-                                    </td>
-                                    {showThroughputKpi && (
-                                        <>
-                                            <td className="px-2 py-4 text-center font-bold font-mono text-slate-600 text-xs" title={footerPMaxTitle}>
-                                                {formatProductionCell(totals.pMaxGlobal || undefined, outputMode)}
-                                            </td>
-                                            <td
-                                                className="px-2 py-4 text-center font-black font-mono text-white bg-slate-800 text-sm rounded-br-lg"
-                                                title={footerPRdtTitle}
-                                            >
-                                                {formatProductionCell(totals.p85Global || undefined, outputMode)}
-                                            </td>
-                                        </>
-                                    )}
-                                </tr>
-                            </tfoot>
-                        )}
-                    </table>
-                </div>
-
-                {/* ─── MOBILE CARD VIEW ─── */}
-                <div className="md:hidden divide-y divide-slate-100">
-                    {filteredOperations.length === 0 ? (
-                        <div className="px-6 py-12 text-center">
-                            <div className="w-12 h-12 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                                <ClipboardList className="w-6 h-6 text-slate-300" />
-                            </div>
-                            <p className="text-slate-500 font-bold">Aucune opération</p>
-                            <p className="text-slate-400 text-xs mt-1">Remplir la Gamme Opératoire d'abord.</p>
                         </div>
-                    ) : (
-                        filteredOperations.map((op, index) => {
-                            const data = ensureRow(op.id, chronoData[op.id]);
-                            const row = recalcRow(data, unit);
-                            const isExpanded = expandedRows.has(op.id);
-                            const assignedPostes = assignments[op.id] || [];
-                            const primaryPosteColor = assignedPostes.length > 0 ? posteColorById.get(assignedPostes[0]) : undefined;
-                            const filledTRs = trSlots.filter(n => {
-                                const v = data[`tr${n}` as keyof ChronoData];
-                                return v !== undefined && v !== null;
-                            }).length;
-
-                            return (
-                                <div key={op.id} className="p-3 sm:p-4 bg-white">
-                                    {/* Name + Expand */}
-                                    <div className="flex items-center justify-between mb-2 sm:mb-3">
-                                        <div className="flex items-center gap-2 flex-1 min-w-0">
-                                            <span
-                                                className={`w-6 h-6 shrink-0 rounded-lg flex items-center justify-center font-mono text-[10px] font-bold shadow-sm ${primaryPosteColor ? 'text-white ring-1 ring-black/10' : 'bg-slate-100 text-slate-500'}`}
-                                                style={primaryPosteColor ? { backgroundColor: primaryPosteColor.fill ?? '#6366f1' } : undefined}
-                                            >
-                                                {index + 1}
-                                            </span>
-                                            <div className="min-w-0">
-                                                <p className="font-bold text-slate-800 text-sm truncate">{op.description}</p>
-                                                <div className="flex items-center gap-1 mt-0.5 flex-wrap">
-                                                    <span className="text-[9px] px-1.5 py-0.5 rounded-md bg-blue-50 text-blue-700 border border-blue-100 truncate max-w-[140px]">
-                                                        {getMachineLabel(op.id)}
-                                                    </span>
-                                                    {showTsColumn && (
-                                                        <span
-                                                            className="text-[9px] font-mono font-bold text-amber-600 px-1.5 py-0.5 rounded-md bg-amber-50/80 border border-amber-100"
-                                                            title="Temps standard gamme (s)"
-                                                        >
-                                                            TS {formatTsSeconds(op.time)} s
-                                                        </span>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <button onClick={() => toggleRowExpand(op.id)} className="w-7 h-7 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
-                                            {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                                        </button>
-                                    </div>
-
-                                    {/* TR Grid */}
-                                    {trEnabled && (
-                                    <div className="grid grid-cols-3 gap-2 mb-3">
-                                        {trSlots.map(trNum => {
-                                            const val = data[`tr${trNum}` as keyof ChronoData];
-                                            return (
-                                                <div key={trNum} className="relative">
-                                                    <label className="text-[9px] font-bold text-slate-400 uppercase mb-0.5 block text-center">TR {trNum}</label>
-                                                    <input
-                                                        type="number" step="0.01"
-                                                        className={`w-full px-2 py-2 text-center text-sm font-mono font-bold border border-slate-200 rounded-lg bg-slate-50 focus:bg-white focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 outline-none transition-all ${INPUT_NO_SPIN}`}
-                                                        placeholder="—"
-                                                        value={typeof val === 'number' && !isNaN(val) ? displayValue(val) : ''}
-                                                        onChange={e => handleCellChange(op.id, `tr${trNum}` as keyof ChronoData, e.target.value)}
-                                                    />
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
-                                    )}
-
-                                    {/* Results Strip */}
-                                    <div className="bg-slate-50 rounded-xl p-2.5 space-y-2">
-                                        <div className="flex items-center justify-between gap-2">
-                                            <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">Majoration</label>
-                                            <input
-                                                type="number"
-                                                step="0.01"
-                                                min="0"
-                                                className={`w-20 px-2 py-1 text-center text-sm font-mono font-bold border border-slate-200 rounded-lg bg-white focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 outline-none transition-all ${INPUT_NO_SPIN}`}
-                                                value={displayValue(data.majoration)}
-                                                onChange={e => handleCellChange(op.id, 'majoration', e.target.value)}
-                                            />
-                                        </div>
-                                        <div className="flex items-center gap-2">
-                                        <div className="flex-1 text-center min-w-0">
-                                            <p className="text-[9px] font-bold text-slate-400 uppercase">T.Moy</p>
-                                            <input
-                                                type="number"
-                                                step="0.01"
-                                                min="0"
-                                                className={`mt-0.5 w-full max-w-[5rem] mx-auto px-1 py-1 text-center text-sm font-black text-indigo-700 font-mono border border-slate-200 rounded-lg bg-white focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 outline-none ${INPUT_NO_SPIN}`}
-                                                placeholder="—"
-                                                value={displayValue(row.tm)}
-                                                onChange={e => handleCellChange(op.id, 'tm', e.target.value)}
-                                            />
-                                            {row.tmManual && <span className="text-[8px] font-bold text-slate-400">manuel</span>}
-                                        </div>
-                                        <div className="w-px h-6 bg-slate-200"></div>
-                                        <div className="flex-1 text-center">
-                                            <p className="text-[9px] font-bold text-slate-400 uppercase" title="T.Moy × Maj.">T.Maj × Maj ({unitShort})</p>
-                                            <p className="text-sm font-black text-emerald-700 font-mono">{formatTempMajoreInUnit(row.tempMajore)}</p>
-                                        </div>
-                                        {showThroughputKpi && (
-                                            <>
-                                                <div className="w-px h-6 bg-slate-200"></div>
-                                                <div className="flex-1 text-center">
-                                                    <p className="text-[9px] font-bold text-slate-400 uppercase">{outputMode === 'PJ' ? 'P° Rdt' : 'P/H Rdt'}</p>
-                                                    <p className="text-sm font-black text-slate-800 font-mono">{formatProductionCell(row.p85, outputMode)}</p>
-                                                </div>
-                                            </>
-                                        )}
-                                        <div className="w-px h-6 bg-slate-200"></div>
-                                        <div className="text-center px-2">
-                                            <p className="text-[9px] font-bold text-slate-400 uppercase">{trEnabled ? `${filledTRs}/${trCount}` : 'TR OFF'}</p>
-                                            <div className="flex items-center justify-center gap-1 mt-1">
-                                                <div className="w-8 h-1 bg-slate-200 rounded-full overflow-hidden">
-                                                    <div className={`h-full rounded-full ${filledTRs === trCount ? 'bg-emerald-500' : 'bg-indigo-400'}`} style={{ width: `${(filledTRs / Math.max(1, trCount)) * 100}%` }} />
-                                                </div>
-                                                {trEnabled && filledTRs >= 2 && (() => {
-                                                    const v = getRowValidity(op.id);
-                                                    const dot = v === 'valid' ? 'bg-emerald-400' : v === 'warn' ? 'bg-amber-400' : 'bg-rose-500';
-                                                    const tip = v === 'valid' ? 'Série valide' : v === 'warn' ? 'Vérifier CV' : 'Série invalide';
-                                                    return <span className={`w-2 h-2 rounded-full shrink-0 ${dot}`} title={tip} />;
-                                                })()}
-                                            </div>
-                                        </div>
-                                        </div>
-                                    </div>
-
-                                    {/* Expanded Stopwatch */}
-                                    {isExpanded && (
-                                        <div className="mt-3 bg-gradient-to-br from-indigo-50 to-cyan-50 rounded-xl p-4 border border-indigo-100 animate-in fade-in slide-in-from-top-2 duration-200">
-                                            <AdvancedStopwatch
-                                                key={op.id}
-                                                onRecord={(time) => handleStopwatchRecord(op.id, time)}
-                                                onClear={() => clearAllTRs(op.id)}
-                                                onAdvance={() => advanceToNextOp(op.id)}
-                                                onPrev={() => goToPrevOp(op.id)}
-                                                onNext={() => goToNextOp(op.id)}
-                                                onUndoLast={() => clearLastTR(op.id)}
-                                                trCount={trCount}
-                                                filledCount={filledTRs}
-                                            />
-                                        </div>
-                                    )}
-                                </div>
-                            );
-                        })
-                    )}
-                </div>
+                    </>
+                )}
             </div>
 
             {/* ─── HISTORIQUE & ÉVOLUTION DES SÉANCES DE CHRONO ─── */}

@@ -62,7 +62,6 @@ export default function ThreadCalculator({
 }: ThreadCalculatorProps) {
     const [wastePercent, setWastePercent] = useState(10);
     const [selectedBobbinSize, setSelectedBobbinSize] = useState(5000);
-    const [expandedSection, setExpandedSection] = useState<'ops' | 'result'>('ops');
     const [isExpanded, setIsExpanded] = useState(false);
     const [availableThreadTypes, setAvailableThreadTypes] = useState<string[]>(() => {
         try {
@@ -459,17 +458,14 @@ export default function ThreadCalculator({
                 <div className="flex-1 overflow-y-auto p-5 space-y-4">
                     {/* Operations Table */}
                     <div className="border border-slate-200 rounded-xl overflow-hidden">
-                        <button
-                            onClick={() => setExpandedSection(expandedSection === 'ops' ? 'result' : 'ops')}
-                            className="w-full bg-slate-50 p-3 flex items-center justify-between hover:bg-slate-100 transition-colors"
-                        >
+                        <div className="w-full bg-slate-50 p-3 flex items-center justify-between">
                             <div className="flex items-center gap-2">
                                 <Calculator className="w-4 h-4 text-blue-500" />
                                 <span className="font-black text-sm text-slate-700">
                                     OPÉRATIONS ({opsData.filter(op => op.selected).length}/{opsData.length})
                                 </span>
                             </div>
-                            <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                            <div className="flex items-center gap-2">
                                 <button
                                     onClick={selectAll}
                                     className="text-xs text-blue-600 hover:text-blue-800 font-bold underline"
@@ -485,12 +481,10 @@ export default function ThreadCalculator({
                                 >
                                     Aucun
                                 </button>
-                                {expandedSection === 'ops' ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
                             </div>
-                        </button>
+                        </div>
 
-                        {expandedSection === 'ops' && (
-                            <div className="overflow-x-auto">
+                        <div className="overflow-x-auto">
                                 <table className="w-full text-sm">
                                     <thead className="bg-slate-100 text-slate-600 text-xs uppercase">
                                         <tr>
@@ -609,7 +603,6 @@ export default function ThreadCalculator({
                                     </tbody>
                                 </table>
                             </div>
-                        )}
                     </div>
 
                     {/* Results by Machine */}
@@ -864,26 +857,21 @@ export default function ThreadCalculator({
             <div className="flex-1 overflow-y-auto p-5 space-y-4">
                 {/* Operations Table */}
                 <div className="border border-slate-200 rounded-xl overflow-hidden">
-                    <button
-                        onClick={() => setExpandedSection(expandedSection === 'ops' ? 'result' : 'ops')}
-                        className="w-full bg-slate-50 p-3 flex items-center justify-between hover:bg-slate-100 transition-colors"
-                    >
+                    <div className="w-full bg-slate-50 p-3 flex items-center justify-between">
                         <div className="flex items-center gap-2">
                             <Calculator className="w-4 h-4 text-blue-500" />
                             <span className="font-black text-sm text-slate-700">
                                 OPÉRATIONS ({opsData.filter(op => op.selected).length}/{opsData.length})
                             </span>
                         </div>
-                        <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex items-center gap-2">
                             <button onClick={selectAll} className="text-xs text-blue-600 hover:text-blue-800 font-bold underline" aria-label="Sélectionner toutes les opérations">Tout</button>
                             <span className="text-slate-300">|</span>
                             <button onClick={deselectAll} className="text-xs text-red-500 hover:text-red-700 font-bold underline" aria-label="Désélectionner toutes les opérations">Aucun</button>
-                            {expandedSection === 'ops' ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
                         </div>
-                    </button>
+                    </div>
 
-                    {expandedSection === 'ops' && (
-                        <div className="overflow-x-auto">
+                    <div className="overflow-x-auto">
                             <table className="w-full text-sm">
                                 <thead className="bg-slate-100 text-slate-600 text-xs uppercase">
                                     <tr>
@@ -970,7 +958,6 @@ export default function ThreadCalculator({
                                 </tbody>
                             </table>
                         </div>
-                    )}
                 </div>
 
                 {/* Results by Machine */}

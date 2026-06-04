@@ -681,6 +681,7 @@ export default function Implantation({
     };
 
     const [orientation, setOrientation] = useState<'landscape' | 'portrait'>('landscape');
+    const [printOrientationModal, setPrintOrientationModal] = useState(false);
     const [draggedStationIdx, setDraggedStationIdx] = useState<number | null>(null);
     const [selectedMachineToAdd, setSelectedMachineToAdd] = useState<string>('MAN');
     const [showDimensions, setShowDimensions] = useState(false);
@@ -1250,6 +1251,310 @@ export default function Implantation({
 
     const handleDeleteTemplate = (id: string) => {
         persistLayouts(savedLayouts.filter(l => l.id !== id));
+    };
+
+    // ════════════════════════════════════════════════════════════════════
+    //  IMPRESSION / PDF — Document TABLEAU (HTML réel, pas de capture image)
+    //  Chaque poste = une ligne du tableau, groupée par section, avec ses
+    //  opérations, sa couleur, sa saturation, et ses photos d'opérations.
+    //  Ouvre une fenêtre d'impression : Imprimer directement OU "Enregistrer
+    //  au format PDF" depuis la boîte de dialogue du navigateur.
+    // ════════════════════════════════════════════════════════════════════
+    const printPlanTable = (printOrientation: 'landscape' | 'portrait') => {
+        const esc = (s: any) => String(s ?? '')
+            .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
+        const secColor = (theme?: string) =>
+            theme === 'amber' ? '#d97706' : theme === 'sky' ? '#0284c7' : '#4f46e5';
+
+        const satStyle = (sat: number) => {
+            if (sat > tolerance) return 'color:#b91c1c;background:#fee2e2;';      // surcharge
+            if (sat >= 70) return 'color:#15803d;background:#dcfce7;';            // bon
+            if (sat >= 40) return 'color:#b45309;background:#fef3c7;';            // moyen
+            return 'color:#64748b;background:#f1f5f9;';                          // faible
+        };
+
+        const isAlternating = layoutType === 'double-zigzag' || layoutType === 'zigzag';
+
+        const renderStationCells = (st: Workstation | undefined) => {
+            if (!st) {
+                return `
+                    <td style="border:none;"></td>
+                    <td style="border:none;"></td>
+                    <td style="border:none;"></td>
+                    <td style="border:none;"></td>
+                    <td style="border:none;"></td>
+                    <td style="border:none;"></td>
+                    <td style="border:none;"></td>
+                    <td style="border:none;"></td>
+                `;
+            }
+
+            const fill = (st.color && (st.color as any).fill) || '#64748b';
+            const sat = Math.round(st.saturation || 0);
+            const opsHtml = (st.operations && st.operations.length > 0)
+                ? st.operations.map(op =>
+                    `<div style="margin-bottom:2px;line-height:1.3;">
+                        • ${esc(op.description)}${op.side ? ` <span style="color:#94a3b8;">(${esc(op.side)})</span>` : ''}
+                    </div>`).join('')
+                : '<span style="color:#cbd5e1;">—</span>';
+
+            const photos = (st.operations || []).map(op => op.photo).filter(Boolean) as string[];
+            const photoSize = 72; // Optimized size to fit side-by-side
+            const photoHtml = photos.length > 0
+                ? `<div style="display:flex;flex-wrap:wrap;gap:4px;">` +
+                    photos.slice(0, 4).map(p =>
+                        `<img src="${p}" style="width:${photoSize}px;height:${photoSize}px;object-fit:cover;border-radius:6px;border:1px solid #e2e8f0;" />`
+                    ).join('') + `</div>`
+                : '<span style="color:#cbd5e1;">—</span>';
+
+            return `
+                <td style="text-align:center;vertical-align:middle;padding:4px;"><div style="width:14px;height:14px;border:1.5px solid #64748b;border-radius:3px;margin:auto;background:#fff;"></div></td>
+                <td style="vertical-align:middle;">${photoHtml}</td>
+                <td style="border-left:5px solid ${fill};font-weight:800;color:#0f172a;white-space:nowrap;vertical-align:middle;">
+                    <span style="background:#f1f5f9;color:#334155;font-size:9px;padding:2px 4px;border-radius:4px;margin-right:5px;font-weight:800;border:1px solid #e2e8f0;">#${st.index}</span>${esc(st.name)}
+                </td>
+                <td style="font-weight:700;color:#334155;white-space:nowrap;vertical-align:middle;">${esc(st.machine)}</td>
+                <td class="ops-col" style="vertical-align:middle;">${opsHtml}</td>
+                <td style="font-weight:800;color:#4338ca;white-space:nowrap;vertical-align:middle;">${Math.round((st.totalTime || 0) * 60)}s</td>
+                <td style="vertical-align:middle;"><span style="display:inline-block;padding:2px 8px;border-radius:999px;font-weight:800;${satStyle(sat)}">${sat}%</span></td>
+                <td style="color:#64748b;white-space:nowrap;vertical-align:middle;">${esc(st.operatorName || '—')}</td>
+            `;
+        };
+
+        const rowsForSectionSingle = (stations: Workstation[]) => stations.map((st) => {
+            const fill = (st.color && (st.color as any).fill) || '#64748b';
+            const sat = Math.round(st.saturation || 0);
+            const opsHtml = (st.operations && st.operations.length > 0)
+                ? st.operations.map(op =>
+                    `<div style="margin-bottom:2px;line-height:1.3;">
+                        • ${esc(op.description)}${op.side ? ` <span style="color:#94a3b8;">(${esc(op.side)})</span>` : ''}
+                    </div>`).join('')
+                : '<span style="color:#cbd5e1;">—</span>';
+
+            const photos = (st.operations || []).map(op => op.photo).filter(Boolean) as string[];
+            const photoHtml = photos.length > 0
+                ? `<div style="display:flex;flex-wrap:wrap;gap:4px;">` +
+                    photos.slice(0, 4).map(p =>
+                        `<img src="${p}" style="width:96px;height:96px;object-fit:cover;border-radius:6px;border:1px solid #e2e8f0;" />`
+                    ).join('') + `</div>`
+                : '<span style="color:#cbd5e1;">—</span>';
+
+            return `
+                <tr>
+                    <td style="text-align:center;vertical-align:middle;padding:4px;"><div style="width:14px;height:14px;border:1.5px solid #64748b;border-radius:3px;margin:auto;background:#fff;"></div></td>
+                    <td style="vertical-align:middle;">${photoHtml}</td>
+                    <td style="border-left:5px solid ${fill};font-weight:800;color:#0f172a;white-space:nowrap;vertical-align:middle;">
+                        <span style="background:#f1f5f9;color:#334155;font-size:9px;padding:2px 4px;border-radius:4px;margin-right:5px;font-weight:800;border:1px solid #e2e8f0;">#${st.index}</span>${esc(st.name)}
+                    </td>
+                    <td style="font-weight:700;color:#334155;white-space:nowrap;vertical-align:middle;">${esc(st.machine)}</td>
+                    <td class="ops-col" style="vertical-align:middle;">${opsHtml}</td>
+                    <td style="font-weight:800;color:#4338ca;white-space:nowrap;vertical-align:middle;">${Math.round((st.totalTime || 0) * 60)}s</td>
+                    <td style="vertical-align:middle;"><span style="display:inline-block;padding:2px 8px;border-radius:999px;font-weight:800;${satStyle(sat)}">${sat}%</span></td>
+                    <td style="color:#64748b;white-space:nowrap;vertical-align:middle;">${esc(st.operatorName || '—')}</td>
+                </tr>`;
+        }).join('');
+
+        const sectionsHtml = structureSections.map(section => {
+            if (isAlternating) {
+                const sideA = section.stations.filter((_, idx) => idx % 2 === 0); // P1, P3, P5...
+                const sideB = section.stations.filter((_, idx) => idx % 2 !== 0); // P2, P4, P6...
+                const maxRows = Math.max(sideA.length, sideB.length);
+
+                const rowsHtml = [];
+                for (let idx = 0; idx < maxRows; idx++) {
+                    const leftStation = sideA[idx];  // Odd stations (P1, P3, P5...)
+                    const rightStation = sideB[idx]; // Even stations (P2, P4, P6...)
+
+                    rowsHtml.push(`
+                        <tr>
+                            ${renderStationCells(leftStation)}
+                            <td style="background:#f8fafc; border:none; width:16px; padding:0;"></td>
+                            ${renderStationCells(rightStation)}
+                        </tr>
+                    `);
+                }
+
+                return `
+                <div style="page-break-inside:auto;margin-top:18px;">
+                    <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+                        <span style="background:${secColor(section.theme)};color:#fff;font-weight:800;font-size:12px;letter-spacing:1px;text-transform:uppercase;padding:5px 14px;border-radius:8px;">${esc(section.name)}</span>
+                        ${section.hourly ? `<span style="color:#64748b;font-size:11px;font-weight:600;">Objectif : ${section.hourly} p/h</span>` : ''}
+                        <span style="color:#94a3b8;font-size:11px;">${section.stations.length} postes</span>
+                    </div>
+                    <table style="width:100%;">
+                        <thead>
+                            <tr>
+                                <th colspan="8" style="background:#f1f5f9; text-align:center; font-weight:800; color:#475569; border-bottom:2px solid #cbd5e1; font-size:11px; padding:6px 0;">CÔTÉ GAUCHE (POSTES IMPAIRS)</th>
+                                <th style="background:#f8fafc; border:none; width:16px; padding:0;"></th>
+                                <th colspan="8" style="background:#f1f5f9; text-align:center; font-weight:800; color:#475569; border-bottom:2px solid #cbd5e1; font-size:11px; padding:6px 0;">CÔTÉ DROIT (POSTES PAIRS)</th>
+                            </tr>
+                            <tr>
+                                <th style="width:24px;text-align:center;">✔</th>
+                                <th style="width:100px;">Photos</th>
+                                <th style="width:40px;">N°</th>
+                                <th style="width:70px;">Machine</th>
+                                <th>Opérations</th>
+                                <th style="width:50px;">Temps</th>
+                                <th style="width:50px;">Sat.</th>
+                                <th style="width:80px;">Opérateur</th>
+                                
+                                <th style="background:#f8fafc; border:none; width:16px; padding:0;"></th>
+                                
+                                <th style="width:24px;text-align:center;">✔</th>
+                                <th style="width:100px;">Photos</th>
+                                <th style="width:40px;">N°</th>
+                                <th style="width:70px;">Machine</th>
+                                <th>Opérations</th>
+                                <th style="width:50px;">Temps</th>
+                                <th style="width:50px;">Sat.</th>
+                                <th style="width:80px;">Opérateur</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${rowsHtml.join('')}
+                        </tbody>
+                    </table>
+                </div>`;
+            } else {
+                return `
+                <div style="page-break-inside:auto;margin-top:18px;">
+                    <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">
+                        <span style="background:${secColor(section.theme)};color:#fff;font-weight:800;font-size:12px;letter-spacing:1px;text-transform:uppercase;padding:5px 14px;border-radius:8px;">${esc(section.name)}</span>
+                        ${section.hourly ? `<span style="color:#64748b;font-size:11px;font-weight:600;">Objectif : ${section.hourly} p/h</span>` : ''}
+                        <span style="color:#94a3b8;font-size:11px;">${section.stations.length} postes</span>
+                    </div>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th style="width:24px;text-align:center;">✔</th>
+                                <th style="width:120px;">Photos</th>
+                                <th style="width:48px;">N°</th>
+                                <th style="width:70px;">Machine</th>
+                                <th>Opérations</th>
+                                <th style="width:60px;">Temps</th>
+                                <th style="width:64px;">Sat.</th>
+                                <th style="width:90px;">Opérateur</th>
+                            </tr>
+                        </thead>
+                        <tbody>${rowsForSectionSingle(section.stations)}</tbody>
+                    </table>
+                </div>`;
+            }
+        }).join('');
+
+        const machinesHtml = machinesSummary.counts.map(([name, count]) => `
+            <tr>
+                <td style="font-weight:600;color:#475569;">${esc(name)}</td>
+                <td style="text-align:right;font-weight:800;color:#0f172a;">${count}</td>
+            </tr>`).join('');
+
+        // Photos modèle éventuelles (selon ce que porte ficheData) — tolérant si absent.
+        const fd = ficheData as any;
+        const modelPhotos = [fd?.images?.front, fd?.images?.back, fd?.image, fd?.photoDataUrl]
+            .filter(Boolean) as string[];
+
+        const tableFontSize = isAlternating
+            ? (printOrientation === 'landscape' ? '10px' : '8.5px')
+            : '11px';
+
+        const html = `<!DOCTYPE html>
+<html lang="fr"><head><meta charset="utf-8" />
+<title>Plan d'Implantation — ${esc(articleName || 'Modèle')}</title>
+<style>
+    @page { size: A4 ${printOrientation}; margin: 8mm; }
+    * { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    body { font-family: 'Segoe UI', Arial, sans-serif; color:#1e293b; margin:0; font-size:11px; }
+    h1 { margin:0; font-size:22px; color:#1e293b; }
+    table { width:100%; border-collapse:collapse; font-size: ${tableFontSize}; }
+    thead { display:table-header-group; }
+    th { background:#f1f5f9; font-size:10px; text-transform:uppercase; letter-spacing:.4px; color:#475569; padding:6px 8px; text-align:left; border-bottom:2px solid #cbd5e1; }
+    td { padding:8px; border-bottom:1px solid #e2e8f0; vertical-align:top; }
+    tr { page-break-inside:avoid; }
+    .badge { background:#1e293b; color:#fff; font-weight:800; font-size:18px; padding:8px 16px; border-radius:8px; }
+    .stat { background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:10px 14px; flex:1; }
+    .stat b { display:block; font-size:18px; color:#0f172a; margin-top:2px; }
+    .no-print { }
+    .ops-col { font-size: ${isAlternating ? (printOrientation === 'landscape' ? '12px' : '10.5px') : '12.5px'}; font-weight: 700; color: #0f172a; }
+    @media print { .no-print { display:none !important; } }
+</style></head>
+<body>
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #e2e8f0;padding-bottom:14px;">
+        <div style="display:flex;align-items:center;gap:14px;">
+            <span class="badge">BERAMETHODE</span>
+            <div>
+                <h1>Plan d'Implantation</h1>
+                <div style="color:#64748b;margin-top:3px;">Modèle : <b style="color:#334155;">${esc(articleName || 'Générique')}</b></div>
+            </div>
+        </div>
+        <div style="text-align:right;color:#64748b;font-size:11px;">
+            <div>${new Date().toLocaleDateString('fr-FR')} ${new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</div>
+            <div style="margin-top:3px;">${structureSections.reduce((n, s) => n + s.stations.length, 0)} postes au total</div>
+        </div>
+    </div>
+
+    ${modelPhotos.length > 0 ? `<div style="display:flex;gap:10px;margin-top:12px;">${modelPhotos.map(p => `<img src="${p}" style="height:120px;border-radius:8px;border:1px solid #e2e8f0;object-fit:contain;" />`).join('')}</div>` : ''}
+
+    <div style="display:flex;gap:12px;margin-top:14px;">
+        <div class="stat"><span style="color:#64748b;font-size:10px;text-transform:uppercase;">Ouvriers</span><b>${numWorkers}</b></div>
+        <div class="stat"><span style="color:#64748b;font-size:10px;text-transform:uppercase;">Heures</span><b>${hours.toFixed(1)}</b></div>
+        <div class="stat"><span style="color:#64748b;font-size:10px;text-transform:uppercase;">Min. présence</span><b>${presenceTime}</b></div>
+        <div class="stat" style="background:#ecfdf5;border-color:#a7f3d0;"><span style="color:#059669;font-size:10px;text-transform:uppercase;">BF (s)</span><b style="color:#047857;">${(bf * 60).toFixed(1)}</b></div>
+        <div class="stat" style="background:#fff7ed;border-color:#fed7aa;"><span style="color:#ea580c;font-size:10px;text-transform:uppercase;">Prod / H</span><b style="color:#c2410c;">${Math.round(prodHour100)}</b></div>
+    </div>
+
+    ${sectionsHtml}
+
+    <div style="margin-top:22px;page-break-inside:avoid;max-width:320px;">
+        <div style="background:#1e293b;color:#fff;font-weight:800;font-size:12px;letter-spacing:1px;text-transform:uppercase;padding:5px 14px;border-radius:8px;display:inline-block;margin-bottom:6px;">Résumé Matériel — ${machinesSummary.total} postes</div>
+        <table><tbody>${machinesHtml}</tbody></table>
+    </div>
+
+    <script>
+        window.onload = function () { 
+            setTimeout(function () { 
+                window.focus(); 
+                window.print(); 
+                if (window.parent === window) {
+                    window.close(); 
+                }
+            }, 400); 
+        };
+    </script>
+</body></html>`;
+
+        // Create an invisible iframe for printing to avoid opening extra popup tabs/windows
+        const frameId = 'print-plan-iframe';
+        let iframe = document.getElementById(frameId) as HTMLIFrameElement | null;
+        if (iframe) {
+            iframe.parentNode?.removeChild(iframe);
+        }
+        iframe = document.createElement('iframe');
+        iframe.id = frameId;
+        iframe.style.position = 'fixed';
+        iframe.style.right = '0';
+        iframe.style.bottom = '0';
+        iframe.style.width = '0';
+        iframe.style.height = '0';
+        iframe.style.border = '0';
+        iframe.style.zIndex = '-1000';
+        document.body.appendChild(iframe);
+
+        const win = iframe.contentWindow;
+        if (!win) {
+            alert("Erreur lors de la préparation de l'impression.");
+            return;
+        }
+        win.document.open();
+        win.document.write(html);
+        win.document.close();
+
+        // Clean up the iframe from the DOM after the print dialog is triggered
+        setTimeout(() => {
+            if (iframe && iframe.parentNode) {
+                iframe.parentNode.removeChild(iframe);
+            }
+        }, 3000);
     };
 
     // REMOVED LOCAL STATE FOR MANUALLINKS HERE - USING PROPS
@@ -2589,6 +2894,26 @@ export default function Implantation({
                                     <button onClick={() => setZoom(z => Math.min(2, z + 0.1))} className="p-1.5 text-slate-500 hover:text-indigo-600 rounded-md hover:bg-slate-100 transition-colors" title="Zoom +"><ZoomIn className="w-3.5 h-3.5" /></button>
                                 </div>
 
+                                <div className="w-px h-7 bg-slate-200" />
+
+                                {/* Orientation Controls */}
+                                <div className="flex items-center bg-slate-50 p-0.5 rounded-lg border border-slate-200">
+                                    <button 
+                                        onClick={() => setOrientation('landscape')} 
+                                        className={`px-2.5 py-1.5 rounded-md font-bold transition-all text-xs ${orientation === 'landscape' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-500 hover:text-indigo-600 hover:bg-slate-100'}`}
+                                        title="Implantation Horizontale"
+                                    >
+                                        Paysage
+                                    </button>
+                                    <button 
+                                        onClick={() => setOrientation('portrait')} 
+                                        className={`px-2.5 py-1.5 rounded-md font-bold transition-all text-xs ${orientation === 'portrait' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-500 hover:text-indigo-600 hover:bg-slate-100'}`}
+                                        title="Implantation Verticale"
+                                    >
+                                        Portrait
+                                    </button>
+                                </div>
+
                                 {/* Free Mode Tools */}
                                 {isManualMode && layoutType === 'free' && (
                                     <>
@@ -2647,8 +2972,9 @@ export default function Implantation({
 
                                     <div className="w-px h-7 bg-slate-200" />
 
-                                    <button onClick={handleExportPlan} className="px-3 py-1.5 bg-slate-50 rounded-lg flex items-center gap-1.5 hover:text-indigo-600 hover:bg-indigo-50 border border-slate-200 transition-colors text-slate-600 text-xs font-bold whitespace-nowrap">
-                                        {isExporting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Printer className="w-3.5 h-3.5" />} Imprimer
+                                    {/* Impression / PDF : document TABLEAU (fenêtre d'impression du navigateur). */}
+                                    <button onClick={() => setPrintOrientationModal(true)} className="px-3 py-1.5 bg-slate-50 rounded-lg flex items-center gap-1.5 hover:text-indigo-600 hover:bg-indigo-50 border border-slate-200 transition-colors text-slate-600 text-xs font-bold whitespace-nowrap">
+                                        <Printer className="w-3.5 h-3.5" /> Imprimer
                                     </button>
                                     {onSave && (
                                         <button onClick={() => { onSave(); setSaveSuccess(true); setTimeout(() => setSaveSuccess(false), 2500); }} className="px-3 py-1.5 bg-slate-800 text-white rounded-lg flex items-center gap-1.5 border border-slate-700 hover:bg-emerald-600 hover:border-emerald-600 transition-colors text-xs font-bold whitespace-nowrap active:scale-95">
@@ -3708,6 +4034,52 @@ export default function Implantation({
                         <div className="flex gap-3">
                             <button onClick={() => setShowSaveTemplateModal(false)} className="flex-1 py-2.5 rounded-xl border border-slate-200 font-bold text-slate-600 hover:bg-slate-50 transition-colors text-xs">Annuler</button>
                             <button onClick={handleSaveTemplate} className="flex-1 py-2.5 rounded-xl bg-indigo-600 text-white font-bold hover:bg-indigo-700 shadow-md shadow-indigo-200 transition-colors text-xs">Enregistrer</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {printOrientationModal && (
+                <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 animate-in fade-in duration-200">
+                    <div className="absolute inset-0 bg-slate-900/60 " onClick={() => setPrintOrientationModal(false)} />
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm relative overflow-hidden animate-in fade-in zoom-in-95 duration-200 p-6 z-[1001]">
+                        <h3 className="font-bold text-slate-800 text-lg mb-2">Orientation de l'Impression</h3>
+                        <p className="text-xs text-slate-500 mb-6 leading-relaxed">
+                            Choisissez le format d'orientation pour l'exportation du plan d'implantation en PDF / Impression A4 :
+                        </p>
+                        <div className="flex flex-col gap-3">
+                            <button 
+                                onClick={() => {
+                                    setPrintOrientationModal(false);
+                                    printPlanTable('landscape');
+                                }} 
+                                className="w-full py-3 px-4 rounded-xl border-2 border-indigo-100 bg-indigo-50/50 text-indigo-700 font-bold hover:bg-indigo-50 hover:border-indigo-200 transition-colors text-xs flex items-center justify-between"
+                            >
+                                <span className="flex flex-col items-start text-left">
+                                    <span className="font-black text-sm">Paysage (Horizontal)</span>
+                                    <span className="text-[10px] text-indigo-500 font-normal mt-0.5">Idéal pour les tables de montage face-à-face (côté-à-côté)</span>
+                                </span>
+                                <Printer className="w-4 h-4 opacity-70 shrink-0" />
+                            </button>
+                            <button 
+                                onClick={() => {
+                                    setPrintOrientationModal(false);
+                                    printPlanTable('portrait');
+                                }} 
+                                className="w-full py-3 px-4 rounded-xl border-2 border-slate-100 bg-slate-50/50 text-slate-700 font-bold hover:bg-slate-50 hover:border-slate-200 transition-colors text-xs flex items-center justify-between"
+                            >
+                                <span className="flex flex-col items-start text-left">
+                                    <span className="font-black text-sm">Portrait (Vertical)</span>
+                                    <span className="text-[10px] text-slate-500 font-normal mt-0.5">Idéal pour une liste de postes linéaire simple</span>
+                                </span>
+                                <Printer className="w-4 h-4 opacity-70 shrink-0" />
+                            </button>
+                            <button 
+                                onClick={() => setPrintOrientationModal(false)} 
+                                className="w-full py-2.5 rounded-xl border border-slate-200 font-bold text-slate-600 hover:bg-slate-50 transition-colors text-xs mt-2"
+                            >
+                                Annuler
+                            </button>
                         </div>
                     </div>
                 </div>

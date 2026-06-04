@@ -399,14 +399,19 @@ export default function ModelWorkflow({
                             chronoData={chronoData}
                             setChronoData={setChronoData}
                             presenceTime={presenceTime}
+                            setPresenceTime={setPresenceTime}
                             bf={bf}
                             numWorkers={numWorkers}
+                            setNumWorkers={setNumWorkers}
                             efficiency={efficiency}
+                            setEfficiency={setEfficiency}
                             machines={machines}
                             assignments={assignments}
                             postes={postes}
                             currentModelId={currentModelId}
                             articleName={articleName}
+                            activeLayout={activeLayout}
+                            toleranceSaturation={ficheData.toleranceSaturation ?? 115}
                         />
                     )}
 
@@ -471,7 +476,14 @@ export default function ModelWorkflow({
                     )}
 
                     {currentStep === 'couts' && (() => {
-                        const calculatedChronoTotal = Object.values(chronoData).reduce((sum, item) => sum + (item.tempMajore || 0), 0);
+                        const calculatedChronoTotal = operations.reduce((sum, op) => {
+                            const stKeys = Object.keys(chronoData).filter(k => k.endsWith(`__${op.id}`));
+                            if (stKeys.length > 0) {
+                                const avg = stKeys.reduce((acc, k) => acc + (chronoData[k].tempMajore || 0), 0) / stKeys.length;
+                                return sum + avg;
+                            }
+                            return sum + (chronoData[op.id]?.tempMajore || 0);
+                        }, 0);
                         return (
                             <CostCalculator
                                 initialArticleName={articleName}
