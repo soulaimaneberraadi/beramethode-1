@@ -107,7 +107,8 @@ const OrderModelPage: React.FC<OrderModelPageProps> = ({
     // Get order quantity from ficheData or default to 1
     const orderQty = ficheData.quantity > 0 ? ficheData.quantity : 1;
 
-    const totalProjectCost = totalPurchasingMatCost + (laborCost * orderQty);
+    const isExport = ficheData.typeMarche === 'Export';
+    const totalProjectCost = isExport ? (laborCost * orderQty) : totalPurchasingMatCost + (laborCost * orderQty);
     const costPerPiece = orderQty > 0 ? totalProjectCost / orderQty : 0;
 
     const sizes = ficheData.sizes || [];
@@ -224,7 +225,14 @@ const OrderModelPage: React.FC<OrderModelPageProps> = ({
 
                     {/* Info */}
                     <div className="flex-1">
-                        <p className="text-indigo-200 text-xs font-bold uppercase tracking-widest mb-1">أمر الإنتاج</p>
+                        <div className="flex items-center gap-2 flex-wrap">
+                            <p className="text-indigo-200 text-xs font-bold uppercase tracking-widest mb-1">أمر الإنتاج</p>
+                            {ficheData.typeMarche === 'Export' && (
+                                <span className="bg-amber-500/20 text-amber-200 border border-amber-500/30 text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider mb-1 animate-pulse">
+                                    تصدير - يد عاملة فقط (Export)
+                                </span>
+                            )}
+                        </div>
                         <h1 className="text-2xl md:text-3xl font-black text-white tracking-tight">
                             {productName || 'بدون اسم'}
                         </h1>
@@ -352,7 +360,7 @@ const OrderModelPage: React.FC<OrderModelPageProps> = ({
                                                     {m.fournisseur || '—'}
                                                 </td>
                                                 <td className="px-4 py-3 text-center text-xs font-medium text-slate-600">
-                                                    {m.unitPrice} {currency}
+                                                    {isExport ? '0 (Fourni)' : `${m.unitPrice} ${currency}`}
                                                 </td>
                                                 <td className="px-4 py-3 text-center text-xs text-slate-500">
                                                     {fmt(m.qty)} {m.unit}
@@ -366,7 +374,7 @@ const OrderModelPage: React.FC<OrderModelPageProps> = ({
                                                     </span>
                                                 </td>
                                                 <td className="px-4 py-3 text-center font-bold text-slate-800">
-                                                    {fmt(m.lineCost)} {currency}
+                                                    {isExport ? 0 : fmt(m.lineCost)} {currency}
                                                 </td>
                                             </tr>
                                         ))

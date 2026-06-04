@@ -30,7 +30,7 @@ export function usePlanningChains({ settings, suivis, planningEvents, models }: 
                 id,
                 name: settings.chainNames?.[id] || id,
                 capacityPerDay: getChainDailyCapacity(settings.chainCapacityPerDay, id, 1000),
-                efficiency: eff,
+                efficiency: eff > 0 ? eff : (settings.chainActivityRate?.[id] ?? 0.60),
                 efficiencySource: n > 0 ? ('COMPUTED' as const) : undefined,
                 efficiencySampleSize: n,
                 isActive: true,

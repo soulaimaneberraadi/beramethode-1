@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus, Sparkles, Printer, Search, ChevronLeft, ChevronRight, SlidersHorizontal, Brain, MoreHorizontal, X, Undo2, Redo2, Layers } from 'lucide-react';
+import { Plus, Sparkles, Printer, Search, ChevronLeft, ChevronRight, SlidersHorizontal, Brain, MoreHorizontal, X, Undo2, Redo2, Layers, Trash2 } from 'lucide-react';
 import { fmtMonthYear } from '../shared/dateFmt';
 import { useIsMobile } from '../shared/useIsMobile';
 import type { ViewKind } from './ViewSwitcher';
@@ -30,6 +30,7 @@ interface Props {
     canRedo?: boolean;
     onUndo?: () => void;
     onRedo?: () => void;
+    onClearPlanning?: () => void;
 }
 
 const VIEW_OPTIONS: { id: ViewKind; label: string }[] = [
@@ -49,6 +50,7 @@ export default function PlanningHeader({
     filtersOpen, onToggleFilters, hasActiveFilters,
     onOptimizePlanning, onBatchSchedule,
     canUndo, canRedo, onUndo, onRedo,
+    onClearPlanning,
 }: Props) {
 
     const shift = (delta: number) => {
@@ -279,6 +281,17 @@ export default function PlanningHeader({
                         <IconButton onClick={onOptimizePlanning} title="Optimiser le planning par IA">
                             <Brain className="w-3.5 h-3.5 text-purple-600 animate-pulse" strokeWidth={1.75} />
                         </IconButton>
+                    )}
+
+                    {onClearPlanning && (
+                        <button
+                            type="button"
+                            onClick={onClearPlanning}
+                            title="Vider tout le planning"
+                            className="w-8 h-8 flex items-center justify-center rounded-md text-red-500 hover:text-red-700 hover:bg-red-50/50 transition-colors"
+                        >
+                            <Trash2 className="w-3.5 h-3.5" strokeWidth={1.75} />
+                        </button>
                     )}
 
                     <div className="w-px h-5 bg-slate-100 mx-1" />

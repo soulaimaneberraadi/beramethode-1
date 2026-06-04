@@ -64,7 +64,18 @@ export function useAutoSchedule({ chains, planningEvents, models, machines, sett
 
             // Calcul fin
             const sam = model.meta_data?.total_temps || 15;
-            const endIso = calculateEndDate(todayYmd, input.quantity, sam, chain.efficiency, settings);
+            
+            // Model planning efficiency
+            const modelEff = model.ficheData?.targetEfficiency ?? 85;
+            const safetyFactor = model.ficheData?.facteurPlanning ?? 60;
+            const effToUse = (modelEff * safetyFactor) / 10000;
+
+            // Launch buffer
+            const setupMins = model.ficheData?.bufferLancement !== undefined 
+                ? model.ficheData.bufferLancement 
+                : (settings.changeoverDurationMins ?? 120);
+
+            const endIso = calculateEndDate(todayYmd, input.quantity, sam, effToUse, settings, chain.id, setupMins);
             const endYmd = endIso.split('T')[0];
 
             // Filtre 2 : capacité
@@ -91,15 +102,21 @@ export function useAutoSchedule({ chains, planningEvents, models, machines, sett
 
             // Filtre 4 : DDS
             if (input.deadlineDDS) {
-                const dds = input.deadlineDDS.split('T')[0];
-                if (endYmd > dds) {
+                const isExport = model.ficheData?.typeMarche === 'Export';
+                let adjustedDDS = new Date(input.deadlineDDS);
+                if (isExport) {
+                    adjustedDDS.setDate(adjustedDDS.getDate() - 3);
+                }
+                const ddsYmd = adjustedDDS.toISOString().split('T')[0];
+
+                if (endYmd > ddsYmd) {
                     score -= 50;
-                    reasoning.push('✗ Dépasse le DDS');
+                    reasoning.push(isExport ? '✗ Dépasse le DDS (Transit -3j inclus)' : '✗ Dépasse le DDS');
                 } else {
-                    const buffer = Math.round((new Date(dds).getTime() - new Date(endYmd).getTime()) / 86400000);
+                    const buffer = Math.round((adjustedDDS.getTime() - new Date(endYmd).getTime()) / 86400000);
                     if (buffer >= 5) {
                         score += 5;
-                        reasoning.push(`✓ Marge ${buffer} j avant DDS`);
+                        reasoning.push(`✓ Marge ${buffer} j avant DDS${isExport ? ' (Transit -3j inclus)' : ''}`);
                     }
                 }
             }

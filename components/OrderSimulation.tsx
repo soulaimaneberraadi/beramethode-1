@@ -18,16 +18,18 @@ interface OrderSimulationProps {
     textSecondary: string;
     textPrimary: string;
     bgCard: string;
+    isExport?: boolean;
 }
 
 const OrderSimulation: React.FC<OrderSimulationProps> = ({
     t, currency, darkMode, orderQty, setOrderQty, wasteRate, setWasteRate,
     deductStock,
     purchasingData, totalPurchasingMatCost, laborCost,
-    textSecondary, textPrimary, bgCard
+    textSecondary, textPrimary, bgCard,
+    isExport = false
 }) => {
     const activeQtyToSimulate = orderQty;
-    const totalProjectCost = totalPurchasingMatCost + (laborCost * activeQtyToSimulate);
+    const totalProjectCost = isExport ? (laborCost * activeQtyToSimulate) : totalPurchasingMatCost + (laborCost * activeQtyToSimulate);
 
     const [magasinData, setMagasinData] = useState<any[]>([]);
 
@@ -181,7 +183,7 @@ const OrderSimulation: React.FC<OrderSimulationProps> = ({
                                                 {m.name}
                                                 {m.unit === 'bobine' && <span className="text-[10px] text-slate-400 block font-normal">({m.threadMeters}m / bobine)</span>}
                                             </td>
-                                            <td className={`px-4 py-3 text-center ${textSecondary}`}>{m.unitPrice} {currency}</td>
+                                            <td className={`px-4 py-3 text-center ${textSecondary}`}>{isExport ? '0 (Fourni)' : `${m.unitPrice} ${currency}`}</td>
                                             <td className={`px-4 py-3 text-center ${textSecondary}`}>
                                                 <span title={`(${m.qty} × ${orderQty}) + ${wasteRate}%`} className="font-bold">
                                                     {fmt(m.qtyToBuy)} {m.unit}
@@ -214,8 +216,8 @@ const OrderSimulation: React.FC<OrderSimulationProps> = ({
                                                 )}
                                             </td>
                                             <td className={`px-4 py-3 text-right font-bold ${textPrimary} border-l`}>
-                                                <div className="flex items-center justify-end gap-1 cursor-help" title={`${m.qtyToBuy} × ${m.unitPrice} = ${fmt(m.lineCost)}`}>
-                                                    {fmt(m.lineCost)} {currency}
+                                                <div className="flex items-center justify-end gap-1 cursor-help" title={isExport ? "Fourni par le client (0 DH)" : `${m.qtyToBuy} × ${m.unitPrice} = ${fmt(m.lineCost)}`}>
+                                                    {isExport ? 0 : fmt(m.lineCost)} {currency}
                                                 </div>
                                             </td>
                                         </tr>

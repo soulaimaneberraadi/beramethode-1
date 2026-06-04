@@ -1,7 +1,7 @@
 
 import React, { useMemo, useState, useEffect, useRef, useCallback, useLayoutEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Operation, Poste, Machine, ComplexityFactor, StandardTime, SavedLayout, ManualLink } from '../types';
+import { Operation, Poste, Machine, ComplexityFactor, StandardTime, SavedLayout, ManualLink, FicheData } from '../types';
 import ExcelInput from './ExcelInput';
 import {
     Zap,
@@ -129,6 +129,8 @@ interface ImplantationProps {
     manualLinks?: ManualLink[];
     setManualLinks?: React.Dispatch<React.SetStateAction<ManualLink[]>>;
     readOnly?: boolean;
+    ficheData?: FicheData;
+    setFicheData?: React.Dispatch<React.SetStateAction<FicheData>>;
 }
 
 const GROUP_COLORS = [
@@ -309,7 +311,8 @@ const LinkOverlay = ({
     zoom,
     containerRef,
     onRemoveLink,
-    onEditLabel
+    onEditLabel,
+    hoveredStationIndex
 }: {
     links: ManualLink[],
     stations: Workstation[],
@@ -317,7 +320,8 @@ const LinkOverlay = ({
     zoom: number,
     containerRef: React.RefObject<HTMLDivElement>,
     onRemoveLink: (id: string) => void,
-    onEditLabel: (id: string, currentLabel?: string) => void
+    onEditLabel: (id: string, currentLabel?: string) => void,
+    hoveredStationIndex?: number | null
 }) => {
     const [paths, setPaths] = useState<{ id: string, path: string, labelX: number, labelY: number, label?: string, color: string, type: 'forward' | 'loop' | 'vertical' }[]>([]);
 
@@ -466,6 +470,10 @@ const LinkOverlay = ({
     const dynamicStrokeWidth = 2.5 / zoom;
     const dynamicHoverWidth = 20 / zoom;
 
+    const hoveredStationId = hoveredStationIndex !== null && hoveredStationIndex !== undefined
+        ? stations.find(s => s.index === hoveredStationIndex)?.id || null
+        : null;
+
     return (
         <svg className="absolute inset-0 w-full h-full pointer-events-none z-0 overflow-visible">
             <defs>
@@ -476,34 +484,57 @@ const LinkOverlay = ({
                     </marker>
                 ))}
             </defs>
-            {paths.map(p => (
-                <g key={p.id} className="group pointer-events-auto">
-                    <path d={p.path} stroke="transparent" strokeWidth={dynamicHoverWidth} fill="none" className="cursor-pointer" onClick={() => onEditLabel(p.id, p.label)} />
-                    <path
-                        d={p.path}
-                        stroke={p.color}
-                        strokeWidth={dynamicStrokeWidth}
-                        fill="none"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        markerEnd={`url(#arrow-${p.color.replace('#', '')})`}
-                        className="pointer-events-none transition-all duration-300 group-hover:stroke-width-[4px]"
-                    />
-                    <circle r={3 / zoom} fill={p.color} className="opacity-0 group-hover:opacity-100">
-                        <animateMotion dur="2s" repeatCount="indefinite" path={p.path} />
-                    </circle>
-                    <foreignObject x={p.labelX - (60 / zoom)} y={p.labelY - (15 / zoom)} width={120 / zoom} height={30 / zoom} className="overflow-visible">
-                        <div className="flex items-center justify-center gap-1 hover:scale-110 transition-transform origin-center" style={{ transform: `scale(${1 / zoom})` }}>
-                            {p.label ? (
-                                <div onClick={() => onEditLabel(p.id, p.label)} className="bg-white/90  text-slate-700 text-[10px] font-bold px-2 py-1 rounded-lg shadow-md border border-slate-200 whitespace-nowrap cursor-pointer hover:bg-indigo-50 hover:border-indigo-200 max-w-[100px] truncate relative z-50" title={p.label}>{p.label}</div>
-                            ) : (
-                                <button onClick={() => onEditLabel(p.id)} className="bg-white/90  p-1 rounded-full border border-slate-200 shadow-sm opacity-0 group-hover:opacity-100 transition-opacity text-slate-400 hover:text-indigo-500 relative z-50"><MessageSquare className="w-3 h-3" /></button>
-                            )}
-                            <button onClick={() => onRemoveLink(p.id)} className="bg-white/90  text-slate-300 p-1 rounded-full border border-slate-200 shadow-sm hover:text-rose-500 hover:bg-rose-50 opacity-0 group-hover:opacity-100 transition-opacity relative z-50"><X className="w-3 h-3" /></button>
-                        </div>
-                    </foreignObject>
-                </g>
-            ))}
+            {paths.map(p => {
+                const link = links.find(l => l.id === p.id);
+                const isHoveredSource = hoveredStationId && link && (link.from === hoveredStationId || `${link.from}__1` === hoveredStationId || hoveredStationId.startsWith(`${link.from}__`));
+                const isHoveredTarget = hoveredStationId && link && (link.to === hoveredStationId || `${link.to}__1` === hoveredStationId || hoveredStationId.startsWith(`${link.to}__`));
+                const isAnyHovered = hoveredStationId !== null;
+
+                let strokeColor = p.color;
+                let strokeWidth = dynamicStrokeWidth;
+                let opacityStyle = {};
+
+                if (isAnyHovered) {
+                    if (isHoveredSource) {
+                        strokeColor = '#0ea5e9'; // sky-500
+                        strokeWidth = dynamicStrokeWidth * 1.8;
+                    } else if (isHoveredTarget) {
+                        strokeColor = '#f59e0b'; // amber-500
+                        strokeWidth = dynamicStrokeWidth * 1.8;
+                    } else {
+                        opacityStyle = { opacity: 0.25 };
+                    }
+                }
+
+                return (
+                    <g key={p.id} className="group pointer-events-auto" style={opacityStyle}>
+                        <path d={p.path} stroke="transparent" strokeWidth={dynamicHoverWidth} fill="none" className="cursor-pointer" onClick={() => onEditLabel(p.id, p.label)} />
+                        <path
+                            d={p.path}
+                            stroke={strokeColor}
+                            strokeWidth={strokeWidth}
+                            fill="none"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            markerEnd={isAnyHovered && (isHoveredSource || isHoveredTarget) ? `url(#arrow-${strokeColor.replace('#', '')})` : `url(#arrow-${p.color.replace('#', '')})`}
+                            className="pointer-events-none transition-all duration-300 group-hover:stroke-width-[4px]"
+                        />
+                        <circle r={3 / zoom} fill={strokeColor} className="opacity-0 group-hover:opacity-100">
+                            <animateMotion dur="2s" repeatCount="indefinite" path={p.path} />
+                        </circle>
+                        <foreignObject x={p.labelX - (60 / zoom)} y={p.labelY - (15 / zoom)} width={120 / zoom} height={30 / zoom} className="overflow-visible">
+                            <div className="flex items-center justify-center gap-1 hover:scale-110 transition-transform origin-center" style={{ transform: `scale(${1 / zoom})` }}>
+                                {p.label ? (
+                                    <div onClick={() => onEditLabel(p.id, p.label)} className="bg-white/90  text-slate-700 text-[10px] font-bold px-2 py-1 rounded-lg shadow-md border border-slate-200 whitespace-nowrap cursor-pointer hover:bg-indigo-50 hover:border-indigo-200 max-w-[100px] truncate relative z-50" title={p.label}>{p.label}</div>
+                                ) : (
+                                    <button onClick={() => onEditLabel(p.id)} className="bg-white/90  p-1 rounded-full border border-slate-200 shadow-sm opacity-0 group-hover:opacity-100 transition-opacity text-slate-400 hover:text-indigo-500 relative z-50"><MessageSquare className="w-3 h-3" /></button>
+                                )}
+                                <button onClick={() => onRemoveLink(p.id)} className="bg-white/90  text-slate-300 p-1 rounded-full border border-slate-200 shadow-sm hover:text-rose-500 hover:bg-rose-50 opacity-0 group-hover:opacity-100 transition-opacity relative z-50"><X className="w-3 h-3" /></button>
+                            </div>
+                        </foreignObject>
+                    </g>
+                );
+            })}
         </svg>
     );
 };
@@ -534,8 +565,13 @@ export default function Implantation({
     onSave,
     manualLinks, // Receive manualLinks as prop
     setManualLinks, // Receive setManualLinks as prop
-    readOnly
+    readOnly,
+    ficheData,
+    setFicheData
 }: ImplantationProps) {
+
+    const tolerance = ficheData?.toleranceSaturation ?? 115;
+    const toleranceRatio = tolerance / 100;
 
     // --- CALCULATIONS FOR HEADER ---
     const totalMin = useMemo(() => operations.reduce((sum, op) => sum + (op.time || 0), 0), [operations]);
@@ -719,6 +755,7 @@ export default function Implantation({
     // --- PANNING STATE (NEW) ---
     const [isSpacePressed, setIsSpacePressed] = useState(false);
     const [isPanning, setIsPanning] = useState(false);
+    const [hoveredStationIndex, setHoveredStationIndex] = useState<number | null>(null);
     const panStartRef = useRef({ x: 0, y: 0, scrollLeft: 0, scrollTop: 0 });
 
     // Listen for Space, F, and Escape Keys
@@ -797,7 +834,7 @@ export default function Implantation({
                     });
                 }
                 const nTheo = bf > 0 ? totalTime / bf : 0;
-                let operatorCount = nTheo > 1.15 ? Math.ceil(nTheo) : (nTheo > 0 ? 1 : 0);
+                let operatorCount = nTheo > toleranceRatio ? Math.ceil(nTheo) : (nTheo > 0 ? 1 : 0);
                 operatorCount = Math.max(1, operatorCount);
                 if (operatorCount > 1 && !p.originalId) {
                     for (let i = 1; i <= operatorCount; i++) {
@@ -805,6 +842,53 @@ export default function Implantation({
                     }
                 } else {
                     splitPosts.push({ ...p, isPlaced: false });
+                }
+            });
+            setPostes(splitPosts);
+        }
+    };
+
+    const handleClearPlan = () => {
+        setIsManualMode(true);
+        setLayoutType('free');
+        if (setPostes && postes) {
+            const splitPosts: Poste[] = [];
+            const realStations = postes.filter(p => p.machine !== 'VIDE');
+            realStations.forEach(p => {
+                let totalTime = 0;
+                if (p.timeOverride !== undefined) {
+                    totalTime = p.timeOverride;
+                } else {
+                    const assignedOps = operations.filter(op => assignments?.[op.id]?.includes(p.id));
+                    assignedOps.forEach(op => {
+                        const numAssigned = assignments[op.id]?.length || 1;
+                        totalTime += (op.time || 0) / numAssigned;
+                    });
+                }
+                const nTheo = bf > 0 ? totalTime / bf : 0;
+                let operatorCount = nTheo > toleranceRatio ? Math.ceil(nTheo) : (nTheo > 0 ? 1 : 0);
+                operatorCount = Math.max(1, operatorCount);
+                if (operatorCount > 1 && !p.originalId) {
+                    for (let i = 1; i <= operatorCount; i++) {
+                        splitPosts.push({
+                            ...p,
+                            id: `${p.id}__split__${i}`,
+                            originalId: p.id,
+                            name: `${p.name}.${i}`,
+                            isPlaced: false,
+                            x: undefined,
+                            y: undefined,
+                            rotation: undefined
+                        });
+                    }
+                } else {
+                    splitPosts.push({
+                        ...p,
+                        isPlaced: false,
+                        x: undefined,
+                        y: undefined,
+                        rotation: undefined
+                    });
                 }
             });
             setPostes(splitPosts);
@@ -1428,8 +1512,8 @@ export default function Implantation({
 
     const handlePanMove = (e: React.MouseEvent) => {
         if (isPanning && scrollContainerRef.current) {
-            const dx = e.clientX - panStartRef.current.x;
-            const dy = e.clientY - panStartRef.current.y;
+            const dx = (e.clientX - panStartRef.current.x) / zoom;
+            const dy = (e.clientY - panStartRef.current.y) / zoom;
             scrollContainerRef.current.scrollLeft = panStartRef.current.scrollLeft - dx;
             scrollContainerRef.current.scrollTop = panStartRef.current.scrollTop - dy;
         }
@@ -1672,7 +1756,7 @@ export default function Implantation({
                     });
 
                     const nTheo = bf > 0 ? totalTime / bf : 0;
-                    operators = nTheo > 1.15 ? Math.ceil(nTheo) : (nTheo > 0 ? 1 : 0);
+                    operators = nTheo > toleranceRatio ? Math.ceil(nTheo) : (nTheo > 0 ? 1 : 0);
 
                     if (p.originalId) {
                         operators = 1;
@@ -1758,7 +1842,7 @@ export default function Implantation({
                     totalTime += (op.time || 0) / sharingCount;
                 });
                 const nTheo = bf > 0 ? totalTime / bf : 0;
-                operators = nTheo > 1.15 ? Math.ceil(nTheo) : (nTheo > 0 ? 1 : 0);
+                operators = nTheo > toleranceRatio ? Math.ceil(nTheo) : (nTheo > 0 ? 1 : 0);
                 if (p.originalId) { operators = 1; }
                 saturation = (operators > 0 && bf > 0) ? (totalTime / (operators * bf)) * 100 : 0;
             }
@@ -2194,35 +2278,62 @@ export default function Implantation({
     const deleteFromModal = () => { if (!setPostes || !postes || !editModal) return; const newPostes = [...postes]; newPostes.splice(editModal.stationIndex, 1); const reindexed = newPostes.map((p, i) => ({ ...p, name: `P${i + 1}` })); setPostes(reindexed); closeEditModal(); };
     const modalOps = useMemo(() => { if (!editModal || !assignments) return []; const stationId = editModal.data.id; const parentId = editModal.data.originalId; return operations.filter(op => { const assignedTo = assignments[op.id] || []; return assignedTo.includes(stationId) || (parentId && assignedTo.includes(parentId)); }).sort((a, b) => a.order - b.order); }, [editModal, operations, assignments]);
 
-    const StationCard: React.FC<{ station: Workstation; isGrid?: boolean; isMini?: boolean }> = ({ station, isGrid = false, isMini = false }) => {
+    const renderStationCard = (station: Workstation, isGrid = false, isMini = false) => {
         const color = station.color; const isVide = station.machine === 'VIDE'; const timeInSeconds = Math.round(station.totalTime * 60); const hasNotes = station.notes && station.notes.trim().length > 0; const hasOperator = station.operatorName && station.operatorName.trim().length > 0; const isOverridden = station.timeOverride !== undefined; const mySimIndex = station.index - 1; const isActive = !isMini && simStep === mySimIndex; const isPassed = simStep > mySimIndex; const isControl = station.machine.toUpperCase().includes('CONTROLE'); const isFer = station.machine.toUpperCase().includes('FER') || station.machine.toUpperCase().includes('REPASSAGE'); const isFinition = station.machine.toUpperCase().includes('FINITION'); const isBroken = station.notes?.includes('#PANNE');
         let bodyBgClass = 'bg-white/10 backdrop-blur-sm'; if (isControl) bodyBgClass = 'bg-orange-50/30 backdrop-blur-sm'; if (isFer) bodyBgClass = 'bg-rose-50/30 backdrop-blur-sm'; if (isFinition) bodyBgClass = 'bg-purple-50/30 backdrop-blur-sm'; const isSpecial = isControl || isFer || isFinition;
         const isFeeder = station.isFeeder; if (isFeeder) bodyBgClass = 'bg-blue-50/60';
         const isSwapSource = swapSourceId === station.id; const isSwapTarget = swapSourceId && swapSourceId !== station.id; const isLinkSource = linkSource === station.id; const isLinkTargetCandidate = isLinking && linkSource && linkSource !== station.id;
-        const cardHeightClass = isGrid ? 'min-h-[140px]' : (isMini ? 'min-h-[80px]' : 'h-full min-h-[140px]'); const cardWidthClass = isMini ? 'w-full' : (isGrid ? 'w-full' : 'w-44 sm:w-48 shrink-0'); const miniCardStyle = isMini ? `${color.bg} ${color.border} border-2` : `bg-white/40 backdrop-blur-md border-2 ${color.border}`; const cursorClass = (canEdit && isManualMode && !swapSourceId && !isLinking && !isSpacePressed) ? 'cursor-move' : 'cursor-default';
+        const cardHeightClass = isGrid ? 'min-h-[140px]' : (isMini ? 'min-h-[80px]' : 'h-full min-h-[140px]'); const cardWidthClass = isMini ? 'w-full' : (isGrid ? 'w-full' : 'w-44 sm:w-48 shrink-0');
 
-        // MODIFIED: Make Vide slots behave like normal cards in auto/free modes (draggable, context menu)
+        // Dynamic styles based on Saturation: Red (>tolerance%), Amber (100%-tolerance%), Green (50%-100%), Grey (<50%)
+        let satBadgeClass = 'bg-emerald-50 text-emerald-500';
+        let satProgressClass = isActive ? 'bg-emerald-400' : (isFer ? 'bg-rose-500' : (isControl ? 'bg-orange-500' : (isFinition ? 'bg-purple-500' : color.fill)));
+        if (station.saturation > tolerance) {
+            satBadgeClass = 'bg-rose-100 text-rose-700 border border-rose-200';
+            satProgressClass = 'bg-rose-500 animate-pulse';
+        } else if (station.saturation >= 100) {
+            satBadgeClass = 'bg-amber-100 text-amber-700 border border-amber-200';
+            satProgressClass = 'bg-amber-500';
+        } else if (station.saturation < 50) {
+            satBadgeClass = 'bg-slate-100 text-slate-500 border border-slate-200';
+            satProgressClass = 'bg-slate-400';
+        }
+
+        // Dynamic tracing highlight based on hoveredStationIndex: predecessor in amber, successor in sky blue, other cards dimmed to 70%
+        let hoverTraceClass = '';
+        let opacityStyle = {};
+        if (hoveredStationIndex !== null) {
+            if (hoveredStationIndex === station.index) {
+                hoverTraceClass = 'ring-4 ring-indigo-500 border-indigo-600 scale-[1.03] shadow-2xl z-25';
+            } else if (station.index === hoveredStationIndex - 1) {
+                hoverTraceClass = 'ring-4 ring-amber-400 border-amber-500 scale-[1.03] shadow-lg z-25';
+            } else if (station.index === hoveredStationIndex + 1) {
+                hoverTraceClass = 'ring-4 ring-sky-400 border-sky-500 scale-[1.03] shadow-lg z-25';
+            } else {
+                opacityStyle = { opacity: 0.7 };
+            }
+        }
+
+        const miniCardStyle = isMini ? `${color.bg} ${color.border} border-2` : `bg-white/40 backdrop-blur-md border-2 ${color.border}`; const cursorClass = (canEdit && isManualMode && !swapSourceId && !isLinking && !isSpacePressed) ? 'cursor-move' : 'cursor-default';
+
         if (isVide && !isMini) {
             return (
                 <div
                     id={`station-card-${station.id}`}
-                    // Drag logic for AUTO modes (swapping)
                     draggable={canEdit && isManualMode && !swapSourceId && !isLinking && layoutType !== 'free' && !isSpacePressed}
                     onDragStart={(e) => handleDragStart(e, station.originalIndex, false, station.id)}
                     onDragEnd={() => setDraggedStationIdx(null)}
-                    // Drag events for Free Mode
                     onMouseDown={(e) => layoutType === 'free' && handleFreeStart(e, station.id, station.x || 0, station.y || 0)}
                     onTouchStart={(e) => layoutType === 'free' && handleFreeStart(e, station.id, station.x || 0, station.y || 0)}
-                    // Keep Drop Logic
                     onDragOver={handleDragOver}
                     onDrop={(e) => { e.preventDefault(); e.stopPropagation(); handleDrop(e, station.originalIndex); }}
-                    // Context Menu
                     onContextMenu={(e) => { handleContextMenu(e, station); }}
-                    className={`relative rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 flex flex-col items-center justify-center gap-2 group z-10 transition-all ${(canEdit && isManualMode && !swapSourceId && !isLinking && !isSpacePressed && layoutType !== 'free') ? 'cursor-move' : ''} ${cardWidthClass} ${cardHeightClass} ${isManualMode && !isSpacePressed ? 'hover:bg-indigo-50 hover:border-indigo-300' : ''} ${layoutType === 'free' ? 'cursor-move hover:shadow-lg' : ''}`}
+                    onMouseEnter={() => !isMini && setHoveredStationIndex(station.index)}
+                    onMouseLeave={() => !isMini && setHoveredStationIndex(null)}
+                    style={opacityStyle}
+                    className={`relative rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 flex flex-col items-center justify-center gap-2 group z-10 transition-all ${(canEdit && isManualMode && !swapSourceId && !isLinking && !isSpacePressed && layoutType !== 'free') ? 'cursor-move' : ''} ${cardWidthClass} ${cardHeightClass} ${isManualMode && !isSpacePressed ? 'hover:bg-indigo-50 hover:border-indigo-300' : ''} ${layoutType === 'free' ? 'cursor-move hover:shadow-lg' : ''} ${hoverTraceClass}`}
                 >
                     <div className="text-[10px] font-bold text-slate-400 uppercase pointer-events-none">Emplacement Vide</div>
-
-                    {/* Delete Button for Free Mode */}
                     {layoutType === 'free' && (
                         <button
                             onMouseDown={(e) => e.stopPropagation()}
@@ -2253,19 +2364,25 @@ export default function Implantation({
                 onDragEnd={() => setDraggedStationIdx(null)}
                 onDragOver={handleDragOver}
                 onDrop={(e) => { e.preventDefault(); e.stopPropagation(); handleDrop(e, station.originalIndex); }}
-                // Added z-10 and relative positioning to ensure cards are above the SVG lines. Added glassmorphism classes.
-                className={`relative rounded-xl overflow-hidden group shadow-[0_4px_16px_rgb(0,0,0,0.03)] z-10 ${cardWidthClass} ${cardHeightClass} ${canEdit && isManualMode && !isLinking && layoutType !== 'free' && !isSpacePressed ? 'hover:-translate-y-1 hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)]' : ''} ${cursorClass} ${isActive ? 'ring-4 ring-emerald-400 border-emerald-500 scale-105 shadow-xl z-20' : isLinkSource ? 'ring-4 ring-indigo-500 border-indigo-600 scale-105 shadow-xl z-20 animate-pulse' : isLinkTargetCandidate ? 'cursor-pointer hover:ring-4 hover:ring-indigo-300 hover:border-indigo-400' : isSwapSource ? 'ring-4 ring-indigo-500 border-indigo-600 scale-105 shadow-xl z-20' : isSwapTarget ? 'cursor-pointer hover:ring-4 hover:ring-indigo-300 hover:border-indigo-400' : isPassed ? 'border-emerald-200 opacity-90' : (isMini ? color.border : color.border)} ${isBroken ? 'ring-2 ring-rose-500 border-rose-600 bg-rose-50/90' : ''} ${miniCardStyle} transition-all duration-300 flex flex-col select-none`}
+                onMouseEnter={() => !isMini && setHoveredStationIndex(station.index)}
+                onMouseLeave={() => !isMini && setHoveredStationIndex(null)}
+                style={opacityStyle}
+                className={`relative rounded-xl overflow-hidden group shadow-[0_4px_16px_rgb(0,0,0,0.03)] z-10 ${cardWidthClass} ${cardHeightClass} ${canEdit && isManualMode && !isLinking && layoutType !== 'free' && !isSpacePressed ? 'hover:-translate-y-1 hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)]' : ''} ${cursorClass} ${isActive ? 'ring-4 ring-emerald-400 border-emerald-500 scale-105 shadow-xl z-20' : isLinkSource ? 'ring-4 ring-indigo-500 border-indigo-600 scale-105 shadow-xl z-20 animate-pulse' : isLinkTargetCandidate ? 'cursor-pointer hover:ring-4 hover:ring-indigo-300 hover:border-indigo-400' : isSwapSource ? 'ring-4 ring-indigo-500 border-indigo-600 scale-105 shadow-xl z-20' : isSwapTarget ? 'cursor-pointer hover:ring-4 hover:ring-indigo-300 hover:border-indigo-400' : isPassed ? 'border-emerald-200 opacity-90' : (isMini ? color.border : color.border)} ${isBroken ? 'ring-2 ring-rose-500 border-rose-600 bg-rose-50/90' : ''} ${miniCardStyle} ${hoverTraceClass} transition-all duration-300 flex flex-col select-none`}
             >
                 <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${isActive ? 'bg-emerald-500' : (isBroken ? 'bg-rose-500' : color.fill)}`}></div>
                 <div className={`px-2 pl-3 py-1.5 flex justify-between items-center ${isActive ? 'bg-emerald-500/90 ' : (isPassed ? 'bg-emerald-50/90 ' : (isMini ? color.bg : color.bg + '/90 '))} border-b ${isActive ? 'border-emerald-600' : color.border} transition-colors duration-500 relative`}>
                     {isOverridden && <div className="absolute top-1 right-1 w-2 h-2 rounded-full bg-purple-500 ring-1 ring-white animate-pulse" title="Temps Forcé"></div>}
                     {isBroken && <div className="absolute top-1 right-3 w-3 h-3 text-rose-600 animate-pulse"><AlertTriangle className="w-3 h-3 fill-current" /></div>}
                     <div className="flex items-center gap-1.5">
+                        {!isMini && (
+                            <span className="text-[9px] font-black bg-slate-900/10 text-slate-800 px-1 py-0.5 rounded mr-0.5">
+                                #{station.index}
+                            </span>
+                        )}
                         <span className={`text-[10px] font-black ${isActive ? 'text-emerald-600 bg-white/60' : color.text} w-5 h-5 flex items-center justify-center bg-white/40 rounded-md shadow-sm border border-black/5`}> {station.name.replace('P', '').split('.')[0]} </span>
                         <span className={`text-[9px] font-black uppercase truncate max-w-[80px] ${isActive ? 'text-white' : color.text}`} title={station.name}> {station.machine} </span>
                     </div>
 
-                    {/* SECTION BADGE */}
                     {station.dominantSection === 'PREPARATION' && (
                         <div className="absolute -top-2 left-1/2 -translate-x-1/2 bg-amber-500 text-white text-[8px] font-black px-2 py-0.5 rounded-sm shadow-sm uppercase tracking-widest z-30 border border-amber-600">
                             PRÉP
@@ -2277,7 +2394,6 @@ export default function Implantation({
                         </div>
                     )}
 
-                    {/* DELETE LINK BUTTON ON CARD */}
                     {showLinks && manualLinks && manualLinks.some(l => l.from === station.id || l.to === station.id) && (
                         <button
                             onMouseDown={(e) => e.stopPropagation()}
@@ -2310,7 +2426,8 @@ export default function Implantation({
 
                     {!isMini && (<div className="flex items-center gap-0.5"> {isFeeder && <div title={`Alimente: ${station.targetStationName || 'Poste Suivant'}`}><GitMerge className={`w-3 h-3 ${isActive ? 'text-white' : 'text-blue-500'}`} /></div>} {hasOperator && <div title={station.operatorName}><User className={`w-3 h-3 ${isActive ? 'text-white' : 'text-slate-400'}`} /></div>} {hasNotes && <div title="Notes"><FileText className={`w-3 h-3 ${isActive ? 'text-yellow-300' : 'text-amber-400'}`} /></div>} </div>)}
                 </div>
-                <div className={`p-2 pl-3 flex-1 flex flex-col justify-between gap-1 ${isMini ? 'bg-transparent' : bodyBgClass}`}> {station.groups && station.groups.length > 0 && !isMini && (<div className="flex flex-wrap gap-1 mb-1"> {station.groups.slice(0, 2).map(grp => (<span key={grp} className="text-[7px] font-black uppercase text-indigo-600 bg-indigo-100 px-1 py-0.5 rounded border border-indigo-200 truncate max-w-full"> {grp} </span>))} {station.groups.length > 2 && <span className="text-[7px] text-slate-400">+{station.groups.length - 2}</span>} </div>)} <div className="space-y-1"> {station.operations.length > 0 ? (<> {station.operations.slice(0, isMini ? 100 : 3).map((op, i) => { const groupStyle = op.groupId ? getGroupStyle(op.groupId) : null; return (<div key={i} className={`flex justify-between items-center gap-1.5 py-0.5 ${groupStyle && isMini ? groupStyle.bg + ' px-1.5 rounded-md -mx-1.5 my-0.5 border border-transparent hover:border-indigo-200' : ''}`}> <span className={`font-mono text-[9px] font-bold px-1 rounded border shrink-0 ${groupStyle && isMini ? 'bg-transparent border-transparent ' + groupStyle.text : 'bg-transparent text-slate-400 border-slate-200'}`}> {op.order} </span> <div className={`text-[9px] font-bold leading-tight line-clamp-2 flex-1 ${groupStyle && isMini ? groupStyle.text : 'text-slate-600'}`} title={op.description}> {op.description} </div> {groupStyle && isMini && <LinkIcon className={`w-2.5 h-2.5 shrink-0 ${groupStyle.text}`} />} </div>) })} {station.operations.length > (isMini ? 100 : 3) && <div className="text-[8px] text-slate-400 italic font-medium">... +{station.operations.length - (isMini ? 100 : 3)}</div>} </>) : (<div className={`text-[9px] italic flex items-center justify-center ${isMini ? 'h-8' : 'h-12'} ${isOverridden ? 'text-purple-500 font-bold' : (isSpecial ? 'text-slate-400/70' : 'text-slate-300')}`}> {isOverridden ? 'Temps Forcé' : 'Vide'} </div>)} </div> <div className="flex items-center justify-between mt-auto pt-1.5 border-t border-slate-100"> <div className="flex flex-col"> <span className="text-[7px] font-bold text-slate-400 uppercase tracking-wider">Total</span> <span className={`text-sm font-bold ${isActive ? 'text-emerald-600' : (isOverridden ? 'text-purple-600' : color.text)}`}>{timeInSeconds}s</span> </div> <div className="flex flex-col items-end"> <span className="text-[7px] font-bold text-slate-400 uppercase tracking-wider">Sat.</span> <div className="flex items-center gap-1"> {station.operators > 1 && <span className={`text-[9px] font-black px-1 rounded bg-amber-100 text-amber-700`}>x{station.operators}</span>} <span className={`text-[9px] font-black ${station.saturation > 100 ? 'text-rose-500' : 'text-emerald-500'}`}>{Math.round(station.saturation)}%</span> </div> </div> </div> </div> <div className="absolute bottom-0 left-0 h-1 bg-slate-200 w-full"> <div className={`h-full ${isActive ? 'bg-emerald-400' : (isFer ? 'bg-rose-500' : (isControl ? 'bg-orange-500' : (isFinition ? 'bg-purple-500' : color.fill)))}`} style={{ width: `${Math.min(station.saturation, 100)}%` }}></div> </div> </div>);
+                <div className={`p-2 pl-3 flex-1 flex flex-col justify-between gap-1 ${isMini ? 'bg-transparent' : bodyBgClass}`}> {station.groups && station.groups.length > 0 && !isMini && (<div className="flex flex-wrap gap-1 mb-1"> {station.groups.slice(0, 2).map(grp => (<span key={grp} className="text-[7px] font-black uppercase text-indigo-600 bg-indigo-100 px-1 py-0.5 rounded border border-indigo-200 truncate max-w-full"> {grp} </span>))} {station.groups.length > 2 && <span className="text-[7px] text-slate-400">+{station.groups.length - 2}</span>} </div>)} <div className="space-y-1"> {station.operations.length > 0 ? (<> {station.operations.slice(0, isMini ? 100 : 3).map((op, i) => { const groupStyle = op.groupId ? getGroupStyle(op.groupId) : null; return (<div key={i} className={`flex justify-between items-center gap-1.5 py-0.5 ${groupStyle && isMini ? groupStyle.bg + ' px-1.5 rounded-md -mx-1.5 my-0.5 border border-transparent hover:border-indigo-200' : ''}`}> <span className={`font-mono text-[9px] font-bold px-1 rounded border shrink-0 ${groupStyle && isMini ? 'bg-transparent border-transparent ' + groupStyle.text : 'bg-transparent text-slate-400 border-slate-200'}`}> {op.order} </span> <div className={`text-[9px] font-bold leading-tight line-clamp-2 flex-1 ${groupStyle && isMini ? groupStyle.text : 'text-slate-600'}`} title={op.description}> {op.description} </div> {groupStyle && isMini && <LinkIcon className={`w-2.5 h-2.5 shrink-0 ${groupStyle.text}`} />} </div>) })} {station.operations.length > (isMini ? 100 : 3) && <div className="text-[8px] text-slate-400 italic font-medium">... +{station.operations.length - (isMini ? 100 : 3)}</div>} </>) : (<div className={`text-[9px] italic flex items-center justify-center ${isMini ? 'h-8' : 'h-12'} ${isOverridden ? 'text-purple-500 font-bold' : (isSpecial ? 'text-slate-400/70' : 'text-slate-300')}`}> {isOverridden ? 'Temps Forcé' : 'Vide'} </div>)} </div> <div className="flex items-center justify-between mt-auto pt-1.5 border-t border-slate-100"> <div className="flex flex-col"> <span className="text-[7px] font-bold text-slate-400 uppercase tracking-wider">Total</span> <span className={`text-sm font-bold ${isActive ? 'text-emerald-600' : (isOverridden ? 'text-purple-600' : color.text)}`}>{timeInSeconds}s</span> </div> <div className="flex flex-col items-end"> <span className="text-[7px] font-bold text-slate-400 uppercase tracking-wider">Sat.</span> <div className="flex items-center gap-1"> {station.operators > 1 && <span className={`text-[9px] font-black px-1 rounded bg-amber-100 text-amber-700`}>x{station.operators}</span>} <span className={`text-[9px] font-black ${satBadgeClass}`}>{Math.round(station.saturation)}%</span> </div> </div> </div> </div> <div className="absolute bottom-0 left-0 h-1 bg-slate-200 w-full"> <div className={`h-full ${satProgressClass}`} style={{ width: `${Math.min(station.saturation, 100)}%` }}></div> </div> </div>
+        );
     };
 
     return (
@@ -2374,6 +2491,23 @@ export default function Implantation({
                         <span className="text-[10px] font-bold text-indigo-400">%</span>
                     </div>
                 </div>
+
+                {/* TOLÉRANCE SATURATION */}
+                {setFicheData && (
+                    <div className="flex flex-col items-center px-3 py-1.5 bg-rose-50/50 rounded-lg border border-rose-100 shrink-0">
+                        <span className="text-[9px] font-bold text-rose-400 uppercase">Tolérance</span>
+                        <div className="flex items-baseline gap-0.5">
+                            <input
+                                type="number"
+                                min="50" max="200"
+                                value={tolerance}
+                                onChange={(e) => setFicheData(prev => ({ ...prev, toleranceSaturation: Math.max(50, Math.min(200, Number(e.target.value))) }))}
+                                className="w-10 text-center bg-transparent font-black text-rose-600 outline-none text-sm border-b border-rose-200 p-0"
+                            />
+                            <span className="text-[10px] font-bold text-rose-400">%</span>
+                        </div>
+                    </div>
+                )}
 
                 {/* T. ARTICLE (Split View) */}
                 <div className="ml-auto flex items-stretch gap-2 shrink-0">
@@ -2484,7 +2618,7 @@ export default function Implantation({
 
                                 {/* Right Actions */}
                                 <div className="flex items-center gap-1.5">
-                                    <button onClick={() => { activateManualMode(); if (setPostes && postes) { setPostes(postes.map(p => ({ ...p, isPlaced: false, x: undefined, y: undefined }))); } }} className="p-1.5 rounded-lg bg-slate-50 text-rose-400 border border-slate-200 hover:bg-rose-50 hover:text-rose-600 hover:border-rose-200 transition-colors flex items-center gap-1" title="Vider tout le plan (basculer en mode libre)">
+                                    <button onClick={handleClearPlan} className="p-1.5 rounded-lg bg-slate-50 text-rose-400 border border-slate-200 hover:bg-rose-50 hover:text-rose-600 hover:border-rose-200 transition-colors flex items-center gap-1" title="Vider tout le plan (basculer en mode libre)">
                                         <Trash2 className="w-4 h-4" />
                                         <span className="text-[10px] uppercase font-black tracking-wider hidden xl:inline">Vider</span>
                                     </button>
@@ -2636,7 +2770,7 @@ export default function Implantation({
                                                     onDragStart={(e) => handleDragStart(e, station.originalIndex, true, station.id)}
                                                     className="cursor-grab active:cursor-grabbing w-full"
                                                 >
-                                                    <StationCard station={station as Workstation} isMini={true} />
+                                                    {renderStationCard(station as Workstation, false, true)}
                                                 </div>
                                             ))}
                                             {waitingStations.length === 0 && (
@@ -2760,6 +2894,7 @@ export default function Implantation({
                                             containerRef={scrollContainerRef}
                                             onRemoveLink={handleRemoveLink}
                                             onEditLabel={handleEditLinkLabel}
+                                            hoveredStationIndex={hoveredStationIndex}
                                         />
                                     )}
 
@@ -2815,7 +2950,7 @@ export default function Implantation({
                                                                             <span className="text-xs font-bold text-indigo-400 uppercase tracking-widest">Zone {st.name}</span>
                                                                         </div>
                                                                     ) : (
-                                                                        <StationCard station={st} />
+                                                                        renderStationCard(st)
                                                                     )}
                                                                 </div>
                                                             )
@@ -2852,14 +2987,37 @@ export default function Implantation({
                                                                         {topRow.map((st, i) => (
                                                                             <div key={`utop-${st.id}`} className="flex items-center gap-6">
                                                                                 <div id={`station-card-${st.id}`} className={`relative group transition-transform hover:scale-[1.02] shadow-sm hover:shadow-xl rounded-xl border-b-4 ${borderClass}`}>
-                                                                                    <StationCard station={st} />
+                                                                                    {renderStationCard(st)}
                                                                                 </div>
-                                                                                {i < topRow.length - 1 && (
-                                                                                    <div className={`flex items-center text-slate-400 opacity-60`}>
-                                                                                        <div className={`w-6 h-1 rounded bg-slate-200`}></div>
-                                                                                        <ChevronRight className="-ml-2 w-5 h-5 stroke-[3]" />
-                                                                                    </div>
-                                                                                )}
+                                                                                {i < topRow.length - 1 && (() => {
+                                                                                    const isOutgoing = hoveredStationIndex === topRow[i].index;
+                                                                                    const isIncoming = hoveredStationIndex === topRow[i+1].index;
+                                                                                    const isAnyHovered = hoveredStationIndex !== null;
+                                                                                    
+                                                                                    let lineClass = 'w-6 h-1 bg-slate-200';
+                                                                                    let chevronClass = '-ml-2 w-5 h-5 stroke-[3] text-slate-400';
+                                                                                    let opacityClass = 'opacity-60';
+                                                                                    
+                                                                                    if (isAnyHovered) {
+                                                                                        if (isOutgoing) {
+                                                                                            lineClass = 'w-8 h-1.5 bg-sky-400';
+                                                                                            chevronClass = '-ml-2 w-6 h-6 stroke-[4] text-sky-500 scale-110';
+                                                                                            opacityClass = 'opacity-100';
+                                                                                        } else if (isIncoming) {
+                                                                                            lineClass = 'w-8 h-1.5 bg-amber-400';
+                                                                                            chevronClass = '-ml-2 w-6 h-6 stroke-[4] text-amber-500 scale-110';
+                                                                                            opacityClass = 'opacity-100';
+                                                                                        } else {
+                                                                                            opacityClass = 'opacity-20';
+                                                                                        }
+                                                                                    }
+                                                                                    return (
+                                                                                        <div className={`flex items-center transition-all duration-300 ${opacityClass}`}>
+                                                                                            <div className={`rounded transition-all duration-300 ${lineClass}`}></div>
+                                                                                            <ChevronRight className={`transition-all duration-300 ${chevronClass}`} />
+                                                                                        </div>
+                                                                                    );
+                                                                                })()}
                                                                             </div>
                                                                         ))}
                                                                     </div>
@@ -2883,14 +3041,37 @@ export default function Implantation({
                                                                         {bottomRow.map((st, i) => (
                                                                             <div key={`ubottom-${st.id}`} className="flex flex-row-reverse items-center gap-6">
                                                                                 <div id={`station-card-${st.id}`} className={`relative group transition-transform hover:scale-[1.02] shadow-sm hover:shadow-xl rounded-xl border-t-4 ${borderClass}`}>
-                                                                                    <StationCard station={st} />
+                                                                                    {renderStationCard(st)}
                                                                                 </div>
-                                                                                {i < bottomRow.length - 1 && (
-                                                                                    <div className="flex items-center text-slate-400 opacity-60">
-                                                                                        <ChevronLeft className="-mr-2 w-5 h-5 stroke-[3]" />
-                                                                                        <div className="w-6 h-1 rounded bg-slate-200"></div>
-                                                                                    </div>
-                                                                                )}
+                                                                                {i < bottomRow.length - 1 && (() => {
+                                                                                    const isOutgoing = hoveredStationIndex === bottomRow[i+1].index;
+                                                                                    const isIncoming = hoveredStationIndex === bottomRow[i].index;
+                                                                                    const isAnyHovered = hoveredStationIndex !== null;
+                                                                                    
+                                                                                    let lineClass = 'w-6 h-1 bg-slate-200';
+                                                                                    let chevronClass = '-mr-2 w-5 h-5 stroke-[3] text-slate-400';
+                                                                                    let opacityClass = 'opacity-60';
+                                                                                    
+                                                                                    if (isAnyHovered) {
+                                                                                        if (isOutgoing) {
+                                                                                            lineClass = 'w-8 h-1.5 bg-sky-400';
+                                                                                            chevronClass = '-mr-2 w-6 h-6 stroke-[4] text-sky-500 scale-110';
+                                                                                            opacityClass = 'opacity-100';
+                                                                                        } else if (isIncoming) {
+                                                                                            lineClass = 'w-8 h-1.5 bg-amber-400';
+                                                                                            chevronClass = '-mr-2 w-6 h-6 stroke-[4] text-amber-500 scale-110';
+                                                                                            opacityClass = 'opacity-100';
+                                                                                        } else {
+                                                                                            opacityClass = 'opacity-20';
+                                                                                        }
+                                                                                    }
+                                                                                    return (
+                                                                                        <div className={`flex items-center transition-all duration-300 ${opacityClass}`}>
+                                                                                            <ChevronLeft className={`transition-all duration-300 ${chevronClass}`} />
+                                                                                            <div className={`rounded transition-all duration-300 ${lineClass}`}></div>
+                                                                                        </div>
+                                                                                    );
+                                                                                })()}
                                                                             </div>
                                                                         ))}
                                                                     </div>
@@ -2938,16 +3119,39 @@ export default function Implantation({
                                                                     {sideA.map((st, i) => (
                                                                         <div key={`sideA-${st.id}`} className="flex items-center gap-12 relative">
                                                                             <div id={`station-card-${st.id}`} className={`relative group transition-transform hover:scale-[1.02] shadow-sm hover:shadow-xl rounded-xl bg-white border-b-4 ${borderClassA}`}>
-                                                                                <StationCard station={st} />
+                                                                                {renderStationCard(st)}
                                                                             </div>
-                                                                            {i < sideB.length && (
-                                                                                <div className="absolute top-[80%] left-[80%] w-[120px] h-[70px] z-0 overflow-visible pointer-events-none opacity-80">
-                                                                                    <svg width="100%" height="100%" viewBox="0 0 100 100" preserveAspectRatio="none" className="overflow-visible ">
-                                                                                        <path d="M 0 0 C 40 30, 60 70, 100 100" fill="none" stroke={arrowColor} strokeWidth="4" strokeDasharray="6,4" strokeLinecap="round" className="" />
-                                                                                        <polygon points="85,90 100,100 95,80" fill={arrowColor} />
-                                                                                    </svg>
-                                                                                </div>
-                                                                            )}
+                                                                            {i < sideB.length && (() => {
+                                                                                const isOutgoing = hoveredStationIndex === st.index;
+                                                                                const isIncoming = hoveredStationIndex === sideB[i].index;
+                                                                                const isAnyHovered = hoveredStationIndex !== null;
+                                                                                
+                                                                                let stroke = arrowColor;
+                                                                                let strokeWidth = "4";
+                                                                                let opacity = "opacity-80";
+                                                                                
+                                                                                if (isAnyHovered) {
+                                                                                    if (isOutgoing) {
+                                                                                        stroke = "#0ea5e9";
+                                                                                        strokeWidth = "6";
+                                                                                        opacity = "opacity-100";
+                                                                                    } else if (isIncoming) {
+                                                                                        stroke = "#f59e0b";
+                                                                                        strokeWidth = "6";
+                                                                                        opacity = "opacity-100";
+                                                                                    } else {
+                                                                                        opacity = "opacity-20";
+                                                                                    }
+                                                                                }
+                                                                                return (
+                                                                                    <div className={`absolute top-[80%] left-[80%] w-[120px] h-[70px] z-0 overflow-visible pointer-events-none transition-all duration-300 ${opacity}`}>
+                                                                                        <svg width="100%" height="100%" viewBox="0 0 100 100" preserveAspectRatio="none" className="overflow-visible ">
+                                                                                            <path d="M 0 0 C 40 30, 60 70, 100 100" fill="none" stroke={stroke} strokeWidth={strokeWidth} strokeDasharray="6,4" strokeLinecap="round" className="transition-all duration-300" />
+                                                                                            <polygon points="85,90 100,100 95,80" fill={stroke} className="transition-all duration-300" />
+                                                                                        </svg>
+                                                                                    </div>
+                                                                                );
+                                                                            })()}
                                                                         </div>
                                                                     ))}
                                                                 </div>
@@ -2957,16 +3161,39 @@ export default function Implantation({
                                                                     {sideB.map((st, i) => (
                                                                         <div key={`sideB-${st.id}`} className="flex items-center gap-12 relative">
                                                                             <div id={`station-card-${st.id}`} className={`relative group transition-transform hover:scale-[1.02] shadow-sm hover:shadow-xl rounded-xl bg-white border-t-4 ${borderClassB}`}>
-                                                                                <StationCard station={st} />
+                                                                                {renderStationCard(st)}
                                                                             </div>
-                                                                            {i + 1 < sideA.length && (
-                                                                                <div className="absolute bottom-[80%] left-[80%] w-[120px] h-[70px] z-0 overflow-visible pointer-events-none opacity-80">
-                                                                                    <svg width="100%" height="100%" viewBox="0 0 100 100" preserveAspectRatio="none" className="overflow-visible ">
-                                                                                        <path d="M 0 100 C 40 70, 60 30, 100 0" fill="none" stroke="#64748b" strokeWidth="4" strokeDasharray="6,4" strokeLinecap="round" className="" />
-                                                                                        <polygon points="85,10 100,0 95,20" fill="#64748b" />
-                                                                                    </svg>
-                                                                                </div>
-                                                                            )}
+                                                                            {i + 1 < sideA.length && (() => {
+                                                                                const isOutgoing = hoveredStationIndex === st.index;
+                                                                                const isIncoming = hoveredStationIndex === sideA[i+1].index;
+                                                                                const isAnyHovered = hoveredStationIndex !== null;
+                                                                                
+                                                                                let stroke = "#64748b";
+                                                                                let strokeWidth = "4";
+                                                                                let opacity = "opacity-80";
+                                                                                
+                                                                                if (isAnyHovered) {
+                                                                                    if (isOutgoing) {
+                                                                                        stroke = "#0ea5e9";
+                                                                                        strokeWidth = "6";
+                                                                                        opacity = "opacity-100";
+                                                                                    } else if (isIncoming) {
+                                                                                        stroke = "#f59e0b";
+                                                                                        strokeWidth = "6";
+                                                                                        opacity = "opacity-100";
+                                                                                    } else {
+                                                                                        opacity = "opacity-20";
+                                                                                    }
+                                                                                }
+                                                                                return (
+                                                                                    <div className={`absolute bottom-[80%] left-[80%] w-[120px] h-[70px] z-0 overflow-visible pointer-events-none transition-all duration-300 ${opacity}`}>
+                                                                                        <svg width="100%" height="100%" viewBox="0 0 100 100" preserveAspectRatio="none" className="overflow-visible ">
+                                                                                            <path d="M 0 100 C 40 70, 60 30, 100 0" fill="none" stroke={stroke} strokeWidth={strokeWidth} strokeDasharray="6,4" strokeLinecap="round" className="transition-all duration-300" />
+                                                                                            <polygon points="85,10 100,0 95,20" fill={stroke} className="transition-all duration-300" />
+                                                                                        </svg>
+                                                                                    </div>
+                                                                                );
+                                                                            })()}
                                                                         </div>
                                                                     ))}
                                                                 </div>
@@ -3013,17 +3240,43 @@ export default function Implantation({
                                                                         {topRow.map((st, i) => (
                                                                             <div key={`lineA-${st.id}`} className="flex items-center gap-6">
                                                                                 <div id={`station-card-${st.id}`} className={`relative group transition-transform hover:scale-[1.02] shadow-sm hover:shadow-xl rounded-xl border-b-4 ${borderClass}`}>
-                                                                                    <StationCard station={st} />
+                                                                                    {renderStationCard(st)}
                                                                                 </div>
-                                                                                {i < topRow.length - 1 && (
-                                                                                    <div className={`flex items-center text-slate-400 opacity-80 shrink-0`}>
-                                                                                        <div className="relative w-10 h-1.5 flex items-center overflow-hidden rounded-l">
-                                                                                            <div className={`absolute inset-0 bg-slate-200/40`}></div>
-                                                                                            <div className={`absolute inset-0 w-full bg-gradient-to-r from-transparent via-slate-400 to-transparent`}></div>
+                                                                                {i < topRow.length - 1 && (() => {
+                                                                                    const isOutgoing = hoveredStationIndex === topRow[i].index;
+                                                                                    const isIncoming = hoveredStationIndex === topRow[i+1].index;
+                                                                                    const isAnyHovered = hoveredStationIndex !== null;
+                                                                                    
+                                                                                    let lineBg = 'bg-slate-200/40';
+                                                                                    let gradientClass = 'bg-gradient-to-r from-transparent via-slate-400 to-transparent';
+                                                                                    let chevronClass = 'text-slate-400';
+                                                                                    let opacity = 'opacity-80';
+                                                                                    
+                                                                                    if (isAnyHovered) {
+                                                                                        if (isOutgoing) {
+                                                                                            lineBg = 'bg-sky-200/40';
+                                                                                            gradientClass = 'bg-sky-400';
+                                                                                            chevronClass = 'text-sky-500 scale-110 stroke-[5]';
+                                                                                            opacity = 'opacity-100';
+                                                                                        } else if (isIncoming) {
+                                                                                            lineBg = 'bg-amber-200/40';
+                                                                                            gradientClass = 'bg-amber-400';
+                                                                                            chevronClass = 'text-amber-500 scale-110 stroke-[5]';
+                                                                                            opacity = 'opacity-100';
+                                                                                        } else {
+                                                                                            opacity = 'opacity-20';
+                                                                                        }
+                                                                                    }
+                                                                                    return (
+                                                                                        <div className={`flex items-center text-slate-400 shrink-0 transition-all duration-300 ${opacity}`}>
+                                                                                            <div className="relative w-10 h-1.5 flex items-center overflow-hidden rounded-l">
+                                                                                                <div className={`absolute inset-0 transition-colors duration-300 ${lineBg}`}></div>
+                                                                                                <div className={`absolute inset-0 w-full transition-all duration-300 ${gradientClass}`}></div>
+                                                                                            </div>
+                                                                                            <ChevronRight className={`-ml-2 w-6 h-6 stroke-[4] drop-shadow-md relative z-10 transition-all duration-300 ${chevronClass}`} />
                                                                                         </div>
-                                                                                        <ChevronRight className="-ml-2 w-6 h-6 stroke-[4] drop-shadow-md relative z-10" />
-                                                                                    </div>
-                                                                                )}
+                                                                                    );
+                                                                                })()}
                                                                             </div>
                                                                         ))}
                                                                     </div>
@@ -3037,17 +3290,43 @@ export default function Implantation({
                                                                         {bottomRow.map((st, i) => (
                                                                             <div key={`lineB-${st.id}`} className="flex items-center gap-6">
                                                                                 <div id={`station-card-${st.id}`} className={`relative group transition-transform hover:scale-[1.02] shadow-sm hover:shadow-xl rounded-xl border-t-4 ${borderClass}`}>
-                                                                                    <StationCard station={st} />
+                                                                                    {renderStationCard(st)}
                                                                                 </div>
-                                                                                {i < bottomRow.length - 1 && (
-                                                                                    <div className="flex items-center text-slate-400 opacity-80 shrink-0">
-                                                                                        <div className="relative w-10 h-1.5 flex items-center overflow-hidden rounded-l">
-                                                                                            <div className="absolute inset-0 bg-slate-200/40"></div>
-                                                                                            <div className="absolute inset-0 w-full bg-gradient-to-r from-transparent via-slate-400 to-transparent animate-[pulse_1.5s_ease-in-out_infinite_0.3s]"></div>
+                                                                                {i < bottomRow.length - 1 && (() => {
+                                                                                    const isOutgoing = hoveredStationIndex === bottomRow[i].index;
+                                                                                    const isIncoming = hoveredStationIndex === bottomRow[i+1].index;
+                                                                                    const isAnyHovered = hoveredStationIndex !== null;
+                                                                                    
+                                                                                    let lineBg = 'bg-slate-200/40';
+                                                                                    let gradientClass = 'bg-gradient-to-r from-transparent via-slate-400 to-transparent animate-[pulse_1.5s_ease-in-out_infinite_0.3s]';
+                                                                                    let chevronClass = 'text-slate-400 animate-[pulse_1.5s_ease-in-out_infinite_0.3s]';
+                                                                                    let opacity = 'opacity-80';
+                                                                                    
+                                                                                    if (isAnyHovered) {
+                                                                                        if (isOutgoing) {
+                                                                                            lineBg = 'bg-sky-200/40';
+                                                                                            gradientClass = 'bg-sky-400';
+                                                                                            chevronClass = 'text-sky-500 scale-110 stroke-[5]';
+                                                                                            opacity = 'opacity-100';
+                                                                                        } else if (isIncoming) {
+                                                                                            lineBg = 'bg-amber-200/40';
+                                                                                            gradientClass = 'bg-amber-400';
+                                                                                            chevronClass = 'text-amber-500 scale-110 stroke-[5]';
+                                                                                            opacity = 'opacity-100';
+                                                                                        } else {
+                                                                                            opacity = 'opacity-20';
+                                                                                        }
+                                                                                    }
+                                                                                    return (
+                                                                                        <div className={`flex items-center text-slate-400 shrink-0 transition-all duration-300 ${opacity}`}>
+                                                                                            <div className="relative w-10 h-1.5 flex items-center overflow-hidden rounded-l">
+                                                                                                <div className={`absolute inset-0 transition-colors duration-300 ${lineBg}`}></div>
+                                                                                                <div className={`absolute inset-0 w-full transition-all duration-300 ${gradientClass}`}></div>
+                                                                                            </div>
+                                                                                            <ChevronRight className={`-ml-2 w-6 h-6 stroke-[4] drop-shadow-md relative z-10 transition-all duration-300 ${chevronClass}`} />
                                                                                         </div>
-                                                                                        <ChevronRight className="-ml-2 w-6 h-6 stroke-[4] drop-shadow-md animate-[pulse_1.5s_ease-in-out_infinite_0.3s] relative z-10" />
-                                                                                    </div>
-                                                                                )}
+                                                                                    );
+                                                                                })()}
                                                                             </div>
                                                                         ))}
                                                                     </div>
@@ -3459,6 +3738,128 @@ export default function Implantation({
                                     </div>
                                 ))
                             )}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {showExportOptions && (
+                <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
+                    <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setShowExportOptions(false)} />
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md relative overflow-hidden animate-in fade-in zoom-in-95 duration-200 border border-slate-100 p-6 flex flex-col">
+                        <div className="flex justify-between items-center mb-5 pb-3 border-b border-slate-100">
+                            <h3 className="font-bold text-slate-800 text-lg flex items-center gap-2">
+                                <Printer className="w-5 h-5 text-indigo-600" />
+                                Options d'export PDF
+                            </h3>
+                            <button onClick={() => setShowExportOptions(false)} className="text-slate-400 hover:text-slate-600 transition-colors">
+                                <X className="w-5 h-5" />
+                            </button>
+                        </div>
+
+                        <div className="space-y-6">
+                            {/* Format de page */}
+                            <div>
+                                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-wider mb-2.5">Format de page</label>
+                                <div className="grid grid-cols-2 gap-3">
+                                    <button
+                                        type="button"
+                                        onClick={() => setExportSettings({ ...exportSettings, pageSize: 'single' })}
+                                        className={`p-3 rounded-xl border-2 transition-all flex flex-col items-center gap-1.5 text-center ${
+                                            exportSettings.pageSize === 'single'
+                                                ? 'border-indigo-600 bg-indigo-50/30 text-indigo-700 font-bold'
+                                                : 'border-slate-200 hover:border-slate-300 text-slate-500 hover:text-slate-700'
+                                        }`}
+                                    >
+                                        <span className="text-xs font-bold">Plan Continu</span>
+                                        <span className="text-[10px] text-slate-400 font-medium leading-tight">Page unique ajustée au plan</span>
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setExportSettings({ ...exportSettings, pageSize: 'a4' })}
+                                        className={`p-3 rounded-xl border-2 transition-all flex flex-col items-center gap-1.5 text-center ${
+                                            exportSettings.pageSize === 'a4'
+                                                ? 'border-indigo-600 bg-indigo-50/30 text-indigo-700 font-bold'
+                                                : 'border-slate-200 hover:border-slate-300 text-slate-500 hover:text-slate-700'
+                                        }`}
+                                    >
+                                        <span className="text-xs font-bold">Format A4</span>
+                                        <span className="text-[10px] text-slate-400 font-medium leading-tight">Mise en page découpée A4</span>
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Contenu à inclure */}
+                            <div className="space-y-4">
+                                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-wider">Contenu à inclure</label>
+                                
+                                <label className="flex items-start gap-3 cursor-pointer select-none">
+                                    <input
+                                        type="checkbox"
+                                        checked={exportSettings.header}
+                                        onChange={(e) => setExportSettings({ ...exportSettings, header: e.target.checked })}
+                                        className="mt-0.5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                                    />
+                                    <div className="flex flex-col">
+                                        <span className="text-xs font-bold text-slate-700">En-tête de document</span>
+                                        <span className="text-[10px] text-slate-400">Nom du modèle, logo et date de génération</span>
+                                    </div>
+                                </label>
+
+                                <label className="flex items-start gap-3 cursor-pointer select-none">
+                                    <input
+                                        type="checkbox"
+                                        checked={exportSettings.stats}
+                                        onChange={(e) => setExportSettings({ ...exportSettings, stats: e.target.checked })}
+                                        className="mt-0.5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                                    />
+                                    <div className="flex flex-col">
+                                        <span className="text-xs font-bold text-slate-700">Statistiques globales</span>
+                                        <span className="text-[10px] text-slate-400">Nombre d'opérateurs, temps de cycle, et rendement cible</span>
+                                    </div>
+                                </label>
+
+                                <label className="flex items-start gap-3 cursor-pointer select-none">
+                                    <input
+                                        type="checkbox"
+                                        checked={exportSettings.machines}
+                                        onChange={(e) => setExportSettings({ ...exportSettings, machines: e.target.checked })}
+                                        className="mt-0.5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                                    />
+                                    <div className="flex flex-col">
+                                        <span className="text-xs font-bold text-slate-700">Résumé matériel / machines</span>
+                                        <span className="text-[10px] text-slate-400">Liste récapitulative de toutes les machines requises</span>
+                                    </div>
+                                </label>
+                            </div>
+                        </div>
+
+                        <div className="flex gap-3 mt-8">
+                            <button
+                                type="button"
+                                onClick={() => setShowExportOptions(false)}
+                                className="flex-1 py-2.5 rounded-xl border border-slate-200 font-bold text-slate-600 hover:bg-slate-50 transition-colors text-xs"
+                            >
+                                Annuler
+                            </button>
+                            <button
+                                type="button"
+                                onClick={executeExport}
+                                disabled={isExporting}
+                                className="flex-1 py-2.5 rounded-xl bg-indigo-600 text-white font-bold hover:bg-indigo-700 shadow-md shadow-indigo-100 transition-colors text-xs flex items-center justify-center gap-1.5"
+                            >
+                                {isExporting ? (
+                                    <>
+                                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                        Génération...
+                                    </>
+                                ) : (
+                                    <>
+                                        <Printer className="w-3.5 h-3.5" />
+                                        Exporter le PDF
+                                    </>
+                                )}
+                            </button>
                         </div>
                     </div>
                 </div>

@@ -1185,5 +1185,60 @@ apsAddCol('ALTER TABLE planning_events ADD COLUMN accumulated_deficit INTEGER DE
 apsAddCol('ALTER TABLE planning_events ADD COLUMN learning_curve_profile_id TEXT');
 apsAddCol('ALTER TABLE planning_events ADD COLUMN activity_rate_override REAL');
 
+// Tables pour le Magasin et la logistique avancée
+db.exec(`
+  CREATE TABLE IF NOT EXISTS material_receipts (
+    id TEXT PRIMARY KEY,
+    owner_id INTEGER NOT NULL,
+    pedidoId TEXT NOT NULL,
+    modelId TEXT NOT NULL,
+    materialName TEXT NOT NULL,
+    qtyReceived REAL NOT NULL,
+    dateReceived TEXT NOT NULL,
+    owner TEXT NOT NULL,
+    supplierName TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE CASCADE
+  );
+  
+  CREATE TABLE IF NOT EXISTS inventory_movements (
+    id TEXT PRIMARY KEY,
+    owner_id INTEGER NOT NULL,
+    ofId TEXT,
+    materialName TEXT NOT NULL,
+    type TEXT NOT NULL,
+    qty REAL NOT NULL,
+    date TEXT NOT NULL,
+    notes TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE CASCADE
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_material_receipts_owner ON material_receipts(owner_id);
+  CREATE INDEX IF NOT EXISTS idx_inventory_movements_owner ON inventory_movements(owner_id);
+`);
+
+// ════════════════════════════════════════════════════════════════════════════════
+// CHRONO SESSIONS — Séances de chronométrage persistées en BDD
+// ════════════════════════════════════════════════════════════════════════════════
+
+db.exec(`
+  CREATE TABLE IF NOT EXISTS chrono_sessions (
+    id TEXT PRIMARY KEY,
+    owner_id INTEGER NOT NULL,
+    model_id TEXT NOT NULL,
+    label TEXT NOT NULL,
+    gamme_type TEXT DEFAULT 'default',
+    entries TEXT NOT NULL DEFAULT '{}',
+    op_names TEXT NOT NULL DEFAULT '{}',
+    total_temp_majore REAL DEFAULT 0,
+    order_source TEXT DEFAULT 'gamme',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE CASCADE
+  );
+  CREATE INDEX IF NOT EXISTS idx_chrono_sessions_owner_model ON chrono_sessions(owner_id, model_id);
+`);
+
 export default db;
+
 

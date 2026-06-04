@@ -129,6 +129,8 @@ export type Operation = {
   targetOperationId?: string; // New: Defines the destination flow (Preparation -> Montage)
   side?: 'G' | 'D' | 'GD'; // New: Side of operation (Gauche, Droite, Gauche/Droite)
   section?: 'PREPARATION' | 'MONTAGE' | 'GLOBAL';
+  /** Photo illustrative de l'opération (base64 compressé) — caméra ou galerie. */
+  photo?: string;
 };
 
 export interface SectionSettings {
@@ -212,6 +214,11 @@ export type FicheData = {
   todm?: string;
   kisba?: 'COUPE' | 'EN_COURS' | 'NON_LANCE' | 'AUTRE';
   hala?: 'EN_COURS' | 'TERMINE' | 'EN_ATTENTE' | 'BLOQUE';
+  facteurPlanning?: number;
+  bufferLancement?: number;
+  statutProduction?: 'En Attente' | 'En Cours' | 'En Pause' | 'Clôturé';
+  typeMarche?: 'Export' | 'Local';
+  toleranceSaturation?: number;
 };
 
 // --- NEW TYPES FOR COST CALCULATOR ---
@@ -225,6 +232,8 @@ export interface Material {
   threadMeters: number;
   threadCapacity: number;
   fournisseur?: string;
+  threadColor?: string;
+  threadReference?: string;
 }
 
 export interface PurchasingData extends Material {
@@ -348,6 +357,8 @@ export interface AppSettings {
   overtimeCostPerHour?: number;
   /** Coût par pièce sous-traitance par défaut (MAD/pièce) */
   subcontractDefaultCostPerPiece?: number;
+  /** Temps de changement de série par défaut en minutes (ex: 120 pour 2 heures) */
+  changeoverDurationMins?: number;
 }
 
 export interface PdfSettings {
@@ -380,6 +391,13 @@ export interface Faisceau {
   codeBarre: string;
 }
 
+export interface MatelasLine {
+  id: string;
+  plis: number;
+  longTracee: number;
+  ratios: Record<string, number>; // sizeName -> ratio (e.g. {"36": 2, "38": 6})
+}
+
 export interface OrdreCoupe {
   refModele: string;
   longueurMatelas: number;
@@ -389,6 +407,8 @@ export interface OrdreCoupe {
   qteTotale: number;
   status: 'EN_PREPARATION' | 'EN_COURS' | 'SOUS_TRAITANCE' | 'VALIDE' | 'REJETE';
   faisceaux?: Faisceau[];
+  matelasLines?: MatelasLine[];
+  tissuRecu?: number;
 }
 
 // --- NEW TYPE FOR LIBRARY ---
@@ -520,6 +540,9 @@ export type PlanningEvent = {
   learningCurveProfileId?: string;
   /** Taux d'activité Q override (par OF) */
   activityRateOverride?: number;
+  facteurPlanning?: number;
+  bufferLancement?: number;
+  typeMarche?: 'Export' | 'Local';
 };
 
 /** Ligne de BC générée depuis le planning (persistance JSON / raw_data) */
@@ -976,4 +999,29 @@ export interface Paiement {
   reference?: string | null;
   notes?: string | null;
   created_at: string;
+}
+
+// --------------------------------------------------------------------------------
+// PHASE: ADVANCED LOGISTICS & MRP
+// --------------------------------------------------------------------------------
+
+export interface MaterialReceipt {
+  id: string;              // BR reference number (e.g. BR-2026-001)
+  pedidoId: string;        // Linked client order (Pedido)
+  modelId: string;         // Linked model
+  materialName: string;    // Name matching the BOM entry
+  qtyReceived: number;     // Physical quantity delivered
+  dateReceived: string;    // YYYY-MM-DD
+  owner: 'client' | 'atelier'; // Stock ownership flag
+  supplierName?: string;   // Supplier or client name
+}
+
+export interface InventoryMovement {
+  id: string;
+  ofId?: string;           // Linked production event (PlanningEvent)
+  materialName: string;    // Trim or fabric name
+  type: 'IN' | 'OUT';      // Mouvement direction
+  qty: number;
+  date: string;            // YYYY-MM-DD
+  notes?: string;          // e.g. "Sortie pour Chaine 1"
 }

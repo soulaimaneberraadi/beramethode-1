@@ -47,6 +47,7 @@ const MaterialsList: React.FC<MaterialsListProps> = ({
 
     const [magasinData, setMagasinData] = useState<MagasinItem[]>([]);
     const [focusedRow, setFocusedRow] = useState<number | null>(null);
+    const [focusedRefRow, setFocusedRefRow] = useState<number | null>(null);
 
     // --- QUICK ADD TO MAGASIN STATE ---
     const [showQuickAddModal, setShowQuickAddModal] = useState(false);
@@ -425,26 +426,87 @@ const MaterialsList: React.FC<MaterialsListProps> = ({
                                                     </select>
                                                 </div>
                                                 {item.unit === 'bobine' && (
-                                                    <div className={`flex items-center gap-1.5 px-2 py-1.5 rounded border shadow-sm w-full animate-in fade-in zoom-in duration-200 ${darkMode ? 'bg-blue-900/20 border-blue-800' : 'bg-blue-50 border-blue-100'}`}>
-                                                        <span className="text-[10px] text-blue-600 font-bold w-12">Fil (m):</span>
-                                                        <input
-                                                            type="number"
-                                                            min="0"
-                                                            placeholder="Métrage"
-                                                            value={item.threadMeters || ''}
-                                                            onChange={(e) => updateMaterial(item.id, 'threadMeters', e.target.value)}
-                                                            className={`w-full text-xs font-mono border rounded px-1 outline-none text-center h-6 ${darkMode ? 'bg-gray-800 border-gray-600 text-white' : 'bg-white border-blue-200 text-slate-700'}`}
-                                                        />
-                                                        <span className="text-slate-400 text-xs font-bold">/</span>
-                                                        <input
-                                                            type="number"
-                                                            min="0"
-                                                            placeholder="Cap\u00e1cité"
-                                                            value={item.threadCapacity || ''}
-                                                            onChange={(e) => updateMaterial(item.id, 'threadCapacity', e.target.value)}
-                                                            className={`w-full text-xs font-mono border rounded px-1 outline-none text-center h-6 ${darkMode ? 'bg-gray-800 border-gray-600 text-white' : 'bg-white border-blue-200 text-slate-700'}`}
-                                                        />
-                                                    </div>
+                                                    <>
+                                                        <div className={`flex items-center gap-1.5 px-2 py-1.5 rounded border shadow-sm w-full animate-in fade-in zoom-in duration-200 ${darkMode ? 'bg-blue-900/20 border-blue-800' : 'bg-blue-50 border-blue-100'}`}>
+                                                            <span className="text-[10px] text-blue-600 font-bold w-12">Fil (m):</span>
+                                                            <input
+                                                                type="number"
+                                                                min="0"
+                                                                placeholder="Métrage"
+                                                                value={item.threadMeters || ''}
+                                                                onChange={(e) => updateMaterial(item.id, 'threadMeters', e.target.value)}
+                                                                className={`w-full text-xs font-mono border rounded px-1 outline-none text-center h-6 ${darkMode ? 'bg-gray-800 border-gray-600 text-white' : 'bg-white border-blue-200 text-slate-700'}`}
+                                                            />
+                                                            <span className="text-slate-400 text-xs font-bold">/</span>
+                                                            <input
+                                                                type="number"
+                                                                min="0"
+                                                                placeholder="Capacité"
+                                                                value={item.threadCapacity || ''}
+                                                                onChange={(e) => updateMaterial(item.id, 'threadCapacity', e.target.value)}
+                                                                className={`w-full text-xs font-mono border rounded px-1 outline-none text-center h-6 ${darkMode ? 'bg-gray-800 border-gray-600 text-white' : 'bg-white border-blue-200 text-slate-700'}`}
+                                                            />
+                                                        </div>
+                                                        {(item.threadColor || item.threadReference) && (
+                                                            <div className="relative">
+                                                                <div className={`flex items-center gap-1.5 px-2 py-1 rounded border shadow-sm w-full ${darkMode ? 'bg-slate-800/50 border-slate-700' : 'bg-slate-50 border-slate-200'}`}>
+                                                                    {item.threadColor && (
+                                                                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-700 font-bold">{item.threadColor}</span>
+                                                                    )}
+                                                                    <input
+                                                                        type="text"
+                                                                        placeholder="Référence (ex: NM50, TEX25...)"
+                                                                        value={item.threadReference || ''}
+                                                                        onChange={(e) => updateMaterial(item.id, 'threadReference', e.target.value)}
+                                                                        onFocus={() => setFocusedRefRow(item.id)}
+                                                                        onBlur={() => setTimeout(() => setFocusedRefRow(null), 250)}
+                                                                        className={`w-full text-[10px] border rounded px-1.5 py-0.5 outline-none ${darkMode ? 'bg-gray-800 border-gray-600 text-white' : 'bg-white border-slate-200 text-slate-600'}`}
+                                                                    />
+                                                                </div>
+                                                                {focusedRefRow === item.id && item.threadReference && (
+                                                                    <div className={`absolute z-50 mt-1 w-full max-h-40 overflow-y-auto rounded-lg border shadow-lg ${darkMode ? 'bg-gray-800 border-gray-600' : 'bg-white border-slate-200'}`}>
+                                                                        {magasinData.filter(m => {
+                                                                            const ref = (m.reference || '').toLowerCase();
+                                                                            const nom = (m.nom || m.designation || '').toLowerCase();
+                                                                            const query = (item.threadReference || '').toLowerCase();
+                                                                            return (ref.includes(query) || nom.includes(query)) && (m.categorie === 'fil' || !m.categorie);
+                                                                        }).slice(0, 8).map(m => (
+                                                                            <button
+                                                                                key={m.id}
+                                                                                onMouseDown={(e) => {
+                                                                                    e.preventDefault();
+                                                                                    updateMaterial(item.id, 'IMPORT_MAGASIN', { ...m, prix: m.prixUnitaire });
+                                                                                    setFocusedRefRow(null);
+                                                                                }}
+                                                                                className={`w-full text-left px-2 py-1.5 text-[10px] hover:bg-blue-50 border-b last:border-0 ${darkMode ? 'hover:bg-gray-700 border-gray-700' : 'border-slate-100'}`}
+                                                                            >
+                                                                                <div className="flex justify-between items-center">
+                                                                                    <span className="font-bold text-slate-700">{m.nom || m.designation}</span>
+                                                                                    <span className="text-[9px] text-slate-400">{m.reference}</span>
+                                                                                </div>
+                                                                                <div className="flex justify-between items-center mt-0.5">
+                                                                                    <span className="text-[9px] text-slate-500">{m.fournisseurNom || '—'}</span>
+                                                                                    <span className={`text-[9px] font-bold ${(m.stockActuel || 0) === 0 ? 'text-red-500' : 'text-emerald-600'}`}>
+                                                                                        Stock: {m.stockActuel || 0}
+                                                                                    </span>
+                                                                                </div>
+                                                                            </button>
+                                                                        ))}
+                                                                        {magasinData.filter(m => {
+                                                                            const ref = (m.reference || '').toLowerCase();
+                                                                            const nom = (m.nom || m.designation || '').toLowerCase();
+                                                                            const query = (item.threadReference || '').toLowerCase();
+                                                                            return (ref.includes(query) || nom.includes(query)) && (m.categorie === 'fil' || !m.categorie);
+                                                                        }).length === 0 && (
+                                                                            <div className="px-2 py-2 text-[10px] text-slate-400 text-center">
+                                                                                Aucun fil trouvé dans le magasin
+                                                                            </div>
+                                                                        )}
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        )}
+                                                    </>
                                                 )}
                                             </div>
                                         </td>

@@ -1,11 +1,13 @@
 import React from 'react';
-import type { PlanningEvent, ModelData } from '../../../../types';
+import type { PlanningEvent, ModelData, AppSettings } from '../../../../types';
 import { evClientName, evModelName, evProgressPct, evQty, evModelThumb } from '../../shared/eventAccessors';
 import { getClientColor, getClientColorSoft } from '../../shared/clientColors';
 import { getModelColor } from '../../shared/modelColors';
 import { toWorkStatus } from '../../shared/statusConfig';
 import { delayOf } from '../../hooks/useDelayIndicator';
 import { fmtShort } from '../../shared/dateFmt';
+import { AlertCircle } from 'lucide-react';
+import { getWorkMinutesPerDay } from '../../../../utils/planning';
 
 interface Props {
     event: PlanningEvent;
@@ -20,6 +22,7 @@ interface Props {
     onContextMenu: (e: React.MouseEvent) => void;
     onDragStart: (e: React.DragEvent) => void;
     onDragEnd?: (e: React.DragEvent) => void;
+    settings?: AppSettings;
 }
 
 function hexToRgba(hex: string, alpha: number): string {
@@ -35,12 +38,37 @@ function hexToRgba(hex: string, alpha: number): string {
 
 export default function EventBar({
     event, models, style, selected, dimmed, compact, showCRColors,
-    onClick, onDoubleClick, onContextMenu, onDragStart, onDragEnd,
+    onClick, onDoubleClick, onContextMenu, onDragStart, onDragEnd, settings,
 }: Props) {
     const h = compact ? 32 : 56;
     const client = evClientName(event, models);
     const modelName = evModelName(event, models);
     
+    // Setup buffer visual space calculations
+    const model = models.find(m => m.id === event.modelId);
+    const bufferLancement = model?.ficheData?.bufferLancement !== undefined 
+        ? model.ficheData.bufferLancement 
+        : (settings?.changeoverDurationMins ?? 120);
+
+    const workMins = settings ? getWorkMinutesPerDay(settings) : 480;
+    const operators = event.chaineId ? (settings?.chainOperators?.[event.chaineId] ?? 30) : 30;
+
+    const defaultEff = settings?.chainActivityRate?.[event.chaineId] ?? 0.60;
+    const chainEff = defaultEff;
+    const modelEff = model?.ficheData?.targetEfficiency ?? 85;
+    const safetyFactor = model?.ficheData?.facteurPlanning ?? 60;
+    const performance = model ? (modelEff * safetyFactor) / 10000 : chainEff;
+
+    const samMins = Math.max(0.1, model?.meta_data?.total_temps || 15);
+    const capacity = (operators * workMins * performance) / samMins;
+
+    const qty = evQty(event);
+    const setupDays = bufferLancement / workMins;
+    const productionDays = capacity > 0 ? (qty / capacity) : 1;
+    const daysNeeded = Math.ceil(productionDays + setupDays);
+
+    const setupPct = daysNeeded > 0 ? (setupDays / daysNeeded) * 100 : 0;
+
     // Couleur unique par modèle (priorité: modelId > modelName > client)
     const modelKey = event.modelId || modelName || client;
     let accent = (event.modelId || modelName) ? getModelColor(event.modelId || modelName) : (event.color || getModelColor(modelKey));
@@ -70,7 +98,6 @@ export default function EventBar({
     const accentSoft = accent.startsWith('#') ? hexToRgba(accent, 0.12) : accent;
     const accentBg = accent.startsWith('#') ? hexToRgba(accent, 0.06) : accent;
 
-    const qty = evQty(event);
     const progress = evProgressPct(event);
     const delay = delayOf(event);
     const blocked = ws === 'BLOCKED';
@@ -83,6 +110,7 @@ export default function EventBar({
         event.strictDeadline_DDS ? `DDS: ${fmtShort(event.strictDeadline_DDS)}` : '',
         event.blockedReason ? `Bloqué: ${event.blockedReason}` : '',
         event.isSubcontracted ? `Sous-traitance: ${event.subcontractorName || 'Externe'} (${event.subcontractStatus || 'PENDING'})` : '',
+        bufferLancement > 0 ? `Préparation (Lancement): ${bufferLancement} min` : '',
     ].filter(Boolean).join('\n');
 
     return (
@@ -102,20 +130,40 @@ export default function EventBar({
             style={{
                 ...style,
                 height: h,
-                background: selected ? accentSoft : accentBg,
-                borderLeft: `4px solid ${accent}`,
-                borderTop: event.isSubcontracted ? `1.5px dashed ${accent}` : `1px solid ${accent.startsWith('#') ? hexToRgba(accent, 0.15) : 'rgba(0,0,0,0.1)'}`,
-                borderRight: event.isSubcontracted ? `1.5px dashed ${accent}` : `1px solid ${accent.startsWith('#') ? hexToRgba(accent, 0.15) : 'rgba(0,0,0,0.1)'}`,
-                borderBottom: event.isSubcontracted ? `1.5px dashed ${accent}` : `1px solid ${accent.startsWith('#') ? hexToRgba(accent, 0.15) : 'rgba(0,0,0,0.1)'}`,
-                boxShadow: selected
-                    ? `0 4px 16px ${accent.startsWith('#') ? hexToRgba(accent, 0.15) : 'rgba(0,0,0,0.1)'}`
-                    : `0 1px 2px ${accent.startsWith('#') ? hexToRgba(accent, 0.06) : 'rgba(0,0,0,0.05)'}`,
+                background: event.status === 'BLOCKED_STOCK'
+                    ? 'repeating-linear-gradient(45deg, rgba(245, 158, 11, 0.08), rgba(245, 158, 11, 0.08) 6px, rgba(245, 158, 11, 0.18) 6px, rgba(245, 158, 11, 0.18) 12px)'
+                    : selected 
+                        ? (delay === 'LATE' && !event.isSubcontracted ? 'rgba(239, 68, 68, 0.16)' : accentSoft) 
+                        : (delay === 'LATE' && !event.isSubcontracted ? 'rgba(239, 68, 68, 0.08)' : accentBg),
+                borderLeft: event.status === 'BLOCKED_STOCK' ? '5px solid #F59E0B' : (delay === 'LATE' && !event.isSubcontracted ? '5px solid #EF4444' : `4px solid ${accent}`),
+                borderTop: event.status === 'BLOCKED_STOCK' ? '1px solid rgba(245, 158, 11, 0.3)' : event.isSubcontracted ? `1.5px dashed ${accent}` : `1px solid ${delay === 'LATE' && !event.isSubcontracted ? 'rgba(239, 68, 68, 0.3)' : (accent.startsWith('#') ? hexToRgba(accent, 0.15) : 'rgba(0,0,0,0.1)')}`,
+                borderRight: event.status === 'BLOCKED_STOCK' ? '1px solid rgba(245, 158, 11, 0.3)' : event.isSubcontracted ? `1.5px dashed ${accent}` : `1px solid ${delay === 'LATE' && !event.isSubcontracted ? 'rgba(239, 68, 68, 0.3)' : (accent.startsWith('#') ? hexToRgba(accent, 0.15) : 'rgba(0,0,0,0.1)')}`,
+                borderBottom: event.status === 'BLOCKED_STOCK' ? '1px solid rgba(245, 158, 11, 0.3)' : event.isSubcontracted ? `1.5px dashed ${accent}` : `1px solid ${delay === 'LATE' && !event.isSubcontracted ? 'rgba(239, 68, 68, 0.3)' : (accent.startsWith('#') ? hexToRgba(accent, 0.15) : 'rgba(0,0,0,0.1)')}`,
+                boxShadow: event.status === 'BLOCKED_STOCK'
+                    ? '0 0 8px rgba(245, 158, 11, 0.25)'
+                    : delay === 'LATE' && !event.isSubcontracted 
+                        ? '0 0 12px rgba(239, 68, 68, 0.35)' 
+                        : (selected
+                            ? `0 4px 16px ${accent.startsWith('#') ? hexToRgba(accent, 0.15) : 'rgba(0,0,0,0.1)'}`
+                            : `0 1px 2px ${accent.startsWith('#') ? hexToRgba(accent, 0.06) : 'rgba(0,0,0,0.05)'}`),
             }}
         >
-            <div className="h-full flex">
+            {/* Visual launch buffer watermark / striped region */}
+            {!done && setupPct > 0 && (
+                <div 
+                    className="absolute left-0 top-0 bottom-0 pointer-events-none" 
+                    style={{ 
+                        width: `${setupPct}%`,
+                        backgroundImage: 'repeating-linear-gradient(45deg, rgba(148, 163, 184, 0.06), rgba(148, 163, 184, 0.06) 4px, rgba(148, 163, 184, 0.15) 4px, rgba(148, 163, 184, 0.15) 8px)',
+                        borderRight: '1.5px dashed rgba(148, 163, 184, 0.4)',
+                        zIndex: 0,
+                    }}
+                />
+            )}
+            <div className="h-full flex relative z-10 w-full">
                 {/* Model photo thumbnail */}
                 {thumb && (
-                    <div className="shrink-0 overflow-hidden border-r" style={{ width: compact ? 28 : 40, borderColor: hexToRgba(accent, 0.2) }}>
+                    <div className="shrink-0 overflow-hidden border-r bg-white" style={{ width: compact ? 28 : 40, borderColor: hexToRgba(accent, 0.2) }}>
                         <img
                             src={thumb}
                             alt={modelName}
@@ -167,8 +215,16 @@ export default function EventBar({
                                 {event.subcontractorName ? `Sous-trait: ${event.subcontractorName}` : 'Sous-traitance'}
                             </span>
                         )}
+                        {event.status === 'BLOCKED_STOCK' && (
+                            <span className="flex items-center gap-1 text-[9px] font-extrabold text-amber-800 bg-amber-100 border border-amber-200 px-1.5 py-0.5 rounded shrink-0 shadow-sm">
+                                ⏸ EN PAUSE
+                            </span>
+                        )}
                         {delay === 'LATE' && !event.isSubcontracted && (
-                            <span className="text-[9px] font-semibold text-red-600 shrink-0">RETARD</span>
+                            <span className="flex items-center gap-1 text-[9px] font-bold text-red-600 bg-red-55 border border-red-200 px-1 py-0.5 rounded shrink-0 animate-pulse shadow-sm">
+                                <AlertCircle className="w-3 h-3 text-red-500" />
+                                RETARD
+                            </span>
                         )}
                         {delay === 'AT_RISK' && !event.isSubcontracted && (
                             <span className="text-[9px] font-semibold text-amber-600 shrink-0">RISQUE</span>

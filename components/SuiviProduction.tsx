@@ -1,10 +1,11 @@
 import React, { useMemo, useState, useEffect } from 'react';
-import type { AppSettings, ModelData, PlanningEvent, SuiviData } from '../types';
+import type { AppSettings, ModelData, PlanningEvent, SuiviData, MaterialReceipt, InventoryMovement, MouvementStock } from '../types';
 import { deriveHourGrid } from './suivi/shared/hours';
 import { 
     Activity, Clock, ChevronLeft, ChevronRight, Plus, 
     User, Settings, ToggleLeft, ToggleRight, Info, AlertCircle, CheckCircle, Save,
-    ShieldAlert, Sparkles, Sliders, Layers, BarChart2, CheckSquare, Trash2
+    ShieldAlert, Sparkles, Sliders, Layers, BarChart2, CheckSquare, Trash2,
+    Package, TrendingDown, AlertTriangle
 } from 'lucide-react';
 
 interface Props {
@@ -58,6 +59,41 @@ export default function SuiviProduction({
     const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
     const [showDarija, setShowDarija] = useState<boolean>(false);
     const [selectedActiveModelId, setSelectedActiveModelId] = useState<string>('');
+
+    // States for overconsumption tracking (real movements and products)
+    const [mvts, setMvts] = useState<MouvementStock[]>([]);
+    const [products, setProducts] = useState<any[]>([]);
+
+    useEffect(() => {
+        const fetchMagasinData = async () => {
+            try {
+                const [resMvts, resProd] = await Promise.all([
+                    fetch('/api/magasin/mouvements', { credentials: 'include' }),
+                    fetch('/api/magasin/products', { credentials: 'include' })
+                ]);
+                if (resMvts.ok) {
+                    setMvts(await resMvts.json());
+                } else {
+                    const raw = localStorage.getItem('beramethode_mouvements');
+                    if (raw) setMvts(JSON.parse(raw));
+                }
+                if (resProd.ok) {
+                    setProducts(await resProd.json());
+                } else {
+                    const raw = localStorage.getItem('beramethode_magasin');
+                    if (raw) setProducts(JSON.parse(raw));
+                }
+            } catch (e) {
+                try {
+                    const rawMvts = localStorage.getItem('beramethode_mouvements');
+                    if (rawMvts) setMvts(JSON.parse(rawMvts));
+                    const rawProd = localStorage.getItem('beramethode_magasin');
+                    if (rawProd) setProducts(JSON.parse(rawProd));
+                } catch (_) {}
+            }
+        };
+        fetchMagasinData();
+    }, [weekStart, selectedChaineId]);
 
     // Selected day for the graphic rendering (defaults to Monday)
     const [selectedChartDate, setSelectedChartDate] = useState<string>('');
@@ -687,6 +723,93 @@ export default function SuiviProduction({
         });
         return count > 0 ? Math.round(sum / count) : 0;
     }, [weekDays, suivis]);
+
+    // ═══════════════════════════════════════════════════════════
+    // LOGISTICS MRP: Consumption Deviation Alerts (Alerte Surconsommation)
+    // Écart = Sorties_réelles - (Quantité_produite × Consommation_unitaire_théorique)
+    // ═══════════════════════════════════════════════════════════
+    const consumptionAlerts = useMemo(() => {
+        if (mvts.length === 0 || products.length === 0) return [];
+
+        const alerts: {
+            modelId: string;
+            modelName: string;
+            modelRef: string;
+            materialName: string;
+            totalReceived: number; // Will represent totalSorties
+            consumed: number;      // Theoretical consumed
+            remainingStock: number;// Material left on floor (totalSorties - consumed)
+            remainingNeed: number; // Remaining need (max(0, am.remaining) * unitCons)
+            ecart: number;         // Waste/gaspillage (totalSorties - consumed)
+            severity: 'critical' | 'warning';
+            unit: string;
+            style: any;
+        }[] = [];
+
+        activeModels.forEach(am => {
+            const model = models.find(m => m.id === am.id);
+            if (!model?.ficheData?.materials?.length) return;
+
+            model.ficheData.materials.forEach(mat => {
+                const product = products.find(
+                    p => (p.designation || '').toLowerCase().trim() === (mat.name || '').toLowerCase().trim() ||
+                         (p.nom || '').toLowerCase().trim() === (mat.name || '').toLowerCase().trim()
+                );
+                if (!product) return;
+
+                const modelSorties = mvts.filter(
+                    m => m.type === 'sortie' &&
+                         m.productId === product.id &&
+                         (m.modeleRef === am.reference || m.chaineId === selectedChaineId)
+                );
+                const totalSorties = modelSorties.reduce((s, m) => s + m.quantite, 0);
+                if (totalSorties === 0) return; // No sorties logged for this material yet
+
+                const unitCons = mat.qty || 0;
+                if (unitCons <= 0) return;
+
+                // Theoretical consumption based on actual produced pieces
+                const consumed = am.produced * unitCons;
+                // What remains on the shop floor
+                const remainingStock = Math.max(0, totalSorties - consumed);
+                // What we still need to finish the order
+                const remainingNeed = Math.max(0, am.remaining) * unitCons;
+                // Ecart represents the overconsumption (actual sorties minus theoretical consumed so far)
+                const ecart = totalSorties - consumed;
+
+                let severity: 'critical' | 'warning' | null = null;
+                // Overconsumption / gaspillage trigger:
+                // If actual sorties exceed theoretical consumed so far by more than 20% -> critical (Red flash)
+                // If actual sorties exceed theoretical consumed so far by more than 10% -> warning
+                if (am.produced > 0) {
+                    if (totalSorties > consumed * 1.20) {
+                        severity = 'critical';
+                    } else if (totalSorties > consumed * 1.10) {
+                        severity = 'warning';
+                    }
+                }
+
+                if (severity) {
+                    alerts.push({
+                        modelId: am.id,
+                        modelName: am.name,
+                        modelRef: am.reference,
+                        materialName: mat.name,
+                        totalReceived: totalSorties,
+                        consumed: Math.round(consumed),
+                        remainingStock: Math.round(remainingStock),
+                        remainingNeed: Math.round(remainingNeed),
+                        ecart: Math.round(ecart),
+                        severity,
+                        unit: mat.unit || 'u',
+                        style: am.style,
+                    });
+                }
+            });
+        });
+
+        return alerts;
+    }, [activeModels, models, mvts, products, selectedChaineId]);
 
     return (
         <div className="flex flex-col h-full bg-[#fafbfe] overflow-hidden font-sans antialiased text-slate-800">
@@ -1367,6 +1490,134 @@ export default function SuiviProduction({
                     </div>
 
                 </div>
+
+                {/* ═══ LOGISTICS: Overconsumption Alert Banner (Alerte Surconsommation) ═══ */}
+                {consumptionAlerts.length > 0 && (
+                    <div className={`rounded-3xl border-2 overflow-hidden shadow-lg ${
+                        consumptionAlerts.some(a => a.severity === 'critical')
+                            ? 'border-rose-300 bg-gradient-to-r from-rose-50 via-rose-100/50 to-rose-50'
+                            : 'border-amber-300 bg-gradient-to-r from-amber-50 via-amber-100/50 to-amber-50'
+                    }`}>
+                        {/* Animated top stripe */}
+                        <div className={`h-1.5 w-full ${
+                            consumptionAlerts.some(a => a.severity === 'critical')
+                                ? 'bg-gradient-to-r from-rose-500 via-red-600 to-rose-500 animate-pulse'
+                                : 'bg-gradient-to-r from-amber-400 via-orange-500 to-amber-400'
+                        }`} />
+
+                        <div className="p-5">
+                            <div className="flex items-center gap-3 mb-4">
+                                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-md ${
+                                    consumptionAlerts.some(a => a.severity === 'critical')
+                                        ? 'bg-rose-500 text-white animate-pulse'
+                                        : 'bg-amber-500 text-white'
+                                }`}>
+                                    <AlertTriangle className="w-6 h-6" />
+                                </div>
+                                <div>
+                                    <h3 className="text-base font-black text-slate-800 flex items-center gap-2">
+                                        {showDarija ? '⚠️ تنبيه الاستهلاك الزائد' : '⚠️ Alerte Surconsommation'}
+                                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-black uppercase tracking-wider ${
+                                            consumptionAlerts.some(a => a.severity === 'critical')
+                                                ? 'bg-rose-100 text-rose-700 border border-rose-200 animate-pulse'
+                                                : 'bg-amber-100 text-amber-700 border border-amber-200'
+                                        }`}>
+                                            {consumptionAlerts.filter(a => a.severity === 'critical').length} critique(s)
+                                        </span>
+                                    </h3>
+                                    <p className="text-xs text-slate-500 font-medium">
+                                        {showDarija
+                                            ? 'المخزون ديال هاد اللوازم ماغاديش يكفي باش تسالي الكوماند!'
+                                            : 'Le stock restant ne suffira pas à terminer la commande !'}
+                                    </p>
+                                </div>
+                            </div>
+
+                            {/* Alert Cards Grid */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                {consumptionAlerts.map((alert, idx) => (
+                                    <div
+                                        key={`${alert.modelId}-${alert.materialName}-${idx}`}
+                                        className={`rounded-2xl border p-4 transition-all hover:shadow-md ${
+                                            alert.severity === 'critical'
+                                                ? 'bg-white border-rose-200 shadow-sm shadow-rose-100/50'
+                                                : 'bg-white border-amber-200 shadow-sm shadow-amber-100/50'
+                                        }`}
+                                    >
+                                        {/* Card header */}
+                                        <div className="flex items-start justify-between mb-3">
+                                            <div className="flex items-center gap-2">
+                                                <span className="w-3 h-3 rounded-md border" style={{ backgroundColor: alert.style.bg, borderColor: alert.style.border }} />
+                                                <span className="text-xs font-black text-slate-800">{alert.modelRef}</span>
+                                            </div>
+                                            <span className={`text-[9px] px-2 py-0.5 rounded-full font-black uppercase ${
+                                                alert.severity === 'critical'
+                                                    ? 'bg-rose-100 text-rose-700'
+                                                    : 'bg-amber-100 text-amber-700'
+                                            }`}>
+                                                {alert.severity === 'critical'
+                                                    ? (showDarija ? 'خطير 🔴' : 'Critique 🔴')
+                                                    : (showDarija ? 'تنبيه 🟡' : 'Attention 🟡')}
+                                            </span>
+                                        </div>
+
+                                        {/* Material name */}
+                                        <div className="flex items-center gap-2 mb-3">
+                                            <Package className="w-4 h-4 text-slate-400" />
+                                            <span className="text-sm font-black text-indigo-700">{alert.materialName}</span>
+                                        </div>
+
+                                        {/* KPI Grid */}
+                                        <div className="grid grid-cols-2 gap-2 text-[10px]">
+                                            <div className="bg-slate-50 rounded-xl p-2 text-center">
+                                                <span className="block text-slate-400 font-bold uppercase">{showDarija ? 'خرج للمعمل' : 'Sorti Magasin'}</span>
+                                                <span className="block text-sm font-black text-slate-700 tabular-nums">{alert.totalReceived.toLocaleString()} {alert.unit}</span>
+                                            </div>
+                                            <div className="bg-slate-50 rounded-xl p-2 text-center">
+                                                <span className="block text-slate-400 font-bold uppercase">{showDarija ? 'مستهلك نظري' : 'Cons. Théor.'}</span>
+                                                <span className="block text-sm font-black text-slate-700 tabular-nums">{alert.consumed.toLocaleString()} {alert.unit}</span>
+                                            </div>
+                                            <div className={`rounded-xl p-2 text-center ${alert.remainingStock <= 0 ? 'bg-rose-50' : 'bg-emerald-50'}`}>
+                                                <span className="block text-slate-400 font-bold uppercase">{showDarija ? 'باقي فالسلسلة' : 'Sur la chaîne'}</span>
+                                                <span className={`block text-sm font-black tabular-nums ${alert.remainingStock <= 0 ? 'text-rose-600' : 'text-emerald-600'}`}>{alert.remainingStock.toLocaleString()} {alert.unit}</span>
+                                            </div>
+                                            <div className="bg-indigo-50 rounded-xl p-2 text-center">
+                                                <span className="block text-slate-400 font-bold uppercase">{showDarija ? 'خاصك باش تسالي' : 'Besoin Rest.'}</span>
+                                                <span className="block text-sm font-black text-indigo-600 tabular-nums">{alert.remainingNeed.toLocaleString()} {alert.unit}</span>
+                                            </div>
+                                        </div>
+
+                                        {/* Écart (Deviation) bar */}
+                                        <div className="mt-3 pt-3 border-t border-slate-100">
+                                            <div className="flex items-center justify-between">
+                                                <span className="text-[10px] font-black text-slate-400 uppercase flex items-center gap-1">
+                                                    <TrendingDown className="w-3 h-3" />
+                                                    {showDarija ? 'الاستهلاك الزائد (الهدر)' : 'Surconsommation (Perte)'}
+                                                </span>
+                                                <span className="text-sm font-black tabular-nums text-rose-600">
+                                                    +{alert.ecart.toLocaleString()} {alert.unit}
+                                                </span>
+                                            </div>
+                                            <div className="w-full bg-slate-100 h-2 rounded-full mt-1.5 overflow-hidden">
+                                                <div
+                                                    className={`h-full rounded-full transition-all duration-500 ${
+                                                        alert.severity === 'critical' ? 'bg-rose-500 animate-pulse' : 'bg-amber-400'
+                                                    }`}
+                                                    style={{ width: `${Math.min(100, Math.max(5, alert.totalReceived > 0 ? (alert.consumed / alert.totalReceived) * 100 : 100))}%` }}
+                                                />
+                                            </div>
+                                            <p className="text-[9px] text-slate-400 font-medium mt-1">
+                                                {alert.severity === 'critical'
+                                                    ? (showDarija ? `ضياع السلعة فالسلسلة! تفوق 20%` : `Gaspillage critique constaté sur la chaîne ! (>20%)`)
+                                                    : (showDarija ? 'هناك زيادة طفيفة فالاستهلاك (تفوق 10%)' : 'Légère surconsommation constatée (>10%)')}
+                                            </p>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                )}
 
                 {/* Legend & Instructions footer */}
                 <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 bg-white border border-slate-100 rounded-3xl p-5 shadow-sm text-xs font-semibold text-slate-500">

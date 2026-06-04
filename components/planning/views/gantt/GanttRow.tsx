@@ -91,34 +91,18 @@ function GanttRow({
         return chainEvents.find(ev => {
             if (ev.status === 'DONE') return false;
             const start = evStartYmd(ev);
-            const model = modelsMap.get(ev.modelId);
-            const qty = evQty(ev);
-            let end = evEndYmd(ev);
-            if (model && qty > 0) {
-                const sam = Number(model.meta_data?.total_temps) || 15;
-                end = calculateRollingEndDate(ev, sam, chain.efficiency, settings).split('T')[0];
-            }
+            const end = evEndYmd(ev);
             if (!start || !end) return false;
             return todayStr >= start && todayStr <= end;
         });
-    }, [chainEvents, modelsMap, chain.efficiency, settings]);
+    }, [chainEvents]);
 
     const placedEvents = React.useMemo(() => {
-        const getEnd = (ev: PlanningEvent) => {
-            const model = modelsMap.get(ev.modelId);
-            const qty = evQty(ev);
-            if (model && qty > 0) {
-                const sam = Number(model.meta_data?.total_temps) || 15;
-                return calculateRollingEndDate(ev, sam, chain.efficiency, settings).split('T')[0];
-            }
-            return evEndYmd(ev);
-        };
-
         const sorted = [...chainEvents].sort((a, b) => {
             const sa = evStartYmd(a);
             const sb = evStartYmd(b);
             if (sa !== sb) return sa.localeCompare(sb);
-            return getEnd(a).localeCompare(getEnd(b));
+            return evEndYmd(a).localeCompare(evEndYmd(b));
         });
 
         const lanes: string[] = [];
@@ -126,7 +110,7 @@ function GanttRow({
 
         for (const ev of sorted) {
             const start = evStartYmd(ev);
-            const end = getEnd(ev);
+            const end = evEndYmd(ev);
             if (!start || !end) {
                 result.push({ event: ev, lane: 0 });
                 continue;
@@ -153,19 +137,12 @@ function GanttRow({
             placed: result,
             laneCount: Math.max(1, lanes.length),
         };
-    }, [chainEvents, modelsMap, chain.efficiency, settings]);
+    }, [chainEvents]);
 
     const computeBarStyle = (ev: PlanningEvent): React.CSSProperties => {
         const start = evStartYmd(ev);
         if (!start) return { display: 'none' };
-        const model = modelsMap.get(ev.modelId);
-        const qty = evQty(ev);
-        const storedEnd = evEndYmd(ev);
-        let endIso = storedEnd;
-        if (model && qty > 0) {
-            const sam = Number(model.meta_data?.total_temps) || 15;
-            endIso = calculateRollingEndDate(ev, sam, chain.efficiency, settings).split('T')[0];
-        }
+        const endIso = evEndYmd(ev);
         if (!endIso) return { display: 'none' };
         const spanStart = parsePlanningDateAtNoon(start);
         const spanEnd = parsePlanningDateAtNoon(endIso);
@@ -374,6 +351,7 @@ function GanttRow({
                             onDragStart(ev.id);
                         }}
                         onDragEnd={onDragEnd}
+                        settings={settings}
                     />
                 ))}
             </div>

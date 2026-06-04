@@ -15,7 +15,8 @@ import {
     RotateCcw,
     Undo2,
     Redo2,
-    AlertTriangle
+    AlertTriangle,
+    Calendar
 } from 'lucide-react';
 
 import FicheTechnique from './FicheTechnique';
@@ -25,6 +26,7 @@ import AnalyseTechnologique from './AnalyseTechnologique';
 import Balancing from './Balancing';
 import Implantation from './Implantation';
 import CostCalculator from './CostCalculator';
+import Pedido from './Pedido';
 
 import { Machine, Operation, ComplexityFactor, StandardTime, Guide, Poste, FicheData, Material, ChronoData, AppSettings, ManualLink, PlanningEvent } from '../types';
 
@@ -112,6 +114,7 @@ const STEP_LABELS = {
         equilibrage: 'Équilibrage',
         implantation: 'Implantation',
         couts: 'Coûts & Budget',
+        pedido: 'Pedido',
         save: 'Sauvegarder',
         next: 'Suivant',
         finish: 'Terminer',
@@ -127,6 +130,7 @@ const STEP_LABELS = {
         equilibrage: 'التوازن',
         implantation: 'التخطيط',
         couts: 'التكاليف والميزانية',
+        pedido: 'الطلبية (Pedido)',
         save: 'حفظ',
         next: 'التالي',
         finish: 'إنهاء',
@@ -155,7 +159,7 @@ export default function ModelWorkflow({
     const st = STEP_LABELS[lang];
 
     // Current Step State
-    const [currentStep, setCurrentStep] = useState<'fiche' | 'gamme' | 'chrono' | 'analyse' | 'equilibrage' | 'implantation' | 'couts'>('fiche');
+    const [currentStep, setCurrentStep] = useState<'fiche' | 'gamme' | 'chrono' | 'analyse' | 'equilibrage' | 'implantation' | 'couts' | 'pedido'>('fiche');
     const [validationError, setValidationError] = useState<string | null>(null);
 
     const showValidationError = (msg: string) => {
@@ -192,6 +196,7 @@ export default function ModelWorkflow({
         { id: 'equilibrage', label: st.equilibrage, icon: Scale },
         { id: 'implantation', label: st.implantation, icon: LayoutTemplate },
         { id: 'couts', label: st.couts, icon: Banknote },
+        { id: 'pedido', label: st.pedido, icon: Calendar },
     ];
 
     // Navigation Helper
@@ -342,21 +347,25 @@ export default function ModelWorkflow({
 
                     {currentStep === 'fiche' && (
                         <FicheTechnique
-                            data={ficheData} setData={setFicheData}
-                            articleName={articleName} setArticleName={setArticleName}
+                            data={ficheData}
+                            setData={setFicheData}
                             totalTime={globalStats.totalTime}
                             tempsArticle={globalStats.tempsArticle}
-                            numWorkers={numWorkers} setNumWorkers={setNumWorkers}
-                            efficiency={efficiency} setEfficiency={setEfficiency}
-                            images={ficheImages} setImages={setFicheImages}
-                            onNext={handleLinearNext}
+                            numWorkers={numWorkers}
+                            setNumWorkers={setNumWorkers}
+                            efficiency={efficiency}
+                            setEfficiency={setEfficiency}
+                            images={ficheImages}
+                            setImages={setFicheImages}
                             onSectionSplitChange={handleSectionSplitChange}
                             lang={lang}
-                            articleNameError={validationError?.includes(lang === 'ar' ? 'مرجع' : 'référence') || false}
                             settings={settings}
                             currentModelId={currentModelId}
                             planningEvents={planningEvents}
                             setPlanningEvents={setPlanningEvents}
+                            articleName={articleName}
+                            setArticleName={setArticleName}
+                            articleNameError={validationError?.includes(lang === 'ar' ? 'مرجع' : 'référence') || false}
                         />
                     )}
 
@@ -396,6 +405,8 @@ export default function ModelWorkflow({
                             machines={machines}
                             assignments={assignments}
                             postes={postes}
+                            currentModelId={currentModelId}
+                            articleName={articleName}
                         />
                     )}
 
@@ -428,6 +439,8 @@ export default function ModelWorkflow({
                             assignments={assignments} setAssignments={setAssignments}
                             postes={postes} setPostes={setPostes}
                             machines={machines}
+                            ficheData={ficheData}
+                            setFicheData={setFicheData}
                         />
                     )}
 
@@ -452,6 +465,8 @@ export default function ModelWorkflow({
                             onSave={onSaveToLibrary}
                             manualLinks={manualLinks}
                             setManualLinks={setManualLinks}
+                            ficheData={ficheData}
+                            setFicheData={setFicheData}
                         />
                     )}
 
@@ -468,9 +483,26 @@ export default function ModelWorkflow({
                                 settings={settings}
                                 ficheData={ficheData}
                                 setFicheData={setFicheData}
+                                operations={operations}
+                                setOperations={setOperations}
                             />
                         );
                     })()}
+
+                    {currentStep === 'pedido' && (
+                        <Pedido
+                            data={ficheData}
+                            setData={setFicheData}
+                            articleName={articleName}
+                            setArticleName={setArticleName}
+                            lang={lang}
+                            articleNameError={validationError?.includes(lang === 'ar' ? 'مرجع' : 'référence') || false}
+                            settings={settings}
+                            currentModelId={currentModelId}
+                            planningEvents={planningEvents}
+                            setPlanningEvents={setPlanningEvents}
+                        />
+                    )}
 
                 </div>
             </div>

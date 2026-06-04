@@ -1,6 +1,6 @@
 import { useCallback, useMemo } from 'react';
 import type { AppSettings, Lot, Machine, ModelData, PlanningEvent } from '../../../types';
-import { calculateEndDate } from '../../../utils/planning';
+import { calculateEndDate, rollPlanningEvents } from '../../../utils/planning';
 import { evaluateStockForPlanning, formatStockBlockedReason } from '../../../utils/materialNeeds';
 import type { MagasinStock } from './usePlanningStock';
 import type { PlanningChain } from './usePlanningChains';
@@ -106,10 +106,33 @@ export function usePlanningEvents({
     stock,
 }: Args) {
 
+    /** State updater wrapper that automatically applies dynamic rolling sequencing */
+    const setPlanningEventsWithRolling = useCallback((
+        action: React.SetStateAction<PlanningEvent[]>
+    ) => {
+        setPlanningEvents(prev => {
+            const nextRaw = typeof action === 'function' ? (action as (p: PlanningEvent[]) => PlanningEvent[])(prev) : action;
+            const efficiencies = Object.fromEntries(chains.map(c => [c.id, c.efficiency]));
+            return rollPlanningEvents(nextRaw, models, settings, efficiencies);
+        });
+    }, [chains, models, settings, setPlanningEvents]);
+
     /** Applique les contraintes stock magasin → status BLOCKED + raison. */
     const applyStock = useCallback(<T extends PlanningEvent>(ev: T, qty: number): T => {
         if (!stock?.products?.length) return ev;
         const model = models.find(m => m.id === ev.modelId);
+        
+        // Skip stock block for Export market type models
+        if (model?.ficheData?.typeMarche === 'Export') {
+            const cleared: T = { ...ev };
+            delete (cleared as PlanningEvent).materialShortages;
+            if (ev.status === 'BLOCKED_STOCK') {
+                (cleared as PlanningEvent).status = 'READY';
+                (cleared as PlanningEvent).blockedReason = undefined;
+            }
+            return cleared;
+        }
+
         const result = evaluateStockForPlanning(model, qty, stock.products, stock.lots ?? []);
         if (!result.ok) {
             const shortRows = result.shortages.map(s => ({
@@ -148,8 +171,19 @@ export function usePlanningEvents({
             const model = models.find(m => m.id === modelId);
             const chain = chains.find(c => c.id === chaineId);
             const sam = model?.meta_data?.total_temps || 15;
-            const eff = chain?.efficiency ?? 0.85;
-            return calculateEndDate(startDate, quantity, sam, eff, settings);
+            const defaultEff = chain?.efficiency ?? 0.85;
+
+            // Model planning efficiency
+            const modelEff = model?.ficheData?.targetEfficiency ?? 85;
+            const safetyFactor = model?.ficheData?.facteurPlanning ?? 60;
+            const effToUse = model ? (modelEff * safetyFactor) / 10000 : defaultEff;
+
+            // Launch buffer
+            const setupMins = model?.ficheData?.bufferLancement !== undefined 
+                ? model.ficheData.bufferLancement 
+                : (settings.changeoverDurationMins ?? 120);
+
+            return calculateEndDate(startDate, quantity, sam, effToUse, settings, chaineId, setupMins);
         },
         [models, chains, settings]
     );
@@ -188,14 +222,18 @@ export function usePlanningEvents({
             subcontractPricePerPiece: input.subcontractPricePerPiece,
             subcontractSizeColorDistribution: input.subcontractSizeColorDistribution,
             sizeColorDistribution: input.sizeColorDistribution,
+            // Spec parameters
+            typeMarche: model?.ficheData?.typeMarche ?? 'Local',
+            facteurPlanning: model?.ficheData?.facteurPlanning ?? 60,
+            bufferLancement: model?.ficheData?.bufferLancement ?? 120,
         };
         const stocked = applyStock(baseEv, input.quantity);
-        setPlanningEvents(prev => [...prev, stocked]);
-    }, [models, computeEndDate, applyStock, setPlanningEvents]);
+        setPlanningEventsWithRolling(prev => [...prev, stocked]);
+    }, [models, computeEndDate, applyStock, setPlanningEventsWithRolling]);
 
     /** Met à jour un OF — accepte un objet partiel. */
     const updateEvent = useCallback((id: string, patch: Partial<PlanningEvent>) => {
-        setPlanningEvents(prev => prev.map(ev => {
+        setPlanningEventsWithRolling(prev => prev.map(ev => {
             if (ev.id !== id) return ev;
             const merged: PlanningEvent = { ...ev, ...patch };
             // Recalcule la date de fin si quantité/début/chaîne ont changé.
@@ -218,7 +256,7 @@ export function usePlanningEvents({
             }
             return applyStock(merged, qty);
         }));
-    }, [setPlanningEvents, computeEndDate, applyStock]);
+    }, [setPlanningEventsWithRolling, computeEndDate, applyStock]);
 
     /** Déplace (drag-drop) — nouvelle chaîne + nouvelle date. */
     const moveEvent = useCallback((id: string, chaineId: string, dateKey: string) => {
@@ -273,8 +311,8 @@ export function usePlanningEvents({
         };
         const stockedOrig = applyStock(updatedOrig, remQty);
         const stockedClone = applyStock(cloned, splitQty);
-        setPlanningEvents(prev => [...prev.map(e => e.id === id ? stockedOrig : e), stockedClone]);
-    }, [planningEvents, computeEndDate, applyStock, setPlanningEvents]);
+        setPlanningEventsWithRolling(prev => [...prev.map(e => e.id === id ? stockedOrig : e), stockedClone]);
+    }, [planningEvents, computeEndDate, applyStock, setPlanningEventsWithRolling]);
 
     /** Fractionne un OF en plusieurs lots selon les livraisons client. */
     const splitEventWithLots = useCallback((id: string, lots: { 
@@ -351,12 +389,12 @@ export function usePlanningEvents({
                 sizeColorDistribution: remainingDist,
             };
             const stockedOrig = applyStock(updatedOrig, remainingQty);
-            setPlanningEvents(prev => [...prev.map(e => e.id === id ? stockedOrig : e), ...newEvents.map(e => applyStock(e, e.totalQuantity || 0))]);
+            setPlanningEventsWithRolling(prev => [...prev.map(e => e.id === id ? stockedOrig : e), ...newEvents.map(e => applyStock(e, e.totalQuantity || 0))]);
         } else {
             // All quantity distributed to lots, remove original
-            setPlanningEvents(prev => [...prev.filter(e => e.id !== id), ...newEvents.map(e => applyStock(e, e.totalQuantity || 0))]);
+            setPlanningEventsWithRolling(prev => [...prev.filter(e => e.id !== id), ...newEvents.map(e => applyStock(e, e.totalQuantity || 0))]);
         }
-    }, [planningEvents, computeEndDate, applyStock, setPlanningEvents]);
+    }, [planningEvents, computeEndDate, applyStock, setPlanningEventsWithRolling]);
 
     const duplicateEvent = useCallback((id: string) => {
         const orig = planningEvents.find(e => e.id === id);
@@ -368,16 +406,20 @@ export function usePlanningEvents({
             qteProduite: 0,
             status: 'READY',
         };
-        setPlanningEvents(prev => [...prev, cloned]);
-    }, [planningEvents, setPlanningEvents]);
+        setPlanningEventsWithRolling(prev => [...prev, cloned]);
+    }, [planningEvents, setPlanningEventsWithRolling]);
 
     const deleteEvent = useCallback((id: string) => {
-        setPlanningEvents(prev => prev.filter(e => e.id !== id));
-    }, [setPlanningEvents]);
+        setPlanningEventsWithRolling(prev => prev.filter(e => e.id !== id));
+    }, [setPlanningEventsWithRolling]);
+
+    const clearAllEvents = useCallback(() => {
+        setPlanningEventsWithRolling([]);
+    }, [setPlanningEventsWithRolling]);
 
     const setStatus = useCallback((id: string, status: PlanningEvent['status']) => {
-        setPlanningEvents(prev => prev.map(e => e.id === id ? { ...e, status } : e));
-    }, [setPlanningEvents]);
+        setPlanningEventsWithRolling(prev => prev.map(e => e.id === id ? { ...e, status } : e));
+    }, [setPlanningEventsWithRolling]);
 
     return {
         events: planningEvents,
@@ -388,8 +430,10 @@ export function usePlanningEvents({
         splitEventWithLots,
         duplicateEvent,
         deleteEvent,
+        clearAllEvents,
         setStatus,
         computeEndDate,
         applyStock,
     };
 }
+

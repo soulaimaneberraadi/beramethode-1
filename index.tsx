@@ -2,6 +2,7 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
 import { AuthProvider } from './src/context/AuthContext';
+import { LicenseProvider } from './src/context/LicenseContext';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { ClickToComponent } from 'click-to-react-component';
 import { installApiShim } from './src/lib/apiShim';
@@ -23,8 +24,10 @@ const root = ReactDOM.createRoot(rootElement);
 root.render(
   <ErrorBoundary>
     <AuthProvider>
-      <App />
-      <ClickToComponent />
+      <LicenseProvider>
+        <App />
+        <ClickToComponent />
+      </LicenseProvider>
     </AuthProvider>
   </ErrorBoundary>
 );

@@ -26,6 +26,23 @@ export const savePlanningEvents = (req: Request, res: Response) => {
 
     try {
         const transaction = db.transaction(() => {
+            // 1. Sync deletions: find events in database that are NOT in the incoming events list
+            const receivedIds = events.map((ev: any) => ev.id).filter(Boolean);
+            const existingEvents = db.prepare('SELECT id FROM planning_events WHERE owner_id = ?').all(userId) as { id: string }[];
+            const existingIds = existingEvents.map(e => e.id);
+            const idsToDelete = existingIds.filter(id => !receivedIds.includes(id));
+
+            for (const id of idsToDelete) {
+                // Release reservations first
+                const existingReservations = db.prepare('SELECT lotId, quantite FROM planning_reservations WHERE planningId = ?').all(id) as any[];
+                for (const r of existingReservations) {
+                    db.prepare('UPDATE magasin_lots SET quantiteReservee = MAX(0, quantiteReservee - ?) WHERE id = ?').run(r.quantite, r.lotId);
+                }
+                // Delete event
+                db.prepare('DELETE FROM planning_events WHERE id = ? AND owner_id = ?').run(id, userId);
+            }
+
+            // 2. Upsert incoming events
             const stmt = db.prepare(`
                 INSERT INTO planning_events 
                 (id, owner_id, modelId, chaineId, dateLancement, dateExport, qteTotal, qteProduite, status, blockedReason, superviseur, strictDeadline_DDS, clientName, estimatedEndDate, modelName, sectionSplitEnabled, fournisseurId, fournisseurDate, prepStart, prepEnd, montageStart, montageEnd, lots_data, raw_data, updated_at)

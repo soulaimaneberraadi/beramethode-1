@@ -3,6 +3,7 @@ import { SCHEMA_VERSION, migrateSnapshot } from './dataVersion';
 
 const SYNC_KEYS = [
   'beramethode_autosave_v1',
+  'beramethode_chrono_sessions_v1',
   'beramethode_library',
   'beramethode_planning',
   'beramethode_suivis',

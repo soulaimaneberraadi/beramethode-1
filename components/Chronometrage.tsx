@@ -3,7 +3,8 @@ import { Operation, ChronoData, Poste, Machine } from '../types';
 import {
     Activity, ClipboardList,
     Timer, Play, Pause, RotateCcw,
-    Zap, BarChart3, Target, ChevronDown, ChevronUp, Settings, Flag, X, Hash, Columns3, Pin
+    Zap, BarChart3, Target, ChevronDown, ChevronUp, Settings, Flag, X, Hash, Columns3, Pin,
+    Plus, History, Trash2, TrendingUp, Pencil, Check, Eye
 } from 'lucide-react';
 
 interface ChronometrageProps {
@@ -17,7 +18,25 @@ interface ChronometrageProps {
     machines?: Machine[];
     assignments?: Record<string, string[]>;
     postes?: Poste[];
+    currentModelId?: string | null;
+    articleName?: string;
 }
+
+/** Snapshot d'une séance de chronométrage (relevés figés à un instant T). */
+export interface ChronoSession {
+    id: string;
+    label: string;
+    createdAt: number;            // timestamp
+    /** Mesure par opération : temps moyen (tm) et temps majoré (tempMajore) en secondes. */
+    entries: Record<string, { tm?: number; tempMajore?: number; pMax?: number }>;
+    opNames: Record<string, string>; // nom des opérations au moment du snapshot
+    totalTempMajore: number;      // somme des tempMajore (min) — pour la courbe globale
+    gammeType?: 'default' | 'plantation' | 'new'; // Type de gamme utilisé
+    orderSource?: 'gamme' | 'plantation'; // Source d'ordre des opérations
+    modelId?: string; // ID du modèle associé
+}
+
+const CHRONO_SESSIONS_KEY = 'beramethode_chrono_sessions_v1';
 
 type TimeUnit = 'ms' | 'cs' | 'ds' | 'sec' | 'min' | 'cmin' | 'dmin' | 'hour' | 'tmu' | 'sam';
 type OutputMode = 'PJ' | 'PH';
@@ -526,7 +545,7 @@ function AdvancedStopwatch({ onRecord, onClear, onAdvance, onPrev, onNext, onUnd
 
 
 /* ─── MAIN COMPONENT ─── */
-export default function Chronometrage({ operations, chronoData, setChronoData, presenceTime, bf, numWorkers, efficiency, machines = [], assignments = {}, postes = [] }: ChronometrageProps) {
+export default function Chronometrage({ operations, chronoData, setChronoData, presenceTime, bf, numWorkers, efficiency, machines = [], assignments = {}, postes = [], currentModelId = null, articleName = '' }: ChronometrageProps) {
 
     const [activeRowId, setActiveRowId] = useState<string | null>(null);
     const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
@@ -546,11 +565,142 @@ export default function Chronometrage({ operations, chronoData, setChronoData, p
     const [showThroughputKpi, setShowThroughputKpi] = useState(true);
     /** Barre stats + outils : sticky en haut de #workflow-content ou défile avec le contenu. */
     const [stickyToolbar, setStickyToolbar] = useState(false);
+    /** Source de l'ordre des opérations dans le tableau : ordre Gamme (défaut) ou ordre réel d'implantation (flux des postes). */
+    const [orderSource, setOrderSource] = useState<'gamme' | 'plantation'>('gamme');
+
+    /** Indice de flux (position du poste dans l'implantation) par opération — pour le tri "Plantation". */
+    const plantationFlowIndex = useMemo(() => {
+        const posteIndexById = new Map<string, number>();
+        postes.forEach((p, i) => {
+            posteIndexById.set(p.id, i);
+            // Les sous-postes scindés (x2) partagent le flux de leur poste parent.
+            const originalId = (p as any).originalId as string | undefined;
+            if (originalId && !posteIndexById.has(originalId)) posteIndexById.set(originalId, i);
+        });
+        const map = new Map<string, number>();
+        operations.forEach(op => {
+            const aids = assignments?.[op.id] || [];
+            let best = Infinity;
+            aids.forEach(aid => {
+                const idx = posteIndexById.get(aid);
+                if (idx !== undefined && idx < best) best = idx;
+            });
+            map.set(op.id, best);
+        });
+        return map;
+    }, [postes, assignments, operations]);
 
     const filteredOperations = useMemo(() => {
-        if (sectionFilter === 'ALL') return operations;
-        return operations.filter(o => (o.section || 'GLOBAL') === sectionFilter);
-    }, [operations, sectionFilter]);
+        const base = sectionFilter === 'ALL'
+            ? operations
+            : operations.filter(o => (o.section || 'GLOBAL') === sectionFilter);
+        if (orderSource !== 'plantation') return base;
+        // Tri par flux d'implantation ; opérations non assignées → à la fin, dans l'ordre Gamme.
+        return [...base].sort((a, b) => {
+            const fa = plantationFlowIndex.get(a.id) ?? Infinity;
+            const fb = plantationFlowIndex.get(b.id) ?? Infinity;
+            if (fa !== fb) return fa - fb;
+            return (a.order ?? 0) - (b.order ?? 0);
+        });
+    }, [operations, sectionFilter, orderSource, plantationFlowIndex]);
+
+    // ─── SÉANCES DE CHRONO (historique + évolution) ───
+    const [sessions, setSessions] = useState<ChronoSession[]>([]);
+    const [editingSessionId, setEditingSessionId] = useState<string | null>(null);
+    const [sessionLabelDraft, setSessionLabelDraft] = useState('');
+    /** Métrique suivie dans la courbe d'évolution. */
+    const [evolutionMetric, setEvolutionMetric] = useState<'tempMajore' | 'tm'>('tempMajore');
+    /** Type de gamme pour la nouvelle séance. */
+    const [newSessionGammeType, setNewSessionGammeType] = useState<'default' | 'plantation' | 'new'>('default');
+    /** Source d'ordre pour la nouvelle séance. */
+    const [newSessionOrderSource, setNewSessionOrderSource] = useState<'gamme' | 'plantation'>('gamme');
+    /** Session sélectionnée pour affichage détaillé (page dédiée). */
+    const [selectedSession, setSelectedSession] = useState<ChronoSession | null>(null);
+    /** Show create session dialog. */
+    const [showCreateDialog, setShowCreateDialog] = useState(false);
+
+    // Charger les séances depuis l'API
+    useEffect(() => {
+        if (!currentModelId) { setSessions([]); return; }
+        fetch(`/api/chrono/sessions?modelId=${currentModelId}`, { credentials: 'include' })
+            .then(r => r.ok ? r.json() : [])
+            .then((data: ChronoSession[]) => setSessions(Array.isArray(data) ? data : []))
+            .catch(() => setSessions([]));
+    }, [currentModelId]);
+
+    /** Fige les relevés actuels dans une nouvelle séance horodatée. */
+    const createSession = useCallback(async () => {
+        const entries: ChronoSession['entries'] = {};
+        const opNames: Record<string, string> = {};
+        let totalTempMajore = 0;
+        operations.forEach(op => {
+            const row = chronoData[op.id];
+            opNames[op.id] = op.description || `Op. ${op.order}`;
+            if (row) {
+                entries[op.id] = { tm: row.tm, tempMajore: row.tempMajore, pMax: row.pMax };
+                totalTempMajore += row.tempMajore || 0;
+            }
+        });
+        const now = new Date();
+        const label = `Chrono ${sessions.length + 1} · ${now.toLocaleDateString('fr-FR')} ${now.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`;
+        const session: ChronoSession = {
+            id: `CS-${Date.now()}`,
+            label,
+            createdAt: now.getTime(),
+            entries,
+            opNames,
+            totalTempMajore: roundValue(totalTempMajore),
+            gammeType: newSessionGammeType,
+            orderSource: newSessionOrderSource,
+        };
+        try {
+            const res = await fetch('/api/chrono/sessions', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({
+                    modelId: currentModelId,
+                    ...session,
+                }),
+            });
+            if (res.ok) {
+                const saved = await res.json();
+                setSessions(prev => [...prev, { ...session, ...saved }]);
+            }
+        } catch { /* fallback to local only */ }
+        setShowCreateDialog(false);
+    }, [operations, chronoData, sessions.length, currentModelId, newSessionGammeType, newSessionOrderSource]);
+
+    const deleteSession = useCallback(async (id: string) => {
+        try {
+            await fetch(`/api/chrono/sessions/${id}`, { method: 'DELETE', credentials: 'include' });
+        } catch { /* continue even if API fails */ }
+        setSessions(prev => prev.filter(s => s.id !== id));
+        if (selectedSession?.id === id) setSelectedSession(null);
+    }, [selectedSession]);
+
+    const startRenameSession = (s: ChronoSession) => { setEditingSessionId(s.id); setSessionLabelDraft(s.label); };
+    const commitRenameSession = async () => {
+        if (!editingSessionId) return;
+        const label = sessionLabelDraft.trim();
+        setSessions(prev => prev.map(s => (s.id === editingSessionId ? { ...s, label: label || s.label } : s)));
+        try {
+            await fetch(`/api/chrono/sessions/${editingSessionId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({ label: label || undefined }),
+            });
+        } catch { /* ignore */ }
+        setEditingSessionId(null);
+        setSessionLabelDraft('');
+    };
+
+    const gammeTypeOptions = [
+        { value: 'default' as const, label: 'Défaut', desc: 'Ordre de la Gamme' },
+        { value: 'plantation' as const, label: 'Plantation', desc: 'Flux réel atelier' },
+        { value: 'new' as const, label: 'Nouveau', desc: 'Nouvelle séquence' },
+    ];
 
     const hasSections = useMemo(
         () => operations.some(o => o.section === 'PREPARATION' || o.section === 'MONTAGE'),
@@ -1105,6 +1255,25 @@ export default function Chronometrage({ operations, chronoData, setChronoData, p
                     >
                         <Settings className="w-4 h-4" /> {trCount} lancers
                     </button>
+
+                    <div className="shrink-0 flex items-stretch rounded-lg border border-slate-200 overflow-hidden shadow-sm h-[40px]" title="Ordre des opérations : Gamme ou flux réel de l'implantation">
+                        <button
+                            type="button"
+                            onClick={() => setOrderSource('gamme')}
+                            className={`px-3 py-2 text-xs font-bold transition-colors focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-400 focus:outline-none ${orderSource === 'gamme' ? 'bg-indigo-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-50'}`}
+                            title="Ordre de la Gamme"
+                        >
+                            Gamme
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setOrderSource('plantation')}
+                            className={`px-3 py-2 text-xs font-bold transition-colors border-l border-slate-200 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-400 focus:outline-none ${orderSource === 'plantation' ? 'bg-indigo-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-50'}`}
+                            title="Ordre réel du flux d'implantation (lancement de la chaîne)"
+                        >
+                            Plantation
+                        </button>
+                    </div>
 
                     <div className="shrink-0 flex items-stretch rounded-lg border border-slate-200 overflow-hidden shadow-sm h-[40px]">
                         <button
@@ -1672,6 +1841,181 @@ export default function Chronometrage({ operations, chronoData, setChronoData, p
                 </div>
             </div>
 
+            {/* ─── HISTORIQUE & ÉVOLUTION DES SÉANCES DE CHRONO ─── */}
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-lg overflow-hidden">
+                <div className="px-3 py-3 sm:px-6 sm:py-5 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div className="flex items-center gap-2.5 sm:gap-3">
+                        <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center shrink-0">
+                            <History className="w-4 h-4 sm:w-5 sm:h-5 text-indigo-600" />
+                        </div>
+                        <div>
+                            <h3 className="font-black text-slate-800 text-base sm:text-lg leading-tight">Historique & Évolution</h3>
+                            <p className="text-slate-500 text-xs sm:text-sm font-medium mt-0.5">
+                                {sessions.length > 0
+                                    ? <>{sessions.length} séance{sessions.length > 1 ? 's' : ''} enregistrée{sessions.length > 1 ? 's' : ''}{articleName ? <> · <strong className="text-indigo-600">{articleName}</strong></> : null}</>
+                                    : 'Fige les relevés actuels pour suivre le progrès dans le temps.'}
+                            </p>
+                        </div>
+                    </div>
+                    <button
+                        type="button"
+                        onClick={() => setShowCreateDialog(true)}
+                        disabled={!currentModelId || operations.length === 0}
+                        className="shrink-0 inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-black bg-indigo-600 text-white shadow-md shadow-indigo-200 hover:bg-indigo-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                        title={!currentModelId ? "Enregistre d'abord le modèle" : 'Nouvelle séance chronométrage'}
+                    >
+                        <Plus className="w-4 h-4" /> Nouveau Chrono
+                    </button>
+                </div>
+
+                {sessions.length === 0 ? (
+                    <div className="px-6 py-12 text-center">
+                        <div className="w-12 h-12 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                            <TrendingUp className="w-6 h-6 text-slate-300" />
+                        </div>
+                        <p className="text-slate-500 font-bold">Aucune séance enregistrée</p>
+                        <p className="text-slate-400 text-xs mt-1">Clique sur « Nouveau Chrono » après avoir saisi tes relevés.</p>
+                    </div>
+                ) : (
+                    <div className="p-3 sm:p-6 space-y-6">
+                        {/* COURBE D'ÉVOLUTION (BF total majoré par séance) */}
+                        {(() => {
+                            const W = 760, H = 220, padL = 48, padR = 16, padT = 20, padB = 44;
+                            const vals = sessions.map(s => s.totalTempMajore || 0);
+                            const maxV = Math.max(...vals, 1);
+                            const minV = Math.min(...vals, 0);
+                            const span = maxV - minV || 1;
+                            const n = sessions.length;
+                            const x = (i: number) => n <= 1 ? (padL + (W - padL - padR) / 2) : padL + (i * (W - padL - padR)) / (n - 1);
+                            const y = (v: number) => padT + (H - padT - padB) * (1 - (v - minV) / span);
+                            const pts = sessions.map((s, i) => ({ px: x(i), py: y(s.totalTempMajore || 0), s }));
+                            const line = pts.map(p => `${p.px},${p.py}`).join(' ');
+                            const area = `${padL},${H - padB} ${line} ${x(n - 1)},${H - padB}`;
+                            const first = vals[0] || 0;
+                            const last = vals[n - 1] || 0;
+                            const delta = last - first;
+                            return (
+                                <div>
+                                    <div className="flex items-center justify-between mb-2">
+                                        <span className="text-xs font-black text-slate-600 uppercase tracking-wider flex items-center gap-1.5">
+                                            <TrendingUp className="w-3.5 h-3.5 text-indigo-500" /> Évolution du temps majoré total (min)
+                                        </span>
+                                        {n > 1 && (
+                                            <span className={`text-[11px] font-black px-2 py-0.5 rounded-full ${delta < 0 ? 'bg-emerald-50 text-emerald-700' : delta > 0 ? 'bg-rose-50 text-rose-700' : 'bg-slate-100 text-slate-500'}`}>
+                                                {delta < 0 ? '▼' : delta > 0 ? '▲' : '='} {Math.abs(delta).toFixed(2)} min
+                                            </span>
+                                        )}
+                                    </div>
+                                    <div className="w-full overflow-x-auto">
+                                        <svg viewBox={`0 0 ${W} ${H}`} className="w-full min-w-[520px]" style={{ height: 220 }}>
+                                            {/* grille horizontale */}
+                                            {[0, 0.25, 0.5, 0.75, 1].map(t => {
+                                                const gy = padT + (H - padT - padB) * t;
+                                                const gv = maxV - t * span;
+                                                return (
+                                                    <g key={t}>
+                                                        <line x1={padL} y1={gy} x2={W - padR} y2={gy} stroke="#eef2f7" strokeWidth={1} />
+                                                        <text x={padL - 6} y={gy + 3} textAnchor="end" fontSize={9} fill="#94a3b8" fontFamily="monospace">{gv.toFixed(1)}</text>
+                                                    </g>
+                                                );
+                                            })}
+                                            {n > 1 && <polygon points={area} fill="url(#chronoGrad)" opacity={0.5} />}
+                                            <defs>
+                                                <linearGradient id="chronoGrad" x1="0" y1="0" x2="0" y2="1">
+                                                    <stop offset="0%" stopColor="#6366f1" stopOpacity={0.35} />
+                                                    <stop offset="100%" stopColor="#6366f1" stopOpacity={0} />
+                                                </linearGradient>
+                                            </defs>
+                                            {n > 1 && <polyline points={line} fill="none" stroke="#6366f1" strokeWidth={2.5} strokeLinejoin="round" strokeLinecap="round" />}
+                                            {pts.map((p, i) => (
+                                                <g key={p.s.id}>
+                                                    <circle cx={p.px} cy={p.py} r={4} fill="#fff" stroke="#6366f1" strokeWidth={2.5} />
+                                                    <text x={p.px} y={p.py - 10} textAnchor="middle" fontSize={10} fontWeight={800} fill="#4338ca" fontFamily="monospace">{(p.s.totalTempMajore || 0).toFixed(1)}</text>
+                                                    <text x={p.px} y={H - padB + 16} textAnchor="middle" fontSize={9} fill="#64748b" fontWeight={700}>#{i + 1}</text>
+                                                    <text x={p.px} y={H - padB + 30} textAnchor="middle" fontSize={8} fill="#94a3b8">{new Date(p.s.createdAt).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })}</text>
+                                                </g>
+                                            ))}
+                                        </svg>
+                                    </div>
+                                </div>
+                            );
+                        })()}
+
+                        {/* CHIPS DES SÉANCES (renommer / supprimer / voir) */}
+                        <div className="flex flex-wrap gap-2">
+                            {sessions.map((s, i) => (
+                                <div key={s.id} className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-xl pl-2.5 pr-1.5 py-1.5 shadow-sm">
+                                    <span className="w-5 h-5 shrink-0 rounded-md bg-indigo-600 text-white text-[10px] font-black flex items-center justify-center">{i + 1}</span>
+                                    {editingSessionId === s.id ? (
+                                        <input
+                                            autoFocus
+                                            value={sessionLabelDraft}
+                                            onChange={(e) => setSessionLabelDraft(e.target.value)}
+                                            onKeyDown={(e) => { if (e.key === 'Enter') commitRenameSession(); if (e.key === 'Escape') { setEditingSessionId(null); setSessionLabelDraft(''); } }}
+                                            onBlur={commitRenameSession}
+                                            className="w-40 text-xs font-bold text-slate-700 bg-white border border-indigo-300 rounded-md px-2 py-0.5 outline-none"
+                                        />
+                                    ) : (
+                                        <span className="text-xs font-bold text-slate-700 max-w-[220px] truncate" title={s.label}>{s.label}</span>
+                                    )}
+                                    {s.gammeType && s.gammeType !== 'default' && (
+                                        <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${s.gammeType === 'plantation' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
+                                            {s.gammeType === 'plantation' ? 'Plant' : 'New'}
+                                        </span>
+                                    )}
+                                    <span className="text-[10px] font-mono font-black text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded">{(s.totalTempMajore || 0).toFixed(1)}m</span>
+                                    <button type="button" onClick={() => setSelectedSession(s)} className="p-1 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-md" title="Voir détails"><Eye className="w-3.5 h-3.5" /></button>
+                                    {editingSessionId === s.id ? (
+                                        <button type="button" onClick={commitRenameSession} className="p-1 text-emerald-600 hover:bg-emerald-50 rounded-md" title="Valider"><Check className="w-3.5 h-3.5" /></button>
+                                    ) : (
+                                        <button type="button" onClick={() => startRenameSession(s)} className="p-1 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-md" title="Renommer"><Pencil className="w-3 h-3" /></button>
+                                    )}
+                                    <button type="button" onClick={() => deleteSession(s.id)} className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-md" title="Supprimer"><Trash2 className="w-3.5 h-3.5" /></button>
+                                </div>
+                            ))}
+                        </div>
+
+                        {/* TABLEAU COMPARATIF (opération × séance) — temps majoré (min) */}
+                        <div className="overflow-x-auto rounded-xl border border-slate-200">
+                            <table className="w-full text-xs border-collapse">
+                                <thead>
+                                    <tr className="bg-slate-50 text-slate-500 border-b border-slate-200">
+                                        <th className="py-2.5 px-3 text-left font-black sticky left-0 bg-slate-50 min-w-[160px]">Opération</th>
+                                        {sessions.map((s, i) => (
+                                            <th key={s.id} className="py-2.5 px-2 text-center font-bold min-w-[64px]" title={s.label}>#{i + 1}</th>
+                                        ))}
+                                        <th className="py-2.5 px-2 text-center font-black text-indigo-700 bg-indigo-50/50 min-w-[64px]">Δ</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-100">
+                                    {filteredOperations.map(op => {
+                                        const series = sessions.map(s => s.entries[op.id]?.tempMajore);
+                                        const firstV = series.find(v => v !== undefined && v !== null);
+                                        const lastDefined = [...series].reverse().find(v => v !== undefined && v !== null);
+                                        const d = (typeof firstV === 'number' && typeof lastDefined === 'number') ? lastDefined - firstV : undefined;
+                                        return (
+                                            <tr key={op.id} className="hover:bg-slate-50/50">
+                                                <td className="py-2 px-3 font-semibold text-slate-700 sticky left-0 bg-white truncate max-w-[160px]" title={op.description}>{op.description}</td>
+                                                {series.map((v, i) => (
+                                                    <td key={i} className="py-2 px-2 text-center font-mono text-slate-600">
+                                                        {typeof v === 'number' ? v.toFixed(2) : <span className="text-slate-300">—</span>}
+                                                    </td>
+                                                ))}
+                                                <td className="py-2 px-2 text-center font-mono font-black bg-indigo-50/30">
+                                                    {typeof d === 'number'
+                                                        ? <span className={d < 0 ? 'text-emerald-600' : d > 0 ? 'text-rose-600' : 'text-slate-400'}>{d > 0 ? '+' : ''}{d.toFixed(2)}</span>
+                                                        : <span className="text-slate-300">—</span>}
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                )}
+            </div>
+
             {/* ─── BOTTOM INSIGHT CARD ─── */}
             {operations.length > 0 && totals.tempMajore > 0 && (
                 <div className="bg-white rounded-2xl border border-slate-200 shadow-lg p-5 flex flex-col md:flex-row md:items-center justify-between gap-6">
@@ -1737,6 +2081,235 @@ export default function Chronometrage({ operations, chronoData, setChronoData, p
                     L'unité de temps définie est <strong className="uppercase">{unitLabel}</strong>. La moyenne (T.Moy) est automatique mais peut être ajustée manuellement.
                 </p>
             </div>
+
+            {/* ─── CREATE SESSION DIALOG ─── */}
+            {showCreateDialog && (
+                <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40 backdrop-blur-sm animate-in fade-in duration-150">
+                    <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-md mx-4 overflow-hidden animate-in zoom-in-95 duration-200">
+                        <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between">
+                            <div>
+                                <h3 className="font-black text-slate-800 text-lg">Nouvelle Séance Chrono</h3>
+                                <p className="text-slate-500 text-xs mt-0.5">Choisir le type de gamme et créer la séance</p>
+                            </div>
+                            <button onClick={() => setShowCreateDialog(false)} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-colors">
+                                <X className="w-5 h-5" />
+                            </button>
+                        </div>
+                        <div className="px-6 py-5 space-y-4">
+                            {/* Gamme Type Selector */}
+                            <div>
+                                <label className="text-xs font-bold text-slate-600 uppercase tracking-wider block mb-2">Type de Gamme</label>
+                                <div className="grid grid-cols-3 gap-2">
+                                    {gammeTypeOptions.map(opt => (
+                                        <button
+                                            key={opt.value}
+                                            onClick={() => {
+                                                setNewSessionGammeType(opt.value);
+                                                setNewSessionOrderSource(opt.value === 'plantation' ? 'plantation' : 'gamme');
+                                            }}
+                                            className={`flex flex-col items-center gap-1 p-3 rounded-xl border-2 transition-all ${
+                                                newSessionGammeType === opt.value
+                                                    ? 'border-indigo-500 bg-indigo-50 text-indigo-700 shadow-md'
+                                                    : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50'
+                                            }`}
+                                        >
+                                            <span className="text-sm font-black">{opt.label}</span>
+                                            <span className="text-[10px] font-medium text-center leading-tight">{opt.desc}</span>
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                            {/* Order Source Toggle */}
+                            <div>
+                                <label className="text-xs font-bold text-slate-600 uppercase tracking-wider block mb-2">Ordre des Opérations</label>
+                                <div className="flex rounded-xl border border-slate-200 overflow-hidden">
+                                    <button
+                                        onClick={() => setNewSessionOrderSource('gamme')}
+                                        className={`flex-1 px-4 py-2.5 text-xs font-bold transition-colors ${
+                                            newSessionOrderSource === 'gamme' ? 'bg-indigo-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-50'
+                                        }`}
+                                    >
+                                        Gamme
+                                    </button>
+                                    <button
+                                        onClick={() => setNewSessionOrderSource('plantation')}
+                                        className={`flex-1 px-4 py-2.5 text-xs font-bold transition-colors border-l border-slate-200 ${
+                                            newSessionOrderSource === 'plantation' ? 'bg-indigo-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-50'
+                                        }`}
+                                    >
+                                        Plantation
+                                    </button>
+                                </div>
+                            </div>
+                            {/* Preview */}
+                            <div className="bg-slate-50 rounded-xl p-4 border border-slate-100">
+                                <div className="flex items-center gap-2 text-xs text-slate-600">
+                                    <span className="font-bold">Modèle :</span>
+                                    <span className="text-indigo-600 font-black">{articleName || 'Non défini'}</span>
+                                </div>
+                                <div className="flex items-center gap-2 text-xs text-slate-600 mt-1">
+                                    <span className="font-bold">Opérations :</span>
+                                    <span className="font-black">{operations.length}</span>
+                                </div>
+                                <div className="flex items-center gap-2 text-xs text-slate-600 mt-1">
+                                    <span className="font-bold">Séances existantes :</span>
+                                    <span className="font-black">{sessions.length}</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-end gap-3">
+                            <button
+                                onClick={() => setShowCreateDialog(false)}
+                                className="px-4 py-2.5 rounded-xl text-sm font-bold text-slate-600 hover:bg-slate-100 transition-colors"
+                            >
+                                Annuler
+                            </button>
+                            <button
+                                onClick={createSession}
+                                className="px-6 py-2.5 rounded-xl text-sm font-black bg-indigo-600 text-white shadow-md shadow-indigo-200 hover:bg-indigo-700 transition-all"
+                            >
+                                <Plus className="w-4 h-4 inline mr-1" /> Créer la Séance
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* ─── SELECTED SESSION VIEW (Page dédiée) ─── */}
+            {selectedSession && (
+                <div className="fixed inset-0 z-[150] bg-white overflow-y-auto animate-in fade-in duration-200">
+                    <div className="sticky top-0 z-10 bg-white border-b border-slate-200 px-4 sm:px-6 py-3 flex items-center justify-between shadow-sm">
+                        <div className="flex items-center gap-3">
+                            <button
+                                onClick={() => setSelectedSession(null)}
+                                className="p-2 rounded-xl text-slate-500 hover:bg-slate-100 hover:text-slate-700 transition-colors"
+                            >
+                                <X className="w-5 h-5" />
+                            </button>
+                            <div>
+                                <h2 className="font-black text-slate-800 text-lg">{selectedSession.label}</h2>
+                                <p className="text-slate-500 text-xs">
+                                    {articleName && <><strong className="text-indigo-600">{articleName}</strong> · </>}
+                                    {new Date(selectedSession.createdAt).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+                                    {selectedSession.gammeType && selectedSession.gammeType !== 'default' && (
+                                        <span className={`ml-2 text-[10px] font-bold px-1.5 py-0.5 rounded ${selectedSession.gammeType === 'plantation' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
+                                            {selectedSession.gammeType === 'plantation' ? 'Plantation' : 'Nouveau'}
+                                        </span>
+                                    )}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6 space-y-6">
+                        {/* Summary Cards */}
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                            <div className="bg-indigo-50 rounded-xl p-4 border border-indigo-100">
+                                <p className="text-[10px] font-bold text-indigo-500 uppercase tracking-wider">Total T.Maj</p>
+                                <p className="font-black text-indigo-700 text-xl mt-1">{(selectedSession.totalTempMajore || 0).toFixed(2)} min</p>
+                            </div>
+                            <div className="bg-emerald-50 rounded-xl p-4 border border-emerald-100">
+                                <p className="text-[10px] font-bold text-emerald-500 uppercase tracking-wider">Opérations</p>
+                                <p className="font-black text-emerald-700 text-xl mt-1">{Object.keys(selectedSession.entries).length}</p>
+                            </div>
+                            <div className="bg-orange-50 rounded-xl p-4 border border-orange-100">
+                                <p className="text-[10px] font-bold text-orange-500 uppercase tracking-wider">Séance #</p>
+                                <p className="font-black text-orange-700 text-xl mt-1">{sessions.findIndex(s => s.id === selectedSession.id) + 1} / {sessions.length}</p>
+                            </div>
+                            <div className="bg-purple-50 rounded-xl p-4 border border-purple-100">
+                                <p className="text-[10px] font-bold text-purple-500 uppercase tracking-wider">Ordre</p>
+                                <p className="font-black text-purple-700 text-xl mt-1 capitalize">{selectedSession.orderSource || 'gamme'}</p>
+                            </div>
+                        </div>
+
+                        {/* Bar Chart — Temps majoré par opération */}
+                        <div className="bg-white rounded-2xl border border-slate-200 shadow-lg p-5">
+                            <h3 className="font-black text-slate-800 text-sm mb-4 flex items-center gap-2">
+                                <BarChart3 className="w-4 h-4 text-indigo-500" /> Temps Majoré par Opération (min)
+                            </h3>
+                            {(() => {
+                                const entries = Object.entries(selectedSession.entries);
+                                if (entries.length === 0) return <p className="text-slate-400 text-sm">Aucune donnée</p>;
+                                const maxVal = Math.max(...entries.map(([, e]) => e.tempMajore || 0), 0.1);
+                                return (
+                                    <div className="space-y-2">
+                                        {entries.map(([opId, entry], idx) => {
+                                            const name = selectedSession.opNames[opId] || `Op. ${idx + 1}`;
+                                            const val = entry.tempMajore || 0;
+                                            const pct = (val / maxVal) * 100;
+                                            return (
+                                                <div key={opId} className="flex items-center gap-3">
+                                                    <span className="text-[10px] font-bold text-slate-500 w-6 text-right shrink-0">#{idx + 1}</span>
+                                                    <span className="text-xs font-semibold text-slate-700 w-32 sm:w-48 truncate shrink-0" title={name}>{name}</span>
+                                                    <div className="flex-1 h-5 bg-slate-100 rounded-full overflow-hidden">
+                                                        <div
+                                                            className="h-full bg-gradient-to-r from-indigo-500 to-cyan-400 rounded-full transition-all duration-500"
+                                                            style={{ width: `${pct}%` }}
+                                                        />
+                                                    </div>
+                                                    <span className="text-xs font-mono font-black text-indigo-700 w-16 text-right shrink-0">{val.toFixed(2)}</span>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                );
+                            })()}
+                        </div>
+
+                        {/* Comparison Table with other sessions */}
+                        {sessions.length > 1 && (
+                            <div className="bg-white rounded-2xl border border-slate-200 shadow-lg overflow-hidden">
+                                <div className="px-5 py-4 border-b border-slate-100">
+                                    <h3 className="font-black text-slate-800 text-sm flex items-center gap-2">
+                                        <TrendingUp className="w-4 h-4 text-indigo-500" /> Comparaison avec les Autres Séances
+                                    </h3>
+                                </div>
+                                <div className="overflow-x-auto">
+                                    <table className="w-full text-xs border-collapse">
+                                        <thead>
+                                            <tr className="bg-slate-50 text-slate-500 border-b border-slate-200">
+                                                <th className="py-2.5 px-3 text-left font-black sticky left-0 bg-slate-50 min-w-[140px]">Opération</th>
+                                                {sessions.map((s, i) => (
+                                                    <th key={s.id} className={`py-2.5 px-2 text-center font-bold min-w-[60px] ${s.id === selectedSession.id ? 'bg-indigo-50 text-indigo-700' : ''}`} title={s.label}>
+                                                        #{i + 1}
+                                                    </th>
+                                                ))}
+                                                <th className="py-2.5 px-2 text-center font-black text-indigo-700 bg-indigo-50/50 min-w-[60px]">Δ</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-slate-100">
+                                            {filteredOperations.map(op => {
+                                                const series = sessions.map(s => s.entries[op.id]?.tempMajore);
+                                                const firstV = series.find(v => v !== undefined && v !== null);
+                                                const lastDefined = [...series].reverse().find(v => v !== undefined && v !== null);
+                                                const d = (typeof firstV === 'number' && typeof lastDefined === 'number') ? lastDefined - firstV : undefined;
+                                                return (
+                                                    <tr key={op.id} className={`hover:bg-slate-50/50 ${selectedSession.entries[op.id] ? 'bg-indigo-50/20' : ''}`}>
+                                                        <td className="py-2 px-3 font-semibold text-slate-700 sticky left-0 bg-white truncate max-w-[140px]" title={op.description}>{op.description}</td>
+                                                        {sessions.map((s, i) => {
+                                                            const v = s.entries[op.id]?.tempMajore;
+                                                            const isCurrent = s.id === selectedSession.id;
+                                                            return (
+                                                                <td key={i} className={`py-2 px-2 text-center font-mono ${isCurrent ? 'text-indigo-700 font-black bg-indigo-50/40' : 'text-slate-600'}`}>
+                                                                    {typeof v === 'number' ? v.toFixed(2) : <span className="text-slate-300">—</span>}
+                                                                </td>
+                                                            );
+                                                        })}
+                                                        <td className="py-2 px-2 text-center font-mono font-black bg-indigo-50/30">
+                                                            {typeof d === 'number'
+                                                                ? <span className={d < 0 ? 'text-emerald-600' : d > 0 ? 'text-rose-600' : 'text-slate-400'}>{d > 0 ? '+' : ''}{d.toFixed(2)}</span>
+                                                                : <span className="text-slate-300">—</span>}
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

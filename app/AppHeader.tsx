@@ -1,4 +1,3 @@
-import React from 'react';
 import {
     FolderOpen,
     Settings as SettingsIcon,
@@ -14,11 +13,12 @@ import {
     Factory,
     PackageCheck,
     Activity,
-    HardDrive,
+    Database,
     Menu,
     X,
     Target,
     Truck,
+    ChevronDown,
 } from 'lucide-react';
 import type { Lang } from './constants';
 import { TRANSLATIONS } from './constants';
@@ -29,13 +29,127 @@ interface AppHeaderProps {
     currentView: ViewType;
     lang: Lang;
     saveStatus: 'saved' | 'saving' | 'unsaved';
-    navConfig: { enabled: boolean; order: string[]; hidden: string[] };
+    navConfig: {
+        enabled: boolean;
+        style: 'dropdown' | 'flat' | 'mobile-only';
+        order: string[];
+        hidden: string[];
+        categories: { id: string; name: string; views: string[] }[];
+    };
     mobileMenuOpen: boolean;
     setMobileMenuOpen: React.Dispatch<React.SetStateAction<boolean>>;
     handleNavigation: (view: ViewType) => void;
     user: any;
     logout: () => void;
 }
+
+const VIEW_DEFS: Record<string, { label: string | ((t: any) => string); icon: React.ReactNode; activeClass: string }> = {
+    dashboard: {
+        label: 'Tableau de bord',
+        icon: <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect width="7" height="9" x="3" y="3" rx="1" /><rect width="7" height="5" x="14" y="3" rx="1" /><rect width="7" height="9" x="14" y="12" rx="1" /><rect width="7" height="5" x="3" y="16" rx="1" /></svg>,
+        activeClass: 'bg-indigo-50 border-indigo-100 text-indigo-700'
+    },
+    vuegenerale: {
+        label: 'Vue Générale',
+        icon: <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>,
+        activeClass: 'bg-emerald-50 border-emerald-100 text-emerald-700'
+    },
+    planning: {
+        label: 'Planning',
+        icon: <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M19 4H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2Z" /><path d="M16 2v4" /><path d="M8 2v4" /><path d="M3 10h18" /></svg>,
+        activeClass: 'bg-blue-50 border-blue-100 text-blue-700'
+    },
+    suivi: {
+        label: 'Suivi Production',
+        icon: <Activity className="w-3.5 h-3.5" />,
+        activeClass: 'bg-indigo-50 border-indigo-100 text-indigo-700'
+    },
+    rendement: {
+        label: 'Rendement',
+        icon: <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18" /><polyline points="17 6 23 6 23 12" /></svg>,
+        activeClass: 'bg-violet-50 border-violet-100 text-violet-700'
+    },
+    ingenierie: {
+        label: (t: any) => t.ingenierie,
+        icon: <Factory className="w-3.5 h-3.5" />,
+        activeClass: 'bg-emerald-50 border-emerald-100 text-emerald-700'
+    },
+    atelier: {
+        label: 'Atelier Méthodes',
+        icon: <Layers className="w-3.5 h-3.5" />,
+        activeClass: 'bg-indigo-50 border-indigo-100 text-indigo-700'
+    },
+    atelierProd: {
+        label: 'Atelier P°',
+        icon: <Factory className="w-3.5 h-3.5" />,
+        activeClass: 'bg-orange-50 border-orange-100 text-orange-700'
+    },
+    coupe: {
+        label: 'La Coupe',
+        icon: <Scissors className="w-3.5 h-3.5" />,
+        activeClass: 'bg-rose-50 border-rose-100 text-rose-700'
+    },
+    sousTraitance: {
+        label: 'Sous-traitance',
+        icon: <Truck className="w-3.5 h-3.5" />,
+        activeClass: 'bg-indigo-50 border-indigo-100 text-indigo-700'
+    },
+    effectifs: {
+        label: (t: any) => t.effectifs,
+        icon: <Users className="w-3.5 h-3.5" />,
+        activeClass: 'bg-orange-50 border-orange-100 text-orange-700'
+    },
+    gestionRh: {
+        label: 'Gestion RH',
+        icon: <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>,
+        activeClass: 'bg-sky-50 border-sky-100 text-sky-700'
+    },
+    magasin: {
+        label: 'Magasin',
+        icon: <Package className="w-3.5 h-3.5" />,
+        activeClass: 'bg-emerald-50 border-emerald-100 text-emerald-700'
+    },
+    export: {
+        label: 'Stock Fini',
+        icon: <PackageCheck className="w-3.5 h-3.5" />,
+        activeClass: 'bg-cyan-50 border-cyan-100 text-cyan-700'
+    },
+    facturation: {
+        label: 'Facturation',
+        icon: <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>,
+        activeClass: 'bg-blue-50 border-blue-100 text-blue-700'
+    },
+    library: {
+        label: (t: any) => t.library,
+        icon: <FolderOpen className="w-3.5 h-3.5" />,
+        activeClass: 'bg-indigo-50 border-indigo-100 text-indigo-700'
+    },
+    pageMachine: {
+        label: 'Suivi des Machines',
+        icon: <Activity className="w-3.5 h-3.5" />,
+        activeClass: 'bg-fuchsia-50 border-fuchsia-100 text-fuchsia-700'
+    },
+    machin: {
+        label: 'Catalogue & Paramètres',
+        icon: <Layers className="w-3.5 h-3.5" />,
+        activeClass: 'bg-indigo-50 border-indigo-100 text-indigo-700'
+    },
+    objectifs: {
+        label: 'Objectifs',
+        icon: <Target className="w-3.5 h-3.5" />,
+        activeClass: 'bg-rose-50 border-rose-100 text-rose-700'
+    },
+    config: {
+        label: (t: any) => t.configuration,
+        icon: <SettingsIcon className="w-3.5 h-3.5" />,
+        activeClass: 'bg-amber-50 border-amber-100 text-amber-700'
+    },
+    admin: {
+        label: (t: any) => t.admin,
+        icon: <Shield className="w-3.5 h-3.5" />,
+        activeClass: 'bg-purple-50 border-purple-100 text-purple-700'
+    }
+};
 
 export default function AppHeader({
     currentView,
@@ -51,14 +165,14 @@ export default function AppHeader({
     const t = TRANSLATIONS[lang];
 
     return (
-        <header className="bg-white border-b border-gray-100 shadow-[0_1px_2px_0_rgba(0,0,0,0.02)] z-50 shrink-0 h-12 sticky top-0 print:hidden">
+        <header className="bg-white border-b border-gray-100 shadow-[0_1px_2px_0_rgba(0,0,0,0.02)] z-[100] shrink-0 h-12 sticky top-0 print:hidden">
             <div className="h-full px-3 sm:px-4 flex items-center justify-between">
                 {/* Left: Hamburger (mobile) + Logo */}
                 <div className="flex items-center gap-2 sm:gap-3">
-                    {/* Hamburger Menu Button - Left side on mobile */}
-                    {navConfig.enabled && (
+                    {/* Hamburger Menu Button - Left side on mobile or if mobile-style is selected on desktop */}
+                    {(navConfig.enabled || navConfig.style === 'mobile-only') && (
                         <button onClick={() => setMobileMenuOpen(v => !v)}
-                            className="md:hidden flex items-center justify-center w-8 h-8 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 text-gray-500 hover:text-gray-900 transition-colors shrink-0">
+                            className={`${navConfig.style === 'mobile-only' ? 'flex' : 'md:hidden flex'} items-center justify-center w-8 h-8 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 text-gray-500 hover:text-gray-900 transition-colors shrink-0`}>
                             {mobileMenuOpen ? <X className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
                         </button>
                     )}
@@ -100,77 +214,88 @@ export default function AppHeader({
                     )}
                 </div>
 
-                {/* Main Navigation - Hidden on mobile, shown on md+ */}
-                <nav className="hidden md:flex items-center gap-1 mx-4 overflow-x-auto no-scrollbar">
-                    <NavButton view="dashboard" currentView={currentView} onClick={handleNavigation}
-                        activeClass="bg-indigo-50 border-indigo-100 text-indigo-700"
-                        icon={<svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect width="7" height="9" x="3" y="3" rx="1" /><rect width="7" height="5" x="14" y="3" rx="1" /><rect width="7" height="9" x="14" y="12" rx="1" /><rect width="7" height="5" x="3" y="16" rx="1" /></svg>}
-                        label="Tableau de bord" />
-                    <NavButton view="vuegenerale" currentView={currentView} onClick={handleNavigation}
-                        activeClass="bg-emerald-50 border-emerald-100 text-emerald-700"
-                        icon={<svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>}
-                        label="Vue Générale" />
-                    <NavButton view="ingenierie" currentView={currentView} onClick={handleNavigation}
-                        activeClass="bg-emerald-50 border-emerald-100 text-emerald-700"
-                        icon={<Factory className="w-3.5 h-3.5" />} label={t.ingenierie} />
-                    <NavButton view="library" currentView={currentView} onClick={handleNavigation}
-                        activeClass="bg-indigo-50 border-indigo-100 text-indigo-700"
-                        icon={<FolderOpen className="w-3.5 h-3.5" />} label={t.library} />
-                    <NavButton view="coupe" currentView={currentView} onClick={handleNavigation}
-                        activeClass="bg-rose-50 border-rose-100 text-rose-700"
-                        icon={<Scissors className="w-3.5 h-3.5" />} label="La Coupe" />
-                    <NavButton view="effectifs" currentView={currentView} onClick={handleNavigation}
-                        activeClass="bg-orange-50 border-orange-100 text-orange-700"
-                        icon={<Users className="w-3.5 h-3.5" />} label={t.effectifs} />
-                    <NavButton view="gestionRh" currentView={currentView} onClick={handleNavigation}
-                        activeClass="bg-sky-50 border-sky-100 text-sky-700"
-                        icon={<svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>}
-                        label="Gestion RH" />
-                    <NavButton view="planning" currentView={currentView} onClick={handleNavigation}
-                        activeClass="bg-blue-50 border-blue-100 text-blue-700"
-                        icon={<svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M19 4H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2Z" /><path d="M16 2v4" /><path d="M8 2v4" /><path d="M3 10h18" /></svg>}
-                        label="Planning" />
-                    <NavButton view="suivi" currentView={currentView} onClick={handleNavigation}
-                        activeClass="bg-indigo-50 border-indigo-100 text-indigo-700"
-                        icon={<Activity className="w-3.5 h-3.5" />} label="Suivi P°" />
-                    <NavButton view="rendement" currentView={currentView} onClick={handleNavigation}
-                        activeClass="bg-violet-50 border-violet-100 text-violet-700"
-                        icon={<svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18" /><polyline points="17 6 23 6 23 12" /></svg>}
-                        label="Rendement" />
-                    <NavButton view="magasin" currentView={currentView} onClick={handleNavigation}
-                        activeClass="bg-emerald-50 border-emerald-100 text-emerald-700"
-                        icon={<Package className="w-3.5 h-3.5" />} label="Magasin" />
-                    <NavButton view="export" currentView={currentView} onClick={handleNavigation}
-                        activeClass="bg-cyan-50 border-cyan-100 text-cyan-700"
-                        icon={<PackageCheck className="w-3.5 h-3.5" />} label="Stock Fini" />
-                    <NavButton view="config" currentView={currentView} onClick={handleNavigation}
-                        activeClass="bg-amber-50 border-amber-100 text-amber-700"
-                        icon={<SettingsIcon className="w-3.5 h-3.5" />} label={t.configuration} />
-                    <NavButton view="pageMachine" currentView={currentView} onClick={handleNavigation}
-                        activeClass="bg-fuchsia-50 border-fuchsia-100 text-fuchsia-700"
-                        icon={<Activity className="w-3.5 h-3.5" />} label="Suivi des Machines" />
-                    <NavButton view="machin" currentView={currentView} onClick={handleNavigation}
-                        activeClass="bg-indigo-50 border-indigo-100 text-indigo-700"
-                        icon={<Layers className="w-3.5 h-3.5" />} label="Catalogue & Paramètres" />
-                    <NavButton view="objectifs" currentView={currentView} onClick={handleNavigation}
-                        activeClass="bg-rose-50 border-rose-100 text-rose-700"
-                        icon={<Target className="w-3.5 h-3.5" />} label="Objectifs" />
-                    <NavButton view="facturation" currentView={currentView} onClick={handleNavigation}
-                        activeClass="bg-blue-50 border-blue-100 text-blue-700"
-                        icon={<svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>}
-                        label="Facturation" />
-                    <NavButton view="atelierProd" currentView={currentView} onClick={handleNavigation}
-                        activeClass="bg-orange-50 border-orange-100 text-orange-700"
-                        icon={<Factory className="w-3.5 h-3.5" />} label="Atelier P°" />
-                    <NavButton view="sousTraitance" currentView={currentView} onClick={handleNavigation}
-                        activeClass="bg-indigo-50 border-indigo-100 text-indigo-700"
-                        icon={<Truck className="w-3.5 h-3.5" />} label="Sous-traitance" />
-                    {user?.role === 'admin' && (
-                        <NavButton view="admin" currentView={currentView} onClick={handleNavigation}
-                            activeClass="bg-purple-50 border-purple-100 text-purple-700"
-                            icon={<Shield className="w-3.5 h-3.5" />} label={t.admin} />
-                    )}
-                </nav>
+                {/* Main Navigation - Hidden on mobile, shown on md+ based on style selection */}
+                {navConfig.style !== 'mobile-only' && (
+                    <nav className={`hidden md:flex items-center gap-1 mx-4 ${
+                        navConfig.style === 'flat' 
+                            ? 'max-w-[60vw] overflow-x-auto hide-scrollbar' 
+                            : 'overflow-visible'
+                    }`}>
+                        {/* Style 1: Dynamic Dropdowns Grouped by Category */}
+                        {navConfig.style === 'dropdown' && navConfig.categories?.map((category) => {
+                            const visibleViews = category.views.filter(view => {
+                                if (navConfig.hidden.includes(view)) return false;
+                                if (view === 'admin' && user?.role !== 'admin') return false;
+                                return VIEW_DEFS[view] !== undefined;
+                            });
+
+                            if (visibleViews.length === 0) return null;
+
+                            const isActive = visibleViews.includes(currentView);
+                            const activeClass = VIEW_DEFS[visibleViews[0]]?.activeClass || 'bg-indigo-50 border-indigo-100 text-indigo-700';
+
+                            return (
+                                <NavDropdown
+                                    key={category.id}
+                                    label={category.name}
+                                    views={visibleViews}
+                                    currentView={currentView}
+                                    activeClass={activeClass}
+                                    align={category.id === 'config' || category.id === 'logistique' ? 'right' : 'left'}
+                                >
+                                    {visibleViews.map(view => {
+                                        const def = VIEW_DEFS[view];
+                                        if (!def) return null;
+                                        const label = typeof def.label === 'function' ? def.label(t) : def.label;
+                                        return (
+                                            <DropdownItem
+                                                key={view}
+                                                view={view as any}
+                                                currentView={currentView}
+                                                onClick={handleNavigation}
+                                                activeClass={def.activeClass}
+                                                icon={def.icon}
+                                                label={label}
+                                            />
+                                        );
+                                    })}
+                                </NavDropdown>
+                            );
+                        })}
+
+                        {/* Admin Button (Dropdown Style only) */}
+                        {navConfig.style === 'dropdown' && user?.role === 'admin' && (
+                            <NavButton
+                                view="admin"
+                                currentView={currentView}
+                                onClick={handleNavigation}
+                                activeClass="bg-purple-50 border-purple-100 text-purple-700"
+                                icon={<Shield className="w-3.5 h-3.5" />}
+                                label={t.admin}
+                            />
+                        )}
+
+                        {/* Style 2: Flat List of All Modules */}
+                        {navConfig.style === 'flat' && navConfig.order.map(view => {
+                            if (navConfig.hidden.includes(view)) return null;
+                            if (view === 'admin' && user?.role !== 'admin') return null;
+                            const def = VIEW_DEFS[view];
+                            if (!def) return null;
+                            const label = typeof def.label === 'function' ? def.label(t) : def.label;
+                            return (
+                                <NavButton
+                                    key={view}
+                                    view={view as any}
+                                    currentView={currentView}
+                                    onClick={handleNavigation}
+                                    activeClass={def.activeClass}
+                                    icon={def.icon}
+                                    label={label}
+                                />
+                            );
+                        })}
+                    </nav>
+                )}
 
                 {/* Right Side Tools */}
                 <div className="flex items-center gap-2">
@@ -184,9 +309,9 @@ export default function AppHeader({
                                 a.click();
                             }}
                             className="hidden md:flex items-center justify-center w-8 h-8 rounded-full bg-white border border-gray-100 text-gray-400 hover:text-blue-600 hover:border-blue-100 transition-colors cursor-pointer"
-                            title="Télécharger la base de données (Backup)"
+                            title="Télécharger la base de données (Sauvegarde DB) / تحميل قاعدة البيانات (نسخة احتياطية)"
                         >
-                            <HardDrive className="w-3.5 h-3.5" />
+                            <Database className="w-3.5 h-3.5" />
                         </button>
                     )}
 
@@ -239,6 +364,63 @@ function NavButton({ view, currentView, onClick, activeClass, icon, label }: {
         >
             {icon}
             {label}
+        </button>
+    );
+}
+
+/** Grouped Dropdown Wrapper */
+interface NavDropdownProps {
+    label: string;
+    views: string[];
+    currentView: ViewType;
+    activeClass: string;
+    align?: 'left' | 'right';
+    children: React.ReactNode;
+}
+
+function NavDropdown({ label, views, currentView, activeClass, align = 'left', children }: NavDropdownProps) {
+    const isActive = views.includes(currentView);
+    const alignClass = align === 'right' ? 'right-0 origin-top-right' : 'left-0 origin-top-left';
+    return (
+        <div className="relative group shrink-0">
+            <button
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all text-[11px] font-extrabold uppercase tracking-wide whitespace-nowrap border ${
+                    isActive
+                        ? activeClass
+                        : 'bg-transparent border-transparent text-gray-500 hover:text-gray-900 hover:bg-gray-50'
+                }`}
+            >
+                {label}
+                <ChevronDown className="w-3 h-3 opacity-60 group-hover:rotate-180 transition-transform duration-200" />
+            </button>
+            <div className={`absolute top-full mt-1 w-48 bg-white border border-gray-100 rounded-xl shadow-lg p-1.5 transition-all duration-200 scale-95 opacity-0 pointer-events-none group-hover:scale-100 group-hover:opacity-100 group-hover:pointer-events-auto z-[110] flex flex-col gap-0.5 ${alignClass}`}>
+                {children}
+            </div>
+        </div>
+    );
+}
+
+/** Dropdown menu item button */
+function DropdownItem({ view, currentView, onClick, activeClass, icon, label }: {
+    view: ViewType;
+    currentView: ViewType;
+    onClick: (v: ViewType) => void;
+    activeClass: string;
+    icon: React.ReactNode;
+    label: string;
+}) {
+    const isActive = currentView === view;
+    return (
+        <button
+            onClick={() => onClick(view)}
+            className={`flex items-center gap-2 w-full px-3 py-2 rounded-lg transition-all text-[10.5px] font-bold uppercase tracking-wide text-start border ${
+                isActive
+                    ? activeClass
+                    : 'bg-transparent border-transparent text-gray-500 hover:text-gray-900 hover:bg-gray-50'
+            }`}
+        >
+            {icon}
+            <span className="truncate">{label}</span>
         </button>
     );
 }

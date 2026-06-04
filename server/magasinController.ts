@@ -347,3 +347,94 @@ export const deleteMagasinDechet = (req: Request, res: Response) => {
         res.status(500).json({ message: 'Error deleting dechet' });
     }
 };
+
+// MATERIAL RECEIPTS (Bons de Réception)
+export const getMaterialReceipts = (req: Request, res: Response) => {
+    const userId = (req as any).user.id;
+    try {
+        const stmt = db.prepare('SELECT * FROM material_receipts WHERE owner_id = ? ORDER BY dateReceived DESC, created_at DESC');
+        const receipts = stmt.all(userId);
+        res.json(receipts);
+    } catch (error) {
+        console.error('Get material receipts error:', error);
+        res.status(500).json({ message: 'Error fetching material receipts' });
+    }
+};
+
+export const saveMaterialReceipt = (req: Request, res: Response) => {
+    const userId = (req as any).user.id;
+    const r = req.body;
+    if (!r.id || !r.pedidoId || !r.materialName) {
+        return res.status(400).json({ message: 'ID, pedidoId, and materialName are required' });
+    }
+    try {
+        const stmt = db.prepare(`
+            INSERT INTO material_receipts (id, owner_id, pedidoId, modelId, materialName, qtyReceived, dateReceived, owner, supplierName)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(id) DO UPDATE SET
+            pedidoId=excluded.pedidoId, modelId=excluded.modelId, materialName=excluded.materialName,
+            qtyReceived=excluded.qtyReceived, dateReceived=excluded.dateReceived, owner=excluded.owner, supplierName=excluded.supplierName
+        `);
+        stmt.run(r.id, userId, r.pedidoId, r.modelId || '', r.materialName, r.qtyReceived || 0, r.dateReceived || new Date().toISOString().split('T')[0], r.owner || 'client', r.supplierName || null);
+        res.json({ message: 'Material receipt saved successfully' });
+    } catch (error) {
+        console.error('Save material receipt error:', error);
+        res.status(500).json({ message: 'Error saving material receipt' });
+    }
+};
+
+export const deleteMaterialReceipt = (req: Request, res: Response) => {
+    const userId = (req as any).user.id;
+    try {
+        db.prepare('DELETE FROM material_receipts WHERE id = ? AND owner_id = ?').run(req.params.id, userId);
+        res.json({ message: 'Material receipt deleted successfully' });
+    } catch (error) {
+        res.status(500).json({ message: 'Error deleting material receipt' });
+    }
+};
+
+// INVENTORY MOVEMENTS (Bons de Sortie / Entrée simplifiés)
+export const getInventoryMovements = (req: Request, res: Response) => {
+    const userId = (req as any).user.id;
+    try {
+        const stmt = db.prepare('SELECT * FROM inventory_movements WHERE owner_id = ? ORDER BY date DESC, created_at DESC');
+        const movements = stmt.all(userId);
+        res.json(movements);
+    } catch (error) {
+        console.error('Get inventory movements error:', error);
+        res.status(500).json({ message: 'Error fetching inventory movements' });
+    }
+};
+
+export const saveInventoryMovement = (req: Request, res: Response) => {
+    const userId = (req as any).user.id;
+    const m = req.body;
+    if (!m.id || !m.materialName || !m.type) {
+        return res.status(400).json({ message: 'ID, materialName, and type are required' });
+    }
+    try {
+        const stmt = db.prepare(`
+            INSERT INTO inventory_movements (id, owner_id, ofId, materialName, type, qty, date, notes)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(id) DO UPDATE SET
+            ofId=excluded.ofId, materialName=excluded.materialName, type=excluded.type,
+            qty=excluded.qty, date=excluded.date, notes=excluded.notes
+        `);
+        stmt.run(m.id, userId, m.ofId || null, m.materialName, m.type, m.qty || 0, m.date || new Date().toISOString().split('T')[0], m.notes || null);
+        res.json({ message: 'Inventory movement saved successfully' });
+    } catch (error) {
+        console.error('Save inventory movement error:', error);
+        res.status(500).json({ message: 'Error saving inventory movement' });
+    }
+};
+
+export const deleteInventoryMovement = (req: Request, res: Response) => {
+    const userId = (req as any).user.id;
+    try {
+        db.prepare('DELETE FROM inventory_movements WHERE id = ? AND owner_id = ?').run(req.params.id, userId);
+        res.json({ message: 'Inventory movement deleted successfully' });
+    } catch (error) {
+        res.status(500).json({ message: 'Error deleting inventory movement' });
+    }
+};
+

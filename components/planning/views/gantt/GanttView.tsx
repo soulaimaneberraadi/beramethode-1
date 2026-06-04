@@ -264,27 +264,6 @@ export default function GanttView({
         setDragOver(null);
     }, []);
 
-    if (events.length === 0) {
-        if (totalEvents === 0) {
-            return (
-                <EmptyState
-                    icon={Layers}
-                    title="Aucun ordre planifié"
-                    description="Commencez par planifier votre premier ordre de fabrication ou utilisez la planification automatique."
-                    action={onAddEvent ? { label: 'Planifier un ordre', onClick: onAddEvent } : undefined}
-                />
-            );
-        }
-        return (
-            <EmptyState
-                icon={SearchX}
-                title="Aucun résultat"
-                description="Aucun OF ne correspond aux filtres actuels. Essayez d'élargir vos critères."
-                action={onResetFilters ? { label: 'Effacer les filtres', onClick: onResetFilters } : undefined}
-            />
-        );
-    }
-
     const totalHeight = useMemo(() => {
         let h = 36 + 36; // timeline height
         for (const chain of visibleChains) {
@@ -320,6 +299,27 @@ export default function GanttView({
         }
         return h + 24;
     }, [visibleChains, events, rowHeight]);
+
+    if (events.length === 0) {
+        if (totalEvents === 0) {
+            return (
+                <EmptyState
+                    icon={Layers}
+                    title="Aucun ordre planifié"
+                    description="Commencez par planifier votre premier ordre de fabrication ou utilisez la planification automatique."
+                    action={onAddEvent ? { label: 'Planifier un ordre', onClick: onAddEvent } : undefined}
+                />
+            );
+        }
+        return (
+            <EmptyState
+                icon={SearchX}
+                title="Aucun résultat"
+                description="Aucun OF ne correspond aux filtres actuels. Essayez d'élargir vos critères."
+                action={onResetFilters ? { label: 'Effacer les filtres', onClick: onResetFilters } : undefined}
+            />
+        );
+    }
 
     return (
       <div className="flex-1 flex flex-col overflow-hidden relative">

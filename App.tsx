@@ -1,5 +1,7 @@
 import React, { useState, useMemo, useEffect, useCallback, useRef, Suspense, lazy } from 'react';
 import GlobalLoader from './components/GlobalLoader';
+import AnnouncementBar from './components/AnnouncementBar';
+import LicenseBanner from './components/LicenseBanner';
 import { runBootSequence } from './lib/bootSequence';
 import {
     LogOut,
@@ -22,11 +24,14 @@ import {
     Share2
 } from 'lucide-react';
 import { useAuth } from './src/context/AuthContext';
+import { useLicense } from './src/context/LicenseContext';
 import { DataOwnerProvider } from './src/context/DataOwnerContext';
 import { notifyServerSessionEstablished } from './lib/dataIdentity';
 import { Machine, MachineInstance, MachineFleetHistoryEntry, Operation, FicheData, Poste, SpeedFactor, ComplexityFactor, StandardTime, Guide, ModelData, AppSettings, ManualLink } from './types';
 import type { MachineExitPayload } from './components/MachineExitModal';
 import { sumPiecesFromSuiviForPlanning } from './utils/produced';
+import { rollPlanningEvents } from './utils/planning';
+import { computeChainEfficiency } from './utils/efficiency';
 import { DEFAULT_CALENDAR_APP_SETTINGS } from './lib/defaultCalendarSettings';
 
 const Login = lazy(() => import('./src/components/Login'));
@@ -46,7 +51,6 @@ const Profil = lazy(() => import('./components/Profil'));
 const SuiviProduction = lazy(() => import('./components/SuiviProduction'));
 const RendementBoard = lazy(() => import('./components/RendementBoard'));
 const StockExport = lazy(() => import('./components/StockExport'));
-const Paramitre = lazy(() => import('./components/Paramitre'));
 const Machin = lazy(() => import('./components/Machin'));
 const PageMachine = lazy(() => import('./components/PageMachine'));
 const VueGenerale = lazy(() => import('./components/VueGenerale'));
@@ -74,6 +78,8 @@ const IS_STATIC = import.meta.env.VITE_STATIC_MODE === 'true';
 
 export default function App() {
     const { user, loading: authLoading, logout: authLogout, login } = useAuth();
+    // Licence BERA MASTER : modules masqués selon le forfait (vide si non appliqué).
+    const { hiddenModules: licenseHiddenModules } = useLicense();
     const [authView, setAuthView] = useState<'login' | 'signup'>('login');
     const [isGuest, setIsGuest] = useState(false);
     const [lang, setLang] = useState<Lang>('fr');
@@ -179,28 +185,77 @@ export default function App() {
     // En static mode, on garde tous les modules visibles — leurs données viennent de Supabase
     // via cloud sync (snapshot localStorage). Les fetch /api/* qui échouent sont absorbés
     // par les .catch() existants ou les fallbacks localStorage.
-    const defaultNavOrder = ['vuegenerale', 'dashboard', 'ingenierie', 'atelierProd', 'library', 'coupe', 'effectifs', 'gestionRh', 'planning', 'suivi', 'rendement', 'magasin', 'export', 'facturation', 'config', 'pageMachine', 'machin', 'objectifs', 'admin', 'sousTraitance'];
-    const [navConfig, setNavConfig] = useState<{ enabled: boolean; order: string[]; hidden: string[] }>(() => {
+    const defaultNavOrder = ['vuegenerale', 'dashboard', 'ingenierie', 'atelier', 'atelierProd', 'library', 'coupe', 'effectifs', 'gestionRh', 'planning', 'suivi', 'rendement', 'magasin', 'export', 'facturation', 'config', 'pageMachine', 'machin', 'objectifs', 'admin', 'sousTraitance'];
+    const [navConfig, setNavConfig] = useState<{
+        enabled: boolean;
+        style: 'dropdown' | 'flat' | 'mobile-only';
+        order: string[];
+        hidden: string[];
+        categories: { id: string; name: string; views: string[] }[];
+    }>(() => {
+        const defaultCategories = [
+            { id: 'principal', name: 'Principal', views: ['dashboard', 'vuegenerale', 'planning', 'suivi', 'rendement'] },
+            { id: 'production', name: 'Production', views: ['ingenierie', 'atelier', 'atelierProd', 'coupe', 'sousTraitance'] },
+            { id: 'rh', name: 'RH', views: ['effectifs', 'gestionRh'] },
+            { id: 'logistique', name: 'Logistique', views: ['magasin', 'export', 'facturation'] },
+            { id: 'config', name: 'Config', views: ['library', 'pageMachine', 'machin', 'config', 'objectifs'] }
+        ];
         try {
             const s = localStorage.getItem('bera_nav_config');
             if (s) {
                 const parsed = JSON.parse(s);
+                if (!parsed.style) parsed.style = 'dropdown';
+                if (!parsed.categories) parsed.categories = defaultCategories;
+                if (parsed.enabled === undefined) parsed.enabled = true;
+                
                 // Merge any new views that aren't in the saved order yet
                 if (parsed.order && parsed.order.length) {
                     const savedSet = new Set(parsed.order);
                     const missing = defaultNavOrder.filter(v => !savedSet.has(v));
                     if (missing.length > 0) {
                         parsed.order = [...parsed.order, ...missing];
-                        localStorage.setItem('bera_nav_config', JSON.stringify(parsed));
                     }
+                } else {
+                    parsed.order = [...defaultNavOrder];
                 }
+
+                // Ensure all views are present in some category (except 'admin')
+                const allCategorizedViews = new Set(parsed.categories.flatMap((c: any) => c.views));
+                const missingFromCategories = defaultNavOrder.filter(v => !allCategorizedViews.has(v) && v !== 'admin');
+                if (missingFromCategories.length > 0) {
+                    missingFromCategories.forEach(view => {
+                        const targetDefCat = defaultCategories.find(c => c.views.includes(view));
+                        if (targetDefCat) {
+                            const parsedCat = parsed.categories.find((c: any) => c.id === targetDefCat.id);
+                            if (parsedCat) {
+                                parsedCat.views = [...parsedCat.views, view];
+                                return;
+                            }
+                        }
+                        const firstCat = parsed.categories[0];
+                        if (firstCat) {
+                            firstCat.views = [...firstCat.views, view];
+                        }
+                    });
+                }
+
                 return parsed;
             }
         } catch {}
-        return { enabled: true, order: [], hidden: [] };
+        return {
+            enabled: true,
+            style: 'dropdown',
+            order: [...defaultNavOrder],
+            hidden: [],
+            categories: defaultCategories
+        };
     });
     const saveNavConfig = (cfg: typeof navConfig) => { setNavConfig(cfg); localStorage.setItem('bera_nav_config', JSON.stringify(cfg)); };
     const navOrder = navConfig.order.length ? navConfig.order : defaultNavOrder;
+    // Config de nav effective : fusionne les modules masqués par la licence (vide si non appliqué).
+    const effectiveNavConfig = licenseHiddenModules.length
+        ? { ...navConfig, hidden: [...new Set([...navConfig.hidden, ...licenseHiddenModules])] }
+        : navConfig;
 
 
     useEffect(() => {
@@ -251,47 +306,7 @@ export default function App() {
         return () => window.removeEventListener('beforeunload', onBeforeUnload);
     }, [effectifsDirty, currentView]);
 
-    // Reactive functional effect to sync Suivi hourly outputs to Plan Master progress & status
-    useEffect(() => {
-        if (suivis.length === 0) return;
 
-        setPlanningEvents(prev => {
-            if (prev.length === 0) return prev;
-            let changed = false;
-            const next = prev.map(evt => {
-                // Filter suivis by planning ID or model & chain fallback
-                const totalProduced = suivis
-                    .filter(s => s.planningId === evt.id || (s.modelId === evt.modelId && s.chaineId === evt.chaineId))
-                    .reduce((sum, s) => sum + (s.totalHeure || 0), 0);
-
-                const newQty = totalProduced;
-                let newStatus = evt.status;
-                
-                // Keep status strings aligned with PlanningStatus type definitions
-                if (newQty >= evt.qteTotal) {
-                    newStatus = 'DONE';
-                } else if (newQty > 0) {
-                    newStatus = 'IN_PROGRESS';
-                }
-
-                if (evt.qteProduite !== newQty || evt.status !== newStatus) {
-                    changed = true;
-                    return { ...evt, qteProduite: newQty, status: newStatus };
-                }
-                return evt;
-            });
-
-            if (changed) {
-                if (!user) {
-                    try {
-                        localStorage.setItem('beramethode_planning', JSON.stringify(next));
-                    } catch (e) {}
-                }
-                return next;
-            }
-            return prev;
-        });
-    }, [suivis, user]);
 
     useEffect(() => {
         const loadFromLocal = () => {
@@ -344,25 +359,7 @@ export default function App() {
         return () => clearTimeout(timer);
     }, [suivis, user]);
 
-    /** Sync pièces produites depuis les suivis (sorties horaires) vers le planning. */
-    useEffect(() => {
-        setPlanningEvents(prev => {
-            let changed = false;
-            const next = prev.map(ev => {
-                const pieces = sumPiecesFromSuiviForPlanning(ev.id, suivis);
-                const current = ev.producedQuantity ?? ev.qteProduite ?? 0;
-                if (pieces === current) return ev;
-                changed = true;
-                return {
-                    ...ev,
-                    producedQuantity: pieces,
-                    qteProduite: pieces,
-                    lastSyncedFromSuivi: new Date().toISOString(),
-                };
-            });
-            return changed ? next : prev;
-        });
-    }, [suivis]);
+
 
     const handleAddDemandeAppro = (d: Partial<import('./types').DemandeAppro>) => {
         const newDemande: import('./types').DemandeAppro = {
@@ -675,6 +672,7 @@ export default function App() {
     const [numWorkers, setNumWorkers] = useState(1);
     const [presenceTime, setPresenceTime] = useState(480);
     const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'unsaved'>('saved');
+    const [skipAutosaveRestore, setSkipAutosaveRestore] = useState(false);
 
     const [operations, setOperations] = useState<Operation[]>([]);
     const [assignments, setAssignments] = useState<Record<string, string[]>>({});
@@ -777,7 +775,7 @@ export default function App() {
     const [ficheImages, setFicheImages] = useState<{ front: string | null; back: string | null }>({ front: null, back: null });
 
     useEffect(() => {
-        if (!user || IS_STATIC) return;
+        if (!user || IS_STATIC || skipAutosaveRestore) return;
         fetch('/api/settings', { credentials: 'include' })
             .then(r => r.ok ? r.json() : null)
             .then(data => {
@@ -799,7 +797,7 @@ export default function App() {
                 } catch { /* silent */ }
             })
             .catch(() => { });
-    }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [user, skipAutosaveRestore]); // eslint-disable-line react-hooks/exhaustive-deps
 
     useEffect(() => {
         setSaveStatus('saving');
@@ -836,6 +834,61 @@ export default function App() {
     }, [operations, numWorkers, presenceTime, efficiency]);
 
     const [models, setModels] = useState<ModelData[]>([]);
+
+    // Reactive functional effect to sync Suivi outputs to Plan Master and apply dynamic rolling
+    useEffect(() => {
+        if (!models || models.length === 0 || suivis.length === 0) return;
+
+        setPlanningEvents(prev => {
+            if (prev.length === 0) return prev;
+            let changed = false;
+            const next = prev.map(evt => {
+                const pieces = sumPiecesFromSuiviForPlanning(evt.id, suivis);
+                const current = evt.producedQuantity ?? evt.qteProduite ?? 0;
+
+                let nextStatus = evt.status;
+                if (pieces >= evt.qteTotal) {
+                    nextStatus = 'DONE';
+                } else if (pieces > 0 && evt.status === 'READY') {
+                    nextStatus = 'IN_PROGRESS';
+                }
+
+                if (pieces !== current || evt.status !== nextStatus) {
+                    changed = true;
+                    return {
+                        ...evt,
+                        producedQuantity: pieces,
+                        qteProduite: pieces,
+                        status: nextStatus,
+                        lastSyncedFromSuivi: new Date().toISOString(),
+                    };
+                }
+                return evt;
+            });
+
+            if (!changed) return prev;
+
+            // Recalculate chain efficiencies with the new progress
+            const efficiencies: Record<string, number> = {};
+            const count = globalSettings.chainsCount || 12;
+            for (let i = 1; i <= count; i++) {
+                const chainId = `CHAINE ${i}`;
+                efficiencies[chainId] = computeChainEfficiency(suivis, next, models, chainId, globalSettings).eff || 0.85;
+            }
+
+            // Apply dynamic rolling to shift subsequent events on each chain
+            const rolled = rollPlanningEvents(next, models, globalSettings, efficiencies);
+
+            // Persist locally if offline/guest
+            if (!user) {
+                try {
+                    localStorage.setItem('beramethode_planning', JSON.stringify(rolled));
+                } catch (e) {}
+            }
+
+            return rolled;
+        });
+    }, [suivis, models, globalSettings, user]);
 
     useEffect(() => {
         const loadFromLocal = () => {
@@ -915,14 +968,21 @@ export default function App() {
         renameModel,
         handleTransferToCoupe,
         handleTransferToPlanning,
-        createNewProject
+        createNewProject: rawCreateNewProject
     } = useAppModelManager({
         user, models, setModels, currentModelId, setCurrentModelId,
         postes, setPostes, assignments, setAssignments, layoutMemory, setLayoutMemory, activeLayout, setActiveLayout,
         ficheData, setFicheData, ficheImages, setFicheImages, articleName, setArticleName, operations, setOperations: setOperationsWithHistory, numWorkers, setNumWorkers,
+        efficiency, setEfficiency,
         manualLinks, setManualLinks, globalStats, setPlanningEvents, setCurrentView, setNavigationContext, showToast,
         setHistory, setHistoryIndex, setChronoData
     });
+
+    const createNewProject = useCallback(() => {
+        setSkipAutosaveRestore(true);
+        rawCreateNewProject();
+        setTimeout(() => setSkipAutosaveRestore(false), 3000);
+    }, [rawCreateNewProject]);
 
     if (authLoading) {
         return (
@@ -1009,12 +1069,14 @@ export default function App() {
     return (
         <DataOwnerProvider user={user ? { ...user, id: Number(user.id) } : null} isGuest={isGuest}>
             <div className="flex flex-col h-screen bg-white text-gray-800 font-sans overflow-hidden" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
+                <AnnouncementBar />
+                <LicenseBanner />
                 {/* HEADER TOP BAR - COMPACT (h-12) & CLEAN */}
                 <AppHeader
                     currentView={currentView}
                     lang={lang}
                     saveStatus={saveStatus}
-                    navConfig={navConfig}
+                    navConfig={effectiveNavConfig}
                     mobileMenuOpen={mobileMenuOpen}
                     setMobileMenuOpen={setMobileMenuOpen}
                     handleNavigation={handleNavigation}
@@ -1023,8 +1085,8 @@ export default function App() {
                 />
 
                 {/* MOBILE NAV OVERLAY */}
-                {navConfig.enabled && mobileMenuOpen && (
-                    <div className="fixed inset-0 z-[60] flex">
+                {(navConfig.enabled || navConfig.style === 'mobile-only') && mobileMenuOpen && (
+                    <div className="fixed inset-0 z-[200] flex">
                         <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" onClick={() => setMobileMenuOpen(false)} />
                         <nav className="relative w-72 max-w-[85vw] bg-white shadow-2xl h-full overflow-y-auto flex flex-col animate-in slide-in-from-left duration-200">
                             {/* Header */}
@@ -1045,6 +1107,7 @@ export default function App() {
                                         suivi: { label: 'Suivi Production', icon: <Activity className="w-4 h-4" />, active: 'bg-indigo-50 border-indigo-100 text-indigo-700' },
                                         rendement: { label: 'Rendement', icon: <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18" /><polyline points="17 6 23 6 23 12" /></svg>, active: 'bg-violet-50 border-violet-100 text-violet-700' },
                                         ingenierie: { label: t.ingenierie, icon: <Factory className="w-4 h-4" />, active: 'bg-emerald-50 border-emerald-100 text-emerald-700' },
+                                        atelier: { label: 'Atelier Méthodes', icon: <Layers className="w-4 h-4" />, active: 'bg-indigo-50 border-indigo-100 text-indigo-700' },
                                         atelierProd: { label: 'Atelier Production', icon: <Factory className="w-4 h-4" />, active: 'bg-orange-50 border-orange-100 text-orange-700' },
                                         coupe: { label: 'La Coupe', icon: <Scissors className="w-4 h-4" />, active: 'bg-rose-50 border-rose-100 text-rose-700' },
                                         effectifs: { label: t.effectifs, icon: <Users className="w-4 h-4" />, active: 'bg-orange-50 border-orange-100 text-orange-700' },
@@ -1062,16 +1125,17 @@ export default function App() {
                                     };
 
                                     const sections = [
-                                        { title: 'Principal', items: ['dashboard', 'vuegenerale', 'planning', 'suivi', 'rendement'] },
-                                        { title: 'Production', items: ['ingenierie', 'atelierProd', 'coupe', 'sousTraitance'] },
-                                        { title: 'Ressources Humaines', items: ['effectifs', 'gestionRh'] },
-                                        { title: 'Logistique', items: ['magasin', 'export', 'facturation'] },
-                                        { title: 'Configuration', items: ['library', 'pageMachine', 'machin', 'config', 'objectifs'] },
+                                        ...(navConfig.categories || []).map(c => ({
+                                            title: c.name,
+                                            items: c.views
+                                        })),
                                         ...(user?.role === 'admin' ? [{ title: 'Administration', items: ['admin'] }] : []),
                                     ];
 
                                     const visibleItems = new Set(
-                                        navOrder.filter(v => !navConfig.hidden.includes(v)).filter(v => v !== 'admin' || user?.role === 'admin')
+                                        navOrder
+                                            .filter(v => !effectiveNavConfig.hidden.includes(v))
+                                            .filter(v => v !== 'admin' || user?.role === 'admin')
                                     );
 
                                     return sections
@@ -1363,7 +1427,14 @@ export default function App() {
 
                     {currentView === 'config' && (
                         <div className="flex-1 min-h-0 overflow-y-auto no-scrollbar bg-[#fafafa]">
-                            <Configuration settings={globalSettings} setSettings={setGlobalSettings} lang={lang} machines={machines} />
+                            <Configuration
+                                settings={globalSettings}
+                                setSettings={setGlobalSettings}
+                                lang={lang}
+                                machines={machines}
+                                navConfig={navConfig}
+                                setNavConfig={saveNavConfig}
+                            />
                         </div>
                     )}
 

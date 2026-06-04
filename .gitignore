@@ -68,3 +68,7 @@ patch_card.js
 test-dashboard.js
 test-suivi-explore.cjs
 test-suivi-seed.cjs
+
+# Temp diffs & scratch image folders (never commit)
+diff.txt
+temp_cout_minute/

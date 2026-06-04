@@ -22,9 +22,11 @@ import {
   Type, 
   ToggleLeft, 
   ToggleRight, 
-  CheckCircle2 
+  CheckCircle2,
+  RotateCcw
 } from 'lucide-react';
 import { Machine, SpeedFactor, ComplexityFactor, StandardTime, Guide } from '../types';
+import { STITCH_TYPES, StitchType } from '../data/threadConsumption';
 
 interface MachinProps {
   machines: Machine[];
@@ -69,7 +71,7 @@ export default function Machin({
   setIsAutocompleteEnabled
 }: MachinProps) {
   // Navigation State: 'menu' is the landing page with buttons
-  const [currentView, setCurrentView] = useState<'menu' | 'machines' | 'standards' | 'guides'>('menu');
+  const [currentView, setCurrentView] = useState<'menu' | 'machines' | 'standards' | 'guides' | 'fil'>('menu');
   const [searchTerm, setSearchTerm] = useState('');
   
   // --- MODAL STATES ---
@@ -91,6 +93,19 @@ export default function Machin({
     category: false,
     machineType: false,
   });
+
+  // --- FIL CONSUMPTION STATES ---
+  const [filTypes, setFilTypes] = useState<StitchType[]>(() => {
+    const saved = localStorage.getItem('beramethode_fil_types');
+    return saved ? JSON.parse(saved) : [...STITCH_TYPES];
+  });
+  const [filEditIndex, setFilEditIndex] = useState<number | null>(null);
+  const [filForm, setFilForm] = useState<StitchType>({ code: '', name: '', nameAr: '', isoNumber: 0, threadCount: 1, consumptionFactor: 0, machineCode: '', observations: '' });
+  const [filConfirmOpen, setFilConfirmOpen] = useState(false);
+  const [filResetConfirmOpen, setFilResetConfirmOpen] = useState(false);
+  const filHasChanges = useMemo(() => {
+    return JSON.stringify(filTypes) !== JSON.stringify(STITCH_TYPES);
+  }, [filTypes]);
 
   // Filter Logic
   const filteredMachines = useMemo(() => {
@@ -277,6 +292,40 @@ export default function Machin({
     setDeleteData(null);
   };
 
+  // --- FIL HANDLERS ---
+  const openFilEdit = (index: number) => {
+    setFilEditIndex(index);
+    setFilForm({ ...filTypes[index] });
+  };
+
+  const saveFilEdit = () => {
+    if (filEditIndex === null) return;
+    if (filEditIndex === -1) {
+      // Add new type
+      setFilTypes(prev => [...prev, { ...filForm } as StitchType]);
+    } else {
+      // Edit existing
+      setFilTypes(prev => {
+        const next = [...prev];
+        next[filEditIndex] = { ...next[filEditIndex], ...filForm } as StitchType;
+        return next;
+      });
+    }
+    setFilEditIndex(null);
+    setFilForm({ code: '', name: '', nameAr: '', isoNumber: 0, threadCount: 1, consumptionFactor: 0, machineCode: '', observations: '' });
+  };
+
+  const confirmFilSave = () => {
+    localStorage.setItem('beramethode_fil_types', JSON.stringify(filTypes));
+    setFilConfirmOpen(false);
+  };
+
+  const resetFilDefaults = () => {
+    setFilTypes([...STITCH_TYPES]);
+    localStorage.removeItem('beramethode_fil_types');
+    setFilResetConfirmOpen(false);
+  };
+
   // --- MENU CARD COMPONENT ---
   const MenuCard = ({ 
     title, 
@@ -333,15 +382,17 @@ export default function Machin({
                  </button>
                  <div>
                    <h1 className="text-2xl font-bold text-slate-800">
-                     {currentView === 'machines' && 'Parc Machines'}
-                     {currentView === 'standards' && 'Standards & Temps'}
-                     {currentView === 'guides' && 'Guides & Accessoires'}
-                   </h1>
-                   <p className="text-slate-500 text-sm mt-1">
-                     {currentView === 'machines' && 'Liste complète et configuration des machines'}
-                     {currentView === 'standards' && 'Coefficients de majoration et temps prédéfinis'}
-                     {currentView === 'guides' && 'Pieds de biche, guides et attachements spéciaux'}
-                   </p>
+                      {currentView === 'machines' && 'Parc Machines'}
+                      {currentView === 'standards' && 'Standards & Temps'}
+                      {currentView === 'guides' && 'Guides & Accessoires'}
+                      {currentView === 'fil' && 'Consommation Fil Couture'}
+                    </h1>
+                    <p className="text-slate-500 text-sm mt-1">
+                      {currentView === 'machines' && 'Liste complète et configuration des machines'}
+                      {currentView === 'standards' && 'Coefficients de majoration et temps prédéfinis'}
+                      {currentView === 'guides' && 'Pieds de biche, guides et attachements spéciaux'}
+                      {currentView === 'fil' && 'Tableau de référence des coefficients de consommation par type de point'}
+                    </p>
                  </div>
               </div>
             )}
@@ -399,6 +450,14 @@ export default function Machin({
                 bgClass="bg-orange-50"
                 colorClass="text-orange-600"
                 onClick={() => setCurrentView('guides')}
+              />
+              <MenuCard 
+                title="Consommation Fil Couture" 
+                desc="Tableau de référence des coefficients de consommation de fil par type de point et machine."
+                icon={Component}
+                bgClass="bg-purple-50"
+                colorClass="text-purple-600"
+                onClick={() => setCurrentView('fil')}
               />
             </div>
           )}
@@ -663,6 +722,128 @@ export default function Machin({
               )}
             </div>
           )}
+
+          {/* === CONSOMMATION FIL VIEW === */}
+          {currentView === 'fil' && (
+            <div className="space-y-6">
+              {/* Action Bar */}
+              <div className="flex items-center justify-between flex-wrap gap-3">
+                <button
+                  onClick={() => setCurrentView('menu')}
+                  className="flex items-center gap-2 px-4 py-2.5 text-slate-600 font-bold rounded-xl hover:bg-slate-100 transition-colors"
+                >
+                  <ChevronLeft className="w-4 h-4" /> Retour
+                </button>
+                <div className="flex items-center gap-3">
+                  {filHasChanges && (
+                    <span className="text-xs font-bold text-amber-600 bg-amber-50 px-3 py-1 rounded-full">
+                      Modifications non sauvegardées
+                    </span>
+                  )}
+                  <button
+                    onClick={() => {
+                      setFilForm({ code: '', name: '', nameAr: '', isoNumber: 0, threadCount: 1, consumptionFactor: 0, machineCode: '', observations: '' });
+                      setFilEditIndex(-1);
+                    }}
+                    className="flex items-center gap-2 px-4 py-2.5 bg-emerald-500 text-white font-bold rounded-xl hover:bg-emerald-600 transition-colors shadow-lg shadow-emerald-200"
+                  >
+                    <Plus className="w-4 h-4" /> Ajouter
+                  </button>
+                  <button
+                    onClick={() => setFilResetConfirmOpen(true)}
+                    className="flex items-center gap-2 px-4 py-2.5 text-slate-600 font-bold rounded-xl border border-slate-200 hover:bg-slate-50 transition-colors"
+                  >
+                    <RotateCcw className="w-4 h-4" /> Réinitialiser
+                  </button>
+                  <button
+                    onClick={() => setFilConfirmOpen(true)}
+                    disabled={!filHasChanges}
+                    className="flex items-center gap-2 px-5 py-2.5 bg-purple-600 text-white font-bold rounded-xl hover:bg-purple-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed shadow-lg shadow-purple-200"
+                  >
+                    <CheckCircle2 className="w-4 h-4" /> Confirmer
+                  </button>
+                </div>
+              </div>
+
+              {/* Info Banner */}
+              <div className="bg-purple-50 border border-purple-200 rounded-xl p-4 flex items-start gap-3">
+                <div className="w-8 h-8 rounded-lg bg-purple-100 flex items-center justify-center shrink-0 mt-0.5">
+                  <Info className="w-4 h-4 text-purple-600" />
+                </div>
+                <div>
+                  <h4 className="font-bold text-purple-800 text-sm">Formule de calcul</h4>
+                  <p className="text-purple-600 text-xs mt-1">
+                    <span className="font-mono bg-purple-100 px-1.5 py-0.5 rounded">Consommation (m) = Longueur couture (m) × Coefficient</span>
+                  </p>
+                  <p className="text-purple-500 text-xs mt-1">
+                    Cliquez sur une ligne pour modifier le coefficient. Puis cliquez <strong>Confirmer</strong> pour sauvegarder.
+                  </p>
+                </div>
+              </div>
+
+              {/* Table */}
+              <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead className="bg-slate-50 border-b border-slate-200">
+                      <tr>
+                        <th className="p-3 text-left text-xs font-bold text-slate-500 uppercase">Type de point</th>
+                        <th className="p-3 text-center text-xs font-bold text-slate-500 uppercase">N° ISO</th>
+                        <th className="p-3 text-center text-xs font-bold text-slate-500 uppercase">Nb fils</th>
+                        <th className="p-3 text-center text-xs font-bold text-purple-600 uppercase" title="Conso par unité de couture">Conso / m</th>
+                        <th className="p-3 text-left text-xs font-bold text-slate-500 uppercase">Machine</th>
+                        <th className="p-3 text-left text-xs font-bold text-slate-500 uppercase">Observations</th>
+                        <th className="p-3 w-10"></th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {filTypes.map((stitch, idx) => (
+                        <tr
+                          key={idx}
+                          onClick={() => openFilEdit(idx)}
+                          className="hover:bg-purple-50/50 cursor-pointer transition-colors"
+                        >
+                          <td className="p-3 font-bold text-slate-700">{stitch.name}</td>
+                          <td className="p-3 text-center">
+                            <span className="bg-slate-100 text-slate-600 px-2 py-0.5 rounded text-xs font-mono font-bold">
+                              {stitch.isoNumber}
+                            </span>
+                          </td>
+                          <td className="p-3 text-center">
+                            <span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full text-xs font-bold">
+                              {stitch.threadCount}
+                            </span>
+                          </td>
+                          <td className="p-3 text-center">
+                            <span className="bg-purple-100 text-purple-700 px-2 py-0.5 rounded text-xs font-bold font-mono">
+                              {stitch.consumptionFactor}
+                            </span>
+                          </td>
+                          <td className="p-3">
+                            <span className="bg-slate-100 text-slate-600 px-2 py-0.5 rounded text-xs font-mono">
+                              {stitch.machineCode || '—'}
+                            </span>
+                          </td>
+                          <td className="p-3 text-xs text-slate-500 max-w-[200px] truncate">
+                            {stitch.observations || '—'}
+                          </td>
+                          <td className="p-3 text-right">
+                            <button
+                              onClick={(e) => { e.stopPropagation(); openFilEdit(idx); }}
+                              className="p-1.5 text-purple-400 hover:text-purple-700 hover:bg-purple-100 rounded-lg transition-colors"
+                              title="Modifier"
+                            >
+                              <Edit2 className="w-4 h-4" />
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
         </motion.div>
       </AnimatePresence>
 
@@ -840,6 +1021,135 @@ export default function Machin({
                   <button type="submit" className="w-full py-2.5 rounded-xl bg-orange-600 text-white font-medium hover:bg-orange-700 shadow-lg shadow-orange-200 transition-all mt-2">Enregistrer</button>
                 </form>
               )}
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* === FIL EDIT MODAL === */}
+      {filEditIndex !== null && createPortal(
+        <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-slate-900/45 backdrop-blur-md" onClick={() => setFilEditIndex(null)} />
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md relative overflow-hidden animate-in fade-in zoom-in-95 duration-200 border border-slate-200/70">
+            <div className="bg-purple-50 px-6 py-4 border-b border-purple-100 flex items-center justify-between">
+              <h3 className="font-bold text-purple-800 flex items-center gap-2">
+                {filEditIndex === -1 ? <Plus className="w-4 h-4" /> : <Edit2 className="w-4 h-4" />}
+                {filEditIndex === -1 ? 'Ajouter un type de point' : 'Modifier le coefficient'}
+              </h3>
+              <button onClick={() => setFilEditIndex(null)} className="p-1 hover:bg-purple-100 rounded-lg transition-colors">
+                <X className="w-5 h-5 text-purple-400" />
+              </button>
+            </div>
+            <div className="p-6 space-y-4">
+              {filEditIndex === -1 && (
+                <div>
+                  <label className="text-xs font-bold text-slate-500 uppercase">Nom du type</label>
+                  <input
+                    type="text"
+                    value={filForm.name || ''}
+                    onChange={(e) => setFilForm(prev => ({ ...prev, name: e.target.value }))}
+                    placeholder="ex: Surjeteuse 5 fils"
+                    className="w-full mt-1 px-3 py-2 border border-slate-200 rounded-lg text-sm font-bold focus:border-purple-500 focus:ring-1 focus:ring-purple-500 outline-none"
+                  />
+                </div>
+              )}
+              {filEditIndex !== -1 && (
+                <div>
+                  <label className="text-xs font-bold text-slate-500 uppercase">Type de point</label>
+                  <p className="font-bold text-slate-700 mt-1">{filForm.name}</p>
+                </div>
+              )}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs font-bold text-slate-500 uppercase">N° ISO</label>
+                  <input
+                    type="number"
+                    value={filForm.isoNumber || ''}
+                    onChange={(e) => setFilForm(prev => ({ ...prev, isoNumber: Number(e.target.value) }))}
+                    className="w-full mt-1 px-3 py-2 border border-slate-200 rounded-lg text-sm font-bold focus:border-purple-500 focus:ring-1 focus:ring-purple-500 outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-slate-500 uppercase">Nb fils</label>
+                  <input
+                    type="number"
+                    value={filForm.threadCount || ''}
+                    onChange={(e) => setFilForm(prev => ({ ...prev, threadCount: Number(e.target.value) }))}
+                    className="w-full mt-1 px-3 py-2 border border-slate-200 rounded-lg text-sm font-bold focus:border-purple-500 focus:ring-1 focus:ring-purple-500 outline-none"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="text-xs font-bold text-purple-600 uppercase">Coefficient (Conso / m)</label>
+                <input
+                  type="number"
+                  step="0.1"
+                  value={filForm.consumptionFactor || ''}
+                  onChange={(e) => setFilForm(prev => ({ ...prev, consumptionFactor: Number(e.target.value) }))}
+                  className="w-full mt-1 px-3 py-2 border-2 border-purple-300 rounded-lg text-sm font-bold focus:border-purple-500 focus:ring-1 focus:ring-purple-500 outline-none text-purple-700"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-bold text-slate-500 uppercase">Machine</label>
+                <input
+                  type="text"
+                  value={filForm.machineCode || ''}
+                  onChange={(e) => setFilForm(prev => ({ ...prev, machineCode: e.target.value }))}
+                  className="w-full mt-1 px-3 py-2 border border-slate-200 rounded-lg text-sm font-bold focus:border-purple-500 focus:ring-1 focus:ring-purple-500 outline-none"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-bold text-slate-500 uppercase">Observations</label>
+                <input
+                  type="text"
+                  value={filForm.observations || ''}
+                  onChange={(e) => setFilForm(prev => ({ ...prev, observations: e.target.value }))}
+                  className="w-full mt-1 px-3 py-2 border border-slate-200 rounded-lg text-sm font-bold focus:border-purple-500 focus:ring-1 focus:ring-purple-500 outline-none"
+                />
+              </div>
+            </div>
+            <div className="bg-slate-50 px-6 py-4 border-t border-slate-100 flex gap-3">
+              <button onClick={() => setFilEditIndex(null)} className="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 text-slate-600 font-medium hover:bg-slate-50 transition-colors">
+                Annuler
+              </button>
+              <button onClick={saveFilEdit} className="flex-1 px-4 py-2.5 rounded-xl bg-purple-600 text-white font-medium hover:bg-purple-700 shadow-lg shadow-purple-200 transition-all active:scale-95 flex items-center justify-center gap-2">
+                <Save className="w-4 h-4" /> Appliquer
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* === FIL CONFIRM SAVE MODAL === */}
+      {filConfirmOpen && createPortal(
+        <div className="fixed inset-0 z-[1100] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-slate-900/50 backdrop-blur-md" onClick={() => setFilConfirmOpen(false)} />
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm relative overflow-hidden animate-in fade-in zoom-in-95 duration-200 p-6 text-center">
+            <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-4 text-purple-600"><CheckCircle2 className="w-6 h-6" /></div>
+            <h3 className="text-lg font-bold text-slate-800 mb-2">Confirmer les modifications ?</h3>
+            <p className="text-slate-500 text-sm mb-6">Les nouveaux coefficients seront sauvegardés et utilisés pour les calculs futurs.</p>
+            <div className="flex gap-3">
+              <button onClick={() => setFilConfirmOpen(false)} className="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 text-slate-600 font-medium hover:bg-slate-50 transition-colors">Annuler</button>
+              <button onClick={confirmFilSave} className="flex-1 px-4 py-2.5 rounded-xl bg-purple-600 text-white font-medium hover:bg-purple-700 shadow-lg shadow-purple-200 transition-all active:scale-95">Confirmer</button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* === FIL RESET CONFIRM MODAL === */}
+      {filResetConfirmOpen && createPortal(
+        <div className="fixed inset-0 z-[1100] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-slate-900/50 backdrop-blur-md" onClick={() => setFilResetConfirmOpen(false)} />
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm relative overflow-hidden animate-in fade-in zoom-in-95 duration-200 p-6 text-center">
+            <div className="w-12 h-12 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-4 text-amber-600"><RotateCcw className="w-6 h-6" /></div>
+            <h3 className="text-lg font-bold text-slate-800 mb-2">Réinitialiser les paramètres ?</h3>
+            <p className="text-slate-500 text-sm mb-6">Toutes les modifications seront annulées et les valeurs originales seront restaurées.</p>
+            <div className="flex gap-3">
+              <button onClick={() => setFilResetConfirmOpen(false)} className="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 text-slate-600 font-medium hover:bg-slate-50 transition-colors">Annuler</button>
+              <button onClick={resetFilDefaults} className="flex-1 px-4 py-2.5 rounded-xl bg-amber-500 text-white font-medium hover:bg-amber-600 shadow-lg shadow-amber-200 transition-all active:scale-95">Réinitialiser</button>
             </div>
           </div>
         </div>,

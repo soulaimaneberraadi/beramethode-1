@@ -4,7 +4,7 @@ import {
     AlertTriangle, Phone, Mail, Building2, LinkIcon, Layers, History, Barcode,
     Download, Filter, Activity, TrendingUp, TrendingDown, AlignLeft, Scale, RefreshCw, CheckCircle, MapPin, Sparkles, Power, FileText, Send, Printer, Recycle, ArrowLeft, Paperclip, Settings, ChevronDown, Eye, EyeOff, Image, Briefcase, Hash, Type, Table, FileSignature, Stamp, LayoutGrid
 } from 'lucide-react';
-import { ModelData, PlanningEvent, DemandeAppro, MouvementStock, AppSettings } from '../types';
+import { ModelData, PlanningEvent, DemandeAppro, MouvementStock, AppSettings, MaterialReceipt } from '../types';
 import DateTimePicker from './ui/DateTimePicker';
 import { DEFAULT_CALENDAR_APP_SETTINGS } from '../lib/defaultCalendarSettings';
 import ProductDetailPanel from './ProductDetailPanel';
@@ -1449,8 +1449,9 @@ export default function Magasin({ models = [], planningEvents = [], lang = 'fr',
     const t = (str: string) => lang === 'fr' ? str : (DICT[str]?.[lang] || str);
     const dtpSettings = settings ?? DEFAULT_CALENDAR_APP_SETTINGS;
 
-    const [tab, setTab] = useState<'dashboard' | 'db' | 'bureau' | 'demandes' | 'commandes' | 'alertes' | 'inventaire' | 'tracabilite' | 'wms' | 'fournisseurs' | 'valorisation'>('dashboard');
+    const [tab, setTab] = useState<'dashboard' | 'db' | 'bureau' | 'demandes' | 'commandes' | 'alertes' | 'inventaire' | 'tracabilite' | 'wms' | 'fournisseurs' | 'valorisation' | 'receptions' | 'surplus'>('dashboard');
     const [products, setProducts] = useState<MagasinProduct[]>([]);
+    const [receptions, setReceptions] = useState<MaterialReceipt[]>(() => ld('beramethode_receptions', []));
     const [lots, setLots] = useState<LotStock[]>([]);
     const [mvts, setMvts] = useState<MouvementStock[]>([]);
 
@@ -1461,13 +1462,14 @@ export default function Magasin({ models = [], planningEvents = [], lang = 'fr',
     useEffect(() => {
         const fetchData = async () => {
             try {
-                const [resProd, resLots, resMvts, resCmds, resDms, resDechets] = await Promise.all([
+                const [resProd, resLots, resMvts, resCmds, resDms, resDechets, resRecs] = await Promise.all([
                     fetch('/api/magasin/products', { credentials: 'include' }),
                     fetch('/api/magasin/lots', { credentials: 'include' }),
                     fetch('/api/magasin/mouvements', { credentials: 'include' }),
                     fetch('/api/magasin/commandes', { credentials: 'include' }),
                     fetch('/api/magasin/demandes', { credentials: 'include' }),
-                    fetch('/api/magasin/dechets', { credentials: 'include' })
+                    fetch('/api/magasin/dechets', { credentials: 'include' }),
+                    fetch('/api/material-receipts', { credentials: 'include' })
                 ]);
 
                 if (resProd.ok) setProducts(await resProd.json());
@@ -1476,6 +1478,11 @@ export default function Magasin({ models = [], planningEvents = [], lang = 'fr',
                 if (resCmds.ok) setCommandes(await resCmds.json());
                 if (resDms.ok) setDemandes(await resDms.json());
                 if (resDechets.ok) setDechets(await resDechets.json());
+                if (resRecs.ok) {
+                    const data = await resRecs.json();
+                    setReceptions(data);
+                    sv('beramethode_receptions', data);
+                }
             } catch (err) {
                 console.error("Erreur de synchronisation du magasin avec le serveur:", err);
             }
@@ -1506,6 +1513,22 @@ export default function Magasin({ models = [], planningEvents = [], lang = 'fr',
     const [detailStartEditing, setDetailStartEditing] = useState(false);
     const [selectedMovement, setSelectedMovement] = useState<MouvementStock | null>(null);
     const [movementEditDraft, setMovementEditDraft] = useState<MouvementStock | null>(null);
+
+    // States for Receptions & Surplus WMS
+    const [brSelectedEventId, setBrSelectedEventId] = useState('');
+    const [brSelectedMaterial, setBrSelectedMaterial] = useState('');
+    const [brQty, setBrQty] = useState('');
+    const [brNum, setBrNum] = useState(() => `BR-${Math.floor(1000 + Math.random() * 9000)}`);
+    const [brDate, setBrDate] = useState(() => new Date().toISOString().split('T')[0]);
+    const [brOwner, setBrOwner] = useState<'client' | 'atelier'>('client');
+    const [brSupplier, setBrSupplier] = useState('');
+    const [brAutoAddStock, setBrAutoAddStock] = useState(true);
+
+    const [surplusModal, setSurplusModal] = useState<{ open: boolean; eventId?: string; materialName?: string; surplusQty?: number; isTemykou?: boolean } | null>(null);
+    const [surplusActionType, setSurplusActionType] = useState<'transfer' | 'owner' | 'absorb' | null>(null);
+    const [surplusTargetEventId, setSurplusTargetEventId] = useState('');
+    const [surplusNewOwner, setSurplusNewOwner] = useState('');
+    const [surplusAbsorbValuation, setSurplusAbsorbValuation] = useState('');
 
     const refreshProducts = async () => {
         try {
@@ -1907,6 +1930,8 @@ export default function Magasin({ models = [], planningEvents = [], lang = 'fr',
                     { i: 'fournisseurs', l: 'Radar Fournisseurs', ic: Building2 },
                     { i: 'commandes', l: 'Bons de Commande', ic: FileText, b: commandes.filter(c => c.statut === 'brouillon' || c.statut === 'envoye').length },
                     { i: 'demandes', l: 'Demandes Atelier', ic: Package, b: demandes.filter(d => d.statut === 'attente').length },
+                    { i: 'receptions', l: 'Bons de Réception', ic: Download },
+                    { i: 'surplus', l: 'Gestion des Surplus', ic: Scale },
                     { i: 'alertes', l: 'Alertes & Ruptures', ic: AlertTriangle, b: alertes.length },
                     { i: 'valorisation', l: 'S. Valorisation (Déchets)', ic: Recycle },
                     { i: 'tracabilite', l: 'Traçabilité', ic: LinkIcon }
@@ -3054,6 +3079,551 @@ export default function Magasin({ models = [], planningEvents = [], lang = 'fr',
                                     </div>
                                 )}
                             </div>
+                        </div>
+                    );
+                })()}
+
+                {/* ══ Bons de Réception (BR) ══ */}
+                {tab === 'receptions' && (() => {
+                    const activeEvents = planningEvents.filter(ev => ev.status !== 'DONE');
+                    const selectedEvent = activeEvents.find(ev => ev.id === brSelectedEventId);
+                    const selectedModel = selectedEvent ? models.find(m => m.id === selectedEvent.modelId) : null;
+                    const bomMaterials = selectedModel?.ficheData?.materials || [];
+
+                    const handleAddReceipt = async () => {
+                        if (!brNum || !brSelectedEventId || !brSelectedMaterial || !brQty) {
+                            alert("Veuillez remplir tous les champs obligatoires (N° BR, Commande, Fourniture, Quantité).");
+                            return;
+                        }
+
+                        const qty = parseFloat(brQty);
+                        if (isNaN(qty) || qty <= 0) {
+                            alert("La quantité doit être supérieure à 0.");
+                            return;
+                        }
+
+                        const newReceipt: MaterialReceipt = {
+                            id: brNum,
+                            pedidoId: brSelectedEventId,
+                            modelId: selectedEvent?.modelId || '',
+                            materialName: brSelectedMaterial,
+                            qtyReceived: qty,
+                            dateReceived: brDate,
+                            owner: brOwner,
+                            supplierName: brSupplier || selectedEvent?.clientName || 'Client'
+                        };
+
+                        // 1. Add to receptions local state and local storage
+                        const updatedReceptions = [newReceipt, ...receptions];
+                        setReceptions(updatedReceptions);
+                        sv('beramethode_receptions', updatedReceptions);
+
+                        // Save to server
+                        fetch('/api/material-receipts', {
+                            method: 'POST',
+                            credentials: 'include',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(newReceipt)
+                        }).catch(e => console.error("Error saving receipt:", e));
+
+                        // 2. Automatically register a stock movement if checked
+                        if (brAutoAddStock) {
+                            const matchedProduct = products.find(p => p.designation.toLowerCase() === brSelectedMaterial.toLowerCase());
+                            if (matchedProduct) {
+                                const newMvt: MouvementStock = {
+                                    id: uid(),
+                                    productId: matchedProduct.id,
+                                    type: 'entree',
+                                    source: 'fournisseur',
+                                    destination: 'inventaire',
+                                    quantite: qty,
+                                    prixUnitaire: matchedProduct.prixUnitaire || 0,
+                                    date: new Date(brDate).toISOString(),
+                                    notes: `Réception auto via BR ${brNum} pour OF ${selectedEvent?.modelName || ''}`,
+                                    documentRef: brNum,
+                                    bain: 'BR',
+                                    modeleRef: selectedEvent?.modelName || ''
+                                };
+
+                                const currentLots = [...lots];
+                                const lotId = uid();
+                                const newLot: LotStock = {
+                                    id: lotId,
+                                    productId: matchedProduct.id,
+                                    quantiteInitiale: qty,
+                                    quantiteRestante: qty,
+                                    prixUnitaire: matchedProduct.prixUnitaire || 0,
+                                    dateEntree: newMvt.date,
+                                    fournisseur: newReceipt.supplierName,
+                                    etat: 'disponible',
+                                    variante: 'BR'
+                                };
+
+                                try {
+                                    const res = await fetch('/api/magasin/mvt', {
+                                        credentials: 'include',
+                                        method: 'POST',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({
+                                            mouvement: newMvt,
+                                            lotsUpdate: [...currentLots, newLot],
+                                            productUpdate: null
+                                        })
+                                    });
+
+                                    if (res.ok) {
+                                        setLots(prev => [...prev, newLot]);
+                                        setMvts(prev => [newMvt, ...prev]);
+                                        alert(`Bon de Réception ${brNum} enregistré et stock mis à jour pour "${brSelectedMaterial}" !`);
+                                    } else {
+                                        alert(`BR enregistré, mais échec de la mise à jour automatique du stock sur le serveur.`);
+                                    }
+                                } catch (err) {
+                                    console.error(err);
+                                    alert(`BR enregistré, mais échec de connexion pour la mise à jour du stock.`);
+                                }
+                            } else {
+                                alert(`BR enregistré. Note : Aucun article nommé "${brSelectedMaterial}" trouvé dans le stock général. Le stock n'a pas été incrémenté.`);
+                            }
+                        } else {
+                            alert(`Bon de Réception ${brNum} enregistré (historique d'approvisionnement uniquement).`);
+                        }
+
+                        // Reset inputs
+                        setBrQty('');
+                        setBrSelectedMaterial('');
+                        setBrNum(`BR-${Math.floor(1000 + Math.random() * 9000)}`);
+                    };
+
+                    return (
+                        <div className="space-y-6 animate-in fade-in zoom-in-95 duration-300 max-w-7xl mx-auto">
+                            <div className="bg-gradient-to-r from-slate-800 to-indigo-900 p-6 rounded-3xl text-white shadow-lg relative overflow-hidden">
+                                <div className="absolute top-0 right-0 p-8 opacity-10"><Download className="w-48 h-48" /></div>
+                                <h2 className="text-2xl font-black mb-1 flex items-center gap-3"><Download className="w-6 h-6 text-indigo-400" /> {t('Bons de Réception ( الشحنات الواردة )')}</h2>
+                                <p className="text-indigo-100 font-bold max-w-xl">{t("Enregistrez les livraisons partielles ou totales de matières et fournitures (Temykou/Client ou Owned) pour les associer aux ordres de fabrication.")}</p>
+                            </div>
+
+                            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                                {/* Form */}
+                                <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-4">
+                                    <h3 className="font-black text-slate-800 text-lg border-b pb-2">{t('Nouvelle Réception')}</h3>
+                                    
+                                    <div>
+                                        <Lbl t="N° Bon de Réception *" />
+                                        <input className={inp} value={brNum} onChange={e => setBrNum(e.target.value)} />
+                                    </div>
+
+                                    <div>
+                                        <Lbl t="Ordre de Fabrication (Pedido) *" />
+                                        <select className={inp} value={brSelectedEventId} onChange={e => {
+                                            const val = e.target.value;
+                                            setBrSelectedEventId(val);
+                                            const ev = activeEvents.find(x => x.id === val);
+                                            if (ev) {
+                                                setBrSupplier(ev.clientName || '');
+                                                setBrOwner(ev.typeMarche === 'Export' ? 'client' : 'atelier');
+                                            }
+                                        }}>
+                                            <option value="">-- Choisir OF --</option>
+                                            {activeEvents.map(ev => (
+                                                <option key={ev.id} value={ev.id}>{ev.clientName} - {ev.modelName} (Qté: {ev.qteTotal})</option>
+                                            ))}
+                                        </select>
+                                    </div>
+
+                                    <div>
+                                        <Lbl t="Ligne de la BOM / Fourniture *" />
+                                        <select className={inp} value={brSelectedMaterial} onChange={e => setBrSelectedMaterial(e.target.value)} disabled={!brSelectedEventId}>
+                                            <option value="">-- Choisir Trim/Matière --</option>
+                                            {bomMaterials.map((m, idx) => (
+                                                <option key={idx} value={m.name}>{m.name} ({m.qty} {m.unit} / pc)</option>
+                                            ))}
+                                            {brSelectedEventId && bomMaterials.length === 0 && (
+                                                <option value="">Aucune fourniture définie dans la Fiche Technique</option>
+                                            )}
+                                        </select>
+                                    </div>
+
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <Lbl t="Quantité Reçue *" />
+                                            <input className={inp} type="number" min="0.01" step="any" placeholder="Ex: 5000" value={brQty} onChange={e => setBrQty(e.target.value)} />
+                                        </div>
+                                        <div>
+                                            <Lbl t="Date de Réception" />
+                                            <input className={inp} type="date" value={brDate} onChange={e => setBrDate(e.target.value)} />
+                                        </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <Lbl t="Propriétaire (الملكية)" />
+                                            <select className={inp} value={brOwner} onChange={e => setBrOwner(e.target.value as any)}>
+                                                <option value="client">Client (Temykou)</option>
+                                                <option value="atelier">Atelier (Factory Owned)</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <Lbl t="Provenance / Fournisseur" />
+                                            <input className={inp} placeholder="Nom du Client" value={brSupplier} onChange={e => setBrSupplier(e.target.value)} />
+                                        </div>
+                                    </div>
+
+                                    <div className="flex items-center gap-2 pt-2 border-t">
+                                        <input type="checkbox" id="autoAddStock" checked={brAutoAddStock} onChange={e => setBrAutoAddStock(e.target.checked)} className="w-4 h-4 text-indigo-600 rounded cursor-pointer" />
+                                        <label htmlFor="autoAddStock" className="text-xs font-bold text-slate-600 cursor-pointer">Incrémenter automatiquement le stock WMS</label>
+                                    </div>
+
+                                    <button onClick={handleAddReceipt} className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-black py-3 rounded-2xl shadow-md transition active:scale-95 flex items-center justify-center gap-2">
+                                        <Plus className="w-4 h-4" /> Enregistrer la réception
+                                    </button>
+                                </div>
+
+                                {/* List Table */}
+                                <div className="lg:col-span-2 bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex flex-col h-full overflow-hidden">
+                                    <h3 className="font-black text-slate-800 text-lg border-b pb-2 mb-4">{t('Historique des Réceptions')}</h3>
+                                    <div className="overflow-x-auto flex-1 min-h-[300px]">
+                                        <table className="w-full text-left text-sm whitespace-nowrap">
+                                            <thead className="bg-slate-50 text-slate-500 font-bold uppercase text-xs">
+                                                <tr>
+                                                    <th className="p-3">Bon de Réf (BR)</th>
+                                                    <th className="p-3">Date</th>
+                                                    <th className="p-3">OF / Modèle</th>
+                                                    <th className="p-3">Matière / Trim</th>
+                                                    <th className="p-3 text-right">Qté Reçue</th>
+                                                    <th className="p-3 text-center">Type</th>
+                                                    <th className="p-3 text-right">Actions</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y text-xs">
+                                                {receptions.length === 0 ? (
+                                                    <tr>
+                                                        <td colSpan={7} className="p-8 text-center text-slate-400 font-bold">Aucune réception enregistrée.</td>
+                                                    </tr>
+                                                ) : (
+                                                    receptions.map((r, idx) => {
+                                                        const ev = planningEvents.find(x => x.id === r.pedidoId);
+                                                        return (
+                                                            <tr key={idx} className="hover:bg-slate-50">
+                                                                <td className="p-3 font-bold text-slate-700">{r.id}</td>
+                                                                <td className="p-3 text-slate-500">{r.dateReceived}</td>
+                                                                <td className="p-3">
+                                                                    <div className="font-bold text-slate-800">{ev?.modelName || 'OF inconnu'}</div>
+                                                                    <div className="text-[10px] text-slate-400">Client: {ev?.clientName || '—'}</div>
+                                                                </td>
+                                                                <td className="p-3 font-bold text-indigo-700">{r.materialName}</td>
+                                                                <td className="p-3 text-right font-black text-slate-800">{r.qtyReceived.toLocaleString()}</td>
+                                                                <td className="p-3 text-center">
+                                                                    <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase ${r.owner === 'client' ? 'bg-amber-100 text-amber-800' : 'bg-blue-100 text-blue-800'}`}>
+                                                                        {r.owner === 'client' ? 'Consigné (Temykou)' : 'Acheté'}
+                                                                    </span>
+                                                                </td>
+                                                                <td className="p-3 text-right">
+                                                                    <button onClick={() => {
+                                                                        if (confirm("Voulez-vous vraiment supprimer ce bon de réception ?")) {
+                                                                            const target = receptions[idx];
+                                                                            const updated = receptions.filter((_, i) => i !== idx);
+                                                                            setReceptions(updated);
+                                                                            sv('beramethode_receptions', updated);
+                                                                            if (target) {
+                                                                                fetch(`/api/material-receipts/${target.id}`, {
+                                                                                    method: 'DELETE',
+                                                                                    credentials: 'include'
+                                                                                }).catch(e => console.error("Error deleting receipt:", e));
+                                                                            }
+                                                                        }
+                                                                    }} className="text-slate-400 hover:text-rose-600 p-1">
+                                                                        <Trash2 className="w-4 h-4" />
+                                                                    </button>
+                                                                </td>
+                                                            </tr>
+                                                        );
+                                                    })
+                                                )}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    );
+                })()}
+
+                {/* ══ Gestion des Surplus ══ */}
+                {tab === 'surplus' && (() => {
+                    const closedEvents = planningEvents.filter(ev => ev.status === 'DONE' || models.find(m => m.id === ev.modelId)?.ficheData?.statutProduction === 'Clôturé');
+                    
+                    const handleTransferSurplus = (r: MaterialReceipt, targetEvId: string) => {
+                        const targetEv = planningEvents.find(x => x.id === targetEvId);
+                        if (!targetEv) return alert("Ordre cible non trouvé.");
+                        
+                        let updatedReceipt: MaterialReceipt | null = null;
+                        const updated = receptions.map(item => {
+                            if (item.id === r.id && item.materialName === r.materialName) {
+                                updatedReceipt = { ...item, pedidoId: targetEvId, modelId: targetEv.modelId || '' };
+                                return updatedReceipt;
+                            }
+                            return item;
+                        });
+                        setReceptions(updated);
+                        sv('beramethode_receptions', updated);
+                        if (updatedReceipt) {
+                            fetch('/api/material-receipts', {
+                                method: 'POST',
+                                credentials: 'include',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify(updatedReceipt)
+                            }).catch(e => console.error("Error updating receipt:", e));
+                        }
+                        alert(`Surplus transféré avec succès vers l'OF ${targetEv.modelName} !`);
+                        setSurplusModal(null);
+                    };
+
+                    const handleAbsorbSurplus = async (r: MaterialReceipt, valuation: number) => {
+                        const matchedProduct = products.find(p => p.designation.toLowerCase() === r.materialName.toLowerCase());
+                        if (!matchedProduct) {
+                            alert("Le produit correspondant doit exister dans la base produits du magasin avant d'être absorbé.");
+                            return;
+                        }
+
+                        // Register a stock movement IN as 'atelier'
+                        const qty = r.qtyReceived; 
+                        const newMvt: MouvementStock = {
+                            id: uid(),
+                            productId: matchedProduct.id,
+                            type: 'entree',
+                            source: 'fournisseur',
+                            destination: 'inventaire',
+                            quantite: qty,
+                            prixUnitaire: valuation,
+                            date: new Date().toISOString(),
+                            notes: `Absorbé depuis Surplus BR ${r.id} (Modèle Clôturé)`,
+                            documentRef: r.id,
+                            bain: 'SURPLUS'
+                        };
+
+                        const currentLots = [...lots];
+                        const newLot: LotStock = {
+                            id: uid(),
+                            productId: matchedProduct.id,
+                            quantiteInitiale: qty,
+                            quantiteRestante: qty,
+                            prixUnitaire: valuation,
+                            dateEntree: newMvt.date,
+                            fournisseur: 'Atelier (Surplus)',
+                            etat: 'disponible',
+                            variante: 'SURPLUS'
+                        };
+
+                        try {
+                            const res = await fetch('/api/magasin/mvt', {
+                                credentials: 'include',
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                    mouvement: newMvt,
+                                    lotsUpdate: [...currentLots, newLot],
+                                    productUpdate: { id: matchedProduct.id, prixUnitaire: valuation }
+                                })
+                            });
+
+                            if (res.ok) {
+                                setLots(prev => [...prev, newLot]);
+                                setMvts(prev => [newMvt, ...prev]);
+                                
+                                // Update receipt ownership to 'atelier'
+                                let updatedReceipt: MaterialReceipt | null = null;
+                                const updatedReceptions = receptions.map(item => {
+                                    if (item.id === r.id && item.materialName === r.materialName) {
+                                        updatedReceipt = { ...item, owner: 'atelier' as const };
+                                        return updatedReceipt;
+                                    }
+                                    return item;
+                                });
+                                setReceptions(updatedReceptions);
+                                sv('beramethode_receptions', updatedReceptions);
+                                if (updatedReceipt) {
+                                    fetch('/api/material-receipts', {
+                                        method: 'POST',
+                                        credentials: 'include',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify(updatedReceipt)
+                                    }).catch(e => console.error("Error updating receipt:", e));
+                                }
+                                
+                                alert(`Les surplus ont été intégrés au stock atelier avec une valeur de ${valuation} DH/pièce !`);
+                                setSurplusModal(null);
+                            } else {
+                                alert("Erreur lors de l'intégration au stock serveur.");
+                            }
+                        } catch (err) {
+                            console.error(err);
+                            alert("Échec de connexion au serveur.");
+                        }
+                    };
+
+                    return (
+                        <div className="space-y-6 animate-in fade-in zoom-in-95 duration-300 max-w-7xl mx-auto">
+                            <div className="bg-gradient-to-r from-slate-800 to-indigo-900 p-6 rounded-3xl text-white shadow-lg relative overflow-hidden">
+                                <div className="absolute top-0 right-0 p-8 opacity-10"><Scale className="w-48 h-48" /></div>
+                                <h2 className="text-2xl font-black mb-1 flex items-center gap-3"><Scale className="w-6 h-6 text-indigo-400" /> {t('Gestion des Surplus ( الفائض )')}</h2>
+                                <p className="text-indigo-100 font-bold max-w-xl">{t("Gérez le reste des matières et fournitures (Temykou) après la clôture des commandes. Transférez-les à un autre modèle ou intégrez-les au stock propre du magasin.")}</p>
+                            </div>
+
+                            <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
+                                <h3 className="font-black text-slate-800 text-lg border-b pb-2 mb-4">{t('Commandes Clôturées et Restants')}</h3>
+                                
+                                <div className="space-y-6">
+                                    {closedEvents.map(ev => {
+                                        const model = models.find(m => m.id === ev.modelId);
+                                        const eventReceipts = receptions.filter(r => r.pedidoId === ev.id);
+                                        const bom = model?.ficheData?.materials || [];
+
+                                        return (
+                                            <div key={ev.id} className="border border-slate-100 bg-slate-50/50 p-5 rounded-2xl">
+                                                <div className="flex flex-wrap justify-between items-center border-b pb-3 mb-4">
+                                                    <div>
+                                                        <h4 className="font-black text-slate-800 text-base">{ev.modelName}</h4>
+                                                        <p className="text-xs font-semibold text-slate-400">Client: {ev.clientName} | DDS: {ev.strictDeadline_DDS || '—'} | Qté commandée: {ev.qteTotal} pcs</p>
+                                                    </div>
+                                                    <span className="px-3 py-1 bg-slate-200 text-slate-700 font-bold text-xs rounded-full uppercase">Clôturé / Terminée</span>
+                                                </div>
+
+                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                    {eventReceipts.map((r, idx) => {
+                                                        const bomItem = bom.find(b => b.name === r.materialName);
+                                                        const unitQty = bomItem ? bomItem.qty : 0;
+                                                        const theoreticalCons = ev.qteTotal * unitQty;
+                                                        const surplus = Math.max(0, r.qtyReceived - theoreticalCons);
+                                                        const isConsumed = surplus === 0;
+
+                                                        return (
+                                                            <div key={idx} className="bg-white p-4 border rounded-xl shadow-sm flex flex-col justify-between">
+                                                                <div>
+                                                                    <div className="flex justify-between items-start">
+                                                                        <span className="font-bold text-slate-800 text-sm">{r.materialName}</span>
+                                                                        <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase ${isConsumed ? 'bg-slate-100 text-slate-500' : 'bg-emerald-100 text-emerald-800'}`}>
+                                                                            {isConsumed ? 'Consommé' : 'Fonds Excédentaire'}
+                                                                        </span>
+                                                                    </div>
+                                                                    <div className="grid grid-cols-3 gap-2 mt-3 text-center border-y py-2 text-xs">
+                                                                        <div>
+                                                                            <span className="block text-[9px] font-bold text-slate-400 uppercase">Reçu</span>
+                                                                            <span className="font-bold text-slate-700">{r.qtyReceived.toLocaleString()}</span>
+                                                                        </div>
+                                                                        <div>
+                                                                            <span className="block text-[9px] font-bold text-slate-400 uppercase">Théorique</span>
+                                                                            <span className="font-bold text-slate-700">{theoreticalCons.toLocaleString()}</span>
+                                                                        </div>
+                                                                        <div>
+                                                                            <span className="block text-[9px] font-bold text-slate-400 uppercase">Surplus</span>
+                                                                            <span className={`font-black ${surplus > 0 ? 'text-emerald-600' : 'text-slate-500'}`}>{surplus.toLocaleString()}</span>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+
+                                                                {surplus > 0 && r.owner === 'client' && (
+                                                                    <div className="flex gap-2 mt-4 pt-2 border-t">
+                                                                        <button onClick={() => {
+                                                                            setSurplusModal({ open: true, eventId: ev.id, materialName: r.materialName, surplusQty: surplus, isTemykou: true });
+                                                                            setSurplusActionType('transfer');
+                                                                            setSurplusTargetEventId('');
+                                                                        }} className="flex-1 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold text-xs rounded transition-colors uppercase tracking-wider">
+                                                                            Transférer
+                                                                        </button>
+                                                                        <button onClick={() => {
+                                                                            setSurplusModal({ open: true, eventId: ev.id, materialName: r.materialName, surplusQty: surplus, isTemykou: true });
+                                                                            setSurplusActionType('absorb');
+                                                                            setSurplusAbsorbValuation('');
+                                                                        }} className="flex-1 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold text-xs rounded transition-colors uppercase tracking-wider">
+                                                                            Absorber (Atelier)
+                                                                        </button>
+                                                                    </div>
+                                                                )}
+                                                                {r.owner === 'atelier' && (
+                                                                    <div className="text-[10px] text-slate-400 font-bold mt-4 pt-2 border-t text-center uppercase tracking-widest">
+                                                                        Intégré au stock général
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        );
+                                                    })}
+                                                    {eventReceipts.length === 0 && (
+                                                        <div className="col-span-full py-4 text-center text-xs text-slate-400 font-semibold italic">
+                                                            Aucune livraison enregistrée pour cette commande.
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                    {closedEvents.length === 0 && (
+                                        <div className="text-center py-10 text-slate-400 font-bold italic">
+                                            Aucune commande clôturée disponible pour l'analyse des restants.
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Surplus Actions Modal */}
+                            {surplusModal?.open && (
+                                <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+                                    <div className="bg-white rounded-3xl shadow-xl w-full max-w-md p-6 overflow-hidden flex flex-col">
+                                        <div className="flex items-center justify-between mb-4 border-b pb-2">
+                                            <h3 className="font-black text-slate-800 text-lg flex items-center gap-2">
+                                                <Scale className="w-5 h-5 text-indigo-500" /> Action sur Surplus
+                                            </h3>
+                                            <button onClick={() => setSurplusModal(null)} className="p-2 hover:bg-slate-100 rounded-full">
+                                                <X className="w-4 h-4" />
+                                            </button>
+                                        </div>
+                                        <div className="text-sm font-bold text-slate-600 mb-4 bg-slate-50 p-3 rounded-xl border">
+                                            <div className="flex justify-between"><span>Fourniture :</span> <span className="text-indigo-600">{surplusModal.materialName}</span></div>
+                                            <div className="flex justify-between mt-1"><span>Quantité surplus :</span> <span className="text-emerald-600">{surplusModal.surplusQty?.toLocaleString()}</span></div>
+                                        </div>
+
+                                        <div className="space-y-4">
+                                            <div className="flex bg-slate-100 rounded-lg p-1">
+                                                <button onClick={() => setSurplusActionType('transfer')} className={`flex-1 py-1.5 text-xs font-bold rounded-md transition-all ${surplusActionType === 'transfer' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500'}`}>Transférer</button>
+                                                <button onClick={() => setSurplusActionType('absorb')} className={`flex-1 py-1.5 text-xs font-bold rounded-md transition-all ${surplusActionType === 'absorb' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500'}`}>Absorber</button>
+                                            </div>
+
+                                            {surplusActionType === 'transfer' && (
+                                                <div className="space-y-2 animate-in fade-in zoom-in-95 duration-200">
+                                                    <Lbl t="Sélectionner le Modèle cible (même client)" />
+                                                    <select className={inp} value={surplusTargetEventId} onChange={e => setSurplusTargetEventId(e.target.value)}>
+                                                        <option value="">-- Choisir OF cible --</option>
+                                                        {planningEvents.filter(ev => ev.status !== 'DONE' && ev.clientName === planningEvents.find(x => x.id === surplusModal.eventId)?.clientName).map(ev => (
+                                                            <option key={ev.id} value={ev.id}>{ev.modelName} (DDS: {ev.strictDeadline_DDS || '—'})</option>
+                                                        ))}
+                                                    </select>
+                                                    <button onClick={() => {
+                                                        const r = receptions.find(x => x.pedidoId === surplusModal.eventId && x.materialName === surplusModal.materialName);
+                                                        if (r) handleTransferSurplus(r, surplusTargetEventId);
+                                                    }} className="w-full bg-indigo-600 text-white font-black py-2.5 rounded-xl text-sm">
+                                                        Valider le transfert
+                                                    </button>
+                                                </div>
+                                            )}
+
+                                            {surplusActionType === 'absorb' && (
+                                                <div className="space-y-2 animate-in fade-in zoom-in-95 duration-200">
+                                                    <Lbl t="Valorisation Unitaire (DH / pièce) *" />
+                                                    <input className={inp} type="number" min="0" placeholder="Ex: 12.50" value={surplusAbsorbValuation} onChange={e => setSurplusAbsorbValuation(e.target.value)} />
+                                                    <button onClick={() => {
+                                                        const r = receptions.find(x => x.pedidoId === surplusModal.eventId && x.materialName === surplusModal.materialName);
+                                                        const val = parseFloat(surplusAbsorbValuation);
+                                                        if (r && !isNaN(val) && val >= 0) handleAbsorbSurplus(r, val);
+                                                        else alert("Entrez une valeur correcte.");
+                                                    }} className="w-full bg-emerald-600 text-white font-black py-2.5 rounded-xl text-sm">
+                                                        Valider l'absorption au stock
+                                                    </button>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     );
                 })()}

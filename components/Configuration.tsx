@@ -17,6 +17,14 @@ interface ConfigurationProps {
     lang: 'fr' | 'ar';
     /** Parc machines — affectation par chaîne pour le planning (couverture gamme). */
     machines: Machine[];
+    navConfig?: {
+        enabled: boolean;
+        style: 'dropdown' | 'flat' | 'mobile-only';
+        order: string[];
+        hidden: string[];
+        categories: { id: string; name: string; views: string[] }[];
+    };
+    setNavConfig?: (cfg: any) => void;
 }
 
 const TRANSLATIONS = {
@@ -158,7 +166,32 @@ const CURRENCIES = [
     { code: 'ZAR', label: 'ZAR - Rand Sud-Africain' },
 ];
 
-export default function Configuration({ settings, setSettings, lang, machines }: ConfigurationProps) {
+const VIEW_LABELS: Record<string, { fr: string; ar: string }> = {
+    dashboard: { fr: 'Tableau de bord', ar: 'لوحة التحكم' },
+    vuegenerale: { fr: 'Vue Générale', ar: 'العرض العام' },
+    planning: { fr: 'Planning', ar: 'التخطيط' },
+    suivi: { fr: 'Suivi Production', ar: 'تتبع الإنتاج' },
+    rendement: { fr: 'Rendement', ar: 'المردودية' },
+    ingenierie: { fr: 'Ingénierie', ar: 'الهندسة' },
+    atelier: { fr: 'Atelier Méthodes', ar: 'ورشة الأساليب' },
+    atelierProd: { fr: 'Atelier P°', ar: 'ورشة الإنتاج' },
+    coupe: { fr: 'La Coupe', ar: 'القص' },
+    sousTraitance: { fr: 'Sous-traitance', ar: 'التعاقد الفرعي' },
+    effectifs: { fr: 'Effectifs', ar: 'الموارد البشرية' },
+    gestionRh: { fr: 'Gestion RH', ar: 'إدارة الموارد البشرية' },
+    magasin: { fr: 'Magasin', ar: 'المخزن' },
+    export: { fr: 'Stock Fini', ar: 'تصدير المخزون' },
+    facturation: { fr: 'Facturation', ar: 'الفوترة' },
+    library: { fr: 'Bibliothèque', ar: 'المكتبة' },
+    pageMachine: { fr: 'Suivi des Machines', ar: 'تتبع الآلات' },
+    machin: { fr: 'Catalogue & Paramètres', ar: 'كتالوج و إعدادات' },
+    objectifs: { fr: 'Objectifs', ar: 'الأهداف' },
+    config: { fr: 'Configuration', ar: 'الإعدادات العامة' },
+    paramitre: { fr: 'Paramètres', ar: 'الإعدادات' },
+    admin: { fr: 'Admin', ar: 'المشرف' },
+};
+
+export default function Configuration({ settings, setSettings, lang, machines, navConfig, setNavConfig }: ConfigurationProps) {
     const t = TRANSLATIONS[lang];
     const [showSaveToast, setShowSaveToast] = useState(false);
     const [showAgenda, setShowAgenda] = useState(false);
@@ -1126,6 +1159,245 @@ export default function Configuration({ settings, setSettings, lang, machines }:
                     </div>
                 </div>
             </div>
+
+            {/* FULL WIDTH BLOCK: Personnalisation du Menu de Navigation */}
+            {navConfig && setNavConfig && (
+                <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden flex flex-col mt-6">
+                    <div className="px-5 py-4 bg-slate-50 border-b border-slate-100 flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                            <ListTodo className="w-5 h-5 text-indigo-500" />
+                            <h2 className="font-bold text-slate-800">
+                                {lang === 'fr' ? 'Configuration de la barre de navigation' : 'إعدادات شريط التنقل'}
+                            </h2>
+                        </div>
+                        <button
+                            onClick={() => {
+                                if (confirm(lang === 'fr' ? 'Voulez-vous vraiment réinitialiser la navigation ?' : 'هل تريد حقًا إعادة تعيين القائمة؟')) {
+                                    const defaultCategories = [
+                                        { id: 'principal', name: 'Principal', views: ['dashboard', 'vuegenerale', 'planning', 'suivi', 'rendement'] },
+                                        { id: 'production', name: 'Production', views: ['ingenierie', 'atelier', 'atelierProd', 'coupe', 'sousTraitance'] },
+                                        { id: 'rh', name: 'RH', views: ['effectifs', 'gestionRh'] },
+                                        { id: 'logistique', name: 'Logistique', views: ['magasin', 'export', 'facturation'] },
+                                        { id: 'config', name: 'Config', views: ['library', 'pageMachine', 'machin', 'config', 'objectifs'] }
+                                    ];
+                                    const defaultNavOrder = ['vuegenerale', 'dashboard', 'ingenierie', 'atelier', 'atelierProd', 'library', 'coupe', 'effectifs', 'gestionRh', 'planning', 'suivi', 'rendement', 'magasin', 'export', 'facturation', 'config', 'pageMachine', 'machin', 'objectifs', 'admin', 'sousTraitance'];
+                                    setNavConfig({
+                                        enabled: true,
+                                        style: 'dropdown',
+                                        order: defaultNavOrder,
+                                        hidden: [],
+                                        categories: defaultCategories
+                                    });
+                                }
+                            }}
+                            className="text-xs font-bold text-red-600 hover:text-red-700 bg-red-50 hover:bg-red-100 px-3 py-1.5 rounded-lg border border-red-100 transition-colors"
+                        >
+                            {lang === 'fr' ? 'Réinitialiser' : 'إعادة تعيين'}
+                        </button>
+                    </div>
+                    <div className="p-6 md:p-8 space-y-6">
+                        <p className="text-sm text-slate-500 font-medium">
+                            {lang === 'fr' 
+                                ? 'Configurez le type d\'affichage des menus (dropdowns ou ruban plat), modifiez les titres des catégories ou déplacez librement les pages.'
+                                : 'تخصيص نمط القائمة (منسدلة أو مسطحة)، تعديل أسماء الفئات، أو نقل الصفحات بحرية.'}
+                        </p>
+
+                        {/* Layout Style Selector */}
+                        <div className="space-y-3">
+                            <label className="block text-xs font-bold uppercase text-slate-500 tracking-wider">
+                                {lang === 'fr' ? 'Type d\'affichage' : 'نمط العرض'}
+                            </label>
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                {[
+                                    { key: 'dropdown', labelFr: 'Menus Déroulants Groupés', labelAr: 'قوائم منسدلة مجموعة' },
+                                    { key: 'flat', labelFr: 'Ruban Plat Horizontal', labelAr: 'شريط أفقي مسطح' },
+                                    { key: 'mobile-only', labelFr: 'Hamburger / Menu Latéral Uniquement', labelAr: 'زر القائمة الجانبية فقط' }
+                                ].map((item) => (
+                                    <button
+                                        key={item.key}
+                                        onClick={() => setNavConfig({ ...navConfig, style: item.key as any })}
+                                        className={`p-4 rounded-xl border-2 font-bold text-sm transition-all text-start flex flex-col gap-1 hover:border-indigo-300 active:scale-98 ${
+                                            navConfig.style === item.key
+                                                ? 'bg-indigo-50 border-indigo-500 text-indigo-700 shadow-sm'
+                                                : 'bg-white border-slate-200 text-slate-600'
+                                        }`}
+                                    >
+                                        <span>{lang === 'fr' ? item.labelFr : item.labelAr}</span>
+                                        <span className="text-[10px] font-normal text-slate-400">
+                                            {item.key === 'dropdown' && (lang === 'fr' ? 'Regroupe les 20 modules dans 5 menus compacts' : 'تجميع 20 موديول في 5 قوائم مدمجة')}
+                                            {item.key === 'flat' && (lang === 'fr' ? 'Affiche tous les boutons l\'un après l\'autre' : 'عرض جميع الأزرار متتالية')}
+                                            {item.key === 'mobile-only' && (lang === 'fr' ? 'Idéal pour maximiser l\'espace de travail' : 'مثالي لزيادة مساحة العمل')}
+                                        </span>
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Hamburger Enable Switch (Only if not mobile-only) */}
+                        {navConfig.style !== 'mobile-only' && (
+                            <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-100">
+                                <div>
+                                    <span className="text-sm font-bold text-slate-700">
+                                        {lang === 'fr' ? 'Bouton Hamburger (☰)' : 'زر القائمة الجانبية (☰)'}
+                                    </span>
+                                    <p className="text-[11px] text-slate-400">
+                                        {lang === 'fr' ? 'Afficher également le menu hamburger rapide à gauche' : 'عرض زر القائمة السريعة الجانبية على اليسار أيضاً'}
+                                    </p>
+                                </div>
+                                <button 
+                                    onClick={() => setNavConfig({ ...navConfig, enabled: !navConfig.enabled })}
+                                    className={`w-10 h-5 rounded-full p-0.5 transition-colors relative flex items-center ${navConfig.enabled ? 'bg-emerald-500' : 'bg-slate-300'}`}
+                                >
+                                    <div className={`w-4 h-4 bg-white rounded-full shadow-sm transition-transform duration-300 ${navConfig.enabled ? 'translate-x-5' : 'translate-x-0'}`} />
+                                </button>
+                            </div>
+                        )}
+
+                        {/* Categories Organization (Only relevant if dropdown style is active) */}
+                        {navConfig.style === 'dropdown' && (
+                            <div className="space-y-4 pt-4 border-t border-slate-100">
+                                <label className="block text-xs font-bold uppercase text-slate-500 tracking-wider">
+                                    {lang === 'fr' ? 'Renommer et organiser les catégories' : 'تعديل أسماء وتنظيم الفئات'}
+                                </label>
+                                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                                    {navConfig.categories?.map((category, catIdx) => (
+                                        <div key={category.id} className="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-3">
+                                            <div className="flex items-center gap-2">
+                                                <input
+                                                    type="text"
+                                                    value={category.name}
+                                                    onChange={(e) => {
+                                                        const updated = [...navConfig.categories];
+                                                        updated[catIdx] = { ...category, name: e.target.value };
+                                                        setNavConfig({ ...navConfig, categories: updated });
+                                                    }}
+                                                    className="bg-white border border-slate-200 hover:border-indigo-300 focus:border-indigo-500 outline-none rounded-xl px-3 py-2 text-sm font-bold text-slate-800 flex-1 shadow-sm transition-all"
+                                                    placeholder={lang === 'fr' ? 'Nom de la catégorie' : 'اسم الفئة'}
+                                                />
+                                                <span className="text-[10px] font-black uppercase bg-indigo-50 text-indigo-700 px-2 py-1 rounded border border-indigo-100">
+                                                    {category.views.length} {lang === 'fr' ? 'Pages' : 'صفحات'}
+                                                </span>
+                                            </div>
+                                            <div className="space-y-1 max-h-48 overflow-y-auto pr-1">
+                                                {category.views.map((view) => {
+                                                    const isHidden = navConfig.hidden.includes(view);
+                                                    return (
+                                                        <div key={view} className="flex items-center justify-between gap-2 bg-white px-3 py-2 rounded-lg border border-slate-200 text-xs font-semibold text-slate-700 shadow-sm">
+                                                            <span className="truncate">{VIEW_LABELS[view]?.[lang] || view}</span>
+                                                            <div className="flex items-center gap-1.5 shrink-0">
+                                                                {/* Category Mover selector */}
+                                                                <select
+                                                                    value={category.id}
+                                                                    onChange={(e) => {
+                                                                        const targetCatId = e.target.value;
+                                                                        const updatedCats = navConfig.categories.map(c => {
+                                                                            if (c.id === category.id) {
+                                                                                return { ...c, views: c.views.filter(v => v !== view) };
+                                                                            }
+                                                                            if (c.id === targetCatId) {
+                                                                                return { ...c, views: [...c.views, view] };
+                                                                            }
+                                                                            return c;
+                                                                        });
+                                                                        setNavConfig({ ...navConfig, categories: updatedCats });
+                                                                    }}
+                                                                    className="bg-slate-50 border border-slate-200 rounded px-1.5 py-0.5 text-[10px] font-bold text-slate-600"
+                                                                >
+                                                                    {navConfig.categories.map(c => (
+                                                                        <option key={c.id} value={c.id}>{c.name}</option>
+                                                                    ))}
+                                                                </select>
+
+                                                                {/* Visibility toggle button */}
+                                                                <button
+                                                                    onClick={() => {
+                                                                        const hidden = isHidden
+                                                                            ? navConfig.hidden.filter(v => v !== view)
+                                                                            : [...navConfig.hidden, view];
+                                                                        setNavConfig({ ...navConfig, hidden });
+                                                                    }}
+                                                                    className={`px-2 py-0.5 text-[9px] font-bold rounded-full border transition-all ${
+                                                                        isHidden
+                                                                            ? 'bg-slate-100 border-slate-200 text-slate-400'
+                                                                            : 'bg-emerald-50 border-emerald-200 text-emerald-600'
+                                                                    }`}
+                                                                >
+                                                                    {isHidden ? (lang === 'fr' ? 'Masqué' : 'مخفي') : (lang === 'fr' ? 'Visible' : 'مرئي')}
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Flat Order and Visibility List (Only relevant if flat style is active) */}
+                        {navConfig.style === 'flat' && (
+                            <div className="space-y-3 pt-4 border-t border-slate-100">
+                                <label className="block text-xs font-bold uppercase text-slate-500 tracking-wider">
+                                    {lang === 'fr' ? 'Ordre et visibilité des modules' : 'ترتيب وظهور الوحدات'}
+                                </label>
+                                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2">
+                                    {navConfig.order.map((view, idx) => {
+                                        const isHidden = navConfig.hidden.includes(view);
+                                        return (
+                                            <div key={view} className={`flex items-center gap-3 p-2.5 rounded-xl border transition-all ${
+                                                isHidden ? 'bg-slate-50 border-slate-100 opacity-60' : 'bg-white border-slate-200 shadow-sm'
+                                            }`}>
+                                                {/* Reorder Buttons */}
+                                                <div className="flex flex-col gap-0.5 shrink-0">
+                                                    <button
+                                                        disabled={idx === 0}
+                                                        onClick={() => {
+                                                            const newOrder = [...navConfig.order];
+                                                            [newOrder[idx], newOrder[idx - 1]] = [newOrder[idx - 1], newOrder[idx]];
+                                                            setNavConfig({ ...navConfig, order: newOrder });
+                                                        }}
+                                                        className="text-[10px] text-slate-400 hover:text-slate-700 disabled:opacity-20 leading-none"
+                                                    >
+                                                        ▲
+                                                    </button>
+                                                    <button
+                                                        disabled={idx === navConfig.order.length - 1}
+                                                        onClick={() => {
+                                                            const newOrder = [...navConfig.order];
+                                                            [newOrder[idx], newOrder[idx + 1]] = [newOrder[idx + 1], newOrder[idx]];
+                                                            setNavConfig({ ...navConfig, order: newOrder });
+                                                        }}
+                                                        className="text-[10px] text-slate-400 hover:text-slate-700 disabled:opacity-20 leading-none"
+                                                    >
+                                                        ▼
+                                                    </button>
+                                                </div>
+                                                <span className="text-sm font-bold text-slate-700 flex-1 truncate">{VIEW_LABELS[view]?.[lang] || view}</span>
+                                                <button
+                                                    onClick={() => {
+                                                        const hidden = isHidden
+                                                            ? navConfig.hidden.filter(v => v !== view)
+                                                            : [...navConfig.hidden, view];
+                                                        setNavConfig({ ...navConfig, hidden });
+                                                    }}
+                                                    className={`px-2.5 py-1 text-[10px] font-bold rounded-full border transition-all shrink-0 ${
+                                                        isHidden
+                                                            ? 'bg-slate-100 border-slate-200 text-slate-400'
+                                                            : 'bg-emerald-50 border-emerald-200 text-emerald-600'
+                                                    }`}
+                                                >
+                                                    {isHidden ? (lang === 'fr' ? 'Masqué' : 'مخفي') : (lang === 'fr' ? 'Visible' : 'مرئي')}
+                                                </button>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
 
             {/* FULL WIDTH BLOCK: Gestion des Tâches (Phase 24) */}
             <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden flex flex-col mt-6">

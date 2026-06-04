@@ -181,18 +181,37 @@ export function addWorkingDaysFromLaunchIso(startIso: string, daysNeeded: number
   return d;
 }
 
-/** Fin estimée OF : SAM (min/pièce) × quantité / efficacité / heures jour + jours ouvrés. */
+/** Fin estimée OF : SAM (min/pièce) × quantité / (Nombre d'ouvriers * Minutes/jour * Performance %) + jours ouvrés. */
 export function calculateEndDate(
   startIso: string,
   quantity: number,
   sam: number,
   efficiency: number,
-  settings: AppSettings
+  settings: AppSettings,
+  chainId?: string,
+  setupMins?: number
 ): string {
-  const hoursPerDay = getNetWorkHours(settings);
-  const baseTimeHrs = quantity * (sam / 60);
-  const adjustedHrs = baseTimeHrs / Math.max(0.01, efficiency);
-  const daysNeeded = Math.ceil(adjustedHrs / hoursPerDay);
+  // 1. Get Nombre d'ouvriers (from settings or fallback to 30)
+  const operators = chainId ? (settings.chainOperators?.[chainId] ?? 30) : 30;
+
+  // 2. Get Minutes de travail par jour (net of pauses)
+  const workMins = getWorkMinutesPerDay(settings);
+
+  // 3. Performance % is efficiency
+  const performance = Math.max(0.01, efficiency);
+
+  // 4. Temps de l'article is sam in minutes
+  const samMins = Math.max(0.1, sam);
+
+  // 5. Capacité Journalière (pieces per day)
+  const capacity = (operators * workMins * performance) / samMins;
+
+  // 6. Durée in days (including setup time buffer)
+  const setupDays = setupMins ? (setupMins / workMins) : 0;
+  const productionDays = capacity > 0 ? (quantity / capacity) : 1;
+  const daysNeeded = Math.ceil(productionDays + setupDays);
+
+  // 7. Add working days starting from startIso
   const end = addWorkingDaysFromLaunchIso(startIso, Math.max(1, daysNeeded), settings);
   return end.toISOString();
 }
@@ -267,7 +286,8 @@ export function calculateRollingEndDate(
   event: PlanningEvent,
   sam: number,
   efficiency: number,
-  settings: AppSettings
+  settings: AppSettings,
+  setupMins?: number
 ): string {
   const start = (event.startDate || event.dateLancement || '').split('T')[0];
   const qty = Number(event.totalQuantity ?? event.qteTotal ?? 0);
@@ -275,15 +295,116 @@ export function calculateRollingEndDate(
   const done = event.status === 'DONE';
 
   if (done || produced >= qty) {
-    return calculateEndDate(start, qty, sam, efficiency, settings);
+    return calculateEndDate(start, qty, sam, efficiency, settings, event.chaineId, setupMins);
   }
 
   const todayStr = planningLocalDateKey(new Date());
   if (start && start < todayStr) {
     const remQty = Math.max(0, qty - produced);
-    return calculateEndDate(todayStr, remQty, sam, efficiency, settings);
+    return calculateEndDate(todayStr, remQty, sam, efficiency, settings, event.chaineId, setupMins);
   }
 
-  return calculateEndDate(start, qty, sam, efficiency, settings);
+  return calculateEndDate(start, qty, sam, efficiency, settings, event.chaineId, setupMins);
+}
+
+/**
+ * Sequential dynamic rolling for planning events per chain.
+ * Delays or pushes in preceding events push subsequent ones.
+ */
+export function rollPlanningEvents(
+  events: PlanningEvent[],
+  models: ModelData[],
+  settings: AppSettings,
+  chainEfficiencies: Record<string, number>
+): PlanningEvent[] {
+  const modelsMap = new Map(models.map(m => [m.id, m]));
+
+  // Group events by chain
+  const chainEventsMap = new Map<string, PlanningEvent[]>();
+  for (const ev of events) {
+    let list = chainEventsMap.get(ev.chaineId);
+    if (!list) {
+      list = [];
+      chainEventsMap.set(ev.chaineId, list);
+    }
+    list.push(ev);
+  }
+
+  const rolledEvents: PlanningEvent[] = [];
+
+  for (const [chainId, chainEvs] of chainEventsMap.entries()) {
+    // Sort events by starting sequence: we use startDate or dateLancement
+    const sorted = [...chainEvs].sort((a, b) => {
+      const startA = a.startDate || a.dateLancement || '';
+      const startB = b.startDate || b.dateLancement || '';
+      return startA.localeCompare(startB);
+    });
+
+    let nextAvailableDate: string | null = null;
+    const defaultEff = settings.chainActivityRate?.[chainId] ?? 0.60;
+    const eff = (chainEfficiencies[chainId] !== undefined && chainEfficiencies[chainId] > 0) ? chainEfficiencies[chainId] : defaultEff;
+
+    let prevModelId: string | null = null;
+
+    for (let i = 0; i < sorted.length; i++) {
+      const ev = sorted[i];
+      const model = modelsMap.get(ev.modelId);
+      const sam = model?.meta_data?.total_temps || 15;
+      const qty = Number(ev.totalQuantity ?? ev.qteTotal ?? 0);
+
+      let start = ev.startDate || ev.dateLancement || '';
+
+      // Shift subsequent events if they are not DONE
+      if (ev.status !== 'DONE' && nextAvailableDate) {
+        if (nextAvailableDate > start) {
+          start = nextAvailableDate;
+        }
+      }
+
+      // Check if setup/changeover time is needed (different model or first model on chain)
+      const changeoverMins = (prevModelId === null || ev.modelId !== prevModelId)
+        ? (model?.ficheData?.bufferLancement !== undefined ? model.ficheData.bufferLancement : (settings.changeoverDurationMins ?? 120))
+        : 0;
+
+      // Calculate planning efficiency based on targetEfficiency and facteurPlanning
+      const modelEff = model?.ficheData?.targetEfficiency ?? 85;
+      const safetyFactor = model?.ficheData?.facteurPlanning ?? 60;
+      const effToUse = model ? (modelEff * safetyFactor) / 10000 : eff;
+
+      // Recalculate end date based on start date and actual performance
+      const endIso = calculateRollingEndDate(
+        { ...ev, startDate: start, dateLancement: start },
+        sam,
+        effToUse,
+        settings,
+        changeoverMins
+      );
+      const endYmd = endIso.split('T')[0];
+
+      const updatedEvent: PlanningEvent = {
+        ...ev,
+        startDate: start.split('T')[0],
+        dateLancement: start.split('T')[0],
+        estimatedEndDate: endIso,
+        dateExport: endIso,
+        typeMarche: model?.ficheData?.typeMarche ?? 'Local',
+        facteurPlanning: model?.ficheData?.facteurPlanning ?? 60,
+        bufferLancement: model?.ficheData?.bufferLancement ?? 120,
+      };
+
+      rolledEvents.push(updatedEvent);
+
+      // Compute next available date: next working day after this event ends
+      const nextWorkDay = addWorkingDaysFromLaunchIso(endYmd, 1, settings);
+      nextAvailableDate = planningLocalDateKey(nextWorkDay);
+
+      prevModelId = ev.modelId;
+    }
+  }
+
+  // Preserve any events that didn't have a chain ID (defensive)
+  const rolledIds = new Set(rolledEvents.map(e => e.id));
+  const remaining = events.filter(e => !rolledIds.has(e.id));
+  return [...rolledEvents, ...remaining];
 }
 

@@ -267,6 +267,17 @@ export default function EventDetailPanel({
                         <span className={`w-1.5 h-1.5 rounded-full ${delayMeta.dot}`} />
                         {delayMeta.label}
                     </span>
+                    <button
+                        type="button"
+                        onClick={() => onChangeStatus(event.status === 'BLOCKED_STOCK' ? 'READY' : 'BLOCKED_STOCK')}
+                        className={`inline-flex items-center gap-1 h-6 px-2.5 rounded text-[10px] font-bold uppercase tracking-wider transition-all border ${
+                            event.status === 'BLOCKED_STOCK'
+                                ? 'bg-amber-100 text-amber-800 border-amber-200 hover:bg-amber-200 shadow-sm'
+                                : 'bg-white text-slate-600 border-slate-200 hover:bg-amber-50 hover:text-amber-700 hover:border-amber-200 shadow-sm'
+                        }`}
+                    >
+                        {event.status === 'BLOCKED_STOCK' ? '▶ Reprendre' : '⏸ En Pause'}
+                    </button>
                 </div>
             </header>
 

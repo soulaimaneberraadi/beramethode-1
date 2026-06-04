@@ -183,7 +183,7 @@ export default function Planning({
     const chains = usePlanningChains({ settings, suivis, planningEvents, models });
     const history = usePlanningHistory({ planningEvents, setPlanningEvents });
     const eventsApi = usePlanningEvents({ planningEvents, setPlanningEvents: history.setWithHistory, models, chains, settings, stock: stock.stock });
-    const issues = usePlanningValidation({ planningEvents, models, machines, settings });
+    const issues = usePlanningValidation({ planningEvents, models, machines, settings, chains });
     const { eventsWithCR, crisisEvents } = useCriticalRatio({ planningEvents, models, settings, chains });
     const filtersApi = usePlanningFilters(eventsWithCR, models);
     const { suggest } = useAutoSchedule({ chains, planningEvents, models, machines, settings });
@@ -513,6 +513,12 @@ export default function Planning({
         setDeleteConfirm(null);
     };
 
+    const handleClearPlanning = () => {
+        if (window.confirm("Êtes-vous sûr de vouloir vider TOUT le planning ? Cette action est irréversible et supprimera toutes les réservations associées.")) {
+            eventsApi.clearAllEvents();
+        }
+    };
+
     const paletteActions = useMemo<CommandAction[]>(() => {
         const list: CommandAction[] = [
             { id: 'new', label: 'Nouvel ordre', icon: Plus, group: 'Actions', shortcut: 'N', onRun: openCreate },
@@ -578,6 +584,7 @@ export default function Planning({
                 canRedo={history.canRedo}
                 onUndo={history.undo}
                 onRedo={history.redo}
+                onClearPlanning={handleClearPlanning}
             />
 
             <QuickFilters
@@ -932,6 +939,12 @@ export default function Planning({
                     }}
                     onDuplicate={() => eventsApi.duplicateEvent(contextMenu.id)}
                     onDelete={() => setDeleteConfirm(contextMenu.id)}
+                    isPaused={planningEvents.find(e => e.id === contextMenu.id)?.status === 'BLOCKED_STOCK'}
+                    onTogglePause={() => {
+                        const ev = planningEvents.find(e => e.id === contextMenu.id);
+                        const isPaused = ev?.status === 'BLOCKED_STOCK';
+                        eventsApi.setStatus(contextMenu.id, isPaused ? 'READY' : 'BLOCKED_STOCK');
+                    }}
                 />
             )}
 

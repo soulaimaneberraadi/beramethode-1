@@ -1,7 +1,7 @@
 
 import React, { useMemo, useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Operation, Poste, Machine } from '../types';
+import { Operation, Poste, Machine, FicheData } from '../types';
 import { 
   Users, 
   Clock, 
@@ -49,6 +49,8 @@ import {
   Cell
 } from 'recharts';
 
+const SAM_MAJORATION = 1.20;
+
 interface BalancingProps {
   operations: Operation[];
   // Added setOperations to allow modification of Gamme from Balancing view
@@ -67,6 +69,8 @@ interface BalancingProps {
   postes: Poste[];
   setPostes: React.Dispatch<React.SetStateAction<Poste[]>>;
   machines: Machine[];
+  ficheData: FicheData;
+  setFicheData: React.Dispatch<React.SetStateAction<FicheData>>;
 }
 
 // --- GROUP COLOR PALETTE (Matched with Gamme - High Contrast Alternating) ---
@@ -121,8 +125,8 @@ const NEUTRAL_COLOR = {
   badgeText: 'text-slate-800' 
 };
 
-const getStatusColor = (saturation: number) => {
-    if (saturation > 115) return { 
+const getStatusColor = (saturation: number, tolerance = 115) => {
+    if (saturation > tolerance) return { 
         name: 'overload', 
         bg: 'bg-rose-50', 
         border: 'border-rose-200', 
@@ -176,8 +180,13 @@ export default function Balancing({
   setAssignments,
   postes,
   setPostes,
-  machines
+  machines,
+  ficheData,
+  setFicheData
 }: BalancingProps) {
+
+  const tolerance = ficheData?.toleranceSaturation ?? 115;
+  const toleranceRatio = tolerance / 100;
 
   const [isManual, setIsManual] = useState(false);
   const [viewMode, setViewMode] = useState<'grouped' | 'matrix'>('matrix');
@@ -294,8 +303,8 @@ export default function Balancing({
         .map((p) => [p.name, p.colorName as string])
     );
 
-    // Allow 15% tolerance on cycle time
-    const limitMax = bf > 0 ? bf * 1.15 : Number.MAX_VALUE;
+    // Allow tolerance on cycle time
+    const limitMax = bf > 0 ? (bf / SAM_MAJORATION) * toleranceRatio : Number.MAX_VALUE;
 
     let currentPosteOps: Operation[] = [];
     let currentTotalTime = 0;
@@ -595,10 +604,16 @@ export default function Balancing({
           }
       });
 
+      // Le BF (takt) est calculé sur le TEMPS MAJORÉ (tempsArticle = Σ temps × 1.20, voir App.tsx).
+      // La charge des postes (stats[].time) est en temps BASE (brut). Pour que la saturation et
+      // l'effectif requis soient cohérents (même base SAM que le BF), on ramène la charge à la
+      // base majorée via SAM_MAJORATION. Sans ça, la saturation est sous-évaluée de ~20 % et des
+      // postes réellement surchargés passent sous la barre des 100 %.
       Object.keys(stats).forEach(pid => {
           if (bf > 0) {
-              stats[pid].nTheo = stats[pid].time / bf;
-              stats[pid].saturation = (stats[pid].time / bf) * 100;
+              const sam = stats[pid].time * SAM_MAJORATION;
+              stats[pid].nTheo = sam / bf;
+              stats[pid].saturation = (sam / bf) * 100;
           }
       });
       return stats;
@@ -613,20 +628,20 @@ export default function Balancing({
     const data: any[] = [];
     postes.forEach((p, index) => {
         const stat = posteStats[p.id] || { time: 0, saturation: 0, nTheo: 0 };
-        const nReq = stat.nTheo > 1.15 ? Math.ceil(stat.nTheo) : (stat.nTheo > 0 ? 1 : 0);
+        const nReq = stat.nTheo > toleranceRatio ? Math.ceil(stat.nTheo) : (stat.nTheo > 0 ? 1 : 0);
         
         let colorFill = '';
         if (showColors) {
             colorFill = getPosteColor(p, index).fill;
         } else {
-            const statusColor = getStatusColor(stat.saturation);
+            const statusColor = getStatusColor(stat.saturation, tolerance);
             colorFill = statusColor.fill;
         }
         
         if (nReq > 1) {
             const timePerWorker = (stat.time / nReq);
-            const satPerWorker = (timePerWorker / bf) * 100;
-            if (!showColors) colorFill = getStatusColor(satPerWorker).fill;
+            const satPerWorker = ((timePerWorker * SAM_MAJORATION) / bf) * 100;
+            if (!showColors) colorFill = getStatusColor(satPerWorker, tolerance).fill;
 
             for (let i = 1; i <= nReq; i++) {
                 data.push({
@@ -652,16 +667,16 @@ export default function Balancing({
         }
     });
     return data;
-  }, [postes, posteStats, bf, showColors]);
+  }, [postes, posteStats, bf, showColors, tolerance, toleranceRatio]);
 
   const totalRequiredWorkers = useMemo(() => {
     return postes.reduce((sum, p) => {
         const stat = posteStats[p.id];
         const nTheo = stat ? stat.nTheo : 0;
-        const nReq = nTheo > 1.15 ? Math.ceil(nTheo) : (nTheo > 0 ? 1 : 0);
+        const nReq = nTheo > toleranceRatio ? Math.ceil(nTheo) : (nTheo > 0 ? 1 : 0);
         return sum + nReq;
     }, 0);
-  }, [postes, posteStats]);
+  }, [postes, posteStats, toleranceRatio]);
 
   const machineRequirements = useMemo(() => {
     const groups: Record<string, { time: number, count: number }> = {};
@@ -681,7 +696,7 @@ export default function Balancing({
         groups[mName].count += 1;
     });
     const rows = Object.entries(groups).map(([name, stats]) => {
-        const nTheo = bf > 0 ? stats.time / bf : 0;
+        const nTheo = bf > 0 ? (stats.time * SAM_MAJORATION) / bf : 0;
         const nReq = Math.ceil(nTheo);
         return {
             name,
@@ -756,6 +771,21 @@ export default function Balancing({
                         className="w-8 text-center bg-transparent font-black text-indigo-600 outline-none text-sm border-b border-indigo-200 p-0" 
                     />
                     <span className="text-[10px] font-bold text-indigo-400">%</span>
+                </div>
+            </div>
+
+            {/* TOLÉRANCE SATURATION */}
+            <div className="flex flex-col items-center px-2 py-1 sm:px-3 sm:py-1.5 bg-rose-50/50 rounded-lg border border-rose-100 shrink-0">
+                <span className="text-[9px] font-bold text-rose-400 uppercase">Tolérance</span>
+                <div className="flex items-baseline gap-0.5">
+                    <input 
+                        type="number" 
+                        min="50" max="200" 
+                        value={tolerance} 
+                        onChange={(e) => setFicheData(prev => ({ ...prev, toleranceSaturation: Math.max(50, Math.min(200, Number(e.target.value))) }))} 
+                        className="w-10 text-center bg-transparent font-black text-rose-600 outline-none text-sm border-b border-rose-200 p-0" 
+                    />
+                    <span className="text-[10px] font-bold text-rose-400">%</span>
                 </div>
             </div>
 
@@ -925,7 +955,7 @@ export default function Balancing({
                                     </td>
                                     {postes.map(p => {
                                         const saturation = Math.round(posteStats[p.id]?.saturation || 0);
-                                        const isOver = saturation > 115;
+                                        const isOver = saturation > tolerance;
                                         const isUnder = saturation < 75;
                                         let colorClass = "text-emerald-700 bg-emerald-100 border-emerald-200";
                                         if (isOver) colorClass = "text-rose-700 bg-rose-100 border-rose-200";
@@ -940,13 +970,30 @@ export default function Balancing({
                                     </td>
                                     {postes.map(p => {
                                         const nTheo = posteStats[p.id]?.nTheo || 0;
-                                        const nReq = nTheo > 1.15 ? Math.ceil(nTheo) : (nTheo > 0 ? 1 : 0);
+                                        const nReq = nTheo > toleranceRatio ? Math.ceil(nTheo) : (nTheo > 0 ? 1 : 0);
                                         return <td key={p.id} className="text-center px-1 py-2 border-r border-slate-200"><span className="font-mono font-bold text-slate-600 text-[10px]">{nReq}</span></td>
                                     })}
                                     <td className="text-center px-1 py-2 border-l border-slate-200 bg-emerald-50"><span className="font-black text-emerald-700 text-[11px]">{totalRequiredWorkers}</span></td>
                                 </tr>
                             </tfoot>
                         </table>
+                    </div>
+                </div>
+
+                {/* TOLÉRANCE CONTROLLER BELOW TABLE */}
+                <div className="flex items-center gap-3 px-4 py-2.5 bg-white rounded-xl border border-slate-200 shadow-sm w-fit mt-2 mb-2">
+                    <span className="text-xs font-black text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+                        <Activity className="w-3.5 h-3.5 text-indigo-500" /> Tolérance Saturation :
+                    </span>
+                    <div className="flex items-center gap-1.5 text-xs bg-rose-50 text-rose-700 px-2 py-0.5 rounded-lg border border-rose-200 shadow-sm">
+                        <input 
+                            type="number" 
+                            min="50" max="200" 
+                            value={tolerance} 
+                            onChange={(e) => setFicheData(prev => ({ ...prev, toleranceSaturation: Math.max(50, Math.min(200, Number(e.target.value))) }))} 
+                            className="w-10 text-center bg-transparent font-black text-rose-700 outline-none p-0 border-b border-rose-300" 
+                        />
+                        <span className="font-bold">%</span>
                     </div>
                 </div>
 

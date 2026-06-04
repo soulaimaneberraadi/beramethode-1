@@ -1,10 +1,11 @@
 import { useMemo } from 'react';
-import type { AppSettings, Machine, ModelData, PlanningEvent } from '../../../types';
-import { getChainDailyCapacity, maxDayLoadRatioInSpan } from '../../../utils/capacity';
+import type { AppSettings, Machine, ModelData, PlanningEvent, MaterialReceipt } from '../../../types';
+import { getChainDailyCapacity, maxDayLoadRatioInSpan, getEffectiveCapacity } from '../../../utils/capacity';
 import { getChainMachineIds, validateMachineCoverage } from '../../../utils/machineMatch';
 import { evEndYmd, evQty, evStartYmd } from '../shared/eventAccessors';
 import { delayOf } from './useDelayIndicator';
 import { parsePlanningDateAtNoon, planningLocalDateKey } from '../../../utils/planning';
+import type { PlanningChain } from './usePlanningChains';
 
 export type IssueSeverity = 'error' | 'warning' | 'info';
 export type IssueType = 'capacity' | 'machines' | 'stock' | 'deadline';
@@ -19,16 +20,83 @@ export interface Issue {
     suggestion?: string;
 }
 
+// ═══════════════════════════════════════════════════════════
+// LOGISTICS MRP: Material Availability Color Indicators
+// 🟢 Total Availability | 🟡 Lot Covered Only | 🔴 Rupture
+// ═══════════════════════════════════════════════════════════
+
+export type MaterialAvailabilityColor = 'green' | 'yellow' | 'red' | 'none';
+
+export interface MaterialAvailabilityResult {
+    color: MaterialAvailabilityColor;
+    emoji: '🟢' | '🟡' | '🔴' | '⚪';
+    label: string;
+    details: { materialName: string; received: number; needed: number; covered: boolean }[];
+}
+
+/** Compute material availability status for a planning event based on BR receipts. */
+export function getMaterialAvailability(
+    modelId: string,
+    models: ModelData[],
+    totalQty: number,
+    lotQty?: number,
+): MaterialAvailabilityResult {
+    let receipts: MaterialReceipt[] = [];
+    try {
+        const raw = localStorage.getItem('beramethode_receptions');
+        if (raw) receipts = JSON.parse(raw);
+    } catch (_) { /* ignore */ }
+
+    const model = models.find(m => m.id === modelId);
+    const materials = model?.ficheData?.materials || [];
+    if (materials.length === 0 || receipts.length === 0) {
+        return { color: 'none', emoji: '⚪', label: 'Pas de BOM/BR', details: [] };
+    }
+
+    const details: MaterialAvailabilityResult['details'] = [];
+    let allCovered = true;
+    let lotCovered = true;
+    const activeLotQty = lotQty || totalQty;
+
+    materials.forEach(mat => {
+        const matReceipts = receipts.filter(
+            (r) => r.modelId === modelId && r.materialName?.toLowerCase().trim() === mat.name?.toLowerCase().trim()
+        );
+        const totalReceived = matReceipts.reduce((s, r) => s + (r.qtyReceived || 0), 0);
+        const totalNeeded = totalQty * (mat.qty || 0);
+        const lotNeeded = activeLotQty * (mat.qty || 0);
+
+        const coveredTotal = totalReceived >= totalNeeded;
+        const coveredLot = totalReceived >= lotNeeded;
+
+        if (!coveredTotal) allCovered = false;
+        if (!coveredLot) lotCovered = false;
+
+        details.push({
+            materialName: mat.name,
+            received: totalReceived,
+            needed: totalNeeded,
+            covered: coveredTotal,
+        });
+    });
+
+    if (allCovered) return { color: 'green', emoji: '🟢', label: 'Stock complet', details };
+    if (lotCovered) return { color: 'yellow', emoji: '🟡', label: 'Lot couvert', details };
+    return { color: 'red', emoji: '🔴', label: 'Rupture stock', details };
+}
+
 interface Args {
     planningEvents: PlanningEvent[];
     models: ModelData[];
     machines: Machine[];
     settings: AppSettings;
+    chains?: PlanningChain[];
 }
 
-export function usePlanningValidation({ planningEvents, models, machines, settings }: Args): Issue[] {
+export function usePlanningValidation({ planningEvents, models, machines, settings, chains }: Args): Issue[] {
     return useMemo(() => {
         const issues: Issue[] = [];
+        const chainEffMap = new Map(chains?.map(c => [c.id, c.efficiency]) ?? []);
 
         // ⚡ Pre-index: build per-chain per-day load map ONCE → O(N×D) instead of O(N²×D)
         const chainDayLoad = new Map<string, Map<string, number>>();
@@ -60,8 +128,11 @@ export function usePlanningValidation({ planningEvents, models, machines, settin
         for (const ev of planningEvents) {
             if (ev.status === 'DONE') continue;
 
+            const model = modelsMap.get(ev.modelId);
+
             // 1. Stock magasin
-            if (ev.status === 'BLOCKED_STOCK' || ev.materialShortages?.length) {
+            const isLocal = model?.ficheData?.typeMarche !== 'Export';
+            if (isLocal && (ev.status === 'BLOCKED_STOCK' || ev.materialShortages?.length)) {
                 const missing = (ev.materialShortages || []).map(s => `${s.name} (-${s.missing}${s.unit || ''})`).join(', ');
                 issues.push({
                     id: `${ev.id}-stock`,
@@ -75,7 +146,6 @@ export function usePlanningValidation({ planningEvents, models, machines, settin
             }
 
             // 2. Couverture machines
-            const model = modelsMap.get(ev.modelId);
             if (model) {
                 const ops = model.gamme_operatoire ?? [];
                 const cacheKey = `${ev.chaineId}::${ev.modelId}`;
@@ -102,7 +172,10 @@ export function usePlanningValidation({ planningEvents, models, machines, settin
             const start = evStartYmd(ev);
             const end = evEndYmd(ev);
             if (start && end) {
-                const cap = getChainDailyCapacity(settings.chainCapacityPerDay, ev.chaineId, 1000);
+                const model = modelsMap.get(ev.modelId);
+                const sam = model?.meta_data?.total_temps || 15;
+                const eff = chainEffMap.get(ev.chaineId) ?? 0.85;
+                const cap = getEffectiveCapacity(settings, ev.chaineId, sam, eff);
                 const chainMap = chainDayLoad.get(ev.chaineId);
                 if (chainMap && cap > 0) {
                     const sT = parsePlanningDateAtNoon(start).getTime();
@@ -153,6 +226,46 @@ export function usePlanningValidation({ planningEvents, models, machines, settin
                     title: 'Délai serré',
                     detail: 'La fin est très proche du DDS',
                 });
+            }
+
+            // 5. Material Receipt Availability (BR-based 🟢🟡🔴)
+            if (model?.ficheData?.materials?.length) {
+                const availability = getMaterialAvailability(
+                    ev.modelId,
+                    models,
+                    evQty(ev),
+                    ev.lots_data?.[0]?.quantite,
+                );
+
+                if (availability.color === 'red') {
+                    const uncovered = availability.details
+                        .filter(d => !d.covered)
+                        .map(d => `${d.materialName} (${d.received}/${Math.round(d.needed)})`)
+                        .join(', ');
+                    issues.push({
+                        id: `${ev.id}-material-br`,
+                        eventId: ev.id,
+                        severity: 'error',
+                        type: 'stock',
+                        title: '🔴 Rupture fournitures (BR)',
+                        detail: `Réceptions insuffisantes : ${uncovered}`,
+                        suggestion: 'Relancer le fournisseur ou le client Export — [PAUSE / BLOCKED - FURNITURE]',
+                    });
+                } else if (availability.color === 'yellow') {
+                    const partial = availability.details
+                        .filter(d => !d.covered)
+                        .map(d => d.materialName)
+                        .join(', ');
+                    issues.push({
+                        id: `${ev.id}-material-br-partial`,
+                        eventId: ev.id,
+                        severity: 'warning',
+                        type: 'stock',
+                        title: '🟡 Stock partiel (Lot couvert)',
+                        detail: `Seul le lot actif est couvert. Manque pour total : ${partial}`,
+                        suggestion: 'Planifier la réception suivante avant fin du lot actuel',
+                    });
+                }
             }
         }
 
@@ -206,7 +319,8 @@ export function checkEventDraft(
         totalQuantity: draft.quantity,
         status: 'READY',
     };
-    const cap = getChainDailyCapacity(settings.chainCapacityPerDay, draft.chaineId, 1000);
+    const sam = model?.meta_data?.total_temps || 15;
+    const cap = getEffectiveCapacity(settings, draft.chaineId, sam, 0.85);
     const maxR = maxDayLoadRatioInSpan([...planningEvents, simulated], draft.chaineId, cap, draft.startDate, endYmd);
     if (maxR > 1.0001) {
         issues.push({
@@ -221,7 +335,19 @@ export function checkEventDraft(
 
     // Délai
     if (draft.strictDeadline_DDS) {
-        const dds = draft.strictDeadline_DDS.split('T')[0];
+        let dds = draft.strictDeadline_DDS.split('T')[0];
+        if (model?.ficheData?.typeMarche === 'Export') {
+            const raw = (dds || '').split('T')[0];
+            const [y, m, d] = raw.split('-').map(Number);
+            if (y && m && d) {
+                const dateObj = new Date(y, m - 1, d);
+                dateObj.setDate(dateObj.getDate() - 3);
+                const ny = dateObj.getFullYear();
+                const nm = String(dateObj.getMonth() + 1).padStart(2, '0');
+                const nd = String(dateObj.getDate()).padStart(2, '0');
+                dds = `${ny}-${nm}-${nd}`;
+            }
+        }
         if (endYmd > dds) {
             issues.push({
                 id: 'draft-deadline',
@@ -229,7 +355,7 @@ export function checkEventDraft(
                 severity: 'error',
                 type: 'deadline',
                 title: 'Hors délai',
-                detail: `Fin estimée ${endYmd} > DDS ${dds}`,
+                detail: `Fin estimée ${endYmd} > DDS ${dds}${model?.ficheData?.typeMarche === 'Export' ? ' (Ajusté Export -3j)' : ''}`,
             });
         }
     }

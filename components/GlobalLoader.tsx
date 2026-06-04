@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import BeraLogo from './BeraLogo';
 
 interface GlobalLoaderProps {
     isActive: boolean;
@@ -23,29 +24,25 @@ export default function GlobalLoader({
 }: GlobalLoaderProps) {
     const [displayedProgress, setDisplayedProgress] = useState(0);
 
-    // Smooth progress interpolation
+    // Smooth progress interpolation (easeOutExpo)
     useEffect(() => {
         if (!isActive) {
             setDisplayedProgress(0);
             return;
         }
 
-        // Clamp strictly — never allow negatives or values above 100
         const targetProgress = Math.min(100, Math.max(0, isFinite(progress) ? progress : 0));
-        // Snap to 100% when the boot sequence says so — otherwise ease animation often stops at 99%
-        // because the loader closes before the 320ms tween finishes.
+        
         if (targetProgress === 100) {
             setDisplayedProgress(100);
             return;
         }
 
         let animationFrameId: number;
-        // Easing function for smoother deceleration (easeOutExpo)
         const easeOutExpo = (x: number): number => {
             return x === 1 ? 1 : 1 - Math.pow(2, -10 * x);
         };
 
-        // Keep this shorter than boot-step intervals (~200–400ms) or the bar lags behind `progress`.
         const duration = 320;
         const startProgress = displayedProgress;
         const startTime = performance.now();
@@ -72,72 +69,85 @@ export default function GlobalLoader({
 
     const formattedProgress = Math.round(displayedProgress);
 
-    return (
-        <div
-            className={`${
-                isFullScreen 
-                ? 'fixed inset-0 z-[99999]' 
-                : 'absolute inset-0 z-[50] rounded-3xl overflow-hidden'
-            } flex items-center justify-center bg-[#070b14]/90 backdrop-blur-2xl transition-all duration-700 font-sans`}
-            dir="auto"
-        >
-            {/* Ambient Background Glows */}
-            <div className="absolute inset-0 overflow-hidden pointer-events-none">
-                <div className="absolute top-[-20%] left-[-10%] w-[50vw] h-[50vw] min-w-[300px] min-h-[300px] bg-indigo-600/10 rounded-full blur-[120px] mix-blend-screen animate-pulse duration-[4000ms]" />
-                <div className="absolute bottom-[-20%] right-[-10%] w-[50vw] h-[50vw] min-w-[300px] min-h-[300px] bg-emerald-600/10 rounded-full blur-[120px] mix-blend-screen animate-pulse duration-[5000ms] delay-1000" />
-            </div>
+    const wrapperClass = `${
+        isFullScreen 
+        ? 'fixed inset-0 z-[99999]' 
+        : 'absolute inset-0 z-[50] rounded-3xl overflow-hidden'
+    } flex items-center justify-center font-sans select-none cad-dot-grid`;
 
-            <div className="relative z-10 flex flex-col items-center w-full max-w-md px-8 py-12">
-                
-                {/* Glowing Logo Container */}
-                <div className="relative mb-16 group scale-110">
-                    {/* Animated Rings */}
-                    <div className="absolute inset-[-1.5rem] rounded-full border border-indigo-500/20 border-t-indigo-400/60 animate-[spin_5s_linear_infinite]" />
-                    <div className="absolute inset-[-0.75rem] rounded-full border border-emerald-500/20 border-b-emerald-400/60 animate-[spin_3s_linear_infinite_reverse]" />
+    const cardClass = "relative z-10 flex flex-col items-center max-w-sm w-full mx-4 bg-white/90 backdrop-blur-xl border border-slate-100 rounded-[32px] p-8 md:p-10 shadow-[0_20px_50px_rgba(15,23,42,0.05)] shadow-xl shadow-slate-100/50";
+
+    return (
+        <div className={wrapperClass} dir="auto">
+            {/* Main Content Card Container */}
+            <div className={cardClass}>
+                {/* Green Logo Box & Dashed Ring */}
+                <div className="relative mb-8 flex items-center justify-center">
+                    {/* Subtle thin dashed ring */}
+                    <div className="border border-dashed border-emerald-500/20 w-24 h-24 absolute rounded-full animate-[spin_40s_linear_infinite] pointer-events-none" />
                     
-                    {/* Center Core */}
-                    <div className="relative w-24 h-24 flex items-center justify-center bg-slate-900/80 rounded-3xl shadow-[0_0_50px_-10px_rgba(99,102,241,0.4)] border border-white/5 backdrop-blur-md overflow-hidden transition-transform duration-700 group-hover:scale-105">
-                        <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/10 to-emerald-500/10" />
-                        
-                        {/* Animated Shimmer through the logo box */}
-                        <div className="absolute inset-0 w-[200%] rotate-45 animate-[shimmer_3s_linear_infinite] bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full" />
-                        
-                        <span className="text-5xl font-black bg-gradient-to-b from-white to-slate-400 bg-clip-text text-transparent relative z-10">
-                            B
-                        </span>
+                    {/* Solid emerald-green box */}
+                    <div className="relative bg-emerald-600 w-16 h-16 rounded-[20px] flex items-center justify-center shadow-lg shadow-emerald-600/20 select-none transition-transform duration-300 hover:scale-105 z-10">
+                        <BeraLogo className="w-9 h-9 text-white z-10" accentOpacity={0.45} />
                     </div>
                 </div>
 
-                {/* Typography block */}
-                <div className="text-center space-y-4 mb-12 w-full animate-in fade-in slide-in-from-bottom-4 duration-1000">
-                    <h2 className="text-2xl font-semibold text-white tracking-wide">
+                {/* Brand Identity Text */}
+                <div className="text-center mb-6">
+                    <h1 className="select-none text-xl font-extrabold tracking-[0.15em] uppercase text-slate-900">
+                        BERA<span className="text-emerald-600">METHODE</span>
+                    </h1>
+                </div>
+
+                {/* Typography Block */}
+                <div className="text-center space-y-3 mb-8 w-full">
+                    {/* Header text with animation on key change */}
+                    <h2 
+                        key={`text-${text}`} 
+                        className="text-base font-bold text-slate-800 tracking-tight leading-snug animate-[fade-slide-up_0.35s_ease-out]"
+                    >
                         {text}
                     </h2>
 
-                    {/* Dynamic Status Pill */}
-                    <div className={`inline-flex items-center gap-2.5 px-4 py-1.5 rounded-full backdrop-blur-xl shadow-inner border ${error ? 'bg-rose-950/60 border-rose-700/50' : 'bg-slate-800/60 border-slate-700/50'}`}>
-                        <div className="relative flex w-2.5 h-2.5">
-                            <span className={`${error ? '' : 'animate-ping'} absolute inline-flex h-full w-full rounded-full ${error ? 'bg-rose-400' : 'bg-emerald-400'} opacity-75`}></span>
-                            <span className={`relative inline-flex rounded-full h-2.5 w-2.5 ${error ? 'bg-rose-500' : 'bg-emerald-500'}`}></span>
+                    {/* Status Pill */}
+                    {error ? (
+                        <div 
+                            key="error-pill"
+                            className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-rose-50 border border-rose-100 animate-[fade-slide-up_0.4s_ease-out]"
+                        >
+                            <span className="relative inline-flex rounded-full h-2 w-2 bg-rose-500"></span>
+                            <span className="text-xs font-bold text-rose-700 tracking-wide uppercase">
+                                Erreur de connexion
+                            </span>
                         </div>
-                        <span className={`text-xs font-semibold uppercase tracking-[0.2em] ${error ? 'text-rose-200' : 'text-slate-300'}`}>
-                            {error ? 'Erreur de connexion' : subText}
-                        </span>
-                    </div>
+                    ) : (
+                        <div 
+                            key={`subText-${subText}`}
+                            className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-50 border border-slate-100 animate-[fade-slide-up_0.4s_ease-out]"
+                        >
+                            <div className="relative flex w-2 h-2">
+                                <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75 animate-ping"></span>
+                                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                            </div>
+                            <span className="text-xs font-semibold text-slate-500 tracking-wide">
+                                {subText}
+                            </span>
+                        </div>
+                    )}
                 </div>
 
+                {/* Error layout or Progress bar */}
                 {error ? (
-                    /* Error block — replaces progress bar */
-                    <div className="w-full mt-2 flex flex-col items-center gap-4 animate-in fade-in duration-500">
-                        <p className="text-sm text-slate-400 text-center max-w-sm leading-relaxed">
+                    <div className="w-full flex flex-col items-center gap-5 mt-2 animate-[fade-slide-up_0.35s_ease-out]">
+                        <p className="text-sm text-center leading-relaxed text-slate-600 max-w-xs">
                             {error}
                         </p>
-                        <div className="flex flex-wrap items-center justify-center gap-3 w-full">
+                        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-2.5 w-full mt-2">
                             {onRetry && (
                                 <button
                                     type="button"
                                     onClick={onRetry}
-                                    className="px-5 py-2 rounded-full bg-gradient-to-r from-indigo-500 to-emerald-500 text-white text-xs font-semibold uppercase tracking-[0.2em] shadow-lg shadow-emerald-500/20 hover:shadow-emerald-500/40 hover:scale-[1.02] active:scale-[0.98] transition-all"
+                                    className="flex-1 py-3 px-5 rounded-2xl text-xs font-bold uppercase tracking-wider bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg shadow-emerald-600/10 hover:shadow-emerald-600/20 active:scale-[0.98] transition-all duration-200"
                                 >
                                     Réessayer
                                 </button>
@@ -146,45 +156,64 @@ export default function GlobalLoader({
                                 <button
                                     type="button"
                                     onClick={onContinueOffline}
-                                    className="px-5 py-2 rounded-full bg-slate-800/80 text-slate-300 text-xs font-semibold uppercase tracking-[0.2em] border border-slate-700/50 hover:bg-slate-700/80 hover:text-white transition-all"
+                                    className="flex-1 py-3 px-5 rounded-2xl text-xs font-bold uppercase tracking-wider bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-slate-800 active:scale-[0.98] transition-all duration-200"
                                 >
-                                    Continuer hors-ligne
+                                    Hors-ligne
                                 </button>
                             )}
                         </div>
                     </div>
                 ) : (
-                    /* Linear Progress Integration */
-                    <div className="w-full mt-4">
-                        <div className="flex justify-between items-end mb-3 px-1">
-                            <span className="text-xs font-semibold text-slate-400 uppercase tracking-widest opacity-80">
-                                Progression Globale
+                    <div className="w-full mt-4 space-y-4">
+                        {/* Progress label & value */}
+                        <div className="flex justify-between items-baseline px-1">
+                            <span className="text-xs font-bold uppercase tracking-widest text-slate-400">
+                                Chargement
                             </span>
-                            <div className="flex items-baseline gap-1">
-                                <span className="text-3xl font-bold bg-gradient-to-r from-emerald-400 to-indigo-400 bg-clip-text text-transparent tabular-nums">
-                                    {formattedProgress}
-                                </span>
-                                <span className="text-slate-500 font-bold text-sm">%</span>
-                            </div>
+                            <span className="text-slate-900 font-black text-2xl tracking-tight tabular-nums">
+                                {formattedProgress}%
+                            </span>
                         </div>
 
-                        {/* Highly polished progress bar */}
-                        <div className="h-1.5 w-full bg-slate-800/80 rounded-full overflow-hidden border border-white/5 relative">
+                        {/* Linear progress bar */}
+                        <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden relative border border-slate-200/10">
                             <div
-                                className="absolute top-0 left-0 h-full bg-gradient-to-r from-indigo-500 via-emerald-400 to-emerald-300 rounded-full transition-all duration-[400ms] ease-out shadow-[0_0_20px_rgba(52,211,153,0.6)]"
+                                className="h-full bg-gradient-to-r from-emerald-500 to-teal-400 rounded-full transition-all duration-300 ease-out relative"
                                 style={{ width: `${formattedProgress}%` }}
                             >
-                                <div className="absolute top-0 right-0 w-8 h-full bg-gradient-to-r from-transparent to-white/80 blur-[2px]" />
+                                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/40 to-transparent w-full h-full animate-[shimmer-bar_2s_infinite]" />
                             </div>
                         </div>
                     </div>
                 )}
-
             </div>
-            
+
+            {/* Component Keyframe Animations */}
             <style>{`
-                @keyframes shimmer {
-                    100% { transform: translateX(100%) rotate(45deg); }
+                .cad-dot-grid {
+                    background-color: #fafafa;
+                    background-size: 24px 24px;
+                    background-image: radial-gradient(circle, #cbd5e1 1.5px, transparent 1.5px);
+                }
+
+                @keyframes shimmer-bar {
+                    0% {
+                        transform: translateX(-100%);
+                    }
+                    100% {
+                        transform: translateX(100%);
+                    }
+                }
+
+                @keyframes fade-slide-up {
+                    from {
+                        opacity: 0;
+                        transform: translateY(8px);
+                    }
+                    to {
+                        opacity: 1;
+                        transform: translateY(0);
+                    }
                 }
             `}</style>
         </div>

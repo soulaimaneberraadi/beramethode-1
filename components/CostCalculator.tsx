@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Banknote, Receipt, LayoutTemplate, FileSpreadsheet, FileDown, Printer, Clock, FileText, PieChart as PieChartIcon, SlidersHorizontal, ClipboardList } from 'lucide-react';
+import { Banknote, Receipt, LayoutTemplate, FileSpreadsheet, FileDown, Printer, Clock, FileText, PieChart as PieChartIcon, SlidersHorizontal, ClipboardList, Scissors } from 'lucide-react';
 import { Material, AppSettings, PdfSettings, FicheData, PurchasingData } from '../types';
 import { translations, fmt } from '../constants';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip, Legend } from 'recharts';
@@ -12,6 +12,8 @@ import PdfSettingsModal from './PdfSettingsModal';
 import TicketView from './TicketView';
 import A4DocumentView from './A4DocumentView';
 import OrderModelPage from './OrderModelPage';
+import ThreadCalculator from './ThreadCalculator';
+import { Operation } from '../types';
 
 interface CostCalculatorProps {
     initialArticleName: string;
@@ -23,6 +25,8 @@ interface CostCalculatorProps {
     settings: AppSettings;
     ficheData: FicheData;
     setFicheData: React.Dispatch<React.SetStateAction<FicheData>>;
+    operations?: Operation[];
+    setOperations?: React.Dispatch<React.SetStateAction<Operation[]>>;
 }
 
 export default function CostCalculator({
@@ -34,7 +38,9 @@ export default function CostCalculator({
     initialCostMinute,
     settings: initialPropsSettings,
     ficheData,
-    setFicheData
+    setFicheData,
+    operations = [],
+    setOperations
 }: CostCalculatorProps) {
     // --- UI State Fixed ---
     const lang = 'fr'; // French is better for exact terms requested by user
@@ -160,6 +166,9 @@ export default function CostCalculator({
         }
     };
 
+    // --- State: Thread Calculator ---
+    const [showThreadCalc, setShowThreadCalc] = useState(false);
+
     // --- State: Materials ---
     const [materials, setMaterials] = useState<Material[]>(ficheData.materials || []);
 
@@ -169,14 +178,15 @@ export default function CostCalculator({
     }, [materials, setFicheData]);
 
     // --- Calculations ---
-    const totalMaterials = materials.reduce((acc, item) => acc + (item.unitPrice * item.qty), 0);
+    const isExport = ficheData.typeMarche === 'Export';
+    const totalMaterials = isExport ? 0 : materials.reduce((acc, item) => acc + (item.unitPrice * item.qty), 0);
     const cutTime = baseTime * (settings.cutRate / 100);
     const packTime = baseTime * (settings.packRate / 100);
     const totalTime = baseTime + cutTime + packTime;
 
     const laborCost = totalTime * settings.costMinute;
 
-    const costPrice = totalMaterials + laborCost;
+    const costPrice = isExport ? laborCost : totalMaterials + laborCost;
     const sellPriceHT = costPrice * (1 + settings.marginAtelier / 100);
     const sellPriceTTC = sellPriceHT * (1 + settings.tva / 100);
     const boutiquePrice = sellPriceTTC * (1 + settings.marginBoutique / 100);
@@ -185,19 +195,20 @@ export default function CostCalculator({
         const totalRaw = m.qty * orderQty;
         const totalWithWaste = totalRaw * (1 + wasteRate / 100);
         const qtyToBuy = (m.unit === 'bobine' || m.unit === 'pc') ? Math.ceil(totalWithWaste) : parseFloat(totalWithWaste.toFixed(2));
-        const lineCost = qtyToBuy * m.unitPrice;
+        const lineCost = isExport ? 0 : qtyToBuy * m.unitPrice;
         return { ...m, totalRaw, totalWithWaste, qtyToBuy, lineCost };
     });
 
-    const totalPurchasingMatCost = purchasingData.reduce((acc, item) => acc + item.lineCost, 0);
+    const totalPurchasingMatCost = isExport ? 0 : purchasingData.reduce((acc, item) => acc + item.lineCost, 0);
 
     const costDataForChart = useMemo(() => {
+        const matVal = isExport ? 0 : totalMaterials;
         return [
-            { name: 'Matières', value: totalMaterials, color: '#3b82f6' }, // blue-500
+            { name: 'Matières', value: matVal, color: '#3b82f6' }, // blue-500
             { name: 'Main d\'Œuvre', value: laborCost, color: '#f59e0b' },  // amber-500
             // packaging could be separated later, assuming included in materials for now
         ].filter(d => d.value > 0);
-    }, [totalMaterials, laborCost]);
+    }, [totalMaterials, laborCost, isExport]);
 
     const handleInstantSettingChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const { name, value } = e.target;
@@ -268,6 +279,16 @@ export default function CostCalculator({
 
     const deleteMaterial = (id: number) => {
         setMaterials(materials.filter(m => m.id !== id));
+    };
+
+    const applyThreadMaterials = (threadMaterials: Material[]) => {
+        // Remove existing thread materials (those starting with "Fil ")
+        const filtered = materials.filter(m => !m.name.startsWith('Fil '));
+        // Add new thread materials with new IDs
+        const maxId = filtered.length > 0 ? Math.max(...filtered.map(m => m.id)) : 0;
+        const newMaterials = threadMaterials.map((m, i) => ({ ...m, id: maxId + i + 1 }));
+        setMaterials([...filtered, ...newMaterials]);
+        setShowThreadCalc(false);
     };
 
     const generatePDF = async (action: 'save' | 'preview' = 'save') => {
@@ -447,13 +468,21 @@ export default function CostCalculator({
                     wasteRate={wasteRate} purchasingData={purchasingData}
                     totalPurchasingMatCost={totalPurchasingMatCost}
                     docNotes={docNotes} setDocNotes={setDocNotes}
+                    isExport={isExport}
                 />
             </PdfSettingsModal>
 
             <div className={`w-full mx-auto mb-6 flex flex-col md:flex-row justify-between items-center bg-white p-4 rounded-xl shadow-sm border border-slate-200 gap-4 print:hidden`}>
                 <div className="flex items-center gap-4 self-start md:self-center">
                     <div className="flex flex-col">
-                        <h1 className={`text-2xl font-black tracking-tight text-slate-800`}>Fiche de Coût</h1>
+                        <div className="flex items-center gap-2">
+                            <h1 className={`text-2xl font-black tracking-tight text-slate-800`}>Fiche de Coût</h1>
+                            {ficheData.typeMarche === 'Export' && (
+                                <span className="bg-amber-100 text-amber-800 border border-amber-200 text-xs px-2.5 py-0.5 rounded-full font-bold flex items-center gap-1 animate-pulse">
+                                    Export (Europe) - Main d'œuvre Seule
+                                </span>
+                            )}
+                        </div>
                         <p className={`text-sm font-medium text-slate-500`}>Gestion des prix et marges commerciales</p>
                     </div>
                 </div>
@@ -537,6 +566,22 @@ export default function CostCalculator({
                             textSecondary={textSecondary} bgCard={bgCard} bgCardHeader={bgCardHeader}
                         />
 
+                        {/* Calcul Fil Button */}
+                        <div className="flex justify-end">
+                            <button
+                                onClick={() => setShowThreadCalc(true)}
+                                className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white py-2.5 px-5 rounded-xl font-bold text-sm flex items-center gap-2 hover:from-blue-700 hover:to-indigo-700 transition-all shadow-md hover:shadow-lg active:scale-[0.98]"
+                            >
+                                <Scissors className="w-4 h-4" />
+                                Calcul Fil
+                                {operations.length > 0 && (
+                                    <span className="bg-white/25 px-2 py-0.5 rounded-full text-xs font-bold">
+                                        {operations.length} opérations
+                                    </span>
+                                )}
+                            </button>
+                        </div>
+
                         <MaterialsList
                             t={t} currency={currency} darkMode={darkMode}
                             materials={materials} addMaterial={addMaterial}
@@ -556,6 +601,7 @@ export default function CostCalculator({
                             totalPurchasingMatCost={totalPurchasingMatCost}
                             laborCost={laborCost}
                             textSecondary={textSecondary} textPrimary={textPrimary} bgCard={bgCard}
+                            isExport={isExport}
                         />
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -666,6 +712,7 @@ export default function CostCalculator({
                                             totalPurchasingMatCost={totalPurchasingMatCost}
                                             docNotes={docNotes} setDocNotes={setDocNotes}
                                             isRTL={false}
+                                            isExport={isExport}
                                         />
                                     </div>
                                 </>
@@ -673,6 +720,19 @@ export default function CostCalculator({
                         </div>
                     </div>
                 </div>
+            )}
+
+            {/* Thread Calculator Modal */}
+            {showThreadCalc && (
+                <ThreadCalculator
+                    operations={operations}
+                    setOperations={setOperations}
+                    orderQty={orderQty || ficheData.quantity || 1}
+                    colors={ficheData.colors}
+                    gridQuantities={ficheData.gridQuantities}
+                    onApply={applyThreadMaterials}
+                    onClose={() => setShowThreadCalc(false)}
+                />
             )}
         </div>
     );

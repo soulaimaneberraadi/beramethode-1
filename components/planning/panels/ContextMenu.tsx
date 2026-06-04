@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { Edit2, Split, Copy, Trash2, Eye } from 'lucide-react';
+import { Edit2, Split, Copy, Trash2, Eye, Pause, Play } from 'lucide-react';
 import { useIsMobile } from '../shared/useIsMobile';
 
 interface Props {
@@ -12,17 +12,13 @@ interface Props {
     onSplit: () => void;
     onDuplicate: () => void;
     onDelete: () => void;
+    isPaused?: boolean;
+    onTogglePause?: () => void;
 }
 
-const ITEMS: { id: string; label: string; Icon: typeof Eye; danger?: boolean }[] = [
-    { id: 'view', label: 'Voir les détails', Icon: Eye },
-    { id: 'edit', label: 'Modifier', Icon: Edit2 },
-    { id: 'split', label: 'Fractionner', Icon: Split },
-    { id: 'duplicate', label: 'Dupliquer', Icon: Copy },
-    { id: 'delete', label: 'Supprimer', Icon: Trash2, danger: true },
-];
-
-export default function ContextMenu({ x, y, onClose, onView, onEdit, onSplit, onDuplicate, onDelete }: Props) {
+export default function ContextMenu({
+    x, y, onClose, onView, onEdit, onSplit, onDuplicate, onDelete, isPaused, onTogglePause
+}: Props) {
     const ref = useRef<HTMLDivElement>(null);
     const isMobile = useIsMobile();
 
@@ -41,14 +37,32 @@ export default function ContextMenu({ x, y, onClose, onView, onEdit, onSplit, on
         };
     }, [onClose]);
 
+    const items = [
+        { id: 'view', label: 'Voir les détails', Icon: Eye },
+        { id: 'edit', label: 'Modifier', Icon: Edit2 },
+        { id: 'split', label: 'Fractionner', Icon: Split },
+        { id: 'duplicate', label: 'Dupliquer', Icon: Copy },
+        ...(onTogglePause ? [{
+            id: 'togglePause',
+            label: isPaused ? 'Reprendre (Relancer)' : 'Geler / Pause (Freeze)',
+            Icon: isPaused ? Play : Pause
+        }] : []),
+        { id: 'delete', label: 'Supprimer', Icon: Trash2, danger: true },
+    ];
+
     const handlers: Record<string, () => void> = {
-        view: onView, edit: onEdit, split: onSplit, duplicate: onDuplicate, delete: onDelete,
+        view: onView,
+        edit: onEdit,
+        split: onSplit,
+        duplicate: onDuplicate,
+        delete: onDelete,
+        togglePause: onTogglePause || (() => {}),
     };
 
     // Desktop : positionne au curseur en gardant le menu dans le viewport.
     // Mobile : feuille en bas (bottom sheet) pleine largeur.
     const MENU_W = 200;
-    const MENU_H = ITEMS.length * 40 + 8;
+    const MENU_H = items.length * 40 + 8;
     const clampedLeft = typeof window !== 'undefined' ? Math.min(x, window.innerWidth - MENU_W - 8) : x;
     const clampedTop = typeof window !== 'undefined' ? Math.min(y, window.innerHeight - MENU_H - 8) : y;
 
@@ -63,7 +77,7 @@ export default function ContextMenu({ x, y, onClose, onView, onEdit, onSplit, on
             style={isMobile ? undefined : { left: Math.max(8, clampedLeft), top: Math.max(8, clampedTop) }}
         >
             {isMobile && <div className="mx-auto mb-1 h-1 w-10 rounded-full bg-slate-300" />}
-            {ITEMS.map(({ id, label, Icon, danger }) => (
+            {items.map(({ id, label, Icon, danger }) => (
                 <button
                     key={id}
                     type="button"

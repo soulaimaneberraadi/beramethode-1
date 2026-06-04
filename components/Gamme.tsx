@@ -49,11 +49,16 @@ import {
   Split,
   Check,
   MousePointer,
-  Minus
+  Minus,
+  Camera,
+  Image as ImageIcon,
+  Maximize2,
+  Trash
 } from 'lucide-react';
 import { Machine, Operation, ComplexityFactor, StandardTime, Guide, Poste } from '../types';
 import { analyzeTextileContext, suggestTextileVocabulary } from '../services/gemini';
 import { VOCABULARY } from '../data/vocabulary';
+import { compressImage } from '../utils';
 import ExcelInput from './ExcelInput';
 
 // --- GROUP COLOR PALETTE (HIGH CONTRAST ALTERNATING) ---
@@ -283,6 +288,74 @@ export default function Gamme({
   const wordUsageRef = useRef<Record<string, number>>({});
   const remoteSuggestionCacheRef = useRef<Record<string, string[]>>({});
   const lastRemoteFetchRef = useRef<number>(0);
+
+  // --- PHOTO PAR OPÉRATION (caméra / galerie + aperçu) ---
+  const [photoMenu, setPhotoMenu] = useState<{ opId: string; x: number; y: number; hasPhoto: boolean } | null>(null);
+  const [photoPreview, setPhotoPreview] = useState<{ src: string; title: string } | null>(null);
+  const [photoProcessingOpId, setPhotoProcessingOpId] = useState<string | null>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const galleryInputRef = useRef<HTMLInputElement>(null);
+  const photoTargetOpRef = useRef<string | null>(null);
+
+  /** Met à jour uniquement la photo d'une opération (sans recalcul de temps). */
+  const setOperationPhoto = (id: string, photo: string | undefined) => {
+    setOperations(prev => prev.map(op => (op.id === id ? { ...op, photo } : op)));
+  };
+
+  const openPhotoMenu = (e: React.MouseEvent, opId: string, hasPhoto: boolean) => {
+    e.stopPropagation();
+    setPhotoMenu({ opId, x: e.clientX, y: e.clientY, hasPhoto });
+  };
+
+  const triggerPhotoInput = (kind: 'camera' | 'gallery') => {
+    if (!photoMenu) return;
+    photoTargetOpRef.current = photoMenu.opId;
+    setPhotoMenu(null);
+    const ref = kind === 'camera' ? cameraInputRef : galleryInputRef;
+    ref.current?.click();
+  };
+
+  const handleOpPhotoFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    const opId = photoTargetOpRef.current;
+    e.target.value = '';
+    if (!file || !opId) return;
+    setPhotoProcessingOpId(opId);
+    try {
+      const compressed = await compressImage(file);
+      setOperationPhoto(opId, compressed);
+    } catch (err) {
+      console.error('Photo opération: compression échouée', err);
+      alert("Erreur lors du traitement de l'image.");
+    } finally {
+      setPhotoProcessingOpId(null);
+    }
+  };
+
+  // Fermer le menu photo sur Échap ou clic extérieur
+  useEffect(() => {
+    if (!photoMenu) return;
+    const onKey = (ev: KeyboardEvent) => { if (ev.key === 'Escape') setPhotoMenu(null); };
+    const onClick = () => setPhotoMenu(null);
+    document.addEventListener('keydown', onKey);
+    document.addEventListener('click', onClick);
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      document.removeEventListener('click', onClick);
+    };
+  }, [photoMenu]);
+
+  useEffect(() => {
+    if (!photoPreview) return;
+    const onKey = (ev: KeyboardEvent) => { if (ev.key === 'Escape') setPhotoPreview(null); };
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.body.style.overflow = prevOverflow;
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [photoPreview]);
 
   const isValidVocabularyWord = (word: string) => {
     const clean = (word || '').trim();
@@ -2140,18 +2213,49 @@ export default function Gamme({
                         className={`py-3 px-2 text-center cursor-move sticky ${isSelectionMode ? 'left-8' : 'left-0'} bg-white group-hover:bg-slate-50 z-20 border-r border-transparent group-hover:border-slate-100 transition-colors ${isSelected ? 'bg-indigo-100' : (hasGroup && !primaryPosteColor && groupStyle ? groupStyle.bg : '')}`}
                     >
                         <div className="flex items-center justify-center gap-1.5 mx-auto">
-                            {primaryPosteColor ? (
-                                <span
-                                    className="font-mono text-xs font-black inline-flex items-center justify-center min-w-[2rem] h-8 px-2 rounded-lg text-white shadow-sm ring-1 ring-black/10"
-                                    style={{ backgroundColor: primaryPosteColor.fill ?? '#6366f1' }}
+                            {/* PHOTO (1:1) à gauche si présente — clic = aperçu */}
+                            {op.photo && (
+                                <button
+                                    type="button"
+                                    onClick={(e) => { e.stopPropagation(); setPhotoPreview({ src: op.photo!, title: `Op. ${getDisplayIndex(op, index)} — ${op.description || ''}` }); }}
+                                    className="relative w-9 h-9 shrink-0 rounded-lg overflow-hidden border border-slate-200 shadow-sm bg-slate-50 group/photo"
+                                    title="Voir la photo"
                                 >
-                                    {getDisplayIndex(op, index)}
-                                </span>
-                            ) : (
-                                <span className={`font-mono text-xs font-bold ${hasGroup && groupStyle ? groupStyle.text : 'text-indigo-600'} group-hover:text-emerald-600`}>
-                                    {getDisplayIndex(op, index)}
-                                </span>
+                                    <img src={op.photo} alt="" className="w-full h-full object-cover" />
+                                    <span className="absolute inset-0 flex items-center justify-center bg-black/0 group-hover/photo:bg-black/35 transition-colors">
+                                        <Maximize2 className="w-3 h-3 text-white opacity-0 group-hover/photo:opacity-100 transition-opacity" />
+                                    </span>
+                                </button>
                             )}
+                            {/* NUMÉRO (à droite quand une photo est présente) — clic = menu caméra/galerie */}
+                            <button
+                                type="button"
+                                onClick={(e) => openPhotoMenu(e, op.id, !!op.photo)}
+                                title="Ajouter / changer la photo"
+                                className="relative shrink-0"
+                            >
+                                {primaryPosteColor ? (
+                                    <span
+                                        className="font-mono text-xs font-black inline-flex items-center justify-center min-w-[2rem] h-8 px-2 rounded-lg text-white shadow-sm ring-1 ring-black/10"
+                                        style={{ backgroundColor: primaryPosteColor.fill ?? '#6366f1' }}
+                                    >
+                                        {getDisplayIndex(op, index)}
+                                    </span>
+                                ) : (
+                                    <span className={`font-mono text-xs font-bold inline-flex items-center justify-center min-w-[2rem] h-8 px-2 rounded-lg ${hasGroup && groupStyle ? groupStyle.text : 'text-indigo-600'} group-hover:text-emerald-600`}>
+                                        {getDisplayIndex(op, index)}
+                                    </span>
+                                )}
+                                {photoProcessingOpId === op.id ? (
+                                    <span className="absolute -bottom-1 -right-1 bg-white rounded-full p-0.5 shadow ring-1 ring-slate-200">
+                                        <Loader2 className="w-2.5 h-2.5 text-indigo-500 animate-spin" />
+                                    </span>
+                                ) : !op.photo && (
+                                    <span className="absolute -bottom-1 -right-1 bg-indigo-500 rounded-full p-0.5 shadow ring-1 ring-white opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <Camera className="w-2.5 h-2.5 text-white" />
+                                    </span>
+                                )}
+                            </button>
                             {!isLinkingMode && <GripVertical className="w-3.5 h-3.5 text-slate-300 group-hover:text-emerald-500 transition-colors shrink-0" />}
                         </div>
                     </td>
@@ -2895,6 +2999,102 @@ export default function Gamme({
                 </div>
             </div>
         </div>
+      )}
+
+      {/* INPUTS FICHIERS CACHÉS POUR PHOTO OPÉRATION (caméra + galerie) */}
+      <input
+        ref={cameraInputRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        className="hidden"
+        onChange={handleOpPhotoFile}
+      />
+      <input
+        ref={galleryInputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={handleOpPhotoFile}
+      />
+
+      {/* MENU CHOIX PHOTO (Caméra / Galerie) */}
+      {photoMenu && createPortal(
+        <div
+          role="menu"
+          onClick={(e) => e.stopPropagation()}
+          style={{
+            position: 'fixed',
+            top: Math.min(photoMenu.y + 6, (typeof window !== 'undefined' ? window.innerHeight : 800) - 180),
+            left: Math.min(photoMenu.x, (typeof window !== 'undefined' ? window.innerWidth : 800) - 220),
+            zIndex: 10000,
+          }}
+          className="w-52 rounded-2xl border border-slate-200 bg-white shadow-2xl shadow-slate-300/50 ring-1 ring-black/5 overflow-hidden animate-in fade-in zoom-in-95 duration-100"
+        >
+          <div className="px-3 py-2 border-b border-slate-100 bg-slate-50 text-[10px] font-black uppercase tracking-widest text-slate-500">
+            Photo de l'opération
+          </div>
+          <button
+            type="button"
+            onClick={() => triggerPhotoInput('camera')}
+            className="w-full flex items-center gap-3 px-3 py-2.5 text-sm font-bold text-slate-700 hover:bg-indigo-50 hover:text-indigo-700 transition-colors"
+          >
+            <span className="bg-indigo-100 text-indigo-600 p-1.5 rounded-lg"><Camera className="w-4 h-4" /></span>
+            Prendre une photo
+          </button>
+          <button
+            type="button"
+            onClick={() => triggerPhotoInput('gallery')}
+            className="w-full flex items-center gap-3 px-3 py-2.5 text-sm font-bold text-slate-700 hover:bg-indigo-50 hover:text-indigo-700 transition-colors"
+          >
+            <span className="bg-emerald-100 text-emerald-600 p-1.5 rounded-lg"><ImageIcon className="w-4 h-4" /></span>
+            Choisir depuis la galerie
+          </button>
+          {photoMenu.hasPhoto && (
+            <button
+              type="button"
+              onClick={() => { setOperationPhoto(photoMenu.opId, undefined); setPhotoMenu(null); }}
+              className="w-full flex items-center gap-3 px-3 py-2.5 text-sm font-bold text-rose-600 hover:bg-rose-50 transition-colors border-t border-slate-100"
+            >
+              <span className="bg-rose-100 text-rose-600 p-1.5 rounded-lg"><Trash className="w-4 h-4" /></span>
+              Supprimer la photo
+            </button>
+          )}
+        </div>,
+        document.body
+      )}
+
+      {/* APERÇU PHOTO OPÉRATION */}
+      {photoPreview && createPortal(
+        <div
+          className="fixed inset-0 z-[9998] flex items-center justify-center bg-slate-950/60 p-3 animate-in fade-in duration-200 sm:p-6"
+          onClick={() => setPhotoPreview(null)}
+        >
+          <div
+            className="relative flex w-full max-w-3xl max-h-[92vh] flex-col overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-[0_20px_80px_rgba(15,23,42,0.45)]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b border-slate-200 bg-gradient-to-r from-slate-50 via-white to-slate-50 px-4 py-3 sm:px-5">
+              <div className="min-w-0">
+                <h3 className="truncate text-base font-black tracking-wide text-slate-800 sm:text-lg">{photoPreview.title}</h3>
+                <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Aperçu haute résolution</p>
+              </div>
+              <button
+                onClick={() => setPhotoPreview(null)}
+                className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-600 shadow-sm transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900"
+              >
+                <X className="h-4 w-4" />
+                Fermer
+              </button>
+            </div>
+            <div className="relative flex-1 overflow-auto bg-[radial-gradient(circle_at_top,_#f8fafc_0%,_#e2e8f0_100%)] p-3 sm:p-5">
+              <div className="mx-auto flex min-h-full max-w-[92%] items-center justify-center rounded-2xl border border-white/80 bg-white/60 p-2 shadow-inner sm:p-4">
+                <img src={photoPreview.src} alt="Aperçu" className="max-h-[74vh] w-auto max-w-full rounded-xl border border-slate-200 bg-white object-contain shadow-xl" />
+              </div>
+            </div>
+          </div>
+        </div>,
+        document.body
       )}
     </div>
   );

@@ -29,6 +29,12 @@ import {
   getMagasinDechets,
   saveMagasinDechet,
   deleteMagasinDechet,
+  getMaterialReceipts,
+  saveMaterialReceipt,
+  deleteMaterialReceipt,
+  getInventoryMovements,
+  saveInventoryMovement,
+  deleteInventoryMovement,
 } from './server/magasinController';
 import { getSettings, saveSettings } from './server/settingsController';
 import { getPlanningEvents, savePlanningEvents, deletePlanningEvent, getReservations, saveReservations, deductReservations, releaseReservations } from './server/planningController';
@@ -78,6 +84,13 @@ import {
   getCrisisAlerts, saveCrisisAlert, updateCrisisAlert,
   updateAllCR
 } from './server/schedulingController';
+import {
+  getChronoSessions,
+  createChronoSession,
+  updateChronoSession,
+  deleteChronoSession,
+  batchSaveChronoSessions
+} from './server/chronoController';
 
 async function startServer() {
   const app = express();
@@ -205,6 +218,14 @@ async function startServer() {
   app.put('/api/magasin/mouvements/:id', authenticateToken, updateMagasinMouvement);
   app.delete('/api/magasin/mouvements/:id', authenticateToken, deleteMagasinMouvement);
   app.post('/api/magasin/mvt', authenticateToken, registerMouvement);
+
+  app.get('/api/material-receipts', authenticateToken, getMaterialReceipts);
+  app.post('/api/material-receipts', authenticateToken, saveMaterialReceipt);
+  app.delete('/api/material-receipts/:id', authenticateToken, deleteMaterialReceipt);
+
+  app.get('/api/inventory-movements', authenticateToken, getInventoryMovements);
+  app.post('/api/inventory-movements', authenticateToken, saveInventoryMovement);
+  app.delete('/api/inventory-movements/:id', authenticateToken, deleteInventoryMovement);
 
   app.get('/api/magasin/commandes', authenticateToken, getMagasinCommandes);
   app.post('/api/magasin/commandes', authenticateToken, saveMagasinCommande);
@@ -336,6 +357,13 @@ async function startServer() {
   app.post('/api/scheduling/crisis-alerts', authenticateToken, saveCrisisAlert);
   app.put('/api/scheduling/crisis-alerts/:id', authenticateToken, updateCrisisAlert);
   app.post('/api/scheduling/update-cr', authenticateToken, updateAllCR);
+
+  // Chrono Sessions — Séances de chronométrage
+  app.get('/api/chrono/sessions', authenticateToken, getChronoSessions);
+  app.post('/api/chrono/sessions', authenticateToken, createChronoSession);
+  app.put('/api/chrono/sessions/:id', authenticateToken, updateChronoSession);
+  app.delete('/api/chrono/sessions/:id', authenticateToken, deleteChronoSession);
+  app.post('/api/chrono/sessions/batch', authenticateToken, batchSaveChronoSessions);
 
   // BERAOUVIER — Read-Only (no financial data); rate-limited, minimal fields
   app.get('/api/worker/:cin', beraouvierPublicLimiter, getWorkerByCin);

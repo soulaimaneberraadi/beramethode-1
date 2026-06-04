@@ -33,6 +33,8 @@ interface UseAppModelManagerProps {
     setOperations: (ops: Operation[]) => void;
     numWorkers: number;
     setNumWorkers: (num: number) => void;
+    efficiency: number;
+    setEfficiency: (eff: number) => void;
     
     manualLinks: any[];
     setManualLinks: (links: any[]) => void;
@@ -53,6 +55,7 @@ export function useAppModelManager({
     user, models, setModels, currentModelId, setCurrentModelId,
     postes, setPostes, assignments, setAssignments, layoutMemory, setLayoutMemory, activeLayout, setActiveLayout,
     ficheData, setFicheData, ficheImages, setFicheImages, articleName, setArticleName, operations, setOperations, numWorkers, setNumWorkers,
+    efficiency, setEfficiency,
     manualLinks, setManualLinks, globalStats, setPlanningEvents, setCurrentView, setNavigationContext, showToast,
     setHistory, setHistoryIndex, setChronoData
 }: UseAppModelManagerProps) {
@@ -72,7 +75,10 @@ export function useAppModelManager({
             filename: `${articleName || 'Sans_Nom'}.json`,
             image: ficheImages.front, // Thumbnail
             images: ficheImages,      // FULL IMAGES
-            ficheData: ficheData,
+            ficheData: {
+                ...ficheData,
+                targetEfficiency: efficiency // Sync current efficiency state here
+            },
             meta_data: {
                 nom_modele: articleName || 'Sans Nom',
                 category: ficheData.category,
@@ -103,7 +109,14 @@ export function useAppModelManager({
 
         setPlanningEvents(prev => prev.map(ev =>
             ev.modelId === modelToSave.id
-                ? { ...ev, dateLancement: launchDateTimeIso(ficheData.date, ficheData.launchTime), startDate: ficheData.date }
+                ? { 
+                    ...ev, 
+                    dateLancement: launchDateTimeIso(ficheData.date, ficheData.launchTime), 
+                    startDate: ficheData.date,
+                    typeMarche: ficheData.typeMarche ?? 'Local',
+                    facteurPlanning: ficheData.facteurPlanning ?? 60,
+                    bufferLancement: ficheData.bufferLancement ?? 120,
+                  }
                 : ev
         ));
 
@@ -135,7 +148,7 @@ export function useAppModelManager({
             if (!silent) showToast("Modèle sauvegardé avec succès (Local) !");
             if (navigateNext) setCurrentView('library');
         }
-    }, [activeLayout, articleName, assignments, currentModelId, ficheData, ficheImages, globalStats.tempsArticle, layoutMemory, manualLinks, models, numWorkers, operations, postes, setCurrentModelId, setCurrentView, setLayoutMemory, setModels, setPlanningEvents, showToast, user]);
+    }, [activeLayout, articleName, assignments, currentModelId, ficheData, ficheImages, globalStats.tempsArticle, layoutMemory, manualLinks, models, numWorkers, operations, postes, setCurrentModelId, setCurrentView, setLayoutMemory, setModels, setPlanningEvents, showToast, user, efficiency]);
 
     const loadModel = useCallback((model: ModelData, fromContext?: 'coupe' | 'planning' | null) => {
         setCurrentModelId(model.id);
@@ -144,8 +157,18 @@ export function useAppModelManager({
         setOperations(model.gamme_operatoire || []);
         setNumWorkers(model.meta_data.effectif || 1);
 
+        const modelEff = model.ficheData?.targetEfficiency ?? 85;
+        setEfficiency(modelEff);
+
         if (model.ficheData) {
-            setFicheData({ ...model.ficheData, launchTime: model.ficheData.launchTime ?? model.meta_data.heure_lancement ?? '08:00' });
+            setFicheData({ 
+                ...model.ficheData, 
+                launchTime: model.ficheData.launchTime ?? model.meta_data.heure_lancement ?? '08:00',
+                facteurPlanning: model.ficheData.facteurPlanning ?? 60,
+                bufferLancement: model.ficheData.bufferLancement ?? 120,
+                statutProduction: model.ficheData.statutProduction ?? 'En Attente',
+                typeMarche: model.ficheData.typeMarche ?? 'Local'
+            });
         } else {
             setFicheData(prev => ({
                 ...prev,
@@ -155,6 +178,11 @@ export function useAppModelManager({
                 sizes: model.meta_data.sizes || [],
                 colors: model.meta_data.colors || [],
                 quantity: model.meta_data.quantity || 0,
+                facteurPlanning: 60,
+                bufferLancement: 120,
+                statutProduction: 'En Attente',
+                typeMarche: 'Local',
+                targetEfficiency: modelEff
             }));
         }
 
@@ -183,7 +211,7 @@ export function useAppModelManager({
         setHistory([{ operations: model.gamme_operatoire || [], assignments: model.implantation?.assignments || {}, postes: model.implantation?.postes || [] }]);
         setHistoryIndex(0);
         setCurrentView('atelier');
-    }, [setActiveLayout, setArticleName, setAssignments, setCurrentModelId, setCurrentView, setFicheData, setFicheImages, setHistory, setHistoryIndex, setLayoutMemory, setManualLinks, setNavigationContext, setNumWorkers, setOperations, setPostes]);
+    }, [setActiveLayout, setArticleName, setAssignments, setCurrentModelId, setCurrentView, setFicheData, setFicheImages, setHistory, setHistoryIndex, setLayoutMemory, setManualLinks, setNavigationContext, setNumWorkers, setOperations, setPostes, setEfficiency]);
 
     const importModel = useCallback((file: File) => {
         const reader = new FileReader();
@@ -237,6 +265,7 @@ export function useAppModelManager({
 
     const createNewProject = useCallback(() => {
         localStorage.removeItem(AUTO_SAVE_KEY);
+        fetch('/api/settings', { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ autosave_workspace: null }) }).catch(() => {});
         setCurrentModelId(null);
         setArticleName('');
         setOperations([]);
@@ -247,13 +276,32 @@ export function useAppModelManager({
         setActiveLayout('double-zigzag');
         setManualLinks([]);
         setChronoData({});
-        setFicheData(prev => ({
-            ...prev,
+        setFicheData({
             date: new Date().toISOString().split('T')[0],
             launchTime: '08:00',
+            client: '',
             category: '',
             designation: '',
-        }));
+            color: '',
+            quantity: 0,
+            chaine: '',
+            targetEfficiency: 85,
+            unitCost: 0,
+            clientPrice: 0,
+            observations: '',
+            costMinute: 0.85,
+            sizes: [],
+            colors: [],
+            gridQuantities: {},
+            materials: [],
+            todm: '',
+            kisba: 'NON_LANCE',
+            hala: 'EN_ATTENTE',
+            facteurPlanning: 1,
+            bufferLancement: 0,
+            statutProduction: 'En Attente',
+            typeMarche: 'Local',
+        });
         setHistory([{ operations: [], assignments: {}, postes: [] }]);
         setHistoryIndex(0);
         setCurrentView('atelier');
