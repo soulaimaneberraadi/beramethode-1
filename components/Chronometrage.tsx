@@ -85,7 +85,7 @@ const getPosteColor = (poste: Poste, index: number) => {
     return POSTE_COLORS[index % POSTE_COLORS.length];
 };
 
-function AdvancedStopwatch({ onRecord, onClear, onAdvance, onPrev, onNext, onUndoLast, trCount, filledCount = 0 }: {
+function AdvancedStopwatch({ onRecord, onClear, onAdvance, onPrev, onNext, onUndoLast, trCount, filledCount = 0, compact = false }: {
     onRecord: (time: number) => void;
     onClear: () => void;
     onAdvance?: () => void;
@@ -94,6 +94,7 @@ function AdvancedStopwatch({ onRecord, onClear, onAdvance, onPrev, onNext, onUnd
     onUndoLast?: () => void;
     trCount: number;
     filledCount?: number;
+    compact?: boolean;
 }) {
     const [running, setRunning] = useState(false);
     const [elapsed, setElapsed] = useState(0);
@@ -278,18 +279,18 @@ function AdvancedStopwatch({ onRecord, onClear, onAdvance, onPrev, onNext, onUnd
 
     return (
         <div
-            className="w-full rounded-2xl overflow-hidden flex flex-col select-none"
-            style={{ background: '#f2f2f7', boxShadow: '0 4px 16px rgba(0,0,0,0.08)', fontFamily: '-apple-system, "SF Pro Display", sans-serif' }}
+            className={`w-full ${compact ? 'rounded-xl' : 'rounded-2xl'} overflow-hidden flex flex-col select-none`}
+            style={{ background: '#f2f2f7', boxShadow: compact ? '0 2px 8px rgba(0,0,0,0.06)' : '0 4px 16px rgba(0,0,0,0.08)', fontFamily: '-apple-system, "SF Pro Display", sans-serif' }}
         >
             {/* Status row */}
-            <div className="flex items-center justify-between px-3 pt-2.5 pb-0.5">
-                <span className="text-[10px] font-semibold tracking-wide" style={{ color: '#8e8e93' }}>
+            <div className={`flex items-center justify-between px-3 ${compact ? 'pt-1.5 pb-0.5' : 'pt-2.5 pb-0.5'}`}>
+                <span className={`${compact ? 'text-[9px]' : 'text-[10px]'} font-semibold tracking-wide`} style={{ color: '#8e8e93' }}>
                     {isCompleted ? '✓ Complétés'
                         : running ? `Tour ${laps.length + 1}/${neededLaps}`
                         : `${remainingSlots} restant${remainingSlots !== 1 ? 's' : ''}`}
                 </span>
                 <div className="flex items-center gap-1.5">
-                    <span className="text-[10px] font-bold tabular-nums" style={{ color: '#8e8e93' }}>
+                    <span className={`${compact ? 'text-[9px]' : 'text-[10px]'} font-bold tabular-nums`} style={{ color: '#8e8e93' }}>
                         {Math.min(initialFilledRef.current + laps.length, trCount)}/{trCount}
                     </span>
                     <span className={`w-1.5 h-1.5 rounded-full transition-colors duration-300 ${isCompleted ? 'bg-indigo-500' : running ? 'bg-green-500 animate-pulse' : 'bg-gray-300'}`} />
@@ -298,29 +299,29 @@ function AdvancedStopwatch({ onRecord, onClear, onAdvance, onPrev, onNext, onUnd
 
             {/* Time display — turns red when outlier is rejected */}
             <div
-                className="flex items-center justify-between px-3 pt-1 pb-1 rounded-xl mx-1 transition-colors duration-200"
+                className={`flex items-center justify-between px-3 ${compact ? 'pt-0.5 pb-0.5' : 'pt-1 pb-1'} rounded-xl mx-1 transition-colors duration-200`}
                 style={{ background: rejectedFlash ? '#fff1f1' : 'transparent' }}
             >
                 <div className="flex items-baseline tabular-nums tracking-tight"
                      style={{ color: rejectedFlash ? '#e5383b' : '#1c1c1e' }}>
                     {mins > 0 && (
                         <>
-                            <span style={{ fontSize: '2.2rem', fontWeight: 300, lineHeight: 1 }}>{String(mins).padStart(2, '0')}</span>
-                            <span style={{ fontSize: '1.6rem', fontWeight: 200, color: rejectedFlash ? '#e5383b' : '#aeaeb2', margin: '0 1px 2px', lineHeight: 1 }}>:</span>
+                            <span style={{ fontSize: compact ? '1.3rem' : '2.2rem', fontWeight: 300, lineHeight: 1 }}>{String(mins).padStart(2, '0')}</span>
+                            <span style={{ fontSize: compact ? '0.95rem' : '1.6rem', fontWeight: 200, color: rejectedFlash ? '#e5383b' : '#aeaeb2', margin: '0 1px 2px', lineHeight: 1 }}>:</span>
                         </>
                     )}
-                    <span style={{ fontSize: '2.2rem', fontWeight: 300, lineHeight: 1 }}>{String(secs).padStart(2, '0')}</span>
-                    <span style={{ fontSize: '1.6rem', fontWeight: 200, color: rejectedFlash ? '#e5383b' : '#aeaeb2', margin: '0 1px', lineHeight: 1 }}>.</span>
-                    <span style={{ fontSize: '2.2rem', fontWeight: 300, lineHeight: 1 }}>{String(cs).padStart(2, '0')}</span>
+                    <span style={{ fontSize: compact ? '1.3rem' : '2.2rem', fontWeight: 300, lineHeight: 1 }}>{String(secs).padStart(2, '0')}</span>
+                    <span style={{ fontSize: compact ? '0.95rem' : '1.6rem', fontWeight: 200, color: rejectedFlash ? '#e5383b' : '#aeaeb2', margin: '0 1px', lineHeight: 1 }}>.</span>
+                    <span style={{ fontSize: compact ? '1.3rem' : '2.2rem', fontWeight: 300, lineHeight: 1 }}>{String(cs).padStart(2, '0')}</span>
                 </div>
                 {/* Right side: rejected flash OR current lap sub-timer */}
                 {rejectedFlash ? (
                     <div className="flex items-center gap-1 animate-pulse"
-                         style={{ fontSize: '0.75rem', fontWeight: 700, color: '#e5383b' }}>
-                        <span style={{ fontSize: '1rem' }}>⊘</span> Rejeté !
+                         style={{ fontSize: compact ? '0.7rem' : '0.75rem', fontWeight: 700, color: '#e5383b' }}>
+                        <span style={{ fontSize: compact ? '0.85rem' : '1rem' }}>⊘</span> Rejeté !
                     </div>
                 ) : laps.length > 0 && !isCompleted ? (
-                    <div className="tabular-nums" style={{ fontSize: '0.9rem', fontWeight: 400, color: '#8e8e93' }}>
+                    <div className="tabular-nums" style={{ fontSize: compact ? '0.75rem' : '0.9rem', fontWeight: 400, color: '#8e8e93' }}>
                         {formatSeconds(currentLapElapsed)}
                     </div>
                 ) : null}
@@ -330,13 +331,15 @@ function AdvancedStopwatch({ onRecord, onClear, onAdvance, onPrev, onNext, onUnd
             {/* Lap table */}
             {laps.length > 0 && (
                 <div className="mx-2 mb-1 rounded-xl overflow-hidden" style={{ background: '#ffffff' }}>
-                    <div className="grid grid-cols-3 px-3 py-1 border-b" style={{ borderColor: '#e5e5ea' }}>
-                        <span className="text-[10px] font-semibold" style={{ color: '#8e8e93' }}>Tour</span>
-                        <span className="text-[10px] font-semibold text-center" style={{ color: '#8e8e93' }}>T. Tour</span>
-                        <span className="text-[10px] font-semibold text-right" style={{ color: '#8e8e93' }}>T. Total</span>
-                    </div>
+                    {!compact && (
+                        <div className="grid grid-cols-3 px-3 py-1 border-b" style={{ borderColor: '#e5e5ea' }}>
+                            <span className="text-[10px] font-semibold" style={{ color: '#8e8e93' }}>Tour</span>
+                            <span className="text-[10px] font-semibold text-center" style={{ color: '#8e8e93' }}>T. Tour</span>
+                            <span className="text-[10px] font-semibold text-right" style={{ color: '#8e8e93' }}>T. Total</span>
+                        </div>
+                    )}
                     {/* Keep lap area bounded so control buttons stay in place while recording tours. */}
-                    <div className="overflow-y-auto" style={{ maxHeight: '7.5rem' }}>
+                    <div className="overflow-y-auto" style={{ maxHeight: compact ? '3.5rem' : '7.5rem' }}>
                         {[...laps].reverse().map((lap, i) => {
                             const idx = laps.length - 1 - i;
                             const isFastest = rankedLaps.length > 1 && lap.time === rankedLaps[0].time;
@@ -356,24 +359,24 @@ function AdvancedStopwatch({ onRecord, onClear, onAdvance, onPrev, onNext, onUnd
                                 if (!up && !down) return null;
                                 const path = up ? 'M6 10L6 2M6 2L3 5M6 2L9 5' : 'M6 2L6 10M6 10L3 7M6 10L9 7';
                                 return (
-                                    <svg width="8" height="8" viewBox="0 0 12 12" fill="none" className="inline-block ml-0.5 -mt-px" style={{ opacity }}>
+                                    <svg width={compact ? '6' : '8'} height={compact ? '6' : '8'} viewBox="0 0 12 12" fill="none" className="inline-block ml-0.5 -mt-px" style={{ opacity }}>
                                         <path d={path} stroke={stroke} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                                     </svg>
                                 );
                             };
                             return (
-                                <div key={idx} className="grid grid-cols-3 items-center px-3 py-1.5 border-b"
+                                <div key={idx} className={`grid grid-cols-3 items-center px-3 ${compact ? 'py-0.5' : 'py-1.5'} border-b`}
                                      style={{ background: rowBg, borderColor: '#f2f2f7' }}>
                                     <div className="flex items-center">
-                                        <span className="text-xs font-semibold tabular-nums" style={{ color: numColor }}>
+                                        <span className={`${compact ? 'text-[10px]' : 'text-xs'} font-semibold tabular-nums`} style={{ color: numColor }}>
                                             {String(idx + 1).padStart(2, '0')}
                                         </span>
                                         <ArrowIcon />
                                     </div>
-                                    <span className="text-xs font-semibold tabular-nums text-center" style={{ color: timeColor }}>
+                                    <span className={`${compact ? 'text-[10px]' : 'text-xs'} font-semibold tabular-nums text-center`} style={{ color: timeColor }}>
                                         {formatSeconds(lap.time)}
                                     </span>
-                                    <span className="text-xs font-semibold tabular-nums text-right" style={{ color: '#3c3c43' }}>
+                                    <span className={`${compact ? 'text-[10px]' : 'text-xs'} font-semibold tabular-nums text-right`} style={{ color: '#3c3c43' }}>
                                         {formatSeconds(lap.total)}
                                     </span>
                                 </div>
@@ -385,7 +388,7 @@ function AdvancedStopwatch({ onRecord, onClear, onAdvance, onPrev, onNext, onUnd
 
             {/* CV bar — visible at all times when 2+ laps */}
             {laps.length >= 2 && (
-                <div className={`mx-2 mb-1 px-3 py-1 flex items-center justify-between text-[10px] font-bold rounded-xl border ${cvColor}`}>
+                <div className={`mx-2 mb-1 px-3 ${compact ? 'py-0.5 text-[8.5px] rounded-lg' : 'py-1 text-[10px] rounded-xl'} font-bold border ${cvColor}`}>
                     <span className="uppercase tracking-wide">{cvLabel}</span>
                     <span className="font-mono">CV {cv.toFixed(1)}%</span>
                 </div>
@@ -393,10 +396,10 @@ function AdvancedStopwatch({ onRecord, onClear, onAdvance, onPrev, onNext, onUnd
 
             {/* Completed overlay — shown when all laps done, but user stays here to verify */}
             {isCompleted && (
-                <div className="mx-2 mb-1 flex flex-col gap-1.5">
+                <div className={`mx-2 mb-1 flex flex-col ${compact ? 'gap-0.5' : 'gap-1.5'}`}>
                     {/* Lifson warning if needed */}
                     {nRequired !== null && nRequired > neededLaps && (
-                        <div className="px-3 py-1 rounded-xl border border-amber-200 bg-amber-50 text-[10px] font-bold text-amber-700">
+                        <div className={`px-2.5 ${compact ? 'py-0.5 text-[8.5px] rounded-lg' : 'py-1 text-[10px] rounded-xl'} border border-amber-200 bg-amber-50 font-bold text-amber-700`}>
                             ⚠ Lifson : {nRequired} relevés recommandés pour fiabilité 95%
                         </div>
                     )}
@@ -407,114 +410,195 @@ function AdvancedStopwatch({ onRecord, onClear, onAdvance, onPrev, onNext, onUnd
                         const sd = Math.sqrt(arr.reduce((acc,v)=>acc+Math.pow(v-m,2),0)/arr.length);
                         return Math.abs(t - m) > 2 * sd;
                     }) && (
-                        <div className="px-3 py-1 rounded-xl border border-rose-200 bg-rose-50 text-[10px] font-bold text-rose-700">
+                        <div className={`px-2.5 ${compact ? 'py-0.5 text-[8.5px] rounded-lg' : 'py-1 text-[10px] rounded-xl'} border border-rose-200 bg-rose-50 font-bold text-rose-700`}>
                             ✗ Valeur aberrante détectée — vérifiez avant de continuer
                         </div>
                     )}
-                    <div className="flex items-center gap-1.5 bg-emerald-50 border border-emerald-200 rounded-xl px-3 py-1.5">
-                        <div className="w-4 h-4 rounded-full bg-emerald-500 flex items-center justify-center shrink-0">
-                            <Hash className="w-2.5 h-2.5 text-white" />
+                    <div className={`flex items-center gap-1.5 bg-emerald-50 border border-emerald-200 rounded-xl px-2.5 ${compact ? 'py-0.5 text-[9px]' : 'py-1.5'}`}>
+                        <div className={`${compact ? 'w-3 h-3' : 'w-4 h-4'} rounded-full bg-emerald-500 flex items-center justify-center shrink-0`}>
+                            <Hash className={`${compact ? 'w-1.5 h-1.5' : 'w-2.5 h-2.5'} text-white`} />
                         </div>
-                        <span className="text-[11px] font-bold text-emerald-700">{trCount} relevés enregistrés</span>
+                        <span className={`${compact ? 'text-[9px]' : 'text-[11px]'} font-bold text-emerald-700`}>{trCount} relevés enregistrés</span>
                     </div>
                 </div>
             )}
 
-            {/* Bottom action bar — always visible */}
-            <div className="mx-2 mb-2 flex flex-col gap-1">
-                {/* Effacer / Nouveau cycle — always available */}
-                {(laps.length > 0 || isCompleted || initialFilledRef.current > 0) && !confirmClear && (
-                    <div className="flex gap-1.5">
-                        {isCompleted && (
-                            <button onClick={handleReset}
-                                className="flex-1 flex items-center justify-center gap-1 py-1.5 rounded-xl text-[11px] font-bold active:scale-95 transition-all"
-                                style={{ background: '#e5e5ea', color: '#3c3c43' }}>
-                                <RotateCcw className="w-3 h-3" /> Nouveau cycle
-                            </button>
-                        )}
-                        <button onClick={() => setConfirmClear(true)}
-                            className="flex-1 flex items-center justify-center gap-1 py-1.5 rounded-xl text-[11px] font-bold active:scale-95 transition-all"
-                            style={{ background: '#ffe5e5', color: '#e5383b', border: '1px solid #fecaca' }}>
-                            <X className="w-3 h-3" /> Effacer
+            {/* Bottom action & navigation bar */}
+            {compact ? (
+                <div className="mx-2 mb-1.5 flex flex-col gap-1.5">
+                    {/* Navigation, Dots, and Reset/Clear Actions in one compact row */}
+                    <div className="flex items-center justify-between gap-1.5 mt-0.5">
+                        {/* Prev arrow */}
+                        <button
+                            onClick={onPrev}
+                            disabled={!onPrev}
+                            className="flex items-center justify-center active:scale-95 transition-transform"
+                            style={{
+                                width: '1.5rem', height: '1.5rem', borderRadius: '0.4rem',
+                                background: onPrev ? '#e5e5ea' : 'transparent',
+                                color: onPrev ? '#3c3c43' : '#c7c7cc',
+                                border: 'none', outline: 'none',
+                                cursor: onPrev ? 'pointer' : 'not-allowed',
+                            }}
+                            title="Poste précédent"
+                        >
+                            <ChevronDown className="w-3.5 h-3.5 rotate-90" />
+                        </button>
+
+                        {/* Middle: Actions OR Dots */}
+                        <div className="flex-1 flex justify-center items-center gap-1.5">
+                            {confirmClear ? (
+                                <div className="flex gap-1.5 items-center">
+                                    <span className="text-[8px] font-bold text-rose-600">Effacer?</span>
+                                    <button onClick={() => setConfirmClear(false)} className="px-1.5 py-0.5 text-[8px] font-bold bg-slate-200 rounded">Non</button>
+                                    <button onClick={() => { onClear(); handleReset(); setConfirmClear(false); vibrate([50, 30, 50]); }} className="px-1.5 py-0.5 text-[8px] font-bold bg-rose-500 text-white rounded">Oui</button>
+                                </div>
+                            ) : isCompleted ? (
+                                <div className="flex gap-1">
+                                    <button onClick={handleReset} className="flex items-center gap-0.5 px-2 py-0.5 text-[8.5px] font-bold bg-slate-200 hover:bg-slate-300 rounded text-slate-750 active:scale-95 transition-all">
+                                        <RotateCcw className="w-2.5 h-2.5" /> Nouveau
+                                    </button>
+                                    <button onClick={() => setConfirmClear(true)} className="flex items-center gap-0.5 px-2 py-0.5 text-[8.5px] font-bold bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-600 rounded active:scale-95 transition-all">
+                                        <X className="w-2.5 h-2.5" /> Effacer
+                                    </button>
+                                </div>
+                            ) : (
+                                <>
+                                    {/* Progress dots */}
+                                    {neededLaps > 0 && (
+                                        <div className="flex gap-0.5 items-center justify-center">
+                                            {Array.from({ length: Math.min(neededLaps, 8) }, (_, k) => (
+                                                <div key={k} className="rounded-full transition-colors duration-200"
+                                                     style={{ width: '4px', height: '4px', background: k < laps.length ? '#3a6bdc' : '#d1d1d6' }} />
+                                            ))}
+                                            {neededLaps > 8 && <span className="text-[7px] font-bold text-slate-500">+{neededLaps - 8}</span>}
+                                        </div>
+                                    )}
+                                    {/* Inline clear button if has laps but not finished */}
+                                    {(laps.length > 0 || initialFilledRef.current > 0) && (
+                                        <button onClick={() => setConfirmClear(true)} className="ml-1 p-0.5 text-slate-400 hover:text-rose-500 rounded active:scale-95 transition-all" title="Effacer tout">
+                                            <Trash2 className="w-3 h-3" />
+                                        </button>
+                                    )}
+                                </>
+                            )}
+                        </div>
+
+                        {/* Next arrow */}
+                        <button
+                            onClick={onNext || onAdvance}
+                            disabled={!onNext && !onAdvance}
+                            className="flex items-center justify-center active:scale-95 transition-transform"
+                            style={{
+                                width: '1.5rem', height: '1.5rem', borderRadius: '0.4rem',
+                                background: isCompleted ? '#34c759' : (onNext || onAdvance) ? '#e5e5ea' : 'transparent',
+                                color: isCompleted ? '#fff' : (onNext || onAdvance) ? '#3c3c43' : '#c7c7cc',
+                                border: 'none', outline: 'none',
+                                cursor: (onNext || onAdvance) ? 'pointer' : 'not-allowed',
+                                boxShadow: isCompleted ? '0 1px 6px rgba(52,199,89,0.3)' : 'none',
+                            }}
+                            title="Poste suivant"
+                        >
+                            <ChevronDown className="w-3.5 h-3.5 -rotate-90" />
                         </button>
                     </div>
-                )}
-                {confirmClear && (
-                    <div className="flex flex-col gap-1">
-                        <p className="text-[10px] font-bold text-rose-600 text-center">Effacer les {trCount} relevés ?</p>
+                </div>
+            ) : (
+                <div className="mx-2 mb-2 flex flex-col gap-1">
+                    {/* Effacer / Nouveau cycle — always available */}
+                    {(laps.length > 0 || isCompleted || initialFilledRef.current > 0) && !confirmClear && (
                         <div className="flex gap-1.5">
-                            <button onClick={() => setConfirmClear(false)}
-                                className="flex-1 py-1.5 rounded-xl text-[11px] font-bold active:scale-95 transition-all"
-                                style={{ background: '#e5e5ea', color: '#3c3c43' }}>Annuler</button>
-                            <button onClick={() => { onClear(); handleReset(); setConfirmClear(false); vibrate([50, 30, 50]); }}
-                                className="flex-1 py-1.5 rounded-xl text-white text-[11px] font-bold active:scale-95 transition-all"
-                                style={{ background: '#e5383b' }}>Confirmer</button>
+                            {isCompleted && (
+                                <button onClick={handleReset}
+                                    className={`flex-1 flex items-center justify-center gap-1 py-1.5 text-[11px] font-bold active:scale-95 transition-all`}
+                                    style={{ background: '#e5e5ea', color: '#3c3c43' }}>
+                                    <RotateCcw className="w-3 h-3" /> Nouveau cycle
+                                </button>
+                            )}
+                            <button onClick={() => setConfirmClear(true)}
+                                className={`flex-1 flex items-center justify-center gap-1 py-1.5 text-[11px] font-bold active:scale-95 transition-all`}
+                                style={{ background: '#ffe5e5', color: '#e5383b', border: '1px solid #fecaca' }}>
+                                <X className="w-3 h-3" /> Effacer
+                            </button>
                         </div>
-                    </div>
-                )}
-
-                {/* Navigation row: ‹ prev | dots | next › */}
-                <div className="flex items-center justify-between mt-0.5">
-                    {/* Prev arrow */}
-                    <button
-                        onClick={onPrev}
-                        disabled={!onPrev}
-                        className="flex items-center justify-center active:scale-95 transition-transform"
-                        style={{
-                            width: '2rem', height: '2rem', borderRadius: '0.5rem',
-                            background: onPrev ? '#e5e5ea' : 'transparent',
-                            color: onPrev ? '#3c3c43' : '#c7c7cc',
-                            border: 'none', outline: 'none',
-                            cursor: onPrev ? 'pointer' : 'not-allowed',
-                        }}
-                        title="Poste précédent"
-                    >
-                        <ChevronDown className="w-4 h-4 rotate-90" />
-                    </button>
-
-                    {/* Lap dots */}
-                    {!isCompleted && neededLaps > 0 && (
-                        <div className="flex gap-1 items-center flex-wrap justify-center" style={{ maxWidth: '5rem' }}>
-                            {Array.from({ length: Math.min(neededLaps, 10) }, (_, k) => (
-                                <div key={k} className="rounded-full transition-colors duration-200"
-                                     style={{ width: '5px', height: '5px', background: k < laps.length ? '#3a6bdc' : '#d1d1d6' }} />
-                            ))}
-                            {neededLaps > 10 && <span className="text-[8px] font-bold" style={{ color: '#8e8e93' }}>+{neededLaps - 10}</span>}
+                    )}
+                    {confirmClear && (
+                        <div className="flex flex-col gap-1">
+                            <p className="text-[10px] font-bold text-rose-600 text-center">Effacer les {trCount} relevés ?</p>
+                            <div className="flex gap-1.5">
+                                <button onClick={() => setConfirmClear(false)}
+                                    className="flex-1 py-1.5 text-[11px] font-bold active:scale-95 transition-all"
+                                    style={{ background: '#e5e5ea', color: '#3c3c43' }}>Annuler</button>
+                                <button onClick={() => { onClear(); handleReset(); setConfirmClear(false); vibrate([50, 30, 50]); }}
+                                    className="flex-1 py-1.5 text-[11px] font-bold active:scale-95 transition-all text-white"
+                                    style={{ background: '#e5383b' }}>Confirmer</button>
+                            </div>
                         </div>
                     )}
 
-                    {/* Next arrow — green when completed, gray otherwise */}
-                    <button
-                        onClick={onNext || onAdvance}
-                        disabled={!onNext && !onAdvance}
-                        className="flex items-center justify-center active:scale-95 transition-transform"
-                        style={{
-                            width: '2rem', height: '2rem', borderRadius: '0.5rem',
-                            background: isCompleted ? '#34c759' : (onNext || onAdvance) ? '#e5e5ea' : 'transparent',
-                            color: isCompleted ? '#fff' : (onNext || onAdvance) ? '#3c3c43' : '#c7c7cc',
-                            border: 'none', outline: 'none',
-                            cursor: (onNext || onAdvance) ? 'pointer' : 'not-allowed',
-                            boxShadow: isCompleted ? '0 2px 8px rgba(52,199,89,0.35)' : 'none',
-                        }}
-                        title="Poste suivant"
-                    >
-                        <ChevronDown className="w-4 h-4 -rotate-90" />
-                    </button>
+                    {/* Navigation row: ‹ prev | dots | next › */}
+                    <div className="flex items-center justify-between mt-0.5">
+                        {/* Prev arrow */}
+                        <button
+                            onClick={onPrev}
+                            disabled={!onPrev}
+                            className="flex items-center justify-center active:scale-95 transition-transform"
+                            style={{
+                                width: '2rem', height: '2rem', borderRadius: '0.5rem',
+                                background: onPrev ? '#e5e5ea' : 'transparent',
+                                color: onPrev ? '#3c3c43' : '#c7c7cc',
+                                border: 'none', outline: 'none',
+                                cursor: onPrev ? 'pointer' : 'not-allowed',
+                            }}
+                            title="Poste précédent"
+                        >
+                            <ChevronDown className="w-4 h-4 rotate-90" />
+                        </button>
+
+                        {/* Lap dots */}
+                        {!isCompleted && neededLaps > 0 && (
+                            <div className="flex gap-1 items-center flex-wrap justify-center" style={{ maxWidth: '5rem' }}>
+                                {Array.from({ length: Math.min(neededLaps, 10) }, (_, k) => (
+                                    <div key={k} className="rounded-full transition-colors duration-200"
+                                         style={{ width: '5px', height: '5px', background: k < laps.length ? '#3a6bdc' : '#d1d1d6' }} />
+                                ))}
+                                {neededLaps > 10 && <span className="text-[8px] font-bold" style={{ color: '#8e8e93' }}>+{neededLaps - 10}</span>}
+                            </div>
+                        )}
+
+                        {/* Next arrow — green when completed, gray otherwise */}
+                        <button
+                            onClick={onNext || onAdvance}
+                            disabled={!onNext && !onAdvance}
+                            className="flex items-center justify-center active:scale-95 transition-transform"
+                            style={{
+                                width: '2rem', height: '2rem', borderRadius: '0.5rem',
+                                background: isCompleted ? '#34c759' : (onNext || onAdvance) ? '#e5e5ea' : 'transparent',
+                                color: isCompleted ? '#fff' : (onNext || onAdvance) ? '#3c3c43' : '#c7c7cc',
+                                border: 'none', outline: 'none',
+                                cursor: (onNext || onAdvance) ? 'pointer' : 'not-allowed',
+                                boxShadow: isCompleted ? '0 2px 8px rgba(52,199,89,0.35)' : 'none',
+                            }}
+                            title="Poste suivant"
+                        >
+                            <ChevronDown className="w-4 h-4 -rotate-90" />
+                        </button>
+                    </div>
                 </div>
-            </div>
+            )}
 
             {/* Main stopwatch controls (Tour / Arrêt-Début) */}
             {!isCompleted && (
-                <div className="flex items-center justify-between px-3 pb-2.5 pt-0 relative bg-[#f2f2f7]">
+                <div className={`flex items-center justify-between px-3 ${compact ? 'pb-2 pt-0' : 'pb-2.5 pt-0'} relative bg-[#f2f2f7]`}>
                     <button
                         onClick={handleLapOrReset}
                         disabled={elapsed === 0 && !running}
                         className="flex items-center justify-center active:scale-95 transition-transform"
                         style={{
-                            width: '4.25rem', height: '2rem', borderRadius: '1rem',
+                            width: compact ? '3.75rem' : '4.25rem', height: compact ? '1.75rem' : '2rem', borderRadius: compact ? '0.875rem' : '1rem',
                             background: '#e5e5ea', border: 'none', outline: 'none',
                             color: elapsed === 0 && !running ? '#c7c7cc' : '#1c1c1e',
-                            fontWeight: 600, fontSize: '0.78rem',
+                            fontWeight: 600, fontSize: compact ? '0.72rem' : '0.78rem',
                             boxShadow: elapsed === 0 && !running ? 'none' : '0 1px 6px rgba(0,0,0,0.10)',
                             cursor: elapsed === 0 && !running ? 'not-allowed' : 'pointer',
                         }}
@@ -524,9 +608,9 @@ function AdvancedStopwatch({ onRecord, onClear, onAdvance, onPrev, onNext, onUnd
                     <div className="flex-1 flex justify-center items-center">
                         {laps.length > 0 && !isCompleted && (
                             <button onClick={handleUndo}
-                                className="flex items-center gap-0.5 text-[9px] font-bold px-2 py-1 rounded-full active:scale-95 transition-all hover:bg-white/50"
+                                className={`flex items-center gap-0.5 ${compact ? 'text-[8px]' : 'text-[9px]'} font-bold px-2 py-0.5 rounded-full active:scale-95 transition-all hover:bg-white/50`}
                                 style={{ color: '#8e8e93', background: 'rgba(0,0,0,0.04)' }} title="Annuler le dernier relevé">
-                                <RotateCcw className="w-2.5 h-2.5" /> Annuler
+                                <RotateCcw className={compact ? 'w-2 h-2' : 'w-2.5 h-2.5'} /> Annuler
                             </button>
                         )}
                     </div>
@@ -534,9 +618,9 @@ function AdvancedStopwatch({ onRecord, onClear, onAdvance, onPrev, onNext, onUnd
                         onClick={() => setRunning(!running)}
                         className="flex items-center justify-center active:scale-95 transition-transform"
                         style={{
-                            width: '4.25rem', height: '2rem', borderRadius: '1rem',
+                            width: compact ? '3.75rem' : '4.25rem', height: compact ? '1.75rem' : '2rem', borderRadius: compact ? '0.875rem' : '1rem',
                             background: running ? '#e5383b' : '#34c759', border: 'none', outline: 'none',
-                            color: '#ffffff', fontWeight: 600, fontSize: '0.78rem', cursor: 'pointer',
+                            color: '#ffffff', fontWeight: 600, fontSize: compact ? '0.72rem' : '0.78rem', cursor: 'pointer',
                             boxShadow: running ? '0 2px 8px rgba(229,56,59,0.30)' : '0 2px 8px rgba(52,199,89,0.30)',
                         }}
                     >
@@ -1352,69 +1436,61 @@ export default function Chronometrage({
         const median = getMedian(rowTRs);
 
         return (
-            <div className="w-full mt-3 p-1 animate-in slide-in-from-top-1 duration-200">
-                {/* Calculations card: T.MOY | MAJ | T.MAJ */}
-                <div className="grid grid-cols-3 bg-white border border-slate-200 rounded-xl p-3 shadow-sm mb-3 text-left">
-                    <div className="text-center flex flex-col items-center justify-between">
-                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">T.MOY</span>
-                        <div className="mt-1 relative flex flex-col items-center w-full">
+            <div className="w-full mt-1.5 p-0.5 animate-in slide-in-from-top-1 duration-200">
+                {/* Combined Calculations & TR inputs card */}
+                <div className="bg-slate-50 border border-slate-200 rounded-xl p-1.5 sm:p-2 mb-1.5 flex flex-col gap-1.5 text-left">
+                    {/* Top row: Calculations */}
+                    <div className="flex items-center justify-between gap-2 border-b border-slate-200/60 pb-1 flex-wrap">
+                        <div className="flex items-center gap-1">
+                            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wide">T.Moy:</span>
                             <input
                                 type="number"
                                 step="0.01"
                                 min="0"
-                                className={`w-full max-w-[5.5rem] py-1 px-1.5 text-center text-xs font-mono font-bold text-slate-700 bg-slate-50 border border-slate-255 rounded-md focus:bg-white focus:border-indigo-400 outline-none ${INPUT_NO_SPIN}`}
+                                className={`w-12 py-0.5 px-0.5 text-center text-xs font-mono font-bold text-slate-700 bg-white border border-slate-200 rounded focus:border-indigo-400 outline-none ${INPUT_NO_SPIN}`}
                                 placeholder="—"
                                 value={row.tm !== undefined ? displayValue(row.tm) : ''}
                                 onChange={e => handleCellChange(op.id, 'tm', e.target.value, stId)}
                             />
                             {row.tmManual && (
-                                <span className="text-[8px] font-bold text-indigo-500 uppercase tracking-wider mt-0.5">manuel</span>
+                                <span className="text-[7px] font-bold text-indigo-500 uppercase tracking-wider">manuel</span>
                             )}
                         </div>
-                    </div>
-                    
-                    <div className="w-px h-8 bg-slate-200 self-center mx-auto" />
-                    
-                    <div className="text-center flex flex-col items-center justify-between">
-                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">MAJ</span>
-                        <input
-                            type="number"
-                            step="0.01"
-                            min="0"
-                            className={`mt-1 w-full max-w-[4.5rem] py-1 px-1.5 text-center text-xs font-mono font-bold text-slate-700 bg-slate-50 border border-slate-255 rounded-md focus:bg-white focus:border-indigo-400 outline-none ${INPUT_NO_SPIN}`}
-                            value={data.majoration !== undefined ? displayValue(data.majoration) : ''}
-                            onChange={e => handleCellChange(op.id, 'majoration', e.target.value, stId)}
-                        />
-                    </div>
-                    
-                    <div className="w-px h-8 bg-slate-200 self-center mx-auto" />
-                    
-                    <div className="text-center flex flex-col items-center justify-between">
-                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">T.MAJ</span>
-                        <span className="mt-2 text-sm font-black text-emerald-600 font-mono block">
-                            {row.tempMajore !== undefined ? formatTempMajoreInUnit(row.tempMajore) : '—'}
-                        </span>
-                    </div>
-                </div>
 
-                {/* Compact TR inputs if trEnabled */}
-                {trEnabled && (
-                    <div className="bg-slate-50 border border-slate-100 rounded-xl p-2.5 mb-3 text-left">
-                        <div className="flex items-center justify-between mb-1.5 px-1">
-                            <span className="text-[9px] font-bold uppercase tracking-wider text-slate-450">Saisie Relevés (TR)</span>
-                            <span className="text-[8px] font-bold text-slate-400 bg-slate-100 px-1 py-0.5 rounded">Config: {trCount}</span>
+                        <div className="flex items-center gap-1">
+                            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wide">Majoration:</span>
+                            <input
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                className={`w-10 py-0.5 px-0.5 text-center text-xs font-mono font-bold text-slate-700 bg-white border border-slate-200 rounded focus:border-indigo-400 outline-none ${INPUT_NO_SPIN}`}
+                                value={data.majoration !== undefined ? displayValue(data.majoration) : ''}
+                                onChange={e => handleCellChange(op.id, 'majoration', e.target.value, stId)}
+                            />
                         </div>
-                        <div className="flex flex-wrap gap-1.5 justify-center">
-                            {trSlots.map(trNum => {
-                                const val = data[`tr${trNum}` as keyof ChronoData];
-                                const hasVal = val !== undefined && val !== null && (val as number) > 0;
-                                const status = hasVal ? classifyTR(val as number, median) : 'normal';
-                                return (
-                                    <div key={trNum} className="relative group/cell w-11 text-center">
-                                        <div className="relative">
+
+                        <div className="flex items-center gap-1">
+                            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wide">T.Maj:</span>
+                            <span className="text-xs font-black text-emerald-600 font-mono">
+                                {row.tempMajore !== undefined ? formatTempMajoreInUnit(row.tempMajore) : '—'}
+                            </span>
+                        </div>
+                    </div>
+
+                    {/* Bottom row: TR Inputs */}
+                    {trEnabled && (
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="text-[8px] font-bold uppercase tracking-wider text-slate-400 shrink-0">Relevés:</span>
+                            <div className="flex gap-0.5 items-center flex-wrap">
+                                {trSlots.map(trNum => {
+                                    const val = data[`tr${trNum}` as keyof ChronoData];
+                                    const hasVal = val !== undefined && val !== null && (val as number) > 0;
+                                    const status = hasVal ? classifyTR(val as number, median) : 'normal';
+                                    return (
+                                        <div key={trNum} className="relative group/cell w-8 text-center">
                                             <input
                                                 type="number" step="0.01" min="0"
-                                                className={`w-full py-1 text-center text-xs font-mono font-bold border rounded-md bg-white focus:border-indigo-400 outline-none transition-all placeholder:text-slate-300 ${INPUT_NO_SPIN} ${hasVal ? trStatusStyles[status] : 'text-indigo-600 border-slate-200'}`}
+                                                className={`w-full py-0.5 text-center text-[9px] font-mono font-bold border rounded bg-white focus:border-indigo-400 outline-none transition-all placeholder:text-slate-300 ${INPUT_NO_SPIN} ${hasVal ? trStatusStyles[status] : 'text-indigo-600 border-slate-200'}`}
                                                 placeholder={`TR${trNum}`}
                                                 value={hasVal && typeof val === 'number' ? displayValue(val) : ''}
                                                 onChange={e => handleCellChange(op.id, `tr${trNum}` as keyof ChronoData, e.target.value, stId)}
@@ -1424,19 +1500,19 @@ export default function Chronometrage({
                                                     type="button"
                                                     aria-label={`Supprimer TR ${trNum}`}
                                                     onClick={(e) => handleClearTRClick(e, op.id, trNum, stId)}
-                                                    className="absolute -top-1 -right-1 z-10 flex h-[12px] w-[12px] items-center justify-center rounded-full border border-rose-200 bg-white text-rose-500 shadow-sm opacity-0 scale-90 transition-all duration-200 group-hover/cell:opacity-100 group-hover/cell:scale-100 hover:bg-rose-50 hover:text-rose-600"
+                                                    className="absolute -top-1 -right-1 z-10 flex h-[10px] w-[10px] items-center justify-center rounded-full border border-rose-200 bg-white text-rose-500 shadow-sm opacity-0 scale-90 transition-all duration-200 group-hover/cell:opacity-100 group-hover/cell:scale-100 hover:bg-rose-50 hover:text-rose-600"
                                                     title="Supprimer"
                                                 >
-                                                    <X className="w-2 h-2" />
+                                                    <X className="w-1.5 h-1.5" />
                                                 </button>
                                             )}
                                         </div>
-                                    </div>
-                                );
-                            })}
+                                    );
+                                })}
+                            </div>
                         </div>
-                    </div>
-                )}
+                    )}
+                </div>
 
                 {/* Stopwatch Component */}
                 <AdvancedStopwatch
@@ -1449,33 +1525,75 @@ export default function Chronometrage({
                     onUndoLast={() => clearLastTR(op.id, stId)}
                     trCount={trCount}
                     filledCount={filledTRs}
+                    compact={true}
                 />
             </div>
         );
     };
 
-    const renderPlantationStationCard = (st: Workstation) => {
-        const fill = st.color?.fill || '#64748b';
+    const isOperationCompleted = (st: Workstation, op: Operation) => {
+        const data = ensureRow(op.id, chronoData[`${st.id}__${op.id}`] || chronoData[op.id]);
+        const filledTRs = trSlots.filter(n => data[`tr${n}` as keyof ChronoData] !== undefined).length;
+        return trEnabled ? (filledTRs >= trCount) : (data.tm !== undefined);
+    };
+
+    const renderPlantationOperationCard = (st: Workstation, op: Operation, opIdx: number, totalOps: number) => {
+        const color = st.color || POSTE_COLORS[0];
+        const fill = color.fill || '#64748b';
         const sat = Math.round(st.saturation || 0);
-        const isCompleted = isWorkstationCompleted(st);
+        const isCompleted = isOperationCompleted(st, op);
+        const tolerance = toleranceSaturation ?? 115;
         
-        const stationMeasuredTime = st.operations.reduce((acc, op) => {
-            const row = recalcRow(ensureRow(op.id, chronoData[`${st.id}__${op.id}`] || chronoData[op.id]), unit);
-            const timeInSec = row.tempMajore ? (row.tempMajore * 60) : (op.time * 60);
-            return acc + timeInSec;
+        const row = recalcRow(ensureRow(op.id, chronoData[`${st.id}__${op.id}`] || chronoData[op.id]), unit);
+        const timeInSec = row.tempMajore ? (row.tempMajore * 60) : (op.time * 60);
+        
+        const stationMeasuredTime = st.operations.reduce((acc, o) => {
+            const r = recalcRow(ensureRow(o.id, chronoData[`${st.id}__${o.id}`] || chronoData[o.id]), unit);
+            const tInSec = r.tempMajore ? (r.tempMajore * 60) : (o.time * 60);
+            return acc + tInSec;
         }, 0);
-        
-        const photos = st.operations.map(op => op.photo).filter(Boolean) as string[];
+        const stationTimeInSeconds = Math.round(stationMeasuredTime);
+
+        // Saturation badge & progress classes (mirroring Implantation)
+        let satBadgeClass = 'bg-emerald-50 text-emerald-500';
+        let satProgressFill = fill;
+        if (sat > tolerance) {
+            satBadgeClass = 'bg-rose-100 text-rose-700 border border-rose-200';
+            satProgressFill = '#ef4444';
+        } else if (sat >= 100) {
+            satBadgeClass = 'bg-emerald-100 text-emerald-700 border border-emerald-200';
+            satProgressFill = '#10b981';
+        } else if (sat >= 70) {
+            satBadgeClass = 'bg-emerald-50 text-emerald-700 border border-emerald-100';
+            satProgressFill = '#10b981';
+        } else if (sat >= 40) {
+            satBadgeClass = 'bg-amber-50 text-amber-700 border border-amber-100';
+            satProgressFill = '#f59e0b';
+        } else {
+            satBadgeClass = 'bg-slate-50 text-slate-500 border border-slate-200';
+            satProgressFill = '#64748b';
+        }
+
+        const isOpActive = `${st.id}__${op.id}` === activeRowId;
 
         return (
             <div
-                key={st.id}
-                className="bg-white rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow p-4 relative flex flex-col gap-3 border-l-[6px] text-left"
+                key={`${st.id}__${op.id}`}
+                onClick={() => {
+                    const key = `${st.id}__${op.id}`;
+                    setActiveRowId(activeRowId === key ? null : key);
+                    setExpandedRows(prev => {
+                        const next = new Set(prev);
+                        if (activeRowId === key) next.delete(op.id); else next.add(op.id);
+                        return next;
+                    });
+                }}
+                className={`bg-white rounded-xl sm:rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-all p-3 sm:p-4 relative flex flex-col gap-2 sm:gap-3 border-l-[4px] sm:border-l-[6px] text-left cursor-pointer ${isOpActive ? 'ring-2 ring-indigo-500 shadow-md font-extrabold' : ''}`}
                 style={{ borderLeftColor: fill }}
             >
                 {/* Card Header */}
-                <div className="flex items-center justify-between gap-2 pb-2.5 border-b border-slate-100">
-                    <div className="flex items-center gap-2.5">
+                <div className="flex items-center justify-between gap-2 pb-2 sm:pb-2.5 border-b border-slate-100">
+                    <div className="flex items-center gap-1.5 sm:gap-2.5 flex-1 min-w-0 flex-wrap sm:flex-nowrap">
                         {/* Checkbox */}
                         <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-colors shrink-0 ${isCompleted ? 'border-emerald-500 bg-emerald-500 text-white shadow-sm' : 'border-slate-300 bg-white'}`}>
                             {isCompleted && (
@@ -1484,82 +1602,88 @@ export default function Chronometrage({
                                 </svg>
                             )}
                         </div>
-                        {/* Index Badge */}
-                        <span className="bg-indigo-650 text-white text-[10px] px-1.5 py-0.5 rounded font-black tracking-wide shrink-0">
+
+                        {/* Photo preview before the post name/number */}
+                        {op.photo && (
+                            <img
+                                src={op.photo}
+                                className="w-8 h-8 sm:w-9 sm:h-9 object-cover rounded-lg border border-slate-200 shadow-sm shrink-0"
+                                alt="Op"
+                                onClick={(e) => e.stopPropagation()}
+                            />
+                        )}
+
+                        {/* Flow Index (e.g. #1) */}
+                        <span className="bg-slate-100 text-slate-700 text-[10px] px-1.5 py-0.5 rounded border border-slate-200 font-extrabold shrink-0" title="Ordre dans le flux">
                             #{st.index}
                         </span>
-                        {/* Station Name & Operator */}
-                        <div className="flex flex-col text-left">
-                            <span className="text-sm font-black text-slate-800 leading-tight">{st.name}</span>
-                            <span className="text-[10px] font-semibold text-slate-400 leading-none mt-0.5">{st.operatorName || '—'}</span>
+
+                        {/* Workstation Badge (Post name like P1 or 2.1) */}
+                        <span className="bg-indigo-600 text-white text-[10px] sm:text-xs px-2 py-0.5 rounded font-black tracking-wide shrink-0">
+                            {st.name}
+                        </span>
+
+                        {/* Operation description and Station/Machine details */}
+                        <div className="flex flex-col text-left min-w-0 flex-1">
+                            <span className="text-xs sm:text-sm font-black text-slate-800 leading-tight truncate sm:whitespace-normal" title={op.description}>
+                                {op.description}
+                            </span>
+                            <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
+                                <span className="text-[9px] font-semibold text-slate-400">
+                                    M: {st.machine}
+                                </span>
+                                {st.operatorName && (
+                                    <span className="text-[9px] font-bold text-slate-400">
+                                        ({st.operatorName})
+                                    </span>
+                                )}
+                                {totalOps > 1 && (
+                                    <span className="text-[9px] font-bold uppercase text-indigo-650 bg-indigo-50 border border-indigo-100 px-1 py-0.2 rounded leading-none shrink-0">
+                                        Op {opIdx + 1}/{totalOps}
+                                    </span>
+                                )}
+                            </div>
                         </div>
                     </div>
                     
-                    {/* Time & Saturation */}
-                    <div className="flex items-center gap-2">
-                        <span className="font-mono font-black text-indigo-700 text-xs shrink-0 bg-indigo-50 border border-indigo-100/50 px-2 py-0.5 rounded-lg">
-                            {Math.round(stationMeasuredTime)}s
-                        </span>
-                        <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-black border shadow-sm ${getSaturationBadgeStyles(sat)} shrink-0`}>
-                            {sat}%
+                    {/* Time */}
+                    <div className="flex items-center gap-1 shrink-0 self-start sm:self-center">
+                        <span className="text-[9px] sm:text-[10px] font-bold text-slate-400">TS</span>
+                        <span className="font-mono font-black text-indigo-700 text-[11px] sm:text-xs bg-indigo-50 border border-indigo-100/50 px-1.5 sm:px-2 py-0.5 rounded-lg shrink-0">
+                            {Math.round(timeInSec)}s
                         </span>
                     </div>
                 </div>
 
-                {/* Photos Row */}
-                {photos.length > 0 && (
-                    <div className="flex gap-1.5 flex-wrap">
-                        {photos.slice(0, 3).map((p, idx) => (
-                            <img
-                                key={idx}
-                                src={p}
-                                className="w-16 h-16 object-cover rounded-xl border border-slate-200 shadow-sm"
-                                alt="Aperçu"
-                            />
-                        ))}
+                {/* Timing panel nested inside the active operation */}
+                {isOpActive && (
+                    <div onClick={(e) => e.stopPropagation()} className="cursor-default">
+                        {renderPlantationChronoPanel(op.id, st.id)}
                     </div>
                 )}
 
-                {/* Operations List */}
-                <div className="flex flex-col gap-2">
-                    {st.operations.map(op => {
-                        const isOpActive = `${st.id}__${op.id}` === activeRowId;
-                        
-                        return (
-                            <div key={op.id} className="flex flex-col">
-                                <button
-                                    type="button"
-                                    onClick={() => {
-                                        const key = `${st.id}__${op.id}`;
-                                        setActiveRowId(activeRowId === key ? null : key);
-                                        setExpandedRows(prev => {
-                                            const next = new Set(prev);
-                                            if (activeRowId === key) next.delete(op.id); else next.add(op.id);
-                                            return next;
-                                        });
-                                    }}
-                                    className={`flex items-center justify-between text-left p-2.5 rounded-xl border transition-all w-full focus:outline-none ${isOpActive ? 'bg-indigo-600 text-white border-indigo-600 shadow-md font-extrabold' : 'bg-slate-50 hover:bg-slate-100 text-slate-800 border-slate-200/85 font-semibold'}`}
-                                >
-                                    <span className="text-xs truncate flex-1 leading-tight pr-2" title={op.description}>
-                                        #{op.order} {op.description}
-                                    </span>
-                                    
-                                    <div className="flex items-center gap-1.5 shrink-0">
-                                        <span className={`text-[10px] font-bold font-mono ${isOpActive ? 'text-indigo-200' : 'text-slate-500'}`}>
-                                            {(() => {
-                                                const row = recalcRow(ensureRow(op.id, chronoData[`${st.id}__${op.id}`] || chronoData[op.id]), unit);
-                                                return row.tempMajore ? `${Math.round(row.tempMajore * 60)}s` : '— Sec';
-                                            })()}
-                                        </span>
-                                        <Timer className={`w-3.5 h-3.5 ${isOpActive ? 'text-indigo-200' : 'text-slate-400'}`} />
-                                    </div>
-                                </button>
+                {/* Footer: Station total time & sat indicator */}
+                <div className="flex items-center justify-between mt-auto pt-1.5 border-t border-slate-100">
+                    {totalOps > 1 ? (
+                        <div className="flex flex-col">
+                            <span className="text-[7px] font-bold text-slate-400 uppercase tracking-wider">Total Poste</span>
+                            <span className={`text-sm font-bold ${color.text}`}>{stationTimeInSeconds}s</span>
+                        </div>
+                    ) : (
+                        <div />
+                    )}
+                    <div className="flex flex-col items-end">
+                        <span className="text-[7px] font-bold text-slate-400 uppercase tracking-wider">Sat. Poste</span>
+                        <div className="flex items-center gap-1">
+                            {st.operators > 1 && <span className="text-[9px] font-black px-1 rounded bg-amber-100 text-amber-700">x{st.operators}</span>}
+                            <span className={`text-[9px] font-black px-1.5 py-0.5 rounded ${satBadgeClass}`}>{sat}%</span>
+                        </div>
+                    </div>
+                </div>
 
-                                {/* Timing panel nested inside the active operation */}
-                                {isOpActive && renderPlantationChronoPanel(op.id, st.id)}
-                            </div>
-                        );
-                    })}
+                {/* Bottom saturation progress bar */}
+                <div className="absolute bottom-0 left-0 h-1 bg-slate-200 w-full">
+                    <div className="h-full transition-all" style={{ width: `${Math.min(sat, 100)}%`, background: satProgressFill }}></div>
                 </div>
             </div>
         );
@@ -2180,7 +2304,7 @@ export default function Chronometrage({
                                                 <div className="bg-indigo-50 border border-indigo-100 text-indigo-850 py-2 px-3 rounded-xl font-black text-center text-xs uppercase tracking-wide">
                                                     CÔTÉ GAUCHE (POSTES IMPAIRS)
                                                 </div>
-                                                {sideA.map(st => renderPlantationStationCard(st))}
+                                                {sideA.map(st => st.operations.map((op, opIdx) => renderPlantationOperationCard(st, op, opIdx, st.operations.length)))}
                                             </div>
 
                                             {/* Right side: even stations */}
@@ -2188,7 +2312,7 @@ export default function Chronometrage({
                                                 <div className="bg-slate-100 border border-slate-250 text-slate-750 py-2 px-3 rounded-xl font-black text-center text-xs uppercase tracking-wide">
                                                     CÔTÉ DROIT (POSTES PAIRS)
                                                 </div>
-                                                {sideB.map(st => renderPlantationStationCard(st))}
+                                                {sideB.map(st => st.operations.map((op, opIdx) => renderPlantationOperationCard(st, op, opIdx, st.operations.length)))}
                                             </div>
                                         </div>
                                     </div>
@@ -2204,7 +2328,7 @@ export default function Chronometrage({
                                         </div>
 
                                         <div className="grid grid-cols-1 gap-4">
-                                            {section.stations.map(st => renderPlantationStationCard(st))}
+                                            {section.stations.map(st => st.operations.map((op, opIdx) => renderPlantationOperationCard(st, op, opIdx, st.operations.length)))}
                                         </div>
                                     </div>
                                 );

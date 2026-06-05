@@ -16,6 +16,7 @@ interface AuthContextType {
   loading: boolean;
   staticLogin?: (email: string, password: string) => Promise<{ ok: boolean; user?: User; message?: string }>;
   signup?: (email: string, password: string, name?: string) => Promise<{ ok: boolean; user?: User; message?: string; requiresConfirmation?: boolean }>;
+  signInWithGoogle?: () => Promise<{ ok: boolean; message?: string }>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -146,6 +147,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return { ok: true, user: u || undefined };
   };
 
+  const signInWithGoogle = async () => {
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        // Retour vers l'application après l'authentification Google.
+        // detectSessionInUrl (activé par défaut) capte la session, puis
+        // onAuthStateChange déclenche le mapping utilisateur + cloud sync.
+        redirectTo: window.location.origin,
+        queryParams: {
+          access_type: 'offline',
+          prompt: 'consent',
+        },
+      },
+    });
+    if (error) {
+      return { ok: false, message: error.message };
+    }
+    return { ok: true };
+  };
+
   const signup = async (email: string, password: string, name?: string) => {
     const { data, error } = await supabase.auth.signUp({
       email: email.trim().toLowerCase(),
@@ -172,6 +193,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         loading,
         staticLogin: IS_STATIC ? staticLogin : undefined,
         signup: IS_STATIC ? signup : undefined,
+        signInWithGoogle: IS_STATIC ? signInWithGoogle : undefined,
       }}
     >
       {children}

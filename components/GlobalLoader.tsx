@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from 'react';
-import BeraLogo from './BeraLogo';
 
 interface GlobalLoaderProps {
     isActive: boolean;
@@ -81,17 +80,6 @@ export default function GlobalLoader({
         <div className={wrapperClass} dir="auto">
             {/* Main Content Card Container */}
             <div className={cardClass}>
-                {/* Green Logo Box & Dashed Ring */}
-                <div className="relative mb-8 flex items-center justify-center">
-                    {/* Subtle thin dashed ring */}
-                    <div className="border border-dashed border-emerald-500/20 w-24 h-24 absolute rounded-full animate-[spin_40s_linear_infinite] pointer-events-none" />
-                    
-                    {/* Solid emerald-green box */}
-                    <div className="relative bg-emerald-600 w-16 h-16 rounded-[20px] flex items-center justify-center shadow-lg shadow-emerald-600/20 select-none transition-transform duration-300 hover:scale-105 z-10">
-                        <BeraLogo className="w-9 h-9 text-white z-10" accentOpacity={0.45} />
-                    </div>
-                </div>
-
                 {/* Brand Identity Text */}
                 <div className="text-center mb-6">
                     <h1 className="select-none text-xl font-extrabold tracking-[0.15em] uppercase text-slate-900">

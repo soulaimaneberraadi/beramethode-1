@@ -3,7 +3,16 @@ import { useAuth } from '../context/AuthContext';
 import { notifyServerSessionEstablished } from '../../lib/dataIdentity';
 import { Lock, Mail, User, ArrowRight } from 'lucide-react';
 import { motion, AnimatePresence, Variants } from 'framer-motion';
-import BeraLogo from '../../components/BeraLogo';
+
+// Icône Google officielle (multicolore)
+const GoogleIcon = ({ className }: { className?: string }) => (
+  <svg className={className} viewBox="0 0 24 24" aria-hidden="true">
+    <path fill="#EA4335" d="M5.266 9.765A7.077 7.077 0 0 1 12 4.909c1.69 0 3.218.6 4.418 1.582L19.91 3A11.966 11.966 0 0 0 12 0C7.33 0 3.29 2.523 1.123 6.252l4.143 3.513z" />
+    <path fill="#4285F4" d="M23.49 12.275c0-.796-.073-1.56-.206-2.291H12v4.522h6.44a5.505 5.505 0 0 1-2.39 3.61l3.736 3.163c2.185-2.014 3.447-4.98 3.447-8.494z" />
+    <path fill="#FBBC05" d="M5.266 14.235L1.123 17.748A11.967 11.967 0 0 0 12 24c3.24 0 5.957-1.077 7.943-2.918l-3.736-3.163a7.14 7.14 0 0 1-4.207 1.173 7.078 7.078 0 0 1-6.734-4.857z" />
+    <path fill="#34A853" d="M5.266 9.765a7.012 7.012 0 0 0 0 4.47l-4.143 3.513a11.936 11.936 0 0 1 0-11.496l4.143 3.513z" />
+  </svg>
+);
 
 export default function Signup({ onSwitch, onGuest }: { onSwitch: () => void; onGuest?: () => void }) {
   const [email, setEmail] = useState('');
@@ -12,7 +21,18 @@ export default function Signup({ onSwitch, onGuest }: { onSwitch: () => void; on
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [confirmationSent, setConfirmationSent] = useState(false);
-  const { login, signup } = useAuth();
+  const { login, signup, signInWithGoogle } = useAuth();
+
+  const handleGoogleLogin = async () => {
+    if (!signInWithGoogle) return;
+    setError('');
+    setIsLoading(true);
+    const result = await signInWithGoogle();
+    if (!result.ok) {
+      setError(result.message || 'Échec de la connexion avec Google.');
+      setIsLoading(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -115,13 +135,6 @@ export default function Signup({ onSwitch, onGuest }: { onSwitch: () => void; on
         <motion.div variants={itemVariants} className="flex flex-col items-center">
           {/* Animated Logo & Brand */}
           <div className="flex flex-col items-center mb-8">
-            <motion.div 
-              whileHover={{ scale: 1.05 }}
-              className="relative bg-emerald-600 w-14 h-14 rounded-2xl flex items-center justify-center shadow-lg shadow-emerald-600/15 select-none cursor-default mb-4"
-            >
-              <BeraLogo className="w-8 h-8 text-white z-10" accentOpacity={0.45} />
-            </motion.div>
-            
             <h1 className="select-none text-3xl font-extrabold tracking-tight text-slate-900">
               BERA<span className="text-emerald-600">METHODE</span>
             </h1>
@@ -234,23 +247,40 @@ export default function Signup({ onSwitch, onGuest }: { onSwitch: () => void; on
             )}
           </motion.button>
 
-          {onGuest && (
+          {(signInWithGoogle || onGuest) && (
             <motion.div variants={itemVariants} className="mt-6">
               <div className="flex items-center gap-3">
                 <div className="h-px flex-1 bg-slate-200" />
                 <span className="text-xs font-medium uppercase tracking-wider text-slate-500">Ou</span>
                 <div className="h-px flex-1 bg-slate-200" />
               </div>
-              <motion.button
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                type="button"
-                onClick={onGuest}
-                className="mt-4 w-full flex justify-center items-center gap-2 border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:border-slate-300 py-3.5 px-4 rounded-xl shadow-sm cursor-pointer text-sm font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 transition-all duration-200"
-              >
-                <User className="w-4 h-4" />
-                Continuer en tant qu'invité
-              </motion.button>
+
+              {signInWithGoogle && (
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  type="button"
+                  onClick={handleGoogleLogin}
+                  disabled={isLoading}
+                  className="mt-4 w-full flex justify-center items-center gap-3 border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 hover:border-slate-300 py-3.5 px-4 rounded-xl shadow-sm cursor-pointer text-sm font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 transition-all duration-200 disabled:opacity-70 disabled:cursor-not-allowed"
+                >
+                  <GoogleIcon className="w-5 h-5" />
+                  Continuer avec Google
+                </motion.button>
+              )}
+
+              {onGuest && (
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  type="button"
+                  onClick={onGuest}
+                  className="mt-3 w-full flex justify-center items-center gap-2 border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:border-slate-300 py-3.5 px-4 rounded-xl shadow-sm cursor-pointer text-sm font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 transition-all duration-200"
+                >
+                  <User className="w-4 h-4" />
+                  Continuer en tant qu'invité
+                </motion.button>
+              )}
             </motion.div>
           )}
 
