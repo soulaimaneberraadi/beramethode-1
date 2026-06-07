@@ -98,6 +98,8 @@ import {
 // Declare html2pdf globally
 declare var html2pdf: any;
 
+const SAM_MAJORATION = 1.20;
+
 interface ImplantationProps {
     bf: number;
     operations: Operation[];
@@ -209,6 +211,7 @@ interface Workstation extends Poste {
     isPlaced?: boolean;
     status?: 'ok' | 'panne';
     dominantSection?: 'PREPARATION' | 'MONTAGE' | 'GLOBAL';
+    parentOperators?: number;
 }
 
 const DimensionMarkerHorizontal = ({ label }: { label: string }) => (
@@ -2046,7 +2049,7 @@ export default function Implantation({
                     totalTime = p.timeOverride;
                     if (bf > 0) {
                         operators = 1;
-                        saturation = (totalTime / bf) * 100;
+                        saturation = ((totalTime * SAM_MAJORATION) / bf) * 100;
                     }
                 } else {
                     assignedOps.forEach(op => {
@@ -2060,14 +2063,14 @@ export default function Implantation({
                         totalTime += (op.time || 0) / sharingCount;
                     });
 
-                    const nTheo = bf > 0 ? totalTime / bf : 0;
+                    const nTheo = bf > 0 ? (totalTime * SAM_MAJORATION) / bf : 0;
                     operators = nTheo > toleranceRatio ? Math.ceil(nTheo) : (nTheo > 0 ? 1 : 0);
 
                     if (p.originalId) {
                         operators = 1;
                     }
 
-                    saturation = (operators > 0 && bf > 0) ? (totalTime / (operators * bf)) * 100 : 0;
+                    saturation = (operators > 0 && bf > 0) ? ((totalTime * SAM_MAJORATION) / (operators * bf)) * 100 : 0;
                 }
                 operators = Math.max(1, operators);
                 const pNum = parseInt(p.name.replace(/^P/i, ''));
@@ -2113,9 +2116,12 @@ export default function Implantation({
                             expandedResult.push({
                                 ...st,
                                 id: `${st.id}__${i}`,
-                                name: st.operators > 1 ? `${st.name.replace('P', '').split('.')[0]}.${i}` : st.name,
+                                originalId: st.id,
+                                name: `${st.name.replace('P', '').split('.')[0]}.${i}`,
                                 index: expandedResult.length + 1,
                                 totalTime: st.totalTime / st.operators,
+                                parentOperators: st.operators,
+                                operators: 1,
                                 isPlaced: true
                             });
                         }
@@ -2139,17 +2145,17 @@ export default function Implantation({
             let totalTime = 0; let saturation = 0; let operators = 1;
             if (p.timeOverride !== undefined) {
                 totalTime = p.timeOverride;
-                if (bf > 0) { operators = 1; saturation = (totalTime / bf) * 100; }
+                if (bf > 0) { operators = 1; saturation = ((totalTime * SAM_MAJORATION) / bf) * 100; }
             } else {
                 assignedOps.forEach(op => {
                     let sharingCount = 1;
                     if (p.originalId) { sharingCount = postes.filter(x => x.originalId === p.originalId).length; } else { sharingCount = assignments[op.id]?.length || 1; }
                     totalTime += (op.time || 0) / sharingCount;
                 });
-                const nTheo = bf > 0 ? totalTime / bf : 0;
+                const nTheo = bf > 0 ? (totalTime * SAM_MAJORATION) / bf : 0;
                 operators = nTheo > toleranceRatio ? Math.ceil(nTheo) : (nTheo > 0 ? 1 : 0);
                 if (p.originalId) { operators = 1; }
-                saturation = (operators > 0 && bf > 0) ? (totalTime / (operators * bf)) * 100 : 0;
+                saturation = (operators > 0 && bf > 0) ? ((totalTime * SAM_MAJORATION) / (operators * bf)) * 100 : 0;
             }
             operators = Math.max(1, operators);
             return { ...p, operations: assignedOps, color: realColor, groups: groups, totalTime, saturation, operators: operators, index: 0, originalIndex: realIndex } as Workstation;
@@ -2731,7 +2737,7 @@ export default function Implantation({
 
                     {!isMini && (<div className="flex items-center gap-0.5"> {isFeeder && <div title={`Alimente: ${station.targetStationName || 'Poste Suivant'}`}><GitMerge className={`w-3 h-3 ${isActive ? 'text-white' : 'text-blue-500'}`} /></div>} {hasOperator && <div title={station.operatorName}><User className={`w-3 h-3 ${isActive ? 'text-white' : 'text-slate-400'}`} /></div>} {hasNotes && <div title="Notes"><FileText className={`w-3 h-3 ${isActive ? 'text-yellow-300' : 'text-amber-400'}`} /></div>} </div>)}
                 </div>
-                <div className={`p-2 pl-3 flex-1 flex flex-col justify-between gap-1 ${isMini ? 'bg-transparent' : bodyBgClass}`}> {station.groups && station.groups.length > 0 && !isMini && (<div className="flex flex-wrap gap-1 mb-1"> {station.groups.slice(0, 2).map(grp => (<span key={grp} className="text-[7px] font-black uppercase text-indigo-600 bg-indigo-100 px-1 py-0.5 rounded border border-indigo-200 truncate max-w-full"> {grp} </span>))} {station.groups.length > 2 && <span className="text-[7px] text-slate-400">+{station.groups.length - 2}</span>} </div>)} <div className="space-y-1"> {station.operations.length > 0 ? (<> {station.operations.slice(0, isMini ? 100 : 3).map((op, i) => { const groupStyle = op.groupId ? getGroupStyle(op.groupId) : null; return (<div key={i} className={`flex justify-between items-center gap-1.5 py-0.5 ${groupStyle && isMini ? groupStyle.bg + ' px-1.5 rounded-md -mx-1.5 my-0.5 border border-transparent hover:border-indigo-200' : ''}`}> <span className={`font-mono text-[9px] font-bold px-1 rounded border shrink-0 ${groupStyle && isMini ? 'bg-transparent border-transparent ' + groupStyle.text : 'bg-transparent text-slate-400 border-slate-200'}`}> {op.order} </span> <div className={`text-[9px] font-bold leading-tight line-clamp-2 flex-1 ${groupStyle && isMini ? groupStyle.text : 'text-slate-600'}`} title={op.description}> {op.description} </div> {groupStyle && isMini && <LinkIcon className={`w-2.5 h-2.5 shrink-0 ${groupStyle.text}`} />} </div>) })} {station.operations.length > (isMini ? 100 : 3) && <div className="text-[8px] text-slate-400 italic font-medium">... +{station.operations.length - (isMini ? 100 : 3)}</div>} </>) : (<div className={`text-[9px] italic flex items-center justify-center ${isMini ? 'h-8' : 'h-12'} ${isOverridden ? 'text-purple-500 font-bold' : (isSpecial ? 'text-slate-400/70' : 'text-slate-300')}`}> {isOverridden ? 'Temps Forcé' : 'Vide'} </div>)} </div> <div className="flex items-center justify-between mt-auto pt-1.5 border-t border-slate-100"> <div className="flex flex-col"> <span className="text-[7px] font-bold text-slate-400 uppercase tracking-wider">Total</span> <span className={`text-sm font-bold ${isActive ? 'text-emerald-600' : (isOverridden ? 'text-purple-600' : color.text)}`}>{timeInSeconds}s</span> </div> <div className="flex flex-col items-end"> <span className="text-[7px] font-bold text-slate-400 uppercase tracking-wider">Sat.</span> <div className="flex items-center gap-1"> {station.operators > 1 && <span className={`text-[9px] font-black px-1 rounded bg-amber-100 text-amber-700`}>x{station.operators}</span>} <span className={`text-[9px] font-black ${satBadgeClass}`}>{Math.round(station.saturation)}%</span> </div> </div> </div> </div> <div className="absolute bottom-0 left-0 h-1 bg-slate-200 w-full"> <div className={`h-full ${satProgressClass}`} style={{ width: `${Math.min(station.saturation, 100)}%` }}></div> </div> </div>
+                <div className={`p-2 pl-3 flex-1 flex flex-col justify-between gap-1 ${isMini ? 'bg-transparent' : bodyBgClass}`}> {station.groups && station.groups.length > 0 && !isMini && (<div className="flex flex-wrap gap-1 mb-1"> {station.groups.slice(0, 2).map(grp => (<span key={grp} className="text-[7px] font-black uppercase text-indigo-600 bg-indigo-100 px-1 py-0.5 rounded border border-indigo-200 truncate max-w-full"> {grp} </span>))} {station.groups.length > 2 && <span className="text-[7px] text-slate-400">+{station.groups.length - 2}</span>} </div>)} <div className="space-y-1"> {station.operations.length > 0 ? (<> {station.operations.slice(0, isMini ? 100 : 3).map((op, i) => { const groupStyle = op.groupId ? getGroupStyle(op.groupId) : null; return (<div key={i} className={`flex justify-between items-center gap-1.5 py-0.5 ${groupStyle && isMini ? groupStyle.bg + ' px-1.5 rounded-md -mx-1.5 my-0.5 border border-transparent hover:border-indigo-200' : ''}`}> <span className={`font-mono text-[9px] font-bold px-1 rounded border shrink-0 ${groupStyle && isMini ? 'bg-transparent border-transparent ' + groupStyle.text : 'bg-transparent text-slate-400 border-slate-200'}`}> {op.order} </span> <div className={`text-[9px] font-bold leading-tight line-clamp-2 flex-1 ${groupStyle && isMini ? groupStyle.text : 'text-slate-600'}`} title={op.description}> {op.description} </div> {groupStyle && isMini && <LinkIcon className={`w-2.5 h-2.5 shrink-0 ${groupStyle.text}`} />} </div>) })} {station.operations.length > (isMini ? 100 : 3) && <div className="text-[8px] text-slate-400 italic font-medium">... +{station.operations.length - (isMini ? 100 : 3)}</div>} </>) : (<div className={`text-[9px] italic flex items-center justify-center ${isMini ? 'h-8' : 'h-12'} ${isOverridden ? 'text-purple-500 font-bold' : (isSpecial ? 'text-slate-400/70' : 'text-slate-300')}`}> {isOverridden ? 'Temps Forcé' : 'Vide'} </div>)} </div> <div className="flex items-center justify-between mt-auto pt-1.5 border-t border-slate-100"> <div className="flex flex-col"> <span className="text-[7px] font-bold text-slate-400 uppercase tracking-wider">Total</span> <span className={`text-sm font-bold ${isActive ? 'text-emerald-600' : (isOverridden ? 'text-purple-600' : color.text)}`}>{timeInSeconds}s</span> </div> <div className="flex flex-col items-end"> <span className="text-[7px] font-bold text-slate-400 uppercase tracking-wider">Sat.</span> <div className="flex items-center gap-1"> {station.operators > 1 && <span className={`text-[9px] font-black px-1 rounded bg-amber-100 text-amber-700`}>x{station.operators}</span>} <span className={`text-[9px] font-black ${satBadgeClass}`}>{Math.round(station.saturation)}%</span> </div> </div> </div> </div> <div className="absolute bottom-0 left-0 h-1 bg-slate-200 w-full"> <div className={`h-full ${!satProgressClass.startsWith('#') ? satProgressClass : ''}`} style={{ width: `${Math.min(station.saturation, 100)}%`, backgroundColor: satProgressClass.startsWith('#') ? satProgressClass : undefined }}></div> </div> </div>
         );
     };
 
@@ -2777,9 +2783,25 @@ export default function Implantation({
                 </div>
 
                 {/* P/H 100% */}
-                <div className="flex flex-col items-center px-3 py-1.5 shrink-0">
+                <div className="flex flex-col items-center px-3 py-1.5 bg-orange-50/50 rounded-lg border border-orange-100 shrink-0">
                     <span className="text-[9px] font-bold text-orange-400 uppercase">P/H (100%)</span>
-                    <span className="font-black text-orange-500 text-lg leading-none">{Math.round(prodHour100)}</span>
+                    <span className="font-black text-orange-500 text-sm leading-none mt-1">{Math.round(prodHour100)}</span>
+                </div>
+
+                {/* TARGETS */}
+                <div className="flex items-center gap-3 px-3 py-1.5 bg-slate-50/50 rounded-lg border border-slate-100 shrink-0">
+                    <div className="flex flex-col items-center border-r border-slate-200 pr-3 mr-1">
+                        <span className="text-[9px] font-bold text-slate-400 uppercase">P/J</span>
+                        <span className="font-black text-slate-700 text-sm leading-none mt-1">
+                            {Math.round(prodDayEff)}
+                        </span>
+                    </div>
+                    <div className="flex flex-col items-center">
+                        <span className="text-[9px] font-bold text-slate-400 uppercase">P/H</span>
+                        <span className="font-black text-slate-700 text-sm leading-none mt-1">
+                            {Math.round(prodHourEff)}
+                        </span>
+                    </div>
                 </div>
 
                 {/* RENDU */}

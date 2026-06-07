@@ -4,7 +4,13 @@ import { randomUUID } from 'crypto';
 import path from 'path';
 import fs from 'fs';
 
-const dbPath = path.join(process.cwd(), 'database.sqlite');
+// في الإنتاج (Electron): يمرّر main.ts هذا المسار عبر env variable BERA_DB_PATH
+// في التطوير: يستخدم process.cwd() كاحتياطي
+const dbPath = process.env.BERA_DB_PATH || path.join(process.cwd(), 'database.sqlite');
+const dbDir = path.dirname(dbPath);
+if (!fs.existsSync(dbDir)) {
+  fs.mkdirSync(dbDir, { recursive: true });
+}
 const db = new Database(dbPath);
 
 // ⚡ OPTIMISATIONS SQLITE (Performances & Intégrité)

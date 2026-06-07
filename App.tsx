@@ -678,6 +678,8 @@ export default function App() {
     const [assignments, setAssignments] = useState<Record<string, string[]>>({});
     const [postes, setPostes] = useState<Poste[]>([]);
     const [chronoData, setChronoData] = useState<Record<string, import('./types').ChronoData>>({});
+    const [chronoCustomStations, setChronoCustomStations] = useState<import('./types').CustomStation[]>([]);
+    const [chronoLayoutSide, setChronoLayoutSide] = useState<'left' | 'right' | 'both'>('both');
 
     const [history, setHistory] = useState<HistoryState[]>([]);
     const [historyIndex, setHistoryIndex] = useState(-1);
@@ -775,7 +777,29 @@ export default function App() {
     const [ficheImages, setFicheImages] = useState<{ front: string | null; back: string | null }>({ front: null, back: null });
 
     useEffect(() => {
-        if (!user || IS_STATIC || skipAutosaveRestore) return;
+        if (skipAutosaveRestore) return;
+        if (!user || IS_STATIC) {
+            try {
+                const localRaw = localStorage.getItem(AUTO_SAVE_KEY);
+                if (localRaw) {
+                    const ws = JSON.parse(localRaw);
+                    if (ws && typeof ws === 'object') {
+                        if (ws.articleName !== undefined) setArticleName(ws.articleName);
+                        if (ws.currentModelId !== undefined) setCurrentModelId(ws.currentModelId);
+                        if (Array.isArray(ws.operations)) setOperations(ws.operations);
+                        if (ws.assignments) setAssignments(ws.assignments);
+                        if (Array.isArray(ws.postes)) setPostes(ws.postes);
+                        if (ws.ficheData) setFicheData(prev => ({ ...prev, ...ws.ficheData }));
+                        if (ws.efficiency !== undefined) setEfficiency(ws.efficiency);
+                        if (ws.numWorkers !== undefined) setNumWorkers(ws.numWorkers);
+                        if (ws.chronoData) setChronoData(ws.chronoData);
+                        if (Array.isArray(ws.chronoCustomStations)) setChronoCustomStations(ws.chronoCustomStations);
+                        if (ws.chronoLayoutSide !== undefined) setChronoLayoutSide(ws.chronoLayoutSide);
+                    }
+                }
+            } catch { /* silent */ }
+            return;
+        }
         fetch('/api/settings', { credentials: 'include' })
             .then(r => r.ok ? r.json() : null)
             .then(data => {
@@ -785,37 +809,24 @@ export default function App() {
                     if (!ws || typeof ws !== 'object') return;
                     const localRaw = localStorage.getItem(AUTO_SAVE_KEY);
                     const localTs = localRaw ? (JSON.parse(localRaw).lastSaved || 0) : 0;
-                    if ((ws.lastSaved || 0) <= localTs) return;
-                    if (ws.articleName !== undefined) setArticleName(ws.articleName);
-                    if (ws.currentModelId !== undefined) setCurrentModelId(ws.currentModelId);
-                    if (Array.isArray(ws.operations)) setOperations(ws.operations);
-                    if (ws.assignments) setAssignments(ws.assignments);
-                    if (Array.isArray(ws.postes)) setPostes(ws.postes);
-                    if (ws.ficheData) setFicheData(prev => ({ ...prev, ...ws.ficheData }));
-                    if (ws.efficiency !== undefined) setEfficiency(ws.efficiency);
-                    if (ws.numWorkers !== undefined) setNumWorkers(ws.numWorkers);
+                    const target = (ws.lastSaved || 0) > localTs ? ws : (localRaw ? JSON.parse(localRaw) : ws);
+                    if (target.articleName !== undefined) setArticleName(target.articleName);
+                    if (target.currentModelId !== undefined) setCurrentModelId(target.currentModelId);
+                    if (Array.isArray(target.operations)) setOperations(target.operations);
+                    if (target.assignments) setAssignments(target.assignments);
+                    if (Array.isArray(target.postes)) setPostes(target.postes);
+                    if (target.ficheData) setFicheData(prev => ({ ...prev, ...target.ficheData }));
+                    if (target.efficiency !== undefined) setEfficiency(target.efficiency);
+                    if (target.numWorkers !== undefined) setNumWorkers(target.numWorkers);
+                    if (target.chronoData) setChronoData(target.chronoData);
+                    if (Array.isArray(target.chronoCustomStations)) setChronoCustomStations(target.chronoCustomStations);
+                    if (target.chronoLayoutSide !== undefined) setChronoLayoutSide(target.chronoLayoutSide);
                 } catch { /* silent */ }
             })
             .catch(() => { });
     }, [user, skipAutosaveRestore]); // eslint-disable-line react-hooks/exhaustive-deps
 
-    useEffect(() => {
-        setSaveStatus('saving');
-        const timer = setTimeout(() => {
-            const dataToSave = { currentModelId, articleName, operations, assignments, postes, ficheData, ficheImages, efficiency, numWorkers, presenceTime, layoutMemory, activeLayout, manualLinks, savedPlantations, chronoData, lastSaved: Date.now() };
-            try {
-                localStorage.setItem(AUTO_SAVE_KEY, JSON.stringify(dataToSave));
-                setSaveStatus('saved');
-            } catch (e) {
-                console.error('Auto-save failed (likely quota exceeded)', e);
-                setSaveStatus('unsaved');
-            }
-            if (user && !IS_STATIC) {
-                fetch('/api/settings', { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ autosave_workspace: dataToSave }) }).catch(() => { });
-            }
-        }, 2000);
-        return () => clearTimeout(timer);
-    }, [currentModelId, articleName, operations, assignments, postes, ficheData, ficheImages, efficiency, numWorkers, presenceTime, layoutMemory, activeLayout, manualLinks, savedPlantations, chronoData, user]);
+    // Autosave effect moved below useAppModelManager to allow silent background saving of model data
 
     useEffect(() => {
         localStorage.setItem('beramethode_manual_links', JSON.stringify(manualLinks));
@@ -829,9 +840,9 @@ export default function App() {
     const globalStats = useMemo(() => {
         const totalTime = operations.reduce((acc, op) => acc + (op.time || 0), 0);
         const tempsArticle = Math.round((totalTime * 1.20) * 100) / 100;
-        const calculatedBF = (numWorkers > 0 && efficiency > 0) ? tempsArticle / (numWorkers * (efficiency / 100)) : 0;
+        const calculatedBF = numWorkers > 0 ? tempsArticle / numWorkers : 0;
         return { totalTime, tempsArticle, bf: calculatedBF };
-    }, [operations, numWorkers, presenceTime, efficiency]);
+    }, [operations, numWorkers, presenceTime]);
 
     const [models, setModels] = useState<ModelData[]>([]);
 
@@ -975,8 +986,30 @@ export default function App() {
         ficheData, setFicheData, ficheImages, setFicheImages, articleName, setArticleName, operations, setOperations: setOperationsWithHistory, numWorkers, setNumWorkers,
         efficiency, setEfficiency,
         manualLinks, setManualLinks, globalStats, setPlanningEvents, setCurrentView, setNavigationContext, showToast,
-        setHistory, setHistoryIndex, setChronoData
+        setHistory, setHistoryIndex, chronoData, setChronoData,
+        chronoCustomStations, setChronoCustomStations, chronoLayoutSide, setChronoLayoutSide
     });
+
+    useEffect(() => {
+        setSaveStatus('saving');
+        const timer = setTimeout(() => {
+            const dataToSave = { currentModelId, articleName, operations, assignments, postes, ficheData, ficheImages, efficiency, numWorkers, presenceTime, layoutMemory, activeLayout, manualLinks, savedPlantations, chronoData, chronoCustomStations, chronoLayoutSide, lastSaved: Date.now() };
+            try {
+                localStorage.setItem(AUTO_SAVE_KEY, JSON.stringify(dataToSave));
+                setSaveStatus('saved');
+            } catch (e) {
+                console.error('Auto-save failed (likely quota exceeded)', e);
+                setSaveStatus('unsaved');
+            }
+            if (user && !IS_STATIC) {
+                fetch('/api/settings', { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ autosave_workspace: dataToSave }) }).catch(() => { });
+            }
+            if (currentModelId) {
+                saveCurrentModel(false, true); // silent auto-save to library DB
+            }
+        }, 2000);
+        return () => clearTimeout(timer);
+    }, [currentModelId, articleName, operations, assignments, postes, ficheData, ficheImages, efficiency, numWorkers, presenceTime, layoutMemory, activeLayout, manualLinks, savedPlantations, chronoData, chronoCustomStations, chronoLayoutSide, user, saveCurrentModel]);
 
     const createNewProject = useCallback(() => {
         setSkipAutosaveRestore(true);
@@ -1269,6 +1302,10 @@ export default function App() {
 
                             chronoData={chronoData}
                             setChronoData={setChronoData}
+                            chronoCustomStations={chronoCustomStations}
+                            setChronoCustomStations={setChronoCustomStations}
+                            chronoLayoutSide={chronoLayoutSide}
+                            setChronoLayoutSide={setChronoLayoutSide}
 
                             onSaveToLibrary={saveCurrentModel}
 

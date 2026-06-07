@@ -1,5 +1,5 @@
 import { useCallback } from 'react';
-import type { ModelData, FicheData, Operation, Poste, PlanningEvent } from '../types';
+import type { ModelData, FicheData, Operation, Poste, PlanningEvent, ChronoData, CustomStation } from '../types';
 import { saveManualLinksByModel, loadManualLinksByModel, deleteManualLinksByModel, normalizeLoadedLayout } from './machineUtils';
 const launchDateTimeIso = (date: string, launchTime?: string) => {
     const t = launchTime && /^\d{2}:\d{2}$/.test(launchTime) ? launchTime : '08:00';
@@ -48,7 +48,12 @@ interface UseAppModelManagerProps {
     
     setHistory: (history: any[]) => void;
     setHistoryIndex: (index: number) => void;
+    chronoData: Record<string, ChronoData>;
     setChronoData: (data: any) => void;
+    chronoCustomStations: CustomStation[];
+    setChronoCustomStations: (stations: CustomStation[]) => void;
+    chronoLayoutSide: 'left' | 'right' | 'both';
+    setChronoLayoutSide: (side: 'left' | 'right' | 'both') => void;
 }
 
 export function useAppModelManager({
@@ -57,7 +62,8 @@ export function useAppModelManager({
     ficheData, setFicheData, ficheImages, setFicheImages, articleName, setArticleName, operations, setOperations, numWorkers, setNumWorkers,
     efficiency, setEfficiency,
     manualLinks, setManualLinks, globalStats, setPlanningEvents, setCurrentView, setNavigationContext, showToast,
-    setHistory, setHistoryIndex, setChronoData
+    setHistory, setHistoryIndex, chronoData, setChronoData,
+    chronoCustomStations, setChronoCustomStations, chronoLayoutSide, setChronoLayoutSide
 }: UseAppModelManagerProps) {
 
     const saveCurrentModel = useCallback((navigateNext: boolean = true, silent: boolean = false) => {
@@ -102,7 +108,10 @@ export function useAppModelManager({
                 assignments: assignments,
                 layoutMemory: updatedLayoutMemory,
                 activeLayout: persistedActiveLayout
-            }
+            },
+            chronoData: chronoData,
+            chronoCustomStations: chronoCustomStations,
+            chronoLayoutSide: chronoLayoutSide
         };
 
         saveManualLinksByModel(modelToSave.id, manualLinks);
@@ -148,7 +157,7 @@ export function useAppModelManager({
             if (!silent) showToast("Modèle sauvegardé avec succès (Local) !");
             if (navigateNext) setCurrentView('library');
         }
-    }, [activeLayout, articleName, assignments, currentModelId, ficheData, ficheImages, globalStats.tempsArticle, layoutMemory, manualLinks, models, numWorkers, operations, postes, setCurrentModelId, setCurrentView, setLayoutMemory, setModels, setPlanningEvents, showToast, user, efficiency]);
+    }, [activeLayout, articleName, assignments, currentModelId, ficheData, ficheImages, globalStats.tempsArticle, layoutMemory, manualLinks, models, numWorkers, operations, postes, setCurrentModelId, setCurrentView, setLayoutMemory, setModels, setPlanningEvents, showToast, user, efficiency, chronoData, chronoCustomStations, chronoLayoutSide]);
 
     const loadModel = useCallback((model: ModelData, fromContext?: 'coupe' | 'planning' | null) => {
         setCurrentModelId(model.id);
@@ -208,10 +217,14 @@ export function useAppModelManager({
             setManualLinks([]);
         }
 
+        setChronoData(model.chronoData || {});
+        setChronoCustomStations(model.chronoCustomStations || []);
+        setChronoLayoutSide(model.chronoLayoutSide || 'both');
+
         setHistory([{ operations: model.gamme_operatoire || [], assignments: model.implantation?.assignments || {}, postes: model.implantation?.postes || [] }]);
         setHistoryIndex(0);
         setCurrentView('atelier');
-    }, [setActiveLayout, setArticleName, setAssignments, setCurrentModelId, setCurrentView, setFicheData, setFicheImages, setHistory, setHistoryIndex, setLayoutMemory, setManualLinks, setNavigationContext, setNumWorkers, setOperations, setPostes, setEfficiency]);
+    }, [setActiveLayout, setArticleName, setAssignments, setCurrentModelId, setCurrentView, setFicheData, setFicheImages, setHistory, setHistoryIndex, setLayoutMemory, setManualLinks, setNavigationContext, setNumWorkers, setOperations, setPostes, setEfficiency, setChronoData, setChronoCustomStations, setChronoLayoutSide]);
 
     const importModel = useCallback((file: File) => {
         const reader = new FileReader();

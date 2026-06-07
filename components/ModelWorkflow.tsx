@@ -28,7 +28,7 @@ import Implantation from './Implantation';
 import CostCalculator from './CostCalculator';
 import Pedido from './Pedido';
 
-import { Machine, Operation, ComplexityFactor, StandardTime, Guide, Poste, FicheData, Material, ChronoData, AppSettings, ManualLink, PlanningEvent } from '../types';
+import { Machine, Operation, ComplexityFactor, StandardTime, Guide, Poste, FicheData, Material, ChronoData, AppSettings, ManualLink, PlanningEvent, CustomStation } from '../types';
 
 interface ModelWorkflowProps {
     // Shared Data Props
@@ -73,6 +73,10 @@ interface ModelWorkflowProps {
     // Chrono Data
     chronoData: Record<string, ChronoData>;
     setChronoData: React.Dispatch<React.SetStateAction<Record<string, ChronoData>>>;
+    chronoCustomStations: CustomStation[];
+    setChronoCustomStations: React.Dispatch<React.SetStateAction<CustomStation[]>>;
+    chronoLayoutSide: 'left' | 'right' | 'both';
+    setChronoLayoutSide: React.Dispatch<React.SetStateAction<'left' | 'right' | 'both'>>;
 
     // Layout Memory
     layoutMemory: Record<string, { id: string, x?: number, y?: number, isPlaced?: boolean, rotation?: number }[]>;
@@ -147,6 +151,7 @@ export default function ModelWorkflow({
     assignments, setAssignments, postes, setPostes,
     isAutocompleteEnabled, userVocabulary, setUserVocabulary,
     chronoData, setChronoData,
+    chronoCustomStations, setChronoCustomStations, chronoLayoutSide, setChronoLayoutSide,
     layoutMemory, setLayoutMemory,
     activeLayout, setActiveLayout,
     manualLinks, setManualLinks,
@@ -412,6 +417,10 @@ export default function ModelWorkflow({
                             articleName={articleName}
                             activeLayout={activeLayout}
                             toleranceSaturation={ficheData.toleranceSaturation ?? 115}
+                            chronoCustomStations={chronoCustomStations}
+                            setChronoCustomStations={setChronoCustomStations}
+                            chronoLayoutSide={chronoLayoutSide}
+                            setChronoLayoutSide={setChronoLayoutSide}
                         />
                     )}
 

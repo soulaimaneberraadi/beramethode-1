@@ -1,5 +1,5 @@
 
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { Operation, Poste, Machine, FicheData } from '../types';
 import { 
@@ -165,6 +165,152 @@ const getPosteColor = (poste: Poste, index: number) => {
   return POSTE_COLORS[index % POSTE_COLORS.length];
 };
 
+const calculatePostRequirements = (
+    postes: Poste[],
+    posteStats: Record<string, { nTheo: number }>,
+    targetNumWorkers: number,
+    toleranceRatio: number
+): Record<string, number> => {
+    const requirements: Record<string, number> = {};
+    
+    postes.forEach(p => {
+        requirements[p.id] = 0;
+    });
+
+    const activePostes = postes.filter(p => (posteStats[p.id]?.nTheo || 0) > 0);
+    const numActive = activePostes.length;
+
+    if (targetNumWorkers <= 0 || numActive === 0) {
+        return requirements;
+    }
+
+    // 1. Initial allocation
+    let currentAllocated = 0;
+    if (targetNumWorkers >= numActive) {
+        activePostes.forEach(p => {
+            requirements[p.id] = 1;
+        });
+        currentAllocated = numActive;
+    } else {
+        currentAllocated = 0;
+    }
+
+    // 2. Greedy distribution of remaining workers
+    const extra = targetNumWorkers - currentAllocated;
+    for (let i = 0; i < extra; i++) {
+        let bestPostId = '';
+        let maxNeed = -Infinity;
+
+        activePostes.forEach(p => {
+            const nTheo = posteStats[p.id]?.nTheo || 0;
+            const current = requirements[p.id] || 0;
+            const need = nTheo - current;
+            if (need > maxNeed) {
+                maxNeed = need;
+                bestPostId = p.id;
+            }
+        });
+
+        if (bestPostId) {
+            requirements[bestPostId] = (requirements[bestPostId] || 0) + 1;
+        }
+    }
+
+    return requirements;
+};
+
+const splitPostOperations = (ops: Operation[], nReq: number): Operation[][] => {
+    const splits: Operation[][] = Array.from({ length: nReq }, () => []);
+    if (ops.length === 0) return splits;
+    if (nReq <= 1) {
+        splits[0] = ops;
+        return splits;
+    }
+
+    const totalTime = ops.reduce((sum, op) => sum + (op.time || 0), 0);
+    const targetTime = totalTime / nReq;
+
+    let currentSplitIdx = 0;
+    let currentSplitTime = 0;
+
+    ops.forEach(op => {
+        const opTime = op.time || 0;
+        if (currentSplitIdx < nReq - 1 && currentSplitTime > 0 && (currentSplitTime + opTime / 2) > targetTime) {
+            currentSplitIdx++;
+            currentSplitTime = 0;
+        }
+        splits[currentSplitIdx].push(op);
+        currentSplitTime += opTime;
+    });
+
+    return splits;
+};
+
+const splitPostesAndAssignments = (
+    currPostes: Poste[],
+    currAssignments: Record<string, string[]>,
+    posteStats: Record<string, { nTheo: number }>,
+    targetNumWorkers: number,
+    toleranceRatio: number,
+    sortedOps: Operation[]
+) => {
+    const postRequirements = calculatePostRequirements(currPostes, posteStats, targetNumWorkers, toleranceRatio);
+
+    const newPostes: Poste[] = [];
+    const newAssignments: Record<string, string[]> = {};
+
+    sortedOps.forEach(op => {
+        newAssignments[op.id] = [];
+    });
+
+    let newPostIdx = 1;
+
+    currPostes.forEach(p => {
+        const nReq = postRequirements[p.id] || 0;
+        if (nReq <= 0) return;
+
+        const postOps = sortedOps.filter(op => (currAssignments[op.id] || []).includes(p.id));
+
+        if (nReq === 1 || postOps.length <= 1) {
+            const newPosteId = `P${newPostIdx}`;
+            const newPosteName = `P${newPostIdx}`;
+            newPostes.push({
+                ...p,
+                id: newPosteId,
+                name: newPosteName,
+                originalId: p.id
+            });
+            postOps.forEach(op => {
+                newAssignments[op.id].push(newPosteId);
+            });
+            newPostIdx++;
+        } else {
+            const splits = splitPostOperations(postOps, nReq);
+            splits.forEach((splitOps, sIdx) => {
+                if (splitOps.length === 0) return;
+
+                const newPosteId = `P${newPostIdx}`;
+                const newPosteName = `P${p.name.replace('P', '')}.${sIdx + 1}`;
+                
+                newPostes.push({
+                    ...p,
+                    id: newPosteId,
+                    name: newPosteName,
+                    originalId: p.id
+                });
+
+                splitOps.forEach(op => {
+                    newAssignments[op.id].push(newPosteId);
+                });
+                newPostIdx++;
+            });
+        }
+    });
+
+    return { newPostes, newAssignments };
+};
+
+
 export default function Balancing({ 
   operations,
   setOperations,
@@ -187,6 +333,37 @@ export default function Balancing({
 
   const tolerance = ficheData?.toleranceSaturation ?? 115;
   const toleranceRatio = tolerance / 100;
+
+  const calculateStats = (currAssignments: Record<string, string[]>, currPostes: Poste[]) => {
+      const stats: Record<string, { time: number, nTheo: number, saturation: number }> = {};
+      
+      currPostes.forEach(p => {
+          stats[p.id] = { time: p.timeOverride !== undefined ? p.timeOverride : 0, nTheo: 0, saturation: 0 };
+      });
+
+      operations.forEach(op => {
+          const assignedIds = currAssignments[op.id] || [];
+          const count = assignedIds.length;
+          if (count > 0) {
+              const timeShare = (op.time || 0) / count;
+              assignedIds.forEach(pid => {
+                  const poste = currPostes.find(p => p.id === pid);
+                  if (stats[pid] && poste && poste.timeOverride === undefined) {
+                      stats[pid].time += timeShare;
+                  }
+              });
+          }
+      });
+
+      Object.keys(stats).forEach(pid => {
+          if (bf > 0) {
+              const sam = stats[pid].time * SAM_MAJORATION;
+              stats[pid].nTheo = sam / bf;
+              stats[pid].saturation = (sam / bf) * 100;
+          }
+      });
+      return stats;
+  };
 
   const [isManual, setIsManual] = useState(false);
   const [viewMode, setViewMode] = useState<'grouped' | 'matrix'>('matrix');
@@ -238,6 +415,160 @@ export default function Balancing({
   const sortedOperations = useMemo(() => {
       return [...operations].sort((a, b) => a.order - b.order);
   }, [operations]);
+
+  const getCombinedMachineName = (ops: Operation[]) => {
+      const machs = new Set<string>();
+      ops.forEach(op => {
+          let rawName = op.machineName;
+          if (!rawName && op.machineId) {
+              const foundM = machines.find(m => m.id === op.machineId);
+              if (foundM) rawName = foundM.name;
+          }
+          if (!rawName) rawName = 'MAN';
+          let m = rawName.trim().toUpperCase();
+          if (m.includes('MANUEL')) m = 'MAN';
+          machs.add(m);
+      });
+      if (machs.size > 1 && machs.has('MAN')) {
+          machs.delete('MAN');
+      }
+      return Array.from(machs).sort().join('+');
+  };
+
+  const simulateRequiredWorkers = useCallback((testNumWorkers: number): number => {
+      if (testNumWorkers <= 0) return 0;
+      const tempsArticleVal = operations.reduce((sum, op) => sum + (op.time || 0), 0) * 1.20;
+      const testBF = testNumWorkers > 0 ? tempsArticleVal / testNumWorkers : 0;
+      if (testBF <= 0) return 0;
+
+      const baseLimitMax = (testBF / SAM_MAJORATION) * toleranceRatio;
+
+      let adjustmentFactor = 1.0;
+      let attempts = 0;
+      const maxAttempts = 50;
+      let finalRequired = 999;
+
+      while (attempts < maxAttempts) {
+          const limitMax = baseLimitMax * adjustmentFactor;
+          
+          const simAssignments: Record<string, string[]> = {};
+          const simPostes: { id: string, machine: string }[] = [];
+          let currentPosteOps: Operation[] = [];
+          let currentTotalTime = 0;
+          let currentMachine = '';
+          let posteIdx = 1;
+
+          const relaxMachine = attempts >= 15;
+
+          const flushSim = () => {
+              if (currentPosteOps.length === 0) return;
+              const posteId = `P${posteIdx}`;
+              const postMachine = relaxMachine ? getCombinedMachineName(currentPosteOps) : (currentMachine || 'MAN');
+              simPostes.push({ id: posteId, machine: postMachine });
+              currentPosteOps.forEach(op => {
+                  simAssignments[op.id] = [posteId];
+              });
+              posteIdx++;
+              currentPosteOps = [];
+              currentTotalTime = 0;
+              currentMachine = '';
+          };
+
+          sortedOperations.forEach(op => {
+              let primaryMachine = 'MAN';
+              let rawName = op.machineName;
+              if (!rawName && op.machineId) {
+                  const foundM = machines.find(m => m.id === op.machineId);
+                  if (foundM) rawName = foundM.name;
+              }
+              if (rawName) {
+                  let m = rawName.trim().toUpperCase();
+                  if (m.includes('MANUEL')) m = 'MAN';
+                  primaryMachine = m;
+              }
+
+              const blockTime = op.time || 0;
+              
+              let isSameMachine = false;
+              let nextMachine = currentMachine;
+
+              if (relaxMachine) {
+                  isSameMachine = true;
+              } else {
+                  if (currentPosteOps.length === 0) {
+                      isSameMachine = true;
+                      nextMachine = primaryMachine;
+                  } else {
+                      const cleanCurrent = (currentMachine || '').trim().toUpperCase();
+                      const cleanPrimary = (primaryMachine || '').trim().toUpperCase();
+                      
+                      if (cleanCurrent === cleanPrimary) {
+                          isSameMachine = true;
+                          nextMachine = currentMachine;
+                      } else if (cleanPrimary === 'MAN') {
+                          isSameMachine = true;
+                          nextMachine = currentMachine;
+                      } else if (cleanCurrent === 'MAN') {
+                          isSameMachine = true;
+                          nextMachine = primaryMachine;
+                      }
+                  }
+              }
+
+              const fits = (currentTotalTime + blockTime) <= limitMax;
+
+              if (isSameMachine && fits) {
+                  currentPosteOps.push(op);
+                  currentTotalTime += blockTime;
+                  currentMachine = nextMachine;
+              } else {
+                  flushSim();
+                  currentPosteOps = [op];
+                  currentTotalTime = blockTime;
+                  currentMachine = primaryMachine;
+              }
+          });
+          flushSim();
+
+          const stats: Record<string, { time: number }> = {};
+          simPostes.forEach(p => {
+              stats[p.id] = { time: 0 };
+          });
+
+          operations.forEach(op => {
+              const assignedIds = simAssignments[op.id] || [];
+              const count = assignedIds.length;
+              if (count > 0) {
+                  const timeShare = (op.time || 0) / count;
+                  assignedIds.forEach(pid => {
+                      if (stats[pid]) {
+                          stats[pid].time += timeShare;
+                      }
+                  });
+              }
+          });
+
+          let simTotalRequiredWorkers = 0;
+          simPostes.forEach(p => {
+              const time = stats[p.id]?.time || 0;
+              const sam = time * SAM_MAJORATION;
+              const nTheo = testBF > 0 ? sam / testBF : 0;
+              const nReq = nTheo > toleranceRatio ? Math.ceil(nTheo) : (nTheo > 0 ? 1 : 0);
+              simTotalRequiredWorkers += nReq;
+          });
+
+          finalRequired = simTotalRequiredWorkers;
+
+          if (simTotalRequiredWorkers <= testNumWorkers) {
+              break;
+          }
+
+          adjustmentFactor += 0.01;
+          attempts++;
+      }
+
+      return finalRequired;
+  }, [operations, sortedOperations, efficiency, toleranceRatio, machines]);
 
   // --- SMART INDEXING (1.1, 1.2...) ---
   const getDisplayIndex = (opList: Operation[], index: number) => {
@@ -295,8 +626,7 @@ export default function Balancing({
   const runAutoBalancing = (force = false) => {
     if (isManual && !force) return;
 
-    const newAssignments: Record<string, string[]> = {};
-    const newPostes: Poste[] = [];
+    const targetNumWorkers = numWorkers;
     const existingColorByName = new Map(
       postes
         .filter((p) => !!p.colorName)
@@ -304,70 +634,156 @@ export default function Balancing({
     );
 
     // Allow tolerance on cycle time
-    const limitMax = bf > 0 ? (bf / SAM_MAJORATION) * toleranceRatio : Number.MAX_VALUE;
+    const tempsArticleVal = operations.reduce((sum, op) => sum + (op.time || 0), 0) * 1.20;
+    const targetBF = targetNumWorkers > 0 ? tempsArticleVal / targetNumWorkers : 0;
+    const baseLimitMax = targetBF > 0 ? (targetBF / SAM_MAJORATION) * toleranceRatio : Number.MAX_VALUE;
 
-    let currentPosteOps: Operation[] = [];
-    let currentTotalTime = 0;
-    let currentMachine = '';
-    let posteIdx = 1;
+    let adjustmentFactor = 1.0;
+    let attempts = 0;
+    const maxAttempts = 50;
 
-    const flush = () => {
-        if (currentPosteOps.length === 0) return;
-        
-        const posteId = `P${posteIdx}`;
-        const posteName = `P${posteIdx}`;
-        newPostes.push({ 
-            id: posteId, 
-            name: posteName, 
-            machine: currentMachine || 'MAN',
-            colorName: existingColorByName.get(posteName) || getDefaultPosteColorName(posteIdx - 1)
+    let finalAssignments: Record<string, string[]> = {};
+    let finalPostes: Poste[] = [];
+
+    while (attempts < maxAttempts) {
+        const limitMax = baseLimitMax * adjustmentFactor;
+        const currentAssignments: Record<string, string[]> = {};
+        const currentPostes: Poste[] = [];
+        let currentPosteOps: Operation[] = [];
+        let currentTotalTime = 0;
+        let currentMachine = '';
+        let posteIdx = 1;
+
+        const relaxMachine = attempts >= 15;
+
+        const flush = () => {
+            if (currentPosteOps.length === 0) return;
+            
+            const posteId = `P${posteIdx}`;
+            const posteName = `P${posteIdx}`;
+            const postMachine = relaxMachine ? getCombinedMachineName(currentPosteOps) : (currentMachine || 'MAN');
+
+            currentPostes.push({ 
+                id: posteId, 
+                name: posteName, 
+                machine: postMachine,
+                colorName: existingColorByName.get(posteName) || getDefaultPosteColorName(posteIdx - 1)
+            });
+            
+            currentPosteOps.forEach(op => {
+                currentAssignments[op.id] = [posteId];
+            });
+
+            posteIdx++;
+            currentPosteOps = [];
+            currentTotalTime = 0;
+            currentMachine = '';
+        };
+
+        sortedOperations.forEach(op => {
+            let primaryMachine = 'MAN';
+            let rawName = op.machineName;
+            if (!rawName && op.machineId) {
+                const foundM = machines.find(m => m.id === op.machineId);
+                if (foundM) rawName = foundM.name;
+            }
+            if (rawName) {
+                let m = rawName.trim().toUpperCase();
+                if (m.includes('MANUEL')) m = 'MAN';
+                primaryMachine = m;
+            }
+
+            const blockTime = op.time || 0;
+            
+            let isSameMachine = false;
+            let nextMachine = currentMachine;
+
+            if (relaxMachine) {
+                isSameMachine = true;
+            } else {
+                if (currentPosteOps.length === 0) {
+                    isSameMachine = true;
+                    nextMachine = primaryMachine;
+                } else {
+                    const cleanCurrent = (currentMachine || '').trim().toUpperCase();
+                    const cleanPrimary = (primaryMachine || '').trim().toUpperCase();
+                    
+                    if (cleanCurrent === cleanPrimary) {
+                        isSameMachine = true;
+                        nextMachine = currentMachine;
+                    } else if (cleanPrimary === 'MAN') {
+                        isSameMachine = true;
+                        nextMachine = currentMachine;
+                    } else if (cleanCurrent === 'MAN') {
+                        isSameMachine = true;
+                        nextMachine = primaryMachine;
+                    }
+                }
+            }
+
+            const fits = (currentTotalTime + blockTime) <= limitMax;
+
+            if (isSameMachine && fits) {
+                currentPosteOps.push(op);
+                currentTotalTime += blockTime;
+                currentMachine = nextMachine;
+            } else {
+                flush();
+                currentPosteOps = [op];
+                currentTotalTime = blockTime;
+                currentMachine = primaryMachine;
+            }
         });
-        
-        currentPosteOps.forEach(op => {
-            newAssignments[op.id] = [posteId];
+        flush();
+
+        // Calculate stats for this iteration to get simulated required workers
+        const stats: Record<string, { time: number }> = {};
+        currentPostes.forEach(p => {
+            stats[p.id] = { time: 0 };
         });
 
-        posteIdx++;
-        currentPosteOps = [];
-        currentTotalTime = 0;
-        currentMachine = '';
-    };
+        operations.forEach(op => {
+            const assignedIds = currentAssignments[op.id] || [];
+            const count = assignedIds.length;
+            if (count > 0) {
+                const timeShare = (op.time || 0) / count;
+                assignedIds.forEach(pid => {
+                    if (stats[pid]) {
+                        stats[pid].time += timeShare;
+                    }
+                });
+            }
+        });
 
-    // USE SORTED OPERATIONS FOR AUTO-BALANCING TO RESPECT SEQUENCE
-    sortedOperations.forEach(op => {
-        // Standard balancing: Operations are processed in sequence.
-        let primaryMachine = 'MAN';
-        let rawName = op.machineName;
-        if (!rawName && op.machineId) {
-            const foundM = machines.find(m => m.id === op.machineId);
-            if (foundM) rawName = foundM.name;
+        let simTotalRequiredWorkers = 0;
+        currentPostes.forEach(p => {
+            const time = stats[p.id]?.time || 0;
+            const sam = time * SAM_MAJORATION;
+            const nTheo = targetBF > 0 ? sam / targetBF : 0;
+            const nReq = nTheo > toleranceRatio ? Math.ceil(nTheo) : (nTheo > 0 ? 1 : 0);
+            simTotalRequiredWorkers += nReq;
+        });
+
+        finalAssignments = currentAssignments;
+        finalPostes = currentPostes;
+
+        if (simTotalRequiredWorkers <= targetNumWorkers) {
+            break;
         }
-        if (rawName) {
-            let m = rawName.trim().toUpperCase();
-            if (m.includes('MANUEL')) m = 'MAN';
-            primaryMachine = m;
-        }
 
-        const blockTime = op.time || 0;
+        adjustmentFactor += 0.01;
+        attempts++;
+    }
 
-        const cleanCurrent = (currentMachine || '').trim().toUpperCase();
-        const cleanPrimary = (primaryMachine || '').trim().toUpperCase();
-        
-        const isSameMachine = currentPosteOps.length === 0 || cleanPrimary === cleanCurrent;
-        const fits = (currentTotalTime + blockTime) <= limitMax;
-
-        if (isSameMachine && fits) {
-            currentPosteOps.push(op);
-            currentTotalTime += blockTime;
-            if (currentPosteOps.length === 1) currentMachine = primaryMachine;
-        } else {
-            flush();
-            currentPosteOps = [op];
-            currentTotalTime = blockTime;
-            currentMachine = primaryMachine;
-        }
-    });
-    flush();
+    const finalStats = calculateStats(finalAssignments, finalPostes);
+    const { newPostes, newAssignments } = splitPostesAndAssignments(
+        finalPostes,
+        finalAssignments,
+        finalStats,
+        targetNumWorkers,
+        toleranceRatio,
+        sortedOperations
+    );
 
     setPostes(newPostes);
     setAssignments(newAssignments);
@@ -389,7 +805,11 @@ export default function Balancing({
   const handleContextAction = (action: 'insert' | 'delete' | 'clear' | 'copy' | 'cut' | 'paste' | 'duplicate' | 'toggleManual') => {
       
       if (action === 'toggleManual') {
-          setIsManual(!isManual);
+          const nextManual = !isManual;
+          setIsManual(nextManual);
+          if (!nextManual) {
+              runAutoBalancing(true);
+          }
           setContextMenu(null);
           return;
       }
@@ -583,58 +1003,27 @@ export default function Balancing({
   };
 
   // --- CALCULATIONS ---
-  const calculateStats = (currAssignments: Record<string, string[]>, currPostes: Poste[]) => {
-      const stats: Record<string, { time: number, nTheo: number, saturation: number }> = {};
-      
-      currPostes.forEach(p => {
-          stats[p.id] = { time: p.timeOverride !== undefined ? p.timeOverride : 0, nTheo: 0, saturation: 0 };
-      });
-
-      operations.forEach(op => {
-          const assignedIds = currAssignments[op.id] || [];
-          const count = assignedIds.length;
-          if (count > 0) {
-              const timeShare = (op.time || 0) / count;
-              assignedIds.forEach(pid => {
-                  const poste = currPostes.find(p => p.id === pid);
-                  if (stats[pid] && poste && poste.timeOverride === undefined) {
-                      stats[pid].time += timeShare;
-                  }
-              });
-          }
-      });
-
-      // Le BF (takt) est calculé sur le TEMPS MAJORÉ (tempsArticle = Σ temps × 1.20, voir App.tsx).
-      // La charge des postes (stats[].time) est en temps BASE (brut). Pour que la saturation et
-      // l'effectif requis soient cohérents (même base SAM que le BF), on ramène la charge à la
-      // base majorée via SAM_MAJORATION. Sans ça, la saturation est sous-évaluée de ~20 % et des
-      // postes réellement surchargés passent sous la barre des 100 %.
-      Object.keys(stats).forEach(pid => {
-          if (bf > 0) {
-              const sam = stats[pid].time * SAM_MAJORATION;
-              stats[pid].nTheo = sam / bf;
-              stats[pid].saturation = (sam / bf) * 100;
-          }
-      });
-      return stats;
-  };
-
   const posteStats = useMemo(() => calculateStats(assignments, postes), [operations, assignments, postes, bf]);
+
+  const postRequirements = useMemo(() => {
+    return calculatePostRequirements(postes, posteStats, numWorkers, toleranceRatio);
+  }, [postes, posteStats, numWorkers, toleranceRatio]);
   
   const tempsArticle = operations.reduce((sum, op) => sum + (op.time || 0), 0) * 1.20;
   
   // --- CHART DATA PREP ---
   const chartData = useMemo(() => {
-    const data: any[] = [];
+    const virtualPoints: any[] = [];
     postes.forEach((p, index) => {
         const stat = posteStats[p.id] || { time: 0, saturation: 0, nTheo: 0 };
-        const nReq = stat.nTheo > toleranceRatio ? Math.ceil(stat.nTheo) : (stat.nTheo > 0 ? 1 : 0);
+        const nReq = postRequirements[p.id] || 0;
+        const saturationPerWorker = nReq > 0 ? stat.saturation / nReq : stat.saturation;
         
         let colorFill = '';
         if (showColors) {
             colorFill = getPosteColor(p, index).fill;
         } else {
-            const statusColor = getStatusColor(stat.saturation, tolerance);
+            const statusColor = getStatusColor(saturationPerWorker, tolerance);
             colorFill = statusColor.fill;
         }
         
@@ -644,9 +1033,10 @@ export default function Balancing({
             if (!showColors) colorFill = getStatusColor(satPerWorker, tolerance).fill;
 
             for (let i = 1; i <= nReq; i++) {
-                data.push({
+                virtualPoints.push({
                     name: `${p.name.replace('P', '')}.${i}`,
                     fullId: p.name,
+                    parentId: p.id,
                     time: Number((timePerWorker * 60).toFixed(2)),
                     saturation: Math.round(satPerWorker),
                     nTheo: Number((stat.nTheo / nReq).toFixed(2)),
@@ -655,28 +1045,50 @@ export default function Balancing({
                 });
             }
         } else {
-            data.push({
+            virtualPoints.push({
                 name: p.name.replace('P', ''),
                 fullId: p.name,
+                parentId: (p as any).originalId || p.id,
                 time: Number((stat.time * 60).toFixed(2)),
-                saturation: Math.round(stat.saturation),
+                saturation: Math.round(saturationPerWorker),
                 nTheo: Number(stat.nTheo.toFixed(2)),
                 machine: p.machine,
                 fill: colorFill
             });
         }
     });
-    return data;
-  }, [postes, posteStats, bf, showColors, tolerance, toleranceRatio]);
+
+    for (let i = 0; i < virtualPoints.length; i++) {
+        const current = virtualPoints[i];
+        const prev = virtualPoints[i - 1];
+        const next = virtualPoints[i + 1];
+
+        const leftDashed = prev && prev.parentId && prev.parentId === current.parentId;
+        const rightDashed = next && next.parentId && next.parentId === current.parentId;
+
+        if (leftDashed && rightDashed) {
+            current.satSolid = null;
+            current.satDashed = current.saturation;
+        } else if (leftDashed && !rightDashed) {
+            current.satSolid = current.saturation;
+            current.satDashed = current.saturation;
+        } else if (!leftDashed && rightDashed) {
+            current.satSolid = current.saturation;
+            current.satDashed = current.saturation;
+        } else {
+            current.satSolid = current.saturation;
+            current.satDashed = null;
+        }
+    }
+
+    return virtualPoints;
+  }, [postes, posteStats, bf, showColors, tolerance, postRequirements]);
 
   const totalRequiredWorkers = useMemo(() => {
-    return postes.reduce((sum, p) => {
-        const stat = posteStats[p.id];
-        const nTheo = stat ? stat.nTheo : 0;
-        const nReq = nTheo > toleranceRatio ? Math.ceil(nTheo) : (nTheo > 0 ? 1 : 0);
-        return sum + nReq;
-    }, 0);
-  }, [postes, posteStats, toleranceRatio]);
+    return postes.reduce((sum, p) => sum + (postRequirements[p.id] || 0), 0);
+  }, [postes, postRequirements]);
+
+
 
   const machineRequirements = useMemo(() => {
     const groups: Record<string, { time: number, count: number }> = {};
@@ -752,11 +1164,27 @@ export default function Balancing({
             </div>
 
             {/* P/H 100% */}
-            <div className="flex flex-col items-center px-2 py-1 sm:px-3 sm:py-1.5 shrink-0">
+            <div className="flex flex-col items-center px-3 py-1.5 bg-orange-50/50 rounded-lg border border-orange-100 shrink-0">
                 <span className="text-[9px] font-bold text-orange-400 uppercase">P/H (100%)</span>
-                <span className="font-black text-orange-500 text-lg leading-none">
+                <span className="font-black text-orange-500 text-sm leading-none mt-1">
                     {tempsArticle > 0 ? Math.round((presenceTime * numWorkers) / tempsArticle / (presenceTime / 60)) : 0}
                 </span>
+            </div>
+
+            {/* TARGETS */}
+            <div className="flex items-center gap-3 px-3 py-1.5 bg-slate-50/50 rounded-lg border border-slate-100 shrink-0">
+                <div className="flex flex-col items-center border-r border-slate-200 pr-3 mr-1">
+                    <span className="text-[9px] font-bold text-slate-400 uppercase">P/J</span>
+                    <span className="font-black text-slate-700 text-sm leading-none mt-1">
+                        {tempsArticle > 0 ? Math.round(((presenceTime * numWorkers) / tempsArticle) * (efficiency / 100)) : 0}
+                    </span>
+                </div>
+                <div className="flex flex-col items-center">
+                    <span className="text-[9px] font-bold text-slate-400 uppercase">P/H</span>
+                    <span className="font-black text-slate-700 text-sm leading-none mt-1">
+                        {tempsArticle > 0 ? Math.round(((presenceTime * numWorkers) / tempsArticle / (presenceTime / 60)) * (efficiency / 100)) : 0}
+                    </span>
+                </div>
             </div>
 
             {/* RENDU */}
@@ -781,8 +1209,21 @@ export default function Balancing({
                     <input 
                         type="number" 
                         min="50" max="200" 
-                        value={tolerance} 
-                        onChange={(e) => setFicheData(prev => ({ ...prev, toleranceSaturation: Math.max(50, Math.min(200, Number(e.target.value))) }))} 
+                        value={tolerance || ''} 
+                        onChange={(e) => {
+                            const val = e.target.value;
+                            if (val === '') {
+                                setFicheData(prev => ({ ...prev, toleranceSaturation: 0 }));
+                                return;
+                            }
+                            setFicheData(prev => ({ ...prev, toleranceSaturation: Number(val) }));
+                        }}
+                        onBlur={() => {
+                            setFicheData(prev => ({ 
+                                ...prev, 
+                                toleranceSaturation: Math.max(50, Math.min(200, prev.toleranceSaturation || 115)) 
+                            }));
+                        }}
                         className="w-10 text-center bg-transparent font-black text-rose-600 outline-none text-sm border-b border-rose-200 p-0" 
                     />
                     <span className="text-[10px] font-bold text-rose-400">%</span>
@@ -842,7 +1283,16 @@ export default function Balancing({
             <button onClick={() => setShowColors(!showColors)} className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold transition-all border shadow-sm ${showColors ? 'bg-purple-50 border-purple-200 text-purple-700 ring-1 ring-purple-100' : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50'}`} title={showColors ? "Désactiver les couleurs" : "Activer les couleurs"}>
                 <Palette className="w-4 h-4" />
             </button>
-            <button onClick={() => setIsManual(!isManual)} className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all border shadow-sm ${isManual ? 'bg-amber-50 border-amber-200 text-amber-700 ring-2 ring-amber-100' : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50'}`}>
+            <button 
+                onClick={() => {
+                    const nextManual = !isManual;
+                    setIsManual(nextManual);
+                    if (!nextManual) {
+                        runAutoBalancing(true);
+                    }
+                }} 
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all border shadow-sm ${isManual ? 'bg-amber-50 border-amber-200 text-amber-700 ring-2 ring-amber-100' : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50'}`}
+            >
                 {isManual ? <MousePointer2 className="w-3.5 h-3.5" /> : <ArrowRightLeft className="w-3.5 h-3.5" />}
                 {isManual ? 'Mode Manuel Actif' : 'Mode Automatique'}
             </button>
@@ -954,7 +1404,10 @@ export default function Balancing({
                                         <div className="flex flex-col items-start"><span className="text-[10px] font-black text-slate-700 uppercase tracking-widest flex items-center gap-2"><Activity className="w-3.5 h-3.5 text-indigo-500" /> Saturation %</span></div>
                                     </td>
                                     {postes.map(p => {
-                                        const saturation = Math.round(posteStats[p.id]?.saturation || 0);
+                                        const stat = posteStats[p.id];
+                                        const nReq = postRequirements[p.id] || 0;
+                                        const rawSaturation = stat?.saturation || 0;
+                                        const saturation = nReq > 0 ? Math.round(rawSaturation / nReq) : 0;
                                         const isOver = saturation > tolerance;
                                         const isUnder = saturation < 75;
                                         let colorClass = "text-emerald-700 bg-emerald-100 border-emerald-200";
@@ -969,8 +1422,7 @@ export default function Balancing({
                                         <div className="flex flex-col items-start"><span className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2"><Users className="w-3.5 h-3.5 text-slate-400" /> Effectif Requis</span></div>
                                     </td>
                                     {postes.map(p => {
-                                        const nTheo = posteStats[p.id]?.nTheo || 0;
-                                        const nReq = nTheo > toleranceRatio ? Math.ceil(nTheo) : (nTheo > 0 ? 1 : 0);
+                                        const nReq = postRequirements[p.id] || 0;
                                         return <td key={p.id} className="text-center px-1 py-2 border-r border-slate-200"><span className="font-mono font-bold text-slate-600 text-[10px]">{nReq}</span></td>
                                     })}
                                     <td className="text-center px-1 py-2 border-l border-slate-200 bg-emerald-50"><span className="font-black text-emerald-700 text-[11px]">{totalRequiredWorkers}</span></td>
@@ -989,8 +1441,21 @@ export default function Balancing({
                         <input 
                             type="number" 
                             min="50" max="200" 
-                            value={tolerance} 
-                            onChange={(e) => setFicheData(prev => ({ ...prev, toleranceSaturation: Math.max(50, Math.min(200, Number(e.target.value))) }))} 
+                            value={tolerance || ''} 
+                            onChange={(e) => {
+                                const val = e.target.value;
+                                if (val === '') {
+                                    setFicheData(prev => ({ ...prev, toleranceSaturation: 0 }));
+                                    return;
+                                }
+                                setFicheData(prev => ({ ...prev, toleranceSaturation: Number(val) }));
+                            }}
+                            onBlur={() => {
+                                setFicheData(prev => ({ 
+                                    ...prev, 
+                                    toleranceSaturation: Math.max(50, Math.min(200, prev.toleranceSaturation || 115)) 
+                                }));
+                            }}
                             className="w-10 text-center bg-transparent font-black text-rose-700 outline-none p-0 border-b border-rose-300" 
                         />
                         <span className="font-bold">%</span>
@@ -1015,7 +1480,9 @@ export default function Balancing({
                                         <Cell key={`cell-${index}`} fill={entry.fill} />
                                     ))}
                                 </Bar>
-                                <Line yAxisId="right" type="monotone" dataKey="saturation" stroke="#6366f1" strokeWidth={2} dot={{ r: 3, fill: '#6366f1', strokeWidth: 2, stroke: '#fff' }} />
+                                <Line yAxisId="right" type="monotone" dataKey="saturation" stroke="none" dot={{ r: 3, fill: '#6366f1', strokeWidth: 2, stroke: '#fff' }} />
+                                <Line yAxisId="right" type="monotone" dataKey="satSolid" stroke="#6366f1" strokeWidth={2} connectNulls={false} dot={false} />
+                                <Line yAxisId="right" type="monotone" dataKey="satDashed" stroke="#6366f1" strokeWidth={2} strokeDasharray="3 3" connectNulls={false} dot={false} />
                             </ComposedChart>
                         </ResponsiveContainer>
                     </div>
@@ -1058,6 +1525,8 @@ export default function Balancing({
                   {postes.map((p, index) => {
                       const ops = operations.filter(op => (assignments[op.id] || []).includes(p.id));
                       const stat = posteStats[p.id] || { time: 0, saturation: 0, nTheo: 0 };
+                      const nReq = postRequirements[p.id] || 0;
+                      const saturation = nReq > 0 ? Math.round(stat.saturation / nReq) : 0;
                       const color = showColors ? getPosteColor(p, index) : NEUTRAL_COLOR;
                       
                       return (
@@ -1091,19 +1560,17 @@ export default function Balancing({
                               </div>
                               <div className="flex flex-col items-end">
                                 <span className="text-[9px] text-slate-400 font-bold uppercase">Sat.</span>
-                                <span className={`text-xs font-black ${stat.saturation > 100 ? 'text-rose-500' : 'text-emerald-500'}`}>{Math.round(stat.saturation)}%</span>
+                                <span className={`text-xs font-black ${saturation > 100 ? 'text-rose-500' : 'text-emerald-500'}`}>{saturation}%</span>
                               </div>
                            </div>
                            
                            <div className="absolute bottom-0 left-0 h-1 bg-slate-100 w-full rounded-b-xl overflow-hidden">
-                              <div className={`h-full ${stat.saturation > 100 ? 'bg-rose-500' : color.fill}`} style={{ width: `${Math.min(stat.saturation, 100)}%` }}></div>
+                              <div className={`h-full ${saturation > 100 ? 'bg-rose-500' : color.fill}`} style={{ width: `${Math.min(saturation, 100)}%` }}></div>
                            </div>
                         </div>
                       );
                   })}
                </div>
-               
-               {/* Charts & Tables duplicated for Postes view for consistency if needed, but per request keeping Matrix view updated mostly */}
            </div>
        )}
 

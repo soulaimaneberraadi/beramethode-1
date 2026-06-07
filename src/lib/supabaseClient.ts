@@ -8,6 +8,10 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
     persistSession: true,
     autoRefreshToken: true,
     storageKey: 'beramethode_supabase_session',
+    // Désactive le verrou Web Locks de Supabase : un refresh de token bloqué
+    // (ex. session périmée en cache) ne doit jamais geler signInWithPassword.
+    // On exécute simplement la fonction sans sérialisation cross-onglets.
+    lock: async (_name, _acquireTimeout, fn) => fn(),
   },
 });
 

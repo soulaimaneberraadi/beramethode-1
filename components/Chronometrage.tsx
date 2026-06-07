@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useEffect, useRef, useCallback } from 'react';
-import { Operation, ChronoData, Poste, Machine } from '../types';
+import { Operation, ChronoData, Poste, Machine, CustomStation } from '../types';
 import {
     Activity, ClipboardList,
     Timer, Play, Pause, RotateCcw,
@@ -25,6 +25,10 @@ interface ChronometrageProps {
     setEfficiency?: React.Dispatch<React.SetStateAction<number>>;
     activeLayout?: 'zigzag' | 'free' | 'line' | 'double-zigzag';
     toleranceSaturation?: number;
+    chronoCustomStations?: CustomStation[];
+    setChronoCustomStations?: React.Dispatch<React.SetStateAction<CustomStation[]>>;
+    chronoLayoutSide?: 'left' | 'right' | 'both';
+    setChronoLayoutSide?: React.Dispatch<React.SetStateAction<'left' | 'right' | 'both'>>;
 }
 
 /** Snapshot d'une séance de chronométrage (relevés figés à un instant T). */
@@ -77,11 +81,23 @@ const POSTE_COLORS = [
     { name: 'sky', bg: 'bg-sky-50', border: 'border-sky-200', text: 'text-sky-700', badge: 'bg-sky-100', badgeText: 'text-sky-800', fill: '#0ea5e9' },
 ];
 
-const getPosteColor = (poste: Poste, index: number) => {
-    if (poste.colorName) {
-        const existingColor = POSTE_COLORS.find(color => color.name === poste.colorName);
-        if (existingColor) return existingColor;
+const SPECIAL_COLORS = {
+    controle: { name: 'orange', bg: 'bg-orange-50', border: 'border-orange-200', text: 'text-orange-700', fill: '#f97316', badge: 'bg-orange-100', badgeText: 'text-orange-800' },
+    fer: { name: 'rose', bg: 'bg-rose-100', border: 'border-rose-300', text: 'text-rose-800', fill: '#e11d48', badge: 'bg-rose-200', badgeText: 'text-rose-900' },
+    finition: { name: 'purple', bg: 'bg-purple-50', border: 'border-purple-200', text: 'text-purple-700', fill: '#a855f7', badge: 'bg-purple-100', badgeText: 'text-purple-800' },
+    vide: { name: 'vide', bg: 'bg-transparent', border: 'border-slate-300 border-2 border-dashed', text: 'text-slate-400', fill: 'transparent', badge: 'bg-slate-100', badgeText: 'text-slate-500' },
+};
+
+const getPosteColor = (index: number, machineName: string, colorName?: string) => {
+    if (machineName === 'VIDE') return SPECIAL_COLORS.vide;
+    if (colorName) {
+        const found = POSTE_COLORS.find(c => c.name === colorName);
+        if (found) return found;
     }
+    const name = machineName.toUpperCase();
+    if (name.includes('CONTROL') || name.includes('CONTROLE')) return SPECIAL_COLORS.controle;
+    if (name.includes('FER') || name.includes('REPASSAGE')) return SPECIAL_COLORS.fer;
+    if (name.includes('FINITION')) return SPECIAL_COLORS.finition;
     return POSTE_COLORS[index % POSTE_COLORS.length];
 };
 
@@ -646,10 +662,10 @@ interface Workstation extends Poste {
     isFeeder?: boolean;
     targetStationName?: string;
     gammeOrderMin: number;
-    isPlaced?: boolean;
-    status?: 'ok' | 'panne';
     dominantSection?: 'PREPARATION' | 'MONTAGE' | 'GLOBAL';
+    parentOperators?: number;
 }
+const SAM_MAJORATION = 1.20;
 
 /* ─── MAIN COMPONENT ─── */
 export default function Chronometrage({
@@ -669,7 +685,11 @@ export default function Chronometrage({
     setNumWorkers,
     setEfficiency,
     activeLayout = 'zigzag',
-    toleranceSaturation = 115
+    toleranceSaturation = 115,
+    chronoCustomStations = [],
+    setChronoCustomStations,
+    chronoLayoutSide = 'both',
+    setChronoLayoutSide
 }: ChronometrageProps) {
 
     const [activeRowId, setActiveRowId] = useState<string | null>(null);
@@ -691,12 +711,117 @@ export default function Chronometrage({
     /** Barre stats + outils : sticky en haut de #workflow-content ou défile avec le contenu. */
     const [stickyToolbar, setStickyToolbar] = useState(false);
     /** Source de l'ordre des opérations dans le tableau : ordre Gamme (défaut) ou ordre réel d'implantation (flux des postes). */
-    const [orderSource, setOrderSource] = useState<'gamme' | 'plantation'>('gamme');
+    const [orderSource, setOrderSource] = useState<'gamme' | 'plantation' | 'new'>('gamme');
+
+    const [editingStation, setEditingStation] = useState<CustomStation | null>(null);
+    const [editName, setEditName] = useState('');
+    const [editOperator, setEditOperator] = useState('');
+    const [editMachine, setEditMachine] = useState('');
+    const [editDescription, setEditDescription] = useState('');
+    const [linkedOpId, setLinkedOpId] = useState<string | undefined>(undefined);
+    const [showSuggestions, setShowSuggestions] = useState(false);
+
+    useEffect(() => {
+        if (editingStation) {
+            setEditName(editingStation.name || '');
+            setEditOperator(editingStation.operatorName || '');
+            setEditMachine(editingStation.machine || '');
+            setEditDescription(editingStation.description || '');
+            setLinkedOpId(editingStation.linkedOperationId);
+            setShowSuggestions(false);
+        }
+    }, [editingStation]);
+
+    const suggestions = useMemo(() => {
+        if (!editDescription) return [];
+        const term = editDescription.toLowerCase();
+        return operations.filter(op => 
+            op.description?.toLowerCase().includes(term) ||
+            op.order.toString() === term
+        );
+    }, [editDescription, operations]);
+
+    const fillPosteFromOperation = (op: Operation) => {
+        setEditDescription(op.description);
+        setLinkedOpId(op.id);
+        
+        const assignedPosteIds = assignments?.[op.id] || [];
+        if (assignedPosteIds.length > 0) {
+            const foundPoste = postes?.find(p => p.id === assignedPosteIds[0]);
+            if (foundPoste) {
+                setEditName(foundPoste.name);
+                setEditMachine(foundPoste.machine || '');
+                setEditOperator(foundPoste.operatorName || '');
+                return;
+            }
+        }
+        setEditMachine(op.machineId || '');
+    };
+
+    const deleteCustomStation = (id: string) => {
+        setChronoCustomStations?.(prev => prev.filter(s => s.id !== id));
+        setChronoData(prev => {
+            const next = { ...prev };
+            delete next[id];
+            return next;
+        });
+        if (activeRowId === id) setActiveRowId(null);
+    };
+
+    const getVisibleCustomStations = useCallback(() => {
+        const left = (chronoCustomStations || []).filter(s => s.side === 'left');
+        const right = (chronoCustomStations || []).filter(s => s.side === 'right');
+        if (chronoLayoutSide === 'left') return left;
+        if (chronoLayoutSide === 'right') return right;
+        
+        const visible: CustomStation[] = [];
+        const maxLen = Math.max(left.length, right.length);
+        for (let i = 0; i < maxLen; i++) {
+            if (left[i]) visible.push(left[i]);
+            if (right[i]) visible.push(right[i]);
+        }
+        return visible;
+    }, [chronoCustomStations, chronoLayoutSide]);
+
+    const handleCustomAdvance = useCallback((stationId: string) => {
+        const visible = getVisibleCustomStations();
+        const idx = visible.findIndex(s => s.id === stationId);
+        if (idx !== -1 && idx < visible.length - 1) {
+            setActiveRowId(visible[idx + 1].id);
+        } else {
+            setActiveRowId(null);
+        }
+    }, [getVisibleCustomStations]);
+
+    const handleCustomPrev = useCallback((stationId: string) => {
+        const visible = getVisibleCustomStations();
+        const idx = visible.findIndex(s => s.id === stationId);
+        if (idx > 0) {
+            setActiveRowId(visible[idx - 1].id);
+        }
+    }, [getVisibleCustomStations]);
+
+    const handleCustomNext = useCallback((stationId: string) => {
+        const visible = getVisibleCustomStations();
+        const idx = visible.findIndex(s => s.id === stationId);
+        if (idx !== -1 && idx < visible.length - 1) {
+            setActiveRowId(visible[idx + 1].id);
+        }
+    }, [getVisibleCustomStations]);
 
     /** Indice de flux (position du poste dans l'implantation) par opération — pour le tri "Plantation". */
     const plantationFlowIndex = useMemo(() => {
+        // Sort a copy of postes by their minimum operation order in the gamme
+        const sortedPostes = [...postes].sort((a, b) => {
+            const getMinOrder = (p: Poste) => {
+                const assigned = operations.filter(op => assignments?.[op.id]?.includes(p.id));
+                return assigned.length > 0 ? Math.min(...assigned.map(o => o.order)) : 9999;
+            };
+            return getMinOrder(a) - getMinOrder(b);
+        });
+
         const posteIndexById = new Map<string, number>();
-        postes.forEach((p, i) => {
+        sortedPostes.forEach((p, i) => {
             posteIndexById.set(p.id, i);
             // Les sous-postes scindés (x2) partagent le flux de leur poste parent.
             const originalId = (p as any).originalId as string | undefined;
@@ -729,104 +854,6 @@ export default function Chronometrage({
         });
     }, [operations, sectionFilter, orderSource, plantationFlowIndex]);
 
-    // ─── SÉANCES DE CHRONO (historique + évolution) ───
-    const [sessions, setSessions] = useState<ChronoSession[]>([]);
-    const [editingSessionId, setEditingSessionId] = useState<string | null>(null);
-    const [sessionLabelDraft, setSessionLabelDraft] = useState('');
-    /** Métrique suivie dans la courbe d'évolution. */
-    const [evolutionMetric, setEvolutionMetric] = useState<'tempMajore' | 'tm'>('tempMajore');
-    /** Type de gamme pour la nouvelle séance. */
-    const [newSessionGammeType, setNewSessionGammeType] = useState<'default' | 'plantation' | 'new'>('default');
-    /** Source d'ordre pour la nouvelle séance. */
-    const [newSessionOrderSource, setNewSessionOrderSource] = useState<'gamme' | 'plantation'>('gamme');
-    /** Session sélectionnée pour affichage détaillé (page dédiée). */
-    const [selectedSession, setSelectedSession] = useState<ChronoSession | null>(null);
-    /** Show create session dialog. */
-    const [showCreateDialog, setShowCreateDialog] = useState(false);
-
-    // Charger les séances depuis l'API
-    useEffect(() => {
-        if (!currentModelId) { setSessions([]); return; }
-        fetch(`/api/chrono/sessions?modelId=${currentModelId}`, { credentials: 'include' })
-            .then(r => r.ok ? r.json() : [])
-            .then((data: ChronoSession[]) => setSessions(Array.isArray(data) ? data : []))
-            .catch(() => setSessions([]));
-    }, [currentModelId]);
-
-    /** Fige les relevés actuels dans une nouvelle séance horodatée. */
-    const createSession = useCallback(async () => {
-        const entries: ChronoSession['entries'] = {};
-        const opNames: Record<string, string> = {};
-        let totalTempMajore = 0;
-        operations.forEach(op => {
-            const row = chronoData[op.id];
-            opNames[op.id] = op.description || `Op. ${op.order}`;
-            if (row) {
-                entries[op.id] = { tm: row.tm, tempMajore: row.tempMajore, pMax: row.pMax };
-                totalTempMajore += row.tempMajore || 0;
-            }
-        });
-        const now = new Date();
-        const label = `Chrono ${sessions.length + 1} · ${now.toLocaleDateString('fr-FR')} ${now.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`;
-        const session: ChronoSession = {
-            id: `CS-${Date.now()}`,
-            label,
-            createdAt: now.getTime(),
-            entries,
-            opNames,
-            totalTempMajore: roundValue(totalTempMajore),
-            gammeType: newSessionGammeType,
-            orderSource: newSessionOrderSource,
-        };
-        try {
-            const res = await fetch('/api/chrono/sessions', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                credentials: 'include',
-                body: JSON.stringify({
-                    modelId: currentModelId,
-                    ...session,
-                }),
-            });
-            if (res.ok) {
-                const saved = await res.json();
-                setSessions(prev => [...prev, { ...session, ...saved }]);
-            }
-        } catch { /* fallback to local only */ }
-        setShowCreateDialog(false);
-    }, [operations, chronoData, sessions.length, currentModelId, newSessionGammeType, newSessionOrderSource]);
-
-    const deleteSession = useCallback(async (id: string) => {
-        try {
-            await fetch(`/api/chrono/sessions/${id}`, { method: 'DELETE', credentials: 'include' });
-        } catch { /* continue even if API fails */ }
-        setSessions(prev => prev.filter(s => s.id !== id));
-        if (selectedSession?.id === id) setSelectedSession(null);
-    }, [selectedSession]);
-
-    const startRenameSession = (s: ChronoSession) => { setEditingSessionId(s.id); setSessionLabelDraft(s.label); };
-    const commitRenameSession = async () => {
-        if (!editingSessionId) return;
-        const label = sessionLabelDraft.trim();
-        setSessions(prev => prev.map(s => (s.id === editingSessionId ? { ...s, label: label || s.label } : s)));
-        try {
-            await fetch(`/api/chrono/sessions/${editingSessionId}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                credentials: 'include',
-                body: JSON.stringify({ label: label || undefined }),
-            });
-        } catch { /* ignore */ }
-        setEditingSessionId(null);
-        setSessionLabelDraft('');
-    };
-
-    const gammeTypeOptions = [
-        { value: 'default' as const, label: 'Défaut', desc: 'Ordre de la Gamme' },
-        { value: 'plantation' as const, label: 'Plantation', desc: 'Flux réel atelier' },
-        { value: 'new' as const, label: 'Nouveau', desc: 'Nouvelle séquence' },
-    ];
-
     const hasSections = useMemo(
         () => operations.some(o => o.section === 'PREPARATION' || o.section === 'MONTAGE'),
         [operations]
@@ -850,11 +877,11 @@ export default function Chronometrage({
         return map;
     }, [machines]);
     const posteColorById = useMemo(
-        () => new Map(postes.map((poste, index) => [poste.id, getPosteColor(poste, index)])),
+        () => new Map(postes.map((poste, index) => [poste.id, getPosteColor(index, poste.machine, poste.colorName)])),
         [postes]
     );
 
-    const roundValue = (n: number) => Math.round(n * 1000000) / 1000000;
+    const roundValue = (n: number) => Math.round(n * 100) / 100;
     const displayValue = (n?: number) =>
         (n !== undefined && n !== null && !isNaN(n) ? String(roundValue(n)) : '');
     const getUnitMeta = (u: TimeUnit) => TIME_UNIT_OPTIONS.find(opt => opt.id === u) ?? TIME_UNIT_OPTIONS[3];
@@ -912,7 +939,8 @@ export default function Chronometrage({
         let tmManual = row.tmManual ?? false;
         if (row.tmManual && row.tm !== undefined && !isNaN(row.tm)) {
             tm = roundValue(row.tm);
-        } else if (trEnabled && trAvg !== undefined) {
+            tmManual = true;
+        } else if (trAvg !== undefined) {
             tm = trAvg;
             tmManual = false;
         } else {
@@ -934,63 +962,320 @@ export default function Chronometrage({
         return { ...row, tm, tmManual, majoration: maj, tempMajore, pMax, p85 };
     };
 
+    const getChronoDataForOp = useCallback((opId: string, stId?: string): ChronoData => {
+        let matchingKeys: string[] = [];
+        if (stId) {
+            matchingKeys = Object.keys(chronoData).filter(k => 
+                k === `${stId}__${opId}` || 
+                (k.startsWith(`${stId}__`) && k.endsWith(`__${opId}`))
+            );
+            if (matchingKeys.length === 0 && chronoData[opId]) {
+                matchingKeys = [opId];
+            }
+        } else {
+            matchingKeys = Object.keys(chronoData).filter(k => 
+                k === opId || 
+                k.endsWith(`__${opId}`)
+            );
+        }
+
+        if (matchingKeys.length === 1) {
+            return ensureRow(opId, chronoData[matchingKeys[0]]);
+        } else if (matchingKeys.length > 1) {
+            let sumTm = 0;
+            let countTm = 0;
+            let sumMaj = 0;
+            let countMaj = 0;
+            matchingKeys.forEach(k => {
+                const row = recalcRow(ensureRow(opId, chronoData[k]), unit);
+                if (row.tm !== undefined && !isNaN(row.tm)) {
+                    sumTm += row.tm;
+                    countTm++;
+                }
+                if (row.majoration !== undefined && !isNaN(row.majoration)) {
+                    sumMaj += row.majoration;
+                    countMaj++;
+                }
+            });
+            const defaultMaj = getDefaultMajoration(opId);
+            return {
+                operationId: opId,
+                tm: countTm > 0 ? roundValue(sumTm / countTm) : undefined,
+                majoration: countMaj > 0 ? roundValue(sumMaj / countMaj) : defaultMaj,
+                tmManual: true
+            };
+        } else {
+            return ensureRow(opId, chronoData[opId]);
+        }
+    }, [chronoData, ensureRow, unit, getDefaultMajoration]);
+
+    // Calculate Column Totals (moved up)
+    const totals = useMemo(() => {
+        let tmTotal = 0;
+        let tempMajoreTotal = 0;
+        let filledCount = 0;
+        const pMaxPerOp: number[] = [];
+        const p85PerOp: number[] = [];
+        const eff = Math.max(1, Math.min(100, efficiency));
+
+        const targetList = orderSource === 'new' ? (chronoCustomStations || []) : operations;
+
+        targetList.forEach(item => {
+            const isCustom = orderSource === 'new';
+            const id = item.id;
+            const data = getChronoDataForOp(id);
+            const row = recalcRow(data, unit);
+            if (row.tm !== undefined && !isNaN(row.tm)) { tmTotal += row.tm; filledCount++; }
+            
+            let opTempMajore = 0;
+            if (row.tempMajore !== undefined) {
+                opTempMajore = row.tempMajore;
+            } else if (!isCustom) {
+                const op = item as Operation;
+                if (showTsColumn) {
+                    opTempMajore = (op.time || 0) * (row.majoration || 1.15);
+                }
+            } else {
+                const cs = item as CustomStation;
+                if (cs.linkedOperationId) {
+                    const linkedOp = operations.find(o => o.id === cs.linkedOperationId);
+                    if (linkedOp && showTsColumn) {
+                        opTempMajore = (linkedOp.time || 0) * (row.majoration || 1.15);
+                    }
+                }
+            }
+            tempMajoreTotal += opTempMajore;
+            
+            if (opTempMajore > 0) {
+                const opPMax = Math.round(presenceTime / opTempMajore);
+                pMaxPerOp.push(opPMax);
+                const opP85 = Math.round(opPMax * (eff / 100));
+                p85PerOp.push(opP85);
+            }
+        });
+
+        let pMaxGlobal = 0;
+        if (pMaxPerOp.length > 0) {
+            pMaxGlobal = Math.min(...pMaxPerOp);
+        } else if (tempMajoreTotal > 0) {
+            pMaxGlobal = Math.round(presenceTime / tempMajoreTotal);
+        }
+        let p85Global = 0;
+        if (p85PerOp.length > 0) {
+            p85Global = Math.min(...p85PerOp);
+        } else if (pMaxGlobal > 0) {
+            p85Global = Math.round(pMaxGlobal * (eff / 100));
+        }
+
+        return { tm: tmTotal, tempMajore: tempMajoreTotal, filledCount, pMaxGlobal, p85Global };
+    }, [chronoData, operations, chronoCustomStations, orderSource, presenceTime, efficiency, unit, trCount, trEnabled, getChronoDataForOp]);
+
+    const totalCountForProgress = orderSource === 'new' ? (chronoCustomStations || []).length : operations.length;
+    const progressPercent = totalCountForProgress > 0 ? Math.round((totals.filledCount / totalCountForProgress) * 100) : 0;
+    const clampedEfficiency = Math.max(1, Math.min(100, efficiency));
+    const hasChronoCycle = totals.filledCount > 0;
+    const chronoBfMinutes = hasChronoCycle && numWorkers > 0
+        ? totals.tempMajore / numWorkers
+        : bf;
+    const effectiveTempsArticle = totals.tempMajore > 0 ? totals.tempMajore : (bf * numWorkers);
+    const prodHour100Chrono = effectiveTempsArticle > 0 ? (numWorkers * 60) / effectiveTempsArticle : 0;
+    const prodDayEffChrono = effectiveTempsArticle > 0 ? ((presenceTime * numWorkers) / effectiveTempsArticle) * (efficiency / 100) : 0;
+    const prodHourEffChrono = effectiveTempsArticle > 0 ? (((presenceTime * numWorkers) / effectiveTempsArticle) / (presenceTime / 60)) * (efficiency / 100) : 0;
+    const presenceHours = presenceTime / 60;
+    const cycleHours = totals.tempMajore / 60;
+    const estimatedDays = totals.p85Global > 0 ? targetQuantity / totals.p85Global : 0;
+    const visibleTrCount = trEnabled ? trCount : 0;
+    const desktopColSpan =
+        visibleTrCount + 5 + (showTsColumn ? 1 : 0) + (showThroughputKpi ? 2 : 0);
+
+    // ─── SÉANCES DE CHRONO (historique + évolution) ───
+    const [sessions, setSessions] = useState<ChronoSession[]>([]);
+    const [editingSessionId, setEditingSessionId] = useState<string | null>(null);
+    const [sessionLabelDraft, setSessionLabelDraft] = useState('');
+    /** Métrique suivie dans la courbe d'évolution. */
+    const [evolutionMetric, setEvolutionMetric] = useState<'tempMajore' | 'tm'>('tempMajore');
+    /** Type de gamme pour la nouvelle séance. */
+    const [newSessionGammeType, setNewSessionGammeType] = useState<'default' | 'plantation' | 'new'>('default');
+    /** Source d'ordre pour la nouvelle séance. */
+    const [newSessionOrderSource, setNewSessionOrderSource] = useState<'gamme' | 'plantation'>('gamme');
+    /** Session sélectionnée pour affichage détaillé (page dédiée). */
+    const [selectedSession, setSelectedSession] = useState<ChronoSession | null>(null);
+    /** Show create session dialog. */
+    const [showCreateDialog, setShowCreateDialog] = useState(false);
+
+    // Charger les séances depuis l'API
+    useEffect(() => {
+        if (!currentModelId) { setSessions([]); return; }
+        fetch(`/api/chrono/sessions?modelId=${currentModelId}`, { credentials: 'include' })
+            .then(r => r.ok ? r.json() : [])
+            .then((data: ChronoSession[]) => setSessions(Array.isArray(data) ? data : []))
+            .catch(() => setSessions([]));
+    }, [currentModelId]);
+
+    /** Fige les relevés actuels dans une nouvelle séance horodatée. */
+    const createSession = useCallback(async () => {
+        const entries: ChronoSession['entries'] = {};
+        const opNames: Record<string, string> = {};
+        let totalTempMajore = 0;
+        operations.forEach(op => {
+            const row = getChronoDataForOp(op.id);
+            opNames[op.id] = op.description || `Op. ${op.order}`;
+            if (row) {
+                entries[op.id] = { tm: row.tm, tempMajore: row.tempMajore, pMax: row.pMax };
+                totalTempMajore += row.tempMajore || 0;
+            }
+        });
+        const now = new Date();
+        const label = `Chrono ${sessions.length + 1} · ${now.toLocaleDateString('fr-FR')} ${now.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`;
+        const session: ChronoSession = {
+            id: `CS-${Date.now()}`,
+            label,
+            createdAt: now.getTime(),
+            entries,
+            opNames,
+            totalTempMajore: roundValue(totalTempMajore),
+            gammeType: newSessionGammeType,
+            orderSource: newSessionOrderSource,
+        };
+        try {
+            const res = await fetch('/api/chrono/sessions', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({
+                    modelId: currentModelId,
+                    ...session,
+                }),
+            });
+            if (res.ok) {
+                const saved = await res.json();
+                setSessions(prev => [...prev, { ...session, ...saved }]);
+            }
+        } catch { /* fallback to local only */ }
+        setShowCreateDialog(false);
+    }, [operations, getChronoDataForOp, sessions.length, currentModelId, newSessionGammeType, newSessionOrderSource]);
+
+    const deleteSession = useCallback(async (id: string) => {
+        try {
+            await fetch(`/api/chrono/sessions/${id}`, { method: 'DELETE', credentials: 'include' });
+        } catch { /* continue even if API fails */ }
+        setSessions(prev => prev.filter(s => s.id !== id));
+        if (selectedSession?.id === id) setSelectedSession(null);
+    }, [selectedSession]);
+
+    const startRenameSession = (s: ChronoSession) => { setEditingSessionId(s.id); setSessionLabelDraft(s.label); };
+    const commitRenameSession = async () => {
+        if (!editingSessionId) return;
+        const label = sessionLabelDraft.trim();
+        setSessions(prev => prev.map(s => (s.id === editingSessionId ? { ...s, label: label || s.label } : s)));
+        try {
+            await fetch(`/api/chrono/sessions/${editingSessionId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({ label: label || undefined }),
+            });
+        } catch { /* ignore */ }
+        setEditingSessionId(null);
+        setSessionLabelDraft('');
+    };
+
+    const gammeTypeOptions = [
+        { value: 'default' as const, label: 'Défaut', desc: 'Ordre de la Gamme' },
+        { value: 'plantation' as const, label: 'Plantation', desc: 'Flux réel atelier' },
+        { value: 'new' as const, label: 'Nouveau', desc: 'Nouvelle séquence' },
+    ];
+
+    const getGlobalStationIndex = (st: Workstation) => {
+        if (!workstationsList) return st.index;
+        const uniqueGlobalIds = Array.from(new Set(workstationsList.map(w => w.originalId || w.id)));
+        const idx = uniqueGlobalIds.indexOf(st.originalId || st.id);
+        return idx >= 0 ? idx + 1 : st.index;
+    };
+
     const workstationsList = useMemo(() => {
         if (postes && postes.length > 0 && assignments) {
             const toleranceRatio = (toleranceSaturation ?? 115) / 100;
-            let initialStations: Workstation[] = postes.map((p, realIndex) => {
+            
+            // Sort a copy of postes by their minimum operation order in the gamme
+            const sortedPostes = [...postes].sort((a, b) => {
+                const getMinOrder = (p: Poste) => {
+                    const assigned = operations.filter(op => assignments[op.id]?.includes(p.id));
+                    return assigned.length > 0 ? Math.min(...assigned.map(o => o.order)) : 9999;
+                };
+                return getMinOrder(a) - getMinOrder(b);
+            });
+
+            let initialStations: Workstation[] = sortedPostes.map((p, realIndex) => {
                 let totalTime = 0; let saturation = 0; let operators = 1;
                 const assignedOps = operations.filter(op => assignments[op.id]?.some(aid => aid === p.id || (p.originalId && aid === p.originalId)));
                 const groups = [...new Set(assignedOps.map(op => op.groupId).filter(Boolean) as string[])];
                 const gammeOrderMin = assignedOps.length > 0 ? Math.min(...assignedOps.map(o => o.order)) : 9999;
 
+                const activeBf = hasChronoCycle ? chronoBfMinutes : bf;
+
                 if (p.timeOverride !== undefined) {
                     totalTime = p.timeOverride;
-                    if (bf > 0) {
+                    if (activeBf > 0) {
                         operators = 1;
-                        saturation = (totalTime / bf) * 100;
+                        saturation = ((totalTime * SAM_MAJORATION) / activeBf) * 100;
                     }
                 } else {
+                    let standardTotalTime = 0;
                     assignedOps.forEach(op => {
                         let sharingCount = 1;
                         if (p.originalId) {
-                            sharingCount = postes.filter(x => x.originalId === p.originalId).length;
+                            sharingCount = sortedPostes.filter(x => x.originalId === p.originalId).length;
                         } else {
                             sharingCount = assignments[op.id]?.length || 1;
                         }
 
-                        const data = ensureRow(op.id, chronoData[`${p.id}__${op.id}`] || chronoData[op.id]);
+                        standardTotalTime += (op.time || 0) / sharingCount;
+
+                        const data = getChronoDataForOp(op.id, p.id);
                         const row = recalcRow(data, unit);
-                        const opTime = row.tempMajore !== undefined ? row.tempMajore : (op.time || 0);
+                        const isMeasured = row.tempMajore !== undefined;
+                        
+                        let opTime = 0;
+                        if (isMeasured) {
+                            if (trEnabled || !showTsColumn) {
+                                opTime = row.tempMajore;
+                            } else {
+                                opTime = (op.time || 0) * (row.majoration || 1.15);
+                            }
+                        } else {
+                            if (showTsColumn) {
+                                opTime = (op.time || 0) * (row.majoration || 1.15);
+                            } else {
+                                opTime = 0;
+                            }
+                        }
 
                         totalTime += opTime / sharingCount;
                     });
 
-                    const nTheo = bf > 0 ? totalTime / bf : 0;
+                    const nTheo = activeBf > 0 ? (standardTotalTime * SAM_MAJORATION) / activeBf : 0;
                     operators = nTheo > toleranceRatio ? Math.ceil(nTheo) : (nTheo > 0 ? 1 : 0);
 
                     if (p.originalId) {
                         operators = 1;
                     }
 
-                    saturation = (operators > 0 && bf > 0) ? (totalTime / (operators * bf)) * 100 : 0;
+                    saturation = (operators > 0 && activeBf > 0) ? (totalTime / (operators * activeBf)) * 100 : 0;
                 }
                 operators = Math.max(1, operators);
                 const pNum = parseInt(p.name.replace(/^P/i, ''));
                 const effectiveIndex = !isNaN(pNum) ? pNum - 1 : realIndex;
                 
                 // Color mapping logic
-                let color = POSTE_COLORS[effectiveIndex % POSTE_COLORS.length];
-                if (p.colorName) {
-                    const existingColor = POSTE_COLORS.find(c => c.name === p.colorName);
-                    if (existingColor) color = existingColor;
-                }
+                const color = getPosteColor(effectiveIndex, p.machine, p.colorName);
 
                 let feedsInto: string | undefined = undefined;
                 let isFeeder = false;
 
                 for (const op of assignedOps) {
                     if (op.targetOperationId) {
-                        const targetStation = postes.find(st => assignments[op.targetOperationId!]?.includes(st.id));
+                        const targetStation = sortedPostes.find(st => assignments[op.targetOperationId!]?.includes(st.id));
                         if (targetStation && targetStation.id !== p.id) {
                             feedsInto = targetStation.id;
                             isFeeder = true;
@@ -1020,9 +1305,12 @@ export default function Chronometrage({
                             expandedResult.push({
                                 ...st,
                                 id: `${st.id}__${i}`,
-                                name: st.operators > 1 ? `${st.name.replace('P', '').split('.')[0]}.${i}` : st.name,
+                                originalId: st.id,
+                                name: `${st.name.replace('P', '').split('.')[0]}.${i}`,
                                 index: expandedResult.length + 1,
                                 totalTime: st.totalTime / st.operators,
+                                parentOperators: st.operators,
+                                operators: 1,
                                 isPlaced: true
                             });
                         }
@@ -1032,7 +1320,7 @@ export default function Chronometrage({
             return expandedResult;
         }
         return [];
-    }, [operations, bf, assignments, postes, toleranceSaturation, chronoData, unit, trEnabled, trCount, efficiency]);
+    }, [operations, bf, assignments, postes, toleranceSaturation, chronoData, unit, trEnabled, trCount, efficiency, hasChronoCycle, chronoBfMinutes, getChronoDataForOp, showTsColumn]);
 
     const structureSections = useMemo(() => {
         if (!workstationsList || workstationsList.length === 0) return [];
@@ -1083,7 +1371,7 @@ export default function Chronometrage({
 
     const isWorkstationCompleted = (st: Workstation) => {
         return st.operations.every(op => {
-            const data = ensureRow(op.id, chronoData[`${st.id}__${op.id}`] || chronoData[op.id]);
+            const data = getChronoDataForOp(op.id, st.id);
             const filledTRs = trSlots.filter(n => data[`tr${n}` as keyof ChronoData] !== undefined).length;
             return trEnabled ? (filledTRs >= trCount) : (data.tm !== undefined);
         });
@@ -1110,9 +1398,24 @@ export default function Chronometrage({
         const isCompleted = isWorkstationCompleted(st);
         
         const stationMeasuredTime = st.operations.reduce((acc, op) => {
-            const row = recalcRow(ensureRow(op.id, chronoData[op.id]), unit);
-            const timeInSec = row.tempMajore ? (row.tempMajore * 60) : (op.time * 60);
-            return acc + timeInSec;
+            const r = recalcRow(getChronoDataForOp(op.id), unit);
+            const oMeasured = r.tempMajore !== undefined;
+            
+            let tInSec = 0;
+            if (oMeasured) {
+                if (trEnabled || !showTsColumn) {
+                    tInSec = r.tempMajore * 60;
+                } else {
+                    tInSec = op.time * (r.majoration || 1.15) * 60;
+                }
+            } else {
+                if (showTsColumn) {
+                    tInSec = op.time * (r.majoration || 1.15) * 60;
+                } else {
+                    tInSec = 0;
+                }
+            }
+            return acc + tInSec;
         }, 0);
         
         const photos = st.operations.map(op => op.photo).filter(Boolean) as string[];
@@ -1150,7 +1453,7 @@ export default function Chronometrage({
                     <div className="flex flex-col gap-1.5">
                         {st.operations.map(op => {
                             const isOpActive = op.id === activeRowId;
-                            const data = ensureRow(op.id, chronoData[op.id]);
+                            const data = getChronoDataForOp(op.id);
                             const filled = trSlots.filter(n => data[`tr${n}` as keyof ChronoData] !== undefined).length;
                             const statusVal = getRowValidity(op.id);
                             
@@ -1204,7 +1507,7 @@ export default function Chronometrage({
     const renderOpChronoDetailPanel = (opId: string) => {
         const op = operationsById[opId];
         if (!op) return null;
-        const data = ensureRow(op.id, chronoData[op.id]);
+        const data = getChronoDataForOp(op.id);
         const row = recalcRow(data, unit);
         const filledTRs = trSlots.filter(n => data[`tr${n}` as keyof ChronoData] !== undefined).length;
         const rowTRs = getRowTRs(data);
@@ -1429,7 +1732,7 @@ export default function Chronometrage({
         const op = operationsById[opId];
         if (!op) return null;
         const key = `${stId}__${opId}`;
-        const data = ensureRow(op.id, chronoData[key] || chronoData[op.id]);
+        const data = getChronoDataForOp(op.id, stId);
         const row = recalcRow(data, unit);
         const filledTRs = trSlots.filter(n => data[`tr${n}` as keyof ChronoData] !== undefined).length;
         const rowTRs = getRowTRs(data);
@@ -1532,9 +1835,43 @@ export default function Chronometrage({
     };
 
     const isOperationCompleted = (st: Workstation, op: Operation) => {
-        const data = ensureRow(op.id, chronoData[`${st.id}__${op.id}`] || chronoData[op.id]);
+        const data = getChronoDataForOp(op.id, st.id);
         const filledTRs = trSlots.filter(n => data[`tr${n}` as keyof ChronoData] !== undefined).length;
         return trEnabled ? (filledTRs >= trCount) : (data.tm !== undefined);
+    };
+
+    const renderEmptyWorkstationCard = (st: Workstation) => {
+        const color = st.color || POSTE_COLORS[0];
+        const fill = color.fill || '#64748b';
+        
+        return (
+            <div
+                key={st.id}
+                className="bg-slate-50/20 rounded-xl sm:rounded-2xl border-2 border-dashed border-slate-250 p-3 sm:p-4 flex items-center justify-between gap-3 text-left opacity-60 min-h-[96px] shadow-sm select-none"
+            >
+                <div className="flex items-center gap-1.5 sm:gap-2.5 min-w-0 flex-1">
+                    {/* Muted Checkbox */}
+                    <div className="w-5 h-5 rounded-md border-2 border-dashed border-slate-305 bg-transparent shrink-0" />
+                    
+                    {/* Flow Index */}
+                    <span className="bg-slate-100 text-slate-400 text-[10px] px-1.5 py-0.5 rounded border border-slate-200 font-extrabold shrink-0">
+                        #{st.index}
+                    </span>
+
+                    {/* Workstation Badge */}
+                    <span className="text-white text-[10px] sm:text-xs px-2 py-0.5 rounded font-black tracking-wide shrink-0" style={{ backgroundColor: fill }}>
+                        {st.name}
+                    </span>
+
+                    <span className="text-xs sm:text-sm font-medium text-slate-400 italic truncate">
+                        Aucune opération
+                    </span>
+                </div>
+                <div className="text-[9px] font-bold text-slate-400 bg-slate-100/80 px-2 py-0.5 rounded border border-slate-200/50 uppercase tracking-wider shrink-0">
+                    Poste Vide
+                </div>
+            </div>
+        );
     };
 
     const renderPlantationOperationCard = (st: Workstation, op: Operation, opIdx: number, totalOps: number) => {
@@ -1544,42 +1881,77 @@ export default function Chronometrage({
         const isCompleted = isOperationCompleted(st, op);
         const tolerance = toleranceSaturation ?? 115;
         
-        const row = recalcRow(ensureRow(op.id, chronoData[`${st.id}__${op.id}`] || chronoData[op.id]), unit);
-        const timeInSec = row.tempMajore ? (row.tempMajore * 60) : (op.time * 60);
+        const row = recalcRow(getChronoDataForOp(op.id, st.id), unit);
+        const isMeasured = row.tempMajore !== undefined;
+        
+        let shouldShowTimeBadge = false;
+        let displayTimeSec = 0;
+        let timeLabel: 'TS' | 'TR' = 'TS';
+
+        if (isMeasured) {
+            if (trEnabled || !showTsColumn) {
+                shouldShowTimeBadge = true;
+                displayTimeSec = row.tempMajore * 60;
+                timeLabel = 'TR';
+            } else {
+                shouldShowTimeBadge = true;
+                displayTimeSec = op.time * (row.majoration || 1.15) * 60;
+                timeLabel = 'TS';
+            }
+        } else {
+            if (showTsColumn) {
+                shouldShowTimeBadge = true;
+                displayTimeSec = op.time * (row.majoration || 1.15) * 60;
+                timeLabel = 'TS';
+            } else {
+                shouldShowTimeBadge = false;
+            }
+        }
         
         const stationMeasuredTime = st.operations.reduce((acc, o) => {
-            const r = recalcRow(ensureRow(o.id, chronoData[`${st.id}__${o.id}`] || chronoData[o.id]), unit);
-            const tInSec = r.tempMajore ? (r.tempMajore * 60) : (o.time * 60);
+            const r = recalcRow(getChronoDataForOp(o.id, st.id), unit);
+            const oMeasured = r.tempMajore !== undefined;
+            
+            let tInSec = 0;
+            if (oMeasured) {
+                if (trEnabled || !showTsColumn) {
+                    tInSec = r.tempMajore * 60;
+                } else {
+                    tInSec = o.time * (r.majoration || 1.15) * 60;
+                }
+            } else {
+                if (showTsColumn) {
+                    tInSec = o.time * (r.majoration || 1.15) * 60;
+                } else {
+                    tInSec = 0;
+                }
+            }
             return acc + tInSec;
         }, 0);
-        const stationTimeInSeconds = Math.round(stationMeasuredTime);
+        const parentOpsCount = (st as any).parentOperators || 1;
+        const stationTimeInSeconds = Math.round(stationMeasuredTime / parentOpsCount);
 
-        // Saturation badge & progress classes (mirroring Implantation)
+        // Saturation badge & progress classes (mirroring Implantation exactly)
         let satBadgeClass = 'bg-emerald-50 text-emerald-500';
-        let satProgressFill = fill;
+        let satProgressClass = fill; // default to color.fill (hex)
         if (sat > tolerance) {
             satBadgeClass = 'bg-rose-100 text-rose-700 border border-rose-200';
-            satProgressFill = '#ef4444';
+            satProgressClass = 'bg-rose-500 animate-pulse';
         } else if (sat >= 100) {
-            satBadgeClass = 'bg-emerald-100 text-emerald-700 border border-emerald-200';
-            satProgressFill = '#10b981';
-        } else if (sat >= 70) {
-            satBadgeClass = 'bg-emerald-50 text-emerald-700 border border-emerald-100';
-            satProgressFill = '#10b981';
-        } else if (sat >= 40) {
-            satBadgeClass = 'bg-amber-50 text-amber-700 border border-amber-100';
-            satProgressFill = '#f59e0b';
-        } else {
-            satBadgeClass = 'bg-slate-50 text-slate-500 border border-slate-200';
-            satProgressFill = '#64748b';
+            satBadgeClass = 'bg-amber-100 text-amber-700 border border-amber-200';
+            satProgressClass = 'bg-amber-500';
+        } else if (sat < 50) {
+            satBadgeClass = 'bg-slate-100 text-slate-500 border border-slate-200';
+            satProgressClass = 'bg-slate-400';
         }
 
-        const isOpActive = `${st.id}__${op.id}` === activeRowId;
+        const isOpActive = trEnabled && `${st.id}__${op.id}` === activeRowId;
 
         return (
             <div
                 key={`${st.id}__${op.id}`}
                 onClick={() => {
+                    if (!trEnabled) return;
                     const key = `${st.id}__${op.id}`;
                     setActiveRowId(activeRowId === key ? null : key);
                     setExpandedRows(prev => {
@@ -1588,7 +1960,9 @@ export default function Chronometrage({
                         return next;
                     });
                 }}
-                className={`bg-white rounded-xl sm:rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-all p-3 sm:p-4 relative flex flex-col gap-2 sm:gap-3 border-l-[4px] sm:border-l-[6px] text-left cursor-pointer ${isOpActive ? 'ring-2 ring-indigo-500 shadow-md font-extrabold' : ''}`}
+                className={`bg-white rounded-xl sm:rounded-2xl border border-slate-200 shadow-sm transition-all p-3 sm:p-4 relative flex flex-col gap-2 sm:gap-3 border-l-[4px] sm:border-l-[6px] text-left ${
+                    trEnabled ? 'cursor-pointer hover:shadow-md' : 'cursor-default'
+                } ${isOpActive ? 'ring-2 ring-indigo-500 shadow-md font-extrabold' : ''}`}
                 style={{ borderLeftColor: fill }}
             >
                 {/* Card Header */}
@@ -1613,13 +1987,13 @@ export default function Chronometrage({
                             />
                         )}
 
-                        {/* Flow Index (e.g. #1) */}
+                        {/* Flow Index (e.g. #1) - Using st.index to be unique for each worker and matches Implantation */}
                         <span className="bg-slate-100 text-slate-700 text-[10px] px-1.5 py-0.5 rounded border border-slate-200 font-extrabold shrink-0" title="Ordre dans le flux">
                             #{st.index}
                         </span>
 
                         {/* Workstation Badge (Post name like P1 or 2.1) */}
-                        <span className="bg-indigo-600 text-white text-[10px] sm:text-xs px-2 py-0.5 rounded font-black tracking-wide shrink-0">
+                        <span className="text-white text-[10px] sm:text-xs px-2 py-0.5 rounded font-black tracking-wide shrink-0" style={{ backgroundColor: fill }}>
                             {st.name}
                         </span>
 
@@ -1647,16 +2021,20 @@ export default function Chronometrage({
                     </div>
                     
                     {/* Time */}
-                    <div className="flex items-center gap-1 shrink-0 self-start sm:self-center">
-                        <span className="text-[9px] sm:text-[10px] font-bold text-slate-400">TS</span>
-                        <span className="font-mono font-black text-indigo-700 text-[11px] sm:text-xs bg-indigo-50 border border-indigo-100/50 px-1.5 sm:px-2 py-0.5 rounded-lg shrink-0">
-                            {Math.round(timeInSec)}s
-                        </span>
-                    </div>
+                    {shouldShowTimeBadge && (
+                        <div className="flex items-center gap-1 shrink-0 self-start sm:self-center">
+                            <span className="text-[9px] sm:text-[10px] font-bold text-slate-400">
+                                {timeLabel}
+                            </span>
+                            <span className="font-mono font-black text-indigo-700 text-[11px] sm:text-xs bg-indigo-50 border border-indigo-100/50 px-1.5 sm:px-2 py-0.5 rounded-lg shrink-0">
+                                {Math.round(displayTimeSec)}s
+                            </span>
+                        </div>
+                    )}
                 </div>
 
                 {/* Timing panel nested inside the active operation */}
-                {isOpActive && (
+                {isOpActive && trEnabled && (
                     <div onClick={(e) => e.stopPropagation()} className="cursor-default">
                         {renderPlantationChronoPanel(op.id, st.id)}
                     </div>
@@ -1664,7 +2042,7 @@ export default function Chronometrage({
 
                 {/* Footer: Station total time & sat indicator */}
                 <div className="flex items-center justify-between mt-auto pt-1.5 border-t border-slate-100">
-                    {totalOps > 1 ? (
+                    {stationTimeInSeconds > 0 ? (
                         <div className="flex flex-col">
                             <span className="text-[7px] font-bold text-slate-400 uppercase tracking-wider">Total Poste</span>
                             <span className={`text-sm font-bold ${color.text}`}>{stationTimeInSeconds}s</span>
@@ -1683,7 +2061,13 @@ export default function Chronometrage({
 
                 {/* Bottom saturation progress bar */}
                 <div className="absolute bottom-0 left-0 h-1 bg-slate-200 w-full">
-                    <div className="h-full transition-all" style={{ width: `${Math.min(sat, 100)}%`, background: satProgressFill }}></div>
+                    <div 
+                        className={`h-full transition-all ${!satProgressClass.startsWith('#') ? satProgressClass : ''}`} 
+                        style={{ 
+                            width: `${Math.min(sat, 100)}%`, 
+                            backgroundColor: satProgressClass.startsWith('#') ? satProgressClass : undefined 
+                        }}
+                    ></div>
                 </div>
             </div>
         );
@@ -1822,19 +2206,17 @@ export default function Chronometrage({
 
     /** Returns the number of filled TR slots for an operation. */
     const countFilledTRs = useCallback((opId: string, stId?: string): number => {
-        const key = stId ? `${stId}__${opId}` : opId;
-        const data = ensureRow(opId, chronoData[key]);
+        const data = getChronoDataForOp(opId, stId);
         let count = 0;
         for (let i = 1; i <= trCount; i++) {
             const val = data[`tr${i}` as keyof ChronoData];
             if (val !== undefined && val !== null) count++;
         }
         return count;
-    }, [chronoData, trCount]);
+    }, [getChronoDataForOp, trCount]);
 
     const handleStopwatchRecord = useCallback((opId: string, timeInSeconds: number, stId?: string) => {
-        const key = stId ? `${stId}__${opId}` : opId;
-        const data = ensureRow(opId, chronoData[key]);
+        const data = getChronoDataForOp(opId, stId);
         for (let i = 1; i <= trCount; i++) {
             const trKey = `tr${i}` as keyof ChronoData;
             if (data[trKey] === undefined || data[trKey] === null) {
@@ -1843,7 +2225,7 @@ export default function Chronometrage({
                 return;
             }
         }
-    }, [chronoData, trCount, unit, handleCellChange]);
+    }, [getChronoDataForOp, trCount, unit, handleCellChange]);
 
     /** Clears ALL TR slots for a given operation */
     const clearAllTRs = useCallback((opId: string, stId?: string) => {
@@ -1858,8 +2240,7 @@ export default function Chronometrage({
 
     /** Removes the most recent TR entry for an operation row (Undo) */
     const clearLastTR = useCallback((opId: string, stId?: string) => {
-        const key = stId ? `${stId}__${opId}` : opId;
-        const data = ensureRow(opId, chronoData[key]);
+        const data = getChronoDataForOp(opId, stId);
         for (let i = trCount; i >= 1; i--) {
             const trKey = `tr${i}` as keyof ChronoData;
             if (data[trKey] !== undefined && data[trKey] !== null) {
@@ -1867,12 +2248,11 @@ export default function Chronometrage({
                 return;
             }
         }
-    }, [chronoData, trCount, handleCellChange]);
+    }, [getChronoDataForOp, trCount, handleCellChange]);
 
     /** Computes CV-based validity for a row */
     const getRowValidity = useCallback((opId: string, stId?: string): 'valid' | 'warn' | 'invalid' | 'empty' => {
-        const key = stId ? `${stId}__${opId}` : opId;
-        const data = ensureRow(opId, chronoData[key]);
+        const data = getChronoDataForOp(opId, stId);
         const vals: number[] = [];
         for (let i = 1; i <= trCount; i++) {
             const v = data[`tr${i}` as keyof ChronoData];
@@ -1887,7 +2267,7 @@ export default function Chronometrage({
         if (cv < 10) return 'valid';
         if (cv < 15) return 'warn';
         return 'invalid';
-    }, [chronoData, trCount]);
+    }, [getChronoDataForOp, trCount]);
 
     const handleClearTRClick = (e: React.MouseEvent<HTMLButtonElement>, opId: string, trNum: number, stId?: string) => {
         e.preventDefault();
@@ -1908,7 +2288,7 @@ export default function Chronometrage({
         const currentIdx = filteredOperations.findIndex(op => op.id === currentOpId);
         for (let i = currentIdx + 1; i < filteredOperations.length; i++) {
             const nextOp = filteredOperations[i];
-            const data = ensureRow(nextOp.id, chronoData[nextOp.id]);
+            const data = getChronoDataForOp(nextOp.id);
             let hasFree = false;
             for (let t = 1; t <= trCount; t++) {
                 const v = data[`tr${t}` as keyof ChronoData];
@@ -1925,7 +2305,7 @@ export default function Chronometrage({
             }
         }
         setExpandedRows(prev => { const n = new Set(prev); n.delete(currentOpId); return n; });
-    }, [filteredOperations, chronoData, trCount]);
+    }, [filteredOperations, getChronoDataForOp, trCount]);
 
     /** Go to the immediately previous operation (simple, no TR-check) */
     const goToPrevOp = useCallback((currentOpId: string) => {
@@ -1954,51 +2334,7 @@ export default function Chronometrage({
     }, [filteredOperations]);
 
 
-    // Calculate Column Totals
-    const totals = useMemo(() => {
-        let tmTotal = 0;
-        let tempMajoreTotal = 0;
-        let filledCount = 0;
-        const pMaxPerOp: number[] = [];
-        const p85PerOp: number[] = [];
-
-        operations.forEach(op => {
-            const row = recalcRow(ensureRow(op.id, chronoData[op.id]), unit);
-            if (row.tm !== undefined && !isNaN(row.tm)) { tmTotal += row.tm; filledCount++; }
-            if (row.tempMajore) tempMajoreTotal += row.tempMajore;
-            if (row.pMax !== undefined && row.pMax > 0) pMaxPerOp.push(row.pMax);
-            if (row.p85 !== undefined && row.p85 > 0) p85PerOp.push(row.p85);
-        });
-
-        const eff = Math.max(1, Math.min(100, efficiency));
-        let pMaxGlobal = 0;
-        if (pMaxPerOp.length > 0) {
-            pMaxGlobal = Math.min(...pMaxPerOp);
-        } else if (tempMajoreTotal > 0) {
-            pMaxGlobal = Math.round(presenceTime / tempMajoreTotal);
-        }
-        let p85Global = 0;
-        if (p85PerOp.length > 0) {
-            p85Global = Math.min(...p85PerOp);
-        } else if (pMaxGlobal > 0) {
-            p85Global = Math.round(pMaxGlobal * (eff / 100));
-        }
-
-        return { tm: tmTotal, tempMajore: tempMajoreTotal, filledCount, pMaxGlobal, p85Global };
-    }, [chronoData, operations, presenceTime, efficiency, unit, trCount, trEnabled]);
-
-    const progressPercent = operations.length > 0 ? Math.round((totals.filledCount / operations.length) * 100) : 0;
-    const clampedEfficiency = Math.max(1, Math.min(100, efficiency));
-    const hasChronoCycle = totals.tempMajore > 0;
-    const chronoBfMinutes = hasChronoCycle && numWorkers > 0 && clampedEfficiency > 0
-        ? totals.tempMajore / (numWorkers * (clampedEfficiency / 100))
-        : bf;
-    const presenceHours = presenceTime / 60;
-    const cycleHours = totals.tempMajore / 60;
-    const estimatedDays = totals.p85Global > 0 ? targetQuantity / totals.p85Global : 0;
-    const visibleTrCount = trEnabled ? trCount : 0;
-    const desktopColSpan =
-        visibleTrCount + 5 + (showTsColumn ? 1 : 0) + (showThroughputKpi ? 2 : 0);
+    // duplicate totals and column vars removed (moved up)
 
     /** Temps standard gamme : `op.time` est en minutes → affichage TS en secondes. */
     const formatTsSeconds = (minutesVal: number | undefined) =>
@@ -2033,6 +2369,362 @@ export default function Chronometrage({
             ? `Total ligne : capacité avec rendement ${clampedEfficiency}% (pièces / jour) — même goulot que P° max × rendement`
             : `Total ligne : capacité avec rendement ${clampedEfficiency}% (pièces / heure) — même goulot que P° max × rendement`;
 
+    const isCustomStationCompleted = (stationId: string) => {
+        const data = getChronoDataForOp(stationId);
+        const filledTRs = trSlots.filter(n => data[`tr${n}` as keyof ChronoData] !== undefined).length;
+        return trEnabled ? (filledTRs >= trCount) : (data.tm !== undefined);
+    };
+
+    const renderAddCustomStationCard = (side: 'left' | 'right') => {
+        return (
+            <button
+                type="button"
+                onClick={() => {
+                    const id = `CS-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`;
+                    const leftCount = chronoCustomStations.filter(s => s.side === 'left').length;
+                    const rightCount = chronoCustomStations.filter(s => s.side === 'right').length;
+                    const name = side === 'left' ? `P${leftCount * 2 + 1}` : `P${rightCount * 2 + 2}`;
+                    const newStation: CustomStation = {
+                        id,
+                        name,
+                        machine: '',
+                        side,
+                        operatorName: '',
+                        description: ''
+                    };
+                    setChronoCustomStations?.(prev => [...prev, newStation]);
+                }}
+                className="w-full bg-slate-50/20 hover:bg-slate-100/40 rounded-xl sm:rounded-2xl border-2 border-dashed border-slate-300 hover:border-indigo-400 py-6 px-4 flex items-center justify-center gap-2 text-center opacity-70 text-slate-400 hover:text-indigo-650 transition-all min-h-[96px] shadow-sm select-none"
+            >
+                <Plus className="w-5 h-5 shrink-0 text-slate-400 group-hover:text-indigo-650" />
+                <span className="text-xs sm:text-sm font-black uppercase tracking-wide">Ajouter un poste {side === 'left' ? 'Gauche' : 'Droit'}</span>
+            </button>
+        );
+    };
+
+    const renderCustomChronoPanel = (stationId: string) => {
+        const data = getChronoDataForOp(stationId);
+        const row = recalcRow(data, unit);
+        const filledTRs = trSlots.filter(n => data[`tr${n}` as keyof ChronoData] !== undefined).length;
+        const rowTRs = getRowTRs(data);
+        const median = getMedian(rowTRs);
+
+        return (
+            <div className="w-full mt-1.5 p-0.5 animate-in slide-in-from-top-1 duration-200">
+                {/* Combined Calculations & TR inputs card */}
+                <div className="bg-slate-50 border border-slate-250 rounded-xl p-1.5 sm:p-2 mb-1.5 flex flex-col gap-1.5 text-left">
+                    {/* Top row: Calculations */}
+                    <div className="flex items-center justify-between gap-2 border-b border-slate-200/60 pb-1 flex-wrap">
+                        <div className="flex items-center gap-1">
+                            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wide">T.Moy:</span>
+                            <input
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                className={`w-12 py-0.5 px-0.5 text-center text-xs font-mono font-bold text-slate-700 bg-white border border-slate-200 rounded focus:border-indigo-400 outline-none ${INPUT_NO_SPIN}`}
+                                placeholder="—"
+                                value={row.tm !== undefined ? displayValue(row.tm) : ''}
+                                onChange={e => handleCellChange(stationId, 'tm', e.target.value)}
+                            />
+                            {row.tmManual && (
+                                <span className="text-[7px] font-bold text-indigo-500 uppercase tracking-wider">manuel</span>
+                            )}
+                        </div>
+
+                        <div className="flex items-center gap-1">
+                            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wide">Majoration:</span>
+                            <input
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                className={`w-10 py-0.5 px-0.5 text-center text-xs font-mono font-bold text-slate-700 bg-white border border-slate-200 rounded focus:border-indigo-400 outline-none ${INPUT_NO_SPIN}`}
+                                value={data.majoration !== undefined ? displayValue(data.majoration) : ''}
+                                onChange={e => handleCellChange(stationId, 'majoration', e.target.value)}
+                            />
+                        </div>
+
+                        <div className="flex items-center gap-1">
+                            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wide">T.Maj:</span>
+                            <span className="text-xs font-black text-emerald-600 font-mono">
+                                {row.tempMajore !== undefined ? formatTempMajoreInUnit(row.tempMajore) : '—'}
+                            </span>
+                        </div>
+                    </div>
+
+                    {/* Bottom row: TR Inputs */}
+                    {trEnabled && (
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="text-[8px] font-bold uppercase tracking-wider text-slate-400 shrink-0">Relevés:</span>
+                            <div className="flex gap-0.5 items-center flex-wrap">
+                                {trSlots.map(trNum => {
+                                    const val = data[`tr${trNum}` as keyof ChronoData];
+                                    const hasVal = val !== undefined && val !== null && (val as number) > 0;
+                                    const status = hasVal ? classifyTR(val as number, median) : 'normal';
+                                    return (
+                                        <div key={trNum} className="relative group/cell w-8 text-center">
+                                            <input
+                                                type="number" step="0.01" min="0"
+                                                className={`w-full py-0.5 text-center text-[9px] font-mono font-bold border rounded bg-white focus:border-indigo-400 outline-none transition-all placeholder:text-slate-300 ${INPUT_NO_SPIN} ${hasVal ? trStatusStyles[status] : 'text-indigo-600 border-slate-200'}`}
+                                                placeholder={`TR${trNum}`}
+                                                value={hasVal && typeof val === 'number' ? displayValue(val) : ''}
+                                                onChange={e => handleCellChange(stationId, `tr${trNum}` as keyof ChronoData, e.target.value)}
+                                            />
+                                            {hasVal && (
+                                                <button
+                                                    type="button"
+                                                    aria-label={`Supprimer TR ${trNum}`}
+                                                    onClick={(e) => handleClearTRClick(e, stationId, trNum)}
+                                                    className="absolute -top-1 -right-1 z-10 flex h-[10px] w-[10px] items-center justify-center rounded-full border border-rose-200 bg-white text-rose-500 shadow-sm opacity-0 scale-90 transition-all duration-200 group-hover/cell:opacity-100 group-hover/cell:scale-100 hover:bg-rose-50 hover:text-rose-600"
+                                                    title="Supprimer"
+                                                >
+                                                    <X className="w-1.5 h-1.5" />
+                                                </button>
+                                            )}
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    )}
+                </div>
+
+                {/* Stopwatch Component */}
+                <AdvancedStopwatch
+                    key={stationId}
+                    onRecord={(time) => handleStopwatchRecord(stationId, time)}
+                    onClear={() => clearAllTRs(stationId)}
+                    onAdvance={() => handleCustomAdvance(stationId)}
+                    onPrev={() => handleCustomPrev(stationId)}
+                    onNext={() => handleCustomNext(stationId)}
+                    onUndoLast={() => clearLastTR(stationId)}
+                    trCount={trCount}
+                    filledCount={filledTRs}
+                    compact={true}
+                />
+            </div>
+        );
+    };
+
+    const renderCustomStationCard = (station: CustomStation, flowNum: number) => {
+        const linkedOp = station.linkedOperationId ? operations.find(o => o.id === station.linkedOperationId) : undefined;
+        
+        // Find corresponding workstation color from implantation if linked
+        let color = getPosteColor(flowNum, station.machine || 'VIDE');
+        let opIdx = 0;
+        let totalOps = 0;
+        
+        if (linkedOp) {
+            const assignedPosteIds = assignments?.[linkedOp.id] || [];
+            if (assignedPosteIds.length > 0) {
+                const foundPoste = postes?.find(p => p.id === assignedPosteIds[0]);
+                if (foundPoste) {
+                    const sortedPostes = [...(postes || [])].sort((a, b) => {
+                        const getMinOrder = (p: Poste) => {
+                            const assigned = operations.filter(op => assignments[op.id]?.includes(p.id));
+                            return assigned.length > 0 ? Math.min(...assigned.map(o => o.order)) : 9999;
+                        };
+                        return getMinOrder(a) - getMinOrder(b);
+                    });
+                    const realIndex = sortedPostes.findIndex(p => p.id === foundPoste.id);
+                    const effectiveIndex = realIndex >= 0 ? realIndex : flowNum;
+                    color = getPosteColor(effectiveIndex, foundPoste.machine, foundPoste.colorName);
+                    
+                    const stOps = operations.filter(op => assignments[op.id]?.includes(foundPoste.id));
+                    totalOps = stOps.length;
+                    opIdx = stOps.findIndex(op => op.id === linkedOp.id);
+                }
+            }
+        }
+
+        const fill = color.fill || '#64748b';
+        const isCompleted = isCustomStationCompleted(station.id);
+        const isOpActive = trEnabled && station.id === activeRowId;
+
+        const data = getChronoDataForOp(station.id);
+        const row = recalcRow(data, unit);
+        const isMeasured = row.tempMajore !== undefined;
+
+        let shouldShowTimeBadge = false;
+        let displayTimeSec = 0;
+        let timeLabel: 'TS' | 'TR' = 'TS';
+
+        if (isMeasured) {
+            if (trEnabled || !showTsColumn) {
+                shouldShowTimeBadge = true;
+                displayTimeSec = row.tempMajore * 60;
+                timeLabel = 'TR';
+            } else if (linkedOp) {
+                shouldShowTimeBadge = true;
+                displayTimeSec = linkedOp.time * (row.majoration || 1.15) * 60;
+                timeLabel = 'TS';
+            }
+        } else if (linkedOp && showTsColumn) {
+            shouldShowTimeBadge = true;
+            displayTimeSec = linkedOp.time * (row.majoration || 1.15) * 60;
+            timeLabel = 'TS';
+        }
+
+        // Station measured time & saturation calculations
+        let stationTimeInSeconds = 0;
+        if (isMeasured) {
+            if (trEnabled || !showTsColumn) {
+                stationTimeInSeconds = Math.round(row.tempMajore * 60);
+            } else if (linkedOp) {
+                stationTimeInSeconds = Math.round(linkedOp.time * (row.majoration || 1.15) * 60);
+            }
+        } else if (linkedOp && showTsColumn) {
+            stationTimeInSeconds = Math.round(linkedOp.time * (row.majoration || 1.15) * 60);
+        }
+
+        const activeBf = hasChronoCycle ? chronoBfMinutes : bf;
+        const sat = Math.round(activeBf > 0 ? (stationTimeInSeconds / (activeBf * 60)) * 100 : 0);
+        const tolerance = toleranceSaturation ?? 115;
+
+        let satBadgeClass = 'bg-emerald-50 text-emerald-500';
+        let satProgressClass = fill;
+        let colorText = 'text-slate-755';
+        if (sat > tolerance) {
+            satBadgeClass = 'bg-rose-100 text-rose-700 border border-rose-200';
+            satProgressClass = 'bg-rose-500 animate-pulse';
+            colorText = 'text-rose-600';
+        } else if (sat >= 100) {
+            satBadgeClass = 'bg-amber-100 text-amber-700 border border-amber-200';
+            satProgressClass = 'bg-amber-500';
+            colorText = 'text-amber-600';
+        } else if (sat < 50) {
+            satBadgeClass = 'bg-slate-100 text-slate-500 border border-slate-200';
+            satProgressClass = 'bg-slate-400';
+            colorText = 'text-slate-500';
+        }
+
+        return (
+            <div
+                key={station.id}
+                onClick={() => {
+                    if (!trEnabled) return;
+                    setActiveRowId(activeRowId === station.id ? null : station.id);
+                }}
+                className={`bg-white rounded-xl sm:rounded-2xl border border-slate-200 shadow-sm transition-all p-3 sm:p-4 relative flex flex-col gap-2 sm:gap-3 border-l-[4px] sm:border-l-[6px] text-left ${
+                    trEnabled ? 'cursor-pointer hover:shadow-md' : 'cursor-default'
+                } ${isOpActive ? 'ring-2 ring-indigo-500 shadow-md font-extrabold' : ''}`}
+                style={{ borderLeftColor: fill }}
+            >
+                {/* Card Header */}
+                <div className="flex items-center justify-between gap-2 pb-2 sm:pb-2.5 border-b border-slate-100">
+                    <div className="flex items-center gap-1.5 sm:gap-2.5 min-w-0 flex-1 flex-wrap sm:flex-nowrap">
+                        {/* Checkbox */}
+                        <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-colors shrink-0 ${isCompleted ? 'border-emerald-500 bg-emerald-500 text-white shadow-sm' : 'border-slate-300 bg-white'}`}>
+                            {isCompleted && (
+                                <svg className="w-3.5 h-3.5 stroke-current stroke-[3]" fill="none" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                                </svg>
+                            )}
+                        </div>
+
+                        {/* Flow Index */}
+                        <span className="bg-slate-100 text-slate-700 text-[10px] px-1.5 py-0.5 rounded border border-slate-200 font-extrabold shrink-0" title="Ordre dans le flux">
+                            #{flowNum}
+                        </span>
+
+                        {/* Workstation Badge */}
+                        <span className="text-white text-[10px] sm:text-xs px-2 py-0.5 rounded font-black tracking-wide shrink-0" style={{ backgroundColor: fill }}>
+                            {station.name}
+                        </span>
+
+                        {/* Operation description and Station/Machine details */}
+                        <div className="flex flex-col text-left min-w-0 flex-1">
+                            <span className={`text-xs sm:text-sm font-black leading-tight truncate sm:whitespace-normal ${station.description ? 'text-slate-800' : 'text-slate-400 italic'}`} title={station.description || 'Non configuré'}>
+                                {station.description || 'Nouveau poste فارغ'}
+                            </span>
+                            <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
+                                <span className="text-[9px] font-semibold text-slate-400">
+                                    M: {station.machine || '—'}
+                                </span>
+                                {station.operatorName && (
+                                    <span className="text-[9px] font-bold text-slate-400">
+                                        ({station.operatorName})
+                                    </span>
+                                )}
+                                {totalOps > 1 && (
+                                    <span className="text-[9px] font-bold uppercase text-indigo-650 bg-indigo-50 border border-indigo-100 px-1 py-0.2 rounded leading-none shrink-0">
+                                        Op {opIdx + 1}/{totalOps}
+                                    </span>
+                                )}
+                                {linkedOp && (
+                                    <span className="text-[9px] font-bold uppercase text-indigo-600 bg-indigo-50 border border-indigo-100 px-1 py-0.2 rounded leading-none shrink-0" title="Lié à l'opération de la Gamme">
+                                        Gamme Op #{linkedOp.order}
+                                    </span>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="flex items-center gap-1.5 shrink-0 self-start sm:self-center">
+                        {/* Time */}
+                        {shouldShowTimeBadge && (
+                            <div className="flex items-center gap-1">
+                                <span className="text-[9px] sm:text-[10px] font-bold text-slate-400">
+                                    {timeLabel}
+                                </span>
+                                <span className="font-mono font-black text-indigo-700 text-[11px] sm:text-xs bg-indigo-50 border border-indigo-100/50 px-1.5 sm:px-2 py-0.5 rounded-lg shrink-0">
+                                    {Math.round(displayTimeSec)}s
+                                </span>
+                            </div>
+                        )}
+                        {/* Edit Button */}
+                        <button
+                            type="button"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                setEditingStation(station);
+                            }}
+                            className="p-1 text-slate-400 hover:text-indigo-650 hover:bg-slate-100 rounded-lg transition-colors shrink-0"
+                            title="Modifier les détails du poste"
+                        >
+                            <Pencil className="w-3.5 h-3.5" />
+                        </button>
+                    </div>
+                </div>
+
+                {/* Timing panel nested inside the active operation */}
+                {isOpActive && trEnabled && (
+                    <div onClick={(e) => e.stopPropagation()} className="cursor-default">
+                        {renderCustomChronoPanel(station.id)}
+                    </div>
+                )}
+
+                {/* Footer: Station total time & sat indicator */}
+                <div className="flex items-center justify-between mt-auto pt-1.5 border-t border-slate-100">
+                    {stationTimeInSeconds > 0 ? (
+                        <div className="flex flex-col">
+                            <span className="text-[7px] font-bold text-slate-400 uppercase tracking-wider">Total Poste</span>
+                            <span className={`text-sm font-bold ${colorText}`}>{stationTimeInSeconds}s</span>
+                        </div>
+                    ) : (
+                        <div />
+                    )}
+                    <div className="flex flex-col items-end">
+                        <span className="text-[7px] font-bold text-slate-400 uppercase tracking-wider">Sat. Poste</span>
+                        <div className="flex items-center gap-1">
+                            <span className={`text-[9px] font-black px-1.5 py-0.5 rounded ${satBadgeClass}`}>{sat}%</span>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Bottom saturation progress bar */}
+                <div className="absolute bottom-0 left-0 h-1 bg-slate-200 w-full">
+                    <div 
+                        className={`h-full transition-all ${!satProgressClass.startsWith('#') ? satProgressClass : ''}`} 
+                        style={{ 
+                            width: `${Math.min(sat, 100)}%`, 
+                            backgroundColor: satProgressClass.startsWith('#') ? satProgressClass : undefined 
+                        }}
+                    ></div>
+                </div>
+            </div>
+        );
+    };
+
     return (
         <div className="space-y-4 sm:space-y-6 pb-24 animate-in fade-in slide-in-from-bottom-2 duration-300">
 
@@ -2047,6 +2739,32 @@ export default function Chronometrage({
                 
                 {/* Stats Section — wrap dès sm ; côte-à-côte avec la toolbar seulement ≥ xl pour éviter le tassement ~1024–1280px */}
                 <div className="flex flex-wrap items-stretch gap-2 sm:gap-3 min-w-0 flex-1 max-xl:w-full overflow-x-auto max-sm:pb-2 max-sm:-mx-3 max-sm:px-3 sm:overflow-visible custom-scrollbar-hide">
+                    {/* OUVRIERS / HEURES */}
+                    <div className="flex items-center gap-1.5 sm:gap-3 px-2 py-1 sm:px-3 sm:py-2 bg-slate-50 rounded-lg border border-slate-100 shadow-sm shrink-0">
+                        <div className="flex flex-col items-center border-r border-slate-200 pr-3 mr-3">
+                            <span className="text-[9px] font-bold text-slate-400 uppercase">Ouvriers</span>
+                            <input 
+                                type="number" 
+                                min="1" 
+                                value={Math.round(numWorkers)} 
+                                onChange={(e) => setNumWorkers && setNumWorkers(Math.max(1, Math.round(Number(e.target.value))))} 
+                                className="w-12 text-center bg-transparent font-black text-slate-700 outline-none text-sm p-0" 
+                            />
+                        </div>
+                        <div className="flex flex-col items-center">
+                            <span className="text-[9px] font-bold text-slate-400 uppercase">Heures</span>
+                            <input 
+                                type="number" 
+                                min="0" 
+                                step="0.5" 
+                                value={presenceTime / 60} 
+                                onChange={(e) => setPresenceTime && setPresenceTime(Math.max(0, Number(e.target.value)) * 60)} 
+                                className="w-10 text-center bg-transparent font-black text-slate-700 outline-none text-sm p-0" 
+                            />
+                        </div>
+                    </div>
+
+                    {/* OPERATIONS / CHRONO */}
                     <div className="flex items-center gap-1.5 sm:gap-3 px-2 py-1 sm:px-3 sm:py-2 bg-slate-50 rounded-lg border border-slate-100 shadow-sm shrink-0">
                         <div className="flex flex-col items-center border-r border-slate-200 pr-3">
                             <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Opérations</span>
@@ -2058,38 +2776,53 @@ export default function Chronometrage({
                         </div>
                     </div>
 
-                    <div className="flex items-center gap-1.5 sm:gap-3 px-2 py-1 sm:px-3 sm:py-2 bg-indigo-50/50 rounded-lg border border-indigo-100 shadow-sm shrink-0">
+                    {/* BF (s) */}
+                    <div className="flex items-center gap-1.5 sm:gap-3 px-3 py-1.5 bg-emerald-50/50 rounded-lg border border-emerald-100 shadow-sm shrink-0">
                         <div className="flex flex-col items-center">
-                            <span className="text-[10px] font-bold text-indigo-500 uppercase tracking-wider flex items-center gap-1"><Zap className="w-3 h-3" /> BF (s)</span>
+                            <span className="text-[9px] font-bold text-emerald-600 uppercase flex items-center gap-1"><Zap className="w-3 h-3" /> BF (s)</span>
                             <span
-                                className="font-black text-indigo-700 text-xs sm:text-base"
+                                className="font-black text-emerald-700 text-sm mt-1"
                                 title={hasChronoCycle
-                                    ? `BF chrono ≈ ${chronoBfMinutes.toFixed(3)} min (cycle chrono ${totals.tempMajore.toFixed(2)} min, ${numWorkers} ouvrier(s), rendement ${clampedEfficiency}%)`
-                                    : `BF global ≈ ${bf.toFixed(3)} min (en attente des relevés chrono)`}
+                                    ? `BF chrono ≈ ${chronoBfMinutes.toFixed(2)} min (cycle chrono ${totals.tempMajore.toFixed(2)} min, ${numWorkers} ouvrier(s))`
+                                    : `BF global ≈ ${bf.toFixed(2)} min (en attente des relevés chrono)`}
                             >
                                 {(chronoBfMinutes * 60).toFixed(1)}
                             </span>
                         </div>
                     </div>
 
-                    <div className="flex items-center gap-1.5 sm:gap-3 px-2 py-1 sm:px-3 sm:py-2 bg-emerald-50/50 rounded-lg border border-emerald-100 shadow-sm shrink-0">
-                        <div className="flex flex-col items-center">
-                            <span
-                                className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider flex items-center gap-1"
-                                title="Temps majoré total (Σ) : somme des (T.Moy × Maj.) en minutes"
-                            >
-                                <Zap className="w-3 h-3" /> T.Maj Σ (m)
+                    {/* DYNAMIC TARGETS */}
+                    <div className="flex items-center gap-3 px-3 py-1.5 bg-slate-50/50 rounded-lg border border-slate-100 shadow-sm shrink-0">
+                        <div className="flex flex-col items-center border-r border-slate-200 pr-3 mr-1">
+                            <span className="text-[9px] font-bold text-slate-400 uppercase">P/J</span>
+                            <span className="font-black text-slate-700 text-sm leading-none mt-1">
+                                {Math.round(prodDayEffChrono)}
                             </span>
-                            <span className="font-black text-emerald-700 text-xs sm:text-base">{formatVal(totals.tempMajore)}</span>
+                        </div>
+                        <div className="flex flex-col items-center">
+                            <span className="text-[9px] font-bold text-slate-400 uppercase">P/H</span>
+                            <span className="font-black text-slate-700 text-sm leading-none mt-1">
+                                {Math.round(prodHourEffChrono)}
+                            </span>
                         </div>
                     </div>
 
-                    {showThroughputKpi && (
-                        <div className="flex flex-col items-center px-2 py-1 sm:px-3 sm:py-2 bg-orange-50/50 rounded-lg border border-orange-100 shadow-sm shrink-0">
-                            <span className="text-[10px] font-bold text-orange-500 uppercase tracking-wider">{outputMode === 'PJ' ? 'P° Max' : 'P/H Max'}</span>
-                            <span className="font-black text-orange-600 text-xs sm:text-base">{formatProductionCell(totals.pMaxGlobal || undefined, outputMode)}</span>
+                    {/* % RENDU */}
+                    <div className="flex flex-col items-center px-3 py-1.5 bg-indigo-50/50 rounded-lg border border-indigo-100 shadow-sm shrink-0">
+                        <span className="text-[9px] font-bold text-indigo-400 uppercase">% Rendu</span>
+                        <div className="flex items-baseline gap-0.5">
+                            <input 
+                                type="number" 
+                                min="1" max="100" 
+                                value={efficiency} 
+                                onChange={(e) => setEfficiency && setEfficiency(Math.max(1, Math.min(100, Number(e.target.value))))} 
+                                className="w-8 text-center bg-transparent font-black text-indigo-600 outline-none text-sm border-b border-indigo-200 p-0" 
+                            />
+                            <span className="text-[10px] font-bold text-indigo-400">%</span>
                         </div>
-                    )}
+                    </div>
+
+
 
                     <div className="flex items-center gap-2 px-3 py-2 bg-slate-50/80 rounded-lg border border-slate-100 shadow-sm shrink-0 min-w-[min(100%,140px)] sm:min-w-[160px] xl:flex-1 xl:max-w-[220px]">
                         <div className="w-full h-2 bg-slate-200 rounded-full overflow-hidden">
@@ -2137,7 +2870,7 @@ export default function Chronometrage({
                         <Settings className="w-4 h-4" /> {trCount} lancers
                     </button>
 
-                    <div className="shrink-0 flex items-stretch rounded-lg border border-slate-200 overflow-hidden shadow-sm h-[40px]" title="Ordre des opérations : Gamme ou flux réel de l'implantation">
+                    <div className="shrink-0 flex items-stretch rounded-lg border border-slate-200 overflow-hidden shadow-sm h-[40px]" title="Ordre des opérations : Gamme, implantation (Plantation) ou nouvelle séquence libre (Nouveau)">
                         <button
                             type="button"
                             onClick={() => setOrderSource('gamme')}
@@ -2154,7 +2887,41 @@ export default function Chronometrage({
                         >
                             Plantation
                         </button>
+                        <button
+                            type="button"
+                            onClick={() => setOrderSource('new')}
+                            className={`px-3 py-2 text-xs font-bold transition-colors border-l border-slate-200 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-400 focus:outline-none ${orderSource === 'new' ? 'bg-indigo-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-50'}`}
+                            title="Créer une nouvelle séquence personnalisée sur le terrain"
+                        >
+                            Nouveau
+                        </button>
                     </div>
+
+                    {orderSource === 'new' && (
+                        <div className="shrink-0 flex items-stretch rounded-lg border border-slate-200 overflow-hidden shadow-sm h-[40px]" title="Disposition du terrain">
+                            <button
+                                type="button"
+                                onClick={() => setChronoLayoutSide?.('left')}
+                                className={`px-3 py-2 text-xs font-bold transition-colors focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-400 focus:outline-none ${chronoLayoutSide === 'left' ? 'bg-indigo-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-50'}`}
+                            >
+                                Gauche
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setChronoLayoutSide?.('right')}
+                                className={`px-3 py-2 text-xs font-bold transition-colors border-l border-slate-200 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-400 focus:outline-none ${chronoLayoutSide === 'right' ? 'bg-indigo-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-50'}`}
+                            >
+                                Droite
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setChronoLayoutSide?.('both')}
+                                className={`px-3 py-2 text-xs font-bold transition-colors border-l border-slate-200 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-400 focus:outline-none ${chronoLayoutSide === 'both' ? 'bg-indigo-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-50'}`}
+                            >
+                                Les deux
+                            </button>
+                        </div>
+                    )}
 
                     <div className="shrink-0 flex items-stretch rounded-lg border border-slate-200 overflow-hidden shadow-sm h-[40px]">
                         <button
@@ -2285,9 +3052,48 @@ export default function Chronometrage({
                         {structureSections.map(section => {
                             const isAlternating = activeLayout === 'double-zigzag' || activeLayout === 'zigzag';
                             
+                            const sectionCards: {
+                                type: 'station' | 'empty';
+                                st: Workstation;
+                                op: Operation | null;
+                                opIdx: number;
+                                totalOps: number;
+                            }[] = [];
+                            
+                            section.stations.forEach(st => {
+                                if (st.operations.length > 0) {
+                                    st.operations.forEach((op, opIdx) => {
+                                        sectionCards.push({
+                                            type: 'station',
+                                            st,
+                                            op,
+                                            opIdx,
+                                            totalOps: st.operations.length
+                                        });
+                                    });
+                                } else {
+                                    sectionCards.push({
+                                        type: 'empty',
+                                        st,
+                                        op: null,
+                                        opIdx: 0,
+                                        totalOps: 0
+                                    });
+                                }
+                            });
+
                             if (isAlternating) {
-                                const sideA = section.stations.filter((_, idx) => idx % 2 === 0); // P1, P3, P5...
-                                const sideB = section.stations.filter((_, idx) => idx % 2 !== 0); // P2, P4, P6...
+                                const sideA: typeof sectionCards = [];
+                                const sideB: typeof sectionCards = [];
+                                
+                                section.stations.forEach((st, stIdx) => {
+                                    const stCards = sectionCards.filter(c => c.st.id === st.id);
+                                    if (stIdx % 2 === 0) {
+                                        sideA.push(...stCards);
+                                    } else {
+                                        sideB.push(...stCards);
+                                    }
+                                });
 
                                 return (
                                     <div key={section.id} className="bg-slate-100/50 rounded-2xl border border-slate-205 p-4 sm:p-6 mb-6">
@@ -2299,20 +3105,36 @@ export default function Chronometrage({
                                         </div>
 
                                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
-                                            {/* Left side: odd stations */}
+                                            {/* Left side: odd stations/operations */}
                                             <div className="flex flex-col gap-4">
                                                 <div className="bg-indigo-50 border border-indigo-100 text-indigo-850 py-2 px-3 rounded-xl font-black text-center text-xs uppercase tracking-wide">
                                                     CÔTÉ GAUCHE (POSTES IMPAIRS)
                                                 </div>
-                                                {sideA.map(st => st.operations.map((op, opIdx) => renderPlantationOperationCard(st, op, opIdx, st.operations.length)))}
+                                                {sideA.map((item, idx) => (
+                                                    <React.Fragment key={`${item.st.id}__${item.op?.id || idx}`}>
+                                                        {item.type === 'station' && item.op ? (
+                                                            renderPlantationOperationCard(item.st, item.op, item.opIdx, item.totalOps)
+                                                        ) : (
+                                                            renderEmptyWorkstationCard(item.st)
+                                                        )}
+                                                    </React.Fragment>
+                                                ))}
                                             </div>
 
-                                            {/* Right side: even stations */}
+                                            {/* Right side: even stations/operations */}
                                             <div className="flex flex-col gap-4">
                                                 <div className="bg-slate-100 border border-slate-250 text-slate-750 py-2 px-3 rounded-xl font-black text-center text-xs uppercase tracking-wide">
                                                     CÔTÉ DROIT (POSTES PAIRS)
                                                 </div>
-                                                {sideB.map(st => st.operations.map((op, opIdx) => renderPlantationOperationCard(st, op, opIdx, st.operations.length)))}
+                                                {sideB.map((item, idx) => (
+                                                    <React.Fragment key={`${item.st.id}__${item.op?.id || idx}`}>
+                                                        {item.type === 'station' && item.op ? (
+                                                            renderPlantationOperationCard(item.st, item.op, item.opIdx, item.totalOps)
+                                                        ) : (
+                                                            renderEmptyWorkstationCard(item.st)
+                                                        )}
+                                                    </React.Fragment>
+                                                ))}
                                             </div>
                                         </div>
                                     </div>
@@ -2328,13 +3150,56 @@ export default function Chronometrage({
                                         </div>
 
                                         <div className="grid grid-cols-1 gap-4">
-                                            {section.stations.map(st => st.operations.map((op, opIdx) => renderPlantationOperationCard(st, op, opIdx, st.operations.length)))}
+                                            {sectionCards.map((item, idx) => (
+                                                <React.Fragment key={`${item.st.id}__${item.op?.id || idx}`}>
+                                                    {item.type === 'station' && item.op ? (
+                                                        renderPlantationOperationCard(item.st, item.op, item.opIdx, item.totalOps)
+                                                    ) : (
+                                                        renderEmptyWorkstationCard(item.st)
+                                                    )}
+                                                </React.Fragment>
+                                            ))}
                                         </div>
                                     </div>
                                 );
                             }
                         })}
                     </div>
+                ) : orderSource === 'new' ? (
+                    (() => {
+                        const leftStations = (chronoCustomStations || []).filter(s => s.side === 'left');
+                        const rightStations = (chronoCustomStations || []).filter(s => s.side === 'right');
+
+                        return (
+                            <div className={`grid grid-cols-1 ${chronoLayoutSide === 'both' ? 'lg:grid-cols-2' : ''} gap-6 items-start p-4 bg-slate-50/50`}>
+                                {/* Left Column */}
+                                {(chronoLayoutSide === 'left' || chronoLayoutSide === 'both') && (
+                                    <div className="flex flex-col gap-4">
+                                        <div className="bg-indigo-50 border border-indigo-100 text-indigo-850 py-2 px-3 rounded-xl font-black text-center text-xs uppercase tracking-wide">
+                                            CÔTÉ GAUCHE (POSTES IMPAIRS)
+                                        </div>
+                                        {leftStations.map((station, idx) => (
+                                            renderCustomStationCard(station, idx * 2 + 1)
+                                        ))}
+                                        {renderAddCustomStationCard('left')}
+                                    </div>
+                                )}
+
+                                {/* Right Column */}
+                                {(chronoLayoutSide === 'right' || chronoLayoutSide === 'both') && (
+                                    <div className="flex flex-col gap-4">
+                                        <div className="bg-slate-100 border border-slate-205 text-slate-750 py-2 px-3 rounded-xl font-black text-center text-xs uppercase tracking-wide">
+                                            CÔTÉ DROIT (POSTES PAIRS)
+                                        </div>
+                                        {rightStations.map((station, idx) => (
+                                            renderCustomStationCard(station, idx * 2 + 2)
+                                        ))}
+                                        {renderAddCustomStationCard('right')}
+                                    </div>
+                                )}
+                            </div>
+                        );
+                    })()
                 ) : (
                     <>
                         <div className="hidden md:block overflow-x-auto">
@@ -2391,7 +3256,7 @@ export default function Chronometrage({
                                         </tr>
                                     ) : (
                                         filteredOperations.map((op, index) => {
-                                            const data = ensureRow(op.id, chronoData[op.id]);
+                                            const data = getChronoDataForOp(op.id);
                                             const row = recalcRow(data, unit);
                                             const isExpanded = expandedRows.has(op.id);
                                             const isActive = activeRowId === op.id;
@@ -2527,7 +3392,7 @@ export default function Chronometrage({
                                                             className="px-2 py-3 text-center font-mono font-bold text-emerald-700 bg-emerald-50/30 text-xs"
                                                             title={
                                                                 row.tempMajore !== undefined
-                                                                    ? `T.Moy × Maj. → ${row.tempMajore.toFixed(3)} min (affiché : ${formatTempMajoreInUnit(row.tempMajore)} ${unitShort})`
+                                                                    ? `T.Moy × Maj. → ${row.tempMajore.toFixed(2)} min (affiché : ${formatTempMajoreInUnit(row.tempMajore)} ${unitShort})`
                                                                     : undefined
                                                             }
                                                         >
@@ -2597,7 +3462,7 @@ export default function Chronometrage({
                                             <td className="px-2 py-4"></td>
                                             <td
                                                 className={`px-2 py-4 text-center font-black font-mono text-emerald-700 bg-emerald-100/70 text-sm ${!showThroughputKpi ? 'rounded-br-lg' : ''}`}
-                                                title={`Σ (T.Moy × Maj.) : ${totals.tempMajore.toFixed(3)} min — affiché en ${unitShort}`}
+                                                title={`Σ (T.Moy × Maj.) : ${totals.tempMajore.toFixed(2)} min — affiché en ${unitShort}`}
                                             >
                                                 {formatTempMajoreInUnit(totals.tempMajore)}
                                             </td>
@@ -2632,7 +3497,7 @@ export default function Chronometrage({
                                 </div>
                             ) : (
                                 filteredOperations.map((op, index) => {
-                                    const data = ensureRow(op.id, chronoData[op.id]);
+                                    const data = getChronoDataForOp(op.id);
                                     const row = recalcRow(data, unit);
                                     const isExpanded = expandedRows.has(op.id);
                                     const assignedPostes = assignments[op.id] || [];
@@ -2780,180 +3645,7 @@ export default function Chronometrage({
                 )}
             </div>
 
-            {/* ─── HISTORIQUE & ÉVOLUTION DES SÉANCES DE CHRONO ─── */}
-            <div className="bg-white rounded-2xl border border-slate-200 shadow-lg overflow-hidden">
-                <div className="px-3 py-3 sm:px-6 sm:py-5 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                    <div className="flex items-center gap-2.5 sm:gap-3">
-                        <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center shrink-0">
-                            <History className="w-4 h-4 sm:w-5 sm:h-5 text-indigo-600" />
-                        </div>
-                        <div>
-                            <h3 className="font-black text-slate-800 text-base sm:text-lg leading-tight">Historique & Évolution</h3>
-                            <p className="text-slate-500 text-xs sm:text-sm font-medium mt-0.5">
-                                {sessions.length > 0
-                                    ? <>{sessions.length} séance{sessions.length > 1 ? 's' : ''} enregistrée{sessions.length > 1 ? 's' : ''}{articleName ? <> · <strong className="text-indigo-600">{articleName}</strong></> : null}</>
-                                    : 'Fige les relevés actuels pour suivre le progrès dans le temps.'}
-                            </p>
-                        </div>
-                    </div>
-                    <button
-                        type="button"
-                        onClick={() => setShowCreateDialog(true)}
-                        disabled={!currentModelId || operations.length === 0}
-                        className="shrink-0 inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-black bg-indigo-600 text-white shadow-md shadow-indigo-200 hover:bg-indigo-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                        title={!currentModelId ? "Enregistre d'abord le modèle" : 'Nouvelle séance chronométrage'}
-                    >
-                        <Plus className="w-4 h-4" /> Nouveau Chrono
-                    </button>
-                </div>
 
-                {sessions.length === 0 ? (
-                    <div className="px-6 py-12 text-center">
-                        <div className="w-12 h-12 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                            <TrendingUp className="w-6 h-6 text-slate-300" />
-                        </div>
-                        <p className="text-slate-500 font-bold">Aucune séance enregistrée</p>
-                        <p className="text-slate-400 text-xs mt-1">Clique sur « Nouveau Chrono » après avoir saisi tes relevés.</p>
-                    </div>
-                ) : (
-                    <div className="p-3 sm:p-6 space-y-6">
-                        {/* COURBE D'ÉVOLUTION (BF total majoré par séance) */}
-                        {(() => {
-                            const W = 760, H = 220, padL = 48, padR = 16, padT = 20, padB = 44;
-                            const vals = sessions.map(s => s.totalTempMajore || 0);
-                            const maxV = Math.max(...vals, 1);
-                            const minV = Math.min(...vals, 0);
-                            const span = maxV - minV || 1;
-                            const n = sessions.length;
-                            const x = (i: number) => n <= 1 ? (padL + (W - padL - padR) / 2) : padL + (i * (W - padL - padR)) / (n - 1);
-                            const y = (v: number) => padT + (H - padT - padB) * (1 - (v - minV) / span);
-                            const pts = sessions.map((s, i) => ({ px: x(i), py: y(s.totalTempMajore || 0), s }));
-                            const line = pts.map(p => `${p.px},${p.py}`).join(' ');
-                            const area = `${padL},${H - padB} ${line} ${x(n - 1)},${H - padB}`;
-                            const first = vals[0] || 0;
-                            const last = vals[n - 1] || 0;
-                            const delta = last - first;
-                            return (
-                                <div>
-                                    <div className="flex items-center justify-between mb-2">
-                                        <span className="text-xs font-black text-slate-600 uppercase tracking-wider flex items-center gap-1.5">
-                                            <TrendingUp className="w-3.5 h-3.5 text-indigo-500" /> Évolution du temps majoré total (min)
-                                        </span>
-                                        {n > 1 && (
-                                            <span className={`text-[11px] font-black px-2 py-0.5 rounded-full ${delta < 0 ? 'bg-emerald-50 text-emerald-700' : delta > 0 ? 'bg-rose-50 text-rose-700' : 'bg-slate-100 text-slate-500'}`}>
-                                                {delta < 0 ? '▼' : delta > 0 ? '▲' : '='} {Math.abs(delta).toFixed(2)} min
-                                            </span>
-                                        )}
-                                    </div>
-                                    <div className="w-full overflow-x-auto">
-                                        <svg viewBox={`0 0 ${W} ${H}`} className="w-full min-w-[520px]" style={{ height: 220 }}>
-                                            {/* grille horizontale */}
-                                            {[0, 0.25, 0.5, 0.75, 1].map(t => {
-                                                const gy = padT + (H - padT - padB) * t;
-                                                const gv = maxV - t * span;
-                                                return (
-                                                    <g key={t}>
-                                                        <line x1={padL} y1={gy} x2={W - padR} y2={gy} stroke="#eef2f7" strokeWidth={1} />
-                                                        <text x={padL - 6} y={gy + 3} textAnchor="end" fontSize={9} fill="#94a3b8" fontFamily="monospace">{gv.toFixed(1)}</text>
-                                                    </g>
-                                                );
-                                            })}
-                                            {n > 1 && <polygon points={area} fill="url(#chronoGrad)" opacity={0.5} />}
-                                            <defs>
-                                                <linearGradient id="chronoGrad" x1="0" y1="0" x2="0" y2="1">
-                                                    <stop offset="0%" stopColor="#6366f1" stopOpacity={0.35} />
-                                                    <stop offset="100%" stopColor="#6366f1" stopOpacity={0} />
-                                                </linearGradient>
-                                            </defs>
-                                            {n > 1 && <polyline points={line} fill="none" stroke="#6366f1" strokeWidth={2.5} strokeLinejoin="round" strokeLinecap="round" />}
-                                            {pts.map((p, i) => (
-                                                <g key={p.s.id}>
-                                                    <circle cx={p.px} cy={p.py} r={4} fill="#fff" stroke="#6366f1" strokeWidth={2.5} />
-                                                    <text x={p.px} y={p.py - 10} textAnchor="middle" fontSize={10} fontWeight={800} fill="#4338ca" fontFamily="monospace">{(p.s.totalTempMajore || 0).toFixed(1)}</text>
-                                                    <text x={p.px} y={H - padB + 16} textAnchor="middle" fontSize={9} fill="#64748b" fontWeight={700}>#{i + 1}</text>
-                                                    <text x={p.px} y={H - padB + 30} textAnchor="middle" fontSize={8} fill="#94a3b8">{new Date(p.s.createdAt).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })}</text>
-                                                </g>
-                                            ))}
-                                        </svg>
-                                    </div>
-                                </div>
-                            );
-                        })()}
-
-                        {/* CHIPS DES SÉANCES (renommer / supprimer / voir) */}
-                        <div className="flex flex-wrap gap-2">
-                            {sessions.map((s, i) => (
-                                <div key={s.id} className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-xl pl-2.5 pr-1.5 py-1.5 shadow-sm">
-                                    <span className="w-5 h-5 shrink-0 rounded-md bg-indigo-600 text-white text-[10px] font-black flex items-center justify-center">{i + 1}</span>
-                                    {editingSessionId === s.id ? (
-                                        <input
-                                            autoFocus
-                                            value={sessionLabelDraft}
-                                            onChange={(e) => setSessionLabelDraft(e.target.value)}
-                                            onKeyDown={(e) => { if (e.key === 'Enter') commitRenameSession(); if (e.key === 'Escape') { setEditingSessionId(null); setSessionLabelDraft(''); } }}
-                                            onBlur={commitRenameSession}
-                                            className="w-40 text-xs font-bold text-slate-700 bg-white border border-indigo-300 rounded-md px-2 py-0.5 outline-none"
-                                        />
-                                    ) : (
-                                        <span className="text-xs font-bold text-slate-700 max-w-[220px] truncate" title={s.label}>{s.label}</span>
-                                    )}
-                                    {s.gammeType && s.gammeType !== 'default' && (
-                                        <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${s.gammeType === 'plantation' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
-                                            {s.gammeType === 'plantation' ? 'Plant' : 'New'}
-                                        </span>
-                                    )}
-                                    <span className="text-[10px] font-mono font-black text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded">{(s.totalTempMajore || 0).toFixed(1)}m</span>
-                                    <button type="button" onClick={() => setSelectedSession(s)} className="p-1 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-md" title="Voir détails"><Eye className="w-3.5 h-3.5" /></button>
-                                    {editingSessionId === s.id ? (
-                                        <button type="button" onClick={commitRenameSession} className="p-1 text-emerald-600 hover:bg-emerald-50 rounded-md" title="Valider"><Check className="w-3.5 h-3.5" /></button>
-                                    ) : (
-                                        <button type="button" onClick={() => startRenameSession(s)} className="p-1 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-md" title="Renommer"><Pencil className="w-3 h-3" /></button>
-                                    )}
-                                    <button type="button" onClick={() => deleteSession(s.id)} className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-md" title="Supprimer"><Trash2 className="w-3.5 h-3.5" /></button>
-                                </div>
-                            ))}
-                        </div>
-
-                        {/* TABLEAU COMPARATIF (opération × séance) — temps majoré (min) */}
-                        <div className="overflow-x-auto rounded-xl border border-slate-200">
-                            <table className="w-full text-xs border-collapse">
-                                <thead>
-                                    <tr className="bg-slate-50 text-slate-500 border-b border-slate-200">
-                                        <th className="py-2.5 px-3 text-left font-black sticky left-0 bg-slate-50 min-w-[160px]">Opération</th>
-                                        {sessions.map((s, i) => (
-                                            <th key={s.id} className="py-2.5 px-2 text-center font-bold min-w-[64px]" title={s.label}>#{i + 1}</th>
-                                        ))}
-                                        <th className="py-2.5 px-2 text-center font-black text-indigo-700 bg-indigo-50/50 min-w-[64px]">Δ</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-slate-100">
-                                    {filteredOperations.map(op => {
-                                        const series = sessions.map(s => s.entries[op.id]?.tempMajore);
-                                        const firstV = series.find(v => v !== undefined && v !== null);
-                                        const lastDefined = [...series].reverse().find(v => v !== undefined && v !== null);
-                                        const d = (typeof firstV === 'number' && typeof lastDefined === 'number') ? lastDefined - firstV : undefined;
-                                        return (
-                                            <tr key={op.id} className="hover:bg-slate-50/50">
-                                                <td className="py-2 px-3 font-semibold text-slate-700 sticky left-0 bg-white truncate max-w-[160px]" title={op.description}>{op.description}</td>
-                                                {series.map((v, i) => (
-                                                    <td key={i} className="py-2 px-2 text-center font-mono text-slate-600">
-                                                        {typeof v === 'number' ? v.toFixed(2) : <span className="text-slate-300">—</span>}
-                                                    </td>
-                                                ))}
-                                                <td className="py-2 px-2 text-center font-mono font-black bg-indigo-50/30">
-                                                    {typeof d === 'number'
-                                                        ? <span className={d < 0 ? 'text-emerald-600' : d > 0 ? 'text-rose-600' : 'text-slate-400'}>{d > 0 ? '+' : ''}{d.toFixed(2)}</span>
-                                                        : <span className="text-slate-300">—</span>}
-                                                </td>
-                                            </tr>
-                                        );
-                                    })}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                )}
-            </div>
 
             {/* ─── BOTTOM INSIGHT CARD ─── */}
             {operations.length > 0 && totals.tempMajore > 0 && (
@@ -3246,6 +3938,156 @@ export default function Chronometrage({
                                 </div>
                             </div>
                         )}
+                    </div>
+                </div>
+            )}
+
+            {/* ─── EDIT CUSTOM STATION MODAL ─── */}
+            {editingStation && (
+                <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40 backdrop-blur-sm animate-in fade-in duration-150">
+                    <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-md mx-4 overflow-hidden animate-in zoom-in-95 duration-200">
+                        <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between">
+                            <div>
+                                <h3 className="font-black text-slate-800 text-lg">Configurer le Poste</h3>
+                                <p className="text-slate-500 text-xs mt-0.5">Modifier les détails et l'association du poste</p>
+                            </div>
+                            <button onClick={() => setEditingStation(null)} className="p-2 text-slate-400 hover:text-slate-650 hover:bg-slate-100 rounded-xl transition-colors">
+                                <X className="w-5 h-5" />
+                            </button>
+                        </div>
+                        
+                        <div className="px-6 py-5 space-y-4">
+                            {/* Poste Name */}
+                            <div>
+                                <label className="text-xs font-bold text-slate-650 uppercase tracking-wider block mb-1.5">Nom du Poste</label>
+                                <input
+                                    type="text"
+                                    value={editName}
+                                    onChange={e => setEditName(e.target.value)}
+                                    className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:border-indigo-400 outline-none text-sm font-semibold text-slate-700 bg-slate-50"
+                                />
+                            </div>
+
+                            {/* Operator Name */}
+                            <div>
+                                <label className="text-xs font-bold text-slate-650 uppercase tracking-wider block mb-1.5">Nom de l'Opérateur</label>
+                                <input
+                                    type="text"
+                                    value={editOperator}
+                                    onChange={e => setEditOperator(e.target.value)}
+                                    placeholder="Ex: Fatine, Soulaimane..."
+                                    className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:border-indigo-400 outline-none text-sm font-semibold text-slate-700"
+                                />
+                            </div>
+
+                            {/* Machine Datalist Input */}
+                            <div>
+                                <label className="text-xs font-bold text-slate-650 uppercase tracking-wider block mb-1.5">Machine</label>
+                                <input
+                                    list="machines-list"
+                                    value={editMachine}
+                                    onChange={e => setEditMachine(e.target.value)}
+                                    placeholder="Ex: 301, 514..."
+                                    className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:border-indigo-400 outline-none text-sm font-semibold text-slate-700"
+                                />
+                                <datalist id="machines-list">
+                                    {machines.map(m => (
+                                        <option key={m.id} value={m.name || m.id} />
+                                    ))}
+                                </datalist>
+                            </div>
+
+                            {/* Description Auto-complete Input */}
+                            <div className="relative">
+                                <label className="text-xs font-bold text-slate-650 uppercase tracking-wider block mb-1.5">Opération / Description</label>
+                                <input
+                                    type="text"
+                                    value={editDescription}
+                                    onChange={e => {
+                                        setEditDescription(e.target.value);
+                                        setShowSuggestions(true);
+                                        const exactOp = operations.find(op => op.description.toLowerCase() === e.target.value.toLowerCase());
+                                        if (exactOp) {
+                                            fillPosteFromOperation(exactOp);
+                                        } else {
+                                            setLinkedOpId(undefined);
+                                        }
+                                    }}
+                                    onFocus={() => setShowSuggestions(true)}
+                                    placeholder="Commencez à saisir la description..."
+                                    className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:border-indigo-400 outline-none text-sm font-semibold text-slate-700"
+                                />
+                                {editDescription && showSuggestions && suggestions.length > 0 && (
+                                    <div className="absolute left-0 right-0 z-50 bg-white border border-slate-200 rounded-xl shadow-lg max-h-48 overflow-y-auto mt-1 divide-y divide-slate-100">
+                                        {suggestions.map(op => (
+                                            <button
+                                                key={op.id}
+                                                type="button"
+                                                onClick={() => {
+                                                    fillPosteFromOperation(op);
+                                                    setShowSuggestions(false);
+                                                }}
+                                                className="w-full text-left px-3 py-2 hover:bg-slate-50 text-xs flex items-center justify-between gap-2"
+                                            >
+                                                <div className="flex items-center gap-1.5 min-w-0">
+                                                    <span className="bg-slate-100 text-slate-650 font-black px-1.5 py-0.5 rounded shrink-0">#{op.order}</span>
+                                                    <span className="font-bold text-slate-750 truncate">{op.description}</span>
+                                                </div>
+                                                <span className="text-[10px] font-black text-indigo-750 bg-indigo-50 px-1.5 py-0.5 rounded shrink-0">{(op.time * 60).toFixed(0)}s</span>
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex items-center justify-between gap-3">
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    if (confirm("Voulez-vous vraiment supprimer ce poste ?")) {
+                                        deleteCustomStation(editingStation.id);
+                                        setEditingStation(null);
+                                    }
+                                }}
+                                className="flex items-center gap-1.5 px-3 py-2 border border-rose-200 hover:bg-rose-50 text-rose-600 rounded-xl text-xs font-bold transition-all"
+                            >
+                                <Trash2 className="w-4 h-4" />
+                                Supprimer
+                            </button>
+                            <div className="flex gap-2">
+                                <button
+                                    type="button"
+                                    onClick={() => setEditingStation(null)}
+                                    className="px-3.5 py-2 border border-slate-200 hover:bg-slate-100 text-slate-650 rounded-xl text-xs font-bold transition-all"
+                                >
+                                    Annuler
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setChronoCustomStations?.(prev =>
+                                            prev.map(s =>
+                                                s.id === editingStation.id
+                                                    ? {
+                                                        ...s,
+                                                        name: editName,
+                                                        operatorName: editOperator,
+                                                        machine: editMachine,
+                                                        description: editDescription,
+                                                        linkedOperationId: linkedOpId
+                                                    }
+                                                    : s
+                                            )
+                                        );
+                                        setEditingStation(null);
+                                    }}
+                                    className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold shadow-md shadow-indigo-100 transition-all"
+                                >
+                                    Valider
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 </div>
             )}

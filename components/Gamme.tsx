@@ -1843,11 +1843,27 @@ export default function Gamme({
             </div>
 
             {/* P/H 100% */}
-            <div className="flex flex-col items-center px-3 py-1.5 shrink-0">
+            <div className="flex flex-col items-center px-3 py-1.5 bg-orange-50/50 rounded-lg border border-orange-100 shrink-0">
                 <span className="text-[9px] font-bold text-orange-400 uppercase">P/H (100%)</span>
-                <span className="font-black text-orange-500 text-lg leading-none">
+                <span className="font-black text-orange-500 text-sm leading-none mt-1">
                     {Math.round((tempsArticle > 0 && presenceTime > 0) ? ((presenceTime * numWorkers) / tempsArticle) / (presenceTime / 60) : 0)}
                 </span>
+            </div>
+
+            {/* TARGETS */}
+            <div className="flex items-center gap-3 px-3 py-1.5 bg-slate-50/50 rounded-lg border border-slate-100 shrink-0">
+                <div className="flex flex-col items-center border-r border-slate-200 pr-3 mr-1">
+                    <span className="text-[9px] font-bold text-slate-400 uppercase">P/J</span>
+                    <span className="font-black text-slate-700 text-sm leading-none mt-1">
+                        {Math.round(((tempsArticle > 0 && presenceTime > 0) ? (presenceTime * numWorkers) / tempsArticle : 0) * (efficiency / 100))}
+                    </span>
+                </div>
+                <div className="flex flex-col items-center">
+                    <span className="text-[9px] font-bold text-slate-400 uppercase">P/H</span>
+                    <span className="font-black text-slate-700 text-sm leading-none mt-1">
+                        {Math.round(((tempsArticle > 0 && presenceTime > 0) ? ((presenceTime * numWorkers) / tempsArticle) / (presenceTime / 60) : 0) * (efficiency / 100))}
+                    </span>
+                </div>
             </div>
 
             <div className="flex flex-col items-center px-3 py-1.5 bg-indigo-50/50 rounded-lg border border-indigo-100 shrink-0">

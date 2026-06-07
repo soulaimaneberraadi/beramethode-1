@@ -338,9 +338,9 @@ export default function AnalyseTechnologique({
             </div>
 
             {/* P/H 100% */}
-            <div className="flex flex-col items-center px-3 py-1.5 shrink-0">
+            <div className="flex flex-col items-center px-3 py-1.5 bg-orange-50/50 rounded-lg border border-orange-100 shrink-0">
                 <span className="text-[9px] font-bold text-orange-400 uppercase">P/H (100%)</span>
-                <span className="font-black text-orange-500 text-lg leading-none">{Math.round(prodHour100)}</span>
+                <span className="font-black text-orange-500 text-sm leading-none mt-1">{Math.round(prodHour100)}</span>
             </div>
 
             {/* RENDU */}
@@ -359,14 +359,14 @@ export default function AnalyseTechnologique({
             </div>
 
             {/* TARGETS */}
-            <div className="flex items-center gap-4 px-4 border-l border-slate-100 shrink-0">
-                <div className="flex flex-col items-center">
+            <div className="flex items-center gap-3 px-3 py-1.5 bg-slate-50/50 rounded-lg border border-slate-100 shrink-0">
+                <div className="flex flex-col items-center border-r border-slate-200 pr-3 mr-1">
                     <span className="text-[9px] font-bold text-slate-400 uppercase">P/J</span>
-                    <span className="font-black text-slate-700 text-lg leading-none">{Math.round(prodDayEff)}</span>
+                    <span className="font-black text-slate-700 text-sm leading-none mt-1">{Math.round(prodDayEff)}</span>
                 </div>
                 <div className="flex flex-col items-center">
                     <span className="text-[9px] font-bold text-slate-400 uppercase">P/H</span>
-                    <span className="font-black text-slate-700 text-lg leading-none">{Math.round(prodHourEff)}</span>
+                    <span className="font-black text-slate-700 text-sm leading-none mt-1">{Math.round(prodHourEff)}</span>
                 </div>
             </div>
 

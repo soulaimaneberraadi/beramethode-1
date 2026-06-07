@@ -117,12 +117,27 @@ export default function Login({ onSwitch, onGuest }: { onSwitch: () => void, onG
   };
 
   const networkErrorMessage = (err: unknown): string => {
-    const msg = err instanceof Error ? err.message : String(err);
-    if (
+    let msg = err instanceof Error ? err.message : String(err);
+    msg = (msg || '').trim();
+    // Message vide ou inexploitable ("{}", "[object Object]", page HTML d'erreur) :
+    // ne jamais l'afficher tel quel à l'utilisateur.
+    const isNetwork =
+      !msg ||
+      msg === '{}' ||
+      msg === '[object Object]' ||
+      msg.startsWith('<') ||
       msg === 'Failed to fetch' ||
       msg === 'Load failed' ||
-      msg.startsWith('NetworkError')
-    ) {
+      msg.startsWith('NetworkError');
+    if (isNetwork) {
+      // En mode statique (Supabase), aucun backend local n'est requis : un échec
+      // réseau signifie que le service d'authentification Supabase est injoignable.
+      if (staticLogin) {
+        return (
+          'Impossible de joindre le serveur d\'authentification. ' +
+          'Vérifiez votre connexion Internet et réessayez dans quelques instants.'
+        );
+      }
       return (
         'Impossible de joindre le serveur. Lancez « npm run dev » puis ouvrez http://localhost:8000. ' +
         'Si vous utilisez uniquement « npm run dev:ui » (port 5173), le backend doit tourner sur le port 8000.'

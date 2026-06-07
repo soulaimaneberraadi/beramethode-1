@@ -448,9 +448,22 @@ export interface ModelData {
     manualLinks?: ManualLink[];
     savedPlantations?: { id: string, name: string, date: string, layoutType: string, postes: { id: string, x?: number, y?: number, isPlaced?: boolean, rotation?: number }[] }[]; // NEW: Manual saves
   };
+  chronoData?: Record<string, ChronoData>;
+  chronoCustomStations?: CustomStation[];
+  chronoLayoutSide?: 'left' | 'right' | 'both';
 }
 
 // --- NEW TYPES FOR EXTENDED MODULES (CHRONO, PLANNING, SUIVI, MAGASIN) ---
+
+export interface CustomStation {
+  id: string;
+  name: string;
+  machine: string;
+  operatorName?: string;
+  description?: string;
+  side: 'left' | 'right';
+  linkedOperationId?: string;
+}
 
 export type ChronoData = {
   operationId: string;

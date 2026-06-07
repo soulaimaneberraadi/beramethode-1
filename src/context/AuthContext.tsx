@@ -23,6 +23,24 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 const IS_STATIC = import.meta.env.VITE_STATIC_MODE === 'true';
 
+/**
+ * Borne le temps d'attente d'une promesse. Si Supabase Auth est lent ou
+ * injoignable (ex. 522 Cloudflare, service en panne), la requête de connexion
+ * peut rester en attente indéfiniment et figer le bouton « Sign in ».
+ * On rejette après `ms` pour rendre la main à l'utilisateur avec un message clair.
+ */
+class TimeoutError extends Error {
+  constructor() {
+    super('timeout');
+    this.name = 'TimeoutError';
+  }
+}
+const withTimeout = <T,>(promise: Promise<T>, ms: number): Promise<T> =>
+  Promise.race([
+    promise,
+    new Promise<T>((_, reject) => setTimeout(() => reject(new TimeoutError()), ms)),
+  ]);
+
 const mapSupabaseUser = (su: { id: string; email?: string | null; user_metadata?: Record<string, unknown> } | null): User | null => {
   if (!su || !su.email) return null;
   const meta = su.user_metadata || {};
@@ -57,11 +75,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // Supabase auth (static mode) — never block loading on cloud sync
     let mounted = true;
+
+    // Garde-fou : si Supabase est injoignable (ex. 522 Cloudflare), getSession()
+    // peut ne jamais se résoudre et figer l'écran de chargement à 0 %.
+    // On force la fin du chargement après un délai pour basculer sur l'écran
+    // de connexion (l'utilisateur peut alors réessayer ou continuer hors-ligne).
+    let settled = false;
+    const finishLoading = () => {
+      if (mounted && !settled) {
+        settled = true;
+        setLoading(false);
+      }
+    };
+    const sessionTimeout = setTimeout(finishLoading, 8000);
+
     supabase.auth.getSession().then(({ data }) => {
       if (!mounted) return;
+      clearTimeout(sessionTimeout);
       const u = mapSupabaseUser(data.session?.user as never);
       setUser(u);
-      setLoading(false);
+      finishLoading();
       if (u) {
         // IMPORTANT: pull doit terminer AVANT de démarrer le sync, sinon
         // le localStorage vide est pushé et écrase la donnée distante.
@@ -70,7 +103,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           .finally(() => startCloudSync(String(u.id)));
       }
     }).catch(() => {
-      if (mounted) setLoading(false);
+      clearTimeout(sessionTimeout);
+      finishLoading();
     });
 
     const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
@@ -87,6 +121,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     return () => {
       mounted = false;
+      clearTimeout(sessionTimeout);
       sub.subscription.unsubscribe();
       stopCloudSync();
     };
@@ -112,12 +147,41 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const staticLogin = async (email: string, password: string) => {
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email: email.trim().toLowerCase(),
-      password,
-    });
+    // Un échec réseau / service Supabase injoignable (ex. 522 Cloudflare) peut
+    // se présenter sous deux formes : soit signInWithPassword() lève une
+    // exception, soit il renvoie un `error` au message inexploitable ("{}",
+    // "[object Object]", page HTML…). Dans ces cas on affiche un message clair
+    // au lieu de « E-mail ou mot de passe incorrect » qui induit en erreur.
+    const SERVICE_UNREACHABLE =
+      'Impossible de joindre le serveur d\'authentification. Vérifiez votre connexion Internet et réessayez dans quelques instants.';
+    const isUselessMessage = (m: string): boolean => {
+      const s = m.trim();
+      return !s || s === '{}' || s === '[object Object]' || s.startsWith('<');
+    };
+
+    let data: Awaited<ReturnType<typeof supabase.auth.signInWithPassword>>['data'];
+    let error: Awaited<ReturnType<typeof supabase.auth.signInWithPassword>>['error'];
+    try {
+      // Timeout de 12 s : le bouton « Sign in » ne reste jamais figé à tourner,
+      // même si le service d'authentification ne répond pas.
+      ({ data, error } = await withTimeout(
+        supabase.auth.signInWithPassword({
+          email: email.trim().toLowerCase(),
+          password,
+        }),
+        12000,
+      ));
+    } catch {
+      return { ok: false, message: SERVICE_UNREACHABLE };
+    }
+
     if (error || !data.user) {
-      const errMsg = error?.message || '';
+      const rawMsg = error?.message || '';
+      // Message vide ou inexploitable ⇒ service injoignable, pas un mauvais mot de passe.
+      if (isUselessMessage(rawMsg)) {
+        return { ok: false, message: SERVICE_UNREACHABLE };
+      }
+      const errMsg = rawMsg;
       // Email exists but not yet confirmed
       if (errMsg.toLowerCase().includes('email not confirmed') || errMsg.toLowerCase().includes('not confirmed')) {
         return { ok: false, message: 'Votre e-mail n\'est pas encore confirmé. Vérifiez votre boîte mail et cliquez sur le lien de confirmation.' };
