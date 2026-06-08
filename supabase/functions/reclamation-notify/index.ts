@@ -1,6 +1,6 @@
 // Supabase Edge Function — Notifications de réclamations par e-mail (via Resend)
 //
-// Déclenchée par un *Database Webhook* sur la table `public.reclamations` :
+// Déclenchée par un *Database Webhook* sur la table `public.support_tickets` :
 //   - INSERT                         → e-mail « bien reçu, merci »
 //   - UPDATE vers status = 'resolu'  → e-mail « problème résolu, réessayez »
 //
@@ -10,7 +10,7 @@
 //   (optionnel) supabase secrets set WEBHOOK_SECRET=une_chaine_secrete
 //
 // Puis créer le webhook : Dashboard → Database → Webhooks → New
-//   Table: reclamations | Events: Insert, Update | Type: HTTP POST
+//   Table: support_tickets | Events: Insert, Update | Type: HTTP POST
 //   URL: https://<project-ref>.functions.supabase.co/reclamation-notify
 //   (optionnel) Header: x-webhook-secret = la meme valeur que WEBHOOK_SECRET
 

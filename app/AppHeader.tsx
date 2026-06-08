@@ -23,7 +23,7 @@ import type { Lang } from './constants';
 import { TRANSLATIONS } from './constants';
 import SupportWidget from '../components/SupportWidget';
 
-type ViewType = 'dashboard' | 'ingenierie' | 'atelier' | 'library' | 'coupe' | 'effectifs' | 'gestionRh' | 'planning' | 'suivi' | 'magasin' | 'export' | 'config' | 'profil' | 'admin' | 'rendement' | 'pageMachine' | 'machin' | 'objectifs' | 'facturation' | 'atelierProd' | 'vuegenerale' | 'sousTraitance' | 'reclamations';
+type ViewType = 'dashboard' | 'ingenierie' | 'atelier' | 'library' | 'coupe' | 'effectifs' | 'gestionRh' | 'planning' | 'suivi' | 'magasin' | 'export' | 'config' | 'profil' | 'admin' | 'rendement' | 'pageMachine' | 'machin' | 'objectifs' | 'facturation' | 'atelierProd' | 'vuegenerale' | 'sousTraitance';
 
 interface AppHeaderProps {
     currentView: ViewType;

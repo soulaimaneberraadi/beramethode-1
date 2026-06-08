@@ -39,7 +39,6 @@ import { DEFAULT_CALENDAR_APP_SETTINGS } from './lib/defaultCalendarSettings';
 const Login = lazy(() => import('./src/components/Login'));
 const Signup = lazy(() => import('./src/components/Signup'));
 const AdminDashboard = lazy(() => import('./src/components/AdminDashboard'));
-const Reclamations = lazy(() => import('./components/Reclamations'));
 const Dashboard = lazy(() => import('./components/Dashboard'));
 const Planning = lazy(() => import('./components/Planning'));
 const Magasin = lazy(() => import('./components/Magasin'));
@@ -182,7 +181,7 @@ export default function App() {
         setAuthView('login');
     };
 
-    const [currentView, setCurrentView] = useState<'dashboard' | 'ingenierie' | 'atelier' | 'library' | 'coupe' | 'effectifs' | 'gestionRh' | 'planning' | 'suivi' | 'magasin' | 'export' | 'config' | 'profil' | 'admin' | 'rendement' | 'pageMachine' | 'machin' | 'objectifs' | 'facturation' | 'atelierProd' | 'vuegenerale' | 'sousTraitance' | 'reclamations'>('dashboard');
+    const [currentView, setCurrentView] = useState<'dashboard' | 'ingenierie' | 'atelier' | 'library' | 'coupe' | 'effectifs' | 'gestionRh' | 'planning' | 'suivi' | 'magasin' | 'export' | 'config' | 'profil' | 'admin' | 'rendement' | 'pageMachine' | 'machin' | 'objectifs' | 'facturation' | 'atelierProd' | 'vuegenerale' | 'sousTraitance'>('dashboard');
     const [directSuiviModelId, setDirectSuiviModelId] = useState<string | null>(null);
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     // En static mode, on garde tous les modules visibles — leurs données viennent de Supabase
@@ -1158,7 +1157,6 @@ export default function App() {
                                         objectifs: { label: 'Objectifs', icon: <Target className="w-4 h-4" />, active: 'bg-rose-50 border-rose-100 text-rose-700' },
                                         sousTraitance: { label: 'Sous-traitance', icon: <Truck className="w-4 h-4" />, active: 'bg-indigo-50 border-indigo-100 text-indigo-700' },
                                         admin: { label: t.admin, icon: <Shield className="w-4 h-4" />, active: 'bg-purple-50 border-purple-100 text-purple-700' },
-                                        reclamations: { label: 'Réclamations', icon: <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>, active: 'bg-purple-50 border-purple-100 text-purple-700' },
                                     };
 
                                     const sections = [
@@ -1166,7 +1164,7 @@ export default function App() {
                                             title: c.name,
                                             items: c.views
                                         })),
-                                        ...(user?.role === 'admin' ? [{ title: 'Administration', items: ['admin', 'reclamations'] }] : []),
+                                        ...(user?.role === 'admin' ? [{ title: 'Administration', items: ['admin'] }] : []),
                                     ];
 
                                     const visibleItems = new Set(
@@ -1174,8 +1172,6 @@ export default function App() {
                                             .filter(v => !effectiveNavConfig.hidden.includes(v))
                                             .filter(v => v !== 'admin' || user?.role === 'admin')
                                     );
-                                    // 'reclamations' n'est pas dans navOrder : on l'ajoute pour l'admin.
-                                    if (user?.role === 'admin') visibleItems.add('reclamations');
 
                                     return sections
                                         .map(section => ({
@@ -1557,12 +1553,6 @@ export default function App() {
                     )}
 
                     {currentView === 'admin' && user?.role === 'admin' && <AdminDashboard />}
-
-                    {currentView === 'reclamations' && user?.role === 'admin' && (
-                        <Suspense fallback={<div className="p-8 text-center text-gray-500">Chargement...</div>}>
-                            <Reclamations />
-                        </Suspense>
-                    )}
 
                     {currentView === 'sousTraitance' && (
                         <div className="flex-1 min-h-0 flex flex-col overflow-hidden w-full">
