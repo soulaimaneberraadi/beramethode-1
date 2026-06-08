@@ -1,7 +1,6 @@
 import {
     FolderOpen,
     Settings as SettingsIcon,
-    Bell,
     CheckCircle2,
     CloudOff,
     LogOut,
@@ -22,6 +21,7 @@ import {
 } from 'lucide-react';
 import type { Lang } from './constants';
 import { TRANSLATIONS } from './constants';
+import SupportWidget from '../components/SupportWidget';
 
 type ViewType = 'dashboard' | 'ingenierie' | 'atelier' | 'library' | 'coupe' | 'effectifs' | 'gestionRh' | 'planning' | 'suivi' | 'magasin' | 'export' | 'config' | 'profil' | 'admin' | 'rendement' | 'pageMachine' | 'machin' | 'objectifs' | 'facturation' | 'atelierProd' | 'vuegenerale' | 'sousTraitance' | 'reclamations';
 
@@ -315,9 +315,7 @@ export default function AppHeader({
                         </button>
                     )}
 
-                    <div className="hidden md:flex items-center justify-center w-8 h-8 rounded-full bg-white border border-gray-100 text-gray-400 hover:text-emerald-600 hover:border-emerald-100 transition-colors cursor-pointer">
-                        <Bell className="w-3.5 h-3.5" />
-                    </div>
+                    <SupportWidget user={user} />
 
                     {/* User Profile - Compact */}
                     <button

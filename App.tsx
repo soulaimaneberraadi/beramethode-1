@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect, useCallback, useRef, Suspense, lazy } from 'react';
 import GlobalLoader from './components/GlobalLoader';
 import { ErrorBoundary } from './components/ErrorBoundary';
-import { submitReclamation } from './src/lib/reclamations';
+import { createTicketFromReport } from './src/lib/support';
 import AnnouncementBar from './components/AnnouncementBar';
 import LicenseBanner from './components/LicenseBanner';
 import { runBootSequence } from './lib/bootSequence';
@@ -1225,7 +1225,7 @@ export default function App() {
                   {/* Isole le crash d'une page : la barre de navigation et le reste
                       de l'app restent vivants. `key={currentView}` réinitialise le
                       garde-fou automatiquement à chaque changement de page. */}
-                  <ErrorBoundary inline view={currentView} key={currentView} onReport={submitReclamation}>
+                  <ErrorBoundary inline view={currentView} key={currentView} onReport={createTicketFromReport}>
                     {currentView === 'vuegenerale' && (
                         <VueGenerale
                             models={models}
