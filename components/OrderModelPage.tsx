@@ -324,8 +324,8 @@ const OrderModelPage: React.FC<OrderModelPageProps> = ({
                 {/* Materials Table */}
                 {commoditiesOpen && (
                     <div className="p-4">
-                        <div className="rounded-xl border border-slate-200 overflow-hidden">
-                            <table className="w-full text-sm">
+                        <div className="rounded-xl border border-slate-200 overflow-x-auto">
+                            <table className="w-full min-w-[640px] text-sm">
                                 <thead>
                                     <tr className="bg-slate-50 text-slate-500 text-xs font-bold uppercase tracking-wider">
                                         <th className="px-4 py-3 text-right">المادة</th>

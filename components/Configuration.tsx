@@ -659,7 +659,7 @@ export default function Configuration({ settings, setSettings, lang, machines, n
                         </div>
 
                         {/* Working Hours */}
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div>
                                 <label className="block text-xs font-bold uppercase text-slate-500 mb-2">{t.workingHoursStart}</label>
                                 <input type="time" name="workingHoursStart" value={settings.workingHoursStart} onChange={handleChange} className="w-full bg-slate-50 border-2 border-slate-200 rounded-xl px-4 py-3 outline-none focus:border-indigo-500 font-bold text-lg text-slate-700 transition-all text-center" />

@@ -53,29 +53,29 @@ const ModelInfo: React.FC<ModelInfoProps> = ({
     const costPrice = totalTime * settings.costMinute;
 
     return (
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+        <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
             {/* Header - Planning Style */}
-            <div className="px-5 py-3.5 border-b border-slate-100 flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-500 flex items-center justify-center">
-                        <Shirt className="w-4 h-4 text-white" />
-                    </div>
+            <div className="px-5 h-12 border-b border-slate-100 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                    <Shirt className="w-4 h-4 text-slate-400" strokeWidth={1.75} />
                     <div>
-                        <h2 className="text-sm font-bold text-slate-800 tracking-tight">Fiche de Coût</h2>
-                        <p className="text-[11px] text-slate-400 font-medium">Modèle & Paramètres</p>
+                        <h2 className="text-[13px] font-semibold text-slate-900 tracking-tight">Fiche de Coût</h2>
+                        <p className="text-[11px] text-slate-400">Modèle &amp; paramètres</p>
                     </div>
                 </div>
-                
-                {/* Stat Dots - Planning Style */}
-                <div className="flex items-center gap-2">
-                    <div className="flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50 rounded-full border border-emerald-100">
-                        <CheckCircle2 className="w-3 h-3 text-emerald-500" />
-                        <span className="text-[10px] font-bold text-emerald-700">{fmt(totalTime)} min</span>
-                    </div>
-                    <div className="flex items-center gap-1.5 px-2.5 py-1 bg-blue-50 rounded-full border border-blue-100">
-                        <Coins className="w-3 h-3 text-blue-500" />
-                        <span className="text-[10px] font-bold text-blue-700">{fmt(costPrice)} {currency}</span>
-                    </div>
+
+                {/* Inline stats - Planning Style */}
+                <div className="flex items-center gap-4">
+                    <span className="inline-flex items-center gap-1.5">
+                        <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />
+                        <span className="text-[12px] text-slate-500">Temps</span>
+                        <span className="text-[12px] font-semibold text-slate-900 tabular-nums">{fmt(totalTime)} min</span>
+                    </span>
+                    <span className="inline-flex items-center gap-1.5">
+                        <span className="w-1.5 h-1.5 rounded-full bg-[#2149C1]" />
+                        <span className="text-[12px] text-slate-500">Coût</span>
+                        <span className="text-[12px] font-semibold text-slate-900 tabular-nums">{fmt(costPrice)} {currency}</span>
+                    </span>
                 </div>
             </div>
 
@@ -85,14 +85,14 @@ const ModelInfo: React.FC<ModelInfoProps> = ({
                 <div className="md:col-span-2 space-y-4">
                     {/* Model Name */}
                     <div>
-                        <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1.5">
+                        <label className="block text-[11px] font-medium text-slate-500 mb-1.5">
                             Nom du Modèle
                         </label>
-                        <input 
-                            type="text" 
-                            value={productName} 
-                            onChange={(e) => setProductName(e.target.value)} 
-                            className="w-full h-10 px-3 bg-slate-50 border border-slate-200 rounded-lg text-sm font-medium text-slate-700 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                        <input
+                            type="text"
+                            value={productName}
+                            onChange={(e) => setProductName(e.target.value)}
+                            className="w-full h-9 px-3 bg-slate-50/60 hover:bg-slate-50 focus:bg-white border border-slate-200 focus:border-slate-300 rounded-md text-[13px] font-medium text-slate-700 focus:ring-2 focus:ring-slate-100 outline-none transition-all"
                             placeholder="Ex: 76-34-tf"
                         />
                     </div>
@@ -101,132 +101,127 @@ const ModelInfo: React.FC<ModelInfoProps> = ({
                     <div className="grid grid-cols-2 gap-4">
                         {/* Sewing Time */}
                         <div>
-                            <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1.5">
+                            <label className="block text-[11px] font-medium text-slate-500 mb-1.5">
                                 Temps Couture (min)
                             </label>
                             <div className="relative">
-                                <input 
-                                    type="number" 
-                                    min="0" 
+                                <input
+                                    type="number"
+                                    min="0"
                                     step="0.01"
-                                    value={baseTime} 
-                                    onChange={(e) => setBaseTime(Math.max(0, parseFloat(e.target.value) || 0))} 
-                                    className="w-full h-10 pl-9 pr-3 bg-slate-50 border border-slate-200 rounded-lg text-sm font-bold text-slate-700 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                                    value={baseTime}
+                                    onChange={(e) => setBaseTime(Math.max(0, parseFloat(e.target.value) || 0))}
+                                    className="w-full h-9 pl-9 pr-3 bg-slate-50/60 hover:bg-slate-50 focus:bg-white border border-slate-200 focus:border-slate-300 rounded-md text-[13px] font-semibold text-slate-700 focus:ring-2 focus:ring-slate-100 outline-none transition-all tabular-nums"
                                 />
-                                <Clock className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                                <Clock className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" strokeWidth={1.75} />
                             </div>
                         </div>
 
                         {/* Cost Minute */}
                         <div>
-                            <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1.5">
+                            <label className="block text-[11px] font-medium text-slate-500 mb-1.5">
                                 Coût Minute ({currency})
                             </label>
                             <div className="flex gap-2">
                                 <div className="relative flex-1">
-                                    <input 
+                                    <input
                                         name="costMinute"
-                                        type="number" 
-                                        min="0" 
-                                        step="0.01" 
-                                        value={tempSettings.costMinute} 
-                                        onChange={handleTempSettingChange} 
-                                        className="w-full h-10 pl-9 pr-3 bg-blue-50 border border-blue-200 rounded-lg text-sm font-bold text-blue-700 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                                        type="number"
+                                        min="0"
+                                        step="0.01"
+                                        value={tempSettings.costMinute}
+                                        onChange={handleTempSettingChange}
+                                        className="w-full h-9 pl-9 pr-3 bg-slate-50/60 hover:bg-slate-50 focus:bg-white border border-slate-200 focus:border-slate-300 rounded-md text-[13px] font-semibold text-slate-700 focus:ring-2 focus:ring-slate-100 outline-none transition-all tabular-nums"
                                     />
-                                    <Coins className="w-4 h-4 text-blue-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                                    <Coins className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" strokeWidth={1.75} />
                                 </div>
-                                <button 
-                                    onClick={applyCostMinute} 
-                                    className="h-10 px-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg shadow-sm transition-all active:scale-95 flex items-center justify-center"
+                                <button
+                                    onClick={applyCostMinute}
+                                    className="h-9 px-3 bg-slate-900 hover:bg-slate-800 text-white rounded-md transition-colors flex items-center justify-center"
                                     title={t.apply}
                                 >
-                                    <CheckSquare className="w-4 h-4" />
+                                    <CheckSquare className="w-3.5 h-3.5" strokeWidth={1.75} />
                                 </button>
                             </div>
                         </div>
                     </div>
 
                     {/* Cut & Pack Rates - Compact Style */}
-                    <div className="flex items-center gap-4 p-3 bg-slate-50 border border-slate-200 rounded-lg">
+                    <div className="flex items-center gap-3 p-3 bg-slate-50/60 border border-slate-200 rounded-md">
                         <div className="flex items-center gap-2">
-                            <div className="w-6 h-6 rounded bg-rose-100 flex items-center justify-center">
-                                <Scissors className="w-3 h-3 text-rose-600" />
-                            </div>
-                            <span className="text-[11px] font-bold text-slate-600">Coupe (%):</span>
-                            <input 
-                                type="number" 
-                                min="0" 
-                                name="cutRate" 
-                                value={settings.cutRate} 
-                                onChange={handleInstantSettingChange} 
-                                className="w-14 h-7 px-1 bg-white border border-slate-200 rounded text-center text-xs font-bold text-slate-700 focus:ring-2 focus:ring-rose-500 focus:border-rose-500 outline-none transition-all"
+                            <Scissors className="w-3.5 h-3.5 text-slate-400" strokeWidth={1.75} />
+                            <span className="text-[11px] font-medium text-slate-500">Coupe (%)</span>
+                            <input
+                                type="number"
+                                min="0"
+                                name="cutRate"
+                                value={settings.cutRate}
+                                onChange={handleInstantSettingChange}
+                                className="w-12 h-7 px-1 bg-white border border-slate-200 rounded text-center text-[12px] font-semibold text-slate-700 focus:ring-2 focus:ring-slate-100 focus:border-slate-300 outline-none transition-all tabular-nums"
                             />
                         </div>
-                        
-                        <div className="w-px h-6 bg-slate-200" />
-                        
+
+                        <div className="w-px h-5 bg-slate-200" />
+
                         <div className="flex items-center gap-2">
-                            <div className="w-6 h-6 rounded bg-amber-100 flex items-center justify-center">
-                                <Package className="w-3 h-3 text-amber-600" />
-                            </div>
-                            <span className="text-[11px] font-bold text-slate-600">Emballage (%):</span>
-                            <input 
-                                type="number" 
-                                min="0" 
-                                name="packRate" 
-                                value={settings.packRate} 
-                                onChange={handleInstantSettingChange} 
-                                className="w-14 h-7 px-1 bg-white border border-slate-200 rounded text-center text-xs font-bold text-slate-700 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none transition-all"
+                            <Package className="w-3.5 h-3.5 text-slate-400" strokeWidth={1.75} />
+                            <span className="text-[11px] font-medium text-slate-500">Emballage (%)</span>
+                            <input
+                                type="number"
+                                min="0"
+                                name="packRate"
+                                value={settings.packRate}
+                                onChange={handleInstantSettingChange}
+                                className="w-12 h-7 px-1 bg-white border border-slate-200 rounded text-center text-[12px] font-semibold text-slate-700 focus:ring-2 focus:ring-slate-100 focus:border-slate-300 outline-none transition-all tabular-nums"
                             />
                         </div>
-                        
-                        <div className="w-px h-6 bg-slate-200" />
-                        
-                        <div className="flex items-center gap-2 px-3 py-1.5 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-lg">
-                            <TrendingUp className="w-3.5 h-3.5 text-white" />
-                            <span className="text-[11px] font-bold text-white">Total:</span>
-                            <span className="text-sm font-black text-white">{fmt(totalTime)} min</span>
+
+                        <div className="flex-1" />
+
+                        <div className="inline-flex items-center gap-2 px-3 h-8 bg-slate-900 rounded-md">
+                            <span className="text-[11px] font-medium text-slate-300">Total</span>
+                            <span className="text-[13px] font-semibold text-white tabular-nums">{fmt(totalTime)} min</span>
                         </div>
                     </div>
 
                     {/* Cost Breakdown - Visual */}
-                    <div className="p-4 bg-gradient-to-br from-slate-50 to-slate-100 border border-slate-200 rounded-lg">
-                        <h4 className="text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-3">
+                    <div className="p-4 bg-slate-50/60 border border-slate-200 rounded-md">
+                        <h4 className="text-[11px] font-medium text-slate-500 mb-3">
                             Répartition du Temps
                         </h4>
-                        
+
                         {/* Progress Bar */}
-                        <div className="h-2.5 bg-slate-200 rounded-full overflow-hidden flex mb-3">
-                            <div 
-                                className="bg-blue-500 transition-all duration-500"
+                        <div className="h-2 bg-slate-200 rounded-full overflow-hidden flex mb-3">
+                            <div
+                                className="bg-[#2149C1] transition-all duration-500"
                                 style={{ width: `${(baseTime / totalTime) * 100}%` }}
                                 title={`Couture: ${baseTime} min`}
                             />
-                            <div 
-                                className="bg-rose-500 transition-all duration-500"
+                            <div
+                                className="bg-slate-400 transition-all duration-500"
                                 style={{ width: `${(cutTime / totalTime) * 100}%` }}
                                 title={`Coupe: ${cutTime.toFixed(1)} min`}
                             />
-                            <div 
-                                className="bg-amber-500 transition-all duration-500"
+                            <div
+                                className="bg-slate-300 transition-all duration-500"
                                 style={{ width: `${(packTime / totalTime) * 100}%` }}
                                 title={`Emballage: ${packTime.toFixed(1)} min`}
                             />
                         </div>
-                        
+
                         {/* Legend */}
-                        <div className="flex items-center gap-4 text-[10px]">
+                        <div className="flex items-center gap-4 text-[11px]">
                             <div className="flex items-center gap-1.5">
-                                <div className="w-2 h-2 rounded-full bg-blue-500" />
-                                <span className="font-semibold text-slate-600">Couture ({((baseTime / totalTime) * 100).toFixed(0)}%)</span>
+                                <div className="w-1.5 h-1.5 rounded-full bg-[#2149C1]" />
+                                <span className="text-slate-500">Couture ({((baseTime / totalTime) * 100).toFixed(0)}%)</span>
                             </div>
                             <div className="flex items-center gap-1.5">
-                                <div className="w-2 h-2 rounded-full bg-rose-500" />
-                                <span className="font-semibold text-slate-600">Coupe ({((cutTime / totalTime) * 100).toFixed(0)}%)</span>
+                                <div className="w-1.5 h-1.5 rounded-full bg-slate-400" />
+                                <span className="text-slate-500">Coupe ({((cutTime / totalTime) * 100).toFixed(0)}%)</span>
                             </div>
                             <div className="flex items-center gap-1.5">
-                                <div className="w-2 h-2 rounded-full bg-amber-500" />
-                                <span className="font-semibold text-slate-600">Emballage ({((packTime / totalTime) * 100).toFixed(0)}%)</span>
+                                <div className="w-1.5 h-1.5 rounded-full bg-slate-300" />
+                                <span className="text-slate-500">Emballage ({((packTime / totalTime) * 100).toFixed(0)}%)</span>
                             </div>
                         </div>
                     </div>
@@ -234,11 +229,11 @@ const ModelInfo: React.FC<ModelInfoProps> = ({
 
                 {/* Right Column - Image */}
                 <div className="md:col-span-1">
-                    <div 
-                        className={`relative w-full h-[200px] rounded-xl border-2 border-dashed transition-all duration-300 flex flex-col items-center justify-center overflow-hidden cursor-pointer
-                            ${darkMode 
-                                ? 'border-gray-500 bg-gray-800/50 hover:bg-gray-800 hover:border-blue-500' 
-                                : 'border-slate-300 bg-slate-50 hover:bg-blue-50/50 hover:border-blue-500'
+                    <div
+                        className={`relative w-full h-[200px] rounded-md border border-dashed transition-all duration-300 flex flex-col items-center justify-center overflow-hidden cursor-pointer
+                            ${darkMode
+                                ? 'border-gray-600 bg-gray-800/50 hover:bg-gray-800 hover:border-slate-500'
+                                : 'border-slate-300 bg-slate-50/60 hover:bg-slate-50 hover:border-slate-400'
                             }`}
                         onMouseEnter={() => setIsImageHovered(true)}
                         onMouseLeave={() => setIsImageHovered(false)}
@@ -262,11 +257,11 @@ const ModelInfo: React.FC<ModelInfoProps> = ({
                             </div>
                         ) : (
                             <div className="text-center">
-                                <div className={`p-3 rounded-full mb-2 transition-transform duration-500 hover:scale-110 hover:rotate-6 ${darkMode ? 'bg-gray-700 text-blue-400' : 'bg-white text-blue-500 shadow-sm'}`}>
-                                    <Camera className="w-6 h-6" />
+                                <div className={`p-2.5 rounded-md mb-2 inline-flex ${darkMode ? 'bg-gray-700 text-slate-400' : 'bg-white text-slate-400 border border-slate-200'}`}>
+                                    <Camera className="w-5 h-5" strokeWidth={1.75} />
                                 </div>
-                                <span className="text-xs font-bold text-slate-600 block mb-0.5">Ajouter Photo</span>
-                                <span className="text-[10px] text-slate-400">JPG, PNG</span>
+                                <span className="text-[12px] font-medium text-slate-600 block mb-0.5">Ajouter Photo</span>
+                                <span className="text-[11px] text-slate-400">JPG, PNG</span>
                                 <input 
                                     type="file" 
                                     accept="image/*" 

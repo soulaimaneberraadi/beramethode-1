@@ -48,7 +48,7 @@ const OrderSimulation: React.FC<OrderSimulationProps> = ({
     }, []);
 
     return (
-        <div className={`rounded-xl shadow-lg border overflow-hidden relative ${darkMode ? 'bg-gray-800 border-indigo-900' : 'bg-white border-indigo-100'}`}>
+        <div className={`rounded-lg border overflow-hidden relative ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-slate-200'}`}>
 
             {/* Substitute Modal */}
             {subModal.open && (
@@ -101,64 +101,63 @@ const OrderSimulation: React.FC<OrderSimulationProps> = ({
             )}
 
             {/* Header Section */}
-            <div className={`px-6 py-5 border-b flex flex-col md:flex-row justify-between items-center gap-4 ${darkMode ? 'bg-indigo-950/30 border-indigo-800' : 'bg-gradient-to-r from-indigo-50 to-white border-indigo-100'}`}>
-                <div className="flex items-center gap-3">
-                    <div className="bg-indigo-600 p-2 rounded-lg text-white shadow-md shadow-indigo-200 dark:shadow-none">
-                        <TrendingUp className="w-6 h-6" />
-                    </div>
+            <div className={`px-5 min-h-[3rem] py-2.5 border-b flex flex-col md:flex-row justify-between items-center gap-3 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-slate-100'}`}>
+                <div className="flex items-center gap-2">
+                    <TrendingUp className="w-4 h-4 text-slate-400" strokeWidth={1.75} />
                     <div>
-                        <h2 className={`text-lg font-bold ${darkMode ? 'text-indigo-300' : 'text-indigo-900'}`}>{t.needs}</h2>
-                        <p className={`text-xs ${darkMode ? 'text-indigo-400' : 'text-indigo-500'}`}>Estimation des coûts globaux pour la production</p>
+                        <h2 className={`text-[13px] font-semibold tracking-tight ${darkMode ? 'text-slate-200' : 'text-slate-900'}`}>{t.needs}</h2>
+                        <p className={`text-[11px] ${darkMode ? 'text-slate-500' : 'text-slate-400'}`}>Estimation des coûts globaux</p>
                     </div>
                 </div>
 
-                <div className="flex gap-4">
+                <div className="flex gap-2">
                     {/* Waste Input */}
-                    <div className={`flex items-center gap-2 rounded-xl p-1 pr-3 pl-3 shadow-sm border transition-all focus-within:ring-2 focus-within:ring-indigo-400 ${darkMode ? 'bg-gray-900 border-gray-700' : 'bg-white border-indigo-200'}`}>
-                        <span className={`text-xs font-bold uppercase tracking-wide ${textSecondary}`}>{t.waste}</span>
-                        <div className="h-4 w-px bg-gray-300 dark:bg-gray-700 mx-1"></div>
+                    <div className={`flex items-center gap-2 h-8 rounded-md px-2.5 border transition-all focus-within:ring-2 focus-within:ring-slate-100 ${darkMode ? 'bg-gray-900 border-gray-700' : 'bg-slate-50/60 border-slate-200'}`}>
+                        <span className={`text-[11px] font-medium ${textSecondary}`}>{t.waste}</span>
+                        <div className="h-4 w-px bg-slate-200 dark:bg-gray-700"></div>
                         <input
                             type="number"
                             min="0"
                             value={wasteRate}
                             onChange={(e) => setWasteRate(Math.max(0, parseFloat(e.target.value.replace(/-/g, '')) || 0))}
-                            className={`w-12 text-center font-bold text-indigo-600 bg-transparent outline-none ${darkMode ? 'text-indigo-400' : ''}`}
+                            className={`w-10 text-center text-[13px] font-semibold tabular-nums text-slate-900 bg-transparent outline-none ${darkMode ? 'text-slate-200' : ''}`}
                         />
-                        <Percent className="w-3 h-3 text-indigo-400" />
+                        <Percent className="w-3 h-3 text-slate-400" strokeWidth={1.75} />
                     </div>
 
-                    <div className={`flex items-center gap-2 rounded-xl p-1 pr-3 pl-3 shadow-sm border transition-all focus-within:ring-2 focus-within:ring-indigo-400 ${darkMode ? 'bg-gray-900 border-gray-700' : 'bg-white border-indigo-200'}`}>
-                        <span className={`text-xs font-bold uppercase tracking-wide ${textSecondary}`}>Qté Totale</span>
-                        <div className="h-4 w-px bg-gray-300 dark:bg-gray-700 mx-1"></div>
+                    <div className={`flex items-center gap-2 h-8 rounded-md px-2.5 border transition-all focus-within:ring-2 focus-within:ring-slate-100 ${darkMode ? 'bg-gray-900 border-gray-700' : 'bg-slate-50/60 border-slate-200'}`}>
+                        <span className={`text-[11px] font-medium ${textSecondary}`}>Qté Totale</span>
+                        <div className="h-4 w-px bg-slate-200 dark:bg-gray-700"></div>
                         <input
                             type="number"
                             min="1"
                             value={orderQty}
                             onChange={(e) => setOrderQty(Math.max(1, parseInt(e.target.value.replace(/-/g, '')) || 0))}
-                            className={`w-16 text-center font-bold text-indigo-600 bg-transparent outline-none ${darkMode ? 'text-indigo-400' : ''}`}
+                            className={`w-14 text-center text-[13px] font-semibold tabular-nums text-slate-900 bg-transparent outline-none ${darkMode ? 'text-slate-200' : ''}`}
                         />
-                        <ShoppingCart className="w-3 h-3 text-indigo-400" />
+                        <ShoppingCart className="w-3 h-3 text-slate-400" strokeWidth={1.75} />
                     </div>
                 </div>
             </div>
 
-            <div className="p-6 space-y-8">
+            <div className="p-5 space-y-5">
 
                 {/* Purchasing Table */}
-                <div className={`rounded-xl border overflow-hidden ${darkMode ? 'bg-gray-900 border-gray-700' : 'bg-white border-slate-200 shadow-sm'}`}>
-                    <div className={`px-4 py-2 text-xs font-bold uppercase tracking-wider border-b ${darkMode ? 'bg-gray-800 text-indigo-400 border-gray-700' : 'bg-slate-50 text-indigo-600 border-slate-200'}`}>
+                <div className={`rounded-lg border overflow-hidden ${darkMode ? 'bg-gray-900 border-gray-700' : 'bg-white border-slate-200'}`}>
+                    <div className={`px-4 h-9 flex items-center text-[11px] font-medium uppercase tracking-wide border-b ${darkMode ? 'bg-gray-800 text-slate-400 border-gray-700' : 'bg-slate-50/60 text-slate-500 border-slate-100'}`}>
                         Détail des Achats (Matière Première)
                     </div>
-                    <table className="w-full text-sm">
-                        <thead className={`${darkMode ? 'bg-gray-800 text-gray-400' : 'bg-white text-slate-500'} font-medium border-b ${darkMode ? 'border-gray-700' : 'border-slate-100'} text-xs`}>
+                    <div className="overflow-x-auto">
+                    <table className="w-full min-w-[600px] text-[13px]">
+                        <thead className={`${darkMode ? 'bg-gray-800 text-gray-400' : 'bg-white text-slate-500'} font-medium border-b ${darkMode ? 'border-gray-700' : 'border-slate-100'} text-[11px] uppercase tracking-wide`}>
                             <tr>
-                                <th className="px-4 py-3 text-left">{t.matName}</th>
-                                <th className="px-4 py-3 text-center">{t.price}</th>
-                                <th className="px-4 py-3 text-center">Besoin Total</th>
-                                <th className="px-4 py-3 text-center border-l bg-slate-50/50">En Stock</th>
-                                <th className="px-4 py-3 text-center bg-slate-50/50">Manque</th>
-                                <th className="px-4 py-3 text-center bg-slate-50/50">Fournisseur / Délais</th>
-                                <th className="px-4 py-3 text-right font-bold text-indigo-600 border-l">{t.total}</th>
+                                <th className="px-4 py-2.5 text-left font-medium">{t.matName}</th>
+                                <th className="px-4 py-2.5 text-center font-medium">{t.price}</th>
+                                <th className="px-4 py-2.5 text-center font-medium">Besoin Total</th>
+                                <th className="px-4 py-2.5 text-center font-medium border-l border-slate-100 bg-slate-50/40">En Stock</th>
+                                <th className="px-4 py-2.5 text-center font-medium bg-slate-50/40">Manque</th>
+                                <th className="px-4 py-2.5 text-center font-medium bg-slate-50/40">Fournisseur / Délais</th>
+                                <th className="px-4 py-2.5 text-right font-medium text-slate-700 border-l border-slate-100">{t.total}</th>
                             </tr>
                         </thead>
                         <tbody className={`divide-y text-xs ${darkMode ? 'divide-gray-800' : 'divide-slate-100'}`}>
@@ -242,70 +241,64 @@ const OrderSimulation: React.FC<OrderSimulationProps> = ({
                             })}
                         </tbody>
                     </table>
+                    </div>
                 </div>
 
                 {/* Summary Dashboard Grid */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
 
                     {/* Card 1: Total Material */}
-                    <div className={`p-4 rounded-xl border flex flex-col justify-between relative overflow-hidden group ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-slate-200 shadow-sm hover:border-indigo-300'}`}>
-                        <div className="flex justify-between items-start z-10">
+                    <div className={`p-4 rounded-lg border flex flex-col justify-between ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-slate-200'}`}>
+                        <div className="flex justify-between items-start">
                             <div>
-                                <span className={`text-xs font-bold uppercase tracking-wider mb-1 block ${textSecondary}`}>{t.realBudget}</span>
+                                <span className={`text-[11px] font-medium mb-1 block ${textSecondary}`}>{t.realBudget}</span>
                                 <div className="flex items-baseline gap-1">
-                                    <h3 className={`text-2xl font-bold ${darkMode ? 'text-emerald-400' : 'text-emerald-600'}`}>
+                                    <h3 className={`text-[22px] font-semibold tabular-nums ${darkMode ? 'text-slate-200' : 'text-slate-900'}`}>
                                         {fmt(totalPurchasingMatCost)}
                                     </h3>
-                                    <span className="text-xs font-bold text-slate-400">{currency}</span>
+                                    <span className="text-[11px] font-normal text-slate-400">{currency}</span>
                                 </div>
                             </div>
-                            <div className={`p-2 rounded-lg ${darkMode ? 'bg-emerald-900/30 text-emerald-400' : 'bg-emerald-100 text-emerald-600'}`}>
-                                <Banknote className="w-5 h-5" />
-                            </div>
+                            <Banknote className="w-4 h-4 text-slate-400" strokeWidth={1.75} />
                         </div>
-                        <div className={`mt-4 pt-3 border-t text-xs flex justify-between ${darkMode ? 'border-gray-700 text-gray-500' : 'border-slate-100 text-slate-500'}`}>
-                            <span>Nombre d'articles: {purchasingData.length}</span>
-                            <span title="Formula: Sum(QtyToBuy * Price)">Calculé sur achats réels</span>
+                        <div className={`mt-3 pt-3 border-t text-[11px] flex justify-between ${darkMode ? 'border-gray-700 text-gray-500' : 'border-slate-100 text-slate-400'}`}>
+                            <span>Articles : {purchasingData.length}</span>
+                            <span title="Formula: Sum(QtyToBuy * Price)">Achats réels</span>
                         </div>
                     </div>
 
                     {/* Card 2: Total Labor */}
-                    <div className={`p-4 rounded-xl border flex flex-col justify-between relative overflow-hidden group ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-slate-200 shadow-sm hover:border-indigo-300'}`}>
-                        <div className="flex justify-between items-start z-10">
+                    <div className={`p-4 rounded-lg border flex flex-col justify-between ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-slate-200'}`}>
+                        <div className="flex justify-between items-start">
                             <div>
-                                <span className={`text-xs font-bold uppercase tracking-wider mb-1 block ${textSecondary}`}>{t.laborCost} (Total)</span>
+                                <span className={`text-[11px] font-medium mb-1 block ${textSecondary}`}>{t.laborCost} (Total)</span>
                                 <div className="flex items-baseline gap-1">
-                                    <h3 className={`text-2xl font-bold ${darkMode ? 'text-blue-400' : 'text-blue-600'}`}>
+                                    <h3 className={`text-[22px] font-semibold tabular-nums ${darkMode ? 'text-slate-200' : 'text-slate-900'}`}>
                                         {fmt(laborCost * orderQty)}
                                     </h3>
-                                    <span className="text-xs font-bold text-slate-400">{currency}</span>
+                                    <span className="text-[11px] font-normal text-slate-400">{currency}</span>
                                 </div>
                             </div>
-                            <div className={`p-2 rounded-lg ${darkMode ? 'bg-blue-900/30 text-blue-400' : 'bg-blue-100 text-blue-600'}`}>
-                                <Clock className="w-5 h-5" />
-                            </div>
+                            <Clock className="w-4 h-4 text-slate-400" strokeWidth={1.75} />
                         </div>
-                        <div className={`mt-4 pt-3 border-t text-xs flex justify-between ${darkMode ? 'border-gray-700 text-gray-500' : 'border-slate-100 text-slate-500'}`}>
+                        <div className={`mt-3 pt-3 border-t text-[11px] flex justify-between ${darkMode ? 'border-gray-700 text-gray-500' : 'border-slate-100 text-slate-400'}`}>
                             <span>{orderQty} pcs × {fmt(laborCost)}/pc</span>
-                            <span title={`Formula: ${laborCost} * ${orderQty}`}>Coût Main d'œuvre</span>
+                            <span title={`Formula: ${laborCost} * ${orderQty}`}>Main d'œuvre</span>
                         </div>
                     </div>
 
                     {/* Card 3: Grand Total */}
-                    <div className="p-4 rounded-xl bg-gradient-to-br from-indigo-600 to-violet-700 text-white shadow-lg shadow-indigo-200 dark:shadow-none flex flex-col justify-between relative overflow-hidden">
-                        <div className="absolute top-0 right-0 p-4 opacity-10">
-                            <Package className="w-24 h-24 transform rotate-12" />
-                        </div>
-                        <div className="relative z-10">
-                            <span className="text-xs font-bold uppercase tracking-wider text-indigo-100 mb-1 block">{t.totalBudget}</span>
+                    <div className="p-4 rounded-lg bg-slate-900 text-white flex flex-col justify-between">
+                        <div>
+                            <span className="text-[11px] font-medium text-slate-400 mb-1 block">{t.totalBudget}</span>
                             <div className="flex items-baseline gap-1">
-                                <h3 className="text-3xl font-black tracking-tight">{fmt(totalProjectCost)}</h3>
-                                <span className="text-sm font-medium text-indigo-200">{currency}</span>
+                                <h3 className="text-[24px] font-semibold tracking-tight tabular-nums">{fmt(totalProjectCost)}</h3>
+                                <span className="text-[12px] font-normal text-slate-400">{currency}</span>
                             </div>
                         </div>
-                        <div className="relative z-10 mt-4 pt-3 border-t border-indigo-500/30 flex justify-between items-center text-xs text-indigo-100">
-                            <span className="font-medium">Coût de revient par pièce:</span>
-                            <span className="bg-white/20 px-2 py-1 rounded font-bold">{fmt(totalProjectCost / orderQty)} {currency}</span>
+                        <div className="mt-3 pt-3 border-t border-white/10 flex justify-between items-center text-[11px] text-slate-300">
+                            <span>Coût de revient / pièce</span>
+                            <span className="bg-white/10 px-2 py-0.5 rounded font-medium tabular-nums">{fmt(totalProjectCost / orderQty)} {currency}</span>
                         </div>
                     </div>
 
@@ -315,10 +308,10 @@ const OrderSimulation: React.FC<OrderSimulationProps> = ({
                 <div className="flex justify-end pt-4 border-t border-slate-100 dark:border-gray-800">
                     <button
                         onClick={deductStock}
-                        className="px-6 py-2.5 bg-indigo-600 text-white font-bold rounded-xl shadow-md hover:bg-indigo-700 hover:shadow-lg transition-all active:scale-95 flex items-center gap-2"
+                        className="inline-flex items-center gap-1.5 h-9 px-4 bg-slate-900 text-white text-[12px] font-medium rounded-md hover:bg-slate-800 transition-colors"
                     >
-                        <ShoppingCart className="w-4 h-4" />
-                        Confirmer Commandes & Déduire Stock
+                        <ShoppingCart className="w-3.5 h-3.5" strokeWidth={1.75} />
+                        Confirmer & Déduire Stock
                     </button>
                 </div>
             </div>

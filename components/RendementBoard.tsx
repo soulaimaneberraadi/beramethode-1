@@ -159,8 +159,8 @@ export default function RendementBoard({ models, planningEvents, suivis, setting
                 )}
 
                 {tab === 'modele' && (
-                    <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
-                        <table className="w-full text-sm">
+                    <div className="bg-white rounded-2xl border border-slate-200 overflow-x-auto">
+                        <table className="w-full min-w-[640px] text-sm">
                             <thead className="bg-slate-50 text-slate-500 text-[11px] uppercase">
                                 <tr>
                                     <th className="px-4 py-3 text-left">Modèle</th>
@@ -191,8 +191,8 @@ export default function RendementBoard({ models, planningEvents, suivis, setting
                 )}
 
                 {tab === 'poste' && (
-                    <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
-                        <table className="w-full text-sm">
+                    <div className="bg-white rounded-2xl border border-slate-200 overflow-x-auto">
+                        <table className="w-full min-w-[480px] text-sm">
                             <thead className="bg-slate-50 text-slate-500 text-[11px] uppercase">
                                 <tr>
                                     <th className="px-4 py-3 text-left">Poste</th>
@@ -232,8 +232,8 @@ export default function RendementBoard({ models, planningEvents, suivis, setting
                                 <div className="text-3xl font-black text-amber-700">{byMachine.societeTotals.samTotal.toFixed(1)}</div>
                             </div>
                         </div>
-                        <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
-                            <table className="w-full text-sm">
+                        <div className="bg-white rounded-2xl border border-slate-200 overflow-x-auto">
+                            <table className="w-full min-w-[480px] text-sm">
                                 <thead className="bg-slate-50 text-slate-500 text-[11px] uppercase">
                                     <tr>
                                         <th className="px-4 py-3 text-left">Machine</th>

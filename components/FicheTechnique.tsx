@@ -305,13 +305,13 @@ export default function FicheTechnique({
 
                     {/* 1. GENERAL INFO CARD */}
                     <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-                        <div className="bg-slate-50/50 px-6 py-3 border-b border-slate-100 flex items-center justify-between">
+                        <div className="bg-slate-50/50 px-4 sm:px-6 py-3 border-b border-slate-100 flex items-center justify-between">
                             <div className="flex items-center gap-2">
                                 <Tag className="w-4 h-4 text-indigo-500" />
                                 <h3 className="font-bold text-slate-700 text-sm uppercase tracking-wide">{pt.identification}</h3>
                             </div>
                         </div>
-                        <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="p-4 sm:p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div className="space-y-1">
                                 <label className="text-xs font-bold text-slate-400 uppercase ml-1">{pt.client}</label>
                                 <div className="flex items-center gap-3 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 focus-within:ring-2 focus-within:ring-indigo-100 focus-within:border-indigo-400 transition-all">
@@ -399,7 +399,7 @@ export default function FicheTechnique({
                     </div>
 
                     {/* MATIERE CARD */}
-                    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden p-6 space-y-4">
+                    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden p-4 sm:p-6 space-y-4">
                         <div className="space-y-1">
                             <label className="text-xs font-bold text-slate-500 uppercase ml-1 flex items-center gap-2">
                                 <Layers className="w-4 h-4 text-indigo-500" />
@@ -424,11 +424,11 @@ export default function FicheTechnique({
 
                     {/* PRODUCTION & DATA LINKED CARD */}
                     <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-                        <div className="bg-emerald-50/50 px-6 py-3 border-b border-emerald-100 flex items-center gap-2">
+                        <div className="bg-emerald-50/50 px-4 sm:px-6 py-3 border-b border-emerald-100 flex items-center gap-2">
                             <Factory className="w-4 h-4 text-emerald-600" />
                             <h3 className="font-bold text-emerald-800 text-sm uppercase tracking-wide">Données Techniques & Production</h3>
                         </div>
-                        <div className="p-6">
+                        <div className="p-4 sm:p-6">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
 
                                 {/* Auto Field: Temps Article */}
@@ -521,11 +521,11 @@ export default function FicheTechnique({
 
                     {/* PLANNING & RISK CONTROLS CARD */}
                     <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-                        <div className="bg-indigo-50/50 px-6 py-3 border-b border-indigo-100 flex items-center gap-2">
+                        <div className="bg-indigo-50/50 px-4 sm:px-6 py-3 border-b border-indigo-100 flex items-center gap-2">
                             <TrendingUp className="w-4 h-4 text-indigo-600" />
                             <h3 className="font-bold text-indigo-800 text-sm uppercase tracking-wide">Contrôles de Planification & Risques</h3>
                         </div>
-                        <div className="p-6">
+                        <div className="p-4 sm:p-6">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
 
                                 {/* Facteur de Planning */}

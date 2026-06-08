@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useEffect, useRef, useCallback } from 'react';
-import { Operation, ChronoData, Poste, Machine, CustomStation } from '../types';
+import { Operation, ChronoData, Poste, Machine, CustomStation, HRWorker } from '../types';
 import {
     Activity, ClipboardList,
     Timer, Play, Pause, RotateCcw,
@@ -713,49 +713,95 @@ export default function Chronometrage({
     /** Source de l'ordre des opérations dans le tableau : ordre Gamme (défaut) ou ordre réel d'implantation (flux des postes). */
     const [orderSource, setOrderSource] = useState<'gamme' | 'plantation' | 'new'>('gamme');
 
-    const [editingStation, setEditingStation] = useState<CustomStation | null>(null);
-    const [editName, setEditName] = useState('');
-    const [editOperator, setEditOperator] = useState('');
-    const [editMachine, setEditMachine] = useState('');
-    const [editDescription, setEditDescription] = useState('');
-    const [linkedOpId, setLinkedOpId] = useState<string | undefined>(undefined);
-    const [showSuggestions, setShowSuggestions] = useState(false);
-
-    useEffect(() => {
-        if (editingStation) {
-            setEditName(editingStation.name || '');
-            setEditOperator(editingStation.operatorName || '');
-            setEditMachine(editingStation.machine || '');
-            setEditDescription(editingStation.description || '');
-            setLinkedOpId(editingStation.linkedOperationId);
-            setShowSuggestions(false);
-        }
-    }, [editingStation]);
+    // State for inline suggestions / autocomplete inside custom cards
+    const [activeSuggestionStationId, setActiveSuggestionStationId] = useState<string | null>(null);
+    const [suggestionFilter, setSuggestionFilter] = useState('');
 
     const suggestions = useMemo(() => {
-        if (!editDescription) return [];
-        const term = editDescription.toLowerCase();
+        if (!suggestionFilter) return [];
+        const term = suggestionFilter.toLowerCase();
         return operations.filter(op => 
             op.description?.toLowerCase().includes(term) ||
             op.order.toString() === term
         );
-    }, [editDescription, operations]);
+    }, [suggestionFilter, operations]);
 
-    const fillPosteFromOperation = (op: Operation) => {
-        setEditDescription(op.description);
-        setLinkedOpId(op.id);
+    // Worker suggestions states and logic
+    const [activeOperatorStationId, setActiveOperatorStationId] = useState<string | null>(null);
+    const [operatorFilter, setOperatorFilter] = useState('');
+    const [activeWorkers, setActiveWorkers] = useState<HRWorker[]>([]);
+
+    useEffect(() => {
+        console.log('[Chrono] Fetching active workers...');
+        fetch('/api/hr/workers?active=1', { credentials: 'include' })
+            .then(res => {
+                console.log('[Chrono] Fetch status:', res.status);
+                return res.ok ? res.json() : [];
+            })
+            .then(data => {
+                console.log('[Chrono] Fetched active workers count:', data.length);
+                if (Array.isArray(data)) {
+                    setActiveWorkers(data);
+                }
+            })
+            .catch(err => console.error("[Chrono] Error fetching active workers:", err));
+    }, []);
+
+    const workerSuggestions = useMemo(() => {
+        const term = operatorFilter.toLowerCase();
+        // Exclude workers assigned to OTHER stations, not the current one
+        const assignedWorkerNames = new Set(
+            (chronoCustomStations || [])
+                .filter(s => s.id !== activeOperatorStationId)
+                .map(s => s.operatorName)
+                .filter(Boolean)
+        );
         
+        const filtered = activeWorkers.filter(w => {
+            // Exclude if already assigned elsewhere
+            if (w.full_name && assignedWorkerNames.has(w.full_name)) return false;
+            
+            // Filter by search term (match full_name or matricule)
+            if (!term) return true;
+            return (
+                (w.full_name || '').toLowerCase().includes(term) ||
+                (w.matricule || '').toLowerCase().includes(term)
+            );
+        });
+
+        console.log('[Chrono] Suggestions term:', term, 'assigned:', Array.from(assignedWorkerNames), 'filtered count:', filtered.length);
+        return filtered;
+    }, [operatorFilter, activeWorkers, chronoCustomStations, activeOperatorStationId]);
+
+    const fillCustomStationFromOperation = (stationId: string, op: Operation) => {
+        let nameUpdate = '';
+        let machineUpdate = op.machineId || '';
+        let operatorUpdate = '';
+
         const assignedPosteIds = assignments?.[op.id] || [];
         if (assignedPosteIds.length > 0) {
             const foundPoste = postes?.find(p => p.id === assignedPosteIds[0]);
             if (foundPoste) {
-                setEditName(foundPoste.name);
-                setEditMachine(foundPoste.machine || '');
-                setEditOperator(foundPoste.operatorName || '');
-                return;
+                nameUpdate = foundPoste.name;
+                machineUpdate = foundPoste.machine || '';
+                operatorUpdate = foundPoste.operatorName || '';
             }
         }
-        setEditMachine(op.machineId || '');
+
+        setChronoCustomStations?.(prev =>
+            prev.map(s =>
+                s.id === stationId
+                    ? {
+                        ...s,
+                        description: op.description,
+                        linkedOperationId: op.id,
+                        name: nameUpdate || s.name,
+                        machine: machineUpdate,
+                        operatorName: operatorUpdate
+                    }
+                    : s
+            )
+        );
     };
 
     const deleteCustomStation = (id: string) => {
@@ -2604,14 +2650,14 @@ export default function Chronometrage({
                     if (!trEnabled) return;
                     setActiveRowId(activeRowId === station.id ? null : station.id);
                 }}
-                className={`bg-white rounded-xl sm:rounded-2xl border border-slate-200 shadow-sm transition-all p-3 sm:p-4 relative flex flex-col gap-2 sm:gap-3 border-l-[4px] sm:border-l-[6px] text-left ${
+                className={`bg-white rounded-xl sm:rounded-2xl border border-slate-200 shadow-sm transition-all p-2.5 sm:p-4 relative flex flex-col gap-1.5 sm:gap-3 border-l-[4px] sm:border-l-[6px] text-left ${
                     trEnabled ? 'cursor-pointer hover:shadow-md' : 'cursor-default'
                 } ${isOpActive ? 'ring-2 ring-indigo-500 shadow-md font-extrabold' : ''}`}
                 style={{ borderLeftColor: fill }}
             >
                 {/* Card Header */}
-                <div className="flex items-center justify-between gap-2 pb-2 sm:pb-2.5 border-b border-slate-100">
-                    <div className="flex items-center gap-1.5 sm:gap-2.5 min-w-0 flex-1 flex-wrap sm:flex-nowrap">
+                <div className="flex items-start sm:items-center justify-between gap-1.5 sm:gap-2 pb-1.5 sm:pb-2.5 border-b border-slate-100">
+                    <div className="flex items-center gap-1 sm:gap-2.5 min-w-0 flex-1 flex-wrap">
                         {/* Checkbox */}
                         <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-colors shrink-0 ${isCompleted ? 'border-emerald-500 bg-emerald-500 text-white shadow-sm' : 'border-slate-300 bg-white'}`}>
                             {isCompleted && (
@@ -2627,24 +2673,124 @@ export default function Chronometrage({
                         </span>
 
                         {/* Workstation Badge */}
-                        <span className="text-white text-[10px] sm:text-xs px-2 py-0.5 rounded font-black tracking-wide shrink-0" style={{ backgroundColor: fill }}>
-                            {station.name}
-                        </span>
+                        <input
+                            type="text"
+                            value={station.name || ''}
+                            onChange={(e) => {
+                                const val = e.target.value;
+                                setChronoCustomStations?.(prev =>
+                                    prev.map(s => s.id === station.id ? { ...s, name: val } : s)
+                                );
+                            }}
+                            onClick={e => e.stopPropagation()}
+                            className="text-white text-[9px] sm:text-xs px-1.5 sm:px-2 py-0.5 rounded font-black tracking-wide shrink-0 w-10 sm:w-12 text-center border-none outline-none focus:ring-1 focus:ring-white/50"
+                            style={{ backgroundColor: fill }}
+                            placeholder="Nom"
+                        />
 
                         {/* Operation description and Station/Machine details */}
-                        <div className="flex flex-col text-left min-w-0 flex-1">
-                            <span className={`text-xs sm:text-sm font-black leading-tight truncate sm:whitespace-normal ${station.description ? 'text-slate-800' : 'text-slate-400 italic'}`} title={station.description || 'Non configuré'}>
-                                {station.description || 'Nouveau poste فارغ'}
-                            </span>
-                            <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
-                                <span className="text-[9px] font-semibold text-slate-400">
-                                    M: {station.machine || '—'}
-                                </span>
-                                {station.operatorName && (
-                                    <span className="text-[9px] font-bold text-slate-400">
-                                        ({station.operatorName})
+                        <div className="flex flex-col text-left min-w-0 flex-1 relative" onClick={e => e.stopPropagation()}>
+                            <input
+                                type="text"
+                                value={station.description || ''}
+                                onChange={(e) => {
+                                    const val = e.target.value;
+                                    setSuggestionFilter(val);
+                                    const exactOp = operations.find(op => op.description.toLowerCase() === val.toLowerCase());
+                                    setChronoCustomStations?.(prev =>
+                                        prev.map(s => s.id === station.id ? {
+                                            ...s,
+                                            description: val,
+                                            linkedOperationId: exactOp ? exactOp.id : s.linkedOperationId
+                                        } : s)
+                                    );
+                                }}
+                                onFocus={(e) => {
+                                    setActiveSuggestionStationId(station.id);
+                                    setSuggestionFilter(e.target.value);
+                                }}
+                                onBlur={() => {
+                                    setTimeout(() => {
+                                        setActiveSuggestionStationId(null);
+                                    }, 250);
+                                }}
+                                className="text-[11px] sm:text-sm font-black text-slate-800 bg-transparent border-b border-dashed border-slate-200 hover:border-slate-350 focus:border-indigo-500 outline-none w-full placeholder-slate-400 py-0.5"
+                                placeholder="Opération / Desc..."
+                            />
+
+                            {activeSuggestionStationId === station.id && suggestions.length > 0 && (
+                                <div className="absolute z-[150] left-0 right-0 top-full mt-1 max-h-48 overflow-y-auto bg-white border border-slate-200 rounded-xl shadow-lg divide-y divide-slate-50">
+                                    {suggestions.map(op => (
+                                        <button
+                                            key={op.id}
+                                            type="button"
+                                            onMouseDown={e => {
+                                                e.preventDefault();
+                                                e.stopPropagation();
+                                            }}
+                                            onClick={() => {
+                                                fillCustomStationFromOperation(station.id, op);
+                                                setActiveSuggestionStationId(null);
+                                            }}
+                                            className="w-full text-left px-3 py-2 hover:bg-slate-50 transition-colors flex flex-col gap-0.5"
+                                        >
+                                            <span className="text-xs font-bold text-slate-800">{op.description}</span>
+                                            <div className="flex items-center gap-1.5">
+                                                <span className="text-[9px] font-semibold text-slate-400">Machine: {op.machineId || '—'}</span>
+                                                <span className="text-[9px] font-semibold text-slate-400">Temps: {op.time} min</span>
+                                            </div>
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
+
+                            <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-1.5 sm:gap-3 mt-1">
+                                <div className="flex items-center gap-1.5">
+                                    <span className="text-[9px] sm:text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">
+                                        M:
                                     </span>
-                                )}
+                                    <input
+                                        type="text"
+                                        value={station.machine || ''}
+                                        onChange={(e) => {
+                                            const val = e.target.value;
+                                            setChronoCustomStations?.(prev =>
+                                                prev.map(s => s.id === station.id ? { ...s, machine: val } : s)
+                                            );
+                                        }}
+                                        placeholder="—"
+                                        className="bg-slate-50 border border-slate-200 focus:border-indigo-400 focus:bg-white rounded px-1.5 py-0.5 outline-none w-14 text-[11px] sm:text-xs font-black text-slate-700 placeholder-slate-400 text-center transition-all shadow-sm"
+                                    />
+                                </div>
+
+                                <div className="flex items-center gap-1.5 w-full sm:w-auto" onClick={e => e.stopPropagation()}>
+                                    <span className="text-[9px] sm:text-[10px] font-extrabold text-slate-400 uppercase tracking-wider shrink-0">
+                                        Opé:
+                                    </span>
+                                    <input
+                                        type="text"
+                                        value={station.operatorName || ''}
+                                        onChange={(e) => {
+                                            const val = e.target.value;
+                                            setOperatorFilter(val);
+                                            setChronoCustomStations?.(prev =>
+                                                prev.map(s => s.id === station.id ? { ...s, operatorName: val } : s)
+                                            );
+                                        }}
+                                        onFocus={(e) => {
+                                            setActiveOperatorStationId(station.id);
+                                            setOperatorFilter(e.target.value);
+                                        }}
+                                        onBlur={() => {
+                                            setTimeout(() => {
+                                                setActiveOperatorStationId(null);
+                                            }, 250);
+                                        }}
+                                        placeholder="Nom / Matricule..."
+                                        className="bg-slate-50 border border-slate-200 focus:border-indigo-400 focus:bg-white rounded px-2 py-1 sm:py-0.5 outline-none flex-1 sm:w-44 sm:flex-none text-[11px] sm:text-xs font-black text-slate-700 placeholder-slate-400 transition-all shadow-sm"
+                                    />
+                                </div>
+
                                 {totalOps > 1 && (
                                     <span className="text-[9px] font-bold uppercase text-indigo-650 bg-indigo-50 border border-indigo-100 px-1 py-0.2 rounded leading-none shrink-0">
                                         Op {opIdx + 1}/{totalOps}
@@ -2671,17 +2817,19 @@ export default function Chronometrage({
                                 </span>
                             </div>
                         )}
-                        {/* Edit Button */}
+                        {/* Delete Button */}
                         <button
                             type="button"
                             onClick={(e) => {
                                 e.stopPropagation();
-                                setEditingStation(station);
+                                if (confirm("Voulez-vous vraiment supprimer ce poste ?")) {
+                                    deleteCustomStation(station.id);
+                                }
                             }}
-                            className="p-1 text-slate-400 hover:text-indigo-650 hover:bg-slate-100 rounded-lg transition-colors shrink-0"
-                            title="Modifier les détails du poste"
+                            className="p-1 text-slate-400 hover:text-rose-600 hover:bg-slate-100 rounded-lg transition-colors shrink-0"
+                            title="Supprimer ce poste"
                         >
-                            <Pencil className="w-3.5 h-3.5" />
+                            <Trash2 className="w-3.5 h-3.5" />
                         </button>
                     </div>
                 </div>
@@ -2721,6 +2869,60 @@ export default function Chronometrage({
                         }}
                     ></div>
                 </div>
+
+                {/* Operator Suggestions Dropdown (always below the card, styled and optimized for mobile screens) */}
+                {activeOperatorStationId === station.id && (
+                    <div 
+                        onClick={e => e.stopPropagation()} 
+                        className="absolute z-[200] left-0 right-0 top-full mt-1.5 w-full max-h-60 sm:max-h-72 overflow-y-auto bg-white border border-slate-200/90 rounded-xl sm:rounded-2xl shadow-xl divide-y divide-slate-100 p-1.5"
+                    >
+                        <div className="px-3 py-2 bg-slate-50/80 rounded-t-lg text-[9px] sm:text-[10px] font-black text-slate-400 uppercase tracking-wider sticky top-0 z-10 border-b border-slate-100 flex items-center justify-between">
+                            <span>Membres d'Effectifs Disponibles</span>
+                            <span className="text-[8px] bg-slate-200/60 text-slate-500 px-1 py-0.2 rounded font-mono">
+                                {workerSuggestions.length} dispo
+                            </span>
+                        </div>
+                        {activeWorkers.length === 0 ? (
+                            <div className="px-4 py-4 text-center text-xs text-slate-450 font-semibold">
+                                Chargement des effectifs...
+                            </div>
+                        ) : workerSuggestions.length === 0 ? (
+                            <div className="px-4 py-4 text-center text-xs text-slate-450 font-semibold">
+                                Aucun membre disponible
+                            </div>
+                        ) : (
+                            workerSuggestions.map(w => (
+                                <button
+                                    key={w.id}
+                                    type="button"
+                                    onMouseDown={e => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                    }}
+                                    onClick={() => {
+                                        setChronoCustomStations?.(prev =>
+                                            prev.map(s => s.id === station.id ? { ...s, operatorName: w.full_name } : s)
+                                        );
+                                        setActiveOperatorStationId(null);
+                                    }}
+                                    className="w-full text-left px-3.5 py-3 hover:bg-slate-50 active:bg-slate-100/70 transition-colors flex items-center justify-between gap-3"
+                                >
+                                    <div className="flex flex-col gap-0.5 min-w-0">
+                                        <span className="text-xs sm:text-sm font-bold text-slate-800 truncate">{w.full_name}</span>
+                                        <span className="text-[9px] sm:text-[10px] font-semibold text-slate-400">
+                                            Matricule: {w.matricule}
+                                        </span>
+                                    </div>
+                                    {w.role && (
+                                        <span className="text-[9px] sm:text-[10px] font-bold text-indigo-650 bg-indigo-50 border border-indigo-100/30 px-2 py-0.5 rounded-lg shrink-0 uppercase tracking-wider">
+                                            {w.role}
+                                        </span>
+                                    )}
+                                </button>
+                            ))
+                        )}
+                    </div>
+                )}
             </div>
         );
     };
@@ -2870,11 +3072,11 @@ export default function Chronometrage({
                         <Settings className="w-4 h-4" /> {trCount} lancers
                     </button>
 
-                    <div className="shrink-0 flex items-stretch rounded-lg border border-slate-200 overflow-hidden shadow-sm h-[40px]" title="Ordre des opérations : Gamme, implantation (Plantation) ou nouvelle séquence libre (Nouveau)">
+                    <div className="shrink-0 flex items-stretch rounded-lg border border-slate-200 overflow-hidden shadow-sm h-[32px] sm:h-[40px]" title="Ordre des opérations : Gamme, implantation (Plantation) ou nouvelle séquence libre (Nouveau)">
                         <button
                             type="button"
                             onClick={() => setOrderSource('gamme')}
-                            className={`px-3 py-2 text-xs font-bold transition-colors focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-400 focus:outline-none ${orderSource === 'gamme' ? 'bg-indigo-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-50'}`}
+                            className={`px-2 sm:px-3 py-1 sm:py-2 text-[10px] sm:text-xs font-bold transition-colors focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-400 focus:outline-none ${orderSource === 'gamme' ? 'bg-indigo-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-50'}`}
                             title="Ordre de la Gamme"
                         >
                             Gamme
@@ -2882,7 +3084,7 @@ export default function Chronometrage({
                         <button
                             type="button"
                             onClick={() => setOrderSource('plantation')}
-                            className={`px-3 py-2 text-xs font-bold transition-colors border-l border-slate-200 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-400 focus:outline-none ${orderSource === 'plantation' ? 'bg-indigo-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-50'}`}
+                            className={`px-2 sm:px-3 py-1 sm:py-2 text-[10px] sm:text-xs font-bold transition-colors border-l border-slate-200 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-400 focus:outline-none ${orderSource === 'plantation' ? 'bg-indigo-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-50'}`}
                             title="Ordre réel du flux d'implantation (lancement de la chaîne)"
                         >
                             Plantation
@@ -2890,7 +3092,7 @@ export default function Chronometrage({
                         <button
                             type="button"
                             onClick={() => setOrderSource('new')}
-                            className={`px-3 py-2 text-xs font-bold transition-colors border-l border-slate-200 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-400 focus:outline-none ${orderSource === 'new' ? 'bg-indigo-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-50'}`}
+                            className={`px-2 sm:px-3 py-1 sm:py-2 text-[10px] sm:text-xs font-bold transition-colors border-l border-slate-200 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-400 focus:outline-none ${orderSource === 'new' ? 'bg-indigo-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-50'}`}
                             title="Créer une nouvelle séquence personnalisée sur le terrain"
                         >
                             Nouveau
@@ -2898,36 +3100,36 @@ export default function Chronometrage({
                     </div>
 
                     {orderSource === 'new' && (
-                        <div className="shrink-0 flex items-stretch rounded-lg border border-slate-200 overflow-hidden shadow-sm h-[40px]" title="Disposition du terrain">
+                        <div className="shrink-0 flex items-stretch rounded-lg border border-slate-200 overflow-hidden shadow-sm h-[32px] sm:h-[40px]" title="Disposition du terrain">
                             <button
                                 type="button"
                                 onClick={() => setChronoLayoutSide?.('left')}
-                                className={`px-3 py-2 text-xs font-bold transition-colors focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-400 focus:outline-none ${chronoLayoutSide === 'left' ? 'bg-indigo-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-50'}`}
+                                className={`px-2 sm:px-3 py-1 sm:py-2 text-[10px] sm:text-xs font-bold transition-colors focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-400 focus:outline-none ${chronoLayoutSide === 'left' ? 'bg-indigo-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-50'}`}
                             >
                                 Gauche
                             </button>
                             <button
                                 type="button"
                                 onClick={() => setChronoLayoutSide?.('right')}
-                                className={`px-3 py-2 text-xs font-bold transition-colors border-l border-slate-200 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-400 focus:outline-none ${chronoLayoutSide === 'right' ? 'bg-indigo-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-50'}`}
+                                className={`px-2 sm:px-3 py-1 sm:py-2 text-[10px] sm:text-xs font-bold transition-colors border-l border-slate-200 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-400 focus:outline-none ${chronoLayoutSide === 'right' ? 'bg-indigo-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-50'}`}
                             >
                                 Droite
                             </button>
                             <button
                                 type="button"
                                 onClick={() => setChronoLayoutSide?.('both')}
-                                className={`px-3 py-2 text-xs font-bold transition-colors border-l border-slate-200 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-400 focus:outline-none ${chronoLayoutSide === 'both' ? 'bg-indigo-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-50'}`}
+                                className={`px-2 sm:px-3 py-1 sm:py-2 text-[10px] sm:text-xs font-bold transition-colors border-l border-slate-200 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-400 focus:outline-none ${chronoLayoutSide === 'both' ? 'bg-indigo-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-50'}`}
                             >
                                 Les deux
                             </button>
                         </div>
                     )}
 
-                    <div className="shrink-0 flex items-stretch rounded-lg border border-slate-200 overflow-hidden shadow-sm h-[40px]">
+                    <div className="shrink-0 flex items-stretch rounded-lg border border-slate-200 overflow-hidden shadow-sm h-[32px] sm:h-[40px]">
                         <button
                             type="button"
                             onClick={() => setOutputMode('PJ')}
-                            className={`px-3 py-2 text-xs font-bold transition-colors focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-400 focus:outline-none ${outputMode === 'PJ' ? 'bg-indigo-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-50'}`}
+                            className={`px-2 sm:px-3 py-1 sm:py-2 text-[10px] sm:text-xs font-bold transition-colors focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-400 focus:outline-none ${outputMode === 'PJ' ? 'bg-indigo-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-50'}`}
                             title="Afficher en pièces par jour"
                         >
                             P/J
@@ -2935,7 +3137,7 @@ export default function Chronometrage({
                         <button
                             type="button"
                             onClick={() => setOutputMode('PH')}
-                            className={`px-3 py-2 text-xs font-bold transition-colors border-l border-slate-200 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-400 focus:outline-none ${outputMode === 'PH' ? 'bg-indigo-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-50'}`}
+                            className={`px-2 sm:px-3 py-1 sm:py-2 text-[10px] sm:text-xs font-bold transition-colors border-l border-slate-200 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-400 focus:outline-none ${outputMode === 'PH' ? 'bg-indigo-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-50'}`}
                             title="Afficher en pièces par heure"
                         >
                             P/H
@@ -2955,7 +3157,7 @@ export default function Chronometrage({
                         <button
                             type="button"
                             onClick={() => setShowUnitMenu(v => !v)}
-                            className={`flex items-center justify-between gap-2 px-3 py-2 rounded-lg text-left transition-all border shadow-sm min-w-[100px] min-h-[40px] focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-indigo-400 focus:outline-none ${showUnitMenu ? 'bg-indigo-50 text-indigo-800 border-indigo-200' : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'}`}
+                            className={`flex items-center justify-between gap-1.5 sm:gap-2 px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg text-left transition-all border shadow-sm min-w-[80px] sm:min-w-[100px] min-h-[32px] sm:min-h-[40px] focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-indigo-400 focus:outline-none ${showUnitMenu ? 'bg-indigo-50 text-indigo-800 border-indigo-200' : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'}`}
                             title={`Unité: ${getUnitMeta(unit).name}`}
                         >
                             <span className="flex flex-col leading-none">
@@ -3008,17 +3210,17 @@ export default function Chronometrage({
             )}
 
             {/* ─── MAIN TABLE CARD ─── */}
-            <div className="bg-white rounded-xl sm:rounded-2xl border border-slate-200 shadow-lg overflow-hidden">
+            <div className="bg-white rounded-xl sm:rounded-2xl border border-slate-200 shadow-lg overflow-visible">
 
                 {/* Table Header */}
-                <div className="px-3 py-3 sm:px-6 sm:py-5 border-b border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-3 sm:gap-4">
-                    <div className="flex items-center gap-2.5 sm:gap-3">
-                        <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center shrink-0">
-                            <BarChart3 className="w-4 h-4 sm:w-5 sm:h-5 text-indigo-600" />
+                <div className="px-2.5 py-2 sm:px-6 sm:py-5 border-b border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-2 sm:gap-4">
+                    <div className="flex items-center gap-2 sm:gap-3">
+                        <div className="w-7 h-7 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center shrink-0">
+                            <BarChart3 className="w-3.5 h-3.5 sm:w-5 sm:h-5 text-indigo-600" />
                         </div>
                         <div>
-                            <h3 className="font-black text-slate-800 text-base sm:text-lg leading-tight">Relevés Terrain</h3>
-                            <p className="text-slate-500 text-xs sm:text-sm font-medium mt-0.5">
+                            <h3 className="font-black text-slate-800 text-sm sm:text-lg leading-tight">Relevés Terrain</h3>
+                            <p className="text-slate-500 text-[10px] sm:text-sm font-medium mt-0.5">
                                 {trCount} relevés configurés • Unité : <strong className="text-indigo-600 bg-indigo-50 px-1 rounded">{unitLabel}</strong>
                             </p>
                         </div>
@@ -3171,11 +3373,11 @@ export default function Chronometrage({
                         const rightStations = (chronoCustomStations || []).filter(s => s.side === 'right');
 
                         return (
-                            <div className={`grid grid-cols-1 ${chronoLayoutSide === 'both' ? 'lg:grid-cols-2' : ''} gap-6 items-start p-4 bg-slate-50/50`}>
+                            <div className={`grid grid-cols-1 ${chronoLayoutSide === 'both' ? 'lg:grid-cols-2' : ''} gap-3 sm:gap-6 items-start p-2.5 sm:p-4 bg-slate-50/50`}>
                                 {/* Left Column */}
                                 {(chronoLayoutSide === 'left' || chronoLayoutSide === 'both') && (
-                                    <div className="flex flex-col gap-4">
-                                        <div className="bg-indigo-50 border border-indigo-100 text-indigo-850 py-2 px-3 rounded-xl font-black text-center text-xs uppercase tracking-wide">
+                                    <div className="flex flex-col gap-2.5 sm:gap-4">
+                                        <div className="bg-indigo-50 border border-indigo-100 text-indigo-850 py-1.5 sm:py-2 px-2 sm:px-3 rounded-lg sm:rounded-xl font-black text-center text-[10px] sm:text-xs uppercase tracking-wide">
                                             CÔTÉ GAUCHE (POSTES IMPAIRS)
                                         </div>
                                         {leftStations.map((station, idx) => (
@@ -3187,8 +3389,8 @@ export default function Chronometrage({
 
                                 {/* Right Column */}
                                 {(chronoLayoutSide === 'right' || chronoLayoutSide === 'both') && (
-                                    <div className="flex flex-col gap-4">
-                                        <div className="bg-slate-100 border border-slate-205 text-slate-750 py-2 px-3 rounded-xl font-black text-center text-xs uppercase tracking-wide">
+                                    <div className="flex flex-col gap-2.5 sm:gap-4">
+                                        <div className="bg-slate-100 border border-slate-205 text-slate-750 py-1.5 sm:py-2 px-2 sm:px-3 rounded-lg sm:rounded-xl font-black text-center text-[10px] sm:text-xs uppercase tracking-wide">
                                             CÔTÉ DROIT (POSTES PAIRS)
                                         </div>
                                         {rightStations.map((station, idx) => (
@@ -3942,155 +4144,7 @@ export default function Chronometrage({
                 </div>
             )}
 
-            {/* ─── EDIT CUSTOM STATION MODAL ─── */}
-            {editingStation && (
-                <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40 backdrop-blur-sm animate-in fade-in duration-150">
-                    <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-md mx-4 overflow-hidden animate-in zoom-in-95 duration-200">
-                        <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between">
-                            <div>
-                                <h3 className="font-black text-slate-800 text-lg">Configurer le Poste</h3>
-                                <p className="text-slate-500 text-xs mt-0.5">Modifier les détails et l'association du poste</p>
-                            </div>
-                            <button onClick={() => setEditingStation(null)} className="p-2 text-slate-400 hover:text-slate-650 hover:bg-slate-100 rounded-xl transition-colors">
-                                <X className="w-5 h-5" />
-                            </button>
-                        </div>
-                        
-                        <div className="px-6 py-5 space-y-4">
-                            {/* Poste Name */}
-                            <div>
-                                <label className="text-xs font-bold text-slate-650 uppercase tracking-wider block mb-1.5">Nom du Poste</label>
-                                <input
-                                    type="text"
-                                    value={editName}
-                                    onChange={e => setEditName(e.target.value)}
-                                    className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:border-indigo-400 outline-none text-sm font-semibold text-slate-700 bg-slate-50"
-                                />
-                            </div>
 
-                            {/* Operator Name */}
-                            <div>
-                                <label className="text-xs font-bold text-slate-650 uppercase tracking-wider block mb-1.5">Nom de l'Opérateur</label>
-                                <input
-                                    type="text"
-                                    value={editOperator}
-                                    onChange={e => setEditOperator(e.target.value)}
-                                    placeholder="Ex: Fatine, Soulaimane..."
-                                    className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:border-indigo-400 outline-none text-sm font-semibold text-slate-700"
-                                />
-                            </div>
-
-                            {/* Machine Datalist Input */}
-                            <div>
-                                <label className="text-xs font-bold text-slate-650 uppercase tracking-wider block mb-1.5">Machine</label>
-                                <input
-                                    list="machines-list"
-                                    value={editMachine}
-                                    onChange={e => setEditMachine(e.target.value)}
-                                    placeholder="Ex: 301, 514..."
-                                    className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:border-indigo-400 outline-none text-sm font-semibold text-slate-700"
-                                />
-                                <datalist id="machines-list">
-                                    {machines.map(m => (
-                                        <option key={m.id} value={m.name || m.id} />
-                                    ))}
-                                </datalist>
-                            </div>
-
-                            {/* Description Auto-complete Input */}
-                            <div className="relative">
-                                <label className="text-xs font-bold text-slate-650 uppercase tracking-wider block mb-1.5">Opération / Description</label>
-                                <input
-                                    type="text"
-                                    value={editDescription}
-                                    onChange={e => {
-                                        setEditDescription(e.target.value);
-                                        setShowSuggestions(true);
-                                        const exactOp = operations.find(op => op.description.toLowerCase() === e.target.value.toLowerCase());
-                                        if (exactOp) {
-                                            fillPosteFromOperation(exactOp);
-                                        } else {
-                                            setLinkedOpId(undefined);
-                                        }
-                                    }}
-                                    onFocus={() => setShowSuggestions(true)}
-                                    placeholder="Commencez à saisir la description..."
-                                    className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:border-indigo-400 outline-none text-sm font-semibold text-slate-700"
-                                />
-                                {editDescription && showSuggestions && suggestions.length > 0 && (
-                                    <div className="absolute left-0 right-0 z-50 bg-white border border-slate-200 rounded-xl shadow-lg max-h-48 overflow-y-auto mt-1 divide-y divide-slate-100">
-                                        {suggestions.map(op => (
-                                            <button
-                                                key={op.id}
-                                                type="button"
-                                                onClick={() => {
-                                                    fillPosteFromOperation(op);
-                                                    setShowSuggestions(false);
-                                                }}
-                                                className="w-full text-left px-3 py-2 hover:bg-slate-50 text-xs flex items-center justify-between gap-2"
-                                            >
-                                                <div className="flex items-center gap-1.5 min-w-0">
-                                                    <span className="bg-slate-100 text-slate-650 font-black px-1.5 py-0.5 rounded shrink-0">#{op.order}</span>
-                                                    <span className="font-bold text-slate-750 truncate">{op.description}</span>
-                                                </div>
-                                                <span className="text-[10px] font-black text-indigo-750 bg-indigo-50 px-1.5 py-0.5 rounded shrink-0">{(op.time * 60).toFixed(0)}s</span>
-                                            </button>
-                                        ))}
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-
-                        <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex items-center justify-between gap-3">
-                            <button
-                                type="button"
-                                onClick={() => {
-                                    if (confirm("Voulez-vous vraiment supprimer ce poste ?")) {
-                                        deleteCustomStation(editingStation.id);
-                                        setEditingStation(null);
-                                    }
-                                }}
-                                className="flex items-center gap-1.5 px-3 py-2 border border-rose-200 hover:bg-rose-50 text-rose-600 rounded-xl text-xs font-bold transition-all"
-                            >
-                                <Trash2 className="w-4 h-4" />
-                                Supprimer
-                            </button>
-                            <div className="flex gap-2">
-                                <button
-                                    type="button"
-                                    onClick={() => setEditingStation(null)}
-                                    className="px-3.5 py-2 border border-slate-200 hover:bg-slate-100 text-slate-650 rounded-xl text-xs font-bold transition-all"
-                                >
-                                    Annuler
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={() => {
-                                        setChronoCustomStations?.(prev =>
-                                            prev.map(s =>
-                                                s.id === editingStation.id
-                                                    ? {
-                                                        ...s,
-                                                        name: editName,
-                                                        operatorName: editOperator,
-                                                        machine: editMachine,
-                                                        description: editDescription,
-                                                        linkedOperationId: linkedOpId
-                                                    }
-                                                    : s
-                                            )
-                                        );
-                                        setEditingStation(null);
-                                    }}
-                                    className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold shadow-md shadow-indigo-100 transition-all"
-                                >
-                                    Valider
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            )}
         </div>
     );
 }

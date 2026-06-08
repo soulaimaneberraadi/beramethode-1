@@ -171,7 +171,7 @@ function ProductModal({ item, onSave, onClose }: { item?: MagasinProduct; onSave
                             const file = e.target.files?.[0]; if (!file) return;
                             const r = new FileReader(); r.onload = ev => set('photo', ev.target?.result as string); r.readAsDataURL(file);
                         }} />
-                        <div className="flex-1 grid grid-cols-2 gap-4">
+                        <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div><Lbl t="Référence (Code-barres)" /><input className={inp} value={f.reference} onChange={e => set('reference', e.target.value)} /></div>
                             <div><Lbl t="Désignation *" /><input className={inp} placeholder="Ex: Fil Coton Noir..." value={f.designation} onChange={e => set('designation', e.target.value)} autoFocus /></div>
                             <div><Lbl t="Catégorie" /><select className={inp} value={f.categorie} onChange={e => set('categorie', e.target.value)}>{CATS.map(c => <option key={c} value={c} className="capitalize">{c}</option>)}</select></div>
@@ -179,7 +179,7 @@ function ProductModal({ item, onSave, onClose }: { item?: MagasinProduct; onSave
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                         <div><Lbl t="Prix u. par défaut" /><input className={inp} type="number" min="0" step="0.01" value={f.prixUnitaire || ''} onChange={e => set('prixUnitaire', Math.max(0, +e.target.value.replace(/-/g, '') || 0))} /></div>
                         <div>
                             <div className="flex items-center gap-2 mb-1 cursor-pointer" onClick={() => { setHasAlerte(!hasAlerte); if (hasAlerte) set('stockAlerte', 0); }}>
@@ -206,16 +206,16 @@ function ProductModal({ item, onSave, onClose }: { item?: MagasinProduct; onSave
                         </button>
                         {showFrsExtra && (
                             <div className="space-y-4 pt-1 border-t border-slate-200">
-                                <div className="grid grid-cols-2 gap-4">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                     <div><Lbl t="E-mail Frs." /><input className={inp} type="email" placeholder="contact@..." value={f.fournisseurEmail || ''} onChange={e => set('fournisseurEmail', e.target.value)} /></div>
                                     <div><Lbl t="Contact (personne)" /><input className={inp} placeholder="Nom du contact" value={f.fournisseurContact || ''} onChange={e => set('fournisseurContact', e.target.value)} /></div>
                                 </div>
                                 <div><Lbl t="Adresse" /><input className={inp} placeholder="Ville, rue, n°..." value={f.fournisseurAdresse || ''} onChange={e => set('fournisseurAdresse', e.target.value)} /></div>
-                                <div className="grid grid-cols-2 gap-4">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                     <div><Lbl t="ICE" /><input className={inp} placeholder="..." value={f.fournisseurIce || ''} onChange={e => set('fournisseurIce', e.target.value)} /></div>
                                     <div><Lbl t="RC" /><input className={inp} placeholder="..." value={f.fournisseurRc || ''} onChange={e => set('fournisseurRc', e.target.value)} /></div>
                                 </div>
-                                <div className="grid grid-cols-2 gap-4">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                     <div><Lbl t="Conditions de paiement" /><input className={inp} placeholder="Ex: 30j fin de mois" value={f.fournisseurConditionsPaiement || ''} onChange={e => set('fournisseurConditionsPaiement', e.target.value)} /></div>
                                     <div><Lbl t="Devise achat" />
                                         <select className={inp} value={f.fournisseurDevise ?? ''} onChange={e => set('fournisseurDevise', e.target.value || undefined)}>
@@ -695,7 +695,7 @@ function InvoiceSettingsModal({ template, onSave, onClose }: { template: Invoice
                                                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1"><MapPin className="w-3 h-3" /> Adresse</label>
                                                     <input className={invInp} value={s.adresse} onChange={e => setS(p => ({ ...p, adresse: e.target.value }))} placeholder="123 Rue du Commerce, Casablanca" />
                                                 </div>
-                                                <div className="grid grid-cols-2 gap-3">
+                                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                                     <div>
                                                         <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1"><Phone className="w-3 h-3" /> Téléphone</label>
                                                         <input className={invInp} value={s.telephone} onChange={e => setS(p => ({ ...p, telephone: e.target.value }))} placeholder="+212 5XX-XXXXXX" />
@@ -2120,7 +2120,7 @@ export default function Magasin({ models = [], planningEvents = [], lang = 'fr',
                                     </div>
                                     <button onClick={() => setTab('tracabilite')} className="text-xs font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1">{t('Voir tout')}</button>
                                 </div>
-                                <div className="p-0">
+                                <div className="p-0 overflow-x-auto">
                                     {mvts.length === 0 ? <p className="p-6 text-center text-sm font-medium text-slate-400">{t('Aucun mouvement enregistré.')}</p> : (
                                         <table className="w-full text-left text-sm whitespace-nowrap">
                                             <thead className="bg-slate-50"><tr className="text-slate-500"><th className="p-3 pl-6 font-bold w-20">{t('Photo')}</th><th className="p-3 font-bold w-40">{t('Date')}</th><th className="p-3 font-bold w-24">{t('Type')}</th><th className="p-3 font-bold">{t('Produit')}</th><th className="p-3 font-bold text-right w-24">{t('Stock')}</th><th className="p-3 font-bold text-right pr-6 w-28">{t('Quantité')}</th></tr></thead>
@@ -2397,7 +2397,7 @@ export default function Magasin({ models = [], planningEvents = [], lang = 'fr',
                                                     {(bMode === 'entree' || bMode === 'retour_atelier') && <div className="grid grid-cols-2 gap-3"><div><Lbl t={t("Prix Unitaire (CUMP)")} /><input type="number" min="0" step="0.01" className={inp} value={bPrix} onChange={e => setBPrix(e.target.value.replace(/-/g, ''))} /></div>{bMode === 'entree' && <div><Lbl t={t("Fournisseur")} /><input className={inp} value={bFournisseur} onChange={e => setBFournisseur(e.target.value)} /></div>}</div>}
 
                                                     {(bMode === 'sortie' || bMode === 'reservation' || bMode === 'rebut') && (
-                                                        <div className="grid grid-cols-2 gap-3">
+                                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                                             {bMode !== 'rebut' && <div><Lbl t={t("Chaîne")} /><input className={inp} value={bChaine} onChange={e => setBChaine(e.target.value)} readOnly={!!bureauProduct.chaineExclusive} style={bureauProduct.chaineExclusive ? { background: '#f5f3ff' } : {}} /></div>}
                                                             <div><Lbl t={t("Ordre de Fab. (OF)")} /><input className={inp} value={bModele} onChange={e => setBModele(e.target.value)} /></div>
                                                             <div className="col-span-2 flex border rounded-xl overflow-hidden mt-1 text-sm font-bold">
@@ -3244,7 +3244,7 @@ export default function Magasin({ models = [], planningEvents = [], lang = 'fr',
                                         </select>
                                     </div>
 
-                                    <div className="grid grid-cols-2 gap-4">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                         <div>
                                             <Lbl t="Quantité Reçue *" />
                                             <input className={inp} type="number" min="0.01" step="any" placeholder="Ex: 5000" value={brQty} onChange={e => setBrQty(e.target.value)} />
@@ -3255,7 +3255,7 @@ export default function Magasin({ models = [], planningEvents = [], lang = 'fr',
                                         </div>
                                     </div>
 
-                                    <div className="grid grid-cols-2 gap-4">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                         <div>
                                             <Lbl t="Propriétaire (الملكية)" />
                                             <select className={inp} value={brOwner} onChange={e => setBrOwner(e.target.value as any)}>

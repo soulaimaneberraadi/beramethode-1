@@ -326,12 +326,12 @@ export default function Login({ onSwitch, onGuest }: { onSwitch: () => void, onG
         variants={containerVariants}
         initial="hidden"
         animate="visible"
-        className="max-w-md w-full bg-white border border-slate-200/80 rounded-[32px] p-8 sm:p-10 shadow-[0_25px_50px_-12px_rgba(15,23,42,0.08)] relative z-10 transition-all duration-500"
+        className="max-w-md w-full bg-white border border-slate-200/80 rounded-3xl sm:rounded-[32px] p-6 sm:p-10 shadow-[0_25px_50px_-12px_rgba(15,23,42,0.08)] relative z-10 transition-all duration-500"
       >
         <motion.div variants={itemVariants} className="flex flex-col items-center">
           {/* Animated Logo & Brand */}
           <div className="flex flex-col items-center mb-8">
-            <h1 className="select-none text-3xl font-extrabold tracking-tight text-slate-900">
+            <h1 className="select-none text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900">
               BERA<span className="text-emerald-600">METHODE</span>
             </h1>
             
@@ -340,7 +340,7 @@ export default function Login({ onSwitch, onGuest }: { onSwitch: () => void, onG
             </span>
           </div>
 
-          <h2 className="text-3xl font-bold tracking-tight text-center text-slate-900">
+          <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-center text-slate-900">
             {showForgotPassword ? (resetStep === 3 ? 'New Password' : 'Reset Password') : 'Welcome back'}
           </h2>
           <p className="mt-2 text-sm text-center max-w-xs text-slate-600">

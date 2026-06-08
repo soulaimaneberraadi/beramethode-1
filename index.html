@@ -51,6 +51,15 @@
         scrollbar-width: none;
       }
 
+      /* Garde-fou mobile : empêche tout débordement horizontal qui ferait
+         dézoomer / rogner la page sur un vrai téléphone. Le shell de l'app est
+         en h-screen overflow-hidden (scroll interne), donc ceci ne casse pas le
+         position: sticky des en-têtes de tableaux. */
+      html, body, #root {
+        max-width: 100%;
+        overflow-x: hidden;
+      }
+
 
       /* Premium UI Animations */
       @keyframes pulse {

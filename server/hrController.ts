@@ -27,6 +27,7 @@ export const getHRWorkers = (req: Request, res: Response) => {
     const userId = (req as any).user.id;
     try {
         const { search, role, chaine, active } = req.query as Record<string, string>;
+        console.log('[getHRWorkers] Called by user:', userId, 'query:', req.query);
         let q =
             'SELECT w.*, l.person_id AS person_id FROM hr_workers w LEFT JOIN hr_worker_person l ON l.hr_worker_id = w.id WHERE w.owner_id = ?';
         const params: any[] = [userId];
@@ -40,9 +41,10 @@ export const getHRWorkers = (req: Request, res: Response) => {
         }
         q += ' ORDER BY w.full_name ASC';
         const rows = db.prepare(q).all(...params) as Record<string, unknown>[];
+        console.log('[getHRWorkers] Returning', rows.length, 'workers.');
         res.json(rows.map(sanitizeHrWorkerRow));
     } catch (error) {
-        console.error('getHRWorkers Error:', error);
+        console.error('[getHRWorkers] Error:', error);
         res.status(500).json({ message: 'Erreur' });
     }
 };

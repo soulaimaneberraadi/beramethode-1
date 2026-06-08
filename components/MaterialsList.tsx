@@ -43,7 +43,7 @@ const MaterialsList: React.FC<MaterialsListProps> = ({
     totalMaterials
 }) => {
     const optionStyle = darkMode ? { backgroundColor: '#1f2937', color: 'white' } : {};
-    const inputStyle = `w-full rounded-md px-2 py-1.5 text-sm outline-none transition-all focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-700 text-white border-gray-600 focus:bg-gray-600' : 'bg-white border-slate-300 text-slate-900 focus:bg-white'} border`;
+    const inputStyle = `w-full rounded-md px-2 py-1.5 text-[13px] outline-none transition-all focus:ring-2 focus:ring-slate-100 ${darkMode ? 'bg-gray-700 text-white border-gray-600 focus:bg-gray-600' : 'bg-slate-50/60 border-slate-200 text-slate-900 focus:bg-white focus:border-slate-300'} border`;
 
     const [magasinData, setMagasinData] = useState<MagasinItem[]>([]);
     const [focusedRow, setFocusedRow] = useState<number | null>(null);
@@ -216,31 +216,29 @@ const MaterialsList: React.FC<MaterialsListProps> = ({
                 </div>
             )}
 
-            <div className={`rounded-xl shadow-sm border overflow-visible ${bgCard}`}>
-                <div className={`px-4 py-4 border-b flex justify-between items-center ${bgCardHeader}`}>
-                    <div className="flex items-center gap-3">
-                        <div className={`p-2 rounded-lg ${darkMode ? 'bg-indigo-900/50 text-indigo-400' : 'bg-indigo-100 text-indigo-600'}`}>
-                            <Package className="w-5 h-5" />
-                        </div>
+            <div className="rounded-lg border border-slate-200 bg-white overflow-visible">
+                <div className="px-5 h-12 border-b border-slate-100 flex justify-between items-center">
+                    <div className="flex items-center gap-2">
+                        <Package className="w-4 h-4 text-slate-400" strokeWidth={1.75} />
                         <div>
-                            <h2 className={`font-bold ${textPrimary}`}>{t.materials}</h2>
-                            <p className={`text-xs ${textSecondary}`}>Ajoutez vos matières ou sélectionnez depuis le magasin</p>
+                            <h2 className="text-[13px] font-semibold text-slate-900 tracking-tight">{t.materials}</h2>
+                            <p className="text-[11px] text-slate-400">Ajoutez ou sélectionnez depuis le magasin</p>
                         </div>
                     </div>
-                    <button onClick={addMaterial} className="text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition shadow-sm active:scale-95">
-                        <Plus className="w-4 h-4" /> {t.addMat}
+                    <button onClick={addMaterial} className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md bg-slate-900 hover:bg-slate-800 text-white text-[12px] font-medium transition-colors">
+                        <Plus className="w-3.5 h-3.5" strokeWidth={2} /> {t.addMat}
                     </button>
                 </div>
 
                 <div className="overflow-visible">
                     <table className="w-full text-left text-sm border-collapse">
-                        <thead className={`${darkMode ? 'bg-gray-800 text-gray-400' : 'bg-slate-50 text-slate-500'} uppercase text-[10px] tracking-wider border-b ${darkMode ? 'border-gray-700' : 'border-slate-200'}`}>
+                        <thead className={`${darkMode ? 'bg-gray-800 text-gray-400' : 'bg-slate-50/60 text-slate-500'} uppercase text-[10px] tracking-wide border-b ${darkMode ? 'border-gray-700' : 'border-slate-100'}`}>
                             <tr>
-                                <th className="px-4 py-3 font-bold w-1/3">{t.matName}</th>
-                                <th className="px-4 py-3 font-bold w-32">{t.price} ({currency})</th>
-                                <th className="px-4 py-3 font-bold w-48 text-center">{t.qtyUnit}</th>
-                                <th className="px-4 py-3 font-bold w-32 text-right">{t.total}</th>
-                                <th className="px-4 py-3 w-12"></th>
+                                <th className="px-2 sm:px-4 py-2.5 font-medium w-1/3">{t.matName}</th>
+                                <th className="px-2 sm:px-4 py-2.5 font-medium w-20 sm:w-32">{t.price} ({currency})</th>
+                                <th className="px-2 sm:px-4 py-2.5 font-medium w-28 sm:w-48 text-center">{t.qtyUnit}</th>
+                                <th className="px-2 sm:px-4 py-2.5 font-medium w-20 sm:w-32 text-right">{t.total}</th>
+                                <th className="px-4 py-2.5 w-12"></th>
                             </tr>
                         </thead>
                         <tbody className={`divide-y ${darkMode ? 'divide-gray-700' : 'divide-slate-100'}`}>
@@ -257,7 +255,7 @@ const MaterialsList: React.FC<MaterialsListProps> = ({
 
                                 return (
                                     <tr key={item.id} className={`group ${tableRowHover} transition-colors`}>
-                                        <td className="p-3 align-middle relative">
+                                        <td className="p-2 sm:p-3 align-middle relative">
                                             <div className="relative">
                                                 <input
                                                     type="text"
@@ -384,7 +382,7 @@ const MaterialsList: React.FC<MaterialsListProps> = ({
                                                 </div>
                                             )}
                                         </td>
-                                        <td className="p-3 align-middle">
+                                        <td className="p-2 sm:p-3 align-middle">
                                             <input
                                                 type="number"
                                                 min="0"
@@ -393,7 +391,7 @@ const MaterialsList: React.FC<MaterialsListProps> = ({
                                                 className={`${inputStyle} text-center font-mono`}
                                             />
                                         </td>
-                                        <td className="p-3 align-middle">
+                                        <td className="p-2 sm:p-3 align-middle">
                                             <div className="flex flex-col gap-2 items-center">
                                                 <div className="flex items-center gap-2 w-full">
                                                     {item.unit === 'bobine' ? (
@@ -510,15 +508,15 @@ const MaterialsList: React.FC<MaterialsListProps> = ({
                                                 )}
                                             </div>
                                         </td>
-                                        <td className="p-3 align-middle text-right">
+                                        <td className="p-2 sm:p-3 align-middle text-right">
                                             <div
-                                                className={`inline-flex items-center justify-end gap-1.5 font-black px-3 py-1.5 rounded-lg border cursor-help shadow-sm ${darkMode ? 'bg-gray-800 text-emerald-400 border-gray-700' : 'bg-emerald-50 text-emerald-700 border-emerald-100'}`}
+                                                className={`inline-flex items-center justify-end gap-1 text-[13px] font-semibold tabular-nums cursor-help ${darkMode ? 'text-slate-200' : 'text-slate-900'}`}
                                                 title={`${item.unitPrice} ${currency} × ${fmt(item.qty)} ${item.unit} = ${fmt(item.unitPrice * item.qty)} ${currency}`}
                                             >
-                                                {fmt(item.unitPrice * item.qty)} <span className="text-[10px] opacity-70 font-semibold">{currency}</span>
+                                                {fmt(item.unitPrice * item.qty)} <span className="text-[10px] font-normal text-slate-400">{currency}</span>
                                             </div>
                                         </td>
-                                        <td className="p-3 align-middle text-center">
+                                        <td className="p-2 sm:p-3 align-middle text-center">
                                             <button onClick={() => deleteMaterial(item.id)} className="p-2 rounded-lg text-slate-400 hover:text-rose-500 hover:bg-rose-50 transition-all">
                                                 <Trash2 className="w-4 h-4" />
                                             </button>
@@ -537,14 +535,14 @@ const MaterialsList: React.FC<MaterialsListProps> = ({
                                 </tr>
                             )}
                         </tbody>
-                        <tfoot className={`font-bold border-t ${darkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-slate-50 border-slate-200 text-slate-800'}`}>
+                        <tfoot className={`border-t ${darkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-slate-50/60 border-slate-100 text-slate-800'}`}>
                             <tr>
-                                <td colSpan={3} className="px-4 py-4 text-end uppercase text-xs tracking-wider text-slate-500">
-                                    {t.totalMat || "Total Matière"}:
+                                <td colSpan={3} className="px-4 py-3 text-end text-[11px] font-medium uppercase tracking-wide text-slate-500">
+                                    {t.totalMat || "Total Matière"}
                                 </td>
-                                <td className="px-4 py-4 text-right">
-                                    <span className={`inline-flex items-center justify-end px-3 py-1.5 rounded-lg border shadow-sm ${darkMode ? 'bg-emerald-900/30 text-emerald-400 border-emerald-800' : 'bg-emerald-600 text-white border-emerald-700'}`}>
-                                        {fmt(totalMaterials)} <span className="text-[10px] opacity-80 ml-1 font-semibold">{currency}</span>
+                                <td className="px-4 py-3 text-right">
+                                    <span className="inline-flex items-center justify-end gap-1 text-[14px] font-semibold tabular-nums text-slate-900">
+                                        {fmt(totalMaterials)} <span className="text-[10px] font-normal text-slate-400">{currency}</span>
                                     </span>
                                 </td>
                                 <td></td>

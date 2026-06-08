@@ -204,8 +204,8 @@ export default function CostCalculator({
     const costDataForChart = useMemo(() => {
         const matVal = isExport ? 0 : totalMaterials;
         return [
-            { name: 'Matières', value: matVal, color: '#3b82f6' }, // blue-500
-            { name: 'Main d\'Œuvre', value: laborCost, color: '#f59e0b' },  // amber-500
+            { name: 'Matières', value: matVal, color: '#2149C1' }, // accent blue
+            { name: 'Main d\'Œuvre', value: laborCost, color: '#94a3b8' },  // slate-400
             // packaging could be separated later, assuming included in materials for now
         ].filter(d => d.value > 0);
     }, [totalMaterials, laborCost, isExport]);
@@ -434,16 +434,16 @@ export default function CostCalculator({
     };
 
     const bgMain = 'bg-gray-50';
-    const bgCard = 'bg-white border-slate-200 object-shadow-sm transition-all hover:shadow-md';
-    const bgCardHeader = 'bg-slate-50 border-slate-200';
+    const bgCard = 'bg-white border-slate-200 transition-colors';
+    const bgCardHeader = 'bg-white border-slate-100';
     const textPrimary = 'text-slate-800';
     const textSecondary = 'text-slate-500';
-    const inputBg = 'bg-white border-slate-300 text-slate-900';
-    const tableHeader = 'bg-slate-50 text-slate-500';
-    const tableRowHover = 'hover:bg-blue-50/30';
+    const inputBg = 'bg-slate-50/60 border-slate-200 text-slate-900';
+    const tableHeader = 'bg-slate-50/60 text-slate-500';
+    const tableRowHover = 'hover:bg-slate-50/50';
 
     return (
-        <div dir="ltr" style={{ fontFamily: "'Inter', sans-serif" }} className={`min-h-screen ${bgMain} p-4 pb-24 transition-colors duration-300`}>
+        <div dir="ltr" className={`min-h-screen ${bgMain} p-4 pb-24 transition-colors duration-300`}>
 
             <PdfSettingsModal
                 t={t} darkMode={darkMode} showPdfModal={showPdfModal} setShowPdfModal={setShowPdfModal}
@@ -472,49 +472,47 @@ export default function CostCalculator({
                 />
             </PdfSettingsModal>
 
-            <div className={`w-full mx-auto mb-6 flex flex-col md:flex-row justify-between items-center bg-white p-4 rounded-xl shadow-sm border border-slate-200 gap-4 print:hidden`}>
-                <div className="flex items-center gap-4 self-start md:self-center">
-                    <div className="flex flex-col">
-                        <div className="flex items-center gap-2">
-                            <h1 className={`text-2xl font-black tracking-tight text-slate-800`}>Fiche de Coût</h1>
-                            {ficheData.typeMarche === 'Export' && (
-                                <span className="bg-amber-100 text-amber-800 border border-amber-200 text-xs px-2.5 py-0.5 rounded-full font-bold flex items-center gap-1 animate-pulse">
-                                    Export (Europe) - Main d'œuvre Seule
-                                </span>
-                            )}
-                        </div>
-                        <p className={`text-sm font-medium text-slate-500`}>Gestion des prix et marges commerciales</p>
+            <div className={`w-full mx-auto mb-5 flex flex-col md:flex-row justify-between items-center bg-white px-5 h-auto md:h-14 py-3 md:py-0 rounded-lg border border-slate-200 gap-3 print:hidden`}>
+                <div className="flex items-center gap-3 self-start md:self-center">
+                    <div className="flex items-baseline gap-2.5">
+                        <h1 className={`text-[15px] font-semibold tracking-tight text-slate-900`}>Fiche de Coût</h1>
+                        <span className="text-[12px] text-slate-400">Prix &amp; marges</span>
+                        {ficheData.typeMarche === 'Export' && (
+                            <span className="inline-flex items-center gap-1 bg-amber-50 text-amber-700 border border-amber-200 text-[10px] px-2 py-0.5 rounded font-medium">
+                                Export · Main d'œuvre seule
+                            </span>
+                        )}
                     </div>
                 </div>
 
-                <div className="flex flex-wrap items-center gap-3 self-end md:self-center">
-                    {/* أمر الإنتاج Button */}
-                    <button
-                        onClick={() => setCostPage(costPage === 'orderModel' ? 'calculator' : 'orderModel')}
-                        className={`flex items-center gap-2 px-4 py-2 text-xs rounded-lg font-bold transition-all border ${costPage === 'orderModel'
-                            ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
-                            : 'bg-white text-slate-600 border-slate-200 hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-200'
-                            }`}
-                    >
-                        <ClipboardList className="w-4 h-4" /> أمر الإنتاج
-                    </button>
-
+                <div className="flex flex-wrap items-center gap-2 self-end md:self-center">
                     {chronoTotalTime !== undefined && chronoTotalTime > 0 && (
-                        <div className="flex bg-slate-100 rounded-lg p-1" title="Source du temps de couture">
+                        <div className="inline-flex p-0.5 bg-slate-100/60 rounded-md" title="Source du temps de couture">
                             <button
                                 onClick={() => setTimeSource('gamme')}
-                                className={`px-4 py-2 text-xs rounded-md font-bold transition-all ${timeSource === 'gamme' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                                className={`px-2.5 h-7 text-[11px] font-medium rounded transition-all ${timeSource === 'gamme' ? 'bg-white text-slate-900 shadow-[0_1px_2px_rgba(15,23,42,0.06)]' : 'text-slate-500 hover:text-slate-700'}`}
                             >
                                 Gamme ({initialTotalTime} min)
                             </button>
                             <button
                                 onClick={() => setTimeSource('chrono')}
-                                className={`px-4 py-2 text-xs rounded-md font-bold transition-all flex items-center gap-1 ${timeSource === 'chrono' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                                className={`px-2.5 h-7 text-[11px] font-medium rounded transition-all inline-flex items-center gap-1 ${timeSource === 'chrono' ? 'bg-white text-slate-900 shadow-[0_1px_2px_rgba(15,23,42,0.06)]' : 'text-slate-500 hover:text-slate-700'}`}
                             >
-                                <Clock className="w-3 h-3" /> Chrono ({chronoTotalTime} min)
+                                <Clock className="w-3 h-3" strokeWidth={1.75} /> Chrono ({chronoTotalTime} min)
                             </button>
                         </div>
                     )}
+
+                    {/* أمر الإنتاج Button */}
+                    <button
+                        onClick={() => setCostPage(costPage === 'orderModel' ? 'calculator' : 'orderModel')}
+                        className={`inline-flex items-center gap-1.5 h-8 px-3 text-[12px] rounded-md font-medium transition-colors border ${costPage === 'orderModel'
+                            ? 'bg-slate-900 text-white border-slate-900 hover:bg-slate-800'
+                            : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50 hover:text-slate-900'
+                            }`}
+                    >
+                        <ClipboardList className="w-3.5 h-3.5" strokeWidth={1.75} /> أمر الإنتاج
+                    </button>
                 </div>
             </div>
 
@@ -570,13 +568,13 @@ export default function CostCalculator({
                         <div className="flex justify-end">
                             <button
                                 onClick={() => setShowThreadCalc(true)}
-                                className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white py-2.5 px-5 rounded-xl font-bold text-sm flex items-center gap-2 hover:from-blue-700 hover:to-indigo-700 transition-all shadow-md hover:shadow-lg active:scale-[0.98]"
+                                className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md bg-slate-900 hover:bg-slate-800 text-white text-[12px] font-medium transition-colors"
                             >
-                                <Scissors className="w-4 h-4" />
+                                <Scissors className="w-3.5 h-3.5" strokeWidth={1.75} />
                                 Calcul Fil
                                 {operations.length > 0 && (
-                                    <span className="bg-white/25 px-2 py-0.5 rounded-full text-xs font-bold">
-                                        {operations.length} opérations
+                                    <span className="bg-white/15 px-1.5 py-0.5 rounded text-[11px] font-medium tabular-nums">
+                                        {operations.length} op.
                                     </span>
                                 )}
                             </button>
@@ -614,34 +612,40 @@ export default function CostCalculator({
                             />
 
                             {/* ADVANCED: Margin Simulator & Chart */}
-                            <div className={`${bgCard} rounded-2xl border shadow-sm flex flex-col overflow-hidden`}>
-                                <div className={`${bgCardHeader} p-4 border-b flex items-center justify-between`}>
-                                    <h3 className={`font-black text-lg ${textPrimary} flex items-center gap-2`}><SlidersHorizontal className="w-5 h-5 text-blue-500" /> Analyse & Simulation</h3>
+                            <div className="bg-white rounded-lg border border-slate-200 flex flex-col overflow-hidden">
+                                <div className="px-5 h-12 border-b border-slate-100 flex items-center justify-between">
+                                    <div className="flex items-center gap-2">
+                                        <SlidersHorizontal className="w-4 h-4 text-slate-400" strokeWidth={1.75} />
+                                        <div>
+                                            <h3 className="text-[13px] font-semibold text-slate-900 tracking-tight">Analyse &amp; Simulation</h3>
+                                            <p className="text-[11px] text-slate-400">Marge &amp; répartition</p>
+                                        </div>
+                                    </div>
                                 </div>
-                                <div className="p-6 flex flex-col md:flex-row gap-8">
+                                <div className="p-5 flex flex-col md:flex-row gap-6">
                                     <div className="flex-1 flex flex-col">
-                                        <h4 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-4">Simulateur de Marge</h4>
-                                        <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
-                                            <div className="flex justify-between items-center mb-2">
-                                                <span className="font-semibold text-sm text-slate-700">Marge Atelier ciblée</span>
-                                                <span className="font-black text-blue-600 text-lg">{settings.marginAtelier}%</span>
+                                        <h4 className="text-[11px] font-medium text-slate-500 mb-3">Simulateur de Marge</h4>
+                                        <div className="bg-slate-50/60 p-4 rounded-md border border-slate-200">
+                                            <div className="flex justify-between items-center mb-2.5">
+                                                <span className="text-[12px] text-slate-600">Marge Atelier ciblée</span>
+                                                <span className="text-[15px] font-semibold text-slate-900 tabular-nums">{settings.marginAtelier}%</span>
                                             </div>
                                             <input
                                                 type="range"
                                                 min="0" max="100" step="1"
                                                 value={settings.marginAtelier}
                                                 onChange={handleMarginChange}
-                                                className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600"
+                                                className="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-slate-900"
                                             />
-                                            <div className="flex justify-between items-center mt-4 pt-4 border-t border-slate-200">
-                                                <span className="text-xs font-semibold text-slate-500">Prix de Vente HT simulé:</span>
-                                                <span className="font-black text-slate-800 text-xl">{fmt(sellPriceHT)} <span className="text-xs opacity-50">{currency}</span></span>
+                                            <div className="flex justify-between items-center mt-4 pt-3 border-t border-slate-200">
+                                                <span className="text-[12px] text-slate-500">Prix de Vente HT simulé</span>
+                                                <span className="text-[15px] font-semibold text-slate-900 tabular-nums">{fmt(sellPriceHT)} <span className="text-[11px] font-normal text-slate-400">{currency}</span></span>
                                             </div>
                                         </div>
                                     </div>
 
-                                    <div className="w-48 h-48 shrink-0 flex flex-col relative">
-                                        <h4 className="text-xs font-bold text-slate-500 uppercase tracking-widest text-center absolute -top-2 left-0 right-0 z-10">Répartition Coût (PR)</h4>
+                                    <div className="w-44 h-44 shrink-0 flex flex-col relative">
+                                        <h4 className="text-[11px] font-medium text-slate-500 text-center absolute -top-1 left-0 right-0 z-10">Répartition Coût (PR)</h4>
                                         {totalMaterials > 0 || laborCost > 0 ? (
                                             <ResponsiveContainer width="100%" height="100%">
                                                 <PieChart>
@@ -662,10 +666,10 @@ export default function CostCalculator({
                     </div>
 
                     <div className="w-full">
-                        <div className={`rounded-xl shadow-lg border overflow-hidden flex flex-col bg-white border-slate-200`}>
-                            <div className={`p-2 border-b flex gap-2 bg-slate-50 border-slate-200 print:hidden`}>
-                                <button onClick={() => setViewMode('ticket')} className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-bold transition ${viewMode === 'ticket' ? 'bg-blue-600 text-white shadow-sm' : `text-slate-500 hover:bg-black/5`}`}><Receipt className="w-4 h-4" /> {t.viewTicket}</button>
-                                <button onClick={() => setViewMode('a4')} className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-bold transition ${viewMode === 'a4' ? 'bg-blue-600 text-white shadow-sm' : `text-slate-500 hover:bg-black/5`}`}><FileText className="w-4 h-4" /> Export Fiche A4 ({t.viewDoc})</button>
+                        <div className={`rounded-lg border overflow-hidden flex flex-col bg-white border-slate-200`}>
+                            <div className={`p-1.5 border-b flex gap-1 bg-slate-50/60 border-slate-100 print:hidden`}>
+                                <button onClick={() => setViewMode('ticket')} className={`flex-1 flex items-center justify-center gap-1.5 h-8 rounded-md text-[12px] font-medium transition-all ${viewMode === 'ticket' ? 'bg-white text-slate-900 shadow-[0_1px_2px_rgba(15,23,42,0.06)]' : `text-slate-500 hover:text-slate-700`}`}><Receipt className="w-3.5 h-3.5" strokeWidth={1.75} /> {t.viewTicket}</button>
+                                <button onClick={() => setViewMode('a4')} className={`flex-1 flex items-center justify-center gap-1.5 h-8 rounded-md text-[12px] font-medium transition-all ${viewMode === 'a4' ? 'bg-white text-slate-900 shadow-[0_1px_2px_rgba(15,23,42,0.06)]' : `text-slate-500 hover:text-slate-700`}`}><FileText className="w-3.5 h-3.5" strokeWidth={1.75} /> Export Fiche A4 ({t.viewDoc})</button>
                             </div>
 
                             {viewMode === 'ticket' && (
@@ -684,16 +688,16 @@ export default function CostCalculator({
 
                             {viewMode === 'a4' && (
                                 <>
-                                    <div className={`p-4 border-b flex justify-between items-center bg-slate-50 border-slate-200 print:hidden`}>
-                                        <h2 className={`font-bold text-slate-800`}>Fiche de Rendement A4</h2>
-                                        <div className="flex gap-2">
-                                            <button onClick={exportToExcel} className="flex items-center gap-1 text-xs bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg shadow-sm transition"><FileSpreadsheet className="w-4 h-4" /> Excel</button>
-                                            <button onClick={() => setShowPdfModal(true)} className="flex items-center gap-1 text-xs bg-rose-600 hover:bg-rose-700 text-white px-4 py-2 rounded-lg shadow-sm transition"><FileDown className="w-4 h-4" /> PDF</button>
-                                            <button onClick={() => window.print()} className="flex items-center gap-1 text-xs bg-slate-800 hover:bg-slate-900 text-white px-4 py-2 rounded-lg shadow-sm transition"><Printer className="w-4 h-4" /> Imprimer</button>
+                                    <div className={`px-5 h-12 border-b flex justify-between items-center bg-slate-50/60 border-slate-100 print:hidden`}>
+                                        <h2 className={`text-[13px] font-semibold text-slate-900`}>Fiche de Rendement A4</h2>
+                                        <div className="flex gap-1.5">
+                                            <button onClick={exportToExcel} className="inline-flex items-center gap-1.5 h-8 px-3 text-[12px] font-medium rounded-md border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 transition-colors"><FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" strokeWidth={1.75} /> Excel</button>
+                                            <button onClick={() => setShowPdfModal(true)} className="inline-flex items-center gap-1.5 h-8 px-3 text-[12px] font-medium rounded-md border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 transition-colors"><FileDown className="w-3.5 h-3.5 text-rose-600" strokeWidth={1.75} /> PDF</button>
+                                            <button onClick={() => window.print()} className="inline-flex items-center gap-1.5 h-8 px-3 text-[12px] font-medium rounded-md bg-slate-900 hover:bg-slate-800 text-white transition-colors"><Printer className="w-3.5 h-3.5" strokeWidth={1.75} /> Imprimer</button>
                                         </div>
                                     </div>
 
-                                    <div className="bg-slate-200 p-8 flex justify-center">
+                                    <div className="bg-slate-100 p-8 flex justify-center">
                                         <A4DocumentView
                                             ref={docRefA4}
                                             t={t} currency={currency} darkMode={false}
