@@ -7,6 +7,11 @@ import { ErrorBoundary } from './components/ErrorBoundary';
 import { ClickToComponent } from 'click-to-react-component';
 import { installApiShim } from './src/lib/apiShim';
 import { APP_VERSION } from './src/lib/dataVersion';
+import { initDiagnostics } from './src/lib/diagnostics';
+
+// Capture des breadcrumbs (console + erreurs) le plus tôt possible, pour les
+// joindre aux réclamations en cas de bug.
+initDiagnostics();
 
 // En static mode (Vercel), on intercepte les /api/* pour les servir depuis
 // le snapshot cloud localStorage. Aucun serveur backend n'est requis.
