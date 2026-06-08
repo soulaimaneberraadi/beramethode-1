@@ -25,7 +25,11 @@ const STORAGE_BUCKET = 'bera-assets';
 
 let syncTimer: ReturnType<typeof setTimeout> | null = null;
 let isApplyingRemote = false;
-let realtimeChannel: ReturnType<typeof supabase.channel> | null = null;
+
+// Délai de regroupement des écritures avant un push cloud. Une valeur trop
+// basse (ex. 1,5 s) provoque une rafale d'UPSERT du blob `user_data` (~2 Mo)
+// qui sature la base free-tier. 8 s regroupe les éditions successives.
+const PUSH_DEBOUNCE_MS = 8000;
 
 // ─── Image processing ─────────────────────────────────────────────────────────
 
@@ -270,35 +274,27 @@ export const pullSnapshotFromCloud = async (userId: string): Promise<boolean> =>
   }
 };
 
-// ─── Realtime ─────────────────────────────────────────────────────────────────
+// ─── Sync ───────────────────────────────────────────────────────────────────
 
 export const startCloudSync = (userId: string) => {
   if (!userId) return;
 
+  // Push à chaque écriture d'une clé synchronisée, regroupé via PUSH_DEBOUNCE_MS.
   const originalSetItem = Storage.prototype.setItem;
   Storage.prototype.setItem = function (key: string, value: string) {
     originalSetItem.call(this, key, value);
     if (this === localStorage && SYNC_KEYS.includes(key) && !isApplyingRemote) {
       if (syncTimer) clearTimeout(syncTimer);
-      syncTimer = setTimeout(() => pushSnapshotToCloud(userId), 1500);
+      syncTimer = setTimeout(() => pushSnapshotToCloud(userId), PUSH_DEBOUNCE_MS);
     }
   };
 
-  if (realtimeChannel) realtimeChannel.unsubscribe();
-  realtimeChannel = supabase
-    .channel(`user_data_${userId}`)
-    .on(
-      'postgres_changes',
-      { event: '*', schema: 'public', table: TABLE, filter: `user_id=eq.${userId}` },
-      (payload) => {
-        const newRow = (payload.new as { data?: Record<string, unknown> } | null)?.data;
-        if (newRow) applySnapshotToLocal(newRow);
-      },
-    )
-    .subscribe();
+  // NOTE: pas d'abonnement Realtime sur `user_data`. Le blob (~2 Mo) déclenchait
+  // un décodage WAL coûteux (>10 s) à chaque écriture, saturant la base
+  // free-tier jusqu'au crash. La synchro inter-appareils se fait désormais via
+  // pullSnapshotFromCloud à l'ouverture / au rafraîchissement de l'application.
 };
 
 export const stopCloudSync = () => {
   if (syncTimer) { clearTimeout(syncTimer); syncTimer = null; }
-  if (realtimeChannel) { realtimeChannel.unsubscribe(); realtimeChannel = null; }
 };
