@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect, useCallback, useRef, Suspense, lazy } from 'react';
 import GlobalLoader from './components/GlobalLoader';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import AnnouncementBar from './components/AnnouncementBar';
 import LicenseBanner from './components/LicenseBanner';
 import { runBootSequence } from './lib/bootSequence';
@@ -1216,6 +1217,10 @@ export default function App() {
 
                 {/* MAIN CONTENT */}
                 <main className="flex-1 min-h-0 min-w-0 overflow-hidden relative flex flex-col bg-[#fafafa]">
+                  {/* Isole le crash d'une page : la barre de navigation et le reste
+                      de l'app restent vivants. `key={currentView}` réinitialise le
+                      garde-fou automatiquement à chaque changement de page. */}
+                  <ErrorBoundary inline view={currentView} key={currentView}>
                     {currentView === 'vuegenerale' && (
                         <VueGenerale
                             models={models}
@@ -1572,6 +1577,7 @@ export default function App() {
                             </button>
                         </div>
                     )}
+                  </ErrorBoundary>
                 </main>
 
                 {/* GLOBAL PROGRESS & SPLASH LOADER */}
