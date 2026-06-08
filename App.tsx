@@ -162,12 +162,15 @@ export default function App() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ email: 'guest@local', password: 'guest2024' }),
             });
+            const guestUser = { id: 0, email: 'guest@local', name: 'Invité', role: 'user' as const };
             if (res.ok) {
                 const data = await res.json();
                 notifyServerSessionEstablished(data.user?.id ?? 0);
-                login(data.user);
+                // En mode statique l'API shim renvoie { ok:true } sans `user` :
+                // on retombe sur le compte invité local pour ne pas rester bloqué.
+                login(data.user || guestUser);
             } else {
-                login({ id: 0, email: 'guest@local', name: 'Invité', role: 'user' });
+                login(guestUser);
             }
         } catch {
             login({ id: 0, email: 'guest@local', name: 'Invité', role: 'user' });
