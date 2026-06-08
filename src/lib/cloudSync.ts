@@ -25,6 +25,11 @@ const STORAGE_BUCKET = 'bera-assets';
 
 let syncTimer: ReturnType<typeof setTimeout> | null = null;
 let isApplyingRemote = false;
+// Canal Realtime de type *Broadcast* uniquement (pas de postgres_changes).
+// Broadcast est un simple relais WebSocket : il ne lit jamais le WAL ni la base,
+// donc aucune charge DB. Sert à notifier les autres appareils qu'un pull est
+// nécessaire (le snapshot lui-même transite via un SELECT, pas via le canal).
+let syncChannel: ReturnType<typeof supabase.channel> | null = null;
 
 // Délai de regroupement des écritures avant un push cloud. Une valeur trop
 // basse (ex. 1,5 s) provoque une rafale d'UPSERT du blob `user_data` (~2 Mo)
@@ -223,6 +228,10 @@ export const pushSnapshotToCloud = async (userId: string) => {
       { user_id: userId, data: snapshot, updated_at: new Date().toISOString() },
       { onConflict: 'user_id' },
     );
+    // Notifie les autres appareils (signal léger, pas de données) → ils pullent.
+    if (syncChannel) {
+      try { await syncChannel.send({ type: 'broadcast', event: 'updated', payload: {} }); } catch { /* hors-ligne: ignore */ }
+    }
   } catch (err) {
     console.warn('Cloud push failed:', err);
   }
@@ -289,12 +298,20 @@ export const startCloudSync = (userId: string) => {
     }
   };
 
-  // NOTE: pas d'abonnement Realtime sur `user_data`. Le blob (~2 Mo) déclenchait
-  // un décodage WAL coûteux (>10 s) à chaque écriture, saturant la base
-  // free-tier jusqu'au crash. La synchro inter-appareils se fait désormais via
-  // pullSnapshotFromCloud à l'ouverture / au rafraîchissement de l'application.
+  // Synchro inter-appareils en temps réel via Broadcast (zéro charge DB).
+  // À la réception d'un signal « updated », l'appareil pull le dernier snapshot.
+  // IMPORTANT: on n'utilise PAS postgres_changes (décodage WAL du blob ~2 Mo)
+  // qui saturait la base free-tier jusqu'au crash.
+  if (syncChannel) syncChannel.unsubscribe();
+  syncChannel = supabase
+    .channel(`bera_sync_${userId}`, { config: { broadcast: { self: false } } })
+    .on('broadcast', { event: 'updated' }, () => {
+      if (!isApplyingRemote) pullSnapshotFromCloud(userId);
+    })
+    .subscribe();
 };
 
 export const stopCloudSync = () => {
   if (syncTimer) { clearTimeout(syncTimer); syncTimer = null; }
+  if (syncChannel) { syncChannel.unsubscribe(); syncChannel = null; }
 };
