@@ -2939,51 +2939,51 @@ export default function Chronometrage({
                 }`}
             >
                 
-                {/* Stats Section — wrap dès sm ; côte-à-côte avec la toolbar seulement ≥ xl pour éviter le tassement ~1024–1280px */}
-                <div className="flex flex-wrap items-stretch gap-2 sm:gap-3 min-w-0 flex-1 max-xl:w-full overflow-x-auto max-sm:pb-2 max-sm:-mx-3 max-sm:px-3 sm:overflow-visible custom-scrollbar-hide">
-                    {/* OUVRIERS / HEURES */}
-                    <div className="flex items-center gap-1.5 sm:gap-3 px-2 py-1 sm:px-3 sm:py-2 bg-slate-50 rounded-lg border border-slate-100 shadow-sm shrink-0">
-                        <div className="flex flex-col items-center border-r border-slate-200 pr-3 mr-3">
-                            <span className="text-[9px] font-bold text-slate-400 uppercase">Ouvriers</span>
+                {/* Stats Section — compact for mobile */}
+                <div className="flex flex-wrap items-stretch gap-1.5 sm:gap-3 min-w-0 flex-1 max-xl:w-full overflow-x-auto max-sm:pb-1 max-sm:-mx-3 max-sm:px-3 sm:overflow-visible custom-scrollbar-hide">
+                    {/* OUVRIERS / HEURES — compact mobile */}
+                    <div className="flex items-center gap-1 sm:gap-3 px-1.5 py-0.5 sm:px-3 sm:py-2 bg-slate-50 rounded-lg border border-slate-100 shadow-sm shrink-0">
+                        <div className="flex flex-col items-center border-r border-slate-200 pr-1.5 sm:pr-3 mr-1.5 sm:mr-3">
+                            <span className="text-[7px] sm:text-[9px] font-bold text-slate-400 uppercase">Ouvriers</span>
                             <input 
                                 type="number" 
                                 min="1" 
                                 value={Math.round(numWorkers)} 
                                 onChange={(e) => setNumWorkers && setNumWorkers(Math.max(1, Math.round(Number(e.target.value))))} 
-                                className="w-12 text-center bg-transparent font-black text-slate-700 outline-none text-sm p-0" 
+                                className="w-8 sm:w-12 text-center bg-transparent font-black text-slate-700 outline-none text-xs sm:text-sm p-0" 
                             />
                         </div>
                         <div className="flex flex-col items-center">
-                            <span className="text-[9px] font-bold text-slate-400 uppercase">Heures</span>
+                            <span className="text-[7px] sm:text-[9px] font-bold text-slate-400 uppercase">Heures</span>
                             <input 
                                 type="number" 
                                 min="0" 
                                 step="0.5" 
                                 value={presenceTime / 60} 
                                 onChange={(e) => setPresenceTime && setPresenceTime(Math.max(0, Number(e.target.value)) * 60)} 
-                                className="w-10 text-center bg-transparent font-black text-slate-700 outline-none text-sm p-0" 
+                                className="w-7 sm:w-10 text-center bg-transparent font-black text-slate-700 outline-none text-xs sm:text-sm p-0" 
                             />
                         </div>
                     </div>
 
-                    {/* OPERATIONS / CHRONO */}
-                    <div className="flex items-center gap-1.5 sm:gap-3 px-2 py-1 sm:px-3 sm:py-2 bg-slate-50 rounded-lg border border-slate-100 shadow-sm shrink-0">
-                        <div className="flex flex-col items-center border-r border-slate-200 pr-3">
-                            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Opérations</span>
-                            <span className="font-black text-slate-800 text-xs sm:text-base">{operations.length}</span>
+                    {/* OPERATIONS / CHRONO — compact mobile */}
+                    <div className="flex items-center gap-1 sm:gap-3 px-1.5 py-0.5 sm:px-3 sm:py-2 bg-slate-50 rounded-lg border border-slate-100 shadow-sm shrink-0">
+                        <div className="flex flex-col items-center border-r border-slate-200 pr-1.5 sm:pr-3">
+                            <span className="text-[7px] sm:text-[10px] font-bold text-slate-500 uppercase tracking-wider">Opérations</span>
+                            <span className="font-black text-slate-800 text-[10px] sm:text-base">{operations.length}</span>
                         </div>
                         <div className="flex flex-col items-center">
-                            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Chrono.</span>
-                            <span className="font-black text-indigo-600 text-xs sm:text-base">{totals.filledCount}</span>
+                            <span className="text-[7px] sm:text-[10px] font-bold text-slate-500 uppercase tracking-wider">Chrono.</span>
+                            <span className="font-black text-indigo-600 text-[10px] sm:text-base">{totals.filledCount}</span>
                         </div>
                     </div>
 
-                    {/* BF (s) */}
-                    <div className="flex items-center gap-1.5 sm:gap-3 px-3 py-1.5 bg-emerald-50/50 rounded-lg border border-emerald-100 shadow-sm shrink-0">
+                    {/* BF (s) — compact mobile */}
+                    <div className="flex items-center gap-1 sm:gap-3 px-1.5 py-0.5 sm:px-3 sm:py-1.5 bg-emerald-50/50 rounded-lg border border-emerald-100 shadow-sm shrink-0">
                         <div className="flex flex-col items-center">
-                            <span className="text-[9px] font-bold text-emerald-600 uppercase flex items-center gap-1"><Zap className="w-3 h-3" /> BF (s)</span>
+                            <span className="text-[7px] sm:text-[9px] font-bold text-emerald-600 uppercase flex items-center gap-0.5 sm:gap-1"><Zap className="w-2.5 h-2.5 sm:w-3 sm:h-3" /> BF (s)</span>
                             <span
-                                className="font-black text-emerald-700 text-sm mt-1"
+                                className="font-black text-emerald-700 text-[10px] sm:text-sm mt-0.5 sm:mt-1"
                                 title={hasChronoCycle
                                     ? `BF chrono ≈ ${chronoBfMinutes.toFixed(2)} min (cycle chrono ${totals.tempMajore.toFixed(2)} min, ${numWorkers} ouvrier(s))`
                                     : `BF global ≈ ${bf.toFixed(2)} min (en attente des relevés chrono)`}
@@ -2993,64 +2993,63 @@ export default function Chronometrage({
                         </div>
                     </div>
 
-                    {/* DYNAMIC TARGETS */}
-                    <div className="flex items-center gap-3 px-3 py-1.5 bg-slate-50/50 rounded-lg border border-slate-100 shadow-sm shrink-0">
-                        <div className="flex flex-col items-center border-r border-slate-200 pr-3 mr-1">
-                            <span className="text-[9px] font-bold text-slate-400 uppercase">P/J</span>
-                            <span className="font-black text-slate-700 text-sm leading-none mt-1">
+                    {/* DYNAMIC TARGETS — compact mobile */}
+                    <div className="flex items-center gap-1.5 sm:gap-3 px-1.5 py-0.5 sm:px-3 sm:py-1.5 bg-slate-50/50 rounded-lg border border-slate-100 shadow-sm shrink-0">
+                        <div className="flex flex-col items-center border-r border-slate-200 pr-1.5 sm:pr-3 mr-0.5 sm:mr-1">
+                            <span className="text-[7px] sm:text-[9px] font-bold text-slate-400 uppercase">P/J</span>
+                            <span className="font-black text-slate-700 text-[10px] sm:text-sm leading-none mt-0.5 sm:mt-1">
                                 {Math.round(prodDayEffChrono)}
                             </span>
                         </div>
                         <div className="flex flex-col items-center">
-                            <span className="text-[9px] font-bold text-slate-400 uppercase">P/H</span>
-                            <span className="font-black text-slate-700 text-sm leading-none mt-1">
+                            <span className="text-[7px] sm:text-[9px] font-bold text-slate-400 uppercase">P/H</span>
+                            <span className="font-black text-slate-700 text-[10px] sm:text-sm leading-none mt-0.5 sm:mt-1">
                                 {Math.round(prodHourEffChrono)}
                             </span>
                         </div>
                     </div>
 
-                    {/* % RENDU */}
-                    <div className="flex flex-col items-center px-3 py-1.5 bg-indigo-50/50 rounded-lg border border-indigo-100 shadow-sm shrink-0">
-                        <span className="text-[9px] font-bold text-indigo-400 uppercase">% Rendu</span>
+                    {/* % RENDU — compact mobile */}
+                    <div className="flex flex-col items-center px-1.5 py-0.5 sm:px-3 sm:py-1.5 bg-indigo-50/50 rounded-lg border border-indigo-100 shadow-sm shrink-0">
+                        <span className="text-[7px] sm:text-[9px] font-bold text-indigo-400 uppercase">% Rendu</span>
                         <div className="flex items-baseline gap-0.5">
                             <input 
                                 type="number" 
                                 min="1" max="100" 
                                 value={efficiency} 
                                 onChange={(e) => setEfficiency && setEfficiency(Math.max(1, Math.min(100, Number(e.target.value))))} 
-                                className="w-8 text-center bg-transparent font-black text-indigo-600 outline-none text-sm border-b border-indigo-200 p-0" 
+                                className="w-6 sm:w-8 text-center bg-transparent font-black text-indigo-600 outline-none text-xs sm:text-sm border-b border-indigo-200 p-0" 
                             />
-                            <span className="text-[10px] font-bold text-indigo-400">%</span>
+                            <span className="text-[8px] sm:text-[10px] font-bold text-indigo-400">%</span>
                         </div>
                     </div>
 
-
-
-                    <div className="flex items-center gap-2 px-3 py-2 bg-slate-50/80 rounded-lg border border-slate-100 shadow-sm shrink-0 min-w-[min(100%,140px)] sm:min-w-[160px] xl:flex-1 xl:max-w-[220px]">
-                        <div className="w-full h-2 bg-slate-200 rounded-full overflow-hidden">
+                    {/* Progress bar — compact mobile */}
+                    <div className="flex items-center gap-1 sm:gap-2 px-1.5 py-0.5 sm:px-3 sm:py-2 bg-slate-50/80 rounded-lg border border-slate-100 shadow-sm shrink-0 min-w-[min(100%,100px)] sm:min-w-[160px] xl:flex-1 xl:max-w-[220px]">
+                        <div className="w-full h-1.5 sm:h-2 bg-slate-200 rounded-full overflow-hidden">
                             <div className="h-full bg-gradient-to-r from-indigo-500 to-cyan-400 rounded-full transition-all duration-500" style={{ width: `${progressPercent}%` }} />
                         </div>
-                        <span className="text-xs font-bold text-slate-500">{progressPercent}%</span>
+                        <span className="text-[10px] sm:text-xs font-bold text-slate-500">{progressPercent}%</span>
                     </div>
                 </div>
 
-                {/* Toolbar Actions */}
-                <div className="flex flex-wrap items-center gap-2 pt-3 border-t border-slate-100 xl:pt-0 xl:border-0 xl:justify-end shrink-0 min-w-0 max-xl:w-full overflow-x-auto max-sm:pb-2 max-sm:-mx-3 max-sm:px-3 sm:overflow-visible custom-scrollbar-hide">
+                {/* Toolbar Actions — compact for mobile */}
+                <div className="flex flex-wrap items-center gap-1 sm:gap-2 pt-2 sm:pt-3 border-t border-slate-100 xl:pt-0 xl:border-0 xl:justify-end shrink-0 min-w-0 max-xl:w-full overflow-x-auto max-sm:pb-1 max-sm:-mx-3 max-sm:px-3 sm:overflow-visible custom-scrollbar-hide">
                     <button
                         type="button"
                         onClick={() => setStickyToolbar(v => !v)}
-                        className={`shrink-0 flex items-center gap-1.5 px-2 py-1 sm:px-3 sm:py-2 rounded-lg text-[11px] sm:text-xs font-bold transition-all border shadow-sm min-h-[28px] sm:min-h-[40px] focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-slate-400 focus:outline-none ${stickyToolbar ? 'bg-slate-100 text-slate-800 border-slate-300' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}
+                        className={`shrink-0 flex items-center gap-0.5 sm:gap-1.5 px-1.5 py-0.5 sm:px-3 sm:py-2 rounded-lg text-[9px] sm:text-xs font-bold transition-all border shadow-sm min-h-[24px] sm:min-h-[40px] focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-slate-400 focus:outline-none ${stickyToolbar ? 'bg-slate-100 text-slate-800 border-slate-300' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}
                         title={stickyToolbar ? 'Désactiver : la barre défile avec la page' : 'Activer : la barre reste fixée en haut au scroll'}
                     >
-                        <Pin className={`w-4 h-4 shrink-0 ${stickyToolbar ? '' : 'opacity-60'}`} /> <span className="hidden sm:inline">Pin:</span>{stickyToolbar ? 'ON' : 'OFF'}
+                        <Pin className={`w-3 h-3 sm:w-4 sm:h-4 shrink-0 ${stickyToolbar ? '' : 'opacity-60'}`} /> <span className="hidden sm:inline">Pin:</span>{stickyToolbar ? 'ON' : 'OFF'}
                     </button>
                     <button
                         type="button"
                         onClick={() => setShowTsColumn(v => !v)}
-                        className={`shrink-0 flex items-center gap-1.5 px-2 py-1 sm:px-3 sm:py-2 rounded-lg text-[11px] sm:text-xs font-bold transition-all border shadow-sm min-h-[28px] sm:min-h-[40px] focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-amber-400 focus:outline-none ${showTsColumn ? 'bg-amber-50 text-amber-800 border-amber-200' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}
+                        className={`shrink-0 flex items-center gap-0.5 sm:gap-1.5 px-1.5 py-0.5 sm:px-3 sm:py-2 rounded-lg text-[9px] sm:text-xs font-bold transition-all border shadow-sm min-h-[24px] sm:min-h-[40px] focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-amber-400 focus:outline-none ${showTsColumn ? 'bg-amber-50 text-amber-800 border-amber-200' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}
                         title="Afficher ou masquer la colonne TS (temps standard gamme)"
                     >
-                        <Columns3 className="w-4 h-4" /> TS:{showTsColumn ? 'ON' : 'OFF'}
+                        <Columns3 className="w-3 h-3 sm:w-4 sm:h-4" /> TS:{showTsColumn ? 'ON' : 'OFF'}
                     </button>
                     
                     <button
@@ -3058,25 +3057,25 @@ export default function Chronometrage({
                             setTrEnabled(v => !v);
                             setShowTrConfig(false);
                         }}
-                        className={`shrink-0 flex items-center gap-1.5 px-2 py-1 sm:px-3 sm:py-2 rounded-lg text-[11px] sm:text-xs font-bold transition-all border shadow-sm min-h-[28px] sm:min-h-[40px] focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-emerald-400 focus:outline-none ${trEnabled ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}
+                        className={`shrink-0 flex items-center gap-0.5 sm:gap-1.5 px-1.5 py-0.5 sm:px-3 sm:py-2 rounded-lg text-[9px] sm:text-xs font-bold transition-all border shadow-sm min-h-[24px] sm:min-h-[40px] focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-emerald-400 focus:outline-none ${trEnabled ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}
                         title="Activer / désactiver TR"
                     >
-                        <Timer className="w-4 h-4" /> TR:{trEnabled ? 'ON' : 'OFF'}
+                        <Timer className="w-3 h-3 sm:w-4 sm:h-4" /> TR:{trEnabled ? 'ON' : 'OFF'}
                     </button>
                     
                     <button
                         onClick={() => setShowTrConfig(!showTrConfig)}
                         disabled={!trEnabled}
-                        className={`shrink-0 flex items-center gap-1.5 px-2 py-1 sm:px-3 sm:py-2 rounded-lg text-[11px] sm:text-xs font-bold transition-all border shadow-sm min-h-[28px] sm:min-h-[40px] focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-indigo-400 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed ${showTrConfig ? 'bg-indigo-100 text-indigo-700 border-indigo-200' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}
+                        className={`shrink-0 flex items-center gap-0.5 sm:gap-1.5 px-1.5 py-0.5 sm:px-3 sm:py-2 rounded-lg text-[9px] sm:text-xs font-bold transition-all border shadow-sm min-h-[24px] sm:min-h-[40px] focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-indigo-400 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed ${showTrConfig ? 'bg-indigo-100 text-indigo-700 border-indigo-200' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}
                     >
-                        <Settings className="w-4 h-4" /> {trCount} lancers
+                        <Settings className="w-3 h-3 sm:w-4 sm:h-4" /> {trCount} lancers
                     </button>
 
-                    <div className="shrink-0 flex items-stretch rounded-lg border border-slate-200 overflow-hidden shadow-sm h-[32px] sm:h-[40px]" title="Ordre des opérations : Gamme, implantation (Plantation) ou nouvelle séquence libre (Nouveau)">
+                    <div className="shrink-0 flex items-stretch rounded-lg border border-slate-200 overflow-hidden shadow-sm h-[24px] sm:h-[40px]" title="Ordre des opérations : Gamme, implantation (Plantation) ou nouvelle séquence libre (Nouveau)">
                         <button
                             type="button"
                             onClick={() => setOrderSource('gamme')}
-                            className={`px-2 sm:px-3 py-1 sm:py-2 text-[10px] sm:text-xs font-bold transition-colors focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-400 focus:outline-none ${orderSource === 'gamme' ? 'bg-indigo-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-50'}`}
+                            className={`px-1.5 py-0.5 sm:px-3 sm:py-2 text-[8px] sm:text-xs font-bold transition-colors focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-400 focus:outline-none ${orderSource === 'gamme' ? 'bg-indigo-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-50'}`}
                             title="Ordre de la Gamme"
                         >
                             Gamme
@@ -3084,7 +3083,7 @@ export default function Chronometrage({
                         <button
                             type="button"
                             onClick={() => setOrderSource('plantation')}
-                            className={`px-2 sm:px-3 py-1 sm:py-2 text-[10px] sm:text-xs font-bold transition-colors border-l border-slate-200 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-400 focus:outline-none ${orderSource === 'plantation' ? 'bg-indigo-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-50'}`}
+                            className={`px-1.5 py-0.5 sm:px-3 sm:py-2 text-[8px] sm:text-xs font-bold transition-colors border-l border-slate-200 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-400 focus:outline-none ${orderSource === 'plantation' ? 'bg-indigo-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-50'}`}
                             title="Ordre réel du flux d'implantation (lancement de la chaîne)"
                         >
                             Plantation
@@ -3092,7 +3091,7 @@ export default function Chronometrage({
                         <button
                             type="button"
                             onClick={() => setOrderSource('new')}
-                            className={`px-2 sm:px-3 py-1 sm:py-2 text-[10px] sm:text-xs font-bold transition-colors border-l border-slate-200 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-400 focus:outline-none ${orderSource === 'new' ? 'bg-indigo-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-50'}`}
+                            className={`px-1.5 py-0.5 sm:px-3 sm:py-2 text-[8px] sm:text-xs font-bold transition-colors border-l border-slate-200 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-400 focus:outline-none ${orderSource === 'new' ? 'bg-indigo-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-50'}`}
                             title="Créer une nouvelle séquence personnalisée sur le terrain"
                         >
                             Nouveau
@@ -3100,32 +3099,32 @@ export default function Chronometrage({
                     </div>
 
                     {orderSource === 'new' && (
-                        <div className="shrink-0 flex items-stretch rounded-lg border border-slate-200 overflow-hidden shadow-sm h-[32px] sm:h-[40px]" title="Disposition du terrain">
+                        <div className="shrink-0 flex items-stretch rounded-lg border border-slate-200 overflow-hidden shadow-sm h-[24px] sm:h-[40px]" title="Disposition du terrain">
                             <button
                                 type="button"
                                 onClick={() => setChronoLayoutSide?.('left')}
-                                className={`px-2 sm:px-3 py-1 sm:py-2 text-[10px] sm:text-xs font-bold transition-colors focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-400 focus:outline-none ${chronoLayoutSide === 'left' ? 'bg-indigo-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-50'}`}
+                                className={`px-1.5 py-0.5 sm:px-3 sm:py-2 text-[8px] sm:text-xs font-bold transition-colors focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-400 focus:outline-none ${chronoLayoutSide === 'left' ? 'bg-indigo-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-50'}`}
                             >
                                 Gauche
                             </button>
                             <button
                                 type="button"
                                 onClick={() => setChronoLayoutSide?.('right')}
-                                className={`px-2 sm:px-3 py-1 sm:py-2 text-[10px] sm:text-xs font-bold transition-colors border-l border-slate-200 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-400 focus:outline-none ${chronoLayoutSide === 'right' ? 'bg-indigo-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-50'}`}
+                                className={`px-1.5 py-0.5 sm:px-3 sm:py-2 text-[8px] sm:text-xs font-bold transition-colors border-l border-slate-200 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-400 focus:outline-none ${chronoLayoutSide === 'right' ? 'bg-indigo-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-50'}`}
                             >
                                 Droite
                             </button>
                             <button
                                 type="button"
                                 onClick={() => setChronoLayoutSide?.('both')}
-                                className={`px-2 sm:px-3 py-1 sm:py-2 text-[10px] sm:text-xs font-bold transition-colors border-l border-slate-200 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-400 focus:outline-none ${chronoLayoutSide === 'both' ? 'bg-indigo-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-50'}`}
+                                className={`px-1.5 py-0.5 sm:px-3 sm:py-2 text-[8px] sm:text-xs font-bold transition-colors border-l border-slate-200 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-400 focus:outline-none ${chronoLayoutSide === 'both' ? 'bg-indigo-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-50'}`}
                             >
                                 Les deux
                             </button>
                         </div>
                     )}
 
-                    <div className="shrink-0 flex items-stretch rounded-lg border border-slate-200 overflow-hidden shadow-sm h-[32px] sm:h-[40px]">
+                    <div className="shrink-0 flex items-stretch rounded-lg border border-slate-200 overflow-hidden shadow-sm h-[24px] sm:h-[40px]">
                         <button
                             type="button"
                             onClick={() => setOutputMode('PJ')}
@@ -3147,24 +3146,24 @@ export default function Chronometrage({
                     <button
                         type="button"
                         onClick={() => setShowThroughputKpi(v => !v)}
-                        className={`shrink-0 flex items-center gap-1.5 px-2 py-1 sm:px-3 sm:py-2 rounded-lg text-[11px] sm:text-xs font-bold transition-all border shadow-sm min-h-[28px] sm:min-h-[40px] focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-orange-400 focus:outline-none ${showThroughputKpi ? 'bg-orange-50 text-orange-800 border-orange-200' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}
+                        className={`shrink-0 flex items-center gap-0.5 sm:gap-1.5 px-1.5 py-0.5 sm:px-3 sm:py-2 rounded-lg text-[9px] sm:text-xs font-bold transition-all border shadow-sm min-h-[24px] sm:min-h-[40px] focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-orange-400 focus:outline-none ${showThroughputKpi ? 'bg-orange-50 text-orange-800 border-orange-200' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}
                         title="Afficher/masquer P° Max / P° Rdt"
                     >
-                        <Target className="w-4 h-4" /> P° KPI
+                        <Target className="w-3 h-3 sm:w-4 sm:h-4" /> P° KPI
                     </button>
                     
                     <div className="relative shrink-0" ref={unitMenuRef}>
                         <button
                             type="button"
                             onClick={() => setShowUnitMenu(v => !v)}
-                            className={`flex items-center justify-between gap-1.5 sm:gap-2 px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg text-left transition-all border shadow-sm min-w-[80px] sm:min-w-[100px] min-h-[32px] sm:min-h-[40px] focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-indigo-400 focus:outline-none ${showUnitMenu ? 'bg-indigo-50 text-indigo-800 border-indigo-200' : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'}`}
+                            className={`flex items-center justify-between gap-0.5 sm:gap-2 px-1.5 sm:px-3 py-0.5 sm:py-2 rounded-lg text-left transition-all border shadow-sm min-w-[70px] sm:min-w-[100px] min-h-[24px] sm:min-h-[40px] focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-indigo-400 focus:outline-none ${showUnitMenu ? 'bg-indigo-50 text-indigo-800 border-indigo-200' : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'}`}
                             title={`Unité: ${getUnitMeta(unit).name}`}
                         >
                             <span className="flex flex-col leading-none">
-                                <span className="text-[9px] font-bold uppercase tracking-wider text-slate-500">Unité</span>
-                                <span className="font-black text-sm">{unitShort}</span>
+                                <span className="text-[7px] sm:text-[9px] font-bold uppercase tracking-wider text-slate-500">Unité</span>
+                                <span className="font-black text-[10px] sm:text-sm">{unitShort}</span>
                             </span>
-                            <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform ${showUnitMenu ? 'rotate-180 text-indigo-500' : ''}`} />
+                            <ChevronDown className={`w-3 h-3 sm:w-4 sm:h-4 text-slate-400 transition-transform ${showUnitMenu ? 'rotate-180 text-indigo-500' : ''}`} />
                         </button>
                         {showUnitMenu && (
                             <div className="absolute right-0 top-[calc(100%+8px)] z-[200] w-[240px] rounded-xl border border-slate-200 bg-white p-2.5 shadow-2xl animate-in fade-in slide-in-from-top-2 duration-150">
@@ -3191,16 +3190,16 @@ export default function Chronometrage({
             </div>
 
             {trEnabled && showTrConfig && (
-                <div className="bg-gradient-to-r from-indigo-50 to-white rounded-xl border border-indigo-100 shadow-sm p-3 sm:p-4 flex flex-wrap gap-3 items-center animate-in slide-in-from-top-2 duration-200">
-                    <span className="text-xs font-bold text-indigo-800 uppercase tracking-wider mr-2 flex items-center gap-1.5">
-                        <Settings className="w-4 h-4" /> Nombre de relevés (TR) :
+                <div className="bg-gradient-to-r from-indigo-50 to-white rounded-xl border border-indigo-100 shadow-sm p-2 sm:p-3 flex flex-wrap gap-2 items-center animate-in slide-in-from-top-2 duration-200">
+                    <span className="text-[10px] sm:text-xs font-bold text-indigo-800 uppercase tracking-wider mr-2 flex items-center gap-1">
+                        <Settings className="w-3 h-3 sm:w-4 sm:h-4" /> Nombre de relevés (TR) :
                     </span>
-                    <div className="flex flex-wrap gap-2">
+                    <div className="flex flex-wrap gap-1.5 sm:gap-2">
                         {[1, 2, 3, 4, 5, 6, 7, 8, 10].map(n => (
                             <button
                                 key={n}
                                 onClick={() => { setTrCount(n); setShowTrConfig(false); }}
-                                className={`w-10 h-10 rounded-lg font-black text-sm transition-all shadow-sm focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-indigo-400 focus:outline-none ${trCount === n ? 'bg-indigo-600 text-white ring-2 ring-indigo-600 ring-offset-2' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 hover:border-slate-300'}`}
+                                className={`w-8 h-8 sm:w-10 sm:h-10 rounded-lg font-black text-[10px] sm:text-sm transition-all shadow-sm focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-indigo-400 focus:outline-none ${trCount === n ? 'bg-indigo-600 text-white ring-2 ring-indigo-600 ring-offset-2' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 hover:border-slate-300'}`}
                             >
                                 {n}
                             </button>
@@ -3213,38 +3212,38 @@ export default function Chronometrage({
             <div className="bg-white rounded-xl sm:rounded-2xl border border-slate-200 shadow-lg overflow-visible">
 
                 {/* Table Header */}
-                <div className="px-2.5 py-2 sm:px-6 sm:py-5 border-b border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-2 sm:gap-4">
-                    <div className="flex items-center gap-2 sm:gap-3">
-                        <div className="w-7 h-7 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center shrink-0">
-                            <BarChart3 className="w-3.5 h-3.5 sm:w-5 sm:h-5 text-indigo-600" />
+                <div className="px-2 py-1.5 sm:px-6 sm:py-5 border-b border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-1.5 sm:gap-4">
+                    <div className="flex items-center gap-1.5 sm:gap-3">
+                        <div className="w-6 h-6 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center shrink-0">
+                            <BarChart3 className="w-3 h-3 sm:w-5 sm:h-5 text-indigo-600" />
                         </div>
                         <div>
-                            <h3 className="font-black text-slate-800 text-sm sm:text-lg leading-tight">Relevés Terrain</h3>
-                            <p className="text-slate-500 text-[10px] sm:text-sm font-medium mt-0.5">
+                            <h3 className="font-black text-slate-800 text-[11px] sm:text-lg leading-tight">Relevés Terrain</h3>
+                            <p className="text-slate-500 text-[9px] sm:text-sm font-medium mt-0.5">
                                 {trCount} relevés configurés • Unité : <strong className="text-indigo-600 bg-indigo-50 px-1 rounded">{unitLabel}</strong>
                             </p>
                         </div>
                     </div>
                     
-                    <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 md:gap-6">
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 md:gap-6">
                         {hasSections && (
-                            <div className="flex items-center gap-2 bg-slate-50 p-1 rounded-lg border border-slate-200">
+                            <div className="flex items-center gap-1.5 bg-slate-50 p-0.5 rounded-lg border border-slate-200">
                                 {(['ALL', 'PREPARATION', 'MONTAGE'] as const).map(s => {
                                     const active = sectionFilter === s;
                                     return (
                                         <button key={s} onClick={() => setSectionFilter(s)}
-                                            className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all focus:outline-none focus:ring-2 focus:ring-indigo-400 ${active ? 'bg-white text-slate-800 shadow-sm border border-slate-200' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'}`}>
-                                            {s === 'ALL' ? 'Toutes' : s === 'PREPARATION' ? 'Préparation' : 'Montage'}
+                                            className={`px-2 py-1 rounded-md text-[10px] sm:text-xs font-bold transition-all focus:outline-none focus:ring-2 focus:ring-indigo-400 ${active ? 'bg-white text-slate-800 shadow-sm border border-slate-200' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'}`}>
+                                            {s === 'ALL' ? 'Toutes' : s === 'PREPARATION' ? 'Prépa' : 'Montage'}
                                         </button>
                                     );
                                 })}
                             </div>
                         )}
                         
-                        <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400 bg-slate-50 px-2.5 py-1.5 rounded-lg border border-slate-100">
-                            <span className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-rose-400"></div>Lent</span>
-                            <span className="mx-1.5 text-slate-300">|</span>
-                            <span className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-emerald-400"></div>Rapide</span>
+                        <div className="flex items-center gap-1 text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-slate-400 bg-slate-50 px-2 py-1 rounded-lg border border-slate-100">
+                            <span className="flex items-center gap-0.5"><div className="w-1.5 h-1.5 rounded-full bg-rose-400"></div>Lent</span>
+                            <span className="mx-1 text-slate-300">|</span>
+                            <span className="flex items-center gap-0.5"><div className="w-1.5 h-1.5 rounded-full bg-emerald-400"></div>Rapide</span>
                         </div>
                     </div>
                 </div>

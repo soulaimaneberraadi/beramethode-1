@@ -217,28 +217,28 @@ const MaterialsList: React.FC<MaterialsListProps> = ({
             )}
 
             <div className="rounded-lg border border-slate-200 bg-white overflow-visible">
-                <div className="px-5 h-12 border-b border-slate-100 flex justify-between items-center">
+                <div className="px-3 sm:px-5 h-auto sm:h-12 border-b border-slate-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 sm:gap-0 py-2 sm:py-0">
                     <div className="flex items-center gap-2">
                         <Package className="w-4 h-4 text-slate-400" strokeWidth={1.75} />
                         <div>
-                            <h2 className="text-[13px] font-semibold text-slate-900 tracking-tight">{t.materials}</h2>
-                            <p className="text-[11px] text-slate-400">Ajoutez ou sélectionnez depuis le magasin</p>
+                            <h2 className="text-[12px] sm:text-[13px] font-semibold text-slate-900 tracking-tight">{t.materials}</h2>
+                            <p className="text-[10px] sm:text-[11px] text-slate-400">Ajoutez ou sélectionnez depuis le magasin</p>
                         </div>
                     </div>
-                    <button onClick={addMaterial} className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md bg-slate-900 hover:bg-slate-800 text-white text-[12px] font-medium transition-colors">
-                        <Plus className="w-3.5 h-3.5" strokeWidth={2} /> {t.addMat}
+                    <button onClick={addMaterial} className="inline-flex items-center gap-1 sm:gap-1.5 h-7 sm:h-8 px-2.5 sm:px-3 rounded-md bg-slate-900 hover:bg-slate-800 text-white text-[11px] sm:text-[12px] font-medium transition-colors">
+                        <Plus className="w-3 h-3 sm:w-3.5 sm:h-3.5" strokeWidth={2} /> {t.addMat}
                     </button>
                 </div>
 
-                <div className="overflow-visible">
-                    <table className="w-full text-left text-sm border-collapse">
-                        <thead className={`${darkMode ? 'bg-gray-800 text-gray-400' : 'bg-slate-50/60 text-slate-500'} uppercase text-[10px] tracking-wide border-b ${darkMode ? 'border-gray-700' : 'border-slate-100'}`}>
+                <div className="overflow-x-auto">
+                    <table className="w-full text-left text-sm border-collapse min-w-[500px]">
+                        <thead className={`${darkMode ? 'bg-gray-800 text-gray-400' : 'bg-slate-50/60 text-slate-500'} uppercase text-[9px] sm:text-[10px] tracking-wide border-b ${darkMode ? 'border-gray-700' : 'border-slate-100'}`}>
                             <tr>
-                                <th className="px-2 sm:px-4 py-2.5 font-medium w-1/3">{t.matName}</th>
-                                <th className="px-2 sm:px-4 py-2.5 font-medium w-20 sm:w-32">{t.price} ({currency})</th>
-                                <th className="px-2 sm:px-4 py-2.5 font-medium w-28 sm:w-48 text-center">{t.qtyUnit}</th>
-                                <th className="px-2 sm:px-4 py-2.5 font-medium w-20 sm:w-32 text-right">{t.total}</th>
-                                <th className="px-4 py-2.5 w-12"></th>
+                                <th className="px-2 sm:px-4 py-2 sm:py-2.5 font-medium w-1/3">{t.matName}</th>
+                                <th className="px-2 sm:px-4 py-2 sm:py-2.5 font-medium w-16 sm:w-32">{t.price} ({currency})</th>
+                                <th className="px-2 sm:px-4 py-2 sm:py-2.5 font-medium w-24 sm:w-48 text-center">{t.qtyUnit}</th>
+                                <th className="px-2 sm:px-4 py-2 sm:py-2.5 font-medium w-16 sm:w-32 text-right">{t.total}</th>
+                                <th className="px-2 sm:px-4 py-2 sm:py-2.5 w-10 sm:w-12"></th>
                             </tr>
                         </thead>
                         <tbody className={`divide-y ${darkMode ? 'divide-gray-700' : 'divide-slate-100'}`}>
@@ -255,7 +255,7 @@ const MaterialsList: React.FC<MaterialsListProps> = ({
 
                                 return (
                                     <tr key={item.id} className={`group ${tableRowHover} transition-colors`}>
-                                        <td className="p-2 sm:p-3 align-middle relative">
+                                        <td className="p-1.5 sm:p-3 align-middle relative">
                                             <div className="relative">
                                                 <input
                                                     type="text"
@@ -382,7 +382,7 @@ const MaterialsList: React.FC<MaterialsListProps> = ({
                                                 </div>
                                             )}
                                         </td>
-                                        <td className="p-2 sm:p-3 align-middle">
+                                        <td className="p-1.5 sm:p-3 align-middle">
                                             <input
                                                 type="number"
                                                 min="0"
@@ -391,7 +391,7 @@ const MaterialsList: React.FC<MaterialsListProps> = ({
                                                 className={`${inputStyle} text-center font-mono`}
                                             />
                                         </td>
-                                        <td className="p-2 sm:p-3 align-middle">
+                                        <td className="p-1.5 sm:p-3 align-middle">
                                             <div className="flex flex-col gap-2 items-center">
                                                 <div className="flex items-center gap-2 w-full">
                                                     {item.unit === 'bobine' ? (
@@ -508,7 +508,7 @@ const MaterialsList: React.FC<MaterialsListProps> = ({
                                                 )}
                                             </div>
                                         </td>
-                                        <td className="p-2 sm:p-3 align-middle text-right">
+                                        <td className="p-1.5 sm:p-3 align-middle text-right">
                                             <div
                                                 className={`inline-flex items-center justify-end gap-1 text-[13px] font-semibold tabular-nums cursor-help ${darkMode ? 'text-slate-200' : 'text-slate-900'}`}
                                                 title={`${item.unitPrice} ${currency} × ${fmt(item.qty)} ${item.unit} = ${fmt(item.unitPrice * item.qty)} ${currency}`}
@@ -516,9 +516,9 @@ const MaterialsList: React.FC<MaterialsListProps> = ({
                                                 {fmt(item.unitPrice * item.qty)} <span className="text-[10px] font-normal text-slate-400">{currency}</span>
                                             </div>
                                         </td>
-                                        <td className="p-2 sm:p-3 align-middle text-center">
-                                            <button onClick={() => deleteMaterial(item.id)} className="p-2 rounded-lg text-slate-400 hover:text-rose-500 hover:bg-rose-50 transition-all">
-                                                <Trash2 className="w-4 h-4" />
+                                        <td className="p-1.5 sm:p-3 align-middle text-center">
+                                            <button onClick={() => deleteMaterial(item.id)} className="p-1.5 sm:p-2 rounded-lg text-slate-400 hover:text-rose-500 hover:bg-rose-50 transition-all">
+                                                <Trash2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                                             </button>
                                         </td>
                                     </tr>
@@ -537,12 +537,12 @@ const MaterialsList: React.FC<MaterialsListProps> = ({
                         </tbody>
                         <tfoot className={`border-t ${darkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-slate-50/60 border-slate-100 text-slate-800'}`}>
                             <tr>
-                                <td colSpan={3} className="px-4 py-3 text-end text-[11px] font-medium uppercase tracking-wide text-slate-500">
+                                <td colSpan={3} className="px-2 sm:px-4 py-2 sm:py-3 text-end text-[10px] sm:text-[11px] font-medium uppercase tracking-wide text-slate-500">
                                     {t.totalMat || "Total Matière"}
                                 </td>
-                                <td className="px-4 py-3 text-right">
-                                    <span className="inline-flex items-center justify-end gap-1 text-[14px] font-semibold tabular-nums text-slate-900">
-                                        {fmt(totalMaterials)} <span className="text-[10px] font-normal text-slate-400">{currency}</span>
+                                <td className="px-2 sm:px-4 py-2 sm:py-3 text-right">
+                                    <span className="inline-flex items-center justify-end gap-1 text-[12px] sm:text-[14px] font-semibold tabular-nums text-slate-900">
+                                        {fmt(totalMaterials)} <span className="text-[9px] sm:text-[10px] font-normal text-slate-400">{currency}</span>
                                     </span>
                                 </td>
                                 <td></td>
