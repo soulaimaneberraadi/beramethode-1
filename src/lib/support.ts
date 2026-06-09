@@ -13,6 +13,32 @@ import {
 const TICKETS = 'support_tickets';
 const MESSAGES = 'support_messages';
 
+// ─── Limitation de débit (anti-spam / anti-flood DB) ───────────────────────────
+// Protège support_tickets/support_messages contre une création massive (bug en
+// boucle, ou abus). Côté client via localStorage : suffisant pour éviter
+// d'inonder la base ; une contrainte SQL pourra s'ajouter plus tard.
+const MAX_MSG_LEN = 4000;
+interface RateRule { minIntervalMs: number; dailyMax: number; }
+const allowRate = (bucket: string, rule: RateRule): boolean => {
+  try {
+    const key = `bera_rl_${bucket}`;
+    const now = Date.now();
+    const today = new Date().toISOString().slice(0, 10);
+    let st = { day: today, count: 0, last: 0 };
+    const raw = localStorage.getItem(key);
+    if (raw) { const p = JSON.parse(raw); if (p && p.day === today) st = p; }
+    if (now - st.last < rule.minIntervalMs) return false;
+    if (st.count >= rule.dailyMax) return false;
+    st.count += 1; st.last = now;
+    localStorage.setItem(key, JSON.stringify(st));
+    return true;
+  } catch {
+    return true; // localStorage indisponible : ne jamais bloquer un vrai usage
+  }
+};
+const TICKET_RULE: RateRule = { minIntervalMs: 30_000, dailyMax: 30 };
+const MESSAGE_RULE: RateRule = { minIntervalMs: 1_500, dailyMax: 300 };
+
 // TODO(phases 3-6): renseigner tenant_id quand le modèle entreprise existera.
 // Pour l'instant l'isolation se fait par user_id (auth.uid()).
 const currentTenantId = (): string | null => null;
@@ -70,6 +96,10 @@ const insertTicket = async (
   partial: Pick<SupportTicket, 'kind' | 'message' | 'view'> & Partial<SupportTicket>,
   user: { id: string | null; email: string | null },
 ): Promise<string | null> => {
+  if (!allowRate('ticket', TICKET_RULE)) {
+    console.warn('[support] création de ticket limitée (anti-spam)');
+    return null;
+  }
   try {
     const { data, error } = await supabase
       .from(TICKETS)
@@ -80,6 +110,7 @@ const insertTicket = async (
         status: 'nouveau',
         user_last_read_at: new Date().toISOString(),
         ...partial,
+        message: String(partial.message ?? '').slice(0, MAX_MSG_LEN),
       })
       .select('id')
       .single();
@@ -117,8 +148,12 @@ export const listMessages = async (ticketId: string): Promise<SupportMessage[]> 
 // ─── Écriture ──────────────────────────────────────────────────────────────────
 
 export const sendUserMessage = async (ticketId: string, text: string): Promise<boolean> => {
-  const t = text.trim();
+  const t = text.trim().slice(0, MAX_MSG_LEN);
   if (!t) return false;
+  if (!allowRate('msg', MESSAGE_RULE)) {
+    console.warn('[support] envoi de message limité (anti-spam)');
+    return false;
+  }
   const { error } = await supabase.from(MESSAGES).insert({ ticket_id: ticketId, sender: 'user', text: t });
   if (error) { console.warn('[support] sendUserMessage:', error.message); return false; }
   await markTicketReadByUser(ticketId);
