@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { Users, ChevronDown, UserCog, Factory, Plus, Trash2, Check, X, Settings2, LayoutGrid, Globe, EyeOff, Eye, ChevronLeft, ChevronRight, Calculator, TrendingUp, TrendingDown, Activity, CalendarDays, MessageSquare, Sparkles, FileDown } from 'lucide-react';
-import { ComposedChart, Line, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { ComposedChart, Line, Area, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts';
+import { ResponsiveChart } from './ui/ResponsiveChart';
 import { SuiviData, PlanningEvent, AppSettings } from '../types';
 import DateTimePicker from './ui/DateTimePicker';
 import { DEFAULT_CALENDAR_APP_SETTINGS } from '../lib/defaultCalendarSettings';
@@ -1601,7 +1602,7 @@ export default function Effectifs({ onOpenGestionRH, suivis = [], setSuivis, pla
                     </div>
                   ) : (
                     <div className="h-[160px] w-full shrink-0 sm:h-[320px]">
-                      <ResponsiveContainer width="100%" height="100%">
+                      <ResponsiveChart>
                         <ComposedChart data={analyticsData.dailyStats} margin={{ top: 20, right: 30, left: 0, bottom: 0 }}>
                           <defs>
                             <linearGradient id="colorTotal" x1="0" y1="0" x2="0" y2="1">
@@ -1641,7 +1642,7 @@ export default function Effectifs({ onOpenGestionRH, suivis = [], setSuivis, pla
                             animationDuration={1500}
                           />
                         </ComposedChart>
-                      </ResponsiveContainer>
+                      </ResponsiveChart>
                     </div>
                   )}
                 </div>

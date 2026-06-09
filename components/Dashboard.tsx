@@ -4,7 +4,6 @@ import { Users, Activity, Layers, TrendingUp, Download, AlertTriangle, ShieldAle
 import {
   LineChart,
   Line,
-  ResponsiveContainer,
   AreaChart,
   Area,
   BarChart,
@@ -16,6 +15,7 @@ import {
   Tooltip as RechartsTooltip,
   Legend,
 } from 'recharts';
+import { ResponsiveChart } from './ui/ResponsiveChart';
 
 type DashboardNavTarget =
   | 'planning'
@@ -39,11 +39,11 @@ const Sparkline = React.memo(function Sparkline({ data, color }: { data: any[], 
   if (!data || data.length < 2) return null;
   return (
     <div className="h-8 w-14 ml-auto opacity-60 group-hover:opacity-100 transition-opacity">
-      <ResponsiveContainer width="100%" height="100%">
+      <ResponsiveChart>
         <LineChart data={data}>
           <Line type="monotone" dataKey="value" stroke={color} strokeWidth={2} dot={false} isAnimationActive={false} />
         </LineChart>
-      </ResponsiveContainer>
+      </ResponsiveChart>
     </div>
   );
 });
@@ -557,7 +557,7 @@ export default function Dashboard({ models, suivis, planningEvents, settings, se
               </div>
               <div className="p-3 sm:p-4 md:p-5 flex-1">
                 <div className="h-[250px] sm:h-[300px] md:h-[350px] w-full">
-                  <ResponsiveContainer width="100%" height="100%">
+                  <ResponsiveChart>
                     <AreaChart data={productionStats.productionData} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
                       <defs>
                         <linearGradient id="colorCount" x1="0" y1="0" x2="0" y2="1">
@@ -573,7 +573,7 @@ export default function Dashboard({ models, suivis, planningEvents, settings, se
                       <Area type="monotone" name="P° Réelle" dataKey="pCount" stroke="#6366f1" strokeWidth={2.5} fillOpacity={1} fill="url(#colorCount)" />
                       <Area type="monotone" name="Objectif" dataKey="target" stroke="#cbd5e1" strokeWidth={2} strokeDasharray="5 5" fill="none" />
                     </AreaChart>
-                  </ResponsiveContainer>
+                  </ResponsiveChart>
                 </div>
               </div>
             </div>
@@ -592,7 +592,7 @@ export default function Dashboard({ models, suivis, planningEvents, settings, se
               </div>
               <div className="p-3 sm:p-4 md:p-5">
                 <div className="h-[180px] sm:h-[200px] w-full">
-                  <ResponsiveContainer width="100%" height="100%">
+                  <ResponsiveChart>
                     <BarChart data={productionStats.efficiencyData} layout="vertical" margin={{ top: 0, right: 10, left: 0, bottom: 0 }}>
                       <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="#f1f5f9" />
                       <XAxis type="number" domain={[0, 100]} hide />
@@ -602,7 +602,7 @@ export default function Dashboard({ models, suivis, planningEvents, settings, se
                         {productionStats.efficiencyData.map((entry: any, index: number) => <Cell key={`cell-${index}`} fill={entry.fill} />)}
                       </Bar>
                     </BarChart>
-                  </ResponsiveContainer>
+                  </ResponsiveChart>
                 </div>
               </div>
             </div>

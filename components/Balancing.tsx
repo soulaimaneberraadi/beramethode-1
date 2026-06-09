@@ -45,9 +45,9 @@ import {
   CartesianGrid,
   Tooltip,
   ReferenceLine,
-  ResponsiveContainer,
   Cell
 } from 'recharts';
+import { ResponsiveChart } from './ui/ResponsiveChart';
 
 const SAM_MAJORATION = 1.20;
 
@@ -1467,7 +1467,7 @@ export default function Balancing({
                     {/* Charts Section */}
                     <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-3 sm:p-4 h-80 sm:h-96">
                         <h3 className="text-sm font-bold text-slate-700 mb-4 flex items-center gap-2"><BarChart3 className="w-4 h-4" /> Équilibrage & Saturation</h3>
-                        <ResponsiveContainer width="100%" height="100%">
+                        <ResponsiveChart>
                             <ComposedChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 60 }}>
                                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                                 <XAxis dataKey="name" tick={{ fontSize: 10, fill: '#64748b' }} axisLine={false} tickLine={false} />
@@ -1484,7 +1484,7 @@ export default function Balancing({
                                 <Line yAxisId="right" type="monotone" dataKey="satSolid" stroke="#6366f1" strokeWidth={2} connectNulls={false} dot={false} />
                                 <Line yAxisId="right" type="monotone" dataKey="satDashed" stroke="#6366f1" strokeWidth={2} strokeDasharray="3 3" connectNulls={false} dot={false} />
                             </ComposedChart>
-                        </ResponsiveContainer>
+                        </ResponsiveChart>
                     </div>
 
                     {/* Machine Requirements Table */}
