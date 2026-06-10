@@ -269,12 +269,15 @@ export const pullSnapshotFromCloud = async (userId: string): Promise<boolean> =>
 
     applySnapshotToLocal(snap);
 
+    // Plus de window.location.reload() : les composants se ré-hydratent en
+    // direct via l'événement 'beramethode:cloud-sync-applied' émis par
+    // applySnapshotToLocal(). Évite la réapparition de l'écran de chargement
+    // plein écran et la perte du brouillon autosave à chaque synchronisation.
     const wasEmpty = !sessionStorage.getItem(RELOAD_FLAG);
     const sigChanged = sig && sig !== lastSig;
     if (wasEmpty || sigChanged) {
       sessionStorage.setItem(RELOAD_FLAG, '1');
       if (sig) sessionStorage.setItem('beramethode_last_pull_sig', sig);
-      setTimeout(() => window.location.reload(), 200);
     }
     return true;
   } catch (err) {
