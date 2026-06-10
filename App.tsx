@@ -23,7 +23,8 @@ import {
     CheckCircle2,
     X,
     Truck,
-    Share2
+    Share2,
+    Clock
 } from 'lucide-react';
 import { useAuth } from './src/context/AuthContext';
 import { useLicense } from './src/context/LicenseContext';
@@ -59,6 +60,7 @@ const VueGenerale = lazy(() => import('./components/VueGenerale'));
 const TasksAndHR = lazy(() => import('./components/TasksAndHR'));
 const Atelier = lazy(() => import('./components/Atelier'));
 const SousTraitance = lazy(() => import('./components/SousTraitance'));
+const CatalogueTemps = lazy(() => import('./components/CatalogueTemps'));
 
 // ── Extracted modules ──
 import { TRANSLATIONS, Lang, DEFAULT_MACHINES, DEFAULT_GUIDES, AUTO_SAVE_KEY, LIBRARY_KEY, MANUAL_LINKS_BY_MODEL_KEY, MACHINES_STORAGE_KEY, MACHINE_INSTANCES_KEY, MACHINE_FLEET_HISTORY_KEY, MAX_MACHINE_FLEET_HISTORY, defaultNavOrder } from './app/constants';
@@ -184,13 +186,14 @@ export default function App() {
         setAuthView('login');
     };
 
-    const [currentView, setCurrentView] = useState<'dashboard' | 'ingenierie' | 'atelier' | 'library' | 'coupe' | 'effectifs' | 'gestionRh' | 'planning' | 'suivi' | 'magasin' | 'export' | 'config' | 'profil' | 'admin' | 'rendement' | 'pageMachine' | 'machin' | 'objectifs' | 'facturation' | 'atelierProd' | 'vuegenerale' | 'sousTraitance'>('dashboard');
+    const [currentView, setCurrentView] = useState<'dashboard' | 'ingenierie' | 'atelier' | 'library' | 'coupe' | 'effectifs' | 'gestionRh' | 'planning' | 'suivi' | 'magasin' | 'export' | 'config' | 'profil' | 'admin' | 'rendement' | 'pageMachine' | 'machin' | 'objectifs' | 'facturation' | 'atelierProd' | 'vuegenerale' | 'sousTraitance' | 'catalogTemps'>('dashboard');
     const [directSuiviModelId, setDirectSuiviModelId] = useState<string | null>(null);
+    const [hrInitialWorker, setHrInitialWorker] = useState<{ name: string; ts: number } | null>(null);
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     // En static mode, on garde tous les modules visibles — leurs données viennent de Supabase
     // via cloud sync (snapshot localStorage). Les fetch /api/* qui échouent sont absorbés
     // par les .catch() existants ou les fallbacks localStorage.
-    const defaultNavOrder = ['vuegenerale', 'dashboard', 'ingenierie', 'atelier', 'atelierProd', 'library', 'coupe', 'effectifs', 'gestionRh', 'planning', 'suivi', 'rendement', 'magasin', 'export', 'facturation', 'config', 'pageMachine', 'machin', 'objectifs', 'admin', 'sousTraitance'];
+    const defaultNavOrder = ['vuegenerale', 'dashboard', 'ingenierie', 'atelier', 'atelierProd', 'library', 'coupe', 'effectifs', 'gestionRh', 'planning', 'suivi', 'rendement', 'magasin', 'export', 'facturation', 'config', 'pageMachine', 'machin', 'catalogTemps', 'objectifs', 'admin', 'sousTraitance'];
     const [navConfig, setNavConfig] = useState<{
         enabled: boolean;
         style: 'dropdown' | 'flat' | 'mobile-only';
@@ -203,7 +206,7 @@ export default function App() {
             { id: 'production', name: 'Production', views: ['ingenierie', 'atelier', 'atelierProd', 'coupe', 'sousTraitance'] },
             { id: 'rh', name: 'RH', views: ['effectifs', 'gestionRh'] },
             { id: 'logistique', name: 'Logistique', views: ['magasin', 'export', 'facturation'] },
-            { id: 'config', name: 'Config', views: ['library', 'pageMachine', 'machin', 'config', 'objectifs'] }
+            { id: 'config', name: 'Config', views: ['library', 'pageMachine', 'machin', 'catalogTemps', 'config', 'objectifs'] }
         ];
         try {
             const s = localStorage.getItem('bera_nav_config');
@@ -264,7 +267,7 @@ export default function App() {
 
 
     useEffect(() => {
-        const ALLOW = new Set(['dashboard', 'ingenierie', 'atelier', 'library', 'coupe', 'effectifs', 'gestionRh', 'planning', 'suivi', 'magasin', 'export', 'config', 'profil', 'admin', 'rendement', 'pageMachine', 'machin', 'objectifs', 'facturation', 'atelierProd', 'vuegenerale', 'sousTraitance']);
+        const ALLOW = new Set(['dashboard', 'ingenierie', 'atelier', 'library', 'coupe', 'effectifs', 'gestionRh', 'planning', 'suivi', 'magasin', 'export', 'config', 'profil', 'admin', 'rendement', 'pageMachine', 'machin', 'objectifs', 'facturation', 'atelierProd', 'vuegenerale', 'sousTraitance', 'catalogTemps']);
         const applyHash = () => {
             const h = window.location.hash.replace(/^#\/?/, '').toLowerCase();
             if (h && ALLOW.has(h)) setCurrentView(h as typeof currentView);
@@ -1122,8 +1125,8 @@ export default function App() {
                     logout={logout}
                 />
 
-                {/* MOBILE NAV OVERLAY */}
-                {(navConfig.enabled || navConfig.style === 'mobile-only') && mobileMenuOpen && (
+                {/* MOBILE NAV OVERLAY — toujours dispo (la nav desktop est cachée sur mobile) */}
+                {mobileMenuOpen && (
                     <div className="fixed inset-0 z-[200] flex">
                         <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" onClick={() => setMobileMenuOpen(false)} />
                         <nav className="relative w-72 max-w-[85vw] bg-white shadow-2xl h-full overflow-y-auto flex flex-col animate-in slide-in-from-left duration-200">
@@ -1156,6 +1159,7 @@ export default function App() {
                                         library: { label: t.library, icon: <FolderOpen className="w-4 h-4" />, active: 'bg-indigo-50 border-indigo-100 text-indigo-700' },
                                         pageMachine: { label: 'Suivi Machines', icon: <Activity className="w-4 h-4" />, active: 'bg-fuchsia-50 border-fuchsia-100 text-fuchsia-700' },
                                         machin: { label: 'Catalogue Machines', icon: <Layers className="w-4 h-4" />, active: 'bg-indigo-50 border-indigo-100 text-indigo-700' },
+                                        catalogTemps: { label: 'Catalogue de Temps', icon: <Clock className="w-4 h-4" />, active: 'bg-violet-50 border-violet-100 text-violet-700' },
                                         config: { label: t.configuration, icon: <SettingsIcon className="w-4 h-4" />, active: 'bg-amber-50 border-amber-100 text-amber-700' },
                                         objectifs: { label: 'Objectifs', icon: <Target className="w-4 h-4" />, active: 'bg-rose-50 border-rose-100 text-rose-700' },
                                         sousTraitance: { label: 'Sous-traitance', icon: <Truck className="w-4 h-4" />, active: 'bg-indigo-50 border-indigo-100 text-indigo-700' },
@@ -1399,6 +1403,8 @@ export default function App() {
                                 planningEvents={planningEvents}
                                 settings={globalSettings}
                                 onBack={() => setCurrentView('dashboard')}
+                                initialWorkerName={hrInitialWorker?.name}
+                                initialWorkerNonce={hrInitialWorker?.ts}
                             />
                         </div>
                     )}
@@ -1561,6 +1567,18 @@ export default function App() {
                         <div className="flex-1 min-h-0 flex flex-col overflow-hidden w-full">
                             <Suspense fallback={<div className="p-8 text-center text-gray-500">Chargement...</div>}>
                                 <SousTraitance models={models} settings={globalSettings} />
+                            </Suspense>
+                        </div>
+                    )}
+
+                    {currentView === 'catalogTemps' && (
+                        <div className="flex-1 min-h-0 flex flex-col overflow-hidden w-full">
+                            <Suspense fallback={<div className="p-8 text-center text-gray-500">Chargement...</div>}>
+                                <CatalogueTemps
+                                    models={models}
+                                    settings={globalSettings}
+                                    onOpenWorker={(name) => { setHrInitialWorker({ name, ts: Date.now() }); setCurrentView('gestionRh'); }}
+                                />
                             </Suspense>
                         </div>
                     )}

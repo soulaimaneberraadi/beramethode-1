@@ -859,9 +859,12 @@ interface GestionRHProps {
   planningEvents?: PlanningEvent[];
   settings?: AppSettings;
   onBack?: () => void;
+  /** Ouvre directement le profil d'un opérateur (par nom) — ex. depuis le Catalogue de Temps. */
+  initialWorkerName?: string;
+  initialWorkerNonce?: number;
 }
 
-export default function GestionRH({ suivis = [], planningEvents = [], settings, onBack }: GestionRHProps) {
+export default function GestionRH({ suivis = [], planningEvents = [], settings, onBack, initialWorkerName, initialWorkerNonce }: GestionRHProps) {
   const [tab, setTab] = useState<Tab>('annuaire');
   const [workers, setWorkers] = useState<HRWorker[]>([]);
   const [pointages, setPointages] = useState<any[]>([]);
@@ -909,6 +912,21 @@ export default function GestionRH({ suivis = [], planningEvents = [], settings, 
     setToast({ msg, type });
     setTimeout(() => setToast(null), 3500);
   };
+
+  // Ouverture directe du profil d'un opérateur (depuis le Catalogue de Temps)
+  const handledWorkerNonce = useRef<number | undefined>(undefined);
+  useEffect(() => {
+    if (!initialWorkerName) return;
+    setTab('annuaire');
+    setSearch(initialWorkerName);
+    if (workers.length && handledWorkerNonce.current !== initialWorkerNonce) {
+      const q = initialWorkerName.toLowerCase().trim();
+      const match = workers.find(w => (w.full_name || '').toLowerCase().trim() === q)
+        || workers.find(w => (w.full_name || '').toLowerCase().includes(q));
+      if (match) setProfileWorkerId(match.id);
+      handledWorkerNonce.current = initialWorkerNonce;
+    }
+  }, [initialWorkerName, initialWorkerNonce, workers]);
 
   useEffect(() => {
     (async () => {

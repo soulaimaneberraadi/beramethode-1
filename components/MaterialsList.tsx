@@ -230,9 +230,9 @@ const MaterialsList: React.FC<MaterialsListProps> = ({
                     </button>
                 </div>
 
-                <div className="overflow-x-auto">
-                    <table className="w-full text-left text-sm border-collapse min-w-[500px]">
-                        <thead className={`${darkMode ? 'bg-gray-800 text-gray-400' : 'bg-slate-50/60 text-slate-500'} uppercase text-[9px] sm:text-[10px] tracking-wide border-b ${darkMode ? 'border-gray-700' : 'border-slate-100'}`}>
+                <div className="md:overflow-x-auto">
+                    <table className="w-full text-left text-sm border-collapse block md:table">
+                        <thead className={`hidden md:table-header-group ${darkMode ? 'bg-gray-800 text-gray-400' : 'bg-slate-50/60 text-slate-500'} uppercase text-[9px] sm:text-[10px] tracking-wide border-b ${darkMode ? 'border-gray-700' : 'border-slate-100'}`}>
                             <tr>
                                 <th className="px-2 sm:px-4 py-2 sm:py-2.5 font-medium w-1/3">{t.matName}</th>
                                 <th className="px-2 sm:px-4 py-2 sm:py-2.5 font-medium w-16 sm:w-32">{t.price} ({currency})</th>
@@ -241,7 +241,7 @@ const MaterialsList: React.FC<MaterialsListProps> = ({
                                 <th className="px-2 sm:px-4 py-2 sm:py-2.5 w-10 sm:w-12"></th>
                             </tr>
                         </thead>
-                        <tbody className={`divide-y ${darkMode ? 'divide-gray-700' : 'divide-slate-100'}`}>
+                        <tbody className={`block md:table-row-group md:divide-y ${darkMode ? 'divide-gray-700' : 'divide-slate-100'}`}>
                             {materials.map((item) => {
                                 const filteredMagasin = focusedRow === item.id
                                     ? magasinData.filter(m => {
@@ -254,8 +254,8 @@ const MaterialsList: React.FC<MaterialsListProps> = ({
                                     : [];
 
                                 return (
-                                    <tr key={item.id} className={`group ${tableRowHover} transition-colors`}>
-                                        <td className="p-1.5 sm:p-3 align-middle relative">
+                                    <tr key={item.id} className={`group ${tableRowHover} transition-colors block md:table-row border border-slate-200 rounded-xl mb-3 p-2 md:p-0 md:mb-0 md:border-0 md:rounded-none`}>
+                                        <td className="block md:table-cell p-1.5 sm:p-3 align-middle relative">
                                             <div className="relative">
                                                 <input
                                                     type="text"
@@ -382,7 +382,8 @@ const MaterialsList: React.FC<MaterialsListProps> = ({
                                                 </div>
                                             )}
                                         </td>
-                                        <td className="p-1.5 sm:p-3 align-middle">
+                                        <td className="block md:table-cell p-1.5 sm:p-3 align-middle">
+                                            <span className="md:hidden block text-[10px] font-semibold uppercase tracking-wide text-slate-400 mb-1">{t.price} ({currency})</span>
                                             <input
                                                 type="number"
                                                 min="0"
@@ -391,7 +392,8 @@ const MaterialsList: React.FC<MaterialsListProps> = ({
                                                 className={`${inputStyle} text-center font-mono`}
                                             />
                                         </td>
-                                        <td className="p-1.5 sm:p-3 align-middle">
+                                        <td className="block md:table-cell p-1.5 sm:p-3 align-middle">
+                                            <span className="md:hidden block text-[10px] font-semibold uppercase tracking-wide text-slate-400 mb-1">{t.qtyUnit}</span>
                                             <div className="flex flex-col gap-2 items-center">
                                                 <div className="flex items-center gap-2 w-full">
                                                     {item.unit === 'bobine' ? (
@@ -454,7 +456,7 @@ const MaterialsList: React.FC<MaterialsListProps> = ({
                                                                     <input
                                                                         type="text"
                                                                         placeholder="Référence (ex: NM50, TEX25...)"
-                                                                        value={item.threadReference || ''}
+                                                                        value={String(item.threadReference || '')}
                                                                         onChange={(e) => updateMaterial(item.id, 'threadReference', e.target.value)}
                                                                         onFocus={() => setFocusedRefRow(item.id)}
                                                                         onBlur={() => setTimeout(() => setFocusedRefRow(null), 250)}
@@ -466,7 +468,7 @@ const MaterialsList: React.FC<MaterialsListProps> = ({
                                                                         {magasinData.filter(m => {
                                                                             const ref = (m.reference || '').toLowerCase();
                                                                             const nom = (m.nom || m.designation || '').toLowerCase();
-                                                                            const query = (item.threadReference || '').toLowerCase();
+                                                                            const query = String(item.threadReference || '').toLowerCase();
                                                                             return (ref.includes(query) || nom.includes(query)) && (m.categorie === 'fil' || !m.categorie);
                                                                         }).slice(0, 8).map(m => (
                                                                             <button
@@ -493,7 +495,7 @@ const MaterialsList: React.FC<MaterialsListProps> = ({
                                                                         {magasinData.filter(m => {
                                                                             const ref = (m.reference || '').toLowerCase();
                                                                             const nom = (m.nom || m.designation || '').toLowerCase();
-                                                                            const query = (item.threadReference || '').toLowerCase();
+                                                                            const query = String(item.threadReference || '').toLowerCase();
                                                                             return (ref.includes(query) || nom.includes(query)) && (m.categorie === 'fil' || !m.categorie);
                                                                         }).length === 0 && (
                                                                             <div className="px-2 py-2 text-[10px] text-slate-400 text-center">
@@ -508,7 +510,8 @@ const MaterialsList: React.FC<MaterialsListProps> = ({
                                                 )}
                                             </div>
                                         </td>
-                                        <td className="p-1.5 sm:p-3 align-middle text-right">
+                                        <td className="flex md:table-cell items-center justify-between border-t border-slate-100 md:border-0 mt-1 pt-2 md:mt-0 md:pt-3 p-1.5 sm:p-3 align-middle md:text-right">
+                                            <span className="md:hidden text-[10px] font-semibold uppercase tracking-wide text-slate-400">{t.total}</span>
                                             <div
                                                 className={`inline-flex items-center justify-end gap-1 text-[13px] font-semibold tabular-nums cursor-help ${darkMode ? 'text-slate-200' : 'text-slate-900'}`}
                                                 title={`${item.unitPrice} ${currency} × ${fmt(item.qty)} ${item.unit} = ${fmt(item.unitPrice * item.qty)} ${currency}`}
@@ -516,17 +519,18 @@ const MaterialsList: React.FC<MaterialsListProps> = ({
                                                 {fmt(item.unitPrice * item.qty)} <span className="text-[10px] font-normal text-slate-400">{currency}</span>
                                             </div>
                                         </td>
-                                        <td className="p-1.5 sm:p-3 align-middle text-center">
-                                            <button onClick={() => deleteMaterial(item.id)} className="p-1.5 sm:p-2 rounded-lg text-slate-400 hover:text-rose-500 hover:bg-rose-50 transition-all">
+                                        <td className="block md:table-cell p-1.5 sm:p-3 align-middle text-right md:text-center">
+                                            <button onClick={() => deleteMaterial(item.id)} className="inline-flex items-center gap-1 p-1.5 sm:p-2 rounded-lg text-slate-400 hover:text-rose-500 hover:bg-rose-50 transition-all">
                                                 <Trash2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                                                <span className="md:hidden text-[10px] font-semibold">Supprimer</span>
                                             </button>
                                         </td>
                                     </tr>
                                 );
                             })}
                             {materials.length === 0 && (
-                                <tr>
-                                    <td colSpan={5} className="p-12 text-center text-slate-400 text-sm font-medium">
+                                <tr className="block md:table-row">
+                                    <td colSpan={5} className="block md:table-cell p-12 text-center text-slate-400 text-sm font-medium">
                                         <div className="flex flex-col items-center gap-3">
                                             <Package className="w-12 h-12 opacity-20" />
                                             Aucune matière ajoutée pour ce modèle.<br />Cliquez sur <span className="text-indigo-600 font-bold">Ajouter Matière</span> ou recherchez dans le magasin.
@@ -535,17 +539,17 @@ const MaterialsList: React.FC<MaterialsListProps> = ({
                                 </tr>
                             )}
                         </tbody>
-                        <tfoot className={`border-t ${darkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-slate-50/60 border-slate-100 text-slate-800'}`}>
-                            <tr>
-                                <td colSpan={3} className="px-2 sm:px-4 py-2 sm:py-3 text-end text-[10px] sm:text-[11px] font-medium uppercase tracking-wide text-slate-500">
+                        <tfoot className={`block md:table-footer-group border-t ${darkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-slate-50/60 border-slate-100 text-slate-800'}`}>
+                            <tr className="flex md:table-row items-center justify-between">
+                                <td colSpan={3} className="block md:table-cell px-2 sm:px-4 py-2 sm:py-3 text-start md:text-end text-[10px] sm:text-[11px] font-medium uppercase tracking-wide text-slate-500">
                                     {t.totalMat || "Total Matière"}
                                 </td>
-                                <td className="px-2 sm:px-4 py-2 sm:py-3 text-right">
+                                <td className="block md:table-cell px-2 sm:px-4 py-2 sm:py-3 text-right">
                                     <span className="inline-flex items-center justify-end gap-1 text-[12px] sm:text-[14px] font-semibold tabular-nums text-slate-900">
                                         {fmt(totalMaterials)} <span className="text-[9px] sm:text-[10px] font-normal text-slate-400">{currency}</span>
                                     </span>
                                 </td>
-                                <td></td>
+                                <td className="hidden md:table-cell"></td>
                             </tr>
                         </tfoot>
                     </table>

@@ -71,6 +71,22 @@ export default function RepartitionMatrix({ data, setData, lang = 'fr', syncQuan
         }
     }, [syncQuantity, matrixStats.grandTotal, setData]);
 
+    // Nettoie les couleurs en double (même id) héritées d'anciens modèles. Les
+    // doublons partagent la même grille (clés `${id}_${taille}`), donc supprimer
+    // l'entrée redondante ne perd aucune quantité et corrige le total double-compté.
+    useEffect(() => {
+        setData(prev => {
+            const cols = prev.colors || [];
+            const seen = new Set<string>();
+            const deduped = cols.filter(c => {
+                if (seen.has(c.id)) return false;
+                seen.add(c.id);
+                return true;
+            });
+            return deduped.length === cols.length ? prev : { ...prev, colors: deduped };
+        });
+    }, [data.colors, setData]);
+
     const addSize = () => {
         if (!newSizeInput.trim()) return;
         const newSizes = newSizeInput.split(/[\s,]+/).filter(s => s.trim() !== '');
@@ -147,8 +163,9 @@ export default function RepartitionMatrix({ data, setData, lang = 'fr', syncQuan
     };
 
     const addVisualColor = (hex: string) => {
+        // Même hex = même couleur (id = hex) : on évite d'ajouter un doublon.
         const detectedName = hexToColorName(hex);
-        setColors(prev => [...prev, { id: hex, name: detectedName }]);
+        setColors(prev => prev.some(c => c.id === hex) ? prev : [...prev, { id: hex, name: detectedName }]);
     };
 
     const removeColor = (id: string) => {
@@ -270,8 +287,8 @@ export default function RepartitionMatrix({ data, setData, lang = 'fr', syncQuan
                                         </td>
                                     </tr>
                                 )}
-                                {colors.map((c) => (
-                                    <tr key={c.id} className="hover:bg-slate-50 group">
+                                {colors.map((c, cIdx) => (
+                                    <tr key={`${c.id}-${cIdx}`} className="hover:bg-slate-50 group">
                                         <td className="py-2 px-3 border-r border-slate-200 font-bold text-slate-700 flex justify-between items-center font-sans">
                                             <div className="flex items-center gap-2">
                                                 <div

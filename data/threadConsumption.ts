@@ -761,3 +761,122 @@ export function lookupChainetteSimple(fabricThicknessMm: number, stitchesPerCm: 
   );
   return entry?.consumptionPerMeter ?? null;
 }
+
+// ============================================================
+// 9. الطريقة التقريبية: مؤشرات استهلاك الخيط حسب نوع الموديل
+//    "Indices de la consommation de fil à coudre"
+//
+//    القاعدة:  Indice = Surfilage + Assemblage  (تقريبياً)
+//    الاستعمال: عندما لا تتوفر ڭامة مفصّلة، نقدّر استهلاك الخيط
+//    انطلاقاً من نوع الموديل (catégorie) فقط :
+//        Fil/Unité (م) = Indice          (متر خيط للقطعة الواحدة)
+// ============================================================
+
+export type GarmentSector = 'Homme' | 'Femme' | 'Lingerie' | 'Chaussures';
+
+export interface GarmentIndice {
+  key: string;
+  sector: GarmentSector;
+  /** التسمية بالفرنسية (كما في الورقة) */
+  name: string;
+  nameAr: string;
+  /** المؤشر الإجمالي (متر خيط للقطعة) */
+  indice: number;
+  /** المجال الأدنى/الأقصى حسب الموديل والجودة */
+  plageMin: number;
+  plageMax: number;
+  /** حصة خيط السوبراجي/التنظيف (null = غير معني) */
+  surfilage: number | null;
+  /** حصة خيط التجميع/التركيب/الزخرفة */
+  assemblage: number;
+  /** كلمات مفتاحية لمطابقة حقل `category` الحر القادم من الفيش التقنية */
+  keywords: string[];
+}
+
+export const GARMENT_INDICES: GarmentIndice[] = [
+  // --- Confection Homme ---
+  { key: 'H_PANTALON', sector: 'Homme', name: 'Pantalon ville / jean velours côtelé', nameAr: 'سروال مدينة / جينز قطيفة', indice: 300, plageMin: 250, plageMax: 350, surfilage: 170, assemblage: 130, keywords: ['pantalon homme', 'pantalon', 'velours', 'cotele', 'sroual'] },
+  { key: 'H_JEAN', sector: 'Homme', name: 'Blue jean en denim', nameAr: 'جينز دنيم', indice: 280, plageMin: 230, plageMax: 370, surfilage: 130, assemblage: 150, keywords: ['jean', 'denim', 'blue jean'] },
+  { key: 'H_VESTON', sector: 'Homme', name: 'Veston / blazer', nameAr: 'سترة / بليزر', indice: 190, plageMin: 170, plageMax: 240, surfilage: 45, assemblage: 145, keywords: ['veston', 'blazer', 'veste homme'] },
+  { key: 'H_GILET', sector: 'Homme', name: 'Gilet', nameAr: 'صدرية', indice: 70, plageMin: 57, plageMax: 80, surfilage: null, assemblage: 70, keywords: ['gilet'] },
+  { key: 'H_MANTEAU_HIVER', sector: 'Homme', name: "Manteau d'hiver", nameAr: 'معطف شتوي', indice: 265, plageMin: 250, plageMax: 285, surfilage: 60, assemblage: 205, keywords: ['manteau hiver homme', 'manteau hiver'] },
+  { key: 'H_MANTEAU_POPELINE', sector: 'Homme', name: 'Manteau en popeline', nameAr: 'معطف بوبلين', indice: 265, plageMin: 250, plageMax: 285, surfilage: 40, assemblage: 225, keywords: ['manteau popeline homme', 'manteau popeline', 'popeline'] },
+  { key: 'H_SHORT', sector: 'Homme', name: 'Short', nameAr: 'شورت', indice: 90, plageMin: 80, plageMax: 100, surfilage: 50, assemblage: 40, keywords: ['short'] },
+  { key: 'H_BLOUSE_TRAVAIL', sector: 'Homme', name: 'Blouse de travail', nameAr: 'بلوزة عمل', indice: 255, plageMin: 230, plageMax: 285, surfilage: 90, assemblage: 165, keywords: ['blouse travail', 'blouse de travail'] },
+  { key: 'H_BLEU_TRAVAIL', sector: 'Homme', name: 'Bleu de travail (2 pièces)', nameAr: 'بدلة عمل (قطعتان)', indice: 375, plageMin: 345, plageMax: 400, surfilage: 185, assemblage: 190, keywords: ['bleu de travail', 'bleu travail', 'combinaison'] },
+  { key: 'H_PANTALON_BAVETTE', sector: 'Homme', name: 'Pantalon à bavette', nameAr: 'سروال بصدرية', indice: 225, plageMin: 200, plageMax: 250, surfilage: 115, assemblage: 110, keywords: ['pantalon bavette', 'salopette'] },
+  { key: 'H_ANORAK', sector: 'Homme', name: 'Anorak / blouson', nameAr: 'أنوراك / بلوزون', indice: 210, plageMin: 170, plageMax: 250, surfilage: 40, assemblage: 170, keywords: ['anorak', 'blouson'] },
+  { key: 'H_PEIGNOIR', sector: 'Homme', name: 'Saut de lit / peignoir', nameAr: 'روب الحمام', indice: 210, plageMin: 170, plageMax: 250, surfilage: 110, assemblage: 100, keywords: ['peignoir', 'saut de lit'] },
+  { key: 'H_JOGGING', sector: 'Homme', name: 'Jogging', nameAr: 'جوغينغ', indice: 200, plageMin: 170, plageMax: 250, surfilage: 120, assemblage: 80, keywords: ['jogging', 'survetement', 'training'] },
+
+  // --- Confection Femme ---
+  { key: 'F_ROBE', sector: 'Femme', name: 'Robe (non doublée)', nameAr: 'فستان (بلا بطانة)', indice: 150, plageMin: 125, plageMax: 180, surfilage: 90, assemblage: 60, keywords: ['robe non doublee', 'robe'] },
+  { key: 'F_ROBE_DOUBLEE', sector: 'Femme', name: 'Robe (doublée)', nameAr: 'فستان (مبطّن)', indice: 195, plageMin: 160, plageMax: 255, surfilage: 100, assemblage: 95, keywords: ['robe doublee'] },
+  { key: 'F_JUPE', sector: 'Femme', name: 'Jupe (non doublée)', nameAr: 'تنورة (بلا بطانة)', indice: 100, plageMin: 80, plageMax: 125, surfilage: 60, assemblage: 40, keywords: ['jupe non doublee', 'jupe'] },
+  { key: 'F_JUPE_DOUBLEE', sector: 'Femme', name: 'Jupe (doublée)', nameAr: 'تنورة (مبطّنة)', indice: 175, plageMin: 140, plageMax: 230, surfilage: 50, assemblage: 125, keywords: ['jupe doublee'] },
+  { key: 'F_JAQUETTE', sector: 'Femme', name: 'Jaquette', nameAr: 'جاكيت', indice: 200, plageMin: 170, plageMax: 260, surfilage: 60, assemblage: 140, keywords: ['jaquette', 'veste femme'] },
+  { key: 'F_ENSEMBLE', sector: 'Femme', name: 'Ensemble (deux pièces)', nameAr: 'طقم (قطعتان)', indice: 400, plageMin: 310, plageMax: 490, surfilage: 135, assemblage: 265, keywords: ['ensemble', 'tailleur', 'deux pieces'] },
+  { key: 'F_PANTALON', sector: 'Femme', name: 'Pantalon femme', nameAr: 'سروال نسائي', indice: 240, plageMin: 170, plageMax: 290, surfilage: 130, assemblage: 110, keywords: ['pantalon femme'] },
+  { key: 'F_MANTEAU_POPELINE', sector: 'Femme', name: 'Manteau en popeline (femme)', nameAr: 'معطف بوبلين نسائي', indice: 285, plageMin: 250, plageMax: 370, surfilage: 45, assemblage: 240, keywords: ['manteau popeline femme'] },
+  { key: 'F_MANTEAU_HIVER', sector: 'Femme', name: "Manteau d'hiver (femme)", nameAr: 'معطف شتوي نسائي', indice: 285, plageMin: 250, plageMax: 370, surfilage: 45, assemblage: 240, keywords: ['manteau hiver femme'] },
+  { key: 'F_BLOUSE_TRAVAIL', sector: 'Femme', name: 'Blouse de travail (femme)', nameAr: 'بلوزة عمل نسائية', indice: 225, plageMin: 170, plageMax: 280, surfilage: 75, assemblage: 150, keywords: ['blouse travail femme'] },
+  { key: 'F_CHEMISIER', sector: 'Femme', name: 'Chemisier', nameAr: 'بلوزة نسائية', indice: 110, plageMin: 80, plageMax: 140, surfilage: 60, assemblage: 50, keywords: ['chemisier'] },
+  { key: 'F_MAILLOT_BAIN', sector: 'Femme', name: 'Maillot de bain', nameAr: 'لباس سباحة', indice: 120, plageMin: 100, plageMax: 140, surfilage: 70, assemblage: 50, keywords: ['maillot de bain', 'maillot bain', 'bikini'] },
+  { key: 'F_PYJAMA_INTERIEUR', sector: 'Femme', name: "Pyjama d'intérieur", nameAr: 'بيجامة داخلية', indice: 200, plageMin: 170, plageMax: 250, surfilage: 100, assemblage: 100, keywords: ['pyjama interieur'] },
+
+  // --- Lingerie ---
+  { key: 'L_CHEMISE_HOMME', sector: 'Lingerie', name: 'Chemise homme (manches longues)', nameAr: 'قميص رجالي (أكمام طويلة)', indice: 125, plageMin: 115, plageMax: 150, surfilage: 80, assemblage: 45, keywords: ['chemise homme', 'chemise', 'manches longues'] },
+  { key: 'L_TEE_SHIRT', sector: 'Lingerie', name: 'Maillot de corps / tee-shirt', nameAr: 'فانيلة / تيشيرت', indice: 80, plageMin: 70, plageMax: 90, surfilage: 65, assemblage: 15, keywords: ['tee-shirt', 'tee shirt', 't-shirt', 'tshirt', 'maillot de corps'] },
+  { key: 'L_SLIP', sector: 'Lingerie', name: 'Slip femme et homme', nameAr: 'سليب', indice: 100, plageMin: 80, plageMax: 100, surfilage: 80, assemblage: 20, keywords: ['slip'] },
+  { key: 'L_CULOTTE', sector: 'Lingerie', name: 'Culotte', nameAr: 'كيلوت', indice: 100, plageMin: 80, plageMax: 120, surfilage: 80, assemblage: 20, keywords: ['culotte'] },
+  { key: 'L_SOUTIEN_GORGE', sector: 'Lingerie', name: 'Soutien-gorge', nameAr: 'حمالة صدر', indice: 55, plageMin: 40, plageMax: 80, surfilage: 20, assemblage: 35, keywords: ['soutien-gorge', 'soutien gorge', 'brassiere'] },
+  { key: 'L_PYJAMA', sector: 'Lingerie', name: 'Pyjama', nameAr: 'بيجامة', indice: 200, plageMin: 170, plageMax: 200, surfilage: 120, assemblage: 80, keywords: ['pyjama'] },
+  { key: 'L_CHEMISE_NUIT', sector: 'Lingerie', name: 'Chemise de nuit', nameAr: 'قميص نوم', indice: 150, plageMin: 130, plageMax: 190, surfilage: 100, assemblage: 50, keywords: ['chemise de nuit', 'nuisette'] },
+
+  // --- Chaussures (montage = indice) ---
+  { key: 'C_VILLE_H_ELEG', sector: 'Chaussures', name: 'Chaussures ville homme élégantes', nameAr: 'حذاء مدينة رجالي أنيق', indice: 21, plageMin: 17, plageMax: 28, surfilage: null, assemblage: 21, keywords: ['chaussures ville homme elegantes', 'chaussure homme'] },
+  { key: 'C_VILLE_H_SPORT', sector: 'Chaussures', name: 'Chaussures ville homme sport', nameAr: 'حذاء رياضي رجالي', indice: 26, plageMin: 23, plageMax: 30, surfilage: null, assemblage: 26, keywords: ['chaussures homme sport'] },
+  { key: 'C_BOTTINES_H', sector: 'Chaussures', name: 'Bottines homme', nameAr: 'حذاء برقبة رجالي', indice: 33, plageMin: 28, plageMax: 40, surfilage: null, assemblage: 33, keywords: ['bottines homme', 'bottine'] },
+  { key: 'C_VILLE_F_ELEG', sector: 'Chaussures', name: 'Chaussures ville femme élégantes', nameAr: 'حذاء مدينة نسائي أنيق', indice: 26, plageMin: 23, plageMax: 30, surfilage: null, assemblage: 26, keywords: ['chaussures femme elegantes', 'chaussure femme'] },
+  { key: 'C_VILLE_F_SPORT', sector: 'Chaussures', name: 'Chaussures ville femme sport', nameAr: 'حذاء رياضي نسائي', indice: 26, plageMin: 23, plageMax: 30, surfilage: null, assemblage: 26, keywords: ['chaussures femme sport'] },
+  { key: 'C_BOTTINES_F', sector: 'Chaussures', name: 'Bottines femme', nameAr: 'حذاء برقبة نسائي', indice: 33, plageMin: 25, plageMax: 45, surfilage: null, assemblage: 33, keywords: ['bottines femme'] },
+];
+
+/** تطبيع نص: حروف صغيرة، بلا تشكيل/لكنات، مسافات موحّدة */
+function normalizeGarmentText(s: string): string {
+  return (s || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/**
+ * يربط حقل `category` الحر (القادم من الفيش التقنية) بأقرب صنف في الجدول.
+ * يرجّع null إذا لم يجد مطابقة كافية — عندها يختار المستخدم يدوياً.
+ */
+export function findGarmentIndice(category: string | undefined | null): GarmentIndice | null {
+  const norm = normalizeGarmentText(category || '');
+  if (!norm) return null;
+
+  let best: GarmentIndice | null = null;
+  let bestScore = 0;
+  for (const g of GARMENT_INDICES) {
+    for (const kw of g.keywords) {
+      const k = normalizeGarmentText(kw);
+      if (!k) continue;
+      // مطابقة في الاتجاهين: الفئة تحتوي الكلمة المفتاحية أو العكس
+      if (norm.includes(k) || k.includes(norm)) {
+        // أطول كلمة مفتاحية مطابقة = أدقّ (مثلاً "pantalon femme" قبل "pantalon")
+        const score = k.length;
+        if (score > bestScore) {
+          bestScore = score;
+          best = g;
+        }
+      }
+    }
+  }
+  return best;
+}

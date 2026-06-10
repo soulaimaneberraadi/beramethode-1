@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Banknote, Receipt, LayoutTemplate, FileSpreadsheet, FileDown, Printer, Clock, FileText, PieChart as PieChartIcon, SlidersHorizontal, ClipboardList, Scissors, Trash2, Check, AlertTriangle } from 'lucide-react';
+import { Banknote, Receipt, LayoutTemplate, FileSpreadsheet, FileDown, Printer, Clock, FileText, PieChart as PieChartIcon, SlidersHorizontal, Scissors, Trash2, Check, AlertTriangle } from 'lucide-react';
 import { Material, AppSettings, PdfSettings, FicheData, PurchasingData } from '../types';
 import { translations, fmt } from '../constants';
 import { PieChart, Pie, Cell, Tooltip as RechartsTooltip, Legend } from 'recharts';
@@ -12,7 +12,6 @@ import SettingsPanel from './SettingsPanel';
 import PdfSettingsModal from './PdfSettingsModal';
 import TicketView from './TicketView';
 import A4DocumentView from './A4DocumentView';
-import OrderModelPage from './OrderModelPage';
 import ThreadCalculator from './ThreadCalculator';
 import { Operation } from '../types';
 
@@ -48,7 +47,6 @@ export default function CostCalculator({
     const currency = initialPropsSettings?.currency || 'DH';
     const darkMode = false;
     const [viewMode, setViewMode] = useState<'ticket' | 'a4'>('a4'); // Default to A4 as requested
-    const [costPage, setCostPage] = useState<'calculator' | 'orderModel'>('calculator');
     const docRefA4 = useRef<HTMLDivElement>(null);
 
     // --- PDF Settings State ---
@@ -59,6 +57,15 @@ export default function CostCalculator({
         orientation: 'portrait',
         colorMode: 'color',
         scale: 1
+    });
+
+    // Sections visibles dans la fiche PDF (l'utilisateur masque ce qu'il ne veut pas).
+    const [pdfSections, setPdfSections] = useState({
+        info: true,
+        nomenclature: true,
+        pricing: true,
+        order: true,
+        notes: true,
     });
 
     // --- Editable Fields for Document ---
@@ -231,8 +238,49 @@ export default function CostCalculator({
     const sellPriceTTC = sellPriceHT * (1 + settings.tva / 100);
     const boutiquePrice = sellPriceTTC * (1 + settings.marginBoutique / 100);
 
+    // Quantité réelle de la commande = somme de la grille (couleurs × tailles),
+    // sinon la quantité du modèle. C'est elle qui pilote « Estimation des Besoins ».
+    const commandeQty = useMemo(() => {
+        const gq = ficheData.gridQuantities || {};
+        const total = Object.values(gq).reduce((acc: number, v) => acc + (Number(v) || 0), 0);
+        return total > 0 ? total : (ficheData.quantity || 0);
+    }, [ficheData.gridQuantities, ficheData.quantity]);
+
+    // Quantité par couleur (nom de couleur → nb de pièces) pour ventiler les fils :
+    // un fil ne se consomme que sur les pièces de SA couleur, pas sur toute la commande.
+    const colorQtyByName = useMemo(() => {
+        const gq = ficheData.gridQuantities || {};
+        const cols = ficheData.colors || [];
+        const sizeCount = (ficheData.sizes || []).length;
+        const map: Record<string, number> = {};
+        const seen = new Set<string>();
+        cols.forEach(c => {
+            // Ignore les couleurs en double (même id → même grille) pour ne pas
+            // compter deux fois la même quantité de fil.
+            if (seen.has(c.id)) return;
+            seen.add(c.id);
+            let sum = 0;
+            for (let s = 0; s < sizeCount; s++) sum += Number(gq[`${c.id}_${s}`] || 0);
+            if (c.name) map[c.name] = (map[c.name] || 0) + sum;
+        });
+        return map;
+    }, [ficheData.gridQuantities, ficheData.colors, ficheData.sizes]);
+
+    // Par défaut, la simulation d'achat reflète la quantité réelle de la commande.
+    // L'utilisateur peut toujours la modifier pour simuler une autre quantité.
+    useEffect(() => {
+        if (commandeQty > 0) setOrderQty(commandeQty);
+    }, [commandeQty]);
+
     const purchasingData = materials.map(m => {
-        const totalRaw = m.qty * orderQty;
+        // Un fil suit la quantité de SA couleur ; les autres matières suivent la
+        // quantité totale de la commande. Si l'utilisateur simule une autre quantité
+        // (orderQty ≠ commande), la ventilation des fils reste proportionnelle.
+        const colorQty = m.threadColor ? (colorQtyByName[m.threadColor] || 0) : 0;
+        const baseQty = colorQty > 0
+            ? (commandeQty > 0 ? colorQty * (orderQty / commandeQty) : colorQty)
+            : orderQty;
+        const totalRaw = m.qty * baseQty;
         const totalWithWaste = totalRaw * (1 + wasteRate / 100);
         const qtyToBuy = (m.unit === 'bobine' || m.unit === 'pc') ? Math.ceil(totalWithWaste) : parseFloat(totalWithWaste.toFixed(2));
         const lineCost = isExport ? 0 : qtyToBuy * m.unitPrice;
@@ -490,9 +538,11 @@ export default function CostCalculator({
                 isGeneratingPdf={isGeneratingPdf} isLibLoaded={isLibLoaded}
                 pdfSettings={pdfSettings} setPdfSettings={setPdfSettings}
                 generatePDF={generatePDF}
+                pdfSections={pdfSections} setPdfSections={setPdfSections}
             >
                 <A4DocumentView
                     ref={null}
+                    sections={pdfSections}
                     t={t} currency={currency} darkMode={false}
                     productName={productName} displayDate={displayDate} setDisplayDate={setDisplayDate}
                     docRef={docRef} setDocRef={setDocRef}
@@ -543,52 +593,11 @@ export default function CostCalculator({
                         </div>
                     )}
 
-                    {/* أمر الإنتاج Button */}
-                    <button
-                        onClick={() => setCostPage(costPage === 'orderModel' ? 'calculator' : 'orderModel')}
-                        className={`inline-flex items-center gap-1 sm:gap-1.5 h-7 sm:h-8 px-2 sm:px-3 text-[11px] sm:text-[12px] rounded-md font-medium transition-colors border ${costPage === 'orderModel'
-                            ? 'bg-slate-900 text-white border-slate-900 hover:bg-slate-800'
-                            : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50 hover:text-slate-900'
-                            }`}
-                    >
-                        <ClipboardList className="w-3 h-3 sm:w-3.5 sm:h-3.5" strokeWidth={1.75} /> أمر الإنتاج
-                    </button>
                 </div>
             </div>
 
-            {/* ── COST PAGE: ORDER MODEL ── */}
-            {costPage === 'orderModel' && (
-                <OrderModelPage
-                    productName={productName}
-                    productImage={productImage}
-                    displayDate={displayDate}
-                    currency={currency}
-                    materials={materials}
-                    addMaterial={addMaterial}
-                    updateMaterial={updateMaterial}
-                    deleteMaterial={deleteMaterial}
-                    totalMaterials={totalMaterials}
-                    wasteRate={wasteRate}
-                    setWasteRate={setWasteRate}
-                    purchasingData={purchasingData}
-                    totalPurchasingMatCost={totalPurchasingMatCost}
-                    laborCost={laborCost}
-                    costPrice={costPrice}
-                    sellPriceHT={sellPriceHT}
-                    sellPriceTTC={sellPriceTTC}
-                    boutiquePrice={boutiquePrice}
-                    totalTime={totalTime}
-                    baseTime={baseTime}
-                    settings={settings}
-                    ficheData={ficheData}
-                    setFicheData={setFicheData}
-                    deductStock={deductStock}
-                />
-            )}
-
-            {/* ── COST PAGE: CALCULATOR (original) ── */}
-            {costPage === 'calculator' && (
-                <div className="w-full mx-auto space-y-8">
+            {/* ── FICHE DE COÛT (page unique) ── */}
+            <div className="w-full mx-auto space-y-8">
                     <div className="space-y-6 print:hidden">
                         <ModelInfo
                             t={t} currency={currency} darkMode={darkMode}
@@ -757,6 +766,7 @@ export default function CostCalculator({
                                             docNotes={docNotes} setDocNotes={setDocNotes}
                                             isRTL={false}
                                             isExport={isExport}
+                                            sections={pdfSections}
                                         />
                                     </div>
                                 </>
@@ -764,7 +774,6 @@ export default function CostCalculator({
                         </div>
                     </div>
                 </div>
-            )}
 
             {/* Confirm Modal */}
             {confirmDialog.isOpen && (
@@ -819,6 +828,7 @@ export default function CostCalculator({
                     orderQty={orderQty || ficheData.quantity || 1}
                     colors={ficheData.colors}
                     gridQuantities={ficheData.gridQuantities}
+                    modelCategory={ficheData.category}
                     onApply={applyThreadMaterials}
                     onClose={() => setShowThreadCalc(false)}
                 />

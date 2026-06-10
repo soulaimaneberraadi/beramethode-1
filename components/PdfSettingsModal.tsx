@@ -12,12 +12,15 @@ interface PdfSettingsModalProps {
     pdfSettings: PdfSettings;
     setPdfSettings: React.Dispatch<React.SetStateAction<PdfSettings>>;
     generatePDF: (action: 'save' | 'preview') => void;
+    pdfSections?: { info: boolean; nomenclature: boolean; pricing: boolean; order: boolean; notes: boolean };
+    setPdfSections?: React.Dispatch<React.SetStateAction<{ info: boolean; nomenclature: boolean; pricing: boolean; order: boolean; notes: boolean }>>;
     children: React.ReactNode;
 }
 
 const PdfSettingsModal: React.FC<PdfSettingsModalProps> = ({
     t, darkMode, showPdfModal, setShowPdfModal,
     isGeneratingPdf, isLibLoaded, pdfSettings, setPdfSettings, generatePDF,
+    pdfSections, setPdfSections,
     children
 }) => {
     const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
@@ -34,8 +37,17 @@ const PdfSettingsModal: React.FC<PdfSettingsModalProps> = ({
             }
         };
         updateSize();
+        // Le conteneur peut avoir une taille 0 au premier rendu (animation/layout) :
+        // un ResizeObserver garantit une mise à l'échelle correcte dès qu'il est mesuré.
+        const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(updateSize) : null;
+        if (ro && containerRef.current) ro.observe(containerRef.current);
+        const raf = requestAnimationFrame(updateSize);
         window.addEventListener('resize', updateSize);
-        return () => window.removeEventListener('resize', updateSize);
+        return () => {
+            window.removeEventListener('resize', updateSize);
+            cancelAnimationFrame(raf);
+            if (ro) ro.disconnect();
+        };
     }, [showPdfModal]);
 
     if (!showPdfModal) return null;
@@ -47,9 +59,12 @@ const PdfSettingsModal: React.FC<PdfSettingsModalProps> = ({
     const padding = 40;
     const availableWidth = containerSize.width - padding * 2;
     const availableHeight = containerSize.height - padding * 2;
-    const scaleX = availableWidth / paperWidth;
-    const scaleY = availableHeight / paperHeight;
-    const fitScale = Math.min(scaleX, scaleY, 1);
+    // Avant la première mesure du conteneur, on utilise une échelle de repli pour
+    // éviter un aperçu invisible (taille 0 → échelle négative).
+    const measured = availableWidth > 0 && availableHeight > 0;
+    const fitScale = measured
+        ? Math.min(availableWidth / paperWidth, availableHeight / paperHeight, 1)
+        : 0.62;
     const displayScale = fitScale * pdfSettings.scale;
 
     return (
@@ -194,6 +209,36 @@ const PdfSettingsModal: React.FC<PdfSettingsModalProps> = ({
                                 </button>
                             </div>
                         </section>
+
+                        {/* SECTIONS À AFFICHER */}
+                        {pdfSections && setPdfSections && (
+                            <section>
+                                <label className={`block text-[10px] font-bold uppercase tracking-wider mb-2 ${darkMode ? 'text-gray-500' : 'text-slate-500'}`}>
+                                    Sections à afficher
+                                </label>
+                                <div className="space-y-1.5">
+                                    {([
+                                        ['info', 'Infos modèle & image'],
+                                        ['nomenclature', 'Nomenclature (matières)'],
+                                        ['pricing', 'Prix & marges'],
+                                        ['order', 'Besoins commande'],
+                                        ['notes', 'Notes & signatures'],
+                                    ] as const).map(([key, label]) => (
+                                        <label key={key} className="flex items-center justify-between gap-2 cursor-pointer select-none">
+                                            <span className={`text-[11px] font-medium ${darkMode ? 'text-gray-300' : 'text-slate-600'}`}>{label}</span>
+                                            <button
+                                                type="button"
+                                                onClick={() => setPdfSections(p => ({ ...p, [key]: !p[key] }))}
+                                                className={`relative w-8 h-4 rounded-full transition-colors shrink-0 ${pdfSections[key] ? 'bg-blue-500' : darkMode ? 'bg-gray-600' : 'bg-slate-300'}`}
+                                                aria-pressed={pdfSections[key]}
+                                            >
+                                                <span className={`absolute top-0.5 w-3 h-3 rounded-full bg-white shadow transition-all ${pdfSections[key] ? 'left-[18px]' : 'left-0.5'}`} />
+                                            </button>
+                                        </label>
+                                    ))}
+                                </div>
+                            </section>
+                        )}
 
                         {/* INFO CARD */}
                         <section className={`p-3 rounded-lg ${darkMode ? 'bg-blue-900/20 border border-blue-800/30' : 'bg-blue-50 border border-blue-100'}`}>

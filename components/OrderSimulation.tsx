@@ -147,9 +147,9 @@ const OrderSimulation: React.FC<OrderSimulationProps> = ({
                     <div className={`px-4 h-9 flex items-center text-[11px] font-medium uppercase tracking-wide border-b ${darkMode ? 'bg-gray-800 text-slate-400 border-gray-700' : 'bg-slate-50/60 text-slate-500 border-slate-100'}`}>
                         Détail des Achats (Matière Première)
                     </div>
-                    <div className="overflow-x-auto">
-                    <table className="w-full min-w-[600px] text-[13px]">
-                        <thead className={`${darkMode ? 'bg-gray-800 text-gray-400' : 'bg-white text-slate-500'} font-medium border-b ${darkMode ? 'border-gray-700' : 'border-slate-100'} text-[11px] uppercase tracking-wide`}>
+                    <div className="md:overflow-x-auto">
+                    <table className="w-full block md:table text-[13px]">
+                        <thead className={`hidden md:table-header-group ${darkMode ? 'bg-gray-800 text-gray-400' : 'bg-white text-slate-500'} font-medium border-b ${darkMode ? 'border-gray-700' : 'border-slate-100'} text-[11px] uppercase tracking-wide`}>
                             <tr>
                                 <th className="px-4 py-2.5 text-left font-medium">{t.matName}</th>
                                 <th className="px-4 py-2.5 text-center font-medium">{t.price}</th>
@@ -160,7 +160,7 @@ const OrderSimulation: React.FC<OrderSimulationProps> = ({
                                 <th className="px-4 py-2.5 text-right font-medium text-slate-700 border-l border-slate-100">{t.total}</th>
                             </tr>
                         </thead>
-                        <tbody className={`divide-y text-xs ${darkMode ? 'divide-gray-800' : 'divide-slate-100'}`}>
+                        <tbody className={`block md:table-row-group md:divide-y text-xs ${darkMode ? 'divide-gray-800' : 'divide-slate-100'}`}>
                             {purchasingData.map((m) => {
                                 const mItem = magasinData.find(x => x.nom === m.name || x.designation === m.name);
                                 const originalStockActuel = mItem ? (mItem.stockActuel || 0) : 0;
@@ -177,61 +177,72 @@ const OrderSimulation: React.FC<OrderSimulationProps> = ({
 
                                 return (
                                     <React.Fragment key={m.id}>
-                                        <tr className={`${darkMode ? 'hover:bg-gray-800' : 'hover:bg-indigo-50/30'} transition-colors ${rowSubs.length > 0 ? 'bg-indigo-50/10' : ''}`}>
-                                            <td className={`px-4 py-3 font-medium ${textPrimary}`}>
+                                        <tr className={`block md:table-row border border-slate-200 rounded-xl mb-3 p-2 md:p-0 md:mb-0 md:border-0 md:rounded-none ${darkMode ? 'hover:bg-gray-800' : 'hover:bg-indigo-50/30'} transition-colors ${rowSubs.length > 0 ? 'md:bg-indigo-50/10' : ''}`}>
+                                            <td className={`block md:table-cell px-4 py-2 md:py-3 font-semibold md:font-medium text-[13px] md:text-xs ${textPrimary}`}>
                                                 {m.name}
                                                 {m.unit === 'bobine' && <span className="text-[10px] text-slate-400 block font-normal">({m.threadMeters}m / bobine)</span>}
                                             </td>
-                                            <td className={`px-4 py-3 text-center ${textSecondary}`}>{isExport ? '0 (Fourni)' : `${m.unitPrice} ${currency}`}</td>
-                                            <td className={`px-4 py-3 text-center ${textSecondary}`}>
+                                            <td className={`flex md:table-cell items-center justify-between px-4 py-1.5 md:py-3 md:text-center ${textSecondary}`}>
+                                                <span className="md:hidden text-[10px] font-semibold uppercase tracking-wide text-slate-400">{t.price}</span>
+                                                <span>{isExport ? '0 (Fourni)' : `${m.unitPrice} ${currency}`}</span>
+                                            </td>
+                                            <td className={`flex md:table-cell items-center justify-between px-4 py-1.5 md:py-3 md:text-center ${textSecondary}`}>
+                                                <span className="md:hidden text-[10px] font-semibold uppercase tracking-wide text-slate-400">Besoin Total</span>
                                                 <span title={`(${m.qty} × ${orderQty}) + ${wasteRate}%`} className="font-bold">
                                                     {fmt(m.qtyToBuy)} {m.unit}
                                                 </span>
                                             </td>
-                                            <td className={`px-4 py-3 text-center border-l ${originalStockActuel > 0 ? 'text-emerald-600' : 'text-slate-400'} font-bold bg-slate-50/30`}>
-                                                {fmt(originalStockActuel)} {m.unit}
+                                            <td className={`flex md:table-cell items-center justify-between px-4 py-1.5 md:py-3 md:text-center md:border-l ${originalStockActuel > 0 ? 'text-emerald-600' : 'text-slate-400'} font-bold md:bg-slate-50/30`}>
+                                                <span className="md:hidden text-[10px] font-semibold uppercase tracking-wide text-slate-400">En Stock</span>
+                                                <span>{fmt(originalStockActuel)} {m.unit}</span>
                                             </td>
-                                            <td className={`px-4 py-3 text-center font-bold bg-slate-50/30 ${hasAlert ? 'text-rose-600' : 'text-slate-300'}`}>
-                                                <div className="flex flex-col items-center justify-center gap-1">
+                                            <td className={`flex md:table-cell items-center justify-between px-4 py-1.5 md:py-3 md:text-center font-bold md:bg-slate-50/30 ${hasAlert ? 'text-rose-600' : 'text-slate-300'}`}>
+                                                <span className="md:hidden text-[10px] font-semibold uppercase tracking-wide text-slate-400">Manque</span>
+                                                <div className="flex flex-row md:flex-col items-center justify-end md:justify-center gap-1">
                                                     <div className="flex items-center gap-1">
                                                         {hasAlert && <AlertTriangle className="w-3 h-3" />}
                                                         {fmt(manque)} {m.unit}
                                                     </div>
                                                     {hasAlert && (
-                                                        <button onClick={() => setSubModal({ open: true, matId: m.id, matName: m.name, manque })} className="mt-0.5 text-[9px] px-1.5 py-0.5 bg-rose-100 text-rose-700 rounded hover:bg-rose-200 uppercase tracking-widest font-black transition-colors active:scale-95 shadow-sm">
+                                                        <button onClick={() => setSubModal({ open: true, matId: m.id, matName: m.name, manque })} className="md:mt-0.5 text-[9px] px-1.5 py-0.5 bg-rose-100 text-rose-700 rounded hover:bg-rose-200 uppercase tracking-widest font-black transition-colors active:scale-95 shadow-sm">
                                                             + Substitut
                                                         </button>
                                                     )}
                                                 </div>
                                             </td>
-                                            <td className={`px-4 py-3 text-center bg-slate-50/30`}>
+                                            <td className={`flex md:table-cell items-center justify-between px-4 py-1.5 md:py-3 md:text-center md:bg-slate-50/30`}>
+                                                <span className="md:hidden text-[10px] font-semibold uppercase tracking-wide text-slate-400">Fournisseur</span>
                                                 {fournisseur ? (
-                                                    <div className="flex flex-col items-center">
+                                                    <div className="flex flex-row md:flex-col items-center gap-1">
                                                         <span className="text-[10px] font-bold bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded uppercase tracking-wider">{fournisseur}</span>
-                                                        {delai != null && <span className="text-[10px] text-slate-500 flex items-center gap-1 mt-1"><Truck className="w-3 h-3" /> {delai} jours</span>}
+                                                        {delai != null && <span className="text-[10px] text-slate-500 flex items-center gap-1 md:mt-1"><Truck className="w-3 h-3" /> {delai} jours</span>}
                                                     </div>
                                                 ) : (
                                                     <span className="text-[10px] text-slate-400">—</span>
                                                 )}
                                             </td>
-                                            <td className={`px-4 py-3 text-right font-bold ${textPrimary} border-l`}>
+                                            <td className={`flex md:table-cell items-center justify-between px-4 py-1.5 md:py-3 mt-1 pt-2 md:mt-0 md:pt-3 border-t md:border-t-0 border-slate-100 md:text-right font-bold ${textPrimary} md:border-l`}>
+                                                <span className="md:hidden text-[10px] font-semibold uppercase tracking-wide text-slate-400">{t.total}</span>
                                                 <div className="flex items-center justify-end gap-1 cursor-help" title={isExport ? "Fourni par le client (0 DH)" : `${m.qtyToBuy} × ${m.unitPrice} = ${fmt(m.lineCost)}`}>
                                                     {isExport ? 0 : fmt(m.lineCost)} {currency}
                                                 </div>
                                             </td>
                                         </tr>
                                         {rowSubs.map((sub, idx) => (
-                                            <tr key={`${m.id}-sub-${idx}`} className="bg-amber-50/60 border-t border-dashed border-amber-200">
-                                                <td className="px-4 py-2 text-[11px] text-amber-800 px-4 flex items-center gap-2 font-bold">
-                                                    <div className="w-3 h-3 border-l-2 border-b-2 border-amber-400 ml-4 rounded-bl"></div>
+                                            <tr key={`${m.id}-sub-${idx}`} className="block md:table-row bg-amber-50/60 border border-dashed md:border-0 md:border-t border-amber-200 rounded-xl md:rounded-none mb-3 md:mb-0 p-2 md:p-0">
+                                                <td className="block md:table-cell px-4 py-2 text-[11px] text-amber-800 flex items-center gap-2 font-bold">
+                                                    <div className="w-3 h-3 border-l-2 border-b-2 border-amber-400 md:ml-4 rounded-bl"></div>
                                                     Substitut: {sub.subName}
                                                 </td>
-                                                <td className="px-4 py-2 text-center text-amber-600/70">—</td>
-                                                <td className="px-4 py-2 text-center font-bold text-amber-600">+{fmt(sub.qty)} {m.unit}</td>
-                                                <td className="px-4 py-2 border-l bg-slate-50/10"></td>
-                                                <td className="px-4 py-2 bg-slate-50/10"></td>
-                                                <td className="px-4 py-2 bg-slate-50/10"></td>
-                                                <td className="px-4 py-2 border-l text-right">
+                                                <td className="hidden md:table-cell px-4 py-2 text-center text-amber-600/70">—</td>
+                                                <td className="flex md:table-cell items-center justify-between px-4 py-1.5 md:py-2 md:text-center font-bold text-amber-600">
+                                                    <span className="md:hidden text-[10px] font-semibold uppercase tracking-wide text-amber-700/60">Besoin Total</span>
+                                                    <span>+{fmt(sub.qty)} {m.unit}</span>
+                                                </td>
+                                                <td className="hidden md:table-cell px-4 py-2 border-l bg-slate-50/10"></td>
+                                                <td className="hidden md:table-cell px-4 py-2 bg-slate-50/10"></td>
+                                                <td className="hidden md:table-cell px-4 py-2 bg-slate-50/10"></td>
+                                                <td className="flex md:table-cell items-center justify-end px-4 py-1.5 md:py-2 md:border-l md:text-right">
                                                     <button onClick={() => setSubstitutes(prev => prev.filter(x => x !== sub))} className="text-[10px] font-bold text-rose-500 hover:text-rose-700 px-2 py-0.5 bg-rose-50 hover:bg-rose-100 rounded transition-colors shadow-sm">Retirer</button>
                                                 </td>
                                             </tr>

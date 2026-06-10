@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import { Settings, Clock, Calendar, Coins, Users, Shield, Save, Building, Plus, Trash2, CheckCircle, ListTodo, CalendarClock, AlertTriangle, Check, X, SkipForward, Factory, Zap } from 'lucide-react';
+import { Settings, Clock, Calendar, Coins, Users, Shield, Save, Building, Plus, Trash2, CheckCircle, ListTodo, CalendarClock, AlertTriangle, Check, X, SkipForward, Factory, Zap, ChevronDown } from 'lucide-react';
 import { AppSettings, AppTask, Machine } from '../types';
 import { isMachineOperational } from '../utils/machineMatch';
 import AgendaModal from './AgendaModal';
@@ -195,6 +195,10 @@ export default function Configuration({ settings, setSettings, lang, machines, n
     const t = TRANSLATIONS[lang];
     const [showSaveToast, setShowSaveToast] = useState(false);
     const [showAgenda, setShowAgenda] = useState(false);
+
+    // Sections repliables (mobile/tablette < xl) — repliées par défaut, toujours ouvertes en desktop (xl)
+    const [openSec, setOpenSec] = useState<Record<string, boolean>>({});
+    const toggleSec = (k: string) => setOpenSec(prev => ({ ...prev, [k]: !prev[k] }));
     const [sageR, setSageR] = useState(15);
     const [sageW, setSageW] = useState('06:00');
     const [sageA, setSageA] = useState(true);
@@ -434,11 +438,12 @@ export default function Configuration({ settings, setSettings, lang, machines, n
                 <div className="space-y-6">
                     {/* General Settings */}
                     <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden flex flex-col">
-                        <div className="px-5 py-4 bg-slate-50 border-b border-slate-100 flex items-center gap-2">
+                        <div onClick={() => toggleSec('gen')} className={`px-5 py-4 bg-slate-50 flex items-center gap-2 cursor-pointer select-none ${openSec['gen'] ? 'border-b border-slate-100' : ''}`}>
                             <Building className="w-5 h-5 text-slate-500" />
                             <h2 className="font-bold text-slate-800">{t.general}</h2>
+                            <ChevronDown className={`w-5 h-5 text-slate-400 ml-auto shrink-0 transition-transform ${openSec['gen'] ? 'rotate-180' : ''}`} />
                         </div>
-                        <div className="p-5 space-y-6 flex-1">
+                        <div className={`p-5 space-y-6 flex-1 ${openSec['gen'] ? '' : 'hidden'}`}>
                             <div>
                                 <label className="block text-xs font-bold uppercase text-slate-500 mb-2">{t.currency}</label>
                                 <select name="currency" value={settings.currency} onChange={handleChange} className="w-full bg-slate-50 border-2 border-slate-200 rounded-xl px-4 py-3 outline-none focus:border-indigo-500 font-bold text-slate-700 transition-all cursor-pointer">
@@ -465,11 +470,12 @@ export default function Configuration({ settings, setSettings, lang, machines, n
                     </div>
 
                     <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden flex flex-col">
-                        <div className="px-5 py-4 bg-slate-50 border-b border-slate-100 flex items-center gap-2">
+                        <div onClick={() => toggleSec('rh')} className={`px-5 py-4 bg-slate-50 flex items-center gap-2 cursor-pointer select-none ${openSec['rh'] ? 'border-b border-slate-100' : ''}`}>
                             <Users className="w-5 h-5 text-slate-500" />
                             <h2 className="font-bold text-slate-800">{t.rhComptaTitle}</h2>
+                            <ChevronDown className={`w-5 h-5 text-slate-400 ml-auto shrink-0 transition-transform ${openSec['rh'] ? 'rotate-180' : ''}`} />
                         </div>
-                        <div className="p-5 space-y-4">
+                        <div className={`p-5 space-y-4 ${openSec['rh'] ? '' : 'hidden'}`}>
                             <label className="flex items-start gap-3 cursor-pointer">
                                 <input
                                     type="checkbox"
@@ -642,11 +648,12 @@ export default function Configuration({ settings, setSettings, lang, machines, n
 
                 {/* RIGHT COLUMN: Production Schedule */}
                 <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden flex flex-col h-fit">
-                    <div className="px-5 py-4 bg-slate-50 border-b border-slate-100 flex items-center gap-2">
+                    <div onClick={() => toggleSec('prod')} className={`px-5 py-4 bg-slate-50 flex items-center gap-2 cursor-pointer select-none ${openSec['prod'] ? 'border-b border-slate-100' : ''}`}>
                         <Clock className="w-5 h-5 text-slate-500" />
                         <h2 className="font-bold text-slate-800">{t.production}</h2>
+                        <ChevronDown className={`w-5 h-5 text-slate-400 ml-auto shrink-0 transition-transform ${openSec['prod'] ? 'rotate-180' : ''}`} />
                     </div>
-                    <div className="p-5 space-y-6 flex-1">
+                    <div className={`p-5 space-y-6 flex-1 ${openSec['prod'] ? '' : 'hidden'}`}>
 
                         {/* Time Format */}
                         <div>
@@ -754,13 +761,14 @@ export default function Configuration({ settings, setSettings, lang, machines, n
 
             {/* FULL WIDTH BLOCK: Structure & Encadrement */}
             <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden flex flex-col mt-6">
-                <div className="px-5 py-4 bg-slate-50 border-b border-slate-100 flex items-center justify-between">
+                <div onClick={() => toggleSec('struct')} className={`px-5 py-4 bg-slate-50 flex items-center justify-between cursor-pointer select-none ${openSec['struct'] ? 'border-b border-slate-100' : ''}`}>
                     <div className="flex items-center gap-2">
                         <Users className="w-5 h-5 text-slate-500" />
                         <h2 className="font-bold text-slate-800">{t.structure}</h2>
                     </div>
+                    <ChevronDown className={`w-5 h-5 text-slate-400 shrink-0 transition-transform ${openSec['struct'] ? 'rotate-180' : ''}`} />
                 </div>
-                <div className="p-6 md:p-8 space-y-10">
+                <div className={`p-6 md:p-8 space-y-10 ${openSec['struct'] ? '' : 'hidden'}`}>
 
                     {/* Encadrement Général */}
                     <div>
@@ -1010,13 +1018,14 @@ export default function Configuration({ settings, setSettings, lang, machines, n
 
             {/* FULL WIDTH BLOCK: Config Moteur APS */}
             <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden flex flex-col mt-6">
-                <div className="px-5 py-4 bg-slate-50 border-b border-slate-100 flex items-center justify-between">
+                <div onClick={() => toggleSec('aps')} className={`px-5 py-4 bg-slate-50 flex items-center justify-between cursor-pointer select-none ${openSec['aps'] ? 'border-b border-slate-100' : ''}`}>
                     <div className="flex items-center gap-2">
                         <Zap className="w-5 h-5 text-amber-500" />
                         <h2 className="font-bold text-slate-800">{t.apsTitle}</h2>
                     </div>
+                    <ChevronDown className={`w-5 h-5 text-slate-400 shrink-0 transition-transform ${openSec['aps'] ? 'rotate-180' : ''}`} />
                 </div>
-                <div className="p-6 md:p-8 space-y-6">
+                <div className={`p-6 md:p-8 space-y-6 ${openSec['aps'] ? '' : 'hidden'}`}>
                     <p className="text-sm text-slate-500 font-medium">
                         {t.apsDesc}
                     </p>
@@ -1163,15 +1172,17 @@ export default function Configuration({ settings, setSettings, lang, machines, n
             {/* FULL WIDTH BLOCK: Personnalisation du Menu de Navigation */}
             {navConfig && setNavConfig && (
                 <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden flex flex-col mt-6">
-                    <div className="px-5 py-4 bg-slate-50 border-b border-slate-100 flex items-center justify-between">
+                    <div onClick={() => toggleSec('nav')} className={`px-5 py-4 bg-slate-50 flex items-center justify-between cursor-pointer select-none ${openSec['nav'] ? 'border-b border-slate-100' : ''}`}>
                         <div className="flex items-center gap-2">
                             <ListTodo className="w-5 h-5 text-indigo-500" />
                             <h2 className="font-bold text-slate-800">
                                 {lang === 'fr' ? 'Configuration de la barre de navigation' : 'إعدادات شريط التنقل'}
                             </h2>
+                            <ChevronDown className={`w-5 h-5 text-slate-400 shrink-0 transition-transform ${openSec['nav'] ? 'rotate-180' : ''}`} />
                         </div>
                         <button
-                            onClick={() => {
+                            onClick={(e) => {
+                                e.stopPropagation();
                                 if (confirm(lang === 'fr' ? 'Voulez-vous vraiment réinitialiser la navigation ?' : 'هل تريد حقًا إعادة تعيين القائمة؟')) {
                                     const defaultCategories = [
                                         { id: 'principal', name: 'Principal', views: ['dashboard', 'vuegenerale', 'planning', 'suivi', 'rendement'] },
@@ -1195,9 +1206,9 @@ export default function Configuration({ settings, setSettings, lang, machines, n
                             {lang === 'fr' ? 'Réinitialiser' : 'إعادة تعيين'}
                         </button>
                     </div>
-                    <div className="p-6 md:p-8 space-y-6">
+                    <div className={`p-6 md:p-8 space-y-6 ${openSec['nav'] ? '' : 'hidden'}`}>
                         <p className="text-sm text-slate-500 font-medium">
-                            {lang === 'fr' 
+                            {lang === 'fr'
                                 ? 'Configurez le type d\'affichage des menus (dropdowns ou ruban plat), modifiez les titres des catégories ou déplacez librement les pages.'
                                 : 'تخصيص نمط القائمة (منسدلة أو مسطحة)، تعديل أسماء الفئات، أو نقل الصفحات بحرية.'}
                         </p>
@@ -1401,13 +1412,14 @@ export default function Configuration({ settings, setSettings, lang, machines, n
 
             {/* FULL WIDTH BLOCK: Gestion des Tâches (Phase 24) */}
             <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden flex flex-col mt-6">
-                <div className="px-5 py-4 bg-slate-50 border-b border-slate-100 flex items-center justify-between">
+                <div onClick={() => toggleSec('tasks')} className={`px-5 py-4 bg-slate-50 flex items-center justify-between cursor-pointer select-none ${openSec['tasks'] ? 'border-b border-slate-100' : ''}`}>
                     <div className="flex items-center gap-2">
                         <ListTodo className="w-5 h-5 text-indigo-500" />
                         <h2 className="font-bold text-slate-800">Gestion des Tâches</h2>
                     </div>
+                    <ChevronDown className={`w-5 h-5 text-slate-400 shrink-0 transition-transform ${openSec['tasks'] ? 'rotate-180' : ''}`} />
                 </div>
-                <div className="p-6 md:p-8 space-y-6">
+                <div className={`p-6 md:p-8 space-y-6 ${openSec['tasks'] ? '' : 'hidden'}`}>
                     {/* Add New Task Form */}
                     <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 flex flex-col sm:flex-row gap-4 items-end">
                         <div className="flex-1 w-full relative">

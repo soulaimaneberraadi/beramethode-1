@@ -118,5 +118,5 @@ export const MACHINE_INSTANCES_KEY = 'beramethode_machine_instances';
 export const MACHINE_FLEET_HISTORY_KEY = 'beramethode_machines_fleet_history_v1';
 export const MAX_MACHINE_FLEET_HISTORY = 500;
 
-export const defaultNavOrder = ['vuegenerale', 'dashboard', 'ingenierie', 'atelier', 'atelierProd', 'library', 'coupe', 'effectifs', 'gestionRh', 'planning', 'suivi', 'rendement', 'magasin', 'export', 'facturation', 'config', 'pageMachine', 'machin', 'objectifs', 'admin', 'sousTraitance'];
+export const defaultNavOrder = ['vuegenerale', 'dashboard', 'ingenierie', 'atelier', 'atelierProd', 'library', 'coupe', 'effectifs', 'gestionRh', 'planning', 'suivi', 'rendement', 'magasin', 'export', 'facturation', 'config', 'pageMachine', 'machin', 'catalogTemps', 'objectifs', 'admin', 'sousTraitance'];
 

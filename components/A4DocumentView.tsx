@@ -38,6 +38,8 @@ interface A4DocumentViewProps {
     setDocNotes: (v: string) => void;
     isRTL?: boolean;
     isExport?: boolean;
+    /** Sections à afficher dans la fiche (toutes visibles par défaut). */
+    sections?: { info?: boolean; nomenclature?: boolean; pricing?: boolean; order?: boolean; notes?: boolean };
 }
 
 const A4DocumentView = forwardRef<HTMLDivElement, A4DocumentViewProps>(({
@@ -46,8 +48,17 @@ const A4DocumentView = forwardRef<HTMLDivElement, A4DocumentViewProps>(({
     baseTime, totalTime, settings, productImage,
     materials, laborCost, costPrice, sellPriceHT, sellPriceTTC, boutiquePrice,
     orderQty, wasteRate, purchasingData, totalPurchasingMatCost, docNotes, setDocNotes,
-    isExport = false
+    isExport = false, sections = {}
 }, ref) => {
+
+    // Visibilité des sections (visible par défaut quand non précisé).
+    const show = {
+        info: sections.info !== false,
+        nomenclature: sections.nomenclature !== false,
+        pricing: sections.pricing !== false,
+        order: sections.order !== false,
+        notes: sections.notes !== false,
+    };
 
     const inputClasses = "bg-transparent outline-none hover:bg-slate-50 focus:bg-white focus:ring-1 focus:ring-slate-300 rounded px-1 py-0.5 transition-all w-full text-slate-800 print:text-black text-[10px]";
 
@@ -119,6 +130,7 @@ const A4DocumentView = forwardRef<HTMLDivElement, A4DocumentViewProps>(({
             </header>
 
             {/* PRODUCT BLOCK - Compact */}
+            {show.info && (
             <div className="mb-4 rounded overflow-hidden border border-slate-200/60 bg-slate-50/50 flex">
                 <div className="flex-1 p-3 flex flex-col justify-center">
                     <span className="text-[7px] font-bold uppercase tracking-widest text-blue-600 mb-0.5">
@@ -144,8 +156,10 @@ const A4DocumentView = forwardRef<HTMLDivElement, A4DocumentViewProps>(({
                     </div>
                 )}
             </div>
+            )}
 
             {/* COST TABLE - Ultra Compact */}
+            {show.nomenclature && (
             <div className="mb-4">
                 <span className="text-[9px] font-black uppercase tracking-widest text-slate-900 flex items-center gap-1 mb-1.5">
                     <CheckCircle className="w-2.5 h-2.5 text-slate-400" /> Nomenclature
@@ -160,7 +174,7 @@ const A4DocumentView = forwardRef<HTMLDivElement, A4DocumentViewProps>(({
                         </tr>
                     </thead>
                     <tbody className="text-slate-700">
-                        {materials.slice(0, 5).map((m) => (
+                        {materials.map((m) => (
                             <tr key={m.id} className="border-b border-slate-100 last:border-0">
                                 <td className="py-0.5 font-semibold text-slate-900">{m.name || '-'}</td>
                                 <td className="py-0.5 text-center text-[8px]">{isExport ? 0 : m.unitPrice}</td>
@@ -168,9 +182,6 @@ const A4DocumentView = forwardRef<HTMLDivElement, A4DocumentViewProps>(({
                                 <td className="py-0.5 text-right font-bold text-slate-900 text-[8px]">{isExport ? 0 : fmt(m.qty * m.unitPrice)}</td>
                             </tr>
                         ))}
-                        {materials.length > 5 && (
-                            <tr><td colSpan={4} className="py-0.5 text-center text-[7px] text-slate-400">+{materials.length - 5} autres</td></tr>
-                        )}
                         <tr className="border-b border-slate-200 bg-slate-50/50">
                             <td className="py-1 font-bold text-slate-900" colSpan={3}>
                                 <div className="flex items-center gap-0.5">
@@ -183,8 +194,10 @@ const A4DocumentView = forwardRef<HTMLDivElement, A4DocumentViewProps>(({
                     </tbody>
                 </table>
             </div>
+            )}
 
             {/* PRICING - Compact */}
+            {show.pricing && (
             <div className="flex justify-end mb-4">
                 <div className="w-full md:w-8/12 rounded border border-slate-200 overflow-hidden">
                     <div className="bg-slate-900 text-white px-3 py-2 flex justify-between items-center">
@@ -207,9 +220,10 @@ const A4DocumentView = forwardRef<HTMLDivElement, A4DocumentViewProps>(({
                     </div>
                 </div>
             </div>
+            )}
 
             {/* ORDER - Compact */}
-            {orderQty > 0 && (
+            {show.order && orderQty > 0 && (
                 <div className="mb-4">
                     <h3 className="text-[8px] font-black uppercase tracking-widest text-slate-900 mb-1 flex items-center justify-between">
                         Prévisions Achat
@@ -227,16 +241,13 @@ const A4DocumentView = forwardRef<HTMLDivElement, A4DocumentViewProps>(({
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100 text-slate-800">
-                            {purchasingData.slice(0, 4).map((m) => (
+                            {purchasingData.map((m) => (
                                 <tr key={m.id}>
                                     <td className="py-0.5">{m.name}</td>
-                                    <td className="py-0.5 text-center font-mono">{fmt(m.qtyToBuy)}</td>
+                                    <td className="py-0.5 text-center font-mono">{fmt(m.qtyToBuy)} <span className="text-[6px] text-slate-400">{m.unit}</span></td>
                                     <td className="py-0.5 text-right">{fmt(m.lineCost)}</td>
                                 </tr>
                             ))}
-                            {purchasingData.length > 4 && (
-                                <tr><td colSpan={3} className="py-0.5 text-center text-slate-400">+{purchasingData.length - 4} autres</td></tr>
-                            )}
                             <tr className="bg-slate-50 border-t border-slate-200">
                                 <td colSpan={2} className="py-1 text-right font-bold text-slate-500 uppercase text-[6px]">Budget:</td>
                                 <td className="py-1 text-right font-black text-[9px] text-slate-900">{fmt(totalPurchasingMatCost)} {currency}</td>
@@ -247,6 +258,7 @@ const A4DocumentView = forwardRef<HTMLDivElement, A4DocumentViewProps>(({
             )}
 
             {/* NOTES & SIGNATURES - Ultra Compact */}
+            {show.notes && (
             <div className="mt-3 pt-2 border-t border-slate-200">
                 <textarea
                     placeholder="Notes..."
@@ -255,6 +267,7 @@ const A4DocumentView = forwardRef<HTMLDivElement, A4DocumentViewProps>(({
                     className="w-full bg-slate-50 rounded p-1.5 outline-none resize-none h-8 text-[8px] text-slate-600 placeholder:text-slate-400 print:bg-white print:text-black"
                 />
             </div>
+            )}
 
             <div className="mt-2 pt-2 flex justify-between text-[7px] uppercase font-bold text-slate-500">
                 <div className="w-[45%] border-t border-slate-200 pt-1 text-center">Signature</div>

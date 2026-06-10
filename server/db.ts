@@ -1245,6 +1245,43 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_chrono_sessions_owner_model ON chrono_sessions(owner_id, model_id);
 `);
 
+  // ── Catalogue de Temps (time standards aggregated across models) ──
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS time_catalog_entries (
+      id TEXT PRIMARY KEY,
+      owner_id INTEGER NOT NULL,
+      norm_key TEXT NOT NULL,
+      description TEXT NOT NULL,
+      machine TEXT NOT NULL,
+      section TEXT,
+      avg_time REAL NOT NULL DEFAULT 0,
+      min_time REAL NOT NULL DEFAULT 0,
+      max_time REAL NOT NULL DEFAULT 0,
+      count INTEGER NOT NULL DEFAULT 0,
+      categories TEXT NOT NULL DEFAULT '[]',
+      sources TEXT NOT NULL DEFAULT '[]',
+      pinned INTEGER NOT NULL DEFAULT 0,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE CASCADE
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_time_catalog_key ON time_catalog_entries(owner_id, norm_key);
+    CREATE INDEX IF NOT EXISTS idx_time_catalog_owner ON time_catalog_entries(owner_id);
+  `);
+
+  // ── Catalogue de Temps: add new columns (idempotent) ──
+  const catalogNewCols = [
+    { name: 'custom_notes', def: 'TEXT' },
+    { name: 'confirmed', def: 'INTEGER DEFAULT 0' },
+    { name: 'garment_type', def: 'TEXT' },
+    { name: 'operation_type', def: 'TEXT' },
+    { name: 'confidence', def: 'REAL DEFAULT 1' },
+    { name: 'worker_names', def: 'TEXT DEFAULT \'[]\'' },
+  ];
+  for (const col of catalogNewCols) {
+    try { db.exec(`ALTER TABLE time_catalog_entries ADD COLUMN ${col.name} ${col.def}`); } catch { /* already exists */ }
+  }
+
 export default db;
 
 

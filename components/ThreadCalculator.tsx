@@ -1,8 +1,8 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Scissors, Check, X, Calculator, Package, ChevronDown, ChevronUp, Maximize2, ArrowLeft, Printer, Plus, Copy, Pencil, Trash2 } from 'lucide-react';
 import { Operation, Material } from '../types';
-import { STITCH_TYPES, MACHINE_THREAD_CONFIG, BOBBIN_SIZES, type StitchType } from '../data/threadConsumption';
+import { STITCH_TYPES, MACHINE_THREAD_CONFIG, BOBBIN_SIZES, GARMENT_INDICES, findGarmentIndice, type StitchType, type GarmentIndice } from '../data/threadConsumption';
 import { suggestClasseFromFamilyInput } from '../lib/machineCategoryClasseLink';
 
 interface ThreadCalculatorProps {
@@ -11,6 +11,8 @@ interface ThreadCalculatorProps {
     orderQty: number;
     colors?: { id: string; name: string }[];
     gridQuantities?: Record<string, number>;
+    /** Type de modèle (catégorie de la fiche technique) — sert d'estimation par Indice. */
+    modelCategory?: string;
     onApply: (threadMaterials: Material[]) => void;
     onClose: () => void;
 }
@@ -38,6 +40,15 @@ interface OperationThreadData {
      * fil par couleur (type différent par colonne), fil sur certaines couleurs (active=false).
      */
     colorThreads: Record<string, { active: boolean; threadType: string }>;
+    /** Mode multi-fils : répartition manuelle des fils du poste (un cercle par fil). */
+    multiThread: boolean;
+    /**
+     * Affectation de chaque fil du poste (longueur = nb de fils de la machine).
+     * '' = fil « couleur modèle » (suit chaque couleur de la commande) ;
+     * sinon = nom d'un type de fil standard, identique pour toutes les couleurs.
+     * La consommation du poste est répartie À PARTS ÉGALES entre les fils.
+     */
+    threadSlots: string[];
 }
 
 /**
@@ -65,12 +76,295 @@ function formatNumberFr(num: number, minimumFractionDigits = 0, maximumFractionD
               .replace(/[\u202f\u00a0]/g, ' ');
 }
 
+/** Selecteur entre le calcul precis (par poste / gamme) et l'estimation (par indice). */
+function CalcModeToggle({ calcMode, onChange }: { calcMode: 'poste' | 'indice'; onChange: (m: 'poste' | 'indice') => void }) {
+    const tab = (active: boolean) =>
+        `px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${active ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`;
+    return (
+        <div className="flex flex-wrap items-center justify-between gap-2">
+            <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Methode de calcul</span>
+            <div className="inline-flex rounded-lg border border-slate-200 bg-slate-100 p-0.5">
+                <button type="button" onClick={() => onChange('poste')} className={tab(calcMode === 'poste')} aria-pressed={calcMode === 'poste'}>
+                    Par poste (precis)
+                </button>
+                <button type="button" onClick={() => onChange('indice')} className={tab(calcMode === 'indice')} aria-pressed={calcMode === 'indice'}>
+                    Par indice (estimation)
+                </button>
+            </div>
+        </div>
+    );
+}
+
+/**
+ * Selecteur de type de modele calme (remplace le <select> natif, dont le
+ * menu deroulant de l'OS deborde et parait serre sur mobile). Liste groupee
+ * par secteur, hauteur limitee + scroll, fermeture au clic exterieur.
+ */
+function GarmentSelect({ value, onChange, sectors }: {
+    value: string;
+    onChange: (key: string) => void;
+    sectors: { sec: GarmentIndice['sector']; items: GarmentIndice[] }[];
+}) {
+    const [open, setOpen] = useState(false);
+    const ref = useRef<HTMLDivElement>(null);
+
+    const selectedName = useMemo(() => {
+        for (const { items } of sectors) {
+            const found = items.find(g => g.key === value);
+            if (found) return found.name;
+        }
+        return '';
+    }, [sectors, value]);
+
+    useEffect(() => {
+        if (!open) return;
+        const onDown = (e: MouseEvent) => {
+            if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+        };
+        document.addEventListener('mousedown', onDown);
+        return () => document.removeEventListener('mousedown', onDown);
+    }, [open]);
+
+    return (
+        <div className="relative" ref={ref}>
+            <button
+                type="button"
+                onClick={() => setOpen(o => !o)}
+                className="w-full flex items-center justify-between gap-2 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-slate-400 transition-colors"
+                aria-haspopup="listbox"
+                aria-expanded={open}
+                aria-label="Type de modele pour l'estimation par indice"
+            >
+                <span className={selectedName ? 'text-slate-700 truncate' : 'text-slate-400'}>
+                    {selectedName || '— Choisir un modele —'}
+                </span>
+                <ChevronDown className={`w-4 h-4 text-slate-400 shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} strokeWidth={2} />
+            </button>
+            {open && (
+                <div
+                    className="absolute z-20 mt-1 w-full max-h-64 overflow-y-auto rounded-lg border border-slate-200 bg-white shadow-lg ring-1 ring-slate-200/60 py-1"
+                    role="listbox"
+                >
+                    <button
+                        type="button"
+                        onClick={() => { onChange(''); setOpen(false); }}
+                        className="w-full text-left px-3 py-2 text-sm text-slate-400 hover:bg-slate-50 transition-colors"
+                    >
+                        — Choisir un modele —
+                    </button>
+                    {sectors.map(({ sec, items }) => (
+                        <div key={sec}>
+                            <div className="sticky top-0 px-3 pt-2 pb-1 text-[10px] font-semibold uppercase tracking-wide text-slate-400 bg-slate-50">{sec}</div>
+                            {items.map(g => {
+                                const active = g.key === value;
+                                return (
+                                    <button
+                                        key={g.key}
+                                        type="button"
+                                        role="option"
+                                        aria-selected={active}
+                                        onClick={() => { onChange(g.key); setOpen(false); }}
+                                        className={`w-full text-left px-3 py-2 text-sm transition-colors ${active ? 'bg-blue-50 text-blue-700 font-medium' : 'text-slate-700 hover:bg-slate-50'}`}
+                                    >
+                                        {g.name}
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    ))}
+                </div>
+            )}
+        </div>
+    );
+}
+
+interface IndiceEstimatePanelProps {
+    autoMatchName?: string | null;
+    garmentKey: string;
+    garment?: GarmentIndice;
+    indiceValue: number;
+    surfilage: number | null;
+    assemblage: number | null;
+    qty: number;
+    wastePercent: number;
+    bobbinSize: number;
+    totalWithWaste: number;
+    bobbins: number;
+    colorBreakdown: { colorId: string; colorName: string; quantity: number; threadMeters: number; bobbins: number }[];
+    onSelectKey: (key: string) => void;
+    onIndiceChange: (n: number) => void;
+    onResetIndice: () => void;
+}
+
+/**
+ * Panneau d'estimation PAR INDICE (methode approximative, sans gamme detaillee).
+ * Source : "Indices de la consommation de fil a coudre".
+ *   Fil/Unite (m) = Indice du type de modele (ajustable dans la Plage)
+ *   Total = Indice x Qte x (1 + usure%)  ->  Bobines = arrondi sup(Total / taille bobine)
+ * Composant presentationnel : l'etat et les totaux sont geres par le parent ;
+ * l'application se fait via le bouton "Appliquer" commun en bas.
+ */
+function IndiceEstimatePanel({
+    autoMatchName,
+    garmentKey,
+    garment,
+    indiceValue,
+    surfilage,
+    assemblage,
+    qty,
+    wastePercent,
+    bobbinSize,
+    totalWithWaste,
+    bobbins,
+    colorBreakdown,
+    onSelectKey,
+    onIndiceChange,
+    onResetIndice,
+}: IndiceEstimatePanelProps) {
+    const sectors = useMemo(() => {
+        const order: GarmentIndice['sector'][] = ['Homme', 'Femme', 'Lingerie', 'Chaussures'];
+        return order.map(sec => ({ sec, items: GARMENT_INDICES.filter(g => g.sector === sec) }));
+    }, []);
+
+    const totalBobbins = colorBreakdown.length > 0 ? colorBreakdown.reduce((s, c) => s + c.bobbins, 0) : bobbins;
+
+    return (
+        <div className="rounded-lg border border-slate-200 bg-white">
+            {/* En-tete calme */}
+            <div className="flex items-center gap-2 border-b border-slate-100 px-4 py-2.5">
+                <Calculator className="h-4 w-4 text-slate-400" strokeWidth={1.75} />
+                <span className="text-sm font-semibold text-slate-700">Estimation par indice</span>
+                <span className="text-[11px] text-slate-400">approximatif</span>
+            </div>
+
+            <div className="space-y-3 p-4">
+                {/* Information */}
+                <p className="text-xs text-slate-500 leading-relaxed">
+                    Estimation basee sur le <span className="font-semibold text-slate-700">type de modele</span>.
+                    {autoMatchName
+                        ? <> Type : <span className="font-semibold text-slate-700">{autoMatchName}</span>.</>
+                        : <> Aucun type detecte — choisissez-le ci-dessous.</>}
+                </p>
+
+                {/* Selection + Indice */}
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <div>
+                        <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-slate-400">Type de modele</label>
+                        <GarmentSelect value={garmentKey} onChange={onSelectKey} sectors={sectors} />
+                    </div>
+
+                    {garment && (
+                        <div>
+                            <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+                                Indice : <span className="text-slate-700 normal-case">{indiceValue} m</span>
+                                <span className="font-normal text-slate-400 normal-case"> ({garment.plageMin}–{garment.plageMax})</span>
+                            </label>
+                            <input
+                                type="range"
+                                min={garment.plageMin}
+                                max={garment.plageMax}
+                                step={1}
+                                value={indiceValue}
+                                onChange={(e) => onIndiceChange(Number(e.target.value))}
+                                className="w-full accent-slate-600"
+                                aria-label="Ajuster l'indice dans la plage"
+                            />
+                            <div className="mt-0.5 flex justify-between text-[10px] text-slate-400">
+                                <span>{garment.plageMin}</span>
+                                <button
+                                    type="button"
+                                    onClick={onResetIndice}
+                                    className="font-semibold text-slate-500 hover:text-slate-700 transition-colors"
+                                >
+                                    defaut ({garment.indice})
+                                </button>
+                                <span>{garment.plageMax}</span>
+                            </div>
+                        </div>
+                    )}
+                </div>
+
+                {garment ? (
+                    <>
+                        {/* Repartition indicative */}
+                        <div className="grid grid-cols-3 gap-2">
+                            {[
+                                { label: 'Surfilage', value: surfilage != null ? `${surfilage} m` : '—' },
+                                { label: 'Assemblage', value: assemblage != null ? `${assemblage} m` : '—' },
+                                { label: 'Indice total', value: `${indiceValue} m` },
+                            ].map((c) => (
+                                <div key={c.label} className="rounded-md border border-slate-200 bg-slate-50 px-2 py-1.5 text-center">
+                                    <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">{c.label}</p>
+                                    <p className="font-semibold text-slate-700 tabular-nums text-sm">{c.value}</p>
+                                </div>
+                            ))}
+                        </div>
+
+                        {/* Totaux — style unifie, pas de boite sombre */}
+                        <div className="grid grid-cols-3 gap-2">
+                            <div className="rounded-md border border-slate-200 bg-white px-3 py-2 text-center">
+                                <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Fil/Unite</p>
+                                <p className="font-semibold text-slate-800 tabular-nums text-base sm:text-lg">{indiceValue}</p>
+                                <p className="text-[10px] text-slate-400">metres</p>
+                            </div>
+                            <div className="rounded-md border border-slate-200 bg-white px-3 py-2 text-center">
+                                <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Total +{wastePercent}%</p>
+                                <p className="font-semibold text-slate-800 tabular-nums text-base sm:text-lg">{formatNumberFr(Math.ceil(totalWithWaste))}</p>
+                                <p className="text-[10px] text-slate-400">metres</p>
+                            </div>
+                            <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-center">
+                                <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Bobines</p>
+                                <p className="font-semibold text-slate-800 tabular-nums text-base sm:text-lg">{formatNumberFr(totalBobbins)}</p>
+                                <p className="text-[10px] text-slate-400">{bobbinSize}m · {formatNumberFr(qty)} pcs</p>
+                            </div>
+                        </div>
+
+                        {/* Detail par couleur */}
+                        {colorBreakdown.length > 0 && (
+                            <div className="overflow-hidden rounded-md border border-slate-200">
+                                <div className="border-b border-slate-100 px-3 py-2">
+                                    <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Detail par couleur</span>
+                                </div>
+                                <div className="overflow-x-auto">
+                                    <table className="w-full text-xs sm:text-sm">
+                                        <thead className="bg-slate-50 text-[10px] uppercase tracking-wide text-slate-400">
+                                            <tr>
+                                                <th className="px-2 sm:px-3 py-1.5 text-left font-semibold">Couleur</th>
+                                                <th className="px-2 sm:px-3 py-1.5 text-right font-semibold">Quantite</th>
+                                                <th className="px-2 sm:px-3 py-1.5 text-right font-semibold">Fil Total</th>
+                                                <th className="px-2 sm:px-3 py-1.5 text-right font-semibold">Bob.</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-slate-100">
+                                            {colorBreakdown.map((color) => (
+                                                <tr key={color.colorId} className="hover:bg-slate-50 transition-colors">
+                                                    <td className="px-2 sm:px-3 py-1.5 font-medium text-slate-700">{color.colorName}</td>
+                                                    <td className="px-2 sm:px-3 py-1.5 text-right tabular-nums text-slate-600">{formatNumberFr(color.quantity)}</td>
+                                                    <td className="px-2 sm:px-3 py-1.5 text-right tabular-nums font-medium text-slate-700">{formatNumberFr(color.threadMeters)} m</td>
+                                                    <td className="px-2 sm:px-3 py-1.5 text-right tabular-nums font-semibold text-slate-800">{formatNumberFr(color.bobbins)}</td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        )}
+                    </>
+                ) : (
+                    <p className="py-3 text-center text-xs text-slate-400">Choisissez un type de modele pour estimer la consommation.</p>
+                )}
+            </div>
+        </div>
+    );
+}
+
 export default function ThreadCalculator({
     operations,
     setOperations,
     orderQty,
     colors = [],
     gridQuantities = {},
+    modelCategory,
     onApply,
     onClose
 }: ThreadCalculatorProps) {
@@ -112,6 +406,7 @@ export default function ThreadCalculator({
                 ...item,
                 threadType: item.threadType === oldValue ? v : item.threadType,
                 colorThreads,
+                threadSlots: item.threadSlots.map(s => (s === oldValue ? v : s)),
             };
         }));
     };
@@ -130,6 +425,7 @@ export default function ThreadCalculator({
                 ...item,
                 threadType: item.threadType === value ? '' : item.threadType,
                 colorThreads,
+                threadSlots: item.threadSlots.map(s => (s === value ? '' : s)),
             };
         }));
     };
@@ -175,6 +471,8 @@ export default function ThreadCalculator({
             // Get full machine label from MACHINE_THREAD_CONFIG
             const machineConfig = MACHINE_THREAD_CONFIG.find(m => m.machineCode === machineCode);
             const machineLabel = machineConfig?.machineName || machineConfig?.machineNameAr || machineName || `Machine ${machineCode}`;
+            // Nombre de fils du poste → un cercle par fil en mode multi-fils
+            const threadCount = stitchType?.threadCount || machineConfig?.threadCount || 1;
 
             return {
                 operation: op,
@@ -189,11 +487,35 @@ export default function ThreadCalculator({
                 threadMetersPerUnit,
                 threadType: '',
                 colorThreads: initColorThreads(),
+                multiThread: false,
+                threadSlots: Array.from({ length: threadCount }, () => ''),
             };
         });
     }, [operations, effectiveColors]);
 
     const [opsData, setOpsData] = useState<OperationThreadData[]>(operationsData);
+
+    // Mode de calcul : "poste" (precis, base sur la gamme) ou "indice" (estimation
+    // par type de modele). Sans gamme exploitable, on bascule par defaut sur "indice".
+    const hasGammeData = useMemo(() => operationsData.some(o => o.threadMetersPerUnit > 0), [operationsData]);
+    const autoGarment = useMemo(() => findGarmentIndice(modelCategory), [modelCategory]);
+    const [calcMode, setCalcMode] = useState<'poste' | 'indice'>('poste');
+    const [garmentKey, setGarmentKey] = useState<string>(autoGarment?.key || '');
+    const [indiceOverride, setIndiceOverride] = useState<number | null>(null);
+    const [modeAutoSet, setModeAutoSet] = useState(false);
+
+    // Une seule bascule automatique vers "indice" si la gamme n'a aucune donnee.
+    React.useEffect(() => {
+        if (!modeAutoSet && !hasGammeData) {
+            setCalcMode('indice');
+            setModeAutoSet(true);
+        }
+    }, [hasGammeData, modeAutoSet]);
+
+    // Pre-remplit le type de modele depuis la fiche technique tant que rien n'est choisi.
+    React.useEffect(() => {
+        if (autoGarment && !garmentKey) setGarmentKey(autoGarment.key);
+    }, [autoGarment, garmentKey]);
 
     // Update when operations change
     React.useEffect(() => {
@@ -302,6 +624,23 @@ export default function ThreadCalculator({
         }));
     };
 
+    // Active/désactive le mode multi-fils (répartition par cercle) d'une opération.
+    const toggleMultiThread = (index: number) => {
+        setOpsData(prev => prev.map((item, i) =>
+            i === index ? { ...item, multiThread: !item.multiThread } : item
+        ));
+    };
+
+    // Affecte un type de fil (ou '' = couleur modèle) à UN fil précis du poste.
+    const setThreadSlot = (index: number, slot: number, value: string) => {
+        setOpsData(prev => prev.map((item, i) => {
+            if (i !== index) return item;
+            const threadSlots = [...item.threadSlots];
+            threadSlots[slot] = value;
+            return { ...item, threadSlots };
+        }));
+    };
+
     // Applique le type de fil d'une couleur (depuis l'opération `index`) à TOUTES les opérations.
     const applyColorThreadToAllOps = (index: number, colorId: string) => {
         setOpsData(prev => {
@@ -320,6 +659,42 @@ export default function ThreadCalculator({
         const gridTotal = Object.values(colorQtyMap).reduce((sum, v) => sum + (Number(v) || 0), 0);
         return gridTotal > 0 ? gridTotal : (orderQty || 1);
     }, [colorQtyMap, orderQty]);
+
+    // --- Valeurs derivees du mode "indice" (estimation par type de modele) ---
+    const indiceGarment = useMemo(() => GARMENT_INDICES.find(g => g.key === garmentKey), [garmentKey]);
+    const indiceValue = indiceOverride ?? indiceGarment?.indice ?? 0;
+    const indiceTotalWithWaste = indiceValue * effectiveQty * (1 + wastePercent / 100);
+    const indiceBobbins = selectedBobbinSize > 0 ? Math.ceil(indiceTotalWithWaste / selectedBobbinSize) : 0;
+    // Repartition indicative Surfilage / Assemblage au prorata de l'indice ajuste.
+    const indiceRatio = indiceGarment && indiceGarment.indice > 0 ? indiceValue / indiceGarment.indice : 1;
+    const indiceSurfilage = indiceGarment?.surfilage != null ? Math.round(indiceGarment.surfilage * indiceRatio) : null;
+    const indiceAssemblage = indiceGarment ? Math.round(indiceGarment.assemblage * indiceRatio) : null;
+
+    // Detail par couleur en mode indice : chaque couleur de la commande consomme
+    // (indice x sa quantite). Meme logique que le detail couleur du mode poste.
+    const indiceColorBreakdown = useMemo(() => {
+        if (!indiceGarment || effectiveColors.length === 0) return [] as { colorId: string; colorName: string; quantity: number; threadMeters: number; bobbins: number }[];
+        return effectiveColors
+            .map(color => {
+                const qty = colorQtyMap[color.id] || 0;
+                if (qty <= 0) return null;
+                const metersWithWaste = indiceValue * qty * (1 + wastePercent / 100);
+                const bobbins = selectedBobbinSize > 0 ? Math.ceil(metersWithWaste / selectedBobbinSize) : 0;
+                return {
+                    colorId: color.id,
+                    colorName: color.name,
+                    quantity: qty,
+                    threadMeters: Math.round(metersWithWaste * 100) / 100,
+                    bobbins,
+                };
+            })
+            .filter((c): c is { colorId: string; colorName: string; quantity: number; threadMeters: number; bobbins: number } => !!c && c.threadMeters > 0);
+    }, [indiceGarment, effectiveColors, colorQtyMap, indiceValue, wastePercent, selectedBobbinSize]);
+
+    // Bobines totales du mode indice : somme des couleurs si detail couleur, sinon le calcul global.
+    const indiceBobbinsTotal = indiceColorBreakdown.length > 0
+        ? indiceColorBreakdown.reduce((s, c) => s + c.bobbins, 0)
+        : indiceBobbins;
 
     // Calculate totals per machine type
     const machineSummary = useMemo(() => {
@@ -373,11 +748,21 @@ export default function ThreadCalculator({
             colorName: string;
             threadType: string;
             quantity: number;
-            metersPerUnit: number;
+            totalMeters: number;
         }> = {};
+
+        const addMeters = (colorId: string, colorName: string, threadType: string, quantity: number, meters: number) => {
+            if (meters <= 0) return;
+            const bucketKey = `${colorId}__${threadType}`;
+            if (!buckets[bucketKey]) {
+                buckets[bucketKey] = { colorId, colorName, threadType, quantity, totalMeters: 0 };
+            }
+            buckets[bucketKey].totalMeters += meters;
+        };
 
         const selectedOps = opsData.filter(op => op.selected && op.threadMetersPerUnit > 0);
 
+        // Fils « couleur modèle » : suivent chaque couleur de la commande.
         effectiveColors.forEach(color => {
             const qty = colorQtyMap[color.id] || 0;
             if (qty <= 0) return;
@@ -386,23 +771,39 @@ export default function ThreadCalculator({
                 // Couleur explicitement désactivée pour cette opération → ne consomme rien
                 if (ct && ct.active === false) return;
                 const threadType = (ct?.threadType || op.threadType || '').trim();
-                const bucketKey = `${color.id}__${threadType}`;
-                if (!buckets[bucketKey]) {
-                    buckets[bucketKey] = {
-                        colorId: color.id,
-                        colorName: color.name,
-                        threadType,
-                        quantity: qty,
-                        metersPerUnit: 0,
-                    };
+                if (op.multiThread && op.threadSlots.length > 0) {
+                    // Mode multi-fils : seule la part des fils « couleur modèle » suit la couleur.
+                    const perThread = op.threadMetersPerUnit / op.threadSlots.length;
+                    const modelSlots = op.threadSlots.filter(s => !s).length;
+                    addMeters(color.id, color.name, threadType, qty, perThread * modelSlots * qty);
+                } else {
+                    addMeters(color.id, color.name, threadType, qty, op.threadMetersPerUnit * qty);
                 }
-                buckets[bucketKey].metersPerUnit += op.threadMetersPerUnit;
+            });
+        });
+
+        // Fils « standard » (mode multi-fils) : même type pour toutes les couleurs de la
+        // commande → comptés une seule fois sur la quantité des couleurs actives.
+        selectedOps.forEach(op => {
+            if (!op.multiThread || op.threadSlots.length === 0) return;
+            const perThread = op.threadMetersPerUnit / op.threadSlots.length;
+            const slotCounts: Record<string, number> = {};
+            op.threadSlots.forEach(s => { if (s) slotCounts[s] = (slotCounts[s] || 0) + 1; });
+            if (Object.keys(slotCounts).length === 0) return;
+            const activeQty = effectiveColors.reduce((sum, c) => {
+                const ct = op.colorThreads[c.id];
+                if (ct && ct.active === false) return sum;
+                return sum + (colorQtyMap[c.id] || 0);
+            }, 0);
+            if (activeQty <= 0) return;
+            Object.entries(slotCounts).forEach(([type, count]) => {
+                addMeters(`__std__${type}`, type, type, effectiveQty, perThread * count * activeQty);
             });
         });
 
         return Object.values(buckets).map(b => {
-            const threadMeters = Math.round(b.metersPerUnit * b.quantity * 100) / 100;
-            const bobbins = Math.ceil((b.metersPerUnit * b.quantity * (1 + wastePercent / 100)) / selectedBobbinSize);
+            const threadMeters = Math.round(b.totalMeters * 100) / 100;
+            const bobbins = Math.ceil((b.totalMeters * (1 + wastePercent / 100)) / selectedBobbinSize);
             return {
                 colorName: b.colorName,
                 colorId: b.colorId,
@@ -412,7 +813,7 @@ export default function ThreadCalculator({
                 bobbins,
             };
         }).filter(c => c.threadMeters > 0);
-    }, [effectiveColors, colorQtyMap, opsData, wastePercent, selectedBobbinSize]);
+    }, [effectiveColors, colorQtyMap, opsData, wastePercent, selectedBobbinSize, effectiveQty]);
 
     // Grand totals : fil/unité = somme des opérations sélectionnées ; les totaux
     // mètres & bobines proviennent du détail couleur quand il existe (il respecte
@@ -430,23 +831,75 @@ export default function ThreadCalculator({
     }, [machineSummary, colorBreakdown]);
 
     const handleApply = () => {
+        // Mode "indice" : estimation par type de modele. Repartit par couleur de la
+        // commande quand elles existent (comme le mode poste), sinon une seule ligne.
+        if (calcMode === 'indice') {
+            if (!indiceGarment) return;
+            // L'indice est déjà exprimé en mètres PAR PIÈCE → on l'applique tel quel
+            // (la quantité de la commande et la perte sont gérées dans la fiche de coût).
+            const perPiece = Math.round(indiceValue * 100) / 100;
+            if (perPiece <= 0) return;
+            const perPieceQty = selectedBobbinSize > 0
+                ? Math.round((perPiece / selectedBobbinSize) * 100000) / 100000
+                : 0;
+            if (indiceColorBreakdown.length > 0) {
+                let cid = Date.now();
+                onApply(indiceColorBreakdown.map(color => ({
+                    id: cid++,
+                    name: `Fil ${color.colorName} - ${indiceGarment.name} (estimation)`,
+                    unitPrice: 0,
+                    qty: perPieceQty,
+                    unit: 'bobine',
+                    threadMeters: perPiece,
+                    threadCapacity: selectedBobbinSize,
+                    fournisseur: '',
+                    threadColor: color.colorName,
+                    threadReference: `Indice ${indiceValue} m/pc`,
+                })));
+                return;
+            }
+            onApply([{
+                id: Date.now(),
+                name: `Fil ${indiceGarment.name} (estimation indice)`,
+                unitPrice: 0,
+                qty: perPieceQty,
+                unit: 'bobine',
+                threadMeters: perPiece,
+                threadCapacity: selectedBobbinSize,
+                fournisseur: '',
+                threadColor: '',
+                threadReference: `Indice ${indiceValue} m/pc`,
+            }]);
+            return;
+        }
+
         const materials: Material[] = [];
         let id = Date.now();
 
         if (colorBreakdown.length > 0) {
             colorBreakdown.forEach(color => {
+                // Ligne « standard » (multi-fils) : type identique pour toutes les couleurs.
+                const isStandard = color.colorId.startsWith('__std__');
                 // Nom = « Fil {couleur} – {type} » quand un type de fil est précisé.
                 const typeSuffix = color.threadType ? ` – ${color.threadType}` : '';
+                // color.threadMeters = consommation de la commande ENTIÈRE pour cette
+                // couleur → ramenée à UNE pièce (mètres bruts, sans perte ni arrondi).
+                const perPiece = color.quantity > 0
+                    ? Math.round((color.threadMeters / color.quantity) * 100) / 100
+                    : color.threadMeters;
+                const perPieceQty = selectedBobbinSize > 0
+                    ? Math.round((perPiece / selectedBobbinSize) * 100000) / 100000
+                    : 0;
                 materials.push({
                     id: id++,
-                    name: `Fil ${color.colorName}${typeSuffix}`,
+                    name: isStandard ? `Fil ${color.threadType} (standard)` : `Fil ${color.colorName}${typeSuffix}`,
                     unitPrice: 0,
-                    qty: color.bobbins,
+                    qty: perPieceQty,
                     unit: 'bobine',
-                    threadMeters: color.threadMeters,
+                    threadMeters: perPiece,
                     threadCapacity: selectedBobbinSize,
                     fournisseur: '',
-                    threadColor: color.colorName,
+                    threadColor: isStandard ? '' : color.colorName,
                     threadReference: color.threadType || '',
                 });
             });
@@ -458,13 +911,18 @@ export default function ThreadCalculator({
                         .filter(op => op.selected && op.machineCode === machine.machineCode && op.threadType.trim())
                         .map(op => op.threadType.trim())
                 ));
+                // threadMetersPerUnit = consommation PAR PIÈCE (déjà unitaire, sans perte).
+                const perPiece = Math.round(machine.threadMetersPerUnit * 100) / 100;
+                const perPieceQty = selectedBobbinSize > 0
+                    ? Math.round((perPiece / selectedBobbinSize) * 100000) / 100000
+                    : 0;
                 materials.push({
                     id: id++,
                     name: `Fil ${machine.machineLabel} (${machine.machineCode})`,
                     unitPrice: 0,
-                    qty: machine.totalBobbins,
+                    qty: perPieceQty,
                     unit: 'bobine',
-                    threadMeters: Math.round(machine.totalMeters * (1 + wastePercent / 100) * 100) / 100,
+                    threadMeters: perPiece,
                     threadCapacity: selectedBobbinSize,
                     fournisseur: '',
                     threadColor: '',
@@ -480,10 +938,34 @@ export default function ThreadCalculator({
     if (!isExpanded) {
         return (
             <>
-                <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center md:p-4">
-                    <div className="bg-white w-full h-[100dvh] md:h-auto md:max-w-6xl max-h-[100dvh] md:max-h-[90vh] rounded-none md:rounded-2xl shadow-2xl overflow-hidden flex flex-col">
-                        {/* Header */}
-                        <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-5 flex items-center justify-between">
+                <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/30 backdrop-blur-[3px] animate-[fadeIn_140ms_ease-out] md:items-center md:p-4 md:bg-slate-950/40">
+                    <div className="bg-white w-full max-h-[92vh] md:h-auto md:max-w-6xl md:max-h-[90vh] rounded-t-2xl md:rounded-2xl shadow-[0_-12px_40px_rgba(15,23,42,0.18)] md:shadow-2xl ring-1 ring-slate-200/60 md:ring-0 overflow-hidden flex flex-col">
+                        {/* Poignée de glissement (mobile) */}
+                        <div className="md:hidden pt-2 pb-1 flex items-center justify-center shrink-0">
+                            <span className="w-10 h-1 rounded-full bg-slate-300" />
+                        </div>
+
+                        {/* En-tête calme (mobile) — style Planning */}
+                        <div className="md:hidden px-5 pt-1 pb-3 flex items-start justify-between gap-3 shrink-0">
+                            <div className="min-w-0">
+                                <h2 className="text-[15px] font-semibold text-slate-900 tracking-tight">Calcul Fil</h2>
+                                <p className="text-[12px] text-slate-500 mt-0.5 truncate">Consommation de fil automatique</p>
+                            </div>
+                            <div className="flex items-center gap-1 shrink-0">
+                                <button onClick={() => window.print()} className="p-1.5 rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors" title="Imprimer le rapport de fil" aria-label="Imprimer">
+                                    <Printer className="w-4 h-4" />
+                                </button>
+                                <button onClick={() => setIsExpanded(true)} className="p-1.5 rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors" title="Agrandir (page complète)" aria-label="Agrandir">
+                                    <Maximize2 className="w-4 h-4" />
+                                </button>
+                                <button onClick={onClose} className="p-1.5 rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors" aria-label="Fermer">
+                                    <X className="w-4 h-4" />
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* En-tête (desktop) */}
+                        <div className="hidden md:flex bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-5 items-center justify-between">
                             <div className="flex items-center gap-3">
                                 <div className="bg-white/20 p-2 rounded-xl">
                                     <Scissors className="w-6 h-6" />
@@ -507,7 +989,7 @@ export default function ThreadCalculator({
                         </div>
 
                 {/* Settings Bar */}
-                <div className="bg-slate-50 border-b p-4 flex flex-wrap items-center gap-4">
+                <div className="bg-slate-50/60 md:bg-slate-50 border-b border-slate-100 px-5 py-3 md:p-4 flex flex-wrap items-center gap-3 md:gap-4 shrink-0">
                     <div className="flex items-center gap-2">
                         <label className="text-xs font-bold text-slate-500">QUANTITÉ:</label>
                         <span className="bg-blue-100 text-blue-700 px-3 py-1 rounded-lg font-black text-sm">
@@ -565,6 +1047,30 @@ export default function ThreadCalculator({
 
                 {/* Content */}
                 <div className="flex-1 overflow-y-auto p-5 space-y-4">
+                    {/* Selecteur de mode de calcul */}
+                    <CalcModeToggle calcMode={calcMode} onChange={setCalcMode} />
+
+                    {calcMode === 'indice' && (
+                        <IndiceEstimatePanel
+                            autoMatchName={autoGarment?.name}
+                            garmentKey={garmentKey}
+                            garment={indiceGarment}
+                            indiceValue={indiceValue}
+                            surfilage={indiceSurfilage}
+                            assemblage={indiceAssemblage}
+                            qty={effectiveQty}
+                            wastePercent={wastePercent}
+                            bobbinSize={selectedBobbinSize}
+                            totalWithWaste={indiceTotalWithWaste}
+                            bobbins={indiceBobbins}
+                            colorBreakdown={indiceColorBreakdown}
+                            onSelectKey={(k) => { setGarmentKey(k); setIndiceOverride(null); }}
+                            onIndiceChange={setIndiceOverride}
+                            onResetIndice={() => setIndiceOverride(null)}
+                        />
+                    )}
+
+                    {calcMode === 'poste' && (<>
                     {/* Operations Table */}
                     <div className="border border-slate-200 rounded-xl overflow-hidden">
                         <div className="w-full bg-slate-50 p-3 flex items-center justify-between">
@@ -704,6 +1210,8 @@ export default function ThreadCalculator({
                                                     onSetColorThreadType={setColorThreadType}
                                                     onApplyToAll={applyColorThreadToAllOps}
                                                     onUpdateThreadType={updateThreadType}
+                                                    onToggleMultiThread={toggleMultiThread}
+                                                    onSetThreadSlot={setThreadSlot}
                                                 />
                                             </td>
                                         </tr>
@@ -816,6 +1324,8 @@ export default function ThreadCalculator({
                                                     onSetColorThreadType={setColorThreadType}
                                                     onApplyToAll={applyColorThreadToAllOps}
                                                     onUpdateThreadType={updateThreadType}
+                                                    onToggleMultiThread={toggleMultiThread}
+                                                    onSetThreadSlot={setThreadSlot}
                                                 />
                                             </div>
                                         )}
@@ -915,24 +1425,24 @@ export default function ThreadCalculator({
                             </div>
                             <div className="p-4">
                                 <div className="overflow-x-auto">
-                                    <table className="w-full text-sm min-w-[500px]">
-                                        <thead className="bg-slate-100 text-slate-600 text-xs uppercase">
+                                    <table className="w-full text-xs sm:text-sm">
+                                        <thead className="bg-slate-100 text-slate-600 text-[10px] sm:text-xs uppercase">
                                             <tr>
-                                                <th className="p-2 text-left">Couleur</th>
-                                                <th className="p-2 text-left">Type Fil</th>
-                                                <th className="p-2 text-right">Quantité</th>
-                                                <th className="p-2 text-right">Fil Total</th>
-                                                <th className="p-2 text-right">Bobines</th>
+                                                <th className="px-1.5 py-1.5 sm:p-2 text-left">Couleur</th>
+                                                <th className="px-1.5 py-1.5 sm:p-2 text-left">Type</th>
+                                                <th className="px-1.5 py-1.5 sm:p-2 text-right">Qté</th>
+                                                <th className="px-1.5 py-1.5 sm:p-2 text-right">Fil Total</th>
+                                                <th className="px-1.5 py-1.5 sm:p-2 text-right">Bob.</th>
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-slate-100">
                                             {colorBreakdown.map((color, idx) => (
                                                 <tr key={idx} className="hover:bg-slate-50">
-                                                    <td className="p-2 font-bold text-slate-700">{color.colorName}</td>
-                                                    <td className="p-2 text-amber-700 font-mono text-xs">{color.threadType || '—'}</td>
-                                                    <td className="p-2 text-right text-slate-600">{formatNumberFr(color.quantity)}</td>
-                                                    <td className="p-2 text-right text-blue-600 font-bold">{formatNumberFr(color.threadMeters)} m</td>
-                                                    <td className="p-2 text-right text-green-600 font-bold">{formatNumberFr(color.bobbins)}</td>
+                                                    <td className="px-1.5 py-1.5 sm:p-2 font-bold text-slate-700">{color.colorName}</td>
+                                                    <td className="px-1.5 py-1.5 sm:p-2 text-amber-700 font-mono text-[10px] sm:text-xs break-words">{color.threadType || '—'}</td>
+                                                    <td className="px-1.5 py-1.5 sm:p-2 text-right tabular-nums text-slate-600">{formatNumberFr(color.quantity)}</td>
+                                                    <td className="px-1.5 py-1.5 sm:p-2 text-right tabular-nums text-blue-600 font-bold">{formatNumberFr(color.threadMeters)} m</td>
+                                                    <td className="px-1.5 py-1.5 sm:p-2 text-right tabular-nums text-green-600 font-bold">{formatNumberFr(color.bobbins)}</td>
                                                 </tr>
                                             ))}
                                         </tbody>
@@ -941,28 +1451,30 @@ export default function ThreadCalculator({
                             </div>
                         </div>
                     )}
+                    </>)}
                 </div>
 
                 {/* Footer */}
-                <div className="bg-slate-50 border-t p-4 flex items-center justify-between">
+                <div className="bg-slate-50/60 md:bg-slate-50 border-t border-slate-100 p-4 flex items-center justify-between gap-3 shrink-0">
                     <button
                         onClick={onClose}
-                        className="px-4 sm:px-6 py-2 sm:py-2.5 text-sm sm:text-base text-slate-600 font-bold rounded-xl hover:bg-slate-200 transition-colors"
+                        className="px-4 sm:px-6 py-2 sm:py-2.5 text-sm sm:text-base text-slate-600 font-medium md:font-bold rounded-xl hover:bg-slate-200/70 transition-colors"
                         aria-label="Annuler et fermer"
                     >
                         Annuler
                     </button>
                     <button
                         onClick={handleApply}
-                        disabled={machineSummary.length === 0}
+                        disabled={calcMode === 'poste' ? machineSummary.length === 0 : (!indiceGarment || indiceBobbinsTotal <= 0)}
                         className="px-4 sm:px-6 py-2 sm:py-2.5 text-sm sm:text-base bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-                        aria-label={`Appliquer ${grandTotal.totalBobbins} bobines`}
+                        aria-label={`Appliquer ${calcMode === 'poste' ? grandTotal.totalBobbins : indiceBobbinsTotal} bobines`}
                     >
                         <Check className="w-4 h-4" />
-                        Appliquer ({grandTotal.totalBobbins} bobines)
+                        Appliquer ({calcMode === 'poste' ? grandTotal.totalBobbins : indiceBobbinsTotal} bobines)
                     </button>
                 </div>
             </div>
+            <style>{`@keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }`}</style>
         </div>
         {typeof document !== 'undefined' && createPortal(
             <ThreadPrintView
@@ -1067,6 +1579,30 @@ export default function ThreadCalculator({
 
             {/* Content */}
             <div className="flex-1 overflow-y-auto p-5 space-y-4">
+                {/* Selecteur de mode de calcul */}
+                <CalcModeToggle calcMode={calcMode} onChange={setCalcMode} />
+
+                {calcMode === 'indice' && (
+                    <IndiceEstimatePanel
+                        autoMatchName={autoGarment?.name}
+                        garmentKey={garmentKey}
+                        garment={indiceGarment}
+                        indiceValue={indiceValue}
+                        surfilage={indiceSurfilage}
+                        assemblage={indiceAssemblage}
+                        qty={effectiveQty}
+                        wastePercent={wastePercent}
+                        bobbinSize={selectedBobbinSize}
+                        totalWithWaste={indiceTotalWithWaste}
+                        bobbins={indiceBobbins}
+                        colorBreakdown={indiceColorBreakdown}
+                        onSelectKey={(k) => { setGarmentKey(k); setIndiceOverride(null); }}
+                        onIndiceChange={setIndiceOverride}
+                        onResetIndice={() => setIndiceOverride(null)}
+                    />
+                )}
+
+                {calcMode === 'poste' && (<>
                 {/* Operations Table */}
                 <div className="border border-slate-200 rounded-xl overflow-hidden">
                     <div className="w-full bg-slate-50 p-3 flex items-center justify-between">
@@ -1162,6 +1698,8 @@ export default function ThreadCalculator({
                                                     onSetColorThreadType={setColorThreadType}
                                                     onApplyToAll={applyColorThreadToAllOps}
                                                     onUpdateThreadType={updateThreadType}
+                                                    onToggleMultiThread={toggleMultiThread}
+                                                    onSetThreadSlot={setThreadSlot}
                                                 />
                                             </td>
                                         </tr>
@@ -1272,6 +1810,8 @@ export default function ThreadCalculator({
                                                     onSetColorThreadType={setColorThreadType}
                                                     onApplyToAll={applyColorThreadToAllOps}
                                                     onUpdateThreadType={updateThreadType}
+                                                    onToggleMultiThread={toggleMultiThread}
+                                                    onSetThreadSlot={setThreadSlot}
                                                 />
                                             </div>
                                         )}
@@ -1364,24 +1904,24 @@ export default function ThreadCalculator({
                         </div>
                         <div className="p-4">
                             <div className="overflow-x-auto">
-                                <table className="w-full text-sm min-w-[500px]">
-                                    <thead className="bg-slate-100 text-slate-600 text-xs uppercase">
+                                <table className="w-full text-xs sm:text-sm">
+                                    <thead className="bg-slate-100 text-slate-600 text-[10px] sm:text-xs uppercase">
                                         <tr>
-                                            <th className="p-2 text-left">Couleur</th>
-                                            <th className="p-2 text-left">Type Fil</th>
-                                            <th className="p-2 text-right">Quantité</th>
-                                            <th className="p-2 text-right">Fil Total</th>
-                                            <th className="p-2 text-right">Bobines</th>
+                                            <th className="px-1.5 py-1.5 sm:p-2 text-left">Couleur</th>
+                                            <th className="px-1.5 py-1.5 sm:p-2 text-left">Type</th>
+                                            <th className="px-1.5 py-1.5 sm:p-2 text-right">Qté</th>
+                                            <th className="px-1.5 py-1.5 sm:p-2 text-right">Fil Total</th>
+                                            <th className="px-1.5 py-1.5 sm:p-2 text-right">Bob.</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-slate-100">
                                         {colorBreakdown.map((color, idx) => (
                                             <tr key={idx} className="hover:bg-slate-50">
-                                                <td className="p-2 font-bold text-slate-700">{color.colorName}</td>
-                                                <td className="p-2 text-amber-700 font-mono text-xs">{color.threadType || '—'}</td>
-                                                <td className="p-2 text-right text-slate-600">{formatNumberFr(color.quantity)}</td>
-                                                <td className="p-2 text-right text-blue-600 font-bold">{formatNumberFr(color.threadMeters)} m</td>
-                                                <td className="p-2 text-right text-green-600 font-bold">{formatNumberFr(color.bobbins)}</td>
+                                                <td className="px-1.5 py-1.5 sm:p-2 font-bold text-slate-700">{color.colorName}</td>
+                                                <td className="px-1.5 py-1.5 sm:p-2 text-amber-700 font-mono text-[10px] sm:text-xs break-words">{color.threadType || '—'}</td>
+                                                <td className="px-1.5 py-1.5 sm:p-2 text-right tabular-nums text-slate-600">{formatNumberFr(color.quantity)}</td>
+                                                <td className="px-1.5 py-1.5 sm:p-2 text-right tabular-nums text-blue-600 font-bold">{formatNumberFr(color.threadMeters)} m</td>
+                                                <td className="px-1.5 py-1.5 sm:p-2 text-right tabular-nums text-green-600 font-bold">{formatNumberFr(color.bobbins)}</td>
                                             </tr>
                                         ))}
                                     </tbody>
@@ -1390,6 +1930,7 @@ export default function ThreadCalculator({
                         </div>
                     </div>
                 )}
+                </>)}
             </div>
 
             {/* Footer */}
@@ -1397,9 +1938,9 @@ export default function ThreadCalculator({
                 <button onClick={onClose} className="px-4 sm:px-6 py-2 sm:py-2.5 text-sm sm:text-base text-slate-600 font-bold rounded-xl hover:bg-slate-200 transition-colors" aria-label="Annuler et fermer">
                     Annuler
                 </button>
-                <button onClick={handleApply} disabled={machineSummary.length === 0} className="px-4 sm:px-6 py-2 sm:py-2.5 text-sm sm:text-base bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2" aria-label={`Appliquer ${grandTotal.totalBobbins} bobines`}>
+                <button onClick={handleApply} disabled={calcMode === 'poste' ? machineSummary.length === 0 : (!indiceGarment || indiceBobbinsTotal <= 0)} className="px-4 sm:px-6 py-2 sm:py-2.5 text-sm sm:text-base bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2" aria-label={`Appliquer ${calcMode === 'poste' ? grandTotal.totalBobbins : indiceBobbinsTotal} bobines`}>
                     <Check className="w-4 h-4" />
-                    Appliquer ({grandTotal.totalBobbins} bobines)
+                    Appliquer ({calcMode === 'poste' ? grandTotal.totalBobbins : indiceBobbinsTotal} bobines)
                 </button>
             </div>
         </div>
@@ -1471,7 +2012,7 @@ function ThreadTypesManager({ availableThreadTypes, onAdd, onRename, onDelete }:
             {open && (
                 <>
                     <div className="fixed inset-0 z-[60]" onClick={() => { setOpen(false); setEditing(null); }} />
-                    <div className="absolute z-[70] top-full mt-2 right-0 md:right-auto md:left-0 w-72 bg-white border border-amber-200 rounded-xl shadow-xl p-3 space-y-2">
+                    <div className="absolute z-[70] top-full mt-2 left-0 md:right-auto w-[min(18rem,calc(100vw-6rem))] md:w-72 bg-white border border-amber-200 rounded-xl shadow-xl p-3 space-y-2">
                         <div className="flex items-center gap-1">
                             <input
                                 type="text"
@@ -1529,6 +2070,114 @@ interface ColorThreadCellProps {
     onSetColorThreadType: (index: number, colorId: string, value: string) => void;
     onApplyToAll: (index: number, colorId: string) => void;
     onUpdateThreadType: (index: number, value: string) => void;
+    onToggleMultiThread: (index: number) => void;
+    onSetThreadSlot: (index: number, slot: number, value: string) => void;
+}
+
+// Palette stable pour distinguer les types de fil standard sur les cercles.
+const SLOT_TYPE_PALETTE = ['#f59e0b', '#10b981', '#8b5cf6', '#ef4444', '#0ea5e9', '#ec4899', '#84cc16', '#f97316'];
+const MODEL_SLOT_COLOR = '#3b82f6'; // fil « couleur modèle »
+
+function slotColor(slotValue: string, availableThreadTypes: string[]): string {
+    if (!slotValue) return MODEL_SLOT_COLOR;
+    const idx = availableThreadTypes.indexOf(slotValue);
+    return SLOT_TYPE_PALETTE[(idx >= 0 ? idx : 0) % SLOT_TYPE_PALETTE.length];
+}
+
+/**
+ * Éditeur multi-fils : un cercle par fil du poste. On choisit un type (pinceau)
+ * puis on clique les cercles pour affecter les fils. La consommation du poste est
+ * répartie à parts égales entre les fils ; les fils « couleur modèle » suivent
+ * chaque couleur de la commande, les fils typés sont standard (toutes couleurs).
+ */
+function MultiThreadEditor({ op, index, effectiveColors, availableThreadTypes, onSetThreadSlot, onToggleColorActive }: {
+    op: OperationThreadData;
+    index: number;
+    effectiveColors: { id: string; name: string }[];
+    availableThreadTypes: string[];
+    onSetThreadSlot: (index: number, slot: number, value: string) => void;
+    onToggleColorActive: (index: number, colorId: string) => void;
+}) {
+    const [brush, setBrush] = useState('');
+    const perThread = op.threadSlots.length > 0 ? op.threadMetersPerUnit / op.threadSlots.length : 0;
+
+    // Résumé : « 2 × Couleur modèle · 1 × Noir Tex 27 »
+    const summary = useMemo(() => {
+        const counts: Record<string, number> = {};
+        op.threadSlots.forEach(s => { const k = s || 'Couleur modèle'; counts[k] = (counts[k] || 0) + 1; });
+        return Object.entries(counts).map(([k, n]) => `${n} × ${k}`).join(' · ');
+    }, [op.threadSlots]);
+
+    const chip = (value: string, label: string) => {
+        const active = brush === value;
+        const color = slotColor(value, availableThreadTypes);
+        return (
+            <button
+                key={value || '__model__'}
+                type="button"
+                onClick={() => setBrush(value)}
+                className={`flex items-center gap-1 px-1.5 py-0.5 rounded-full border text-[10px] font-medium transition-colors ${active ? 'border-slate-700 bg-slate-100 text-slate-800' : 'border-slate-200 bg-white text-slate-500 hover:border-slate-400'}`}
+                title={value ? `Pinceau : ${label} (fil standard, toutes couleurs)` : 'Pinceau : fil couleur modèle (suit chaque couleur de la commande)'}
+                aria-pressed={active}
+            >
+                <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: color }} />
+                <span className="truncate max-w-[90px]">{label}</span>
+            </button>
+        );
+    };
+
+    return (
+        <div className="space-y-1.5">
+            {/* Pinceaux : couleur modèle + types de fil standard */}
+            <div className="flex flex-wrap gap-1">
+                {chip('', 'Couleur modèle')}
+                {availableThreadTypes.map(tt => chip(tt, tt))}
+            </div>
+
+            {/* Cercles : un par fil du poste */}
+            <div className="flex items-center gap-1.5 flex-wrap">
+                {op.threadSlots.map((s, i) => (
+                    <button
+                        key={i}
+                        type="button"
+                        onClick={() => onSetThreadSlot(index, i, brush)}
+                        className="w-5 h-5 rounded-full border-2 border-white shadow ring-1 ring-slate-200 transition-transform hover:scale-110"
+                        style={{ backgroundColor: slotColor(s, availableThreadTypes) }}
+                        title={`Fil ${i + 1} : ${s || 'Couleur modèle'}${perThread > 0 ? ` (≈ ${perThread.toFixed(2)} m/pc)` : ''} — cliquer pour affecter « ${brush || 'Couleur modèle'} »`}
+                        aria-label={`Fil ${i + 1} de l'opération ${op.operation.order} : ${s || 'couleur modèle'}`}
+                    />
+                ))}
+                <span className="text-[10px] text-slate-400 ml-0.5">{op.threadSlots.length} fils</span>
+            </div>
+
+            <p className="text-[10px] text-slate-500 leading-tight">{summary}</p>
+
+            {availableThreadTypes.length === 0 && (
+                <p className="text-[10px] text-amber-600">Ajoutez des types de fil (bouton « TYPE FIL » en haut) pour affecter les cercles.</p>
+            )}
+
+            {/* Couleurs de la commande actives pour cette opération */}
+            {effectiveColors.length > 0 && (
+                <div className="flex flex-wrap gap-1 pt-0.5 border-t border-slate-100">
+                    {effectiveColors.map(c => {
+                        const ct = op.colorThreads[c.id] || { active: true, threadType: '' };
+                        return (
+                            <button
+                                key={c.id}
+                                type="button"
+                                onClick={() => onToggleColorActive(index, c.id)}
+                                className={`px-1.5 py-0.5 rounded-full border text-[10px] transition-colors ${ct.active ? 'border-emerald-300 bg-emerald-50 text-emerald-700' : 'border-slate-200 bg-white text-slate-400 line-through'}`}
+                                title={ct.active ? `${c.name} : utilisée dans cette opération` : `${c.name} : non utilisée ici`}
+                                aria-pressed={ct.active}
+                            >
+                                {c.name}
+                            </button>
+                        );
+                    })}
+                </div>
+            )}
+        </div>
+    );
 }
 
 /**
@@ -1539,24 +2188,64 @@ interface ColorThreadCellProps {
 function ColorThreadCell({
     op, index, effectiveColors, availableThreadTypes,
     onToggleColorActive, onSetColorThreadType, onApplyToAll, onUpdateThreadType,
+    onToggleMultiThread, onSetThreadSlot,
 }: ColorThreadCellProps) {
+    // Bouton d'activation du mode multi-fils (cercles = fils du poste)
+    const multiToggle = (
+        <button
+            type="button"
+            onClick={() => onToggleMultiThread(index)}
+            className={`self-start flex items-center gap-1 px-1.5 py-0.5 rounded-full border text-[10px] font-semibold transition-colors ${op.multiThread ? 'border-blue-300 bg-blue-50 text-blue-700' : 'border-slate-200 bg-white text-slate-400 hover:border-blue-300 hover:text-blue-600'}`}
+            title={`Mode multi-fils : répartir les ${op.threadSlots.length} fils du poste entre couleur modèle et types standard (consommation divisée à parts égales)`}
+            aria-pressed={op.multiThread}
+            aria-label={`Mode multi-fils pour opération ${op.operation.order}`}
+        >
+            <span className="flex items-center -space-x-0.5">
+                {op.threadSlots.slice(0, 4).map((s, i) => (
+                    <span key={i} className="w-2 h-2 rounded-full border border-white" style={{ backgroundColor: op.multiThread ? slotColor(s, availableThreadTypes) : '#cbd5e1' }} />
+                ))}
+            </span>
+            {op.threadSlots.length} fils
+        </button>
+    );
+
+    if (op.multiThread) {
+        return (
+            <div className="flex flex-col gap-1 min-w-[200px]">
+                {multiToggle}
+                <MultiThreadEditor
+                    op={op}
+                    index={index}
+                    effectiveColors={effectiveColors}
+                    availableThreadTypes={availableThreadTypes}
+                    onSetThreadSlot={onSetThreadSlot}
+                    onToggleColorActive={onToggleColorActive}
+                />
+            </div>
+        );
+    }
+
     if (effectiveColors.length === 0) {
         return (
-            <select
-                value={op.threadType}
-                onChange={(e) => onUpdateThreadType(index, e.target.value)}
-                className="w-36 px-2 py-1 text-xs font-mono bg-amber-50/30 text-amber-700 border border-amber-100 rounded-lg outline-none focus:border-amber-500 transition-colors"
-                title="Type de fil utilisé pour cette opération"
-                aria-label={`Type de fil pour opération ${op.operation.order}`}
-            >
-                <option value="">— type fil —</option>
-                {availableThreadTypes.map(tt => <option key={tt} value={tt}>{tt}</option>)}
-            </select>
+            <div className="flex flex-col gap-1">
+                {multiToggle}
+                <select
+                    value={op.threadType}
+                    onChange={(e) => onUpdateThreadType(index, e.target.value)}
+                    className="w-36 px-2 py-1 text-xs font-mono bg-amber-50/30 text-amber-700 border border-amber-100 rounded-lg outline-none focus:border-amber-500 transition-colors"
+                    title="Type de fil utilisé pour cette opération"
+                    aria-label={`Type de fil pour opération ${op.operation.order}`}
+                >
+                    <option value="">— type fil —</option>
+                    {availableThreadTypes.map(tt => <option key={tt} value={tt}>{tt}</option>)}
+                </select>
+            </div>
         );
     }
 
     return (
         <div className="flex flex-col gap-1 min-w-[200px]">
+            {multiToggle}
             {effectiveColors.map(c => {
                 const ct = op.colorThreads[c.id] || { active: true, threadType: '' };
                 return (

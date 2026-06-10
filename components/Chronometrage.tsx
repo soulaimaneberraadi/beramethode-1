@@ -731,6 +731,44 @@ export default function Chronometrage({
     const [operatorFilter, setOperatorFilter] = useState('');
     const [activeWorkers, setActiveWorkers] = useState<HRWorker[]>([]);
 
+    // Opérateur assigné par poste en mode "Plantation" (les postes viennent de l'implantation,
+    // sans setter parent) — on garde l'affectation localement et on la persiste par modèle.
+    const plantationOpsDefaultKey = 'beramethode_chrono_plant_ops_default';
+    const plantationOpsKey = `beramethode_chrono_plant_ops_${currentModelId || 'default'}`;
+    const [plantationOperators, setPlantationOperators] = useState<Record<string, string>>({});
+    const loadedPlantationKeyRef = useRef<string | null>(null);
+
+    useEffect(() => {
+        // Ne recharger qu'une seule fois par clé (modèle).
+        if (loadedPlantationKeyRef.current === plantationOpsKey) return;
+        const prevKey = loadedPlantationKeyRef.current;
+        loadedPlantationKeyRef.current = plantationOpsKey;
+        try {
+            const raw = localStorage.getItem(plantationOpsKey);
+            const stored = raw ? JSON.parse(raw) : null;
+            if (stored && Object.keys(stored).length > 0) {
+                setPlantationOperators(stored);
+            } else if (prevKey === plantationOpsDefaultKey) {
+                // Un projet neuf vient de recevoir un id (autosave/restore) : la clé passe
+                // de "default" à l'id réel. On NE doit PAS écraser les noms déjà saisis —
+                // on les conserve (l'effet de sauvegarde les persistera sous la nouvelle clé).
+            } else {
+                // Première montée, ou bascule vers un modèle sans opérateurs enregistrés.
+                setPlantationOperators({});
+            }
+        } catch {
+            /* en cas d'erreur de parsing, on conserve l'état courant plutôt que de l'effacer */
+        }
+    }, [plantationOpsKey]);
+
+    useEffect(() => {
+        try {
+            localStorage.setItem(plantationOpsKey, JSON.stringify(plantationOperators));
+        } catch {
+            /* ignore quota errors */
+        }
+    }, [plantationOpsKey, plantationOperators]);
+
     useEffect(() => {
         console.log('[Chrono] Fetching active workers...');
         fetch('/api/hr/workers?active=1', { credentials: 'include' })
@@ -750,12 +788,17 @@ export default function Chronometrage({
     const workerSuggestions = useMemo(() => {
         const term = operatorFilter.toLowerCase();
         // Exclude workers assigned to OTHER stations, not the current one
-        const assignedWorkerNames = new Set(
-            (chronoCustomStations || [])
+        // En "Plantation" chaque carte (poste + opération) a sa propre clé `stId__opId`.
+        const assignedWorkerNames = new Set([
+            ...(chronoCustomStations || [])
                 .filter(s => s.id !== activeOperatorStationId)
                 .map(s => s.operatorName)
-                .filter(Boolean)
-        );
+                .filter(Boolean),
+            ...Object.entries(plantationOperators)
+                .filter(([key]) => key !== activeOperatorStationId)
+                .map(([, name]) => name)
+                .filter(Boolean),
+        ]);
         
         const filtered = activeWorkers.filter(w => {
             // Exclude if already assigned elsewhere
@@ -771,7 +814,7 @@ export default function Chronometrage({
 
         console.log('[Chrono] Suggestions term:', term, 'assigned:', Array.from(assignedWorkerNames), 'filtered count:', filtered.length);
         return filtered;
-    }, [operatorFilter, activeWorkers, chronoCustomStations, activeOperatorStationId]);
+    }, [operatorFilter, activeWorkers, chronoCustomStations, plantationOperators, activeOperatorStationId]);
 
     const fillCustomStationFromOperation = (stationId: string, op: Operation) => {
         let nameUpdate = '';
@@ -797,7 +840,8 @@ export default function Chronometrage({
                         linkedOperationId: op.id,
                         name: nameUpdate || s.name,
                         machine: machineUpdate,
-                        operatorName: operatorUpdate
+                        // Ne pas écraser un opérateur déjà saisi si le poste n'en fournit pas
+                        operatorName: operatorUpdate || s.operatorName
                     }
                     : s
             )
@@ -2052,16 +2096,92 @@ export default function Chronometrage({
                                 <span className="text-[9px] font-semibold text-slate-400">
                                     M: {st.machine}
                                 </span>
-                                {st.operatorName && (
-                                    <span className="text-[9px] font-bold text-slate-400">
-                                        ({st.operatorName})
-                                    </span>
-                                )}
                                 {totalOps > 1 && (
                                     <span className="text-[9px] font-bold uppercase text-indigo-650 bg-indigo-50 border border-indigo-100 px-1 py-0.2 rounded leading-none shrink-0">
                                         Op {opIdx + 1}/{totalOps}
                                     </span>
                                 )}
+                            </div>
+
+                            {/* Affectation de l'opérateur (identique au mode "Nouveau") */}
+                            <div className="flex items-center gap-1.5 w-full sm:w-auto mt-1.5" onClick={e => e.stopPropagation()}>
+                                <span className="text-[9px] sm:text-[10px] font-extrabold text-slate-400 uppercase tracking-wider shrink-0">
+                                    Opé:
+                                </span>
+                                <div className="relative flex-1 sm:flex-none sm:w-56">
+                                    <input
+                                        type="text"
+                                        value={plantationOperators[`${st.id}__${op.id}`] ?? st.operatorName ?? ''}
+                                        onChange={(e) => {
+                                            const val = e.target.value;
+                                            setOperatorFilter(val);
+                                            setPlantationOperators(prev => ({ ...prev, [`${st.id}__${op.id}`]: val }));
+                                        }}
+                                        onFocus={(e) => {
+                                            setActiveOperatorStationId(`${st.id}__${op.id}`);
+                                            setOperatorFilter(e.target.value);
+                                        }}
+                                        onBlur={() => {
+                                            setTimeout(() => {
+                                                setActiveOperatorStationId(null);
+                                            }, 250);
+                                        }}
+                                        placeholder="Nom / Matricule..."
+                                        className="bg-slate-50 border border-slate-200 focus:border-indigo-400 focus:bg-white rounded px-2 py-1 sm:py-0.5 outline-none w-full text-[11px] sm:text-xs font-black text-slate-700 placeholder-slate-400 transition-all shadow-sm"
+                                    />
+
+                                    {/* Liste des effectifs : ancrée juste sous le champ "Opé" */}
+                                    {activeOperatorStationId === `${st.id}__${op.id}` && (
+                                        <div
+                                            onClick={e => e.stopPropagation()}
+                                            className="absolute z-[200] left-0 top-full mt-1.5 w-full sm:w-72 max-h-60 sm:max-h-72 overflow-y-auto bg-white border border-slate-200/90 rounded-xl sm:rounded-2xl shadow-xl divide-y divide-slate-100 p-1.5"
+                                        >
+                                            <div className="px-3 py-2 bg-slate-50/80 rounded-t-lg text-[9px] sm:text-[10px] font-black text-slate-400 uppercase tracking-wider sticky top-0 z-10 border-b border-slate-100 flex items-center justify-between">
+                                                <span>Membres d'Effectifs Disponibles</span>
+                                                <span className="text-[8px] bg-slate-200/60 text-slate-500 px-1 py-0.2 rounded font-mono">
+                                                    {workerSuggestions.length} dispo
+                                                </span>
+                                            </div>
+                                            {activeWorkers.length === 0 ? (
+                                                <div className="px-4 py-4 text-center text-xs text-slate-450 font-semibold">
+                                                    Chargement des effectifs...
+                                                </div>
+                                            ) : workerSuggestions.length === 0 ? (
+                                                <div className="px-4 py-4 text-center text-xs text-slate-450 font-semibold">
+                                                    Aucun membre disponible
+                                                </div>
+                                            ) : (
+                                                workerSuggestions.map(w => (
+                                                    <button
+                                                        key={w.id}
+                                                        type="button"
+                                                        onMouseDown={e => {
+                                                            e.preventDefault();
+                                                            e.stopPropagation();
+                                                        }}
+                                                        onClick={() => {
+                                                            setPlantationOperators(prev => ({ ...prev, [`${st.id}__${op.id}`]: w.full_name }));
+                                                            setActiveOperatorStationId(null);
+                                                        }}
+                                                        className="w-full text-left px-3 py-2.5 hover:bg-slate-50 active:bg-slate-100/70 transition-colors flex items-center justify-between gap-2"
+                                                    >
+                                                        <div className="flex flex-col gap-0.5 min-w-0">
+                                                            <span className="text-xs sm:text-sm font-bold text-slate-800 truncate">{w.full_name}</span>
+                                                            <span className="text-[9px] sm:text-[10px] font-semibold text-slate-400 truncate">
+                                                                Matricule: {w.matricule}
+                                                            </span>
+                                                        </div>
+                                                        {w.role && (
+                                                            <span className="text-[8px] sm:text-[9px] font-bold text-indigo-650 bg-indigo-50 border border-indigo-100/30 px-1.5 py-0.5 rounded-lg shrink-0 uppercase tracking-wider">
+                                                                {w.role}
+                                                            </span>
+                                                        )}
+                                                    </button>
+                                                ))
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -2689,60 +2809,63 @@ export default function Chronometrage({
                         />
 
                         {/* Operation description and Station/Machine details */}
-                        <div className="flex flex-col text-left min-w-0 flex-1 relative" onClick={e => e.stopPropagation()}>
-                            <input
-                                type="text"
-                                value={station.description || ''}
-                                onChange={(e) => {
-                                    const val = e.target.value;
-                                    setSuggestionFilter(val);
-                                    const exactOp = operations.find(op => op.description.toLowerCase() === val.toLowerCase());
-                                    setChronoCustomStations?.(prev =>
-                                        prev.map(s => s.id === station.id ? {
-                                            ...s,
-                                            description: val,
-                                            linkedOperationId: exactOp ? exactOp.id : s.linkedOperationId
-                                        } : s)
-                                    );
-                                }}
-                                onFocus={(e) => {
-                                    setActiveSuggestionStationId(station.id);
-                                    setSuggestionFilter(e.target.value);
-                                }}
-                                onBlur={() => {
-                                    setTimeout(() => {
-                                        setActiveSuggestionStationId(null);
-                                    }, 250);
-                                }}
-                                className="text-[11px] sm:text-sm font-black text-slate-800 bg-transparent border-b border-dashed border-slate-200 hover:border-slate-350 focus:border-indigo-500 outline-none w-full placeholder-slate-400 py-0.5"
-                                placeholder="Opération / Desc..."
-                            />
+                        <div className="flex flex-col text-left min-w-0 flex-1" onClick={e => e.stopPropagation()}>
+                            <div className="relative w-full">
+                                <input
+                                    type="text"
+                                    value={station.description || ''}
+                                    onChange={(e) => {
+                                        const val = e.target.value;
+                                        setSuggestionFilter(val);
+                                        const exactOp = operations.find(op => op.description.toLowerCase() === val.toLowerCase());
+                                        setChronoCustomStations?.(prev =>
+                                            prev.map(s => s.id === station.id ? {
+                                                ...s,
+                                                description: val,
+                                                linkedOperationId: exactOp ? exactOp.id : s.linkedOperationId
+                                            } : s)
+                                        );
+                                    }}
+                                    onFocus={(e) => {
+                                        setActiveSuggestionStationId(station.id);
+                                        setSuggestionFilter(e.target.value);
+                                    }}
+                                    onBlur={() => {
+                                        setTimeout(() => {
+                                            setActiveSuggestionStationId(null);
+                                        }, 250);
+                                    }}
+                                    className="text-[11px] sm:text-sm font-black text-slate-800 bg-transparent border-b border-dashed border-slate-200 hover:border-slate-350 focus:border-indigo-500 outline-none w-full placeholder-slate-400 py-0.5"
+                                    placeholder="Opération / Desc..."
+                                />
 
-                            {activeSuggestionStationId === station.id && suggestions.length > 0 && (
-                                <div className="absolute z-[150] left-0 right-0 top-full mt-1 max-h-48 overflow-y-auto bg-white border border-slate-200 rounded-xl shadow-lg divide-y divide-slate-50">
-                                    {suggestions.map(op => (
-                                        <button
-                                            key={op.id}
-                                            type="button"
-                                            onMouseDown={e => {
-                                                e.preventDefault();
-                                                e.stopPropagation();
-                                            }}
-                                            onClick={() => {
-                                                fillCustomStationFromOperation(station.id, op);
-                                                setActiveSuggestionStationId(null);
-                                            }}
-                                            className="w-full text-left px-3 py-2 hover:bg-slate-50 transition-colors flex flex-col gap-0.5"
-                                        >
-                                            <span className="text-xs font-bold text-slate-800">{op.description}</span>
-                                            <div className="flex items-center gap-1.5">
-                                                <span className="text-[9px] font-semibold text-slate-400">Machine: {op.machineId || '—'}</span>
-                                                <span className="text-[9px] font-semibold text-slate-400">Temps: {op.time} min</span>
-                                            </div>
-                                        </button>
-                                    ))}
-                                </div>
-                            )}
+                                {/* Suggestions d'opérations : ancrées juste sous le champ "Opération / Desc" */}
+                                {activeSuggestionStationId === station.id && suggestions.length > 0 && (
+                                    <div className="absolute z-[150] left-0 top-full mt-1.5 w-full sm:w-80 max-h-56 sm:max-h-72 overflow-y-auto bg-white border border-slate-200/90 rounded-xl sm:rounded-2xl shadow-xl divide-y divide-slate-100 p-1.5">
+                                        {suggestions.map(op => (
+                                            <button
+                                                key={op.id}
+                                                type="button"
+                                                onMouseDown={e => {
+                                                    e.preventDefault();
+                                                    e.stopPropagation();
+                                                }}
+                                                onClick={() => {
+                                                    fillCustomStationFromOperation(station.id, op);
+                                                    setActiveSuggestionStationId(null);
+                                                }}
+                                                className="w-full text-left px-3 py-2.5 rounded-lg hover:bg-slate-50 active:bg-slate-100/70 transition-colors flex flex-col gap-0.5"
+                                            >
+                                                <span className="text-xs sm:text-sm font-bold text-slate-800 truncate">{op.description}</span>
+                                                <div className="flex items-center gap-1.5">
+                                                    <span className="text-[9px] sm:text-[10px] font-semibold text-slate-400">Machine: {op.machineId || '—'}</span>
+                                                    <span className="text-[9px] sm:text-[10px] font-semibold text-slate-400">Temps: {op.time} min</span>
+                                                </div>
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
 
                             <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-1.5 sm:gap-3 mt-1">
                                 <div className="flex items-center gap-1.5">
@@ -2767,28 +2890,84 @@ export default function Chronometrage({
                                     <span className="text-[9px] sm:text-[10px] font-extrabold text-slate-400 uppercase tracking-wider shrink-0">
                                         Opé:
                                     </span>
-                                    <input
-                                        type="text"
-                                        value={station.operatorName || ''}
-                                        onChange={(e) => {
-                                            const val = e.target.value;
-                                            setOperatorFilter(val);
-                                            setChronoCustomStations?.(prev =>
-                                                prev.map(s => s.id === station.id ? { ...s, operatorName: val } : s)
-                                            );
-                                        }}
-                                        onFocus={(e) => {
-                                            setActiveOperatorStationId(station.id);
-                                            setOperatorFilter(e.target.value);
-                                        }}
-                                        onBlur={() => {
-                                            setTimeout(() => {
-                                                setActiveOperatorStationId(null);
-                                            }, 250);
-                                        }}
-                                        placeholder="Nom / Matricule..."
-                                        className="bg-slate-50 border border-slate-200 focus:border-indigo-400 focus:bg-white rounded px-2 py-1 sm:py-0.5 outline-none flex-1 sm:w-44 sm:flex-none text-[11px] sm:text-xs font-black text-slate-700 placeholder-slate-400 transition-all shadow-sm"
-                                    />
+                                    <div className="relative flex-1 sm:flex-none sm:w-56">
+                                        <input
+                                            type="text"
+                                            value={station.operatorName || ''}
+                                            onChange={(e) => {
+                                                const val = e.target.value;
+                                                setOperatorFilter(val);
+                                                setChronoCustomStations?.(prev =>
+                                                    prev.map(s => s.id === station.id ? { ...s, operatorName: val } : s)
+                                                );
+                                            }}
+                                            onFocus={(e) => {
+                                                setActiveOperatorStationId(station.id);
+                                                setOperatorFilter(e.target.value);
+                                            }}
+                                            onBlur={() => {
+                                                setTimeout(() => {
+                                                    setActiveOperatorStationId(null);
+                                                }, 250);
+                                            }}
+                                            placeholder="Nom / Matricule..."
+                                            className="bg-slate-50 border border-slate-200 focus:border-indigo-400 focus:bg-white rounded px-2 py-1 sm:py-0.5 outline-none w-full text-[11px] sm:text-xs font-black text-slate-700 placeholder-slate-400 transition-all shadow-sm"
+                                        />
+
+                                        {/* Liste des effectifs : ancrée juste sous le champ "Opé" */}
+                                        {activeOperatorStationId === station.id && (
+                                            <div
+                                                onClick={e => e.stopPropagation()}
+                                                className="absolute z-[200] left-0 top-full mt-1.5 w-full sm:w-72 max-h-60 sm:max-h-72 overflow-y-auto bg-white border border-slate-200/90 rounded-xl sm:rounded-2xl shadow-xl divide-y divide-slate-100 p-1.5"
+                                            >
+                                                <div className="px-3 py-2 bg-slate-50/80 rounded-t-lg text-[9px] sm:text-[10px] font-black text-slate-400 uppercase tracking-wider sticky top-0 z-10 border-b border-slate-100 flex items-center justify-between">
+                                                    <span>Membres d'Effectifs Disponibles</span>
+                                                    <span className="text-[8px] bg-slate-200/60 text-slate-500 px-1 py-0.2 rounded font-mono">
+                                                        {workerSuggestions.length} dispo
+                                                    </span>
+                                                </div>
+                                                {activeWorkers.length === 0 ? (
+                                                    <div className="px-4 py-4 text-center text-xs text-slate-450 font-semibold">
+                                                        Chargement des effectifs...
+                                                    </div>
+                                                ) : workerSuggestions.length === 0 ? (
+                                                    <div className="px-4 py-4 text-center text-xs text-slate-450 font-semibold">
+                                                        Aucun membre disponible
+                                                    </div>
+                                                ) : (
+                                                    workerSuggestions.map(w => (
+                                                        <button
+                                                            key={w.id}
+                                                            type="button"
+                                                            onMouseDown={e => {
+                                                                e.preventDefault();
+                                                                e.stopPropagation();
+                                                            }}
+                                                            onClick={() => {
+                                                                setChronoCustomStations?.(prev =>
+                                                                    prev.map(s => s.id === station.id ? { ...s, operatorName: w.full_name } : s)
+                                                                );
+                                                                setActiveOperatorStationId(null);
+                                                            }}
+                                                            className="w-full text-left px-3 py-2.5 hover:bg-slate-50 active:bg-slate-100/70 transition-colors flex items-center justify-between gap-2"
+                                                        >
+                                                            <div className="flex flex-col gap-0.5 min-w-0">
+                                                                <span className="text-xs sm:text-sm font-bold text-slate-800 truncate">{w.full_name}</span>
+                                                                <span className="text-[9px] sm:text-[10px] font-semibold text-slate-400 truncate">
+                                                                    Matricule: {w.matricule}
+                                                                </span>
+                                                            </div>
+                                                            {w.role && (
+                                                                <span className="text-[8px] sm:text-[9px] font-bold text-indigo-650 bg-indigo-50 border border-indigo-100/30 px-1.5 py-0.5 rounded-lg shrink-0 uppercase tracking-wider">
+                                                                    {w.role}
+                                                                </span>
+                                                            )}
+                                                        </button>
+                                                    ))
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
 
                                 {totalOps > 1 && (
@@ -2870,59 +3049,6 @@ export default function Chronometrage({
                     ></div>
                 </div>
 
-                {/* Operator Suggestions Dropdown (always below the card, styled and optimized for mobile screens) */}
-                {activeOperatorStationId === station.id && (
-                    <div 
-                        onClick={e => e.stopPropagation()} 
-                        className="absolute z-[200] left-0 right-0 top-full mt-1.5 w-full max-h-60 sm:max-h-72 overflow-y-auto bg-white border border-slate-200/90 rounded-xl sm:rounded-2xl shadow-xl divide-y divide-slate-100 p-1.5"
-                    >
-                        <div className="px-3 py-2 bg-slate-50/80 rounded-t-lg text-[9px] sm:text-[10px] font-black text-slate-400 uppercase tracking-wider sticky top-0 z-10 border-b border-slate-100 flex items-center justify-between">
-                            <span>Membres d'Effectifs Disponibles</span>
-                            <span className="text-[8px] bg-slate-200/60 text-slate-500 px-1 py-0.2 rounded font-mono">
-                                {workerSuggestions.length} dispo
-                            </span>
-                        </div>
-                        {activeWorkers.length === 0 ? (
-                            <div className="px-4 py-4 text-center text-xs text-slate-450 font-semibold">
-                                Chargement des effectifs...
-                            </div>
-                        ) : workerSuggestions.length === 0 ? (
-                            <div className="px-4 py-4 text-center text-xs text-slate-450 font-semibold">
-                                Aucun membre disponible
-                            </div>
-                        ) : (
-                            workerSuggestions.map(w => (
-                                <button
-                                    key={w.id}
-                                    type="button"
-                                    onMouseDown={e => {
-                                        e.preventDefault();
-                                        e.stopPropagation();
-                                    }}
-                                    onClick={() => {
-                                        setChronoCustomStations?.(prev =>
-                                            prev.map(s => s.id === station.id ? { ...s, operatorName: w.full_name } : s)
-                                        );
-                                        setActiveOperatorStationId(null);
-                                    }}
-                                    className="w-full text-left px-3.5 py-3 hover:bg-slate-50 active:bg-slate-100/70 transition-colors flex items-center justify-between gap-3"
-                                >
-                                    <div className="flex flex-col gap-0.5 min-w-0">
-                                        <span className="text-xs sm:text-sm font-bold text-slate-800 truncate">{w.full_name}</span>
-                                        <span className="text-[9px] sm:text-[10px] font-semibold text-slate-400">
-                                            Matricule: {w.matricule}
-                                        </span>
-                                    </div>
-                                    {w.role && (
-                                        <span className="text-[9px] sm:text-[10px] font-bold text-indigo-650 bg-indigo-50 border border-indigo-100/30 px-2 py-0.5 rounded-lg shrink-0 uppercase tracking-wider">
-                                            {w.role}
-                                        </span>
-                                    )}
-                                </button>
-                            ))
-                        )}
-                    </div>
-                )}
             </div>
         );
     };
@@ -3098,7 +3224,7 @@ export default function Chronometrage({
                         </button>
                     </div>
 
-                    {orderSource === 'new' && (
+                    {(orderSource === 'new' || orderSource === 'plantation') && (
                         <div className="shrink-0 flex items-stretch rounded-lg border border-slate-200 overflow-hidden shadow-sm h-[24px] sm:h-[40px]" title="Disposition du terrain">
                             <button
                                 type="button"
@@ -3305,38 +3431,42 @@ export default function Chronometrage({
                                             <span className="text-xs text-slate-500 font-bold">{section.stations.length} postes</span>
                                         </div>
 
-                                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+                                        <div className={`grid grid-cols-1 ${chronoLayoutSide === 'both' ? 'lg:grid-cols-2' : ''} gap-6 items-start`}>
                                             {/* Left side: odd stations/operations */}
-                                            <div className="flex flex-col gap-4">
-                                                <div className="bg-indigo-50 border border-indigo-100 text-indigo-850 py-2 px-3 rounded-xl font-black text-center text-xs uppercase tracking-wide">
-                                                    CÔTÉ GAUCHE (POSTES IMPAIRS)
+                                            {(chronoLayoutSide === 'left' || chronoLayoutSide === 'both') && (
+                                                <div className="flex flex-col gap-4">
+                                                    <div className="bg-indigo-50 border border-indigo-100 text-indigo-850 py-2 px-3 rounded-xl font-black text-center text-xs uppercase tracking-wide">
+                                                        CÔTÉ GAUCHE (POSTES IMPAIRS)
+                                                    </div>
+                                                    {sideA.map((item, idx) => (
+                                                        <React.Fragment key={`${item.st.id}__${item.op?.id || idx}`}>
+                                                            {item.type === 'station' && item.op ? (
+                                                                renderPlantationOperationCard(item.st, item.op, item.opIdx, item.totalOps)
+                                                            ) : (
+                                                                renderEmptyWorkstationCard(item.st)
+                                                            )}
+                                                        </React.Fragment>
+                                                    ))}
                                                 </div>
-                                                {sideA.map((item, idx) => (
-                                                    <React.Fragment key={`${item.st.id}__${item.op?.id || idx}`}>
-                                                        {item.type === 'station' && item.op ? (
-                                                            renderPlantationOperationCard(item.st, item.op, item.opIdx, item.totalOps)
-                                                        ) : (
-                                                            renderEmptyWorkstationCard(item.st)
-                                                        )}
-                                                    </React.Fragment>
-                                                ))}
-                                            </div>
+                                            )}
 
                                             {/* Right side: even stations/operations */}
-                                            <div className="flex flex-col gap-4">
-                                                <div className="bg-slate-100 border border-slate-250 text-slate-750 py-2 px-3 rounded-xl font-black text-center text-xs uppercase tracking-wide">
-                                                    CÔTÉ DROIT (POSTES PAIRS)
+                                            {(chronoLayoutSide === 'right' || chronoLayoutSide === 'both') && (
+                                                <div className="flex flex-col gap-4">
+                                                    <div className="bg-slate-100 border border-slate-250 text-slate-750 py-2 px-3 rounded-xl font-black text-center text-xs uppercase tracking-wide">
+                                                        CÔTÉ DROIT (POSTES PAIRS)
+                                                    </div>
+                                                    {sideB.map((item, idx) => (
+                                                        <React.Fragment key={`${item.st.id}__${item.op?.id || idx}`}>
+                                                            {item.type === 'station' && item.op ? (
+                                                                renderPlantationOperationCard(item.st, item.op, item.opIdx, item.totalOps)
+                                                            ) : (
+                                                                renderEmptyWorkstationCard(item.st)
+                                                            )}
+                                                        </React.Fragment>
+                                                    ))}
                                                 </div>
-                                                {sideB.map((item, idx) => (
-                                                    <React.Fragment key={`${item.st.id}__${item.op?.id || idx}`}>
-                                                        {item.type === 'station' && item.op ? (
-                                                            renderPlantationOperationCard(item.st, item.op, item.opIdx, item.totalOps)
-                                                        ) : (
-                                                            renderEmptyWorkstationCard(item.st)
-                                                        )}
-                                                    </React.Fragment>
-                                                ))}
-                                            </div>
+                                            )}
                                         </div>
                                     </div>
                                 );

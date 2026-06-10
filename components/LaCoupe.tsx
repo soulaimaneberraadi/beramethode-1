@@ -595,6 +595,8 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
     const handleAddVisualColor = (hex: string) => {
         if (!selectedModel) return;
         const fiche = buildFiche();
+        // Même hex = même couleur (id = hex) : on évite d'ajouter un doublon.
+        if ((fiche.colors || []).some(c => c.id === hex)) return;
         const detectedName = hexToColorName(hex);
         const newColor = { id: hex, name: detectedName };
         applyFicheUpdate({ ...fiche, colors: [...fiche.colors, newColor] });
@@ -1521,7 +1523,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                                 const cHex = c.id && c.id.startsWith('#') ? c.id : null;
                                                 const palette = BADGE_COLORS[cIdx % BADGE_COLORS.length];
                                                 return (
-                                                    <tr key={cId} className="hover:bg-emerald-50/30 transition-colors">
+                                                    <tr key={`${cId}-${cIdx}`} className="hover:bg-emerald-50/30 transition-colors">
                                                         <td
                                                             className="py-2.5 px-3 border-l border-slate-200 font-semibold text-slate-800 cursor-pointer hover:bg-slate-50 transition-colors"
                                                             onContextMenu={(e) => { e.preventDefault(); setMatrixCtx({ x: e.pageX, y: e.pageY, type: 'color', index: cIdx, id: cId, name: cName }); }}

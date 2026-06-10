@@ -82,7 +82,7 @@ const ModelInfo: React.FC<ModelInfoProps> = ({
             {/* Content */}
             <div className="p-3 sm:p-5 grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">
                 {/* Left Column - Inputs */}
-                <div className="md:col-span-2 space-y-3 sm:space-y-4">
+                <div className="md:col-span-2 space-y-3 sm:space-y-4 order-2 md:order-1">
                     {/* Model Name */}
                     <div>
                         <label className="block text-[11px] font-medium text-slate-500 mb-1.5">
@@ -227,10 +227,10 @@ const ModelInfo: React.FC<ModelInfoProps> = ({
                     </div>
                 </div>
 
-                {/* Right Column - Image */}
-                <div className="md:col-span-1">
+                {/* Right Column - Image (en haut sur mobile, à côté sur desktop — comme la Fiche Technique) */}
+                <div className="md:col-span-1 order-1 md:order-2">
                     <div
-                        className={`relative w-full h-[250px] sm:h-[320px] rounded-md border border-dashed transition-all duration-300 flex flex-col items-center justify-center overflow-hidden cursor-pointer
+                        className={`relative w-full h-[320px] sm:h-[320px] rounded-md border border-dashed transition-all duration-300 flex flex-col items-center justify-center overflow-hidden cursor-pointer
                             ${darkMode
                                 ? 'border-gray-600 bg-gray-800/50 hover:bg-gray-800 hover:border-slate-500'
                                 : 'border-slate-300 bg-slate-50/60 hover:bg-slate-50 hover:border-slate-400'

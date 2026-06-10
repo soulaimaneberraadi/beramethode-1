@@ -508,7 +508,7 @@ export default function Library({
                                 {filteredModels.map((model) => (
                                     <div
                                         key={model.id}
-                                        onDoubleClick={() => onLoadModel(model)}
+                                        onClick={() => { if (renamingId !== model.id) onLoadModel(model); }}
                                         onContextMenu={(e) => {
                                             e.preventDefault();
                                             setContextMenu({ x: e.pageX, y: e.pageY, modelId: model.id });
@@ -600,7 +600,7 @@ export default function Library({
                                 {filteredModels.map((model) => (
                                     <div
                                         key={model.id}
-                                        onDoubleClick={() => onLoadModel(model)}
+                                        onClick={() => { if (renamingId !== model.id) onLoadModel(model); }}
                                         onContextMenu={(e) => {
                                             e.preventDefault();
                                             setContextMenu({ x: e.pageX, y: e.pageY, modelId: model.id });

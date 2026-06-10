@@ -564,10 +564,10 @@ export default function Pedido({
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-100">
-                                    {filteredColors.map((c) => {
+                                    {filteredColors.map((c, cIdx) => {
                                         let rowTotal = 0;
                                         return (
-                                            <tr key={c.id} className="hover:bg-slate-50/30">
+                                            <tr key={`${c.id}-${cIdx}`} className="hover:bg-slate-50/30">
                                                 <td className="py-2 px-3 border-r border-slate-100 font-semibold text-slate-700 flex items-center gap-2">
                                                     <div
                                                         className={`w-3 h-3 rounded-full flex-shrink-0 shadow-sm ${c.id && c.id.startsWith('#') ? '' : 'bg-slate-300'}`}
@@ -1101,10 +1101,10 @@ export default function Pedido({
                                                                 </tr>
                                                             </thead>
                                                             <tbody className="divide-y divide-slate-100">
-                                                                {filteredColors.map((c) => {
+                                                                {filteredColors.map((c, cIdx) => {
                                                                     let rowTotal = 0;
                                                                     return (
-                                                                        <tr key={c.id} className="hover:bg-slate-50/30 transition-colors">
+                                                                        <tr key={`${c.id}-${cIdx}`} className="hover:bg-slate-50/30 transition-colors">
                                                                             <td className="py-2 px-3 border-r border-slate-100 font-semibold text-slate-600 flex items-center gap-2">
                                                                                 <div
                                                                                     className={`w-2.5 h-2.5 rounded-full flex-shrink-0 shadow-sm ${c.id && c.id.startsWith('#') ? '' : 'bg-slate-300'}`}
@@ -1217,7 +1217,7 @@ export default function Pedido({
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-150">
-                                {colors.filter(c => c.name.toLowerCase() !== 'total' && c.id.toLowerCase() !== 'total').map((c) => {
+                                {colors.filter(c => c.name.toLowerCase() !== 'total' && c.id.toLowerCase() !== 'total').map((c, cIdx) => {
                                     const targetRowTotal = matrixStats.rowTotals[c.id] || 0;
                                     const plannedRowTotal = Object.values(planifiedTotals[c.id] || {}).reduce((a, b) => a + b, 0);
                                     const rowDiff = plannedRowTotal - targetRowTotal;
@@ -1236,7 +1236,7 @@ export default function Pedido({
                                     }
 
                                     return (
-                                        <tr key={c.id} className="hover:bg-slate-50/30 transition-colors">
+                                        <tr key={`${c.id}-${cIdx}`} className="hover:bg-slate-50/30 transition-colors">
                                             <td className="py-2.5 px-3 border-r border-slate-200 font-extrabold text-slate-700 flex items-center gap-2 bg-slate-50/20 font-sans">
                                                 <div
                                                     className={`w-3 h-3 rounded-full flex-shrink-0 shadow-sm ${c.id && c.id.startsWith('#') ? '' : 'bg-slate-300'}`}

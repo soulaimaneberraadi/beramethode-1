@@ -324,9 +324,9 @@ const OrderModelPage: React.FC<OrderModelPageProps> = ({
                 {/* Materials Table */}
                 {commoditiesOpen && (
                     <div className="p-4">
-                        <div className="rounded-xl border border-slate-200 overflow-x-auto">
-                            <table className="w-full min-w-[640px] text-sm">
-                                <thead>
+                        <div className="rounded-xl border border-slate-200 md:overflow-x-auto">
+                            <table className="w-full block md:table text-sm">
+                                <thead className="hidden md:table-header-group">
                                     <tr className="bg-slate-50 text-slate-500 text-xs font-bold uppercase tracking-wider">
                                         <th className="px-4 py-3 text-right">المادة</th>
                                         <th className="px-4 py-3 text-center">المورد</th>
@@ -337,17 +337,17 @@ const OrderModelPage: React.FC<OrderModelPageProps> = ({
                                         <th className="px-4 py-3 text-center">الإجمالي</th>
                                     </tr>
                                 </thead>
-                                <tbody className="divide-y divide-slate-100">
+                                <tbody className="block md:table-row-group md:divide-y md:divide-slate-100">
                                     {purchasingData.length === 0 ? (
-                                        <tr>
-                                            <td colSpan={7} className="px-4 py-8 text-center text-slate-400 text-sm">
+                                        <tr className="block md:table-row">
+                                            <td colSpan={7} className="block md:table-cell px-4 py-8 text-center text-slate-400 text-sm">
                                                 لا توجد مواد مضافة بعد
                                             </td>
                                         </tr>
                                     ) : (
                                         purchasingData.map(m => (
-                                            <tr key={m.id} className="hover:bg-indigo-50/30 transition-colors group">
-                                                <td className="px-4 py-3 font-semibold text-slate-800">
+                                            <tr key={m.id} className="block md:table-row border border-slate-200 rounded-xl mb-3 p-2 md:p-0 md:mb-0 md:border-0 md:rounded-none hover:bg-indigo-50/30 transition-colors group">
+                                                <td className="block md:table-cell px-4 py-2 md:py-3 font-semibold text-slate-800">
                                                     <div className="flex items-center gap-2">
                                                         <div className="w-2 h-2 rounded-full bg-indigo-400 shrink-0" />
                                                         {m.name || '—'}
@@ -356,37 +356,43 @@ const OrderModelPage: React.FC<OrderModelPageProps> = ({
                                                         )}
                                                     </div>
                                                 </td>
-                                                <td className="px-4 py-3 text-center text-xs text-slate-500">
-                                                    {m.fournisseur || '—'}
+                                                <td className="flex md:table-cell items-center justify-between px-4 py-1.5 md:py-3 md:text-center text-xs text-slate-500">
+                                                    <span className="md:hidden text-[10px] font-bold text-slate-400">المورد</span>
+                                                    <span>{m.fournisseur || '—'}</span>
                                                 </td>
-                                                <td className="px-4 py-3 text-center text-xs font-medium text-slate-600">
-                                                    {isExport ? '0 (Fourni)' : `${m.unitPrice} ${currency}`}
+                                                <td className="flex md:table-cell items-center justify-between px-4 py-1.5 md:py-3 md:text-center text-xs font-medium text-slate-600">
+                                                    <span className="md:hidden text-[10px] font-bold text-slate-400">السعر</span>
+                                                    <span>{isExport ? '0 (Fourni)' : `${m.unitPrice} ${currency}`}</span>
                                                 </td>
-                                                <td className="px-4 py-3 text-center text-xs text-slate-500">
-                                                    {fmt(m.qty)} {m.unit}
+                                                <td className="flex md:table-cell items-center justify-between px-4 py-1.5 md:py-3 md:text-center text-xs text-slate-500">
+                                                    <span className="md:hidden text-[10px] font-bold text-slate-400">الكمية / الوحدة</span>
+                                                    <span>{fmt(m.qty)} {m.unit}</span>
                                                 </td>
-                                                <td className="px-4 py-3 text-center text-xs text-slate-500">
-                                                    {fmt(m.totalWithWaste)} {m.unit}
+                                                <td className="flex md:table-cell items-center justify-between px-4 py-1.5 md:py-3 md:text-center text-xs text-slate-500">
+                                                    <span className="md:hidden text-[10px] font-bold text-slate-400">الاحتياج (+{wasteRate}%)</span>
+                                                    <span>{fmt(m.totalWithWaste)} {m.unit}</span>
                                                 </td>
-                                                <td className="px-4 py-3 text-center">
+                                                <td className="flex md:table-cell items-center justify-between px-4 py-1.5 md:py-3 md:text-center">
+                                                    <span className="md:hidden text-[10px] font-bold text-slate-400">للشراء</span>
                                                     <span className="inline-block px-2.5 py-1 rounded-lg text-xs font-bold bg-indigo-100 text-indigo-700 border border-indigo-200">
                                                         {fmt(m.qtyToBuy)} {m.unit}
                                                     </span>
                                                 </td>
-                                                <td className="px-4 py-3 text-center font-bold text-slate-800">
-                                                    {isExport ? 0 : fmt(m.lineCost)} {currency}
+                                                <td className="flex md:table-cell items-center justify-between px-4 py-1.5 md:py-3 mt-1 pt-2 md:mt-0 md:pt-3 border-t md:border-t-0 border-slate-100 md:text-center font-bold text-slate-800">
+                                                    <span className="md:hidden text-[10px] font-bold text-slate-400">الإجمالي</span>
+                                                    <span>{isExport ? 0 : fmt(m.lineCost)} {currency}</span>
                                                 </td>
                                             </tr>
                                         ))
                                     )}
                                 </tbody>
                                 {purchasingData.length > 0 && (
-                                    <tfoot>
-                                        <tr className="bg-indigo-50 border-t-2 border-indigo-200">
-                                            <td colSpan={6} className="px-4 py-3 text-left font-black text-indigo-700 text-sm">
+                                    <tfoot className="block md:table-footer-group">
+                                        <tr className="flex md:table-row items-center justify-between bg-indigo-50 border-t-2 border-indigo-200 rounded-xl md:rounded-none mt-2 md:mt-0 px-2 md:px-0">
+                                            <td colSpan={6} className="block md:table-cell px-4 py-3 text-right md:text-left font-black text-indigo-700 text-sm">
                                                 إجمالي تكلفة المواد
                                             </td>
-                                            <td className="px-4 py-3 text-center font-black text-indigo-700 text-lg">
+                                            <td className="block md:table-cell px-4 py-3 text-center font-black text-indigo-700 text-base md:text-lg">
                                                 {fmt(totalPurchasingMatCost)} {currency}
                                             </td>
                                         </tr>
@@ -439,7 +445,7 @@ const OrderModelPage: React.FC<OrderModelPageProps> = ({
                                     const cHex = c.id && c.id.startsWith('#') ? c.id : null;
                                     const palette = BADGE_COLORS[cIdx % BADGE_COLORS.length];
                                     return (
-                                        <tr key={c.id} className="hover:bg-indigo-50/20 group">
+                                        <tr key={`${c.id}-${cIdx}`} className="hover:bg-indigo-50/20 group">
                                             <td className="py-3 px-4 border-l border-slate-200 font-bold text-slate-800">
                                                 <div className="flex items-center gap-2">
                                                     <div

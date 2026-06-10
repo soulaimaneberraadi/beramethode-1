@@ -91,6 +91,14 @@ import {
   deleteChronoSession,
   batchSaveChronoSessions
 } from './server/chronoController';
+import {
+  getCatalogEntries,
+  syncCatalog,
+  pinCatalogEntry,
+  deleteCatalogEntry,
+  updateCatalogEntry,
+  confirmCatalogEntry,
+} from './server/catalogController';
 
 async function startServer() {
   const app = express();
@@ -364,6 +372,14 @@ async function startServer() {
   app.put('/api/chrono/sessions/:id', authenticateToken, updateChronoSession);
   app.delete('/api/chrono/sessions/:id', authenticateToken, deleteChronoSession);
   app.post('/api/chrono/sessions/batch', authenticateToken, batchSaveChronoSessions);
+
+  // Catalogue de Temps
+  app.get('/api/catalog/entries', authenticateToken, getCatalogEntries);
+  app.post('/api/catalog/sync', authenticateToken, syncCatalog);
+  app.put('/api/catalog/:id', authenticateToken, updateCatalogEntry);
+  app.put('/api/catalog/:id/pin', authenticateToken, pinCatalogEntry);
+  app.post('/api/catalog/:id/confirm', authenticateToken, confirmCatalogEntry);
+  app.delete('/api/catalog/:id', authenticateToken, deleteCatalogEntry);
 
   // BERAOUVIER — Read-Only (no financial data); rate-limited, minimal fields
   app.get('/api/worker/:cin', beraouvierPublicLimiter, getWorkerByCin);

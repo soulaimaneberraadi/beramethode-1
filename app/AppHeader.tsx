@@ -18,12 +18,13 @@ import {
     Target,
     Truck,
     ChevronDown,
+    Clock,
 } from 'lucide-react';
 import type { Lang } from './constants';
 import { TRANSLATIONS } from './constants';
 import SupportWidget from '../components/SupportWidget';
 
-type ViewType = 'dashboard' | 'ingenierie' | 'atelier' | 'library' | 'coupe' | 'effectifs' | 'gestionRh' | 'planning' | 'suivi' | 'magasin' | 'export' | 'config' | 'profil' | 'admin' | 'rendement' | 'pageMachine' | 'machin' | 'objectifs' | 'facturation' | 'atelierProd' | 'vuegenerale' | 'sousTraitance';
+type ViewType = 'dashboard' | 'ingenierie' | 'atelier' | 'library' | 'coupe' | 'effectifs' | 'gestionRh' | 'planning' | 'suivi' | 'magasin' | 'export' | 'config' | 'profil' | 'admin' | 'rendement' | 'pageMachine' | 'machin' | 'objectifs' | 'facturation' | 'atelierProd' | 'vuegenerale' | 'sousTraitance' | 'catalogTemps';
 
 interface AppHeaderProps {
     currentView: ViewType;
@@ -134,6 +135,11 @@ const VIEW_DEFS: Record<string, { label: string | ((t: any) => string); icon: Re
         icon: <Layers className="w-3.5 h-3.5" />,
         activeClass: 'bg-indigo-50 border-indigo-100 text-indigo-700'
     },
+    catalogTemps: {
+        label: 'Catalogue de Temps',
+        icon: <Clock className="w-3.5 h-3.5" />,
+        activeClass: 'bg-violet-50 border-violet-100 text-violet-700'
+    },
     objectifs: {
         label: 'Objectifs',
         icon: <Target className="w-3.5 h-3.5" />,
@@ -169,13 +175,12 @@ export default function AppHeader({
             <div className="h-full px-3 sm:px-4 flex items-center justify-between">
                 {/* Left: Hamburger (mobile) + Logo */}
                 <div className="flex items-center gap-2 sm:gap-3">
-                    {/* Hamburger Menu Button - Left side on mobile or if mobile-style is selected on desktop */}
-                    {(navConfig.enabled || navConfig.style === 'mobile-only') && (
-                        <button onClick={() => setMobileMenuOpen(v => !v)}
-                            className={`${navConfig.style === 'mobile-only' ? 'flex' : 'md:hidden flex'} items-center justify-center w-8 h-8 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 text-gray-500 hover:text-gray-900 transition-colors shrink-0`}>
-                            {mobileMenuOpen ? <X className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
-                        </button>
-                    )}
+                    {/* Hamburger Menu Button - toujours dispo sur mobile (la nav desktop est cachée < md) */}
+                    <button onClick={() => setMobileMenuOpen(v => !v)}
+                        aria-label="Menu"
+                        className={`${navConfig.style === 'mobile-only' ? 'flex' : 'md:hidden flex'} items-center justify-center w-8 h-8 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 text-gray-500 hover:text-gray-900 transition-colors shrink-0`}>
+                        {mobileMenuOpen ? <X className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
+                    </button>
 
                     {/* Logo */}
                     <button
