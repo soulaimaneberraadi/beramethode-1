@@ -95,13 +95,17 @@ export default function App() {
         text: string;
         subText: string;
         error: string | null;
-    }>({
-        isActive: true,
+    }>(() => ({
+        // En mode statique (Vercel), le pull cloud se fait en arrière-plan via
+        // cloudSync : pas de splash plein écran au démarrage. L'indicateur de
+        // synchronisation du header prend le relais. En mode serveur, le splash
+        // reste actif le temps de runBootSequence (premier boot réel).
+        isActive: !IS_STATIC,
         progress: 0,
         text: 'BERAMETHODE V2',
         subText: 'Initialisation des modules...',
         error: null,
-    });
+    }));
     const [bootAttempt, setBootAttempt] = useState(0);
     const bootRunIdRef = useRef(0);
 

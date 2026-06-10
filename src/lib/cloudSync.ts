@@ -243,6 +243,8 @@ const RELOAD_FLAG = 'beramethode_pulled_once';
 
 export const pullSnapshotFromCloud = async (userId: string): Promise<boolean> => {
   if (!userId) return false;
+  // Signale au header qu'une synchronisation est en cours (indicateur discret).
+  window.dispatchEvent(new CustomEvent('beramethode:cloud-sync-start'));
   try {
     const { data, error } = await supabase
       .from(TABLE)
@@ -283,6 +285,8 @@ export const pullSnapshotFromCloud = async (userId: string): Promise<boolean> =>
   } catch (err) {
     console.warn('Cloud pull failed:', err);
     return false;
+  } finally {
+    window.dispatchEvent(new CustomEvent('beramethode:cloud-sync-end'));
   }
 };
 

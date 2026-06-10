@@ -23,6 +23,7 @@ import {
 import type { Lang } from './constants';
 import { TRANSLATIONS } from './constants';
 import SupportWidget from '../components/SupportWidget';
+import SyncIndicator from '../components/SyncIndicator';
 
 type ViewType = 'dashboard' | 'ingenierie' | 'atelier' | 'library' | 'coupe' | 'effectifs' | 'gestionRh' | 'planning' | 'suivi' | 'magasin' | 'export' | 'config' | 'profil' | 'admin' | 'rendement' | 'pageMachine' | 'machin' | 'objectifs' | 'facturation' | 'atelierProd' | 'vuegenerale' | 'sousTraitance' | 'catalogTemps';
 
@@ -319,6 +320,8 @@ export default function AppHeader({
                             <Database className="w-3.5 h-3.5" />
                         </button>
                     )}
+
+                    <SyncIndicator />
 
                     <SupportWidget user={user} />
 
