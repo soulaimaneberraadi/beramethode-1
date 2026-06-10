@@ -8,6 +8,9 @@ import { ResponsiveChart } from './ui/ResponsiveChart';
 import ModelInfo from './ModelInfo';
 import MaterialsList from './MaterialsList';
 import OrderSimulation from './OrderSimulation';
+import OrderTablesPanel from './OrderTablesPanel';
+import CostSanityCheck from './CostSanityCheck';
+import MaterialAssignment from './MaterialAssignment';
 import SettingsPanel from './SettingsPanel';
 import PdfSettingsModal from './PdfSettingsModal';
 import TicketView from './TicketView';
@@ -155,10 +158,25 @@ export default function CostCalculator({
     }, []);
 
     const deductStock = () => {
+        // Garde-fou : une quantité à acheter absurde trahit des données de fil
+        // obsolètes (consommation calculée pour TOUTE la commande au lieu d'UNE pièce).
+        // On bloque la déduction pour ne pas vider le magasin par erreur.
+        const abnormal = purchasingData.find(m => m.qtyToBuy > 500000);
+        if (abnormal) {
+            setConfirmDialog({
+                isOpen: true,
+                title: "Quantités anormales",
+                message: `La quantité à acheter pour « ${abnormal.name} » (${fmt(abnormal.qtyToBuy)} ${abnormal.unit}) est anormalement élevée. Recalculez le fil (Calcul Fil → Appliquer) avant de déduire le stock.`,
+                type: 'warning',
+                hideCancel: true,
+                onConfirm: () => setConfirmDialog(prev => ({ ...prev, isOpen: false })),
+            });
+            return;
+        }
         setConfirmDialog({
             isOpen: true,
             title: "Confirmer la déduction",
-            message: "Voulez-vous vraiment déduire les matières du magasin ? Cette action est irréversible.",
+            message: `Déduire du magasin les quantités d'achat de ${purchasingData.length} matière(s), pour un budget de ${fmt(totalPurchasingMatCost)} ${currency} ? Cette action est irréversible.`,
             type: 'danger',
             confirmText: "Déduire",
             onConfirm: () => {
@@ -215,6 +233,7 @@ export default function CostCalculator({
 
     // --- State: Thread Calculator ---
     const [showThreadCalc, setShowThreadCalc] = useState(false);
+    const [showMaterialAssign, setShowMaterialAssign] = useState(false);
 
     // --- State: Materials ---
     const [materials, setMaterials] = useState<Material[]>(ficheData.materials || []);
@@ -226,7 +245,37 @@ export default function CostCalculator({
 
     // --- Calculations ---
     const isExport = ficheData.typeMarche === 'Export';
-    const totalMaterials = isExport ? 0 : materials.reduce((acc, item) => acc + (item.unitPrice * item.qty), 0);
+    // Coût matière MOYEN par pièce, pondéré par les quantités de chaque couleur :
+    // une matière affectée à une couleur ne pèse que sur SES pièces. Sans affectation
+    // (ou sans grille), c'est la somme simple de toutes les matières (rétro-compatible).
+    const totalMaterials = (() => {
+        if (isExport) return 0;
+        const simpleSum = materials.reduce((acc, item) => acc + (item.unitPrice * item.qty), 0);
+        const cols = ficheData.colors || [];
+        const sizeCount = (ficheData.sizes || []).length;
+        const gq = ficheData.gridQuantities || {};
+        const seen = new Set<string>();
+        let totalQ = 0;
+        const colQ: { id: string; q: number }[] = [];
+        cols.forEach(c => {
+            if (seen.has(c.id)) return;
+            seen.add(c.id);
+            let q = 0;
+            for (let s = 0; s < sizeCount; s++) q += Number(gq[`${c.id}_${s}`] || 0);
+            colQ.push({ id: c.id, q });
+            totalQ += q;
+        });
+        if (totalQ === 0) return simpleSum;
+        let weighted = 0;
+        colQ.forEach(({ id, q }) => {
+            const matCost = materials.reduce((s, m) => {
+                const applies = !m.scope?.colors?.length || m.scope.colors.includes(id);
+                return applies ? s + m.unitPrice * m.qty : s;
+            }, 0);
+            weighted += matCost * q;
+        });
+        return weighted / totalQ;
+    })();
     const cutTime = baseTime * (settings.cutRate / 100);
     const packTime = baseTime * (settings.packRate / 100);
     const totalTime = baseTime + cutTime + packTime;
@@ -266,20 +315,81 @@ export default function CostCalculator({
         return map;
     }, [ficheData.gridQuantities, ficheData.colors, ficheData.sizes]);
 
+    // Coûts PAR COULEUR : une matière affectée à une couleur ne pèse que sur les
+    // pièces de cette couleur. Une pièce verte (avec dentelle) coûte donc plus
+    // qu'une noire. La main d'œuvre est identique pour toutes les couleurs.
+    const colorCosts = useMemo(() => {
+        const map: Record<string, { matCost: number; pr: number; ht: number; ttc: number; boutique: number }> = {};
+        (ficheData.colors || []).forEach(c => {
+            const matCost = isExport ? 0 : materials.reduce((s, m) => {
+                const applies = !m.scope?.colors?.length || m.scope.colors.includes(c.id);
+                return applies ? s + (m.unitPrice * m.qty) : s;
+            }, 0);
+            const pr = isExport ? laborCost : matCost + laborCost;
+            const ht = pr * (1 + settings.marginAtelier / 100);
+            const ttc = ht * (1 + settings.tva / 100);
+            const boutique = ttc * (1 + settings.marginBoutique / 100);
+            map[c.id] = { matCost, pr, ht, ttc, boutique };
+        });
+        return map;
+    }, [ficheData.colors, materials, isExport, laborCost, settings.marginAtelier, settings.tva, settings.marginBoutique]);
+
     // Par défaut, la simulation d'achat reflète la quantité réelle de la commande.
     // L'utilisateur peut toujours la modifier pour simuler une autre quantité.
     useEffect(() => {
         if (commandeQty > 0) setOrderQty(commandeQty);
     }, [commandeQty]);
 
+    // Auto-correction des fils obsolètes : d'anciens modèles ont stocké la
+    // consommation de fil pour TOUTE la commande (centaines de milliers de mètres)
+    // au lieu d'UNE pièce, ce qui faisait exploser les coûts. On ramène ces valeurs
+    // manifestement aberrantes à une pièce, une seule fois (idempotent : après
+    // correction elles passent sous le seuil et ne sont plus retouchées).
+    useEffect(() => {
+        const STALE_THRESHOLD = 20000; // m/pièce : aucun vêtement n'en consomme autant
+        let changed = false;
+        const fixed = materials.map(m => {
+            if (m.unit !== 'bobine' || !m.threadMeters || m.threadMeters <= STALE_THRESHOLD) return m;
+            const divisor = m.threadColor ? (colorQtyByName[m.threadColor] || 0) : commandeQty;
+            if (divisor <= 1) return m; // pas de diviseur fiable (grille pas encore chargée)
+            const perPiece = Math.round((m.threadMeters / divisor) * 100) / 100;
+            if (perPiece <= 0 || perPiece >= m.threadMeters) return m;
+            changed = true;
+            const qty = m.threadCapacity > 0 ? Math.round((perPiece / m.threadCapacity) * 100000) / 100000 : m.qty;
+            return { ...m, threadMeters: perPiece, qty };
+        });
+        if (changed) setMaterials(fixed);
+    }, [materials, colorQtyByName, commandeQty]);
+
+    // Quantité de la commande à laquelle une matière s'applique, selon son « scope »
+    // (couleurs / tailles). Sans scope : un fil suit sa couleur (threadColor), sinon
+    // la matière s'applique à TOUTE la commande.
+    const scopeOrderQty = (m: Material): number => {
+        const sc = m.scope;
+        const hasColors = !!(sc?.colors && sc.colors.length);
+        const hasSizes = !!(sc?.sizes && sc.sizes.length);
+        if (!hasColors && !hasSizes) {
+            if (m.threadColor && colorQtyByName[m.threadColor] > 0) return colorQtyByName[m.threadColor];
+            return commandeQty;
+        }
+        const gq = ficheData.gridQuantities || {};
+        const colIds = hasColors ? sc!.colors! : (ficheData.colors || []).map(c => c.id);
+        const sizeIdx = hasSizes ? sc!.sizes! : (ficheData.sizes || []).map((_, i) => i);
+        const seen = new Set<string>();
+        let sum = 0;
+        colIds.forEach(cid => {
+            if (seen.has(cid)) return;
+            seen.add(cid);
+            sizeIdx.forEach(si => { sum += Number(gq[`${cid}_${si}`] || 0); });
+        });
+        return sum;
+    };
+
     const purchasingData = materials.map(m => {
-        // Un fil suit la quantité de SA couleur ; les autres matières suivent la
-        // quantité totale de la commande. Si l'utilisateur simule une autre quantité
-        // (orderQty ≠ commande), la ventilation des fils reste proportionnelle.
-        const colorQty = m.threadColor ? (colorQtyByName[m.threadColor] || 0) : 0;
-        const baseQty = colorQty > 0
-            ? (commandeQty > 0 ? colorQty * (orderQty / commandeQty) : colorQty)
-            : orderQty;
+        // La matière s'applique à la quantité de son « scope ». Si l'utilisateur simule
+        // une autre quantité globale (orderQty ≠ commande), on reste proportionnel.
+        const scoped = scopeOrderQty(m);
+        const baseQty = commandeQty > 0 ? scoped * (orderQty / commandeQty) : (scoped || orderQty);
         const totalRaw = m.qty * baseQty;
         const totalWithWaste = totalRaw * (1 + wasteRate / 100);
         const qtyToBuy = (m.unit === 'bobine' || m.unit === 'pc') ? Math.ceil(totalWithWaste) : parseFloat(totalWithWaste.toFixed(2));
@@ -367,6 +477,16 @@ export default function CostCalculator({
 
     const deleteMaterial = (id: number) => {
         setMaterials(materials.filter(m => m.id !== id));
+    };
+
+    // Affecte une matière à des couleurs / tailles précises (listes vides = toutes).
+    const setMaterialScope = (id: number, scope: Material['scope']) => {
+        setMaterials(prev => prev.map(m => {
+            if (m.id !== id) return m;
+            const colors = scope?.colors && scope.colors.length ? scope.colors : undefined;
+            const sizes = scope?.sizes && scope.sizes.length ? scope.sizes : undefined;
+            return { ...m, scope: (colors || sizes) ? { colors, sizes } : undefined };
+        }));
     };
 
     const applyThreadMaterials = (threadMaterials: Material[]) => {
@@ -486,6 +606,72 @@ export default function CostCalculator({
         }
     };
 
+    // G\u00E9n\u00E8re un devis (brouillon) dans Facturation, une ligne PAR COULEUR au prix
+    // HT de sa couleur. Action confirm\u00E9e et r\u00E9versible (brouillon supprimable).
+    const generateDevis = () => {
+        const seen = new Set<string>();
+        const lignes: { designation: string; quantite: number; prix_unitaire: number; total: number }[] = [];
+        (ficheData.colors || []).forEach(c => {
+            if (seen.has(c.id)) return;
+            seen.add(c.id);
+            const q = colorQtyByName[c.name] || 0;
+            if (q <= 0) return;
+            const pu = Math.round((colorCosts[c.id]?.ht ?? sellPriceHT) * 100) / 100;
+            lignes.push({ designation: `${productName || 'Article'} \u2014 ${c.name}`, quantite: q, prix_unitaire: pu, total: Math.round(pu * q * 100) / 100 });
+        });
+        if (lignes.length === 0) {
+            const q = commandeQty || 1;
+            const pu = Math.round(sellPriceHT * 100) / 100;
+            lignes.push({ designation: productName || 'Article', quantite: q, prix_unitaire: pu, total: Math.round(pu * q * 100) / 100 });
+        }
+        const total_ht = Math.round(lignes.reduce((a, l) => a + l.total, 0) * 100) / 100;
+        const taux_tva = settings.tva || 0;
+        const total_tva = Math.round(total_ht * taux_tva / 100 * 100) / 100;
+        const total_ttc = Math.round((total_ht + total_tva) * 100) / 100;
+
+        setConfirmDialog({
+            isOpen: true,
+            title: "G\u00E9n\u00E9rer un devis",
+            message: `Cr\u00E9er un devis (brouillon) pour \u00AB ${ficheData.client || 'Client'} \u00BB : ${lignes.length} ligne(s) par couleur, total ${fmt(total_ht)} ${currency} HT / ${fmt(total_ttc)} TTC ? Vous pourrez le modifier dans Facturation.`,
+            type: 'success',
+            confirmText: "Cr\u00E9er le devis",
+            onConfirm: async () => {
+                setConfirmDialog(prev => ({ ...prev, isOpen: false }));
+                try {
+                    const numero = `DEVIS-${new Date().toISOString().slice(0, 10)}-${Math.floor(Math.random() * 9000 + 1000)}`;
+                    const payload = {
+                        numero, type: 'DEVIS',
+                        tiers_nom: ficheData.client || 'Client',
+                        date_facture: new Date().toISOString().slice(0, 10),
+                        total_ht, taux_tva, total_tva, total_ttc, montant_paye: 0,
+                        statut: 'BROUILLON',
+                        notes: `G\u00E9n\u00E9r\u00E9 depuis la Fiche de Co\u00FBt \u2014 ${productName}`,
+                        lignes,
+                    };
+                    const res = await fetch('/api/facturation/factures', {
+                        method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
+                        body: JSON.stringify(payload),
+                    });
+                    if (!res.ok) throw new Error('HTTP ' + res.status);
+                    setConfirmDialog({
+                        isOpen: true, title: "Devis cr\u00E9\u00E9",
+                        message: `Le devis ${numero} a \u00E9t\u00E9 cr\u00E9\u00E9 (brouillon). Ouvrez \u00AB Facturation \u00BB pour le voir, le modifier ou l'envoyer.`,
+                        type: 'success', hideCancel: true,
+                        onConfirm: () => setConfirmDialog(prev => ({ ...prev, isOpen: false })),
+                    });
+                } catch (e) {
+                    console.error(e);
+                    setConfirmDialog({
+                        isOpen: true, title: "Erreur",
+                        message: "\u00C9chec de la cr\u00E9ation du devis. V\u00E9rifiez que le serveur est d\u00E9marr\u00E9.",
+                        type: 'danger', hideCancel: true,
+                        onConfirm: () => setConfirmDialog(prev => ({ ...prev, isOpen: false })),
+                    });
+                }
+            },
+        });
+    };
+
     const exportToExcel = () => {
         let csvContent = "data:text/csv;charset=utf-8,\uFEFF";
 
@@ -599,6 +785,14 @@ export default function CostCalculator({
             {/* ── FICHE DE COÛT (page unique) ── */}
             <div className="w-full mx-auto space-y-8">
                     <div className="space-y-6 print:hidden">
+                        <CostSanityCheck
+                            currency={currency} isExport={isExport}
+                            materials={materials} totalMaterials={totalMaterials}
+                            laborCost={laborCost} costPrice={costPrice}
+                            purchasingData={purchasingData} totalPurchasingMatCost={totalPurchasingMatCost}
+                            commandeQty={commandeQty} ficheData={ficheData} settings={settings}
+                        />
+
                         <ModelInfo
                             t={t} currency={currency} darkMode={darkMode}
                             productName={productName} setProductName={setProductName}
@@ -613,8 +807,16 @@ export default function CostCalculator({
                             textSecondary={textSecondary} bgCard={bgCard} bgCardHeader={bgCardHeader}
                         />
 
-                        {/* Calcul Fil Button */}
-                        <div className="flex justify-end">
+                        {/* Calcul Fil + Affectation Matières */}
+                        <div className="flex justify-end gap-2">
+                            <button
+                                onClick={() => setShowMaterialAssign(true)}
+                                className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-[12px] font-medium transition-colors"
+                                title="Affecter les matières à des couleurs / tailles précises"
+                            >
+                                <SlidersHorizontal className="w-3.5 h-3.5" strokeWidth={1.75} />
+                                Affectation Matières
+                            </button>
                             <button
                                 onClick={() => setShowThreadCalc(true)}
                                 className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md bg-slate-900 hover:bg-slate-800 text-white text-[12px] font-medium transition-colors"
@@ -648,6 +850,19 @@ export default function CostCalculator({
                             totalPurchasingMatCost={totalPurchasingMatCost}
                             laborCost={laborCost}
                             textSecondary={textSecondary} textPrimary={textPrimary} bgCard={bgCard}
+                            isExport={isExport}
+                        />
+
+                        {/* Tables récupérées de l'ancien « Ordre de production » : grille
+                            couleurs×tailles avec coûts + sellem des prix. */}
+                        <OrderTablesPanel
+                            ficheData={ficheData} setFicheData={setFicheData}
+                            currency={currency} settings={settings}
+                            laborCost={laborCost} costPrice={costPrice}
+                            sellPriceHT={sellPriceHT} sellPriceTTC={sellPriceTTC}
+                            boutiquePrice={boutiquePrice}
+                            totalPurchasingMatCost={totalPurchasingMatCost}
+                            colorCosts={colorCosts}
                             isExport={isExport}
                         />
 
@@ -740,6 +955,7 @@ export default function CostCalculator({
                                     <div className={`px-5 h-12 border-b flex justify-between items-center bg-slate-50/60 border-slate-100 print:hidden`}>
                                         <h2 className={`text-[13px] font-semibold text-slate-900`}>Fiche de Rendement A4</h2>
                                         <div className="flex gap-1.5">
+                                            <button onClick={generateDevis} className="inline-flex items-center gap-1.5 h-8 px-3 text-[12px] font-medium rounded-md border border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 transition-colors" title="Créer un devis (brouillon) avec un prix par couleur"><Receipt className="w-3.5 h-3.5" strokeWidth={1.75} /> Devis</button>
                                             <button onClick={exportToExcel} className="inline-flex items-center gap-1.5 h-8 px-3 text-[12px] font-medium rounded-md border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 transition-colors"><FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" strokeWidth={1.75} /> Excel</button>
                                             <button onClick={() => setShowPdfModal(true)} className="inline-flex items-center gap-1.5 h-8 px-3 text-[12px] font-medium rounded-md border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 transition-colors"><FileDown className="w-3.5 h-3.5 text-rose-600" strokeWidth={1.75} /> PDF</button>
                                             <button onClick={() => window.print()} className="inline-flex items-center gap-1.5 h-8 px-3 text-[12px] font-medium rounded-md bg-slate-900 hover:bg-slate-800 text-white transition-colors"><Printer className="w-3.5 h-3.5" strokeWidth={1.75} /> Imprimer</button>
@@ -831,6 +1047,17 @@ export default function CostCalculator({
                     modelCategory={ficheData.category}
                     onApply={applyThreadMaterials}
                     onClose={() => setShowThreadCalc(false)}
+                />
+            )}
+
+            {/* Material Assignment Modal */}
+            {showMaterialAssign && (
+                <MaterialAssignment
+                    materials={materials}
+                    setMaterialScope={setMaterialScope}
+                    ficheData={ficheData}
+                    currency={currency}
+                    onClose={() => setShowMaterialAssign(false)}
                 />
             )}
         </div>

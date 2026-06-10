@@ -234,6 +234,13 @@ export interface Material {
   fournisseur?: string;
   threadColor?: string;
   threadReference?: string;
+  /**
+   * Affectation de la matière à des couleurs / tailles précises de la commande.
+   * Absent (ou listes vides) = la matière s'applique à TOUTES les pièces.
+   * colors = ids de couleurs ; sizes = indices de tailles. La combinaison des deux
+   * cible des cellules précises (couleur × taille) de la grille.
+   */
+  scope?: { colors?: string[]; sizes?: number[] };
 }
 
 export interface PurchasingData extends Material {
