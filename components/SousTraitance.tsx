@@ -338,7 +338,7 @@ export default function SousTraitance({ models, settings }: SousTraitanceProps) 
     }
 
     const selectedModel = models.find(m => m.id === formModelId);
-    const modelName = formModelId === 'MANUAL' ? 'Commande Directe (طلبية مباشرة)' : (selectedModel?.meta_data.nom_modele || 'Inconnu');
+    const modelName = formModelId === 'MANUAL' ? 'Commande Directe (طلبية مباشرة)' : (selectedModel?.meta_data?.nom_modele || 'Inconnu');
 
     try {
       // Loop and save each batch as an individual SubcontractOrder row
@@ -486,7 +486,7 @@ export default function SousTraitance({ models, settings }: SousTraitanceProps) 
     const totalQty = Object.keys(batch.grid).length > 0 ? calculateBatchGridTotal(batch.grid) : formTotalQuantity;
 
     const selectedModel = models.find(m => m.id === formModelId);
-    const modelName = formModelId === 'MANUAL' ? 'Commande Directe (طلبية مباشرة)' : (selectedModel?.meta_data.nom_modele || 'Inconnu');
+    const modelName = formModelId === 'MANUAL' ? 'Commande Directe (طلبية مباشرة)' : (selectedModel?.meta_data?.nom_modele || 'Inconnu');
 
     const body = {
       modelId: formModelId,
@@ -1225,7 +1225,7 @@ export default function SousTraitance({ models, settings }: SousTraitanceProps) 
                       className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm font-bold text-slate-700 bg-white focus:outline-none focus:border-indigo-500"
                     >
                       {models.map(m => (
-                        <option key={m.id} value={m.id}>{m.meta_data.nom_modele} {m.meta_data.reference ? `(${m.meta_data.reference})` : ''}</option>
+                        <option key={m.id} value={m.id}>{m.meta_data?.nom_modele || 'Sans Nom'} {m.meta_data?.reference ? `(${m.meta_data.reference})` : ''}</option>
                       ))}
                       <option value="MANUAL">+ Saisie Manuelle (طلبية مباشرة خارج الموديلات)</option>
                     </select>
@@ -1642,7 +1642,7 @@ export default function SousTraitance({ models, settings }: SousTraitanceProps) 
                     className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm font-bold text-slate-700 bg-white"
                   >
                     {models.map(m => (
-                      <option key={m.id} value={m.id}>{m.meta_data.nom_modele}</option>
+                      <option key={m.id} value={m.id}>{m.meta_data?.nom_modele || 'Sans Nom'}</option>
                     ))}
                     <option value="MANUAL">Saisie Manuelle</option>
                   </select>

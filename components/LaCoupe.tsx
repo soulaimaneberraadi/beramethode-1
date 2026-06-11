@@ -135,7 +135,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
     });
 
     const coupeModels = (models || []).filter(m =>
-        m && (m.workflowStatus === 'COUPE' || m.isPublishedToLibrary === false || !m.workflowStatus)
+        m && m.meta_data && (m.workflowStatus === 'COUPE' || m.isPublishedToLibrary === false || !m.workflowStatus)
     );
 
     const filteredModels = coupeModels.filter(m => {
@@ -508,10 +508,10 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
         if (!selectedModel) return;
         const currentFiche = selectedModel.ficheData || {
             reference: '', article: '', category: '',
-            sizes: selectedModel.meta_data.sizes || [],
-            colors: selectedModel.meta_data.colors || [],
-            quantity: selectedModel.meta_data.quantity || 0,
-            date: selectedModel.meta_data.date_lancement || '',
+            sizes: selectedModel.meta_data?.sizes || [],
+            colors: selectedModel.meta_data?.colors || [],
+            quantity: selectedModel.meta_data?.quantity || 0,
+            date: selectedModel.meta_data?.date_lancement || '',
             client: '', status: '', imageFront: null, imageBack: null,
             gridQuantities: {}, designation: '', color: '', chaine: '', targetEfficiency: 85,
             unitCost: 0, clientPrice: 0, observations: '', costMinute: 0.85
@@ -685,7 +685,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
     const requiredMaterials = React.useMemo(() => {
         if (!selectedModel || !selectedModel.ficheData || !selectedModel.ficheData.materials) return [];
         return selectedModel.ficheData.materials.map((m: PurchasingData) => {
-            const targetQty = matrixStats.grandTotal > 0 ? matrixStats.grandTotal : (selectedModel.meta_data.quantity || 1);
+            const targetQty = matrixStats.grandTotal > 0 ? matrixStats.grandTotal : (selectedModel.meta_data?.quantity || 1);
             const qtyPerItem = m.qty;
             const totalRaw = qtyPerItem * targetQty;
             const wasteRate = 5;
@@ -783,7 +783,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                 <div className="flex-1 min-w-0">
                                     <div className="flex items-center gap-1.5">
                                         <h4 className={`text-[12px] font-semibold truncate ${isSelected ? 'text-indigo-900' : 'text-slate-800'}`}>
-                                            {model.meta_data.nom_modele}
+                                            {model.meta_data?.nom_modele}
                                         </h4>
                                         {model.isPublishedToLibrary === false && (
                                             <span className="shrink-0 px-1 py-0.5 text-[8px] font-bold uppercase text-amber-600 bg-amber-50 border border-amber-200 rounded">Draft</span>

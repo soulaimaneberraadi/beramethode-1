@@ -2,6 +2,7 @@ import React from 'react';
 import { Settings, Percent, Info, TrendingUp, Receipt, PercentIcon } from 'lucide-react';
 import { AppSettings } from '../types';
 import { fmt } from '../constants';
+import NumberInput from './ui/NumberInput';
 
 interface SettingsPanelProps {
     t: any;
@@ -43,10 +44,9 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
                         <Info className="w-3 h-3 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity" />
                     </label>
                     <div className="relative">
-                        <input
+                        <NumberInput
                             name="marginAtelier"
-                            type="number"
-                            min="0"
+                            min={0}
                             value={settings.marginAtelier}
                             onChange={handleChange}
                             className="w-full h-9 pl-3 pr-10 bg-slate-50/60 hover:bg-slate-50 focus:bg-white border border-slate-200 focus:border-slate-300 rounded-md text-[13px] font-semibold text-slate-700 focus:ring-2 focus:ring-slate-100 outline-none transition-all tabular-nums"
@@ -66,10 +66,9 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
                         <Info className="w-3 h-3 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity" />
                     </label>
                     <div className="relative">
-                        <input
+                        <NumberInput
                             name="tva"
-                            type="number"
-                            min="0"
+                            min={0}
                             value={settings.tva}
                             onChange={handleChange}
                             className="w-full h-9 pl-3 pr-10 bg-slate-50/60 hover:bg-slate-50 focus:bg-white border border-slate-200 focus:border-slate-300 rounded-md text-[13px] font-semibold text-slate-700 focus:ring-2 focus:ring-slate-100 outline-none transition-all tabular-nums"
@@ -89,10 +88,9 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
                         <Info className="w-3 h-3 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity" />
                     </label>
                     <div className="relative">
-                        <input
+                        <NumberInput
                             name="marginBoutique"
-                            type="number"
-                            min="0"
+                            min={0}
                             value={settings.marginBoutique}
                             onChange={handleChange}
                             className="w-full h-9 pl-3 pr-10 bg-slate-50/60 hover:bg-slate-50 focus:bg-white border border-slate-200 focus:border-slate-300 rounded-md text-[13px] font-semibold text-slate-700 focus:ring-2 focus:ring-slate-100 outline-none transition-all tabular-nums"

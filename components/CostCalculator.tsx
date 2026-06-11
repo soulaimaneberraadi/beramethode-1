@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Banknote, Receipt, LayoutTemplate, FileSpreadsheet, FileDown, Printer, Clock, FileText, PieChart as PieChartIcon, SlidersHorizontal, Scissors, Trash2, Check, AlertTriangle } from 'lucide-react';
+import { Banknote, Receipt, LayoutTemplate, FileSpreadsheet, FileDown, Printer, Clock, FileText, PieChart as PieChartIcon, SlidersHorizontal, Scissors, Trash2, Check, AlertTriangle, Factory } from 'lucide-react';
 import { Material, AppSettings, PdfSettings, FicheData, PurchasingData } from '../types';
 import { translations, fmt } from '../constants';
+import { findMagasinItem } from '../lib/magasinMatch';
 import { PieChart, Pie, Cell, Tooltip as RechartsTooltip, Legend } from 'recharts';
 import { ResponsiveChart } from './ui/ResponsiveChart';
 
@@ -16,6 +17,7 @@ import PdfSettingsModal from './PdfSettingsModal';
 import TicketView from './TicketView';
 import A4DocumentView from './A4DocumentView';
 import ThreadCalculator from './ThreadCalculator';
+import SousTraitanceModal, { SousTraitance } from './SousTraitanceModal';
 import { Operation } from '../types';
 
 interface CostCalculatorProps {
@@ -189,7 +191,7 @@ export default function CostCalculator({
                     let updated = false;
 
                     purchasingData.forEach(mat => {
-                        const magItem = magasinData.find((m: any) => m.nom === mat.name || m.designation === mat.name);
+                        const magItem = findMagasinItem(mat, magasinData);
                         if (magItem) {
                             magItem.stockActuel = Math.max(0, (magItem.stockActuel || 0) - mat.qtyToBuy);
                             updated = true;
@@ -234,6 +236,7 @@ export default function CostCalculator({
     // --- State: Thread Calculator ---
     const [showThreadCalc, setShowThreadCalc] = useState(false);
     const [showMaterialAssign, setShowMaterialAssign] = useState(false);
+    const [showSousTraitance, setShowSousTraitance] = useState(false);
 
     // --- State: Materials ---
     const [materials, setMaterials] = useState<Material[]>(ficheData.materials || []);
@@ -245,11 +248,21 @@ export default function CostCalculator({
 
     // --- Calculations ---
     const isExport = ficheData.typeMarche === 'Export';
+
+    // --- Sous-traitance (façon) ---
+    // Si active : la main d'œuvre = prix fixe / pièce du sous-traitant (au lieu du
+    // temps × coût minute). Le mode 'complet' exclut aussi les matières du coût.
+    const st = ficheData.soustraitance;
+    const stActive = !!st?.active;
+    const stPrix = st?.prix || 0;
+    const stComplet = stActive && st?.mode === 'complet';
+    // Matières exclues du coût en Export OU en sous-traitance « tout compris ».
+    const materialsExcluded = isExport || stComplet;
     // Coût matière MOYEN par pièce, pondéré par les quantités de chaque couleur :
     // une matière affectée à une couleur ne pèse que sur SES pièces. Sans affectation
     // (ou sans grille), c'est la somme simple de toutes les matières (rétro-compatible).
     const totalMaterials = (() => {
-        if (isExport) return 0;
+        if (materialsExcluded) return 0;
         const simpleSum = materials.reduce((acc, item) => acc + (item.unitPrice * item.qty), 0);
         const cols = ficheData.colors || [];
         const sizeCount = (ficheData.sizes || []).length;
@@ -280,9 +293,9 @@ export default function CostCalculator({
     const packTime = baseTime * (settings.packRate / 100);
     const totalTime = baseTime + cutTime + packTime;
 
-    const laborCost = totalTime * settings.costMinute;
+    const laborCost = stActive ? stPrix : totalTime * settings.costMinute;
 
-    const costPrice = isExport ? laborCost : totalMaterials + laborCost;
+    const costPrice = materialsExcluded ? laborCost : totalMaterials + laborCost;
     const sellPriceHT = costPrice * (1 + settings.marginAtelier / 100);
     const sellPriceTTC = sellPriceHT * (1 + settings.tva / 100);
     const boutiquePrice = sellPriceTTC * (1 + settings.marginBoutique / 100);
@@ -321,18 +334,18 @@ export default function CostCalculator({
     const colorCosts = useMemo(() => {
         const map: Record<string, { matCost: number; pr: number; ht: number; ttc: number; boutique: number }> = {};
         (ficheData.colors || []).forEach(c => {
-            const matCost = isExport ? 0 : materials.reduce((s, m) => {
+            const matCost = materialsExcluded ? 0 : materials.reduce((s, m) => {
                 const applies = !m.scope?.colors?.length || m.scope.colors.includes(c.id);
                 return applies ? s + (m.unitPrice * m.qty) : s;
             }, 0);
-            const pr = isExport ? laborCost : matCost + laborCost;
+            const pr = materialsExcluded ? laborCost : matCost + laborCost;
             const ht = pr * (1 + settings.marginAtelier / 100);
             const ttc = ht * (1 + settings.tva / 100);
             const boutique = ttc * (1 + settings.marginBoutique / 100);
             map[c.id] = { matCost, pr, ht, ttc, boutique };
         });
         return map;
-    }, [ficheData.colors, materials, isExport, laborCost, settings.marginAtelier, settings.tva, settings.marginBoutique]);
+    }, [ficheData.colors, materials, materialsExcluded, laborCost, settings.marginAtelier, settings.tva, settings.marginBoutique]);
 
     // Par défaut, la simulation d'achat reflète la quantité réelle de la commande.
     // L'utilisateur peut toujours la modifier pour simuler une autre quantité.
@@ -393,20 +406,20 @@ export default function CostCalculator({
         const totalRaw = m.qty * baseQty;
         const totalWithWaste = totalRaw * (1 + wasteRate / 100);
         const qtyToBuy = (m.unit === 'bobine' || m.unit === 'pc') ? Math.ceil(totalWithWaste) : parseFloat(totalWithWaste.toFixed(2));
-        const lineCost = isExport ? 0 : qtyToBuy * m.unitPrice;
+        const lineCost = materialsExcluded ? 0 : qtyToBuy * m.unitPrice;
         return { ...m, totalRaw, totalWithWaste, qtyToBuy, lineCost };
     });
 
-    const totalPurchasingMatCost = isExport ? 0 : purchasingData.reduce((acc, item) => acc + item.lineCost, 0);
+    const totalPurchasingMatCost = materialsExcluded ? 0 : purchasingData.reduce((acc, item) => acc + item.lineCost, 0);
 
     const costDataForChart = useMemo(() => {
-        const matVal = isExport ? 0 : totalMaterials;
+        const matVal = materialsExcluded ? 0 : totalMaterials;
         return [
             { name: 'Matières', value: matVal, color: '#2149C1' }, // accent blue
-            { name: 'Main d\'Œuvre', value: laborCost, color: '#94a3b8' },  // slate-400
+            { name: stActive ? 'Façon' : 'Main d\'Œuvre', value: laborCost, color: '#94a3b8' },  // slate-400
             // packaging could be separated later, assuming included in materials for now
         ].filter(d => d.value > 0);
-    }, [totalMaterials, laborCost, isExport]);
+    }, [totalMaterials, laborCost, materialsExcluded, stActive]);
 
     const handleInstantSettingChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const { name, value } = e.target;
@@ -440,10 +453,13 @@ export default function CostCalculator({
             // Special check if we are importing from Magasin (which passes an object)
             if (field === 'IMPORT_MAGASIN' && typeof value === 'object') {
                 const mItem = value as any;
-                updatedItem.name = mItem.nom || '';
+                updatedItem.name = mItem.nom || mItem.designation || '';
                 updatedItem.unitPrice = Number(mItem.prix) || 0;
                 updatedItem.unit = mItem.unite || 'pc';
-                updatedItem.fournisseur = mItem.fournisseur || '';
+                updatedItem.fournisseur = mItem.fournisseurNom || mItem.fournisseur || '';
+                // Lien fort vers le Magasin : statut stock fiable même si le nom change.
+                updatedItem.magasinId = mItem.id != null ? String(mItem.id) : updatedItem.magasinId;
+                if (mItem.reference) updatedItem.threadReference = mItem.reference;
 
                 if (updatedItem.unit === 'bobine') {
                     updatedItem.threadCapacity = 5000;
@@ -497,6 +513,11 @@ export default function CostCalculator({
         const newMaterials = threadMaterials.map((m, i) => ({ ...m, id: maxId + i + 1 }));
         setMaterials([...filtered, ...newMaterials]);
         setShowThreadCalc(false);
+    };
+
+    // Enregistre la config sous-traitance dans le modèle (hide-only, non destructif).
+    const applySousTraitance = (value: SousTraitance) => {
+        setFicheData(prev => ({ ...prev, soustraitance: value }));
     };
 
     const generatePDF = async (action: 'save' | 'preview' = 'save') => {
@@ -744,7 +765,8 @@ export default function CostCalculator({
                     wasteRate={wasteRate} purchasingData={purchasingData}
                     totalPurchasingMatCost={totalPurchasingMatCost}
                     docNotes={docNotes} setDocNotes={setDocNotes}
-                    isExport={isExport}
+                    isExport={materialsExcluded}
+                    soustraitanceActive={stActive}
                 />
             </PdfSettingsModal>
 
@@ -786,7 +808,7 @@ export default function CostCalculator({
             <div className="w-full mx-auto space-y-8">
                     <div className="space-y-6 print:hidden">
                         <CostSanityCheck
-                            currency={currency} isExport={isExport}
+                            currency={currency} isExport={materialsExcluded}
                             materials={materials} totalMaterials={totalMaterials}
                             laborCost={laborCost} costPrice={costPrice}
                             purchasingData={purchasingData} totalPurchasingMatCost={totalPurchasingMatCost}
@@ -805,46 +827,69 @@ export default function CostCalculator({
                             handleTempSettingChange={handleTempSettingChange}
                             inputBg={inputBg} textPrimary={textPrimary}
                             textSecondary={textSecondary} bgCard={bgCard} bgCardHeader={bgCardHeader}
+                            soustraitanceActive={stActive} faconPrix={stPrix} faconMode={st?.mode}
+                            laborCost={laborCost}
                         />
 
-                        {/* Calcul Fil */}
+                        {/* Barre outils : Sous-traitance + Calcul Fil */}
                         <div className="flex justify-end gap-2">
                             <button
-                                onClick={() => setShowThreadCalc(true)}
-                                className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md bg-slate-900 hover:bg-slate-800 text-white text-[12px] font-medium transition-colors"
+                                onClick={() => setShowSousTraitance(true)}
+                                className={`inline-flex items-center gap-1.5 h-8 px-3 rounded-md border text-[12px] font-medium transition-colors ${stActive ? 'border-slate-900 bg-slate-900 text-white hover:bg-slate-800' : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-700'}`}
+                                title="Confier ce modèle à un sous-traitant à prix fixe / pièce"
                             >
-                                <Scissors className="w-3.5 h-3.5" strokeWidth={1.75} />
-                                Calcul Fil
-                                {operations.length > 0 && (
-                                    <span className="bg-white/15 px-1.5 py-0.5 rounded text-[11px] font-medium tabular-nums">
-                                        {operations.length} op.
+                                <Factory className="w-3.5 h-3.5" strokeWidth={1.75} />
+                                Sous-traitance
+                                {stActive && (
+                                    <span className="bg-white/20 px-1.5 py-0.5 rounded text-[11px] font-medium">
+                                        {st?.mode === 'complet' ? 'Tout compris' : 'Façon'}
                                     </span>
                                 )}
                             </button>
+                            {!stComplet && (
+                                <button
+                                    onClick={() => setShowThreadCalc(true)}
+                                    className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md bg-slate-900 hover:bg-slate-800 text-white text-[12px] font-medium transition-colors"
+                                >
+                                    <Scissors className="w-3.5 h-3.5" strokeWidth={1.75} />
+                                    Calcul Fil
+                                    {operations.length > 0 && (
+                                        <span className="bg-white/15 px-1.5 py-0.5 rounded text-[11px] font-medium tabular-nums">
+                                            {operations.length} op.
+                                        </span>
+                                    )}
+                                </button>
+                            )}
                         </div>
 
-                        <MaterialsList
-                            t={t} currency={currency} darkMode={darkMode}
-                            materials={materials} addMaterial={addMaterial}
-                            updateMaterial={updateMaterial} deleteMaterial={deleteMaterial}
-                            bgCard={bgCard} bgCardHeader={bgCardHeader}
-                            textPrimary={textPrimary} textSecondary={textSecondary}
-                            tableHeader={tableHeader} tableRowHover={tableRowHover}
-                            totalMaterials={totalMaterials}
-                            ficheData={ficheData} setMaterialScope={setMaterialScope}
-                        />
+                        {/* Matières premières — masquées en sous-traitance « tout compris »
+                            (données conservées, réaffichées si on désactive). */}
+                        {!stComplet && (
+                            <>
+                                <MaterialsList
+                                    t={t} currency={currency} darkMode={darkMode}
+                                    materials={materials} addMaterial={addMaterial}
+                                    updateMaterial={updateMaterial} deleteMaterial={deleteMaterial}
+                                    bgCard={bgCard} bgCardHeader={bgCardHeader}
+                                    textPrimary={textPrimary} textSecondary={textSecondary}
+                                    tableHeader={tableHeader} tableRowHover={tableRowHover}
+                                    totalMaterials={totalMaterials}
+                                    ficheData={ficheData} setMaterialScope={setMaterialScope}
+                                />
 
-                        {/* Affectation Matières — au-dessus du détail des achats */}
-                        <div className="flex justify-end">
-                            <button
-                                onClick={() => setShowMaterialAssign(true)}
-                                className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-[12px] font-medium transition-colors"
-                                title="Affecter les matières à des couleurs / tailles précises"
-                            >
-                                <SlidersHorizontal className="w-3.5 h-3.5" strokeWidth={1.75} />
-                                Affectation Matières
-                            </button>
-                        </div>
+                                {/* Affectation Matières — au-dessus du détail des achats */}
+                                <div className="flex justify-end">
+                                    <button
+                                        onClick={() => setShowMaterialAssign(true)}
+                                        className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-[12px] font-medium transition-colors"
+                                        title="Affecter les matières à des couleurs / tailles précises"
+                                    >
+                                        <SlidersHorizontal className="w-3.5 h-3.5" strokeWidth={1.75} />
+                                        Affectation Matières
+                                    </button>
+                                </div>
+                            </>
+                        )}
 
                         <OrderSimulation
                             t={t} currency={currency} darkMode={darkMode}
@@ -855,22 +900,9 @@ export default function CostCalculator({
                             totalPurchasingMatCost={totalPurchasingMatCost}
                             laborCost={laborCost}
                             textSecondary={textSecondary} textPrimary={textPrimary} bgCard={bgCard}
-                            isExport={isExport}
+                            isExport={materialsExcluded}
                             materials={materials}
                             ficheData={ficheData}
-                        />
-
-                        {/* Tables récupérées de l'ancien « Ordre de production » : grille
-                            couleurs×tailles avec coûts + sellem des prix. */}
-                        <OrderTablesPanel
-                            ficheData={ficheData} setFicheData={setFicheData}
-                            currency={currency} settings={settings}
-                            laborCost={laborCost} costPrice={costPrice}
-                            sellPriceHT={sellPriceHT} sellPriceTTC={sellPriceTTC}
-                            boutiquePrice={boutiquePrice}
-                            totalPurchasingMatCost={totalPurchasingMatCost}
-                            colorCosts={colorCosts}
-                            isExport={isExport}
                         />
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -934,6 +966,19 @@ export default function CostCalculator({
                                 </div>
                             </div>
                         </div>
+
+                        {/* Tables (grille couleurs×tailles + sellem des prix) — placées en
+                            bas, sous « Analyse & Simulation » (demande utilisateur). */}
+                        <OrderTablesPanel
+                            ficheData={ficheData} setFicheData={setFicheData}
+                            currency={currency} settings={settings}
+                            laborCost={laborCost} costPrice={costPrice}
+                            sellPriceHT={sellPriceHT} sellPriceTTC={sellPriceTTC}
+                            boutiquePrice={boutiquePrice}
+                            totalPurchasingMatCost={totalPurchasingMatCost}
+                            colorCosts={colorCosts}
+                            isExport={materialsExcluded}
+                        />
                     </div>
 
                     <div className="w-full">
@@ -954,6 +999,7 @@ export default function CostCalculator({
                                     materials={materials} cutTime={cutTime} packTime={packTime}
                                     sellPriceHT={sellPriceHT} sellPriceTTC={sellPriceTTC}
                                     boutiquePrice={boutiquePrice}
+                                    soustraitanceActive={stActive} materialsHidden={stComplet}
                                 />
                             )}
 
@@ -988,7 +1034,8 @@ export default function CostCalculator({
                                             totalPurchasingMatCost={totalPurchasingMatCost}
                                             docNotes={docNotes} setDocNotes={setDocNotes}
                                             isRTL={false}
-                                            isExport={isExport}
+                                            isExport={materialsExcluded}
+                                            soustraitanceActive={stActive}
                                             sections={pdfSections}
                                         />
                                     </div>
@@ -1065,6 +1112,16 @@ export default function CostCalculator({
                     ficheData={ficheData}
                     currency={currency}
                     onClose={() => setShowMaterialAssign(false)}
+                />
+            )}
+
+            {/* Sous-traitance Modal */}
+            {showSousTraitance && (
+                <SousTraitanceModal
+                    currency={currency}
+                    value={ficheData.soustraitance}
+                    onApply={applySousTraitance}
+                    onClose={() => setShowSousTraitance(false)}
                 />
             )}
         </div>

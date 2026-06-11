@@ -89,7 +89,7 @@ export function useAppModelManager({
                 nom_modele: articleName || 'Sans Nom',
                 category: ficheData.category,
                 date_creation: currentModelId
-                    ? (models.find(m => m.id === currentModelId)?.meta_data.date_creation || new Date().toISOString())
+                    ? (models.find(m => m.id === currentModelId)?.meta_data?.date_creation || new Date().toISOString())
                     : new Date().toISOString(),
                 date_lancement: ficheData.date,
                 heure_lancement: ficheData.launchTime ?? '08:00',
@@ -223,7 +223,7 @@ export function useAppModelManager({
 
         setHistory([{ operations: model.gamme_operatoire || [], assignments: model.implantation?.assignments || {}, postes: model.implantation?.postes || [] }]);
         setHistoryIndex(0);
-        setCurrentView('atelier');
+        setCurrentView('ingenierie');
     }, [setActiveLayout, setArticleName, setAssignments, setCurrentModelId, setCurrentView, setFicheData, setFicheImages, setHistory, setHistoryIndex, setLayoutMemory, setManualLinks, setNavigationContext, setNumWorkers, setOperations, setPostes, setEfficiency, setChronoData, setChronoCustomStations, setChronoLayoutSide]);
 
     const importModel = useCallback((file: File) => {
@@ -317,7 +317,7 @@ export function useAppModelManager({
         });
         setHistory([{ operations: [], assignments: {}, postes: [] }]);
         setHistoryIndex(0);
-        setCurrentView('atelier');
+        setCurrentView('ingenierie');
     }, [setActiveLayout, setArticleName, setAssignments, setChronoData, setCurrentModelId, setCurrentView, setFicheData, setFicheImages, setHistory, setHistoryIndex, setLayoutMemory, setManualLinks, setOperations, setPostes]);
 
     return {

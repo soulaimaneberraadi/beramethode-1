@@ -25,7 +25,7 @@ import { TRANSLATIONS } from './constants';
 import SupportWidget from '../components/SupportWidget';
 import SyncIndicator from '../components/SyncIndicator';
 
-type ViewType = 'dashboard' | 'ingenierie' | 'atelier' | 'library' | 'coupe' | 'effectifs' | 'gestionRh' | 'planning' | 'suivi' | 'magasin' | 'export' | 'config' | 'profil' | 'admin' | 'rendement' | 'pageMachine' | 'machin' | 'objectifs' | 'facturation' | 'atelierProd' | 'vuegenerale' | 'sousTraitance' | 'catalogTemps';
+type ViewType = 'dashboard' | 'ingenierie' | 'library' | 'coupe' | 'effectifs' | 'gestionRh' | 'planning' | 'suivi' | 'magasin' | 'export' | 'config' | 'profil' | 'admin' | 'rendement' | 'pageMachine' | 'machin' | 'facturation' | 'atelierProd' | 'vuegenerale' | 'sousTraitance' | 'catalogTemps';
 
 interface AppHeaderProps {
     currentView: ViewType;
@@ -75,11 +75,6 @@ const VIEW_DEFS: Record<string, { label: string | ((t: any) => string); icon: Re
         label: (t: any) => t.ingenierie,
         icon: <Factory className="w-3.5 h-3.5" />,
         activeClass: 'bg-emerald-50 border-emerald-100 text-emerald-700'
-    },
-    atelier: {
-        label: 'Atelier Méthodes',
-        icon: <Layers className="w-3.5 h-3.5" />,
-        activeClass: 'bg-indigo-50 border-indigo-100 text-indigo-700'
     },
     atelierProd: {
         label: 'Atelier P°',
@@ -140,11 +135,6 @@ const VIEW_DEFS: Record<string, { label: string | ((t: any) => string); icon: Re
         label: 'Catalogue de Temps',
         icon: <Clock className="w-3.5 h-3.5" />,
         activeClass: 'bg-violet-50 border-violet-100 text-violet-700'
-    },
-    objectifs: {
-        label: 'Objectifs',
-        icon: <Target className="w-3.5 h-3.5" />,
-        activeClass: 'bg-rose-50 border-rose-100 text-rose-700'
     },
     config: {
         label: (t: any) => t.configuration,

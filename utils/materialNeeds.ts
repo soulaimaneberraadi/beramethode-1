@@ -18,12 +18,14 @@ export type MaterialStockRow = {
 export type EvaluateStockResult = { ok: boolean; shortages: MaterialStockRow[]; lines: MaterialLine[] };
 
 export function aggregateMaterialNeeds(model: ModelData | undefined, orderQty: number): MaterialLine[] {
-    const fdQty = model?.ficheData?.quantity || model?.meta_data?.quantity || 0;
-    const scale = fdQty > 0 ? orderQty / fdQty : 1;
+    // `m.qty` est la consommation PAR PIÈCE (cohérent avec la Fiche de Coût :
+    // baseQty = m.qty × pièces). Le besoin d'une commande = conso/pièce × quantité.
+    // ⚠ NE PAS diviser par ficheData.quantity : c'est l'ancien bug qui ramenait le
+    // besoin à ~1 pièce et faisait croire au Planning que le stock suffisait toujours.
     const mats = model?.ficheData?.materials || [];
     return mats.map((m: { name?: string; qty?: number; unit?: string }) => ({
         name: m.name || '—',
-        qty: Math.ceil((Number(m.qty) || 0) * scale),
+        qty: Math.ceil((Number(m.qty) || 0) * orderQty),
         unit: m.unit || 'u',
     }));
 }
@@ -146,6 +148,65 @@ export function evaluateStockForPlanning(
         }
     }
     return { ok: shortages.length === 0, shortages, lines };
+}
+
+export type CoverageRow = {
+    name: string;
+    unit: string;
+    productId?: string;
+    /** Disponible réel (reste − réservé) sur tous les lots du produit. */
+    available: number;
+    /** Consommation par pièce (avec gaspillage appliqué). */
+    perPiece: number;
+    /** Nb de pièces que ce stock permet de couvrir pour cette matière. */
+    coverable: number;
+    unmatched?: boolean;
+};
+
+export type CoverageResult = {
+    /** Nb de pièces de la commande réellement couvrables (matière limitante). */
+    maxPieces: number;
+    /** Nom de la matière qui limite la couverture. */
+    limiting?: string;
+    rows: CoverageRow[];
+};
+
+/**
+ * Combien de pièces de la commande le STOCK RÉEL (lots, reste − réservé) permet de
+ * couvrir, matière par matière. La matière la plus contraignante fixe `maxPieces`.
+ * Répond à : « si le stock ne complète pas la commande, combien de pièces suffit-il ? »
+ *
+ * La conso/pièce est dérivée de `aggregateMaterialNeeds(model, orderQty) / orderQty`
+ * pour rester cohérente avec l'évaluation stock du Planning, puis on applique le
+ * gaspillage (%) comme dans la Fiche de Coût.
+ */
+export function maxPiecesFromStock(
+    model: ModelData | undefined,
+    orderQty: number,
+    products: MagasinProductRef[],
+    lots: MagasinLotRef[],
+    wastePct = 0,
+): CoverageResult {
+    const lines = aggregateMaterialNeeds(model, orderQty);
+    if (!lines.length || orderQty <= 0 || !products.length) {
+        return { maxPieces: orderQty, rows: [] };
+    }
+    let maxPieces = Infinity;
+    let limiting: string | undefined;
+    const rows: CoverageRow[] = [];
+    for (const line of lines) {
+        const pid = matchMagasinProductId(line.name, products);
+        const available = pid ? availableQtyForProduct(pid, lots) : 0;
+        const perPiece = (line.qty / orderQty) * (1 + wastePct / 100);
+        const coverable = perPiece > 0 ? Math.floor(available / perPiece) : orderQty;
+        rows.push({ name: line.name, unit: line.unit, productId: pid, available, perPiece, coverable, unmatched: !pid });
+        if (coverable < maxPieces) {
+            maxPieces = coverable;
+            limiting = line.name;
+        }
+    }
+    if (!isFinite(maxPieces)) maxPieces = orderQty;
+    return { maxPieces: Math.max(0, Math.min(maxPieces, orderQty)), limiting, rows };
 }
 
 /** Lignes pour tableau détail OF (besoin vs disponible lot par produit magasin). */

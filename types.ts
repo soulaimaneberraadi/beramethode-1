@@ -219,6 +219,16 @@ export type FicheData = {
   statutProduction?: 'En Attente' | 'En Cours' | 'En Pause' | 'Clôturé';
   typeMarche?: 'Export' | 'Local';
   toleranceSaturation?: number;
+  /** Sous-traitance (façon) : le modèle est confié à un sous-traitant à prix fixe
+   *  par pièce, au lieu de calculer la main d'œuvre depuis le temps des ouvriers.
+   *  - mode 'facon'   : le sous-traitant coud seulement → coût = matières + prix
+   *  - mode 'complet' : le sous-traitant fournit tout (matière incluse) → coût = prix
+   *  L'activation masque les champs concernés sans effacer leurs données. */
+  soustraitance?: {
+    active: boolean;
+    mode: 'facon' | 'complet';
+    prix: number;
+  };
 };
 
 // --- NEW TYPES FOR COST CALCULATOR ---
@@ -234,6 +244,8 @@ export interface Material {
   fournisseur?: string;
   threadColor?: string;
   threadReference?: string;
+  /** Lien fort vers l'article du Magasin (id), pour un statut stock fiable. */
+  magasinId?: string;
   /**
    * Affectation de la matière à des couleurs / tailles précises de la commande.
    * Absent (ou listes vides) = la matière s'applique à TOUTES les pièces.
@@ -854,10 +866,28 @@ export interface HRWorker {
   prime_transport: number;
   mode_paiement: 'VIREMENT' | 'ESPECES' | 'CHEQUE';
   notes?: string;
+  equipe?: string;
+  transport_ligne_id?: string;
+  transport_ligne_nom?: string;
+  transport_ligne_quartier?: string;
   owner_id?: number;
   hidden_from_societes?: string[];
   created_at?: string;
   updated_at?: string;
+}
+
+export interface HRTransportLigne {
+  id: string;
+  nom: string;
+  code_ligne?: string;
+  quartier?: string;
+  chauffeur_nom?: string;
+  chauffeur_tel?: string;
+  matricule_vehicule?: string;
+  capacite: number;
+  notes?: string;
+  owner_id?: number;
+  created_at?: string;
 }
 
 export interface HRPointage {

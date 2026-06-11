@@ -593,6 +593,7 @@ CREATE TABLE IF NOT EXISTS hr_workers (
   chaine_id TEXT,
   poste TEXT,
   specialite TEXT,
+  equipe TEXT,
   date_embauche TEXT NOT NULL,
   type_contrat TEXT DEFAULT 'CDI',
   date_fin_contrat TEXT,
@@ -693,6 +694,19 @@ CREATE TABLE IF NOT EXISTS hr_sage_exports (
   owner_id INTEGER NOT NULL DEFAULT 1,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE TABLE IF NOT EXISTS hr_transport_lignes (
+  id TEXT PRIMARY KEY,
+  nom TEXT NOT NULL,
+  chauffeur_nom TEXT,
+  chauffeur_tel TEXT,
+  matricule_vehicule TEXT,
+  capacite INTEGER DEFAULT 0,
+  notes TEXT,
+  owner_id INTEGER NOT NULL DEFAULT 1,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE CASCADE
+);
 `);
 
 // HR — bases créées avant l’ajout de colonnes : CREATE IF NOT EXISTS ne met pas à jour le schéma.
@@ -716,6 +730,10 @@ hrAddCol('ALTER TABLE hr_workers ADD COLUMN contact_urgence_tel TEXT');
 hrAddCol('ALTER TABLE hr_workers ADD COLUMN contact_urgence_lien TEXT');
 hrAddCol('ALTER TABLE hr_workers ADD COLUMN pointeuse_id TEXT');
 hrAddCol('ALTER TABLE hr_workers ADD COLUMN pin_hash TEXT');
+hrAddCol('ALTER TABLE hr_workers ADD COLUMN equipe TEXT');
+hrAddCol('ALTER TABLE hr_workers ADD COLUMN transport_ligne_id TEXT');
+hrAddCol('ALTER TABLE hr_transport_lignes ADD COLUMN code_ligne TEXT');
+hrAddCol('ALTER TABLE hr_transport_lignes ADD COLUMN quartier TEXT');
 hrAddCol('ALTER TABLE hr_pointage ADD COLUMN heure_entree TEXT');
 hrAddCol('ALTER TABLE hr_pointage ADD COLUMN heure_sortie TEXT');
 hrAddCol('ALTER TABLE hr_pointage ADD COLUMN pause_debut TEXT');

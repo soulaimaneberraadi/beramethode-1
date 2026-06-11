@@ -125,7 +125,7 @@ export default function PlanningCalendarView({
                                 <div className="flex-1 overflow-y-auto space-y-1 hide-scrollbar">
                                     {dayEvents.map(ev => {
                                         const cfg = statusConfig[ev.status] || statusConfig['ON_TRACK'];
-                                        const name = ev.modelName || models.find(m => m.id === ev.modelId)?.meta_data.nom_modele || 'Ordre';
+                                        const name = ev.modelName || models.find(m => m.id === ev.modelId)?.meta_data?.nom_modele || 'Ordre';
                                         const chain = chaines.find(c => c.id === ev.chaineId)?.name || ev.chaineId;
                                         const risk = isAtRisk(ev);
                                         const isStart = (ev.startDate || ev.dateLancement)?.split('T')[0] === dateStr;

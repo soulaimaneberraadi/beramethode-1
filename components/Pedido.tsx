@@ -23,6 +23,7 @@ import DateTimePicker from './ui/DateTimePicker';
 import ExcelInput from './ExcelInput';
 import RepartitionMatrix from './RepartitionMatrix';
 import MaterialDetailModal from './MaterialDetailModal';
+import { resolveStock } from '../lib/magasinMatch';
 import { fmt } from '../constants';
 
 const LAUNCH_HOUR_OPTS = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0'));
@@ -111,11 +112,15 @@ export default function Pedido({
 
     const modelEvents = useMemo(() => {
         if (!planningEvents) return [];
-        return planningEvents.filter(e => {
+        const filtered = planningEvents.filter(e => {
             if (currentModelId && e.modelId === currentModelId) return true;
             if (articleName && e.modelName && e.modelName.toLowerCase().includes(articleName.toLowerCase())) return true;
             return false;
         });
+        // Les pididos / lots sont affichés par ordre de livraison (le plus proche en premier).
+        const livraisonKey = (e: typeof filtered[number]) =>
+            (e.strictDeadline_DDS || e.dateExport || '9999-12-31').split('T')[0];
+        return [...filtered].sort((a, b) => livraisonKey(a).localeCompare(livraisonKey(b)));
     }, [planningEvents, currentModelId, articleName]);
 
     /** Prochain code de lot auto-incrémenté (L1 → L2 → … → Ln+1) selon les lots existants du modèle. */
@@ -1183,12 +1188,12 @@ export default function Pedido({
                                                                 const baseQty = m.qty * colorPieces;
                                                                 const buyQty = Math.ceil(baseQty * 1.05);
                                                                 const cost = buyQty * m.unitPrice;
-                                                                const mItem = magasinData.find((x: any) => x.nom === m.name || x.designation === m.name);
-                                                                const stockActuel = mItem?.stockActuel || 0;
-                                                                const fournisseur = m.fournisseur || mItem?.fournisseurNom || mItem?.fournisseur || null;
-                                                                const isDelivered = stockActuel >= buyQty;
-                                                                const isPartial = stockActuel > 0 && stockActuel < buyQty;
-                                                                return { ...m, colorPieces, buyQty, cost, stockActuel, fournisseur, isDelivered, isPartial };
+                                                                const st = resolveStock(m, magasinData, buyQty, 0, colorPieces);
+                                                                return {
+                                                                    ...m, colorPieces, buyQty, cost,
+                                                                    stockActuel: st.stockActuel, manque: st.manque, piecesCouvertes: st.piecesCouvertes,
+                                                                    fournisseur: st.fournisseur, isDelivered: st.isDelivered, isPartial: st.isPartial,
+                                                                };
                                                             }).filter(m => m.buyQty > 0);
 
                                                             if (colorMats.length === 0) return null;
@@ -1256,9 +1261,15 @@ export default function Pedido({
                                                                                                     {m.isDelivered ? (
                                                                                                         <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-emerald-600"><CheckCircle className="w-2.5 h-2.5" /> OK</span>
                                                                                                     ) : m.isPartial ? (
-                                                                                                        <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-amber-600"><AlertTriangle className="w-2.5 h-2.5" /> Partiel</span>
+                                                                                                        <span className="inline-flex flex-col items-center leading-tight">
+                                                                                                            <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-amber-600"><AlertTriangle className="w-2.5 h-2.5" /> Partiel</span>
+                                                                                                            <span className="text-[8px] text-amber-600/80 font-medium">{fmt(m.piecesCouvertes)} pcs · -{fmt(m.manque)}{m.unit}</span>
+                                                                                                        </span>
                                                                                                     ) : (
-                                                                                                        <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-rose-600"><Clock className="w-2.5 h-2.5" /> Attente</span>
+                                                                                                        <span className="inline-flex flex-col items-center leading-tight">
+                                                                                                            <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-rose-600"><Clock className="w-2.5 h-2.5" /> Attente</span>
+                                                                                                            <span className="text-[8px] text-rose-500/80 font-medium">-{fmt(m.manque)}{m.unit}</span>
+                                                                                                        </span>
                                                                                                     )}
                                                                                                 </td>
                                                                                                 <td className="px-3 py-1.5 text-right tabular-nums font-semibold text-slate-800">{fmt(m.cost)} DH</td>
@@ -1528,7 +1539,9 @@ export default function Pedido({
                         fournisseur: selectedMaterial.fournisseur || undefined,
                         threadMeters: selectedMaterial.threadMeters,
                         colorName: selectedMaterial.colorName,
-                        pieces: selectedMaterial.applicablePieces || selectedMaterial.pieces,
+                        pieces: selectedMaterial.colorPieces || selectedMaterial.applicablePieces || selectedMaterial.pieces,
+                        magasinId: selectedMaterial.magasinId,
+                        threadReference: selectedMaterial.threadReference,
                     }}
                     currency="DH"
                     magasinData={magasinData}

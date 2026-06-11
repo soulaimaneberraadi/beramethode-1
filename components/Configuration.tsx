@@ -1186,12 +1186,12 @@ export default function Configuration({ settings, setSettings, lang, machines, n
                                 if (confirm(lang === 'fr' ? 'Voulez-vous vraiment réinitialiser la navigation ?' : 'هل تريد حقًا إعادة تعيين القائمة؟')) {
                                     const defaultCategories = [
                                         { id: 'principal', name: 'Principal', views: ['dashboard', 'vuegenerale', 'planning', 'suivi', 'rendement'] },
-                                        { id: 'production', name: 'Production', views: ['ingenierie', 'atelier', 'atelierProd', 'coupe', 'sousTraitance'] },
+                                        { id: 'production', name: 'Production', views: ['coupe', 'sousTraitance'] },
                                         { id: 'rh', name: 'RH', views: ['effectifs', 'gestionRh'] },
                                         { id: 'logistique', name: 'Logistique', views: ['magasin', 'export', 'facturation'] },
-                                        { id: 'config', name: 'Config', views: ['library', 'pageMachine', 'machin', 'config', 'objectifs'] }
+                                        { id: 'config', name: 'Config', views: ['library', 'pageMachine', 'machin', 'catalogTemps', 'config'] }
                                     ];
-                                    const defaultNavOrder = ['vuegenerale', 'dashboard', 'ingenierie', 'atelier', 'atelierProd', 'library', 'coupe', 'effectifs', 'gestionRh', 'planning', 'suivi', 'rendement', 'magasin', 'export', 'facturation', 'config', 'pageMachine', 'machin', 'objectifs', 'admin', 'sousTraitance'];
+                                    const defaultNavOrder = ['vuegenerale', 'dashboard', 'library', 'coupe', 'effectifs', 'gestionRh', 'planning', 'suivi', 'rendement', 'magasin', 'export', 'facturation', 'config', 'pageMachine', 'machin', 'catalogTemps', 'admin', 'sousTraitance'];
                                     setNavConfig({
                                         enabled: true,
                                         style: 'dropdown',

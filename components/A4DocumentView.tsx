@@ -38,6 +38,8 @@ interface A4DocumentViewProps {
     setDocNotes: (v: string) => void;
     isRTL?: boolean;
     isExport?: boolean;
+    /** Sous-traitance active : la ligne « Main d'Œuvre » devient « Façon ». */
+    soustraitanceActive?: boolean;
     /** Sections à afficher dans la fiche (toutes visibles par défaut). */
     sections?: { info?: boolean; nomenclature?: boolean; pricing?: boolean; order?: boolean; notes?: boolean };
 }
@@ -48,7 +50,7 @@ const A4DocumentView = forwardRef<HTMLDivElement, A4DocumentViewProps>(({
     baseTime, totalTime, settings, productImage,
     materials, laborCost, costPrice, sellPriceHT, sellPriceTTC, boutiquePrice,
     orderQty, wasteRate, purchasingData, totalPurchasingMatCost, docNotes, setDocNotes,
-    isExport = false, sections = {}
+    isExport = false, soustraitanceActive = false, sections = {}
 }, ref) => {
 
     // Visibilité des sections (visible par défaut quand non précisé).
@@ -145,8 +147,8 @@ const A4DocumentView = forwardRef<HTMLDivElement, A4DocumentViewProps>(({
                             <span className="text-[10px] font-black text-slate-800">{fmt(totalTime)} min</span>
                         </div>
                         <div className="bg-white border border-slate-200 rounded px-2 py-1 shadow-sm">
-                            <span className="text-[6px] font-bold text-slate-400 uppercase block">Coût/M</span>
-                            <span className="text-[10px] font-black text-slate-800">{fmt(settings.costMinute)} {currency}</span>
+                            <span className="text-[6px] font-bold text-slate-400 uppercase block">{soustraitanceActive ? 'Façon/pc' : 'Coût/M'}</span>
+                            <span className="text-[10px] font-black text-slate-800">{fmt(soustraitanceActive ? laborCost : settings.costMinute)} {currency}</span>
                         </div>
                     </div>
                 </div>
@@ -186,7 +188,7 @@ const A4DocumentView = forwardRef<HTMLDivElement, A4DocumentViewProps>(({
                             <td className="py-1 font-bold text-slate-900" colSpan={3}>
                                 <div className="flex items-center gap-0.5">
                                     <ChevronRight className="w-2 h-2 text-slate-400" />
-                                    <span className="text-[8px]">Main d'Œuvre ({fmt(totalTime)} × {settings.costMinute})</span>
+                                    <span className="text-[8px]">{soustraitanceActive ? 'Façon (sous-traitance)' : `Main d'Œuvre (${fmt(totalTime)} × ${settings.costMinute})`}</span>
                                 </div>
                             </td>
                             <td className="py-1 text-right font-bold text-slate-900 text-[8px]">{fmt(laborCost)}</td>

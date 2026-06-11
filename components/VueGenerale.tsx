@@ -51,7 +51,7 @@ export default function VueGenerale({
   const totalTarget = useMemo(() =>
     activeEvents.reduce((s, e) => {
       const model = models.find(m => m.id === e.modelId);
-      return s + (e.qteTotal || model?.meta_data.quantity || 0);
+      return s + (e.qteTotal || model?.meta_data?.quantity || 0);
     }, 0),
     [activeEvents, models]
   );
@@ -218,7 +218,7 @@ export default function VueGenerale({
                       )}
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">
-                          <p className="text-sm font-bold text-slate-800 truncate">{model?.meta_data.nom_modele || 'Modèle sans nom'}</p>
+                          <p className="text-sm font-bold text-slate-800 truncate">{model?.meta_data?.nom_modele || 'Modèle sans nom'}</p>
                           <span className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider ${event.status === 'IN_PROGRESS' ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'}`}>
                             {event.status === 'IN_PROGRESS' ? 'En cours' : 'Prêt'}
                           </span>

@@ -222,7 +222,7 @@ export default function Atelier({ models, planningEvents, suivis, settings, hand
                             ) : (
                                 todayEvents.map(evt => {
                                     const model = models.find(m => m.id === evt.modelId);
-                                    const mName = model?.meta_data.nom_modele || 'Modèle Introuvable';
+                                    const mName = model?.meta_data?.nom_modele || 'Modèle Introuvable';
                                     // Real progress from suivi
                                     const evtSuivis = suivis.filter(s => s.planningId === evt.id);
                                     const totalProduced = evtSuivis.reduce((acc, s) => acc + (s.totalHeure || 0), 0);
@@ -233,8 +233,8 @@ export default function Atelier({ models, planningEvents, suivis, settings, hand
                                             <div className="flex justify-between items-start mb-4">
                                                 <div className="flex items-center gap-3">
                                                     <div className="w-12 h-16 bg-slate-100 rounded-xl overflow-hidden shrink-0">
-                                                        {model?.meta_data.photo_url || model?.image ? (
-                                                            <img src={model.meta_data.photo_url || model.image || ''} className="w-full h-full object-cover" alt="" />
+                                                        {model?.meta_data?.photo_url || model?.image ? (
+                                                            <img src={model?.meta_data?.photo_url || model?.image || ''} className="w-full h-full object-cover" alt="" />
                                                         ) : (
                                                             <Package className="w-6 h-6 text-slate-400 m-3" />
                                                         )}
@@ -302,7 +302,7 @@ export default function Atelier({ models, planningEvents, suivis, settings, hand
                                             <option value="">Sélectionner l'OF en cours...</option>
                                             {activeEvents.map(e => (
                                                 <option key={e.id} value={e.id}>
-                                                    {models.find(m => m.id === e.modelId)?.meta_data.nom_modele || 'Modèle'} ({settings.chainNames?.[e.chaineId] || e.chaineId})
+                                                    {models.find(m => m.id === e.modelId)?.meta_data?.nom_modele || 'Modèle'} ({settings.chainNames?.[e.chaineId] || e.chaineId})
                                                 </option>
                                             ))}
                                         </select>
@@ -390,7 +390,7 @@ export default function Atelier({ models, planningEvents, suivis, settings, hand
                                             <option value="">Sélectionner...</option>
                                             {activeEvents.map(e => (
                                                 <option key={e.id} value={e.id}>
-                                                    OF-{e.id.substring(0, 8)} : {models.find(m => m.id === e.modelId)?.meta_data.nom_modele} ({e.qteTotal} pcs)
+                                                    OF-{e.id.substring(0, 8)} : {models.find(m => m.id === e.modelId)?.meta_data?.nom_modele || 'Modèle'} ({e.qteTotal} pcs)
                                                 </option>
                                             ))}
                                         </select>

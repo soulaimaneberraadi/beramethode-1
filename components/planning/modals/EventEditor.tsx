@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { AlertTriangle, Plus, Minus, Package, Truck, Calendar, Grid3X3 } from 'lucide-react';
+import { AlertTriangle, Plus, Minus, Package, Truck, Calendar, Grid3X3, Palette, Check } from 'lucide-react';
 import Modal from '../shared/Modal';
 import Button from '../shared/Button';
 import { Input, Select } from '../shared/Input';
@@ -69,6 +69,8 @@ export default function EventEditor({ open, mode, initial, models, chains, onClo
     // Distribution state: { colorId: { size: qty } }
     const [distribution, setDistribution] = useState<Record<string, Record<string, number>>>({});
     const [showDistribution, setShowDistribution] = useState(false);
+    // Pididos (couleurs de la fiche) sélectionnés pour cet ordre.
+    const [selectedPididos, setSelectedPididos] = useState<Set<string>>(new Set());
 
     const selectedModel = models.find(m => m.id === modelId);
 
@@ -152,6 +154,7 @@ export default function EventEditor({ open, mode, initial, models, chains, onClo
                 setShowSubcontractDist(false);
                 setDistribution({});
                 setShowDistribution(false);
+                setSelectedPididos(new Set());
                 setSubcontractQuantity(0);
                 setSubcontractDeadline('');
                 setTotalQuantity(0);
@@ -345,6 +348,31 @@ export default function EventEditor({ open, mode, initial, models, chains, onClo
     const colors = selectedModel?.meta_data?.colors || [];
     const sizes = selectedModel?.meta_data?.sizes || [];
 
+    // Pididos = couleurs de la fiche, avec la quantité planifiée (grille du modèle).
+    const grid = selectedModel?.ficheData?.gridQuantities || {};
+    const pididoOptions = useMemo(() => {
+        return colors.map(c => {
+            let qty = 0;
+            for (let i = 0; i < sizes.length; i++) qty += Number(grid[`${c.id}_${i}`] || 0);
+            return { id: c.id, name: c.name, qty };
+        }).filter(p => p.qty > 0);
+    }, [colors, sizes, grid]);
+
+    /** Coche/décoche un pidido (couleur) et reconstruit la répartition depuis la grille fiche. */
+    const togglePidido = (colorId: string) => {
+        const next = new Set(selectedPididos);
+        if (next.has(colorId)) next.delete(colorId); else next.add(colorId);
+        setSelectedPididos(next);
+
+        const newDist: Record<string, Record<string, number>> = {};
+        next.forEach(cid => {
+            newDist[cid] = {};
+            sizes.forEach((s, i) => { newDist[cid][s] = Number(grid[`${cid}_${i}`] || 0); });
+        });
+        setDistribution(newDist);
+        setShowDistribution(next.size > 0);
+    };
+
     return (
         <Modal
             open={open}
@@ -375,6 +403,40 @@ export default function EventEditor({ open, mode, initial, models, chains, onClo
                     strictDeadline={strictDeadline}
                     onOpenInIngenierie={onOpenInIngenierie}
                 />
+
+                {/* Pididos disponibles (couleurs de la fiche) — sélection rapide */}
+                {selectedModel && pididoOptions.length > 0 && (
+                    <div className="rounded-lg border border-slate-200 bg-slate-50/50 p-3">
+                        <div className="flex items-center gap-1.5 mb-2">
+                            <Palette className="w-3.5 h-3.5 text-indigo-600" />
+                            <span className="text-[11px] font-semibold text-slate-700">Pididos du modèle — choisis ceux à lancer</span>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                            {pididoOptions.map(p => {
+                                const active = selectedPididos.has(p.id);
+                                const hex = p.id.startsWith('#') ? p.id : null;
+                                return (
+                                    <button
+                                        key={p.id}
+                                        type="button"
+                                        onClick={() => togglePidido(p.id)}
+                                        className={`inline-flex items-center gap-1.5 h-8 px-2.5 rounded-md border text-[12px] font-medium transition-colors ${active ? 'border-indigo-300 bg-indigo-50 text-indigo-800' : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'}`}
+                                    >
+                                        <span className={`w-2.5 h-2.5 rounded-full border border-slate-300 ${hex ? '' : 'bg-slate-300'}`} style={hex ? { backgroundColor: hex } : undefined} />
+                                        <span className="truncate max-w-[110px]">{p.name}</span>
+                                        <span className="tabular-nums text-slate-400">{p.qty}</span>
+                                        {active && <Check className="w-3.5 h-3.5 text-indigo-600" />}
+                                    </button>
+                                );
+                            })}
+                        </div>
+                        {selectedPididos.size > 0 && (
+                            <p className="mt-2 text-[10px] text-slate-400">
+                                La répartition ci-dessous est pré-remplie depuis la fiche pour les pididos choisis.
+                            </p>
+                        )}
+                    </div>
+                )}
 
                 {/* Grid 2 cols */}
                 <div className="grid grid-cols-2 gap-3">

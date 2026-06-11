@@ -68,6 +68,7 @@ for (const [k, v] of Object.entries(counts)) console.log(`  ${k.padEnd(20)} ${v}
 
 // Helper: parse JSON fields if present
 const parseJsonFields = (row) => {
+  if (!row) return row;
   const out = { ...row };
   for (const k of Object.keys(out)) {
     const v = out[k];
@@ -78,11 +79,31 @@ const parseJsonFields = (row) => {
   return out;
 };
 
+const extractModelData = (rows) =>
+  rows.map((row) => {
+    if (!row) return row;
+    const raw = row.data;
+    if (typeof raw === 'string' && raw.length > 0) {
+      try { return JSON.parse(raw); } catch {}
+    }
+    return parseJsonFields(row);
+  });
+
+const extractRawData = (rows) =>
+  rows.map((row) => {
+    if (!row) return row;
+    const raw = row.raw_data;
+    if (typeof raw === 'string' && raw.length > 0) {
+      try { return JSON.parse(raw); } catch {}
+    }
+    return parseJsonFields(row);
+  });
+
 // Construire le snapshot localStorage attendu par l'app
 const snapshot = {
-  beramethode_library: models.map(parseJsonFields),
-  beramethode_planning: planningEvents.map(parseJsonFields),
-  beramethode_suivis: suiviData.map(parseJsonFields),
+  beramethode_library: extractModelData(models),
+  beramethode_planning: extractRawData(planningEvents),
+  beramethode_suivis: extractRawData(suiviData),
   beramethode_demandesAppro: demandesAppro.map(parseJsonFields),
   beramethode_settings: appSettings.length === 1 ? parseJsonFields(appSettings[0]) : appSettings.map(parseJsonFields),
   // Données serveur converties en arrays pour usage côté client

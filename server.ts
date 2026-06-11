@@ -65,6 +65,7 @@ import {
   getHRClaimPreview, postHRClaimFromGuest,
   postHRWorkerPin,
   postWorkerPinVerify,
+  getHRTransportLignes, saveHRTransportLigne, deleteHRTransportLigne,
 } from './server/hrController';
 import {
   getHRInvitations,
@@ -345,6 +346,10 @@ async function startServer() {
   app.get('/api/hr/sage-exports', authenticateToken, getSageExports);
   app.get('/api/hr/sage-preview/:mois', authenticateToken, previewSageExport);
   app.get('/api/hr/sage-export/:mois', authenticateToken, generateSageExport);
+
+  app.get('/api/hr/transport-lignes', authenticateToken, getHRTransportLignes);
+  app.post('/api/hr/transport-lignes', authenticateToken, saveHRTransportLigne);
+  app.delete('/api/hr/transport-lignes/:id', authenticateToken, deleteHRTransportLigne);
 
   // Section 23 — Identité plateforme + invitations
   app.get('/api/hr/invitations', authenticateToken, getHRInvitations);

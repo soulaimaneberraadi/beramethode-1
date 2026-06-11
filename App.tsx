@@ -58,7 +58,6 @@ const StockExport = lazy(() => import('./components/StockExport'));
 const Machin = lazy(() => import('./components/Machin'));
 const PageMachine = lazy(() => import('./components/PageMachine'));
 const VueGenerale = lazy(() => import('./components/VueGenerale'));
-const TasksAndHR = lazy(() => import('./components/TasksAndHR'));
 const Atelier = lazy(() => import('./components/Atelier'));
 const SousTraitance = lazy(() => import('./components/SousTraitance'));
 const CatalogueTemps = lazy(() => import('./components/CatalogueTemps'));
@@ -193,14 +192,14 @@ export default function App() {
         setAuthView('login');
     };
 
-    const [currentView, setCurrentView] = useState<'dashboard' | 'ingenierie' | 'atelier' | 'library' | 'coupe' | 'effectifs' | 'gestionRh' | 'planning' | 'suivi' | 'magasin' | 'export' | 'config' | 'profil' | 'admin' | 'rendement' | 'pageMachine' | 'machin' | 'objectifs' | 'facturation' | 'atelierProd' | 'vuegenerale' | 'sousTraitance' | 'catalogTemps'>('dashboard');
+    const [currentView, setCurrentView] = useState<'dashboard' | 'ingenierie' | 'library' | 'coupe' | 'effectifs' | 'gestionRh' | 'planning' | 'suivi' | 'magasin' | 'export' | 'config' | 'profil' | 'admin' | 'rendement' | 'pageMachine' | 'machin' | 'facturation' | 'atelierProd' | 'vuegenerale' | 'sousTraitance' | 'catalogTemps'>('dashboard');
     const [directSuiviModelId, setDirectSuiviModelId] = useState<string | null>(null);
     const [hrInitialWorker, setHrInitialWorker] = useState<{ name: string; ts: number } | null>(null);
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     // En static mode, on garde tous les modules visibles — leurs données viennent de Supabase
     // via cloud sync (snapshot localStorage). Les fetch /api/* qui échouent sont absorbés
     // par les .catch() existants ou les fallbacks localStorage.
-    const defaultNavOrder = ['vuegenerale', 'dashboard', 'ingenierie', 'atelier', 'atelierProd', 'library', 'coupe', 'effectifs', 'gestionRh', 'planning', 'suivi', 'rendement', 'magasin', 'export', 'facturation', 'config', 'pageMachine', 'machin', 'catalogTemps', 'objectifs', 'admin', 'sousTraitance'];
+    const defaultNavOrder = ['vuegenerale', 'dashboard', 'library', 'coupe', 'effectifs', 'gestionRh', 'planning', 'suivi', 'rendement', 'magasin', 'export', 'facturation', 'config', 'pageMachine', 'machin', 'catalogTemps', 'admin', 'sousTraitance'];
     const [navConfig, setNavConfig] = useState<{
         enabled: boolean;
         style: 'dropdown' | 'flat' | 'mobile-only';
@@ -210,10 +209,10 @@ export default function App() {
     }>(() => {
         const defaultCategories = [
             { id: 'principal', name: 'Principal', views: ['dashboard', 'vuegenerale', 'planning', 'suivi', 'rendement'] },
-            { id: 'production', name: 'Production', views: ['ingenierie', 'atelier', 'atelierProd', 'coupe', 'sousTraitance'] },
+            { id: 'production', name: 'Production', views: ['coupe', 'sousTraitance'] },
             { id: 'rh', name: 'RH', views: ['effectifs', 'gestionRh'] },
             { id: 'logistique', name: 'Logistique', views: ['magasin', 'export', 'facturation'] },
-            { id: 'config', name: 'Config', views: ['library', 'pageMachine', 'machin', 'catalogTemps', 'config', 'objectifs'] }
+            { id: 'config', name: 'Config', views: ['library', 'pageMachine', 'machin', 'catalogTemps', 'config'] }
         ];
         try {
             const s = localStorage.getItem('bera_nav_config');
@@ -223,6 +222,17 @@ export default function App() {
                 if (!parsed.categories) parsed.categories = defaultCategories;
                 if (parsed.enabled === undefined) parsed.enabled = true;
                 
+                // Prune any legacy/removed views from saved config
+                if (parsed.order) {
+                    parsed.order = parsed.order.filter((v: string) => defaultNavOrder.includes(v) || v === 'admin');
+                }
+                if (parsed.categories) {
+                    parsed.categories = parsed.categories.map((c: any) => ({
+                        ...c,
+                        views: (c.views || []).filter((v: string) => defaultNavOrder.includes(v) || v === 'admin')
+                    }));
+                }
+
                 // Merge any new views that aren't in the saved order yet
                 if (parsed.order && parsed.order.length) {
                     const savedSet = new Set(parsed.order);
@@ -275,7 +285,7 @@ export default function App() {
 
 
     useEffect(() => {
-        const ALLOW = new Set(['dashboard', 'ingenierie', 'atelier', 'library', 'coupe', 'effectifs', 'gestionRh', 'planning', 'suivi', 'magasin', 'export', 'config', 'profil', 'admin', 'rendement', 'pageMachine', 'machin', 'objectifs', 'facturation', 'atelierProd', 'vuegenerale', 'sousTraitance', 'catalogTemps']);
+        const ALLOW = new Set(['dashboard', 'ingenierie', 'library', 'coupe', 'effectifs', 'gestionRh', 'planning', 'suivi', 'magasin', 'export', 'config', 'profil', 'admin', 'rendement', 'pageMachine', 'machin', 'facturation', 'atelierProd', 'vuegenerale', 'sousTraitance', 'catalogTemps']);
         const applyHash = () => {
             const h = window.location.hash.replace(/^#\/?/, '').toLowerCase();
             if (h && ALLOW.has(h)) setCurrentView(h as typeof currentView);
@@ -860,7 +870,30 @@ export default function App() {
         return { totalTime, tempsArticle, bf: calculatedBF };
     }, [operations, numWorkers, presenceTime]);
 
-    const [models, setModels] = useState<ModelData[]>([]);
+    const [models, setModelsRaw] = useState<ModelData[]>([]);
+    const setModels = useCallback((value: React.SetStateAction<ModelData[]>) => {
+        setModelsRaw(prev => {
+            const next = typeof value === 'function' ? (value as Function)(prev) : value;
+            return next.map((m: any) => {
+                if (!m) return m;
+                if (!m.meta_data) {
+                    return {
+                        ...m,
+                        meta_data: {
+                            nom_modele: m.filename?.replace('.json', '') || 'Sans Nom',
+                            date_creation: new Date().toISOString(),
+                            total_temps: 0,
+                            effectif: 1,
+                            sizes: [],
+                            colors: [],
+                            quantity: 0
+                        }
+                    };
+                }
+                return m;
+            });
+        });
+    }, []);
 
     // Reactive functional effect to sync Suivi outputs to Plan Master and apply dynamic rolling
     useEffect(() => {
@@ -1060,14 +1093,14 @@ export default function App() {
             return;
         }
 
-        if ((currentView === 'ingenierie' || currentView === 'atelier') && targetView !== 'ingenierie' && targetView !== 'atelier') {
+        if (currentView === 'ingenierie' && targetView !== 'ingenierie') {
             if (operations.length > 0 || articleName || currentModelId) {
                 setNavConfirm({ isOpen: true, type: 'save', targetView });
                 return;
             }
         }
 
-        if (targetView === 'ingenierie' && currentView !== 'ingenierie' && currentView !== 'atelier') {
+        if (targetView === 'ingenierie' && currentView !== 'ingenierie') {
             if (operations.length > 0 || articleName || currentModelId) {
                 setNavConfirm({ isOpen: true, type: 'new', targetView });
                 return;
@@ -1156,7 +1189,6 @@ export default function App() {
                                         suivi: { label: 'Suivi Production', icon: <Activity className="w-4 h-4" />, active: 'bg-indigo-50 border-indigo-100 text-indigo-700' },
                                         rendement: { label: 'Rendement', icon: <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18" /><polyline points="17 6 23 6 23 12" /></svg>, active: 'bg-violet-50 border-violet-100 text-violet-700' },
                                         ingenierie: { label: t.ingenierie, icon: <Factory className="w-4 h-4" />, active: 'bg-emerald-50 border-emerald-100 text-emerald-700' },
-                                        atelier: { label: 'Atelier Méthodes', icon: <Layers className="w-4 h-4" />, active: 'bg-indigo-50 border-indigo-100 text-indigo-700' },
                                         atelierProd: { label: 'Atelier Production', icon: <Factory className="w-4 h-4" />, active: 'bg-orange-50 border-orange-100 text-orange-700' },
                                         coupe: { label: 'La Coupe', icon: <Scissors className="w-4 h-4" />, active: 'bg-rose-50 border-rose-100 text-rose-700' },
                                         effectifs: { label: t.effectifs, icon: <Users className="w-4 h-4" />, active: 'bg-orange-50 border-orange-100 text-orange-700' },
@@ -1169,7 +1201,6 @@ export default function App() {
                                         machin: { label: 'Catalogue Machines', icon: <Layers className="w-4 h-4" />, active: 'bg-indigo-50 border-indigo-100 text-indigo-700' },
                                         catalogTemps: { label: 'Catalogue de Temps', icon: <Clock className="w-4 h-4" />, active: 'bg-violet-50 border-violet-100 text-violet-700' },
                                         config: { label: t.configuration, icon: <SettingsIcon className="w-4 h-4" />, active: 'bg-amber-50 border-amber-100 text-amber-700' },
-                                        objectifs: { label: 'Objectifs', icon: <Target className="w-4 h-4" />, active: 'bg-rose-50 border-rose-100 text-rose-700' },
                                         sousTraitance: { label: 'Sous-traitance', icon: <Truck className="w-4 h-4" />, active: 'bg-indigo-50 border-indigo-100 text-indigo-700' },
                                         admin: { label: t.admin, icon: <Shield className="w-4 h-4" />, active: 'bg-purple-50 border-purple-100 text-purple-700' },
                                     };
@@ -1271,7 +1302,7 @@ export default function App() {
                         />
                     )}
 
-                    {(currentView === 'ingenierie' || currentView === 'atelier') && (
+                    {currentView === 'ingenierie' && (
                         <ModelWorkflow
                             machines={machines}
                             operations={operations}
@@ -1357,7 +1388,7 @@ export default function App() {
                                 const existing = planningEvents.find(p => p.modelId === m.id);
                                 if (!existing) {
                                     const chaineId = window.prompt(
-                                        `Chaîne pour le suivi direct de "${m.meta_data.nom_modele}" ?`,
+                                        `Chaîne pour le suivi direct de "${m.meta_data?.nom_modele || 'Sans Nom'}" ?`,
                                         'CHAINE 1'
                                     ) || 'CHAINE 1';
                                     const today = new Date().toISOString().split('T')[0];
@@ -1374,7 +1405,7 @@ export default function App() {
                                         qteProduite: 0,
                                         producedQuantity: 0,
                                         status: 'IN_PROGRESS',
-                                        modelName: m.meta_data.nom_modele,
+                                        modelName: m.meta_data?.nom_modele || 'Sans Nom',
                                         clientName: m.ficheData?.client || '',
                                         color: '#6366f1',
                                         // @ts-ignore — Phase 6 flag
@@ -1538,15 +1569,7 @@ export default function App() {
                         </div>
                     )}
 
-                    {currentView === 'objectifs' && (
-                        <div className="flex-1 min-h-0 flex flex-col overflow-hidden w-full">
-                            <TasksAndHR 
-                                settings={globalSettings}
-                                setSettings={setGlobalSettings}
-                                onOpenGestionRH={() => setCurrentView('gestionRh')}
-                            />
-                        </div>
-                    )}
+
 
                     {currentView === 'facturation' && (
                         <div className="flex-1 min-h-0 flex flex-col overflow-hidden w-full">
@@ -1592,7 +1615,7 @@ export default function App() {
                     )}
 
                     {/* --- FLOATING RETURN BUTTON --- */}
-                    {navigationContext && (currentView === 'atelier' || currentView === 'library' || currentView === 'ingenierie') && (
+                    {navigationContext && (currentView === 'library' || currentView === 'ingenierie') && (
                         <div className="absolute bottom-4 right-4 z-[100] animate-in fade-in slide-in-from-bottom-4 duration-300">
                             <button
                                 onClick={() => {

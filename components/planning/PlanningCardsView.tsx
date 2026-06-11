@@ -53,7 +53,7 @@ export default function PlanningCardsView({
                     const prod = ev.producedQuantity || ev.qteProduite || 0;
                     const progress = getProgress(ev);
                     const chaine = chaines.find(c => c.id === ev.chaineId);
-                    const name = ev.modelName || models.find(m => m.id === ev.modelId)?.meta_data.nom_modele || 'Ordre';
+                    const name = ev.modelName || models.find(m => m.id === ev.modelId)?.meta_data?.nom_modele || 'Ordre';
                     const client = ev.clientName || models.find(m => m.id === ev.modelId)?.ficheData?.client || '';
 
                     return (

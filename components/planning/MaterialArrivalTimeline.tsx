@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { Package, Truck, Sparkles, ClipboardList, CheckCircle2, AlertCircle, Ban, RefreshCw, Trash2 } from 'lucide-react';
 import type { AppSettings, ModelData, PlanningEvent, PlanningPurchaseDraft } from '../../types';
-import { aggregateMaterialNeeds, allocateFIFO } from '../../utils/materialNeeds';
+import { aggregateMaterialNeeds, allocateFIFO, maxPiecesFromStock } from '../../utils/materialNeeds';
 import { computeMaterialArrivalPlan, materialReadyDate, type CatalogProductForEta } from '../../utils/supplierLeadtime';
 
 const DEFAULT_LEAD_WORKING_DAYS = 7;
@@ -45,6 +45,14 @@ export default function MaterialArrivalTimeline({
     className = '',
 }: MaterialArrivalTimelineProps) {
     const lines = aggregateMaterialNeeds(model, orderQty);
+
+    // Combien de pièces de cet OF le stock réel (lots) couvre — matière limitante.
+    const coverage = useMemo(
+        () => maxPiecesFromStock(model, orderQty, catalogProducts as any, catalogLots, 5),
+        [model, orderQty, catalogProducts, catalogLots],
+    );
+    const fullyCovered = coverage.maxPieces >= orderQty;
+
     const launchYmd = (event.startDate || event.dateLancement || '').split('T')[0];
     const fournYmd = event.fournisseurDate?.trim()?.split('T')[0];
     const hasFourn = !!fournYmd;
@@ -291,6 +299,27 @@ export default function MaterialArrivalTimeline({
                     </div>
                 )}
             </div>
+
+            {/* Couverture stock réel : combien de pièces sont couvertes par le stock dispo. */}
+            {catalogProducts.length > 0 && coverage.rows.length > 0 && (
+                <div className={`rounded-xl border px-3 py-2.5 ${fullyCovered ? 'border-emerald-200/90 bg-emerald-50/80' : 'border-amber-200/90 bg-amber-50/80'}`}>
+                    <div className="flex items-center gap-2">
+                        {fullyCovered ? <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-700" /> : <AlertCircle className="h-4 w-4 shrink-0 text-amber-700" />}
+                        <p className={`text-[11px] font-black uppercase tracking-wide ${fullyCovered ? 'text-emerald-900' : 'text-amber-900'}`}>
+                            Couverture stock (التغطية بالمخزون)
+                        </p>
+                    </div>
+                    <p className={`mt-1 text-[13px] font-bold ${fullyCovered ? 'text-emerald-950' : 'text-amber-950'}`}>
+                        Le stock disponible couvre <span className="tabular-nums">{coverage.maxPieces}</span> / <span className="tabular-nums">{orderQty}</span> pcs
+                        {fullyCovered ? ' ✓' : ` (${Math.round((coverage.maxPieces / Math.max(1, orderQty)) * 100)}%)`}
+                    </p>
+                    {!fullyCovered && coverage.limiting && (
+                        <p className="mt-0.5 text-[10px] text-amber-800/90">
+                            Matière limitante : <span className="font-bold">{coverage.limiting}</span>
+                        </p>
+                    )}
+                </div>
+            )}
 
             {hasFourn ? (
                 <div className="flex items-start gap-2 rounded-xl border border-emerald-200/90 bg-emerald-50/90 px-3 py-2.5">

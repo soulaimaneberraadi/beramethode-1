@@ -3,6 +3,7 @@ import { Shirt, Clock, Coins, Scissors, Package, CheckSquare, ImageIcon, X, Uplo
 import { AppSettings } from '../types';
 import { fmt } from '../constants';
 import SensitiveValue from './ui/SensitiveValue';
+import NumberInput from './ui/NumberInput';
 
 interface ModelInfoProps {
     t: any;
@@ -27,6 +28,10 @@ interface ModelInfoProps {
     textSecondary: string;
     bgCard: string;
     bgCardHeader: string;
+    soustraitanceActive?: boolean;
+    faconPrix?: number;
+    faconMode?: 'facon' | 'complet';
+    laborCost?: number;
 }
 
 const ModelInfo: React.FC<ModelInfoProps> = ({
@@ -34,7 +39,8 @@ const ModelInfo: React.FC<ModelInfoProps> = ({
     baseTime, setBaseTime, totalTime, settings,
     tempSettings, productImage, setProductImage,
     applyCostMinute, handleInstantSettingChange, handleTempSettingChange,
-    inputBg, textPrimary, textSecondary, bgCard, bgCardHeader
+    inputBg, textPrimary, textSecondary, bgCard, bgCardHeader,
+    soustraitanceActive = false, faconPrix = 0, faconMode = 'facon', laborCost
 }) => {
     const [isImageHovered, setIsImageHovered] = useState(false);
 
@@ -67,18 +73,30 @@ const ModelInfo: React.FC<ModelInfoProps> = ({
 
                 {/* Inline stats - Planning Style */}
                 <div className="flex items-center gap-3 sm:gap-4">
-                    <span className="inline-flex items-center gap-1.5">
-                        <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />
-                        <span className="text-[11px] sm:text-[12px] text-slate-500">Temps</span>
-                        <span className="text-[11px] sm:text-[12px] font-semibold text-slate-900 tabular-nums">{fmt(totalTime)} min</span>
-                    </span>
-                    <span className="inline-flex items-center gap-1.5">
-                        <span className="w-1.5 h-1.5 rounded-full bg-[#2149C1]" />
-                        <span className="text-[11px] sm:text-[12px] text-slate-500">Coût</span>
-                        <span className="text-[11px] sm:text-[12px] font-semibold text-slate-900 tabular-nums">
-                            <SensitiveValue field="model.cout_minute">{fmt(costPrice)} {currency}</SensitiveValue>
+                    {soustraitanceActive ? (
+                        <span className="inline-flex items-center gap-1.5">
+                            <span className="w-1.5 h-1.5 rounded-full bg-[#2149C1]" />
+                            <span className="text-[11px] sm:text-[12px] text-slate-500">Façon</span>
+                            <span className="text-[11px] sm:text-[12px] font-semibold text-slate-900 tabular-nums">
+                                <SensitiveValue field="model.cout_minute">{fmt(laborCost ?? faconPrix)} {currency}</SensitiveValue>
+                            </span>
                         </span>
-                    </span>
+                    ) : (
+                        <>
+                            <span className="inline-flex items-center gap-1.5">
+                                <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />
+                                <span className="text-[11px] sm:text-[12px] text-slate-500">Temps</span>
+                                <span className="text-[11px] sm:text-[12px] font-semibold text-slate-900 tabular-nums">{fmt(totalTime)} min</span>
+                            </span>
+                            <span className="inline-flex items-center gap-1.5">
+                                <span className="w-1.5 h-1.5 rounded-full bg-[#2149C1]" />
+                                <span className="text-[11px] sm:text-[12px] text-slate-500">Coût</span>
+                                <span className="text-[11px] sm:text-[12px] font-semibold text-slate-900 tabular-nums">
+                                    <SensitiveValue field="model.cout_minute">{fmt(costPrice)} {currency}</SensitiveValue>
+                                </span>
+                            </span>
+                        </>
+                    )}
                 </div>
             </div>
 
@@ -100,6 +118,27 @@ const ModelInfo: React.FC<ModelInfoProps> = ({
                         />
                     </div>
 
+                    {soustraitanceActive ? (
+                        /* Sous-traitance : le temps des ouvriers est remplacé par un prix fixe.
+                           Les champs de temps sont masqués (données conservées dans le modèle). */
+                        <div className="p-3 sm:p-4 rounded-md border border-[#2149C1]/20 bg-[#2149C1]/5">
+                            <div className="flex items-center gap-2 mb-1">
+                                <Coins className="w-3.5 h-3.5 text-[#2149C1]" strokeWidth={1.75} />
+                                <span className="text-[12px] font-semibold text-slate-800">
+                                    Sous-traitance {faconMode === 'complet' ? '(tout compris)' : '(façon)'}
+                                </span>
+                            </div>
+                            <p className="text-[11px] text-slate-500 mb-2.5">
+                                {faconMode === 'complet'
+                                    ? 'Matière + façon confiées au sous-traitant. Le temps et les matières sont masqués.'
+                                    : 'Façon confiée au sous-traitant. Le temps des ouvriers est masqué.'}
+                            </p>
+                            <div className="inline-flex items-center gap-2 px-3 h-9 bg-white border border-slate-200 rounded-md">
+                                <span className="text-[11px] text-slate-500">Prix / pièce</span>
+                                <span className="text-[14px] font-bold text-slate-900 tabular-nums">{fmt(laborCost ?? faconPrix)} {currency}</span>
+                            </div>
+                        </div>
+                    ) : (<>
                     {/* Time & Cost Inputs */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                         {/* Sewing Time */}
@@ -108,12 +147,11 @@ const ModelInfo: React.FC<ModelInfoProps> = ({
                                 Temps Couture (min)
                             </label>
                             <div className="relative">
-                                <input
-                                    type="number"
-                                    min="0"
+                                <NumberInput
+                                    min={0}
                                     step="0.01"
                                     value={baseTime}
-                                    onChange={(e) => setBaseTime(Math.max(0, parseFloat(e.target.value) || 0))}
+                                    onValueChange={(n) => setBaseTime(n)}
                                     className="w-full h-9 pl-9 pr-3 bg-slate-50/60 hover:bg-slate-50 focus:bg-white border border-slate-200 focus:border-slate-300 rounded-md text-[13px] font-semibold text-slate-700 focus:ring-2 focus:ring-slate-100 outline-none transition-all tabular-nums"
                                 />
                                 <Clock className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" strokeWidth={1.75} />
@@ -127,10 +165,9 @@ const ModelInfo: React.FC<ModelInfoProps> = ({
                             </label>
                             <div className="flex gap-2">
                                 <div className="relative flex-1">
-                                    <input
+                                    <NumberInput
                                         name="costMinute"
-                                        type="number"
-                                        min="0"
+                                        min={0}
                                         step="0.01"
                                         value={tempSettings.costMinute}
                                         onChange={handleTempSettingChange}
@@ -154,9 +191,8 @@ const ModelInfo: React.FC<ModelInfoProps> = ({
                         <div className="flex items-center gap-1.5 sm:gap-2">
                             <Scissors className="w-3.5 h-3.5 text-slate-400" strokeWidth={1.75} />
                             <span className="text-[10px] sm:text-[11px] font-medium text-slate-500">Coupe (%)</span>
-                            <input
-                                type="number"
-                                min="0"
+                            <NumberInput
+                                min={0}
                                 name="cutRate"
                                 value={settings.cutRate}
                                 onChange={handleInstantSettingChange}
@@ -169,9 +205,8 @@ const ModelInfo: React.FC<ModelInfoProps> = ({
                         <div className="flex items-center gap-1.5 sm:gap-2">
                             <Package className="w-3.5 h-3.5 text-slate-400" strokeWidth={1.75} />
                             <span className="text-[10px] sm:text-[11px] font-medium text-slate-500">Emballage (%)</span>
-                            <input
-                                type="number"
-                                min="0"
+                            <NumberInput
+                                min={0}
                                 name="packRate"
                                 value={settings.packRate}
                                 onChange={handleInstantSettingChange}
@@ -228,6 +263,7 @@ const ModelInfo: React.FC<ModelInfoProps> = ({
                             </div>
                         </div>
                     </div>
+                    </>)}
                 </div>
 
                 {/* Right Column - Image (en haut sur mobile, à côté sur desktop — comme la Fiche Technique) */}

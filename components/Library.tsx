@@ -36,26 +36,26 @@ import { ModelData } from '../types';
 
 /** Auto-generate a short abbreviation from a model name (e.g. "Pantalon Homme Classic" → "PHC") */
 function getModelAbbrev(model: ModelData): string {
-    if (model.meta_data.reference) return model.meta_data.reference.toUpperCase().slice(0, 6);
-    const name = model.meta_data.nom_modele || '';
+    if (model?.meta_data?.reference) return model.meta_data.reference.toUpperCase().slice(0, 6);
+    const name = model?.meta_data?.nom_modele || '';
     return name.split(/[\s\-_]+/).filter(Boolean).map(w => w[0]?.toUpperCase() || '').join('').slice(0, 5) || '?';
 }
 
 /** Texte indexé pour la recherche (fiche, méta, lignes de gamme, temps, quantités). */
 function buildLibrarySearchHaystack(m: ModelData): string {
     const parts: string[] = [];
-    const meta = m.meta_data;
-    const fd = m.ficheData;
+    const meta = m?.meta_data;
+    const fd = m?.ficheData;
 
-    parts.push(meta.nom_modele || '', m.filename || '', meta.reference || '');
-    parts.push(meta.category || '', fd?.category || '');
+    parts.push(meta?.nom_modele || '', m?.filename || '', meta?.reference || '');
+    parts.push(meta?.category || '', fd?.category || '');
     parts.push(fd?.client || '', fd?.designation || '', fd?.observations || '', fd?.chaine || '');
     if (fd?.sizes?.length) parts.push(fd.sizes.join(' '));
     if (fd?.colors?.length) parts.push(...fd.colors.map(c => c.name));
     parts.push(
-        String(meta.quantity ?? fd?.quantity ?? ''),
-        String(meta.effectif ?? ''),
-        String(meta.total_temps ?? ''),
+        String(meta?.quantity ?? fd?.quantity ?? ''),
+        String(meta?.effectif ?? ''),
+        String(meta?.total_temps ?? ''),
         fd?.date ?? ''
     );
 
@@ -788,7 +788,7 @@ export default function Library({
                             <button
                                 type="button"
                                 onClick={() => {
-                                    setDeleteConfirm({ id: activeModel.id, name: activeModel.meta_data.nom_modele });
+                                    setDeleteConfirm({ id: activeModel.id, name: activeModel.meta_data?.nom_modele || '' });
                                     setContextMenu(null);
                                 }}
                                 className="w-full text-left px-4 py-2.5 text-xs font-bold text-rose-600 hover:bg-rose-50 flex items-center gap-3 transition-colors"

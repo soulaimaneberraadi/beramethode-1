@@ -6,11 +6,11 @@ import {
   Camera, Edit3, Trash2, Eye, EyeOff, Phone, Calendar,
   Shield, Star, Plus, Save, RefreshCw, Filter,
   TrendingUp,   Award, AlertTriangle, CheckCircle, Factory, PieChart, IdCard,
-  Mail, Key, Copy, LayoutGrid, Table2,
+  Mail, Key, Copy, LayoutGrid, Table2, Truck, Navigation,
 } from 'lucide-react';
 import { HRWorkerProfilePanel } from './HRWorkerProfilePanel';
 import * as XLSX from 'xlsx';
-import { HRWorker, HRPointage, HRAvance, HRWorkerRole, HRContractType, HRPointageStatus, SuiviData, PlanningEvent, AppSettings } from '../types';
+import { HRWorker, HRPointage, HRAvance, HRWorkerRole, HRContractType, HRPointageStatus, SuiviData, PlanningEvent, AppSettings, HRTransportLigne } from '../types';
 import { getSageTimesForHeuresCalc, sageCreneauWarning } from '../lib/sageTimeRules';
 import {
   getDefaultPointageTranches,
@@ -160,7 +160,7 @@ function Field({ label, value, onChange, type = 'text', placeholder, required }:
 }
 
 // ─── TYPES ────────────────────────────────────────────────
-type Tab = 'annuaire' | 'pointage' | 'statistiques' | 'production' | 'avances' | 'sage' | 'invitations';
+type Tab = 'annuaire' | 'pointage' | 'statistiques' | 'production' | 'avances' | 'sage' | 'invitations' | 'transport';
 
 // Post categories shown in the stats tab
 const POST_CATEGORIES = [
@@ -178,7 +178,7 @@ const EMPTY_WORKER: Partial<HRWorker> = {
   prime_assiduite: 0, prime_transport: 0, mode_paiement: 'VIREMENT',
 };
 
-function WorkerModal({ worker, onClose, onSave }: { worker: Partial<HRWorker> | null; onClose: () => void; onSave: () => void }) {
+function WorkerModal({ worker, onClose, onSave, transportLignes }: { worker: Partial<HRWorker> | null; onClose: () => void; onSave: () => void; transportLignes: HRTransportLigne[] }) {
   const [form, setForm] = useState<Partial<HRWorker>>(worker ?? EMPTY_WORKER);
   const [saving, setSaving] = useState(false);
   const [subTab, setSubTab] = useState<'identity' | 'emploi' | 'financier' | 'urgence'>('identity');
@@ -376,6 +376,7 @@ function WorkerModal({ worker, onClose, onSave }: { worker: Partial<HRWorker> | 
                 </select>
               </div>
               <Field label="Chaîne" value={form.chaine_id ?? ''} onChange={v => set('chaine_id', v)} placeholder="ex: CHAINE 1" />
+              <Field label="Parda / Équipe" value={form.equipe ?? ''} onChange={v => set('equipe', v)} placeholder="ex: Équipe A / Équipe B" />
               <Field label="Poste" value={form.poste ?? ''} onChange={v => set('poste', v)} placeholder="ex: Piqueur" />
               <Field label="Spécialité" value={form.specialite ?? ''} onChange={v => set('specialite', v)} placeholder="ex: Jupe" />
               <Field label="Date Embauche" value={form.date_embauche ?? ''} onChange={v => set('date_embauche', v)} type="date" required />
@@ -393,6 +394,15 @@ function WorkerModal({ worker, onClose, onSave }: { worker: Partial<HRWorker> | 
                 <select value={form.is_active ? '1' : '0'} onChange={e => set('is_active', e.target.value === '1')} style={inputStyle}>
                   <option value="1">Actif</option>
                   <option value="0">Inactif</option>
+                </select>
+              </div>
+              <div>
+                <label style={labelStyle}>Ligne de Transport</label>
+                <select value={form.transport_ligne_id ?? ''} onChange={e => set('transport_ligne_id', e.target.value || null)} style={inputStyle}>
+                  <option value="">-- Sans Transport --</option>
+                  {transportLignes.map(l => (
+                    <option key={l.id} value={l.id}>{l.nom} {l.chauffeur_nom ? `(${l.chauffeur_nom})` : ''}</option>
+                  ))}
                 </select>
               </div>
             </div>
@@ -463,6 +473,7 @@ interface StatsTabProps {
 }
 
 function StatistiquesTab({ workers, pointages, suivis, planningEvents, selectedDate, setSelectedDate, onRefresh }: StatsTabProps) {
+  const [selectedChainDetail, setSelectedChainDetail] = useState<string | null>(null);
   const chaineCount = useMemo(() => {
     const ids = new Set<string>();
     workers.forEach(w => { if (w.chaine_id) ids.add(w.chaine_id); });
@@ -572,7 +583,27 @@ function StatistiquesTab({ workers, pointages, suivis, planningEvents, selectedD
         {chaineSummary.map(ch => {
           const presencePct = ch.total > 0 ? Math.round((ch.presents / ch.total) * 100) : 0;
           return (
-            <div key={ch.chaineId} style={{ background: '#fff', borderRadius: 14, padding: 18, boxShadow: '0 2px 8px rgba(0,0,0,0.07)', border: '1px solid #F1F5F9' }}>
+            <div 
+              key={ch.chaineId} 
+              onClick={() => setSelectedChainDetail(ch.chaineId)}
+              style={{ 
+                background: '#fff', 
+                borderRadius: 14, 
+                padding: 18, 
+                boxShadow: '0 2px 8px rgba(0,0,0,0.07)', 
+                border: '1px solid #F1F5F9',
+                cursor: 'pointer',
+                transition: 'transform 0.2s, box-shadow 0.2s',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.transform = 'translateY(-2px)';
+                e.currentTarget.style.boxShadow = '0 8px 16px rgba(0,0,0,0.1)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.transform = 'none';
+                e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.07)';
+              }}
+            >
               {/* Chain header */}
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -696,6 +727,154 @@ function StatistiquesTab({ workers, pointages, suivis, planningEvents, selectedD
           )}
         </div>
       </div>
+
+      {/* Chain Detail Modal */}
+      <AnimatePresence>
+        {selectedChainDetail && (() => {
+          const chainWorkers = workers.filter(w => String(w.chaine_id || '') === selectedChainDetail);
+          return (
+            <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+              <motion.div 
+                initial={{ opacity: 0, scale: 0.95 }} 
+                animate={{ opacity: 1, scale: 1 }} 
+                exit={{ opacity: 0, scale: 0.95 }}
+                style={{ 
+                  background: '#fff', 
+                  borderRadius: 16, 
+                  width: '100%', 
+                  maxWidth: 600, 
+                  maxHeight: '85vh', 
+                  display: 'flex', 
+                  flexDirection: 'column', 
+                  boxShadow: '0 25px 60px rgba(0,0,0,0.25)', 
+                  border: '1px solid #E2E8F0' 
+                }}
+              >
+                {/* Header */}
+                <div style={{ padding: '20px 24px', borderBottom: '1px solid #E2E8F0', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#F8FAFC', borderTopLeftRadius: 16, borderTopRightRadius: 16 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <div style={{ width: 36, height: 36, borderRadius: 10, background: '#EEF2FF', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <Factory size={18} color="#4F46E5" />
+                    </div>
+                    <div>
+                      <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: '#0F172A' }}>
+                        {selectedChainDetail}
+                      </h3>
+                      <div style={{ fontSize: 11, color: '#64748B', marginTop: 2 }}>
+                        {chainWorkers.length} ouvrier(s) affecté(s)
+                      </div>
+                    </div>
+                  </div>
+                  <button onClick={() => setSelectedChainDetail(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94A3B8', padding: 4, borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background 0.2s' }} onMouseEnter={e => e.currentTarget.style.background = '#E2E8F0'} onMouseLeave={e => e.currentTarget.style.background = 'none'}>
+                    <X size={20} />
+                  </button>
+                </div>
+
+                {/* Body */}
+                <div style={{ flex: 1, overflowY: 'auto', padding: 20 }}>
+                  {chainWorkers.length > 0 ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                      {chainWorkers.map(w => {
+                        const roleK = (w.role && ROLES.includes(w.role as HRWorkerRole) ? w.role : 'OPERATOR') as HRWorkerRole;
+                        const st = getPointageStatus(w.id);
+                        const sc = STATUS_CONFIG[st] || STATUS_CONFIG.PRESENT;
+                        return (
+                          <div 
+                            key={w.id} 
+                            style={{ 
+                              display: 'flex', 
+                              alignItems: 'center', 
+                              gap: 12, 
+                              padding: '12px 14px', 
+                              background: '#F8FAFC', 
+                              borderRadius: 10, 
+                              border: '1px solid #E2E8F0',
+                              justifyContent: 'space-between',
+                              flexWrap: 'wrap'
+                            }}
+                          >
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 200 }}>
+                              <div style={{ position: 'relative', flexShrink: 0 }}>
+                                <div style={{ width: 40, height: 40, borderRadius: '50%', background: w.photo ? 'transparent' : ROLE_COLORS[roleK] + '20', border: `2px solid ${ROLE_COLORS[roleK]}`, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                  {w.photo ? <img src={w.photo} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" /> : <span style={{ fontSize: 14, fontWeight: 800, color: ROLE_COLORS[roleK] }}>{(w.full_name || '?')[0]}</span>}
+                                </div>
+                                <div style={{ position: 'absolute', bottom: -1, right: -1, width: 10, height: 10, borderRadius: '50%', background: sc.color, border: '2px solid #fff' }} title={sc.label} />
+                              </div>
+                              <div style={{ minWidth: 0 }}>
+                                <div style={{ fontWeight: 700, fontSize: 13, color: '#0F172A', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>{w.full_name}</div>
+                                <div style={{ fontSize: 11, color: '#64748B', display: 'flex', gap: 6, alignItems: 'center', marginTop: 2 }}>
+                                  <span>{w.matricule}</span>
+                                  <span>•</span>
+                                  <span style={{ fontWeight: 600, color: ROLE_COLORS[roleK] }}>{ROLE_LABELS[roleK]}</span>
+                                  {w.poste && (
+                                    <>
+                                      <span>•</span>
+                                      <span>{w.poste}</span>
+                                    </>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                              <div style={{ textAlign: 'right' }}>
+                                <div style={{ fontSize: 11, fontWeight: 700, color: '#475569' }}>
+                                  Parda: <span style={{ color: '#1E293B' }}>{w.equipe || '—'}</span>
+                                </div>
+                                <div style={{ fontSize: 10, fontWeight: 600, padding: '2px 8px', borderRadius: 8, background: sc.bg, color: sc.color, marginTop: 4, display: 'inline-block' }}>
+                                  {sc.label}
+                                </div>
+                              </div>
+                              {w.phone ? (
+                                <a 
+                                  href={`tel:${w.phone}`} 
+                                  title={`Appeler ${w.full_name}`}
+                                  style={{ 
+                                    width: 36, 
+                                    height: 36, 
+                                    borderRadius: '50%', 
+                                    background: '#ECFDF5', 
+                                    border: '1px solid #A7F3D0', 
+                                    display: 'flex', 
+                                    alignItems: 'center', 
+                                    justifyContent: 'center', 
+                                    color: '#059669', 
+                                    cursor: 'pointer',
+                                    transition: 'background 0.2s'
+                                  }}
+                                  onMouseEnter={e => e.currentTarget.style.background = '#D1FAE5'}
+                                  onMouseLeave={e => e.currentTarget.style.background = '#ECFDF5'}
+                                >
+                                  <Phone size={16} />
+                                </a>
+                              ) : (
+                                <div style={{ width: 36, height: 36, borderRadius: '50%', background: '#F1F5F9', border: '1px solid #E2E8F0', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94A3B8' }} title="Aucun téléphone">
+                                  <Phone size={16} style={{ opacity: 0.5 }} />
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div style={{ textAlign: 'center', padding: '40px 20px', color: '#94A3B8' }}>
+                      <Users size={40} style={{ opacity: 0.4, marginBottom: 8 }} />
+                      <div style={{ fontWeight: 600 }}>Aucun ouvrier affecté à cette chaîne</div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Footer */}
+                <div style={{ padding: '16px 24px', borderTop: '1px solid #E2E8F0', display: 'flex', justifyContent: 'flex-end', background: '#F8FAFC', borderBottomLeftRadius: 16, borderBottomRightRadius: 16 }}>
+                  <button onClick={() => setSelectedChainDetail(null)} style={btnSecondary}>
+                    Fermer
+                  </button>
+                </div>
+              </motion.div>
+            </div>
+          );
+        })()}
+      </AnimatePresence>
     </div>
   );
 }
@@ -875,6 +1054,7 @@ export default function GestionRH({ suivis = [], planningEvents = [], settings, 
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState('');
   const [filterRole, setFilterRole] = useState('');
+  const [filterChaine, setFilterChaine] = useState('');
   const [pointageSearch, setPointageSearch] = useState('');
   const [pointageChaine, setPointageChaine] = useState('');
   const [sageOpts, setSageOpts] = useState({ round: 15, workday: '06:00', apply: true });
@@ -884,6 +1064,15 @@ export default function GestionRH({ suivis = [], planningEvents = [], settings, 
   const [showTranches, setShowTranches] = useState(true);
   const [editWorker, setEditWorker] = useState<Partial<HRWorker> | null>(null);
   const [showWorkerModal, setShowWorkerModal] = useState(false);
+  const [transportLignes, setTransportLignes] = useState<HRTransportLigne[]>([]);
+  const [transportSubTab, setTransportSubTab] = useState<'recensement' | 'membres' | 'lignes'>('recensement');
+  const [selectedLigne, setSelectedLigne] = useState<Partial<HRTransportLigne> | null>(null);
+  const [showLigneModal, setShowLigneModal] = useState(false);
+  const [filterTransportDate, setFilterTransportDate] = useState(today());
+  const [filterTransportParda, setFilterTransportParda] = useState('');
+  const [recensementWorkers, setRecensementWorkers] = useState<string[]>([]);
+  const [recensementChaine, setRecensementChaine] = useState<string>('');
+  const [recensementSearch, setRecensementSearch] = useState<string>('');
   const [generatingSage, setGeneratingSage] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [claimPreview, setClaimPreview] = useState<{ myCount: number; guestCount: number; canClaim: boolean } | null>(null);
@@ -994,6 +1183,17 @@ export default function GestionRH({ suivis = [], planningEvents = [], settings, 
     }
   }, []);
 
+  const fetchTransportLignes = useCallback(async () => {
+    try {
+      const r = await API('/api/hr/transport-lignes');
+      if (r.ok) {
+        setTransportLignes(await r.json());
+      }
+    } catch (e) {
+      console.error('[fetchTransportLignes] Error:', e);
+    }
+  }, []);
+
   const fetchPointage = useCallback(async () => {
     const r = await API(`/api/hr/pointage?date=${selectedDate}`);
     if (!r.ok) return;
@@ -1053,8 +1253,128 @@ export default function GestionRH({ suivis = [], planningEvents = [], settings, 
     }
   };
 
+  const handleDeleteLigne = async (id: string, name: string) => {
+    if (!confirm(`حذف خط النقل "${name}"؟\n(سيتم إلغاء تعيين جميع العمال المرتبطين بهذا الخط تلقائياً)`)) return;
+    try {
+      const r = await API(`/api/hr/transport-lignes/${id}`, { method: 'DELETE' });
+      if (r.ok) {
+        showToast('تم حذف خط النقل بنجاح');
+        fetchTransportLignes();
+        fetchWorkers();
+      } else {
+        showToast('حدث خطأ أثناء الحذف', 'err');
+      }
+    } catch (e) {
+      console.error(e);
+      showToast('خطأ في الاتصال بالخادم', 'err');
+    }
+  };
+
+  const handleSaveLigne = async () => {
+    if (!selectedLigne?.nom) {
+      alert('Nom de la ligne requis');
+      return;
+    }
+    try {
+      const payload = {
+        id: selectedLigne.id || uid(),
+        nom: selectedLigne.nom,
+        code_ligne: selectedLigne.code_ligne || '',
+        quartier: selectedLigne.quartier || '',
+        chauffeur_nom: selectedLigne.chauffeur_nom || '',
+        chauffeur_tel: selectedLigne.chauffeur_tel || '',
+        matricule_vehicule: selectedLigne.matricule_vehicule || '',
+        capacite: Number(selectedLigne.capacite) || 0,
+        notes: selectedLigne.notes || '',
+      };
+      const r = await API('/api/hr/transport-lignes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      if (r.ok) {
+        showToast('Ligne de transport enregistrée');
+        setShowLigneModal(false);
+        fetchTransportLignes();
+      } else {
+        showToast('Erreur lors de l\'enregistrement', 'err');
+      }
+    } catch (e) {
+      console.error(e);
+      showToast('Erreur de connexion au serveur', 'err');
+    }
+  };
+
+  const toggleWorkerRecensement = (workerId: string) => {
+    setRecensementWorkers(prev =>
+      prev.includes(workerId) ? prev.filter(id => id !== workerId) : [...prev, workerId]
+    );
+  };
+
+  const handleCopyRecensementWhatsApp = () => {
+    const selected = workers.filter(w => recensementWorkers.includes(w.id));
+    
+    // Group by parda
+    const byParda: Record<string, typeof selected> = {};
+    for (const w of selected) {
+      const p = w.equipe || 'Sans Équipe';
+      if (!byParda[p]) byParda[p] = [];
+      byParda[p].push(w);
+    }
+
+    let pardaText = '';
+    for (const [p, list] of Object.entries(byParda)) {
+      const lines = [...new Set(list.map(w => w.transport_ligne_quartier || w.transport_ligne_nom || 'Sans Transport'))].join(', ');
+      pardaText += `- *${p}:* ${list.length} personnes (${lines})\n`;
+    }
+
+    // Group by transport line
+    const byLine: Record<string, { line: HRTransportLigne; workers: typeof selected }> = {};
+    for (const w of selected) {
+      const lineId = w.transport_ligne_id || 'sans-transport';
+      if (!byLine[lineId]) {
+        const l = transportLignes.find(x => x.id === lineId) || { id: 'sans-transport', nom: 'Sans Transport', capacite: 0 } as any;
+        byLine[lineId] = { line: l, workers: [] };
+      }
+      byLine[lineId].workers.push(w);
+    }
+
+    let lineText = '';
+    for (const [lineId, item] of Object.entries(byLine)) {
+      const l = item.line;
+      const chauffeurInfo = l.chauffeur_nom ? ` (Chauffeur: ${l.chauffeur_nom} - ${l.chauffeur_tel ?? ''})` : '';
+      const quartierInfo = l.quartier ? ` [Quartier: ${l.quartier}]` : '';
+      lineText += `\n*${l.code_ligne || ''} ${l.nom}${quartierInfo}${chauffeurInfo}* (${item.workers.length} pers):\n`;
+      item.workers.forEach((w, idx) => {
+        lineText += `  ${idx + 1}. ${w.full_name} (${w.equipe || '—'})\n`;
+      });
+    }
+
+    const text = `*RECENSEMENT TRANSPORT - HEURES SUPPLEMENTAIRES*\nDate: ${filterTransportDate}\n\n*Résumé par Équipe (Parda):*\n${pardaText || 'Aucun.'}\n*Total passagers:* ${selected.length} personnes\n\n*Détail par Ligne de Transport:*${lineText || '\nAucun passager.'}`;
+
+    navigator.clipboard.writeText(text);
+    showToast('Récapitulatif copié pour WhatsApp !');
+  };
+
   // Liste RH toujours chargée à l’ouverture (compteur header + onglets)
   useEffect(() => { fetchWorkers(); }, [fetchWorkers]);
+  useEffect(() => { fetchTransportLignes(); }, [fetchTransportLignes]);
+  useEffect(() => { if (tab === 'transport') { fetchTransportLignes(); fetchPointage(); } }, [tab, fetchTransportLignes, fetchPointage]);
+  useEffect(() => {
+    if (tab === 'transport') {
+      const fetchPointageForTransport = async () => {
+        try {
+          const r = await API(`/api/hr/pointage?date=${filterTransportDate}`);
+          if (r.ok) {
+            setPointages(await r.json());
+          }
+        } catch (e) {
+          console.error(e);
+        }
+      };
+      fetchPointageForTransport();
+    }
+  }, [tab, filterTransportDate]);
   useEffect(() => {
     if (loading || loadError) return;
     fetchClaimPreview();
@@ -1249,6 +1569,7 @@ export default function GestionRH({ suivis = [], planningEvents = [], settings, 
     { id: 'statistiques',  label: 'Statistiques',   icon: <PieChart size={15} /> },
     { id: 'production',    label: 'Production',     icon: <BarChart2 size={15} /> },
     { id: 'avances',       label: 'Avances',        icon: <DollarSign size={15} /> },
+    { id: 'transport',     label: 'Transport',      icon: <Truck size={15} /> },
     { id: 'sage',          label: 'Sage Paie',      icon: <FileText size={15} /> },
     { id: 'invitations',   label: 'Invitations',    icon: <Mail size={15} /> },
   ] as const;
@@ -1257,7 +1578,8 @@ export default function GestionRH({ suivis = [], planningEvents = [], settings, 
     const q = search.toLowerCase();
     const matchSearch = !search || w.full_name.toLowerCase().includes(q) || (w.matricule || '').toLowerCase().includes(q) || (w.cin || '').toLowerCase().includes(q);
     const matchRole = !filterRole || w.role === filterRole;
-    return matchSearch && matchRole;
+    const matchChaine = !filterChaine || String(w.chaine_id || '') === filterChaine;
+    return matchSearch && matchRole && matchChaine;
   });
 
   const pointageChaineOptions = useMemo(() => {
@@ -1360,6 +1682,7 @@ export default function GestionRH({ suivis = [], planningEvents = [], settings, 
             worker={editWorker}
             onClose={() => { setShowWorkerModal(false); setEditWorker(null); }}
             onSave={() => { fetchWorkers(); showToast('Ouvrier sauvegardé'); }}
+            transportLignes={transportLignes}
           />
         )}
       </AnimatePresence>
@@ -1484,6 +1807,10 @@ export default function GestionRH({ suivis = [], planningEvents = [], settings, 
                     <option value="">Tous les rôles</option>
                     {ROLES.map(r => <option key={r} value={r}>{ROLE_LABELS[r]}</option>)}
                   </select>
+                  <select value={filterChaine} onChange={e => setFilterChaine(e.target.value)} style={{ ...inputStyle, width: 160 }}>
+                    <option value="">Toutes les chaînes</option>
+                    {pointageChaineOptions.map(c => <option key={c} value={c}>{c}</option>)}
+                  </select>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginLeft: 'auto', flexWrap: 'wrap' }}>
                     <span style={{ fontSize: 11, fontWeight: 600, color: '#94A3B8', textTransform: 'uppercase' }}>Affichage</span>
                     <button
@@ -1531,7 +1858,7 @@ export default function GestionRH({ suivis = [], planningEvents = [], settings, 
                       <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, minWidth: 880 }}>
                         <thead>
                           <tr style={{ background: '#F8FAFC', borderBottom: '2px solid #E2E8F0' }}>
-                            {['Nom', 'Matricule', 'CIN', 'Rôle', 'Chaîne', 'Poste', 'Contrat', 'Tél.', 'Actions'].map(h => (
+                            {['Nom', 'Matricule', 'CIN', 'Rôle', 'Chaîne', 'Parda', 'Quartier', 'Poste', 'Contrat', 'Tél.', 'Actions'].map(h => (
                               <th key={h} style={{ textAlign: 'left', padding: '10px 12px', fontWeight: 700, color: '#64748B', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.04em', whiteSpace: 'nowrap' }}>{h}</th>
                             ))}
                           </tr>
@@ -1555,9 +1882,18 @@ export default function GestionRH({ suivis = [], planningEvents = [], settings, 
                                   <span style={{ padding: '2px 8px', borderRadius: 8, fontSize: 11, fontWeight: 700, background: ROLE_COLORS[roleK] + '18', color: ROLE_COLORS[roleK] }}>{ROLE_LABELS[roleK]}</span>
                                 </td>
                                 <td style={{ padding: '10px 12px', color: '#475569' }}>{w.chaine_id || '—'}</td>
+                                <td style={{ padding: '10px 12px', color: '#475569' }}>{w.equipe || '—'}</td>
+                                <td style={{ padding: '10px 12px', color: '#475569' }}>{w.transport_ligne_quartier || w.transport_ligne_nom || '—'}</td>
                                 <td style={{ padding: '10px 12px', color: '#475569', maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{w.poste || '—'}</td>
                                 <td style={{ padding: '10px 12px', color: '#475569' }}>{w.type_contrat || '—'}</td>
-                                <td style={{ padding: '10px 12px', color: '#475569', whiteSpace: 'nowrap' }}>{w.phone || '—'}</td>
+                                <td style={{ padding: '10px 12px', color: '#475569', whiteSpace: 'nowrap' }}>
+                                  {w.phone ? (
+                                    <a href={`tel:${w.phone}`} style={{ color: '#2149C1', fontWeight: 600, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                                      <Phone size={12} />
+                                      {w.phone}
+                                    </a>
+                                  ) : '—'}
+                                </td>
                                 <td style={{ padding: '8px 12px', whiteSpace: 'nowrap' }}>
                                   <button type="button" onClick={() => setProfileWorkerId(w.id)} style={{ ...btnPrimary, display: 'inline-flex', padding: '5px 10px', fontSize: 11, marginRight: 6 }}><IdCard size={11} style={{ marginRight: 4 }} />Fiche</button>
                                   <button type="button" onClick={() => { setEditWorker(w); setShowWorkerModal(true); }} style={{ ...btnSecondary, display: 'inline-flex', padding: '5px 10px', fontSize: 11, marginRight: 6 }}><Edit3 size={11} style={{ marginRight: 4 }} />Édit.</button>
@@ -1606,11 +1942,21 @@ export default function GestionRH({ suivis = [], planningEvents = [], settings, 
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, fontSize: 12, marginBottom: 12 }}>
                           {[
                             { label: 'Chaîne', val: w.chaine_id || '—' },
-                            { label: 'Contrat', val: w.type_contrat || '—' },
+                            { label: 'Parda / Équipe', val: w.equipe || '—' },
                             { label: 'Poste', val: w.poste || '—' },
-                            { label: 'Tel', val: w.phone || '—' },
+                            { label: 'Contrat', val: w.type_contrat || '—' },
+                            { label: 'Quartier (Hay)', val: w.transport_ligne_quartier || w.transport_ligne_nom || '—' },
+                            {
+                              label: 'Tel',
+                              val: w.phone ? (
+                                <a href={`tel:${w.phone}`} style={{ color: '#2149C1', fontWeight: 600, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                                  <Phone size={11} /> {w.phone}
+                                </a>
+                              ) : '—',
+                              fullWidth: true
+                            },
                           ].map(i => (
-                            <div key={i.label} style={{ background: '#F8FAFC', borderRadius: 6, padding: '6px 8px' }}>
+                            <div key={i.label} style={{ background: '#F8FAFC', borderRadius: 6, padding: '6px 8px', gridColumn: i.fullWidth ? '1 / -1' : undefined }}>
                               <div style={{ color: '#94A3B8', fontSize: 10 }}>{i.label}</div>
                               <div style={{ fontWeight: 600, color: '#374151', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{i.val}</div>
                             </div>
@@ -1930,7 +2276,14 @@ export default function GestionRH({ suivis = [], planningEvents = [], settings, 
                                         {w.full_name}
                                       </div>
                                       <div style={{ fontSize: '9px', color: '#94a3b8', fontWeight: 600, lineHeight: 1.2 }}>
-                                        {w.matricule} · <span style={{ color: '#64748b' }}>{w.chaine_id || 'BUREAU'}</span>
+                                        {w.matricule} · <span style={{ color: '#64748b' }}>{w.chaine_id || 'BUREAU'}</span>{w.equipe ? ` · ${w.equipe}` : ''}{w.phone ? (
+                                          <>
+                                            {' · '}
+                                            <a href={`tel:${w.phone}`} style={{ color: '#2149C1', fontWeight: 700, textDecoration: 'none' }}>
+                                              {w.phone}
+                                            </a>
+                                          </>
+                                        ) : ''}
                                       </div>
                                       {hint.level === 'warn' && (
                                         <div style={{ fontSize: '8px', color: '#f59e0b', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '2px', marginTop: '1px', maxWidth: '120px' }} title={hint.label}>
@@ -2235,6 +2588,432 @@ export default function GestionRH({ suivis = [], planningEvents = [], settings, 
                     )}
                   </div>
                 </div>
+              </div>
+            )}
+
+            {/* ═══ TRANSPORT ═══ */}
+            {tab === 'transport' && (
+              <div>
+                {/* Header sub-tabs */}
+                <div style={{ display: 'flex', borderBottom: '1px solid #E2E8F0', marginBottom: 20, gap: 10, flexWrap: 'wrap' }}>
+                  <button onClick={() => setTransportSubTab('recensement')}
+                    style={{ padding: '10px 16px', border: 'none', background: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 700,
+                      color: transportSubTab === 'recensement' ? '#2149C1' : '#64748B',
+                      borderBottom: transportSubTab === 'recensement' ? '3px solid #2149C1' : '3px solid transparent' }}>
+                    Recensement Heures Supp
+                  </button>
+                  <button onClick={() => setTransportSubTab('membres')}
+                    style={{ padding: '10px 16px', border: 'none', background: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 700,
+                      color: transportSubTab === 'membres' ? '#2149C1' : '#64748B',
+                      borderBottom: transportSubTab === 'membres' ? '3px solid #2149C1' : '3px solid transparent' }}>
+                    Membres par Ligne
+                  </button>
+                  <button onClick={() => setTransportSubTab('lignes')}
+                    style={{ padding: '10px 16px', border: 'none', background: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 700,
+                      color: transportSubTab === 'lignes' ? '#2149C1' : '#64748B',
+                      borderBottom: transportSubTab === 'lignes' ? '3px solid #2149C1' : '3px solid transparent' }}>
+                    Gestion des Lignes
+                  </button>
+                </div>
+
+                {/* VIEW 1: RECENSEMENT HEURES SUPP */}
+                {transportSubTab === 'recensement' && (
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, alignItems: 'start' }} className="recensement-grid-compact">
+                    {/* Left Panel: Selection by Chaine & Quick Add */}
+                    <div style={{ background: '#fff', borderRadius: 16, padding: 20, border: '1px solid #E2E8F0', boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}>
+                      <h3 style={{ margin: '0 0 16px', fontSize: 15, fontWeight: 700, color: '#0F172A' }}>Sélection des Passagers HS</h3>
+                      
+                      {/* Date Filter */}
+                      <div style={{ marginBottom: 16 }}>
+                        <label style={labelStyle}>Date de recensement</label>
+                        <input type="date" value={filterTransportDate} onChange={e => setFilterTransportDate(e.target.value)} style={inputStyle} />
+                      </div>
+
+                      {/* Quick Add Search */}
+                      <div style={{ marginBottom: 20, position: 'relative' }}>
+                        <label style={labelStyle}>Recherche & Ajout Rapide</label>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <input type="text" placeholder="Rechercher par nom..." value={recensementSearch} onChange={e => setRecensementSearch(e.target.value)} style={inputStyle} />
+                          {recensementSearch && (
+                            <button onClick={() => setRecensementSearch('')} style={{ padding: 8, background: '#F1F5F9', border: 'none', borderRadius: 8, cursor: 'pointer' }}>
+                              <X size={16} />
+                            </button>
+                          )}
+                        </div>
+                        {/* Suggestions Dropdown */}
+                        {recensementSearch.trim() && (
+                          <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: '#fff', border: '1px solid #E2E8F0', borderRadius: 10, boxShadow: '0 10px 25px rgba(0,0,0,0.1)', zIndex: 100, marginTop: 4, maxHeight: 200, overflowY: 'auto' }}>
+                            {workers.filter(w => w.is_active && !recensementWorkers.includes(w.id) && w.full_name.toLowerCase().includes(recensementSearch.toLowerCase())).slice(0, 6).map(w => (
+                              <div key={w.id} onClick={() => { setRecensementWorkers(prev => [...prev, w.id]); setRecensementSearch(''); }}
+                                style={{ padding: '10px 14px', cursor: 'pointer', borderBottom: '1px solid #F1F5F9', fontSize: 13, display: 'flex', justifyContent: 'space-between', transition: 'background 0.15s' }}
+                                onMouseEnter={e => e.currentTarget.style.backgroundColor = '#F8FAFC'}
+                                onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}>
+                                <span style={{ fontWeight: 600 }}>{w.full_name}</span>
+                                <span style={{ fontSize: 11, color: '#64748B' }}>{w.equipe || 'Sans Équipe'} • {w.chaine_id || '—'}</span>
+                              </div>
+                            ))}
+                            {workers.filter(w => w.is_active && !recensementWorkers.includes(w.id) && w.full_name.toLowerCase().includes(recensementSearch.toLowerCase())).length === 0 && (
+                              <div style={{ padding: '12px 14px', fontSize: 12, color: '#94A3B8', textAlign: 'center' }}>Aucun ouvrier actif correspondant</div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Select by Chaine */}
+                      <div style={{ borderTop: '1px solid #F1F5F9', paddingTop: 16 }}>
+                        <label style={labelStyle}>Sélection par Chaîne de Production</label>
+                        <select value={recensementChaine} onChange={e => setRecensementChaine(e.target.value)} style={{ ...inputStyle, marginBottom: 12 }}>
+                          <option value="">-- Sélectionner une chaîne --</option>
+                          {pointageChaineOptions.map(ch => <option key={ch} value={ch}>{ch}</option>)}
+                        </select>
+
+                        {recensementChaine && (
+                          <div>
+                            {/* Mass actions */}
+                            <div style={{ display: 'flex', gap: 10, marginBottom: 12 }}>
+                              <button type="button" style={{ ...btnSecondary, padding: '5px 10px', fontSize: 11 }}
+                                onClick={() => {
+                                  const chainIds = workers.filter(w => w.is_active && String(w.chaine_id || '') === recensementChaine).map(w => w.id);
+                                  setRecensementWorkers(prev => [...new Set([...prev, ...chainIds])]);
+                                }}>
+                                Tout cocher
+                              </button>
+                              <button type="button" style={{ ...btnSecondary, padding: '5px 10px', fontSize: 11, color: '#EF4444', borderColor: '#FCA5A5' }}
+                                onClick={() => {
+                                  const chainIds = workers.filter(w => w.is_active && String(w.chaine_id || '') === recensementChaine).map(w => w.id);
+                                  setRecensementWorkers(prev => prev.filter(id => !chainIds.includes(id)));
+                                }}>
+                                Tout décocher
+                              </button>
+                            </div>
+
+                            {/* Workers checkboxes list */}
+                            <div style={{ maxHeight: 280, overflowY: 'auto', border: '1px solid #E2E8F0', borderRadius: 8, padding: '6px 10px' }}>
+                              {workers.filter(w => w.is_active && String(w.chaine_id || '') === recensementChaine).map(w => {
+                                const isChecked = recensementWorkers.includes(w.id);
+                                return (
+                                  <label key={w.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 6px', borderBottom: '1px solid #F1F5F9', cursor: 'pointer', fontSize: 13, userSelect: 'none' }}>
+                                    <input type="checkbox" checked={isChecked} onChange={() => toggleWorkerRecensement(w.id)} style={{ width: 16, height: 16 }} />
+                                    <div>
+                                      <span style={{ fontWeight: isChecked ? 700 : 500, color: isChecked ? '#2149C1' : '#1E293B' }}>{w.full_name}</span>
+                                      <div style={{ fontSize: 11, color: '#64748B' }}>{w.matricule} • {w.poste || '—'} {w.equipe ? `(${w.equipe})` : ''}</div>
+                                    </div>
+                                  </label>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Right Panel: Fiche Récapitulative */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+                      {/* Summary Table Card */}
+                      <div style={{ background: '#fff', borderRadius: 16, padding: 20, border: '1px solid #E2E8F0', boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                          <h3 style={{ margin: 0, fontSize: 15, fontWeight: 700, color: '#0F172A' }}>Fiche Récapitulative</h3>
+                          <button onClick={handleCopyRecensementWhatsApp} disabled={recensementWorkers.length === 0} style={btnPrimary}>
+                            <Copy size={14} style={{ marginRight: 6 }} /> Copier WhatsApp
+                          </button>
+                        </div>
+
+                        {/* Breakdown by Shift (Parda) */}
+                        <div style={{ border: '1px solid #E2E8F0', borderRadius: 10, overflow: 'hidden', marginBottom: 16 }}>
+                          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                            <thead>
+                              <tr style={{ background: '#F8FAFC', borderBottom: '1px solid #E2E8F0' }}>
+                                <th style={{ padding: '8px 12px', textAlign: 'left', fontWeight: 600, color: '#475569' }}>Équipe (Parda)</th>
+                                <th style={{ padding: '8px 12px', textAlign: 'center', fontWeight: 600, color: '#475569' }}>Nombre</th>
+                                <th style={{ padding: '8px 12px', textAlign: 'left', fontWeight: 600, color: '#475569' }}>Lignes / Quartiers</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {Object.entries(
+                                workers.filter(w => recensementWorkers.includes(w.id)).reduce((acc, w) => {
+                                  const eq = w.equipe || 'Sans Équipe';
+                                  if (!acc[eq]) acc[eq] = { count: 0, lines: new Set<string>() };
+                                  acc[eq].count += 1;
+                                  acc[eq].lines.add(w.transport_ligne_quartier || w.transport_ligne_nom || 'Sans Transport');
+                                  return acc;
+                                }, {} as Record<string, { count: number; lines: Set<string> }>)
+                              ).map(([parda, info]) => (
+                                <tr key={parda} style={{ borderBottom: '1px solid #F1F5F9' }}>
+                                  <td style={{ padding: '8px 12px', fontWeight: 600, color: '#0F172A' }}>{parda}</td>
+                                  <td style={{ padding: '8px 12px', textAlign: 'center', fontWeight: 700, color: '#6366F1' }}>{info.count}</td>
+                                  <td style={{ padding: '8px 12px', color: '#64748B', fontSize: 11 }}>{[...info.lines].join(', ')}</td>
+                                </tr>
+                              ))}
+                              <tr style={{ background: '#F8FAFC', fontWeight: 700, borderTop: '2px solid #E2E8F0' }}>
+                                <td style={{ padding: '10px 12px' }}>Total passagers</td>
+                                <td style={{ padding: '10px 12px', textAlign: 'center', fontSize: 14, color: '#2149C1' }}>{recensementWorkers.length}</td>
+                                <td style={{ padding: '10px 12px', color: '#94A3B8', fontSize: 11 }}>Toutes équipes confondues</td>
+                              </tr>
+                            </tbody>
+                          </table>
+                          {recensementWorkers.length === 0 && (
+                            <div style={{ textAlign: 'center', padding: 24, color: '#94A3B8', fontSize: 12 }}>Aucun passager sélectionné</div>
+                          )}
+                        </div>
+
+                        {/* List of checked passengers with quick remove */}
+                        <div>
+                          <div style={{ fontSize: 12, fontWeight: 700, color: '#475569', marginBottom: 8 }}>Liste des passagers ({recensementWorkers.length}) :</div>
+                          <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 6, maxHeight: 220, overflowY: 'auto' }}>
+                            {workers.filter(w => recensementWorkers.includes(w.id)).map(w => (
+                              <div key={w.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 10px', borderRadius: 8, border: '1px solid #F1F5F9', background: '#F8FAFC', fontSize: 12 }}>
+                                <div>
+                                  <span style={{ fontWeight: 600, color: '#1E293B' }}>{w.full_name}</span>
+                                  <span style={{ color: '#64748B', marginLeft: 8 }}>({w.equipe || '—'} • {w.transport_ligne_quartier || w.transport_ligne_nom || 'Sans Transport'})</span>
+                                </div>
+                                <button onClick={() => setRecensementWorkers(prev => prev.filter(id => id !== w.id))}
+                                  style={{ padding: 4, background: 'none', border: 'none', cursor: 'pointer', color: '#EF4444' }}>
+                                  <X size={14} />
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* VIEW 2: MEMBRES PAR LIGNE */}
+                {transportSubTab === 'membres' && (
+                  <div>
+                    {/* Filters */}
+                    <div style={{ display: 'flex', gap: 12, marginBottom: 20, alignItems: 'center', flexWrap: 'wrap' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <span style={{ fontSize: 13, fontWeight: 600, color: '#475569' }}>Date :</span>
+                        <input type="date" value={filterTransportDate} onChange={e => setFilterTransportDate(e.target.value)}
+                          style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid #CBD5E1', fontSize: 13, outline: 'none' }} />
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <span style={{ fontSize: 13, fontWeight: 600, color: '#475569' }}>Équipe (Parda) :</span>
+                        <input type="text" placeholder="ex: Équipe A" value={filterTransportParda} onChange={e => setFilterTransportParda(e.target.value)}
+                          style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid #CBD5E1', fontSize: 13, outline: 'none' }} />
+                      </div>
+                      <button onClick={() => { fetchTransportLignes(); fetchPointage(); }} style={{ ...btnSecondary, padding: '8px 12px' }}>
+                        <RefreshCw size={14} style={{ marginRight: 6 }} />Actualiser
+                      </button>
+                    </div>
+
+                    {/* Cards grouped by route */}
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 20 }}>
+                      {transportLignes.map(l => {
+                        const assignedWorkers = workers.filter(w => w.transport_ligne_id === l.id && w.is_active);
+                        const pardaFiltered = filterTransportParda
+                          ? assignedWorkers.filter(w => (w.equipe || '').toLowerCase().includes(filterTransportParda.toLowerCase()))
+                          : assignedWorkers;
+                        
+                        const presentWorkers = pardaFiltered.filter(w => {
+                          const pt = pointages.find(p => p.worker_id === w.id);
+                          const status = pt?.statut || 'PRESENT';
+                          return status === 'PRESENT' || status === 'RETARD';
+                        });
+
+                        const handleCopyWhatsApp = () => {
+                          const dateStr = filterTransportDate;
+                          const workerListText = presentWorkers.map((w, idx) => {
+                            const tel = w.phone ? ` - ${w.phone}` : '';
+                            const eq = w.equipe ? ` (${w.equipe})` : '';
+                            return `${idx + 1}. ${w.full_name}${eq}${tel}`;
+                          }).join('\n');
+
+                          const driverText = l.chauffeur_nom ? `Chauffeur: ${l.chauffeur_nom} (${l.chauffeur_tel ?? '—'})` : 'Chauffeur: Non défini';
+                          const vehiculeText = l.matricule_vehicule ? `Plate/Véhicule: ${l.matricule_vehicule}` : '';
+                          const codeText = l.code_ligne ? `[${l.code_ligne}] ` : '';
+                          const text = `*Ligne Transport: ${codeText}${l.nom}*\n${driverText}\n${vehiculeText}\nDate: ${dateStr}\n\n*Passagers Présents (${presentWorkers.length}):*\n${workerListText || 'Aucun passager présent.'}`;
+
+                          navigator.clipboard.writeText(text);
+                          showToast('Liste copiée pour WhatsApp !');
+                        };
+
+                        return (
+                          <div key={l.id} style={{ background: '#fff', borderRadius: 16, boxShadow: '0 4px 12px rgba(0,0,0,0.05)', border: '1px solid #E2E8F0', padding: 20 }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '1px solid #F1F5F9', paddingBottom: 12, marginBottom: 16, flexWrap: 'wrap', gap: 10 }}>
+                              <div>
+                                <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: '#1E293B', display: 'flex', alignItems: 'center', gap: 8 }}>
+                                  <Navigation size={18} color="#2149C1" /> {l.code_ligne ? `[${l.code_ligne}] ` : ''}{l.nom}
+                                  {l.quartier && <span style={{ fontSize: 12, fontWeight: 500, color: '#64748B', background: '#F1F5F9', padding: '2px 8px', borderRadius: 6 }}>Quartier: {l.quartier}</span>}
+                                </h3>
+                                <div style={{ display: 'flex', gap: 16, marginTop: 6, flexWrap: 'wrap', fontSize: 12, color: '#64748B' }}>
+                                  {l.chauffeur_nom && (
+                                    <span>
+                                      Chauffeur: <strong>{l.chauffeur_nom}</strong>
+                                      {l.chauffeur_tel && (
+                                        <a href={`tel:${l.chauffeur_tel}`} style={{ marginLeft: 6, color: '#2149C1', fontWeight: 600 }}>
+                                          📞 {l.chauffeur_tel}
+                                        </a>
+                                      )}
+                                    </span>
+                                  )}
+                                  {l.matricule_vehicule && <span>Véhicule: <strong>{l.matricule_vehicule}</strong></span>}
+                                </div>
+                              </div>
+                              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                                <span style={{ background: '#EEF2FF', color: '#2149C1', fontSize: 11, fontWeight: 700, padding: '4px 10px', borderRadius: 12 }}>
+                                  Présents: {presentWorkers.length} / {assignedWorkers.length} (Capacité: {l.capacite || '—'})
+                                </span>
+                                <button onClick={handleCopyWhatsApp} style={{ ...btnSecondary, fontSize: 11, padding: '4px 10px' }}>
+                                  <Copy size={12} style={{ marginRight: 4 }} /> Copier WhatsApp
+                                </button>
+                              </div>
+                            </div>
+
+                            <div>
+                              <div style={{ fontSize: 12, fontWeight: 700, color: '#475569', marginBottom: 10 }}>Liste des passagers présents aujourd'hui :</div>
+                              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 10 }}>
+                                {presentWorkers.map(w => (
+                                  <div key={w.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', borderRadius: 10, border: '1px solid #E2E8F0', background: '#F8FAFC' }}>
+                                    <div>
+                                      <div style={{ fontWeight: 600, fontSize: 13, color: '#1E293B' }}>{w.full_name}</div>
+                                      <div style={{ fontSize: 11, color: '#64748B' }}>
+                                        {w.matricule} • {w.poste || '—'} {w.equipe ? `(${w.equipe})` : ''}
+                                      </div>
+                                    </div>
+                                    {w.phone && (
+                                      <a href={`tel:${w.phone}`} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 28, height: 28, borderRadius: '50%', background: '#E0F2FE', color: '#0369A1' }}>
+                                        <Phone size={14} />
+                                      </a>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                              {presentWorkers.length === 0 && (
+                                <div style={{ textAlign: 'center', padding: '20px 0', color: '#94A3B8', fontSize: 12 }}>
+                                  Aucun passager présent sur cette ligne aujourd'hui.
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                      {transportLignes.length === 0 && (
+                        <div style={{ textAlign: 'center', padding: 40, background: '#fff', borderRadius: 14, border: '1px dashed #CBD5E1', color: '#64748B' }}>
+                          Aucune ligne de transport enregistrée. Rendez-vous sur l'onglet "Gestion des Lignes" pour en ajouter une.
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* VIEW 3: GESTION DES LIGNES */}
+                {transportSubTab === 'lignes' && (
+                  <div>
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>
+                      <button onClick={() => { setSelectedLigne({ nom: '', code_ligne: '', quartier: '', chauffeur_nom: '', chauffeur_tel: '', matricule_vehicule: '', capacite: 15, notes: '' }); setShowLigneModal(true); }} style={btnPrimary}>
+                        <Plus size={15} style={{ marginRight: 6 }} /> Ajouter Ligne
+                      </button>
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 16 }}>
+                      {transportLignes.map(l => (
+                        <div key={l.id} style={{ background: '#fff', borderRadius: 14, boxShadow: '0 2px 8px rgba(0,0,0,0.05)', border: '1px solid #E2E8F0', padding: 16, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                          <div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                              <h4 style={{ margin: 0, fontSize: 15, fontWeight: 700, color: '#1E293B' }}>
+                                {l.code_ligne ? `[${l.code_ligne}] ` : ''}{l.nom}
+                              </h4>
+                              <span style={{ fontSize: 11, background: '#F0FDF4', color: '#166534', padding: '2px 8px', borderRadius: 10, fontWeight: 700 }}>
+                                Capacité: {l.capacite || 0}
+                              </span>
+                            </div>
+                            <div style={{ marginTop: 12, fontSize: 13, color: '#475569', display: 'flex', flexDirection: 'column', gap: 6 }}>
+                              {l.quartier && <div>📍 Quartier (Hay): <strong>{l.quartier}</strong></div>}
+                              <div>👤 Chauffeur: <strong>{l.chauffeur_nom || '—'}</strong></div>
+                              {l.chauffeur_tel && (
+                                <div>📞 Téléphone: <a href={`tel:${l.chauffeur_tel}`} style={{ color: '#2149C1', fontWeight: 600 }}>{l.chauffeur_tel}</a></div>
+                              )}
+                              <div>🚗 Véhicule: <strong>{l.matricule_vehicule || '—'}</strong></div>
+                              {l.notes && <div style={{ fontSize: 12, color: '#94A3B8', fontStyle: 'italic', marginTop: 4 }}>📝 {l.notes}</div>}
+                            </div>
+                          </div>
+                          <div style={{ display: 'flex', gap: 8, borderTop: '1px solid #F1F5F9', paddingTop: 12, marginTop: 12, justifyContent: 'flex-end' }}>
+                            <button onClick={() => { setSelectedLigne(l); setShowLigneModal(true); }}
+                              style={{ ...btnSecondary, fontSize: 11, padding: '4px 8px' }}>
+                              <Edit3 size={12} style={{ marginRight: 4 }} /> Modifier
+                            </button>
+                            <button onClick={() => handleDeleteLigne(l.id, l.nom)}
+                              style={{ padding: '4px 8px', border: '1px solid #FEE2E2', borderRadius: 6, background: '#FFF5F5', color: '#991B1B', cursor: 'pointer', fontSize: 11, fontWeight: 600, display: 'flex', alignItems: 'center' }}>
+                              <Trash2 size={12} style={{ marginRight: 4 }} /> Supprimer
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                      {transportLignes.length === 0 && (
+                        <div style={{ gridColumn: '1/-1', textAlign: 'center', padding: 40, color: '#94A3B8' }}>
+                          Aucune ligne de transport enregistrée.
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Ligne Modal */}
+                {showLigneModal && (
+                  <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+                    <div style={{ background: '#fff', borderRadius: 16, width: '100%', maxWidth: 480, boxShadow: '0 25px 60px rgba(0,0,0,0.2)', display: 'flex', flexDirection: 'column' }}>
+                      <div style={{ padding: '20px 24px', borderBottom: '1px solid #E2E8F0', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: '#0F172A' }}>
+                          {selectedLigne?.id ? 'Modifier la ligne de transport' : 'Ajouter une ligne de transport'}
+                        </h3>
+                        <button onClick={() => setShowLigneModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94A3B8' }}><X size={18} /></button>
+                      </div>
+                      <div style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 14 }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 10 }}>
+                          <div>
+                            <label style={labelStyle}>Code Ligne *</label>
+                            <input type="text" value={selectedLigne?.code_ligne ?? ''} onChange={e => setSelectedLigne(prev => prev ? ({ ...prev, code_ligne: e.target.value }) : null)}
+                              placeholder="ex: L1" style={inputStyle} />
+                          </div>
+                          <div>
+                            <label style={labelStyle}>Nom de la ligne *</label>
+                            <input type="text" value={selectedLigne?.nom ?? ''} onChange={e => setSelectedLigne(prev => prev ? ({ ...prev, nom: e.target.value }) : null)}
+                              placeholder="ex: Ligne 1" style={inputStyle} />
+                          </div>
+                        </div>
+                        <div>
+                          <label style={labelStyle}>Quartier / Destination (Hay)</label>
+                          <input type="text" value={selectedLigne?.quartier ?? ''} onChange={e => setSelectedLigne(prev => prev ? ({ ...prev, quartier: e.target.value }) : null)}
+                            placeholder="ex: Hay Mohammadi" style={inputStyle} />
+                        </div>
+                        <div>
+                          <label style={labelStyle}>Nom du Chauffeur</label>
+                          <input type="text" value={selectedLigne?.chauffeur_nom ?? ''} onChange={e => setSelectedLigne(prev => prev ? ({ ...prev, chauffeur_nom: e.target.value }) : null)}
+                            placeholder="ex: Mohamed" style={inputStyle} />
+                        </div>
+                        <div>
+                          <label style={labelStyle}>Téléphone du Chauffeur</label>
+                          <input type="text" value={selectedLigne?.chauffeur_tel ?? ''} onChange={e => setSelectedLigne(prev => prev ? ({ ...prev, chauffeur_tel: e.target.value }) : null)}
+                            placeholder="ex: 0612345678" style={inputStyle} />
+                        </div>
+                        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 10 }}>
+                          <div>
+                            <label style={labelStyle}>Matricule du véhicule</label>
+                            <input type="text" value={selectedLigne?.matricule_vehicule ?? ''} onChange={e => setSelectedLigne(prev => prev ? ({ ...prev, matricule_vehicule: e.target.value }) : null)}
+                              placeholder="ex: 12345-A-6" style={inputStyle} />
+                          </div>
+                          <div>
+                            <label style={labelStyle}>Capacité</label>
+                            <input type="number" value={selectedLigne?.capacite ?? 0} onChange={e => setSelectedLigne(prev => prev ? ({ ...prev, capacite: parseInt(e.target.value) || 0 }) : null)}
+                              placeholder="ex: 15" style={inputStyle} />
+                          </div>
+                        </div>
+                        <div>
+                          <label style={labelStyle}>Notes</label>
+                          <textarea value={selectedLigne?.notes ?? ''} onChange={e => setSelectedLigne(prev => prev ? ({ ...prev, notes: e.target.value }) : null)}
+                            placeholder="Notes additionnelles..." rows={3} style={{ ...inputStyle, resize: 'vertical' }} />
+                        </div>
+                      </div>
+                      <div style={{ padding: '16px 24px', borderTop: '1px solid #E2E8F0', display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+                        <button onClick={() => setShowLigneModal(false)} style={btnSecondary}>Annuler</button>
+                        <button onClick={handleSaveLigne} style={btnPrimary}>Enregistrer</button>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 

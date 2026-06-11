@@ -22,7 +22,7 @@ export default function StockExport({ models, suivis, planningEvents = [] }: Sto
             const totalProduced = associatedSuivis.reduce((sum, s) => sum + s.totalHeure, 0);
 
             // Assume missing metadata fields
-            const targetQty = model.meta_data.quantity || 0;
+            const targetQty = model?.meta_data?.quantity || 0;
             const progress = targetQty > 0 ? Math.min(100, (totalProduced / targetQty) * 100) : 0;
 
             return {
@@ -35,8 +35,8 @@ export default function StockExport({ models, suivis, planningEvents = [] }: Sto
     }, [models, suivis, planningEvents]);
 
     const filteredModels = exportModels.filter(m =>
-        m.meta_data.nom_modele.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        m.meta_data.reference?.toLowerCase().includes(searchQuery.toLowerCase())
+        (m?.meta_data?.nom_modele || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+        m?.meta_data?.reference?.toLowerCase().includes(searchQuery.toLowerCase())
     );
 
     return (
@@ -142,10 +142,10 @@ export default function StockExport({ models, suivis, planningEvents = [] }: Sto
                                             </td>
                                             <td className="p-4">
                                                 <div className="font-black text-slate-800 tracking-tight text-sm">
-                                                    {model.meta_data.nom_modele}
+                                                    {model?.meta_data?.nom_modele || 'Sans Nom'}
                                                 </div>
                                                 <div className="text-xs text-slate-500 font-medium">
-                                                    Réf: {model.meta_data.reference || 'N/A'} • {model.id.substring(0, 8)}
+                                                    Réf: {model?.meta_data?.reference || 'N/A'} • {model.id.substring(0, 8)}
                                                 </div>
                                             </td>
                                             <td className="p-4 font-bold text-slate-600">
@@ -167,7 +167,7 @@ export default function StockExport({ models, suivis, planningEvents = [] }: Sto
                                             </td>
                                             <td className="p-4 text-right">
                                                 <button
-                                                    onClick={() => alert(`Module Expédition en cours de création pour ${model.meta_data.nom_modele}`)}
+                                                    onClick={() => alert(`Module Expédition en cours de création pour ${model?.meta_data?.nom_modele || 'Sans Nom'}`)}
                                                     className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-3 py-2 rounded-lg transition-colors shadow-sm inline-flex items-center gap-1.5"
                                                 >
                                                     <Truck className="w-3.5 h-3.5" /> Créer Expédition (PL)

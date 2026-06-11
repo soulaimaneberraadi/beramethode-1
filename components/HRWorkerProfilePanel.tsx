@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import {
-  User, Edit3, Calendar, Clock, Factory, DollarSign, Award, FileText, AlertTriangle, ChevronLeft, Key,
+  User, Edit3, Calendar, Clock, Factory, DollarSign, Award, FileText, AlertTriangle, ChevronLeft, Key, Phone,
 } from 'lucide-react';
 import { HRWorker, HRWorkerRole, HRPointageStatus, AppSettings } from '../types';
 
@@ -371,7 +371,19 @@ export function HRWorkerProfilePanel({ workerId, onClose, onEdit, settings }: Pr
               </div>
               <div style={{ flex: 1, minWidth: 200 }}>
                 <h2 style={{ margin: '0 0 4px 0', fontSize: 20, fontWeight: 800, color: '#0F172A' }}>{w.full_name}</h2>
-                <div style={{ fontSize: 13, color: '#64748B' }}>{w.matricule} · {w.cin || 'CIN —'}</div>
+                <div style={{ fontSize: 13, color: '#64748B', display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap', marginTop: 4 }}>
+                  <span>{w.matricule}</span>
+                  <span>•</span>
+                  <span>{w.cin || 'CIN —'}</span>
+                  {w.phone && (
+                    <>
+                      <span>•</span>
+                      <a href={`tel:${w.phone}`} style={{ color: '#2149C1', fontWeight: 600, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                        <Phone size={12} /> {w.phone}
+                      </a>
+                    </>
+                  )}
+                </div>
                 {(w as { person_id?: string }).person_id && (
                   <div style={{ fontSize: 11, color: '#94A3B8', marginTop: 4, fontFamily: 'ui-monospace, monospace' }}>
                     Person ID : {(w as { person_id?: string }).person_id}
@@ -410,6 +422,8 @@ export function HRWorkerProfilePanel({ workerId, onClose, onEdit, settings }: Pr
               {[
                 ['Poste', w.poste || '—'],
                 ['Spécialité', w.specialite || '—'],
+                ['Parda / Équipe', (w as any).equipe || '—'],
+                ['Quartier (Ligne)', (w as any).transport_ligne_quartier || (w as any).transport_ligne_nom ? `${(w as any).transport_ligne_quartier || '—'} (${(w as any).transport_ligne_nom || '—'})` : '—'],
                 ['Salaire base (MAD)', w.salaire_base != null ? String(w.salaire_base) : '—'],
                 ['Taux horaire', w.taux_horaire != null ? `${w.taux_horaire} MAD` : '—'],
                 ['Primes A/T', `${w.prime_assiduite ?? 0} / ${w.prime_transport ?? 0} MAD`],
@@ -422,6 +436,32 @@ export function HRWorkerProfilePanel({ workerId, onClose, onEdit, settings }: Pr
                   <div style={{ fontSize: 14, fontWeight: 600, color: '#0F172A' }}>{b}</div>
                 </div>
               ))}
+            </div>
+
+            <div style={{ ...card, marginTop: 14 }}>
+              <h3 style={{ margin: '0 0 10px 0', fontSize: 14, fontWeight: 700, color: '#0F172A', display: 'flex', alignItems: 'center', gap: 6 }}>
+                <Award size={16} color="#2149C1" />
+                Compétences & Points Forts (Wa3ir fihom)
+              </h3>
+              {dossier.skills && dossier.skills.length > 0 ? (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 10 }}>
+                  {dossier.skills.map((s: any) => (
+                    <div key={s.id} style={{ background: '#F8FAFC', borderRadius: 8, padding: '8px 12px', border: '1px solid #E2E8F0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div>
+                        <div style={{ fontWeight: 600, color: '#1E293B', fontSize: 13 }}>{s.poste_keyword}</div>
+                        {s.fabric_type && <div style={{ fontSize: 11, color: '#64748B' }}>Tissu: {s.fabric_type}</div>}
+                      </div>
+                      <span style={{ fontSize: 11, fontWeight: 700, background: '#EEF2FF', color: '#2149C1', padding: '2px 8px', borderRadius: 12 }}>
+                        {s.level}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div style={{ fontSize: 13, color: '#64748B', fontStyle: 'italic' }}>
+                  Aucune compétence enregistrée. Modifiez l'ancien effectifs ou ajoutez des opérations.
+                </div>
+              )}
             </div>
           </>
         )}

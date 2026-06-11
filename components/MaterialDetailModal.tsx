@@ -1,6 +1,7 @@
 import React from 'react';
 import { X, Truck, CheckCircle, Clock, AlertTriangle, Package, MapPin, Calendar } from 'lucide-react';
 import { fmt } from '../constants';
+import { resolveStock } from '../lib/magasinMatch';
 
 interface MaterialDetailModalProps {
     material: {
@@ -13,6 +14,10 @@ interface MaterialDetailModalProps {
         threadMeters?: number;
         colorName?: string;
         pieces?: number;
+        magasinId?: string;
+        threadReference?: string;
+        /** Quantité déjà réservée par d'autres ordres (défaut 0). */
+        reserved?: number;
     };
     currency: string;
     magasinData?: any[];
@@ -22,14 +27,14 @@ interface MaterialDetailModalProps {
 const MaterialDetailModal: React.FC<MaterialDetailModalProps> = ({
     material, currency, magasinData = [], onClose
 }) => {
-    const mItem = magasinData.find((m: any) => m.nom === material.name || m.designation === material.name);
-    const stockActuel = mItem?.stockActuel || 0;
-    const delaiLivraison = mItem?.fournisseurDelaiLivraisonJours || mItem?.delaiLivraison || null;
-    const fournisseurNom = material.fournisseur || mItem?.fournisseurNom || mItem?.fournisseur || null;
-    
-    const isDelivered = stockActuel >= material.qtyToBuy;
-    const isPartial = stockActuel > 0 && stockActuel < material.qtyToBuy;
-    const manque = Math.max(0, material.qtyToBuy - stockActuel);
+    const st = resolveStock(material, magasinData, material.qtyToBuy, material.reserved || 0, material.pieces || 0);
+    const stockActuel = st.stockActuel;
+    const delaiLivraison = st.delaiLivraison;
+    const fournisseurNom = st.fournisseur;
+    const isDelivered = st.isDelivered;
+    const isPartial = st.isPartial;
+    const manque = st.manque;
+    const piecesCouvertes = st.piecesCouvertes;
 
     const getStatus = () => {
         if (isDelivered) return { label: 'En stock', icon: CheckCircle, color: 'text-emerald-600', bg: 'bg-emerald-50', border: 'border-emerald-200' };
@@ -73,6 +78,7 @@ const MaterialDetailModal: React.FC<MaterialDetailModalProps> = ({
                             {isPartial && (
                                 <p className="text-xs text-slate-500 mt-0.5">
                                     {fmt(stockActuel)} {material.unit} en stock / {fmt(material.qtyToBuy)} {material.unit} nécessaires
+                                    {material.pieces ? <> · couvre <span className="font-bold text-amber-600">{fmt(piecesCouvertes)}</span> / {fmt(material.pieces)} pcs</> : null}
                                 </p>
                             )}
                             {isDelivered && (

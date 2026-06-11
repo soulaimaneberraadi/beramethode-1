@@ -29,7 +29,7 @@ export const getHRWorkers = (req: Request, res: Response) => {
         const { search, role, chaine, active } = req.query as Record<string, string>;
         console.log('[getHRWorkers] Called by user:', userId, 'query:', req.query);
         let q =
-            'SELECT w.*, l.person_id AS person_id FROM hr_workers w LEFT JOIN hr_worker_person l ON l.hr_worker_id = w.id WHERE w.owner_id = ?';
+            'SELECT w.*, l.person_id AS person_id, t.nom AS transport_ligne_nom, t.quartier AS transport_ligne_quartier FROM hr_workers w LEFT JOIN hr_worker_person l ON l.hr_worker_id = w.id LEFT JOIN hr_transport_lignes t ON t.id = w.transport_ligne_id WHERE w.owner_id = ?';
         const params: any[] = [userId];
         if (active === '1') { q += ' AND w.is_active = 1'; }
         if (role) { q += ' AND w.role = ?'; params.push(role); }
@@ -75,14 +75,16 @@ export const saveHRWorker = (req: Request, res: Response) => {
         db.prepare(`
             INSERT INTO hr_workers (
                 id, matricule, full_name, cin, cnss, phone, date_naissance, adresse, photo,
-                sexe, role, chaine_id, poste, specialite, date_embauche, type_contrat, date_fin_contrat,
+                sexe, role, chaine_id, poste, specialite, equipe, transport_ligne_id, date_embauche, type_contrat, date_fin_contrat,
                 date_renouvellement, is_active, contact_urgence_nom, contact_urgence_tel, contact_urgence_lien,
                 salaire_base, taux_horaire, taux_piece, prime_assiduite, prime_transport, mode_paiement, owner_id
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(id) DO UPDATE SET
                 matricule = excluded.matricule, full_name = excluded.full_name, cin = excluded.cin, cnss = excluded.cnss,
                 phone = excluded.phone, date_naissance = excluded.date_naissance, adresse = excluded.adresse, photo = excluded.photo,
                 sexe = excluded.sexe, role = excluded.role, chaine_id = excluded.chaine_id, poste = excluded.poste, specialite = excluded.specialite,
+                equipe = excluded.equipe,
+                transport_ligne_id = excluded.transport_ligne_id,
                 date_embauche = excluded.date_embauche, type_contrat = excluded.type_contrat, date_fin_contrat = excluded.date_fin_contrat,
                 date_renouvellement = excluded.date_renouvellement, is_active = excluded.is_active,
                 contact_urgence_nom = excluded.contact_urgence_nom, contact_urgence_tel = excluded.contact_urgence_tel, contact_urgence_lien = excluded.contact_urgence_lien,
@@ -91,7 +93,7 @@ export const saveHRWorker = (req: Request, res: Response) => {
         `).run(
             workerId, data.matricule, data.full_name, data.cin || null, data.cnss || null, data.phone || null,
             data.date_naissance || null, data.adresse || null, data.photo || null, data.sexe || 'M', data.role || 'OPERATOR',
-            data.chaine_id || null, data.poste || null, data.specialite || null, data.date_embauche || new Date().toISOString(), data.type_contrat || 'CDI',
+            data.chaine_id || null, data.poste || null, data.specialite || null, data.equipe || null, data.transport_ligne_id || null, data.date_embauche || new Date().toISOString(), data.type_contrat || 'CDI',
             data.date_fin_contrat || null, data.date_renouvellement || null, data.is_active !== undefined ? (data.is_active ? 1 : 0) : 1,
             data.contact_urgence_nom || null, data.contact_urgence_tel || null, data.contact_urgence_lien || null,
             data.salaire_base || 0, data.taux_horaire || 0, data.taux_piece || 0, data.prime_assiduite || 0, data.prime_transport || 0,
@@ -234,10 +236,11 @@ export const getHRWorkerDossier = (req: Request, res: Response) => {
     try {
         const worker = db
             .prepare(
-                `SELECT w.*, l.person_id AS person_id,
+                `SELECT w.*, l.person_id AS person_id, t.nom AS transport_ligne_nom, t.quartier AS transport_ligne_quartier,
             CASE WHEN w.pin_hash IS NOT NULL AND length(trim(w.pin_hash)) > 0 THEN 1 ELSE 0 END AS has_pin
          FROM hr_workers w
          LEFT JOIN hr_worker_person l ON l.hr_worker_id = w.id
+         LEFT JOIN hr_transport_lignes t ON t.id = w.transport_ligne_id
          WHERE w.id = ? AND w.owner_id = ?`
             )
             .get(id, userId) as Record<string, unknown> | undefined;
@@ -664,4 +667,69 @@ export const getWorkerPointageToday = (req: Request, res: Response) => {
 
 export const getWorkerProductionToday = (req: Request, res: Response) => {
     res.json(db.prepare('SELECT sum(pieces_produites) as total FROM hr_production WHERE worker_id = (SELECT id FROM hr_workers WHERE cin = ?) AND date = date("now")').get(req.params.cin) || null);
+};
+
+// ==========================================
+// TRANSPORT LINES CRUD
+// ==========================================
+
+export const getHRTransportLignes = (req: Request, res: Response) => {
+    const userId = (req as any).user.id;
+    try {
+        const rows = db.prepare('SELECT * FROM hr_transport_lignes WHERE owner_id = ? ORDER BY nom ASC').all(userId);
+        res.json(rows);
+    } catch (error) {
+        console.error('[getHRTransportLignes] Error:', error);
+        res.status(500).json({ message: 'Erreur' });
+    }
+};
+
+export const saveHRTransportLigne = (req: Request, res: Response) => {
+    const userId = (req as any).user.id;
+    const data = req.body;
+    try {
+        const id = data.id || `tr-${randomUUID()}`;
+        db.prepare(`
+            INSERT INTO hr_transport_lignes (
+                id, nom, code_ligne, quartier, chauffeur_nom, chauffeur_tel, matricule_vehicule, capacite, notes, owner_id
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(id) DO UPDATE SET
+                nom = excluded.nom,
+                code_ligne = excluded.code_ligne,
+                quartier = excluded.quartier,
+                chauffeur_nom = excluded.chauffeur_nom,
+                chauffeur_tel = excluded.chauffeur_tel,
+                matricule_vehicule = excluded.matricule_vehicule,
+                capacite = excluded.capacite,
+                notes = excluded.notes
+        `).run(
+            id,
+            data.nom,
+            data.code_ligne || null,
+            data.quartier || null,
+            data.chauffeur_nom || null,
+            data.chauffeur_tel || null,
+            data.matricule_vehicule || null,
+            data.capacite || 0,
+            data.notes || null,
+            userId
+        );
+        res.json({ message: 'Enregistré', id });
+    } catch (error) {
+        console.error('[saveHRTransportLigne] Error:', error);
+        res.status(500).json({ message: 'Erreur' });
+    }
+};
+
+export const deleteHRTransportLigne = (req: Request, res: Response) => {
+    const userId = (req as any).user.id;
+    try {
+        // Enlever la référence dans les fiches ouvriers
+        db.prepare('UPDATE hr_workers SET transport_ligne_id = NULL WHERE transport_ligne_id = ? AND owner_id = ?').run(req.params.id, userId);
+        db.prepare('DELETE FROM hr_transport_lignes WHERE id = ? AND owner_id = ?').run(req.params.id, userId);
+        res.json({ message: 'Supprimé' });
+    } catch (error) {
+        console.error('[deleteHRTransportLigne] Error:', error);
+        res.status(500).json({ message: 'Erreur' });
+    }
 };

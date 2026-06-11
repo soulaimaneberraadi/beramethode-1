@@ -23,13 +23,16 @@ interface TicketViewProps {
     sellPriceHT: number;
     sellPriceTTC: number;
     boutiquePrice: number;
+    soustraitanceActive?: boolean;
+    materialsHidden?: boolean;
 }
 
 const TicketView: React.FC<TicketViewProps> = ({
     t, currency, darkMode, productName, displayDate, totalMaterials,
     totalTime, laborCost, costPrice, settings, productImage,
     textPrimary, textSecondary, materials, cutTime, packTime,
-    sellPriceHT, sellPriceTTC, boutiquePrice
+    sellPriceHT, sellPriceTTC, boutiquePrice,
+    soustraitanceActive = false, materialsHidden = false
 }) => {
     const baseTime = totalTime - cutTime - packTime;
 
@@ -52,7 +55,8 @@ const TicketView: React.FC<TicketViewProps> = ({
 
             <div className={`p-3 space-y-3 relative ${darkMode ? 'bg-gray-800' : 'bg-white'}`}>
 
-                {/* MATERIALS */}
+                {/* MATERIALS — masqué en sous-traitance « tout compris » */}
+                {!materialsHidden && (
                 <div>
                     <h3 className={`text-[8px] font-bold uppercase tracking-wider border-b pb-1 mb-1.5 flex items-center gap-1 ${darkMode ? 'border-gray-700 text-gray-400' : 'border-slate-200 text-slate-400'}`}>
                         <Package className="w-2 h-2" /> MATIÈRE PREMIÈRE
@@ -75,12 +79,21 @@ const TicketView: React.FC<TicketViewProps> = ({
                         <span className={`font-bold text-xs ${textPrimary}`}>{fmt(totalMaterials)} <span className="text-[7px] font-normal opacity-50">{currency}</span></span>
                     </div>
                 </div>
+                )}
 
                 {/* LABOR */}
                 <div className={`rounded p-2 border ${darkMode ? 'bg-gray-900/50 border-gray-700' : 'bg-slate-50 border-slate-200'}`}>
                     <h3 className={`text-[8px] font-bold uppercase tracking-wider border-b pb-1 mb-1.5 flex items-center gap-1 ${darkMode ? 'border-gray-700 text-blue-400' : 'border-slate-200 text-blue-600'}`}>
                         <Scissors className="w-2 h-2" /> PRIX FAÇON
                     </h3>
+                    {soustraitanceActive ? (
+                        <div className="text-[9px] py-0.5">
+                            <div className="flex justify-between items-center">
+                                <span className={`${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>Sous-traitance / pièce</span>
+                                <span className="font-mono">{fmt(laborCost)} {currency}</span>
+                            </div>
+                        </div>
+                    ) : (
                     <div className="space-y-0.5 text-[9px]">
                         <div className="flex justify-between items-center py-0.5">
                             <span className={`${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>Couture</span>
@@ -99,6 +112,7 @@ const TicketView: React.FC<TicketViewProps> = ({
                             <span className={`font-bold text-[9px] ${darkMode ? 'text-blue-300' : 'text-blue-700'}`}>{fmt(totalTime)} min</span>
                         </div>
                     </div>
+                    )}
                     <div className={`mt-1 pt-1 border-t flex justify-between items-end ${darkMode ? 'border-blue-900' : 'border-blue-100'}`}>
                         <span className={`text-[8px] font-bold ${textSecondary}`}>{t.labor}</span>
                         <span className={`font-bold text-xs ${darkMode ? 'text-blue-400' : 'text-blue-600'}`}>{fmt(laborCost)} <span className="text-[7px] font-normal opacity-50">{currency}</span></span>
@@ -115,7 +129,7 @@ const TicketView: React.FC<TicketViewProps> = ({
                     <div className={`relative p-2 rounded border-l-2 flex justify-between items-center ${darkMode ? 'bg-gray-700 border-l-slate-400' : 'bg-slate-50 border-l-slate-500'}`}>
                         <div>
                             <span className={`text-[8px] font-bold uppercase tracking-wider opacity-70 ${textPrimary}`}>P.R</span>
-                            <div className="text-[7px] text-slate-400">Matière + Façon</div>
+                            <div className="text-[7px] text-slate-400">{materialsHidden ? 'Façon (tout compris)' : 'Matière + Façon'}</div>
                         </div>
                         <div className={`text-base font-black ${textPrimary}`}>
                             {fmt(costPrice)} <span className="text-[7px] font-normal opacity-50">{currency}</span>
