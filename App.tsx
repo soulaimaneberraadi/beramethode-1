@@ -28,6 +28,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from './src/context/AuthContext';
 import { useLicense } from './src/context/LicenseContext';
+import { usePermissions } from './src/context/PermissionsContext';
 import { DataOwnerProvider } from './src/context/DataOwnerContext';
 import { notifyServerSessionEstablished } from './lib/dataIdentity';
 import { Machine, MachineInstance, MachineFleetHistoryEntry, Operation, FicheData, Poste, SpeedFactor, ComplexityFactor, StandardTime, Guide, ModelData, AppSettings, ManualLink } from './types';
@@ -84,6 +85,8 @@ export default function App() {
     const { user, loading: authLoading, logout: authLogout, login } = useAuth();
     // Licence BERA MASTER : modules masqués selon le forfait (vide si non appliqué).
     const { hiddenModules: licenseHiddenModules } = useLicense();
+    // Permissions hiérarchiques (Epic 2) : pages masquées selon le rôle (vide si super/solo).
+    const { hiddenPages: permHiddenPages } = usePermissions();
     const [authView, setAuthView] = useState<'login' | 'signup'>('login');
     const [isGuest, setIsGuest] = useState(false);
     const [lang, setLang] = useState<Lang>('fr');
@@ -265,8 +268,9 @@ export default function App() {
     const saveNavConfig = (cfg: typeof navConfig) => { setNavConfig(cfg); localStorage.setItem('bera_nav_config', JSON.stringify(cfg)); };
     const navOrder = navConfig.order.length ? navConfig.order : defaultNavOrder;
     // Config de nav effective : fusionne les modules masqués par la licence (vide si non appliqué).
-    const effectiveNavConfig = licenseHiddenModules.length
-        ? { ...navConfig, hidden: [...new Set([...navConfig.hidden, ...licenseHiddenModules])] }
+    const extraHidden = [...licenseHiddenModules, ...permHiddenPages];
+    const effectiveNavConfig = extraHidden.length
+        ? { ...navConfig, hidden: [...new Set([...navConfig.hidden, ...extraHidden])] }
         : navConfig;
 
 

@@ -1,201 +1,257 @@
-# CLAUDE.md
+# CLAUDE.md — BERAMETHODE
 
-## ⚠️ قاعدة مطلقة - أول حاجة خاصك تقراها وتطبقها ⚠️
+## ⚠️ قاعدة مطلقة: اللغة الإجبارية ⚠️
 
-**اللغة الإجبارية: العربية الفصحى فقط**
-
-- خاصك دائماً تهضر مع المستخدم (Soulaimane Berraadi) **بالعربية الفصحى** فقط.
-- **ممنوع منعاً باتاً** تجاوب بالإنجليزية، حتى ولو الرسالة الأصلية بالإنجليزية ولا الكود بالإنجليزية.
-- **ممنوع** تجاوب بالدارجة المغربية أو الفرنسية إلا إذا المستخدم طلب منك ذلك صراحة في نفس المحادثة.
-- المصطلحات التقنية (مثل API, JWT, SQLite, Pull Request) يمكن تبقى بالإنجليزية داخل النص العربي.
-- في **كل رد جديد**، قبل ما تكتب أي حاجة، راجع هاد القاعدة هنا في CLAUDE.md باش ما تنساش وتطلع للإنجليزية.
-- هاد القاعدة كتطبق على كل المحادثات في هاد المشروع، بدون استثناء.
+- تحدّث مع المستخدم (Soulaimane Berraadi) **بالدارجة المغربية فقط**.
+- ممنوع الجواب بالإنجليزية أو الفرنسية إلا إذا طُلب صراحة.
+- المصطلحات التقنية (API, JWT, SQLite, HMAC, RLS) تبقى بالإنجليزية داخل النص بالدارجة.
 
 ---
 
-## ⚠️ قواعد العمل الإضافية (إجبارية) ⚠️
+## ⚠️ قواعد العمل الإضافية ⚠️
 
-1. **استعمال المهارات (Skills):** في كل مهمة، خاصك تشوف واش كاينة مهارة (Skill) مناسبة وتستعملها. ماتبقاش تخدم يدوياً إلا كانت كاينة مهارة كتقدر تعاونك (مثلاً: `supabase`, `code-review`, `typescript-expert`, `react-ui-patterns`, إلخ).
-2. **توفير الـ Tokens:** خدم بطريقة اقتصادية فالـ Tokens — ماتقراش ملفات بلا فائدة، ماتعاودش نفس الخدمة، استعمل الأدوات المتخصصة (Grep, Glob) عوض قراءة ملفات كاملة، وخلي الأجوبة مركزة وواضحة بلا حشو.
-3. **استعمال الخريطة (Blueprint):** قبل ما تبدا أي مهمة كبيرة، رجع للملف `BERAMETHODE_BLUEPRINT.md` باش تفهم بنية المشروع والسياق الكامل. هاد الخريطة كتعاونك تفهم بسرعة وتوفر الوقت والـ Tokens.
+1. **استعمال المهارات (Skills):** في كل مهمة، شوف واش كاينة مهارة مناسبة وتستعملها.
+2. **توفير الـ Tokens:** خدم بطريقة اقتصادية — Grep/Glob عوض قراءة ملفات كاملة، أجوبة مركّزة.
+3. **الخريطة (Blueprint):** راجع `BERAMETHODE_BLUEPRINT.md` قبل المهام الكبيرة.
+4. **البورت 7000 محلياً (إلزامي):** الخدمة على السيرفر المحلي يكون على البورت **7000** بشكل إجباري. تأكد من أن جميع إعدادات السيرفر تستخدم `localhost:7000` أو `127.0.0.1:7000` عند التطوير المحلي.
+5. **البيانات الأوتوماتيكية:** فلو البيانات الأوتوماتيكي يجب أن يكون شغّال بشكل إجباري. تأكد من أن جميع البيانات تتدفق بشكل آلي بين الخادم والواجهة دون تدخل يدوي.
 
 ---
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+## نظرة عامة
 
-## Project Overview
+**BERAMETHODE** نظام ERP للصناعات النسيجية في المغرب. يدير: حساب التكاليف، التخطيط الإنتاجي، المخازن، الموارد البشرية، الفوترة، ومتابعة الإنتاج.
 
-**BERAMETHODE** is an ERP system for Moroccan textile manufacturing facilities. It manages methods/operations costing, production planning, warehouse inventory, HR operations, invoicing, and labor tracking.
+> **مشروع مكمّل:** `Bera-master-admin` (مشروع 2) يدير التراخيص وينجّل المفاتيح لهاد المشروع.
 
-- **Tech Stack**: React 19 + TypeScript + Vite (frontend) | Express.js (backend) | SQLite with better-sqlite3 | Google Gemini AI
-- **Target Users**: Method engineers, production managers, HR directors in textile factories
-- **Languages**: French (primary) + Darija/Arabic (secondary)
-- **Development Port**: 8000
-- **Node Version**: ≥20.0.0
+## المكدّس التقني
 
-## Development Commands
+| الطبقة | التقنية |
+|---|---|
+| الواجهة | React 19 + TypeScript + Vite 8 |
+| التصميم | Tailwind CSS (CDN) + Framer Motion + Recharts + Lucide Icons |
+| الخادم | Express.js (port 8000) |
+| قاعدة البيانات | SQLite (better-sqlite3, WAL mode) |
+| المصادقة | JWT في httpOnly cookies |
+| الذكاء الاصطناعي | Google Gemini API (server-side فقط) |
+| المزامنة السحابية | Supabase (`user_data` + Broadcast) |
+| التشفير | `vite-plugin-javascript-obfuscator` في وضع الإنتاج |
 
-**Setup & Running:**
+## أوامر التطوير
+
 ```bash
-npm install                    # Install dependencies
-npm run dev                    # Start Vite dev server (frontend HMR)
-npm run dev:app              # Start Express server (runs on port 8000)
-npm run type-check           # Run TypeScript type checking
-npm run build                # Build for production
-npm run preview              # Preview production build locally
-npm run start                # Start production server
+npm install
+npm run dev          # Vite dev server (port 5173) — واجهة فقط
+npm run dev:app      # Express server (port 7000) — خادم + قاعدة بيانات
+npm run type-check   # TypeScript بدون emit
+npm run build        # بناء للإنتاج (مع تشفير الكود)
+npm run build:static # بناء بدون تشفير (لـ Vercel)
+npm run start        # تشغيل خادم الإنتاج
 ```
 
-**Note**: When developing, you typically need both the Vite server (for frontend hot reload) and the Express server running. The Vite dev server proxies API requests to the Express server.
+> **ملاحظة:** عند التطوير، شغّل `npm run dev` + `npm run dev:app` مع بعض. Vite يحوّل طلبات `/api` للخادم على البورت 7000.
 
-## Architecture
+## البنية
 
-### Frontend (`/components`, App.tsx)
-The React app is organized by business domain. Major modules include:
+### الواجهة الأمامية
 
-- **BERAMETHODE Core** (`CostCalculator.tsx`, `FicheTechnique.tsx`): Cost calculation engine for manufacturing operations
-- **Planning Module** (`Planning.tsx`, `AgendaModal.tsx`): Production scheduling and calendar management
-- **Warehouse/Magasin** (`Magasin.tsx`): Inventory tracking, movements, requests, waste management
-- **HR Module** (`GESTION-RH.tsx`, `HRWorkerProfilePanel.tsx`): Worker profiles, pointage (attendance), production tracking, salary advances
-- **Manufacturing** (`Gamme.tsx`, `Atelier.tsx`, `Chronometrage.tsx`): Process templates, workshop operations, timing analysis
-- **Invoicing** (`Facturation.tsx`): Invoice and delivery note management with payment tracking
-- **Dashboard** (`Dashboard.tsx`): KPI visualization and reporting
-- **Configuration** (`Configuration.tsx`, `ExcelInput.tsx`): System settings and bulk imports
+```
+App.tsx                    # المكون الرئيسي (1642 سطر) — التوجيه + تحميل كسول
+index.tsx                  # نقطة الدخول — AuthProvider + LicenseProvider
+constants.ts               # الترجمات (dr/fr/en/es) + fmt()
+types.ts                   # تعريفات TypeScript (1047 سطر)
+app/constants.ts           # ترجمات المستوى + ترتيب التنقل + الافتراضيات
+app/AppHeader.tsx          # شريط التنقل العلوي
+```
 
-**State Management**: React Context + local state. No Redux/Zustand (keep simple).
+### المكتبات (`lib/`)
 
-**Styling**: Tailwind CSS with inline classes. Some components use Framer Motion for animations.
+| الملف | الوظيفة |
+|---|---|
+| `bootSequence.ts` | تسلسل الإقلاع: مصادقة + تحميل البيانات بالتوازي |
+| `methodesEngine.ts` | محرك حساب التكاليف والطرق |
+| `sageTimeRules.ts` | قواعد أوقات Sage ERP |
+| `suggestionTempsCatalogue.ts` | اقتراح الأوقات المعيارية |
+| `suiviContextResolver.ts` | حل سياق متابعة الإنتاج |
+| `dataIdentity.ts` | بنا snapshots لعزل البيانات |
 
-### Backend (`/server`)
-Express.js API organized by domain:
+### الخادم (`server/`)
 
-**Controllers** (request handlers):
-- `authController.ts` - JWT authentication, login/logout, password reset
-- `hrController.ts` - Worker data, pointage, production, salary advances, wage generation
-- `hrIdentityController.ts` - Worker invitations and identity verification
-- `magasinController.ts` - Inventory CRUD and movements
-- `planningController.ts` - Calendar events and scheduling
-- `facturationController.ts` - Invoices, delivery notes, payments
-- `effectifsController.ts` - Staff management (if exists)
-- `posteSuiviController.ts` - Position tracking (workstations)
-- `suiviController.ts` - Production tracking data
-- `geminiController.ts` - AI text analysis endpoints
-- `dashboardController.ts` - KPI aggregation
-- `workerSkillsController.ts` - Worker capability mapping
-- `workerPointageController.ts` - Attendance logging
-- Plus domain-specific: modelController, demandesApproController, productionController, etc.
+**المتحكمات (Controllers):**
 
-**Core Services**:
-- `db.ts` - SQLite database initialization and connection pool
-- `jwtConfig.ts` - JWT configuration and Helmet/CORS setup
-- `middleware.ts` - Authentication middleware (verifyToken)
-- `geminiAi.ts` - Google Gemini API client wrapper
-- `sageHeuresService.ts`, `sageMonthPay.ts` - Sage ERP integration helpers
-- `sageConfig.ts` - Sage configuration
+| الملف | domaine |
+|---|---|
+| `authController.ts` | المصادقة + إعادة تعيين كلمة المرور |
+| `hrController.ts` | بيانات العمال + الحضور + الإنتاج + المخصصات |
+| `hrIdentityController.ts` | دعوات العمال + الهوية |
+| `hrSageController.ts` | تصدير Sage |
+| `magasinController.ts` | المخزون + الحركات + الطلبات |
+| `planningController.ts` | التخطيط + الحجوزات |
+| `facturationController.ts` | الفواتير + إيصالات التسليم + المدفوعات |
+| `suiviController.ts` | متابعة الإنتاج |
+| `posteSuiviController.ts` | متابعة محطات العمل |
+| `dashboardController.ts` | KPIs |
+| `geminiAi.ts` / `geminiController.ts` | الذكاء الاصطناعي |
+| `workersController.ts` | بيانات العمال |
+| `workerSkillsController.ts` | مصفوفة الكفاءات |
+| `workerPointageController.ts` | سجل الحضور |
+| `schedulingController.ts` | الجدولة المتقدمة |
+| `catalogController.ts` | كتالوج الأوقات |
+| `subcontractController.ts` | الاستعانة بمthird parties |
+| `productionController.ts` | خطوط الإنتاج |
+| `userController.ts` | إدارة المستخدمين |
+| `supabaseSync.ts` / `supabaseRealtime.ts` | المزامنة السحابية |
 
-**Database**: SQLite (better-sqlite3) with a single file `database.sqlite`. Uses WAL mode for concurrent access. Schema is initialized/migrated by `db.ts` on startup.
+**核心:** `db.ts` — تهيئة SQLite + migrations (1287 سطر)
 
-### Key Design Patterns
+### الكومونونات (`components/`)
 
-1. **Controller-based routing**: Each domain has a controller that exports CRUD functions called from `server.ts` endpoints
-2. **Middleware auth**: Routes that need authentication use `authenticateToken` middleware
-3. **Error handling**: Controllers return JSON with status codes; frontend handles errors in async calls
-4. **Multilingual UI**: All UI strings live in `constants.ts` under `translations` object (keyed by language code `dr`, `fr`, etc.)
-5. **Cost calculation**: Core formula engine in BERAMETHODE components (time-based + material-based + margins)
-6. **AI integration**: Gemini used for textile vocabulary suggestions, operation analysis, and text classification
+67 ملف. أهمها:
 
-## Data & Database
+| المكون | الوحدة |
+|---|---|
+| `VueGenerale.tsx` | نظرة عامة |
+| `Dashboard.tsx` | لوحة القيادة |
+| `ModelWorkflow.tsx` | الهندسة + ورشة الطرق |
+| `Atelier.tsx` | ورشة الإنتاج |
+| `Library.tsx` | المكتبة |
+| `LaCoupe.tsx` | القص |
+| `Effectifs.tsx` | التأثيرات |
+| `GESTION-RH.tsx` | الموارد البشرية |
+| `Planning.tsx` | التخطيط |
+| `SuiviProduction.tsx` | متابعة الإنتاج |
+| `RendementBoard.tsx` | العائد |
+| `Magasin.tsx` | المخازن |
+| `StockExport.tsx` | التصدير |
+| `Facturation.tsx` | الفوترة |
+| `Configuration.tsx` | الإعدادات |
+| `PageMachine.tsx` | متابعة الآلات |
+| `Machin.tsx` | كتالوج الآلات |
+| `CatalogueTemps.tsx` | كتالوج الأوقات |
+| `TasksAndHR.tsx` | الأهداف |
+| `SousTraitance.tsx` | الاستعانة بمthird parties |
+| `Profil.tsx` | الملف الشخصي |
 
-**SQLite Single File**: `database.sqlite`
-- Better-sqlite3 for synchronous operations (simpler debugging)
-- WAL mode enables concurrent reads while writes are serialized
-- Initialization and schema in `server/db.ts`
+### قاعدة البيانات
 
-**Key Tables** (inferred from controllers):
-- `users` - System users with roles
-- `workers` - Employee master data (CIN, name, position, hire date)
-- `pointage` - Attendance/time clock records
-- `production` - Worker output per task per day
-- `worker_skills` - Capability matrix
-- `planning_events` - Calendar entries
-- `magasin_products` - Inventory items
-- `magasin_mouvements` - Stock in/out transactions
-- `magasin_lots` - Batch tracking
-- `facturation_factures` - Invoices
-- `facturation_bons` - Delivery notes
-- `facturation_paiements` - Payment records
-- `hr_workers` - Enhanced worker profiles (separate from users table)
-- `hr_pointage` - HR-managed attendance
-- `hr_production` - HR-tracked output
-- `hr_avances` - Salary advances
-- `models` - Product/style templates (for BERAMETHODE costing)
+**SQLite:** `database.sqlite` (WAL mode)
 
-## Environment & Configuration
+**الجداول الرئيسية:**
 
-**`.env` Variables** (from `.env.example`):
-- `JWT_SECRET` - **Required**. Generate with: `openssl rand -base64 32`
-- `GEMINI_API_KEY` - Google Gemini API key (required for AI features)
-- `NODE_ENV` - "development" or "production"
-- `PORT` - Server port (default 8000)
-- `SMTP_HOST/PORT/USER/PASS/SECURE` - Email config for password resets
-- `HR_SAGE_ROUNDING`, `HR_SAGE_WORKDAY_START`, `HR_SAGE_APPLY` - Sage payroll adjustments (optional)
-- `COOKIE_SECURE=true` - Force secure cookies (HTTPS only)
-- `HELMET=true` - Enable Helmet headers in dev
-- `BERAMETHODE_NO_HMR=1` - Disable Vite HMR if page keeps reloading
-- `ALLOW_RESET_DEV_CODE=true` - Return reset codes in JSON response (dev only)
+| الجدول | الوظيفة |
+|---|---|
+| `users` | مستخدمي النظام |
+| `models` | نماذج المنتجات |
+| `workers` | بيانات العمال |
+| `worker_skills` | مصفوفة الكفاءات |
+| `worker_pointage` | سجل الحضور |
+| `hr_workers` | ملفات العمال المحسّنة |
+| `hr_pointage` | الحضور (مع pauses + validation) |
+| `hr_production` | إنتاج العمال |
+| `hr_avances` | السلفات |
+| `hr_sage_exports` | تصدير Sage |
+| `magasin_products` | منتجات المخزون |
+| `magasin_lots` | تتبع الدُفعات |
+| `magasin_mouvements` | حركات المخزون |
+| `magasin_commandes` | طلبات الشراء |
+| `magasin_demandes` | طلبات الورشة |
+| `magasin_dechets` | النفايات |
+| `planning_events` | أحداث التخطيط |
+| `planning_reservations` | حجوزات المواد |
+| `suivi_data` | بيانات المتابعة |
+| `suivi_sorties_horaires` | الإنتاج بالساعة |
+| `suivi_effectifs` | التأثيرات حسب الدور |
+| `suivi_defauts` | العيوب |
+| `suivi_downtimes` | أوقات التوقف |
+| `downtime_codes` | أسباب التوقف |
+| `poste_suivi` | متابعة محطات العمل |
+| `demandes_appro` | طلبات الإمداد |
+| `production_lines` | خطوط الإنتاج |
+| `production_daily` | الإنتاج اليومي |
+| `subcontract_orders` | أوامر الاستعانة بمthird parties |
+| `system_audit_logs` | سجل التدقيق |
+| `platform_person` | الهوية الشاملة |
+| `hr_worker_person` | ربط العمال بالهويات |
+| `hr_invitation` | دعوات العمال |
+| `app_settings` | إعدادات المستخدمين |
+| `verification_codes` | أكواد إعادة التعيين |
 
-**Helmet/Security**: 
-- Helmet CSP enabled in production (controlled by `jwtConfig.ts`)
-- CORS and rate limiting configured on Express app
-- JWT in httpOnly cookies
+**Supabase (سحابي):**
 
-## Common Development Tasks
+| الجدول | الوظيفة |
+|---|---|
+| `user_data` | مزامنة بيانات localStorage |
+| `announcements` | الإعلانات (يقرأها BERAMETHODE) |
 
-**Adding a New Endpoint**:
-1. Create or update controller in `/server` (e.g., `newDomainController.ts`)
-2. Export GET/POST/PUT/DELETE functions
-3. Import in `server.ts` and add route: `app.post('/api/newdomain/action', authenticateToken, handler)`
-4. Add corresponding React hook/fetch in frontend component
-5. Update `constants.ts` UI labels if needed
+## التكامل مع Bera-master-admin (نظام التراخيص)
 
-**Adding a UI Module**:
-1. Create component in `/components/{ModuleName}.tsx`
-2. Add route/menu entry in `App.tsx`
-3. Add translations to `constants.ts`
-4. Create backend API endpoints and controller
-5. Use React hooks (useState, useEffect) for state management
+### تدفق الترخيص
 
-**Schema Changes**:
-1. Update SQL in `server/db.ts` (in the initialization section)
-2. Add migration/ALTER statements if database already exists
-3. Update relevant controller queries
-4. Test schema changes locally before commit
+1. **المالك يولّد مفتاح** في Bera-master-admin → `BERA-XXXX-XXXX-XXXX` → HMAC-SHA256 → مخزّن في `licenses`
+2. **BERAMETHODE يتحقق** عبر Edge Function `verify-license` → يفحص التوقيع + الحالة + الانتهاء
+3. **الإنفاذ** (فقط إذا `VITE_LICENSE_ENFORCE=true`):
+   - الوحدات غير المسموحة → مخفية من التنقل (`bera_nav_config.hidden`)
+   - منتهي/معلق/ملغى → بانر "قراءة فقط"
+   - `max_workers` → القيمة متوفرة لكن **لم يتم تطبيقها بعد** (TODO)
+   - أزرار الحفظ/الإضافة/الحذف **لم يتم تعطيلها بعد** (TODO)
 
-**Database Debugging**:
-- SQLite is file-based; inspect with `sqlite3 database.sqlite` or GUI tools
-- WAL file (`database.sqlite-wal`) is temporary; don't commit
-- Always export/backup before major schema changes
+### مزامنة وحدات التنقل
 
-## Testing & Verification
+مفاتيح `ALL_MODULES` في `LicenseContext.tsx` يجب أن تتطابق مع:
+- `app/constants.ts` → `defaultNavOrder`
+- `src/lib/modules.ts` في Bera-master-admin
 
-- **Type checking**: `npm run type-check` catches TypeScript errors
-- **Manual testing**: Start dev server with `npm run dev` + `npm run dev:app`, use browser at `http://localhost:8000`
-- **No unit test suite currently** (add if adding complex business logic)
-- **Integration testing**: Test end-to-end workflows (create plan → assign workers → verify payroll)
+**القائمة الحالية (22 + legacy + profil):**
+```
+vuegenerale, dashboard, ingenierie, atelierProd, library, coupe, effectifs, gestionRh,
+planning, suivi, rendement, magasin, export, facturation, config, pageMachine, machin,
+objectifs, sousTraitance, admin, profil, atelier
+```
 
-## Key Files & Imports
+`profil` لا يُخفى أبداً (دوماً متاح).
 
-- **App.tsx** - Main routing and component mounting
-- **constants.ts** - All translations, utilities (fmt function for number formatting)
-- **server.ts** - Express app setup, routes, middleware
-- **server/db.ts** - Database connection and initialization
-- **types.ts** (if exists) - TypeScript interfaces
+### المزامنة السحابية
 
-## Important Notes
+- **العملية:** `cloudSync.ts` → 16 مفتاح في localStorage → UPSERT إلى `user_data`
+- **القناة:** Supabase Broadcast (Realtime)
+- **المعالجة:** صور base64 → رفع إلى `bera-assets` أو ضغط inline
 
-- **Textile Domain**: Understanding French textile terminology and Moroccan labor practices helps with naming/logic
-- **Cost Calculation**: BERAMETHODE's core is the "Prix de Revient" (cost price) formula: Materials + Labor + Factory Margin + Tax + Shop Margin
-- **Multilingual**: Always add UI strings to `constants.ts` under the language key, not hardcoded
-- **SQLite Concurrency**: WAL mode is enabled; reads don't block writes and vice versa
-- **Gemini Integration**: Async calls; wrap in try-catch and handle rate limits
-- **Production Mode**: Set `NODE_ENV=production` to enable Helmet, rate limiting, and optimized builds
+## متغيرات البيئة
+
+### `.env` (Frontend)
+- `VITE_STATIC_MODE=true` — وضع Vercel (بدون Express)
+- `VITE_LICENSE_ENFORCE=true` — تفعيل إنفاذ التراخيص
+
+### `.env` (Backend)
+- `JWT_SECRET` — **مطلوب**. توليد: `openssl rand -base64 32`
+- `GEMINI_API_KEY` — مفتاح Gemini (مfeatures features)
+- `SMTP_HOST/PORT/USER/PASS/SECURE` — إعدادات البريد
+- `HR_SAGE_ROUNDING`, `HR_SAGE_WORKDAY_START`, `HR_SAGE_APPLY` — تعديلات Sage
+- `SUPABASE_URL`, `SUPABASE_ANON_KEY` — Supabase (للمزامنة)
+- `COOKIE_SECURE=true` — cookies آمنة فقط
+- `HELMET=true` — تفعيل Helmet headers
+- `BERAMETHODE_NO_HMR` — تعطيل HMR
+- `ALLOW_RESET_DEV_CODE=true` — إرجاع أكواد إعادة التعيين (تطوير فقط)
+
+## الترجمات
+
+4 لغات في `constants.ts`: **Darija** (dr) + **Français** (fr) + **English** (en) + **Español** (es)
+
+مستوى إضافي في `app/constants.ts`: **Français** (fr) + **العربية** (ar)
+
+## أنماط التصميم الرئيسية
+
+1. **توجيه بالتحكمات:** كل domain له controller يصدّر CRUD functions
+2. **مصادقة Middleware:** `authenticateToken` للمسارات المحمية
+3. **معالجة الأخطاء:** controllers ترجع JSON + status codes
+4. **متعدد اللغات:** كل النصوص في `constants.ts` تحت مفتاح اللغة
+5. **حساب التكاليف:** صيغة "Prix de Revient": مواد + يد عاملة + هامش المصنع + ضريبة + هامش الورشة
+6. **Gemini:** استدعاءات غير متزامنة، try-catch إجباري
+
+## ملاحظات مهمة
+
+- **النسيج:** فهم المصطلحات الفرنسية في النسيج وممارسات العمل المغربية يساعد في التسمية
+- **SQLite Concurrency:** WAL mode مفعّل — القراءات لا تمنع الكتابات
+- **Gemini Integration:** استدعاءات async، لازم try-catch + rate limits
+- **الإنتاج:** `NODE_ENV=production` يفعّل Helmet + rate limiting + تحسين البناء
+- **لا تنشر هذا المشروع على الإنترنت** بدون حماية — يحمل JWT secrets + Gemini key

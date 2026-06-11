@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Shirt, Clock, Coins, Scissors, Package, CheckSquare, ImageIcon, X, Upload, Trash2, Camera, Check, TrendingUp, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { AppSettings } from '../types';
 import { fmt } from '../constants';
+import SensitiveValue from './ui/SensitiveValue';
 
 interface ModelInfoProps {
     t: any;
@@ -74,7 +75,9 @@ const ModelInfo: React.FC<ModelInfoProps> = ({
                     <span className="inline-flex items-center gap-1.5">
                         <span className="w-1.5 h-1.5 rounded-full bg-[#2149C1]" />
                         <span className="text-[11px] sm:text-[12px] text-slate-500">Coût</span>
-                        <span className="text-[11px] sm:text-[12px] font-semibold text-slate-900 tabular-nums">{fmt(costPrice)} {currency}</span>
+                        <span className="text-[11px] sm:text-[12px] font-semibold text-slate-900 tabular-nums">
+                            <SensitiveValue field="model.cout_minute">{fmt(costPrice)} {currency}</SensitiveValue>
+                        </span>
                     </span>
                 </div>
             </div>

@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
-import { ShoppingCart, Percent, Banknote, Clock, Package, TrendingUp, Info, AlertTriangle, Truck, PlusCircle, Search, X } from 'lucide-react';
-import { PurchasingData } from '../types';
+import React, { useState, useEffect, useMemo } from 'react';
+import { ShoppingCart, Percent, Banknote, Clock, Package, TrendingUp, Info, AlertTriangle, Truck, Plus, PlusCircle, Search, X, ChevronDown, ChevronRight, Palette, CheckCircle } from 'lucide-react';
+import { PurchasingData, Material, FicheData } from '../types';
 import { fmt } from '../constants';
+import MaterialDetailModal from './MaterialDetailModal';
 
 interface OrderSimulationProps {
     t: any;
@@ -19,6 +20,8 @@ interface OrderSimulationProps {
     textPrimary: string;
     bgCard: string;
     isExport?: boolean;
+    materials?: Material[];
+    ficheData?: FicheData;
 }
 
 const OrderSimulation: React.FC<OrderSimulationProps> = ({
@@ -26,7 +29,8 @@ const OrderSimulation: React.FC<OrderSimulationProps> = ({
     deductStock,
     purchasingData, totalPurchasingMatCost, laborCost,
     textSecondary, textPrimary, bgCard,
-    isExport = false
+    isExport = false,
+    materials = [], ficheData,
 }) => {
     const activeQtyToSimulate = orderQty;
     const totalProjectCost = isExport ? (laborCost * activeQtyToSimulate) : totalPurchasingMatCost + (laborCost * activeQtyToSimulate);
@@ -38,6 +42,53 @@ const OrderSimulation: React.FC<OrderSimulationProps> = ({
     const [subModal, setSubModal] = useState<{ open: boolean, matId: number | null, matName: string | null, manque: number }>({ open: false, matId: null, matName: null, manque: 0 });
     const [subSearch, setSubSearch] = useState('');
 
+    // Quick Add Magasin Modal (for substitute modal)
+    const [showQuickAddModal, setShowQuickAddModal] = useState(false);
+    const [quickAddForm, setQuickAddForm] = useState<Partial<any>>({ unite: 'm', categorie: 'tissu' });
+
+    const [showPididoBreakdown, setShowPididoBreakdown] = useState(true);
+
+    // Material detail modal state
+    const [selectedMaterial, setSelectedMaterial] = useState<any>(null);
+
+    // Per-pidido: each color → its applicable materials with quantities + supplier info
+    const pididoBreakdown = useMemo(() => {
+        if (!ficheData?.colors?.length || !materials.length) return [];
+        const gq = ficheData.gridQuantities || {};
+        const sizeCount = (ficheData.sizes || []).length;
+        const seen = new Set<string>();
+        return ficheData.colors.map(c => {
+            if (seen.has(c.id)) return null;
+            seen.add(c.id);
+            let pieces = 0;
+            for (let s = 0; s < sizeCount; s++) pieces += Number(gq[`${c.id}_${s}`] || 0);
+            if (pieces <= 0) return null;
+            const colorMaterials = materials.filter(m => {
+                if (m.scope?.colors?.length) return m.scope.colors.includes(c.id);
+                if (m.threadColor) return m.threadColor === c.name;
+                return true;
+            }).map(m => {
+                const baseQty = m.qty * pieces;
+                const withWaste = baseQty * (1 + wasteRate / 100);
+                const buyQty = (m.unit === 'bobine' || m.unit === 'pc') ? Math.ceil(withWaste) : parseFloat(withWaste.toFixed(2));
+                const cost = isExport ? 0 : buyQty * m.unitPrice;
+                // Get supplier info from magasin
+                const mItem = magasinData.find((x: any) => x.nom === m.name || x.designation === m.name);
+                const stockActuel = mItem?.stockActuel || 0;
+                const fournisseur = m.fournisseur || mItem?.fournisseurNom || mItem?.fournisseur || null;
+                const delaiLivraison = mItem?.fournisseurDelaiLivraisonJours || mItem?.delaiLivraison || null;
+                const isDelivered = stockActuel >= buyQty;
+                const isPartial = stockActuel > 0 && stockActuel < buyQty;
+                return { ...m, pieces, baseQty, withWaste, buyQty, cost, fournisseur, delaiLivraison, stockActuel, isDelivered, isPartial };
+            });
+            if (!colorMaterials.length) return null;
+            return { colorId: c.id, colorName: c.name, pieces, materials: colorMaterials };
+        }).filter(Boolean) as Array<{
+            colorId: string; colorName: string; pieces: number;
+            materials: Array<Material & { pieces: number; baseQty: number; withWaste: number; buyQty: number; cost: number; fournisseur: string | null; delaiLivraison: number | null; stockActuel: number; isDelivered: boolean; isPartial: boolean }>;
+        }>;
+    }, [ficheData, materials, wasteRate, isExport, magasinData]);
+
     useEffect(() => {
         try {
             const data = localStorage.getItem('beramethode_magasin');
@@ -46,6 +97,43 @@ const OrderSimulation: React.FC<OrderSimulationProps> = ({
             console.error(e);
         }
     }, []);
+
+    const handleQuickAdd = () => {
+        if (!quickAddForm.nom) return;
+        const newItem = {
+            id: Date.now().toString(),
+            nom: quickAddForm.nom,
+            designation: quickAddForm.nom,
+            reference: quickAddForm.reference || `REF-${Math.floor(Math.random() * 10000)}`,
+            prixUnitaire: Number(quickAddForm.prixUnitaire) || 0,
+            stockActuel: Number(quickAddForm.stockActuel) || 0,
+            stockAlerte: Number(quickAddForm.stockAlerte) || 10,
+            unite: quickAddForm.unite || 'm',
+            categorie: quickAddForm.categorie || 'tissu',
+            fournisseurNom: quickAddForm.fournisseurNom || '',
+            fournisseurDelaiLivraisonJours: Number(quickAddForm.fournisseurDelaiLivraisonJours) || 0,
+            image: quickAddForm.image || ''
+        };
+        const updatedMagasin = [newItem, ...magasinData];
+        setMagasinData(updatedMagasin);
+        localStorage.setItem('beramethode_magasin', JSON.stringify(updatedMagasin));
+        fetch('/api/magasin/products', {
+            method: 'POST', credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ...newItem, reference: newItem.reference || newItem.id, designation: newItem.nom }),
+        }).catch(() => {});
+        setShowQuickAddModal(false);
+        setQuickAddForm({ unite: 'm', categorie: 'tissu' });
+    };
+
+    const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onloadend = () => setQuickAddForm(prev => ({ ...prev, image: reader.result as string }));
+            reader.readAsDataURL(file);
+        }
+    };
 
     return (
         <div className={`rounded-lg border overflow-hidden relative ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-slate-200'}`}>
@@ -73,8 +161,8 @@ const OrderSimulation: React.FC<OrderSimulationProps> = ({
                             </div>
                         </div>
                         <div className="flex-1 overflow-y-auto min-h-[200px] border rounded-lg divide-y bg-slate-50">
-                            {magasinData.filter(m => (m.nom || m.designation || '').toLowerCase().includes(subSearch.toLowerCase()) && m.stockActuel > 0).map(mItem => (
-                                <div key={mItem.id} className="p-3 bg-white hover:bg-slate-50 flex justify-between items-center text-sm cursor-pointer transition-colors" onClick={() => {
+                            {(magasinData.length > 0 ? magasinData.filter(m => (m.nom || m.designation || '').toLowerCase().includes(subSearch.toLowerCase())) : []).map(mItem => (
+                                <div key={mItem.id} className="p-3 bg-white hover:bg-slate-50 flex justify-between items-center text-sm cursor-pointer transition-colors hover:shadow-sm" onClick={() => {
                                     const qtyStr = prompt(`Quelle quantité prélever de "${mItem.nom || mItem.designation}" en stock (${mItem.stockActuel || 0}) ?\n(Nécessaire : ${subModal.manque})`, subModal.manque.toString());
                                     if (qtyStr) {
                                         const q = parseFloat(qtyStr.replace(/-/g, ''));
@@ -84,17 +172,113 @@ const OrderSimulation: React.FC<OrderSimulationProps> = ({
                                         }
                                     }
                                 }}>
-                                    <div>
+                                    <div className="flex-1">
                                         <div className="font-bold text-slate-800">{mItem.nom || mItem.designation}</div>
                                         <div className="text-[10px] text-slate-500 font-mono mt-0.5">Ref: {mItem.reference} | Categ: {mItem.categorie}</div>
                                     </div>
-                                    <div className="text-right">
-                                        <div className="text-indigo-600 font-black">{mItem.stockActuel || 0} <span className="text-xs font-medium">{mItem.unite || ''}</span></div>
-                                        <div className="text-[10px] font-bold text-slate-400">En stock</div>
+                                    <div className="text-right ml-3">
+                                        <div className={`font-black ${(mItem.stockActuel || 0) > 0 ? 'text-indigo-600' : 'text-slate-300'}`}>{mItem.stockActuel || 0} <span className="text-xs font-medium">{mItem.unite || ''}</span></div>
+                                        <div className={`text-[10px] font-bold ${(mItem.stockActuel || 0) > 0 ? 'text-slate-400' : 'text-slate-300'}`}>{(mItem.stockActuel || 0) > 0 ? 'En stock' : 'Stock 0'}</div>
                                     </div>
                                 </div>
                             ))}
-                            {magasinData.length === 0 && <div className="p-4 text-center text-xs text-slate-400 font-bold">Aucun produit dans le magasin</div>}
+                            {magasinData.length === 0 && (
+                                <div className="p-6 text-center">
+                                    <div className="text-sm text-slate-400 font-bold mb-3">Aucun produit dans le magasin</div>
+                                    <button onClick={() => setShowQuickAddModal(true)} className="px-4 py-2 bg-indigo-600 text-white text-xs font-bold rounded-lg hover:bg-indigo-700 shadow-md transition-colors inline-flex items-center gap-1.5">
+                                        <Plus className="w-3.5 h-3.5" /> Ajouter au Magasin
+                                    </button>
+                                </div>
+                            )}
+                            {magasinData.length > 0 && magasinData.filter(m => (m.nom || m.designation || '').toLowerCase().includes(subSearch.toLowerCase())).length === 0 && (
+                                <div className="p-6 text-center">
+                                    <div className="text-sm text-slate-400 font-bold mb-3">Aucun résultat pour "{subSearch}"</div>
+                                    <button onClick={() => setShowQuickAddModal(true)} className="px-4 py-2 bg-indigo-600 text-white text-xs font-bold rounded-lg hover:bg-indigo-700 shadow-md transition-colors inline-flex items-center gap-1.5">
+                                        <Plus className="w-3.5 h-3.5" /> Ajouter au Magasin
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+                        <div className="mt-3 flex justify-center">
+                            <button onClick={() => setShowQuickAddModal(true)} className="text-[11px] text-indigo-600 font-bold hover:text-indigo-800 transition-colors flex items-center gap-1">
+                                <Plus className="w-3.5 h-3.5" /> Ajouter un nouveau produit au magasin
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* QUICK ADD MAGASIN MODAL */}
+            {showQuickAddModal && (
+                <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm" onClick={() => setShowQuickAddModal(false)}>
+                    <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-5 animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
+                        <div className="flex items-center justify-between mb-4">
+                            <h3 className="font-black text-slate-800 text-base flex items-center gap-2">
+                                <Plus className="w-4 h-4 text-indigo-500" /> Ajouter au Magasin
+                            </h3>
+                            <button onClick={() => setShowQuickAddModal(false)} className="p-1.5 text-slate-400 hover:bg-slate-100 rounded-full transition-colors">
+                                <X className="w-3.5 h-3.5" />
+                            </button>
+                        </div>
+                        <div className="space-y-3 max-h-[60vh] overflow-y-auto p-1">
+                            <div className="flex flex-col items-center justify-center mb-3">
+                                <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1.5 w-full">Photo du produit</label>
+                                <div className="w-20 h-20 rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 flex items-center justify-center overflow-hidden relative cursor-pointer hover:bg-slate-100 transition-colors">
+                                    {quickAddForm.image ? (
+                                        <img src={quickAddForm.image} className="w-full h-full object-cover" alt="preview" />
+                                    ) : (
+                                        <div className="flex flex-col items-center text-slate-400">
+                                            <Package className="w-5 h-5 mb-0.5 opacity-50" />
+                                            <span className="text-[8px] font-bold uppercase">Ajouter</span>
+                                        </div>
+                                    )}
+                                    <input type="file" accept="image/*" onChange={handleImageUpload} className="absolute inset-0 opacity-0 cursor-pointer" />
+                                </div>
+                            </div>
+                            <div>
+                                <label className="block text-[10px] font-bold text-slate-500 uppercase mb-0.5">Désignation / Nom *</label>
+                                <input type="text" value={quickAddForm.nom || ''} onChange={(e) => setQuickAddForm({ ...quickAddForm, nom: e.target.value })} className="w-full rounded px-1.5 py-1 text-[12px] outline-none transition-all focus:ring-1 focus:ring-indigo-200 bg-slate-50 border border-slate-200 text-slate-900 focus:bg-white focus:border-indigo-300 font-bold" placeholder="Ex: Tissu Denim 12oz" />
+                            </div>
+                            <div className="flex gap-3">
+                                <div className="flex-1">
+                                    <label className="block text-[10px] font-bold text-slate-500 uppercase mb-0.5">Référence</label>
+                                    <input type="text" value={quickAddForm.reference || ''} onChange={(e) => setQuickAddForm({ ...quickAddForm, reference: e.target.value })} className="w-full rounded px-1.5 py-1 text-[12px] outline-none transition-all focus:ring-1 focus:ring-indigo-200 bg-slate-50 border border-slate-200 text-slate-900 focus:bg-white focus:border-indigo-300" placeholder="Ex: REF-001" />
+                                </div>
+                                <div className="flex-1">
+                                    <label className="block text-[10px] font-bold text-slate-500 uppercase mb-0.5">Catégorie</label>
+                                    <select value={quickAddForm.categorie || 'tissu'} onChange={(e) => setQuickAddForm({ ...quickAddForm, categorie: e.target.value })} className="w-full rounded px-1.5 py-1 text-[12px] outline-none transition-all focus:ring-1 focus:ring-indigo-200 bg-slate-50 border border-slate-200 text-slate-900 focus:bg-white focus:border-indigo-300">
+                                        {['tissu', 'fil', 'bouton', 'fermeture', 'etiquette', 'emballage', 'autre'].map(c => <option key={c} value={c}>{c}</option>)}
+                                    </select>
+                                </div>
+                                <div className="w-1/3">
+                                    <label className="block text-[10px] font-bold text-slate-500 uppercase mb-0.5">Unité</label>
+                                    <select value={quickAddForm.unite || 'm'} onChange={(e) => setQuickAddForm({ ...quickAddForm, unite: e.target.value })} className="w-full rounded px-1.5 py-1 text-[12px] outline-none transition-all focus:ring-1 focus:ring-indigo-200 bg-slate-50 border border-slate-200 text-slate-900 focus:bg-white focus:border-indigo-300">
+                                        {['m', 'kg', 'piece', 'cone', 'boite'].map(c => <option key={c} value={c}>{c}</option>)}
+                                    </select>
+                                </div>
+                            </div>
+                            <div className="flex gap-3">
+                                <div className="flex-1">
+                                    <label className="block text-[10px] font-bold text-slate-500 uppercase mb-0.5">Prix U. (DH)</label>
+                                    <input type="number" min="0" step="0.01" value={quickAddForm.prixUnitaire || ''} onChange={(e) => setQuickAddForm({ ...quickAddForm, prixUnitaire: Number(e.target.value) })} className="w-full rounded px-1.5 py-1 text-[12px] outline-none transition-all focus:ring-1 focus:ring-indigo-200 bg-slate-50 border border-slate-200 text-slate-900 focus:bg-white focus:border-indigo-300 text-indigo-700 font-black" />
+                                </div>
+                                <div className="flex-1">
+                                    <label className="block text-[10px] font-bold text-slate-500 uppercase mb-0.5">Stock Initial</label>
+                                    <input type="number" min="0" value={quickAddForm.stockActuel || ''} onChange={(e) => setQuickAddForm({ ...quickAddForm, stockActuel: Number(e.target.value) })} className="w-full rounded px-1.5 py-1 text-[12px] outline-none transition-all focus:ring-1 focus:ring-indigo-200 bg-slate-50 border border-slate-200 text-slate-900 focus:bg-white focus:border-indigo-300" />
+                                </div>
+                            </div>
+                            <div className="pt-2 border-t border-slate-100">
+                                <label className="block text-[10px] font-bold text-slate-500 uppercase mb-0.5">Fournisseur</label>
+                                <input type="text" value={quickAddForm.fournisseurNom || ''} onChange={(e) => setQuickAddForm({ ...quickAddForm, fournisseurNom: e.target.value })} className="w-full rounded px-1.5 py-1 text-[12px] outline-none transition-all focus:ring-1 focus:ring-indigo-200 bg-slate-50 border border-slate-200 text-slate-900 focus:bg-white focus:border-indigo-300" placeholder="Nom du fournisseur" />
+                            </div>
+                            <div>
+                                <label className="block text-[10px] font-bold text-slate-500 uppercase mb-0.5">Délai Livraison (Jours)</label>
+                                <input type="number" min="0" value={quickAddForm.fournisseurDelaiLivraisonJours || ''} onChange={(e) => setQuickAddForm({ ...quickAddForm, fournisseurDelaiLivraisonJours: Number(e.target.value) })} className="w-full rounded px-1.5 py-1 text-[12px] outline-none transition-all focus:ring-1 focus:ring-indigo-200 bg-slate-50 border border-slate-200 text-slate-900 focus:bg-white focus:border-indigo-300" placeholder="Ex: 14" />
+                            </div>
+                        </div>
+                        <div className="mt-4 pt-3 border-t border-slate-100 flex justify-end gap-2">
+                            <button onClick={() => setShowQuickAddModal(false)} className="px-3 py-1.5 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-lg transition-colors">Annuler</button>
+                            <button onClick={handleQuickAdd} className="px-5 py-1.5 bg-indigo-600 text-white text-xs font-bold rounded-lg hover:bg-indigo-700 shadow-md transition-colors">Enregistrer</button>
                         </div>
                     </div>
                 </div>
@@ -255,6 +439,96 @@ const OrderSimulation: React.FC<OrderSimulationProps> = ({
                     </div>
                 </div>
 
+                {/* Per-Pidido Breakdown */}
+                {pididoBreakdown.length > 0 && (
+                    <div className={`rounded-lg border overflow-hidden ${darkMode ? 'bg-gray-900 border-gray-700' : 'bg-white border-slate-200'}`}>
+                        <button
+                            onClick={() => setShowPididoBreakdown(!showPididoBreakdown)}
+                            className={`w-full px-4 h-9 flex items-center justify-between text-[11px] font-medium uppercase tracking-wide border-b ${darkMode ? 'bg-gray-800 text-slate-400 border-gray-700' : 'bg-slate-50/60 text-slate-500 border-slate-100'}`}
+                        >
+                            <span className="flex items-center gap-2">
+                                <Palette className="w-3.5 h-3.5" strokeWidth={1.75} />
+                                Achats par PIDIDO
+                                <span className="text-[10px] font-normal lowercase normal-case text-slate-400">
+                                    ({pididoBreakdown.length} couleurs)
+                                </span>
+                            </span>
+                            {showPididoBreakdown ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
+                        </button>
+                        {showPididoBreakdown && (
+                            <div className="p-3 space-y-2">
+                                {pididoBreakdown.map(pg => (
+                                    <div key={pg.colorId} className={`rounded-lg border p-3 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-slate-100'}`}>
+                                        <div className="flex items-center justify-between mb-2">
+                                            <div className="flex items-center gap-2">
+                                                <div className="w-3 h-3 rounded-full border border-slate-300" style={{ backgroundColor: pg.colorName }} />
+                                                <span className={`text-[13px] font-semibold ${darkMode ? 'text-slate-200' : 'text-slate-800'}`}>{pg.colorName}</span>
+                                                <span className="text-[11px] text-slate-400 font-medium">{pg.pieces} pcs</span>
+                                            </div>
+                                            <span className={`text-[11px] font-semibold ${darkMode ? 'text-slate-300' : 'text-slate-600'}`}>
+                                                {fmt(pg.materials.reduce((s, m) => s + m.cost, 0))} {currency}
+                                            </span>
+                                        </div>
+                                        <div className="overflow-x-auto">
+                                            <table className="w-full text-[12px]">
+                                                <thead>
+                                                    <tr className={`text-[10px] uppercase tracking-wider ${darkMode ? 'text-slate-500' : 'text-slate-400'}`}>
+                                                        <th className="text-left px-2 py-1 font-medium">Matière</th>
+                                                        <th className="text-center px-2 py-1 font-medium">Qté/Pièce</th>
+                                                        <th className="text-center px-2 py-1 font-medium">Besoin ({pg.pieces}pcs)</th>
+                                                        <th className="text-center px-2 py-1 font-medium">Avec {wasteRate}%</th>
+                                                        <th className="text-center px-2 py-1 font-medium">Fournisseur</th>
+                                                        <th className="text-center px-2 py-1 font-medium">Statut</th>
+                                                        <th className="text-right px-2 py-1 font-medium">Coût HT</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody className={`divide-y ${darkMode ? 'divide-gray-700' : 'divide-slate-100'}`}>
+                                                    {pg.materials.map(m => (
+                                                        <tr key={m.id} className={`${darkMode ? 'hover:bg-gray-700' : 'hover:bg-indigo-50/30'} transition-colors cursor-pointer`} onClick={() => setSelectedMaterial({ ...m, colorName: pg.colorName })}>
+                                                            <td className="px-2 py-1.5 font-medium text-slate-700">
+                                                                <div className="flex items-center gap-1.5">
+                                                                    <span className="truncate max-w-[120px]">{m.name}</span>
+                                                                    {m.unit === 'bobine' && <span className="text-[10px] text-slate-400">({m.threadMeters}m/bobine)</span>}
+                                                                </div>
+                                                            </td>
+                                                            <td className="px-2 py-1.5 text-center tabular-nums text-slate-600">{m.qty} {m.unit}</td>
+                                                            <td className="px-2 py-1.5 text-center tabular-nums text-slate-600">{m.baseQty < 10 ? m.baseQty.toFixed(2) : Math.round(m.baseQty)} {m.unit}</td>
+                                                            <td className="px-2 py-1.5 text-center tabular-nums font-medium text-slate-700">{m.buyQty} {m.unit}</td>
+                                                            <td className="px-2 py-1.5 text-center">
+                                                                {m.fournisseur ? (
+                                                                    <span className="text-[10px] font-bold bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded uppercase tracking-wider">{m.fournisseur}</span>
+                                                                ) : (
+                                                                    <span className="text-[10px] text-slate-400">—</span>
+                                                                )}
+                                                            </td>
+                                                            <td className="px-2 py-1.5 text-center">
+                                                                {m.isDelivered ? (
+                                                                    <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">
+                                                                        <CheckCircle className="w-3 h-3" /> Stock OK
+                                                                    </span>
+                                                                ) : m.isPartial ? (
+                                                                    <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full">
+                                                                        <AlertTriangle className="w-3 h-3" /> Partiel
+                                                                    </span>
+                                                                ) : (
+                                                                    <span className="inline-flex items-center gap-1 text-[10px] font-bold text-rose-600 bg-rose-50 px-2 py-0.5 rounded-full">
+                                                                        <Clock className="w-3 h-3" /> En attente
+                                                                    </span>
+                                                                )}
+                                                            </td>
+                                                            <td className="px-2 py-1.5 text-right tabular-nums font-semibold text-slate-800">{fmt(m.cost)} {currency}</td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                )}
+
                 {/* Summary Dashboard Grid */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
 
@@ -326,6 +600,26 @@ const OrderSimulation: React.FC<OrderSimulationProps> = ({
                     </button>
                 </div>
             </div>
+
+            {/* Material Detail Modal */}
+            {selectedMaterial && (
+                <MaterialDetailModal
+                    material={{
+                        name: selectedMaterial.name,
+                        unitPrice: selectedMaterial.unitPrice,
+                        qtyToBuy: selectedMaterial.buyQty,
+                        unit: selectedMaterial.unit,
+                        lineCost: selectedMaterial.cost,
+                        fournisseur: selectedMaterial.fournisseur || undefined,
+                        threadMeters: selectedMaterial.threadMeters,
+                        colorName: selectedMaterial.colorName,
+                        pieces: selectedMaterial.pieces,
+                    }}
+                    currency={currency}
+                    magasinData={magasinData}
+                    onClose={() => setSelectedMaterial(null)}
+                />
+            )}
         </div >
     );
 };

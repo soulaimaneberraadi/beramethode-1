@@ -807,16 +807,8 @@ export default function CostCalculator({
                             textSecondary={textSecondary} bgCard={bgCard} bgCardHeader={bgCardHeader}
                         />
 
-                        {/* Calcul Fil + Affectation Matières */}
+                        {/* Calcul Fil */}
                         <div className="flex justify-end gap-2">
-                            <button
-                                onClick={() => setShowMaterialAssign(true)}
-                                className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-[12px] font-medium transition-colors"
-                                title="Affecter les matières à des couleurs / tailles précises"
-                            >
-                                <SlidersHorizontal className="w-3.5 h-3.5" strokeWidth={1.75} />
-                                Affectation Matières
-                            </button>
                             <button
                                 onClick={() => setShowThreadCalc(true)}
                                 className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md bg-slate-900 hover:bg-slate-800 text-white text-[12px] font-medium transition-colors"
@@ -839,7 +831,20 @@ export default function CostCalculator({
                             textPrimary={textPrimary} textSecondary={textSecondary}
                             tableHeader={tableHeader} tableRowHover={tableRowHover}
                             totalMaterials={totalMaterials}
+                            ficheData={ficheData} setMaterialScope={setMaterialScope}
                         />
+
+                        {/* Affectation Matières — au-dessus du détail des achats */}
+                        <div className="flex justify-end">
+                            <button
+                                onClick={() => setShowMaterialAssign(true)}
+                                className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-[12px] font-medium transition-colors"
+                                title="Affecter les matières à des couleurs / tailles précises"
+                            >
+                                <SlidersHorizontal className="w-3.5 h-3.5" strokeWidth={1.75} />
+                                Affectation Matières
+                            </button>
+                        </div>
 
                         <OrderSimulation
                             t={t} currency={currency} darkMode={darkMode}
@@ -851,6 +856,8 @@ export default function CostCalculator({
                             laborCost={laborCost}
                             textSecondary={textSecondary} textPrimary={textPrimary} bgCard={bgCard}
                             isExport={isExport}
+                            materials={materials}
+                            ficheData={ficheData}
                         />
 
                         {/* Tables récupérées de l'ancien « Ordre de production » : grille

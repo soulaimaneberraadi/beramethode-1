@@ -4,14 +4,14 @@ import react from '@vitejs/plugin-react';
 import obfuscator from 'vite-plugin-javascript-obfuscator';
 
 export default defineConfig(({ mode }) => ({
-    // « npx vite » / « vite preview » : le port est ≠ 8000 pour laisser **npm run dev** (Express + API) sur 8000.
+    // « npx vite » / « vite preview » : le port est ≠ 7000 pour laisser **npm run dev** (Express + API) sur 7000.
     // Le proxy envoie /api vers le backend — sans ça, /api renvoie index.html → erreur « HTML au lieu de JSON ».
     server: {
       port: 5173,
       strictPort: false,
       host: '0.0.0.0',
       proxy: {
-        '/api': { target: 'http://127.0.0.1:8000', changeOrigin: true },
+        '/api': { target: 'http://127.0.0.1:7000', changeOrigin: true },
       },
       watch: {
         // Évite rebuild/HMR en boucle si la DB ou des fichiers temporaires changent souvent

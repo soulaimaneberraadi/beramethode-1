@@ -1282,6 +1282,128 @@ db.exec(`
     try { db.exec(`ALTER TABLE time_catalog_entries ADD COLUMN ${col.name} ${col.def}`); } catch { /* already exists */ }
   }
 
+// ════════════════════════════════════════════════════════════════════════════════
+// MULTI-TENANT + HIÉRARCHIE + SCOPES (USER → Société → Communauté)
+// owner_id = société (= id du patron). created_by = individu (audit "qui a créé").
+// ════════════════════════════════════════════════════════════════════════════════
+db.exec(`
+  -- Profil personnel : suit la personne à vie (même si elle quitte la société)
+  CREATE TABLE IF NOT EXISTS user_profiles (
+    user_id INTEGER PRIMARY KEY,
+    phone TEXT,
+    photo_base64 TEXT,
+    metier TEXT,
+    bio TEXT,
+    is_public INTEGER DEFAULT 0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+  );
+
+  -- Rôles hiérarchiques personnalisables par société
+  CREATE TABLE IF NOT EXISTS company_roles (
+    id TEXT PRIMARY KEY,
+    owner_id INTEGER NOT NULL,          -- société (= id patron)
+    name TEXT NOT NULL,                 -- patron, methode, chrono, commercial...
+    level INTEGER NOT NULL DEFAULT 1,   -- profondeur (0=patron)
+    parent_role_id TEXT,                -- héritage hiérarchique
+    is_system INTEGER DEFAULT 0,        -- patron protégé
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE CASCADE
+  );
+  CREATE INDEX IF NOT EXISTS idx_company_roles_owner ON company_roles(owner_id);
+
+  -- Adhésion : lie un compte user à une société + rôle + portfolio RH
+  CREATE TABLE IF NOT EXISTS company_members (
+    id TEXT PRIMARY KEY,
+    owner_id INTEGER NOT NULL,          -- société (patron)
+    user_id INTEGER NOT NULL,           -- compte employé
+    role_id TEXT NOT NULL,
+    hr_worker_id TEXT,                  -- portfolio RH (nullable)
+    status TEXT DEFAULT 'active',       -- active | removed
+    joined_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    removed_at DATETIME,
+    FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (role_id) REFERENCES company_roles(id) ON DELETE RESTRICT,
+    UNIQUE(owner_id, user_id)
+  );
+  CREATE INDEX IF NOT EXISTS idx_company_members_user ON company_members(user_id, status);
+  CREATE INDEX IF NOT EXISTS idx_company_members_owner ON company_members(owner_id, status);
+
+  -- Permissions par rôle : page ou champ × voir/éditer
+  CREATE TABLE IF NOT EXISTS role_permissions (
+    id TEXT PRIMARY KEY,
+    owner_id INTEGER NOT NULL,
+    role_id TEXT NOT NULL,
+    resource_type TEXT NOT NULL,        -- 'page' | 'field'
+    resource_key TEXT NOT NULL,         -- 'magasin' | 'model.cout_minute'
+    can_view INTEGER DEFAULT 1,
+    can_edit INTEGER DEFAULT 0,
+    FOREIGN KEY (role_id) REFERENCES company_roles(id) ON DELETE CASCADE,
+    UNIQUE(owner_id, role_id, resource_type, resource_key)
+  );
+  CREATE INDEX IF NOT EXISTS idx_role_perms_role ON role_permissions(role_id);
+
+  -- Exceptions par personne (istisnae)
+  CREATE TABLE IF NOT EXISTS member_permission_overrides (
+    id TEXT PRIMARY KEY,
+    owner_id INTEGER NOT NULL,
+    user_id INTEGER NOT NULL,
+    resource_type TEXT NOT NULL,
+    resource_key TEXT NOT NULL,
+    can_view INTEGER,                   -- nullable = pas d'override
+    can_edit INTEGER,
+    FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE CASCADE,
+    UNIQUE(owner_id, user_id, resource_type, resource_key)
+  );
+  CREATE INDEX IF NOT EXISTS idx_member_overrides_user ON member_permission_overrides(user_id);
+
+  -- Communauté : utilisateurs indépendants (hors société) qui partagent entre eux
+  CREATE TABLE IF NOT EXISTS communities (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    description TEXT,
+    created_by INTEGER NOT NULL,
+    visibility TEXT DEFAULT 'private',  -- private (sur invitation) | public
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE CASCADE
+  );
+  CREATE TABLE IF NOT EXISTS community_members (
+    community_id TEXT NOT NULL,
+    user_id INTEGER NOT NULL,
+    role TEXT DEFAULT 'member',         -- owner | moderator | member
+    joined_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (community_id, user_id),
+    FOREIGN KEY (community_id) REFERENCES communities(id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+  );
+  -- Partage d'un élément précis (ne pollue pas les tables de données)
+  CREATE TABLE IF NOT EXISTS shared_resources (
+    id TEXT PRIMARY KEY,
+    community_id TEXT NOT NULL,
+    resource_type TEXT NOT NULL,        -- 'model' | 'catalogue_temps' | ...
+    resource_id TEXT NOT NULL,
+    shared_by INTEGER NOT NULL,
+    access TEXT DEFAULT 'view',         -- view | copy
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (community_id) REFERENCES communities(id) ON DELETE CASCADE
+  );
+  CREATE INDEX IF NOT EXISTS idx_shared_resources_community ON shared_resources(community_id);
+`);
+
+// Audit : created_by / updated_by sur les tables de données (idempotent).
+// owner_id reste la société ; created_by identifie l'individu (admin: "qui a créé").
+const auditScopedTables = [
+  'models', 'magasin_products', 'magasin_mouvements', 'magasin_commandes',
+  'planning_events', 'suivi_data', 'factures', 'hr_workers',
+  'subcontract_orders', 'time_catalog_entries', 'chrono_sessions',
+];
+for (const tbl of auditScopedTables) {
+  for (const col of ['created_by INTEGER', 'updated_by INTEGER']) {
+    try { db.exec(`ALTER TABLE ${tbl} ADD COLUMN ${col}`); } catch { /* already exists / table absent */ }
+  }
+}
+
 export default db;
 
 

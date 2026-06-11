@@ -1301,6 +1301,20 @@ const DICT: Record<string, { ar: string, en: string }> = {
     'Réf:': { ar: 'مرجع:', en: 'Ref:' },
     'N° Bon / Facture (Optionnel)': { ar: 'رقم الوثيقة / الفاتورة (اختياري)', en: 'Doc / Invoice No. (Optional)' },
     'Scanner / Joindre Document': { ar: 'مسح / إرفاق مستند', en: 'Scan / Attach Document' },
+    // Gallery tab translations
+    'Factures & BL': { ar: 'الفواتير ووثائق التسليم', en: 'Invoices & Delivery Notes' },
+    'Factures & Bons de Livraison': { ar: 'الفواتير ووثائق التسليم', en: 'Invoices & Delivery Notes' },
+    'Tous les documents joints aux mouvements — cliquez pour imprimer / télécharger': { ar: 'جميع المستندات المرفقة بالحركات — انقر للطباعة / التنزيل', en: 'All documents attached to movements — click to print / download' },
+    'Tout Imprimer': { ar: 'طباعة الكل', en: 'Print All' },
+    'Documents avec pièce jointe': { ar: 'مستندات مع مرفقات', en: 'Documents with attachments' },
+    'Avec référence': { ar: 'مع مرجع', en: 'With reference' },
+    'Aucun document': { ar: 'لا يوجد مستند', en: 'No documents' },
+    'Joignez des pièces justificatives lors des entrées/sorties pour les voir apparaître ici.': { ar: 'أرفق المستندات التبريرية عند الدخول/الخروج لعرضها هنا.', en: 'Attach supporting documents during entries/exits to see them here.' },
+    'Imprimer': { ar: 'طباعة', en: 'Print' },
+    'Nom du fournisseur': { ar: 'اسم المورد', en: 'Supplier name' },
+    'Destination / Atelier': { ar: 'الوجهة / الورشة', en: 'Destination / Workshop' },
+    "Fournisseur (Origine)": { ar: 'المورد (الأصل)', en: 'Supplier (Origin)' },
+    "Vers": { ar: 'نحو', en: 'To' },
 };
 
 function ImageMagnifier({ src, onClose }: { src: string, onClose: () => void }) {
@@ -1449,7 +1463,7 @@ export default function Magasin({ models = [], planningEvents = [], lang = 'fr',
     const t = (str: string) => lang === 'fr' ? str : (DICT[str]?.[lang] || str);
     const dtpSettings = settings ?? DEFAULT_CALENDAR_APP_SETTINGS;
 
-    const [tab, setTab] = useState<'dashboard' | 'db' | 'bureau' | 'demandes' | 'commandes' | 'alertes' | 'inventaire' | 'tracabilite' | 'wms' | 'fournisseurs' | 'valorisation' | 'receptions' | 'surplus'>('dashboard');
+    const [tab, setTab] = useState<'dashboard' | 'db' | 'bureau' | 'demandes' | 'commandes' | 'alertes' | 'inventaire' | 'tracabilite' | 'wms' | 'fournisseurs' | 'valorisation' | 'receptions' | 'surplus' | 'factures'>('dashboard');
     const [products, setProducts] = useState<MagasinProduct[]>([]);
     const [receptions, setReceptions] = useState<MaterialReceipt[]>(() => ld('beramethode_receptions', []));
     const [lots, setLots] = useState<LotStock[]>([]);
@@ -1768,7 +1782,7 @@ export default function Magasin({ models = [], planningEvents = [], lang = 'fr',
             newMvt = {
                 id: uid(), productId: bPid, type: bMode! as any, quantite: qty,
                 prixUnitaire: isEntree ? (parseFloat(bPrix) || 0) : (bureauProduct!.cump || bureauProduct!.prixUnitaire),
-                fournisseurId: bMode === 'entree' ? bFournisseur : undefined,
+                fournisseurId: (bMode === 'entree' || bMode === 'sortie' || bMode === 'retour_atelier') ? bFournisseur : undefined,
                 chaineId: (bMode === 'sortie' || bMode === 'reservation') ? bChaine : undefined,
                 modeleRef: bModele, bain: bNumBain,
                 date: new Date().toISOString(), notes: bNotes,
@@ -1819,9 +1833,14 @@ export default function Magasin({ models = [], planningEvents = [], lang = 'fr',
                 };
                 setBSuccess(`${actionNames[bMode!]} de ${qty} validé (Sync Database) !`);
             }
-            if (newMvt) setMvts(prev => [newMvt!, ...prev]);
+            if (newMvt) {
+                setMvts(prev => [newMvt!, ...prev]);
+                if (bMode === 'entree' || bMode === 'sortie') {
+                    setPrinterMvt(newMvt);
+                }
+            }
 
-            setBQty(''); setBModele(''); setBNumBain(''); setBNotes(''); setBDocumentRef(''); setBPieceJointe('');
+            setBQty(''); setBModele(''); setBNumBain(''); setBNotes(''); setBDocumentRef(''); setBPieceJointe(''); setBFournisseur('');
             setTimeout(() => setBSuccess(''), 3000);
 
         } catch (error: any) {
@@ -1934,7 +1953,8 @@ export default function Magasin({ models = [], planningEvents = [], lang = 'fr',
                     { i: 'surplus', l: 'Gestion des Surplus', ic: Scale },
                     { i: 'alertes', l: 'Alertes & Ruptures', ic: AlertTriangle, b: alertes.length },
                     { i: 'valorisation', l: 'S. Valorisation (Déchets)', ic: Recycle },
-                    { i: 'tracabilite', l: 'Traçabilité', ic: LinkIcon }
+                    { i: 'tracabilite', l: 'Traçabilité', ic: LinkIcon },
+                    { i: 'factures', l: 'Factures & BL', ic: FileText, b: mvts.filter(m => m.pieceJointe || m.documentRef).length }
                 ].map(tObj => (
                     <button key={tObj.i} onClick={() => setTab(tObj.i as any)} className={`py-3 text-sm font-bold flex items-center gap-2 relative transition-colors whitespace-nowrap ${tab === tObj.i ? 'text-indigo-600' : 'text-slate-500 hover:text-slate-800'}`}>
                         <tObj.ic className="w-4 h-4" />{t(tObj.l)} {!!tObj.b && <span className="bg-red-500 text-white rounded-full px-1.5 py-0.5 text-[10px]">{tObj.b}</span>}
@@ -2394,7 +2414,8 @@ export default function Magasin({ models = [], planningEvents = [], lang = 'fr',
                                                         {bMode === 'entree' && <div className="w-1/3"><Lbl t={t("N° Bain/Lot (Teinture)")} /><input className={inp} placeholder="TEIN-..." value={bNumBain} onChange={e => setBNumBain(e.target.value)} /></div>}
                                                     </div>
 
-                                                    {(bMode === 'entree' || bMode === 'retour_atelier') && <div className="grid grid-cols-2 gap-3"><div><Lbl t={t("Prix Unitaire (CUMP)")} /><input type="number" min="0" step="0.01" className={inp} value={bPrix} onChange={e => setBPrix(e.target.value.replace(/-/g, ''))} /></div>{bMode === 'entree' && <div><Lbl t={t("Fournisseur")} /><input className={inp} value={bFournisseur} onChange={e => setBFournisseur(e.target.value)} /></div>}</div>}
+                                                    {(bMode === 'entree' || bMode === 'retour_atelier') && <div className="grid grid-cols-2 gap-3"><div><Lbl t={t("Prix Unitaire (CUMP)")} /><input type="number" min="0" step="0.01" className={inp} value={bPrix} onChange={e => setBPrix(e.target.value.replace(/-/g, ''))} /></div><div><Lbl t={t("Fournisseur")} /><input className={inp} value={bFournisseur} onChange={e => setBFournisseur(e.target.value)} placeholder={t("Nom du fournisseur")} /></div></div>}
+                                                    {bMode === 'sortie' && <div className="grid grid-cols-2 gap-3"><div><Lbl t={t("Destination / Atelier")} /><input className={inp} value={bChaine} onChange={e => setBChaine(e.target.value)} placeholder={t("Chaîne / Atelier")} /></div><div><Lbl t={t("Fournisseur (Origine)")} /><input className={inp} value={bFournisseur} onChange={e => setBFournisseur(e.target.value)} placeholder={t("Fournisseur d'origine")} /></div></div>}
 
                                                     {(bMode === 'sortie' || bMode === 'reservation' || bMode === 'rebut') && (
                                                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -2472,8 +2493,8 @@ export default function Magasin({ models = [], planningEvents = [], lang = 'fr',
                                                         </div>
                                                     </div>
                                                     <div className="flex justify-between mt-1 items-end">
-                                                        <div className="text-xs text-slate-500">
-                                                            {m.type === 'entree' ? m.fournisseurId : m.type === 'regularisation' ? m.notes : `Vers ${m.chaineId} (OF: ${m.modeleRef})`}
+                                                            <div className="text-xs text-slate-500">
+                                                             {m.type === 'entree' ? m.fournisseurId : m.type === 'sortie' ? `${m.fournisseurId ? `${m.fournisseurId} → ` : ''}Vers ${m.chaineId} (OF: ${m.modeleRef})` : m.type === 'regularisation' ? m.notes : `Vers ${m.chaineId} (OF: ${m.modeleRef})`}
                                                             {m.documentRef && <div className="text-[10px] font-bold text-indigo-500 mt-0.5">{t("Réf:")} {m.documentRef}</div>}
                                                         </div>
                                                         <button onClick={() => setPrinterMvt(m)} className="p-1 hover:bg-slate-100 rounded text-slate-400 hover:text-indigo-600 transition-colors" title={t("Imprimer / Aperçu de Facure / BL")}><Printer className="w-4 h-4" /></button>
@@ -2909,6 +2930,119 @@ export default function Magasin({ models = [], planningEvents = [], lang = 'fr',
                         )}
                     </div>
                 )}
+
+                {/* ══ Factures & BL (Gallery) ══ */}
+                {tab === 'factures' && (
+                    <div className="space-y-6 animate-in fade-in zoom-in-95 duration-300">
+                        <div className="bg-white p-6 rounded-3xl border shadow-sm">
+                            <div className="flex items-center justify-between gap-4 mb-4">
+                                <div>
+                                    <h2 className="text-xl font-black text-slate-800 flex items-center gap-2"><FileText className="w-5 h-5 text-indigo-500" /> {t('Factures & Bons de Livraison')}</h2>
+                                    <p className="text-sm text-slate-500 font-bold">{t('Tous les documents joints aux mouvements — cliquez pour imprimer / télécharger')}</p>
+                                </div>
+                                <div className="flex gap-2">
+                                    <button onClick={() => { const el = document.getElementById('factures-print-all'); if (el) el.click(); }} className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-black text-sm transition-all active:scale-95">
+                                        <Printer className="w-4 h-4" /> {t('Tout Imprimer')}
+                                    </button>
+                                </div>
+                            </div>
+                            <p className="text-xs text-slate-400 font-bold">{t('Documents avec pièce jointe')} : {mvts.filter(m => m.pieceJointe).length} · {t('Avec référence')} : {mvts.filter(m => m.documentRef).length}</p>
+                        </div>
+
+                        {(() => {
+                            const docMvts = mvts.filter(m => m.pieceJointe || m.documentRef);
+                            if (docMvts.length === 0) {
+                                return (
+                                    <div className="text-center py-20 bg-white rounded-3xl border border-dashed border-slate-300">
+                                        <FileText className="w-16 h-16 text-slate-200 mx-auto mb-4" />
+                                        <h3 className="text-lg font-black text-slate-700">{t('Aucun document')}</h3>
+                                        <p className="text-slate-500 font-bold text-sm max-w-sm mx-auto">{t('Joignez des pièces justificatives lors des entrées/sorties pour les voir apparaître ici.')}</p>
+                                    </div>
+                                );
+                            }
+
+                            const groupByMonth = (items: MouvementStock[]) => {
+                                const groups: Record<string, MouvementStock[]> = {};
+                                items.forEach(m => {
+                                    const key = new Date(m.date).toLocaleDateString('fr-MA', { year: 'numeric', month: 'long' });
+                                    if (!groups[key]) groups[key] = [];
+                                    groups[key].push(m);
+                                });
+                                return groups;
+                            };
+
+                            const grouped = groupByMonth(docMvts);
+
+                            return (
+                                <div className="space-y-8">
+                                    {Object.entries(grouped).map(([month, items]) => (
+                                        <div key={month}>
+                                            <h3 className="text-sm font-black text-slate-500 uppercase tracking-wider mb-4 flex items-center gap-2">
+                                                <div className="h-px flex-1 bg-slate-200" />
+                                                <span>{month}</span>
+                                                <div className="h-px flex-1 bg-slate-200" />
+                                            </h3>
+                                            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                                                {items.map(m => {
+                                                    const p = products.find(x => x.id === m.productId);
+                                                    const isSortie = m.type === 'sortie' || m.type === 'rebut' || m.type === 'reservation';
+                                                    const docTitle = isSortie ? 'BL' : 'BR';
+                                                    const docNum = m.documentRef || `${docTitle}-${new Date(m.date).getFullYear()}-${m.id.substring(0, 6).toUpperCase()}`;
+                                                    return (
+                                                        <div
+                                                            key={m.id}
+                                                            role="button"
+                                                            tabIndex={0}
+                                                            onClick={() => setPrinterMvt(m)}
+                                                            className="group relative bg-white rounded-2xl border-2 border-slate-100 hover:border-indigo-300 shadow-sm hover:shadow-lg transition-all cursor-pointer overflow-hidden"
+                                                        >
+                                                            {/* Thumbnail */}
+                                                            <div className="aspect-[3/4] bg-slate-50 flex items-center justify-center overflow-hidden relative">
+                                                                {m.pieceJointe ? (
+                                                                    <img src={m.pieceJointe} alt={docNum} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                                                                ) : (
+                                                                    <div className="flex flex-col items-center gap-2 text-slate-300">
+                                                                        <FileText className="w-12 h-12" />
+                                                                        <span className="text-xs font-bold">{docTitle}</span>
+                                                                    </div>
+                                                                )}
+                                                                {/* Overlay on hover */}
+                                                                <div className="absolute inset-0 bg-indigo-600/0 group-hover:bg-indigo-600/10 transition-colors flex items-center justify-center">
+                                                                    <div className="opacity-0 group-hover:opacity-100 transition-opacity bg-white/90 backdrop-blur rounded-xl px-3 py-2 shadow-lg flex items-center gap-2">
+                                                                        <Printer className="w-4 h-4 text-indigo-600" />
+                                                                        <span className="text-xs font-black text-indigo-700">{t('Imprimer')}</span>
+                                                                    </div>
+                                                                </div>
+                                                                {/* Type badge */}
+                                                                <div className={`absolute top-2 left-2 px-2 py-0.5 rounded-lg text-[10px] font-black uppercase ${isSortie ? 'bg-rose-100 text-rose-700' : 'bg-emerald-100 text-emerald-700'}`}>
+                                                                    {isSortie ? 'BL' : 'BR'}
+                                                                </div>
+                                                            </div>
+                                                            {/* Info */}
+                                                            <div className="p-3">
+                                                                <div className="font-black text-slate-800 text-xs truncate">{p?.designation || t('Inconnu')}</div>
+                                                                <div className="text-[10px] text-slate-400 font-bold mt-1 font-mono">{docNum}</div>
+                                                                <div className="flex justify-between items-center mt-2">
+                                                                    <span className="text-[10px] text-slate-400 font-bold">{new Date(m.date).toLocaleDateString('fr-MA', { day: '2-digit', month: 'short' })}</span>
+                                                                    <span className={`text-xs font-black ${isSortie ? 'text-rose-600' : 'text-emerald-600'}`}>
+                                                                        {isSortie ? '-' : '+'}{m.quantite}
+                                                                    </span>
+                                                                </div>
+                                                                {m.fournisseurId && <div className="text-[10px] text-indigo-500 font-bold mt-1 truncate">📦 {m.fournisseurId}</div>}
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            );
+                        })()}
+                        <button id="factures-print-all" className="hidden" onClick={() => window.print()} />
+                    </div>
+                )}
+
                 {conflictData && (
                     <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-[1000] p-4">
                         <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-200">

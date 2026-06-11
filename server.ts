@@ -10,6 +10,12 @@ import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import { register, login, logout, me, requestPasswordReset, verifyResetCode, resetPassword } from './server/authController';
 import { getAllUsers, updateUserRole, deleteUser, isAdmin } from './server/userController';
+import {
+  getMyPermissions, listRoles, createRole, deleteRole,
+  getRolePermissions, setRolePermissions, setOverride,
+  listMembers, addMember, removeMember,
+} from './server/permissionsController';
+import { getMyProfile, updateMyProfile } from './server/profileController';
 import { getModels, saveModel, deleteModel } from './server/modelController';
 import {
   getMagasinProducts,
@@ -102,7 +108,7 @@ import {
 
 async function startServer() {
   const app = express();
-  const PORT = parseInt(process.env.PORT || '8000', 10);
+  const PORT = parseInt(process.env.PORT || '7000', 10);
 
   if (shouldUseHelmet()) {
     app.use(
@@ -253,6 +259,22 @@ async function startServer() {
   app.get('/api/users', authenticateToken, isAdmin, getAllUsers);
   app.put('/api/users/:id/role', authenticateToken, isAdmin, updateUserRole);
   app.delete('/api/users/:id', authenticateToken, isAdmin, deleteUser);
+
+  // ── Profil personnel (Epic 2) ──
+  app.get('/api/profile/me', authenticateToken, getMyProfile);
+  app.put('/api/profile/me', authenticateToken, updateMyProfile);
+
+  // ── Permissions hiérarchiques (Epic 2) ──
+  app.get('/api/permissions/me', authenticateToken, getMyPermissions);
+  app.get('/api/permissions/roles', authenticateToken, listRoles);
+  app.post('/api/permissions/roles', authenticateToken, createRole);
+  app.delete('/api/permissions/roles/:id', authenticateToken, deleteRole);
+  app.get('/api/permissions/roles/:id/perms', authenticateToken, getRolePermissions);
+  app.put('/api/permissions/roles/:id/perms', authenticateToken, setRolePermissions);
+  app.put('/api/permissions/overrides/:userId', authenticateToken, setOverride);
+  app.get('/api/permissions/members', authenticateToken, listMembers);
+  app.post('/api/permissions/members', authenticateToken, addMember);
+  app.delete('/api/permissions/members/:userId', authenticateToken, removeMember);
 
   app.get('/api/planning', authenticateToken, getPlanningEvents);
   app.post('/api/planning', authenticateToken, savePlanningEvents);

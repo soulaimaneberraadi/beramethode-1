@@ -14,12 +14,16 @@ import {
     AlertTriangle,
     CheckCircle,
     Clock,
-    Hash
+    Hash,
+    Package,
+    Truck
 } from 'lucide-react';
 import { FicheData, AppSettings, PlanningEvent } from '../types';
 import DateTimePicker from './ui/DateTimePicker';
 import ExcelInput from './ExcelInput';
 import RepartitionMatrix from './RepartitionMatrix';
+import MaterialDetailModal from './MaterialDetailModal';
+import { fmt } from '../constants';
 
 const LAUNCH_HOUR_OPTS = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0'));
 const LAUNCH_MINUTE_OPTS = Array.from({ length: 12 }, (_, i) => String(i * 5).padStart(2, '0'));
@@ -91,6 +95,19 @@ export default function Pedido({
     setPlanningEvents,
 }: PedidoProps) {
     const pt = PEDIDO_LABELS[lang];
+
+    // Material detail modal state
+    const [selectedMaterial, setSelectedMaterial] = useState<any>(null);
+    const [magasinData, setMagasinData] = useState<any[]>([]);
+
+    useEffect(() => {
+        try {
+            const data = localStorage.getItem('beramethode_magasin');
+            if (data) setMagasinData(JSON.parse(data));
+        } catch (e) {
+            console.error(e);
+        }
+    }, []);
 
     const modelEvents = useMemo(() => {
         if (!planningEvents) return [];
@@ -1132,6 +1149,132 @@ export default function Pedido({
                                                     </div>
                                                 </div>
                                             )}
+
+                                            {/* BESOIN MATIÈRES PAR PEDRO — m9soma 3la couleur */}
+                                            <div className="space-y-2">
+                                                <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+                                                    <Package className="w-3.5 h-3.5 text-slate-400" />
+                                                    {lang === 'ar' ? 'احتياجات المواد' : 'Besoin Matières'}
+                                                </div>
+                                                <div className="rounded-xl border border-amber-100/50 overflow-hidden">
+                                                    {(() => {
+                                                        const gq = evt.sizeColorDistribution || {};
+                                                        const materials = data.materials || [];
+                                                        if (materials.length === 0) {
+                                                            return (
+                                                                <p className="text-[11px] text-slate-400 italic text-center py-3 bg-amber-50/20">
+                                                                    {lang === 'ar' ? 'لا توجد مواد محددة في فيش التكلفة' : 'Aucune matière définie dans la Fiche de Coût'}
+                                                                </p>
+                                                            );
+                                                        }
+
+                                                        const colorGroups = filteredColors.map(c => {
+                                                            let colorPieces = 0;
+                                                            filteredSizes.forEach(s => {
+                                                                colorPieces += Number(gq[c.id]?.[s] || 0);
+                                                            });
+                                                            if (colorPieces <= 0) return null;
+
+                                                            const colorMats = materials.filter(m => {
+                                                                if (m.scope?.colors?.length) return m.scope.colors.includes(c.id);
+                                                                if (m.threadColor) return m.threadColor === c.name;
+                                                                return true;
+                                                            }).map(m => {
+                                                                const baseQty = m.qty * colorPieces;
+                                                                const buyQty = Math.ceil(baseQty * 1.05);
+                                                                const cost = buyQty * m.unitPrice;
+                                                                const mItem = magasinData.find((x: any) => x.nom === m.name || x.designation === m.name);
+                                                                const stockActuel = mItem?.stockActuel || 0;
+                                                                const fournisseur = m.fournisseur || mItem?.fournisseurNom || mItem?.fournisseur || null;
+                                                                const isDelivered = stockActuel >= buyQty;
+                                                                const isPartial = stockActuel > 0 && stockActuel < buyQty;
+                                                                return { ...m, colorPieces, buyQty, cost, stockActuel, fournisseur, isDelivered, isPartial };
+                                                            }).filter(m => m.buyQty > 0);
+
+                                                            if (colorMats.length === 0) return null;
+                                                            const colorTotal = colorMats.reduce((s, m) => s + m.cost, 0);
+                                                            return { colorId: c.id, colorName: c.name, colorPieces, colorMats, colorTotal };
+                                                        }).filter(Boolean) as Array<{
+                                                            colorId: string; colorName: string; colorPieces: number;
+                                                            colorMats: any[]; colorTotal: number;
+                                                        }>;
+
+                                                        if (colorGroups.length === 0) {
+                                                            return (
+                                                                <p className="text-[11px] text-slate-400 italic text-center py-3 bg-amber-50/20">
+                                                                    {lang === 'ar' ? 'لا توجد مواد لهذا الدفعة' : 'Aucune matière nécessaire pour ce lot'}
+                                                                </p>
+                                                            );
+                                                        }
+
+                                                        const grandTotal = colorGroups.reduce((s, g) => s + g.colorTotal, 0);
+
+                                                        return (
+                                                            <div className="space-y-0">
+                                                                <div className="flex items-center justify-between px-3 py-2 bg-amber-50/40 border-b border-amber-100/50">
+                                                                    <span className="text-[10px] font-bold text-amber-600 bg-amber-100 px-2 py-0.5 rounded-full">
+                                                                        {colorGroups.length} couleur(s)
+                                                                    </span>
+                                                                    <span className="text-[10px] font-bold text-amber-700">
+                                                                        Total HT: {fmt(grandTotal)} DH
+                                                                    </span>
+                                                                </div>
+                                                                {colorGroups.map((cg, cgIdx) => {
+                                                                    const cHex = cg.colorId && cg.colorId.startsWith('#') ? cg.colorId : null;
+                                                                    return (
+                                                                        <div key={cg.colorId} className={`${cgIdx > 0 ? 'border-t border-amber-100/50' : ''}`}>
+                                                                            <div className="px-3 py-2 bg-white/60 flex items-center justify-between">
+                                                                                <div className="flex items-center gap-2">
+                                                                                    <div className={`w-2.5 h-2.5 rounded-full shadow-sm ${cHex ? '' : 'bg-slate-300'}`} style={cHex ? { backgroundColor: cHex } : undefined} />
+                                                                                    <span className="text-[11px] font-bold text-slate-700">{cg.colorName}</span>
+                                                                                    <span className="text-[9px] text-slate-400 font-medium">{cg.colorPieces} pcs</span>
+                                                                                </div>
+                                                                                <span className="text-[10px] font-bold text-indigo-600">{fmt(cg.colorTotal)} DH</span>
+                                                                            </div>
+                                                                            <div className="overflow-x-auto bg-amber-50/20">
+                                                                                <table className="w-full text-[11px]">
+                                                                                    <thead>
+                                                                                        <tr className="text-[9px] uppercase tracking-wider text-slate-400 border-b border-amber-100/30">
+                                                                                            <th className="text-left px-3 py-1.5 font-medium">Matière</th>
+                                                                                            <th className="text-center px-2 py-1.5 font-medium">Qté</th>
+                                                                                            <th className="text-center px-2 py-1.5 font-medium">Fournisseur</th>
+                                                                                            <th className="text-center px-2 py-1.5 font-medium">Statut</th>
+                                                                                            <th className="text-right px-3 py-1.5 font-medium">Coût HT</th>
+                                                                                        </tr>
+                                                                                    </thead>
+                                                                                    <tbody className="divide-y divide-amber-50/50">
+                                                                                        {cg.colorMats.map((m: any, idx: number) => (
+                                                                                            <tr key={`${m.id}-${idx}`} className="hover:bg-amber-50/30 transition-colors cursor-pointer" onClick={() => setSelectedMaterial({ ...m, colorName: cg.colorName })}>
+                                                                                                <td className="px-3 py-1.5 font-medium text-slate-700 truncate max-w-[100px]">{m.name}</td>
+                                                                                                <td className="px-2 py-1.5 text-center tabular-nums text-slate-600">{m.buyQty} {m.unit}</td>
+                                                                                                <td className="px-2 py-1.5 text-center">
+                                                                                                    {m.fournisseur ? (
+                                                                                                        <span className="text-[9px] font-bold bg-indigo-50 text-indigo-700 px-1.5 py-0.5 rounded">{m.fournisseur}</span>
+                                                                                                    ) : <span className="text-slate-300">—</span>}
+                                                                                                </td>
+                                                                                                <td className="px-2 py-1.5 text-center">
+                                                                                                    {m.isDelivered ? (
+                                                                                                        <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-emerald-600"><CheckCircle className="w-2.5 h-2.5" /> OK</span>
+                                                                                                    ) : m.isPartial ? (
+                                                                                                        <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-amber-600"><AlertTriangle className="w-2.5 h-2.5" /> Partiel</span>
+                                                                                                    ) : (
+                                                                                                        <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-rose-600"><Clock className="w-2.5 h-2.5" /> Attente</span>
+                                                                                                    )}
+                                                                                                </td>
+                                                                                                <td className="px-3 py-1.5 text-right tabular-nums font-semibold text-slate-800">{fmt(m.cost)} DH</td>
+                                                                                            </tr>
+                                                                                        ))}
+                                                                                    </tbody>
+                                                                                </table>
+                                                                            </div>
+                                                                        </div>
+                                                                    );
+                                                                })}
+                                                            </div>
+                                                        );
+                                                    })()}
+                                                </div>
+                                            </div>
                                         </div>
                                     );
                                 })
@@ -1371,6 +1514,26 @@ export default function Pedido({
                         </table>
                     </div>
                 </div>
+            )}
+
+            {/* Material Detail Modal */}
+            {selectedMaterial && (
+                <MaterialDetailModal
+                    material={{
+                        name: selectedMaterial.name,
+                        unitPrice: selectedMaterial.unitPrice,
+                        qtyToBuy: selectedMaterial.buyQty || selectedMaterial.qtyToBuy,
+                        unit: selectedMaterial.unit,
+                        lineCost: selectedMaterial.cost || selectedMaterial.lineCost,
+                        fournisseur: selectedMaterial.fournisseur || undefined,
+                        threadMeters: selectedMaterial.threadMeters,
+                        colorName: selectedMaterial.colorName,
+                        pieces: selectedMaterial.applicablePieces || selectedMaterial.pieces,
+                    }}
+                    currency="DH"
+                    magasinData={magasinData}
+                    onClose={() => setSelectedMaterial(null)}
+                />
             )}
         </div>
     );
