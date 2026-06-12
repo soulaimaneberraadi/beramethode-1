@@ -34,12 +34,12 @@ export default function QuickFilters({
     if (!open) return null;
 
     return (
-        <div className="shrink-0 px-6 py-3 border-b border-slate-100 bg-slate-50/40">
+        <div className="shrink-0 px-6 py-3 border-b border-slate-200/40 bg-white/40 backdrop-blur-md transition-all duration-300">
             <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
 
                 {/* Status section */}
                 <div className="flex items-center gap-2">
-                    <span className="text-[10px] font-medium text-slate-400 uppercase tracking-wider mr-1">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mr-1.5">
                         Statut
                     </span>
                     {STATUS_ORDER.map(s => {
@@ -50,9 +50,9 @@ export default function QuickFilters({
                                 key={s}
                                 type="button"
                                 onClick={() => onToggleStatus(s)}
-                                className={`inline-flex items-center gap-1.5 h-6 px-2 rounded text-[11px] font-medium transition-colors ${
+                                className={`inline-flex items-center gap-1.5 h-6 px-2.5 rounded-lg text-[11px] font-bold transition-all duration-200 active:scale-95 ${
                                     active
-                                        ? 'bg-white text-slate-900 ring-1 ring-slate-200 shadow-[0_1px_2px_rgba(15,23,42,0.04)]'
+                                        ? 'bg-white text-slate-900 ring-1 ring-slate-200/60 shadow-[0_2px_6px_rgba(0,0,0,0.04)]'
                                         : 'text-slate-500 hover:text-slate-700 hover:bg-white/60'
                                 }`}
                             >
@@ -66,7 +66,7 @@ export default function QuickFilters({
                 {/* Clients section */}
                 {allClients.length > 0 && (
                     <div className="flex items-center gap-2 min-w-0">
-                        <span className="text-[10px] font-medium text-slate-400 uppercase tracking-wider mr-1 shrink-0">
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mr-1.5 shrink-0">
                             Client
                         </span>
                         <div className="flex flex-wrap items-center gap-1.5">
@@ -78,9 +78,9 @@ export default function QuickFilters({
                                         key={c}
                                         type="button"
                                         onClick={() => onToggleClient(c)}
-                                        className={`inline-flex items-center gap-1.5 h-6 px-2 rounded text-[11px] font-medium transition-colors max-w-[10rem] ${
+                                        className={`inline-flex items-center gap-1.5 h-6 px-2.5 rounded-lg text-[11px] font-bold transition-all duration-200 active:scale-95 max-w-[10rem] ${
                                             active
-                                                ? 'bg-white text-slate-900 ring-1 ring-slate-200 shadow-[0_1px_2px_rgba(15,23,42,0.04)]'
+                                                ? 'bg-white text-slate-900 ring-1 ring-slate-200/60 shadow-[0_2px_6px_rgba(0,0,0,0.04)]'
                                                 : 'text-slate-500 hover:text-slate-700 hover:bg-white/60'
                                         }`}
                                     >
@@ -90,7 +90,7 @@ export default function QuickFilters({
                                 );
                             })}
                             {allClients.length > 8 && (
-                                <span className="text-[10px] text-slate-400">
+                                <span className="text-[10px] font-bold text-slate-400">
                                     +{allClients.length - 8} autres
                                 </span>
                             )}
@@ -101,19 +101,19 @@ export default function QuickFilters({
                 {/* Visualisation Mode section */}
                 {onToggleCRColors && (
                     <div className="flex items-center gap-2">
-                        <span className="text-[10px] font-medium text-slate-400 uppercase tracking-wider mr-1">
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mr-1.5">
                             Affichage
                         </span>
                         <button
                             type="button"
                             onClick={onToggleCRColors}
-                            className={`inline-flex items-center gap-1.5 h-6 px-2 rounded text-[11px] font-medium transition-colors ${
+                            className={`inline-flex items-center gap-1.5 h-6 px-2.5 rounded-lg text-[11px] font-bold transition-all duration-200 active:scale-95 ${
                                 showCRColors
-                                    ? 'bg-red-50 text-red-700 ring-1 ring-red-200 shadow-[0_1px_2px_rgba(15,23,42,0.04)] font-bold'
+                                    ? 'bg-red-500/10 text-red-700 ring-1 ring-red-550/25 shadow-[0_2px_6px_rgba(239,68,68,0.05)]'
                                     : 'text-slate-500 hover:text-slate-700 hover:bg-white/60'
                             }`}
                         >
-                            <span className={`w-1.5 h-1.5 rounded-full ${showCRColors ? 'bg-red-500 animate-pulse' : 'bg-slate-300'}`} />
+                            <span className={`w-1.5 h-1.5 rounded-full ${showCRColors ? 'bg-red-550 animate-pulse' : 'bg-slate-350'}`} />
                             Taux Critique (CR)
                         </button>
                     </div>
@@ -123,7 +123,7 @@ export default function QuickFilters({
                     <button
                         type="button"
                         onClick={onReset}
-                        className="inline-flex items-center gap-1 h-6 px-2 rounded text-[11px] font-medium text-slate-500 hover:text-slate-900 hover:bg-white/60 ml-auto transition-colors"
+                        className="inline-flex items-center gap-1 h-6 px-2.5 rounded-lg text-[11px] font-bold text-slate-500 hover:text-red-600 hover:bg-red-50/50 border border-transparent hover:border-red-200/50 ml-auto transition-all duration-200 active:scale-95"
                     >
                         <X className="w-3 h-3" />
                         Effacer

@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState } from 'react';
-import { FileDown, X, Palette, Minus, Plus, Layout, ZoomIn, FileText, Printer, Check } from 'lucide-react';
+import { FileDown, X, Palette, Minus, Plus, Layout, ZoomIn, FileText, Printer, Check, FileSpreadsheet } from 'lucide-react';
 import { PdfSettings } from '../types';
 
 interface PdfSettingsModalProps {
@@ -12,6 +12,10 @@ interface PdfSettingsModalProps {
     pdfSettings: PdfSettings;
     setPdfSettings: React.Dispatch<React.SetStateAction<PdfSettings>>;
     generatePDF: (action: 'save' | 'preview') => void;
+    /** Imprime l'aperçu A4 affiché (mêmes sections/orientation que le PDF). */
+    onPrint?: () => void;
+    /** Exporte la fiche en Excel (.xlsx). */
+    onExcel?: () => void;
     pdfSections?: { info: boolean; nomenclature: boolean; pricing: boolean; order: boolean; notes: boolean };
     setPdfSections?: React.Dispatch<React.SetStateAction<{ info: boolean; nomenclature: boolean; pricing: boolean; order: boolean; notes: boolean }>>;
     children: React.ReactNode;
@@ -20,7 +24,7 @@ interface PdfSettingsModalProps {
 const PdfSettingsModal: React.FC<PdfSettingsModalProps> = ({
     t, darkMode, showPdfModal, setShowPdfModal,
     isGeneratingPdf, isLibLoaded, pdfSettings, setPdfSettings, generatePDF,
-    pdfSections, setPdfSections,
+    onPrint, onExcel, pdfSections, setPdfSections,
     children
 }) => {
     const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
@@ -62,10 +66,14 @@ const PdfSettingsModal: React.FC<PdfSettingsModalProps> = ({
     // Avant la première mesure du conteneur, on utilise une échelle de repli pour
     // éviter un aperçu invisible (taille 0 → échelle négative).
     const measured = availableWidth > 0 && availableHeight > 0;
+    // On ajuste à la LARGEUR ET à la HAUTEUR : la feuille A4 reste TOUJOURS
+    // visible en entier (aucun défilement), aussi bien sur PC que sur mobile.
     const fitScale = measured
         ? Math.min(availableWidth / paperWidth, availableHeight / paperHeight, 1)
         : 0.62;
     const displayScale = fitScale * pdfSettings.scale;
+    const scaledW = paperWidth * displayScale;
+    const scaledH = paperHeight * displayScale;
 
     return (
         <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-md z-50 flex items-center justify-center animate-in fade-in duration-200">
@@ -73,8 +81,8 @@ const PdfSettingsModal: React.FC<PdfSettingsModalProps> = ({
             {/* Main Container */}
             <div className={`w-full h-full md:w-[95vw] md:h-[90vh] md:max-w-6xl md:rounded-2xl shadow-2xl overflow-hidden flex flex-col md:flex-row ${darkMode ? 'bg-gray-900 border border-gray-700' : 'bg-white'}`}>
 
-                {/* LEFT SIDEBAR - CONTROLS */}
-                <div className={`w-full md:w-72 flex-shrink-0 flex flex-col ${darkMode ? 'bg-gray-800 border-r border-gray-700' : 'bg-slate-50 border-r border-slate-200'}`}>
+                {/* LEFT SIDEBAR - CONTROLS (passe en bas sur mobile) */}
+                <div className={`order-2 md:order-1 w-full md:w-72 flex-1 md:flex-shrink-0 min-h-0 flex flex-col ${darkMode ? 'bg-gray-800 border-r border-gray-700' : 'bg-slate-50 border-r border-slate-200'}`}>
 
                     {/* Header */}
                     <div className={`px-4 py-3 border-b flex justify-between items-center ${darkMode ? 'border-gray-700' : 'border-slate-200'}`}>
@@ -276,6 +284,26 @@ const PdfSettingsModal: React.FC<PdfSettingsModalProps> = ({
                                 </>
                             )}
                         </button>
+                        <div className="grid grid-cols-2 gap-2 mt-2">
+                            {onPrint && (
+                                <button
+                                    onClick={onPrint}
+                                    className={`py-2.5 rounded-lg font-bold text-sm flex items-center justify-center gap-2 transition-all active:scale-[0.98] border ${darkMode ? 'bg-gray-800 border-gray-600 text-gray-100 hover:bg-gray-700' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'}`}
+                                >
+                                    <Printer className="w-4 h-4" />
+                                    <span>Imprimer</span>
+                                </button>
+                            )}
+                            {onExcel && (
+                                <button
+                                    onClick={onExcel}
+                                    className={`py-2.5 rounded-lg font-bold text-sm flex items-center justify-center gap-2 transition-all active:scale-[0.98] border ${darkMode ? 'bg-gray-800 border-gray-600 text-gray-100 hover:bg-gray-700' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'}`}
+                                >
+                                    <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
+                                    <span>Excel</span>
+                                </button>
+                            )}
+                        </div>
                         {!isLibLoaded && (
                             <p className="text-[9px] text-center mt-1.5 text-amber-500">
                                 Chargement de la librairie...
@@ -284,8 +312,8 @@ const PdfSettingsModal: React.FC<PdfSettingsModalProps> = ({
                     </div>
                 </div>
 
-                {/* RIGHT - LIVE PREVIEW */}
-                <div className={`flex-1 relative overflow-hidden flex flex-col ${darkMode ? 'bg-gray-950' : 'bg-slate-100'}`}>
+                {/* RIGHT - LIVE PREVIEW (passe EN HAUT sur mobile) */}
+                <div className={`order-1 md:order-2 flex-shrink-0 h-[52vh] md:h-auto md:flex-1 relative overflow-hidden flex flex-col ${darkMode ? 'bg-gray-950' : 'bg-slate-100'}`}>
 
                     {/* Top Toolbar */}
                     <div className="absolute top-3 left-1/2 -translate-x-1/2 z-10 flex items-center gap-1.5 px-2 py-1 rounded-full shadow-md border bg-white/90 backdrop-blur-sm border-slate-200">
@@ -301,7 +329,7 @@ const PdfSettingsModal: React.FC<PdfSettingsModalProps> = ({
                     {/* Canvas Area */}
                     <div
                         ref={containerRef}
-                        className="flex-1 overflow-auto flex items-center justify-center p-6 relative"
+                        className="flex-1 overflow-auto flex items-center justify-center p-3 md:p-6 relative"
                         style={{
                             backgroundImage: darkMode
                                 ? 'radial-gradient(#374151 1px, transparent 1px)'
@@ -309,20 +337,27 @@ const PdfSettingsModal: React.FC<PdfSettingsModalProps> = ({
                             backgroundSize: '16px 16px'
                         }}
                     >
-                        {/* Paper */}
-                        <div
-                            style={{
-                                width: paperWidth,
-                                height: paperHeight,
-                                transform: `scale(${displayScale})`,
-                                transition: 'transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94), width 0.3s, height 0.3s',
-                                transformOrigin: 'center center',
-                                boxShadow: '0 20px 40px -10px rgba(0, 0, 0, 0.2)'
-                            }}
-                            className={`bg-white relative overflow-hidden ${pdfSettings.colorMode === 'grayscale' ? 'grayscale' : ''}`}
-                        >
-                            <div className="w-full h-full pointer-events-none select-none">
-                                {children}
+                        {/* Cadre qui réserve la place exacte de la feuille mise à l'échelle
+                            (évite tout débordement / décalage du transform). */}
+                        <div style={{ width: scaledW, height: scaledH, position: 'relative', flex: '0 0 auto' }}>
+                            {/* Paper */}
+                            <div
+                                id="pdf-print-area"
+                                style={{
+                                    width: paperWidth,
+                                    height: paperHeight,
+                                    position: 'absolute',
+                                    top: 0,
+                                    left: 0,
+                                    transform: `scale(${displayScale})`,
+                                    transformOrigin: 'top left',
+                                    boxShadow: '0 20px 40px -10px rgba(0, 0, 0, 0.2)'
+                                }}
+                                className={`bg-white overflow-hidden ${pdfSettings.colorMode === 'grayscale' ? 'grayscale' : ''}`}
+                            >
+                                <div className="w-full h-full pointer-events-none select-none">
+                                    {children}
+                                </div>
                             </div>
                         </div>
                     </div>

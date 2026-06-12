@@ -5,6 +5,8 @@ import { fmt } from '../constants';
 import MaterialDetailModal from './MaterialDetailModal';
 import NumberInput from './ui/NumberInput';
 import { findMagasinItem, resolveStock } from '../lib/magasinMatch';
+import { confirmReceptionLocal } from '../lib/confirmReception';
+import FactureUploader from './FactureUploader';
 
 interface OrderSimulationProps {
     t: any;
@@ -24,6 +26,9 @@ interface OrderSimulationProps {
     isExport?: boolean;
     materials?: Material[];
     ficheData?: FicheData;
+    modelId?: string;
+    modelName?: string;
+    onStockConfirmed?: () => void;
 }
 
 const OrderSimulation: React.FC<OrderSimulationProps> = ({
@@ -33,6 +38,7 @@ const OrderSimulation: React.FC<OrderSimulationProps> = ({
     textSecondary, textPrimary, bgCard,
     isExport = false,
     materials = [], ficheData,
+    modelId, modelName, onStockConfirmed,
 }) => {
     const activeQtyToSimulate = orderQty;
     const totalProjectCost = isExport ? (laborCost * activeQtyToSimulate) : totalPurchasingMatCost + (laborCost * activeQtyToSimulate);
@@ -52,6 +58,28 @@ const OrderSimulation: React.FC<OrderSimulationProps> = ({
 
     // Material detail modal state
     const [selectedMaterial, setSelectedMaterial] = useState<any>(null);
+
+    // Confirmation de réception (entrée stock + BR pour le Planning)
+    const [confirmModal, setConfirmModal] = useState<{ open: boolean; mat?: any; qty: string }>({ open: false, qty: '' });
+
+    const handleConfirmReception = () => {
+        const m = confirmModal.mat;
+        const qty = Math.max(0, parseFloat(confirmModal.qty) || 0);
+        if (!m || qty <= 0) return;
+        const res = confirmReceptionLocal({
+            materialName: m.name,
+            qty,
+            unit: m.unit,
+            unitPrice: m.unitPrice,
+            modelId: modelId || '',
+            modelName,
+            supplierName: m.fournisseur || null,
+        });
+        // Le stock opérationnel local pilote le statut → on rafraîchit directement.
+        setMagasinData(res.updatedMagasin);
+        onStockConfirmed?.();
+        setConfirmModal({ open: false, qty: '' });
+    };
 
     // Per-pidido: each color → its applicable materials with quantities + supplier info
     const pididoBreakdown = useMemo(() => {
@@ -212,6 +240,41 @@ const OrderSimulation: React.FC<OrderSimulationProps> = ({
                         <div className="mt-3 flex justify-center">
                             <button onClick={() => setShowQuickAddModal(true)} className="text-[11px] text-[#2149C1] font-bold hover:text-slate-700 transition-colors flex items-center gap-1">
                                 <Plus className="w-3.5 h-3.5" /> Ajouter un nouveau produit au magasin
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* CONFIRMER RÉCEPTION MODAL */}
+            {confirmModal.open && confirmModal.mat && (
+                <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => setConfirmModal({ open: false, qty: '' })}>
+                    <div className="bg-white rounded-lg border border-slate-200 shadow-sm w-full max-w-sm overflow-hidden animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
+                        <div className="px-5 h-12 border-b border-slate-100 flex items-center gap-2">
+                            <CheckCircle className="w-4 h-4 text-emerald-600" strokeWidth={1.75} />
+                            <div>
+                                <h3 className="text-[13px] font-semibold text-slate-900 tracking-tight">Confirmer réception</h3>
+                                <p className="text-[11px] text-slate-400">{confirmModal.mat.name}</p>
+                            </div>
+                        </div>
+                        <div className="p-5 space-y-3">
+                            <div>
+                                <label className="block text-[11px] font-medium text-slate-500 mb-1.5">Quantité reçue ({confirmModal.mat.unit})</label>
+                                <input
+                                    type="number" min="0" step="0.01" autoFocus
+                                    value={confirmModal.qty}
+                                    onChange={(e) => setConfirmModal(c => ({ ...c, qty: e.target.value }))}
+                                    className="w-full h-9 px-3 bg-slate-50/60 hover:bg-slate-50 focus:bg-white border border-slate-200 focus:border-slate-300 rounded-md text-[13px] font-semibold text-slate-700 focus:ring-2 focus:ring-slate-100 outline-none transition-all tabular-nums"
+                                />
+                                <p className="text-[10.5px] text-slate-400 mt-1.5">
+                                    Besoin : {fmt(confirmModal.mat.buyQty)} {confirmModal.mat.unit}. La quantité confirmée s'ajoute au stock et lève « En attente » (BR pour le Planning).
+                                </p>
+                            </div>
+                        </div>
+                        <div className="bg-slate-50 px-5 py-4 flex justify-end gap-2.5 border-t border-slate-100">
+                            <button onClick={() => setConfirmModal({ open: false, qty: '' })} className="px-4 h-9 text-[12px] font-medium text-slate-600 bg-white border border-slate-200 rounded-md hover:bg-slate-50 transition-colors">Annuler</button>
+                            <button onClick={handleConfirmReception} className="inline-flex items-center gap-1.5 px-4 h-9 text-[12px] font-medium text-white bg-slate-900 hover:bg-slate-800 rounded-md transition-colors">
+                                <CheckCircle className="w-3.5 h-3.5" strokeWidth={2} /> Confirmer
                             </button>
                         </div>
                     </div>
@@ -489,6 +552,7 @@ const OrderSimulation: React.FC<OrderSimulationProps> = ({
                                                         <th className="text-center px-2 py-1 font-medium">Fournisseur</th>
                                                         <th className="text-center px-2 py-1 font-medium">Statut</th>
                                                         <th className="text-right px-2 py-1 font-medium">Coût HT</th>
+                                                        <th className="text-center px-2 py-1 font-medium">Actions</th>
                                                     </tr>
                                                 </thead>
                                                 <tbody className={`divide-y ${darkMode ? 'divide-gray-700' : 'divide-slate-100'}`}>
@@ -532,6 +596,20 @@ const OrderSimulation: React.FC<OrderSimulationProps> = ({
                                                                 )}
                                                             </td>
                                                             <td className="px-2 py-1.5 text-right tabular-nums font-semibold text-slate-800">{fmt(m.cost)} {currency}</td>
+                                                            <td className="px-2 py-1.5" onClick={(e) => e.stopPropagation()}>
+                                                                <div className="flex items-center justify-center gap-1.5">
+                                                                    {!m.isDelivered && modelId && (
+                                                                        <button
+                                                                            onClick={(e) => { e.stopPropagation(); setConfirmModal({ open: true, mat: m, qty: String(Math.round(m.buyQty)) }); }}
+                                                                            className="inline-flex items-center gap-1 text-[10px] font-medium text-emerald-700 border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 h-6 px-2 rounded-md transition-colors whitespace-nowrap"
+                                                                            title="Confirmer la réception → ajoute au stock"
+                                                                        >
+                                                                            <CheckCircle className="w-3 h-3" /> Reçu
+                                                                        </button>
+                                                                    )}
+                                                                    <FactureUploader modelId={modelId} materialName={m.name} />
+                                                                </div>
+                                                            </td>
                                                         </tr>
                                                     ))}
                                                 </tbody>

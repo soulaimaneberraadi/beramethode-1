@@ -837,6 +837,16 @@ db.exec(`
     subcontractorPhone TEXT,
     subcontractorRating REAL DEFAULT 5,
     subcontractorAvailabilityDate TEXT,
+    prestationType TEXT DEFAULT 'CMT',
+    tissuFournisseur TEXT DEFAULT 'CLIENT',
+    fournituresFournisseur TEXT DEFAULT 'CLIENT',
+    conditionnementFournisseur TEXT DEFAULT 'CLIENT',
+    protoRequired INTEGER DEFAULT 1,
+    protoStatus TEXT DEFAULT 'PENDING',
+    paymentTerms TEXT DEFAULT 'AVANCE_RECEPTION',
+    defectRateAccepted REAL DEFAULT 1.5,
+    stitchingDetails TEXT,
+    specifications_json TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE CASCADE
@@ -1140,6 +1150,36 @@ try {
 try {
   db.exec("ALTER TABLE subcontract_orders ADD COLUMN subcontractorAvailabilityDate TEXT");
 } catch(e) {}
+try {
+  db.exec("ALTER TABLE subcontract_orders ADD COLUMN prestationType TEXT DEFAULT 'CMT'");
+} catch(e) {}
+try {
+  db.exec("ALTER TABLE subcontract_orders ADD COLUMN tissuFournisseur TEXT DEFAULT 'CLIENT'");
+} catch(e) {}
+try {
+  db.exec("ALTER TABLE subcontract_orders ADD COLUMN fournituresFournisseur TEXT DEFAULT 'CLIENT'");
+} catch(e) {}
+try {
+  db.exec("ALTER TABLE subcontract_orders ADD COLUMN conditionnementFournisseur TEXT DEFAULT 'CLIENT'");
+} catch(e) {}
+try {
+  db.exec("ALTER TABLE subcontract_orders ADD COLUMN protoRequired INTEGER DEFAULT 1");
+} catch(e) {}
+try {
+  db.exec("ALTER TABLE subcontract_orders ADD COLUMN protoStatus TEXT DEFAULT 'PENDING'");
+} catch(e) {}
+try {
+  db.exec("ALTER TABLE subcontract_orders ADD COLUMN paymentTerms TEXT DEFAULT 'AVANCE_RECEPTION'");
+} catch(e) {}
+try {
+  db.exec("ALTER TABLE subcontract_orders ADD COLUMN defectRateAccepted REAL DEFAULT 1.5");
+} catch(e) {}
+try {
+  db.exec("ALTER TABLE subcontract_orders ADD COLUMN stitchingDetails TEXT");
+} catch(e) {}
+try {
+  db.exec("ALTER TABLE subcontract_orders ADD COLUMN specifications_json TEXT");
+} catch(e) {}
 
 // ════════════════════════════════════════════════════════════════════════════════
 // APS — Advanced Planning & Scheduling (Blueprint Engine) 🧠
@@ -1238,8 +1278,75 @@ db.exec(`
     FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE CASCADE
   );
 
+  CREATE TABLE IF NOT EXISTS material_invoices (
+    id TEXT PRIMARY KEY,
+    owner_id INTEGER NOT NULL,
+    modelId TEXT NOT NULL,
+    materialName TEXT NOT NULL,
+    fileName TEXT NOT NULL,
+    mimeType TEXT NOT NULL,
+    data TEXT NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE CASCADE
+  );
+
   CREATE INDEX IF NOT EXISTS idx_material_receipts_owner ON material_receipts(owner_id);
   CREATE INDEX IF NOT EXISTS idx_inventory_movements_owner ON inventory_movements(owner_id);
+  CREATE INDEX IF NOT EXISTS idx_material_invoices_owner ON material_invoices(owner_id);
+  CREATE INDEX IF NOT EXISTS idx_material_invoices_model ON material_invoices(modelId, materialName);
+`);
+
+// ════════════════════════════════════════════════════════════════════════════════
+// STOCK PRODUIT FINI — Suivi des pièces finies après production
+// ════════════════════════════════════════════════════════════════════════════════
+
+db.exec(`
+  CREATE TABLE IF NOT EXISTS finished_goods_stock (
+    id TEXT PRIMARY KEY,
+    owner_id INTEGER NOT NULL,
+    modelId TEXT NOT NULL,
+    planningId TEXT,
+    reference TEXT,
+    designation TEXT,
+    clientName TEXT,
+    chaineId TEXT,
+    quantiteProduite INTEGER NOT NULL DEFAULT 0,
+    quantiteDefaut INTEGER NOT NULL DEFAULT 0,
+    quantiteExpediee INTEGER NOT NULL DEFAULT 0,
+    quantiteRestante INTEGER NOT NULL DEFAULT 0,
+    statut TEXT NOT NULL DEFAULT 'disponible',
+    dateProduction TEXT NOT NULL,
+    dateExportPrevue TEXT,
+    notes TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (planningId) REFERENCES planning_events(id) ON DELETE SET NULL
+  );
+  CREATE INDEX IF NOT EXISTS idx_fg_stock_owner ON finished_goods_stock(owner_id);
+  CREATE INDEX IF NOT EXISTS idx_fg_stock_model ON finished_goods_stock(modelId);
+  CREATE INDEX IF NOT EXISTS idx_fg_stock_statut ON finished_goods_stock(statut);
+  CREATE INDEX IF NOT EXISTS idx_fg_stock_planning ON finished_goods_stock(planningId);
+`);
+
+db.exec(`
+  CREATE TABLE IF NOT EXISTS finished_goods_movements (
+    id TEXT PRIMARY KEY,
+    owner_id INTEGER NOT NULL,
+    fgId TEXT NOT NULL,
+    type TEXT NOT NULL,
+    quantite INTEGER NOT NULL,
+    date TEXT NOT NULL,
+    clientNom TEXT,
+    bonLivraisonRef TEXT,
+    factureRef TEXT,
+    notes TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (fgId) REFERENCES finished_goods_stock(id) ON DELETE CASCADE
+  );
+  CREATE INDEX IF NOT EXISTS idx_fg_mvts_owner ON finished_goods_movements(owner_id);
+  CREATE INDEX IF NOT EXISTS idx_fg_mvts_fg ON finished_goods_movements(fgId);
 `);
 
 // ════════════════════════════════════════════════════════════════════════════════

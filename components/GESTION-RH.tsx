@@ -1041,9 +1041,17 @@ interface GestionRHProps {
   /** Ouvre directement le profil d'un opérateur (par nom) — ex. depuis le Catalogue de Temps. */
   initialWorkerName?: string;
   initialWorkerNonce?: number;
+  selectedDate?: string;
+  setSelectedDate?: (date: string) => void;
+  selectedChaineId?: string;
 }
 
-export default function GestionRH({ suivis = [], planningEvents = [], settings, onBack, initialWorkerName, initialWorkerNonce }: GestionRHProps) {
+export default function GestionRH({ 
+  suivis = [], planningEvents = [], settings, onBack, initialWorkerName, initialWorkerNonce,
+  selectedDate: propSelectedDate,
+  setSelectedDate: propSetSelectedDate,
+  selectedChaineId
+}: GestionRHProps) {
   const [tab, setTab] = useState<Tab>('annuaire');
   const [workers, setWorkers] = useState<HRWorker[]>([]);
   const [pointages, setPointages] = useState<any[]>([]);
@@ -1059,7 +1067,18 @@ export default function GestionRH({ suivis = [], planningEvents = [], settings, 
   const [pointageChaine, setPointageChaine] = useState('');
   const [sageOpts, setSageOpts] = useState({ round: 15, workday: '06:00', apply: true });
   const [pointageTranches, setPointageTranches] = useState<PointageTranchesConfig>(() => getDefaultPointageTranches());
-  const [selectedDate, setSelectedDate] = useState(today());
+  
+  const [localSelectedDate, localSetSelectedDate] = useState(today());
+  const selectedDate = propSelectedDate !== undefined ? propSelectedDate : localSelectedDate;
+  const setSelectedDate = propSetSelectedDate !== undefined ? propSetSelectedDate : localSetSelectedDate;
+
+  // Sync selected chain filter on load or change
+  useEffect(() => {
+    if (selectedChaineId) {
+      setFilterChaine(selectedChaineId);
+      setPointageChaine(selectedChaineId);
+    }
+  }, [selectedChaineId]);
   const [selectedMois, setSelectedMois] = useState(monthStr());
   const [showTranches, setShowTranches] = useState(true);
   const [editWorker, setEditWorker] = useState<Partial<HRWorker> | null>(null);

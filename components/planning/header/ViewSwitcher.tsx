@@ -15,16 +15,16 @@ const OPTIONS: { id: ViewKind; label: string }[] = [
 
 export default function ViewSwitcher({ value, onChange }: Props) {
     return (
-        <div className="inline-flex rounded-lg border border-slate-200 bg-slate-50/60 p-0.5">
+        <div className="inline-flex rounded-xl border border-slate-200/50 bg-slate-100/50 p-0.5 backdrop-blur-sm shadow-sm">
             {OPTIONS.map(({ id, label }) => (
                 <button
                     key={id}
                     type="button"
                     onClick={() => onChange(id)}
-                    className={`px-2.5 py-1 rounded-md text-[10px] font-semibold transition-all ${
+                    className={`px-3 py-1 rounded-lg text-[10px] font-bold transition-all duration-200 active:scale-95 ${
                         value === id
-                            ? 'bg-white text-[#2149C1] shadow-sm ring-1 ring-slate-200'
-                            : 'text-slate-500 hover:text-slate-800'
+                            ? 'bg-white text-indigo-650 shadow-[0_2px_8px_rgba(99,102,241,0.12)] ring-1 ring-slate-200/30'
+                            : 'text-slate-500 hover:text-slate-800 hover:bg-white/40'
                     }`}
                 >
                     {label}

@@ -36,14 +36,16 @@ export default function MaterialArrivalTimeline({
     orderQty,
     event,
     settings,
-    catalogProducts = [],
-    catalogLots = [],
+    catalogProducts: catalogProductsRaw,
+    catalogLots: catalogLotsRaw,
     onReloadStock,
     defaultSupplierLeadWorkingDays = DEFAULT_LEAD_WORKING_DAYS,
     onApplyWorstSupplierDate,
     onAppendDraftPurchaseOrders,
     className = '',
 }: MaterialArrivalTimelineProps) {
+    const catalogProducts = catalogProductsRaw ?? [];
+    const catalogLots = catalogLotsRaw ?? [];
     const lines = aggregateMaterialNeeds(model, orderQty);
 
     // Combien de pièces de cet OF le stock réel (lots) couvre — matière limitante.

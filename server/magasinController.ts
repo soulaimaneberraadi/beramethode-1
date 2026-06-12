@@ -438,3 +438,75 @@ export const deleteInventoryMovement = (req: Request, res: Response) => {
     }
 };
 
+// ════════════════════════════════════════════════════════════════════════════
+// MATERIAL INVOICES (Factures par matière) — fichiers image/PDF stockés en BDD.
+// Le modèle ne garde qu'une référence (id + URL), pas le binaire → la sync cloud
+// reste légère (pas de base64 lourd dans localStorage).
+// ════════════════════════════════════════════════════════════════════════════
+
+export const saveMaterialInvoice = (req: Request, res: Response) => {
+    const userId = (req as any).user.id;
+    const f = req.body;
+    if (!f.id || !f.modelId || !f.materialName || !f.fileName || !f.mimeType || !f.data) {
+        return res.status(400).json({ message: 'id, modelId, materialName, fileName, mimeType and data are required' });
+    }
+    try {
+        db.prepare(`
+            INSERT INTO material_invoices (id, owner_id, modelId, materialName, fileName, mimeType, data)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(id) DO UPDATE SET
+            modelId=excluded.modelId, materialName=excluded.materialName,
+            fileName=excluded.fileName, mimeType=excluded.mimeType, data=excluded.data
+        `).run(f.id, userId, f.modelId, f.materialName, f.fileName, f.mimeType, f.data);
+        res.json({ id: f.id, url: `/api/material-invoices/${f.id}/file` });
+    } catch (error) {
+        console.error('Save material invoice error:', error);
+        res.status(500).json({ message: 'Error saving material invoice' });
+    }
+};
+
+// Liste les métadonnées (sans le binaire) pour la galerie. Filtre optionnel par modèle / matière.
+export const getMaterialInvoices = (req: Request, res: Response) => {
+    const userId = (req as any).user.id;
+    const { modelId, materialName } = req.query as { modelId?: string; materialName?: string };
+    try {
+        let sql = 'SELECT id, modelId, materialName, fileName, mimeType, created_at FROM material_invoices WHERE owner_id = ?';
+        const params: any[] = [userId];
+        if (modelId) { sql += ' AND modelId = ?'; params.push(modelId); }
+        if (materialName) { sql += ' AND materialName = ?'; params.push(materialName); }
+        sql += ' ORDER BY created_at DESC';
+        const rows = db.prepare(sql).all(...params);
+        res.json(rows);
+    } catch (error) {
+        console.error('Get material invoices error:', error);
+        res.status(500).json({ message: 'Error fetching material invoices' });
+    }
+};
+
+// Sert le fichier (image/PDF) avec son type MIME pour affichage / téléchargement.
+export const serveMaterialInvoice = (req: Request, res: Response) => {
+    const userId = (req as any).user.id;
+    try {
+        const row = db.prepare('SELECT fileName, mimeType, data FROM material_invoices WHERE id = ? AND owner_id = ?').get(req.params.id, userId) as any;
+        if (!row) return res.status(404).json({ message: 'Invoice not found' });
+        const b64 = (row.data as string).replace(/^data:[^;]+;base64,/, '');
+        const buf = Buffer.from(b64, 'base64');
+        res.setHeader('Content-Type', row.mimeType);
+        res.setHeader('Content-Disposition', `inline; filename="${row.fileName}"`);
+        res.send(buf);
+    } catch (error) {
+        console.error('Serve material invoice error:', error);
+        res.status(500).json({ message: 'Error serving material invoice' });
+    }
+};
+
+export const deleteMaterialInvoice = (req: Request, res: Response) => {
+    const userId = (req as any).user.id;
+    try {
+        db.prepare('DELETE FROM material_invoices WHERE id = ? AND owner_id = ?').run(req.params.id, userId);
+        res.json({ message: 'Material invoice deleted successfully' });
+    } catch (error) {
+        res.status(500).json({ message: 'Error deleting material invoice' });
+    }
+};
+

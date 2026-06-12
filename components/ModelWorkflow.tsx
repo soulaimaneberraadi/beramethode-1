@@ -506,6 +506,7 @@ export default function ModelWorkflow({
                                 setFicheData={setFicheData}
                                 operations={operations}
                                 setOperations={setOperations}
+                                currentModelId={currentModelId}
                             />
                         );
                     })()}

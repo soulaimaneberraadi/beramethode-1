@@ -41,7 +41,21 @@ import {
   getInventoryMovements,
   saveInventoryMovement,
   deleteInventoryMovement,
+  saveMaterialInvoice,
+  getMaterialInvoices,
+  serveMaterialInvoice,
+  deleteMaterialInvoice,
 } from './server/magasinController';
+import {
+  getFinishedGoods,
+  saveFinishedGood,
+  deleteFinishedGood,
+  createFromCloture,
+  getFinishedGoodMovements,
+  getAllFinishedGoodMovements,
+  saveFinishedGoodMovement,
+  deleteFinishedGoodMovement,
+} from './server/finishedGoodsController';
 import { getSettings, saveSettings } from './server/settingsController';
 import { getPlanningEvents, savePlanningEvents, deletePlanningEvent, getReservations, saveReservations, deductReservations, releaseReservations } from './server/planningController';
 import {
@@ -238,6 +252,11 @@ async function startServer() {
   app.post('/api/material-receipts', authenticateToken, saveMaterialReceipt);
   app.delete('/api/material-receipts/:id', authenticateToken, deleteMaterialReceipt);
 
+  app.get('/api/material-invoices', authenticateToken, getMaterialInvoices);
+  app.post('/api/material-invoices', authenticateToken, saveMaterialInvoice);
+  app.get('/api/material-invoices/:id/file', authenticateToken, serveMaterialInvoice);
+  app.delete('/api/material-invoices/:id', authenticateToken, deleteMaterialInvoice);
+
   app.get('/api/inventory-movements', authenticateToken, getInventoryMovements);
   app.post('/api/inventory-movements', authenticateToken, saveInventoryMovement);
   app.delete('/api/inventory-movements/:id', authenticateToken, deleteInventoryMovement);
@@ -253,6 +272,16 @@ async function startServer() {
   app.get('/api/magasin/dechets', authenticateToken, getMagasinDechets);
   app.post('/api/magasin/dechets', authenticateToken, saveMagasinDechet);
   app.delete('/api/magasin/dechets/:id', authenticateToken, deleteMagasinDechet);
+
+  // ── Stock Produit Fini ──
+  app.get('/api/finished-goods', authenticateToken, getFinishedGoods);
+  app.post('/api/finished-goods', authenticateToken, saveFinishedGood);
+  app.post('/api/finished-goods/cloture', authenticateToken, createFromCloture);
+  app.get('/api/finished-goods/mouvements', authenticateToken, getAllFinishedGoodMovements);
+  app.post('/api/finished-goods/mouvements', authenticateToken, saveFinishedGoodMovement);
+  app.get('/api/finished-goods/:fgId/mouvements', authenticateToken, getFinishedGoodMovements);
+  app.delete('/api/finished-goods/mouvements/:id', authenticateToken, deleteFinishedGoodMovement);
+  app.delete('/api/finished-goods/:id', authenticateToken, deleteFinishedGood);
 
   app.get('/api/settings', authenticateToken, getSettings);
   app.post('/api/settings', authenticateToken, saveSettings);

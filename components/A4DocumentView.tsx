@@ -67,7 +67,7 @@ const A4DocumentView = forwardRef<HTMLDivElement, A4DocumentViewProps>(({
     return (
         <div
             ref={ref}
-            className="w-full max-w-[21cm] mx-auto bg-white p-4 md:p-5 shadow-lg print:shadow-none print:p-0 print:m-0 rounded text-slate-800"
+            className="fiche-a4-doc w-full max-w-[21cm] mx-auto bg-white p-4 md:p-5 print:shadow-none print:p-0 print:m-0 text-slate-800"
             style={{ fontFamily: "'Inter', sans-serif" }}
         >
             {/* Top Border */}
@@ -166,7 +166,13 @@ const A4DocumentView = forwardRef<HTMLDivElement, A4DocumentViewProps>(({
                 <span className="text-[9px] font-black uppercase tracking-widest text-slate-900 flex items-center gap-1 mb-1.5">
                     <CheckCircle className="w-2.5 h-2.5 text-slate-400" /> Nomenclature
                 </span>
-                <table className="w-full text-left text-[9px] border-b border-slate-200">
+                <table className="w-full text-left text-[9px] border-b border-slate-200" style={{ tableLayout: 'fixed' }}>
+                    <colgroup>
+                        <col style={{ width: '46%' }} />
+                        <col style={{ width: '16%' }} />
+                        <col style={{ width: '20%' }} />
+                        <col style={{ width: '18%' }} />
+                    </colgroup>
                     <thead>
                         <tr className="border-b border-slate-900 text-[7px] uppercase font-bold text-slate-500 tracking-widest">
                             <th className="pb-1 pt-1 font-bold">Composant</th>
@@ -234,7 +240,12 @@ const A4DocumentView = forwardRef<HTMLDivElement, A4DocumentViewProps>(({
                             <span className="bg-slate-100 text-slate-600 px-1 py-0.5 rounded">Déchet: {wasteRate}%</span>
                         </div>
                     </h3>
-                    <table className="w-full text-[8px] text-left border-y border-slate-900">
+                    <table className="w-full text-[8px] text-left border-y border-slate-900" style={{ tableLayout: 'fixed' }}>
+                        <colgroup>
+                            <col style={{ width: '52%' }} />
+                            <col style={{ width: '26%' }} />
+                            <col style={{ width: '22%' }} />
+                        </colgroup>
                         <thead className="text-[6px] uppercase tracking-widest text-slate-500 font-bold border-b border-slate-200">
                             <tr>
                                 <th className="py-1">Matière</th>

@@ -25,6 +25,10 @@ export interface EffectifsPageProps {
   setSuivis?: React.Dispatch<React.SetStateAction<SuiviData[]>>;
   planningEvents?: PlanningEvent[];
   settings?: AppSettings;
+  selectedChain?: string;
+  setSelectedChain?: (chain: string) => void;
+  selectedDate?: string;
+  setSelectedDate?: (date: string) => void;
 }
 
 interface ConfirmModalProps {
@@ -203,11 +207,23 @@ type EffectifsGridColumn =
   | { id: string; label: string; type: 'global'; isHistorical?: boolean }
   | { id: string; label: string; type: 'custom'; isHistorical?: boolean };
 
-export default function Effectifs({ onOpenGestionRH, suivis = [], setSuivis, planningEvents = [], settings }: EffectifsPageProps) {
+export default function Effectifs({ 
+  onOpenGestionRH, suivis = [], setSuivis, planningEvents = [], settings,
+  selectedChain: propSelectedChain,
+  setSelectedChain: propSetSelectedChain,
+  selectedDate: propSelectedDate,
+  setSelectedDate: propSetSelectedDate
+}: EffectifsPageProps) {
   const effectifsDtpSettings = settings ?? DEFAULT_CALENDAR_APP_SETTINGS;
   const [activeTab, setActiveTab] = useState<'grid' | 'analytics'>('grid');
-  const [selectedChain, setSelectedChain] = useState('Toutes les chaines');
-  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+
+  const [localChain, setLocalChain] = useState('Toutes les chaines');
+  const selectedChain = propSelectedChain !== undefined ? propSelectedChain : localChain;
+  const setSelectedChain = propSetSelectedChain !== undefined ? propSetSelectedChain : setLocalChain;
+
+  const [localDate, setLocalDate] = useState(new Date().toISOString().split('T')[0]);
+  const selectedDate = propSelectedDate !== undefined ? propSelectedDate : localDate;
+  const setSelectedDate = propSetSelectedDate !== undefined ? propSetSelectedDate : setLocalDate;
 
   // Analytics Filters (chaîne = même filtre que l’en-tête `selectedChain`)
   const [analyticsFilterCategory, setAnalyticsFilterCategory] = useState<string>('Toutes');

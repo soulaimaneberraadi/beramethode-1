@@ -24,7 +24,10 @@ export const createSubcontractOrder = (req: Request, res: Response) => {
         status, sizes_json, colors_json, notes,
         tissuStatus, fournituresStatus, ficheTechniqueSent,
         qtyAccepted, qtyToRepair, qtyRejected,
-        subcontractorPhone, subcontractorRating, subcontractorAvailabilityDate
+        subcontractorPhone, subcontractorRating, subcontractorAvailabilityDate,
+        prestationType, tissuFournisseur, fournituresFournisseur, conditionnementFournisseur,
+        protoRequired, protoStatus, paymentTerms, defectRateAccepted,
+        stitchingDetails, specifications_json
     } = req.body;
 
     if (!modelId || !totalQuantity || !subcontractorName || !deliveryDate) {
@@ -40,8 +43,11 @@ export const createSubcontractOrder = (req: Request, res: Response) => {
                 sizes_json, colors_json, notes,
                 tissuStatus, fournituresStatus, ficheTechniqueSent,
                 qtyAccepted, qtyToRepair, qtyRejected,
-                subcontractorPhone, subcontractorRating, subcontractorAvailabilityDate
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                subcontractorPhone, subcontractorRating, subcontractorAvailabilityDate,
+                prestationType, tissuFournisseur, fournituresFournisseur, conditionnementFournisseur,
+                protoRequired, protoStatus, paymentTerms, defectRateAccepted,
+                stitchingDetails, specifications_json
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `);
 
         stmt.run(
@@ -66,7 +72,17 @@ export const createSubcontractOrder = (req: Request, res: Response) => {
             qtyRejected !== undefined ? qtyRejected : 0,
             subcontractorPhone || null,
             subcontractorRating !== undefined ? subcontractorRating : 5,
-            subcontractorAvailabilityDate || null
+            subcontractorAvailabilityDate || null,
+            prestationType || 'CMT',
+            tissuFournisseur || 'CLIENT',
+            fournituresFournisseur || 'CLIENT',
+            conditionnementFournisseur || 'CLIENT',
+            protoRequired !== undefined ? protoRequired : 1,
+            protoStatus || 'PENDING',
+            paymentTerms || 'AVANCE_RECEPTION',
+            defectRateAccepted !== undefined ? defectRateAccepted : 1.5,
+            stitchingDetails || null,
+            specifications_json || null
         );
 
         res.status(201).json({ message: 'Subcontract order created successfully', id });
@@ -86,7 +102,10 @@ export const updateSubcontractOrder = (req: Request, res: Response) => {
         status, sizes_json, colors_json, notes,
         tissuStatus, fournituresStatus, ficheTechniqueSent,
         qtyAccepted, qtyToRepair, qtyRejected,
-        subcontractorPhone, subcontractorRating, subcontractorAvailabilityDate
+        subcontractorPhone, subcontractorRating, subcontractorAvailabilityDate,
+        prestationType, tissuFournisseur, fournituresFournisseur, conditionnementFournisseur,
+        protoRequired, protoStatus, paymentTerms, defectRateAccepted,
+        stitchingDetails, specifications_json
     } = req.body;
 
     try {
@@ -113,6 +132,16 @@ export const updateSubcontractOrder = (req: Request, res: Response) => {
                 subcontractorPhone = COALESCE(?, subcontractorPhone),
                 subcontractorRating = COALESCE(?, subcontractorRating),
                 subcontractorAvailabilityDate = COALESCE(?, subcontractorAvailabilityDate),
+                prestationType = COALESCE(?, prestationType),
+                tissuFournisseur = COALESCE(?, tissuFournisseur),
+                fournituresFournisseur = COALESCE(?, fournituresFournisseur),
+                conditionnementFournisseur = COALESCE(?, conditionnementFournisseur),
+                protoRequired = COALESCE(?, protoRequired),
+                protoStatus = COALESCE(?, protoStatus),
+                paymentTerms = COALESCE(?, paymentTerms),
+                defectRateAccepted = COALESCE(?, defectRateAccepted),
+                stitchingDetails = COALESCE(?, stitchingDetails),
+                specifications_json = COALESCE(?, specifications_json),
                 updated_at = CURRENT_TIMESTAMP
             WHERE id = ? AND owner_id = ?
         `);
@@ -138,6 +167,16 @@ export const updateSubcontractOrder = (req: Request, res: Response) => {
             subcontractorPhone || null,
             subcontractorRating !== undefined ? subcontractorRating : null,
             subcontractorAvailabilityDate || null,
+            prestationType || null,
+            tissuFournisseur || null,
+            fournituresFournisseur || null,
+            conditionnementFournisseur || null,
+            protoRequired !== undefined ? protoRequired : null,
+            protoStatus || null,
+            paymentTerms || null,
+            defectRateAccepted !== undefined ? defectRateAccepted : null,
+            stitchingDetails || null,
+            specifications_json || null,
             id,
             userId
         );

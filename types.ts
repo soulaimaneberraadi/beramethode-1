@@ -611,6 +611,16 @@ export interface SubcontractOrder {
   subcontractorPhone?: string;
   subcontractorRating?: number;
   subcontractorAvailabilityDate?: string;
+  prestationType?: 'CMT' | 'FACON_PURE';
+  tissuFournisseur?: 'CLIENT' | 'SUBCONTRACTOR';
+  fournituresFournisseur?: 'CLIENT' | 'SUBCONTRACTOR';
+  conditionnementFournisseur?: 'CLIENT' | 'SUBCONTRACTOR';
+  protoRequired?: number; // 0 or 1
+  protoStatus?: 'PENDING' | 'APPROVED';
+  paymentTerms?: 'AVANCE_RECEPTION' | 'APRES_LIVRAISON' | 'ECHEANCES';
+  defectRateAccepted?: number;
+  stitchingDetails?: string;
+  specifications_json?: string;
   created_at?: string;
   updated_at?: string;
 }
@@ -815,6 +825,45 @@ export interface DemandeAppro {
   demandeur: string;
   notes?: string;
   statut: 'attente' | 'preparee' | 'livree' | 'rejetee';
+}
+
+// ═══════════════════════════════════════════════════════════
+// STOCK PRODUIT FINI — Pièces finies après production
+// ═══════════════════════════════════════════════════════════
+
+export interface FinishedGoodStock {
+  id: string;
+  owner_id: number;
+  modelId: string;
+  planningId?: string;
+  reference?: string;
+  designation?: string;
+  clientName?: string;
+  chaineId?: string;
+  quantiteProduite: number;
+  quantiteDefaut: number;
+  quantiteExpediee: number;
+  quantiteRestante: number;
+  statut: 'disponible' | 'partielle' | 'expediee';
+  dateProduction: string;
+  dateExportPrevue?: string;
+  notes?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface FinishedGoodMovement {
+  id: string;
+  owner_id: number;
+  fgId: string;
+  type: 'entree' | 'expedition' | 'retour' | 'regularisation';
+  quantite: number;
+  date: string;
+  clientNom?: string;
+  bonLivraisonRef?: string;
+  factureRef?: string;
+  notes?: string;
+  created_at: string;
 }
 
 // ═══════════════════════════════════════════════════════════

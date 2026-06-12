@@ -1463,7 +1463,7 @@ export default function Magasin({ models = [], planningEvents = [], lang = 'fr',
     const t = (str: string) => lang === 'fr' ? str : (DICT[str]?.[lang] || str);
     const dtpSettings = settings ?? DEFAULT_CALENDAR_APP_SETTINGS;
 
-    const [tab, setTab] = useState<'dashboard' | 'db' | 'bureau' | 'demandes' | 'commandes' | 'alertes' | 'inventaire' | 'tracabilite' | 'wms' | 'fournisseurs' | 'valorisation' | 'receptions' | 'surplus' | 'factures'>('dashboard');
+    const [tab, setTab] = useState<'dashboard' | 'db' | 'bureau' | 'demandes' | 'commandes' | 'alertes' | 'inventaire' | 'tracabilite' | 'wms' | 'fournisseurs' | 'valorisation' | 'receptions' | 'surplus' | 'factures' | 'stockPF'>('dashboard');
     const [products, setProducts] = useState<MagasinProduct[]>([]);
     const [receptions, setReceptions] = useState<MaterialReceipt[]>(() => ld('beramethode_receptions', []));
     const [lots, setLots] = useState<LotStock[]>([]);
@@ -1472,18 +1472,22 @@ export default function Magasin({ models = [], planningEvents = [], lang = 'fr',
     const [demandes, setDemandes] = useState<DemandeAppro[]>([]);
     const [commandes, setCommandes] = useState<BonCommande[]>([]);
     const [dechets, setDechets] = useState<any[]>([]);
+    const [finishedGoods, setFinishedGoods] = useState<any[]>([]);
+    const [fgMovements, setFgMovements] = useState<any[]>([]);
 
     useEffect(() => {
         const fetchData = async () => {
             try {
-                const [resProd, resLots, resMvts, resCmds, resDms, resDechets, resRecs] = await Promise.all([
+                const [resProd, resLots, resMvts, resCmds, resDms, resDechets, resRecs, resFG, resFGM] = await Promise.all([
                     fetch('/api/magasin/products', { credentials: 'include' }),
                     fetch('/api/magasin/lots', { credentials: 'include' }),
                     fetch('/api/magasin/mouvements', { credentials: 'include' }),
                     fetch('/api/magasin/commandes', { credentials: 'include' }),
                     fetch('/api/magasin/demandes', { credentials: 'include' }),
                     fetch('/api/magasin/dechets', { credentials: 'include' }),
-                    fetch('/api/material-receipts', { credentials: 'include' })
+                    fetch('/api/material-receipts', { credentials: 'include' }),
+                    fetch('/api/finished-goods', { credentials: 'include' }),
+                    fetch('/api/finished-goods/mouvements', { credentials: 'include' }),
                 ]);
 
                 if (resProd.ok) setProducts(await resProd.json());
@@ -1497,6 +1501,8 @@ export default function Magasin({ models = [], planningEvents = [], lang = 'fr',
                     setReceptions(data);
                     sv('beramethode_receptions', data);
                 }
+                if (resFG.ok) setFinishedGoods(await resFG.json());
+                if (resFGM.ok) setFgMovements(await resFGM.json());
             } catch (err) {
                 console.error("Erreur de synchronisation du magasin avec le serveur:", err);
             }
@@ -1954,7 +1960,8 @@ export default function Magasin({ models = [], planningEvents = [], lang = 'fr',
                     { i: 'alertes', l: 'Alertes & Ruptures', ic: AlertTriangle, b: alertes.length },
                     { i: 'valorisation', l: 'S. Valorisation (Déchets)', ic: Recycle },
                     { i: 'tracabilite', l: 'Traçabilité', ic: LinkIcon },
-                    { i: 'factures', l: 'Factures & BL', ic: FileText, b: mvts.filter(m => m.pieceJointe || m.documentRef).length }
+                    { i: 'factures', l: 'Factures & BL', ic: FileText, b: mvts.filter(m => m.pieceJointe || m.documentRef).length },
+                    { i: 'stockPF', l: 'Stock Produit Fini', ic: Package, b: finishedGoods.filter(fg => fg.statut === 'disponible').length }
                 ].map(tObj => (
                     <button key={tObj.i} onClick={() => setTab(tObj.i as any)} className={`py-3 text-sm font-bold flex items-center gap-2 relative transition-colors whitespace-nowrap ${tab === tObj.i ? 'text-indigo-600' : 'text-slate-500 hover:text-slate-800'}`}>
                         <tObj.ic className="w-4 h-4" />{t(tObj.l)} {!!tObj.b && <span className="bg-red-500 text-white rounded-full px-1.5 py-0.5 text-[10px]">{tObj.b}</span>}
@@ -3040,6 +3047,269 @@ export default function Magasin({ models = [], planningEvents = [], lang = 'fr',
                             );
                         })()}
                         <button id="factures-print-all" className="hidden" onClick={() => window.print()} />
+                    </div>
+                )}
+
+                {/* ══ Stock Produit Fini ══ */}
+                {tab === 'stockPF' && (
+                    <div className="space-y-6 animate-in fade-in zoom-in-95 duration-300">
+                        {/* KPI Cards */}
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                            <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm flex items-center gap-4">
+                                <div className="w-12 h-12 rounded-xl bg-indigo-50 flex items-center justify-center shrink-0">
+                                    <Package className="w-6 h-6 text-indigo-600" />
+                                </div>
+                                <div>
+                                    <p className="text-sm font-bold text-slate-500">{t('Total Modèles')}</p>
+                                    <p className="text-2xl font-black text-slate-800">{finishedGoods.length}</p>
+                                </div>
+                            </div>
+                            <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm flex items-center gap-4">
+                                <div className="w-12 h-12 rounded-xl bg-emerald-50 flex items-center justify-center shrink-0">
+                                    <CheckCircle className="w-6 h-6 text-emerald-600" />
+                                </div>
+                                <div>
+                                    <p className="text-sm font-bold text-slate-500">{t('Disponible')}</p>
+                                    <p className="text-2xl font-black text-emerald-600">{finishedGoods.filter(fg => fg.statut === 'disponible').reduce((s, fg) => s + fg.quantiteRestante, 0).toLocaleString()}</p>
+                                </div>
+                            </div>
+                            <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm flex items-center gap-4">
+                                <div className="w-12 h-12 rounded-xl bg-amber-50 flex items-center justify-center shrink-0">
+                                    <Send className="w-6 h-6 text-amber-600" />
+                                </div>
+                                <div>
+                                    <p className="text-sm font-bold text-slate-500">{t('Expédié')}</p>
+                                    <p className="text-2xl font-black text-amber-600">{finishedGoods.reduce((s, fg) => s + fg.quantiteExpediee, 0).toLocaleString()}</p>
+                                </div>
+                            </div>
+                            <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm flex items-center gap-4">
+                                <div className="w-12 h-12 rounded-xl bg-rose-50 flex items-center justify-center shrink-0">
+                                    <AlertTriangle className="w-6 h-6 text-rose-600" />
+                                </div>
+                                <div>
+                                    <p className="text-sm font-bold text-slate-500">{t('Défauts')}</p>
+                                    <p className="text-2xl font-black text-rose-600">{finishedGoods.reduce((s, fg) => s + fg.quantiteDefaut, 0).toLocaleString()}</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Finished Goods Table */}
+                        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                            <div className="px-6 py-4 border-b border-slate-100 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
+                                <div>
+                                    <h3 className="font-black text-slate-800 text-lg flex items-center gap-2">
+                                        <Package className="w-5 h-5 text-indigo-500" /> {t('Stock Produit Fini')}
+                                    </h3>
+                                    <p className="text-xs text-slate-400 mt-1">{t('Pièces finies après production — suivi des quantités, défauts et expéditions.')}</p>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <input
+                                        type="text"
+                                        placeholder={t('Rechercher...')}
+                                        className="px-3 py-1.5 border border-slate-200 rounded-xl text-sm"
+                                        onChange={e => {
+                                            const q = e.target.value.toLowerCase();
+                                            // Filter handled in render below
+                                        }}
+                                    />
+                                </div>
+                            </div>
+
+                            {finishedGoods.length === 0 ? (
+                                <div className="p-12 text-center">
+                                    <Package className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+                                    <p className="font-bold text-slate-500">{t('Aucun produit fini en stock.')}</p>
+                                    <p className="text-xs text-slate-400 mt-1">{t('Les entrées seront créées automatiquement lors de la clôture des OFs.')}</p>
+                                </div>
+                            ) : (
+                                <div className="overflow-x-auto">
+                                    <table className="w-full text-left text-sm">
+                                        <thead className="bg-slate-50">
+                                            <tr className="text-slate-500">
+                                                <th className="p-3 pl-6 font-bold">{t('Modèle')}</th>
+                                                <th className="p-3 font-bold">{t('Client')}</th>
+                                                <th className="p-3 font-bold">{t('Chaîne')}</th>
+                                                <th className="p-3 font-bold text-center">{t('Produit')}</th>
+                                                <th className="p-3 font-bold text-center">{t('Défaut')}</th>
+                                                <th className="p-3 font-bold text-center">{t('Expédié')}</th>
+                                                <th className="p-3 font-bold text-center">{t('Restant')}</th>
+                                                <th className="p-3 font-bold">{t('Date')}</th>
+                                                <th className="p-3 font-bold">{t('Statut')}</th>
+                                                <th className="p-3 pr-6 font-bold text-center">{t('Actions')}</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-slate-50">
+                                            {finishedGoods.map(fg => {
+                                                const progress = fg.quantiteProduite > 0
+                                                    ? Math.min(100, Math.round(((fg.quantiteProduite - fg.quantiteDefaut) / fg.quantiteProduite) * 100))
+                                                    : 0;
+                                                const isLate = fg.dateExportPrevue && new Date(fg.dateExportPrevue) < new Date() && fg.quantiteRestante > 0;
+                                                return (
+                                                    <tr key={fg.id} className="hover:bg-slate-50 transition-colors">
+                                                        <td className="p-3 pl-6">
+                                                            <div className="font-black text-slate-800">{fg.designation || fg.reference || '-'}</div>
+                                                            <div className="text-[10px] text-slate-400 font-bold mt-0.5">{fg.reference || ''}</div>
+                                                        </td>
+                                                        <td className="p-3 text-slate-600 font-medium">{fg.clientName || '-'}</td>
+                                                        <td className="p-3 text-slate-600 font-medium">{fg.chaineId || '-'}</td>
+                                                        <td className="p-3 text-center">
+                                                            <span className="font-black text-slate-800">{fg.quantiteProduite}</span>
+                                                        </td>
+                                                        <td className="p-3 text-center">
+                                                            <span className={`font-black ${fg.quantiteDefaut > 0 ? 'text-rose-600' : 'text-slate-400'}`}>
+                                                                {fg.quantiteDefaut}
+                                                            </span>
+                                                        </td>
+                                                        <td className="p-3 text-center">
+                                                            <span className="font-black text-amber-600">{fg.quantiteExpediee}</span>
+                                                        </td>
+                                                        <td className="p-3 text-center">
+                                                            <div className="flex flex-col items-center">
+                                                                <span className={`font-black ${fg.quantiteRestante > 0 ? 'text-emerald-600' : 'text-slate-400'}`}>
+                                                                    {fg.quantiteRestante}
+                                                                </span>
+                                                                <div className="w-16 h-1.5 bg-slate-100 rounded-full mt-1 overflow-hidden">
+                                                                    <div
+                                                                        className="h-full bg-emerald-500 rounded-full transition-all"
+                                                                        style={{ width: `${progress}%` }}
+                                                                    />
+                                                                </div>
+                                                            </div>
+                                                        </td>
+                                                        <td className="p-3">
+                                                            <div className="text-xs text-slate-500">{fg.dateProduction}</div>
+                                                            {isLate && (
+                                                                <span className="text-[9px] font-black text-rose-500 bg-rose-50 px-1.5 py-0.5 rounded mt-0.5 inline-block">
+                                                                    EN RETARD
+                                                                </span>
+                                                            )}
+                                                        </td>
+                                                        <td className="p-3">
+                                                            <span className={`px-2 py-1 rounded-md text-[10px] font-black uppercase tracking-wider ${
+                                                                fg.statut === 'disponible' ? 'bg-emerald-100 text-emerald-700' :
+                                                                fg.statut === 'partielle' ? 'bg-amber-100 text-amber-700' :
+                                                                'bg-slate-100 text-slate-600'
+                                                            }`}>
+                                                                {fg.statut}
+                                                            </span>
+                                                        </td>
+                                                        <td className="p-3 pr-6">
+                                                            <div className="flex items-center gap-1 justify-center">
+                                                                <button
+                                                                    onClick={async () => {
+                                                                        const qte = prompt(`${t('Quantité à expédier')} (${fg.quantiteRestante} ${t('disponible(s)')}) :`);
+                                                                        if (!qte || isNaN(parseInt(qte))) return;
+                                                                        const qty = parseInt(qte);
+                                                                        if (qty > fg.quantiteRestante) {
+                                                                            alert(t('Quantité supérieure au stock disponible.'));
+                                                                            return;
+                                                                        }
+                                                                        const client = prompt(t('Nom du client :')) || '';
+                                                                        const blRef = prompt(t('Référence BL :')) || '';
+                                                                        try {
+                                                                            await fetch('/api/finished-goods/mouvements', {
+                                                                                method: 'POST',
+                                                                                headers: { 'Content-Type': 'application/json' },
+                                                                                credentials: 'include',
+                                                                                body: JSON.stringify({
+                                                                                    fgId: fg.id,
+                                                                                    type: 'expedition',
+                                                                                    quantite: qty,
+                                                                                    date: new Date().toISOString(),
+                                                                                    clientNom: client,
+                                                                                    bonLivraisonRef: blRef
+                                                                                })
+                                                                            });
+                                                                            // Refresh data
+                                                                            const [resFG, resFGM] = await Promise.all([
+                                                                                fetch('/api/finished-goods', { credentials: 'include' }),
+                                                                                fetch('/api/finished-goods/mouvements', { credentials: 'include' })
+                                                                            ]);
+                                                                            if (resFG.ok) setFinishedGoods(await resFG.json());
+                                                                            if (resFGM.ok) setFgMovements(await resFGM.json());
+                                                                        } catch (e) {
+                                                                            console.error(e);
+                                                                        }
+                                                                    }}
+                                                                    className="px-2 py-1 rounded-lg bg-indigo-100 text-indigo-700 text-[10px] font-bold hover:bg-indigo-200 transition-colors"
+                                                                    title={t('Expédier')}
+                                                                >
+                                                                    <Send className="w-3 h-3" />
+                                                                </button>
+                                                                <button
+                                                                    onClick={async () => {
+                                                                        if (!confirm(t('Supprimer cet article ?'))) return;
+                                                                        try {
+                                                                            await fetch(`/api/finished-goods/${fg.id}`, {
+                                                                                method: 'DELETE',
+                                                                                credentials: 'include'
+                                                                            });
+                                                                            setFinishedGoods(prev => prev.filter(f => f.id !== fg.id));
+                                                                        } catch (e) {
+                                                                            console.error(e);
+                                                                        }
+                                                                    }}
+                                                                    className="px-2 py-1 rounded-lg bg-rose-100 text-rose-700 text-[10px] font-bold hover:bg-rose-200 transition-colors"
+                                                                    title={t('Supprimer')}
+                                                                >
+                                                                    <Trash2 className="w-3 h-3" />
+                                                                </button>
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Mouvements récents */}
+                        {fgMovements.length > 0 && (
+                            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                                <div className="px-6 py-4 border-b border-slate-100">
+                                    <h3 className="font-bold text-slate-800 flex items-center gap-2">
+                                        <History className="w-4 h-4 text-indigo-500" /> {t('Derniers Mouvements PF')}
+                                    </h3>
+                                </div>
+                                <div className="overflow-x-auto">
+                                    <table className="w-full text-left text-sm">
+                                        <thead className="bg-slate-50">
+                                            <tr className="text-slate-500">
+                                                <th className="p-3 pl-6 font-bold">{t('Date')}</th>
+                                                <th className="p-3 font-bold">{t('Type')}</th>
+                                                <th className="p-3 font-bold">{t('Modèle')}</th>
+                                                <th className="p-3 font-bold text-center">{t('Quantité')}</th>
+                                                <th className="p-3 font-bold">{t('Client')}</th>
+                                                <th className="p-3 font-bold">{t('BL')}</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-slate-50">
+                                            {fgMovements.slice(0, 10).map(m => {
+                                                const fg = finishedGoods.find(f => f.id === m.fgId);
+                                                return (
+                                                    <tr key={m.id} className="hover:bg-slate-50">
+                                                        <td className="p-3 pl-6 text-xs text-slate-500 font-mono">{new Date(m.date).toLocaleString()}</td>
+                                                        <td className="p-3">
+                                                            <span className={`px-2 py-1 rounded-md text-[10px] font-black uppercase ${
+                                                                m.type === 'expedition' ? 'bg-amber-100 text-amber-700' :
+                                                                m.type === 'retour' ? 'bg-emerald-100 text-emerald-700' :
+                                                                'bg-slate-100 text-slate-600'
+                                                            }`}>{t(m.type)}</span>
+                                                        </td>
+                                                        <td className="p-3 font-bold text-slate-700">{fg?.designation || '-'}</td>
+                                                        <td className="p-3 text-center font-black text-slate-800">{m.quantite}</td>
+                                                        <td className="p-3 text-slate-600">{m.clientNom || '-'}</td>
+                                                        <td className="p-3 text-slate-500 text-xs">{m.bonLivraisonRef || '-'}</td>
+                                                    </tr>
+                                                );
+                                            })}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 )}
 

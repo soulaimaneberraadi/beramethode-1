@@ -115,6 +115,9 @@ const ensureBucket = async (accessToken: string): Promise<boolean> => {
  * Returns the public URL, or null on failure.
  */
 const uploadBase64 = async (dataUrl: string, accessToken: string): Promise<string | null> => {
+  // Bucket déjà confirmé absent (ensureBucket) → ne pas réessayer chaque image :
+  // ça échouerait pareil et inonderait les logs de « Bucket not found ».
+  if (bucketReady === false) return null;
   try {
     const m = dataUrl.match(/^data:(image\/([^;]+));base64,(.+)$/s);
     if (!m) return null;

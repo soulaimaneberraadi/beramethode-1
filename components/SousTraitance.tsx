@@ -4,7 +4,7 @@ import {
   Truck, Plus, Search, Trash2, Edit2, X, Check, 
   AlertCircle, Calendar, DollarSign, Package, 
   ChevronDown, ChevronUp, Loader2, Info, Eye, Layers, Palette,
-  Printer, CheckSquare, Clock, ShieldCheck, ClipboardCheck, Sparkles, Send, Copy
+  Printer, CheckSquare, Clock, ShieldCheck, ClipboardCheck, Sparkles, Send, Copy, Coins
 } from 'lucide-react';
 
 interface SousTraitanceProps {
@@ -63,6 +63,21 @@ export default function SousTraitance({ models, settings }: SousTraitanceProps) 
   const [formQtyAccepted, setFormQtyAccepted] = useState<number>(0);
   const [formQtyToRepair, setFormQtyToRepair] = useState<number>(0);
   const [formQtyRejected, setFormQtyRejected] = useState<number>(0);
+
+  // New Fiche de Monawla fields
+  const [formPrestationType, setFormPrestationType] = useState<'CMT' | 'FACON_PURE'>('CMT');
+  const [formTissuFournisseur, setFormTissuFournisseur] = useState<'CLIENT' | 'SUBCONTRACTOR'>('CLIENT');
+  const [formFournituresFournisseur, setFormFournituresFournisseur] = useState<'CLIENT' | 'SUBCONTRACTOR'>('CLIENT');
+  const [formConditionnementFournisseur, setFormConditionnementFournisseur] = useState<'CLIENT' | 'SUBCONTRACTOR'>('CLIENT');
+  const [formProtoRequired, setFormProtoRequired] = useState<number>(1);
+  const [formProtoStatus, setFormProtoStatus] = useState<'PENDING' | 'APPROVED'>('PENDING');
+  const [formPaymentTerms, setFormPaymentTerms] = useState<'AVANCE_RECEPTION' | 'APRES_LIVRAISON' | 'ECHEANCES'>('AVANCE_RECEPTION');
+  const [formDefectRateAccepted, setFormDefectRateAccepted] = useState<number>(1.5);
+  const [formStitchingDetails, setFormStitchingDetails] = useState<string>('');
+  const [formSpecificationsJson, setFormSpecificationsJson] = useState<string>('');
+
+  // Modal form tab state
+  const [modalTab, setModalTab] = useState<'general' | 'logistics' | 'technical' | 'commercial'>('general');
 
   // Clipboard copy alert state
   const [copiedOrderId, setCopiedOrderId] = useState<string | null>(null);
@@ -291,6 +306,19 @@ export default function SousTraitance({ models, settings }: SousTraitanceProps) 
     setFormSubcontractorRating(5);
     setFormSubcontractorAvailabilityDate('');
     
+    // New fields
+    setFormPrestationType('CMT');
+    setFormTissuFournisseur('CLIENT');
+    setFormFournituresFournisseur('CLIENT');
+    setFormConditionnementFournisseur('CLIENT');
+    setFormProtoRequired(1);
+    setFormProtoStatus('PENDING');
+    setFormPaymentTerms('AVANCE_RECEPTION');
+    setFormDefectRateAccepted(1.5);
+    setFormStitchingDetails('');
+    setFormSpecificationsJson('');
+    setModalTab('general');
+    
     // Initial batch
     setBatches([{
       quantity: models[0]?.meta_data.quantity || 0,
@@ -376,7 +404,17 @@ export default function SousTraitance({ models, settings }: SousTraitanceProps) 
           qtyRejected: 0,
           subcontractorPhone: formSubcontractorPhone || null,
           subcontractorRating: formSubcontractorRating,
-          subcontractorAvailabilityDate: formSubcontractorAvailabilityDate || null
+          subcontractorAvailabilityDate: formSubcontractorAvailabilityDate || null,
+          prestationType: formPrestationType,
+          tissuFournisseur: formTissuFournisseur,
+          fournituresFournisseur: formFournituresFournisseur,
+          conditionnementFournisseur: formConditionnementFournisseur,
+          protoRequired: formProtoRequired,
+          protoStatus: formProtoStatus,
+          paymentTerms: formPaymentTerms,
+          defectRateAccepted: formDefectRateAccepted,
+          stitchingDetails: formStitchingDetails || null,
+          specifications_json: formSpecificationsJson || null
         };
 
         const res = await fetch('/api/subcontract', {
@@ -422,6 +460,19 @@ export default function SousTraitance({ models, settings }: SousTraitanceProps) 
     setFormSubcontractorPhone(order.subcontractorPhone || '');
     setFormSubcontractorRating(order.subcontractorRating || 5);
     setFormSubcontractorAvailabilityDate(order.subcontractorAvailabilityDate || '');
+
+    // New Fiche de Monawla fields
+    setFormPrestationType(order.prestationType || 'CMT');
+    setFormTissuFournisseur(order.tissuFournisseur || 'CLIENT');
+    setFormFournituresFournisseur(order.fournituresFournisseur || 'CLIENT');
+    setFormConditionnementFournisseur(order.conditionnementFournisseur || 'CLIENT');
+    setFormProtoRequired(order.protoRequired !== undefined ? order.protoRequired : 1);
+    setFormProtoStatus(order.protoStatus || 'PENDING');
+    setFormPaymentTerms(order.paymentTerms || 'AVANCE_RECEPTION');
+    setFormDefectRateAccepted(order.defectRateAccepted !== undefined ? order.defectRateAccepted : 1.5);
+    setFormStitchingDetails(order.stitchingDetails || '');
+    setFormSpecificationsJson(order.specifications_json || '');
+    setModalTab('general');
 
     // Reconstruct grid structure from JSONs
     let initialGrid: Record<string, Record<string, number>> = {};
@@ -508,7 +559,17 @@ export default function SousTraitance({ models, settings }: SousTraitanceProps) 
       qtyRejected: formQtyRejected,
       subcontractorPhone: formSubcontractorPhone || null,
       subcontractorRating: formSubcontractorRating,
-      subcontractorAvailabilityDate: formSubcontractorAvailabilityDate || null
+      subcontractorAvailabilityDate: formSubcontractorAvailabilityDate || null,
+      prestationType: formPrestationType,
+      tissuFournisseur: formTissuFournisseur,
+      fournituresFournisseur: formFournituresFournisseur,
+      conditionnementFournisseur: formConditionnementFournisseur,
+      protoRequired: formProtoRequired,
+      protoStatus: formProtoStatus,
+      paymentTerms: formPaymentTerms,
+      defectRateAccepted: formDefectRateAccepted,
+      stitchingDetails: formStitchingDetails || null,
+      specifications_json: formSpecificationsJson || null
     };
 
     try {
@@ -672,6 +733,474 @@ export default function SousTraitance({ models, settings }: SousTraitanceProps) 
             </div>
             <div class="sig-box">
               Contrôle Production (المصنع)
+            </div>
+          </div>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+  };
+
+  const handlePrintFicheMonawla = (order: SubcontractOrder) => {
+    const sizes = parseJsonSafe(order.sizes_json);
+    const colors = parseJsonSafe(order.colors_json);
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+
+    // Bilingual labels
+    const prestationTypeLabel = order.prestationType === 'CMT' 
+      ? 'CMT (Coupe, Couture, Finition / قص وخياطة وتجهيز)' 
+      : 'Façon Pure (Couture seule / خياطة فقط)';
+
+    const getFournisseurLabel = (val?: string) => {
+      if (val === 'CLIENT') return "Donneur d'Ordre / Client (من طرف الزبون)";
+      if (val === 'SUBCONTRACTOR') return "Atelier de Sous-traitance (من طرف المناول)";
+      return "Non spécifié (غير محدد)";
+    };
+
+    const protoRequiredLabel = order.protoRequired === 1 
+      ? 'Obligatoire / نعم، ضروري' 
+      : 'Non obligatoire / لا، غير ضروري';
+
+    const protoStatusLabel = order.protoStatus === 'APPROVED' 
+      ? 'Bon pour Accord (BPA) - Validé / نموذج معتمد وموقع' 
+      : 'En attente d\'approbation / في انتظار الاعتماد';
+
+    const paymentTermsLabel = () => {
+      switch(order.paymentTerms) {
+        case 'AVANCE_RECEPTION': return "Acompte à la commande + solde après livraison / تسبيق + الباقي عند الاستلام";
+        case 'APRES_LIVRAISON': return "Paiement total après réception & facturation / الدفع الكامل بعد الاستلام";
+        case 'ECHEANCES': return "Paiement échelonné / Traite / دفعات مجدولة";
+        default: return "Non spécifié / غير محدد";
+      }
+    };
+
+    const defectRate = order.defectRateAccepted !== undefined ? order.defectRateAccepted : 1.5;
+
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>Fiche de Monawla & Cahier des Charges - ${order.modelName}</title>
+          <style>
+            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Tajawal:wght@400;500;700;900&display=swap');
+            
+            body { 
+              font-family: 'Inter', 'Tajawal', sans-serif; 
+              color: #1e293b; 
+              padding: 30px; 
+              line-height: 1.4;
+              font-size: 12px;
+            }
+            .header-container {
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+              border-bottom: 3px solid #4f46e5;
+              padding-bottom: 15px;
+              margin-bottom: 20px;
+            }
+            .brand-title {
+              font-size: 24px;
+              font-weight: 900;
+              color: #1e1b4b;
+              letter-spacing: -0.5px;
+            }
+            .brand-subtitle {
+              font-size: 10px;
+              color: #64748b;
+              font-weight: 600;
+              text-transform: uppercase;
+              letter-spacing: 1px;
+            }
+            .doc-title-container {
+              text-align: right;
+            }
+            .doc-title-fr {
+              font-size: 16px;
+              font-weight: 900;
+              color: #4f46e5;
+              letter-spacing: -0.3px;
+            }
+            .doc-title-ar {
+              font-size: 18px;
+              font-weight: 900;
+              color: #1e1b4b;
+              margin-top: 2px;
+              font-family: 'Tajawal', sans-serif;
+            }
+            .doc-ref {
+              font-size: 10px;
+              font-weight: 700;
+              color: #64748b;
+              margin-top: 4px;
+              font-family: monospace;
+            }
+            
+            .section-grid {
+              display: grid;
+              grid-template-columns: 1fr 1fr;
+              gap: 15px;
+              margin-bottom: 20px;
+            }
+            
+            .card {
+              border: 1px solid #e2e8f0;
+              border-radius: 12px;
+              padding: 12px 15px;
+              background-color: #f8fafc;
+            }
+            
+            .card-title {
+              font-size: 11px;
+              font-weight: 800;
+              text-transform: uppercase;
+              color: #4f46e5;
+              border-bottom: 1px solid #cbd5e1;
+              padding-bottom: 5px;
+              margin-bottom: 8px;
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+            }
+            .card-title span.ar {
+              font-family: 'Tajawal', sans-serif;
+              font-size: 12px;
+              color: #1e293b;
+            }
+            
+            .info-row {
+              display: flex;
+              justify-content: space-between;
+              padding: 4px 0;
+              border-bottom: 1px dashed #e2e8f0;
+            }
+            .info-row:last-child {
+              border-bottom: none;
+            }
+            .info-label {
+              color: #64748b;
+              font-weight: 600;
+            }
+            .info-value {
+              font-weight: 700;
+              color: #0f172a;
+              text-align: right;
+            }
+            
+            .full-card {
+              border: 1px solid #e2e8f0;
+              border-radius: 12px;
+              padding: 12px 15px;
+              margin-bottom: 20px;
+            }
+            
+            table {
+              width: 100%;
+              border-collapse: collapse;
+              margin-top: 8px;
+            }
+            th {
+              background-color: #f1f5f9;
+              padding: 8px;
+              text-align: left;
+              font-size: 10px;
+              font-weight: 800;
+              color: #475569;
+              border-bottom: 2px solid #cbd5e1;
+              text-transform: uppercase;
+            }
+            th.ar {
+              font-family: 'Tajawal', sans-serif;
+              font-size: 11px;
+              text-align: right;
+            }
+            td {
+              padding: 8px;
+              border-bottom: 1px solid #e2e8f0;
+              font-size: 11px;
+            }
+            
+            .badges-container {
+              display: flex;
+              gap: 8px;
+              flex-wrap: wrap;
+            }
+            .badge {
+              background-color: #e2e8f0;
+              color: #334155;
+              padding: 3px 8px;
+              border-radius: 6px;
+              font-weight: 700;
+              font-size: 10px;
+            }
+            
+            .footer-notes {
+              background-color: #faf5ff;
+              border: 1px solid #f3e8ff;
+              border-radius: 12px;
+              padding: 12px 15px;
+              margin-top: 15px;
+              margin-bottom: 30px;
+            }
+            .footer-notes-title {
+              font-size: 10px;
+              font-weight: 800;
+              color: #a21caf;
+              text-transform: uppercase;
+              display: flex;
+              justify-content: space-between;
+            }
+            .footer-notes-title span.ar {
+              font-family: 'Tajawal', sans-serif;
+            }
+            .footer-notes-content {
+              font-size: 11px;
+              color: #581c87;
+              font-weight: 600;
+              margin-top: 5px;
+              font-style: italic;
+            }
+            
+            .signatures-container {
+              display: grid;
+              grid-template-columns: 1fr 1fr;
+              gap: 30px;
+              margin-top: 50px;
+            }
+            .signature-box {
+              border: 1.5px solid #cbd5e1;
+              border-radius: 12px;
+              padding: 15px;
+              height: 120px;
+              display: flex;
+              flex-direction: column;
+              justify-content: space-between;
+              background-color: #fff;
+            }
+            .sig-title {
+              font-size: 11px;
+              font-weight: 800;
+              text-transform: uppercase;
+              color: #334155;
+              display: flex;
+              justify-content: space-between;
+              border-bottom: 1px solid #cbd5e1;
+              padding-bottom: 5px;
+            }
+            .sig-title span.ar {
+              font-family: 'Tajawal', sans-serif;
+            }
+            .sig-mention {
+              font-size: 9px;
+              color: #94a3b8;
+              text-align: center;
+              font-style: italic;
+            }
+            
+            @media print {
+              body { 
+                padding: 0; 
+                margin: 0;
+              }
+              button { 
+                display: none; 
+              }
+              .card, .full-card, .signature-box {
+                page-break-inside: avoid;
+              }
+            }
+          </style>
+        </head>
+        <body onload="window.print()">
+          <div class="header-container">
+            <div>
+              <div class="brand-title">BeraMéthode</div>
+              <div class="brand-subtitle">ERP Textile & Confection Maroc</div>
+            </div>
+            <div class="doc-title-container">
+              <div class="doc-title-fr">FICHE DE MONAWLA & CAHIER DES CHARGES</div>
+              <div class="doc-title-ar">بطاقة المناولة ودفتر التحملات الفنية</div>
+              <div class="doc-ref">CONTRAT RÉF: FM-${order.id.slice(0, 8).toUpperCase()}</div>
+            </div>
+          </div>
+
+          <div class="section-grid">
+            <!-- PARTIES CONTRACTANTES -->
+            <div class="card">
+              <div class="card-title">
+                <span>Parties Contractantes</span>
+                <span class="ar">الأطراف المتعاقدة</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">Donneur d'Ordre (الزبون)</span>
+                <span class="info-value">${order.clientName || 'N/A'}</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">Atelier Confectionneur (المناول)</span>
+                <span class="info-value">${order.subcontractorName}</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">Téléphone (الهاتف)</span>
+                <span class="info-value">${order.subcontractorPhone || 'Non spécifié'}</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">Évaluation Atelier (التقييم)</span>
+                <span class="info-value">★ ${order.subcontractorRating || 5}/5</span>
+              </div>
+            </div>
+
+            <!-- DETAILS DU COMMANDE -->
+            <div class="card">
+              <div class="card-title">
+                <span>Détails de la Commande</span>
+                <span class="ar">تفاصيل الطلبية</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">Modèle (الموديل)</span>
+                <span class="info-value">${order.modelName}</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">Quantité Totale (الكمية الإجمالية)</span>
+                <span class="info-value">${order.totalQuantity.toLocaleString()} pcs</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">Prix Unitaire (السعر للقطعة)</span>
+                <span class="info-value">${order.pricePerPiece ? `${order.pricePerPiece.toFixed(2)} DH` : 'Non défini'}</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">Montant Total HT (المبلغ الإجمالي)</span>
+                <span class="info-value">${order.pricePerPiece ? `${(order.totalQuantity * order.pricePerPiece).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} DH` : 'Non défini'}</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="section-grid">
+            <!-- LOGISTIQUE ET MATIERES -->
+            <div class="card">
+              <div class="card-title">
+                <span>Logistique & Approvisionnement</span>
+                <span class="ar">اللوجستيك والتوريد</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">Type de Prestation (نوع الخدمة)</span>
+                <span class="info-value">${prestationTypeLabel}</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">Fournisseur Tissu (القماش)</span>
+                <span class="info-value">${getFournisseurLabel(order.tissuFournisseur)}</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">Fournisseur Accessoires (الشاونطة)</span>
+                <span class="info-value">${getFournisseurLabel(order.fournituresFournisseur)}</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">Conditionnement (التغليف)</span>
+                <span class="info-value">${getFournisseurLabel(order.conditionnementFournisseur)}</span>
+              </div>
+            </div>
+
+            <!-- CLAUSES COMMERCIALES & QUALITE -->
+            <div class="card">
+              <div class="card-title">
+                <span>Clauses Qualité & Paiement</span>
+                <span class="ar">شروط الجودة والأداء</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">Mode de Paiement (طريقة الدفع)</span>
+                <span class="info-value">${paymentTermsLabel()}</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">Défauts Acceptés (نسبة العيب المقبولة)</span>
+                <span class="info-value">${defectRate}% maximum</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">Prototype Requis (النموذج الأولي)</span>
+                <span class="info-value">${protoRequiredLabel}</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">Statut du Prototype (حالة النموذج)</span>
+                <span class="info-value" style="color: ${order.protoStatus === 'APPROVED' ? '#16a34a' : '#ea580c'}">${protoStatusLabel}</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- SPECIFICATIONS TECHNIQUES -->
+          <div class="full-card">
+            <div class="card-title">
+              <span>Cahier des Charges Techniques & Couture</span>
+              <span class="ar">دفتر التحملات التقنية والخياطة</span>
+            </div>
+            <div style="font-size: 11px; white-space: pre-wrap; background-color: #fff; padding: 10px; border-radius: 8px; border: 1px solid #e2e8f0; min-height: 50px; font-weight: 500;">${order.stitchingDetails || 'Aucune consigne technique spécifique saisie. La confection doit respecter les standards professionnels de l\'art.'}</div>
+          </div>
+
+          <!-- GRILLE DES TAILLES ET COLORIS -->
+          <div class="full-card">
+            <div class="card-title">
+              <span>Nomenclature des Lots, Coloris & Tailles</span>
+              <span class="ar">جدول المقاسات والألوان وتواريخ التسليم</span>
+            </div>
+            <table>
+              <thead>
+                <tr>
+                  <th>Coloris (اللون)</th>
+                  <th>Répartition des Tailles (المقاسات)</th>
+                  <th style="text-align: right;">Quantité (العدد)</th>
+                  <th style="text-align: right;">Livraison Prévue (التسليم)</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${Object.entries(colors).map(([color, qty]) => `
+                  <tr>
+                    <td style="font-weight: 800; color: #1e1b4b;">${color}</td>
+                    <td style="font-weight: 600; font-family: monospace;">
+                      ${Object.entries(sizes).map(([sz, q]) => `[${sz}]: ${q}`).join(' | ')}
+                    </td>
+                    <td style="text-align: right; font-weight: 800; color: #4f46e5;">${qty.toLocaleString()} pcs</td>
+                    <td style="text-align: right; font-weight: 700; color: #475569;">${order.deliveryDate || 'Non spécifiée'}</td>
+                  </tr>
+                `).join('')}
+                ${Object.keys(colors).length === 0 ? `
+                  <tr>
+                    <td colspan="2" style="font-weight: 600; color: #94a3b8; font-style: italic;">Aucune nomenclature de taille/couleur spécifiée</td>
+                    <td style="text-align: right; font-weight: 800; color: #4f46e5;">${order.totalQuantity.toLocaleString()} pcs</td>
+                    <td style="text-align: right; font-weight: 700; color: #475569;">${order.deliveryDate || 'Non spécifiée'}</td>
+                  </tr>
+                ` : ''}
+                <tr style="background-color: #f8fafc; font-weight: 900; font-size: 12px; border-top: 2px solid #cbd5e1;">
+                  <td colspan="2">QUANTITÉ TOTALE CONTRACTUELLE</td>
+                  <td style="text-align: right; font-weight: 900; color: #4f46e5; font-size: 13px;">${order.totalQuantity.toLocaleString()} pcs</td>
+                  <td></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- NOTES ET CLAUSES PARTICULIERES -->
+          ${order.notes ? `
+            <div class="footer-notes">
+              <div class="footer-notes-title">
+                <span>Clauses Particulières & Instructions Logistiques</span>
+                <span class="ar">شروط خاصة وتعليمات لوجستية</span>
+              </div>
+              <div class="footer-notes-content">${order.notes}</div>
+            </div>
+          ` : ''}
+
+          <!-- SIGNATURE BLOCKS -->
+          <div class="signatures-container">
+            <div class="signature-box">
+              <div class="sig-title">
+                <span>Le Donneur d'Ordre</span>
+                <span class="ar">الجهة الآمرة بالصرف</span>
+              </div>
+              <div class="sig-mention">Lu et approuvé, Bon pour accord</div>
+            </div>
+            <div class="signature-box">
+              <div class="sig-title">
+                <span>Le Façonnier / Atelier</span>
+                <span class="ar">ورشة المناول / الخياط</span>
+              </div>
+              <div class="sig-mention">Lu et approuvé, Bon pour accord</div>
             </div>
           </div>
         </body>
@@ -1059,6 +1588,13 @@ export default function SousTraitance({ models, settings }: SousTraitanceProps) 
                                 <Printer className="w-4 h-4" />
                               </button>
                               <button
+                                onClick={() => handlePrintFicheMonawla(order)}
+                                title="Fiche de Monawla (Cahier des Charges & Contrat)"
+                                className="w-8 h-8 rounded-lg border border-slate-200 flex items-center justify-center hover:bg-slate-50 transition-colors text-slate-500 hover:text-indigo-600"
+                              >
+                                <ClipboardCheck className="w-4 h-4" />
+                              </button>
+                              <button
                                 onClick={() => handleCopyPortalLink(order)}
                                 title={copiedOrderId === order.id ? "Lien copié !" : "Copier le lien d'accès pour le مناول"}
                                 className={`w-8 h-8 rounded-lg border flex items-center justify-center transition-colors ${copiedOrderId === order.id ? 'bg-emerald-50 border-emerald-200 text-emerald-600' : 'border-slate-200 text-slate-500 hover:text-indigo-600 hover:bg-slate-50'}`}
@@ -1181,11 +1717,11 @@ export default function SousTraitance({ models, settings }: SousTraitanceProps) 
 
       {/* --- ADD MODAL --- */}
       {isAddModalOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white rounded-3xl w-full max-w-4xl border border-slate-200 shadow-2xl flex flex-col my-8 max-h-[85vh] overflow-hidden animate-in zoom-in-95 duration-200">
+        <div className="fixed inset-0 z-50 bg-slate-950/40 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white/80 border border-white/50 backdrop-blur-xl rounded-3xl w-full max-w-4xl shadow-[0_20px_50px_rgba(0,0,0,0.15)] flex flex-col my-8 max-h-[85vh] overflow-hidden animate-in zoom-in-95 duration-200">
             
             {/* Modal Header */}
-            <div className="bg-indigo-900 px-6 py-4 flex items-center justify-between text-white shrink-0">
+            <div className="bg-gradient-to-r from-indigo-950/90 to-indigo-900/90 border-b border-white/10 px-6 py-4.5 flex items-center justify-between text-white shrink-0 backdrop-blur-md">
               <div className="flex items-center gap-2">
                 <Truck className="w-5 h-5 text-indigo-300" />
                 <div>
@@ -1208,369 +1744,583 @@ export default function SousTraitance({ models, settings }: SousTraitanceProps) 
                 </div>
               )}
 
-              {/* Step 1: Communes Information */}
-              <div className="bg-slate-50 border border-slate-200/60 rounded-2xl p-4 space-y-4">
-                <h4 className="text-xs font-black text-indigo-700 uppercase tracking-wider flex items-center gap-1.5">
-                  <Info className="w-4 h-4" />
-                  Informations Générales de la Commande
-                </h4>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {/* Model Choice */}
-                  <div>
-                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Sélectionner un Modèle (الموديل)</label>
-                    <select
-                      value={formModelId}
-                      onChange={(e) => handleModelChange(e.target.value)}
-                      className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm font-bold text-slate-700 bg-white focus:outline-none focus:border-indigo-500"
-                    >
-                      {models.map(m => (
-                        <option key={m.id} value={m.id}>{m.meta_data?.nom_modele || 'Sans Nom'} {m.meta_data?.reference ? `(${m.meta_data.reference})` : ''}</option>
-                      ))}
-                      <option value="MANUAL">+ Saisie Manuelle (طلبية مباشرة خارج الموديلات)</option>
-                    </select>
-                  </div>
-
-                  {/* Client Name */}
-                  <div>
-                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Client (الزبون)</label>
-                    <input
-                      type="text"
-                      placeholder="Nom du client..."
-                      value={formClientName}
-                      onChange={(e) => setFormClientName(e.target.value)}
-                      className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm font-bold text-slate-700 bg-white focus:outline-none focus:border-indigo-500"
-                    />
-                  </div>
-
-                  {/* Subcontractor Name */}
-                  <div>
-                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Sous-traitant (اسم ورشة المناول) *</label>
-                    <input
-                      type="text"
-                      required
-                      placeholder="Ex: Atelier Nord, ModCouture..."
-                      value={formSubcontractorName}
-                      onChange={(e) => setFormSubcontractorName(e.target.value)}
-                      className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm font-bold text-slate-700 bg-white focus:outline-none focus:border-indigo-500"
-                    />
-                  </div>
-
-                  {/* Subcontractor Phone */}
-                  <div>
-                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Téléphone (الهاتف)</label>
-                    <input
-                      type="tel"
-                      placeholder="Ex: +212 600000000"
-                      value={formSubcontractorPhone}
-                      onChange={(e) => setFormSubcontractorPhone(e.target.value)}
-                      className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm font-bold text-slate-700 bg-white focus:outline-none focus:border-indigo-500"
-                    />
-                  </div>
-
-                  {/* Subcontractor Rating */}
-                  <div>
-                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Note / Évaluation (التقييم)</label>
-                    <select
-                      value={formSubcontractorRating}
-                      onChange={(e) => setFormSubcontractorRating(Number(e.target.value) || 5)}
-                      className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm font-bold text-slate-700 bg-white focus:outline-none focus:border-indigo-500"
-                    >
-                      <option value={5}>★★★★★ (5/5)</option>
-                      <option value={4}>★★★★☆ (4/5)</option>
-                      <option value={3}>★★★☆☆ (3/5)</option>
-                      <option value={2}>★★☆☆☆ (2/5)</option>
-                      <option value={1}>★☆☆☆☆ (1/5)</option>
-                    </select>
-                  </div>
-
-                  {/* Subcontractor Availability Date */}
-                  <div>
-                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Disponible à partir de (تاريخ التوفر)</label>
-                    <input
-                      type="date"
-                      value={formSubcontractorAvailabilityDate}
-                      onChange={(e) => setFormSubcontractorAvailabilityDate(e.target.value)}
-                      className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm font-bold text-slate-700 bg-white focus:outline-none focus:border-indigo-500"
-                    />
-                  </div>
-
-                  {/* Price Per Piece */}
-                  <div>
-                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Prix par قطعة (ثمن القطعة بالدرهم)</label>
-                    <div className="relative">
-                      <DollarSign className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                      <input
-                        type="number"
-                        step="0.01"
-                        placeholder="0.00"
-                        value={formPricePerPiece || ''}
-                        onChange={(e) => setFormPricePerPiece(parseFloat(e.target.value) || 0)}
-                        className="w-full border border-slate-200 rounded-xl pl-9 pr-3 py-2.5 text-sm font-bold text-slate-700 bg-white focus:outline-none focus:border-indigo-500"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Total Quantity */}
-                  <div>
-                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Quantité Totale Demandée (الكمية الإجمالية) *</label>
-                    <input
-                      type="number"
-                      required
-                      min="1"
-                      placeholder="1000"
-                      value={formTotalQuantity || ''}
-                      onChange={(e) => setFormTotalQuantity(parseInt(e.target.value) || 0)}
-                      className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm font-black text-indigo-900 bg-white focus:outline-none focus:border-indigo-500"
-                    />
-                  </div>
-
-                  {/* Total Cost summary */}
-                  <div>
-                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Coût total estimé (المبلغ الإجمالي)</label>
-                    <div className="flex items-center gap-2 p-2.5 bg-indigo-50 border border-indigo-100 rounded-xl">
-                      <span className="text-sm font-black text-indigo-700 font-mono">
-                        {(formTotalQuantity * formPricePerPiece).toFixed(2)} DH
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Mock Fabric/Warehouse verification */}
-                  <div>
-                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Vérification المخزن الافتراضي</label>
-                    <div className="flex items-center gap-2 p-2.5 bg-emerald-50 border border-emerald-100 rounded-xl">
-                      <ShieldCheck className="w-5 h-5 text-emerald-600 shrink-0" />
-                      <span className="text-xs font-bold text-emerald-700">Stock disponible estimé (قماش متوفر) ✅</span>
-                    </div>
-                  </div>
-                </div>
+              {/* Tab Selector */}
+              <div className="flex bg-slate-100/60 p-1 rounded-2xl gap-1 shrink-0 mb-6 border border-slate-200/40 backdrop-blur-sm max-w-full overflow-x-auto no-scrollbar">
+                <button
+                  type="button"
+                  onClick={() => setModalTab('general')}
+                  className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all duration-200 whitespace-nowrap ${modalTab === 'general' ? 'bg-white text-indigo-600 shadow-sm border border-slate-200/50' : 'text-slate-500 hover:text-slate-800'}`}
+                >
+                  <Info className="w-3.5 h-3.5" />
+                  <span>Général (معلومات عامة)</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setModalTab('logistics')}
+                  className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all duration-200 whitespace-nowrap ${modalTab === 'logistics' ? 'bg-white text-indigo-600 shadow-sm border border-slate-200/50' : 'text-slate-500 hover:text-slate-800'}`}
+                >
+                  <Package className="w-3.5 h-3.5" />
+                  <span>Logistique (السلعة والشاونطة)</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setModalTab('technical')}
+                  className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all duration-200 whitespace-nowrap ${modalTab === 'technical' ? 'bg-white text-indigo-600 shadow-sm border border-slate-200/50' : 'text-slate-500 hover:text-slate-800'}`}
+                >
+                  <Layers className="w-3.5 h-3.5" />
+                  <span>Spécifications (التفاصيل التقنية)</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setModalTab('commercial')}
+                  className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all duration-200 whitespace-nowrap ${modalTab === 'commercial' ? 'bg-white text-indigo-600 shadow-sm border border-slate-200/50' : 'text-slate-500 hover:text-slate-800'}`}
+                >
+                  <Coins className="w-3.5 h-3.5" />
+                  <span>Commercial & Qualité (الشروط والآجال)</span>
+                </button>
               </div>
 
-              {/* Logistics status selector */}
-              <div className="bg-slate-50 border border-slate-200/60 rounded-2xl p-4 space-y-4">
-                <h4 className="text-xs font-black text-indigo-700 uppercase tracking-wider flex items-center gap-1.5">
-                  <ClipboardCheck className="w-4 h-4" />
-                  Statut des Matériaux & Dossier Technique (اللوجستيك)
-                </h4>
-                
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  {/* Tissu status */}
-                  <div>
-                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Ques/Tissus (حالة القماش)</label>
-                    <select
-                      value={formTissuStatus}
-                      onChange={(e) => setFormTissuStatus(e.target.value as any)}
-                      className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-700 bg-white"
-                    >
-                      <option value="PENDING">En attente (في انتظار القص/الإرسال)</option>
-                      <option value="SENT">Envoyé (تم تسليم القماش المقصوص)</option>
-                    </select>
-                  </div>
-
-                  {/* Accessories status */}
-                  <div>
-                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Accessoires / Fournitures</label>
-                    <select
-                      value={formFournituresStatus}
-                      onChange={(e) => setFormFournituresStatus(e.target.value as any)}
-                      className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-700 bg-white"
-                    >
-                      <option value="PENDING">En préparation (قيد التجهيز)</option>
-                      <option value="DELIVERED">Prêt/Livre (جاهز وتم تسليمه)</option>
-                    </select>
-                  </div>
-
-                  {/* Fiche technique checkbox */}
-                  <div className="flex items-center gap-2 pt-6">
-                    <input
-                      type="checkbox"
-                      id="formFicheTechniqueSent"
-                      checked={formFicheTechniqueSent}
-                      onChange={(e) => setFormFicheTechniqueSent(e.target.checked)}
-                      className="w-4 h-4 text-indigo-600 border-slate-300 rounded"
-                    />
-                    <label htmlFor="formFicheTechniqueSent" className="text-xs font-bold text-slate-600 uppercase">
-                      Dossier Technique Envoyé (الملف التقني)
-                    </label>
-                  </div>
-                </div>
-              </div>
-
-              {/* Step 2: Batches & Splitting */}
-              <div className="space-y-4">
-                <div className="flex items-center justify-between border-b border-slate-200 pb-2">
-                  <h4 className="text-sm font-black text-slate-800 uppercase tracking-tight flex items-center gap-1.5">
-                    <Layers className="w-5 h-5 text-indigo-600" />
-                    Lots de Livraison & Grille de Tailles/Couleurs (تقسيم الدفعات)
-                  </h4>
-                  <button
-                    type="button"
-                    onClick={addBatch}
-                    className="text-xs font-bold text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 border border-indigo-200 rounded-lg px-2.5 py-1.5 transition-colors"
-                  >
-                    + Diviser / Ajouter un lot
-                  </button>
-                </div>
-
-                {/* Grid Info Alert */}
-                <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-3 flex items-start gap-2.5">
-                  <Info className="w-4 h-4 text-indigo-600 shrink-0 mt-0.5" />
-                  <p className="text-xs font-medium text-indigo-800">
-                    Saisissez les dates et quantités par lot. Pour chaque lot, ajoutez ses couleurs et répartissez les quantités par taille. La somme des lots doit correspondre à <strong>{formTotalQuantity} pcs</strong>. Actuellement saisi: <strong>{totalBatchesQty} pcs</strong>.
-                  </p>
-                </div>
-
-                {/* Batches Loop */}
-                {batches.map((batch, idx) => (
-                  <div key={idx} className="border border-slate-200 rounded-2xl p-4 bg-white space-y-4 shadow-sm relative">
-                    {/* Delete Batch Button */}
-                    {batches.length > 1 && (
-                      <button
-                        type="button"
-                        onClick={() => removeBatch(idx)}
-                        className="absolute right-3 top-3 text-slate-400 hover:text-rose-600 w-7 h-7 rounded-lg hover:bg-slate-100 flex items-center justify-center transition-colors"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    )}
-
-                    <div className="flex items-center gap-2 border-b border-slate-100 pb-2">
-                      <span className="w-5 h-5 rounded-full bg-indigo-600 text-white text-[10px] font-black flex items-center justify-center">
-                        {idx + 1}
-                      </span>
-                      <span className="font-bold text-slate-800 text-xs uppercase tracking-wider">Lot de Livraison {idx + 1}</span>
-                    </div>
-
+              {/* TAB 1: GENERAL */}
+              {modalTab === 'general' && (
+                <div className="space-y-6">
+                  <div className="bg-slate-50 border border-slate-200/60 rounded-2xl p-4 space-y-4">
+                    <h4 className="text-xs font-black text-indigo-700 uppercase tracking-wider flex items-center gap-1.5">
+                      <Info className="w-4 h-4" />
+                      Informations Générales de la Commande
+                    </h4>
+                    
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {/* Delivery Date for Batch */}
+                      {/* Model Choice */}
                       <div>
-                        <label className="block text-[10px] font-black text-slate-400 uppercase mb-1">Date de livraison prévue *</label>
+                        <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Sélectionner un Modèle (الموديل)</label>
+                        <select
+                          value={formModelId}
+                          onChange={(e) => handleModelChange(e.target.value)}
+                          className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm font-bold text-slate-700 bg-white focus:outline-none focus:border-indigo-500"
+                        >
+                          {models.map(m => (
+                            <option key={m.id} value={m.id}>{m.meta_data?.nom_modele || 'Sans Nom'} {m.meta_data?.reference ? `(${m.meta_data.reference})` : ''}</option>
+                          ))}
+                          <option value="MANUAL">+ Saisie Manuelle (طلبية مباشرة خارج الموديلات)</option>
+                        </select>
+                      </div>
+
+                      {/* Client Name */}
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Client (الزبون)</label>
+                        <input
+                          type="text"
+                          placeholder="Nom du client..."
+                          value={formClientName}
+                          onChange={(e) => setFormClientName(e.target.value)}
+                          className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm font-bold text-slate-700 bg-white focus:outline-none focus:border-indigo-500"
+                        />
+                      </div>
+
+                      {/* Subcontractor Name */}
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Sous-traitant (اسم ورشة المناول) *</label>
+                        <input
+                          type="text"
+                          required
+                          placeholder="Ex: Atelier Nord, ModCouture..."
+                          value={formSubcontractorName}
+                          onChange={(e) => setFormSubcontractorName(e.target.value)}
+                          className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm font-bold text-slate-700 bg-white focus:outline-none focus:border-indigo-500"
+                        />
+                      </div>
+
+                      {/* Subcontractor Phone */}
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Téléphone (الهاتف)</label>
+                        <input
+                          type="tel"
+                          placeholder="Ex: +212 600000000"
+                          value={formSubcontractorPhone}
+                          onChange={(e) => setFormSubcontractorPhone(e.target.value)}
+                          className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm font-bold text-slate-700 bg-white focus:outline-none focus:border-indigo-500"
+                        />
+                      </div>
+
+                      {/* Subcontractor Rating */}
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Note / Évaluation (التقييم)</label>
+                        <select
+                          value={formSubcontractorRating}
+                          onChange={(e) => setFormSubcontractorRating(Number(e.target.value) || 5)}
+                          className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm font-bold text-slate-700 bg-white focus:outline-none focus:border-indigo-500"
+                        >
+                          <option value={5}>★★★★★ (5/5)</option>
+                          <option value={4}>★★★★☆ (4/5)</option>
+                          <option value={3}>★★★☆☆ (3/5)</option>
+                          <option value={2}>★★☆☆☆ (2/5)</option>
+                          <option value={1}>★☆☆☆☆ (1/5)</option>
+                        </select>
+                      </div>
+
+                      {/* Subcontractor Availability Date */}
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Disponible à partir de (تاريخ التوفر)</label>
                         <input
                           type="date"
-                          required
-                          value={batch.deliveryDate}
-                          onChange={(e) => updateBatchField(idx, 'deliveryDate', e.target.value)}
-                          className="w-full border border-slate-200 rounded-lg px-2.5 py-2 text-xs font-bold text-slate-700 bg-white"
+                          value={formSubcontractorAvailabilityDate}
+                          onChange={(e) => setFormSubcontractorAvailabilityDate(e.target.value)}
+                          className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm font-bold text-slate-700 bg-white focus:outline-none focus:border-indigo-500"
                         />
                       </div>
 
-                      {/* Calculated Quantity for Batch */}
+                      {/* Price Per Piece */}
                       <div>
-                        <label className="block text-[10px] font-black text-slate-400 uppercase mb-1">Quantité de ce lot (Calculée ou Fixée)</label>
+                        <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Prix par pièce (ثمن القطعة بالدرهم)</label>
+                        <div className="relative">
+                          <DollarSign className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                          <input
+                            type="number"
+                            step="0.01"
+                            placeholder="0.00"
+                            value={formPricePerPiece || ''}
+                            onChange={(e) => setFormPricePerPiece(parseFloat(e.target.value) || 0)}
+                            className="w-full border border-slate-200 rounded-xl pl-9 pr-3 py-2.5 text-sm font-bold text-slate-700 bg-white focus:outline-none focus:border-indigo-500"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Total Quantity */}
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Quantité Totale Demandée (الكمية الإجمالية) *</label>
                         <input
                           type="number"
-                          readOnly={Object.keys(batch.grid).length > 0}
-                          value={batch.quantity || ''}
-                          onChange={(e) => updateBatchField(idx, 'quantity', parseInt(e.target.value) || 0)}
-                          className={`w-full border border-slate-200 rounded-lg px-2.5 py-2 text-xs font-black ${Object.keys(batch.grid).length > 0 ? 'bg-slate-50 text-indigo-600' : 'bg-white text-slate-700'}`}
+                          required
+                          min="1"
+                          placeholder="1000"
+                          value={formTotalQuantity || ''}
+                          onChange={(e) => setFormTotalQuantity(parseInt(e.target.value) || 0)}
+                          className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm font-black text-indigo-900 bg-white focus:outline-none focus:border-indigo-500"
+                        />
+                      </div>
+
+                      {/* Total Cost summary */}
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Coût total estimé (المبلغ الإجمالي)</label>
+                        <div className="flex items-center gap-2 p-2.5 bg-indigo-50 border border-indigo-100 rounded-xl">
+                          <span className="text-sm font-black text-indigo-700 font-mono">
+                            {(formTotalQuantity * formPricePerPiece).toFixed(2)} DH
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Mock Fabric/Warehouse verification */}
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Vérification Magasin</label>
+                        <div className="flex items-center gap-2 p-2.5 bg-emerald-50 border border-emerald-100 rounded-xl">
+                          <ShieldCheck className="w-5 h-5 text-emerald-600 shrink-0" />
+                          <span className="text-xs font-bold text-emerald-700">Stock disponible estimé (قماش متوفر) ✅</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Step 2: Batches & Splitting */}
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between border-b border-slate-200 pb-2">
+                      <h4 className="text-sm font-black text-slate-800 uppercase tracking-tight flex items-center gap-1.5">
+                        <Layers className="w-5 h-5 text-indigo-600" />
+                        Lots de Livraison & Grille de Tailles/Couleurs (تقسيم الدفعات)
+                      </h4>
+                      <button
+                        type="button"
+                        onClick={addBatch}
+                        className="text-xs font-bold text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 border border-indigo-200 rounded-lg px-2.5 py-1.5 transition-colors"
+                      >
+                        + Diviser / Ajouter un lot
+                      </button>
+                    </div>
+
+                    {/* Grid Info Alert */}
+                    <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-3 flex items-start gap-2.5">
+                      <Info className="w-4 h-4 text-indigo-600 shrink-0 mt-0.5" />
+                      <p className="text-xs font-medium text-indigo-800">
+                        Saisissez les dates et quantités par lot. Pour chaque lot, ajoutez ses couleurs et répartissez les quantités par taille. La somme des lots doit correspondre à <strong>{formTotalQuantity} pcs</strong>. Actuellement saisi: <strong>{totalBatchesQty} pcs</strong>.
+                      </p>
+                    </div>
+
+                    {/* Batches Loop */}
+                    {batches.map((batch, idx) => (
+                      <div key={idx} className="border border-slate-200 rounded-2xl p-4 bg-white space-y-4 shadow-sm relative">
+                        {/* Delete Batch Button */}
+                        {batches.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => removeBatch(idx)}
+                            className="absolute right-3 top-3 text-slate-400 hover:text-rose-600 w-7 h-7 rounded-lg hover:bg-slate-100 flex items-center justify-center transition-colors"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        )}
+
+                        <div className="flex items-center gap-2 border-b border-slate-100 pb-2">
+                          <span className="w-5 h-5 rounded-full bg-indigo-600 text-white text-[10px] font-black flex items-center justify-center">
+                            {idx + 1}
+                          </span>
+                          <span className="font-bold text-slate-800 text-xs uppercase tracking-wider">Lot de Livraison {idx + 1}</span>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          {/* Delivery Date for Batch */}
+                          <div>
+                            <label className="block text-[10px] font-black text-slate-400 uppercase mb-1">Date de livraison prévue *</label>
+                            <input
+                              type="date"
+                              required
+                              value={batch.deliveryDate}
+                              onChange={(e) => updateBatchField(idx, 'deliveryDate', e.target.value)}
+                              className="w-full border border-slate-200 rounded-lg px-2.5 py-2 text-xs font-bold text-slate-700 bg-white"
+                            />
+                          </div>
+
+                          {/* Calculated Quantity for Batch */}
+                          <div>
+                            <label className="block text-[10px] font-black text-slate-400 uppercase mb-1">Quantité de ce lot (Calculée ou Fixée)</label>
+                            <input
+                              type="number"
+                              readOnly={Object.keys(batch.grid).length > 0}
+                              value={batch.quantity || ''}
+                              onChange={(e) => updateBatchField(idx, 'quantity', parseInt(e.target.value) || 0)}
+                              className={`w-full border border-slate-200 rounded-lg px-2.5 py-2 text-xs font-black ${Object.keys(batch.grid).length > 0 ? 'bg-slate-50 text-indigo-600' : 'bg-white text-slate-700'}`}
+                            />
+                          </div>
+                        </div>
+
+                        {/* Color & Size matrix setup */}
+                        <div className="bg-slate-50 rounded-xl p-3 border border-slate-200/50 space-y-3">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[10px] font-black text-slate-500 uppercase tracking-wider">Répartition Tailles & Couleurs (Détail)</span>
+                            
+                            {/* New Color Add form */}
+                            <div className="flex items-center gap-1">
+                              <input
+                                type="text"
+                                placeholder="Nouvelle couleur..."
+                                value={newColorInputs[idx] || ''}
+                                onChange={(e) => {
+                                  setNewColorInputs(prev => {
+                                    const updated = [...prev];
+                                    updated[idx] = e.target.value;
+                                    return updated;
+                                  });
+                                }}
+                                className="border border-slate-200 rounded px-2 py-1 text-[11px] font-medium bg-white focus:outline-none focus:border-indigo-500"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => addColorToBatch(idx)}
+                                className="bg-indigo-50 text-indigo-700 border border-indigo-200 hover:bg-indigo-100 rounded px-2 py-1 text-[11px] font-black"
+                              >
+                                Ajouter
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Color-Size Matrix */}
+                          {Object.keys(batch.grid).length === 0 ? (
+                            <p className="text-[11px] text-slate-400 font-medium italic">Aucune couleur spécifiée. Ajoutez une couleur ci-dessus pour détailler les tailles.</p>
+                          ) : (
+                            <div className="overflow-x-auto">
+                              <table className="w-full text-left border-collapse text-xs">
+                                <thead>
+                                  <tr className="border-b border-slate-200 text-slate-400 font-bold">
+                                    <th className="py-1.5 px-2">Couleur</th>
+                                    {COMMON_SIZES.map(sz => (
+                                      <th key={sz} className="py-1.5 px-1 text-center w-12">{sz}</th>
+                                    ))}
+                                    <th className="py-1.5 px-2 text-right w-10"></th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {Object.entries(batch.grid).map(([color, sizesObj]) => (
+                                    <tr key={color} className="border-b border-slate-100 last:border-0">
+                                      <td className="py-1 px-2 font-black text-slate-700">{color}</td>
+                                      {COMMON_SIZES.map(sz => (
+                                        <td key={sz} className="py-1 px-0.5 text-center">
+                                          <input
+                                            type="number"
+                                            min="0"
+                                            value={sizesObj[sz] || ''}
+                                            placeholder="0"
+                                            onChange={(e) => updateGridQty(idx, color, sz, parseInt(e.target.value) || 0)}
+                                            className="w-10 border border-slate-200 rounded text-center py-1 text-[11px] font-bold focus:outline-none focus:border-indigo-500"
+                                          />
+                                        </td>
+                                      ))}
+                                      <td className="py-1 px-2 text-right">
+                                        <button
+                                          type="button"
+                                          onClick={() => removeColorFromBatch(idx, color)}
+                                          className="text-slate-400 hover:text-rose-600 transition-colors"
+                                        >
+                                          <X className="w-3.5 h-3.5" />
+                                        </button>
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Batch-specific notes */}
+                        <div>
+                          <input
+                            type="text"
+                            placeholder="Remarques spécifiques à ce lot (ex: Tissu fourni par client...)"
+                            value={batch.notes}
+                            onChange={(e) => updateBatchField(idx, 'notes', e.target.value)}
+                            className="w-full border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs font-semibold bg-white placeholder-slate-400"
+                          />
+                        </div>
+
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* TAB 2: LOGISTICS & MATERIAUX */}
+              {modalTab === 'logistics' && (
+                <div className="space-y-6">
+                  {/* Responsibility Matrix */}
+                  <div className="bg-slate-50 border border-slate-200/60 rounded-2xl p-4 space-y-4">
+                    <h4 className="text-xs font-black text-indigo-700 uppercase tracking-wider flex items-center gap-1.5">
+                      <Package className="w-4 h-4" />
+                      Responsabilité des Fournitures (السلعة والشاونطة)
+                    </h4>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {/* Prestation Type */}
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Type de Prestation (نوع الخدمة)</label>
+                        <select
+                          value={formPrestationType}
+                          onChange={(e) => setFormPrestationType(e.target.value as any)}
+                          className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm font-bold text-slate-700 bg-white"
+                        >
+                          <option value="CMT">CMT (Coupe, Couture, Finition - القص والخياطة والتشطيب)</option>
+                          <option value="FACON_PURE">Façon Pure (Couture seule - خياطة فقط، الفصالة واجدة)</option>
+                        </select>
+                      </div>
+
+                      {/* Tissu provider */}
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Fourniture du Tissu (القماش الأساسي)</label>
+                        <select
+                          value={formTissuFournisseur}
+                          onChange={(e) => setFormTissuFournisseur(e.target.value as any)}
+                          className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm font-bold text-slate-700 bg-white"
+                        >
+                          <option value="CLIENT">Donneur d'Ordre / Client (من طرفنا)</option>
+                          <option value="SUBCONTRACTOR">Sous-traitant / Atelier (من طرف المناول)</option>
+                        </select>
+                      </div>
+
+                      {/* Fournitures provider */}
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Fourniture des Accessoires (الأزرار، السحابات، الملصقات)</label>
+                        <select
+                          value={formFournituresFournisseur}
+                          onChange={(e) => setFormFournituresFournisseur(e.target.value as any)}
+                          className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm font-bold text-slate-700 bg-white"
+                        >
+                          <option value="CLIENT">Donneur d'Ordre / Client (من طرفنا)</option>
+                          <option value="SUBCONTRACTOR">Sous-traitant / Atelier (من طرف المناول)</option>
+                        </select>
+                      </div>
+
+                      {/* Packaging provider */}
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Conditionnement & Emballage (التعبئة والتغليف)</label>
+                        <select
+                          value={formConditionnementFournisseur}
+                          onChange={(e) => setFormConditionnementFournisseur(e.target.value as any)}
+                          className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm font-bold text-slate-700 bg-white"
+                        >
+                          <option value="CLIENT">Donneur d'Ordre / Client (من طرفنا)</option>
+                          <option value="SUBCONTRACTOR">Sous-traitant / Atelier (من طرف المناول)</option>
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Operational Logistics statuses */}
+                  <div className="bg-slate-50 border border-slate-200/60 rounded-2xl p-4 space-y-4">
+                    <h4 className="text-xs font-black text-indigo-700 uppercase tracking-wider flex items-center gap-1.5">
+                      <ClipboardCheck className="w-4 h-4" />
+                      Statut d'Expédition Logistique (اللوجستيك)
+                    </h4>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      {/* Tissu status */}
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Tissus (حالة القماش)</label>
+                        <select
+                          value={formTissuStatus}
+                          onChange={(e) => setFormTissuStatus(e.target.value as any)}
+                          className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-700 bg-white"
+                        >
+                          <option value="PENDING">En attente (في انتظار القص/الإرسال)</option>
+                          <option value="SENT">Envoyé (تم تسليم القماش المقصوص)</option>
+                        </select>
+                      </div>
+
+                      {/* Accessories status */}
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Accessoires / Fournitures</label>
+                        <select
+                          value={formFournituresStatus}
+                          onChange={(e) => setFormFournituresStatus(e.target.value as any)}
+                          className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-700 bg-white"
+                        >
+                          <option value="PENDING">En préparation (قيد التجهيز)</option>
+                          <option value="DELIVERED">Prêt/Livre (جاهز وتم تسليمه)</option>
+                        </select>
+                      </div>
+
+                      {/* Fiche technique checkbox */}
+                      <div className="flex items-center gap-2 pt-6">
+                        <input
+                          type="checkbox"
+                          id="formFicheTechniqueSent"
+                          checked={formFicheTechniqueSent}
+                          onChange={(e) => setFormFicheTechniqueSent(e.target.checked)}
+                          className="w-4 h-4 text-indigo-600 border-slate-300 rounded"
+                        />
+                        <label htmlFor="formFicheTechniqueSent" className="text-xs font-bold text-slate-600 uppercase">
+                          Fiche Technique Envoyée
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* TAB 3: TECHNICAL & PROTO */}
+              {modalTab === 'technical' && (
+                <div className="space-y-6">
+                  {/* Stitching / Consignes de couture */}
+                  <div className="bg-slate-50 border border-slate-200/60 rounded-2xl p-4 space-y-4">
+                    <h4 className="text-xs font-black text-indigo-700 uppercase tracking-wider flex items-center gap-1.5">
+                      <Clock className="w-4 h-4" />
+                      Consignes de Couture & Assemblage (تعليمات الخياطة)
+                    </h4>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Détails des machines, fils, surpiqûres</label>
+                      <textarea
+                        rows={4}
+                        placeholder="Ex: Surjet 4 fils pour assemblage, machine plate 1 aiguille, fil N°120. Points d'arrêt obligatoires..."
+                        value={formStitchingDetails}
+                        onChange={(e) => setFormStitchingDetails(e.target.value)}
+                        className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm font-semibold text-slate-700 bg-white focus:outline-none focus:border-indigo-500"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Prototype validation (BPA) */}
+                  <div className="bg-slate-50 border border-slate-200/60 rounded-2xl p-4 space-y-4">
+                    <h4 className="text-xs font-black text-indigo-700 uppercase tracking-wider flex items-center gap-1.5">
+                      <ShieldCheck className="w-4 h-4" />
+                      Validation du Prototype / Modèle de Référence
+                    </h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {/* Proto required */}
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Prototype Obligatoire ? (النموذج الأولي)</label>
+                        <select
+                          value={formProtoRequired}
+                          onChange={(e) => setFormProtoRequired(Number(e.target.value) || 0)}
+                          className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm font-bold text-slate-700 bg-white"
+                        >
+                          <option value={1}>Oui, approbation nécessaire avant coupe (نعم، ضروري)</option>
+                          <option value={0}>Non, production directe (لا، إنتاج مباشر)</option>
+                        </select>
+                      </div>
+
+                      {/* Proto Status */}
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Statut de Validation du Prototype</label>
+                        <select
+                          value={formProtoStatus}
+                          onChange={(e) => setFormProtoStatus(e.target.value as any)}
+                          disabled={formProtoRequired === 0}
+                          className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm font-bold text-slate-700 bg-white disabled:bg-slate-100 disabled:text-slate-400"
+                        >
+                          <option value="PENDING">En attente / Non approuvé (معلق)</option>
+                          <option value="APPROVED">Bon pour Accord (BPA) / Validé (موافق عليه)</option>
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* TAB 4: COMMERCIAL & QUALITE */}
+              {modalTab === 'commercial' && (
+                <div className="space-y-6">
+                  {/* Commercial conditions */}
+                  <div className="bg-slate-50 border border-slate-200/60 rounded-2xl p-4 space-y-4">
+                    <h4 className="text-xs font-black text-indigo-700 uppercase tracking-wider flex items-center gap-1.5">
+                      <Coins className="w-4 h-4" />
+                      Conditions Financières & Paiement (طريقة الدفع)
+                    </h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {/* Payment terms */}
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Modalités de Paiement</label>
+                        <select
+                          value={formPaymentTerms}
+                          onChange={(e) => setFormPaymentTerms(e.target.value as any)}
+                          className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm font-bold text-slate-700 bg-white"
+                        >
+                          <option value="AVANCE_RECEPTION">Acompte à la commande + solde après livraison (تسبيق + الباقي)</option>
+                          <option value="APRES_LIVRAISON">Paiement total après réception & facturation (الدفع بعد الاستلام)</option>
+                          <option value="ECHEANCES">Paiement échelonné / Traite (على دفعات)</option>
+                        </select>
+                      </div>
+
+                      {/* Defect rate accepted */}
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Taux de défauts maximum accepté (%)</label>
+                        <input
+                          type="number"
+                          step="0.1"
+                          min="0"
+                          max="10"
+                          value={formDefectRateAccepted}
+                          onChange={(e) => setFormDefectRateAccepted(parseFloat(e.target.value) || 0)}
+                          className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm font-bold text-slate-700 bg-white"
                         />
                       </div>
                     </div>
+                  </div>
 
-                    {/* Color & Size matrix setup */}
-                    <div className="bg-slate-50 rounded-xl p-3 border border-slate-200/50 space-y-3">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-black text-slate-500 uppercase tracking-wider">Répartition Tailles & Couleurs (Détail)</span>
-                        
-                        {/* New Color Add form */}
-                        <div className="flex items-center gap-1">
-                          <input
-                            type="text"
-                            placeholder="Nouvelle couleur..."
-                            value={newColorInputs[idx] || ''}
-                            onChange={(e) => {
-                              setNewColorInputs(prev => {
-                                const updated = [...prev];
-                                updated[idx] = e.target.value;
-                                return updated;
-                              });
-                            }}
-                            className="border border-slate-200 rounded px-2 py-1 text-[11px] font-medium bg-white focus:outline-none focus:border-indigo-500"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => addColorToBatch(idx)}
-                            className="bg-indigo-50 text-indigo-700 border border-indigo-200 hover:bg-indigo-100 rounded px-2 py-1 text-[11px] font-black"
-                          >
-                            Ajouter
-                          </button>
-                        </div>
-                      </div>
-
-                      {/* Color-Size Matrix */}
-                      {Object.keys(batch.grid).length === 0 ? (
-                        <p className="text-[11px] text-slate-400 font-medium italic">Aucune couleur spécifiée. Ajoutez une couleur ci-dessus pour détailler les tailles.</p>
-                      ) : (
-                        <div className="overflow-x-auto">
-                          <table className="w-full text-left border-collapse text-xs">
-                            <thead>
-                              <tr className="border-b border-slate-200 text-slate-400 font-bold">
-                                <th className="py-1.5 px-2">Couleur</th>
-                                {COMMON_SIZES.map(sz => (
-                                  <th key={sz} className="py-1.5 px-1 text-center w-12">{sz}</th>
-                                ))}
-                                <th className="py-1.5 px-2 text-right w-10"></th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {Object.entries(batch.grid).map(([color, sizesObj]) => (
-                                <tr key={color} className="border-b border-slate-100 last:border-0">
-                                  <td className="py-1 px-2 font-black text-slate-700">{color}</td>
-                                  {COMMON_SIZES.map(sz => (
-                                    <td key={sz} className="py-1 px-0.5 text-center">
-                                      <input
-                                        type="number"
-                                        min="0"
-                                        value={sizesObj[sz] || ''}
-                                        placeholder="0"
-                                        onChange={(e) => updateGridQty(idx, color, sz, parseInt(e.target.value) || 0)}
-                                        className="w-10 border border-slate-200 rounded text-center py-1 text-[11px] font-bold focus:outline-none focus:border-indigo-500"
-                                      />
-                                    </td>
-                                  ))}
-                                  <td className="py-1 px-2 text-right">
-                                    <button
-                                      type="button"
-                                      onClick={() => removeColorFromBatch(idx, color)}
-                                      className="text-slate-400 hover:text-rose-600 transition-colors"
-                                    >
-                                      <X className="w-3.5 h-3.5" />
-                                    </button>
-                                  </td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Batch-specific notes */}
+                  {/* Notes / Instructions */}
+                  <div className="bg-slate-50 border border-slate-200/60 rounded-2xl p-4 space-y-4">
+                    <h4 className="text-xs font-black text-indigo-700 uppercase tracking-wider flex items-center gap-1.5">
+                      <AlertCircle className="w-4 h-4" />
+                      Remarques, Pénalités & Emballage (شروط إضافية)
+                    </h4>
                     <div>
-                      <input
-                        type="text"
-                        placeholder="Remarques spécifiques à ce lot (ex: Tissu fourni par client...)"
-                        value={batch.notes}
-                        onChange={(e) => updateBatchField(idx, 'notes', e.target.value)}
-                        className="w-full border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs font-semibold bg-white placeholder-slate-400"
+                      <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Notes Générales & Instructions Logistiques</label>
+                      <textarea
+                        rows={3}
+                        placeholder="Remarques additionnelles, pénalités de retard, conditions de pliage, étiquetage..."
+                        value={formNotes}
+                        onChange={(e) => setFormNotes(e.target.value)}
+                        className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm font-semibold text-slate-700 bg-white focus:outline-none focus:border-indigo-500"
                       />
                     </div>
-
                   </div>
-                ))}
-              </div>
-
-              {/* Form Notes */}
-              <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Notes Générales</label>
-                <textarea
-                  rows={2}
-                  placeholder="Remarques et instructions importantes..."
-                  value={formNotes}
-                  onChange={(e) => setFormNotes(e.target.value)}
-                  className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm font-semibold text-slate-700 bg-white focus:outline-none focus:border-indigo-500"
-                />
-              </div>
+                </div>
+              )}
 
             </form>
 
@@ -1605,11 +2355,11 @@ export default function SousTraitance({ models, settings }: SousTraitanceProps) 
 
       {/* --- EDIT / QC MODAL --- */}
       {isEditModalOpen && selectedOrder && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white rounded-3xl w-full max-w-2xl border border-slate-200 shadow-2xl flex flex-col my-8 max-h-[85vh] overflow-hidden animate-in zoom-in-95 duration-200">
+        <div className="fixed inset-0 z-50 bg-slate-950/40 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white/80 border border-white/50 backdrop-blur-xl rounded-3xl w-full max-w-2xl shadow-[0_20px_50px_rgba(0,0,0,0.15)] flex flex-col my-8 max-h-[85vh] overflow-hidden animate-in zoom-in-95 duration-200">
             
             {/* Modal Header */}
-            <div className="bg-slate-900 px-6 py-4 flex items-center justify-between text-white shrink-0">
+            <div className="bg-gradient-to-r from-slate-950/90 to-slate-900/90 border-b border-white/10 px-6 py-4.5 flex items-center justify-between text-white shrink-0 backdrop-blur-md">
               <div className="flex items-center gap-2">
                 <Edit2 className="w-4 h-4 text-slate-400" />
                 <div>
@@ -1631,306 +2381,522 @@ export default function SousTraitance({ models, settings }: SousTraitanceProps) 
                 </div>
               )}
 
-              {/* Fields */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Model Choice */}
-                <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Modèle (الموديل)</label>
-                  <select
-                    value={formModelId}
-                    onChange={(e) => handleModelChange(e.target.value)}
-                    className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm font-bold text-slate-700 bg-white"
-                  >
-                    {models.map(m => (
-                      <option key={m.id} value={m.id}>{m.meta_data?.nom_modele || 'Sans Nom'}</option>
-                    ))}
-                    <option value="MANUAL">Saisie Manuelle</option>
-                  </select>
-                </div>
-
-                {/* Client Name */}
-                <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Client (الزبون)</label>
-                  <input
-                    type="text"
-                    value={formClientName}
-                    onChange={(e) => setFormClientName(e.target.value)}
-                    className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm font-bold text-slate-700 bg-white"
-                  />
-                </div>
-
-                {/* Subcontractor Name */}
-                <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Sous-traitant *</label>
-                  <input
-                    type="text"
-                    required
-                    value={formSubcontractorName}
-                    onChange={(e) => setFormSubcontractorName(e.target.value)}
-                    className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm font-bold text-slate-700 bg-white"
-                  />
-                </div>
-
-                {/* Subcontractor Phone */}
-                <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Téléphone</label>
-                  <input
-                    type="tel"
-                    placeholder="Ex: +212 600000000"
-                    value={formSubcontractorPhone}
-                    onChange={(e) => setFormSubcontractorPhone(e.target.value)}
-                    className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm font-bold text-slate-700 bg-white"
-                  />
-                </div>
-
-                {/* Subcontractor Rating */}
-                <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Note / Évaluation</label>
-                  <select
-                    value={formSubcontractorRating}
-                    onChange={(e) => setFormSubcontractorRating(Number(e.target.value) || 5)}
-                    className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm font-bold text-slate-700 bg-white"
-                  >
-                    <option value={5}>★★★★★ (5/5)</option>
-                    <option value={4}>★★★★☆ (4/5)</option>
-                    <option value={3}>★★★☆☆ (3/5)</option>
-                    <option value={2}>★★☆☆☆ (2/5)</option>
-                    <option value={1}>★☆☆☆☆ (1/5)</option>
-                  </select>
-                </div>
-
-                {/* Subcontractor Availability Date */}
-                <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Disponible à partir de</label>
-                  <input
-                    type="date"
-                    value={formSubcontractorAvailabilityDate}
-                    onChange={(e) => setFormSubcontractorAvailabilityDate(e.target.value)}
-                    className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm font-bold text-slate-700 bg-white"
-                  />
-                </div>
-
-                {/* Price Per Piece */}
-                <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Prix par pièce</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={formPricePerPiece || ''}
-                    onChange={(e) => setFormPricePerPiece(parseFloat(e.target.value) || 0)}
-                    className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm font-bold text-slate-700 bg-white"
-                  />
-                </div>
-
-                {/* Total Quantity */}
-                <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Quantité du Lot *</label>
-                  <input
-                    type="number"
-                    required
-                    min="1"
-                    value={formTotalQuantity || ''}
-                    onChange={(e) => setFormTotalQuantity(parseInt(e.target.value) || 0)}
-                    className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm font-black text-indigo-900 bg-white"
-                  />
-                </div>
-
-                {/* Total Cost summary */}
-                <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Coût total estimé</label>
-                  <div className="flex items-center gap-2 p-2 bg-indigo-50 border border-indigo-100 rounded-xl">
-                    <span className="text-sm font-black text-indigo-700 font-mono">
-                      {(formTotalQuantity * formPricePerPiece).toFixed(2)} DH
-                    </span>
-                  </div>
-                </div>
-
-                {/* Delivery Date */}
-                <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Date de Livraison *</label>
-                  <input
-                    type="date"
-                    required
-                    value={batches[0]?.deliveryDate || ''}
-                    onChange={(e) => {
-                      const dateVal = e.target.value;
-                      setBatches(prev => {
-                        const updated = [...prev];
-                        if (updated[0]) updated[0].deliveryDate = dateVal;
-                        return updated;
-                      });
-                    }}
-                    className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm font-bold text-slate-700 bg-white"
-                  />
-                </div>
+              {/* Tab Selector */}
+              <div className="flex bg-slate-100/60 p-1 rounded-2xl gap-1 shrink-0 mb-6 border border-slate-200/40 backdrop-blur-sm max-w-full overflow-x-auto no-scrollbar">
+                <button
+                  type="button"
+                  onClick={() => setModalTab('general')}
+                  className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all duration-200 whitespace-nowrap ${modalTab === 'general' ? 'bg-white text-indigo-600 shadow-sm border border-slate-200/50' : 'text-slate-500 hover:text-slate-800'}`}
+                >
+                  <Info className="w-3.5 h-3.5" />
+                  <span>Général (معلومات عامة)</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setModalTab('logistics')}
+                  className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all duration-200 whitespace-nowrap ${modalTab === 'logistics' ? 'bg-white text-indigo-600 shadow-sm border border-slate-200/50' : 'text-slate-500 hover:text-slate-800'}`}
+                >
+                  <Package className="w-3.5 h-3.5" />
+                  <span>Logistique (السلعة والشاونطة)</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setModalTab('technical')}
+                  className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all duration-200 whitespace-nowrap ${modalTab === 'technical' ? 'bg-white text-indigo-600 shadow-sm border border-slate-200/50' : 'text-slate-500 hover:text-slate-800'}`}
+                >
+                  <Layers className="w-3.5 h-3.5" />
+                  <span>Spécifications (التفاصيل التقنية)</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setModalTab('commercial')}
+                  className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all duration-200 whitespace-nowrap ${modalTab === 'commercial' ? 'bg-white text-indigo-600 shadow-sm border border-slate-200/50' : 'text-slate-500 hover:text-slate-800'}`}
+                >
+                  <Coins className="w-3.5 h-3.5" />
+                  <span>Commercial & Qualité (الشروط والآجال)</span>
+                </button>
               </div>
 
-              {/* Logistics fields */}
-              <div className="border border-slate-200 rounded-2xl p-4 bg-slate-50 space-y-4">
-                <span className="text-xs font-black text-indigo-800 uppercase block mb-1">Matières & Fiche Technique</span>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div>
-                    <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Tissu status</label>
-                    <select
-                      value={formTissuStatus}
-                      onChange={(e) => setFormTissuStatus(e.target.value as any)}
-                      className="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-xs font-bold bg-white"
-                    >
-                      <option value="PENDING">En attente</option>
-                      <option value="SENT">Envoyé</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Accessoires status</label>
-                    <select
-                      value={formFournituresStatus}
-                      onChange={(e) => setFormFournituresStatus(e.target.value as any)}
-                      className="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-xs font-bold bg-white"
-                    >
-                      <option value="PENDING">En attente</option>
-                      <option value="DELIVERED">Prêt</option>
-                    </select>
-                  </div>
-
-                  <div className="flex items-center gap-2 pt-4">
-                    <input
-                      type="checkbox"
-                      id="formFicheTechniqueSentEdit"
-                      checked={formFicheTechniqueSent}
-                      onChange={(e) => setFormFicheTechniqueSent(e.target.checked)}
-                      className="w-4 h-4 text-indigo-600 border-slate-300 rounded"
-                    />
-                    <label htmlFor="formFicheTechniqueSentEdit" className="text-[10px] font-bold text-slate-600 uppercase">
-                      Dossier Technique Envoyé
-                    </label>
-                  </div>
-                </div>
-              </div>
-
-              {/* Quality Control Fields (Contrôle Qualité) */}
-              <div className="border-2 border-emerald-100 rounded-2xl p-4 bg-emerald-50/50 space-y-4">
-                <h4 className="text-xs font-black text-emerald-800 uppercase tracking-wider flex items-center gap-1.5">
-                  <CheckSquare className="w-4 h-4 text-emerald-600" />
-                  Contrôle Qualité à la Réception (فحص الجودة عند الاستلام)
-                </h4>
-                <p className="text-[10px] font-medium text-slate-500">
-                  Renseignez les quantités inspectées lors du déchargement pour mesurer la qualité effective de la confection.
-                </p>
-
-                <div className="grid grid-cols-3 gap-4">
-                  <div>
-                    <label className="block text-[10px] font-black text-emerald-700 uppercase mb-1">Conformes (سليمة)</label>
-                    <input
-                      type="number"
-                      min="0"
-                      value={formQtyAccepted}
-                      onChange={(e) => setFormQtyAccepted(parseInt(e.target.value) || 0)}
-                      className="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-xs font-black text-emerald-700 bg-white"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] font-black text-amber-700 uppercase mb-1">À Retoucher (إصلاح)</label>
-                    <input
-                      type="number"
-                      min="0"
-                      value={formQtyToRepair}
-                      onChange={(e) => setFormQtyToRepair(parseInt(e.target.value) || 0)}
-                      className="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-xs font-black text-amber-700 bg-white"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] font-black text-rose-700 uppercase mb-1">Rebuts/Déchets (تالفة)</label>
-                    <input
-                      type="number"
-                      min="0"
-                      value={formQtyRejected}
-                      onChange={(e) => setFormQtyRejected(parseInt(e.target.value) || 0)}
-                      className="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-xs font-black text-rose-700 bg-white"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Color/Size Edit Matrix */}
-              <div className="border border-slate-200 rounded-2xl p-4 bg-slate-50 space-y-4">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-black text-slate-500 uppercase">Grille Tailles & Couleurs (Modifier)</span>
-                  <div className="flex items-center gap-1">
-                    <input
-                      type="text"
-                      placeholder="Nouvelle couleur..."
-                      value={newColorInputs[0] || ''}
-                      onChange={(e) => {
-                        setNewColorInputs([e.target.value]);
-                      }}
-                      className="border border-slate-200 rounded px-2 py-1 text-[11px] font-medium bg-white"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => addColorToBatch(0)}
-                      className="bg-indigo-50 text-indigo-700 border border-indigo-200 hover:bg-indigo-100 rounded px-2.5 py-1 text-[11px] font-black"
-                    >
-                      Ajouter
-                    </button>
-                  </div>
-                </div>
-
-                {Object.keys(batches[0]?.grid || {}).length > 0 && (
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left border-collapse text-xs">
-                      <thead>
-                        <tr className="border-b border-slate-200 text-slate-400 font-bold">
-                          <th className="py-1 px-2">Couleur</th>
-                          {COMMON_SIZES.map(sz => (
-                            <th key={sz} className="py-1 px-1 text-center w-12">{sz}</th>
+              {/* TAB 1: GENERAL */}
+              {modalTab === 'general' && (
+                <div className="space-y-6 animate-in fade-in duration-200">
+                  <div className="bg-slate-50 border border-slate-200/60 rounded-2xl p-4 space-y-4">
+                    <h4 className="text-xs font-black text-indigo-700 uppercase tracking-wider flex items-center gap-1.5">
+                      <Info className="w-4 h-4" />
+                      Informations Générales
+                    </h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {/* Model Choice */}
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Modèle (الموديل)</label>
+                        <select
+                          value={formModelId}
+                          onChange={(e) => handleModelChange(e.target.value)}
+                          className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm font-bold text-slate-700 bg-white"
+                        >
+                          {models.map(m => (
+                            <option key={m.id} value={m.id}>{m.meta_data?.nom_modele || 'Sans Nom'}</option>
                           ))}
-                          <th className="py-1 px-2 text-right"></th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {Object.entries(batches[0].grid).map(([color, sizesObj]) => (
-                          <tr key={color} className="border-b border-slate-100 last:border-0">
-                            <td className="py-1 px-2 font-black text-slate-700">{color}</td>
-                            {COMMON_SIZES.map(sz => (
-                              <td key={sz} className="py-1 px-0.5 text-center">
-                                <input
-                                  type="number"
-                                  min="0"
-                                  value={sizesObj[sz] || ''}
-                                  placeholder="0"
-                                  onChange={(e) => updateGridQty(0, color, sz, parseInt(e.target.value) || 0)}
-                                  className="w-10 border border-slate-200 rounded text-center py-1 text-[11px] font-bold"
-                                />
-                              </td>
-                            ))}
-                            <td className="py-1 px-2 text-right">
-                              <button
-                                type="button"
-                                onClick={() => removeColorFromBatch(0, color)}
-                                className="text-slate-400 hover:text-rose-600 transition-colors"
-                              >
-                                <X className="w-3.5 h-3.5" />
-                              </button>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </div>
+                          <option value="MANUAL">Saisie Manuelle</option>
+                        </select>
+                      </div>
 
-              {/* General Notes */}
-              <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Notes Générales</label>
-                <textarea
-                  rows={2}
-                  value={formNotes}
-                  onChange={(e) => setFormNotes(e.target.value)}
-                  className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm font-semibold text-slate-700 bg-white"
-                />
-              </div>
+                      {/* Client Name */}
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Client (الزبون)</label>
+                        <input
+                          type="text"
+                          value={formClientName}
+                          onChange={(e) => setFormClientName(e.target.value)}
+                          className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm font-bold text-slate-700 bg-white"
+                        />
+                      </div>
+
+                      {/* Subcontractor Name */}
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Sous-traitant *</label>
+                        <input
+                          type="text"
+                          required
+                          value={formSubcontractorName}
+                          onChange={(e) => setFormSubcontractorName(e.target.value)}
+                          className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm font-bold text-slate-700 bg-white"
+                        />
+                      </div>
+
+                      {/* Subcontractor Phone */}
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Téléphone</label>
+                        <input
+                          type="tel"
+                          placeholder="Ex: +212 600000000"
+                          value={formSubcontractorPhone}
+                          onChange={(e) => setFormSubcontractorPhone(e.target.value)}
+                          className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm font-bold text-slate-700 bg-white"
+                        />
+                      </div>
+
+                      {/* Subcontractor Rating */}
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Note / Évaluation</label>
+                        <select
+                          value={formSubcontractorRating}
+                          onChange={(e) => setFormSubcontractorRating(Number(e.target.value) || 5)}
+                          className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm font-bold text-slate-700 bg-white"
+                        >
+                          <option value={5}>★★★★★ (5/5)</option>
+                          <option value={4}>★★★★☆ (4/5)</option>
+                          <option value={3}>★★★☆☆ (3/5)</option>
+                          <option value={2}>★★☆☆☆ (2/5)</option>
+                          <option value={1}>★☆☆☆☆ (1/5)</option>
+                        </select>
+                      </div>
+
+                      {/* Subcontractor Availability Date */}
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Disponible à partir de</label>
+                        <input
+                          type="date"
+                          value={formSubcontractorAvailabilityDate}
+                          onChange={(e) => setFormSubcontractorAvailabilityDate(e.target.value)}
+                          className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm font-bold text-slate-700 bg-white"
+                        />
+                      </div>
+
+                      {/* Price Per Piece */}
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Prix par pièce</label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          value={formPricePerPiece || ''}
+                          onChange={(e) => setFormPricePerPiece(parseFloat(e.target.value) || 0)}
+                          className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm font-bold text-slate-700 bg-white"
+                        />
+                      </div>
+
+                      {/* Total Quantity */}
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Quantité du Lot *</label>
+                        <input
+                          type="number"
+                          required
+                          min="1"
+                          value={formTotalQuantity || ''}
+                          onChange={(e) => setFormTotalQuantity(parseInt(e.target.value) || 0)}
+                          className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm font-black text-indigo-900 bg-white"
+                        />
+                      </div>
+
+                      {/* Total Cost summary */}
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Coût total estimé</label>
+                        <div className="flex items-center gap-2 p-2 bg-indigo-50 border border-indigo-100 rounded-xl">
+                          <span className="text-sm font-black text-indigo-700 font-mono">
+                            {(formTotalQuantity * formPricePerPiece).toFixed(2)} DH
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Delivery Date */}
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Date de Livraison *</label>
+                        <input
+                          type="date"
+                          required
+                          value={batches[0]?.deliveryDate || ''}
+                          onChange={(e) => {
+                            const dateVal = e.target.value;
+                            setBatches(prev => {
+                              const updated = [...prev];
+                              if (updated[0]) updated[0].deliveryDate = dateVal;
+                              return updated;
+                            });
+                          }}
+                          className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm font-bold text-slate-700 bg-white"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* TAB 2: LOGISTICS & MATERIAUX */}
+              {modalTab === 'logistics' && (
+                <div className="space-y-6 animate-in fade-in duration-200">
+                  <div className="bg-slate-50 border border-slate-200/60 rounded-2xl p-4 space-y-4">
+                    <h4 className="text-xs font-black text-indigo-700 uppercase tracking-wider flex items-center gap-1.5">
+                      <Package className="w-4 h-4" />
+                      Responsabilité des Fournitures
+                    </h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {/* Prestation Type */}
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Type de Prestation (نوع الخدمة)</label>
+                        <select
+                          value={formPrestationType}
+                          onChange={(e) => setFormPrestationType(e.target.value as any)}
+                          className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm font-bold text-slate-700 bg-white"
+                        >
+                          <option value="CMT">CMT (Coupe, Couture, Finition - القص والخياطة والتشطيب)</option>
+                          <option value="FACON_PURE">Façon Pure (Couture seule - خياطة فقط، الفصالة واجدة)</option>
+                        </select>
+                      </div>
+
+                      {/* Tissu provider */}
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Fourniture du Tissu</label>
+                        <select
+                          value={formTissuFournisseur}
+                          onChange={(e) => setFormTissuFournisseur(e.target.value as any)}
+                          className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm font-bold text-slate-700 bg-white"
+                        >
+                          <option value="CLIENT">Donneur d'Ordre / Client (من طرفنا)</option>
+                          <option value="SUBCONTRACTOR">Sous-traitant / Atelier (من طرف المناول)</option>
+                        </select>
+                      </div>
+
+                      {/* Fournitures provider */}
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Fourniture des Accessoires</label>
+                        <select
+                          value={formFournituresFournisseur}
+                          onChange={(e) => setFormFournituresFournisseur(e.target.value as any)}
+                          className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm font-bold text-slate-700 bg-white"
+                        >
+                          <option value="CLIENT">Donneur d'Ordre / Client (من طرفنا)</option>
+                          <option value="SUBCONTRACTOR">Sous-traitant / Atelier (من طرف المناول)</option>
+                        </select>
+                      </div>
+
+                      {/* Conditionnement provider */}
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Conditionnement & Emballage</label>
+                        <select
+                          value={formConditionnementFournisseur}
+                          onChange={(e) => setFormConditionnementFournisseur(e.target.value as any)}
+                          className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm font-bold text-slate-700 bg-white"
+                        >
+                          <option value="CLIENT">Donneur d'Ordre / Client (من طرفنا)</option>
+                          <option value="SUBCONTRACTOR">Sous-traitant / Atelier (من طرف المناول)</option>
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Operational Logistics statuses */}
+                  <div className="bg-slate-50 border border-slate-200/60 rounded-2xl p-4 space-y-4">
+                    <h4 className="text-xs font-black text-indigo-700 uppercase tracking-wider flex items-center gap-1.5">
+                      <ClipboardCheck className="w-4 h-4" />
+                      Statut d'Expédition Logistique
+                    </h4>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      {/* Tissu status */}
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Tissus (حالة القماش)</label>
+                        <select
+                          value={formTissuStatus}
+                          onChange={(e) => setFormTissuStatus(e.target.value as any)}
+                          className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-700 bg-white"
+                        >
+                          <option value="PENDING">En attente (في انتظار القص/الإرسال)</option>
+                          <option value="SENT">Envoyé (تم تسليم القماش المقصوص)</option>
+                        </select>
+                      </div>
+
+                      {/* Accessories status */}
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Accessoires / Fournitures</label>
+                        <select
+                          value={formFournituresStatus}
+                          onChange={(e) => setFormFournituresStatus(e.target.value as any)}
+                          className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-700 bg-white"
+                        >
+                          <option value="PENDING">En préparation (قيد التجهيز)</option>
+                          <option value="DELIVERED">Prêt/Livre (جاهز وتم تسليمه)</option>
+                        </select>
+                      </div>
+
+                      {/* Fiche technique checkbox */}
+                      <div className="flex items-center gap-2 pt-6">
+                        <input
+                          type="checkbox"
+                          id="formFicheTechniqueSentEdit"
+                          checked={formFicheTechniqueSent}
+                          onChange={(e) => setFormFicheTechniqueSent(e.target.checked)}
+                          className="w-4 h-4 text-indigo-600 border-slate-300 rounded"
+                        />
+                        <label htmlFor="formFicheTechniqueSentEdit" className="text-xs font-bold text-slate-600 uppercase">
+                          Dossier Technique Envoyé
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* TAB 3: TECHNICAL & PROTO */}
+              {modalTab === 'technical' && (
+                <div className="space-y-6 animate-in fade-in duration-200">
+                  {/* Stitching / Consignes de couture */}
+                  <div className="bg-slate-50 border border-slate-200/60 rounded-2xl p-4 space-y-4">
+                    <h4 className="text-xs font-black text-indigo-700 uppercase tracking-wider flex items-center gap-1.5">
+                      <Clock className="w-4 h-4" />
+                      Consignes de Couture & Assemblage (تعليمات الخياطة)
+                    </h4>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Détails des machines, fils, surpiqûres</label>
+                      <textarea
+                        rows={3}
+                        placeholder="Ex: Surjet 4 fils pour assemblage, machine plate 1 aiguille, fil N°120..."
+                        value={formStitchingDetails}
+                        onChange={(e) => setFormStitchingDetails(e.target.value)}
+                        className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm font-semibold text-slate-700 bg-white focus:outline-none focus:border-indigo-500"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Prototype validation (BPA) */}
+                  <div className="bg-slate-50 border border-slate-200/60 rounded-2xl p-4 space-y-4">
+                    <h4 className="text-xs font-black text-indigo-700 uppercase tracking-wider flex items-center gap-1.5">
+                      <ShieldCheck className="w-4 h-4" />
+                      Validation du Prototype / Modèle de Référence
+                    </h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {/* Proto required */}
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Prototype Obligatoire ?</label>
+                        <select
+                          value={formProtoRequired}
+                          onChange={(e) => setFormProtoRequired(Number(e.target.value) || 0)}
+                          className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm font-bold text-slate-700 bg-white"
+                        >
+                          <option value={1}>Oui, approbation nécessaire avant coupe</option>
+                          <option value={0}>Non, production directe</option>
+                        </select>
+                      </div>
+
+                      {/* Proto Status */}
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Statut de Validation du Prototype</label>
+                        <select
+                          value={formProtoStatus}
+                          onChange={(e) => setFormProtoStatus(e.target.value as any)}
+                          disabled={formProtoRequired === 0}
+                          className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm font-bold text-slate-700 bg-white disabled:bg-slate-100 disabled:text-slate-400"
+                        >
+                          <option value="PENDING">En attente / Non approuvé</option>
+                          <option value="APPROVED">Bon pour Accord (BPA) / Validé</option>
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Color/Size Edit Matrix */}
+                  <div className="border border-slate-200 rounded-2xl p-4 bg-slate-50 space-y-4">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-black text-slate-500 uppercase">Grille Tailles & Couleurs (Modifier)</span>
+                      <div className="flex items-center gap-1">
+                        <input
+                          type="text"
+                          placeholder="Nouvelle couleur..."
+                          value={newColorInputs[0] || ''}
+                          onChange={(e) => setNewColorInputs([e.target.value])}
+                          className="border border-slate-200 rounded px-2 py-1 text-[11px] font-medium bg-white"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => addColorToBatch(0)}
+                          className="bg-indigo-50 text-indigo-700 border border-indigo-200 hover:bg-indigo-100 rounded px-2.5 py-1 text-[11px] font-black"
+                        >
+                          Ajouter
+                        </button>
+                      </div>
+                    </div>
+
+                    {Object.keys(batches[0]?.grid || {}).length > 0 && (
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-left border-collapse text-xs">
+                          <thead>
+                            <tr className="border-b border-slate-200 text-slate-400 font-bold">
+                              <th className="py-1 px-2">Couleur</th>
+                              {COMMON_SIZES.map(sz => (
+                                <th key={sz} className="py-1 px-1 text-center w-12">{sz}</th>
+                              ))}
+                              <th className="py-1 px-2 text-right"></th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {Object.entries(batches[0].grid).map(([color, sizesObj]) => (
+                              <tr key={color} className="border-b border-slate-100 last:border-0">
+                                <td className="py-1 px-2 font-black text-slate-700">{color}</td>
+                                {COMMON_SIZES.map(sz => (
+                                  <td key={sz} className="py-1 px-0.5 text-center">
+                                    <input
+                                      type="number"
+                                      min="0"
+                                      value={sizesObj[sz] || ''}
+                                      placeholder="0"
+                                      onChange={(e) => updateGridQty(0, color, sz, parseInt(e.target.value) || 0)}
+                                      className="w-10 border border-slate-200 rounded text-center py-1 text-[11px] font-bold"
+                                    />
+                                  </td>
+                                ))}
+                                <td className="py-1 px-2 text-right">
+                                  <button
+                                    type="button"
+                                    onClick={() => removeColorFromBatch(0, color)}
+                                    className="text-slate-400 hover:text-rose-600 transition-colors"
+                                  >
+                                    <X className="w-3.5 h-3.5" />
+                                  </button>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* TAB 4: COMMERCIAL & QUALITE */}
+              {modalTab === 'commercial' && (
+                <div className="space-y-6 animate-in fade-in duration-200">
+                  {/* Commercial conditions */}
+                  <div className="bg-slate-50 border border-slate-200/60 rounded-2xl p-4 space-y-4">
+                    <h4 className="text-xs font-black text-indigo-700 uppercase tracking-wider flex items-center gap-1.5">
+                      <Coins className="w-4 h-4" />
+                      Conditions Financières & Paiement
+                    </h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {/* Payment terms */}
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Modalités de Paiement</label>
+                        <select
+                          value={formPaymentTerms}
+                          onChange={(e) => setFormPaymentTerms(e.target.value as any)}
+                          className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm font-bold text-slate-700 bg-white"
+                        >
+                          <option value="AVANCE_RECEPTION">Acompte à la commande + solde après livraison</option>
+                          <option value="APRES_LIVRAISON">Paiement total après réception & facturation</option>
+                          <option value="ECHEANCES">Paiement échelonné / Traite</option>
+                        </select>
+                      </div>
+
+                      {/* Defect rate accepted */}
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Taux de défauts maximum accepté (%)</label>
+                        <input
+                          type="number"
+                          step="0.1"
+                          min="0"
+                          max="10"
+                          value={formDefectRateAccepted}
+                          onChange={(e) => setFormDefectRateAccepted(parseFloat(e.target.value) || 0)}
+                          className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm font-bold text-slate-700 bg-white"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Quality Control Fields */}
+                  <div className="border-2 border-emerald-100 rounded-2xl p-4 bg-emerald-50/50 space-y-4">
+                    <h4 className="text-xs font-black text-emerald-800 uppercase tracking-wider flex items-center gap-1.5">
+                      <CheckSquare className="w-4 h-4 text-emerald-600" />
+                      Contrôle Qualité à la Réception
+                    </h4>
+                    <p className="text-[10px] font-medium text-slate-500">
+                      Renseignez les quantités inspectées lors du déchargement.
+                    </p>
+
+                    <div className="grid grid-cols-3 gap-4">
+                      <div>
+                        <label className="block text-[10px] font-black text-emerald-700 uppercase mb-1">Conformes (سليمة)</label>
+                        <input
+                          type="number"
+                          min="0"
+                          value={formQtyAccepted}
+                          onChange={(e) => setFormQtyAccepted(parseInt(e.target.value) || 0)}
+                          className="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-xs font-black text-emerald-700 bg-white"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-black text-amber-700 uppercase mb-1">À Retoucher (إصلاح)</label>
+                        <input
+                          type="number"
+                          min="0"
+                          value={formQtyToRepair}
+                          onChange={(e) => setFormQtyToRepair(parseInt(e.target.value) || 0)}
+                          className="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-xs font-black text-amber-700 bg-white"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-black text-rose-700 uppercase mb-1">Rebuts/Déchets (تالفة)</label>
+                        <input
+                          type="number"
+                          min="0"
+                          value={formQtyRejected}
+                          onChange={(e) => setFormQtyRejected(parseInt(e.target.value) || 0)}
+                          className="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-xs font-black text-rose-700 bg-white"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* General Notes */}
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Notes Générales & Instructions Logistiques</label>
+                    <textarea
+                      rows={3}
+                      value={formNotes}
+                      onChange={(e) => setFormNotes(e.target.value)}
+                      className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm font-semibold text-slate-700 bg-white focus:outline-none focus:border-indigo-500"
+                    />
+                  </div>
+                </div>
+              )}
 
             </form>
 
@@ -2129,12 +3095,20 @@ export default function SousTraitance({ models, settings }: SousTraitanceProps) 
 
             {/* Footer */}
             <div className="bg-slate-50 px-6 py-4 flex justify-between rounded-b-3xl shrink-0">
-              <button
-                onClick={() => handlePrintDeliveryNote(detailOrder)}
-                className="bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold text-sm px-4 py-2 rounded-xl transition-all flex items-center gap-1.5"
-              >
-                <Printer className="w-4 h-4" /> Bon d'Envoi
-              </button>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => handlePrintDeliveryNote(detailOrder)}
+                  className="bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold text-sm px-4 py-2 rounded-xl transition-all flex items-center gap-1.5"
+                >
+                  <Printer className="w-4 h-4" /> Bon d'Envoi
+                </button>
+                <button
+                  onClick={() => handlePrintFicheMonawla(detailOrder)}
+                  className="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 font-bold text-sm px-4 py-2 rounded-xl transition-all flex items-center gap-1.5"
+                >
+                  <ClipboardCheck className="w-4 h-4" /> Fiche de Monawla
+                </button>
+              </div>
               <button
                 onClick={() => setIsDetailModalOpen(false)}
                 className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm px-5 py-2 rounded-xl transition-all shadow-md"

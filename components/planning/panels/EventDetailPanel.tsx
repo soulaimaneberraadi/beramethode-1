@@ -112,11 +112,10 @@ export default function EventDetailPanel({
     const delay = delayOf(event);
     const delayMeta = DELAY_META[delay];
     const daysToDDS = ddsYmd ? daysBetween(todayYmd(), ddsYmd) : null;
-
     const isMobile = useIsMobile();
     const containerCls = isMobile
-        ? 'fixed inset-x-0 bottom-0 top-12 z-40 bg-white rounded-t-2xl shadow-[0_-12px_40px_rgba(15,23,42,0.18)] flex flex-col animate-[planning-slide-in-up_220ms_ease-out]'
-        : 'relative shrink-0 bg-white border-l border-slate-100 flex flex-col animate-[planning-slide-in-right_180ms_ease-out]';
+        ? 'fixed inset-x-0 bottom-0 top-12 z-40 bg-white/95 border-t border-white/50 backdrop-blur-xl rounded-t-3xl shadow-[0_-12px_40px_rgba(15,23,42,0.18)] flex flex-col animate-[planning-slide-in-up_220ms_ease-out]'
+        : 'relative shrink-0 bg-white/80 border-l border-white/50 backdrop-blur-xl flex flex-col animate-[planning-slide-in-right_180ms_ease-out] shadow-[-10px_0_40px_rgba(0,0,0,0.04)]';
     const containerStyle = isMobile ? undefined : { width };
 
     // Chronology calculation
@@ -161,7 +160,7 @@ export default function EventDetailPanel({
                 icon: AlertTriangle,
                 label: "DDS (deadline client)",
                 time: fmtLong(ddsYmd),
-                accent: delay === 'LATE' ? 'text-red-600 font-medium' : '',
+                accent: delay === 'LATE' ? 'text-red-650 font-bold' : '',
             });
         }
 
@@ -213,7 +212,7 @@ export default function EventDetailPanel({
             )}
             {isMobile && (
                 <div className="pt-2 pb-1 flex items-center justify-center shrink-0">
-                    <span className="w-10 h-1 rounded-full bg-slate-300" />
+                    <span className="w-10 h-1 rounded-full bg-slate-350" />
                 </div>
             )}
             {/* Drag handle (desktop only) */}
@@ -228,11 +227,11 @@ export default function EventDetailPanel({
             )}
 
             {/* Hero */}
-            <header className="relative px-6 pt-5 pb-4 border-b border-slate-100">
+            <header className="relative px-6 pt-5 pb-4 border-b border-slate-200/40">
                 <button
                     type="button"
                     onClick={onClose}
-                    className="absolute top-4 right-4 p-1 rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
+                    className="absolute top-4 right-4 p-1 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100/70 border border-transparent hover:border-slate-200/30 transition-all duration-200 active:scale-95 shadow-sm"
                     aria-label="Fermer"
                 >
                     <X className="w-4 h-4" strokeWidth={2} />
@@ -240,18 +239,18 @@ export default function EventDetailPanel({
 
                 <div className="flex items-start gap-3 pr-8">
                     {thumb ? (
-                        <img src={thumb} alt="" className="w-11 h-11 rounded-lg object-cover ring-1 ring-slate-200 shrink-0" />
+                        <img src={thumb} alt="" className="w-11 h-11 rounded-xl object-cover ring-1 ring-slate-200/60 shrink-0" />
                     ) : (
-                        <div className="w-11 h-11 rounded-lg bg-slate-100 flex items-center justify-center shrink-0">
-                            <Package className="w-4 h-4 text-slate-400" strokeWidth={1.75} />
+                        <div className="w-11 h-11 rounded-xl bg-slate-100 flex items-center justify-center shrink-0">
+                            <Package className="w-4 h-4 text-slate-400" strokeWidth={2} />
                         </div>
                     )}
                     <div className="min-w-0">
                         <div className="flex items-center gap-2 mb-0.5">
                             <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: getClientColor(client) }} title={`Client: ${client}`} />
-                            <span className="text-[11px] text-slate-500 truncate">{client}</span>
+                            <span className="text-[11px] font-bold text-slate-500 truncate">{client}</span>
                         </div>
-                        <h3 className="text-[16px] font-semibold text-slate-900 tracking-tight leading-tight">
+                        <h3 className="text-[15px] font-extrabold text-slate-900 tracking-tight leading-tight">
                             {modelName}
                         </h3>
                     </div>
@@ -259,21 +258,21 @@ export default function EventDetailPanel({
 
                 {/* Status row */}
                 <div className="flex items-center gap-2 mt-4">
-                    <span className={`inline-flex items-center gap-1.5 h-6 px-2 rounded text-[11px] font-medium ${wsMeta.softBg} ${wsMeta.text}`}>
+                    <span className={`inline-flex items-center gap-1.5 h-6 px-2.5 rounded-xl text-[11px] font-bold ${wsMeta.softBg} ${wsMeta.text} border ${wsMeta.border}`}>
                         <span className={`w-1.5 h-1.5 rounded-full ${wsMeta.dot}`} />
                         {wsMeta.label}
                     </span>
-                    <span className="inline-flex items-center gap-1.5 h-6 px-2 rounded text-[11px] font-medium bg-slate-50 text-slate-600">
+                    <span className="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-xl text-[11px] font-bold bg-slate-100/60 text-slate-650 border border-slate-200/30">
                         <span className={`w-1.5 h-1.5 rounded-full ${delayMeta.dot}`} />
                         {delayMeta.label}
                     </span>
                     <button
                         type="button"
                         onClick={() => onChangeStatus(event.status === 'BLOCKED_STOCK' ? 'READY' : 'BLOCKED_STOCK')}
-                        className={`inline-flex items-center gap-1 h-6 px-2.5 rounded text-[10px] font-bold uppercase tracking-wider transition-all border ${
+                        className={`inline-flex items-center gap-1 h-6 px-2.5 rounded-xl text-[10px] font-bold uppercase tracking-wider transition-all border ${
                             event.status === 'BLOCKED_STOCK'
-                                ? 'bg-amber-100 text-amber-800 border-amber-200 hover:bg-amber-200 shadow-sm'
-                                : 'bg-white text-slate-600 border-slate-200 hover:bg-amber-50 hover:text-amber-700 hover:border-amber-200 shadow-sm'
+                                ? 'bg-amber-100 text-amber-800 border-amber-200 hover:bg-amber-200 shadow-sm active:scale-95'
+                                : 'bg-white text-slate-650 border-slate-200/60 hover:bg-amber-50 hover:text-amber-700 hover:border-amber-200 shadow-sm active:scale-95'
                         }`}
                     >
                         {event.status === 'BLOCKED_STOCK' ? '▶ Reprendre' : '⏸ En Pause'}
@@ -282,22 +281,23 @@ export default function EventDetailPanel({
             </header>
 
             {/* Tabs */}
-            <div className="px-4 pt-2 flex items-center gap-0 border-b border-slate-100">
-                {(['details', 'activity', 'notes', 'materials'] as const).map(t => (
-                    <button
-                        key={t}
-                        type="button"
-                        onClick={() => setTab(t)}
-                        className={`relative h-8 px-3 text-[12px] font-medium transition-colors ${
-                            tab === t ? 'text-slate-900' : 'text-slate-500 hover:text-slate-700'
-                        }`}
-                    >
-                        {t === 'details' ? 'Détails' : t === 'activity' ? 'Activité' : t === 'notes' ? 'Notes' : 'Matières'}
-                        {tab === t && (
-                            <span className="absolute -bottom-px left-2 right-2 h-px bg-slate-900" />
-                        )}
-                    </button>
-                ))}
+            <div className="px-4 py-2 border-b border-slate-200/40 bg-slate-55/10 shrink-0">
+                <div className="flex bg-slate-100/50 p-0.5 rounded-xl gap-1 border border-slate-200/40 backdrop-blur-sm">
+                    {(['details', 'activity', 'notes', 'materials'] as const).map(t => (
+                        <button
+                            key={t}
+                            type="button"
+                            onClick={() => setTab(t)}
+                            className={`flex-1 h-7 text-[11px] font-bold rounded-lg transition-all duration-200 active:scale-95 ${
+                                tab === t
+                                    ? 'bg-white text-indigo-650 shadow-[0_2px_6px_rgba(99,102,241,0.08)]'
+                                    : 'text-slate-500 hover:text-slate-800 hover:bg-white/30'
+                            }`}
+                        >
+                            {t === 'details' ? 'Détails' : t === 'activity' ? 'Activité' : t === 'notes' ? 'Notes' : 'Matières'}
+                        </button>
+                    ))}
+                </div>
             </div>
 
             {/* Body */}
@@ -306,16 +306,16 @@ export default function EventDetailPanel({
                 {tab === 'details' && (<>
 
                 {/* Progress block */}
-                <section className="px-6 py-5 border-b border-slate-50">
-                    <div className="flex items-baseline justify-between mb-2.5">
-                        <span className="text-[10px] font-medium text-slate-400 uppercase tracking-wider">Progression</span>
-                        <span className="text-[18px] font-semibold text-slate-900 tabular-nums tracking-tight">{progress}<span className="text-[12px] text-slate-400 ml-0.5">%</span></span>
+                <section className="px-6 py-5 border-b border-slate-200/30">
+                    <div className="flex items-baseline justify-between mb-2">
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Progression</span>
+                        <span className="text-[18px] font-extrabold text-slate-900 tabular-nums tracking-tight">{progress}<span className="text-[12px] text-slate-400 ml-0.5">%</span></span>
                     </div>
-                    <div className="h-1 bg-slate-100 rounded-full overflow-hidden mb-2">
+                    <div className="h-1.5 bg-slate-100/80 rounded-full overflow-hidden mb-2 border border-slate-200/20 shadow-inner">
                         <div className="h-full rounded-full transition-[width] duration-300" style={{ width: `${progress}%`, background: accent }} />
                     </div>
-                    <div className="text-[12px] text-slate-500 tabular-nums mb-3">
-                        <span className="font-medium text-slate-900">{produced}</span> sur {qty} pcs
+                    <div className="text-[12px] text-slate-550 tabular-nums mb-3 font-medium">
+                        <span className="font-extrabold text-slate-900">{produced}</span> sur {qty} pcs
                     </div>
 
                     {/* Quick add produced */}
@@ -327,7 +327,7 @@ export default function EventDetailPanel({
                                     value={quickAddVal || ''}
                                     onChange={(e) => setQuickAddVal(Number(e.target.value) || 0)}
                                     placeholder="+ pcs"
-                                    className="flex-1 h-7 px-2 text-[12px] tabular-nums bg-white border border-slate-200 rounded-md focus:border-slate-400 outline-none"
+                                    className="flex-1 h-7.5 px-2.5 text-[12px] font-bold tabular-nums bg-white border border-slate-200 rounded-lg focus:border-indigo-500/40 focus:ring-4 focus:ring-indigo-500/10 outline-none shadow-sm transition-all duration-200"
                                     autoFocus
                                 />
                                 <button
@@ -337,14 +337,14 @@ export default function EventDetailPanel({
                                         setQuickAddOpen(false);
                                         setQuickAddVal(0);
                                     }}
-                                    className="h-7 px-2 text-[11px] font-medium bg-slate-900 text-white hover:bg-slate-800 rounded-md transition-colors"
+                                    className="h-7.5 px-3 text-[11px] font-bold bg-slate-900 text-white hover:bg-slate-800 rounded-lg shadow-sm transition-all duration-200 active:scale-95"
                                 >
                                     OK
                                 </button>
                                 <button
                                     type="button"
                                     onClick={() => { setQuickAddOpen(false); setQuickAddVal(0); }}
-                                    className="h-7 px-2 text-[11px] font-medium text-slate-500 hover:bg-slate-100 rounded-md transition-colors"
+                                    className="h-7.5 px-3 text-[11px] font-bold text-slate-500 hover:bg-slate-100 rounded-lg transition-all duration-200 active:scale-95"
                                 >
                                     Annuler
                                 </button>
@@ -353,9 +353,9 @@ export default function EventDetailPanel({
                             <button
                                 type="button"
                                 onClick={() => setQuickAddOpen(true)}
-                                className="h-7 px-2.5 text-[11px] font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-md transition-colors inline-flex items-center gap-1.5"
+                                className="h-7.5 px-3 text-[11px] font-bold text-slate-650 hover:text-slate-900 hover:bg-white/80 border border-slate-200/50 hover:border-slate-300 rounded-lg shadow-sm transition-all duration-200 active:scale-95 inline-flex items-center gap-1.5"
                             >
-                                <Plus className="w-3 h-3" strokeWidth={2} />
+                                <Plus className="w-3.5 h-3.5 text-slate-500" strokeWidth={2.25} />
                                 Ajouter une production
                             </button>
                         )
@@ -363,7 +363,7 @@ export default function EventDetailPanel({
                 </section>
 
                 {/* Properties */}
-                <section className="px-6 py-4 space-y-3 border-b border-slate-50">
+                <section className="px-6 py-4 space-y-3 border-b border-slate-200/30">
                     <PropertyRow icon={Calendar} label="Début" value={fmtLong(startYmd)} />
                     <PropertyRow icon={Clock} label="Fin estimée" value={fmtLong(rollingEndYmd)} />
                     {ddsYmd && (
@@ -371,10 +371,10 @@ export default function EventDetailPanel({
                             icon={AlertTriangle}
                             label="DDS"
                             value={
-                                <span className={delay === 'LATE' ? 'text-red-600 font-medium' : ''}>
+                                <span className={delay === 'LATE' ? 'text-red-650 font-bold' : ''}>
                                     {fmtLong(ddsYmd)}
                                     {daysToDDS !== null && (
-                                        <span className="ml-1.5 text-[11px] text-slate-400 tabular-nums">
+                                        <span className="ml-1.5 text-[11px] text-slate-450 font-bold tabular-nums">
                                             {daysToDDS >= 0 ? `(J−${daysToDDS})` : `(J+${-daysToDDS})`}
                                         </span>
                                     )}
@@ -389,11 +389,11 @@ export default function EventDetailPanel({
 
                 {/* Chain block */}
                 {chainName && (
-                    <section className="px-6 py-4 border-b border-slate-50">
-                        <div className="text-[10px] font-medium text-slate-400 uppercase tracking-wider mb-2">Chaîne</div>
+                    <section className="px-6 py-4 border-b border-slate-200/30">
+                        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Chaîne</div>
                         <div className="flex items-baseline justify-between">
-                            <span className="text-[14px] font-semibold text-slate-900">{chainName}</span>
-                            <div className="flex items-center gap-3 text-[11px] text-slate-500 tabular-nums">
+                            <span className="text-[14px] font-extrabold text-slate-900">{chainName}</span>
+                            <div className="flex items-center gap-3 text-[11px] text-slate-500 font-bold tabular-nums">
                                 {chainCapacity != null && <span>{chainCapacity} pcs/j</span>}
                                 {chainEfficiency != null && <span>η {Math.round(chainEfficiency * 100)}%</span>}
                             </div>
@@ -403,23 +403,23 @@ export default function EventDetailPanel({
 
                 {/* Subcontracting details block */}
                 {event.isSubcontracted && (
-                    <section className="px-6 py-4 border-b border-slate-50 bg-indigo-50/10">
-                        <div className="text-[10px] font-bold text-indigo-600 uppercase tracking-wider mb-3">Sous-traitance (المناولة)</div>
+                    <section className="px-6 py-4 border-b border-slate-200/30 bg-indigo-500/5 border-t border-indigo-500/10">
+                        <div className="text-[10px] font-extrabold text-indigo-600 uppercase tracking-widest mb-3">Sous-traitance (المناولة)</div>
                         <div className="space-y-2.5">
                             <div className="flex items-center justify-between text-[12px]">
-                                <span className="text-slate-500">Sous-traitant :</span>
-                                <span className="font-semibold text-slate-900">{event.subcontractorName || 'Non spécifié'}</span>
+                                <span className="text-slate-500 font-medium">Sous-traitant :</span>
+                                <span className="font-bold text-slate-900">{event.subcontractorName || 'Non spécifié'}</span>
                             </div>
                             {event.subcontractorPhone && (
                                 <div className="flex items-center justify-between text-[12px]">
-                                    <span className="text-slate-500">Téléphone :</span>
-                                    <a href={`tel:${event.subcontractorPhone}`} className="font-semibold text-indigo-600 hover:underline">{event.subcontractorPhone}</a>
+                                    <span className="text-slate-500 font-medium">Téléphone :</span>
+                                    <a href={`tel:${event.subcontractorPhone}`} className="font-bold text-indigo-650 hover:underline">{event.subcontractorPhone}</a>
                                 </div>
                             )}
                             {event.subcontractorRating !== undefined && (
                                 <div className="flex items-center justify-between text-[12px]">
-                                    <span className="text-slate-500">Évaluation :</span>
-                                    <span className="font-semibold text-amber-500">
+                                    <span className="text-slate-500 font-medium">Évaluation :</span>
+                                    <span className="font-bold text-amber-500">
                                         {'★'.repeat(Math.max(0, Math.min(5, Math.round(event.subcontractorRating)))) + '☆'.repeat(Math.max(0, 5 - Math.max(0, Math.min(5, Math.round(event.subcontractorRating)))))}
                                         <span className="text-slate-400 text-[11px] ml-1">({event.subcontractorRating}/5)</span>
                                     </span>
@@ -427,34 +427,34 @@ export default function EventDetailPanel({
                             )}
                             {event.subcontractorAvailabilityDate && (
                                 <div className="flex items-center justify-between text-[12px]">
-                                    <span className="text-slate-500">Disponibilité :</span>
-                                    <span className="font-semibold text-slate-900">{fmtLong(event.subcontractorAvailabilityDate.split('T')[0])}</span>
+                                    <span className="text-slate-500 font-medium">Disponibilité :</span>
+                                    <span className="font-bold text-slate-900">{fmtLong(event.subcontractorAvailabilityDate.split('T')[0])}</span>
                                 </div>
                             )}
                             {event.strictDeadline_DDS && (
                                 <div className="flex items-center justify-between text-[12px]">
-                                    <span className="text-slate-500">Livraison prévue :</span>
-                                    <span className="font-semibold text-slate-900">{fmtLong(event.strictDeadline_DDS.split('T')[0])}</span>
+                                    <span className="text-slate-500 font-medium">Livraison prévue :</span>
+                                    <span className="font-bold text-slate-900">{fmtLong(event.strictDeadline_DDS.split('T')[0])}</span>
                                 </div>
                             )}
                             {event.subcontractPricePerPiece !== undefined && event.subcontractPricePerPiece > 0 && (
                                 <>
                                     <div className="flex items-center justify-between text-[12px]">
-                                        <span className="text-slate-500">Prix par pièce :</span>
-                                        <span className="font-semibold text-slate-900">{event.subcontractPricePerPiece.toFixed(2)} DH</span>
+                                        <span className="text-slate-500 font-medium">Prix par pièce :</span>
+                                        <span className="font-bold text-slate-900">{event.subcontractPricePerPiece.toFixed(2)} DH</span>
                                     </div>
-                                    <div className="flex items-center justify-between text-[12px] pt-1 border-t border-slate-100/50">
-                                        <span className="font-medium text-slate-700">Coût total :</span>
-                                        <span className="font-bold text-indigo-700 font-mono">{(evQty(event) * event.subcontractPricePerPiece).toFixed(2)} DH</span>
+                                    <div className="flex items-center justify-between text-[12px] pt-1 border-t border-slate-200/40">
+                                        <span className="font-bold text-slate-700">Coût total :</span>
+                                        <span className="font-extrabold text-indigo-700 font-mono">{(evQty(event) * event.subcontractPricePerPiece).toFixed(2)} DH</span>
                                     </div>
                                 </>
                             )}
-                            <div className="flex items-center justify-between text-[12px] pt-2 border-t border-slate-100/50">
-                                <span className="text-slate-500">Statut :</span>
+                            <div className="flex items-center justify-between text-[12px] pt-2 border-t border-slate-200/40">
+                                <span className="text-slate-500 font-medium">Statut :</span>
                                 <select
                                     value={event.subcontractStatus || 'PENDING'}
                                     onChange={(e) => onUpdateEvent?.({ subcontractStatus: e.target.value as any })}
-                                    className="h-7 px-2 text-[11px] bg-white border border-slate-200 rounded-md focus:border-slate-400 outline-none text-slate-800"
+                                    className="h-7 px-2 text-[11px] font-bold bg-white border border-slate-200/60 rounded-lg focus:border-indigo-500/40 outline-none text-slate-800 shadow-sm cursor-pointer"
                                 >
                                     <option value="PENDING">En attente (في الانتظار)</option>
                                     <option value="SENT">Envoyé (تم الإرسال)</option>
@@ -467,24 +467,24 @@ export default function EventDetailPanel({
 
                 {/* Blocage */}
                 {event.blockedReason && (
-                    <section className="mx-6 my-4 p-3 rounded-lg bg-red-50/60 border border-red-100">
-                        <div className="flex items-center gap-1.5 text-[10px] font-medium text-red-700 uppercase tracking-wider mb-1">
-                            <AlertTriangle className="w-3 h-3" strokeWidth={2} />
+                    <section className="mx-6 my-4 p-3 rounded-xl bg-red-500/5 border border-red-500/10">
+                        <div className="flex items-center gap-1.5 text-[10px] font-bold text-red-700 uppercase tracking-widest mb-1">
+                            <AlertTriangle className="w-3 h-3 text-red-500" strokeWidth={2.25} />
                             Blocage
                         </div>
-                        <p className="text-[12px] text-red-900 leading-snug">{event.blockedReason}</p>
+                        <p className="text-[12px] text-red-900 leading-snug font-medium">{event.blockedReason}</p>
                     </section>
                 )}
 
                 {/* Matières manquantes */}
                 {event.materialShortages?.length ? (
-                    <section className="px-6 py-4 border-b border-slate-50">
-                        <div className="text-[10px] font-medium text-slate-400 uppercase tracking-wider mb-2">Matières manquantes</div>
+                    <section className="px-6 py-4 border-b border-slate-200/30">
+                        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Matières manquantes</div>
                         <ul className="space-y-1.5">
                             {event.materialShortages.map((s, i) => (
                                 <li key={i} className="flex items-center justify-between gap-3 text-[12px]">
-                                    <span className="text-slate-700 truncate">{s.name}</span>
-                                    <span className="font-medium tabular-nums text-amber-700 shrink-0">
+                                    <span className="text-slate-700 font-medium truncate">{s.name}</span>
+                                    <span className="font-extrabold tabular-nums text-amber-700 shrink-0">
                                         −{s.missing}{s.unit || ''}
                                     </span>
                                 </li>
@@ -495,7 +495,7 @@ export default function EventDetailPanel({
 
                 {/* Status switcher */}
                 <section className="px-6 py-4">
-                    <div className="text-[10px] font-medium text-slate-400 uppercase tracking-wider mb-2">Changer le statut</div>
+                    <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Changer le statut</div>
                     <div className="grid grid-cols-2 gap-1.5">
                         {(['READY', 'IN_PROGRESS', 'BLOCKED_STOCK', 'EXTERNAL_PROCESS', 'DONE'] as const).map(s => {
                             const isActive = event.status === s;
@@ -505,10 +505,10 @@ export default function EventDetailPanel({
                                     key={s}
                                     type="button"
                                     onClick={() => onChangeStatus(s)}
-                                    className={`h-8 px-2.5 rounded-md text-[11px] font-medium transition-colors flex items-center gap-1.5 ${
+                                    className={`h-8 px-2.5 rounded-lg text-[11px] font-bold transition-all duration-200 active:scale-95 flex items-center gap-1.5 ${
                                         isActive
-                                            ? 'bg-slate-900 text-white'
-                                            : 'bg-slate-50 text-slate-700 hover:bg-slate-100'
+                                            ? 'bg-slate-900 text-white shadow-md'
+                                            : 'bg-slate-100/50 text-slate-700 hover:bg-white border border-transparent hover:border-slate-200/30'
                                     }`}
                                 >
                                     <span className={`w-1.5 h-1.5 rounded-full ${isActive ? 'bg-white/80' : meta.dot}`} />
@@ -523,7 +523,7 @@ export default function EventDetailPanel({
                 {/* ──────────────── Activité ──────────────── */}
                 {tab === 'activity' && (
                     <div className="px-6 py-5">
-                        <div className="text-[10px] font-medium text-slate-400 uppercase tracking-wider mb-3">
+                        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">
                             Chronologie
                         </div>
                         <ol className="relative border-l border-slate-200 ml-1.5 space-y-4">
@@ -544,16 +544,16 @@ export default function EventDetailPanel({
                 {/* ──────────────── Notes ──────────────── */}
                 {tab === 'notes' && (
                     <div className="px-6 py-5">
-                        <div className="text-[10px] font-medium text-slate-400 uppercase tracking-wider mb-2">
+                        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">
                             Notes internes
                         </div>
                         <textarea
                             value={notes || ''}
                             onChange={(e) => onNotesChange?.(e.target.value)}
                             placeholder="Ajoutez des notes pour cet ordre… (visible uniquement par vous)"
-                            className="w-full min-h-[180px] p-3 text-[13px] text-slate-800 placeholder:text-slate-400 bg-slate-50/40 border border-slate-200 rounded-md focus:bg-white focus:border-slate-400 focus:ring-2 focus:ring-slate-100 outline-none resize-y transition-colors"
+                            className="w-full min-h-[180px] p-3 text-[13px] text-slate-800 placeholder:text-slate-450 bg-slate-100/20 border border-slate-200/60 focus:bg-white/85 focus:border-indigo-500/25 focus:ring-4 focus:ring-indigo-500/10 rounded-xl outline-none resize-y transition-all duration-200"
                         />
-                        <p className="text-[10px] text-slate-400 mt-2">
+                        <p className="text-[10px] text-slate-400 font-bold mt-2">
                             Enregistré automatiquement en local
                         </p>
                     </div>
@@ -578,7 +578,7 @@ export default function EventDetailPanel({
             </div>
 
             {/* Footer actions */}
-            <footer className="px-4 py-3 border-t border-slate-100 bg-slate-50/40 flex items-center justify-between">
+            <footer className="px-4 py-3 border-t border-slate-200/45 bg-slate-50/40 backdrop-blur-md flex items-center justify-between shrink-0">
                 <div className="flex items-center gap-1">
                     <ActionBtn onClick={onEdit} icon={Edit2}>Modifier</ActionBtn>
                     <ActionBtn onClick={onSplit} icon={Split}>Diviser</ActionBtn>
@@ -589,7 +589,7 @@ export default function EventDetailPanel({
                         <button
                             type="button"
                             onClick={() => onChangeStatus('DONE')}
-                            className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-md text-[11px] font-bold bg-emerald-600 text-white hover:bg-emerald-700 transition-colors"
+                            className="inline-flex items-center gap-1.5 h-7.5 px-3 rounded-lg text-[11px] font-bold bg-emerald-600 text-white hover:bg-emerald-700 transition-colors shadow-sm active:scale-95"
                         >
                             <CheckCircle2 className="w-3 h-3" />
                             Modèle fini
@@ -607,11 +607,11 @@ function PropertyRow({
 }: { icon: React.ComponentType<{ className?: string; strokeWidth?: number }>; label: string; value: React.ReactNode }) {
     return (
         <div className="flex items-baseline gap-3">
-            <div className="w-20 shrink-0 flex items-center gap-1.5 text-[11px] text-slate-500">
-                <Icon className="w-3 h-3 text-slate-400" strokeWidth={1.75} />
+            <div className="w-20 shrink-0 flex items-center gap-1.5 text-[11px] text-slate-500 font-bold">
+                <Icon className="w-3 h-3 text-slate-400" strokeWidth={2} />
                 {label}
             </div>
-            <div className="flex-1 text-[12px] text-slate-900 truncate">{value}</div>
+            <div className="flex-1 text-[12px] text-slate-900 font-medium truncate">{value}</div>
         </div>
     );
 }
@@ -621,10 +621,10 @@ function ActivityItem({
 }: { icon: React.ComponentType<{ className?: string; strokeWidth?: number }>; label: string; time?: string; description?: string; accent?: string }) {
     return (
         <li className="relative pl-5">
-            <span className="absolute left-[-5px] top-0.5 w-2.5 h-2.5 rounded-full bg-white border-2 border-slate-300" />
-            <div className={`text-[12px] font-medium text-slate-900 ${accent || ''}`}>{label}</div>
-            {time && <div className="text-[11px] text-slate-500 mt-0.5">{time}</div>}
-            {description && <div className="text-[11px] text-slate-500 mt-0.5">{description}</div>}
+            <span className="absolute left-[-5px] top-0.5 w-2.5 h-2.5 rounded-full bg-white border-2 border-slate-350" />
+            <div className={`text-[12px] font-bold text-slate-900 ${accent || ''}`}>{label}</div>
+            {time && <div className="text-[11px] text-slate-500 mt-0.5 font-medium">{time}</div>}
+            {description && <div className="text-[11px] text-slate-550 mt-0.5 font-medium">{description}</div>}
         </li>
     );
 }
@@ -636,13 +636,13 @@ function ActionBtn({
         <button
             type="button"
             onClick={onClick}
-            className={`inline-flex items-center gap-1.5 h-7 px-2 rounded-md text-[11px] font-medium transition-colors ${
+            className={`inline-flex items-center gap-1.5 h-7.5 px-2.5 rounded-lg text-[11px] font-bold transition-all duration-200 active:scale-95 border ${
                 danger
-                    ? 'text-red-600 hover:text-red-700 hover:bg-red-50'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                    ? 'text-red-650 bg-red-500/5 hover:bg-red-500/10 hover:text-red-700 border-red-200/20 hover:border-red-200/40'
+                    : 'text-slate-650 bg-slate-100/50 hover:bg-white hover:text-slate-900 border-slate-200/30 hover:border-slate-250/50 shadow-sm'
             }`}
         >
-            <Icon className="w-3 h-3" strokeWidth={2} />
+            <Icon className="w-3.5 h-3.5" strokeWidth={2.25} />
             {children}
         </button>
     );

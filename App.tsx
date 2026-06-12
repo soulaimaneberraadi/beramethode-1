@@ -194,6 +194,8 @@ export default function App() {
 
     const [currentView, setCurrentView] = useState<'dashboard' | 'ingenierie' | 'library' | 'coupe' | 'effectifs' | 'gestionRh' | 'planning' | 'suivi' | 'magasin' | 'export' | 'config' | 'profil' | 'admin' | 'rendement' | 'pageMachine' | 'machin' | 'facturation' | 'atelierProd' | 'vuegenerale' | 'sousTraitance' | 'catalogTemps'>('dashboard');
     const [directSuiviModelId, setDirectSuiviModelId] = useState<string | null>(null);
+    const [globalChaineId, setGlobalChaineId] = useState<string>('CHAINE 2');
+    const [globalDate, setGlobalDate] = useState<string>(() => new Date().toISOString().split('T')[0]);
     const [hrInitialWorker, setHrInitialWorker] = useState<{ name: string; ts: number } | null>(null);
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     // En static mode, on garde tous les modules visibles — leurs données viennent de Supabase
@@ -1386,12 +1388,13 @@ export default function App() {
                             onStartSuivi={(m) => {
                                 // PHASE 6 — Lancer Suivi depuis Bibliothèque sans passer par Planning
                                 const existing = planningEvents.find(p => p.modelId === m.id);
+                                let chaineId = 'CHAINE 1';
+                                const today = new Date().toISOString().split('T')[0];
                                 if (!existing) {
-                                    const chaineId = window.prompt(
+                                    chaineId = window.prompt(
                                         `Chaîne pour le suivi direct de "${m.meta_data?.nom_modele || 'Sans Nom'}" ?`,
                                         'CHAINE 1'
                                     ) || 'CHAINE 1';
-                                    const today = new Date().toISOString().split('T')[0];
                                     const syntheticEvent: import('./types').PlanningEvent = {
                                         id: `suivi_direct_${Date.now()}`,
                                         modelId: m.id,
@@ -1412,8 +1415,12 @@ export default function App() {
                                         source: 'LIBRARY_DIRECT',
                                     } as any;
                                     setPlanningEvents(prev => [...prev, syntheticEvent]);
+                                } else {
+                                    if (existing.chaineId) chaineId = existing.chaineId;
                                 }
                                 setDirectSuiviModelId(m.id);
+                                setGlobalChaineId(chaineId);
+                                setGlobalDate(existing ? (existing.startDate || existing.dateLancement || today) : today);
                                 setCurrentView('suivi');
                             }}
                         />
@@ -1431,7 +1438,17 @@ export default function App() {
 
                     {currentView === 'effectifs' && (
                         <div className="flex-1 min-h-0 flex flex-col overflow-hidden w-full">
-                            <Effectifs onOpenGestionRH={() => setCurrentView('gestionRh')} suivis={suivis} setSuivis={setSuivis} planningEvents={planningEvents} settings={globalSettings} />
+                            <Effectifs 
+                                onOpenGestionRH={() => setCurrentView('gestionRh')} 
+                                suivis={suivis} 
+                                setSuivis={setSuivis} 
+                                planningEvents={planningEvents} 
+                                settings={globalSettings}
+                                selectedChain={globalChaineId}
+                                setSelectedChain={setGlobalChaineId}
+                                selectedDate={globalDate}
+                                setSelectedDate={setGlobalDate}
+                            />
                         </div>
                     )}
 
@@ -1444,6 +1461,9 @@ export default function App() {
                                 onBack={() => setCurrentView('dashboard')}
                                 initialWorkerName={hrInitialWorker?.name}
                                 initialWorkerNonce={hrInitialWorker?.ts}
+                                selectedDate={globalDate}
+                                setSelectedDate={setGlobalDate}
+                                selectedChaineId={globalChaineId}
                             />
                         </div>
                     )}
@@ -1465,7 +1485,11 @@ export default function App() {
                             }}
                             onOpenSuivi={(planningEventId) => {
                                 const ev = planningEvents.find(e => e.id === planningEventId);
-                                if (ev) setDirectSuiviModelId(ev.modelId);
+                                if (ev) {
+                                    setDirectSuiviModelId(ev.modelId);
+                                    if (ev.chaineId) setGlobalChaineId(ev.chaineId);
+                                    if (ev.startDate) setGlobalDate(ev.startDate);
+                                }
                                 setCurrentView('suivi');
                             }}
                             settings={globalSettings}
@@ -1484,6 +1508,10 @@ export default function App() {
                                 directModelId={directSuiviModelId}
                                 clearDirectModel={() => setDirectSuiviModelId(null)}
                                 machines={machines}
+                                selectedChaineId={globalChaineId}
+                                setSelectedChaineId={setGlobalChaineId}
+                                globalDate={globalDate}
+                                setGlobalDate={setGlobalDate}
                             />
                         </div>
                     )}

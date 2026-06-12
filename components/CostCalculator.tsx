@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Banknote, Receipt, LayoutTemplate, FileSpreadsheet, FileDown, Printer, Clock, FileText, PieChart as PieChartIcon, SlidersHorizontal, Scissors, Trash2, Check, AlertTriangle, Factory } from 'lucide-react';
+import { Banknote, Receipt, LayoutTemplate, FileDown, Clock, FileText, PieChart as PieChartIcon, SlidersHorizontal, Scissors, Trash2, Check, AlertTriangle, Factory } from 'lucide-react';
 import { Material, AppSettings, PdfSettings, FicheData, PurchasingData } from '../types';
 import { translations, fmt } from '../constants';
 import { findMagasinItem } from '../lib/magasinMatch';
@@ -16,6 +16,7 @@ import SettingsPanel from './SettingsPanel';
 import PdfSettingsModal from './PdfSettingsModal';
 import TicketView from './TicketView';
 import A4DocumentView from './A4DocumentView';
+import A4ResponsiveFrame from './A4ResponsiveFrame';
 import ThreadCalculator from './ThreadCalculator';
 import SousTraitanceModal, { SousTraitance } from './SousTraitanceModal';
 import { Operation } from '../types';
@@ -32,6 +33,7 @@ interface CostCalculatorProps {
     setFicheData: React.Dispatch<React.SetStateAction<FicheData>>;
     operations?: Operation[];
     setOperations?: React.Dispatch<React.SetStateAction<Operation[]>>;
+    currentModelId?: string;
 }
 
 export default function CostCalculator({
@@ -45,7 +47,8 @@ export default function CostCalculator({
     ficheData,
     setFicheData,
     operations = [],
-    setOperations
+    setOperations,
+    currentModelId
 }: CostCalculatorProps) {
     // --- UI State Fixed ---
     const lang = 'fr'; // French is better for exact terms requested by user
@@ -520,6 +523,20 @@ export default function CostCalculator({
         setFicheData(prev => ({ ...prev, soustraitance: value }));
     };
 
+    // Imprime EXACTEMENT l'aperçu A4 du modal (#pdf-print-area) : mêmes sections
+    // et orientation que le PDF. On bascule un flag sur <body> que le CSS @media
+    // print utilise pour n'afficher que cet aperçu, puis on nettoie après impression.
+    const handlePrintFromModal = () => {
+        const cleanup = () => {
+            document.body.classList.remove('printing-modal');
+            window.removeEventListener('afterprint', cleanup);
+        };
+        window.addEventListener('afterprint', cleanup);
+        document.body.classList.add('printing-modal');
+        // Laisse le DOM appliquer le flag avant d'ouvrir la boîte d'impression.
+        requestAnimationFrame(() => window.print());
+    };
+
     const generatePDF = async (action: 'save' | 'preview' = 'save') => {
         const element = docRefA4.current;
         if (!element || !(window as any).html2pdf) return;
@@ -543,10 +560,15 @@ export default function CostCalculator({
         });
 
         const container = document.createElement('div');
+        // Le clone est posé en haut-gauche (0,0) puis caché DERRIÈRE l'app
+        // (z-index très négatif). Le placer à -10000px provoquait un rognage
+        // du côté gauche par html2canvas (colonne « Composant » disparue).
         container.style.position = 'fixed';
-        container.style.top = '-10000px';
-        container.style.left = '-10000px';
+        container.style.top = '0';
+        container.style.left = '0';
         container.style.zIndex = '-9999';
+        container.style.overflow = 'hidden';
+        container.style.pointerEvents = 'none';
 
         const isLandscape = pdfSettings.orientation === 'landscape';
         const widthPx = isLandscape ? '1123px' : '794px';
@@ -598,18 +620,24 @@ export default function CostCalculator({
         document.body.appendChild(container);
 
         const opt = {
-            margin: 10,
-            filename: `${productName.replace(/ /g, "_") || 'Fiche'}_Revenient.pdf`,
+            // Hoamir physiques en mm (haut, gauche, bas, droite) — mapping A4 exact
+            margin: [12, 14, 12, 14],
+            filename: `${productName.replace(/ /g, "_") || 'Fiche'}_Cout.pdf`,
             image: { type: 'jpeg', quality: 0.98 },
             html2canvas: {
-                scale: 2 * pdfSettings.scale,
+                scale: 2 * pdfSettings.scale, // netteté des chiffres / textes
                 useCORS: true,
                 logging: false,
+                x: 0,
+                y: 0,
                 scrollX: 0,
                 scrollY: 0,
+                width: isLandscape ? 1123 : 794,        // largeur de capture verrouillée
                 windowWidth: isLandscape ? 1123 : 794
             },
-            jsPDF: { unit: 'px', format: isLandscape ? [1123, 794] : [794, 1123], orientation: pdfSettings.orientation }
+            // Unité mm + format A4 standard : empêche compression et marges qui débordent
+            jsPDF: { unit: 'mm', format: 'a4', orientation: pdfSettings.orientation },
+            pagebreak: { mode: ['css', 'legacy'], avoid: ['tr', 'table', 'thead', 'img'] }
         };
 
         try {
@@ -693,39 +721,153 @@ export default function CostCalculator({
         });
     };
 
-    const exportToExcel = () => {
-        let csvContent = "data:text/csv;charset=utf-8,\uFEFF";
+    // Export Excel (.xlsx) structur\u00E9 et stylis\u00E9 \u2014 m\u00EAme identit\u00E9 visuelle que le
+    // SaaS UI (bleu nuit #0F172A, gris #F1F5F9). Remplace l'ancien CSV brut.
+    const exportToExcel = async () => {
+        try {
+            const ExcelJS = (await import('exceljs')).default;
 
-        csvContent += `${t.docTitle}\n`;
-        csvContent += `${t.date}: ${displayDate}\n`;
-        csvContent += `${t.modelName}: ${productName}\n\n`;
+            // --- Palette (identique au th\u00E8me web) ---
+            const NAVY = 'FF0F172A';      // bleu nuit (header principal / totaux)
+            const GREY = 'FFF1F5F9';      // gris clair (rang\u00E9es d'en-t\u00EAte de table)
+            const BORDER = 'FFCBD5E1';    // slate-300 pour les bordures
+            const thin = { style: 'thin' as const, color: { argb: BORDER } };
+            const allBorders = { top: thin, bottom: thin, left: thin, right: thin };
 
-        csvContent += `${t.matName};Fournisseur;${t.price};${t.qtyUnit};${t.total}\n`;
-        materials.forEach(m => {
-            csvContent += `"${m.name}";"${m.fournisseur || ''}";${m.unitPrice};${m.qty} ${m.unit};${fmt(m.unitPrice * m.qty)}\n`;
-        });
-        csvContent += `;;;;${t.totalMat}: ${fmt(totalMaterials)} ${currency}\n\n`;
+            const wb = new ExcelJS.Workbook();
+            wb.creator = 'BERAMETHODE';
+            wb.created = new Date();
+            const ws = wb.addWorksheet(t.docTitle || 'Fiche de Co\u00FBt', {
+                pageSetup: { paperSize: 9, orientation: 'portrait', fitToPage: true, fitToWidth: 1, margins: { left: 0.5, right: 0.5, top: 0.6, bottom: 0.6, header: 0.3, footer: 0.3 } },
+                views: [{ showGridLines: false }],
+            });
 
-        csvContent += `${t.laborCost};${fmt(laborCost)} ${currency}\n`;
-        csvContent += `${t.costPrice};${fmt(costPrice)} ${currency}\n`;
-        csvContent += `${t.sellHT};${fmt(sellPriceHT)} ${currency}\n`;
-        csvContent += `${t.sellTTC};${fmt(sellPriceTTC)} ${currency}\n`;
-        csvContent += `${t.shopPrice};${fmt(boutiquePrice)} ${currency}\n\n`;
+            // 5 colonnes : Mati\u00E8re | Fournisseur | Prix U. | Qt\u00E9 | Montant
+            ws.columns = [
+                { width: 32 }, { width: 20 }, { width: 12 }, { width: 16 }, { width: 16 },
+            ];
 
-        csvContent += `${t.orderNeedsTitle} (${t.orderQty}: ${orderQty})\n`;
-        csvContent += `${t.matName};Fournisseur;${t.price};${t.qtyToBuy};${t.totalLine}\n`;
-        purchasingData.forEach(p => {
-            csvContent += `"${p.name}";"${p.fournisseur || ''}";${p.unitPrice};${fmt(p.qtyToBuy)} ${p.unit};${fmt(p.lineCost)}\n`;
-        });
-        csvContent += `;;;;${t.realBudget}: ${fmt(totalPurchasingMatCost)} ${currency}\n`;
+            // --- Bandeau titre (merge A1:E1, fond navy, texte blanc) ---
+            ws.mergeCells('A1:E1');
+            const title = ws.getCell('A1');
+            title.value = `${companyName || 'BERAMETHODE SARL'}  \u2014  ${t.docTitle || 'FICHE DE CO\u00DBT'}`;
+            title.font = { name: 'Arial', size: 15, bold: true, color: { argb: 'FFFFFFFF' } };
+            title.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: NAVY } };
+            title.alignment = { vertical: 'middle', horizontal: 'center' };
+            ws.getRow(1).height = 34;
 
-        const encodedUri = encodeURI(csvContent);
-        const link = document.createElement("a");
-        link.setAttribute("href", encodedUri);
-        link.setAttribute("download", `${productName.replace(/ /g, "_") || 'donnees'}_data.csv`);
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+            // --- M\u00E9ta : d\u00E9signation / date / r\u00E9f ---
+            ws.mergeCells('A2:C2');
+            ws.getCell('A2').value = `${t.modelName || 'Mod\u00E8le'}: ${productName || '-'}`;
+            ws.getCell('A2').font = { bold: true, size: 11 };
+            ws.getCell('D2').value = `${t.date || 'Date'}: ${displayDate}`;
+            ws.getCell('E2').value = `R\u00E9f: ${docRef || '-'}`;
+            ws.getRow(2).height = 18;
+
+            const styleHeaderRow = (row: any) => {
+                row.eachCell((cell: any) => {
+                    cell.font = { bold: true, size: 10, color: { argb: NAVY } };
+                    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: GREY } };
+                    cell.alignment = { vertical: 'middle' };
+                    cell.border = allBorders;
+                });
+                row.height = 20;
+            };
+            const styleDataRow = (row: any) => {
+                row.eachCell((cell: any) => { cell.border = allBorders; cell.alignment = { vertical: 'middle' }; });
+            };
+
+            // --- Section NOMENCLATURE ---
+            ws.addRow([]);
+            const nomTitleRow = ws.addRow([t.matName ? 'NOMENCLATURE' : 'NOMENCLATURE']);
+            ws.mergeCells(`A${nomTitleRow.number}:E${nomTitleRow.number}`);
+            nomTitleRow.getCell(1).font = { bold: true, size: 11, color: { argb: NAVY } };
+
+            const nomHeader = ws.addRow([t.matName || 'Mati\u00E8re', 'Fournisseur', t.price || 'Prix U.', t.qtyUnit || 'Qt\u00E9', t.total || 'Montant']);
+            styleHeaderRow(nomHeader);
+            materials.forEach(m => {
+                const r = ws.addRow([m.name || '-', m.fournisseur || '', m.unitPrice, `${fmt(m.qty)} ${m.unit}`, Math.round(m.unitPrice * m.qty * 100) / 100]);
+                r.getCell(3).numFmt = '0.00';
+                r.getCell(5).numFmt = '0.00';
+                styleDataRow(r);
+            });
+            // Main d'\u0153uvre
+            const moRow = ws.addRow([stActive ? 'Fa\u00E7on (sous-traitance)' : `Main d'\u0152uvre`, '', '', '', Math.round(laborCost * 100) / 100]);
+            moRow.getCell(5).numFmt = '0.00';
+            styleDataRow(moRow);
+            // Total mati\u00E8re
+            const totMatRow = ws.addRow([`${t.totalMat || 'Total Mati\u00E8re'}`, '', '', '', Math.round(totalMaterials * 100) / 100]);
+            ws.mergeCells(`A${totMatRow.number}:D${totMatRow.number}`);
+            totMatRow.getCell(1).font = { bold: true };
+            totMatRow.getCell(5).font = { bold: true };
+            totMatRow.getCell(5).numFmt = '0.00';
+            styleDataRow(totMatRow);
+
+            // --- Section PRIX (bloc r\u00E9capitulatif) ---
+            ws.addRow([]);
+            const prixRows: [string, number][] = [
+                [t.costPrice || 'Prix de Revient', costPrice],
+                [`${t.sellHT || 'Prix Vente HT'} (+${settings.marginAtelier}%)`, sellPriceHT],
+                [`${t.sellTTC || 'Prix Vente TTC'} (+${settings.tva}%)`, sellPriceTTC],
+                [t.shopPrice || 'Prix Boutique', boutiquePrice],
+            ];
+            prixRows.forEach(([label, val], idx) => {
+                const r = ws.addRow([label, '', '', '', Math.round(val * 100) / 100]);
+                ws.mergeCells(`A${r.number}:D${r.number}`);
+                r.getCell(5).numFmt = `0.00 "${currency}"`;
+                if (idx === 0) {
+                    // Co\u00FBt de Revient = bandeau navy
+                    r.eachCell((cell: any) => {
+                        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: NAVY } };
+                        cell.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 11 };
+                    });
+                } else {
+                    r.getCell(1).font = { bold: idx === 2 };
+                    r.getCell(5).font = { bold: idx === 2 };
+                }
+                styleDataRow(r);
+            });
+
+            // --- Section PR\u00C9VISIONS ACHAT ---
+            if (orderQty > 0 && purchasingData.length > 0) {
+                ws.addRow([]);
+                const achTitle = ws.addRow([`${t.orderNeedsTitle || 'Pr\u00E9visions Achat'} (${t.orderQty || 'Qt\u00E9'}: ${orderQty} \u2014 D\u00E9chet: ${wasteRate}%)`]);
+                ws.mergeCells(`A${achTitle.number}:E${achTitle.number}`);
+                achTitle.getCell(1).font = { bold: true, size: 11, color: { argb: NAVY } };
+
+                const achHeader = ws.addRow([t.matName || 'Mati\u00E8re', 'Fournisseur', t.price || 'Prix U.', t.qtyToBuy || 'Qt\u00E9 \u00E0 Acheter', t.totalLine || 'Total Ligne']);
+                styleHeaderRow(achHeader);
+                purchasingData.forEach(p => {
+                    const r = ws.addRow([p.name || '-', p.fournisseur || '', p.unitPrice, `${fmt(p.qtyToBuy)} ${p.unit}`, Math.round(p.lineCost * 100) / 100]);
+                    r.getCell(3).numFmt = '0.00';
+                    r.getCell(5).numFmt = '0.00';
+                    styleDataRow(r);
+                });
+                const budgetRow = ws.addRow([`${t.realBudget || 'Budget'}`, '', '', '', Math.round(totalPurchasingMatCost * 100) / 100]);
+                ws.mergeCells(`A${budgetRow.number}:D${budgetRow.number}`);
+                budgetRow.eachCell((cell: any) => {
+                    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: NAVY } };
+                    cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+                });
+                budgetRow.getCell(5).numFmt = `0.00 "${currency}"`;
+                styleDataRow(budgetRow);
+            }
+
+            // --- T\u00E9l\u00E9chargement ---
+            const buffer = await wb.xlsx.writeBuffer();
+            const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `${productName.replace(/ /g, '_') || 'Fiche'}_Cout.xlsx`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+        } catch (e) {
+            console.error('Excel export error:', e);
+            alert("Erreur lors de la g\u00E9n\u00E9ration du fichier Excel.");
+        }
     };
 
     const bgMain = 'bg-gray-50';
@@ -740,11 +882,48 @@ export default function CostCalculator({
     return (
         <div dir="ltr" className={`min-h-screen ${bgMain} p-2 sm:p-4 pb-24 transition-colors duration-300`}>
 
+            {/* Règles d'impression A4 — isole STRICTEMENT la Fiche de Coût : tout le shell
+                de l'application (navbar, stepper, panneaux, boutons) est masqué. */}
+            <style>{`
+                @media print {
+                    @page { size: A4 portrait; margin: 12mm 14mm; }
+                    html, body { background: #fff !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+                    /* 1. Tout devient invisible par défaut */
+                    body * { visibility: hidden !important; }
+                    /* 2. Seule la fiche (et ses descendants) redevient visible */
+                    .fiche-a4-doc, .fiche-a4-doc * { visibility: visible !important; }
+                    /* 3. La fiche occupe seule la page, callée en haut à gauche */
+                    .fiche-a4-doc {
+                        position: absolute !important; left: 0 !important; top: 0 !important;
+                        box-shadow: none !important; max-width: 100% !important; width: 100% !important;
+                        margin: 0 !important; padding: 0 !important;
+                    }
+                    .fiche-a4-doc table, .fiche-a4-doc tr, .fiche-a4-doc thead, .fiche-a4-doc tbody { break-inside: avoid !important; page-break-inside: avoid !important; }
+                    .fiche-a4-doc img { max-width: 100% !important; max-height: 60mm !important; object-fit: contain !important; }
+
+                    /* Impression depuis le modal : on isole STRICTEMENT l'aperçu #pdf-print-area
+                       (le sélecteur #id l'emporte sur la règle .fiche-a4-doc de la page). */
+                    body.printing-modal .fiche-a4-doc { visibility: hidden !important; }
+                    body.printing-modal #pdf-print-area,
+                    body.printing-modal #pdf-print-area * { visibility: visible !important; }
+                    body.printing-modal #pdf-print-area {
+                        position: fixed !important; left: 0 !important; top: 0 !important;
+                        transform: none !important; width: 100% !important; height: auto !important;
+                        overflow: visible !important; box-shadow: none !important;
+                    }
+                    body.printing-modal #pdf-print-area .fiche-a4-doc {
+                        visibility: visible !important; position: static !important; max-width: 100% !important; width: 100% !important;
+                    }
+                }
+            `}</style>
+
             <PdfSettingsModal
                 t={t} darkMode={darkMode} showPdfModal={showPdfModal} setShowPdfModal={setShowPdfModal}
                 isGeneratingPdf={isGeneratingPdf} isLibLoaded={isLibLoaded}
                 pdfSettings={pdfSettings} setPdfSettings={setPdfSettings}
                 generatePDF={generatePDF}
+                onPrint={handlePrintFromModal}
+                onExcel={exportToExcel}
                 pdfSections={pdfSections} setPdfSections={setPdfSections}
             >
                 <A4DocumentView
@@ -903,6 +1082,9 @@ export default function CostCalculator({
                             isExport={materialsExcluded}
                             materials={materials}
                             ficheData={ficheData}
+                            modelId={currentModelId}
+                            modelName={productName}
+                            onStockConfirmed={() => { /* statut recalculé via magasinData */ }}
                         />
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -1008,14 +1190,12 @@ export default function CostCalculator({
                                     <div className={`px-5 h-12 border-b flex justify-between items-center bg-slate-50/60 border-slate-100 print:hidden`}>
                                         <h2 className={`text-[13px] font-semibold text-slate-900`}>Fiche de Rendement A4</h2>
                                         <div className="flex gap-1.5">
-                                            <button onClick={generateDevis} className="inline-flex items-center gap-1.5 h-8 px-3 text-[12px] font-medium rounded-md border border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 transition-colors" title="Créer un devis (brouillon) avec un prix par couleur"><Receipt className="w-3.5 h-3.5" strokeWidth={1.75} /> Devis</button>
-                                            <button onClick={exportToExcel} className="inline-flex items-center gap-1.5 h-8 px-3 text-[12px] font-medium rounded-md border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 transition-colors"><FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" strokeWidth={1.75} /> Excel</button>
-                                            <button onClick={() => setShowPdfModal(true)} className="inline-flex items-center gap-1.5 h-8 px-3 text-[12px] font-medium rounded-md border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 transition-colors"><FileDown className="w-3.5 h-3.5 text-rose-600" strokeWidth={1.75} /> PDF</button>
-                                            <button onClick={() => window.print()} className="inline-flex items-center gap-1.5 h-8 px-3 text-[12px] font-medium rounded-md bg-slate-900 hover:bg-slate-800 text-white transition-colors"><Printer className="w-3.5 h-3.5" strokeWidth={1.75} /> Imprimer</button>
+                                            <button onClick={() => setShowPdfModal(true)} className="inline-flex items-center gap-1.5 h-8 px-3 text-[12px] font-medium rounded-md bg-slate-900 hover:bg-slate-800 text-white transition-colors" title="Exporter (PDF / Excel) ou imprimer la fiche"><FileDown className="w-3.5 h-3.5" strokeWidth={1.75} /> Exporter / Imprimer</button>
                                         </div>
                                     </div>
 
-                                    <div className="bg-slate-100 p-8 flex justify-center">
+                                    <div className="bg-slate-100 p-3 sm:p-8 overflow-hidden">
+                                      <A4ResponsiveFrame>
                                         <A4DocumentView
                                             ref={docRefA4}
                                             t={t} currency={currency} darkMode={false}
@@ -1038,6 +1218,7 @@ export default function CostCalculator({
                                             soustraitanceActive={stActive}
                                             sections={pdfSections}
                                         />
+                                      </A4ResponsiveFrame>
                                     </div>
                                 </>
                             )}

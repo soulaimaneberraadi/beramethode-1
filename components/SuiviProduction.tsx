@@ -5,7 +5,7 @@ import {
     Activity, Clock, ChevronLeft, ChevronRight, Plus, 
     User, Settings, ToggleLeft, ToggleRight, Info, AlertCircle, CheckCircle, Save,
     ShieldAlert, Sparkles, Sliders, Layers, BarChart2, CheckSquare, Trash2,
-    Package, TrendingDown, AlertTriangle
+    Package, TrendingDown, AlertTriangle, X
 } from 'lucide-react';
 
 interface Props {
@@ -17,6 +17,10 @@ interface Props {
     directModelId?: string | null;
     clearDirectModel?: () => void;
     machines?: any[];
+    selectedChaineId?: string;
+    setSelectedChaineId?: (chaineId: string) => void;
+    globalDate?: string;
+    setGlobalDate?: (date: string) => void;
 }
 
 // Deterministic HSL style helper matching Excel screenshots
@@ -43,22 +47,206 @@ const getModelStyle = (modelNameOrRef: string, index: number) => {
     return colors[index % colors.length];
 };
 
+const DR_LABELS = {
+    title: 'تتبع الإنتاج',
+    subtitle: 'تسجيل الإنتاج بالساعة والعمال مباشرة على الجدول',
+    activeModel: 'الموديل لي خدامين فيه',
+    chain: 'السلسلة',
+    week: 'أسبوع',
+    supervisor: 'الشاف ديال الشين',
+    activeModels: 'الموديلات الخدامين',
+    yieldAvg: 'معدل المردودية',
+    date: 'التاريخ',
+    day: 'اليوم',
+    pJournaliere: 'الإنتاج اليومي',
+    totalHours: 'مجموع الساعات',
+    effectif: 'الخدّامة',
+    yieldDay: 'المردودية اليومية',
+    yieldHour: 'مردودية الساعة',
+    trs: 'TRS معدل الفعالية الكاملة',
+    dispo: 'الواجدية (Dispo)',
+    perf: 'الإنتاجية (Perf)',
+    quality: 'الجودة (Qualité)',
+    timeline: 'الخط الزمني لليوم',
+    wip: 'الخدمة لي باقة فالوسط (WIP)',
+    size: 'العبر (Taille)',
+    inputs: 'الدخول (Entrées)',
+    outputs: 'الخروج (Sorties)',
+    bottleneck: 'عائق (Goulot)',
+    fluid: 'مسرح (Fluide)',
+    gamme: 'سلسلة التجميع ومطابقة الكفاءات',
+    requiredSkills: 'الماكينات المطلوبة والخدّامة المقيدين فـ RH',
+    save: 'حفظ',
+    saving: 'جاري الحفظ...',
+    saved: 'تم الحفظ',
+    error: 'خطأ فالمزامنة',
+    downtimes: 'أوقات التوقف',
+    overrideMode: 'وضع التعديل',
+    doubleClick: 'اضغط مرتين للتفاصيل',
+    cellModalTitle: 'تفاصيل ساعة العمل',
+    quantity: 'الكمية المنتجة',
+    defects: 'العيوب (Défauts)',
+    defectType: 'نوع العيب',
+    close: 'إغلاق',
+    none: 'بدون',
+    lunch: 'غداء (L)',
+    pause: 'استراحة (P)',
+    breakdown: 'عطل ماكينة (M)',
+    rupture: 'قطع السلعة (S)',
+    sewing: 'Couture (خياطة)',
+    fabric: 'Tissu (توب)',
+    cut: 'Coupe (فصالة)',
+    other: 'Autre (أخرى)'
+};
+
+const FR_LABELS = {
+    title: 'Suivi de Production',
+    subtitle: 'Relevés horaires et effectifs saisissables directement sur la grille',
+    activeModel: 'Modèle Actif',
+    chain: 'Séquence',
+    week: 'Semaine',
+    supervisor: 'Responsable ligne',
+    activeModels: 'Modèles Actifs',
+    yieldAvg: 'M.R Moyen Hebdomadaire',
+    date: 'Date',
+    day: 'Jour',
+    pJournaliere: 'P. Journ.',
+    totalHours: 'Total H',
+    effectif: 'Effectif',
+    yieldDay: 'R. TOTAL DAY',
+    yieldHour: 'Rendement Horaire',
+    trs: 'Taux TRS (OEE) Synthétique',
+    dispo: 'Dispo.',
+    perf: 'Perf.',
+    quality: 'Qualité',
+    timeline: 'Chronologie de la journée',
+    wip: 'Suivi des Tailles & Encours (WIP)',
+    size: 'Taille',
+    inputs: 'Total Entrées',
+    outputs: 'Total Sorties',
+    bottleneck: "Goulot d'étranglement",
+    fluid: 'Fluide',
+    gamme: 'Gamme de Montage & Adéquation RH',
+    requiredSkills: 'Machines requises vs qualifications RH',
+    save: 'Enregistrer',
+    saving: 'Sauvegarde...',
+    saved: 'Enregistré',
+    error: 'Erreur',
+    downtimes: 'Légende downtimes',
+    overrideMode: 'Mode Modification',
+    doubleClick: 'Double-cliquez pour plus de détails',
+    cellModalTitle: "Détails de l'heure de travail",
+    quantity: 'Quantité produite',
+    defects: 'Nombre de défauts',
+    defectType: 'Type de défaut',
+    close: 'Fermer',
+    none: 'Aucun',
+    lunch: 'Déjeuner (L)',
+    pause: 'Pause (P)',
+    breakdown: 'Panne Machine (M)',
+    rupture: 'Rupture Appro (S)',
+    sewing: 'Couture',
+    fabric: 'Tissu',
+    cut: 'Coupe',
+    other: 'Autre'
+};
+
 export default function SuiviProduction({
     models, suivis = [], setSuivis, planningEvents = [], settings,
     directModelId, clearDirectModel, machines,
+    selectedChaineId: propSelectedChaineId,
+    setSelectedChaineId: propSetSelectedChaineId,
+    globalDate,
+    setGlobalDate,
 }: Props) {
     // 1. Core States
-    const [selectedChaineId, setSelectedChaineId] = useState<string>('CHAINE 2');
-    const [weekStart, setWeekStart] = useState<string>(() => {
-        const d = new Date();
-        const day = d.getDay();
-        const diff = d.getDate() - day + (day === 0 ? -6 : 1); // Get current Monday
-        return new Date(d.setDate(diff)).toISOString().split('T')[0];
-    });
+    const [localSelectedChaineId, localSetSelectedChaineId] = useState<string>('CHAINE 2');
+    const selectedChaineId = propSelectedChaineId !== undefined ? propSelectedChaineId : localSelectedChaineId;
+    const setSelectedChaineId = propSetSelectedChaineId !== undefined ? propSetSelectedChaineId : localSetSelectedChaineId;
+
+    const weekStart = useMemo(() => {
+        const targetDate = new Date(globalDate || new Date().toISOString().split('T')[0]);
+        const day = targetDate.getDay();
+        const diff = targetDate.getDate() - day + (day === 0 ? -6 : 1); // Get Monday of that week
+        return new Date(targetDate.setDate(diff)).toISOString().split('T')[0];
+    }, [globalDate]);
+
+    // 3. Derive Week Days (Monday to Saturday)
+    const weekDays = useMemo(() => {
+        const days = [];
+        const start = new Date(weekStart);
+        const weekdayNames = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
+        for (let i = 0; i < 6; i++) {
+            const current = new Date(start);
+            current.setDate(start.getDate() + i);
+            days.push({
+                dateStr: current.toISOString().split('T')[0],
+                label: weekdayNames[i],
+                displayDate: current.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' }),
+            });
+        }
+        return days;
+    }, [weekStart]);
+
     const [isOverrideMode, setIsOverrideMode] = useState<boolean>(false);
     const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
     const [showDarija, setShowDarija] = useState<boolean>(false);
     const [selectedActiveModelId, setSelectedActiveModelId] = useState<string>('');
+    const [activeCellModal, setActiveCellModal] = useState<{ dateStr: string; hourKey: string; hourLabel: string; } | null>(null);
+
+    const [showStatsHeader, setShowStatsHeader] = useState<boolean>(() => {
+        try {
+            const saved = localStorage.getItem('beramethode_show_stats_header');
+            return saved ? JSON.parse(saved) : false;
+        } catch (_) {
+            return false;
+        }
+    });
+
+    useEffect(() => {
+        try {
+            localStorage.setItem('beramethode_show_stats_header', JSON.stringify(showStatsHeader));
+        } catch (_) {}
+    }, [showStatsHeader]);
+
+    const handleOpenCellModal = (dateStr: string, hourKey: string, hourLabel: string) =>
+        setActiveCellModal({ dateStr, hourKey, hourLabel });
+
+    // Active translation dictionary
+    const l = showDarija ? DR_LABELS : FR_LABELS;
+
+    // Redirection effect for direct model tracking
+    useEffect(() => {
+        if (directModelId) {
+            const plan = planningEvents.find(p => p.modelId === directModelId);
+            let targetChaineId = selectedChaineId;
+            let targetDate: Date | null = null;
+
+            if (plan) {
+                if (plan.chaineId) targetChaineId = plan.chaineId;
+                if (plan.startDate) targetDate = new Date(plan.startDate);
+                else if (plan.dateLancement) targetDate = new Date(plan.dateLancement);
+            } else {
+                const suivi = suivis.find(s => s.modelId === directModelId);
+                if (suivi) {
+                    if (suivi.chaineId) targetChaineId = suivi.chaineId;
+                    if (suivi.date) targetDate = new Date(suivi.date);
+                }
+            }
+
+            setSelectedChaineId(targetChaineId);
+            setSelectedActiveModelId(directModelId);
+
+            if (targetDate && !isNaN(targetDate.getTime())) {
+                const ymd = targetDate.toISOString().split('T')[0];
+                if (setGlobalDate) setGlobalDate(ymd);
+            }
+
+            if (clearDirectModel) {
+                clearDirectModel();
+            }
+        }
+    }, [directModelId, planningEvents, suivis, clearDirectModel, setGlobalDate]);
 
     // States for overconsumption tracking (real movements and products)
     const [mvts, setMvts] = useState<MouvementStock[]>([]);
@@ -97,6 +285,22 @@ export default function SuiviProduction({
 
     // Selected day for the graphic rendering (defaults to Monday)
     const [selectedChartDate, setSelectedChartDate] = useState<string>('');
+
+    // Bidirectional sync between globalDate and selectedChartDate
+    useEffect(() => {
+        if (globalDate && globalDate !== selectedChartDate) {
+            const weekDates = weekDays.map(d => d.dateStr);
+            if (weekDates.includes(globalDate)) {
+                setSelectedChartDate(globalDate);
+            }
+        }
+    }, [globalDate, weekDays, selectedChartDate]);
+
+    useEffect(() => {
+        if (selectedChartDate && setGlobalDate && selectedChartDate !== globalDate) {
+            setGlobalDate(selectedChartDate);
+        }
+    }, [selectedChartDate, globalDate, setGlobalDate]);
 
     // Supervisors map
     const [supervisors, setSupervisors] = useState<Record<string, string>>({
@@ -155,22 +359,20 @@ export default function SuiviProduction({
         });
     }, [settings]);
 
-    // 3. Derive Week Days (Monday to Saturday)
-    const weekDays = useMemo(() => {
-        const days = [];
-        const start = new Date(weekStart);
-        const weekdayNames = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
-        for (let i = 0; i < 6; i++) {
-            const current = new Date(start);
-            current.setDate(start.getDate() + i);
-            days.push({
-                dateStr: current.toISOString().split('T')[0],
-                label: weekdayNames[i],
-                displayDate: current.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' }),
-            });
+
+
+    // Dynamic chains list based on settings and active data
+    const chainsList = useMemo(() => {
+        const count = settings?.chainsCount || 12;
+        const list: string[] = [];
+        for (let i = 1; i <= count; i++) {
+            list.push(`CHAINE ${i}`);
         }
-        return days;
-    }, [weekStart]);
+        if (selectedChaineId && !list.includes(selectedChaineId)) {
+            list.push(selectedChaineId);
+        }
+        return list;
+    }, [settings?.chainsCount, selectedChaineId]);
 
     // Set default chart date to Monday of the week
     useEffect(() => {
@@ -276,9 +478,11 @@ export default function SuiviProduction({
 
     // Change current week
     const changeWeek = (offsetWeeks: number) => {
-        const d = new Date(weekStart);
+        const currentRef = globalDate || new Date().toISOString().split('T')[0];
+        const d = new Date(currentRef);
         d.setDate(d.getDate() + offsetWeeks * 7);
-        setWeekStart(d.toISOString().split('T')[0]);
+        const nextYmd = d.toISOString().split('T')[0];
+        if (setGlobalDate) setGlobalDate(nextYmd);
     };
 
     // Get value & model metadata for a cell
@@ -822,9 +1026,9 @@ export default function SuiviProduction({
                     </div>
                     <div>
                         <h1 className="text-lg font-black tracking-tight flex items-center gap-2">
-                            Suivi de Production <span className="text-xs bg-indigo-50 border border-indigo-100 text-indigo-700 px-2 py-0.5 rounded-lg font-bold">Grille Directe</span>
+                            {l.title} <span className="text-xs bg-indigo-50 border border-indigo-100 text-indigo-700 px-2 py-0.5 rounded-lg font-bold">{showDarija ? 'الجدول المباشر' : 'Grille Directe'}</span>
                         </h1>
-                        <p className="text-xs text-slate-400 font-medium">Relevés horaires et effectifs saisissables directement sur la grille</p>
+                        <p className="text-xs text-slate-400 font-medium">{l.subtitle}</p>
                     </div>
                 </div>
 
@@ -835,7 +1039,7 @@ export default function SuiviProduction({
                     {activeModels.length > 0 && (
                         <div className="flex items-center gap-2 bg-indigo-50/50 border border-indigo-100 rounded-xl px-3 py-1.5 shadow-sm">
                             <span className="text-[10px] font-black text-indigo-700 uppercase tracking-widest">
-                                {showDarija ? 'الموديل لي خدامين فيه' : 'Modèle Actif'} :
+                                {l.activeModel} :
                             </span>
                             <select
                                 value={selectedActiveModelId}
@@ -850,14 +1054,14 @@ export default function SuiviProduction({
                     )}
 
                     {/* Chain Picker */}
-                    <div className="bg-slate-100/80 p-0.5 rounded-xl border border-slate-200/50 flex gap-0.5">
-                        {['CHAINE 2', 'CHAINE 3'].map(cId => (
+                    <div className="bg-slate-100/80 p-0.5 rounded-xl border border-slate-200/50 flex gap-0.5 overflow-x-auto max-w-[280px] sm:max-w-[400px] md:max-w-md no-scrollbar">
+                        {chainsList.map(cId => (
                             <button
                                 key={cId}
                                 onClick={() => setSelectedChaineId(cId)}
-                                className={`px-4 py-1.5 rounded-lg text-xs font-black transition-all ${
+                                className={`px-3.5 py-1.5 rounded-lg text-xs font-black transition-all shrink-0 ${
                                     selectedChaineId === cId
-                                        ? 'bg-white text-slate-900 shadow-sm'
+                                        ? 'bg-white text-indigo-900 shadow-sm border border-indigo-100/50'
                                         : 'text-slate-500 hover:text-slate-900'
                                     }`}
                             >
@@ -872,12 +1076,51 @@ export default function SuiviProduction({
                             <ChevronLeft className="w-4 h-4" />
                         </button>
                         <span className="text-xs font-bold text-slate-700">
-                            Semaine du {weekDays[0]?.displayDate.substring(0, 5)} au {weekDays[5]?.displayDate}
+                            {showDarija ? 'أسبوع من' : 'Semaine du'} {weekDays[0]?.displayDate.substring(0, 5)} {showDarija ? 'إلى' : 'au'} {weekDays[5]?.displayDate}
                         </span>
                         <button onClick={() => changeWeek(1)} className="p-1 hover:bg-slate-50 rounded-lg text-slate-500 hover:text-slate-900 transition-colors">
                             <ChevronRight className="w-4 h-4" />
                         </button>
                     </div>
+
+                    {/* Compact Supervisor & Yield Badges when stats are collapsed */}
+                    {!showStatsHeader && (
+                        <div className="flex items-center gap-1.5">
+                            {/* Supervisor Badge */}
+                            {supervisors[selectedChaineId] && (
+                                <div className="flex items-center gap-1 bg-slate-100 border border-slate-200 rounded-xl px-2.5 py-1.5 shadow-sm text-xs font-bold text-slate-600">
+                                    <User className="w-3.5 h-3.5 text-indigo-500" />
+                                    <span>{supervisors[selectedChaineId]}</span>
+                                </div>
+                            )}
+                            {/* Yield Badge */}
+                            {weeklyAverageYield > 0 && (
+                                <div className={`flex items-center gap-1 border rounded-xl px-2.5 py-1.5 shadow-sm text-xs font-bold ${
+                                    weeklyAverageYield >= 90 
+                                        ? 'bg-emerald-50 border-emerald-100 text-emerald-700' 
+                                        : weeklyAverageYield >= 80 
+                                            ? 'bg-orange-50 border-orange-100 text-orange-700' 
+                                            : 'bg-rose-50 border-rose-100 text-rose-700'
+                                }`}>
+                                    <Activity className="w-3.5 h-3.5" />
+                                    <span>{weeklyAverageYield}%</span>
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    {/* Stats Toggle Button */}
+                    <button
+                        onClick={() => setShowStatsHeader(!showStatsHeader)}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 border rounded-xl text-xs font-bold transition-all shadow-sm ${
+                            showStatsHeader 
+                                ? 'bg-indigo-50 text-indigo-800 border-indigo-200 ring-2 ring-indigo-500/10' 
+                                : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'
+                        }`}
+                    >
+                        <BarChart2 className="w-4 h-4 text-indigo-600" />
+                        <span>{showDarija ? 'المؤشرات' : 'Stats'}</span>
+                    </button>
 
                     {/* Override Toggle Switch */}
                     <button
@@ -889,7 +1132,7 @@ export default function SuiviProduction({
                         }`}
                     >
                         {isOverrideMode ? <ToggleRight className="w-5 h-5 text-amber-600" /> : <ToggleLeft className="w-5 h-5 text-slate-400" />}
-                        Mode Modification
+                        {showDarija ? 'وضعية التعديل' : 'Mode Modification'}
                     </button>
 
                     {/* Darija Translation Toggle */}
@@ -910,9 +1153,9 @@ export default function SuiviProduction({
                     </button>
 
                     {/* Save State Indicator */}
-                    {saveStatus === 'saving' && <span className="text-xs text-indigo-600 font-semibold animate-pulse">Sauvegarde...</span>}
-                    {saveStatus === 'saved' && <span className="text-xs text-emerald-600 font-semibold flex items-center gap-1"><CheckCircle className="w-4 h-4" /> Enregistré</span>}
-                    {saveStatus === 'error' && <span className="text-xs text-rose-600 font-semibold">Erreur de sync</span>}
+                    {saveStatus === 'saving' && <span className="text-xs text-indigo-600 font-semibold animate-pulse">{showDarija ? 'جاري الحفظ...' : 'Sauvegarde...'}</span>}
+                    {saveStatus === 'saved' && <span className="text-xs text-emerald-600 font-semibold flex items-center gap-1"><CheckCircle className="w-4 h-4" /> {showDarija ? 'تم الحفظ' : 'Enregistré'}</span>}
+                    {saveStatus === 'error' && <span className="text-xs text-rose-600 font-semibold">{showDarija ? 'خطأ المزامنة' : 'Erreur de sync'}</span>}
                 </div>
             </div>
 
@@ -920,98 +1163,104 @@ export default function SuiviProduction({
             <div className="flex-1 overflow-y-auto p-6 space-y-6">
 
                 {/* Upper Cards: Supervisor & Active Models & Yield Summary */}
-                <div className="grid grid-cols-1 xl:grid-cols-4 gap-6">
-                    
-                    {/* Supervisor Card */}
-                    <div className="bg-white border border-slate-100 rounded-3xl p-5 shadow-sm flex flex-col justify-between relative overflow-hidden group">
-                        <div className="absolute right-0 top-0 w-24 h-24 bg-gradient-to-bl from-indigo-500/5 to-transparent rounded-full blur-xl pointer-events-none"></div>
-                        <div className="flex items-center justify-between">
-                            <div className="text-xs font-black uppercase tracking-widest text-slate-400 flex items-center gap-1.5">
-                                <User className="w-3.5 h-3.5 text-indigo-500" /> 
-                                <span>Responsable ligne</span>
-                                {showDarija && <span className="text-[9px] text-indigo-600 font-bold bg-indigo-50 px-1 rounded">الشاف ديال الشين</span>}
-                            </div>
-                            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                        </div>
-                        <div className="mt-4">
-                            <input
-                                type="text"
-                                value={supervisors[selectedChaineId] || ''}
-                                onChange={(e) => setSupervisors({ ...supervisors, [selectedChaineId]: e.target.value.toUpperCase() })}
-                                className="text-2xl font-black text-slate-800 uppercase tracking-tight bg-slate-50 border border-slate-100 hover:border-slate-200 focus:border-indigo-500 focus:bg-white rounded-2xl px-4 py-2 w-full transition-all outline-none"
-                                placeholder="Entrer responsable"
-                            />
-                        </div>
-                        <p className="text-[10px] text-slate-400 font-medium mt-3">Chef d'équipe affecté pour le contrôle hebdomadaire</p>
-                    </div>
-
-                    {/* Active Models List Strip */}
-                    <div className="xl:col-span-2 bg-white border border-slate-100 rounded-3xl p-5 shadow-sm flex flex-col justify-between">
-                        <div className="flex items-center justify-between border-b border-slate-50 pb-2">
-                            <span className="text-xs font-black uppercase tracking-widest text-slate-400 flex items-center gap-1.5">
-                                <span>Modèles Actifs</span>
-                                {showDarija && <span className="text-[9px] text-indigo-600 font-bold bg-indigo-50 px-1 rounded">الموديلات الخدامين</span>}
-                            </span>
-                            <span className="text-[10px] bg-slate-100 text-slate-600 px-2.5 py-0.5 rounded-full font-bold">Semaine en cours</span>
-                        </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3 flex-1 overflow-y-auto max-h-28 pr-1 no-scrollbar">
-                            {activeModels.map(m => (
-                                <div key={m.id} className="rounded-2xl border border-slate-100 p-3 bg-slate-50/50 flex items-center justify-between hover:border-slate-200 transition-colors">
-                                    <div className="flex items-center gap-2.5 min-w-0">
-                                        <span className="w-3.5 h-3.5 rounded-lg shrink-0 border" style={{ backgroundColor: m.style.bg, borderColor: m.style.border }} />
-                                        <div className="min-w-0">
-                                            <p className="text-xs font-black text-slate-800 truncate" title={m.name}>{m.name}</p>
-                                            <p className="text-[10px] text-slate-400 font-bold truncate">Réf: {m.reference} · SAM: {m.sam} min</p>
-                                        </div>
-                                    </div>
-                                    <div className="text-right shrink-0">
-                                        <p className="text-xs font-black text-indigo-600 tabular-nums">{m.produced} / {m.target} pcs</p>
-                                        <p className="text-[9px] font-bold text-slate-400">Reste per H: {m.restPerHour}</p>
-                                    </div>
+                {showStatsHeader && (
+                    <div className="grid grid-cols-1 xl:grid-cols-4 gap-6">
+                        
+                        {/* Supervisor Card */}
+                        <div className="bg-white border border-slate-100 rounded-3xl p-5 shadow-sm flex flex-col justify-between relative overflow-hidden group">
+                            <div className="absolute right-0 top-0 w-24 h-24 bg-gradient-to-bl from-indigo-500/5 to-transparent rounded-full blur-xl pointer-events-none"></div>
+                            <div className="flex items-center justify-between">
+                                <div className="text-xs font-black uppercase tracking-widest text-slate-400 flex items-center gap-1.5">
+                                    <User className="w-3.5 h-3.5 text-indigo-500" /> 
+                                    <span>Responsable ligne</span>
+                                    {showDarija && <span className="text-[9px] text-indigo-600 font-bold bg-indigo-50 px-1 rounded">الشاف ديال الشين</span>}
                                 </div>
-                            ))}
-                        </div>
-                    </div>
-
-                    {/* Weekly Performance Yield Summary */}
-                    <div className="bg-white border border-slate-100 rounded-3xl p-5 shadow-sm flex flex-col justify-between relative overflow-hidden">
-                        <div className="absolute right-0 top-0 w-32 h-32 bg-gradient-to-bl from-indigo-500/10 to-transparent rounded-full blur-2xl pointer-events-none"></div>
-                        <div className="flex items-center justify-between">
-                            <span className="text-xs font-black uppercase tracking-widest text-slate-400 flex items-center gap-1.5">
-                                <span>M.R Moyen Hebdomadaire</span>
-                                {showDarija && <span className="text-[9px] text-indigo-600 font-bold bg-indigo-50 px-1 rounded">معدل المردودية</span>}
-                            </span>
-                            <Info className="w-4 h-4 text-slate-300" />
-                        </div>
-                        <div className="mt-2 flex items-baseline gap-2">
-                            <span className={`text-4xl font-black tracking-tight ${
-                                weeklyAverageYield >= 90 ? 'text-emerald-600' : weeklyAverageYield >= 80 ? 'text-orange-500' : 'text-rose-600'
-                            }`}>
-                                {weeklyAverageYield > 0 ? `${weeklyAverageYield}%` : '—'}
-                            </span>
-                            <span className="text-xs font-bold text-slate-400">d'efficience</span>
-                        </div>
-                        <div className="mt-3">
-                            <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
-                                <div 
-                                    className={`h-full rounded-full transition-all duration-1000 ${
-                                        weeklyAverageYield >= 90 ? 'bg-emerald-500' : weeklyAverageYield >= 80 ? 'bg-orange-500' : 'bg-rose-500'
-                                    }`}
-                                    style={{ width: `${Math.min(100, weeklyAverageYield)}%` }}
+                                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                            </div>
+                            <div className="mt-4">
+                                <input
+                                    type="text"
+                                    value={supervisors[selectedChaineId] || ''}
+                                    onChange={(e) => setSupervisors({ ...supervisors, [selectedChaineId]: e.target.value.toUpperCase() })}
+                                    className="text-2xl font-black text-slate-800 uppercase tracking-tight bg-slate-50 border border-slate-100 hover:border-slate-200 focus:border-indigo-500 focus:bg-white rounded-2xl px-4 py-2 w-full transition-all outline-none"
+                                    placeholder="Entrer responsable"
                                 />
                             </div>
+                            <p className="text-[10px] text-slate-400 font-medium mt-3">Chef d'équipe affecté pour le contrôle hebdomadaire</p>
+                        </div>
+
+                        {/* Active Models List Strip */}
+                        <div className="xl:col-span-2 bg-white border border-slate-100 rounded-3xl p-5 shadow-sm flex flex-col justify-between">
+                            <div className="flex items-center justify-between border-b border-slate-50 pb-2">
+                                <span className="text-xs font-black uppercase tracking-widest text-slate-400 flex items-center gap-1.5">
+                                    <span>Modèles Actifs</span>
+                                    {showDarija && <span className="text-[9px] text-indigo-600 font-bold bg-indigo-50 px-1 rounded">الموديلات الخدامين</span>}
+                                </span>
+                                <span className="text-[10px] bg-slate-100 text-slate-600 px-2.5 py-0.5 rounded-full font-bold">Semaine en cours</span>
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3 flex-1 overflow-y-auto max-h-28 pr-1 no-scrollbar">
+                                {activeModels.map(m => (
+                                    <div key={m.id} className="rounded-2xl border border-slate-100 p-3 bg-slate-50/50 flex items-center justify-between hover:border-slate-200 transition-colors">
+                                        <div className="flex items-center gap-2.5 min-w-0">
+                                            <span className="w-3.5 h-3.5 rounded-lg shrink-0 border" style={{ backgroundColor: m.style.bg, borderColor: m.style.border }} />
+                                            <div className="min-w-0">
+                                                <p className="text-xs font-black text-slate-800 truncate" title={m.name}>{m.name}</p>
+                                                <p className="text-[10px] text-slate-400 font-bold truncate">Réf: {m.reference} · SAM: {m.sam} min</p>
+                                            </div>
+                                        </div>
+                                        <div className="text-right shrink-0">
+                                            <p className="text-xs font-black text-indigo-600 tabular-nums">{m.produced} / {m.target} pcs</p>
+                                            <p className="text-[9px] font-bold text-slate-400">Reste per H: {m.restPerHour}</p>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Weekly Performance Yield Summary */}
+                        <div className="bg-white border border-slate-100 rounded-3xl p-5 shadow-sm flex flex-col justify-between relative overflow-hidden">
+                            <div className="absolute right-0 top-0 w-32 h-32 bg-gradient-to-bl from-indigo-500/10 to-transparent rounded-full blur-2xl pointer-events-none"></div>
+                            <div className="flex items-center justify-between">
+                                <span className="text-xs font-black uppercase tracking-widest text-slate-400 flex items-center gap-1.5">
+                                    <span>M.R Moyen Hebdomadaire</span>
+                                    {showDarija && <span className="text-[9px] text-indigo-600 font-bold bg-indigo-50 px-1 rounded">معدل المردودية</span>}
+                                </span>
+                                <Info className="w-4 h-4 text-slate-300" />
+                            </div>
+                            <div className="mt-2 flex items-baseline gap-2">
+                                <span className={`text-4xl font-black tracking-tight ${
+                                    weeklyAverageYield >= 90 ? 'text-emerald-600' : weeklyAverageYield >= 80 ? 'text-orange-500' : 'text-rose-600'
+                                }`}>
+                                    {weeklyAverageYield > 0 ? `${weeklyAverageYield}%` : '—'}
+                                </span>
+                                <span className="text-xs font-bold text-slate-400">d'efficience</span>
+                            </div>
+                            <div className="mt-3">
+                                <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+                                    <div 
+                                        className={`h-full rounded-full transition-all duration-1000 ${
+                                            weeklyAverageYield >= 90 ? 'bg-emerald-500' : weeklyAverageYield >= 80 ? 'bg-orange-500' : 'bg-rose-500'
+                                        }`}
+                                        style={{ width: `${Math.min(100, weeklyAverageYield)}%` }}
+                                    />
+                                </div>
+                            </div>
                         </div>
                     </div>
-                </div>
+                )}
 
                 {/* Primary Weekly Grid Table */}
-                <div className="bg-white border border-slate-100 rounded-3xl shadow-sm overflow-hidden z-10">
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-left border-collapse min-w-[1700px]">
+                <div className="bg-white border border-slate-100 rounded-3xl shadow-sm overflow-hidden z-10 relative">
+                    {/* Horizontal scroll helper for mobile */}
+                    <div className="md:hidden flex items-center justify-center gap-1.5 py-2 px-4 bg-indigo-50/50 border-b border-slate-100 text-[10px] font-black text-indigo-700">
+                        <span>{showDarija ? '← اسحب الجدول أفقياً لمشاهدة جميع الساعات →' : '← Glissez horizontalement pour voir toutes les heures →'}</span>
+                    </div>
+                    <div className="overflow-x-auto scrollbar-thin">
+                        <table className="w-full text-left border-collapse min-w-[1300px] sm:min-w-[1700px]">
                             <thead>
                                 <tr className="border-b border-slate-100 bg-slate-50/50">
-                                    <th className="py-4 px-4 text-[10px] font-black uppercase tracking-widest text-slate-400 w-28">Date</th>
-                                    <th className="py-4 px-4 text-[10px] font-black uppercase tracking-widest text-slate-400 w-24">Jour</th>
+                                    <th className="py-4 px-4 text-[10px] font-black uppercase tracking-widest text-slate-400 w-28 sticky left-0 bg-slate-50 z-20 border-r border-slate-100/50 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]">{showDarija ? 'التاريخ' : 'Date'}</th>
+                                    <th className="py-4 px-4 text-[10px] font-black uppercase tracking-widest text-slate-400 w-24 sticky left-[112px] bg-slate-50 z-20 border-r border-slate-100/50 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]">{showDarija ? 'اليوم' : 'Jour'}</th>
                                     
                                     {/* Hour Headers (Dynamic Shift hours) */}
                                     {hourBlocks.map(h => (
@@ -1019,77 +1268,110 @@ export default function SuiviProduction({
                                             {h.label}
                                         </th>
                                     ))}
-                                    <th className="py-4 px-3 text-[10px] font-black uppercase tracking-widest text-slate-400 text-center w-24">P. Journ.</th>
-                                    <th className="py-4 px-3 text-[10px] font-black uppercase tracking-widest text-slate-400 text-center w-20">Total H</th>
+                                    <th className="py-4 px-3 text-[10px] font-black uppercase tracking-widest text-slate-400 text-center w-24">{showDarija ? 'الإنتاج' : 'P. Journ.'}</th>
+                                    <th className="py-4 px-3 text-[10px] font-black uppercase tracking-widest text-slate-400 text-center w-20">{showDarija ? 'ساعات العمل' : 'Total H'}</th>
                                     
                                     <th className="py-4 px-3 text-[10px] font-black uppercase tracking-widest text-indigo-500/80 text-center w-24 border-l border-slate-100">
                                         {showDarija ? 'الخدّامة' : 'Effectif'}
                                     </th>
-
-                                    <th className="py-4 px-3 text-[10px] font-black uppercase tracking-widest text-slate-400 text-center w-32 border-l border-slate-100">R1 / R2 %</th>
-                                    <th className="py-4 px-3 text-[10px] font-black uppercase tracking-widest text-slate-400 text-center w-28">R. TOTAL DAY</th>
+ 
+                                    <th className="py-4 px-3 text-[10px] font-black uppercase tracking-widest text-slate-400 text-center w-32 border-l border-slate-100">{showDarija ? 'المردودية حسب الموديل' : 'R1 / R2 %'}</th>
+                                    <th className="py-4 px-3 text-[10px] font-black uppercase tracking-widest text-slate-400 text-center w-28">{showDarija ? 'المردودية الإجمالية' : 'R. TOTAL DAY'}</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-50">
                                 {weekDays.map(day => {
                                     const metrics = getDailyMetrics(day.dateStr);
-
+ 
                                     return (
                                         <tr key={day.dateStr} className={`hover:bg-slate-50/30 transition-colors ${selectedChartDate === day.dateStr ? 'bg-indigo-50/20' : ''}`}>
                                             {/* Date */}
-                                            <td className="py-4 px-4 font-mono text-xs text-slate-500 font-bold flex items-center gap-2">
-                                                <button 
-                                                    type="button"
-                                                    onClick={() => setSelectedChartDate(day.dateStr)}
-                                                    className={`w-3 h-3 rounded-full border ${selectedChartDate === day.dateStr ? 'bg-indigo-600 border-indigo-600' : 'border-slate-300'}`}
-                                                    title="Sélectionner pour le graphique"
-                                                />
-                                                {day.displayDate}
+                                            <td className={`py-4 px-4 font-mono text-xs text-slate-500 font-bold sticky left-0 z-10 border-r border-slate-100 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)] ${selectedChartDate === day.dateStr ? 'bg-[#f4f6fe]' : 'bg-white'}`}>
+                                                <div className="flex items-center gap-2">
+                                                    <button 
+                                                        type="button"
+                                                        onClick={() => setSelectedChartDate(day.dateStr)}
+                                                        className={`w-3 h-3 rounded-full border ${selectedChartDate === day.dateStr ? 'bg-indigo-600 border-indigo-600' : 'border-slate-300'}`}
+                                                        title="Sélectionner pour le graphique"
+                                                    />
+                                                    {day.displayDate}
+                                                </div>
                                             </td>
                                             
                                             {/* Day Name */}
-                                            <td className="py-4 px-4 font-black text-xs text-slate-800">{day.label}</td>
+                                            <td className={`py-4 px-4 font-black text-xs text-slate-800 sticky left-[112px] z-10 border-r border-slate-100 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)] ${selectedChartDate === day.dateStr ? 'bg-[#f4f6fe]' : 'bg-white'}`}>
+                                                {day.label}
+                                            </td>
 
                                             {/* Shift hour cells */}
                                             {hourBlocks.map(h => {
                                                 const cell = getCellMeta(day.dateStr, h.key);
-                                                const cellStyle = cell?.model 
-                                                    ? { backgroundColor: cell.model.style.bg, color: cell.model.style.text, borderColor: cell.model.style.border }
-                                                    : null;
+                                                const cellStyle = (() => {
+                                                    if (cell?.downtime) {
+                                                        const dt = cell.downtime;
+                                                        if (dt === 'L') return { backgroundColor: '#f1f5f9', color: '#475569', borderColor: '#cbd5e1' };
+                                                        if (dt === 'P') return { backgroundColor: '#eff6ff', color: '#1d4ed8', borderColor: '#bfdbfe' };
+                                                        if (dt === 'M') return { backgroundColor: '#fef2f2', color: '#b91c1c', borderColor: '#fecaca', fontWeight: 'bold' };
+                                                        if (dt === 'S') return { backgroundColor: '#fffbeb', color: '#b45309', borderColor: '#fde68a', fontWeight: 'bold' };
+                                                    }
+                                                    if (cell?.model) {
+                                                        return { backgroundColor: cell.model.style.bg, color: cell.model.style.text, borderColor: cell.model.style.border };
+                                                    }
+                                                    return null;
+                                                })();
 
                                                 const hourBlockLimit = parseInt(h.label.split('/')[1]?.split(':')[0] || '18');
                                                 const isFutureHour = new Date(day.dateStr).setHours(hourBlockLimit) > Date.now();
                                                 const isCellLocked = isFutureHour && !isOverrideMode;
 
+                                                const displayValue = cell?.downtime || (cell?.value !== undefined && cell?.value !== null && cell.value !== 0 ? cell.value : '');
+
                                                 return (
-                                                    <td key={h.key} className="p-1 border-r border-slate-55 text-center relative w-28">
+                                                    <td key={h.key} className="p-1 border-r border-slate-100 text-center relative w-28 group">
                                                         <input
-                                                            type="number"
+                                                            type="text"
                                                             disabled={isCellLocked}
-                                                            value={cell?.value !== undefined && cell?.value !== null ? cell.value : ''}
+                                                            value={displayValue}
+                                                            onDoubleClick={() => !isCellLocked && handleOpenCellModal(day.dateStr, h.key, h.label)}
                                                             onChange={(e) => {
-                                                                const valStr = e.target.value;
-                                                                const parsedVal = valStr === '' ? 0 : parseInt(valStr) || 0;
-                                                                handleSaveCell(
-                                                                    day.dateStr, 
-                                                                    h.key, 
-                                                                    parsedVal, 
-                                                                    selectedActiveModelId || activeModels[0]?.id, 
-                                                                    null, 
-                                                                    0, 
-                                                                    'Couture'
-                                                                );
+                                                                const valStr = e.target.value.trim().toUpperCase();
+                                                                if (['L', 'P', 'M', 'S'].includes(valStr)) {
+                                                                    handleSaveCell(
+                                                                        day.dateStr, 
+                                                                        h.key, 
+                                                                        0, 
+                                                                        selectedActiveModelId || activeModels[0]?.id, 
+                                                                        valStr, 
+                                                                        0, 
+                                                                        'Couture'
+                                                                    );
+                                                                } else {
+                                                                    const parsedVal = valStr === '' ? 0 : parseInt(valStr) || 0;
+                                                                    handleSaveCell(
+                                                                        day.dateStr, 
+                                                                        h.key, 
+                                                                        parsedVal, 
+                                                                        selectedActiveModelId || activeModels[0]?.id, 
+                                                                        null, 
+                                                                        0, 
+                                                                        'Couture'
+                                                                    );
+                                                                }
                                                             }}
                                                             style={cellStyle ? { backgroundColor: cellStyle.backgroundColor, color: cellStyle.color, borderColor: cellStyle.borderColor } : {}}
-                                                            className={`w-full h-10 text-center text-xs font-black outline-none border transition-all rounded-lg tabular-nums [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${
+                                                            className={`w-full h-10 text-center text-xs font-black outline-none border transition-all rounded-lg ${
                                                                 cellStyle 
                                                                     ? 'shadow-sm font-bold border-transparent' 
                                                                     : isCellLocked 
                                                                         ? 'bg-slate-50/50 border-slate-100 text-slate-300' 
                                                                         : 'bg-white border-slate-200 hover:border-indigo-400 focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600'
-                                                            }`}
+                                                            } ${cell?.downtime === 'M' ? 'animate-pulse' : ''}`}
                                                             placeholder="—"
+                                                            title={!isCellLocked ? (showDarija ? 'ضغط مرتين للتفاصيل' : 'Double-cliquez pour plus de détails') : undefined}
                                                         />
+                                                        {cell?.defectsQty !== undefined && cell.defectsQty > 0 && (
+                                                            <span className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-rose-500 animate-ping" title={`Défauts: ${cell.defectsQty}`} />
+                                                        )}
                                                     </td>
                                                 );
                                             })}
@@ -1109,6 +1391,7 @@ export default function SuiviProduction({
                                             <td className="p-1 text-center border-l border-slate-100 w-24">
                                                 <input
                                                     type="number"
+                                                    inputMode="numeric"
                                                     value={metrics.totalM || ''}
                                                     onChange={(e) => {
                                                         const parsed = parseInt(e.target.value) || 0;
@@ -1354,6 +1637,7 @@ export default function SuiviProduction({
                                             <td className="py-3 px-3 text-center">
                                                 <input 
                                                     type="number"
+                                                    inputMode="numeric"
                                                     value={row.entree}
                                                     onChange={(e) => handleSaveSizes(selectedActiveModelId, row.size, 'entree', Math.max(0, parseInt(e.target.value) || 0))}
                                                     className="w-20 text-center font-black text-xs bg-slate-50 border border-slate-100 rounded-lg py-1 focus:bg-white focus:border-indigo-500 outline-none transition-all tabular-nums"
@@ -1364,6 +1648,7 @@ export default function SuiviProduction({
                                             <td className="py-3 px-3 text-center">
                                                 <input 
                                                     type="number"
+                                                    inputMode="numeric"
                                                     value={row.sortie}
                                                     onChange={(e) => handleSaveSizes(selectedActiveModelId, row.size, 'sortie', Math.max(0, parseInt(e.target.value) || 0))}
                                                     className="w-20 text-center font-black text-xs bg-slate-50 border border-slate-100 rounded-lg py-1 focus:bg-white focus:border-indigo-500 outline-none transition-all tabular-nums"
@@ -1622,17 +1907,210 @@ export default function SuiviProduction({
                 {/* Legend & Instructions footer */}
                 <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 bg-white border border-slate-100 rounded-3xl p-5 shadow-sm text-xs font-semibold text-slate-500">
                     <div className="flex flex-wrap items-center gap-4">
-                        <span className="font-bold">Légende downtimes :</span>
-                        <span className="flex items-center gap-1.5"><span className="w-6 py-0.5 rounded text-[10px] font-black bg-rose-500 text-white text-center">L</span> Déjeuner (60m)</span>
-                        <span className="flex items-center gap-1.5"><span className="w-6 py-0.5 rounded text-[10px] font-black bg-rose-500 text-white text-center">P</span> Pause (15m)</span>
-                        <span className="flex items-center gap-1.5"><span className="w-6 py-0.5 rounded text-[10px] font-black bg-rose-500 text-white text-center">M</span> Panne Maqu. (30m)</span>
-                        <span className="flex items-center gap-1.5"><span className="w-6 py-0.5 rounded text-[10px] font-black bg-rose-500 text-white text-center">S</span> Rupture Stock (45m)</span>
+                        <span className="font-bold">{showDarija ? 'رموز التوقفات :' : 'Légende downtimes :'}</span>
+                        <span className="flex items-center gap-1.5"><span className="w-6 py-0.5 rounded text-[10px] font-black bg-slate-500 text-white text-center">L</span> {showDarija ? 'غداء (60د)' : 'Déjeuner (60m)'}</span>
+                        <span className="flex items-center gap-1.5"><span className="w-6 py-0.5 rounded text-[10px] font-black bg-blue-500 text-white text-center">P</span> {showDarija ? 'استراحة (15د)' : 'Pause (15m)'}</span>
+                        <span className="flex items-center gap-1.5"><span className="w-6 py-0.5 rounded text-[10px] font-black bg-rose-500 text-white text-center">M</span> {showDarija ? 'عطل (30د)' : 'Panne Maqu. (30m)'}</span>
+                        <span className="flex items-center gap-1.5"><span className="w-6 py-0.5 rounded text-[10px] font-black bg-amber-500 text-white text-center">S</span> {showDarija ? 'قطع السلعة (45د)' : 'Rupture Stock (45m)'}</span>
                     </div>
-                    <p className="text-slate-400 font-medium">Les pannes et pauses réduisent automatiquement le temps de travail effectif utilisé pour calculer le rendement ($R\%$).</p>
+                    <p className="text-slate-400 font-medium">{showDarija ? 'التوقفات والأعطال كتقص تلقائياً من ساعات العمل الحقيقية باش نحسبو المردودية بدقة.' : 'Les pannes et pauses réduisent automatiquement le temps de travail effectif utilisé pour calculer le rendement (R%).'}</p>
                 </div>
 
             </div>
 
+            {/* Cell Details Modal */}
+            {activeCellModal && (
+                <CellDetailsModal
+                    isOpen={true}
+                    dateStr={activeCellModal.dateStr}
+                    hourKey={activeCellModal.hourKey}
+                    hourLabel={activeCellModal.hourLabel}
+                    cellData={getCellMeta(activeCellModal.dateStr, activeCellModal.hourKey)}
+                    activeModels={activeModels}
+                    selectedActiveModelId={selectedActiveModelId || activeModels[0]?.id}
+                    showDarija={showDarija}
+                    onClose={() => setActiveCellModal(null)}
+                    onSave={(qty, modelId, downtime, defectsQty, defectType) => {
+                        handleSaveCell(activeCellModal.dateStr, activeCellModal.hourKey, qty, modelId, downtime, defectsQty, defectType);
+                        setActiveCellModal(null);
+                    }}
+                />
+            )}
+
+        </div>
+    );
+}
+
+// Cell details popup modal (ultra-premium design)
+interface CellDetailsModalProps {
+    isOpen: boolean;
+    dateStr: string;
+    hourKey: string;
+    hourLabel: string;
+    cellData: any;
+    activeModels: any[];
+    selectedActiveModelId: string;
+    showDarija: boolean;
+    onClose: () => void;
+    onSave: (quantity: number, modelId: string, downtime: string | null, defectsQty: number, defectType: string) => void;
+}
+
+function CellDetailsModal({
+    isOpen, dateStr, hourKey, hourLabel, cellData, activeModels, selectedActiveModelId, showDarija, onClose, onSave
+}: CellDetailsModalProps) {
+    const l = showDarija ? DR_LABELS : FR_LABELS;
+    
+    // Draft states
+    const [modelId, setModelId] = useState(cellData?.model?.id || selectedActiveModelId);
+    const [quantity, setQuantity] = useState<number>(cellData?.value || 0);
+    const [downtime, setDowntime] = useState<string | null>(cellData?.downtime || null);
+    const [defectsQty, setDefectsQty] = useState<number>(cellData?.defectsQty || 0);
+    const [defectType, setDefectType] = useState<string>(cellData?.defects?.[0]?.type || 'Couture');
+
+    const handleConfirm = () => {
+        onSave(quantity, modelId, downtime, defectsQty, defectType);
+    };
+
+    if (!isOpen) return null;
+
+    return (
+        <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+            <div className="bg-white rounded-3xl max-w-md w-full shadow-2xl overflow-hidden border border-slate-100 animate-in zoom-in-95 duration-200">
+                {/* Header */}
+                <div className="flex items-center justify-between px-6 py-4 border-b border-slate-50 bg-slate-50/50">
+                    <div>
+                        <h3 className="text-base font-black text-slate-800 tracking-tight">
+                            {l.cellModalTitle}
+                        </h3>
+                        <p className="text-[10px] text-slate-400 font-bold uppercase mt-0.5">
+                            {dateStr} · {hourLabel}
+                        </p>
+                    </div>
+                    <button 
+                        onClick={onClose} 
+                        className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+                    >
+                        <X className="w-5 h-5" />
+                    </button>
+                </div>
+
+                {/* Body */}
+                <div className="p-6 space-y-4 text-xs">
+                    
+                    {/* Model Select */}
+                    <div className="space-y-1">
+                        <label className="block text-[10px] font-black uppercase tracking-wider text-slate-400">
+                            {l.activeModel}
+                        </label>
+                        <select
+                            value={modelId}
+                            onChange={(e) => setModelId(e.target.value)}
+                            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 font-bold text-slate-800 outline-none focus:border-indigo-500 focus:bg-white transition-all"
+                        >
+                            {activeModels.map(m => (
+                                <option key={m.id} value={m.id}>{m.reference || m.name} ({m.name})</option>
+                            ))}
+                        </select>
+                    </div>
+
+                    {/* Quantity & Downtime row */}
+                    <div className="grid grid-cols-2 gap-4">
+                        {/* Quantity */}
+                        <div className="space-y-1">
+                            <label className="block text-[10px] font-black uppercase tracking-wider text-slate-400">
+                                {l.quantity}
+                            </label>
+                            <input
+                                type="number"
+                                inputMode="numeric"
+                                min={0}
+                                value={quantity || ''}
+                                onChange={(e) => {
+                                    setQuantity(Math.max(0, parseInt(e.target.value) || 0));
+                                    if (downtime) setDowntime(null); // Clear downtime if quantity entered
+                                }}
+                                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 font-bold text-slate-800 outline-none focus:border-indigo-500 focus:bg-white transition-all"
+                                placeholder="0"
+                            />
+                        </div>
+
+                        {/* Downtime */}
+                        <div className="space-y-1">
+                            <label className="block text-[10px] font-black uppercase tracking-wider text-slate-400">
+                                {l.downtimes}
+                            </label>
+                            <select
+                                value={downtime || ''}
+                                onChange={(e) => {
+                                    const val = e.target.value || null;
+                                    setDowntime(val);
+                                    if (val) setQuantity(0); // Reset quantity if downtime selected
+                                }}
+                                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 font-bold text-slate-800 outline-none focus:border-indigo-500 focus:bg-white transition-all"
+                            >
+                                <option value="">{l.none}</option>
+                                <option value="L">{l.lunch}</option>
+                                <option value="P">{l.pause}</option>
+                                <option value="M">{l.breakdown}</option>
+                                <option value="S">{l.rupture}</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    {/* Defects row */}
+                    <div className="grid grid-cols-2 gap-4 pt-2 border-t border-slate-50">
+                        {/* Defects Qty */}
+                        <div className="space-y-1">
+                            <label className="block text-[10px] font-black uppercase tracking-wider text-rose-500 font-bold">
+                                {l.defects}
+                            </label>
+                            <input
+                                type="number"
+                                inputMode="numeric"
+                                min={0}
+                                value={defectsQty || ''}
+                                onChange={(e) => setDefectsQty(Math.max(0, parseInt(e.target.value) || 0))}
+                                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 font-bold text-slate-800 outline-none focus:border-rose-500 focus:bg-white transition-all"
+                                placeholder="0"
+                            />
+                        </div>
+
+                        {/* Defect Type */}
+                        <div className="space-y-1">
+                            <label className="block text-[10px] font-black uppercase tracking-wider text-slate-400">
+                                {l.defectType}
+                            </label>
+                            <select
+                                value={defectType}
+                                onChange={(e) => setDefectType(e.target.value)}
+                                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 font-bold text-slate-800 outline-none focus:border-indigo-500 focus:bg-white transition-all"
+                            >
+                                <option value="Couture">{l.sewing}</option>
+                                <option value="Tissu">{l.fabric}</option>
+                                <option value="Coupe">{l.cut}</option>
+                                <option value="Autre">{l.other}</option>
+                            </select>
+                        </div>
+                    </div>
+
+                </div>
+
+                {/* Footer Buttons */}
+                <div className="flex items-center justify-end gap-2 border-t border-slate-50 px-6 py-4 bg-slate-50/50">
+                    <button
+                        onClick={onClose}
+                        className="px-4 py-2 rounded-xl text-xs font-bold text-slate-500 hover:bg-slate-200/50 transition-colors"
+                    >
+                        {l.close}
+                    </button>
+                    <button
+                        onClick={handleConfirm}
+                        className="px-5 py-2 rounded-xl text-xs font-black bg-indigo-600 text-white hover:bg-indigo-700 shadow-sm transition-colors"
+                    >
+                        {l.save}
+                    </button>
+                </div>
+            </div>
         </div>
     );
 }

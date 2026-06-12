@@ -70,7 +70,7 @@ export default function Atelier({ models, planningEvents, suivis, settings, hand
         }, 2000);
     };
 
-    const handleClotureOF = () => {
+    const handleClotureOF = async () => {
         if (!clotureOF) {
             alert("Veuillez sélectionner un OF à clôturer.");
             return;
@@ -93,7 +93,31 @@ export default function Atelier({ models, planningEvents, suivis, settings, hand
             m.id === plan.modelId ? { ...m, workflowStatus: 'EXPORT' as const } : m
         ));
 
-        // 3. Push retours back to Magasin stock (via localStorage)
+        // 3. Create finished goods stock entry via API
+        try {
+            const model = models.find(m => m.id === plan.modelId);
+            await fetch('/api/finished-goods/cloture', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({
+                    planningId: plan.id,
+                    modelId: plan.modelId,
+                    reference: model?.meta_data?.reference || plan.modelName || '',
+                    designation: model?.meta_data?.nom_modele || plan.modelName || '',
+                    clientName: plan.clientName || '',
+                    chaineId: plan.chaineId,
+                    quantiteProduite: piecesBonnes,
+                    quantiteDefaut: piecesRebut,
+                    dateExportPrevue: plan.dateExport || '',
+                    notes: `Clôture OF — ${heuresProduction}h de production`
+                })
+            });
+        } catch (e) {
+            console.error("Failed to create finished goods entry", e);
+        }
+
+        // 4. Push retours back to Magasin stock (via localStorage)
         const validRetours = retourLines.filter(r => r.ref.trim() && r.qty > 0);
         if (validRetours.length > 0) {
             try {

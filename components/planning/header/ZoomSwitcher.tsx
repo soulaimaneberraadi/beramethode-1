@@ -39,15 +39,15 @@ export default function ZoomSwitcher({ value, onChange }: Props) {
     const increment = () => onChange(Math.min(ZOOM_MAX, value * 1.5));
 
     return (
-        <div className="inline-flex items-center gap-1.5 bg-slate-100/60 rounded-md p-0.5 pr-1">
+        <div className="inline-flex items-center gap-1.5 border border-slate-200/50 bg-slate-100/50 rounded-xl p-0.5 pr-2 backdrop-blur-sm shadow-sm">
             <button
                 type="button"
                 onClick={decrement}
                 disabled={value <= ZOOM_MIN}
-                className="w-6 h-6 flex items-center justify-center rounded text-slate-500 hover:text-slate-900 hover:bg-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                className="w-6 h-6 flex items-center justify-center rounded-lg text-slate-500 hover:text-slate-900 hover:bg-white disabled:opacity-20 disabled:cursor-not-allowed transition-all duration-200 active:scale-95"
                 title="Dézoomer"
             >
-                <ZoomOut className="w-3 h-3" strokeWidth={1.75} />
+                <ZoomOut className="w-3 h-3" strokeWidth={2} />
             </button>
 
             {/* Slider continu */}
@@ -58,7 +58,7 @@ export default function ZoomSwitcher({ value, onChange }: Props) {
                 step={1}
                 value={value}
                 onChange={(e) => onChange(Number(e.target.value))}
-                className="w-24 accent-slate-900 cursor-pointer"
+                className="w-20 accent-indigo-650 cursor-pointer h-1 bg-slate-200 rounded-lg appearance-none"
                 title={`Zoom : ${zoomLabel(value)} (${Math.round(value)}px/jour)`}
             />
 
@@ -66,13 +66,13 @@ export default function ZoomSwitcher({ value, onChange }: Props) {
                 type="button"
                 onClick={increment}
                 disabled={value >= ZOOM_MAX}
-                className="w-6 h-6 flex items-center justify-center rounded text-slate-500 hover:text-slate-900 hover:bg-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                className="w-6 h-6 flex items-center justify-center rounded-lg text-slate-500 hover:text-slate-900 hover:bg-white disabled:opacity-20 disabled:cursor-not-allowed transition-all duration-200 active:scale-95"
                 title="Zoomer"
             >
-                <ZoomIn className="w-3 h-3" strokeWidth={1.75} />
+                <ZoomIn className="w-3 h-3" strokeWidth={2} />
             </button>
 
-            <span className="text-[10px] font-medium text-slate-500 px-1 min-w-[3rem] text-center capitalize tabular-nums">
+            <span className="text-[10px] font-bold text-slate-500 px-1 min-w-[2.5rem] text-center capitalize tabular-nums">
                 {zoomLabel(value)}
             </span>
         </div>
