@@ -1,7 +1,8 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import type { ModelData, PlanningEvent } from '../../../types';
+import type { ModelData, PlanningEvent, AppSettings } from '../../../types';
 import { getClientColor } from '../shared/clientColors';
 import { ChevronDown, Package, Zap, CheckCircle2, AlertCircle, AlertTriangle, Clock, Calendar, Search, X, ExternalLink } from 'lucide-react';
+import { addWorkingDaysFromLaunchIso, planningLocalDateKey } from '../../../utils/planning';
 
 function getModelThumb(m: ModelData): string | null {
     return m.images?.front || m.image || null;
@@ -24,12 +25,14 @@ interface Props {
     workingHoursPerDay?: number;
     /** Callback to open a model in Ingénierie view. */
     onOpenInIngenierie?: (modelId: string) => void;
+    settings?: AppSettings;
+    chainId?: string;
 }
 
 interface ProductionMetrics {
     samSeconds: number;       // SAM brut (sec/pièce)
     samFormatted: string;     // ex: "13:24"
-    pcsPerHour: number;       // 3600 / SAM (théorique 100%)
+    pcsPerHour: number;       // SAM (théorique 100%)
     pcsPerHourEff: number;    // pcsPerHour * efficiency
     pcsPerDay: number;        // pcsPerHourEff * workingHours
     minTotal: number;         // workingHours * 60 (capacité minute/jour)
@@ -38,31 +41,49 @@ interface ProductionMetrics {
     finitionSec: number;
 }
 
-function computeMetrics(model: ModelData, chainEfficiency: number, workingHoursPerDay: number): ProductionMetrics {
-    const sam = Number(model.meta_data?.total_temps) || 0;
+function computeMetrics(
+    model: ModelData,
+    chainEfficiency: number,
+    workingHoursPerDay: number,
+    settings?: AppSettings,
+    chainId?: string
+): ProductionMetrics {
+    const sam = Number(model.meta_data?.total_temps) || 0; // in minutes
+    const samSec = sam * 60;
     const ops = model.gamme_operatoire || [];
 
     let assemblage = 0;
     let finition = 0;
     let bf = 0;
     for (const op of ops) {
-        const t = Number(op.time) || 0;
+        const t = (Number(op.time) || 0) * 60; // Convert minutes to seconds
         if ((op.section || 'GLOBAL') === 'PREPARATION') finition += t;
         else assemblage += t;
         if (t > bf) bf = t;
     }
 
-    const pcsPerHour = sam > 0 ? Math.round((3600 / sam) * 100) / 100 : 0;
+    const operators = (chainId && settings) ? (settings.chainOperators?.[chainId] ?? 30) : 30;
+    const workMins = settings ? (
+        (() => {
+            const [sh, sm] = (settings.workingHoursStart || '08:00').split(':').map(Number);
+            const [eh, em] = (settings.workingHoursEnd || '18:00').split(':').map(Number);
+            const total = (eh * 60 + em) - (sh * 60 + sm);
+            const pauses = (settings.pauses || []).reduce((acc, p) => acc + (p.durationMin || 0), 0);
+            return total - pauses > 0 ? total - pauses : workingHoursPerDay * 60;
+        })()
+    ) : workingHoursPerDay * 60;
+
+    const pcsPerHour = sam > 0 ? Math.round(((operators * 60) / sam) * 100) / 100 : 0;
     const eff = Math.max(0, Math.min(1, chainEfficiency));
     const pcsPerHourEff = Math.round(pcsPerHour * eff * 100) / 100;
-    const pcsPerDay = Math.round(pcsPerHourEff * workingHoursPerDay);
-    const minTotal = workingHoursPerDay * 60;
-    const mins = Math.floor(sam / 60);
-    const secs = Math.floor(sam % 60);
+    const pcsPerDay = sam > 0 ? Math.round((operators * workMins * eff) / sam) : 0;
+    const minTotal = workMins;
+    const mins = Math.floor(samSec / 60);
+    const secs = Math.floor(samSec % 60);
 
     return {
-        samSeconds: sam,
-        samFormatted: sam > 0 ? `${mins}:${secs.toString().padStart(2, '0')}` : '—',
+        samSeconds: samSec,
+        samFormatted: samSec > 0 ? `${mins}:${secs.toString().padStart(2, '0')}` : '—',
         pcsPerHour,
         pcsPerHourEff,
         pcsPerDay,
@@ -80,25 +101,44 @@ interface Prediction {
     diffDays: number | null;
 }
 
-function predictFinish(metrics: ProductionMetrics, quantity: number, startYmd: string, deadlineYmd?: string): Prediction | null {
+function predictFinish(metrics: ProductionMetrics, quantity: number, startYmd: string, settings?: AppSettings, deadlineYmd?: string): Prediction | null {
     if (metrics.pcsPerDay <= 0 || quantity <= 0) return null;
     const daysNeeded = Math.min(Math.ceil(quantity / metrics.pcsPerDay), 36500); // max 100 ans
-    const start = new Date(startYmd || new Date().toISOString().split('T')[0]);
-    // Garde-fou : date de début invalide → on retombe sur aujourd'hui
-    if (isNaN(start.getTime())) start.setTime(Date.now());
-    const finish = new Date(start);
-    finish.setDate(finish.getDate() + daysNeeded);
-    const finishYmd = finish.toISOString().split('T')[0];
+    
+    let finishYmd = '';
+    let diffDays: number | null = null;
+    let status: Prediction['status'] = 'unknown';
 
-    const ddsDate = deadlineYmd ? new Date(deadlineYmd) : null;
-    if (!ddsDate || isNaN(ddsDate.getTime())) {
-        return { daysNeeded, finishDate: finishYmd, status: 'unknown', diffDays: null };
+    if (settings) {
+        const finishDate = addWorkingDaysFromLaunchIso(startYmd, daysNeeded, settings);
+        finishYmd = planningLocalDateKey(finishDate);
+
+        if (deadlineYmd) {
+            const ddsDate = new Date(deadlineYmd);
+            if (!isNaN(ddsDate.getTime())) {
+                diffDays = Math.ceil((ddsDate.getTime() - finishDate.getTime()) / 86400000);
+            }
+        }
+    } else {
+        const start = new Date(startYmd || new Date().toISOString().split('T')[0]);
+        if (isNaN(start.getTime())) start.setTime(Date.now());
+        const finish = new Date(start);
+        finish.setDate(finish.getDate() + daysNeeded);
+        finishYmd = finish.toISOString().split('T')[0];
+
+        if (deadlineYmd) {
+            const ddsDate = new Date(deadlineYmd);
+            if (!isNaN(ddsDate.getTime())) {
+                diffDays = Math.ceil((ddsDate.getTime() - finish.getTime()) / 86400000);
+            }
+        }
     }
-    const diffDays = Math.ceil((ddsDate.getTime() - finish.getTime()) / 86400000);
-    let status: Prediction['status'];
-    if (diffDays < 0) status = 'late';
-    else if (diffDays < 3) status = 'at_risk';
-    else status = 'on_time';
+
+    if (diffDays !== null) {
+        if (diffDays < 0) status = 'late';
+        else if (diffDays < 3) status = 'at_risk';
+        else status = 'on_time';
+    }
 
     return { daysNeeded, finishDate: finishYmd, status, diffDays };
 }
@@ -116,6 +156,7 @@ export default function ModelSelector({
     planningEvents = [], chainEfficiency = 0.85,
     quantity = 0, strictDeadline, startDate,
     workingHoursPerDay = 8, onOpenInIngenierie,
+    settings, chainId,
 }: Props) {
     const [open, setOpen] = useState(false);
     const [search, setSearch] = useState('');
@@ -151,13 +192,13 @@ export default function ModelSelector({
         setSearch('');
     };
 
-    const metrics = selected ? computeMetrics(selected, chainEfficiency, workingHoursPerDay) : null;
+    const metrics = selected ? computeMetrics(selected, chainEfficiency, workingHoursPerDay, settings, chainId) : null;
     const prediction = (() => {
         if (!selected || !metrics) return null;
         try {
             const sd = (startDate || '').replace(/[^0-9\-]/g, '') || new Date().toISOString().split('T')[0];
             const dl = (strictDeadline || '').replace(/[^0-9\-]/g, '') || undefined;
-            return predictFinish(metrics, quantity, sd, dl);
+            return predictFinish(metrics, quantity, sd, settings, dl);
         } catch { return null; }
     })();
 

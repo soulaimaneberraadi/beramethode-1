@@ -16,7 +16,8 @@ import {
     Clock,
     Hash,
     Package,
-    Truck
+    Truck,
+    Scissors
 } from 'lucide-react';
 import { FicheData, AppSettings, PlanningEvent } from '../types';
 import DateTimePicker from './ui/DateTimePicker';
@@ -25,6 +26,7 @@ import RepartitionMatrix from './RepartitionMatrix';
 import MaterialDetailModal from './MaterialDetailModal';
 import { resolveStock } from '../lib/magasinMatch';
 import { fmt } from '../constants';
+import { getMaterialAvailability } from './planning/hooks/usePlanningValidation';
 
 const LAUNCH_HOUR_OPTS = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0'));
 const LAUNCH_MINUTE_OPTS = Array.from({ length: 12 }, (_, i) => String(i * 5).padStart(2, '0'));
@@ -190,6 +192,7 @@ export default function Pedido({
             dateExport: today,
             strictDeadline_DDS: today,
             startDate: today,
+            fournisseurDate: '',
             clientName: data.client || '',
             status: 'READY',
             sizeColorDistribution: initialDist,
@@ -511,7 +514,7 @@ export default function Pedido({
                     </h4>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {/* Client name */}
                     <div className="space-y-1">
                         <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wide">
@@ -539,6 +542,30 @@ export default function Pedido({
                             className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-slate-800 text-sm font-semibold outline-none focus:ring-2 focus:ring-indigo-500/20 transition-all font-mono"
                         />
                     </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {/* Date de lancement */}
+                    <div className="space-y-1">
+                        <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wide">
+                            {lang === 'ar' ? 'تاريخ الإطلاق' : 'Date de lancement'}
+                        </label>
+                        <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-3 py-1.5 focus-within:ring-2 focus-within:ring-indigo-500/20 transition-all">
+                            <Calendar className="w-4 h-4 text-indigo-500 shrink-0" />
+                            <DateTimePicker
+                                value={editDraft.dateLancement || editDraft.startDate || ''}
+                                onChange={(iso) => setEditDraft(prev => prev ? { 
+                                    ...prev, 
+                                    dateLancement: iso.split('T')[0], 
+                                    startDate: iso.split('T')[0]
+                                } : prev)}
+                                mode="date"
+                                settings={settings}
+                                inputClassName="w-full min-w-0 border-0 bg-transparent shadow-none text-sm font-bold text-slate-700 outline-none focus:ring-0 py-0 px-0 font-mono"
+                                showIcon={false}
+                            />
+                        </div>
+                    </div>
 
                     {/* Delivery Date / DDS */}
                     <div className="space-y-1">
@@ -546,15 +573,34 @@ export default function Pedido({
                             {lang === 'ar' ? 'تاريخ التسليم (DDS)' : 'Date de livraison (DDS)'}
                         </label>
                         <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-3 py-1.5 focus-within:ring-2 focus-within:ring-indigo-500/20 transition-all">
-                            <Calendar className="w-4 h-4 text-indigo-500 shrink-0" />
+                            <Calendar className="w-4 h-4 text-emerald-500 shrink-0" />
                             <DateTimePicker
-                                value={editDraft.dateExport || ''}
+                                value={editDraft.dateExport || editDraft.strictDeadline_DDS || ''}
                                 onChange={(iso) => setEditDraft(prev => prev ? { 
                                     ...prev, 
                                     dateExport: iso.split('T')[0], 
-                                    strictDeadline_DDS: iso.split('T')[0],
-                                    dateLancement: iso.split('T')[0],
-                                    startDate: iso.split('T')[0]
+                                    strictDeadline_DDS: iso.split('T')[0]
+                                } : prev)}
+                                mode="date"
+                                settings={settings}
+                                inputClassName="w-full min-w-0 border-0 bg-transparent shadow-none text-sm font-bold text-slate-700 outline-none focus:ring-0 py-0 px-0 font-mono"
+                                showIcon={false}
+                            />
+                        </div>
+                    </div>
+
+                    {/* Date d'arrivée des matières (fournisseurDate) */}
+                    <div className="space-y-1">
+                        <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wide">
+                            {lang === 'ar' ? 'وصول المواد (المورد)' : 'Arrivée des matières'}
+                        </label>
+                        <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-3 py-1.5 focus-within:ring-2 focus-within:ring-indigo-500/20 transition-all">
+                            <Truck className="w-4 h-4 text-amber-500 shrink-0" />
+                            <DateTimePicker
+                                value={editDraft.fournisseurDate || ''}
+                                onChange={(iso) => setEditDraft(prev => prev ? { 
+                                    ...prev, 
+                                    fournisseurDate: iso.split('T')[0]
                                 } : prev)}
                                 mode="date"
                                 settings={settings}
@@ -1020,17 +1066,33 @@ export default function Pedido({
 
                                     const statusMeta = getStatusMeta(evt.status);
                                     const hasDistribution = evt.sizeColorDistribution && Object.keys(evt.sizeColorDistribution).length > 0;
-                                    
-                                    const filteredSizes = sizes.filter(s => s.toLowerCase() !== 'total');
+                                     const filteredSizes = sizes.filter(s => s.toLowerCase() !== 'total');
                                     const filteredColors = colors.filter(c => c.name.toLowerCase() !== 'total' && c.id.toLowerCase() !== 'total');
+
+                                    const isSplit = evt.modelName?.includes(' — ') || (evt.lots_data && evt.lots_data.length > 0);
+                                    const lotSuffix = evt.modelName?.includes(' — ') ? evt.modelName.split(' — ').slice(1).join(' — ') : '';
+                                    const displayModelName = evt.modelName?.includes(' — ') ? evt.modelName.split(' — ')[0] : (evt.modelName || articleName);
+                                    
+                                    // Fetch material status for this lot
+                                    const matAv = getMaterialAvailability(evt.modelId, [{ id: evt.modelId, ficheData: data } as any], evt.qteTotal, evt.qteTotal);
+                                    
+                                    const launchDateStr = (evt.startDate || evt.dateLancement || '').split('T')[0];
+                                    const matArrivalDateStr = (evt.fournisseurDate || '').split('T')[0];
+                                    const hasConflict = launchDateStr && matArrivalDateStr && launchDateStr < matArrivalDateStr;
 
                                     return (
                                         <div key={evt.id} className="border border-slate-200/80 rounded-2xl p-5 bg-gradient-to-br from-white to-slate-50/30 hover:shadow-md hover:border-indigo-200/80 transition-all space-y-4 shadow-sm font-sans">
                                             <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-150/60 pb-3">
                                                 <div className="space-y-0.5">
-                                                    <div className="text-sm font-black text-slate-800 flex items-center gap-2">
+                                                    <div className="text-sm font-black text-slate-800 flex items-center gap-2 flex-wrap">
                                                         <span className="text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-lg text-xs font-black">OF</span>
-                                                        <span className="text-slate-800 font-extrabold">{evt.modelName || articleName}</span>
+                                                        <span className="text-slate-800 font-extrabold">{displayModelName}</span>
+                                                        {isSplit && (
+                                                            <span className="inline-flex items-center gap-1 bg-amber-50 text-amber-700 border border-amber-200/80 px-2 py-0.5 rounded-lg text-[11px] font-black">
+                                                                <Scissors className="w-3 h-3 text-amber-600" />
+                                                                {lang === 'ar' ? `دفعة: ${lotSuffix}` : `Lot : ${lotSuffix}`}
+                                                            </span>
+                                                        )}
                                                     </div>
                                                 </div>
 
@@ -1057,22 +1119,83 @@ export default function Pedido({
                                                 </div>
                                             </div>
 
-                                            <div className="bg-gradient-to-r from-indigo-50/40 via-indigo-50/10 to-slate-50/20 rounded-xl px-4 py-3 border border-indigo-100/50 flex items-center justify-between text-xs font-sans">
-                                                <div className="flex items-center gap-2.5">
-                                                    <div className="bg-indigo-100/80 p-1.5 rounded-lg text-indigo-600">
+                                            {/* Grille Logistique & Planification */}
+                                            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                                {/* Date de lancement */}
+                                                <div className="bg-slate-50/50 border border-slate-200/60 rounded-xl p-3 flex items-center gap-2.5">
+                                                    <div className="bg-indigo-50 p-2 rounded-lg text-indigo-600">
                                                         <Calendar className="w-4 h-4" />
                                                     </div>
                                                     <div>
-                                                        <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">
+                                                        <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider block">
+                                                            {lang === 'ar' ? 'تاريخ الإطلاق' : 'Date de lancement'}
+                                                        </span>
+                                                        <span className="font-bold text-slate-700 font-mono text-[13px]">
+                                                            {evt.startDate || evt.dateLancement || '-'}
+                                                        </span>
+                                                    </div>
+                                                </div>
+
+                                                {/* Date de fin estimée */}
+                                                <div className="bg-slate-50/50 border border-slate-200/60 rounded-xl p-3 flex items-center gap-2.5">
+                                                    <div className="bg-blue-50 p-2 rounded-lg text-blue-600">
+                                                        <Clock className="w-4 h-4" />
+                                                    </div>
+                                                    <div>
+                                                        <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider block">
+                                                            {lang === 'ar' ? 'الانتهاء المتوقع' : 'Fin estimée'}
+                                                        </span>
+                                                        <span className="font-bold text-slate-700 font-mono text-[13px]">
+                                                            {evt.estimatedEndDate ? evt.estimatedEndDate.split('T')[0] : '-'}
+                                                        </span>
+                                                    </div>
+                                                </div>
+
+                                                {/* DDS */}
+                                                <div className="bg-slate-50/50 border border-slate-200/60 rounded-xl p-3 flex items-center gap-2.5">
+                                                    <div className="bg-emerald-50 p-2 rounded-lg text-emerald-600">
+                                                        <Calendar className="w-4 h-4" />
+                                                    </div>
+                                                    <div>
+                                                        <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider block">
                                                             {lang === 'ar' ? 'تاريخ التسليم (DDS)' : 'Date de livraison (DDS)'}
                                                         </span>
-                                                        <span className="font-bold text-slate-700 font-mono text-sm">
+                                                        <span className="font-bold text-slate-700 font-mono text-[13px]">
                                                             {evt.strictDeadline_DDS || evt.dateExport || '-'}
                                                         </span>
                                                     </div>
                                                 </div>
+                                            </div>
+
+                                            {/* Détails d'arrivée matières et Client */}
+                                            <div className="bg-gradient-to-r from-indigo-50/40 via-indigo-50/10 to-slate-50/20 rounded-xl px-4 py-3 border border-indigo-100/50 flex flex-wrap items-center justify-between gap-3 text-xs font-sans">
+                                                <div className="flex items-center gap-2.5">
+                                                    <div className="bg-amber-50 p-1.5 rounded-lg text-amber-600 border border-amber-200/40">
+                                                        <Truck className="w-4 h-4" />
+                                                    </div>
+                                                    <div>
+                                                        <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider block">
+                                                            {lang === 'ar' ? 'وصول المواد' : 'Arrivée des matières'}
+                                                        </span>
+                                                        <div className="flex items-center gap-1.5 flex-wrap">
+                                                            <span className="font-bold text-slate-700 font-mono">
+                                                                {evt.fournisseurDate ? evt.fournisseurDate.split('T')[0] : (lang === 'ar' ? 'غير محدد' : 'Non définie')}
+                                                            </span>
+                                                            {matAv && (
+                                                                <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-bold border ${
+                                                                    matAv.color === 'green' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                                                                    matAv.color === 'yellow' ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                                                                    matAv.color === 'red' ? 'bg-rose-50 text-rose-700 border-rose-200' : 'bg-slate-50 text-slate-500 border-slate-200'
+                                                                }`} title={matAv.label}>
+                                                                    <span>{matAv.emoji}</span>
+                                                                    <span>{matAv.label}</span>
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                </div>
                                                 <div className="text-right">
-                                                    <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">
+                                                    <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider block">
                                                         {lang === 'ar' ? 'العميل' : 'Client'}
                                                     </span>
                                                     <span className="font-extrabold text-slate-700 bg-white px-2.5 py-0.5 rounded-md border border-slate-100 shadow-sm inline-block">
@@ -1080,6 +1203,24 @@ export default function Pedido({
                                                     </span>
                                                 </div>
                                             </div>
+
+                                            {/* Alerte Conflit de Planning */}
+                                            {hasConflict && (
+                                                <div className="flex items-start gap-2 bg-rose-50 border border-rose-150 rounded-xl p-3 text-xs font-sans text-rose-800 animate-pulse">
+                                                    <AlertTriangle className="w-4 h-4 shrink-0 text-rose-600 mt-0.5" />
+                                                    <div>
+                                                        <span className="font-bold">
+                                                            {lang === 'ar' ? '⚠️ تعارض في التوقيت :' : '⚠️ Conflit de planification :'}
+                                                        </span>
+                                                        <p className="text-[11px] text-rose-700 mt-0.5">
+                                                            {lang === 'ar' 
+                                                                ? `تاريخ إطلاق الإنتاج (${launchDateStr}) يسبق تاريخ توفر المواد (${matArrivalDateStr}) !` 
+                                                                : `Le lancement de la production est prévu le ${launchDateStr}, mais les matières ne seront disponibles que le ${matArrivalDateStr}.`
+                                                            }
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            )}
 
                                             {/* Lot production progress bar */}
                                             {(() => {

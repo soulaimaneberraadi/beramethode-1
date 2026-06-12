@@ -272,6 +272,7 @@ export default function Planning({
     const selectedChain = chains.find(c => c.id === selectedEvent?.chaineId);
 
     const handleSubmit = (data: {
+        selectedLotId?: string;
         modelId: string;
         chaineId: string;
         startDate: string;
@@ -315,39 +316,109 @@ export default function Planning({
         const hasLocal = data.quantity > 0;
 
         if (editorMode === 'create') {
-            if (hasLocal) {
-                eventsApi.addEvent({
-                    modelId: data.modelId,
-                    chaineId: data.chaineId,
-                    startDate: data.startDate,
-                    quantity: data.quantity,
-                    clientName: data.clientName,
-                    strictDeadline_DDS: data.strictDeadline_DDS,
-                    fournisseurDate: data.fournisseurDate,
-                    color: data.color,
-                    isSubcontracted: false,
-                    sizeColorDistribution: data.sizeColorDistribution,
-                });
-            }
-            if (hasOutsource) {
-                eventsApi.addEvent({
-                    modelId: data.modelId,
-                    chaineId: data.chaineId,
-                    startDate: data.startDate,
-                    quantity: outsourceQty,
-                    clientName: data.clientName,
-                    strictDeadline_DDS: data.subcontractDeadline || data.strictDeadline_DDS || undefined,
-                    fournisseurDate: data.fournisseurDate || undefined,
-                    color: data.color,
-                    isSubcontracted: true,
-                    subcontractorName: data.subcontractorName,
-                    subcontractStatus: data.subcontractStatus,
-                    subcontractorPhone: data.subcontractorPhone,
-                    subcontractorRating: data.subcontractorRating,
-                    subcontractorAvailabilityDate: data.subcontractorAvailabilityDate,
-                    subcontractPricePerPiece: data.subcontractPricePerPiece,
-                    sizeColorDistribution: data.subcontractSizeColorDistribution,
-                });
+            if (data.selectedLotId) {
+                if (hasLocal && hasOutsource) {
+                    // Split case: Update existing lot event to be local only
+                    eventsApi.updateEvent(data.selectedLotId, {
+                        modelId: data.modelId,
+                        chaineId: data.chaineId,
+                        startDate: data.startDate,
+                        dateLancement: data.startDate,
+                        totalQuantity: data.quantity,
+                        qteTotal: data.quantity,
+                        clientName: data.clientName,
+                        strictDeadline_DDS: data.strictDeadline_DDS || undefined,
+                        fournisseurDate: data.fournisseurDate || undefined,
+                        color: data.color,
+                        isSubcontracted: false,
+                        subcontractorName: undefined,
+                        subcontractStatus: undefined,
+                        subcontractorPhone: undefined,
+                        subcontractorRating: undefined,
+                        subcontractorAvailabilityDate: undefined,
+                        subcontractPricePerPiece: undefined,
+                        subcontractSizeColorDistribution: undefined,
+                        sizeColorDistribution: data.sizeColorDistribution,
+                    });
+
+                    // Create new outsourced event for the split off portion
+                    eventsApi.addEvent({
+                        modelId: data.modelId,
+                        chaineId: data.chaineId,
+                        startDate: data.startDate,
+                        quantity: outsourceQty,
+                        clientName: data.clientName,
+                        strictDeadline_DDS: data.subcontractDeadline || data.strictDeadline_DDS || undefined,
+                        fournisseurDate: data.fournisseurDate || undefined,
+                        color: data.color,
+                        isSubcontracted: true,
+                        subcontractorName: data.subcontractorName,
+                        subcontractStatus: data.subcontractStatus,
+                        subcontractorPhone: data.subcontractorPhone,
+                        subcontractorRating: data.subcontractorRating,
+                        subcontractorAvailabilityDate: data.subcontractorAvailabilityDate,
+                        subcontractPricePerPiece: data.subcontractPricePerPiece,
+                        sizeColorDistribution: data.subcontractSizeColorDistribution,
+                    });
+                } else {
+                    // Either purely local or purely outsourced (no split needed)
+                    eventsApi.updateEvent(data.selectedLotId, {
+                        modelId: data.modelId,
+                        chaineId: data.chaineId,
+                        startDate: data.startDate,
+                        dateLancement: data.startDate,
+                        totalQuantity: data.quantity > 0 ? data.quantity : outsourceQty,
+                        qteTotal: data.quantity > 0 ? data.quantity : outsourceQty,
+                        clientName: data.clientName,
+                        strictDeadline_DDS: data.isSubcontracted ? (data.subcontractDeadline || data.strictDeadline_DDS || undefined) : (data.strictDeadline_DDS || undefined),
+                        fournisseurDate: data.fournisseurDate || undefined,
+                        color: data.color,
+                        isSubcontracted: data.isSubcontracted,
+                        subcontractorName: data.subcontractorName,
+                        subcontractStatus: data.subcontractStatus,
+                        subcontractorPhone: data.subcontractorPhone,
+                        subcontractorRating: data.subcontractorRating,
+                        subcontractorAvailabilityDate: data.subcontractorAvailabilityDate,
+                        subcontractPricePerPiece: data.subcontractPricePerPiece,
+                        subcontractSizeColorDistribution: data.subcontractSizeColorDistribution,
+                        sizeColorDistribution: data.isSubcontracted ? data.subcontractSizeColorDistribution : data.sizeColorDistribution,
+                    });
+                }
+            } else {
+                if (hasLocal) {
+                    eventsApi.addEvent({
+                        modelId: data.modelId,
+                        chaineId: data.chaineId,
+                        startDate: data.startDate,
+                        quantity: data.quantity,
+                        clientName: data.clientName,
+                        strictDeadline_DDS: data.strictDeadline_DDS,
+                        fournisseurDate: data.fournisseurDate,
+                        color: data.color,
+                        isSubcontracted: false,
+                        sizeColorDistribution: data.sizeColorDistribution,
+                    });
+                }
+                if (hasOutsource) {
+                    eventsApi.addEvent({
+                        modelId: data.modelId,
+                        chaineId: data.chaineId,
+                        startDate: data.startDate,
+                        quantity: outsourceQty,
+                        clientName: data.clientName,
+                        strictDeadline_DDS: data.subcontractDeadline || data.strictDeadline_DDS || undefined,
+                        fournisseurDate: data.fournisseurDate || undefined,
+                        color: data.color,
+                        isSubcontracted: true,
+                        subcontractorName: data.subcontractorName,
+                        subcontractStatus: data.subcontractStatus,
+                        subcontractorPhone: data.subcontractorPhone,
+                        subcontractorRating: data.subcontractorRating,
+                        subcontractorAvailabilityDate: data.subcontractorAvailabilityDate,
+                        subcontractPricePerPiece: data.subcontractPricePerPiece,
+                        sizeColorDistribution: data.subcontractSizeColorDistribution,
+                    });
+                }
             }
         } else if (editorInitial) {
             if (hasLocal && hasOutsource) {
@@ -721,6 +792,8 @@ export default function Planning({
                 initial={editorInitial}
                 models={models}
                 chains={chains}
+                planningEvents={planningEvents}
+                settings={settings}
                 onClose={() => setEditorOpen(false)}
                 onSubmit={handleSubmit}
                 onOpenInIngenierie={onOpenInIngenierie}
