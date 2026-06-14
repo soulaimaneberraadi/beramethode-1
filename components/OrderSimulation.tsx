@@ -381,16 +381,15 @@ const OrderSimulation: React.FC<OrderSimulationProps> = ({
                         <Percent className="w-3 h-3 text-slate-400" strokeWidth={1.75} />
                     </div>
 
-                    <div className={`flex items-center gap-2 h-8 rounded-md px-2.5 border transition-all focus-within:ring-2 focus-within:ring-slate-100 ${darkMode ? 'bg-gray-900 border-gray-700' : 'bg-slate-50/60 border-slate-200'}`}>
+                    {/* Qté Totale = quantité RÉELLE de la commande (somme du tableau de
+                        répartition). Verrouillée : on ne peut pas la modifier à la main
+                        pour que le coût reste toujours basé sur la vraie commande. */}
+                    <div className={`flex items-center gap-2 h-8 rounded-md px-2.5 border ${darkMode ? 'bg-gray-900 border-gray-700' : 'bg-slate-50/60 border-slate-200'}`} title="Quantité de la commande (verrouillée — définie par le tableau de répartition)">
                         <span className={`text-[11px] font-medium ${textSecondary}`}>Qté Totale</span>
                         <div className="h-4 w-px bg-slate-200 dark:bg-gray-700"></div>
-                        <NumberInput
-                            min={1}
-                            step="1"
-                            value={orderQty}
-                            onValueChange={(n) => setOrderQty(Math.round(n))}
-                            className={`w-14 text-center text-[13px] font-semibold tabular-nums text-slate-900 bg-transparent outline-none ${darkMode ? 'text-slate-200' : ''}`}
-                        />
+                        <span className={`w-14 text-center text-[13px] font-semibold tabular-nums ${darkMode ? 'text-slate-200' : 'text-slate-900'}`}>
+                            {orderQty}
+                        </span>
                         <ShoppingCart className="w-3 h-3 text-slate-400" strokeWidth={1.75} />
                     </div>
                 </div>
@@ -542,10 +541,10 @@ const OrderSimulation: React.FC<OrderSimulationProps> = ({
                                             </span>
                                         </div>
                                         <div className="overflow-x-auto">
-                                            <table className="w-full text-[12px]">
+                                            <table className="w-full text-[12px] border-collapse">
                                                 <thead>
                                                     <tr className={`text-[10px] uppercase tracking-wider ${darkMode ? 'text-slate-500' : 'text-slate-400'}`}>
-                                                        <th className="text-left px-2 py-1 font-medium">Matière</th>
+                                                        <th className={`sticky left-0 z-20 border-r text-left px-2 py-1 font-medium ${darkMode ? 'bg-gray-900 border-gray-700' : 'bg-slate-50 border-slate-200'}`}>Matière</th>
                                                         <th className="text-center px-2 py-1 font-medium">Qté/Pièce</th>
                                                         <th className="text-center px-2 py-1 font-medium">Besoin ({pg.pieces}pcs)</th>
                                                         <th className="text-center px-2 py-1 font-medium">Avec {wasteRate}%</th>
@@ -557,8 +556,8 @@ const OrderSimulation: React.FC<OrderSimulationProps> = ({
                                                 </thead>
                                                 <tbody className={`divide-y ${darkMode ? 'divide-gray-700' : 'divide-slate-100'}`}>
                                                     {pg.materials.map(m => (
-                                                        <tr key={m.id} className={`${darkMode ? 'hover:bg-gray-700' : 'hover:bg-slate-100/30'} transition-colors cursor-pointer`} onClick={() => setSelectedMaterial({ ...m, colorName: pg.colorName })}>
-                                                            <td className="px-2 py-1.5 font-medium text-slate-700">
+                                                        <tr key={m.id} className={`group ${darkMode ? 'hover:bg-gray-700' : 'hover:bg-slate-100/30'} transition-colors cursor-pointer`} onClick={() => setSelectedMaterial({ ...m, colorName: pg.colorName })}>
+                                                            <td className={`sticky left-0 z-10 border-r px-2 py-1.5 font-medium ${darkMode ? 'bg-gray-800 group-hover:bg-gray-750 border-gray-750' : 'bg-white group-hover:bg-slate-50/50 border-slate-100'}`} title={m.name}>
                                                                 <div className="flex items-center gap-1.5">
                                                                     <span className="truncate max-w-[120px]">{m.name}</span>
                                                                     {m.unit === 'bobine' && <span className="text-[10px] text-slate-400">({m.threadMeters}m/bobine)</span>}

@@ -82,16 +82,16 @@ const OrderTablesPanel: React.FC<OrderTablesPanelProps> = ({
     const dash = <span className="text-slate-300">—</span>;
 
     return (
-        <div dir="rtl" className="space-y-6">
+        <div className="space-y-6">
 
-            {/* ── جدول التوزيع وتكلفة القياسات ── */}
+            {/* ── Répartition et coût des tailles ── */}
             {colors.length > 0 && (
                 <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
                     <div className="px-3 sm:px-5 h-auto sm:h-12 border-b border-slate-100 flex flex-col sm:flex-row items-start sm:items-center gap-1 sm:gap-2 py-2 sm:py-0">
                         <Palette className="w-4 h-4 text-slate-400 shrink-0" strokeWidth={1.75} />
                         <div>
-                            <h3 className="text-[13px] font-semibold text-slate-900 tracking-tight">جدول التوزيع وتكلفة القياسات</h3>
-                            <p className="text-[11px] text-slate-400">توزيع الكميات والتكاليف (تتحدّث تلقائياً مع الفيش تكنيك)</p>
+                            <h3 className="text-[13px] font-semibold text-slate-900 tracking-tight">Répartition et coût des tailles</h3>
+                            <p className="text-[11px] text-slate-400">Répartition des quantités et des coûts (synchronisé avec la fiche technique)</p>
                         </div>
                     </div>
 
@@ -99,18 +99,18 @@ const OrderTablesPanel: React.FC<OrderTablesPanelProps> = ({
                         <table className="w-full border-collapse">
                             <thead>
                                 <tr className="bg-slate-50/60 text-slate-500 text-[10px] uppercase tracking-wider border-b border-slate-200">
-                                    <th className="py-2.5 px-3 text-right font-semibold border-l border-slate-100 min-w-[140px]">اللون \ القياس</th>
+                                    <th className="py-2.5 px-3 text-left font-semibold border-r border-slate-100 min-w-[140px]">Couleur \ Taille</th>
                                     {sizes.length === 0 && (
-                                        <th className="py-2.5 px-3 text-center font-normal italic text-slate-400 border-l border-slate-100">
-                                            لم يتم تحديد قياسات
+                                        <th className="py-2.5 px-3 text-center font-normal italic text-slate-400 border-r border-slate-100">
+                                            Aucune taille définie
                                         </th>
                                     )}
                                     {sizes.map((s, i) => (
-                                        <th key={i} className="py-2.5 px-3 text-center font-semibold border-l border-slate-100 text-slate-700 min-w-[80px]">
+                                        <th key={i} className="py-2.5 px-3 text-center font-semibold border-r border-slate-100 text-slate-700 min-w-[80px]">
                                             {s}
                                         </th>
                                     ))}
-                                    <th className="py-2.5 px-3 text-center font-semibold text-slate-700 bg-slate-100/60 w-24">المجموع</th>
+                                    <th className="py-2.5 px-3 text-center font-semibold text-slate-700 bg-slate-100/60 w-24">Total</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
@@ -121,7 +121,7 @@ const OrderTablesPanel: React.FC<OrderTablesPanelProps> = ({
                                     const dot = DOT_COLORS[cIdx % DOT_COLORS.length];
                                     return (
                                         <tr key={`${c.id}-${cIdx}`} className="hover:bg-slate-50/50 group">
-                                            <td className="py-2.5 px-3 border-l border-slate-100 font-medium text-slate-700 text-[12px]">
+                                            <td className="py-2.5 px-3 border-r border-slate-100 font-medium text-slate-700 text-[12px]">
                                                 <div className="flex items-center gap-2">
                                                     <div
                                                         className={`w-2.5 h-2.5 rounded-full ${cHex ? '' : dot}`}
@@ -131,7 +131,7 @@ const OrderTablesPanel: React.FC<OrderTablesPanelProps> = ({
                                                 </div>
                                             </td>
                                             {sizes.length === 0 && (
-                                                <td className="py-2.5 px-3 border-l border-slate-100 bg-slate-50/40 text-center text-slate-300">—</td>
+                                                <td className="py-2.5 px-3 border-r border-slate-100 bg-slate-50/40 text-center text-slate-300">—</td>
                                             )}
                                             {sizes.map((_, sIdx) => {
                                                 const key = `${c.id}_${sIdx}`;
@@ -139,7 +139,7 @@ const OrderTablesPanel: React.FC<OrderTablesPanelProps> = ({
                                                 const qty = Number(val) || 0;
                                                 const cost = qty * prFor(c.id);
                                                 return (
-                                                    <td key={sIdx} className="p-0 border-l border-slate-100 hover:bg-slate-50 transition-colors relative">
+                                                    <td key={sIdx} className="p-0 border-r border-slate-100 hover:bg-slate-50 transition-colors relative">
                                                         <input
                                                             type="number" min="0"
                                                             className="w-full text-center py-2.5 bg-transparent outline-none focus:text-[#2149C1] font-semibold text-[13px] text-slate-700 placeholder:text-slate-300 tabular-nums"
@@ -157,7 +157,7 @@ const OrderTablesPanel: React.FC<OrderTablesPanelProps> = ({
                                                     </td>
                                                 );
                                             })}
-                                            <td className="py-2.5 px-3 text-center border-l border-slate-100 bg-slate-50/60 group-hover:bg-slate-100/60 transition-colors">
+                                            <td className="py-2.5 px-3 text-center border-r border-slate-100 bg-slate-50/60 group-hover:bg-slate-100/60 transition-colors">
                                                 <div className="font-semibold text-slate-800 text-[14px] tabular-nums">{rowTotal > 0 ? rowTotal : dash}</div>
                                                 {rowTotal > 0 && (
                                                     <div className="text-[10px] font-medium text-slate-400 mt-0.5 tabular-nums">
@@ -171,11 +171,11 @@ const OrderTablesPanel: React.FC<OrderTablesPanelProps> = ({
                             </tbody>
                             <tfoot className="border-t border-slate-200 bg-slate-50/60">
                                 <tr>
-                                    <td className="py-2.5 px-3 text-left font-semibold text-slate-500 text-[11px] uppercase tracking-wider border-l border-slate-100">
-                                        الإجمالي
+                                    <td className="py-2.5 px-3 text-left font-semibold text-slate-500 text-[11px] uppercase tracking-wider border-r border-slate-100">
+                                        Total général
                                     </td>
                                     {sizes.length === 0 && (
-                                        <td className="py-2.5 px-3 text-center text-slate-300 border-l border-slate-100">—</td>
+                                        <td className="py-2.5 px-3 text-center text-slate-300 border-r border-slate-100">—</td>
                                     )}
                                     {sizes.map((_, sIdx) => {
                                         const colTotal = matrixStats.colTotals[sIdx] || 0;
@@ -187,7 +187,7 @@ const OrderTablesPanel: React.FC<OrderTablesPanelProps> = ({
                                             return s + q * prFor(col.id);
                                         }, 0);
                                         return (
-                                            <td key={sIdx} className="py-2.5 px-3 text-center border-l border-slate-100">
+                                            <td key={sIdx} className="py-2.5 px-3 text-center border-r border-slate-100">
                                                 <div className="font-semibold text-slate-700 text-[13px] tabular-nums">{colTotal > 0 ? colTotal : dash}</div>
                                                 {colTotal > 0 && (
                                                     <div className="text-[9px] font-medium text-slate-400 tabular-nums">{fmt(colCost)}</div>
@@ -197,7 +197,7 @@ const OrderTablesPanel: React.FC<OrderTablesPanelProps> = ({
                                     })}
                                     <td className="py-2.5 px-3 text-center bg-slate-900">
                                         <div className="font-semibold text-white text-[15px] tabular-nums">{matrixStats.grandTotal > 0 ? matrixStats.grandTotal : '—'}</div>
-                                        <div className="text-[9px] text-slate-400 font-medium tracking-wider uppercase mt-0.5">القطع</div>
+                                        <div className="text-[9px] text-slate-400 font-medium tracking-wider uppercase mt-0.5">pièces</div>
                                     </td>
                                 </tr>
                             </tfoot>
@@ -206,11 +206,11 @@ const OrderTablesPanel: React.FC<OrderTablesPanelProps> = ({
                 </div>
             )}
 
-            {/* ── سلم الأسعار ── */}
+            {/* ── Grille tarifaire ── */}
             <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
                 <div className="px-3 sm:px-5 h-12 border-b border-slate-100 flex items-center gap-2">
                     <Layers className="w-4 h-4 text-slate-400" strokeWidth={1.75} />
-                    <h3 className="text-[13px] font-semibold text-slate-900 tracking-tight">سلم الأسعار</h3>
+                    <h3 className="text-[13px] font-semibold text-slate-900 tracking-tight">Grille tarifaire</h3>
                 </div>
                 <div className="p-3 sm:p-5">
                     {colors.length > 0 && hasColorCosts ? (
@@ -218,12 +218,12 @@ const OrderTablesPanel: React.FC<OrderTablesPanelProps> = ({
                             <table className="w-full border-collapse">
                                 <thead>
                                     <tr className="text-[10px] uppercase tracking-wider text-slate-500 border-b border-slate-200">
-                                        <th className="py-2 px-3 text-right font-semibold">اللون</th>
+                                        <th className="py-2 px-3 text-left font-semibold">Couleur</th>
                                         <th className="py-2 px-3 text-center font-semibold">PR</th>
                                         <th className="py-2 px-3 text-center font-semibold text-[#2149C1]">HT +{settings.marginAtelier}%</th>
                                         <th className="py-2 px-3 text-center font-semibold text-indigo-600">TTC +{settings.tva}%</th>
-                                        <th className="py-2 px-3 text-center font-semibold text-violet-600">المحل +{settings.marginBoutique}%</th>
-                                        <th className="py-2 px-3 text-center font-semibold text-emerald-600">ربح/قطعة</th>
+                                        <th className="py-2 px-3 text-center font-semibold text-violet-600">Boutique +{settings.marginBoutique}%</th>
+                                        <th className="py-2 px-3 text-center font-semibold text-emerald-600">Marge/pièce</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-100">
@@ -257,11 +257,11 @@ const OrderTablesPanel: React.FC<OrderTablesPanelProps> = ({
                     ) : (
                         <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
                             {[
-                                { label: 'سعر التكلفة (PR)', value: costPrice, color: 'text-slate-800' },
-                                { label: `سعر البيع HT (+${settings.marginAtelier}%)`, value: sellPriceHT, color: 'text-[#2149C1]' },
-                                { label: `سعر البيع TTC (+${settings.tva}%)`, value: sellPriceTTC, color: 'text-indigo-600' },
-                                { label: `سعر المحل (+${settings.marginBoutique}%)`, value: boutiquePrice, color: 'text-violet-600' },
-                                { label: 'ربح المصنع / قطعة', value: sellPriceHT - costPrice, color: 'text-emerald-600' },
+                                { label: 'Prix de revient (PR)', value: costPrice, color: 'text-slate-800' },
+                                { label: `Prix de vente HT (+${settings.marginAtelier}%)`, value: sellPriceHT, color: 'text-[#2149C1]' },
+                                { label: `Prix de vente TTC (+${settings.tva}%)`, value: sellPriceTTC, color: 'text-indigo-600' },
+                                { label: `Prix boutique (+${settings.marginBoutique}%)`, value: boutiquePrice, color: 'text-violet-600' },
+                                { label: 'Marge usine / pièce', value: sellPriceHT - costPrice, color: 'text-emerald-600' },
                             ].map((item, i) => (
                                 <div key={i} className="text-center p-3 rounded-md bg-slate-50/60 border border-slate-200 hover:bg-white hover:border-slate-300 transition-all">
                                     <p className="text-[10px] font-medium text-slate-500 uppercase tracking-wider mb-1.5">{item.label}</p>

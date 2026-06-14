@@ -17,6 +17,7 @@ import PdfSettingsModal from './PdfSettingsModal';
 import TicketView from './TicketView';
 import A4DocumentView from './A4DocumentView';
 import A4ResponsiveFrame from './A4ResponsiveFrame';
+import CompactCostSheet from './CompactCostSheet';
 import ThreadCalculator from './ThreadCalculator';
 import SousTraitanceModal, { SousTraitance } from './SousTraitanceModal';
 import { Operation } from '../types';
@@ -56,6 +57,15 @@ export default function CostCalculator({
     const darkMode = false;
     const [viewMode, setViewMode] = useState<'ticket' | 'a4'>('a4'); // Default to A4 as requested
     const docRefA4 = useRef<HTMLDivElement>(null);
+    const docRefTicket = useRef<HTMLDivElement>(null);
+    // Dimensions du ticket (mm) — réglables dans le modal d'export.
+    const [ticketSize, setTicketSize] = useState<{ width: number; height: number }>({ width: 80, height: 150 });
+    // Largeur de référence du design du ticket (TicketView = max-w-[400px]). Le contenu
+    // est toujours rendu à cette largeur puis mis à l'échelle pour remplir la taille
+    // choisie → l'information reste PROPORTIONNELLE quelle que soit la taille du ticket.
+    const TICKET_BASE_W = 400;
+    const mmToPxC = (mm: number) => Math.round((mm / 25.4) * 96);
+    const ticketContentScale = mmToPxC(ticketSize.width) / TICKET_BASE_W;
 
     // --- PDF Settings State ---
     const [showPdfModal, setShowPdfModal] = useState(false);
@@ -538,7 +548,8 @@ export default function CostCalculator({
     };
 
     const generatePDF = async (action: 'save' | 'preview' = 'save') => {
-        const element = docRefA4.current;
+        const isTicketPdf = viewMode === 'ticket';
+        const element = isTicketPdf ? docRefTicket.current : docRefA4.current;
         if (!element || !(window as any).html2pdf) return;
 
         setIsGeneratingPdf(true);
@@ -571,11 +582,13 @@ export default function CostCalculator({
         container.style.pointerEvents = 'none';
 
         const isLandscape = pdfSettings.orientation === 'landscape';
-        const widthPx = isLandscape ? '1123px' : '794px';
-        const heightPx = isLandscape ? '794px' : '1123px';
+        // Ticket : on capture à la largeur de référence du design (TICKET_BASE_W) ; jsPDF
+        // met ensuite l'image à l'échelle du format mm → rendu proportionnel à la taille.
+        const captureW = isTicketPdf ? TICKET_BASE_W : (isLandscape ? 1123 : 794);
+        const captureH = isTicketPdf ? Math.round(TICKET_BASE_W * (ticketSize.height / ticketSize.width)) : (isLandscape ? 794 : 1123);
 
-        container.style.width = widthPx;
-        container.style.minHeight = heightPx;
+        container.style.width = `${captureW}px`;
+        container.style.minHeight = `${captureH}px`;
         container.style.backgroundColor = '#ffffff';
 
         clone.style.width = '100%';
@@ -620,9 +633,9 @@ export default function CostCalculator({
         document.body.appendChild(container);
 
         const opt = {
-            // Hoamir physiques en mm (haut, gauche, bas, droite) — mapping A4 exact
-            margin: [12, 14, 12, 14],
-            filename: `${productName.replace(/ /g, "_") || 'Fiche'}_Cout.pdf`,
+            // Marges physiques en mm (haut, gauche, bas, droite). Ticket : marges fines.
+            margin: isTicketPdf ? [3, 3, 3, 3] : [12, 14, 12, 14],
+            filename: `${productName.replace(/ /g, "_") || (isTicketPdf ? 'Ticket' : 'Fiche')}_${isTicketPdf ? 'Ticket' : 'Cout'}.pdf`,
             image: { type: 'jpeg', quality: 0.98 },
             html2canvas: {
                 scale: 2 * pdfSettings.scale, // netteté des chiffres / textes
@@ -632,11 +645,13 @@ export default function CostCalculator({
                 y: 0,
                 scrollX: 0,
                 scrollY: 0,
-                width: isLandscape ? 1123 : 794,        // largeur de capture verrouillée
-                windowWidth: isLandscape ? 1123 : 794
+                width: captureW,        // largeur de capture verrouillée
+                windowWidth: captureW
             },
-            // Unité mm + format A4 standard : empêche compression et marges qui débordent
-            jsPDF: { unit: 'mm', format: 'a4', orientation: pdfSettings.orientation },
+            // Unité mm. Ticket : format personnalisé [largeur, hauteur]. A4 : format standard.
+            jsPDF: isTicketPdf
+                ? { unit: 'mm', format: [ticketSize.width, ticketSize.height], orientation: 'portrait' }
+                : { unit: 'mm', format: 'a4', orientation: pdfSettings.orientation },
             pagebreak: { mode: ['css', 'legacy'], avoid: ['tr', 'table', 'thead', 'img'] }
         };
 
@@ -892,18 +907,27 @@ export default function CostCalculator({
                     body * { visibility: hidden !important; }
                     /* 2. Seule la fiche (et ses descendants) redevient visible */
                     .fiche-a4-doc, .fiche-a4-doc * { visibility: visible !important; }
+                    .compact-cost-sheet, .compact-cost-sheet * { visibility: visible !important; }
                     /* 3. La fiche occupe seule la page, callée en haut à gauche */
                     .fiche-a4-doc {
                         position: absolute !important; left: 0 !important; top: 0 !important;
                         box-shadow: none !important; max-width: 100% !important; width: 100% !important;
                         margin: 0 !important; padding: 0 !important;
                     }
+                    .compact-cost-sheet {
+                        position: absolute !important; left: 0 !important; top: 0 !important;
+                        box-shadow: none !important; max-width: 100% !important; width: 100% !important;
+                        margin: 0 !important; padding: 0 !important;
+                    }
                     .fiche-a4-doc table, .fiche-a4-doc tr, .fiche-a4-doc thead, .fiche-a4-doc tbody { break-inside: avoid !important; page-break-inside: avoid !important; }
+                    .compact-cost-sheet table, .compact-cost-sheet tr, .compact-cost-sheet thead, .compact-cost-sheet tbody { break-inside: avoid !important; page-break-inside: avoid !important; }
                     .fiche-a4-doc img { max-width: 100% !important; max-height: 60mm !important; object-fit: contain !important; }
+                    .compact-cost-sheet img { max-width: 100% !important; max-height: 40mm !important; object-fit: contain !important; }
 
                     /* Impression depuis le modal : on isole STRICTEMENT l'aperçu #pdf-print-area
                        (le sélecteur #id l'emporte sur la règle .fiche-a4-doc de la page). */
                     body.printing-modal .fiche-a4-doc { visibility: hidden !important; }
+                    body.printing-modal .compact-cost-sheet { visibility: hidden !important; }
                     body.printing-modal #pdf-print-area,
                     body.printing-modal #pdf-print-area * { visibility: visible !important; }
                     body.printing-modal #pdf-print-area {
@@ -912,6 +936,9 @@ export default function CostCalculator({
                         overflow: visible !important; box-shadow: none !important;
                     }
                     body.printing-modal #pdf-print-area .fiche-a4-doc {
+                        visibility: visible !important; position: static !important; max-width: 100% !important; width: 100% !important;
+                    }
+                    body.printing-modal #pdf-print-area .compact-cost-sheet {
                         visibility: visible !important; position: static !important; max-width: 100% !important; width: 100% !important;
                     }
                 }
@@ -925,28 +952,51 @@ export default function CostCalculator({
                 onPrint={handlePrintFromModal}
                 onExcel={exportToExcel}
                 pdfSections={pdfSections} setPdfSections={setPdfSections}
+                mode={viewMode} ticketSize={ticketSize} setTicketSize={setTicketSize}
             >
-                <A4DocumentView
-                    ref={null}
-                    sections={pdfSections}
-                    t={t} currency={currency} darkMode={false}
-                    productName={productName} displayDate={displayDate} setDisplayDate={setDisplayDate}
-                    docRef={docRef} setDocRef={setDocRef}
-                    companyName={companyName} setCompanyName={setCompanyName}
-                    companyAddress={companyAddress} setCompanyAddress={setCompanyAddress}
-                    companyLegal={companyLegal} setCompanyLegal={setCompanyLegal}
-                    companyLogo={null} handleLogoUpload={() => { }}
-                    baseTime={baseTime} totalTime={totalTime} settings={settings}
-                    productImage={productImage} materials={materials}
-                    laborCost={laborCost} costPrice={costPrice}
-                    sellPriceHT={sellPriceHT} sellPriceTTC={sellPriceTTC}
-                    boutiquePrice={boutiquePrice} orderQty={orderQty}
-                    wasteRate={wasteRate} purchasingData={purchasingData}
-                    totalPurchasingMatCost={totalPurchasingMatCost}
-                    docNotes={docNotes} setDocNotes={setDocNotes}
-                    isExport={materialsExcluded}
-                    soustraitanceActive={stActive}
-                />
+                {viewMode === 'ticket' ? (
+                    // Aperçu : on met le contenu (largeur de référence) à l'échelle pour
+                    // remplir la largeur du ticket → information proportionnelle à la taille.
+                    <div style={{ width: TICKET_BASE_W, transformOrigin: 'top left', transform: `scale(${ticketContentScale})` }}>
+                        {/* Cible de capture PDF : contenu non transformé, largeur de référence. */}
+                        <div ref={docRefTicket} style={{ width: TICKET_BASE_W }} className="bg-white">
+                            <TicketView
+                                t={t} currency={currency} darkMode={false}
+                                productName={productName} displayDate={displayDate}
+                                totalMaterials={totalMaterials} totalTime={totalTime}
+                                laborCost={laborCost} costPrice={costPrice}
+                                settings={settings} productImage={productImage}
+                                textPrimary={'text-slate-800'} textSecondary={'text-slate-500'}
+                                materials={materials} cutTime={cutTime} packTime={packTime}
+                                sellPriceHT={sellPriceHT} sellPriceTTC={sellPriceTTC}
+                                boutiquePrice={boutiquePrice}
+                                soustraitanceActive={stActive} materialsHidden={stComplet}
+                            />
+                        </div>
+                    </div>
+                ) : (
+                    // A4 = design « Fiche Compacte » (facture) — choix utilisateur.
+                    <CompactCostSheet
+                        ref={null}
+                        t={t} currency={currency}
+                        productName={productName} displayDate={displayDate}
+                        docRef={docRef}
+                        companyName={companyName}
+                        companyAddress={companyAddress}
+                        baseTime={baseTime} cutTime={cutTime} packTime={packTime}
+                        totalTime={totalTime} settings={settings}
+                        materials={materials} laborCost={laborCost}
+                        costPrice={costPrice} sellPriceHT={sellPriceHT}
+                        sellPriceTTC={sellPriceTTC} boutiquePrice={boutiquePrice}
+                        orderQty={orderQty} wasteRate={wasteRate}
+                        purchasingData={purchasingData}
+                        totalPurchasingMatCost={totalPurchasingMatCost}
+                        productImage={productImage}
+                        soustraitanceActive={stActive}
+                        stPrix={stPrix} stMode={st?.mode}
+                        colors={ficheData.colors || []} gridQuantities={ficheData.gridQuantities || {}} sizes={ficheData.sizes || []}
+                    />
+                )}
             </PdfSettingsModal>
 
             <div className={`w-full mx-auto mb-3 sm:mb-5 flex flex-col md:flex-row justify-between items-start sm:items-center bg-white px-3 sm:px-5 h-auto md:h-14 py-2.5 sm:py-3 md:py-0 rounded-lg border border-slate-200 gap-2 sm:gap-3 print:hidden`}>
@@ -1171,24 +1221,32 @@ export default function CostCalculator({
                             </div>
 
                             {viewMode === 'ticket' && (
-                                <TicketView
-                                    t={t} currency={currency} darkMode={darkMode}
-                                    productName={productName} displayDate={displayDate}
-                                    totalMaterials={totalMaterials} totalTime={totalTime}
-                                    laborCost={laborCost} costPrice={costPrice}
-                                    settings={settings} productImage={productImage}
-                                    textPrimary={textPrimary} textSecondary={textSecondary}
-                                    materials={materials} cutTime={cutTime} packTime={packTime}
-                                    sellPriceHT={sellPriceHT} sellPriceTTC={sellPriceTTC}
-                                    boutiquePrice={boutiquePrice}
-                                    soustraitanceActive={stActive} materialsHidden={stComplet}
-                                />
+                                <>
+                                    <div className={`px-5 h-12 border-b flex justify-between items-center bg-slate-50/60 border-slate-100 print:hidden`}>
+                                        <h2 className={`text-[13px] font-semibold text-slate-900`}>Ticket de Coût</h2>
+                                        <div className="flex gap-1.5">
+                                            <button onClick={() => setShowPdfModal(true)} className="inline-flex items-center gap-1.5 h-8 px-3 text-[12px] font-medium rounded-md bg-slate-900 hover:bg-slate-800 text-white transition-colors" title="Exporter (PDF) ou imprimer le ticket"><FileDown className="w-3.5 h-3.5" strokeWidth={1.75} /> Exporter / Imprimer</button>
+                                        </div>
+                                    </div>
+                                    <TicketView
+                                        t={t} currency={currency} darkMode={darkMode}
+                                        productName={productName} displayDate={displayDate}
+                                        totalMaterials={totalMaterials} totalTime={totalTime}
+                                        laborCost={laborCost} costPrice={costPrice}
+                                        settings={settings} productImage={productImage}
+                                        textPrimary={textPrimary} textSecondary={textSecondary}
+                                        materials={materials} cutTime={cutTime} packTime={packTime}
+                                        sellPriceHT={sellPriceHT} sellPriceTTC={sellPriceTTC}
+                                        boutiquePrice={boutiquePrice}
+                                        soustraitanceActive={stActive} materialsHidden={stComplet}
+                                    />
+                                </>
                             )}
 
                             {viewMode === 'a4' && (
                                 <>
                                     <div className={`px-5 h-12 border-b flex justify-between items-center bg-slate-50/60 border-slate-100 print:hidden`}>
-                                        <h2 className={`text-[13px] font-semibold text-slate-900`}>Fiche de Rendement A4</h2>
+                                        <h2 className={`text-[13px] font-semibold text-slate-900`}>Fiche de Coût A4</h2>
                                         <div className="flex gap-1.5">
                                             <button onClick={() => setShowPdfModal(true)} className="inline-flex items-center gap-1.5 h-8 px-3 text-[12px] font-medium rounded-md bg-slate-900 hover:bg-slate-800 text-white transition-colors" title="Exporter (PDF / Excel) ou imprimer la fiche"><FileDown className="w-3.5 h-3.5" strokeWidth={1.75} /> Exporter / Imprimer</button>
                                         </div>
@@ -1196,27 +1254,26 @@ export default function CostCalculator({
 
                                     <div className="bg-slate-100 p-3 sm:p-8 overflow-hidden">
                                       <A4ResponsiveFrame>
-                                        <A4DocumentView
+                                        {/* A4 = design « Fiche Compacte » (facture) — choix utilisateur. */}
+                                        <CompactCostSheet
                                             ref={docRefA4}
-                                            t={t} currency={currency} darkMode={false}
-                                            productName={productName || 'Article...'} displayDate={displayDate} setDisplayDate={setDisplayDate}
-                                            docRef={docRef} setDocRef={setDocRef}
-                                            companyName={companyName} setCompanyName={setCompanyName}
-                                            companyAddress={companyAddress} setCompanyAddress={setCompanyAddress}
-                                            companyLegal={companyLegal} setCompanyLegal={setCompanyLegal}
-                                            companyLogo={null} handleLogoUpload={() => { }}
-                                            baseTime={baseTime} totalTime={totalTime} settings={settings}
-                                            productImage={productImage} materials={materials}
-                                            laborCost={laborCost} costPrice={costPrice}
-                                            sellPriceHT={sellPriceHT} sellPriceTTC={sellPriceTTC}
-                                            boutiquePrice={boutiquePrice} orderQty={orderQty}
-                                            wasteRate={wasteRate} purchasingData={purchasingData}
+                                            t={t} currency={currency}
+                                            productName={productName || 'Article...'} displayDate={displayDate}
+                                            docRef={docRef}
+                                            companyName={companyName}
+                                            companyAddress={companyAddress}
+                                            baseTime={baseTime} cutTime={cutTime} packTime={packTime}
+                                            totalTime={totalTime} settings={settings}
+                                            materials={materials} laborCost={laborCost}
+                                            costPrice={costPrice} sellPriceHT={sellPriceHT}
+                                            sellPriceTTC={sellPriceTTC} boutiquePrice={boutiquePrice}
+                                            orderQty={orderQty} wasteRate={wasteRate}
+                                            purchasingData={purchasingData}
                                             totalPurchasingMatCost={totalPurchasingMatCost}
-                                            docNotes={docNotes} setDocNotes={setDocNotes}
-                                            isRTL={false}
-                                            isExport={materialsExcluded}
+                                            productImage={productImage}
                                             soustraitanceActive={stActive}
-                                            sections={pdfSections}
+                                            stPrix={stPrix} stMode={st?.mode}
+                                            colors={ficheData.colors || []} gridQuantities={ficheData.gridQuantities || {}} sizes={ficheData.sizes || []}
                                         />
                                       </A4ResponsiveFrame>
                                     </div>
