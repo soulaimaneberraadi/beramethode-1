@@ -167,7 +167,8 @@ export default function SuiviProduction({
         return days;
     }, [weekStart]);
 
-    const [isOverrideMode, setIsOverrideMode] = useState<boolean>(false);
+    // Édition toujours active + sauvegarde automatique (plus de bouton "Mode Modification").
+    const [isOverrideMode] = useState<boolean>(true);
     const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
     const [showDarija, setShowDarija] = useState<boolean>(false);
     const [selectedActiveModelId, setSelectedActiveModelId] = useState<string>('');
@@ -1274,20 +1275,6 @@ export default function SuiviProduction({
                     >
                         <BarChart2 className="w-4 h-4 text-indigo-600" />
                         <span className="hidden sm:inline">{showDarija ? 'المؤشرات' : 'Stats'}</span>
-                    </button>
-
-                    {/* Override Toggle Switch */}
-                    <button
-                        onClick={() => setIsOverrideMode(!isOverrideMode)}
-                        title={showDarija ? 'وضعية التعديل' : 'Mode Modification'}
-                        className={`flex items-center gap-2 px-2 sm:px-3 py-1.5 border rounded-xl text-xs font-bold transition-all shadow-sm ${
-                            isOverrideMode
-                                ? 'bg-amber-50 text-amber-800 border-amber-200'
-                                : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'
-                        }`}
-                    >
-                        {isOverrideMode ? <ToggleRight className="w-5 h-5 text-amber-600" /> : <ToggleLeft className="w-5 h-5 text-slate-400" />}
-                        <span className="hidden sm:inline">{showDarija ? 'وضعية التعديل' : 'Mode Modification'}</span>
                     </button>
 
                     {/* Save State Indicator */}
