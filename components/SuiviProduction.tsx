@@ -1,11 +1,13 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import type { AppSettings, ModelData, PlanningEvent, SuiviData, MaterialReceipt, InventoryMovement, MouvementStock } from '../types';
 import { deriveHourGrid } from './suivi/shared/hours';
+import { getOFColor, OF_COLOR_CHOICES, type OFStyle } from './suivi/shared/ofColors';
+import { useIsMobile } from './planning/shared/useIsMobile';
 import { 
     Activity, Clock, ChevronLeft, ChevronRight, Plus, 
     User, Settings, ToggleLeft, ToggleRight, Info, AlertCircle, CheckCircle, Save,
     ShieldAlert, Sparkles, Sliders, Layers, BarChart2, CheckSquare, Trash2,
-    Package, TrendingDown, AlertTriangle, X
+    Package, TrendingDown, AlertTriangle, X, Image as ImageIcon
 } from 'lucide-react';
 
 interface Props {
@@ -22,30 +24,6 @@ interface Props {
     globalDate?: string;
     setGlobalDate?: (date: string) => void;
 }
-
-// Deterministic HSL style helper matching Excel screenshots
-const getModelStyle = (modelNameOrRef: string, index: number) => {
-    const lower = (modelNameOrRef || '').toLowerCase();
-    if (lower.includes('01-2026') || lower.includes('01/2026') || lower.includes('01-2026-1')) {
-        return { bg: '#ffedd5', border: '#ea580c', text: '#c2410c', name: 'Orange' }; // Orange
-    }
-    if (lower.includes('02-2026') || lower.includes('02/2026')) {
-        return { bg: '#e0f2fe', border: '#0284c7', text: '#0369a1', name: 'Blue' }; // Blue
-    }
-    if (lower.includes('08/2024') || lower.includes('08-2024') || lower.includes('08')) {
-        return { bg: '#dcfce7', border: '#16a34a', text: '#15803d', name: 'Green' }; // Green
-    }
-    // Fallbacks
-    const colors = [
-        { bg: '#e0f2fe', border: '#0284c7', text: '#0369a1', name: 'Blue' },
-        { bg: '#ffedd5', border: '#ea580c', text: '#c2410c', name: 'Orange' },
-        { bg: '#dcfce7', border: '#16a34a', text: '#15803d', name: 'Green' },
-        { bg: '#f3e8ff', border: '#9333ea', text: '#7e22ce', name: 'Purple' },
-        { bg: '#fce7f3', border: '#db2777', text: '#be185d', name: 'Pink' },
-        { bg: '#fef9c3', border: '#ca8a04', text: '#a16207', name: 'Yellow' },
-    ];
-    return colors[index % colors.length];
-};
 
 const DR_LABELS = {
     title: 'تتبع الإنتاج',
@@ -160,6 +138,7 @@ export default function SuiviProduction({
     setGlobalDate,
 }: Props) {
     // 1. Core States
+    const isMobile = useIsMobile();
     const [localSelectedChaineId, localSetSelectedChaineId] = useState<string>('CHAINE 2');
     const selectedChaineId = propSelectedChaineId !== undefined ? propSelectedChaineId : localSelectedChaineId;
     const setSelectedChaineId = propSetSelectedChaineId !== undefined ? propSetSelectedChaineId : localSetSelectedChaineId;
@@ -193,6 +172,23 @@ export default function SuiviProduction({
     const [showDarija, setShowDarija] = useState<boolean>(false);
     const [selectedActiveModelId, setSelectedActiveModelId] = useState<string>('');
     const [activeCellModal, setActiveCellModal] = useState<{ dateStr: string; hourKey: string; hourLabel: string; } | null>(null);
+
+    // Couleurs choisies manuellement par OF (key = planningId/OF). Priorité sur l'auto + event.color.
+    const [ofColorOverrides, setOfColorOverrides] = useState<Record<string, string>>(() => {
+        try {
+            const saved = localStorage.getItem('beramethode_of_colors');
+            return saved ? JSON.parse(saved) : {};
+        } catch (_) {
+            return {};
+        }
+    });
+    useEffect(() => {
+        try {
+            localStorage.setItem('beramethode_of_colors', JSON.stringify(ofColorOverrides));
+        } catch (_) {}
+    }, [ofColorOverrides]);
+    const [colorPickerOpen, setColorPickerOpen] = useState<boolean>(false);
+    const [modelDropdownOpen, setModelDropdownOpen] = useState<boolean>(false);
 
     const [showStatsHeader, setShowStatsHeader] = useState<boolean>(() => {
         try {
@@ -381,57 +377,94 @@ export default function SuiviProduction({
         }
     }, [weekDays, selectedChartDate]);
 
-    // 4. Active Models list for Selected Chain & Week
+    // Clé OF stable pour un suivi : planningId si l'OF existe encore, sinon legacy `plan_<modelId>`.
+    const entryOFKey = React.useCallback((s: SuiviData): string => {
+        if (s.planningId && planningEvents.some(p => p.id === s.planningId)) return s.planningId;
+        if (s.modelId) return `plan_${s.modelId}`;
+        return s.planningId || '';
+    }, [planningEvents]);
+
+    // 4. Active Models list — UNE entrée par OF/Pedido (clé = planningId), pas par modèle.
+    // Deux Pedidos du même modèle = deux entrées distinctes avec deux couleurs.
     const activeModels = useMemo(() => {
-        const set = new Set<string>();
-        const chainPlans = planningEvents.filter(p => p.chaineId === selectedChaineId);
-        chainPlans.forEach(p => set.add(p.modelId));
-        
         const weekDates = weekDays.map(d => d.dateStr);
         const weekSuivis = suivis.filter(s => s.chaineId === selectedChaineId && weekDates.includes(s.date));
-        weekSuivis.forEach(s => {
-            if (s.modelId) set.add(s.modelId);
-            const plan = planningEvents.find(p => p.id === s.planningId);
-            if (plan) set.add(plan.modelId);
-        });
 
-        const list = Array.from(set).map((mId, index) => {
-            const m = models.find(x => x.id === mId);
-            const plan = planningEvents.find(p => p.modelId === mId && p.chaineId === selectedChaineId);
-            const name = m?.meta_data?.nom_modele || m?.filename || 'Modèle Inconnu';
-            const ref = m?.meta_data?.reference || mId.substring(0, 8);
+        const byOF = new Map<string, {
+            id: string; name: string; reference: string; sam: number; target: number;
+            produced: number; remaining: number; restPerHour: string; style: OFStyle;
+            planningId: string; modelId: string; ofTag?: string; image?: string | null; gamme: any[];
+        }>();
+
+        const addEntry = (ofKey: string, modelId: string | undefined, planningId: string, ev?: PlanningEvent) => {
+            if (!ofKey || byOF.has(ofKey)) return;
+            const m = models.find(x => x.id === modelId);
+            const name = ev?.modelName || m?.meta_data?.nom_modele || m?.filename || 'Modèle Inconnu';
+            const ref = m?.meta_data?.reference || (modelId || '').substring(0, 8) || ofKey.substring(0, 8);
             const sam = m?.meta_data?.total_temps || 12;
-            const style = getModelStyle(ref || name, index);
-            
-            const prodQty = weekSuivis
-                .filter(s => s.modelId === mId || (planningEvents.find(p => p.id === s.planningId)?.modelId === mId))
-                .reduce((acc, curr) => acc + (curr.totalHeure || 0), 0);
-
-            const target = plan?.qteTotal || m?.meta_data?.quantity || 1500;
-            const rest = target - prodQty;
-            const restPerHour = rest > 0 ? (rest / 48).toFixed(2) : '0.00';
-
-            return {
-                id: mId,
+            const override = ofColorOverrides[ofKey] || ev?.color || null;
+            const style = getOFColor(ofKey, override);
+            const target = ev?.qteTotal || m?.meta_data?.quantity || 1500;
+            const image = m?.image || m?.images?.front || m?.meta_data?.photo_url || null;
+            byOF.set(ofKey, {
+                id: ofKey,
                 name,
                 reference: ref,
                 sam,
                 target,
-                produced: prodQty,
-                remaining: rest,
-                restPerHour,
+                produced: 0,
+                remaining: target,
+                restPerHour: '0.00',
                 style,
-                planningId: plan?.id || `plan_${mId}`,
+                planningId,
+                modelId: modelId || '',
+                ofTag: undefined,
+                image,
                 gamme: m?.gamme_operatoire || [],
-            };
+            });
+        };
+
+        // a) Tous les OF planifiés sur cette chaîne.
+        planningEvents.filter(p => p.chaineId === selectedChaineId).forEach(ev => {
+            addEntry(ev.id, ev.modelId, ev.id, ev);
         });
 
-        // Fallback
+        // b) OF présents dans les suivis de la semaine (couvre legacy + données orphelines).
+        weekSuivis.forEach(s => {
+            const ofKey = entryOFKey(s);
+            if (!ofKey) return;
+            const ev = planningEvents.find(p => p.id === s.planningId);
+            addEntry(ofKey, s.modelId || ev?.modelId, ev?.id || ofKey, ev);
+        });
+
+        const list = Array.from(byOF.values());
+
+        // Tag OF court (ex: OF-1a2b) uniquement quand 2+ OF partagent la même référence,
+        // pour les distinguer sans les confondre.
+        const refCounts = new Map<string, number>();
+        list.forEach(am => refCounts.set(am.reference, (refCounts.get(am.reference) || 0) + 1));
+        list.forEach(am => {
+            if ((refCounts.get(am.reference) || 0) > 1) {
+                am.ofTag = `OF-${am.id.replace(/[^a-zA-Z0-9]/g, '').slice(-4).toUpperCase()}`;
+            }
+        });
+
+        // Production cumulée par OF.
+        list.forEach(am => {
+            const prodQty = weekSuivis
+                .filter(s => entryOFKey(s) === am.id)
+                .reduce((acc, curr) => acc + (curr.totalHeure || 0), 0);
+            am.produced = prodQty;
+            am.remaining = am.target - prodQty;
+            am.restPerHour = (am.target - prodQty) > 0 ? ((am.target - prodQty) / 48).toFixed(2) : '0.00';
+        });
+
+        // Fallback : aucun OF ni suivi → premier modèle disponible.
         if (list.length === 0 && models.length > 0) {
             const m = models[0];
-            const style = getModelStyle(m.meta_data?.nom_modele || m.id, 0);
+            const ofKey = `plan_${m.id}`;
             list.push({
-                id: m.id,
+                id: ofKey,
                 name: m.meta_data?.nom_modele || m.filename || 'Modèle de base',
                 reference: m.meta_data?.reference || m.id.substring(0, 8),
                 sam: m.meta_data?.total_temps || 10,
@@ -439,14 +472,16 @@ export default function SuiviProduction({
                 produced: 0,
                 remaining: 1000,
                 restPerHour: '20.8',
-                style,
-                planningId: `plan_${m.id}`,
+                style: getOFColor(ofKey, ofColorOverrides[ofKey]),
+                planningId: ofKey,
+                modelId: m.id,
+                image: m.image || m.images?.front || m.meta_data?.photo_url || null,
                 gamme: m.gamme_operatoire || [],
             });
         }
 
         return list;
-    }, [selectedChaineId, weekDays, suivis, planningEvents, models]);
+    }, [selectedChaineId, weekDays, suivis, planningEvents, models, ofColorOverrides, entryOFKey]);
 
     // Keep selected active model synchronized
     useEffect(() => {
@@ -491,8 +526,8 @@ export default function SuiviProduction({
         for (const entry of dayEntries) {
             const val = entry.sorties?.[hourKey];
             if (val !== undefined && val !== null) {
-                const modelId = entry.modelId || planningEvents.find(p => p.id === entry.planningId)?.modelId;
-                const mInfo = activeModels.find(x => x.id === modelId);
+                const ofKey = entryOFKey(entry);
+                const mInfo = activeModels.find(x => x.id === ofKey);
                 const defectsForHour = entry.defauts?.filter(d => d.hour === hourKey) || [];
                 const defectsQty = defectsForHour.reduce((acc, d) => acc + d.quantity, 0);
                 
@@ -507,19 +542,19 @@ export default function SuiviProduction({
             }
         }
         return null;
-    }, [suivis, selectedChaineId, planningEvents, activeModels]);
+    }, [suivis, selectedChaineId, activeModels, entryOFKey]);
 
     // Handle cell updates (quantity, model, downtime, defects)
     const handleSaveCell = (
-        dateStr: string, 
-        hourKey: string, 
-        quantity: number, 
-        modelId: string, 
+        dateStr: string,
+        hourKey: string,
+        quantity: number,
+        ofId: string,            // clé OF (= activeModel.id)
         downtime: string | null,
         defectsQty = 0,
         defectType = 'Couture'
     ) => {
-        const mInfo = activeModels.find(x => x.id === modelId);
+        const mInfo = activeModels.find(x => x.id === ofId);
         if (!mInfo) return;
 
         let newSuivis = [...suivis];
@@ -541,14 +576,14 @@ export default function SuiviProduction({
             return s;
         });
 
-        // 2. Get or initialize entry
-        let targetEntry = newSuivis.find(s => s.chaineId === selectedChaineId && s.date === dateStr && (s.modelId === modelId || s.planningId === mInfo.planningId));
-        
+        // 2. Get or initialize entry — on identifie l'OF par planningId.
+        let targetEntry = newSuivis.find(s => s.chaineId === selectedChaineId && s.date === dateStr && entryOFKey(s) === mInfo.id);
+
         if (!targetEntry) {
             targetEntry = {
-                id: `sv_${selectedChaineId}_${modelId}_${dateStr}_${Date.now()}`,
+                id: `sv_${selectedChaineId}_${mInfo.modelId}_${dateStr}_${Date.now()}`,
                 planningId: mInfo.planningId,
-                modelId: modelId,
+                modelId: mInfo.modelId,
                 chaineId: selectedChaineId,
                 date: dateStr,
                 entrer: 0,
@@ -635,9 +670,9 @@ export default function SuiviProduction({
         if (dayEntries.length === 0) {
             const mInfo = activeModels[0];
             const newEntry: SuiviData = {
-                id: `sv_${selectedChaineId}_${mInfo.id}_${dateStr}_${Date.now()}`,
+                id: `sv_${selectedChaineId}_${mInfo.modelId}_${dateStr}_${Date.now()}`,
                 planningId: mInfo.planningId,
-                modelId: mInfo.id,
+                modelId: mInfo.modelId,
                 chaineId: selectedChaineId,
                 date: dateStr,
                 entrer: 0,
@@ -674,19 +709,19 @@ export default function SuiviProduction({
         handleSave(newSuivis);
     };
 
-    // Sizing & WIP edits
-    const handleSaveSizes = (modelId: string, sizeKey: string, type: 'entree' | 'sortie', val: number) => {
+    // Sizing & WIP edits — ofId = clé OF (activeModel.id)
+    const handleSaveSizes = (ofId: string, sizeKey: string, type: 'entree' | 'sortie', val: number) => {
         let newSuivis = [...suivis];
         const weekDates = weekDays.map(d => d.dateStr);
         const latestDate = weekDates[weekDates.length - 1];
+        const mInfo = activeModels.find(x => x.id === ofId) || activeModels[0];
 
-        let entry = newSuivis.find(s => s.chaineId === selectedChaineId && s.modelId === modelId);
+        let entry = newSuivis.find(s => s.chaineId === selectedChaineId && entryOFKey(s) === ofId);
         if (!entry) {
-            const mInfo = activeModels.find(x => x.id === modelId) || activeModels[0];
             entry = {
-                id: `sv_${selectedChaineId}_${modelId}_${latestDate}_${Date.now()}`,
+                id: `sv_${selectedChaineId}_${mInfo.modelId}_${latestDate}_${Date.now()}`,
                 planningId: mInfo.planningId,
-                modelId: modelId,
+                modelId: mInfo.modelId,
                 chaineId: selectedChaineId,
                 date: latestDate,
                 entrer: 0,
@@ -762,8 +797,7 @@ export default function SuiviProduction({
         const yields: { modelName: string; efficiency: number; style: any }[] = [];
         
         dayEntries.forEach(s => {
-            const modelId = s.modelId || planningEvents.find(p => p.id === s.planningId)?.modelId;
-            const mInfo = activeModels.find(x => x.id === modelId);
+            const mInfo = activeModels.find(x => x.id === entryOFKey(s));
             if (!mInfo) return;
 
             let modelMinutes = 0;
@@ -797,8 +831,7 @@ export default function SuiviProduction({
         if (totalM > 0 && activeMinutes > 0 && totalPiece > 0) {
             let totalEarnedMinutes = 0;
             dayEntries.forEach(s => {
-                const modelId = s.modelId || planningEvents.find(p => p.id === s.planningId)?.modelId;
-                const mInfo = activeModels.find(x => x.id === modelId);
+                const mInfo = activeModels.find(x => x.id === entryOFKey(s));
                 if (mInfo) {
                     totalEarnedMinutes += (s.totalHeure || 0) * mInfo.sam;
                 }
@@ -838,7 +871,7 @@ export default function SuiviProduction({
         const defaultSizes = ['S', 'M', 'L', 'XL'];
         if (!selectedActiveModelId) return [];
 
-        const chainSuivis = suivis.filter(s => s.chaineId === selectedChaineId && s.modelId === selectedActiveModelId);
+        const chainSuivis = suivis.filter(s => s.chaineId === selectedChaineId && entryOFKey(s) === selectedActiveModelId);
         const sizeMap: Record<string, { entree: number; sortie: number }> = {};
         defaultSizes.forEach(s => { sizeMap[s] = { entree: 0, sortie: 0 }; });
 
@@ -863,7 +896,7 @@ export default function SuiviProduction({
                 isBottleneck: encours > 50,
             };
         });
-    }, [selectedActiveModelId, selectedChaineId, suivis]);
+    }, [selectedActiveModelId, selectedChaineId, suivis, entryOFKey]);
 
     // Skill Matching Verification
     const skillCheckResults = useMemo(() => {
@@ -951,7 +984,7 @@ export default function SuiviProduction({
         }[] = [];
 
         activeModels.forEach(am => {
-            const model = models.find(m => m.id === am.id);
+            const model = models.find(m => m.id === am.modelId);
             if (!model?.ficheData?.materials?.length) return;
 
             model.ficheData.materials.forEach(mat => {
@@ -995,7 +1028,7 @@ export default function SuiviProduction({
 
                 if (severity) {
                     alerts.push({
-                        modelId: am.id,
+                        modelId: am.modelId,
                         modelName: am.name,
                         modelRef: am.reference,
                         materialName: mat.name,
@@ -1019,37 +1052,133 @@ export default function SuiviProduction({
         <div className="flex flex-col h-full bg-[#fafbfe] overflow-hidden font-sans antialiased text-slate-800">
             
             {/* Top SaaS Header Bar */}
-            <div className="bg-white border-b border-slate-100 px-6 py-4 flex flex-wrap items-center justify-between gap-4 shrink-0 shadow-sm z-20">
-                <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-2xl bg-indigo-600 flex items-center justify-center text-white shadow-md shadow-indigo-600/20">
-                        <Activity className="w-5 h-5" />
+            <div className="bg-white border-b border-slate-200/60 px-3 py-2.5 sm:px-6 sm:py-4 flex flex-wrap items-center justify-between gap-2 sm:gap-4 shrink-0 shadow-sm z-20">
+                <div className="flex items-center gap-2 sm:gap-3">
+                    <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl sm:rounded-2xl bg-indigo-600 flex items-center justify-center text-white shadow-sm shrink-0">
+                        <Activity className="w-4 h-4 sm:w-5 sm:h-5" />
                     </div>
                     <div>
-                        <h1 className="text-lg font-black tracking-tight flex items-center gap-2">
-                            {l.title} <span className="text-xs bg-indigo-50 border border-indigo-100 text-indigo-700 px-2 py-0.5 rounded-lg font-bold">{showDarija ? 'الجدول المباشر' : 'Grille Directe'}</span>
+                        <h1 className="text-[15px] sm:text-lg font-black tracking-tight flex items-center gap-2">
+                            {l.title} <span className="hidden sm:inline text-xs bg-indigo-50 border border-indigo-100 text-indigo-700 px-2 py-0.5 rounded-lg font-bold">{showDarija ? 'الجدول المباشر' : 'Grille Directe'}</span>
                         </h1>
-                        <p className="text-xs text-slate-400 font-medium">{l.subtitle}</p>
+                        <p className="hidden sm:block text-xs text-slate-400 font-medium">{l.subtitle}</p>
                     </div>
                 </div>
 
                 {/* Filters Row */}
-                <div className="flex flex-wrap items-center gap-3">
+                <div className="flex flex-wrap items-center gap-1.5 sm:gap-3">
                     
-                    {/* Active Entry Model Selector */}
+                    {/* Active Entry Model (OF) Selector + color picker */}
                     {activeModels.length > 0 && (
-                        <div className="flex items-center gap-2 bg-indigo-50/50 border border-indigo-100 rounded-xl px-3 py-1.5 shadow-sm">
+                        <div className="relative flex items-center gap-2 bg-indigo-50/50 border border-indigo-100 rounded-xl px-3 py-1.5 shadow-sm">
                             <span className="text-[10px] font-black text-indigo-700 uppercase tracking-widest">
                                 {l.activeModel} :
                             </span>
-                            <select
-                                value={selectedActiveModelId}
-                                onChange={(e) => setSelectedActiveModelId(e.target.value)}
-                                className="bg-transparent text-xs font-black text-indigo-900 outline-none cursor-pointer"
+                            {/* Color swatch — clic pour changer la couleur de l'OF */}
+                            <button
+                                type="button"
+                                onClick={() => setColorPickerOpen(o => !o)}
+                                title={showDarija ? 'بدّل لون الموديل' : 'Changer la couleur du modèle'}
+                                className="w-4 h-4 rounded-md border shrink-0 shadow-sm transition-transform hover:scale-110"
+                                style={{ backgroundColor: activeModel?.style.base, borderColor: activeModel?.style.border }}
+                            />
+                            {/* Custom dropdown avec vignette photo du modèle */}
+                            <button
+                                type="button"
+                                onClick={() => { setModelDropdownOpen(o => !o); setColorPickerOpen(false); }}
+                                className="flex items-center gap-2 bg-transparent text-xs font-black text-indigo-900 outline-none cursor-pointer max-w-[260px]"
                             >
-                                {activeModels.map(m => (
-                                    <option key={m.id} value={m.id}>{m.reference || m.name} ({m.name})</option>
-                                ))}
-                            </select>
+                                {activeModel?.image ? (
+                                    <img src={activeModel.image} alt="" className="w-7 h-7 rounded-lg object-cover border border-indigo-100 shrink-0" />
+                                ) : (
+                                    <span className="w-7 h-7 rounded-lg border border-indigo-100 bg-indigo-50 flex items-center justify-center shrink-0 text-indigo-300">
+                                        <ImageIcon className="w-3.5 h-3.5" />
+                                    </span>
+                                )}
+                                <span className="truncate">
+                                    {activeModel?.reference}{activeModel?.ofTag ? ` · ${activeModel.ofTag}` : ''}
+                                </span>
+                                <ChevronRight className={`w-3.5 h-3.5 shrink-0 text-indigo-400 transition-transform ${modelDropdownOpen ? 'rotate-90' : ''}`} />
+                            </button>
+
+                            {/* Model dropdown popover */}
+                            {modelDropdownOpen && (
+                                <>
+                                    <div className="fixed inset-0 z-40" onClick={() => setModelDropdownOpen(false)} />
+                                    <div className="absolute top-full left-0 mt-2 z-50 bg-white border border-slate-200 rounded-2xl shadow-xl p-1.5 w-72 max-h-80 overflow-y-auto animate-in fade-in zoom-in-95 duration-150">
+                                        {activeModels.map(m => (
+                                            <button
+                                                key={m.id}
+                                                type="button"
+                                                onClick={() => { setSelectedActiveModelId(m.id); setModelDropdownOpen(false); }}
+                                                className={`w-full flex items-center gap-2.5 px-2 py-1.5 rounded-xl text-left transition-colors ${
+                                                    m.id === selectedActiveModelId ? 'bg-indigo-50 ring-1 ring-indigo-200' : 'hover:bg-slate-50'
+                                                }`}
+                                            >
+                                                {m.image ? (
+                                                    <img src={m.image} alt="" className="w-9 h-9 rounded-lg object-cover border border-slate-100 shrink-0" />
+                                                ) : (
+                                                    <span className="w-9 h-9 rounded-lg border border-slate-100 bg-slate-50 flex items-center justify-center shrink-0 text-slate-300">
+                                                        <ImageIcon className="w-4 h-4" />
+                                                    </span>
+                                                )}
+                                                <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: m.style.base }} />
+                                                <div className="min-w-0 flex-1">
+                                                    <p className="text-xs font-black text-slate-800 truncate">
+                                                        {m.reference}{m.ofTag ? ` · ${m.ofTag}` : ''}
+                                                    </p>
+                                                    <p className="text-[10px] text-slate-400 font-bold truncate">{m.name}</p>
+                                                </div>
+                                            </button>
+                                        ))}
+                                    </div>
+                                </>
+                            )}
+
+                            {/* Palette popover */}
+                            {colorPickerOpen && activeModel && (
+                                <div className="absolute top-full left-0 mt-2 z-50 bg-white border border-slate-200 rounded-2xl shadow-xl p-3 w-56 animate-in fade-in zoom-in-95 duration-150">
+                                    <div className="flex items-center justify-between mb-2">
+                                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                                            {showDarija ? 'لون الموديل' : 'Couleur du modèle'}
+                                        </span>
+                                        <button onClick={() => setColorPickerOpen(false)} className="text-slate-300 hover:text-slate-500">
+                                            <X className="w-3.5 h-3.5" />
+                                        </button>
+                                    </div>
+                                    <div className="grid grid-cols-6 gap-1.5">
+                                        {OF_COLOR_CHOICES.map(c => (
+                                            <button
+                                                key={c}
+                                                type="button"
+                                                onClick={() => { setOfColorOverrides(prev => ({ ...prev, [activeModel.id]: c })); setColorPickerOpen(false); }}
+                                                className={`w-6 h-6 rounded-lg border transition-transform hover:scale-110 ${activeModel.style.base === c.toLowerCase() ? 'ring-2 ring-offset-1 ring-indigo-500' : ''}`}
+                                                style={{ backgroundColor: c, borderColor: c }}
+                                                title={c}
+                                            />
+                                        ))}
+                                    </div>
+                                    <div className="flex items-center justify-between mt-3 pt-2 border-t border-slate-100">
+                                        <label className="flex items-center gap-1.5 text-[10px] font-bold text-slate-500 cursor-pointer">
+                                            <input
+                                                type="color"
+                                                value={activeModel.style.base}
+                                                onChange={(e) => setOfColorOverrides(prev => ({ ...prev, [activeModel.id]: e.target.value }))}
+                                                className="w-5 h-5 rounded cursor-pointer border-0 bg-transparent p-0"
+                                            />
+                                            {showDarija ? 'مخصّص' : 'Personnalisé'}
+                                        </label>
+                                        {ofColorOverrides[activeModel.id] && (
+                                            <button
+                                                onClick={() => { setOfColorOverrides(prev => { const n = { ...prev }; delete n[activeModel.id]; return n; }); setColorPickerOpen(false); }}
+                                                className="text-[10px] font-bold text-rose-500 hover:text-rose-700"
+                                            >
+                                                {showDarija ? 'إرجاع الأوتوماتيكي' : 'Réinitialiser'}
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     )}
 
@@ -1071,12 +1200,13 @@ export default function SuiviProduction({
                     </div>
 
                     {/* Week Selector */}
-                    <div className="flex items-center bg-white border border-slate-200 rounded-xl px-2.5 py-1 shadow-sm gap-2">
+                    <div className="flex items-center bg-white border border-slate-200 rounded-xl px-1.5 sm:px-2.5 py-1 shadow-sm gap-1 sm:gap-2">
                         <button onClick={() => changeWeek(-1)} className="p-1 hover:bg-slate-50 rounded-lg text-slate-500 hover:text-slate-900 transition-colors">
                             <ChevronLeft className="w-4 h-4" />
                         </button>
-                        <span className="text-xs font-bold text-slate-700">
-                            {showDarija ? 'أسبوع من' : 'Semaine du'} {weekDays[0]?.displayDate.substring(0, 5)} {showDarija ? 'إلى' : 'au'} {weekDays[5]?.displayDate}
+                        <span className="text-[11px] sm:text-xs font-bold text-slate-700 tabular-nums">
+                            <span className="hidden sm:inline">{showDarija ? 'أسبوع من' : 'Semaine du'} </span>
+                            {weekDays[0]?.displayDate.substring(0, 5)} <span className="hidden sm:inline">{showDarija ? 'إلى' : 'au'} {weekDays[5]?.displayDate}</span><span className="sm:hidden">–{weekDays[5]?.displayDate.substring(0, 5)}</span>
                         </span>
                         <button onClick={() => changeWeek(1)} className="p-1 hover:bg-slate-50 rounded-lg text-slate-500 hover:text-slate-900 transition-colors">
                             <ChevronRight className="w-4 h-4" />
@@ -1112,44 +1242,29 @@ export default function SuiviProduction({
                     {/* Stats Toggle Button */}
                     <button
                         onClick={() => setShowStatsHeader(!showStatsHeader)}
-                        className={`flex items-center gap-1.5 px-3 py-1.5 border rounded-xl text-xs font-bold transition-all shadow-sm ${
-                            showStatsHeader 
-                                ? 'bg-indigo-50 text-indigo-800 border-indigo-200 ring-2 ring-indigo-500/10' 
+                        title={showDarija ? 'المؤشرات' : 'Stats'}
+                        className={`flex items-center gap-1.5 px-2 sm:px-3 py-1.5 border rounded-xl text-xs font-bold transition-all shadow-sm ${
+                            showStatsHeader
+                                ? 'bg-indigo-50 text-indigo-800 border-indigo-200 ring-2 ring-indigo-500/10'
                                 : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'
                         }`}
                     >
                         <BarChart2 className="w-4 h-4 text-indigo-600" />
-                        <span>{showDarija ? 'المؤشرات' : 'Stats'}</span>
+                        <span className="hidden sm:inline">{showDarija ? 'المؤشرات' : 'Stats'}</span>
                     </button>
 
                     {/* Override Toggle Switch */}
                     <button
                         onClick={() => setIsOverrideMode(!isOverrideMode)}
-                        className={`flex items-center gap-2 px-3 py-1.5 border rounded-xl text-xs font-bold transition-all shadow-sm ${
-                            isOverrideMode 
-                                ? 'bg-amber-50 text-amber-800 border-amber-200' 
+                        title={showDarija ? 'وضعية التعديل' : 'Mode Modification'}
+                        className={`flex items-center gap-2 px-2 sm:px-3 py-1.5 border rounded-xl text-xs font-bold transition-all shadow-sm ${
+                            isOverrideMode
+                                ? 'bg-amber-50 text-amber-800 border-amber-200'
                                 : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'
                         }`}
                     >
                         {isOverrideMode ? <ToggleRight className="w-5 h-5 text-amber-600" /> : <ToggleLeft className="w-5 h-5 text-slate-400" />}
-                        {showDarija ? 'وضعية التعديل' : 'Mode Modification'}
-                    </button>
-
-                    {/* Darija Translation Toggle */}
-                    <button
-                        onClick={() => {
-                            const next = !showDarija;
-                            setShowDarija(next);
-                            if (next) playChime();
-                        }}
-                        className={`flex items-center gap-2 px-3 py-1.5 border rounded-xl text-xs font-black transition-all shadow-sm ${
-                            showDarija 
-                                ? 'bg-indigo-50 text-indigo-800 border-indigo-200 ring-2 ring-indigo-500/10' 
-                                : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'
-                        }`}
-                    >
-                        <span>🗣️ الدارجة</span>
-                        <span className="text-[10px] opacity-70">Darija</span>
+                        <span className="hidden sm:inline">{showDarija ? 'وضعية التعديل' : 'Mode Modification'}</span>
                     </button>
 
                     {/* Save State Indicator */}
@@ -1160,7 +1275,7 @@ export default function SuiviProduction({
             </div>
 
             {/* Scrollable Container */}
-            <div className="flex-1 overflow-y-auto p-6 space-y-6">
+            <div className="flex-1 overflow-y-auto p-3 sm:p-6 space-y-3 sm:space-y-6">
 
                 {/* Upper Cards: Supervisor & Active Models & Yield Summary */}
                 {showStatsHeader && (
@@ -1250,11 +1365,9 @@ export default function SuiviProduction({
                 )}
 
                 {/* Primary Weekly Grid Table */}
-                <div className="bg-white border border-slate-100 rounded-3xl shadow-sm overflow-hidden z-10 relative">
-                    {/* Horizontal scroll helper for mobile */}
-                    <div className="md:hidden flex items-center justify-center gap-1.5 py-2 px-4 bg-indigo-50/50 border-b border-slate-100 text-[10px] font-black text-indigo-700">
-                        <span>{showDarija ? '← اسحب الجدول أفقياً لمشاهدة جميع الساعات →' : '← Glissez horizontalement pour voir toutes les heures →'}</span>
-                    </div>
+                <div className="bg-white border border-slate-200/60 rounded-2xl shadow-sm overflow-hidden z-10 relative">
+                    {/* ─── Desktop : tableau hebdomadaire complet ─── */}
+                    {!isMobile && (
                     <div className="overflow-x-auto scrollbar-thin">
                         <table className="w-full text-left border-collapse min-w-[1300px] sm:min-w-[1700px]">
                             <thead>
@@ -1442,11 +1555,158 @@ export default function SuiviProduction({
                             </tbody>
                         </table>
                     </div>
+                    )}
+
+                    {/* ─── Mobile : vue jour unique (jour sélectionné, heures verticales) ─── */}
+                    {isMobile && (
+                        <div className="p-3 space-y-3">
+                            {/* Day pills */}
+                            <div className="flex gap-1.5 overflow-x-auto no-scrollbar -mx-1 px-1">
+                                {weekDays.map(day => {
+                                    const isSel = selectedChartDate === day.dateStr;
+                                    const dm = getDailyMetrics(day.dateStr);
+                                    return (
+                                        <button
+                                            key={day.dateStr}
+                                            type="button"
+                                            onClick={() => setSelectedChartDate(day.dateStr)}
+                                            className={`shrink-0 flex flex-col items-center justify-center rounded-xl border px-3 py-1.5 transition-all ${
+                                                isSel ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                                            }`}
+                                        >
+                                            <span className="text-[11px] font-black leading-tight">{day.label.substring(0, 3)}</span>
+                                            <span className={`text-[9px] font-bold tabular-nums ${isSel ? 'text-indigo-100' : 'text-slate-400'}`}>{day.displayDate.substring(0, 5)}</span>
+                                            {dm.totalPiece > 0 && (
+                                                <span className={`mt-0.5 text-[9px] font-black tabular-nums ${isSel ? 'text-white' : 'text-indigo-600'}`}>{dm.totalPiece}</span>
+                                            )}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+
+                            {selectedChartDate && (() => {
+                                const dm = getDailyMetrics(selectedChartDate);
+                                return (
+                                    <>
+                                        {/* Résumé jour compact */}
+                                        <div className="grid grid-cols-4 gap-1.5">
+                                            {[
+                                                { lbl: showDarija ? 'الإنتاج' : 'P.Jour', val: dm.totalPiece, accent: 'text-slate-800' },
+                                                { lbl: showDarija ? 'ساعات' : 'Tot.H', val: dm.totalHeur, accent: 'text-slate-800' },
+                                                { lbl: showDarija ? 'خدّامة' : 'Effectif', val: dm.totalM, accent: 'text-slate-800' },
+                                                { lbl: 'R.Day', val: dm.rTotalDay > 0 ? `${dm.rTotalDay}%` : '—', accent: dm.rTotalDay >= 90 ? 'text-emerald-600' : dm.rTotalDay >= 80 ? 'text-orange-500' : 'text-rose-600' },
+                                            ].map((c, i) => (
+                                                <div key={i} className="bg-slate-50 border border-slate-100 rounded-xl px-2 py-1.5 text-center">
+                                                    <span className="block text-[8px] font-black uppercase tracking-wider text-slate-400">{c.lbl}</span>
+                                                    <span className={`block text-[13px] font-black tabular-nums ${c.accent}`}>{c.val}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+
+                                        {/* Effectif inline éditable */}
+                                        <div className="flex items-center justify-between bg-white border border-slate-200 rounded-xl px-3 py-1.5">
+                                            <span className="text-[11px] font-bold text-slate-500">{showDarija ? 'عدد الخدّامة' : 'Effectif du jour'}</span>
+                                            <input
+                                                type="number"
+                                                inputMode="numeric"
+                                                value={dm.totalM || ''}
+                                                onChange={(e) => handleSaveWorkers(selectedChartDate, { totalWorkers: Math.max(0, parseInt(e.target.value) || 0) })}
+                                                className="w-16 text-center font-black text-[13px] bg-slate-50 border border-slate-200 rounded-lg py-1 focus:bg-white focus:border-indigo-500 outline-none tabular-nums [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                                placeholder="0"
+                                                min="0"
+                                            />
+                                        </div>
+
+                                        {/* Liste verticale des heures */}
+                                        <div className="space-y-1.5">
+                                            {hourBlocks.map(h => {
+                                                const cell = getCellMeta(selectedChartDate, h.key);
+                                                const cellStyle = cell?.model ? { backgroundColor: cell.model.style.bg, color: cell.model.style.text, borderColor: cell.model.style.border } : null;
+                                                const hourBlockLimit = parseInt(h.label.split('/')[1]?.split(':')[0] || '18');
+                                                const isFutureHour = new Date(selectedChartDate).setHours(hourBlockLimit) > Date.now();
+                                                const isCellLocked = isFutureHour && !isOverrideMode;
+                                                const displayValue = cell?.downtime || (cell?.value !== undefined && cell?.value !== null && cell.value !== 0 ? cell.value : '');
+                                                return (
+                                                    <div key={h.key} className="flex items-center gap-2">
+                                                        <span className="w-[88px] shrink-0 text-[11px] font-bold text-slate-500 tabular-nums">{h.label}</span>
+                                                        <input
+                                                            type="text"
+                                                            disabled={isCellLocked}
+                                                            value={displayValue}
+                                                            onDoubleClick={() => !isCellLocked && handleOpenCellModal(selectedChartDate, h.key, h.label)}
+                                                            onChange={(e) => {
+                                                                const valStr = e.target.value.trim().toUpperCase();
+                                                                const ofId = selectedActiveModelId || activeModels[0]?.id;
+                                                                if (['L', 'P', 'M', 'S'].includes(valStr)) {
+                                                                    handleSaveCell(selectedChartDate, h.key, 0, ofId, valStr, 0, 'Couture');
+                                                                } else {
+                                                                    const parsedVal = valStr === '' ? 0 : parseInt(valStr) || 0;
+                                                                    handleSaveCell(selectedChartDate, h.key, parsedVal, ofId, null, 0, 'Couture');
+                                                                }
+                                                            }}
+                                                            style={cellStyle ? { backgroundColor: cellStyle.backgroundColor, color: cellStyle.color, borderColor: cellStyle.borderColor } : {}}
+                                                            className={`flex-1 h-9 text-center text-[13px] font-black outline-none border transition-all rounded-lg ${
+                                                                cellStyle ? 'shadow-sm border-transparent' : isCellLocked ? 'bg-slate-50/50 border-slate-100 text-slate-300' : 'bg-white border-slate-200 focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600'
+                                                            }`}
+                                                            placeholder="—"
+                                                        />
+                                                        {cell?.defectsQty !== undefined && cell.defectsQty > 0 && (
+                                                            <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0" title={`Défauts: ${cell.defectsQty}`} />
+                                                        )}
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => !isCellLocked && handleOpenCellModal(selectedChartDate, h.key, h.label)}
+                                                            disabled={isCellLocked}
+                                                            className="w-8 h-9 shrink-0 flex items-center justify-center rounded-lg text-slate-400 hover:bg-slate-50 disabled:opacity-30"
+                                                            title={showDarija ? 'تفاصيل' : 'Détails'}
+                                                        >
+                                                            <Sliders className="w-3.5 h-3.5" />
+                                                        </button>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    </>
+                                );
+                            })()}
+                        </div>
+                    )}
+
+                    {/* ═══ Ligne TOTAL : production par modèle (OF) + total général ═══ */}
+                    <div className="border-t border-slate-100 bg-slate-50/60 px-4 py-3 flex flex-wrap items-center gap-2">
+                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 mr-1">
+                            {showDarija ? 'مجموع الإنتاج' : 'Total production'} :
+                        </span>
+                        {activeModels.filter(m => m.produced > 0).length === 0 ? (
+                            <span className="text-[11px] text-slate-400 font-medium">
+                                {showDarija ? 'ما كاين حتى إنتاج مسجّل هاد الأسبوع' : 'Aucune production enregistrée cette semaine'}
+                            </span>
+                        ) : (
+                            <>
+                                {activeModels.filter(m => m.produced > 0).map(m => (
+                                    <span
+                                        key={m.id}
+                                        className="inline-flex items-center gap-1.5 rounded-lg border px-2 py-0.5 text-[11px] font-bold tabular-nums"
+                                        style={{ backgroundColor: m.style.bg, borderColor: m.style.border, color: m.style.text }}
+                                        title={`${m.name} — ${m.ofTag || ''}`}
+                                    >
+                                        <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: m.style.base }} />
+                                        <span className="truncate max-w-[140px]">{m.reference}{m.ofTag ? ` · ${m.ofTag}` : ''}</span>
+                                        <span className="font-black">{m.produced} {showDarija ? 'بياسة' : 'pcs'}</span>
+                                    </span>
+                                ))}
+                                <span className="ml-auto inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 text-white px-2.5 py-0.5 text-[11px] font-black tabular-nums shadow-sm">
+                                    {showDarija ? 'الإجمالي' : 'TOTAL'} : {activeModels.reduce((acc, m) => acc + m.produced, 0)} {showDarija ? 'بياسة' : 'pcs'}
+                                </span>
+                            </>
+                        )}
+                    </div>
                 </div>
 
                 {/* SVG Live sparkline chart & OEE/TRS KPI dashboard */}
                 {selectedChartDate && activeChartMetrics && (
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-in fade-in duration-300">
+                  <Section isMobile={isMobile} title={showDarija ? 'الرسم البياني و TRS' : 'Rendement & TRS'} icon={<BarChart2 className="w-4 h-4 text-indigo-600 shrink-0" />}>
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 sm:gap-6 animate-in fade-in duration-300">
                         
                         {/* Sparkline chart */}
                         <div className="lg:col-span-2 bg-white border border-slate-100 rounded-3xl p-5 shadow-sm">
@@ -1596,11 +1856,13 @@ export default function SuiviProduction({
                         </div>
 
                     </div>
+                  </Section>
                 )}
 
                 {/* Expandable Sidebar Grid: Sizes & WIP Matrix & Skills Check */}
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                    
+                <Section isMobile={isMobile} title={showDarija ? 'العبر و WIP والكفاءات' : 'Tailles, WIP & Compétences'} icon={<Layers className="w-4 h-4 text-indigo-600 shrink-0" />}>
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 sm:gap-6">
+
                     {/* WIP & Sizing Control Box */}
                     <div className="lg:col-span-2 bg-white border border-slate-100 rounded-3xl p-5 shadow-sm">
                         <div className="flex flex-wrap items-center justify-between border-b border-slate-50 pb-3 mb-4 gap-3">
@@ -1679,7 +1941,8 @@ export default function SuiviProduction({
                         </div>
                     </div>
 
-                    {/* Skill Matching & Machine Certification Box */}
+                    {/* Skill Matching & Machine Certification Box — masqué si les alertes machines sont désactivées (Configuration) */}
+                    {settings.machineAlertsEnabled !== false && (
                     <div className="bg-white border border-slate-100 rounded-3xl p-5 shadow-sm flex flex-col justify-between">
                         <div>
                             <div className="flex items-center gap-2 border-b border-slate-50 pb-3 mb-4">
@@ -1773,8 +2036,10 @@ export default function SuiviProduction({
                             Relie la gamme de montage aux qualifications enregistrées dans la base RH de l'usine pour éviter les baisses de rendement liées au mauvais placement des ouvrières.
                         </p>
                     </div>
+                    )}
 
                 </div>
+                </Section>
 
                 {/* ═══ LOGISTICS: Overconsumption Alert Banner (Alerte Surconsommation) ═══ */}
                 {consumptionAlerts.length > 0 && (
@@ -1905,7 +2170,8 @@ export default function SuiviProduction({
                 )}
 
                 {/* Legend & Instructions footer */}
-                <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 bg-white border border-slate-100 rounded-3xl p-5 shadow-sm text-xs font-semibold text-slate-500">
+                <Section isMobile={isMobile} title={showDarija ? 'رموز التوقفات' : 'Légende downtimes'} icon={<Info className="w-4 h-4 text-indigo-600 shrink-0" />}>
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 bg-white border border-slate-200/60 rounded-2xl p-3 sm:p-5 shadow-sm text-xs font-semibold text-slate-500">
                     <div className="flex flex-wrap items-center gap-4">
                         <span className="font-bold">{showDarija ? 'رموز التوقفات :' : 'Légende downtimes :'}</span>
                         <span className="flex items-center gap-1.5"><span className="w-6 py-0.5 rounded text-[10px] font-black bg-slate-500 text-white text-center">L</span> {showDarija ? 'غداء (60د)' : 'Déjeuner (60m)'}</span>
@@ -1915,6 +2181,7 @@ export default function SuiviProduction({
                     </div>
                     <p className="text-slate-400 font-medium">{showDarija ? 'التوقفات والأعطال كتقص تلقائياً من ساعات العمل الحقيقية باش نحسبو المردودية بدقة.' : 'Les pannes et pauses réduisent automatiquement le temps de travail effectif utilisé pour calculer le rendement (R%).'}</p>
                 </div>
+                </Section>
 
             </div>
 
@@ -2008,7 +2275,9 @@ function CellDetailsModal({
                             className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 font-bold text-slate-800 outline-none focus:border-indigo-500 focus:bg-white transition-all"
                         >
                             {activeModels.map(m => (
-                                <option key={m.id} value={m.id}>{m.reference || m.name} ({m.name})</option>
+                                <option key={m.id} value={m.id}>
+                                    {m.reference}{m.ofTag ? ` · ${m.ofTag}` : ''} ({m.name})
+                                </option>
                             ))}
                         </select>
                     </div>
@@ -2111,6 +2380,36 @@ function CellDetailsModal({
                     </button>
                 </div>
             </div>
+        </div>
+    );
+}
+
+// Section repliable — sur mobile: header cliquable + contenu fermé par défaut.
+// Sur desktop: rendu normal (toujours ouvert, sans toggle).
+interface SectionProps {
+    title: string;
+    isMobile: boolean;
+    children: React.ReactNode;
+    defaultOpen?: boolean;
+    icon?: React.ReactNode;
+    badge?: React.ReactNode;
+}
+function Section({ title, isMobile, children, defaultOpen = false, icon, badge }: SectionProps) {
+    const [open, setOpen] = useState<boolean>(defaultOpen);
+    if (!isMobile) return <>{children}</>;
+    return (
+        <div>
+            <button
+                type="button"
+                onClick={() => setOpen(o => !o)}
+                className="w-full flex items-center gap-2 px-3 py-2.5 text-left bg-white border border-slate-200/60 rounded-2xl shadow-sm"
+            >
+                {icon}
+                <span className="text-[13px] font-black text-slate-800 flex-1 truncate">{title}</span>
+                {badge}
+                <ChevronRight className={`w-4 h-4 text-slate-400 shrink-0 transition-transform ${open ? 'rotate-90' : ''}`} />
+            </button>
+            {open && <div className="mt-1.5 animate-in fade-in duration-200">{children}</div>}
         </div>
     );
 }
