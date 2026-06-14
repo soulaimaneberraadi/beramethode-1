@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { ModelData, SubcontractOrder } from '../types';
+import { ModelData, SubcontractOrder, PlanningEvent } from '../types';
 import { 
   Truck, Plus, Search, Trash2, Edit2, X, Check, 
   AlertCircle, Calendar, DollarSign, Package, 
@@ -10,6 +10,9 @@ import {
 interface SousTraitanceProps {
   models: ModelData[];
   settings?: any;
+  onNavigate?: (view: string) => void;
+  planningEvents?: PlanningEvent[];
+  setPlanningEvents?: React.Dispatch<React.SetStateAction<PlanningEvent[]>>;
 }
 
 interface BatchInput {
