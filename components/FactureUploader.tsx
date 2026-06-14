@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { FileText, Upload, Trash2, X, Receipt, Loader2 } from 'lucide-react';
+import { FileText, Upload, Trash2, X, Receipt, Loader2, Camera } from 'lucide-react';
 import { addFacture, listFactures, getFactureBlob, deleteFacture, FactureMeta } from '../lib/factureStore';
 
 interface FactureUploaderProps {
@@ -7,6 +7,65 @@ interface FactureUploaderProps {
     materialName: string;
     /** Libellé court pour le bouton déclencheur. */
     label?: string;
+}
+
+/**
+ * Compresse une image côté client pour réduire la consommation d'espace de stockage IndexedDB.
+ */
+function compressImage(file: File): Promise<Blob | File> {
+    return new Promise((resolve) => {
+        if (!file.type.startsWith('image/')) {
+            resolve(file);
+            return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            const img = new Image();
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                let width = img.width;
+                let height = img.height;
+                
+                const MAX_DIM = 1200; // Dimension maximale de 1200px
+                if (width > MAX_DIM || height > MAX_DIM) {
+                    if (width > height) {
+                        height = Math.round((height * MAX_DIM) / width);
+                        width = MAX_DIM;
+                    } else {
+                        width = Math.round((width * MAX_DIM) / height);
+                        height = MAX_DIM;
+                    }
+                }
+
+                canvas.width = width;
+                canvas.height = height;
+
+                const ctx = canvas.getContext('2d');
+                if (!ctx) {
+                    resolve(file);
+                    return;
+                }
+
+                ctx.drawImage(img, 0, 0, width, height);
+                canvas.toBlob(
+                    (blob) => {
+                        if (blob) {
+                            resolve(blob);
+                        } else {
+                            resolve(file);
+                        }
+                    },
+                    'image/jpeg',
+                    0.6 // compression à 60% de qualité
+                );
+            };
+            img.onerror = () => resolve(file);
+            img.src = event.target?.result as string;
+        };
+        reader.onerror = () => resolve(file);
+        reader.readAsDataURL(file);
+    });
 }
 
 /**
@@ -21,6 +80,7 @@ const FactureUploader: React.FC<FactureUploaderProps> = ({ modelId, materialName
     const [loading, setLoading] = useState(false);
     const [uploading, setUploading] = useState(false);
     const fileRef = useRef<HTMLInputElement>(null);
+    const cameraRef = useRef<HTMLInputElement>(null);
     const urlsRef = useRef<Record<string, string>>({});
 
     const revokeAll = () => {
@@ -53,18 +113,32 @@ const FactureUploader: React.FC<FactureUploaderProps> = ({ modelId, materialName
         setUploading(true);
         for (const file of Array.from(files)) {
             try {
+                let fileToSave: Blob | File = file;
+                let fileName = file.name;
+                
+                // Compression d'image si applicable
+                if (file.type.startsWith('image/')) {
+                    fileToSave = await compressImage(file);
+                    if (!fileName.toLowerCase().endsWith('.jpg') && !fileName.toLowerCase().endsWith('.jpeg')) {
+                        fileName = fileName.includes('.') 
+                            ? `${fileName.slice(0, fileName.lastIndexOf('.'))}.jpg`
+                            : `${fileName}.jpg`;
+                    }
+                }
+
                 await addFacture({
                     id: `INV-${Date.now()}-${Math.floor(Math.random() * 10000)}`,
                     modelId,
                     materialName,
-                    fileName: file.name,
-                    mimeType: file.type || 'application/octet-stream',
-                    blob: file,
+                    fileName,
+                    mimeType: fileToSave.type || 'image/jpeg',
+                    blob: fileToSave,
                 });
             } catch { /* ignore single file failure */ }
         }
         setUploading(false);
         if (fileRef.current) fileRef.current.value = '';
+        if (cameraRef.current) cameraRef.current.value = '';
         load();
     };
 
@@ -104,20 +178,42 @@ const FactureUploader: React.FC<FactureUploaderProps> = ({ modelId, materialName
 
                         {/* Body */}
                         <div className="p-3 sm:p-5 overflow-y-auto">
-                            <button
-                                onClick={() => fileRef.current?.click()}
-                                disabled={uploading}
-                                className="w-full mb-4 flex flex-col items-center justify-center gap-1.5 py-5 rounded-lg border border-dashed border-slate-300 bg-zinc-50/80 hover:bg-slate-50 hover:border-slate-400 transition-colors text-slate-500 disabled:opacity-60"
-                            >
-                                {uploading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Upload className="w-5 h-5" strokeWidth={1.75} />}
-                                <span className="text-[12px] font-medium">{uploading ? 'Enregistrement…' : 'Ajouter une facture (image / PDF)'}</span>
-                                <span className="text-[10px] text-slate-400">JPG, PNG, PDF</span>
-                            </button>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
+                                <button
+                                    onClick={() => fileRef.current?.click()}
+                                    disabled={uploading}
+                                    className="flex flex-col items-center justify-center gap-1.5 py-4 rounded-lg border border-dashed border-slate-300 bg-zinc-50/80 hover:bg-slate-50 hover:border-slate-400 transition-colors text-slate-500 disabled:opacity-60"
+                                >
+                                    {uploading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Upload className="w-5 h-5" strokeWidth={1.75} />}
+                                    <span className="text-[12px] font-medium">{uploading ? 'Enregistrement…' : 'Importer image / PDF'}</span>
+                                    <span className="text-[10px] text-slate-400">Fichier local</span>
+                                </button>
+                                
+                                <button
+                                    onClick={() => cameraRef.current?.click()}
+                                    disabled={uploading}
+                                    className="flex flex-col items-center justify-center gap-1.5 py-4 rounded-lg border border-dashed border-emerald-300 bg-emerald-50/20 hover:bg-emerald-50/40 hover:border-emerald-400 transition-colors text-emerald-700 disabled:opacity-60"
+                                >
+                                    {uploading ? <Loader2 className="w-5 h-5 animate-spin animate-spin-slow" /> : <Camera className="w-5 h-5" strokeWidth={1.75} />}
+                                    <span className="text-[12px] font-medium">{uploading ? 'Enregistrement…' : 'Prendre une photo'}</span>
+                                    <span className="text-[10px] text-emerald-600/80">Appareil photo mobile</span>
+                                </button>
+                            </div>
+
                             <input
                                 ref={fileRef}
                                 type="file"
                                 accept="image/*,application/pdf"
                                 multiple
+                                className="hidden"
+                                onChange={(e) => handleFiles(e.target.files)}
+                            />
+
+                            <input
+                                ref={cameraRef}
+                                type="file"
+                                accept="image/*"
+                                capture="environment"
                                 className="hidden"
                                 onChange={(e) => handleFiles(e.target.files)}
                             />

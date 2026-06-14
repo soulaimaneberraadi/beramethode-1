@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus, Sparkles, Printer, Search, ChevronLeft, ChevronRight, SlidersHorizontal, Brain, MoreHorizontal, X, Undo2, Redo2, Layers, Trash2 } from 'lucide-react';
+import { Plus, Sparkles, Printer, Search, ChevronLeft, ChevronRight, SlidersHorizontal, Brain, MoreHorizontal, X, Undo2, Redo2 } from 'lucide-react';
 import { fmtMonthYear } from '../shared/dateFmt';
 import { useIsMobile } from '../shared/useIsMobile';
 import type { ViewKind } from './ViewSwitcher';
@@ -24,8 +24,8 @@ interface Props {
     filtersOpen: boolean;
     onToggleFilters: () => void;
     hasActiveFilters: boolean;
+    activeFilterCount?: number;
     onOptimizePlanning?: () => void;
-    onBatchSchedule?: () => void;
     canUndo?: boolean;
     canRedo?: boolean;
     onUndo?: () => void;
@@ -37,6 +37,7 @@ const VIEW_OPTIONS: { id: ViewKind; label: string }[] = [
     { id: 'gantt', label: 'Gantt' },
     { id: 'calendar', label: 'Calendrier' },
     { id: 'cards', label: 'Cartes' },
+    { id: 'simulation', label: 'Simulateur' },
 ];
 
 
@@ -47,10 +48,9 @@ export default function PlanningHeader({
     currentDate, onDateChange, onToday,
     onAddEvent, onAutoSchedule, onPrint,
     searchText, onSearch,
-    filtersOpen, onToggleFilters, hasActiveFilters,
-    onOptimizePlanning, onBatchSchedule,
+    filtersOpen, onToggleFilters, hasActiveFilters, activeFilterCount = 0,
+    onOptimizePlanning,
     canUndo, canRedo, onUndo, onRedo,
-    onClearPlanning,
 }: Props) {
 
     const shift = (delta: number) => {
@@ -98,8 +98,10 @@ export default function PlanningHeader({
                         title="Filtres"
                     >
                         <SlidersHorizontal className="w-4 h-4" strokeWidth={2} />
-                        {hasActiveFilters && (
-                            <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-indigo-650" />
+                        {activeFilterCount > 0 && (
+                            <span className="absolute -top-1 -right-1 min-w-[15px] h-[15px] px-1 flex items-center justify-center rounded-full bg-indigo-600 text-white text-[9px] font-bold tabular-nums leading-none shadow-sm">
+                                {activeFilterCount}
+                            </span>
                         )}
                     </IconButton>
 
@@ -146,9 +148,6 @@ export default function PlanningHeader({
                 {mobileMenuOpen && (
                     <div className="px-3 pb-2 grid grid-cols-3 gap-1.5">
                         <MobileMenuBtn icon={Sparkles} label="Auto" onClick={() => { setMobileMenuOpen(false); onAutoSchedule(); }} />
-                        {onBatchSchedule && (
-                            <MobileMenuBtn icon={Layers} label="Lot" accent="text-indigo-650" onClick={() => { setMobileMenuOpen(false); onBatchSchedule(); }} />
-                        )}
                         {onOptimizePlanning && (
                             <MobileMenuBtn icon={Brain} label="IA" accent="text-purple-600" onClick={() => { setMobileMenuOpen(false); onOptimizePlanning(); }} />
                         )}
@@ -231,7 +230,7 @@ export default function PlanningHeader({
                         value={searchText}
                         onChange={(e) => onSearch(e.target.value)}
                         placeholder="Rechercher un OF, un client…"
-                        className="w-full h-8.5 pl-9 pr-3 text-[12px] text-slate-700 placeholder:text-slate-450 bg-slate-100/40 hover:bg-slate-100/70 focus:bg-white/85 border border-slate-200/40 focus:border-indigo-500/50 focus:ring-4 focus:ring-indigo-500/10 focus:shadow-md rounded-xl outline-none transition-all duration-300 backdrop-blur-sm"
+                        className="w-full h-8 pl-9 pr-3 text-[12px] text-slate-700 placeholder:text-slate-450 bg-slate-100/40 hover:bg-slate-100/70 focus:bg-white/85 border border-slate-200/40 focus:border-indigo-500/50 focus:ring-4 focus:ring-indigo-500/10 focus:shadow-md rounded-xl outline-none transition-all duration-300 backdrop-blur-sm"
                     />
                 </div>
 
@@ -257,16 +256,24 @@ export default function PlanningHeader({
                     )}
                     {(onUndo || onRedo) && <div className="w-px h-5 bg-slate-200/50 mx-0.5" />}
 
-                    <IconButton
-                        active={filtersOpen || hasActiveFilters}
+                    <button
+                        type="button"
                         onClick={onToggleFilters}
                         title="Filtres"
+                        className={`relative inline-flex items-center gap-1.5 h-8 px-2.5 rounded-xl text-[12px] font-bold transition-all duration-200 active:scale-95 border ${
+                            filtersOpen || hasActiveFilters
+                                ? 'bg-white text-indigo-650 border-slate-200/50 shadow-sm'
+                                : 'text-slate-500 border-transparent hover:text-slate-850 hover:bg-white/75 hover:border-slate-200/40 hover:shadow-sm'
+                        }`}
                     >
                         <SlidersHorizontal className="w-3.5 h-3.5" strokeWidth={2} />
-                        {hasActiveFilters && (
-                            <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-indigo-650" />
+                        <span className="hidden lg:inline">Filtres</span>
+                        {activeFilterCount > 0 && (
+                            <span className="min-w-[16px] h-4 px-1 flex items-center justify-center rounded-full bg-indigo-600 text-white text-[9px] font-bold tabular-nums leading-none">
+                                {activeFilterCount}
+                            </span>
                         )}
-                    </IconButton>
+                    </button>
 
                     {onPrint && (
                         <IconButton onClick={onPrint} title="Imprimer (Ctrl+P)">
@@ -274,45 +281,12 @@ export default function PlanningHeader({
                         </IconButton>
                     )}
 
-                    <IconButton onClick={onAutoSchedule} title="Planification automatique (A)">
-                        <Sparkles className="w-3.5 h-3.5" strokeWidth={2} />
-                    </IconButton>
-
-                    {onOptimizePlanning && (
-                        <IconButton onClick={onOptimizePlanning} title="Optimiser le planning par IA">
-                            <Brain className="w-3.5 h-3.5 text-purple-600 animate-pulse" strokeWidth={2} />
-                        </IconButton>
-                    )}
-
-                    {onClearPlanning && (
-                        <button
-                            type="button"
-                            onClick={onClearPlanning}
-                            title="Vider tout le planning"
-                            className="w-8 h-8 flex items-center justify-center rounded-xl text-red-500 hover:text-red-700 hover:bg-red-50/70 border border-transparent hover:border-red-100/55 transition-all duration-200 active:scale-95"
-                        >
-                            <Trash2 className="w-3.5 h-3.5" strokeWidth={2} />
-                        </button>
-                    )}
-
                     <div className="w-px h-5 bg-slate-200/50 mx-1" />
-
-                    {onBatchSchedule && (
-                        <button
-                            type="button"
-                            onClick={onBatchSchedule}
-                            className="inline-flex items-center gap-1.5 h-8.5 px-3 rounded-xl bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-700 text-[12px] font-bold transition-all duration-200 border border-indigo-500/20 shadow-sm active:scale-95"
-                            title="Planifier plusieurs modèles en lot"
-                        >
-                            <Layers className="w-3.5 h-3.5" strokeWidth={2} />
-                            Lot
-                        </button>
-                    )}
 
                     <button
                         type="button"
                         onClick={onAddEvent}
-                        className="inline-flex items-center gap-1.5 h-8.5 px-3 rounded-xl bg-gradient-to-r from-slate-900 to-indigo-950 hover:from-slate-800 hover:to-indigo-900 text-white text-[12px] font-bold transition-all duration-200 shadow-sm hover:shadow-md active:scale-95"
+                        className="inline-flex items-center gap-1.5 h-8 px-3 rounded-xl bg-gradient-to-r from-slate-900 to-indigo-950 hover:from-slate-800 hover:to-indigo-900 text-white text-[12px] font-bold transition-all duration-200 shadow-sm hover:shadow-md active:scale-95"
                     >
                         <Plus className="w-3.5 h-3.5" strokeWidth={2.25} />
                         Planifier

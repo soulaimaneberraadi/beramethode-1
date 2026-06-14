@@ -23,7 +23,7 @@ export default function IssuesPanel({ issues, events, models, onJumpToEvent }: P
             <button
                 type="button"
                 onClick={() => setExpanded(v => !v)}
-                className="w-full h-9 px-6 flex items-center justify-between gap-3 hover:bg-slate-50/60 transition-colors"
+                className="w-full h-9 px-3 sm:px-6 flex items-center justify-between gap-3 hover:bg-slate-50/60 transition-colors"
             >
                 <div className="flex items-center gap-3">
                     {errors > 0 && (
@@ -58,7 +58,7 @@ export default function IssuesPanel({ issues, events, models, onJumpToEvent }: P
                                 key={issue.id}
                                 type="button"
                                 onClick={() => onJumpToEvent(issue.eventId)}
-                                className="group w-full px-6 py-3 text-left hover:bg-slate-50 transition-colors border-b border-slate-50 last:border-0 flex items-start gap-3"
+                                className="group w-full px-3 sm:px-6 py-3 text-left hover:bg-slate-50 transition-colors border-b border-slate-50 last:border-0 flex items-start gap-3"
                             >
                                 {isError ? (
                                     <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5 text-red-500" strokeWidth={2} />

@@ -185,13 +185,15 @@ function GanttRow({
     }, [showHeatMap, chainEvents]);
 
     const downtimeInfo = React.useMemo(() => {
+        // Module Machines désactivé (Configuration) → pas de surlignage panne/maintenance sur le Gantt
+        if (settings.machineAlertsEnabled === false) return [];
         return machines.filter(m =>
             m.chainId === chain.id &&
             (m.status === 'PANNE' || m.status === 'MAINT') &&
             m.downtimeStartYmd &&
             m.downtimeEndYmd
         );
-    }, [machines, chain.id]);
+    }, [machines, chain.id, settings.machineAlertsEnabled]);
 
     return (
         <div

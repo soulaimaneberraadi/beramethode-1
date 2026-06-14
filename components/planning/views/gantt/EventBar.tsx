@@ -162,16 +162,7 @@ export default function EventBar({
             )}
             <div className="h-full flex relative z-10 w-full">
                 {/* Model photo thumbnail */}
-                {thumb && (
-                    <div className="shrink-0 overflow-hidden border-r bg-white" style={{ width: compact ? 28 : 40, borderColor: hexToRgba(accent, 0.2) }}>
-                        <img
-                            src={thumb}
-                            alt={modelName}
-                            className="w-full h-full object-cover"
-                            loading="lazy"
-                        />
-                    </div>
-                )}
+                {/* Model photo thumbnail (Disabled) */}
 
                 {/* Status indicator strip */}
                 <div className={`w-0.5 ${

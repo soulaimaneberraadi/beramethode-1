@@ -41,7 +41,6 @@ interface Props {
     soloChainId?: string | null;
     onToggleSolo?: (chaineId: string) => void;
     showHeatMap?: boolean;
-    showCRColors?: boolean;
     density?: 'comfortable' | 'compact';
     showMiniMap?: boolean;
     machines: Machine[];
@@ -50,7 +49,6 @@ interface Props {
 export default function GanttView({
     chains, events, totalEvents, models, settings,
     currentDate, zoom, onZoomChange, pulseToday,
-    showCRColors,
     selectedId, selectedIds, focusedId,
     onSelectEvent, onEditEvent, onContextMenu, onChainContextMenu, onMoveEvent,
     onAddEvent, onResetFilters,
@@ -360,7 +358,6 @@ export default function GanttView({
                             soloChainId={soloChainId ?? null}
                             onToggleSolo={handleToggleSolo}
                             showHeatMap={showHeatMap}
-                            showCRColors={showCRColors}
                             sidebarCollapsed={sidebarCollapsed}
                             rowHeight={rowHeight}
                             events={events}

@@ -1,6 +1,6 @@
 import React from 'react';
 
-export type ViewKind = 'gantt' | 'calendar' | 'cards';
+export type ViewKind = 'gantt' | 'calendar' | 'cards' | 'simulation';
 
 interface Props {
     value: ViewKind;
@@ -11,6 +11,7 @@ const OPTIONS: { id: ViewKind; label: string }[] = [
     { id: 'gantt', label: 'Gantt' },
     { id: 'calendar', label: 'Calendrier' },
     { id: 'cards', label: 'Cartes' },
+    { id: 'simulation', label: 'Simulateur' },
 ];
 
 export default function ViewSwitcher({ value, onChange }: Props) {

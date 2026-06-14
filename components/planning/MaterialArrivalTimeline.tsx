@@ -212,11 +212,11 @@ export default function MaterialArrivalTimeline({
     return (
         <div className={`space-y-3 ${className}`}>
             {/* Stock Reservation card */}
-            <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm space-y-3">
+            <div className="rounded-xl border border-white/20 bg-white/50 backdrop-blur-md p-4 shadow-sm space-y-3">
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                         <Package className="h-4 w-4 text-slate-700" />
-                        <h4 className="text-[12px] font-bold text-slate-900 uppercase tracking-wider">Réservation de stock (حجز المخزون)</h4>
+                        <h4 className="text-[12px] font-bold text-slate-900 uppercase tracking-wider">Réservation de stock</h4>
                     </div>
                     {loadingRes && <RefreshCw className="h-3.5 w-3.5 text-slate-400 animate-spin" />}
                 </div>
@@ -230,18 +230,18 @@ export default function MaterialArrivalTimeline({
 
                 {reservations.length > 0 ? (
                     <div className="space-y-3">
-                        <div className="flex items-start gap-2 rounded-lg bg-emerald-50/70 border border-emerald-100 p-2.5 text-[11px] text-emerald-800">
+                        <div className="flex items-start gap-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20 backdrop-blur-sm p-2.5 text-[11px] text-emerald-800">
                             <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600 mt-0.5" />
                             <div>
-                                <span className="font-bold">Stock réservé avec succès (حجز مؤكد) :</span>
+                                <span className="font-bold">Stock réservé avec succès :</span>
                                 <p className="mt-0.5 text-slate-600">Ces matières sont verrouillées pour cet OF. Vous pouvez les déduire physiquement lors du lancement de la production.</p>
                             </div>
                         </div>
 
-                        <div className="overflow-hidden rounded-lg border border-slate-100 bg-slate-50/40 text-[11px]">
+                        <div className="overflow-hidden rounded-lg border border-white/20 bg-white/30 backdrop-blur-md text-[11px] shadow-sm">
                             <table className="w-full text-left">
                                 <thead>
-                                    <tr className="border-b border-slate-100 bg-slate-100/60 font-semibold text-slate-600">
+                                    <tr className="border-b border-white/20 bg-white/40 font-semibold text-slate-600 backdrop-blur-sm">
                                         <th className="px-2.5 py-1.5">Matière</th>
                                         <th className="px-2.5 py-1.5">Bain / Var.</th>
                                         <th className="px-2.5 py-1.5 text-right">Qté Rés.</th>
@@ -271,7 +271,7 @@ export default function MaterialArrivalTimeline({
                                 className="flex-1 h-8 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold shadow-sm transition-colors flex items-center justify-center gap-1.5 disabled:opacity-50"
                             >
                                 <CheckCircle2 className="h-3.5 w-3.5" />
-                                Déduire (الخصم الفعلي)
+                                Déduire
                             </button>
                             <button
                                 type="button"
@@ -280,7 +280,7 @@ export default function MaterialArrivalTimeline({
                                 className="h-8 px-3 rounded-lg border border-slate-200 hover:bg-slate-50 text-slate-700 text-[11px] font-bold transition-colors flex items-center justify-center gap-1.5 disabled:opacity-50"
                             >
                                 <Ban className="h-3.5 w-3.5 text-slate-400" />
-                                Libérer (إلغاء الحجز)
+                                Libérer
                             </button>
                         </div>
                     </div>
@@ -296,7 +296,7 @@ export default function MaterialArrivalTimeline({
                             className="w-full h-8 px-3 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-[11px] font-bold shadow-sm transition-colors flex items-center justify-center gap-1.5 disabled:opacity-50"
                         >
                             <Sparkles className="h-3.5 w-3.5" />
-                            Réserver via FIFO (حجز تلقائي)
+                            Réserver via FIFO
                         </button>
                     </div>
                 )}
@@ -304,11 +304,11 @@ export default function MaterialArrivalTimeline({
 
             {/* Couverture stock réel : combien de pièces sont couvertes par le stock dispo. */}
             {catalogProducts.length > 0 && coverage.rows.length > 0 && (
-                <div className={`rounded-xl border px-3 py-2.5 ${fullyCovered ? 'border-emerald-200/90 bg-emerald-50/80' : 'border-amber-200/90 bg-amber-50/80'}`}>
+                <div className={`rounded-xl border backdrop-blur-md px-3 py-2.5 ${fullyCovered ? 'border-emerald-500/20 bg-emerald-500/10' : 'border-amber-500/20 bg-amber-500/10'}`}>
                     <div className="flex items-center gap-2">
                         {fullyCovered ? <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-700" /> : <AlertCircle className="h-4 w-4 shrink-0 text-amber-700" />}
                         <p className={`text-[11px] font-black uppercase tracking-wide ${fullyCovered ? 'text-emerald-900' : 'text-amber-900'}`}>
-                            Couverture stock (التغطية بالمخزون)
+                            Couverture stock
                         </p>
                     </div>
                     <p className={`mt-1 text-[13px] font-bold ${fullyCovered ? 'text-emerald-950' : 'text-amber-950'}`}>
@@ -324,7 +324,7 @@ export default function MaterialArrivalTimeline({
             )}
 
             {hasFourn ? (
-                <div className="flex items-start gap-2 rounded-xl border border-emerald-200/90 bg-emerald-50/90 px-3 py-2.5">
+                <div className="flex items-start gap-2 rounded-xl border border-emerald-500/20 bg-emerald-500/10 backdrop-blur-md px-3 py-2.5">
                     <Truck className="mt-0.5 h-4 w-4 shrink-0 text-emerald-700" aria-hidden />
                     <div className="min-w-0">
                         <p className="text-[10px] font-black uppercase tracking-wide text-emerald-800">Arrivée fournisseur (OF)</p>
@@ -338,7 +338,7 @@ export default function MaterialArrivalTimeline({
             ) : (
                 launchYmd &&
                 hypotheticalReady && (
-                    <div className="rounded-xl border border-amber-200/90 bg-amber-50/80 px-3 py-2.5 text-[11px] leading-snug text-amber-950">
+                    <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 backdrop-blur-md px-3 py-2.5 text-[11px] leading-snug text-amber-950">
                         <span className="font-black uppercase tracking-wide text-amber-900">Estimation globale</span>
                         {' — '}
                         Si commande au lancement ({launchYmd}), délai indicatif{' '}
@@ -350,7 +350,7 @@ export default function MaterialArrivalTimeline({
             )}
 
             {plan.worstArrivalYmd && plan.criticalMaterialName && (
-                <div className="rounded-xl border border-slate-200 bg-slate-50/90 px-3 py-2 text-[11px] text-slate-800">
+                <div className="rounded-xl border border-white/20 bg-white/40 backdrop-blur-md px-3 py-2 text-[11px] text-slate-800 shadow-xs">
                     <span className="font-black uppercase tracking-wide text-slate-600">Chemin critique (estim.)</span>
                     <p className="mt-1">
                         Matière la plus tardive : <span className="font-bold">{plan.criticalMaterialName}</span> →{' '}
@@ -383,7 +383,7 @@ export default function MaterialArrivalTimeline({
             </div>
 
             {!!event.purchaseOrdersDraft?.length && (
-                <div className="rounded-xl border border-indigo-100 bg-indigo-50/60 px-3 py-2">
+                <div className="rounded-xl border border-indigo-500/20 bg-indigo-500/10 backdrop-blur-md px-3 py-2 shadow-xs">
                     <p className="text-[10px] font-black uppercase tracking-wide text-indigo-800">BC brouillon sur l’OF</p>
                     <ul className="mt-1 max-h-24 space-y-0.5 overflow-y-auto text-[10px] text-indigo-950">
                         {event.purchaseOrdersDraft.map(d => (
@@ -399,14 +399,14 @@ export default function MaterialArrivalTimeline({
             )}
 
             {!catalogProducts.length && (
-                <p className="text-[10px] text-amber-800/90 rounded-lg bg-amber-50/80 border border-amber-100 px-2 py-1.5">
+                <p className="text-[10px] text-amber-800/90 rounded-lg bg-amber-500/10 border border-amber-500/20 backdrop-blur-md px-2 py-1.5">
                     Catalogue magasin non chargé : les délais utilisent la valeur par défaut ({lead} j. ouvrés) pour chaque
                     matière. Ouvrez le module Magasin une fois connecté pour alimenter les délais fournisseur.
                 </p>
             )}
 
-            <div className="overflow-hidden rounded-xl border border-slate-200">
-                <div className="flex items-center gap-2 border-b border-slate-100 bg-slate-50/80 px-3 py-2">
+            <div className="overflow-hidden rounded-xl border border-white/20 bg-white/30 backdrop-blur-md shadow-sm">
+                <div className="flex items-center gap-2 border-b border-white/10 bg-white/40 px-3 py-2 backdrop-blur-sm">
                     <Package className="h-3.5 w-3.5 text-amber-600" aria-hidden />
                     <span className="text-[10px] font-black uppercase tracking-wider text-slate-500">
                         ETA par matière ({launchYmd ? plan.rows.length : lines.length})
@@ -415,7 +415,7 @@ export default function MaterialArrivalTimeline({
                 <div className="overflow-x-auto">
                     <table className="w-full min-w-[320px] text-left text-xs">
                         <thead>
-                            <tr className="border-b border-slate-100 bg-white text-[10px] font-black uppercase tracking-wider text-slate-500">
+                            <tr className="border-b border-white/10 bg-white/20 text-[10px] font-black uppercase tracking-wider text-slate-500 backdrop-blur-xs">
                                 <th className="px-3 py-2">Matière</th>
                                 <th className="px-3 py-2 text-right">Qté</th>
                                 <th className="px-3 py-2">Fournisseur</th>
@@ -432,7 +432,7 @@ export default function MaterialArrivalTimeline({
                                 </tr>
                             ) : (
                                 plan.rows.map((row, i) => (
-                                    <tr key={`${row.name}-${i}`} className="border-t border-slate-100 first:border-t-0 bg-white">
+                                    <tr key={`${row.name}-${i}`} className="border-t border-white/10 first:border-t-0 bg-white/20 hover:bg-white/40 transition-colors">
                                         <td className="max-w-[140px] truncate px-3 py-2 font-semibold text-slate-800">
                                             {row.name}
                                             {!row.matched && catalogProducts.length > 0 && (

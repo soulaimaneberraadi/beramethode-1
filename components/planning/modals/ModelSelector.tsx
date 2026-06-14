@@ -160,22 +160,72 @@ export default function ModelSelector({
 }: Props) {
     const [open, setOpen] = useState(false);
     const [search, setSearch] = useState('');
+    const [sortBy, setSortBy] = useState<'default' | 'name-asc' | 'name-desc' | 'sam-asc' | 'sam-desc' | 'client' | 'pcs-desc'>('default');
+    const [showSortMenu, setShowSortMenu] = useState(false);
     const containerRef = useRef<HTMLDivElement>(null);
+    const sortMenuRef = useRef<HTMLDivElement>(null);
 
     const selected = models.find(m => m.id === value);
     const selectedThumb = selected ? getModelThumb(selected) : null;
     const selectedColor = selected ? getClientColor(selected.ficheData?.client) : '#64748B';
 
     const filtered = useMemo(() => {
+        let result = models;
+
+        // Apply search filter
         const q = search.toLowerCase().trim();
-        if (!q) return models;
-        return models.filter(m => {
-            const name = (m.meta_data?.nom_modele || '').toLowerCase();
-            const client = (m.ficheData?.client || '').toLowerCase();
-            const ref = (m.meta_data?.reference || '').toLowerCase();
-            return name.includes(q) || client.includes(q) || ref.includes(q);
-        });
-    }, [models, search]);
+        if (q) {
+            result = result.filter(m => {
+                const name = (m.meta_data?.nom_modele || '').toLowerCase();
+                const client = (m.ficheData?.client || '').toLowerCase();
+                const ref = (m.meta_data?.reference || '').toLowerCase();
+                return name.includes(q) || client.includes(q) || ref.includes(q);
+            });
+        }
+
+        // Apply sorting
+        const sorted = [...result];
+        switch (sortBy) {
+            case 'name-asc':
+                sorted.sort((a, b) => (a.meta_data?.nom_modele || '').localeCompare(b.meta_data?.nom_modele || ''));
+                break;
+            case 'name-desc':
+                sorted.sort((a, b) => (b.meta_data?.nom_modele || '').localeCompare(a.meta_data?.nom_modele || ''));
+                break;
+            case 'client':
+                sorted.sort((a, b) => (a.ficheData?.client || '').localeCompare(b.ficheData?.client || ''));
+                break;
+            case 'sam-asc':
+                sorted.sort((a, b) => {
+                    const samA = Number(a.meta_data?.total_temps) || 0;
+                    const samB = Number(b.meta_data?.total_temps) || 0;
+                    return samA - samB;
+                });
+                break;
+            case 'sam-desc':
+                sorted.sort((a, b) => {
+                    const samA = Number(a.meta_data?.total_temps) || 0;
+                    const samB = Number(b.meta_data?.total_temps) || 0;
+                    return samB - samA;
+                });
+                break;
+            case 'pcs-desc':
+                sorted.sort((a, b) => {
+                    const samA = Number(a.meta_data?.total_temps) || 0;
+                    const samB = Number(b.meta_data?.total_temps) || 0;
+                    const metricsA = computeMetrics(a, chainEfficiency, workingHoursPerDay, settings, chainId);
+                    const metricsB = computeMetrics(b, chainEfficiency, workingHoursPerDay, settings, chainId);
+                    return metricsB.pcsPerDay - metricsA.pcsPerDay;
+                });
+                break;
+            case 'default':
+            default:
+                // Keep original order
+                break;
+        }
+
+        return sorted;
+    }, [models, search, sortBy, chainEfficiency, workingHoursPerDay, settings, chainId]);
 
     useEffect(() => {
         if (!open) return;
@@ -185,6 +235,15 @@ export default function ModelSelector({
         document.addEventListener('mousedown', onDoc);
         return () => document.removeEventListener('mousedown', onDoc);
     }, [open]);
+
+    useEffect(() => {
+        if (!showSortMenu) return;
+        const onDoc = (e: MouseEvent) => {
+            if (sortMenuRef.current && !sortMenuRef.current.contains(e.target as Node)) setShowSortMenu(false);
+        };
+        document.addEventListener('mousedown', onDoc);
+        return () => document.removeEventListener('mousedown', onDoc);
+    }, [showSortMenu]);
 
     const handleSelect = (id: string) => {
         onChange(id);
@@ -239,26 +298,117 @@ export default function ModelSelector({
             {/* Dropdown */}
             {open && (
                 <div className="absolute z-50 mt-1.5 w-full bg-white border border-slate-200 rounded-xl shadow-lg overflow-hidden">
-                    <div className="p-2 border-b border-slate-100 bg-slate-50/60 relative">
-                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
-                        <input
-                            type="text"
-                            value={search}
-                            onChange={(e) => setSearch(e.target.value)}
-                            placeholder="Rechercher un modèle, un client, une référence…"
-                            className="w-full h-8 pl-8 pr-7 text-[12px] bg-white border border-slate-200 rounded-md outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition-all"
-                            autoFocus
-                        />
-                        {search && (
+                    <div className="p-2 border-b border-slate-100 bg-slate-50/60 flex items-center gap-2">
+                        <div className="flex-1 relative">
+                            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+                            <input
+                                type="text"
+                                value={search}
+                                onChange={(e) => setSearch(e.target.value)}
+                                placeholder="Rechercher…"
+                                className="w-full h-8 pl-8 pr-7 text-[12px] bg-white border border-slate-200 rounded-md outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition-all"
+                                autoFocus
+                            />
+                            {search && (
+                                <button
+                                    type="button"
+                                    onClick={() => setSearch('')}
+                                    className="absolute right-3 top-1/2 -translate-y-1/2 p-0.5 text-slate-400 hover:text-slate-700"
+                                    aria-label="Effacer"
+                                >
+                                    <X className="w-3.5 h-3.5" />
+                                </button>
+                            )}
+                        </div>
+                        <div className="relative" ref={sortMenuRef}>
                             <button
                                 type="button"
-                                onClick={() => setSearch('')}
-                                className="absolute right-3 top-1/2 -translate-y-1/2 p-0.5 text-slate-400 hover:text-slate-700"
-                                aria-label="Effacer"
+                                onClick={() => setShowSortMenu(v => !v)}
+                                className="px-2.5 py-1.5 h-8 flex items-center gap-1.5 bg-white border border-slate-200 rounded-md hover:border-slate-300 focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 outline-none transition-all text-[11px] font-medium text-slate-600 whitespace-nowrap shrink-0"
+                                title="Trier les modèles"
                             >
-                                <X className="w-3.5 h-3.5" />
+                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                                </svg>
+                                Trier
                             </button>
-                        )}
+                            {showSortMenu && (
+                                <div className="absolute top-full right-0 mt-1 bg-white border border-slate-200 rounded-lg shadow-md overflow-hidden z-50 w-48">
+                                    <button
+                                        type="button"
+                                        onClick={() => { setSortBy('default'); setShowSortMenu(false); }}
+                                        className={`w-full px-3 py-2 text-left text-[12px] hover:bg-slate-50 transition-colors flex items-center gap-2 ${
+                                            sortBy === 'default' ? 'bg-indigo-50 text-indigo-700 font-medium' : ''
+                                        }`}
+                                    >
+                                        {sortBy === 'default' && <CheckCircle2 className="w-3.5 h-3.5" />}
+                                        Par défaut
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => { setSortBy('name-asc'); setShowSortMenu(false); }}
+                                        className={`w-full px-3 py-2 text-left text-[12px] hover:bg-slate-50 transition-colors flex items-center gap-2 ${
+                                            sortBy === 'name-asc' ? 'bg-indigo-50 text-indigo-700 font-medium' : ''
+                                        }`}
+                                    >
+                                        {sortBy === 'name-asc' && <CheckCircle2 className="w-3.5 h-3.5" />}
+                                        Nom (A-Z)
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => { setSortBy('name-desc'); setShowSortMenu(false); }}
+                                        className={`w-full px-3 py-2 text-left text-[12px] hover:bg-slate-50 transition-colors flex items-center gap-2 ${
+                                            sortBy === 'name-desc' ? 'bg-indigo-50 text-indigo-700 font-medium' : ''
+                                        }`}
+                                    >
+                                        {sortBy === 'name-desc' && <CheckCircle2 className="w-3.5 h-3.5" />}
+                                        Nom (Z-A)
+                                    </button>
+                                    <div className="border-t border-slate-100" />
+                                    <button
+                                        type="button"
+                                        onClick={() => { setSortBy('sam-asc'); setShowSortMenu(false); }}
+                                        className={`w-full px-3 py-2 text-left text-[12px] hover:bg-slate-50 transition-colors flex items-center gap-2 ${
+                                            sortBy === 'sam-asc' ? 'bg-indigo-50 text-indigo-700 font-medium' : ''
+                                        }`}
+                                    >
+                                        {sortBy === 'sam-asc' && <CheckCircle2 className="w-3.5 h-3.5" />}
+                                        SAM (rapide)
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => { setSortBy('sam-desc'); setShowSortMenu(false); }}
+                                        className={`w-full px-3 py-2 text-left text-[12px] hover:bg-slate-50 transition-colors flex items-center gap-2 ${
+                                            sortBy === 'sam-desc' ? 'bg-indigo-50 text-indigo-700 font-medium' : ''
+                                        }`}
+                                    >
+                                        {sortBy === 'sam-desc' && <CheckCircle2 className="w-3.5 h-3.5" />}
+                                        SAM (lent)
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => { setSortBy('pcs-desc'); setShowSortMenu(false); }}
+                                        className={`w-full px-3 py-2 text-left text-[12px] hover:bg-slate-50 transition-colors flex items-center gap-2 ${
+                                            sortBy === 'pcs-desc' ? 'bg-indigo-50 text-indigo-700 font-medium' : ''
+                                        }`}
+                                    >
+                                        {sortBy === 'pcs-desc' && <CheckCircle2 className="w-3.5 h-3.5" />}
+                                        Productivité (↓)
+                                    </button>
+                                    <div className="border-t border-slate-100" />
+                                    <button
+                                        type="button"
+                                        onClick={() => { setSortBy('client'); setShowSortMenu(false); }}
+                                        className={`w-full px-3 py-2 text-left text-[12px] hover:bg-slate-50 transition-colors flex items-center gap-2 ${
+                                            sortBy === 'client' ? 'bg-indigo-50 text-indigo-700 font-medium' : ''
+                                        }`}
+                                    >
+                                        {sortBy === 'client' && <CheckCircle2 className="w-3.5 h-3.5" />}
+                                        Par client
+                                    </button>
+                                </div>
+                            )}
+                        </div>
                     </div>
 
                     <div className="overflow-y-auto" style={{ maxHeight: 320 }}>

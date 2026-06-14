@@ -239,13 +239,9 @@ export default function SplitModal({ open, event, models, onClose, onSubmit }: P
             <div className="space-y-4">
                 {/* Model preview */}
                 <div className="flex items-center gap-3 bg-slate-50 rounded-xl p-3">
-                    {thumb ? (
-                        <img src={thumb} alt="" className="w-12 h-12 rounded-lg object-cover border border-slate-200" />
-                    ) : (
-                        <div className="w-12 h-12 rounded-lg flex items-center justify-center text-lg font-bold text-white" style={{ background: color }}>
-                            {client[0]?.toUpperCase() || '?'}
-                        </div>
-                    )}
+                    <div className="w-12 h-12 rounded-lg flex items-center justify-center text-lg font-black text-white shadow-sm" style={{ background: color }}>
+                        {client[0]?.toUpperCase() || '?'}
+                    </div>
                     <div className="flex-1">
                         <div className="text-[13px] font-semibold text-slate-900">{modelName}</div>
                         <div className="text-[11px] text-slate-500">{client}</div>

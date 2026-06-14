@@ -23,6 +23,40 @@ const SYNC_KEYS = [
 const TABLE = 'user_data';
 const STORAGE_BUCKET = 'bera-assets';
 
+/** Dernier compte ayant synchronisé sur ce navigateur — détecte les changements d'utilisateur. */
+const LAST_SYNC_USER_KEY = 'beramethode_last_sync_user';
+
+/**
+ * Purge toutes les données métier locales (clés synchronisées + export SQLite).
+ * Sans cette purge, un nouvel utilisateur sur le même navigateur voit les
+ * données du compte précédent — et son premier push les enverrait dans SON
+ * cloud (fuite de données entre comptes).
+ */
+export const clearLocalAppData = () => {
+  for (const k of SYNC_KEYS) {
+    try { localStorage.removeItem(k); } catch { /* ignore */ }
+  }
+  try { localStorage.removeItem('__bera_sqlite_export__'); } catch { /* ignore */ }
+  try {
+    sessionStorage.removeItem('beramethode_pulled_once');
+    sessionStorage.removeItem('beramethode_last_pull_sig');
+  } catch { /* ignore */ }
+};
+
+/**
+ * À appeler AVANT pullSnapshotFromCloud au login : si le compte diffère du
+ * dernier compte synchronisé sur ce navigateur, on purge les données locales
+ * pour que le pull reparte d'une base propre (aucune donnée de l'ancien compte).
+ */
+export const ensureLocalDataOwner = (userId: string) => {
+  if (!userId) return;
+  try {
+    const prev = localStorage.getItem(LAST_SYNC_USER_KEY);
+    if (prev && prev !== userId) clearLocalAppData();
+    localStorage.setItem(LAST_SYNC_USER_KEY, userId);
+  } catch { /* ignore */ }
+};
+
 let syncTimer: ReturnType<typeof setTimeout> | null = null;
 let isApplyingRemote = false;
 // Canal Realtime de type *Broadcast* uniquement (pas de postgres_changes).
@@ -33,8 +67,25 @@ let syncChannel: ReturnType<typeof supabase.channel> | null = null;
 
 // Délai de regroupement des écritures avant un push cloud. Une valeur trop
 // basse (ex. 1,5 s) provoque une rafale d'UPSERT du blob `user_data` (~2 Mo)
-// qui sature la base free-tier. 8 s regroupe les éditions successives.
-const PUSH_DEBOUNCE_MS = 8000;
+// qui sature la base free-tier (→ 522). 15 s regroupe davantage d'éditions
+// successives en un seul UPSERT. Le push final au logout protège les dernières
+// secondes non encore poussées.
+const PUSH_DEBOUNCE_MS = 15000;
+
+// Signature du dernier snapshot RÉELLEMENT poussé (ou tiré) au cloud. Sert à
+// sauter un UPSERT quand le contenu local n'a pas changé : sans ça, chaque
+// setItem (même réécriture d'une valeur identique par un re-render React)
+// renvoie le blob entier ~2 Mo et sature la base free-tier. Réinitialisée à
+// chaque reload : un seul push « inutile » au démarrage au pire, sans risque.
+let lastSyncedSig: string | null = null;
+
+/** Hash rapide (djb2) d'une chaîne — empreinte compacte d'un snapshot. */
+const quickSig = (s: string): string => {
+  let h = 5381;
+  for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0;
+  // On combine longueur + hash : collisions quasi impossibles pour notre usage.
+  return `${s.length}:${(h >>> 0).toString(36)}`;
+};
 
 // ─── Image processing ─────────────────────────────────────────────────────────
 
@@ -203,8 +254,9 @@ const applySnapshotToLocal = (snapshot: Record<string, unknown> | null) => {
 
 // ─── Push ─────────────────────────────────────────────────────────────────────
 
-export const pushSnapshotToCloud = async (userId: string) => {
-  if (!userId || isApplyingRemote) return;
+/** @returns true si le snapshot est bien arrivé au cloud (ou s'il n'y avait rien à pousser). */
+export const pushSnapshotToCloud = async (userId: string): Promise<boolean> => {
+  if (!userId || isApplyingRemote) return false;
   let snapshot: Record<string, unknown> = { ...collectLocalSnapshot(), __schema_version: SCHEMA_VERSION };
 
   // Garde-fou: ne jamais écraser avec un snapshot vide
@@ -213,8 +265,16 @@ export const pushSnapshotToCloud = async (userId: string) => {
   const sqlExp = (snapshot as any).__sqlite_export__;
   if ((!Array.isArray(lib) || !lib.length) && (!Array.isArray(plan) || !plan.length) && (!sqlExp || !Object.keys(sqlExp).length)) {
     console.warn('[cloudSync] push annulé: snapshot local vide');
-    return;
+    return true; // rien d'important à pousser — une purge ne perdrait rien
   }
+
+  // Dé-duplication : si le contenu local est identique au dernier snapshot
+  // poussé/tiré, on évite de renvoyer le blob ~2 Mo (cause majeure de saturation
+  // free-tier → 522). La signature est calculée sur le snapshot AVANT traitement
+  // des images (représente l'état métier local). lastSyncedSig n'est mis à jour
+  // qu'après un UPSERT confirmé → un échec réseau laisse le prochain push réessayer.
+  const sig = quickSig(JSON.stringify(snapshot));
+  if (sig === lastSyncedSig) return true;
 
   // Replace base64 images with Storage URLs (or compressed inline data-URLs)
   try {
@@ -224,16 +284,25 @@ export const pushSnapshotToCloud = async (userId: string) => {
   }
 
   try {
-    await supabase.from(TABLE).upsert(
+    const { error } = await supabase.from(TABLE).upsert(
       { user_id: userId, data: snapshot, updated_at: new Date().toISOString() },
       { onConflict: 'user_id' },
     );
+    if (error) {
+      console.warn('Cloud push failed:', error);
+      return false;
+    }
+    // UPSERT confirmé : mémorise la signature pour sauter les prochains push
+    // identiques (re-renders qui réécrivent la même valeur).
+    lastSyncedSig = sig;
     // Notifie les autres appareils (signal léger, pas de données) → ils pullent.
     if (syncChannel) {
       try { await syncChannel.send({ type: 'broadcast', event: 'updated', payload: {} }); } catch { /* hors-ligne: ignore */ }
     }
+    return true;
   } catch (err) {
     console.warn('Cloud push failed:', err);
+    return false;
   }
 };
 
@@ -270,6 +339,12 @@ export const pullSnapshotFromCloud = async (userId: string): Promise<boolean> =>
     const lastSig = sessionStorage.getItem('beramethode_last_pull_sig');
 
     applySnapshotToLocal(snap);
+
+    // Après le pull, local == distant : on aligne la signature pour éviter un
+    // push redondant du blob ~2 Mo juste après chaque synchronisation entrante.
+    try {
+      lastSyncedSig = quickSig(JSON.stringify({ ...collectLocalSnapshot(), __schema_version: SCHEMA_VERSION }));
+    } catch { /* signature best-effort : au pire un push de plus */ }
 
     // Plus de window.location.reload() : les composants se ré-hydratent en
     // direct via l'événement 'beramethode:cloud-sync-applied' émis par

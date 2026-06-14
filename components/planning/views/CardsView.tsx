@@ -6,8 +6,16 @@ import { getModelColor } from '../shared/modelColors';
 import { STATUS_META, toWorkStatus, type WorkStatus } from '../shared/statusConfig';
 import { delayOf } from '../hooks/useDelayIndicator';
 import { DELAY_META } from '../shared/statusConfig';
-import { Package, Calendar, Clock } from 'lucide-react';
-import { fmtShort } from '../shared/dateFmt';
+import { Package, Calendar, Clock, Layers } from 'lucide-react';
+import { fmtShort, daysBetween, todayYmd } from '../shared/dateFmt';
+import { evDeadlineYmd } from '../shared/eventAccessors';
+
+/** "CHAINE 1" -> "CH1" ; sinon renvoie tel quel (tronqué). */
+function shortChain(chaineId?: string): string | null {
+    if (!chaineId) return null;
+    const m = chaineId.match(/(\d+)\s*$/);
+    return m ? `CH${m[1]}` : chaineId.slice(0, 6);
+}
 
 interface Props {
     events: PlanningEvent[];
@@ -35,9 +43,23 @@ export default function CardsView({ events, models, onSelectEvent, onEditEvent }
         return map;
     }, [events]);
 
+    if (events.length === 0) {
+        return (
+            <div className="p-6 bg-slate-50/30 min-h-full flex flex-col items-center justify-center text-center">
+                <div className="w-14 h-14 rounded-2xl bg-white border border-slate-150 flex items-center justify-center mb-4 shadow-sm">
+                    <Layers className="w-6 h-6 text-slate-300" strokeWidth={1.75} />
+                </div>
+                <p className="text-[14px] font-semibold text-slate-700">Aucun ordre à afficher</p>
+                <p className="text-[12px] text-slate-400 mt-1 max-w-[260px]">
+                    Aucun OF ne correspond. Cliquez sur « Planifier » pour en créer un, ou ajustez vos filtres.
+                </p>
+            </div>
+        );
+    }
+
     return (
-        <div className="p-6 bg-slate-50/30 min-h-full">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="p-3 sm:p-6 bg-slate-50/30 min-h-full">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
                 {COLUMNS.map(col => {
                     const items = grouped[col.status];
                     const meta = STATUS_META[col.status];
@@ -90,6 +112,9 @@ function EventCard({
     const delay = delayOf(event);
     const delayMeta = DELAY_META[delay];
     const isSub = !!event.isSubcontracted;
+    const chainLabel = shortChain(event.chaineId);
+    const ddsYmd = evDeadlineYmd(event);
+    const daysToDDS = ddsYmd ? daysBetween(todayYmd(), ddsYmd) : null;
 
     return (
         <button
@@ -103,28 +128,31 @@ function EventCard({
             }`}
         >
             <div className="flex items-start gap-2.5 mb-2">
-                {thumb ? (
-                    <img src={thumb} alt="" className="w-9 h-9 rounded-md object-cover ring-1 ring-slate-200 shrink-0" />
-                ) : (
-                    <div className="w-9 h-9 rounded-md bg-slate-100 flex items-center justify-center shrink-0">
-                        <Package className="w-3.5 h-3.5 text-slate-400" strokeWidth={1.75} />
-                    </div>
-                )}
+                <div className="w-9 h-9 rounded-md flex items-center justify-center text-xs font-black text-white shrink-0 shadow-xs" style={{ background: getClientColor(client) }}>
+                    {(client || '?')[0].toUpperCase()}
+                </div>
                 <div className="min-w-0 flex-1">
                     <div className="flex items-center justify-between gap-1.5 mb-0.5">
                         <div className="flex items-center gap-1.5 min-w-0">
                             <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: getClientColor(client) }} title={`Client: ${client}`} />
                             <span className="text-[10px] text-slate-500 truncate">{client}</span>
                         </div>
-                        {isSub && (
-                            <span className={`text-[8px] font-black uppercase px-1.5 py-0.25 rounded shrink-0 ${
-                                event.subcontractStatus === 'COMPLETED' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' :
-                                event.subcontractStatus === 'SENT' ? 'bg-blue-50 text-blue-700 border border-blue-200' :
-                                'bg-slate-50 text-slate-600 border border-slate-200'
-                            }`} title={event.subcontractorName}>
-                                {event.subcontractStatus || 'PENDING'}
-                            </span>
-                        )}
+                        <div className="flex items-center gap-1 shrink-0">
+                            {chainLabel && (
+                                <span className="text-[8px] font-bold uppercase px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 tabular-nums" title={event.chaineId}>
+                                    {chainLabel}
+                                </span>
+                            )}
+                            {isSub && (
+                                <span className={`text-[8px] font-black uppercase px-1.5 py-0.25 rounded ${
+                                    event.subcontractStatus === 'COMPLETED' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' :
+                                    event.subcontractStatus === 'SENT' ? 'bg-blue-50 text-blue-700 border border-blue-200' :
+                                    'bg-slate-50 text-slate-600 border border-slate-200'
+                                }`} title={event.subcontractorName}>
+                                    {event.subcontractStatus || 'PENDING'}
+                                </span>
+                            )}
+                        </div>
                     </div>
                     <div className="text-[12px] font-semibold text-slate-900 truncate">{modelName}</div>
                     {isSub && event.subcontractorName && (
@@ -149,10 +177,15 @@ function EventCard({
                         <Calendar className="w-2.5 h-2.5" strokeWidth={1.75} />
                         <span className="tabular-nums">{fmtShort(evStartYmd(event))}</span>
                     </div>
-                    {event.strictDeadline_DDS && (
-                        <div className={`flex items-center gap-1 ${delay === 'LATE' ? 'text-red-600' : ''}`}>
+                    {ddsYmd && (
+                        <div className={`flex items-center gap-1 ${delay === 'LATE' ? 'text-red-600 font-semibold' : daysToDDS !== null && daysToDDS <= 7 ? 'text-amber-600 font-medium' : ''}`}>
                             <Clock className="w-2.5 h-2.5" strokeWidth={1.75} />
-                            <span className="tabular-nums">{fmtShort(event.strictDeadline_DDS)}</span>
+                            <span className="tabular-nums">{fmtShort(ddsYmd)}</span>
+                            {daysToDDS !== null && (
+                                <span className="tabular-nums font-semibold">
+                                    {daysToDDS < 0 ? `J+${Math.abs(daysToDDS)}` : `J-${daysToDDS}`}
+                                </span>
+                            )}
                         </div>
                     )}
                 </div>

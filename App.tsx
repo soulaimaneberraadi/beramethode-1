@@ -57,7 +57,6 @@ const RendementBoard = lazy(() => import('./components/RendementBoard'));
 const StockExport = lazy(() => import('./components/StockExport'));
 const Machin = lazy(() => import('./components/Machin'));
 const PageMachine = lazy(() => import('./components/PageMachine'));
-const VueGenerale = lazy(() => import('./components/VueGenerale'));
 const Atelier = lazy(() => import('./components/Atelier'));
 const SousTraitance = lazy(() => import('./components/SousTraitance'));
 const CatalogueTemps = lazy(() => import('./components/CatalogueTemps'));
@@ -192,7 +191,7 @@ export default function App() {
         setAuthView('login');
     };
 
-    const [currentView, setCurrentView] = useState<'dashboard' | 'ingenierie' | 'library' | 'coupe' | 'effectifs' | 'gestionRh' | 'planning' | 'suivi' | 'magasin' | 'export' | 'config' | 'profil' | 'admin' | 'rendement' | 'pageMachine' | 'machin' | 'facturation' | 'atelierProd' | 'vuegenerale' | 'sousTraitance' | 'catalogTemps'>('dashboard');
+    const [currentView, setCurrentView] = useState<'dashboard' | 'ingenierie' | 'library' | 'coupe' | 'effectifs' | 'gestionRh' | 'planning' | 'suivi' | 'magasin' | 'export' | 'config' | 'profil' | 'admin' | 'rendement' | 'pageMachine' | 'machin' | 'facturation' | 'atelierProd' | 'sousTraitance' | 'catalogTemps'>('dashboard');
     const [directSuiviModelId, setDirectSuiviModelId] = useState<string | null>(null);
     const [globalChaineId, setGlobalChaineId] = useState<string>('CHAINE 2');
     const [globalDate, setGlobalDate] = useState<string>(() => new Date().toISOString().split('T')[0]);
@@ -201,7 +200,7 @@ export default function App() {
     // En static mode, on garde tous les modules visibles — leurs données viennent de Supabase
     // via cloud sync (snapshot localStorage). Les fetch /api/* qui échouent sont absorbés
     // par les .catch() existants ou les fallbacks localStorage.
-    const defaultNavOrder = ['vuegenerale', 'dashboard', 'library', 'coupe', 'effectifs', 'gestionRh', 'planning', 'suivi', 'rendement', 'magasin', 'export', 'facturation', 'config', 'pageMachine', 'machin', 'catalogTemps', 'admin', 'sousTraitance'];
+    const defaultNavOrder = ['dashboard', 'library', 'suivi', 'planning', 'effectifs', 'magasin', 'gestionRh', 'catalogTemps', 'machin', 'coupe', 'rendement', 'export', 'facturation', 'config', 'pageMachine', 'admin', 'sousTraitance'];
     const [navConfig, setNavConfig] = useState<{
         enabled: boolean;
         style: 'dropdown' | 'flat' | 'mobile-only';
@@ -210,11 +209,11 @@ export default function App() {
         categories: { id: string; name: string; views: string[] }[];
     }>(() => {
         const defaultCategories = [
-            { id: 'principal', name: 'Principal', views: ['dashboard', 'vuegenerale', 'planning', 'suivi', 'rendement'] },
-            { id: 'production', name: 'Production', views: ['coupe', 'sousTraitance'] },
-            { id: 'rh', name: 'RH', views: ['effectifs', 'gestionRh'] },
+            { id: 'principal', name: 'Principal', views: ['dashboard', 'library', 'suivi', 'planning'] },
+            { id: 'production', name: 'Production', views: ['effectifs', 'coupe', 'sousTraitance'] },
+            { id: 'rh', name: 'RH', views: ['gestionRh', 'catalogTemps'] },
             { id: 'logistique', name: 'Logistique', views: ['magasin', 'export', 'facturation'] },
-            { id: 'config', name: 'Config', views: ['library', 'pageMachine', 'machin', 'catalogTemps', 'config'] }
+            { id: 'config', name: 'Config', views: ['machin', 'rendement', 'pageMachine', 'config'] }
         ];
         try {
             const s = localStorage.getItem('bera_nav_config');
@@ -242,6 +241,8 @@ export default function App() {
                     if (missing.length > 0) {
                         parsed.order = [...parsed.order, ...missing];
                     }
+                    // Re-sort order to match defaultNavOrder priority
+                    parsed.order = [...defaultNavOrder.filter(v => parsed.order.includes(v)), ...parsed.order.filter((v: string) => !defaultNavOrder.includes(v))];
                 } else {
                     parsed.order = [...defaultNavOrder];
                 }
@@ -287,7 +288,7 @@ export default function App() {
 
 
     useEffect(() => {
-        const ALLOW = new Set(['dashboard', 'ingenierie', 'library', 'coupe', 'effectifs', 'gestionRh', 'planning', 'suivi', 'magasin', 'export', 'config', 'profil', 'admin', 'rendement', 'pageMachine', 'machin', 'facturation', 'atelierProd', 'vuegenerale', 'sousTraitance', 'catalogTemps']);
+        const ALLOW = new Set(['dashboard', 'ingenierie', 'library', 'coupe', 'effectifs', 'gestionRh', 'planning', 'suivi', 'magasin', 'export', 'config', 'profil', 'admin', 'rendement', 'pageMachine', 'machin', 'facturation', 'atelierProd', 'sousTraitance', 'catalogTemps']);
         const applyHash = () => {
             const h = window.location.hash.replace(/^#\/?/, '').toLowerCase();
             if (h && ALLOW.has(h)) setCurrentView(h as typeof currentView);
@@ -804,8 +805,22 @@ export default function App() {
 
     const [ficheImages, setFicheImages] = useState<{ front: string | null; back: string | null }>({ front: null, back: null });
 
+    // Restaure l'autosave UNE SEULE FOIS par session utilisateur. Sans ce garde,
+    // le retour de skipAutosaveRestore à false (3 s après « Nouveau modèle »)
+    // relançait cet effet, qui ré-importait l'ancien workspace depuis le serveur
+    // par-dessus la page vierge — l'utilisateur retrouvait les données de
+    // l'ancien modèle dans son nouveau modèle.
+    const autosaveRestoredForRef = React.useRef<string | null>(null);
     useEffect(() => {
-        if (skipAutosaveRestore) return;
+        const ownerKey = user ? String(user.id) : 'guest';
+        if (skipAutosaveRestore) {
+            // « Nouveau modèle » : on marque la session comme déjà restaurée
+            // pour ne jamais ré-appliquer l'ancien brouillon par-dessus.
+            autosaveRestoredForRef.current = ownerKey;
+            return;
+        }
+        if (autosaveRestoredForRef.current === ownerKey) return;
+        autosaveRestoredForRef.current = ownerKey;
         if (!user || IS_STATIC) {
             try {
                 const localRaw = localStorage.getItem(AUTO_SAVE_KEY);
@@ -1186,7 +1201,6 @@ export default function App() {
                                 {(() => {
                                     const allItems: Record<string, { label: string; icon: React.ReactNode; active: string }> = {
                                         dashboard: { label: 'Tableau de bord', icon: <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect width="7" height="9" x="3" y="3" rx="1" /><rect width="7" height="5" x="14" y="3" rx="1" /><rect width="7" height="9" x="14" y="12" rx="1" /><rect width="7" height="5" x="3" y="16" rx="1" /></svg>, active: 'bg-indigo-50 border-indigo-100 text-indigo-700' },
-                                        vuegenerale: { label: 'Vue Générale', icon: <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>, active: 'bg-emerald-50 border-emerald-100 text-emerald-700' },
                                         planning: { label: 'Planning', icon: <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M19 4H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2Z" /><path d="M16 2v4" /><path d="M8 2v4" /><path d="M3 10h18" /></svg>, active: 'bg-blue-50 border-blue-100 text-blue-700' },
                                         suivi: { label: 'Suivi Production', icon: <Activity className="w-4 h-4" />, active: 'bg-indigo-50 border-indigo-100 text-indigo-700' },
                                         rendement: { label: 'Rendement', icon: <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18" /><polyline points="17 6 23 6 23 12" /></svg>, active: 'bg-violet-50 border-violet-100 text-violet-700' },
@@ -1269,21 +1283,7 @@ export default function App() {
                   {/* Isole le crash d'une page : la barre de navigation et le reste
                       de l'app restent vivants. `key={currentView}` réinitialise le
                       garde-fou automatiquement à chaque changement de page. */}
-                  <ErrorBoundary inline view={currentView} key={currentView} onReport={createTicketFromReport}>
-                    {currentView === 'vuegenerale' && (
-                        <VueGenerale
-                            models={models}
-                            planningEvents={planningEvents}
-                            settings={globalSettings}
-                            machines={machines}
-                            machineInstances={machineInstances}
-                            onNavigate={(view) => {
-                                if (view === 'planning') setCurrentView('planning');
-                                else if (view === 'machines') setCurrentView('pageMachine');
-                                else setCurrentView('dashboard');
-                            }}
-                        />
-                    )}
+                    <ErrorBoundary inline view={currentView} key={currentView} onReport={createTicketFromReport}>
 
                     {currentView === 'dashboard' && (
                         <Dashboard
@@ -1625,7 +1625,7 @@ export default function App() {
                     {currentView === 'sousTraitance' && (
                         <div className="flex-1 min-h-0 flex flex-col overflow-hidden w-full">
                             <Suspense fallback={<div className="p-8 text-center text-gray-500">Chargement...</div>}>
-                                <SousTraitance models={models} settings={globalSettings} />
+                                <SousTraitance models={models} settings={globalSettings} onNavigate={(v) => setCurrentView(v as any)} planningEvents={planningEvents} setPlanningEvents={setPlanningEvents} />
                             </Suspense>
                         </div>
                     )}

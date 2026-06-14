@@ -51,15 +51,17 @@ export function useAutoSchedule({ chains, planningEvents, models, machines, sett
             const reasoning: string[] = [];
             let score = 100;
 
-            // Filtre 1 : couverture machines
-            const ops = model.gamme_operatoire ?? [];
-            const ids = getChainMachineIds(chain.id, settings, machines);
-            const mc = validateMachineCoverage(ops, machines, ids);
-            if (!mc.ok) {
-                score -= 30;
-                reasoning.push(`⚠ Couverture incomplète (${mc.missingClasses.join(', ')})`);
-            } else {
-                reasoning.push('✓ Couverture machines OK');
+            // Filtre 1 : couverture machines — désactivable globalement (Configuration → alertes machines)
+            if (settings.machineAlertsEnabled !== false) {
+                const ops = model.gamme_operatoire ?? [];
+                const ids = getChainMachineIds(chain.id, settings, machines);
+                const mc = validateMachineCoverage(ops, machines, ids);
+                if (!mc.ok) {
+                    score -= 30;
+                    reasoning.push(`⚠ Couverture incomplète (${mc.missingClasses.join(', ')})`);
+                } else {
+                    reasoning.push('✓ Couverture machines OK');
+                }
             }
 
             // Calcul fin

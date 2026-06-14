@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, Edit2, Split, Copy, Trash2, Calendar, Package, Clock, Truck, AlertTriangle, Plus, CheckCircle2 } from 'lucide-react';
+import { X, Edit2, Split, Copy, Trash2, Calendar, Package, Clock, Truck, AlertTriangle, Plus, CheckCircle2, Maximize2, Minimize2 } from 'lucide-react';
 import type { ModelData, PlanningEvent, AppSettings } from '../../../types';
 import MaterialArrivalTimeline from '../MaterialArrivalTimeline';
 import { evClientName, evModelName, evModelThumb, evProduced, evQty, evProgressPct, evStartYmd, evEndYmd, evDeadlineYmd } from '../shared/eventAccessors';
@@ -82,10 +82,37 @@ export default function EventDetailPanel({
     const [quickAddOpen, setQuickAddOpen] = React.useState(false);
     const [quickAddVal, setQuickAddVal] = React.useState<number>(0);
 
+    // Bottom-sheet (mobile) — plein écran + glissement, comme « Paramètres PDF »
+    const [isExpanded, setIsExpanded] = React.useState(false);
+    const [dragOffset, setDragOffset] = React.useState(0);
+    const [dragging, setDragging] = React.useState(false);
+    const dragStartY = React.useRef(0);
+    const SHEET_EASE = 'transform 0.34s cubic-bezier(0.32, 0.72, 0, 1)';
+
+    const onHandleTouchStart = (e: React.TouchEvent) => { dragStartY.current = e.touches[0].clientY; setDragging(true); };
+    const onHandleTouchMove = (e: React.TouchEvent) => {
+        const delta = e.touches[0].clientY - dragStartY.current;
+        setDragOffset(delta > 0 ? delta : 0); // ne suit le doigt que vers le bas
+    };
+    const onHandleTouchEnd = (e: React.TouchEvent) => {
+        const delta = (e.changedTouches[0]?.clientY ?? dragStartY.current) - dragStartY.current;
+        setDragging(false);
+        setDragOffset(0);
+        if (isExpanded) {
+            if (delta >= 80) setIsExpanded(false);          // tirer vers le bas → réduire
+        } else {
+            if (delta <= -40) setIsExpanded(true);          // tirer vers le haut → agrandir
+            else if (delta >= 100) onClose();               // tirer vers le bas → fermer
+        }
+    };
+    const dragHandlers = { onTouchStart: onHandleTouchStart, onTouchMove: onHandleTouchMove, onTouchEnd: onHandleTouchEnd };
+
     React.useEffect(() => {
         setTab('details');
         setQuickAddOpen(false);
         setQuickAddVal(0);
+        setIsExpanded(false);
+        setDragOffset(0);
     }, [event?.id]);
 
     if (!event) return null;
@@ -114,9 +141,13 @@ export default function EventDetailPanel({
     const daysToDDS = ddsYmd ? daysBetween(todayYmd(), ddsYmd) : null;
     const isMobile = useIsMobile();
     const containerCls = isMobile
-        ? 'fixed inset-x-0 bottom-0 top-12 z-40 bg-white/95 border-t border-white/50 backdrop-blur-xl rounded-t-3xl shadow-[0_-12px_40px_rgba(15,23,42,0.18)] flex flex-col animate-[planning-slide-in-up_220ms_ease-out]'
-        : 'relative shrink-0 bg-white/80 border-l border-white/50 backdrop-blur-xl flex flex-col animate-[planning-slide-in-right_180ms_ease-out] shadow-[-10px_0_40px_rgba(0,0,0,0.04)]';
-    const containerStyle = isMobile ? undefined : { width };
+        ? `fixed inset-x-0 bottom-0 z-40 bg-white/80 border-t border-white/20 backdrop-blur-md shadow-[0_-12px_40px_rgba(15,23,42,0.18)] flex flex-col ${
+            isExpanded ? 'top-0 rounded-none' : 'top-12 rounded-t-3xl animate-[planning-slide-in-up_220ms_ease-out]'
+          }`
+        : 'relative shrink-0 bg-white/70 border-l border-white/20 backdrop-blur-md flex flex-col animate-[planning-slide-in-right_180ms_ease-out] shadow-[-10px_0_40px_rgba(0,0,0,0.04)] z-20';
+    const containerStyle = isMobile
+        ? { transform: dragOffset > 0 ? `translateY(${dragOffset}px)` : undefined, transition: dragging ? 'none' : SHEET_EASE }
+        : { width };
 
     // Chronology calculation
     const chronoItems = React.useMemo(() => {
@@ -202,17 +233,21 @@ export default function EventDetailPanel({
     }, [startYmd, qty, chainName, event.chaineId, event.fournisseurDate, ddsYmd, delay, produced, progress, rollingEndYmd]);
 
     return (
+        <>
+        {isMobile && (
+            <div
+                className="fixed inset-0 z-30 bg-slate-950/30 backdrop-blur-[2px] animate-[planning-fade-in_180ms_ease-out]"
+                onClick={onClose}
+                aria-hidden
+            />
+        )}
         <aside className={containerCls} style={containerStyle}>
             {isMobile && (
                 <div
-                    className="fixed inset-0 -z-10 bg-slate-950/30 backdrop-blur-[2px] animate-[planning-fade-in_180ms_ease-out]"
-                    style={{ left: '-9999px' }}
-                    aria-hidden
-                />
-            )}
-            {isMobile && (
-                <div className="pt-2 pb-1 flex items-center justify-center shrink-0">
-                    <span className="w-10 h-1 rounded-full bg-slate-350" />
+                    className="pt-2.5 pb-1.5 flex items-center justify-center shrink-0 cursor-grab touch-none active:cursor-grabbing"
+                    {...dragHandlers}
+                >
+                    <span className="w-10 h-1.5 rounded-full bg-slate-300" />
                 </div>
             )}
             {/* Drag handle (desktop only) */}
@@ -228,23 +263,31 @@ export default function EventDetailPanel({
 
             {/* Hero */}
             <header className="relative px-6 pt-5 pb-4 border-b border-slate-200/40">
-                <button
-                    type="button"
-                    onClick={onClose}
-                    className="absolute top-4 right-4 p-1 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100/70 border border-transparent hover:border-slate-200/30 transition-all duration-200 active:scale-95 shadow-sm"
-                    aria-label="Fermer"
-                >
-                    <X className="w-4 h-4" strokeWidth={2} />
-                </button>
+                <div className="absolute top-4 right-4 flex items-center gap-1">
+                    {isMobile && (
+                        <button
+                            type="button"
+                            onClick={() => setIsExpanded(e => !e)}
+                            className="p-1 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100/70 border border-transparent hover:border-slate-200/30 transition-all duration-200 active:scale-95 shadow-sm"
+                            aria-label={isExpanded ? 'Réduire' : 'Agrandir'}
+                        >
+                            {isExpanded ? <Minimize2 className="w-4 h-4" strokeWidth={2} /> : <Maximize2 className="w-4 h-4" strokeWidth={2} />}
+                        </button>
+                    )}
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        className="p-1 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100/70 border border-transparent hover:border-slate-200/30 transition-all duration-200 active:scale-95 shadow-sm"
+                        aria-label="Fermer"
+                    >
+                        <X className="w-4 h-4" strokeWidth={2} />
+                    </button>
+                </div>
 
                 <div className="flex items-start gap-3 pr-8">
-                    {thumb ? (
-                        <img src={thumb} alt="" className="w-11 h-11 rounded-xl object-cover ring-1 ring-slate-200/60 shrink-0" />
-                    ) : (
-                        <div className="w-11 h-11 rounded-xl bg-slate-100 flex items-center justify-center shrink-0">
-                            <Package className="w-4 h-4 text-slate-400" strokeWidth={2} />
-                        </div>
-                    )}
+                    <div className="w-11 h-11 rounded-xl flex items-center justify-center text-sm font-black text-white shrink-0 shadow-sm" style={{ background: getClientColor(client) }}>
+                        {(client || '?')[0].toUpperCase()}
+                    </div>
                     <div className="min-w-0">
                         <div className="flex items-center gap-2 mb-0.5">
                             <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: getClientColor(client) }} title={`Client: ${client}`} />
@@ -281,8 +324,8 @@ export default function EventDetailPanel({
             </header>
 
             {/* Tabs */}
-            <div className="px-4 py-2 border-b border-slate-200/40 bg-slate-55/10 shrink-0">
-                <div className="flex bg-slate-100/50 p-0.5 rounded-xl gap-1 border border-slate-200/40 backdrop-blur-sm">
+            <div className="px-4 py-2 border-b border-slate-200/40 bg-white/30 backdrop-blur-sm shrink-0">
+                <div className="flex bg-white/40 p-0.5 rounded-xl gap-1 border border-white/20 backdrop-blur-sm">
                     {(['details', 'activity', 'notes', 'materials'] as const).map(t => (
                         <button
                             key={t}
@@ -290,8 +333,8 @@ export default function EventDetailPanel({
                             onClick={() => setTab(t)}
                             className={`flex-1 h-7 text-[11px] font-bold rounded-lg transition-all duration-200 active:scale-95 ${
                                 tab === t
-                                    ? 'bg-white text-indigo-650 shadow-[0_2px_6px_rgba(99,102,241,0.08)]'
-                                    : 'text-slate-500 hover:text-slate-800 hover:bg-white/30'
+                                    ? 'bg-white/80 text-indigo-650 shadow-[0_2px_6px_rgba(99,102,241,0.08)]'
+                                    : 'text-slate-500 hover:text-slate-800 hover:bg-white/40'
                             }`}
                         >
                             {t === 'details' ? 'Détails' : t === 'activity' ? 'Activité' : t === 'notes' ? 'Notes' : 'Matières'}
@@ -311,7 +354,7 @@ export default function EventDetailPanel({
                         <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Progression</span>
                         <span className="text-[18px] font-extrabold text-slate-900 tabular-nums tracking-tight">{progress}<span className="text-[12px] text-slate-400 ml-0.5">%</span></span>
                     </div>
-                    <div className="h-1.5 bg-slate-100/80 rounded-full overflow-hidden mb-2 border border-slate-200/20 shadow-inner">
+                    <div className="h-1.5 bg-white/40 rounded-full overflow-hidden mb-2 border border-white/20 shadow-inner">
                         <div className="h-full rounded-full transition-[width] duration-300" style={{ width: `${progress}%`, background: accent }} />
                     </div>
                     <div className="text-[12px] text-slate-550 tabular-nums mb-3 font-medium">
@@ -403,8 +446,8 @@ export default function EventDetailPanel({
 
                 {/* Subcontracting details block */}
                 {event.isSubcontracted && (
-                    <section className="px-6 py-4 border-b border-slate-200/30 bg-indigo-500/5 border-t border-indigo-500/10">
-                        <div className="text-[10px] font-extrabold text-indigo-600 uppercase tracking-widest mb-3">Sous-traitance (المناولة)</div>
+                    <section className="px-6 py-4 border-b border-white/20 bg-indigo-500/5 border-t border-white/20 backdrop-blur-xs">
+                        <div className="text-[10px] font-extrabold text-indigo-600 uppercase tracking-widest mb-3">Sous-traitance</div>
                         <div className="space-y-2.5">
                             <div className="flex items-center justify-between text-[12px]">
                                 <span className="text-slate-500 font-medium">Sous-traitant :</span>
@@ -456,9 +499,9 @@ export default function EventDetailPanel({
                                     onChange={(e) => onUpdateEvent?.({ subcontractStatus: e.target.value as any })}
                                     className="h-7 px-2 text-[11px] font-bold bg-white border border-slate-200/60 rounded-lg focus:border-indigo-500/40 outline-none text-slate-800 shadow-sm cursor-pointer"
                                 >
-                                    <option value="PENDING">En attente (في الانتظار)</option>
-                                    <option value="SENT">Envoyé (تم الإرسال)</option>
-                                    <option value="COMPLETED">Complété (مكتمل)</option>
+                                    <option value="PENDING">En attente</option>
+                                    <option value="SENT">Envoyé</option>
+                                    <option value="COMPLETED">Complété</option>
                                 </select>
                             </div>
                         </div>
@@ -551,7 +594,7 @@ export default function EventDetailPanel({
                             value={notes || ''}
                             onChange={(e) => onNotesChange?.(e.target.value)}
                             placeholder="Ajoutez des notes pour cet ordre… (visible uniquement par vous)"
-                            className="w-full min-h-[180px] p-3 text-[13px] text-slate-800 placeholder:text-slate-450 bg-slate-100/20 border border-slate-200/60 focus:bg-white/85 focus:border-indigo-500/25 focus:ring-4 focus:ring-indigo-500/10 rounded-xl outline-none resize-y transition-all duration-200"
+                            className="w-full min-h-[180px] p-3 text-[13px] text-slate-800 placeholder:text-slate-450 bg-white/30 border border-white/20 focus:bg-white/85 focus:border-indigo-500/25 focus:ring-4 focus:ring-indigo-500/10 rounded-xl outline-none resize-y transition-all duration-200 backdrop-blur-sm"
                         />
                         <p className="text-[10px] text-slate-400 font-bold mt-2">
                             Enregistré automatiquement en local
@@ -578,7 +621,7 @@ export default function EventDetailPanel({
             </div>
 
             {/* Footer actions */}
-            <footer className="px-4 py-3 border-t border-slate-200/45 bg-slate-50/40 backdrop-blur-md flex items-center justify-between shrink-0">
+            <footer className="px-4 py-3 border-t border-white/20 bg-white/50 backdrop-blur-md flex items-center justify-between shrink-0">
                 <div className="flex items-center gap-1">
                     <ActionBtn onClick={onEdit} icon={Edit2}>Modifier</ActionBtn>
                     <ActionBtn onClick={onSplit} icon={Split}>Diviser</ActionBtn>
@@ -599,6 +642,7 @@ export default function EventDetailPanel({
                 </div>
             </footer>
         </aside>
+        </>
     );
 }
 

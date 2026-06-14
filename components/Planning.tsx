@@ -28,6 +28,7 @@ import { Plus, Sparkles, Calendar as CalIcon, LayoutGrid, Rows, Printer as Print
 import GanttView from './planning/views/gantt/GanttView';
 import CalendarView from './planning/views/CalendarView';
 import CardsView from './planning/views/CardsView';
+import ProductionSimulation from './planning/views/ProductionSimulation';
 
 import { usePlanningChains } from './planning/hooks/usePlanningChains';
 import { usePlanningStock } from './planning/hooks/usePlanningStock';
@@ -78,9 +79,6 @@ export default function Planning({
     const [showHeatMap, setShowHeatMap] = useState<boolean>(() => {
         try { return localStorage.getItem('planning_heatmap') === '1'; } catch { return false; }
     });
-    const [showCRColors, setShowCRColors] = useState<boolean>(() => {
-        try { return localStorage.getItem('planning_cr_colors') === '1'; } catch { return false; }
-    });
     const [toastMessage, setToastMessage] = useState<{ text: string, type: 'success' | 'error' } | null>(null);
     
     const showToast = (text: string, type: 'success' | 'error' = 'success') => {
@@ -98,9 +96,6 @@ export default function Planning({
     useEffect(() => {
         try { localStorage.setItem('planning_heatmap', showHeatMap ? '1' : '0'); } catch {}
     }, [showHeatMap]);
-    useEffect(() => {
-        try { localStorage.setItem('planning_cr_colors', showCRColors ? '1' : '0'); } catch {}
-    }, [showCRColors]);
     useEffect(() => {
         try { localStorage.setItem('planning_density', density); } catch {}
     }, [density]);
@@ -185,7 +180,7 @@ export default function Planning({
     const eventsApi = usePlanningEvents({ planningEvents, setPlanningEvents: history.setWithHistory, models, chains, settings, stock: stock.stock });
     const issues = usePlanningValidation({ planningEvents, models, machines, settings, chains });
     const { eventsWithCR, crisisEvents } = useCriticalRatio({ planningEvents, models, settings, chains });
-    const filtersApi = usePlanningFilters(eventsWithCR, models);
+    const filtersApi = usePlanningFilters(eventsWithCR, models, crisisEvents);
     const { suggest } = useAutoSchedule({ chains, planningEvents, models, machines, settings });
     const print = usePlanningPrint();
 
@@ -601,7 +596,6 @@ export default function Planning({
             { id: 'view-cards', label: 'Vue Cartes', icon: LayoutGrid, group: 'Vues', onRun: () => setView('cards') },
             { id: 'filters', label: filtersOpen ? 'Masquer les filtres' : 'Afficher les filtres', icon: FilterIcon, group: 'Affichage', onRun: () => setFiltersOpen(v => !v) },
             { id: 'heatmap', label: showHeatMap ? 'Masquer la carte de charge' : 'Afficher la carte de charge', icon: Flame, group: 'Affichage', onRun: () => setShowHeatMap(v => !v) },
-            { id: 'crcolors', label: showCRColors ? 'Masquer les couleurs de taux critique' : 'Afficher les couleurs de taux critique', icon: Zap, group: 'Affichage', onRun: () => setShowCRColors(v => !v) },
             { id: 'density', label: density === 'compact' ? 'Affichage confortable' : 'Affichage compact', icon: density === 'compact' ? Maximize2 : Minimize2, group: 'Affichage', onRun: () => setDensity(d => d === 'compact' ? 'comfortable' : 'compact') },
         ];
         if (soloChainId) {
@@ -625,7 +619,7 @@ export default function Planning({
             });
         }
         return list;
-    }, [filtersOpen, soloChainId, filtersApi, planningEvents, models, print, showHeatMap, showCRColors, density]);
+    }, [filtersOpen, soloChainId, filtersApi, planningEvents, models, print, showHeatMap, density]);
 
     return (
         <div className="h-full flex flex-col bg-gradient-to-tr from-slate-50 via-white to-indigo-50/20 font-sans select-none text-slate-800 antialiased relative">
@@ -643,13 +637,13 @@ export default function Planning({
                 onToday={() => { setCurrentDate(new Date()); setPulseToday(Date.now()); }}
                 onAddEvent={openCreate}
                 onAutoSchedule={() => setAutoOpen(true)}
-                onBatchSchedule={() => setBatchOpen(true)}
                 onPrint={print}
                 searchText={filtersApi.filters.searchText}
                 onSearch={filtersApi.setSearchText}
                 filtersOpen={filtersOpen}
                 onToggleFilters={() => setFiltersOpen(v => !v)}
                 hasActiveFilters={filtersApi.hasActiveFilters}
+                activeFilterCount={filtersApi.activeFilterCount}
                 onOptimizePlanning={() => setAiOptimizeOpen(true)}
                 canUndo={history.canUndo}
                 canRedo={history.canRedo}
@@ -661,14 +655,18 @@ export default function Planning({
             <QuickFilters
                 open={filtersOpen}
                 allClients={filtersApi.allClients}
+                allChains={filtersApi.allChains}
+                chainNames={settings.chainNames}
                 selectedClients={filtersApi.filters.clients}
                 selectedStatuses={filtersApi.filters.statuses}
+                selectedChains={filtersApi.filters.chains}
                 hasActive={filtersApi.hasActiveFilters}
                 onToggleClient={filtersApi.toggleClient}
                 onToggleStatus={filtersApi.toggleStatus}
+                onToggleChain={filtersApi.toggleChain}
                 onReset={filtersApi.resetFilters}
-                showCRColors={showCRColors}
-                onToggleCRColors={() => setShowCRColors(v => !v)}
+                showCriticalOnly={filtersApi.filters.showCriticalOnly}
+                onToggleCriticalOnly={filtersApi.toggleCriticalOnly}
             />
 
             <IssuesPanel
@@ -715,7 +713,6 @@ export default function Planning({
                         soloChainId={soloChainId}
                         onToggleSolo={(id) => setSoloChainId(prev => prev === id ? null : id)}
                         showHeatMap={showHeatMap}
-                        showCRColors={showCRColors}
                         density={density}
                         machines={machines}
                     />
@@ -740,6 +737,19 @@ export default function Planning({
                             models={models}
                             onSelectEvent={setSelectedId}
                             onEditEvent={openEdit}
+                        />
+                    </div>
+                )}
+
+                {view === 'simulation' && (
+                    <div className="absolute inset-0 overflow-auto bg-slate-50/30">
+                        <ProductionSimulation
+                            models={models}
+                            chains={chains}
+                            settings={settings}
+                            planningEvents={planningEvents}
+                            eventsApi={eventsApi}
+                            showToast={showToast}
                         />
                     </div>
                 )}
@@ -940,32 +950,32 @@ export default function Planning({
             )}
 
             {multiIds.size > 0 && (
-                <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 bg-slate-900/90 border border-white/10 backdrop-blur-md text-white rounded-2xl shadow-[0_12px_40px_rgba(15,23,42,0.35)] flex items-stretch overflow-hidden animate-[planning-fade-up_180ms_ease-out]">
-                    <div className="flex items-center gap-2 px-4 py-2.5 border-r border-white/10 bg-white/5">
-                        <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-white/15 text-[11px] font-bold tabular-nums">{multiIds.size}</span>
+                <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 bg-gray-900 text-white rounded-xl shadow-xl flex items-stretch overflow-hidden animate-[planning-fade-up_180ms_ease-out]">
+                    <div className="flex items-center gap-2 px-4 py-2.5 border-r border-gray-700 bg-gray-800">
+                        <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-gray-700 text-[11px] font-bold tabular-nums">{multiIds.size}</span>
                         <span className="text-[12px] font-bold">sélectionné{multiIds.size > 1 ? 's' : ''}</span>
                     </div>
                     <select
                         onChange={(e) => { if (e.target.value) { handleBulkMove(e.target.value); e.target.value = ''; } }}
                         defaultValue=""
-                        className="px-3 text-[12px] font-bold bg-slate-900 text-white border-r border-white/10 outline-none cursor-pointer hover:bg-white/10"
+                        className="px-3 text-[12px] font-bold bg-gray-900 text-white border-r border-gray-700 outline-none cursor-pointer hover:bg-gray-800"
                     >
-                        <option value="" disabled className="text-slate-400">Déplacer vers…</option>
+                        <option value="" disabled className="text-gray-400">Déplacer vers…</option>
                         {chains.map(c => (
-                            <option key={c.id} value={c.id} className="text-slate-400">{c.name}</option>
+                            <option key={c.id} value={c.id} className="text-gray-400">{c.name}</option>
                         ))}
                     </select>
                     <select
                         onChange={(e) => { if (e.target.value) { handleBulkStatus(e.target.value); e.target.value = ''; } }}
                         defaultValue=""
-                        className="px-3 text-[12px] font-bold bg-slate-900 text-white border-r border-white/10 outline-none cursor-pointer hover:bg-white/10"
+                        className="px-3 text-[12px] font-bold bg-gray-900 text-white border-r border-gray-700 outline-none cursor-pointer hover:bg-gray-800"
                     >
-                        <option value="" disabled className="text-slate-400">Changer statut…</option>
-                        <option value="READY" className="text-slate-400">Prêt</option>
-                        <option value="IN_PROGRESS" className="text-slate-400">En cours</option>
-                        <option value="BLOCKED_STOCK" className="text-slate-400">Bloqué stock</option>
-                        <option value="EXTERNAL_PROCESS" className="text-slate-400">Proc. Externe</option>
-                        <option value="DONE" className="text-slate-400">Terminé</option>
+                        <option value="" disabled className="text-gray-400">Changer statut…</option>
+                        <option value="READY" className="text-gray-400">Prêt</option>
+                        <option value="IN_PROGRESS" className="text-gray-400">En cours</option>
+                        <option value="BLOCKED_STOCK" className="text-gray-400">Bloqué stock</option>
+                        <option value="EXTERNAL_PROCESS" className="text-gray-400">Proc. Externe</option>
+                        <option value="DONE" className="text-gray-400">Terminé</option>
                     </select>
                     <button
                         type="button"
@@ -977,7 +987,7 @@ export default function Planning({
                     <button
                         type="button"
                         onClick={() => setMultiIds(new Set())}
-                        className="px-3.5 flex items-center justify-center text-white/70 hover:bg-white/10 hover:text-white transition-all duration-200 active:scale-95"
+                        className="px-3.5 flex items-center justify-center text-white/70 hover:bg-gray-800 hover:text-white transition-all duration-200 active:scale-95"
                         aria-label="Annuler la sélection"
                     >
                         <XIcon className="w-3.5 h-3.5" />
@@ -1022,10 +1032,10 @@ export default function Planning({
             )}
 
             {deleteConfirm && (
-                <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-950/40 backdrop-blur-md" onClick={() => setDeleteConfirm(null)}>
-                    <div className="bg-white/80 border border-white/50 backdrop-blur-xl rounded-3xl shadow-[0_20px_50px_rgba(0,0,0,0.15)] p-6 max-w-sm w-full animate-in zoom-in-95 duration-200" onClick={(e) => e.stopPropagation()}>
-                        <h3 className="text-[16px] font-extrabold text-slate-900 tracking-tight">Supprimer l'ordre ?</h3>
-                        <p className="text-[12px] text-slate-500 font-medium mt-1 mb-6">Cette action est définitive. L'ordre sera retiré du planning.</p>
+                <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/40" onClick={() => setDeleteConfirm(null)}>
+                    <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-sm w-full" onClick={(e) => e.stopPropagation()}>
+                        <h3 className="text-[16px] font-bold text-gray-900">Supprimer l'ordre ?</h3>
+                        <p className="text-[12px] text-gray-500 font-medium mt-1 mb-6">Cette action est définitive. L'ordre sera retiré du planning.</p>
                         <div className="flex items-center justify-end gap-2">
                             <button
                                 type="button"

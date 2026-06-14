@@ -247,7 +247,7 @@ export default function CrisisAlertPanel({
             <button
                 type="button"
                 onClick={() => setExpanded(v => !v)}
-                className="w-full h-10 px-6 flex items-center justify-between gap-3 hover:bg-red-50/40 transition-colors"
+                className="w-full h-10 px-3 sm:px-6 flex items-center justify-between gap-3 hover:bg-red-50/40 transition-colors"
             >
                 <div className="flex items-center gap-3">
                     <span className="flex h-2 w-2 relative">

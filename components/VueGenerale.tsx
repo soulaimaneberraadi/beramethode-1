@@ -66,7 +66,8 @@ export default function VueGenerale({
   const chainsCount = settings?.chainsCount || 6;
   const activeChains = activeEvents.filter(e => e.chaineId).length;
 
-  const kpis = useMemo(() => [
+  const kpis = useMemo(() => {
+    const base = [
     {
       label: 'OF En Cours',
       value: activeEvents.length,
@@ -107,7 +108,12 @@ export default function VueGenerale({
       iconBg: panneMachines > 0 ? 'text-rose-600' : 'text-emerald-600',
       border: panneMachines > 0 ? 'border-rose-100' : 'border-emerald-100'
     }
-  ], [activeEvents, activeChains, totalProduced, totalTarget, globalProgress, machineInstances.length, okMachines, panneMachines, maintMachines, machineHealth]);
+    ];
+    // Module Machines désactivé (Configuration) → on retire les cartes liées aux machines
+    return settings.machineAlertsEnabled === false
+      ? base.filter(k => k.label !== 'Parc Machines' && k.label !== 'Santé Machines')
+      : base;
+  }, [activeEvents, activeChains, totalProduced, totalTarget, globalProgress, machineInstances.length, okMachines, panneMachines, maintMachines, machineHealth, settings.machineAlertsEnabled]);
 
   const recentModels = useMemo(() => {
     const sorted = [...planningEvents].sort((a, b) =>
@@ -244,7 +250,8 @@ export default function VueGenerale({
             </div>
           </motion.div>
 
-          {/* Machine Status */}
+          {/* Machine Status — masqué si le Module Machines est désactivé (Configuration) */}
+          {settings.machineAlertsEnabled !== false && (
           <motion.div
             variants={itemVariants}
             initial="hidden"
@@ -313,6 +320,7 @@ export default function VueGenerale({
               </div>
             </div>
           </motion.div>
+          )}
         </div>
 
         {/* Quick Stats Bar */}

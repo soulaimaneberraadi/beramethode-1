@@ -25,7 +25,7 @@ import { TRANSLATIONS } from './constants';
 import SupportWidget from '../components/SupportWidget';
 import SyncIndicator from '../components/SyncIndicator';
 
-type ViewType = 'dashboard' | 'ingenierie' | 'library' | 'coupe' | 'effectifs' | 'gestionRh' | 'planning' | 'suivi' | 'magasin' | 'export' | 'config' | 'profil' | 'admin' | 'rendement' | 'pageMachine' | 'machin' | 'facturation' | 'atelierProd' | 'vuegenerale' | 'sousTraitance' | 'catalogTemps';
+type ViewType = 'dashboard' | 'ingenierie' | 'library' | 'coupe' | 'effectifs' | 'gestionRh' | 'planning' | 'suivi' | 'magasin' | 'export' | 'config' | 'profil' | 'admin' | 'rendement' | 'pageMachine' | 'machin' | 'facturation' | 'atelierProd' | 'sousTraitance' | 'catalogTemps';
 
 interface AppHeaderProps {
     currentView: ViewType;
@@ -50,11 +50,6 @@ const VIEW_DEFS: Record<string, { label: string | ((t: any) => string); icon: Re
         label: 'Tableau de bord',
         icon: <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect width="7" height="9" x="3" y="3" rx="1" /><rect width="7" height="5" x="14" y="3" rx="1" /><rect width="7" height="9" x="14" y="12" rx="1" /><rect width="7" height="5" x="3" y="16" rx="1" /></svg>,
         activeClass: 'bg-indigo-50 border-indigo-100 text-indigo-700'
-    },
-    vuegenerale: {
-        label: 'Vue Générale',
-        icon: <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>,
-        activeClass: 'bg-emerald-50 border-emerald-100 text-emerald-700'
     },
     planning: {
         label: 'Planning',

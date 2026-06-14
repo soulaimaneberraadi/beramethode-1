@@ -15,6 +15,7 @@ interface Props {
 }
 
 const WEEK_DAYS = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
+const WEEK_DAYS_SHORT = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
 
 function getMonthMatrix(d: Date): Date[] {
     const year = d.getFullYear();
@@ -62,7 +63,7 @@ export default function CalendarView({ events, models, currentDate, pulseToday, 
     }, [events]);
 
     return (
-        <div className="bg-white p-6 min-h-full">
+        <div className="bg-white p-3 sm:p-6 min-h-full">
             <style>{`
                 @keyframes planning-today-cell-pulse {
                     0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(249,115,22,0.7); }
@@ -75,16 +76,17 @@ export default function CalendarView({ events, models, currentDate, pulseToday, 
             `}</style>
             {/* Title */}
             <div className="mb-4">
-                <h2 className="text-[18px] font-semibold text-slate-900 tracking-tight capitalize">
+                <h2 className="text-[15px] sm:text-[18px] font-semibold text-slate-900 tracking-tight capitalize">
                     {fmtMonthYear(currentDate)}
                 </h2>
             </div>
 
             {/* Week header */}
             <div className="grid grid-cols-7 mb-2">
-                {WEEK_DAYS.map(d => (
-                    <div key={d} className="text-[10px] font-medium text-slate-400 uppercase tracking-wider px-2 py-1">
-                        {d}
+                {WEEK_DAYS.map((d, i) => (
+                    <div key={d} className="text-[9px] sm:text-[10px] font-medium text-slate-400 uppercase tracking-wider px-1 sm:px-2 py-1 text-center sm:text-left">
+                        <span className="sm:hidden">{WEEK_DAYS_SHORT[i]}</span>
+                        <span className="hidden sm:inline">{d}</span>
                     </div>
                 ))}
             </div>
@@ -100,7 +102,7 @@ export default function CalendarView({ events, models, currentDate, pulseToday, 
                     return (
                         <div
                             key={i}
-                            className={`relative min-h-[110px] p-2 border-r border-b border-slate-100 last:border-r-0 [&:nth-child(7n)]:border-r-0 ${
+                            className={`relative min-h-[64px] sm:min-h-[110px] p-1 sm:p-2 border-r border-b border-slate-100 last:border-r-0 [&:nth-child(7n)]:border-r-0 ${
                                 isCurrentMonth ? 'bg-white' : 'bg-slate-50/40'
                             } ${i >= 35 ? 'border-b-0' : ''}`}
                         >

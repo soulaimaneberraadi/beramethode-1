@@ -145,8 +145,8 @@ export function usePlanningValidation({ planningEvents, models, machines, settin
                 });
             }
 
-            // 2. Couverture machines
-            if (model) {
+            // 2. Couverture machines — désactivable globalement (Configuration → alertes machines)
+            if (model && settings.machineAlertsEnabled !== false) {
                 const ops = model.gamme_operatoire ?? [];
                 const cacheKey = `${ev.chaineId}::${ev.modelId}`;
                 let mc = machineCoverageCache.get(cacheKey);
@@ -289,8 +289,8 @@ export function checkEventDraft(
     const endIso = computeEndDate(draft.modelId, draft.chaineId, draft.startDate, draft.quantity);
     const endYmd = endIso.split('T')[0];
 
-    // Machines
-    if (model) {
+    // Machines — désactivable globalement (Configuration → alertes machines)
+    if (model && settings.machineAlertsEnabled !== false) {
         const ops = model.gamme_operatoire ?? [];
         const ids = getChainMachineIds(draft.chaineId, settings, machines);
         const mc = validateMachineCoverage(ops, machines, ids);

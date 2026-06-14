@@ -25,7 +25,7 @@ const Ctx = createContext<LicenseCtx | undefined>(undefined);
 
 // كل وحدات BERAMETHODE — لحساب المخفي = الكل ناقص المسموح.
 const ALL_MODULES = [
-  'vuegenerale', 'dashboard', 'ingenierie', 'atelierProd', 'library', 'coupe',
+  'dashboard', 'ingenierie', 'atelierProd', 'library', 'coupe',
   'effectifs', 'gestionRh', 'planning', 'suivi', 'rendement', 'magasin', 'export',
   'facturation', 'config', 'pageMachine', 'machin', 'objectifs', 'sousTraitance',
   'admin', 'profil', 'atelier',

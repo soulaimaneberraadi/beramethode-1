@@ -15,7 +15,7 @@ interface PermRow { resource_type: 'page' | 'field'; resource_key: string; can_v
 const ACCENT = '#2149C1';
 
 const PAGE_LABELS: Record<string, string> = {
-  vuegenerale: 'Vue générale', dashboard: 'Tableau de bord', ingenierie: 'Ingénierie', atelier: 'Chef Atelier',
+  dashboard: 'Tableau de bord', ingenierie: 'Ingénierie', atelier: 'Chef Atelier',
   atelierProd: 'Atelier Prod', library: 'Bibliothèque', coupe: 'La Coupe', effectifs: 'Effectifs',
   gestionRh: 'Gestion RH', planning: 'Planning', suivi: 'Suivi', rendement: 'Rendement', magasin: 'Magasin',
   export: 'Export', facturation: 'Facturation', config: 'Paramètres', pageMachine: 'Page Machine',

@@ -783,19 +783,19 @@ export default function Pedido({
     };
 
     return (
-        <div className="space-y-5 pb-24 animate-in fade-in slide-in-from-bottom-2 duration-300 relative bg-zinc-50/80 -mx-6 -my-6 px-6 py-6 min-h-full">
+        <div className="space-y-5 pb-24 animate-in fade-in slide-in-from-bottom-2 duration-300 relative bg-zinc-50/80 -mx-4 -my-4 px-4 py-4 sm:-mx-6 sm:-my-6 sm:px-6 sm:py-6 lg:-mx-8 lg:-my-8 lg:px-8 lg:py-8 min-h-full overflow-x-hidden">
             
             {/* INDUSTRIAL DASHBOARD OVERVIEW */}
             <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden">
-                <div className="bg-zinc-50/80 px-5 py-3 border-b border-slate-100 flex items-center justify-between">
+                <div className="bg-zinc-50/80 px-5 py-3 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                     <div className="flex items-center gap-2">
-                        <Layers className="w-4 h-4 text-indigo-500" />
+                        <Layers className="w-4 h-4 text-indigo-500 shrink-0" />
                         <h3 className="font-semibold text-slate-900 text-xs uppercase tracking-wide">
                             {lang === 'ar' ? 'لوحة تتبع الطلبية (Pedido)' : 'Tableau de Bord Suivi Commande (Pedido)'}
                         </h3>
                     </div>
-                    <div>
-                        <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-semibold border uppercase tracking-wider ${
+                    <div className="shrink-0">
+                        <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-semibold border uppercase tracking-wider whitespace-nowrap ${
                             totalPlanified === totalCible && totalCible > 0
                                 ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
                                 : totalPlanified > totalCible && totalCible > 0
@@ -1110,7 +1110,7 @@ export default function Pedido({
                                             <button
                                                 type="button"
                                                 onClick={() => setExpandedLotId(isExpanded ? null : evt.id)}
-                                                className={`w-full px-4 py-3 flex items-center gap-3 text-left transition-colors hover:bg-slate-50/50 sticky top-0 z-10 bg-white ${isExpanded ? 'border-b border-slate-100 shadow-sm' : ''}`}
+                                                className={`w-full px-4 py-3 flex items-center gap-3 text-left transition-colors hover:bg-slate-50/50 sticky top-0 z-30 bg-white ${isExpanded ? 'border-b border-slate-100 shadow-sm' : ''}`}
                                             >
                                                 <div className={`shrink-0 w-6 h-6 rounded-md flex items-center justify-center transition-all ${isExpanded ? 'bg-indigo-100 text-indigo-600 rotate-90' : 'bg-slate-100 text-slate-400'}`}>
                                                     <ChevronRight className="w-3.5 h-3.5" />
@@ -1384,7 +1384,7 @@ export default function Pedido({
                                                                                         <table className="w-full text-[11px] border-collapse">
                                                                                             <thead>
                                                                                                 <tr className="text-[9px] uppercase tracking-wider text-slate-400 border-b border-amber-100/30">
-                                                                                                    <th className="text-left px-3 py-1.5 font-medium min-w-[80px]">Matière</th>
+                                                                                                    <th className="sticky left-0 bg-slate-50 border-r border-amber-100/30 z-20 text-left px-3 py-1.5 font-medium min-w-[80px]">Matière</th>
                                                                                                     <th className="text-center px-2 py-1.5 font-medium min-w-[50px]">Qté</th>
                                                                                                     <th className="text-center px-2 py-1.5 font-medium min-w-[60px]">Fournisseur</th>
                                                                                                     <th className="text-center px-2 py-1.5 font-medium min-w-[70px]">Statut</th>
@@ -1394,8 +1394,8 @@ export default function Pedido({
                                                                                             </thead>
                                                                                             <tbody className="divide-y divide-amber-50/50">
                                                                                                 {cg.colorMats.map((m: any, idx: number) => (
-                                                                                                    <tr key={`${m.id}-${idx}`} className="hover:bg-amber-50/30 transition-colors cursor-pointer" onClick={() => setSelectedMaterial({ ...m, colorName: cg.colorName })}>
-                                                                                                        <td className="px-3 py-1.5 font-medium text-slate-700 truncate max-w-[100px]">{m.name}</td>
+                                                                                                    <tr key={`${m.id}-${idx}`} className="group hover:bg-amber-50/30 transition-colors cursor-pointer" onClick={() => setSelectedMaterial({ ...m, colorName: cg.colorName })}>
+                                                                                                        <td className="sticky left-0 bg-white group-hover:bg-[#fffcf4] z-10 border-r border-amber-100/30 px-3 py-1.5 font-medium text-slate-700 truncate max-w-[100px]" title={m.name}>{m.name}</td>
                                                                                                         <td className="px-2 py-1.5 text-center tabular-nums text-slate-600 whitespace-nowrap">{m.buyQty} {m.unit}</td>
                                                                                                         <td className="px-2 py-1.5 text-center">
                                                                                                             {m.fournisseur ? (

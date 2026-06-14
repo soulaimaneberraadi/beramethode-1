@@ -28,7 +28,7 @@ export default function AIOptimizationModal({
         suggestions: any[];
         actions: any[];
     } | null>(null);
-    const [loadingStep, setLoadingStep] = useState(0);
+    const [loadingStep, setLoadingStep] = useState<number>(0);
 
     // Dynamic loading status messages for user entertainment and feedback
     const loadingSteps = [
@@ -69,7 +69,11 @@ export default function AIOptimizationModal({
                 }
 
                 const result = await response.json();
-                setData(result);
+                setData({
+                    analysis: result.analysis || '',
+                    suggestions: result.suggestions || [],
+                    actions: result.actions || [],
+                });
             } catch (err: any) {
                 console.error("AI Optimization failed:", err);
                 setError(err.message || "Une erreur inconnue s'est produite lors de l'optimisation.");
@@ -80,6 +84,7 @@ export default function AIOptimizationModal({
         };
 
         runOptimization();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [open]);
 
     const handleApply = () => {
@@ -101,13 +106,13 @@ export default function AIOptimizationModal({
                     <Button variant="ghost" onClick={onClose} disabled={loading}>
                         Fermer
                     </Button>
-                    {data && data.actions && data.actions.length > 0 && (
+                    {data?.actions?.length > 0 && (
                         <Button
                             variant="primary"
                             icon={<Sparkles className="w-3.5 h-3.5" />}
                             onClick={handleApply}
                         >
-                            Appliquer les optimisations ({data.actions.length})
+                            Appliquer les optimisations ({data.actions?.length ?? 0})
                         </Button>
                     )}
                 </>
@@ -155,10 +160,10 @@ export default function AIOptimizationModal({
                     {/* Suggestions Section */}
                     <div className="space-y-3">
                         <h4 className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-                            Pistes de correction suggérées ({data.suggestions.length})
+                            Pistes de correction suggérées ({data.suggestions?.length ?? 0})
                         </h4>
 
-                        {data.suggestions.length === 0 ? (
+                        {(!data.suggestions || data.suggestions.length === 0) ? (
                             <div className="flex flex-col items-center justify-center py-6 text-slate-400 border border-dashed border-slate-200 rounded-lg">
                                 <CheckCircle2 className="w-6 h-6 text-emerald-500 mb-1.5" />
                                 <p className="text-[12px] font-medium text-slate-500">Aucun ajustement recommandé</p>

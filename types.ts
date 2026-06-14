@@ -357,6 +357,8 @@ export interface AppSettings {
   hrSageApply?: boolean;
   /** Référence documentaire compta / facturation : base de temps pour valorisation (V1). */
   hrComptaPointageRef?: 'pointees' | 'normales_paie';
+  /** Active les alertes/notifications liées aux machines (couverture machines dans le Planning). Défaut true. Si false → aucune alerte machine n'est générée, mais la page Machines reste accessible. */
+  machineAlertsEnabled?: boolean;
 
   // ═══════════════════════════════════════════════════════════
   // APS — Advanced Planning & Scheduling (Blueprint Engine)
