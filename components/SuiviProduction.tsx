@@ -282,7 +282,14 @@ export default function SuiviProduction({
     // Selected day for the graphic rendering (defaults to Monday)
     const [selectedChartDate, setSelectedChartDate] = useState<string>('');
 
-    // Bidirectional sync between globalDate and selectedChartDate
+    // Sélection d'un jour : met à jour le local + pousse vers globalDate (sur action utilisateur).
+    // On évite la boucle infinie en NE synchronisant PAS automatiquement local → global dans un effet.
+    const selectChartDate = React.useCallback((d: string) => {
+        setSelectedChartDate(d);
+        if (setGlobalDate && d !== globalDate) setGlobalDate(d);
+    }, [setGlobalDate, globalDate]);
+
+    // Sync descendante seulement : globalDate (parent) → selectedChartDate quand il tombe dans la semaine.
     useEffect(() => {
         if (globalDate && globalDate !== selectedChartDate) {
             const weekDates = weekDays.map(d => d.dateStr);
@@ -291,12 +298,6 @@ export default function SuiviProduction({
             }
         }
     }, [globalDate, weekDays, selectedChartDate]);
-
-    useEffect(() => {
-        if (selectedChartDate && setGlobalDate && selectedChartDate !== globalDate) {
-            setGlobalDate(selectedChartDate);
-        }
-    }, [selectedChartDate, globalDate, setGlobalDate]);
 
     // Supervisors map
     const [supervisors, setSupervisors] = useState<Record<string, string>>({
@@ -1401,9 +1402,9 @@ export default function SuiviProduction({
                                             {/* Date */}
                                             <td className={`py-4 px-4 font-mono text-xs text-slate-500 font-bold sticky left-0 z-10 border-r border-slate-100 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)] ${selectedChartDate === day.dateStr ? 'bg-[#f4f6fe]' : 'bg-white'}`}>
                                                 <div className="flex items-center gap-2">
-                                                    <button 
+                                                    <button
                                                         type="button"
-                                                        onClick={() => setSelectedChartDate(day.dateStr)}
+                                                        onClick={() => selectChartDate(day.dateStr)}
                                                         className={`w-3 h-3 rounded-full border ${selectedChartDate === day.dateStr ? 'bg-indigo-600 border-indigo-600' : 'border-slate-300'}`}
                                                         title="Sélectionner pour le graphique"
                                                     />
@@ -1569,7 +1570,7 @@ export default function SuiviProduction({
                                         <button
                                             key={day.dateStr}
                                             type="button"
-                                            onClick={() => setSelectedChartDate(day.dateStr)}
+                                            onClick={() => selectChartDate(day.dateStr)}
                                             className={`shrink-0 flex flex-col items-center justify-center rounded-xl border px-3 py-1.5 transition-all ${
                                                 isSel ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
                                             }`}
