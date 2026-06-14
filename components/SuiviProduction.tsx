@@ -7,7 +7,7 @@ import {
     Activity, Clock, ChevronLeft, ChevronRight, Plus, 
     User, Settings, ToggleLeft, ToggleRight, Info, AlertCircle, CheckCircle, Save,
     ShieldAlert, Sparkles, Sliders, Layers, BarChart2, CheckSquare, Trash2,
-    Package, TrendingDown, AlertTriangle, X, Image as ImageIcon
+    Package, TrendingDown, AlertTriangle, X, Image as ImageIcon, CalendarDays, CalendarRange
 } from 'lucide-react';
 
 interface Props {
@@ -139,7 +139,7 @@ export default function SuiviProduction({
 }: Props) {
     // 1. Core States
     const isMobile = useIsMobile();
-    const [localSelectedChaineId, localSetSelectedChaineId] = useState<string>('CHAINE 2');
+    const [localSelectedChaineId, localSetSelectedChaineId] = useState<string>('CHAINE 1');
     const selectedChaineId = propSelectedChaineId !== undefined ? propSelectedChaineId : localSelectedChaineId;
     const setSelectedChaineId = propSetSelectedChaineId !== undefined ? propSetSelectedChaineId : localSetSelectedChaineId;
 
@@ -189,6 +189,8 @@ export default function SuiviProduction({
     }, [ofColorOverrides]);
     const [colorPickerOpen, setColorPickerOpen] = useState<boolean>(false);
     const [modelDropdownOpen, setModelDropdownOpen] = useState<boolean>(false);
+    // Mobile: bascule entre vue jour unique (false) et tableau semaine complet (true)
+    const [mobileWeekView, setMobileWeekView] = useState<boolean>(false);
 
     const [showStatsHeader, setShowStatsHeader] = useState<boolean>(() => {
         try {
@@ -360,7 +362,7 @@ export default function SuiviProduction({
 
     // Dynamic chains list based on settings and active data
     const chainsList = useMemo(() => {
-        const count = settings?.chainsCount || 12;
+        const count = settings?.chainsCount || 1;
         const list: string[] = [];
         for (let i = 1; i <= count; i++) {
             list.push(`CHAINE ${i}`);
@@ -771,7 +773,11 @@ export default function SuiviProduction({
         const firstEntry = dayEntries[0] || {
             chaf: 1, recta: 15, sujet: 6, transp: 1, man: 2, sp: 0, stager: 0, totalWorkers: 25
         };
-        const totalM = firstEntry.totalWorkers !== undefined ? firstEntry.totalWorkers : ((firstEntry.chaf || 0) + (firstEntry.recta || 0) + (firstEntry.sujet || 0) + (firstEntry.transp || 0) + (firstEntry.man || 0) + (firstEntry.sp || 0) + (firstEntry.stager || 0) || 25);
+        // L'effectif saisi dans la page Effectifs (entrée id "effectif_...") fait autorité,
+        // afin que le rendement de Suivi reflète l'effectif réel de la chaîne/jour.
+        const effectifEntry = dayEntries.find(s => typeof s.id === 'string' && s.id.startsWith('effectif_') && (s.totalWorkers || 0) > 0);
+        const baseEntry = effectifEntry || firstEntry;
+        const totalM = baseEntry.totalWorkers !== undefined ? baseEntry.totalWorkers : ((baseEntry.chaf || 0) + (baseEntry.recta || 0) + (baseEntry.sujet || 0) + (baseEntry.transp || 0) + (baseEntry.man || 0) + (baseEntry.sp || 0) + (baseEntry.stager || 0) || 25);
 
         let totalActiveMinutes = 0;
         let downtimeMinutes = 0;
@@ -1240,6 +1246,22 @@ export default function SuiviProduction({
                         </div>
                     )}
 
+                    {/* Toggle Jour / Semaine (mobile uniquement) */}
+                    {isMobile && (
+                        <button
+                            onClick={() => setMobileWeekView(v => !v)}
+                            title={mobileWeekView ? 'Vue jour' : 'Vue semaine'}
+                            className={`flex items-center gap-1.5 px-2 py-1.5 border rounded-xl text-xs font-bold transition-all shadow-sm ${
+                                mobileWeekView
+                                    ? 'bg-indigo-50 text-indigo-800 border-indigo-200 ring-2 ring-indigo-500/10'
+                                    : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'
+                            }`}
+                        >
+                            {mobileWeekView ? <CalendarDays className="w-4 h-4 text-indigo-600" /> : <CalendarRange className="w-4 h-4 text-indigo-600" />}
+                            <span>{mobileWeekView ? 'Jour' : 'Semaine'}</span>
+                        </button>
+                    )}
+
                     {/* Stats Toggle Button */}
                     <button
                         onClick={() => setShowStatsHeader(!showStatsHeader)}
@@ -1367,8 +1389,8 @@ export default function SuiviProduction({
 
                 {/* Primary Weekly Grid Table */}
                 <div className="bg-white border border-slate-200/60 rounded-2xl shadow-sm overflow-hidden z-10 relative">
-                    {/* ─── Desktop : tableau hebdomadaire complet ─── */}
-                    {!isMobile && (
+                    {/* ─── Tableau hebdomadaire complet (desktop, ou mobile si vue semaine) ─── */}
+                    {(!isMobile || mobileWeekView) && (
                     <div className="overflow-x-auto scrollbar-thin">
                         <table className="w-full text-left border-collapse min-w-[1300px] sm:min-w-[1700px]">
                             <thead>
@@ -1559,7 +1581,7 @@ export default function SuiviProduction({
                     )}
 
                     {/* ─── Mobile : vue jour unique (jour sélectionné, heures verticales) ─── */}
-                    {isMobile && (
+                    {isMobile && !mobileWeekView && (
                         <div className="p-3 space-y-3">
                             {/* Day pills */}
                             <div className="flex gap-1.5 overflow-x-auto no-scrollbar -mx-1 px-1">

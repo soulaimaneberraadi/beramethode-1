@@ -18,7 +18,7 @@ export const DEFAULT_CALENDAR_APP_SETTINGS: AppSettings = {
   pauses: [{ id: '1', name: 'Pause Déjeuner', start: '12:00', end: '13:00', durationMin: 60 }],
   workingDays: [1, 2, 3, 4, 5],
   currency: 'MAD',
-  chainsCount: 12,
+  chainsCount: 1,
   organigram: [],
   chainStaff: {},
   calendarExceptions: {},

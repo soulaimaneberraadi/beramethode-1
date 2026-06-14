@@ -86,6 +86,12 @@ const TRANSLATIONS = {
         apsChainConfig: 'Paramètres APS par chaîne',
         apsOperators: 'Opérateurs',
         apsActivityRate: 'Taux Q (Activité)',
+        machineModuleTitle: 'Module Machines',
+        machineAlertsTitle: 'Alertes Machines',
+        machineAlertsLabel: 'Activer les alertes liées aux machines',
+        machineAlertsHint: 'Si désactivé, plus aucune alerte machine : couverture machines (Planning + auto-planification), compétences manquantes (Suivi), cartes & santé du parc (Vue Générale) et surlignage panne/maintenance (Gantt). La page Machines reste accessible.',
+        machineHideLabel: 'Masquer la page Machines du menu',
+        machineHideHint: 'Si activé, les pages Machines (Suivi & Catalogue) disparaissent complètement de la navigation, comme si le module n\'existait pas.',
     },
     ar: {
         title: 'الإعدادات العامة',
@@ -145,6 +151,12 @@ const TRANSLATIONS = {
         apsChainConfig: 'إعدادات APS لكل خط إنتاج',
         apsOperators: 'العمال/الخياطين',
         apsActivityRate: 'معامل Q (النشاط)',
+        machineModuleTitle: 'وحدة الآلات',
+        machineAlertsTitle: 'تنبيهات الآلات',
+        machineAlertsLabel: 'تفعيل التنبيهات المرتبطة بالآلات',
+        machineAlertsHint: 'عند الإيقاف يختفي أي تنبيه آلات: تغطية الآلات (التخطيط والجدولة)، الكفاءات الناقصة (التتبع)، بطاقات وصحة الحظيرة (النظرة العامة)، وتظليل العطل/الصيانة (Gantt). تبقى صفحة الآلات متاحة.',
+        machineHideLabel: 'إخفاء صفحة الآلات من القائمة',
+        machineHideHint: 'عند التفعيل تختفي صفحات الآلات (التتبع والكتالوج) كلياً من التنقل، وكأن الوحدة غير موجودة.',
     }
 };
 
@@ -168,7 +180,6 @@ const CURRENCIES = [
 
 const VIEW_LABELS: Record<string, { fr: string; ar: string }> = {
     dashboard: { fr: 'Tableau de bord', ar: 'لوحة التحكم' },
-    vuegenerale: { fr: 'Vue Générale', ar: 'العرض العام' },
     planning: { fr: 'Planning', ar: 'التخطيط' },
     suivi: { fr: 'Suivi Production', ar: 'تتبع الإنتاج' },
     rendement: { fr: 'Rendement', ar: 'المردودية' },
@@ -458,6 +469,61 @@ export default function Configuration({ settings, setSettings, lang, machines, n
                                     <input type="number" step="0.01" name="costMinute" value={settings.costMinute} onChange={handleChange} className="w-full bg-slate-50 border-2 border-slate-200 rounded-xl pl-11 pr-4 py-3 outline-none focus:border-indigo-500 font-black text-lg text-slate-800 transition-all" />
                                     <Coins className="w-5 h-5 text-slate-400 absolute left-4 top-3.5" />
                                 </div>
+                            </div>
+
+                            <div className="pt-4 border-t border-slate-100">
+                                <div className="flex items-center gap-2 mb-3">
+                                    <div className="w-9 h-9 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center border border-amber-100 shrink-0">
+                                        <Factory className="w-5 h-5" />
+                                    </div>
+                                    <span className="font-bold text-slate-800 text-sm">{t.machineModuleTitle}</span>
+                                </div>
+
+                                {/* Option 1 — Désactiver les alertes */}
+                                <div className="flex items-start justify-between gap-4 bg-slate-50 border border-slate-200 rounded-xl p-3">
+                                    <div>
+                                        <span className="font-bold text-slate-800 text-sm block">{t.machineAlertsTitle}</span>
+                                        <span className="text-xs text-slate-500 block mt-0.5">{t.machineAlertsLabel}</span>
+                                        <span className="text-[11px] text-slate-400 block mt-1 leading-relaxed">{t.machineAlertsHint}</span>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        role="switch"
+                                        aria-checked={settings.machineAlertsEnabled !== false}
+                                        onClick={() => setSettings(prev => ({ ...prev, machineAlertsEnabled: prev.machineAlertsEnabled === false ? true : false }))}
+                                        className={`relative w-12 h-7 rounded-full transition-colors shrink-0 ${settings.machineAlertsEnabled !== false ? 'bg-indigo-600' : 'bg-slate-300'}`}
+                                    >
+                                        <span className={`absolute top-1 w-5 h-5 bg-white rounded-full shadow transition-all ${settings.machineAlertsEnabled !== false ? 'left-6' : 'left-1'}`}></span>
+                                    </button>
+                                </div>
+
+                                {/* Option 2 — Masquer la page Machines du menu */}
+                                {navConfig && setNavConfig && (() => {
+                                    const MACHINE_VIEWS = ['pageMachine', 'machin'];
+                                    const isHidden = MACHINE_VIEWS.every(v => navConfig.hidden.includes(v));
+                                    return (
+                                        <div className="flex items-start justify-between gap-4 bg-slate-50 border border-slate-200 rounded-xl p-3 mt-3">
+                                            <div>
+                                                <span className="font-bold text-slate-800 text-sm block">{t.machineHideLabel}</span>
+                                                <span className="text-[11px] text-slate-400 block mt-1 leading-relaxed">{t.machineHideHint}</span>
+                                            </div>
+                                            <button
+                                                type="button"
+                                                role="switch"
+                                                aria-checked={isHidden}
+                                                onClick={() => {
+                                                    const hidden = isHidden
+                                                        ? navConfig.hidden.filter(v => !MACHINE_VIEWS.includes(v))
+                                                        : [...new Set([...navConfig.hidden, ...MACHINE_VIEWS])];
+                                                    setNavConfig({ ...navConfig, hidden });
+                                                }}
+                                                className={`relative w-12 h-7 rounded-full transition-colors shrink-0 ${isHidden ? 'bg-rose-600' : 'bg-slate-300'}`}
+                                            >
+                                                <span className={`absolute top-1 w-5 h-5 bg-white rounded-full shadow transition-all ${isHidden ? 'left-6' : 'left-1'}`}></span>
+                                            </button>
+                                        </div>
+                                    );
+                                })()}
                             </div>
 
                             <div className="mt-auto pt-4 border-t border-slate-100">
@@ -824,7 +890,7 @@ export default function Configuration({ settings, setSettings, lang, machines, n
                                 <p className="text-sm text-indigo-700/70 font-medium">Modifier ce nombre mettra à jour l'usine numérique (Effet immédiat sur Suivi, Planning, Effectifs).</p>
                             </div>
                             <div className="relative w-40 shrink-0">
-                                <input type="number" min="1" max="50" name="chainsCount" value={settings.chainsCount} onChange={handleChange} className="w-full bg-white border-2 border-indigo-200 rounded-xl pl-12 pr-4 py-3 outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/20 font-black text-xl text-indigo-900 transition-all" />
+                                <input type="number" min="1" max="50" name="chainsCount" value={settings.chainsCount ?? 1} onChange={handleChange} className="w-full bg-white border-2 border-indigo-200 rounded-xl pl-12 pr-4 py-3 outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/20 font-black text-xl text-indigo-900 transition-all" />
                                 <Building className="w-6 h-6 text-indigo-400 absolute left-4 top-3.5" />
                             </div>
                         </div>
@@ -1185,13 +1251,13 @@ export default function Configuration({ settings, setSettings, lang, machines, n
                                 e.stopPropagation();
                                 if (confirm(lang === 'fr' ? 'Voulez-vous vraiment réinitialiser la navigation ?' : 'هل تريد حقًا إعادة تعيين القائمة؟')) {
                                     const defaultCategories = [
-                                        { id: 'principal', name: 'Principal', views: ['dashboard', 'vuegenerale', 'planning', 'suivi', 'rendement'] },
-                                        { id: 'production', name: 'Production', views: ['coupe', 'sousTraitance'] },
-                                        { id: 'rh', name: 'RH', views: ['effectifs', 'gestionRh'] },
+                                        { id: 'principal', name: 'Principal', views: ['dashboard', 'library', 'suivi', 'planning'] },
+                                        { id: 'production', name: 'Production', views: ['effectifs', 'coupe', 'sousTraitance'] },
+                                        { id: 'rh', name: 'RH', views: ['gestionRh', 'catalogTemps'] },
                                         { id: 'logistique', name: 'Logistique', views: ['magasin', 'export', 'facturation'] },
-                                        { id: 'config', name: 'Config', views: ['library', 'pageMachine', 'machin', 'catalogTemps', 'config'] }
+                                        { id: 'config', name: 'Config', views: ['machin', 'rendement', 'pageMachine', 'config'] }
                                     ];
-                                    const defaultNavOrder = ['vuegenerale', 'dashboard', 'library', 'coupe', 'effectifs', 'gestionRh', 'planning', 'suivi', 'rendement', 'magasin', 'export', 'facturation', 'config', 'pageMachine', 'machin', 'catalogTemps', 'admin', 'sousTraitance'];
+                                    const defaultNavOrder = ['dashboard', 'library', 'suivi', 'planning', 'effectifs', 'magasin', 'gestionRh', 'catalogTemps', 'machin', 'coupe', 'rendement', 'export', 'facturation', 'config', 'pageMachine', 'admin', 'sousTraitance'];
                                     setNavConfig({
                                         enabled: true,
                                         style: 'dropdown',
