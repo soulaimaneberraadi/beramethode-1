@@ -775,9 +775,15 @@ export default function SuiviProduction({
             chaf: 0, recta: 0, sujet: 0, transp: 0, man: 0, sp: 0, stager: 0, totalWorkers: 0
         };
         // L'effectif est saisi UNIQUEMENT dans la page Effectifs (source de vérité).
-        // Suivi le lit : on prend le plus grand totalWorkers parmi les entrées de la
-        // chaîne/jour (Effectifs écrit la valeur réelle ; les entrées production = 0).
-        const totalM = dayEntries.reduce((max, s) => {
+        // Suivi le lit avec la MÊME logique de rattachement chaîne que la page Effectifs :
+        // (plan.chaineId || s.chaineId) === chaîne sélectionnée — sinon une saisie liée à
+        // l'OF (planningId) ne serait pas retrouvée. On prend le plus grand totalWorkers.
+        const effectifEntries = suivis.filter(s => {
+            if (s.date !== dateStr) return false;
+            const plan = planningEvents.find(p => p.id === s.planningId);
+            return (plan?.chaineId || s.chaineId) === selectedChaineId;
+        });
+        const totalM = effectifEntries.reduce((max, s) => {
             const w = typeof s.totalWorkers === 'number' ? s.totalWorkers : 0;
             return w > max ? w : max;
         }, 0);
