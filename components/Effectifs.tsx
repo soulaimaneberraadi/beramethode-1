@@ -457,14 +457,10 @@ export default function Effectifs({
         s.customEffectifs = { ...s.customEffectifs, [roleId]: value };
       }
 
-      let total = 0;
-      roles.forEach(r => {
-        const val = DEFAULT_ROLES.some(dr => dr.id === r.id) || r.id in s 
-          ? (s as any)[r.id] 
-          : s.customEffectifs?.[r.id];
-        total += Number(val) || 0;
-      });
-      s.totalWorkers = total;
+      // Seuls les rôles cochés (isCalculated !== false) comptent dans l'effectif
+      // utilisé par Suivi et le calcul de rendement.
+      const includedRoles = roles.filter(r => r.isCalculated !== false);
+      s.totalWorkers = sumTotalWorkersForRoles(s, includedRoles);
 
       if (existingIndex >= 0) {
         updatedArray[existingIndex] = s;
@@ -622,7 +618,22 @@ export default function Effectifs({
   };
 
   const handleToggleCalculated = (id: string) => {
-    setRoles(roles.map(r => r.id === id ? { ...r, isCalculated: r.isCalculated === false ? true : false } : r));
+    const newRoles = roles.map(r => r.id === id ? { ...r, isCalculated: r.isCalculated === false ? true : false } : r);
+    setRoles(newRoles);
+
+    // Réactivité : recalculer totalWorkers (= somme des rôles cochés) pour les
+    // entrées qui ont un détail par rôle, afin que Suivi/rendement se mettent à
+    // jour immédiatement. On ne touche pas les entrées sans détail (legacy).
+    if (setSuivis) {
+      const includedRoles = newRoles.filter(r => r.isCalculated !== false);
+      const getRoleVal = (s: SuiviData, r: RoleDefinition) =>
+        DEFAULT_ROLES.some(dr => dr.id === r.id) || r.id in s ? (s as any)[r.id] : s.customEffectifs?.[r.id];
+      setSuivis(prev => prev.map(s => {
+        const hasBreakdown = newRoles.some(r => Number(getRoleVal(s, r)) > 0);
+        if (!hasBreakdown) return s;
+        return { ...s, totalWorkers: sumTotalWorkersForRoles(s, includedRoles) };
+      }));
+    }
   };
 
   const handleRenameCategory = (oldName: string, newName: string) => {
