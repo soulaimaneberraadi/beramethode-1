@@ -35,17 +35,22 @@ export const saveSuiviData = (req: Request, res: Response) => {
         const transaction = db.transaction(() => {
             const stmt = db.prepare(`
                 INSERT INTO suivi_data 
-                (id, owner_id, planningId, date, pJournaliere, totalWorkers, trs, raw_data, updated_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                (id, owner_id, planningId, modelId, chaineId, date, entrer, totalHeure, pJournaliere, totalWorkers, trs, raw_data, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
                 ON CONFLICT(planningId, date) DO UPDATE SET
-                pJournaliere=excluded.pJournaliere, totalWorkers=excluded.totalWorkers, trs=excluded.trs,
+                modelId=excluded.modelId, chaineId=excluded.chaineId, entrer=excluded.entrer,
+                totalHeure=excluded.totalHeure, pJournaliere=excluded.pJournaliere, totalWorkers=excluded.totalWorkers, trs=excluded.trs,
                 raw_data=excluded.raw_data, updated_at=CURRENT_TIMESTAMP
             `);
 
             for (const s of suivis) {
                 if (!s.id || !s.planningId || !s.date) continue;
+                // On the frontend, totalHeure represents the sum of hourly outputs (pieces produced).
+                // We save it to pJournaliere and totalHeure columns so database queries work correctly.
+                const actualProd = s.totalHeure || s.pJournaliere || 0;
                 stmt.run(
-                    s.id, userId, s.planningId, s.date, s.pJournaliere || 0, s.totalWorkers || 0, s.trs || 0,
+                    s.id, userId, s.planningId, s.modelId || null, s.chaineId || null, s.date, s.entrer || 0,
+                    actualProd, actualProd, s.totalWorkers || 0, s.trs || 0,
                     JSON.stringify(s)
                 );
 
@@ -55,14 +60,24 @@ export const saveSuiviData = (req: Request, res: Response) => {
                 for (const r of rows) {
                     try {
                         const parsed = JSON.parse((r as any).raw_data);
-                        totalProduced += parsed.totalHeure || 0;
+                        totalProduced += parsed.totalHeure || parsed.pJournaliere || 0;
                     } catch(e) {}
                 }
 
-                const plan = db.prepare(`SELECT qteTotal FROM planning_events WHERE id = ?`).get(s.planningId);
-                if (plan) {
-                    const status = totalProduced >= (plan as any).qteTotal ? 'DONE' : (totalProduced > 0 ? 'IN_PROGRESS' : 'PLANNING');
-                    db.prepare(`UPDATE planning_events SET qteProduite = ?, status = ? WHERE id = ?`).run(totalProduced, status, s.planningId);
+                const planRow = db.prepare(`SELECT status, qteTotal, raw_data FROM planning_events WHERE id = ?`).get(s.planningId) as { status: string, qteTotal: number, raw_data: string } | undefined;
+                if (planRow) {
+                    const status = totalProduced >= planRow.qteTotal ? 'DONE' : (totalProduced > 0 ? 'IN_PROGRESS' : planRow.status);
+                    
+                    try {
+                        const rawData = JSON.parse(planRow.raw_data);
+                        rawData.qteProduite = totalProduced;
+                        rawData.status = status;
+                        db.prepare(`UPDATE planning_events SET qteProduite = ?, status = ?, raw_data = ? WHERE id = ?`)
+                          .run(totalProduced, status, JSON.stringify(rawData), s.planningId);
+                    } catch(e) {
+                        db.prepare(`UPDATE planning_events SET qteProduite = ?, status = ? WHERE id = ?`)
+                          .run(totalProduced, status, s.planningId);
+                    }
                 }
             }
         });

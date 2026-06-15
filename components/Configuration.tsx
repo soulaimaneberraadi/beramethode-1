@@ -355,7 +355,7 @@ export default function Configuration({ settings, setSettings, lang, machines, n
         const { name, value, type } = e.target;
         setSettings(prev => ({
             ...prev,
-            [name]: type === 'number' ? parseFloat(value) || 0 : value
+            [name]: type === 'number' ? (value === '' ? '' : Number(value)) : value
         }));
     };
 
@@ -890,7 +890,7 @@ export default function Configuration({ settings, setSettings, lang, machines, n
                                 <p className="text-sm text-indigo-700/70 font-medium">Modifier ce nombre mettra à jour l'usine numérique (Effet immédiat sur Suivi, Planning, Effectifs).</p>
                             </div>
                             <div className="relative w-40 shrink-0">
-                                <input type="number" min="1" max="50" name="chainsCount" value={settings.chainsCount ?? 1} onChange={handleChange} className="w-full bg-white border-2 border-indigo-200 rounded-xl pl-12 pr-4 py-3 outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/20 font-black text-xl text-indigo-900 transition-all" />
+                                <input type="number" min="1" max="50" name="chainsCount" value={settings.chainsCount !== undefined ? settings.chainsCount : 4} onChange={handleChange} className="w-full bg-white border-2 border-indigo-200 rounded-xl pl-12 pr-4 py-3 outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/20 font-black text-xl text-indigo-900 transition-all" />
                                 <Building className="w-6 h-6 text-indigo-400 absolute left-4 top-3.5" />
                             </div>
                         </div>
@@ -907,7 +907,7 @@ export default function Configuration({ settings, setSettings, lang, machines, n
                         </div>
 
                         <div className="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3 gap-6">
-                            {Array.from({ length: settings.chainsCount }).map((_, i) => {
+                            {Array.from({ length: settings.chainsCount || 4 }).map((_, i) => {
                                 const chainKey = `CHAINE ${i + 1}`;
                                 const staff = settings.chainStaff?.[chainKey] || [];
                                 return (
@@ -987,7 +987,7 @@ export default function Configuration({ settings, setSettings, lang, machines, n
                             </div>
                         </div>
                         <div className="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3 gap-6">
-                            {Array.from({ length: settings.chainsCount }).map((_, i) => {
+                            {Array.from({ length: settings.chainsCount || 4 }).map((_, i) => {
                                 const chainKey = `CHAINE ${i + 1}`;
                                 const baseIds = machines.filter(isMachineOperational).map(m => m.id);
                                 const explicit = settings.chainMachines?.[chainKey];
@@ -1178,7 +1178,7 @@ export default function Configuration({ settings, setSettings, lang, machines, n
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-100 text-sm font-medium text-slate-700">
-                                    {Array.from({ length: settings.chainsCount }).map((_, i) => {
+                                    {Array.from({ length: settings.chainsCount || 4 }).map((_, i) => {
                                         const chainKey = `CHAINE ${i + 1}`;
                                         const chainDisplayName = settings.chainNames?.[chainKey] || chainKey;
                                         const operators = settings.chainOperators?.[chainKey] ?? 30;
@@ -1520,7 +1520,7 @@ export default function Configuration({ settings, setSettings, lang, machines, n
                                         <option key={p.id} value={`${p.name}|${p.role}`}>{p.name} ({p.role})</option>
                                     ))}
                                 </optgroup>
-                                {Array.from({ length: settings.chainsCount }).map((_, i) => {
+                                {Array.from({ length: settings.chainsCount || 4 }).map((_, i) => {
                                     const chainKey = `CHAINE ${i + 1}`;
                                     const staff = settings.chainStaff?.[chainKey] || [];
                                     if (staff.length === 0) return null;

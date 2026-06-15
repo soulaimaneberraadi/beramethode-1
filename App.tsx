@@ -470,12 +470,12 @@ export default function App() {
     const [serverSettingsHydrated, setServerSettingsHydrated] = useState(true);
 
     useEffect(() => {
-        if (!user || IS_STATIC) return;
+        if (!user || !serverSettingsHydrated || IS_STATIC) return;
         const timer = setTimeout(() => {
             fetch('/api/settings', { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ global_settings: globalSettings }) }).catch(() => { });
         }, 1500);
         return () => clearTimeout(timer);
-    }, [globalSettings, user]);
+    }, [globalSettings, user, serverSettingsHydrated]);
 
     useEffect(() => {
         if (!user || IS_STATIC) {
@@ -535,6 +535,29 @@ export default function App() {
             .catch(() => { /* ignore */ })
             .finally(() => setServerSettingsHydrated(true));
     }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
+
+    // Sync settings between tabs/windows in real time
+    useEffect(() => {
+        const handleStorageChange = (e: StorageEvent) => {
+            if (e.key === 'beramethode_settings' && e.newValue) {
+                try {
+                    const parsed = JSON.parse(e.newValue);
+                    setGlobalSettings(s => ({
+                        ...DEFAULT_SETTINGS,
+                        ...parsed,
+                        companyProfile: { ...DEFAULT_SETTINGS.companyProfile, ...(parsed.companyProfile || {}) },
+                        chainCapacityPerDay: { ...DEFAULT_SETTINGS.chainCapacityPerDay, ...(parsed.chainCapacityPerDay || {}) },
+                        chainMachines: { ...DEFAULT_SETTINGS.chainMachines, ...(parsed.chainMachines || {}) },
+                    }));
+                } catch { /* ignore */ }
+            }
+        };
+        window.addEventListener('storage', handleStorageChange);
+        return () => window.removeEventListener('storage', handleStorageChange);
+    }, []);
+
+    // Fetch and sync settings and fleet from server on focus / interval
+    // Removed to prevent feedback loop that reverts unsaved settings back to old values
 
     /** Parc machines : même persistance que les autres réglages (`owner_id` = utilisateur connecté). */
     useEffect(() => {
@@ -947,7 +970,7 @@ export default function App() {
 
             // Recalculate chain efficiencies with the new progress
             const efficiencies: Record<string, number> = {};
-            const count = globalSettings.chainsCount || 12;
+            const count = globalSettings.chainsCount || 4;
             for (let i = 1; i <= count; i++) {
                 const chainId = `CHAINE ${i}`;
                 efficiencies[chainId] = computeChainEfficiency(suivis, next, models, chainId, globalSettings).eff || 0.85;
@@ -1504,6 +1527,7 @@ export default function App() {
                                 suivis={suivis}
                                 setSuivis={setSuivis}
                                 planningEvents={planningEvents}
+                                setPlanningEvents={setPlanningEvents}
                                 settings={globalSettings}
                                 directModelId={directSuiviModelId}
                                 clearDirectModel={() => setDirectSuiviModelId(null)}
@@ -1541,6 +1565,11 @@ export default function App() {
                             models={models}
                             suivis={suivis}
                             planningEvents={planningEvents}
+                            setModels={setModels}
+                            setSuivis={setSuivis}
+                            setCurrentView={setCurrentView}
+                            createNewProject={createNewProject}
+                            settings={globalSettings}
                         />
                     )}
 

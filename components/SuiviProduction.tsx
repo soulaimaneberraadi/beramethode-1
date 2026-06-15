@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useEffect } from 'react';
-import type { AppSettings, ModelData, PlanningEvent, SuiviData, MaterialReceipt, InventoryMovement, MouvementStock } from '../types';
+import type { AppSettings, ModelData, PlanningEvent, SuiviData, MaterialReceipt, InventoryMovement, MouvementStock, PlanningStatus } from '../types';
 import { deriveHourGrid } from './suivi/shared/hours';
 import { getOFColor, OF_COLOR_CHOICES, type OFStyle } from './suivi/shared/ofColors';
 import { useIsMobile } from './planning/shared/useIsMobile';
@@ -7,14 +7,17 @@ import {
     Activity, Clock, ChevronLeft, ChevronRight, Plus, 
     User, Settings, ToggleLeft, ToggleRight, Info, AlertCircle, CheckCircle, Save,
     ShieldAlert, Sparkles, Sliders, Layers, BarChart2, CheckSquare, Trash2,
-    Package, TrendingDown, AlertTriangle, X, Image as ImageIcon, CalendarDays, CalendarRange
+    Package, TrendingDown, AlertTriangle, X, Image as ImageIcon, CalendarDays, CalendarRange, MoreVertical
 } from 'lucide-react';
+import DateTimePicker from './ui/DateTimePicker';
+import { DEFAULT_CALENDAR_APP_SETTINGS } from '../lib/defaultCalendarSettings';
 
 interface Props {
     models: ModelData[];
     suivis: SuiviData[];
     setSuivis: React.Dispatch<React.SetStateAction<SuiviData[]>>;
     planningEvents?: PlanningEvent[];
+    setPlanningEvents?: React.Dispatch<React.SetStateAction<PlanningEvent[]>>;
     settings: AppSettings;
     directModelId?: string | null;
     clearDirectModel?: () => void;
@@ -130,7 +133,7 @@ const FR_LABELS = {
 };
 
 export default function SuiviProduction({
-    models, suivis = [], setSuivis, planningEvents = [], settings,
+    models, suivis = [], setSuivis, planningEvents = [], setPlanningEvents, settings,
     directModelId, clearDirectModel, machines,
     selectedChaineId: propSelectedChaineId,
     setSelectedChaineId: propSetSelectedChaineId,
@@ -190,7 +193,7 @@ export default function SuiviProduction({
     }, [ofColorOverrides]);
     const [colorPickerOpen, setColorPickerOpen] = useState<boolean>(false);
     const [modelDropdownOpen, setModelDropdownOpen] = useState<boolean>(false);
-    // Mobile: bascule entre vue jour unique (false) et tableau semaine complet (true)
+    const [editingStatusEvent, setEditingStatusEvent] = useState<PlanningEvent | null>(null);
     const [mobileWeekView, setMobileWeekView] = useState<boolean>(false);
 
     const [showStatsHeader, setShowStatsHeader] = useState<boolean>(() => {
@@ -201,6 +204,8 @@ export default function SuiviProduction({
             return false;
         }
     });
+
+
 
     useEffect(() => {
         try {
@@ -363,7 +368,7 @@ export default function SuiviProduction({
 
     // Dynamic chains list based on settings and active data
     const chainsList = useMemo(() => {
-        const count = settings?.chainsCount || 1;
+        const count = settings?.chainsCount || 4;
         const list: string[] = [];
         for (let i = 1; i <= count; i++) {
             list.push(`CHAINE ${i}`);
@@ -463,34 +468,17 @@ export default function SuiviProduction({
             am.restPerHour = (am.target - prodQty) > 0 ? ((am.target - prodQty) / 48).toFixed(2) : '0.00';
         });
 
-        // Fallback : aucun OF ni suivi → premier modèle disponible.
-        if (list.length === 0 && models.length > 0) {
-            const m = models[0];
-            const ofKey = `plan_${m.id}`;
-            list.push({
-                id: ofKey,
-                name: m.meta_data?.nom_modele || m.filename || 'Modèle de base',
-                reference: m.meta_data?.reference || m.id.substring(0, 8),
-                sam: m.meta_data?.total_temps || 10,
-                target: 1000,
-                produced: 0,
-                remaining: 1000,
-                restPerHour: '20.8',
-                style: getOFColor(ofKey, ofColorOverrides[ofKey]),
-                planningId: ofKey,
-                modelId: m.id,
-                image: m.image || m.images?.front || m.meta_data?.photo_url || null,
-                gamme: m.gamme_operatoire || [],
-            });
-        }
-
         return list;
     }, [selectedChaineId, weekDays, suivis, planningEvents, models, ofColorOverrides, entryOFKey]);
 
     // Keep selected active model synchronized
     useEffect(() => {
-        if (activeModels.length > 0 && (!selectedActiveModelId || !activeModels.some(m => m.id === selectedActiveModelId))) {
-            setSelectedActiveModelId(activeModels[0].id);
+        if (activeModels.length > 0) {
+            if (!selectedActiveModelId || !activeModels.some(m => m.id === selectedActiveModelId)) {
+                setSelectedActiveModelId(activeModels[0].id);
+            }
+        } else {
+            setSelectedActiveModelId('');
         }
     }, [activeModels, selectedActiveModelId]);
 
@@ -673,6 +661,7 @@ export default function SuiviProduction({
 
         if (dayEntries.length === 0) {
             const mInfo = activeModels[0];
+            if (!mInfo) return;
             const newEntry: SuiviData = {
                 id: `sv_${selectedChaineId}_${mInfo.modelId}_${dateStr}_${Date.now()}`,
                 planningId: mInfo.planningId,
@@ -719,6 +708,7 @@ export default function SuiviProduction({
         const weekDates = weekDays.map(d => d.dateStr);
         const latestDate = weekDates[weekDates.length - 1];
         const mInfo = activeModels.find(x => x.id === ofId) || activeModels[0];
+        if (!mInfo) return;
 
         let entry = newSuivis.find(s => s.chaineId === selectedChaineId && entryOFKey(s) === ofId);
         if (!entry) {
@@ -1084,8 +1074,7 @@ export default function SuiviProduction({
                 {/* Filters Row */}
                 <div className="flex flex-wrap items-center gap-1.5 sm:gap-3">
                     
-                    {/* Active Entry Model (OF) Selector + color picker */}
-                    {activeModels.length > 0 && (
+                    {activeModels.length > 0 ? (
                         <div className="relative flex items-center gap-2 bg-indigo-50/50 border border-indigo-100 rounded-xl px-3 py-1.5 shadow-sm">
                             <span className="text-[10px] font-black text-indigo-700 uppercase tracking-widest">
                                 {l.activeModel} :
@@ -1122,31 +1111,50 @@ export default function SuiviProduction({
                                 <>
                                     <div className="fixed inset-0 z-40" onClick={() => setModelDropdownOpen(false)} />
                                     <div className="absolute top-full left-0 mt-2 z-50 bg-white border border-slate-200 rounded-2xl shadow-xl p-1.5 w-72 max-h-80 overflow-y-auto animate-in fade-in zoom-in-95 duration-150">
-                                        {activeModels.map(m => (
-                                            <button
-                                                key={m.id}
-                                                type="button"
-                                                onClick={() => { setSelectedActiveModelId(m.id); setModelDropdownOpen(false); }}
-                                                className={`w-full flex items-center gap-2.5 px-2 py-1.5 rounded-xl text-left transition-colors ${
-                                                    m.id === selectedActiveModelId ? 'bg-indigo-50 ring-1 ring-indigo-200' : 'hover:bg-slate-50'
-                                                }`}
-                                            >
-                                                {m.image ? (
-                                                    <img src={m.image} alt="" className="w-9 h-9 rounded-lg object-cover border border-slate-100 shrink-0" />
-                                                ) : (
-                                                    <span className="w-9 h-9 rounded-lg border border-slate-100 bg-slate-50 flex items-center justify-center shrink-0 text-slate-300">
-                                                        <ImageIcon className="w-4 h-4" />
-                                                    </span>
-                                                )}
-                                                <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: m.style.base }} />
-                                                <div className="min-w-0 flex-1">
-                                                    <p className="text-xs font-black text-slate-800 truncate">
-                                                        {m.reference}{m.ofTag ? ` · ${m.ofTag}` : ''}
-                                                    </p>
-                                                    <p className="text-[10px] text-slate-400 font-bold truncate">{m.name}</p>
+                                        {activeModels.map(m => {
+                                            const ev = planningEvents.find(p => p.id === m.planningId);
+                                            return (
+                                                <div
+                                                    key={m.id}
+                                                    className={`w-full flex items-center justify-between px-2 py-1.5 rounded-xl transition-colors ${
+                                                        m.id === selectedActiveModelId ? 'bg-indigo-50 ring-1 ring-indigo-200' : 'hover:bg-slate-50'
+                                                    }`}
+                                                >
+                                                    <div
+                                                        onClick={() => { setSelectedActiveModelId(m.id); setModelDropdownOpen(false); }}
+                                                        className="flex items-center gap-2.5 flex-1 min-w-0 cursor-pointer"
+                                                    >
+                                                        {m.image ? (
+                                                            <img src={m.image} alt="" className="w-9 h-9 rounded-lg object-cover border border-slate-100 shrink-0" />
+                                                        ) : (
+                                                            <span className="w-9 h-9 rounded-lg border border-slate-100 bg-slate-50 flex items-center justify-center shrink-0 text-slate-300">
+                                                                <ImageIcon className="w-4 h-4" />
+                                                            </span>
+                                                        )}
+                                                        <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: m.style.base }} />
+                                                        <div className="min-w-0 flex-1">
+                                                            <p className="text-xs font-black text-slate-800 truncate">
+                                                                {m.reference}{m.ofTag ? ` · ${m.ofTag}` : ''}
+                                                            </p>
+                                                            <p className="text-[10px] text-slate-400 font-bold truncate">{m.name}</p>
+                                                        </div>
+                                                    </div>
+                                                    {ev && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                setEditingStatusEvent(ev);
+                                                            }}
+                                                            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+                                                            title={showDarija ? 'تغيير الحالة' : 'Modifier le statut'}
+                                                        >
+                                                            <MoreVertical className="w-4 h-4" />
+                                                        </button>
+                                                    )}
                                                 </div>
-                                            </button>
-                                        ))}
+                                            );
+                                        })}
                                     </div>
                                 </>
                             )}
@@ -1196,6 +1204,15 @@ export default function SuiviProduction({
                                 </div>
                             )}
                         </div>
+                    ) : (
+                        <div className="flex items-center gap-2 bg-slate-100 border border-slate-200/60 rounded-xl px-3 py-1.5 shadow-sm select-none opacity-60">
+                            <span className="w-7 h-7 rounded-lg border border-slate-200 bg-slate-50 flex items-center justify-center shrink-0 text-slate-400">
+                                <ImageIcon className="w-3.5 h-3.5" />
+                            </span>
+                            <span className="text-xs font-bold text-slate-500">
+                                {showDarija ? 'لا يوجد أي موديل مخطط' : 'Aucun modèle planifié'}
+                            </span>
+                        </div>
                     )}
 
                     {/* Chain Picker */}
@@ -1217,14 +1234,29 @@ export default function SuiviProduction({
 
                     {/* Week Selector */}
                     <div className="flex items-center bg-white border border-slate-200 rounded-xl px-1.5 sm:px-2.5 py-1 shadow-sm gap-1 sm:gap-2">
-                        <button onClick={() => changeWeek(-1)} className="p-1 hover:bg-slate-50 rounded-lg text-slate-500 hover:text-slate-900 transition-colors">
+                        <button onClick={() => changeWeek(-1)} className="p-1 hover:bg-slate-50 rounded-lg text-slate-500 hover:text-slate-900 transition-colors z-10">
                             <ChevronLeft className="w-4 h-4" />
                         </button>
-                        <span className="text-[11px] sm:text-xs font-bold text-slate-700 tabular-nums">
-                            <span className="hidden sm:inline">{showDarija ? 'أسبوع من' : 'Semaine du'} </span>
-                            {weekDays[0]?.displayDate.substring(0, 5)} <span className="hidden sm:inline">{showDarija ? 'إلى' : 'au'} {weekDays[5]?.displayDate}</span><span className="sm:hidden">–{weekDays[5]?.displayDate.substring(0, 5)}</span>
-                        </span>
-                        <button onClick={() => changeWeek(1)} className="p-1 hover:bg-slate-50 rounded-lg text-slate-500 hover:text-slate-900 transition-colors">
+                        <DateTimePicker
+                            value={globalDate || new Date().toISOString().split('T')[0]}
+                            onChange={(iso) => {
+                                if (setGlobalDate) {
+                                    setGlobalDate(iso.split('T')[0]);
+                                }
+                            }}
+                            mode="date"
+                            settings={settings || DEFAULT_CALENDAR_APP_SETTINGS}
+                            showIcon={false}
+                            className="relative flex items-center justify-center min-w-0"
+                            inputClassName="min-h-0 w-full border-0 bg-transparent text-center text-[11px] sm:text-xs font-bold text-slate-700 shadow-none outline-none hover:bg-slate-50 px-2 py-0.5 rounded-lg transition-colors cursor-pointer select-none"
+                            displayValue={
+                                <span className="text-[11px] sm:text-xs font-bold text-slate-700 tabular-nums select-none">
+                                    <span className="hidden sm:inline">{showDarija ? 'أسبوع من' : 'Semaine du'} </span>
+                                    {weekDays[0]?.displayDate.substring(0, 5)} <span className="hidden sm:inline">{showDarija ? 'إلى' : 'au'} {weekDays[5]?.displayDate}</span><span className="sm:hidden">–{weekDays[5]?.displayDate.substring(0, 5)}</span>
+                                </span>
+                            }
+                        />
+                        <button onClick={() => changeWeek(1)} className="p-1 hover:bg-slate-50 rounded-lg text-slate-500 hover:text-slate-900 transition-colors z-10">
                             <ChevronRight className="w-4 h-4" />
                         </button>
                     </div>
@@ -1454,46 +1486,32 @@ export default function SuiviProduction({
                                                 const hourBlockLimit = parseInt(h.label.split('/')[1]?.split(':')[0] || '18');
                                                 const isFutureHour = new Date(day.dateStr).setHours(hourBlockLimit) > Date.now();
                                                 const isCellLocked = isFutureHour && !isOverrideMode;
-
+                                                const ofId = selectedActiveModelId;
                                                 const displayValue = cell?.downtime || (cell?.value !== undefined && cell?.value !== null && cell.value !== 0 ? cell.value : '');
 
                                                 return (
                                                     <td key={h.key} className="p-1 border-r border-slate-100 text-center relative w-28 group">
                                                         <input
                                                             type="text"
-                                                            disabled={isCellLocked}
+                                                            inputMode="numeric"
+                                                            disabled={isCellLocked || !ofId}
                                                             value={displayValue}
-                                                            onDoubleClick={() => !isCellLocked && handleOpenCellModal(day.dateStr, h.key, h.label)}
+                                                            onDoubleClick={() => !isCellLocked && ofId && handleOpenCellModal(day.dateStr, h.key, h.label)}
                                                             onChange={(e) => {
+                                                                if (!ofId) return;
                                                                 const valStr = e.target.value.trim().toUpperCase();
                                                                 if (['L', 'P', 'M', 'S'].includes(valStr)) {
-                                                                    handleSaveCell(
-                                                                        day.dateStr, 
-                                                                        h.key, 
-                                                                        0, 
-                                                                        selectedActiveModelId || activeModels[0]?.id, 
-                                                                        valStr, 
-                                                                        0, 
-                                                                        'Couture'
-                                                                    );
+                                                                    handleSaveCell(day.dateStr, h.key, 0, ofId, valStr, 0, 'Couture');
                                                                 } else {
                                                                     const parsedVal = valStr === '' ? 0 : parseInt(valStr) || 0;
-                                                                    handleSaveCell(
-                                                                        day.dateStr, 
-                                                                        h.key, 
-                                                                        parsedVal, 
-                                                                        selectedActiveModelId || activeModels[0]?.id, 
-                                                                        null, 
-                                                                        0, 
-                                                                        'Couture'
-                                                                    );
+                                                                    handleSaveCell(day.dateStr, h.key, parsedVal, ofId, null, 0, 'Couture');
                                                                 }
                                                             }}
                                                             style={cellStyle ? { backgroundColor: cellStyle.backgroundColor, color: cellStyle.color, borderColor: cellStyle.borderColor } : {}}
                                                             className={`w-full h-10 text-center text-xs font-black outline-none border transition-all rounded-lg ${
                                                                 cellStyle 
                                                                     ? 'shadow-sm font-bold border-transparent' 
-                                                                    : isCellLocked 
+                                                                    : (isCellLocked || !ofId)
                                                                         ? 'bg-slate-50/50 border-slate-100 text-slate-300' 
                                                                         : 'bg-white border-slate-200 hover:border-indigo-400 focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600'
                                                             } ${cell?.downtime === 'M' ? 'animate-pulse' : ''}`}
@@ -1624,17 +1642,18 @@ export default function SuiviProduction({
                                                 const isFutureHour = new Date(selectedChartDate).setHours(hourBlockLimit) > Date.now();
                                                 const isCellLocked = isFutureHour && !isOverrideMode;
                                                 const displayValue = cell?.downtime || (cell?.value !== undefined && cell?.value !== null && cell.value !== 0 ? cell.value : '');
+                                                const ofId = selectedActiveModelId || activeModels[0]?.id;
                                                 return (
                                                     <div key={h.key} className="flex items-center gap-2">
                                                         <span className="w-[88px] shrink-0 text-[11px] font-bold text-slate-500 tabular-nums">{h.label}</span>
                                                         <input
                                                             type="text"
-                                                            disabled={isCellLocked}
+                                                            inputMode="numeric"
+                                                            disabled={isCellLocked || !ofId}
                                                             value={displayValue}
-                                                            onDoubleClick={() => !isCellLocked && handleOpenCellModal(selectedChartDate, h.key, h.label)}
+                                                            onDoubleClick={() => !isCellLocked && ofId && handleOpenCellModal(selectedChartDate, h.key, h.label)}
                                                             onChange={(e) => {
                                                                 const valStr = e.target.value.trim().toUpperCase();
-                                                                const ofId = selectedActiveModelId || activeModels[0]?.id;
                                                                 if (['L', 'P', 'M', 'S'].includes(valStr)) {
                                                                     handleSaveCell(selectedChartDate, h.key, 0, ofId, valStr, 0, 'Couture');
                                                                 } else {
@@ -1644,7 +1663,11 @@ export default function SuiviProduction({
                                                             }}
                                                             style={cellStyle ? { backgroundColor: cellStyle.backgroundColor, color: cellStyle.color, borderColor: cellStyle.borderColor } : {}}
                                                             className={`flex-1 h-9 text-center text-[13px] font-black outline-none border transition-all rounded-lg ${
-                                                                cellStyle ? 'shadow-sm border-transparent' : isCellLocked ? 'bg-slate-50/50 border-slate-100 text-slate-300' : 'bg-white border-slate-200 focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600'
+                                                                cellStyle 
+                                                                    ? 'shadow-sm border-transparent' 
+                                                                    : (isCellLocked || !ofId)
+                                                                        ? 'bg-slate-50/50 border-slate-100 text-slate-300' 
+                                                                        : 'bg-white border-slate-200 focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600'
                                                             }`}
                                                             placeholder="—"
                                                         />
@@ -1653,8 +1676,8 @@ export default function SuiviProduction({
                                                         )}
                                                         <button
                                                             type="button"
-                                                            onClick={() => !isCellLocked && handleOpenCellModal(selectedChartDate, h.key, h.label)}
-                                                            disabled={isCellLocked}
+                                                            onClick={() => !isCellLocked && ofId && handleOpenCellModal(selectedChartDate, h.key, h.label)}
+                                                            disabled={isCellLocked || !ofId}
                                                             className="w-8 h-9 shrink-0 flex items-center justify-center rounded-lg text-slate-400 hover:bg-slate-50 disabled:opacity-30"
                                                             title={showDarija ? 'تفاصيل' : 'Détails'}
                                                         >
@@ -2202,6 +2225,23 @@ export default function SuiviProduction({
                 />
             )}
 
+            {/* Status Change Modal */}
+            {editingStatusEvent && (
+                <StatusChangeModal
+                    isOpen={true}
+                    event={editingStatusEvent}
+                    showDarija={showDarija}
+                    onClose={() => setEditingStatusEvent(null)}
+                    onSave={(newStatus) => {
+                        if (setPlanningEvents) {
+                            setPlanningEvents(prev => prev.map(p => p.id === editingStatusEvent.id ? { ...p, status: newStatus } : p));
+                        }
+                        setEditingStatusEvent(null);
+                        setModelDropdownOpen(false);
+                    }}
+                />
+            )}
+
         </div>
     );
 }
@@ -2408,6 +2448,101 @@ function Section({ title, isMobile, children, defaultOpen = false, icon, badge }
                 <ChevronRight className={`w-4 h-4 text-slate-400 shrink-0 transition-transform ${open ? 'rotate-90' : ''}`} />
             </button>
             {open && <div className="mt-1.5 animate-in fade-in duration-200">{children}</div>}
+        </div>
+    );
+}
+
+// Custom Modal to change Planning Status for an active model
+interface StatusChangeModalProps {
+    isOpen: boolean;
+    event: PlanningEvent;
+    showDarija: boolean;
+    onClose: () => void;
+    onSave: (newStatus: PlanningStatus) => void;
+}
+
+function StatusChangeModal({
+    isOpen, event, showDarija, onClose, onSave
+}: StatusChangeModalProps) {
+    const [selectedStatus, setSelectedStatus] = useState<PlanningStatus>(event.status as PlanningStatus);
+
+    if (!isOpen) return null;
+
+    const statusesList: { key: PlanningStatus; labelFr: string; labelDr: string; color: string }[] = [
+        { key: 'READY', labelFr: 'Prêt', labelDr: 'جاهز (Prêt)', color: '#10B981' },
+        { key: 'IN_PROGRESS', labelFr: 'En cours', labelDr: 'في الخدمة (En cours)', color: '#3B82F6' },
+        { key: 'BLOCKED_STOCK', labelFr: 'Bloqué stock', labelDr: 'موقوف السلعة (Bloqué)', color: '#EF4444' },
+        { key: 'EXTERNAL_PROCESS', labelFr: 'Proc. Externe', labelDr: 'معالجة خارجية (Externe)', color: '#F59E0B' },
+        { key: 'DONE', labelFr: 'Terminé', labelDr: 'منتهي (Terminé)', color: '#6B7280' },
+    ];
+
+    const title = showDarija ? 'تغيير الحالة' : 'CHANGER LE STATUT';
+    const confirmLabel = showDarija ? 'تأكيد' : 'Confirmer';
+    const cancelLabel = showDarija ? 'إلغاء' : 'Annuler';
+
+    return (
+        <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+            <div className="bg-white rounded-3xl max-w-sm w-full shadow-2xl overflow-hidden border border-slate-100 animate-in zoom-in-95 duration-200">
+                {/* Header */}
+                <div className="flex items-center justify-between px-6 py-4 border-b border-slate-50 bg-slate-50/50">
+                    <div>
+                        <h3 className="text-sm font-black text-slate-800 tracking-tight uppercase">
+                            {title}
+                        </h3>
+                        <p className="text-[10px] text-slate-400 font-bold uppercase mt-0.5 mt-1">
+                            {event.modelName || 'Modèle'} {event.qteTotal ? `· ${event.qteTotal} pcs` : ''}
+                        </p>
+                    </div>
+                    <button 
+                        onClick={onClose} 
+                        className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+                    >
+                        <X className="w-4 h-4" />
+                    </button>
+                </div>
+
+                {/* Body */}
+                <div className="p-6 space-y-2">
+                    <div className="grid grid-cols-2 gap-2">
+                        {statusesList.map(s => {
+                            const isSelected = selectedStatus === s.key;
+                            return (
+                                <button
+                                    key={s.key}
+                                    type="button"
+                                    onClick={() => setSelectedStatus(s.key)}
+                                    className={`flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-xs transition-all text-left ${
+                                        isSelected 
+                                            ? 'bg-slate-950 text-white shadow-md scale-[1.01]' 
+                                            : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-100/80'
+                                    }`}
+                                >
+                                    <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: isSelected ? '#E2E8F0' : s.color }} />
+                                    <span>{showDarija ? s.labelDr : s.labelFr}</span>
+                                </button>
+                            );
+                        })}
+                    </div>
+                </div>
+
+                {/* Footer */}
+                <div className="px-6 py-4 border-t border-slate-50 bg-slate-50/30 flex justify-end gap-2 text-xs">
+                    <button 
+                        type="button" 
+                        onClick={onClose} 
+                        className="rounded-xl px-4 py-2 font-bold text-slate-500 hover:bg-slate-100 transition-colors"
+                    >
+                        {cancelLabel}
+                    </button>
+                    <button 
+                        type="button" 
+                        onClick={() => onSave(selectedStatus)} 
+                        className="rounded-xl bg-[#2149C1] hover:bg-[#1a3ba5] text-white px-5 py-2 font-black shadow-sm transition-colors"
+                    >
+                        {confirmLabel}
+                    </button>
+                </div>
+            </div>
         </div>
     );
 }

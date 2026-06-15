@@ -22,7 +22,7 @@ interface Args {
 
 export function usePlanningChains({ settings, suivis, planningEvents, models }: Args): PlanningChain[] {
     return useMemo(() => {
-        const count = settings.chainsCount || 12;
+        const count = settings.chainsCount || 4;
         return Array.from({ length: count }, (_, i) => {
             const id = `CHAINE ${i + 1}`;
             const { eff, n } = computeChainEfficiency(suivis, planningEvents, models, id, settings);

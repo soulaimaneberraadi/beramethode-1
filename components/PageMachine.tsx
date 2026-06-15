@@ -74,7 +74,7 @@ export default function PageMachine({
 
   // --- Logic & Data Preparation ---
   const filteredChains = useMemo(() => {
-    return Array.from({ length: settings?.chainsCount || 6 }).map((_, i) => ({
+    return Array.from({ length: settings?.chainsCount || 4 }).map((_, i) => ({
       id: `CHAINE ${i + 1}`,
       name: settings?.chainNames?.[`CHAINE ${i + 1}`] || `CHAINE ${i + 1}`
     }));

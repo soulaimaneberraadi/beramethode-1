@@ -76,7 +76,7 @@ export function useCriticalRatio({
     const chainOperatorsMap = useMemo(() => {
         const map: Record<string, number> = {};
         // Add defaults for all chains in settings
-        const count = settings.chainsCount || 12;
+        const count = settings.chainsCount || 4;
         for (let i = 1; i <= count; i++) {
             const id = `CHAINE ${i}`;
             map[id] = settings.chainOperators?.[id] ?? 30;
@@ -95,7 +95,7 @@ export function useCriticalRatio({
     const chainActivityRatesMap = useMemo(() => {
         const map: Record<string, number> = {};
         // Defaults from settings or fallback
-        const count = settings.chainsCount || 12;
+        const count = settings.chainsCount || 4;
         for (let i = 1; i <= count; i++) {
             const id = `CHAINE ${i}`;
             map[id] = settings.chainActivityRate?.[id] ?? 0.85;

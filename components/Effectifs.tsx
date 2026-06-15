@@ -372,10 +372,9 @@ export default function Effectifs({
         chains.add(s.chaineId);
       }
     });
-    if (settings?.chainsCount) {
-      for (let i = 1; i <= settings.chainsCount; i++) {
-        chains.add(`CHAINE ${i}`);
-      }
+    const count = settings?.chainsCount || 4;
+    for (let i = 1; i <= count; i++) {
+      chains.add(`CHAINE ${i}`);
     }
     const result = Array.from(chains).sort();
     return result.length > 0 ? result : ['CHAINE 1'];

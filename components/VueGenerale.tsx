@@ -63,7 +63,7 @@ export default function VueGenerale({
   const maintMachines = machineInstances.filter(m => m.status === 'MAINT').length;
   const machineHealth = machineInstances.length > 0 ? Math.round((okMachines / machineInstances.length) * 100) : 0;
 
-  const chainsCount = settings?.chainsCount || 6;
+  const chainsCount = settings?.chainsCount || 4;
   const activeChains = activeEvents.filter(e => e.chaineId).length;
 
   const kpis = useMemo(() => {
