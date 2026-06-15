@@ -604,7 +604,7 @@ export default function SuiviProduction({
                 man: 2,
                 sp: 0,
                 stager: 0,
-                totalWorkers: 25,
+                totalWorkers: 0,
                 downtimes: {},
                 defauts: [],
                 source: 'PLANNING',
@@ -663,8 +663,8 @@ export default function SuiviProduction({
         const dayEntries = newSuivis.filter(s => s.chaineId === selectedChaineId && s.date === dateStr);
         
         const existing = dayEntries[0] || {
-            totalWorkers: 25,
-            chaf: 1, recta: 15, sujet: 6, transp: 1, man: 2, sp: 0, stager: 0
+            totalWorkers: 0,
+            chaf: 0, recta: 0, sujet: 0, transp: 0, man: 0, sp: 0, stager: 0
         };
 
         const totalWorkers = workerFields.totalWorkers !== undefined 
@@ -735,7 +735,7 @@ export default function SuiviProduction({
                 enCour: 0,
                 resteEntrer: 0,
                 resteSortie: 0,
-                totalWorkers: 25,
+                totalWorkers: 0,
                 source: 'PLANNING',
             };
             newSuivis.push(entry);
@@ -772,13 +772,15 @@ export default function SuiviProduction({
         const totalDefects = dayEntries.reduce((acc, s) => acc + (s.defauts?.reduce((a, d) => a + d.quantity, 0) || 0), 0);
 
         const firstEntry = dayEntries[0] || {
-            chaf: 1, recta: 15, sujet: 6, transp: 1, man: 2, sp: 0, stager: 0, totalWorkers: 25
+            chaf: 0, recta: 0, sujet: 0, transp: 0, man: 0, sp: 0, stager: 0, totalWorkers: 0
         };
-        // L'effectif saisi dans la page Effectifs (entrée id "effectif_...") fait autorité,
-        // afin que le rendement de Suivi reflète l'effectif réel de la chaîne/jour.
-        const effectifEntry = dayEntries.find(s => typeof s.id === 'string' && s.id.startsWith('effectif_') && (s.totalWorkers || 0) > 0);
-        const baseEntry = effectifEntry || firstEntry;
-        const totalM = baseEntry.totalWorkers !== undefined ? baseEntry.totalWorkers : ((baseEntry.chaf || 0) + (baseEntry.recta || 0) + (baseEntry.sujet || 0) + (baseEntry.transp || 0) + (baseEntry.man || 0) + (baseEntry.sp || 0) + (baseEntry.stager || 0) || 25);
+        // L'effectif est saisi UNIQUEMENT dans la page Effectifs (source de vérité).
+        // Suivi le lit : on prend le plus grand totalWorkers parmi les entrées de la
+        // chaîne/jour (Effectifs écrit la valeur réelle ; les entrées production = 0).
+        const totalM = dayEntries.reduce((max, s) => {
+            const w = typeof s.totalWorkers === 'number' ? s.totalWorkers : 0;
+            return w > max ? w : max;
+        }, 0);
 
         let totalActiveMinutes = 0;
         let downtimeMinutes = 0;
@@ -1510,20 +1512,14 @@ export default function SuiviProduction({
                                             {/* Total Heure */}
                                             <td className="py-4 px-3 text-center font-mono text-xs text-slate-500 font-bold tabular-nums">{metrics.totalHeur}</td>
 
-                                            {/* Unified Effectif (Total Workers) Column */}
+                                            {/* Effectif (lecture seule — saisi dans la page Effectifs) */}
                                             <td className="p-1 text-center border-l border-slate-100 w-24">
-                                                <input
-                                                    type="number"
-                                                    inputMode="numeric"
-                                                    value={metrics.totalM || ''}
-                                                    onChange={(e) => {
-                                                        const parsed = parseInt(e.target.value) || 0;
-                                                        handleSaveWorkers(day.dateStr, { totalWorkers: Math.max(0, parsed) });
-                                                    }}
-                                                    className="w-full text-center font-black text-xs bg-slate-50 border border-slate-200 rounded-lg py-1 hover:bg-white focus:bg-white focus:border-indigo-500 outline-none transition-all tabular-nums [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                                                    placeholder="0"
-                                                    min="0"
-                                                />
+                                                <div
+                                                    className="w-full text-center font-black text-xs bg-slate-50 border border-slate-100 rounded-lg py-1.5 tabular-nums text-slate-700"
+                                                    title={showDarija ? 'العدد كيتعمّر فصفحة Effectifs' : 'Saisir dans la page Effectifs'}
+                                                >
+                                                    {metrics.totalM || 0}
+                                                </div>
                                             </td>
 
                                             {/* R1 / R2 % */}
@@ -1613,18 +1609,15 @@ export default function SuiviProduction({
                                             ))}
                                         </div>
 
-                                        {/* Effectif inline éditable */}
+                                        {/* Effectif (lecture seule — saisi dans la page Effectifs) */}
                                         <div className="flex items-center justify-between bg-white border border-slate-200 rounded-xl px-3 py-1.5">
-                                            <span className="text-[11px] font-bold text-slate-500">{showDarija ? 'عدد الخدّامة' : 'Effectif du jour'}</span>
-                                            <input
-                                                type="number"
-                                                inputMode="numeric"
-                                                value={dm.totalM || ''}
-                                                onChange={(e) => handleSaveWorkers(selectedChartDate, { totalWorkers: Math.max(0, parseInt(e.target.value) || 0) })}
-                                                className="w-16 text-center font-black text-[13px] bg-slate-50 border border-slate-200 rounded-lg py-1 focus:bg-white focus:border-indigo-500 outline-none tabular-nums [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                                                placeholder="0"
-                                                min="0"
-                                            />
+                                            <span className="text-[11px] font-bold text-slate-500">
+                                                {showDarija ? 'عدد الخدّامة' : 'Effectif du jour'}
+                                                <span className="block text-[9px] font-medium text-slate-400">{showDarija ? 'من صفحة Effectifs' : 'depuis Effectifs'}</span>
+                                            </span>
+                                            <span className="w-16 text-center font-black text-[13px] bg-slate-50 border border-slate-100 rounded-lg py-1 tabular-nums text-slate-700">
+                                                {dm.totalM || 0}
+                                            </span>
                                         </div>
 
                                         {/* Liste verticale des heures */}
