@@ -1615,17 +1615,6 @@ export default function SuiviProduction({
                                             ))}
                                         </div>
 
-                                        {/* Effectif (lecture seule — saisi dans la page Effectifs) */}
-                                        <div className="flex items-center justify-between bg-white border border-slate-200 rounded-xl px-3 py-1.5">
-                                            <span className="text-[11px] font-bold text-slate-500">
-                                                {showDarija ? 'عدد الخدّامة' : 'Effectif du jour'}
-                                                <span className="block text-[9px] font-medium text-slate-400">{showDarija ? 'من صفحة Effectifs' : 'depuis Effectifs'}</span>
-                                            </span>
-                                            <span className="w-16 text-center font-black text-[13px] bg-slate-50 border border-slate-100 rounded-lg py-1 tabular-nums text-slate-700">
-                                                {dm.totalM || 0}
-                                            </span>
-                                        </div>
-
                                         {/* Liste verticale des heures */}
                                         <div className="space-y-1.5">
                                             {hourBlocks.map(h => {
