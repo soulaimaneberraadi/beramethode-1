@@ -2,6 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { ModelData, SuiviData, PlanningEvent, AppSettings } from '../types';
 import { getWorkMinutesPerDay } from '../utils/planning';
 import { computeChainEfficiency } from '../utils/efficiency';
+import { deriveHourGrid } from './suivi/shared/hours';
 import {
     Package, Truck, Search, CheckCircle2, Factory, PackageCheck, 
     ChevronDown, ChevronUp, Layers, Calendar, Plus, Clock, 
@@ -26,6 +27,10 @@ export default function StockExport({ models, suivis, planningEvents = [], setMo
     });
     const [searchQuery, setSearchQuery] = useState('');
     const [expandedModelId, setExpandedModelId] = useState<string | null>(null);
+    // Mode de saisie : 'jour' = matrice tous modèles ; 'heure' = un modèle, créneaux horaires (comme Suivi Production)
+    const [entryMode, setEntryMode] = useState<'jour' | 'heure'>('jour');
+    const [activeModelId, setActiveModelId] = useState<string | null>(null);
+    const [modelPickerOpen, setModelPickerOpen] = useState(false);
 
     // Finished Goods Stock from Database
     const [finishedGoods, setFinishedGoods] = useState<any[]>([]);
@@ -230,6 +235,79 @@ export default function StockExport({ models, suivis, planningEvents = [], setMo
         } catch (e) {
             console.error("Failed to save défauts to database", e);
         }
+    };
+
+    // Saisie horaire (mode 'heure') — stocke par créneau ET recalcule le total jour/taille
+    const handleUpdateHourly = async (model: ModelData, hourKey: string, sizeName: string, val: number) => {
+        if (!setSuivis) return;
+        let newSuivis = [...suivis];
+        const associatedPlan = planningEvents.find(p => p.modelId === model.id);
+        const planningId = associatedPlan?.id || model.id;
+
+        let entry = newSuivis.find(s => s.date === selectedDate && (s.planningId === planningId || s.modelId === model.id));
+        if (!entry) {
+            entry = {
+                id: `sv_export_${model.id}_${selectedDate}_${Date.now()}`,
+                planningId, modelId: model.id, chaineId: activeTab === 'finition' ? 'Finition' : 'Emballage',
+                date: selectedDate, entrer: 0, sorties: {}, totalHeure: 0, pJournaliere: 0,
+                enCour: 0, resteEntrer: 0, resteSortie: 0, totalWorkers: 0, source: 'PLANNING'
+            };
+            newSuivis.push(entry);
+        }
+
+        const isFin = activeTab === 'finition';
+        const hourlyKey = isFin ? 'finitionHourly' : 'emballageHourly';
+        const hourly = { ...(((entry as any)[hourlyKey]) || {}) };
+        hourly[hourKey] = { ...(hourly[hourKey] || {}), [sizeName]: val };
+
+        // Total jour pour cette taille = somme des créneaux
+        let dailySum = 0;
+        Object.values(hourly).forEach((slot: any) => { dailySum += slot?.[sizeName] || 0; });
+
+        newSuivis = newSuivis.map(s => {
+            if (s.id !== entry!.id) return s;
+            const updated: any = { ...s, [hourlyKey]: hourly };
+            if (isFin) {
+                const fd = { ...(((s as any).finitionData) || {}) };
+                fd[sizeName] = { ...(fd[sizeName] || { entree: 0, sortie: 0 }), sortie: dailySum };
+                updated.finitionData = fd;
+            } else {
+                const ed = { ...(((s as any).emballageData) || {}) };
+                ed[sizeName] = { ...(ed[sizeName] || { mika_tiki: 0, depot: 0 }), depot: dailySum };
+                updated.emballageData = ed;
+            }
+            return updated;
+        });
+
+        setSuivis(newSuivis);
+        try {
+            await fetch('/api/suivi', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
+                body: JSON.stringify({ suivis: newSuivis })
+            });
+        } catch (e) {
+            console.error("Failed to save hourly suivi to database", e);
+        }
+
+        if (!isFin) {
+            let totalDepotIn = 0;
+            newSuivis.forEach(s => {
+                if (s.modelId === model.id || s.planningId === planningId) {
+                    Object.values((s as any).emballageData || {}).forEach((sz: any) => { totalDepotIn += sz?.depot || 0; });
+                }
+            });
+            syncFinishedGoodToDb(model, totalDepotIn);
+        }
+    };
+
+    // Valeur horaire saisie (mode 'heure')
+    const getHourlyValue = (model: ModelData, hourKey: string, sizeName: string): number | '' => {
+        const plan = planningEvents.find(p => p.modelId === model.id);
+        const planningId = plan?.id || model.id;
+        const s = suivis.find(x => x.date === selectedDate && (x.modelId === model.id || x.planningId === planningId));
+        const hourlyKey = activeTab === 'finition' ? 'finitionHourly' : 'emballageHourly';
+        const v = (s as any)?.[hourlyKey]?.[hourKey]?.[sizeName];
+        return v || '';
     };
 
     const handleUpdateEmballage = async (model: ModelData, sizeName: string, field: 'mika_tiki' | 'depot', val: number) => {
@@ -565,136 +643,132 @@ export default function StockExport({ models, suivis, planningEvents = [], setMo
 
     return (
         <div className="h-full flex flex-col bg-slate-50 relative pb-20">
+            <style>{`.scrollbar-hide{-ms-overflow-style:none;scrollbar-width:none}.scrollbar-hide::-webkit-scrollbar{display:none}`}</style>
             {/* Top Header */}
-            <div className="bg-white border-b border-slate-200 px-6 py-4 flex flex-col md:flex-row md:items-center justify-between shrink-0 shadow-sm gap-4 z-20">
-                <div>
-                    <h1 className="text-2xl font-black text-slate-800 tracking-tight flex items-center gap-2">
-                        <PackageCheck className="w-6 h-6 text-emerald-600" />
-                        Suivi Emballage & Dépôt Final
-                    </h1>
-                    <p className="text-slate-550 mt-1 text-sm font-medium">Suivi de finition, emballage et expédition des modèles au dépôt final.</p>
-                </div>
-                
-                {/* Search & Actions */}
-                <div className="flex flex-wrap items-center gap-3">
-                    <div className="relative">
-                        <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                        <input
-                            type="text"
-                            placeholder="Rechercher un modèle..."
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            className="pl-9 pr-4 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 w-60 bg-slate-50 font-bold"
-                        />
+            <div className="bg-white border-b border-slate-200 px-4 md:px-6 py-3 md:py-4 shrink-0 shadow-sm z-20">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 md:gap-4">
+                    {/* Title + Nouveau Modèle */}
+                    <div className="flex items-center justify-between gap-2 min-w-0 w-full md:w-auto">
+                        <div className="flex items-center gap-2 min-w-0">
+                            <PackageCheck className="w-5 h-5 md:w-6 md:h-6 text-emerald-600 shrink-0" />
+                            <h1 className="text-lg md:text-2xl font-black text-slate-800 tracking-tight truncate">Suivi Emballage & Dépôt</h1>
+                        </div>
+                        {setCurrentView && (
+                            <button
+                                onClick={() => {
+                                    if (createNewProject) createNewProject();
+                                    setCurrentView('ingenierie');
+                                }}
+                                className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[10px] md:text-xs px-2.5 md:px-3 py-1.5 md:py-2 rounded-lg md:rounded-xl transition-all shadow-sm flex items-center gap-1 hover:scale-[1.02] active:scale-95 shrink-0 ml-auto"
+                            >
+                                Nouveau
+                                <Plus className="w-3.5 h-3.5 md:w-4 md:h-4" />
+                            </button>
+                        )}
                     </div>
-
-                    {activeTab !== 'complet' && (
-                        <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-100 rounded-xl px-3 py-1.5 text-emerald-700">
-                            <Calendar className="w-4 h-4" />
-                            <input 
-                                type="date"
-                                value={selectedDate}
-                                onChange={(e) => setSelectedDate(e.target.value)}
-                                className="bg-transparent outline-none font-bold text-xs border-none cursor-pointer focus:ring-0 p-0 text-emerald-800"
+                    
+                    {/* Search & Actions */}
+                    <div className="flex flex-wrap items-center gap-2 md:gap-3 w-full md:w-auto">
+                        <div className="relative w-full sm:w-auto">
+                            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                            <input
+                                type="text"
+                                placeholder="Rechercher..."
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                className="pl-9 pr-4 py-2.5 md:py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 w-full sm:w-60 bg-slate-50 font-bold"
                             />
                         </div>
-                    )}
 
-                    {setCurrentView && (
-                        <button
-                            onClick={() => {
-                                if (createNewProject) createNewProject();
-                                setCurrentView('ingenierie');
-                            }}
-                            className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-4 py-2.5 rounded-xl transition-all shadow-sm flex items-center gap-1.5 hover:scale-[1.02] active:scale-95"
-                        >
-                            <Plus className="w-4 h-4" />
-                            Nouveau Modèle
-                        </button>
-                    )}
+                        {activeTab !== 'complet' && (
+                            <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-100 rounded-xl px-2 md:px-3 py-1.5 text-emerald-700 shrink-0">
+                                <Calendar className="w-4 h-4 shrink-0" />
+                                <input
+                                    type="date"
+                                    value={selectedDate}
+                                    onChange={(e) => setSelectedDate(e.target.value)}
+                                    className="bg-transparent outline-none font-bold text-xs border-none cursor-pointer focus:ring-0 p-0 text-emerald-800 w-[90px] md:w-auto"
+                                />
+                            </div>
+                        )}
+
+                        {/* Bascule Jour / Heure */}
+                        {activeTab !== 'complet' && (
+                            <div className="flex items-center bg-slate-100 rounded-xl p-0.5 text-xs font-black shrink-0">
+                                <button
+                                    onClick={() => setEntryMode('jour')}
+                                    className={`px-3 py-1.5 rounded-lg transition-all ${entryMode === 'jour' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500'}`}
+                                >
+                                    Jour
+                                </button>
+                                <button
+                                    onClick={() => setEntryMode('heure')}
+                                    className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1 ${entryMode === 'heure' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500'}`}
+                                >
+                                    <Clock className="w-3.5 h-3.5" />
+                                    Heure
+                                </button>
+                            </div>
+                        )}
+                    </div>
                 </div>
+                <p className="text-slate-550 mt-1 text-xs md:text-sm font-medium hidden md:block">Suivi de finition, emballage et expédition des modèles au dépôt final.</p>
             </div>
 
             {/* Navigation Tabs */}
-            <div className="bg-white border-b border-slate-200 px-6 py-2 shrink-0 flex items-center gap-2">
+            <div className="bg-white border-b border-slate-200 px-4 md:px-6 py-2 shrink-0 flex items-center gap-1.5 md:gap-2 overflow-x-auto scrollbar-hide">
                 <button
                     onClick={() => { setActiveTab('finition'); setExpandedModelId(null); }}
-                    className={`px-4 py-2 rounded-lg text-xs font-black transition-all flex items-center gap-2 ${
+                    className={`px-3 md:px-4 py-2 rounded-lg text-xs font-black transition-all flex items-center gap-2 whitespace-nowrap ${
                         activeTab === 'finition' 
                             ? 'bg-slate-100 text-slate-800 shadow-sm border border-slate-200' 
                             : 'text-slate-500 hover:bg-slate-50'
                     }`}
                 >
                     <Layers className="w-4 h-4" />
-                    Suivi Finition
+                    <span className="hidden sm:inline">Suivi Finition</span>
+                    <span className="sm:hidden">Finition</span>
                 </button>
                 <button
                     onClick={() => { setActiveTab('emballage'); setExpandedModelId(null); }}
-                    className={`px-4 py-2 rounded-lg text-xs font-black transition-all flex items-center gap-2 ${
+                    className={`px-3 md:px-4 py-2 rounded-lg text-xs font-black transition-all flex items-center gap-2 whitespace-nowrap ${
                         activeTab === 'emballage' 
                             ? 'bg-slate-100 text-slate-800 shadow-sm border border-slate-200' 
                             : 'text-slate-500 hover:bg-slate-50'
                     }`}
                 >
                     <Package className="w-4 h-4" />
-                    Suivi Emballage & Dépôt
+                    <span className="hidden sm:inline">Suivi Emballage & Dépôt</span>
+                    <span className="sm:hidden">Emballage</span>
                 </button>
                 <button
                     onClick={() => { setActiveTab('complet'); setExpandedModelId(null); }}
-                    className={`px-4 py-2 rounded-lg text-xs font-black transition-all flex items-center gap-2 ${
+                    className={`px-3 md:px-4 py-2 rounded-lg text-xs font-black transition-all flex items-center gap-2 whitespace-nowrap ${
                         activeTab === 'complet' 
                             ? 'bg-slate-100 text-slate-800 shadow-sm border border-slate-200' 
                             : 'text-slate-500 hover:bg-slate-50'
                     }`}
                 >
                     <ClipboardList className="w-4 h-4" />
-                    Stock Complet & Tarifs
+                    <span className="hidden sm:inline">Stock Complet & Tarifs</span>
+                    <span className="sm:hidden">Stock</span>
                 </button>
             </div>
 
             {/* Content Body */}
-            <div className="flex-1 overflow-y-auto w-full max-w-[1400px] mx-auto p-4 md:p-6 space-y-6">
+            <div className="flex-1 overflow-y-auto w-full max-w-[1400px] mx-auto p-3 sm:p-4 md:p-6 space-y-4 md:space-y-6">
                 
-                {/* Metrics Widgets */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm flex items-center gap-4 hover:shadow-md transition-shadow">
-                        <div className="w-12 h-12 rounded-xl bg-emerald-50 flex items-center justify-center shrink-0">
-                            <PackageCheck className="w-6 h-6 text-emerald-600" />
-                        </div>
-                        <div>
-                            <p className="text-xs font-bold text-slate-500">Total Modèles Complétés</p>
-                            <p className="text-2xl font-black text-slate-800">{metrics.totalFiniModels}</p>
-                        </div>
-                    </div>
-                    <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm flex items-center gap-4 hover:shadow-md transition-shadow">
-                        <div className="w-12 h-12 rounded-xl bg-indigo-50 flex items-center justify-center shrink-0">
-                            <Factory className="w-6 h-6 text-indigo-600" />
-                        </div>
-                        <div>
-                            <p className="text-xs font-bold text-slate-500">Volume Total en Stock (Dépôt)</p>
-                            <p className="text-2xl font-black text-slate-800">{metrics.totalStockPcs.toLocaleString()}</p>
-                        </div>
-                    </div>
-                    <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm flex items-center gap-4 hover:shadow-md transition-shadow">
-                        <div className="w-12 h-12 rounded-xl bg-amber-50 flex items-center justify-center shrink-0">
-                            <Truck className="w-6 h-6 text-amber-600" />
-                        </div>
-                        <div>
-                            <p className="text-xs font-bold text-slate-500">Expéditions Shipped (Mois)</p>
-                            <p className="text-2xl font-black text-slate-800">{metrics.totalShippedMonth.toLocaleString()}</p>
-                        </div>
-                    </div>
-                </div>
+
 
                 {/* Bandeau d'alerte : modèles à risque de retard */}
                 {activeTab !== 'complet' && (() => {
                     const atRiskModels = filteredModels.filter(m => getModelCadence(m).atRisk);
                     if (atRiskModels.length === 0) return null;
                     return (
-                        <div className="bg-rose-50 border border-rose-200 rounded-2xl p-4 shadow-sm">
-                            <div className="flex items-center gap-2 mb-3">
-                                <AlertCircle className="w-5 h-5 text-rose-600" />
-                                <span className="font-black text-sm text-rose-800">{atRiskModels.length} modèle(s) à risque de retard</span>
+                        <div className="bg-rose-50 border border-rose-200 rounded-2xl p-3 md:p-4 shadow-sm">
+                            <div className="flex items-center gap-2 mb-2 md:mb-3">
+                                <AlertCircle className="w-5 h-5 text-rose-600 shrink-0" />
+                                <span className="font-black text-sm text-rose-800">{atRiskModels.length} modèle(s) à risque</span>
                             </div>
                             <div className="space-y-1.5 mb-3">
                                 {atRiskModels.map(m => {
@@ -739,32 +813,205 @@ export default function StockExport({ models, suivis, planningEvents = [], setMo
                 {/* Main Table Card */}
                 <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
                     <div className="p-4 bg-slate-50 border-b border-slate-200 flex justify-between items-center">
-                        <h2 className="font-black text-sm text-slate-800 flex items-center gap-2">
-                            <ClipboardList className="w-4 h-4 text-slate-500" />
-                            {activeTab === 'finition' ? 'Journal de Suivi Quotidien - Finition' :
-                             activeTab === 'emballage' ? 'Journal de Suivi Quotidien - Emballage & Dépôt' :
-                             'État Général du Stock Complet & Valeurs Financières'}
+                        <h2 className="font-black text-sm text-slate-800 flex items-center gap-2 truncate">
+                            <ClipboardList className="w-4 h-4 text-slate-500 shrink-0" />
+                            <span className="hidden sm:inline">
+                                {activeTab === 'finition' ? 'Journal de Suivi Quotidien - Finition' :
+                                 activeTab === 'emballage' ? 'Journal de Suivi Quotidien - Emballage & Dépôt' :
+                                 'État Général du Stock Complet & Valeurs Financières'}
+                            </span>
+                            <span className="sm:hidden">
+                                {activeTab === 'finition' ? 'Suivi Finition' :
+                                 activeTab === 'emballage' ? 'Suivi Emballage' :
+                                 'Stock Complet'}
+                            </span>
                         </h2>
                     </div>
 
                     {filteredModels.length === 0 ? (
-                        <div className="p-16 text-center text-slate-400">
-                            <PackageCheck className="w-16 h-16 text-slate-200 mx-auto mb-4" />
+                        <div className="p-8 md:p-16 text-center text-slate-400">
+                            <PackageCheck className="w-12 h-12 md:w-16 md:h-16 text-slate-200 mx-auto mb-3 md:mb-4" />
                             <p className="font-bold text-slate-700">Aucun modèle actif à afficher.</p>
                             <p className="text-xs mt-2 text-slate-500">Créez un nouveau modèle ou clôturez une production pour le voir apparaître.</p>
                         </div>
+                    ) : activeTab !== 'complet' && entryMode === 'heure' ? (
+                        <div className="p-3 md:p-4 space-y-3 md:space-y-4">
+                            {(() => {
+                                const activeModel = filteredModels.find(m => m.id === activeModelId) || filteredModels[0];
+                                if (!activeModel) return null;
+                                const sizes = activeModel.ficheData?.sizes || activeModel.meta_data?.sizes || [];
+                                const cols = sizes.length ? sizes : ['Total'];
+                                const grid = settings ? deriveHourGrid(settings) : deriveHourGrid({} as AppSettings);
+                                const agg = getModelAggregations(activeModel);
+                                const cumul = activeTab === 'finition' ? agg.totalFinitionOut : agg.totalDepotIn;
+                                const reste = Math.max(0, agg.totalExpected - agg.totalDepotIn);
+                                const dayTotal = grid.keys.reduce((acc, key) => acc + cols.reduce((s2, c) => s2 + (Number(getHourlyValue(activeModel, key, c)) || 0), 0), 0);
+                                return (
+                                    <>
+                                        {/* Carte modèle actif = sélecteur (photo + réf + chaîne + client), style Suivi Production */}
+                                        <div className="relative">
+                                            <span className="text-[9px] md:text-[10px] font-black text-slate-400 uppercase tracking-wider">Modèle actif</span>
+                                            <button
+                                                onClick={() => setModelPickerOpen(o => !o)}
+                                                className="mt-1 w-full flex items-center gap-2 md:gap-3 bg-slate-50 border border-slate-200 rounded-xl p-2.5 md:p-3 hover:border-emerald-300 transition-colors text-left"
+                                            >
+                                                <div className="w-10 h-10 md:w-14 md:h-14 rounded-lg bg-white border border-slate-200 overflow-hidden flex items-center justify-center shrink-0">
+                                                    {activeModel.image ? (
+                                                        <img src={activeModel.image} className="w-full h-full object-cover" alt="" />
+                                                    ) : (
+                                                        <Package className="w-6 h-6 text-slate-300" />
+                                                    )}
+                                                </div>
+                                                <div className="min-w-0 flex-1">
+                                                    <div className="font-black text-slate-800 text-sm truncate">{activeModel.meta_data?.nom_modele || 'Sans Nom'}</div>
+                                                    <div className="text-[11px] text-slate-500 font-bold flex flex-wrap gap-x-2">
+                                                        <span>Réf: {activeModel.meta_data?.reference || 'N/A'}</span>
+                                                        <span className="text-emerald-600">{getModelChaine(activeModel)}</span>
+                                                        <span>{activeModel.ficheData?.client || 'Client Divers'}</span>
+                                                    </div>
+                                                </div>
+                                                <ChevronDown className={`w-5 h-5 text-slate-400 shrink-0 transition-transform ${modelPickerOpen ? 'rotate-180' : ''}`} />
+                                            </button>
+
+                                            {modelPickerOpen && (
+                                                <>
+                                                    <div className="fixed inset-0 z-20" onClick={() => setModelPickerOpen(false)} />
+                                                    <div className="absolute z-30 mt-1 w-full bg-white border border-slate-200 rounded-xl shadow-lg max-h-72 overflow-y-auto py-1">
+                                                        {filteredModels.map(m => (
+                                                            <button
+                                                                key={m.id}
+                                                                onClick={() => { setActiveModelId(m.id); setModelPickerOpen(false); }}
+                                                                className={`w-full flex items-center gap-3 px-3 py-2 hover:bg-slate-50 text-left transition-colors ${m.id === activeModel.id ? 'bg-emerald-50' : ''}`}
+                                                            >
+                                                                <div className="w-9 h-9 rounded-lg bg-slate-100 border border-slate-200 overflow-hidden flex items-center justify-center shrink-0">
+                                                                    {m.image ? <img src={m.image} className="w-full h-full object-cover" alt="" /> : <Package className="w-4 h-4 text-slate-300" />}
+                                                                </div>
+                                                                <div className="min-w-0">
+                                                                    <div className="font-bold text-slate-800 text-xs truncate">{m.meta_data?.nom_modele || 'Sans Nom'}</div>
+                                                                    <div className="text-[10px] text-slate-500 font-bold">{getModelChaine(m)} · {m.ficheData?.client || 'Client Divers'}</div>
+                                                                </div>
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                </>
+                                            )}
+                                        </div>
+
+                                        <div className="grid grid-cols-2 md:grid-cols-4 gap-1.5 md:gap-2">
+                                            <div className="bg-slate-50 rounded-xl p-2 md:p-3 text-center"><p className="text-[9px] md:text-[10px] font-bold text-slate-500">Cible (OF)</p><p className="text-base md:text-lg font-black text-slate-800">{agg.totalExpected.toLocaleString()}</p></div>
+                                            <div className="bg-emerald-50 rounded-xl p-2 md:p-3 text-center"><p className="text-[9px] md:text-[10px] font-bold text-emerald-600">Total du jour</p><p className="text-base md:text-lg font-black text-emerald-700">{dayTotal.toLocaleString()}</p></div>
+                                            <div className="bg-indigo-50 rounded-xl p-2 md:p-3 text-center"><p className="text-[9px] md:text-[10px] font-bold text-indigo-600">{activeTab === 'finition' ? 'Cumul fini' : 'Cumul dépôt'}</p><p className="text-base md:text-lg font-black text-indigo-700">{cumul.toLocaleString()}</p></div>
+                                            <div className="bg-amber-50 rounded-xl p-2 md:p-3 text-center"><p className="text-[9px] md:text-[10px] font-bold text-amber-600">Reste à produire</p><p className="text-base md:text-lg font-black text-amber-700">{reste.toLocaleString()}</p></div>
+                                        </div>
+
+                                        <div className="overflow-x-auto border border-slate-200 rounded-xl">
+                                            <table className="w-full lg:w-auto lg:min-w-[680px] lg:mx-auto text-left border-collapse text-xs">
+                                                <thead>
+                                                    <tr className="bg-slate-50 border-b border-slate-200 text-[10px] uppercase tracking-wider text-slate-500 font-black">
+                                                        <th className="p-2 md:p-3 lg:px-6">H</th>
+                                                        {cols.map(c => <th key={c} className="p-2 md:p-3 lg:px-6 text-center">{c}</th>)}
+                                                        <th className="p-2 md:p-3 lg:px-6 text-center bg-indigo-50/40 text-indigo-700">Tot</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {grid.keys.map((key, i) => {
+                                                        const rowTotal = cols.reduce((s2, c) => s2 + (Number(getHourlyValue(activeModel, key, c)) || 0), 0);
+                                                        return (
+                                                            <tr key={key} className="border-b border-slate-100 hover:bg-slate-50/50">
+                                                                <td className="p-2 md:p-3 lg:px-6 font-black text-slate-700">{grid.hours[i]}</td>
+                                                                {cols.map(c => (
+                                                                    <td key={c} className="p-1.5 md:p-2 lg:px-6 text-center">
+                                                                        <input
+                                                                            type="number"
+                                                                            value={getHourlyValue(activeModel, key, c)}
+                                                                            onChange={(e) => handleUpdateHourly(activeModel, key, c, Math.max(0, parseInt(e.target.value) || 0))}
+                                                                            placeholder="0"
+                                                                            className="w-14 md:w-20 lg:w-24 mx-auto block text-center font-bold text-sm bg-slate-50 border border-slate-200 rounded-lg py-2 focus:bg-white focus:border-emerald-500 outline-none transition-all"
+                                                                        />
+                                                                    </td>
+                                                                ))}
+                                                                <td className="p-2 md:p-3 lg:px-6 text-center font-bold text-indigo-700">{rowTotal.toLocaleString()}</td>
+                                                            </tr>
+                                                        );
+                                                    })}
+                                                    <tr className="bg-slate-50 font-black border-t-2 border-slate-200 text-slate-800">
+                                                        <td className="p-2 md:p-3 lg:px-6 uppercase text-[10px]">Total</td>
+                                                        {cols.map(c => {
+                                                            const colTotal = grid.keys.reduce((acc, key) => acc + (Number(getHourlyValue(activeModel, key, c)) || 0), 0);
+                                                            return <td key={c} className="p-2 md:p-3 lg:px-6 text-center">{colTotal.toLocaleString()}</td>;
+                                                        })}
+                                                        <td className="p-2 md:p-3 lg:px-6 text-center text-indigo-700">{dayTotal.toLocaleString()}</td>
+                                                    </tr>
+                                                </tbody>
+                                            </table>
+                                        </div>
+
+                                        {/* Détail par taille — toutes les tailles du modèle */}
+                                        {sizes.length > 0 && (
+                                            <div>
+                                                <p className="text-[10px] md:text-[11px] font-black text-slate-500 uppercase tracking-wider mb-1.5 md:mb-2 flex items-center gap-1.5">
+                                                    <Layers className="w-3.5 h-3.5 text-emerald-600" /> Détail par taille
+                                                </p>
+                                                <div className="overflow-x-auto border border-slate-200 rounded-xl">
+                                                    <table className="w-full lg:w-auto lg:min-w-[520px] lg:mx-auto text-left border-collapse text-xs">
+                                                        <thead>
+                                                            <tr className="bg-slate-50 border-b border-slate-200 text-[10px] uppercase tracking-wider text-slate-500 font-black">
+                                                                <th className="p-2 md:p-3 lg:px-8">Taille</th>
+                                                                <th className="p-2 md:p-3 text-right">Cible</th>
+                                                                <th className="p-2 md:p-3 text-right text-indigo-700">{activeTab === 'finition' ? 'Cumul' : 'Dépôt'}</th>
+                                                                <th className="p-2 md:p-3 text-right text-emerald-700">Reste</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                            {sizes.map((sz, idx) => {
+                                                                const expected = getExpectedQtyForSize(activeModel, idx);
+                                                                const plan = planningEvents.find(p => p.modelId === activeModel.id);
+                                                                const pid = plan?.id || activeModel.id;
+                                                                let cumulSize = 0;
+                                                                if (activeTab === 'finition') {
+                                                                    cumulSize = getSizeFinitionOutput(activeModel, sz);
+                                                                } else {
+                                                                    suivis.forEach(s => {
+                                                                        if (s.modelId === activeModel.id || s.planningId === pid) {
+                                                                            cumulSize += (s as any).emballageData?.[sz]?.depot || 0;
+                                                                        }
+                                                                    });
+                                                                }
+                                                                const resteSize = Math.max(0, expected - cumulSize);
+                                                                return (
+                                                                    <tr key={sz} className="border-b border-slate-100">
+                                                                        <td className="p-2 md:p-3 font-black text-slate-800 uppercase">{sz}</td>
+                                                                        <td className="p-2 md:p-3 text-right text-slate-600">{expected.toLocaleString()}</td>
+                                                                        <td className="p-2 md:p-3 text-right font-bold text-indigo-700">{cumulSize.toLocaleString()}</td>
+                                                                        <td className="p-2 md:p-3 text-right font-bold text-emerald-700">{resteSize.toLocaleString()}</td>
+                                                                    </tr>
+                                                                );
+                                                            })}
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </>
+                                );
+                            })()}
+                        </div>
                     ) : activeTab !== 'complet' ? (
-                        <div className="overflow-x-auto w-full">
-                            <table className="w-full text-left border-collapse whitespace-nowrap text-xs">
+                        <div className="overflow-x-auto w-full relative group/table">
+                            <div className="absolute right-0 top-0 bottom-0 w-6 bg-gradient-to-l from-white via-white/80 to-transparent pointer-events-none z-10 md:hidden opacity-0 group-hover/table:opacity-100 transition-opacity" />
+                            <table className="min-w-full lg:min-w-0 lg:w-auto lg:mx-auto text-left border-collapse whitespace-nowrap text-xs">
                                 <thead>
                                     <tr className="bg-white border-b border-slate-200 text-[10px] uppercase tracking-wider text-slate-500 font-black">
-                                        <th className="p-3">Modèle (N° OF)</th>
+                                        <th className="p-3 sticky left-0 bg-white z-10">Modèle (N° OF)</th>
                                         <th className="p-3 text-center">Chaîne</th>
-                                        <th className="p-3 text-center">Tailles — {activeTab === 'finition' ? 'sortie finition' : 'reçu dépôt'}</th>
+                                        <th className="p-3 text-center">
+                                            <span className="hidden md:inline">Tailles — {activeTab === 'finition' ? 'sortie finition' : 'reçu dépôt'}</span>
+                                            <span className="md:hidden">Tailles</span>
+                                        </th>
                                         {activeTab === 'finition' && <th className="p-3 text-center bg-rose-50/40 text-rose-700">Défauts</th>}
-                                        <th className="p-3 text-center bg-amber-50/40 text-amber-700">WIP (en-cours)</th>
-                                        <th className="p-3 text-center bg-indigo-50/40 text-indigo-700">{activeTab === 'finition' ? 'Cumul fini' : 'Cumul dépôt'}</th>
-                                        <th className="p-3 text-center bg-emerald-50/40 text-emerald-700">Reste à produire</th>
+                                        <th className="p-3 text-center bg-amber-50/40 text-amber-700">WIP</th>
+                                        <th className="p-3 text-center bg-indigo-50/40 text-indigo-700">{activeTab === 'finition' ? 'Cumul' : 'Dépôt'}</th>
+                                        <th className="p-3 text-center bg-emerald-50/40 text-emerald-700">Reste</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -784,9 +1031,9 @@ export default function StockExport({ models, suivis, planningEvents = [], setMo
                                         const tight = !atRisk && reste > 0 && days !== null && days > 0 && days <= 3;
                                         return (
                                             <tr key={model.id} className="border-b border-slate-100 hover:bg-slate-50/50 transition-colors">
-                                                <td className="p-3">
-                                                    <div className="font-black text-slate-800 text-sm">{model?.meta_data?.nom_modele || 'Sans Nom'}</div>
-                                                    <div className="text-[10px] text-slate-400 font-bold">Réf: {model?.meta_data?.reference || 'N/A'}</div>
+                                                <td className="p-3 sticky left-0 bg-white z-10">
+                                                    <div className="font-black text-slate-800 text-sm truncate max-w-[120px] sm:max-w-none">{model?.meta_data?.nom_modele || 'Sans Nom'}</div>
+                                                    <div className="text-[10px] text-slate-400 font-bold truncate">Réf: {model?.meta_data?.reference || 'N/A'}</div>
                                                 </td>
                                                 <td className="p-3 text-center font-bold text-slate-600">{getModelChaine(model)}</td>
                                                 <td className="p-2">
@@ -806,7 +1053,7 @@ export default function StockExport({ models, suivis, planningEvents = [], setMo
                                                                             else handleUpdateEmballage(model, sz, 'depot', v);
                                                                         }}
                                                                         placeholder="0"
-                                                                        className="w-14 text-center font-bold text-xs bg-slate-50 border border-slate-200 rounded-lg py-1 focus:bg-white focus:border-emerald-500 outline-none transition-all"
+                                                                        className="w-12 md:w-14 text-center font-bold text-xs bg-slate-50 border border-slate-200 rounded-lg py-2 md:py-1 focus:bg-white focus:border-emerald-500 outline-none transition-all"
                                                                     />
                                                                 </div>
                                                             ))}
@@ -820,7 +1067,7 @@ export default function StockExport({ models, suivis, planningEvents = [], setMo
                                                             value={getDefautsToday(model)}
                                                             onChange={(e) => handleUpdateDefauts(model, Math.max(0, parseInt(e.target.value) || 0))}
                                                             placeholder="0"
-                                                            className="w-14 text-center font-bold text-xs bg-rose-50/50 border border-rose-100 rounded-lg py-1 focus:bg-white focus:border-rose-400 outline-none transition-all text-rose-700"
+                                                            className="w-12 md:w-14 text-center font-bold text-xs bg-rose-50/50 border border-rose-100 rounded-lg py-2 md:py-1 focus:bg-white focus:border-rose-400 outline-none transition-all text-rose-700"
                                                         />
                                                         {getModelDefauts(model) > 0 && (
                                                             <div className="text-[9px] text-rose-500 font-bold mt-0.5">cumul {getModelDefauts(model).toLocaleString()}</div>
@@ -894,25 +1141,26 @@ export default function StockExport({ models, suivis, planningEvents = [], setMo
                             </table>
                         </div>
                     ) : (
-                        <div className="overflow-x-auto w-full">
-                            <table className="w-full text-left border-collapse whitespace-nowrap">
+                        <div className="overflow-x-auto w-full relative group/table">
+                            <div className="absolute right-0 top-0 bottom-0 w-6 bg-gradient-to-l from-white via-white/80 to-transparent pointer-events-none z-10 md:hidden opacity-0 group-hover/table:opacity-100 transition-opacity" />
+                            <table className="w-full text-left border-collapse whitespace-nowrap text-xs">
                                 <thead>
                                     <tr className="bg-white border-b border-slate-200 text-[10px] uppercase tracking-wider text-slate-500 font-black">
-                                        <th className="p-4 w-10"></th>
-                                        <th className="p-4 w-12">Image</th>
-                                        <th className="p-4">Modèle (N° OF)</th>
-                                        <th className="p-4">Client</th>
-                                        <th className="p-4">Qté Initiale</th>
+                                        <th className="p-3 md:p-4 w-10 sticky left-0 bg-white z-10"></th>
+                                        <th className="p-3 md:p-4 w-12 hidden md:table-cell">Image</th>
+                                        <th className="p-3 md:p-4">Modèle</th>
+                                        <th className="p-3 md:p-4 hidden md:table-cell">Client</th>
+                                        <th className="p-3 md:p-4 text-center">Qté</th>
                                         {activeTab === 'complet' && (
                                             <>
-                                                <th className="p-4">Cumul Reçu Dépôt</th>
-                                                <th className="p-4">Stock Actuel</th>
-                                                <th className="p-4">Prix Unitaire</th>
-                                                <th className="p-4">Valeur Totale Stock</th>
+                                                <th className="p-3 md:p-4 text-center">Reçu</th>
+                                                <th className="p-3 md:p-4 text-center hidden lg:table-cell">Stock</th>
+                                                <th className="p-3 md:p-4 text-center hidden lg:table-cell">Prix U.</th>
+                                                <th className="p-3 md:p-4 text-center hidden lg:table-cell">Valeur</th>
                                             </>
                                         )}
-                                        <th className="p-4 text-center">Statut</th>
-                                        <th className="p-4 text-right">Actions</th>
+                                        <th className="p-3 md:p-4 text-center">Statut</th>
+                                        <th className="p-3 md:p-4 text-right">Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -927,7 +1175,7 @@ export default function StockExport({ models, suivis, planningEvents = [], setMo
                                         return (
                                             <React.Fragment key={model.id}>
                                                 <tr className={`border-b border-slate-100 hover:bg-slate-50/50 transition-colors ${isExpanded ? 'bg-slate-50/20' : ''}`}>
-                                                    <td className="p-4 text-center">
+                                                    <td className="p-3 md:p-4 text-center sticky left-0 bg-white z-10">
                                                         <button 
                                                             onClick={() => setExpandedModelId(isExpanded ? null : model.id)}
                                                             className="p-1.5 hover:bg-slate-200 rounded-lg transition-colors text-slate-500"
@@ -936,58 +1184,59 @@ export default function StockExport({ models, suivis, planningEvents = [], setMo
                                                         </button>
                                                     </td>
 
-                                                    <td className="p-4 text-center">
-                                                        <div className="w-10 h-10 rounded-lg bg-slate-100 overflow-hidden shrink-0 mx-auto border border-slate-200 flex items-center justify-center">
+                                                    <td className="p-3 md:p-4 text-center hidden md:table-cell">
+                                                        <div className="w-8 h-8 md:w-10 md:h-10 rounded-lg bg-slate-100 overflow-hidden shrink-0 mx-auto border border-slate-200 flex items-center justify-center">
                                                             {model.image ? (
                                                                 <img src={model.image} className="w-full h-full object-cover" alt="" />
                                                             ) : (
-                                                                <Package className="w-5 h-5 text-slate-350" />
+                                                                <Package className="w-4 h-4 md:w-5 md:h-5 text-slate-350" />
                                                             )}
                                                         </div>
                                                     </td>
 
-                                                    <td className="p-4">
-                                                        <div className="font-black text-slate-800 text-sm">
+                                                    <td className="p-3 md:p-4">
+                                                        <div className="font-black text-slate-800 text-sm truncate max-w-[100px] md:max-w-none">
                                                             {model?.meta_data?.nom_modele || 'Sans Nom'}
                                                         </div>
-                                                        <div className="text-[10px] text-slate-400 font-bold">
+                                                        <div className="text-[10px] text-slate-400 font-bold truncate">
                                                             Réf: {model?.meta_data?.reference || 'N/A'}
                                                         </div>
                                                     </td>
 
-                                                    <td className="p-4 font-bold text-xs text-slate-600">
+                                                    <td className="p-3 md:p-4 font-bold text-xs text-slate-600 hidden md:table-cell truncate max-w-[80px] md:max-w-none">
                                                         {model.ficheData?.client || 'Client Divers'}
                                                     </td>
 
-                                                    <td className="p-4 font-black text-slate-700 text-xs">
-                                                        {agg.totalExpected.toLocaleString()} pcs
+                                                    <td className="p-3 md:p-4 font-black text-slate-700 text-xs">
+                                                        {agg.totalExpected.toLocaleString()}
                                                     </td>
 
                                                     {activeTab === 'complet' && (
                                                         <>
-                                                            <td className="p-4 font-bold text-xs text-slate-600">
-                                                                {agg.totalDepotIn.toLocaleString()} pcs
+                                                            <td className="p-3 md:p-4 font-bold text-xs text-slate-600 text-center">
+                                                                {agg.totalDepotIn.toLocaleString()}
                                                             </td>
-                                                            <td className="p-4 font-black text-sm text-indigo-750">
-                                                                {agg.currentStock.toLocaleString()} pcs
+                                                            <td className="p-3 md:p-4 font-black text-xs md:text-sm text-indigo-750 text-center hidden lg:table-cell">
+                                                                {agg.currentStock.toLocaleString()}
                                                             </td>
-                                                            <td className="p-4 font-bold text-xs text-slate-600">
-                                                                {agg.unitPrice.toFixed(2)} DH
+                                                            <td className="p-3 md:p-4 font-bold text-xs text-slate-600 text-center hidden lg:table-cell">
+                                                                {agg.unitPrice.toFixed(2)}
                                                             </td>
-                                                            <td className="p-4 font-black text-xs text-emerald-700 bg-emerald-50/30">
-                                                                {agg.stockValue.toLocaleString()} DH
+                                                            <td className="p-3 md:p-4 font-black text-xs text-emerald-700 bg-emerald-50/30 text-center hidden lg:table-cell">
+                                                                {agg.stockValue.toLocaleString()}
                                                             </td>
                                                         </>
                                                     )}
 
-                                                    <td className="p-4 text-center">
+                                                    <td className="p-3 md:p-4 text-center">
                                                         {agg.isShipped ? (
-                                                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black bg-slate-100 text-slate-600 border border-slate-200">
+                                                            <span className="inline-flex items-center gap-1 px-1.5 md:px-2.5 py-0.5 rounded-full text-[9px] md:text-[10px] font-black bg-slate-100 text-slate-600 border border-slate-200">
                                                                 <Truck className="w-3 h-3" />
-                                                                Expédié (Tsarja)
+                                                                <span className="hidden sm:inline">Expédié</span>
+                                                                <span className="sm:hidden">Envoyé</span>
                                                             </span>
                                                         ) : (
-                                                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-black ${
+                                                            <span className={`inline-flex items-center px-1.5 md:px-2 py-0.5 rounded-full text-[9px] md:text-[10px] font-black ${
                                                                 agg.totalDepotIn >= agg.totalExpected && agg.totalExpected > 0
                                                                     ? 'bg-emerald-50 text-emerald-700 border border-emerald-250'
                                                                     : agg.totalDepotIn > 0 
@@ -1000,13 +1249,13 @@ export default function StockExport({ models, suivis, planningEvents = [], setMo
                                                         )}
                                                     </td>
 
-                                                    <td className="p-4 text-right">
+                                                    <td className="p-3 md:p-4 text-right">
                                                         {agg.isShipped && (
                                                             <button
                                                                 onClick={() => handleResetShipModel(model.id)}
-                                                                className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-[10px] px-2.5 py-1.5 rounded-lg transition-colors border border-slate-200 inline-flex items-center gap-1"
+                                                                className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-[9px] md:text-[10px] px-2 md:px-2.5 py-1.5 rounded-lg transition-colors border border-slate-200 inline-flex items-center gap-1"
                                                             >
-                                                                Réinitialiser
+                                                                Reset
                                                             </button>
                                                         )}
                                                     </td>
@@ -1014,10 +1263,10 @@ export default function StockExport({ models, suivis, planningEvents = [], setMo
 
                                                 {isExpanded && (
                                                     <tr className="bg-slate-50/60">
-                                                        <td colSpan={14} className="p-6 border-b border-slate-200">
-                                                            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden max-w-4xl">
-                                                                <div className="px-4 py-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
-                                                                    <span className="text-xs font-black text-slate-700 tracking-wider flex items-center gap-1.5">
+                                                        <td colSpan={11} className="p-4 md:p-6 border-b border-slate-200">
+                                                            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                                                                <div className="px-3 md:px-4 py-2.5 md:py-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+                                                                    <span className="text-[10px] md:text-xs font-black text-slate-700 tracking-wider flex items-center gap-1.5">
                                                                         <Layers className="w-4 h-4 text-emerald-600" />
                                                                         Détails de Complétion Globale par Taille
                                                                     </span>

@@ -825,6 +825,114 @@ export default function Configuration({ settings, setSettings, lang, machines, n
 
             </div>
 
+            {/* FULL WIDTH BLOCK: Systèmes de tailles */}
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden flex flex-col mt-6">
+                <div onClick={() => toggleSec('tailles')} className={`px-5 py-4 bg-slate-50 flex items-center justify-between cursor-pointer select-none ${openSec['tailles'] ? 'border-b border-slate-100' : ''}`}>
+                    <div className="flex items-center gap-2">
+                        <ListTodo className="w-5 h-5 text-slate-500" />
+                        <h2 className="font-bold text-slate-800">{lang === 'ar' ? 'أنظمة المقاسات' : 'Systèmes de tailles'}</h2>
+                        <span className="text-[10px] font-black uppercase tracking-wider bg-amber-100 text-amber-700 border border-amber-200 px-1.5 py-0.5 rounded">Beta</span>
+                    </div>
+                    <ChevronDown className={`w-5 h-5 text-slate-400 shrink-0 transition-transform ${openSec['tailles'] ? 'rotate-180' : ''}`} />
+                </div>
+                <div className={`p-6 md:p-8 space-y-4 ${openSec['tailles'] ? '' : 'hidden'}`}>
+                    {/* Activation de la fonctionnalité (Beta) */}
+                    <div className="flex items-center justify-between gap-3 bg-amber-50/50 border border-amber-100 rounded-xl p-3">
+                        <div className="flex items-center gap-2">
+                            <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0" />
+                            <span className="text-sm font-bold text-slate-700">{lang === 'ar' ? 'تفعيل ميزة أنظمة المقاسات (تجريبية)' : 'Activer la fonctionnalité (Beta)'}</span>
+                        </div>
+                        <button
+                            onClick={() => setSettings(prev => ({ ...prev, tailleSystemsEnabled: prev.tailleSystemsEnabled === false ? true : false }))}
+                            className={`relative w-11 h-6 rounded-full transition-colors shrink-0 ${settings.tailleSystemsEnabled !== false ? 'bg-emerald-500' : 'bg-slate-300'}`}
+                            title={settings.tailleSystemsEnabled !== false ? 'Désactiver' : 'Activer'}
+                        >
+                            <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${settings.tailleSystemsEnabled !== false ? 'translate-x-5' : ''}`} />
+                        </button>
+                    </div>
+
+                    {settings.tailleSystemsEnabled === false ? (
+                        <p className="text-sm text-slate-400 italic text-center py-6 bg-slate-50 rounded-lg border border-dashed border-slate-200">
+                            {lang === 'ar' ? 'الميزة موقوفة. فعّلها للتعريف بأنظمة المقاسات.' : 'Fonctionnalité désactivée. Activez-la pour définir des systèmes de tailles.'}
+                        </p>
+                    ) : (
+                    <>
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <p className="text-sm text-slate-500 font-medium">Définissez les systèmes de tailles de l'usine : alpha (S/M/L), numérique (36-44), en gros (sans tailles) ou personnalisé.</p>
+                        <div className="flex items-center gap-2 shrink-0">
+                            {(settings.tailleSystems || []).length === 0 && (
+                                <button
+                                    onClick={() => setSettings(prev => ({ ...prev, tailleSystems: [
+                                        { id: 'sys_alpha', label: 'Alpha', mode: 'alpha', sizes: ['S', 'M', 'L', 'XL', 'XXL'] },
+                                        { id: 'sys_num', label: 'Numérique', mode: 'numerique', sizes: ['36', '38', '40', '42', '44'] },
+                                        { id: 'sys_gros', label: 'En gros', mode: 'gros', sizes: [] },
+                                    ] }))}
+                                    className="text-xs font-bold bg-slate-50 text-slate-600 hover:bg-slate-100 px-3 py-1.5 rounded-lg transition-colors border border-slate-200"
+                                >
+                                    Charger par défaut
+                                </button>
+                            )}
+                            <button
+                                onClick={() => setSettings(prev => ({ ...prev, tailleSystems: [...(prev.tailleSystems || []), { id: Date.now().toString(), label: '', mode: 'alpha', sizes: [] }] }))}
+                                className="text-xs font-bold bg-indigo-50 text-indigo-600 flex items-center gap-1 hover:text-indigo-700 hover:bg-indigo-100 px-3 py-1.5 rounded-lg transition-colors border border-indigo-100"
+                            >
+                                <Plus className="w-3.5 h-3.5" /> Ajouter un système
+                            </button>
+                        </div>
+                    </div>
+
+                    {(settings.tailleSystems || []).map(sys => (
+                        <div key={sys.id} className="flex flex-col sm:flex-row sm:items-end gap-3 bg-slate-50 border border-slate-200 rounded-xl p-3">
+                            <div className="flex-1">
+                                <label className="block text-[11px] font-black text-slate-500 mb-1">Nom</label>
+                                <input
+                                    value={sys.label}
+                                    onChange={e => setSettings(prev => ({ ...prev, tailleSystems: (prev.tailleSystems || []).map(s => s.id === sys.id ? { ...s, label: e.target.value } : s) }))}
+                                    placeholder="ex: Alpha"
+                                    className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold outline-none focus:border-indigo-500"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-[11px] font-black text-slate-500 mb-1">Type</label>
+                                <select
+                                    value={sys.mode}
+                                    onChange={e => { const mode = e.target.value as 'alpha' | 'numerique' | 'gros' | 'custom'; setSettings(prev => ({ ...prev, tailleSystems: (prev.tailleSystems || []).map(s => s.id === sys.id ? { ...s, mode, sizes: mode === 'gros' ? [] : s.sizes } : s) })); }}
+                                    className="bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold outline-none focus:border-indigo-500"
+                                >
+                                    <option value="alpha">Alpha (S/M/L)</option>
+                                    <option value="numerique">Numérique (36-44)</option>
+                                    <option value="gros">En gros (sans tailles)</option>
+                                    <option value="custom">Personnalisé</option>
+                                </select>
+                            </div>
+                            <div className="flex-[2]">
+                                <label className="block text-[11px] font-black text-slate-500 mb-1">Tailles (séparées par un espace)</label>
+                                <input
+                                    disabled={sys.mode === 'gros'}
+                                    value={sys.sizes.join(' ')}
+                                    onChange={e => setSettings(prev => ({ ...prev, tailleSystems: (prev.tailleSystems || []).map(s => s.id === sys.id ? { ...s, sizes: e.target.value.trim().split(/\s+/).filter(Boolean) } : s) }))}
+                                    placeholder={sys.mode === 'gros' ? '— aucune taille —' : 'S M L XL XXL'}
+                                    className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold outline-none focus:border-indigo-500 disabled:bg-slate-100 disabled:text-slate-400"
+                                />
+                            </div>
+                            <button
+                                onClick={() => setSettings(prev => ({ ...prev, tailleSystems: (prev.tailleSystems || []).filter(s => s.id !== sys.id) }))}
+                                className="p-2 text-rose-400 hover:text-rose-600 hover:bg-rose-50 border border-transparent hover:border-rose-100 rounded-lg transition-colors shrink-0"
+                                title="Supprimer ce système"
+                            >
+                                <Trash2 className="w-4 h-4" />
+                            </button>
+                        </div>
+                    ))}
+
+                    {(settings.tailleSystems || []).length === 0 && (
+                        <p className="text-sm text-slate-500 italic text-center py-4 bg-slate-50 rounded-lg border border-dashed border-slate-200">Aucun système de tailles défini.</p>
+                    )}
+                    </>
+                    )}
+                </div>
+            </div>
+
             {/* FULL WIDTH BLOCK: Structure & Encadrement */}
             <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden flex flex-col mt-6">
                 <div onClick={() => toggleSec('struct')} className={`px-5 py-4 bg-slate-50 flex items-center justify-between cursor-pointer select-none ${openSec['struct'] ? 'border-b border-slate-100' : ''}`}>

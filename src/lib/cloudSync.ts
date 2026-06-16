@@ -27,6 +27,16 @@ const STORAGE_BUCKET = 'bera-assets';
 const LAST_SYNC_USER_KEY = 'beramethode_last_sync_user';
 
 /**
+ * `updated_at` du dernier snapshot RÉELLEMENT téléchargé (ou poussé) par cet
+ * appareil. Sert au *pull conditionnel* : avant de télécharger le blob ~2 Mo,
+ * on lit uniquement `updated_at` (quelques octets) ; s'il est identique, AUCUN
+ * téléchargement du blob n'a lieu. C'est la cause n°1 de l'explosion d'egress :
+ * chaque boot/reload + chaque notification Realtime re-téléchargeait 2 Mo même
+ * quand rien n'avait changé. Persisté en localStorage pour survivre aux reloads.
+ */
+const LAST_PULLED_AT_KEY = 'beramethode_last_pulled_at';
+
+/**
  * Purge toutes les données métier locales (clés synchronisées + export SQLite).
  * Sans cette purge, un nouvel utilisateur sur le même navigateur voit les
  * données du compte précédent — et son premier push les enverrait dans SON
@@ -37,6 +47,7 @@ export const clearLocalAppData = () => {
     try { localStorage.removeItem(k); } catch { /* ignore */ }
   }
   try { localStorage.removeItem('__bera_sqlite_export__'); } catch { /* ignore */ }
+  try { localStorage.removeItem(LAST_PULLED_AT_KEY); } catch { /* ignore */ }
   try {
     sessionStorage.removeItem('beramethode_pulled_once');
     sessionStorage.removeItem('beramethode_last_pull_sig');
@@ -284,8 +295,9 @@ export const pushSnapshotToCloud = async (userId: string): Promise<boolean> => {
   }
 
   try {
+    const nowIso = new Date().toISOString();
     const { error } = await supabase.from(TABLE).upsert(
-      { user_id: userId, data: snapshot, updated_at: new Date().toISOString() },
+      { user_id: userId, data: snapshot, updated_at: nowIso },
       { onConflict: 'user_id' },
     );
     if (error) {
@@ -295,6 +307,9 @@ export const pushSnapshotToCloud = async (userId: string): Promise<boolean> => {
     // UPSERT confirmé : mémorise la signature pour sauter les prochains push
     // identiques (re-renders qui réécrivent la même valeur).
     lastSyncedSig = sig;
+    // On vient d'écrire ce contenu : aligne `updated_at` local pour que le
+    // prochain pull conditionnel de CET appareil saute le re-téléchargement.
+    try { localStorage.setItem(LAST_PULLED_AT_KEY, nowIso); } catch { /* ignore */ }
     // Notifie les autres appareils (signal léger, pas de données) → ils pullent.
     if (syncChannel) {
       try { await syncChannel.send({ type: 'broadcast', event: 'updated', payload: {} }); } catch { /* hors-ligne: ignore */ }
@@ -315,6 +330,23 @@ export const pullSnapshotFromCloud = async (userId: string): Promise<boolean> =>
   // Signale au header qu'une synchronisation est en cours (indicateur discret).
   window.dispatchEvent(new CustomEvent('beramethode:cloud-sync-start'));
   try {
+    // ── Pull conditionnel : on lit d'abord uniquement `updated_at` (~30 octets)
+    // pour savoir si le snapshot distant a changé depuis notre dernier
+    // téléchargement. Si identique, on NE télécharge PAS le blob ~2 Mo. C'est
+    // la correction majeure de l'egress : sans ça, chaque boot/reload + chaque
+    // notification Realtime re-téléchargeait 2 Mo même quand rien n'avait changé.
+    const { data: meta, error: metaErr } = await supabase
+      .from(TABLE)
+      .select('updated_at')
+      .eq('user_id', userId)
+      .maybeSingle();
+    if (metaErr || !meta) return false;
+    const remoteAt = (meta as { updated_at?: string }).updated_at || '';
+    const localAt = (() => { try { return localStorage.getItem(LAST_PULLED_AT_KEY); } catch { return null; } })();
+    // Rien de nouveau côté cloud → on s'arrête ici (aucun blob téléchargé).
+    if (remoteAt && remoteAt === localAt) return true;
+
+    // Le snapshot a changé : on télécharge maintenant le blob complet.
     const { data, error } = await supabase
       .from(TABLE)
       .select('data')
@@ -339,6 +371,10 @@ export const pullSnapshotFromCloud = async (userId: string): Promise<boolean> =>
     const lastSig = sessionStorage.getItem('beramethode_last_pull_sig');
 
     applySnapshotToLocal(snap);
+
+    // On vient de télécharger `remoteAt` : on le mémorise pour que le prochain
+    // pull conditionnel saute le re-téléchargement tant que le cloud ne change pas.
+    try { if (remoteAt) localStorage.setItem(LAST_PULLED_AT_KEY, remoteAt); } catch { /* ignore */ }
 
     // Après le pull, local == distant : on aligne la signature pour éviter un
     // push redondant du blob ~2 Mo juste après chaque synchronisation entrante.

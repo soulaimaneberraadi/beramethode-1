@@ -372,6 +372,10 @@ export interface AppSettings {
   chainSpeciality?: Record<string, string[]>;
   /** Taux d'activité Q par chaîne (0.5–1.0, défaut 0.85) — issu du Work Sampling */
   chainActivityRate?: Record<string, number>;
+  /** Systèmes de tailles définis dans l'usine (alpha S/M/L, numérique 36-44, en gros, personnalisé) */
+  tailleSystems?: { id: string; label: string; mode: 'alpha' | 'numerique' | 'gros' | 'custom'; sizes: string[] }[];
+  /** Active/désactive la fonctionnalité « Systèmes de tailles » (Beta). Défaut : activé. */
+  tailleSystemsEnabled?: boolean;
   /** ID du profil de courbe d'apprentissage par défaut */
   learningCurveProfileId?: string;
   /** Coût horaire des heures supplémentaires (MAD/h) — pour comparaison Overtime vs Sous-traitance */

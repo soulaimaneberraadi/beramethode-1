@@ -14,18 +14,20 @@ drop policy if exists "users_insert_own" on public.user_data;
 drop policy if exists "users_update_own" on public.user_data;
 drop policy if exists "users_delete_own" on public.user_data;
 
+-- NB : auth.uid() est enveloppé dans (select …) pour qu'il soit évalué une
+-- seule fois par requête au lieu d'une fois par ligne (perf : auth_rls_initplan).
 create policy "users_select_own" on public.user_data
-  for select using (auth.uid() = user_id);
+  for select using ((select auth.uid()) = user_id);
 
 create policy "users_insert_own" on public.user_data
-  for insert with check (auth.uid() = user_id);
+  for insert with check ((select auth.uid()) = user_id);
 
 create policy "users_update_own" on public.user_data
-  for update using (auth.uid() = user_id) with check (auth.uid() = user_id);
+  for update using ((select auth.uid()) = user_id) with check ((select auth.uid()) = user_id);
 
 -- Un utilisateur ne peut supprimer que SA propre ligne (jamais celle d'autrui).
 create policy "users_delete_own" on public.user_data
-  for delete using (auth.uid() = user_id);
+  for delete using ((select auth.uid()) = user_id);
 
 -- ⚠️ IMPORTANT : user_data NE DOIT **PAS** être dans la publication Realtime.
 -- La sync inter-appareils passe par Realtime *Broadcast* (WebSocket pur, zéro

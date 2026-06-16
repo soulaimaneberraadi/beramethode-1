@@ -12,13 +12,13 @@
  * Disabled unless SUPABASE_OWNER_EMAIL + SUPABASE_OWNER_PASSWORD are set.
  */
 
-import { createClient, type RealtimeChannel } from '@supabase/supabase-js';
+import { createClient, type RealtimeChannel, type SupabaseClient } from '@supabase/supabase-js';
 import db from './db';
 
-const SUPABASE_URL = process.env.SUPABASE_URL || 'https://jiscgwioxwsulaopsivc.supabase.co';
+const SUPABASE_URL = process.env.SUPABASE_URL || 'https://utrojjhscyatppgcszrt.supabase.co';
 const SUPABASE_ANON_KEY =
   process.env.SUPABASE_ANON_KEY ||
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imppc2Nnd2lveHdzdWxhb3BzaXZjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU5OTcwNTgsImV4cCI6MjA5MTU3MzA1OH0.-jRI1RlbjxecLyN2b83xmjuJCKhs7ti_7_-RWXNCNgk';
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV0cm9qamhzY3lhdHBwZ2NzenJ0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE2MjUwNDEsImV4cCI6MjA5NzIwMTA0MX0.Nu6MQJe6YTN-TH7kBLHqStaFSrvXpuGuzr6wp28XFlk';
 const OWNER_EMAIL = (process.env.SUPABASE_OWNER_EMAIL || '').trim().toLowerCase();
 const OWNER_PASSWORD = process.env.SUPABASE_OWNER_PASSWORD || '';
 
@@ -166,11 +166,58 @@ const mergeSnapshotIntoSqlite = (snapshot: any, userId: string) => {
   }
 };
 
+/**
+ * Pull conditionnel : on lit d'abord uniquement `updated_at` (~30 octets). Si
+ * rien de nouveau, on NE télécharge PAS le blob ~2 Mo. C'est le remplacement de
+ * `postgres_changes`, qui renvoyait la ligne ENTIÈRE (~2 Mo) sur CHAQUE écriture
+ * user_data — y compris nos propres push — saturant l'egress free-tier.
+ */
+const pullAndMerge = async (client: SupabaseClient, userId: string) => {
+  if (isApplyingRemote) return;
+  if (Date.now() < skipUntilTs) return; // notre propre push vient de partir
+  try {
+    const { data: meta, error: metaErr } = await client
+      .from('user_data')
+      .select('updated_at')
+      .eq('user_id', userId)
+      .maybeSingle();
+    if (metaErr || !meta) return;
+    const ts = (meta as { updated_at?: string }).updated_at
+      ? new Date((meta as { updated_at: string }).updated_at).getTime()
+      : 0;
+    if (!ts || ts <= lastAppliedAt) return; // rien de neuf → aucun blob téléchargé
+
+    const { data: row, error } = await client
+      .from('user_data')
+      .select('data, updated_at')
+      .eq('user_id', userId)
+      .maybeSingle();
+    if (error || !row?.data) return;
+    const ts2 = (row as { updated_at?: string }).updated_at
+      ? new Date((row as { updated_at: string }).updated_at).getTime()
+      : ts;
+    lastAppliedAt = ts2;
+    mergeSnapshotIntoSqlite((row as { data: any }).data, userId);
+  } catch (e) {
+    console.warn('[supabaseRealtime] pull error:', (e as Error).message);
+  }
+};
+
+// Intervalle de sécurité : un pull conditionnel périodique rattrape un signal
+// broadcast manqué (déconnexion brève). Coût ~30 octets par tick → négligeable.
+let safetyTimer: ReturnType<typeof setInterval> | null = null;
+const SAFETY_PULL_MS = 5 * 60 * 1000;
+
 export const startSupabaseRealtime = async () => {
   if (!enabled) return;
   try {
     const client = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
       auth: { persistSession: false, autoRefreshToken: true },
+      realtime: {
+        // Même backoff que le client navigateur : éviter le martèlement toutes
+        // les ~5-10 s lors d'une panne prolongée (visible dans les api logs).
+        reconnectAfterMs: (tries: number) => Math.min(1000 * 2 ** tries, 5 * 60 * 1000),
+      },
     });
     const { data: auth, error: authErr } = await client.auth.signInWithPassword({
       email: OWNER_EMAIL,
@@ -181,39 +228,34 @@ export const startSupabaseRealtime = async () => {
       return;
     }
     const userId = auth.user.id;
-    console.log(`[supabaseRealtime] 🔌 subscribing for user ${userId.slice(0, 8)}…`);
+    console.log(`[supabaseRealtime] 🔌 subscribing (broadcast) for user ${userId.slice(0, 8)}…`);
 
+    // Canal *Broadcast* (zéro charge DB, zéro WAL) — identique à cloudSync.ts
+    // côté navigateur. À la réception du signal léger « updated », on déclenche
+    // un pull conditionnel : le blob n'est téléchargé que s'il a réellement
+    // changé. Remplace postgres_changes qui renvoyait ~2 Mo à chaque écriture.
     channel = client
-      .channel(`pc_pull_${userId}`)
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'user_data', filter: `user_id=eq.${userId}` },
-        (payload) => {
-          if (Date.now() < skipUntilTs) {
-            // This is our own push echoing back — ignore.
-            return;
-          }
-          const row = (payload.new as { data?: any; updated_at?: string } | null);
-          if (!row?.data) return;
-          const ts = row.updated_at ? new Date(row.updated_at).getTime() : 0;
-          if (ts && ts <= lastAppliedAt) return; // already applied
-          lastAppliedAt = ts;
-          mergeSnapshotIntoSqlite(row.data, userId);
-        },
-      )
+      .channel(`bera_sync_${userId}`, { config: { broadcast: { self: false } } })
+      .on('broadcast', { event: 'updated' }, () => { void pullAndMerge(client, userId); })
       .subscribe((status) => {
         if (status === 'SUBSCRIBED') {
-          console.log('[supabaseRealtime] ✅ subscribed to user_data changes');
+          console.log('[supabaseRealtime] ✅ subscribed (broadcast) to user_data signals');
+          // Premier pull au démarrage pour aligner SQLite sur l'état cloud.
+          void pullAndMerge(client, userId);
         } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
           console.warn(`[supabaseRealtime] channel ${status}`);
         }
       });
+
+    if (safetyTimer) clearInterval(safetyTimer);
+    safetyTimer = setInterval(() => { void pullAndMerge(client, userId); }, SAFETY_PULL_MS);
   } catch (err) {
     console.warn('[supabaseRealtime] startup error:', err);
   }
 };
 
 export const stopSupabaseRealtime = () => {
+  if (safetyTimer) { clearInterval(safetyTimer); safetyTimer = null; }
   if (channel) {
     channel.unsubscribe();
     channel = null;
