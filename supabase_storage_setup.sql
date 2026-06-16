@@ -16,13 +16,14 @@ values ('bera-assets', 'bera-assets', true)
 on conflict (id) do update set public = true;
 
 -- 2) Policies sur storage.objects, limitées à ce bucket.
---    Lecture publique (bucket public) + écriture/upsert réservée aux connectés.
+--    NB: un bucket PUBLIC sert déjà les objets via leur URL publique SANS policy
+--    SELECT. Ajouter une policy SELECT large permet en plus de *lister* tous les
+--    fichiers (advisor: public_bucket_allows_listing) — inutile et trop exposé.
+--    On ne crée donc QUE insert + update (pour l'upsert). Le téléchargement par
+--    URL publique continue de marcher grâce au flag public=true du bucket.
 drop policy if exists "bera_assets_public_read"  on storage.objects;
 drop policy if exists "bera_assets_auth_insert"  on storage.objects;
 drop policy if exists "bera_assets_auth_update"  on storage.objects;
-
-create policy "bera_assets_public_read" on storage.objects
-  for select using (bucket_id = 'bera-assets');
 
 create policy "bera_assets_auth_insert" on storage.objects
   for insert to authenticated
