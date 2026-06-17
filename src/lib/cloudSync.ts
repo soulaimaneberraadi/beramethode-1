@@ -18,6 +18,8 @@ const SYNC_KEYS = [
   'BERA_CUSTOM_ROLES',
   'BERA_CUSTOM_PARTITIONS',
   'BERA_SALLES',
+  'beramethode_subcontract_orders',
+  'beramethode_subcontract_groups',
 ];
 
 const TABLE = 'user_data';

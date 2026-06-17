@@ -210,3 +210,66 @@ export const deleteSubcontractOrder = (req: Request, res: Response) => {
         res.status(500).json({ message: 'Error deleting subcontract order' });
     }
 };
+
+// Get all subcontractor groups
+export const getSubcontractorGroups = (req: Request, res: Response) => {
+    const userId = (req as any).user.id;
+    try {
+        const stmt = db.prepare('SELECT * FROM subcontractor_groups WHERE owner_id = ? ORDER BY created_at DESC');
+        const rows = stmt.all(userId) as any[];
+        res.json(rows.map(r => ({
+            ...r,
+            subcontractor_names: JSON.parse(r.subcontractor_names || '[]')
+        })));
+    } catch (error) {
+        console.error('Get subcontractor groups error:', error);
+        res.status(500).json({ message: 'Error fetching subcontractor groups' });
+    }
+};
+
+// Create or update subcontractor group
+export const saveSubcontractorGroup = (req: Request, res: Response) => {
+    const userId = (req as any).user.id;
+    const { id, group_name, subcontractor_names } = req.body;
+
+    if (!group_name) {
+        return res.status(400).json({ message: 'Group name is required' });
+    }
+
+    try {
+        const groupId = id || randomUUID();
+        const namesJson = JSON.stringify(subcontractor_names || []);
+        
+        const stmt = db.prepare(`
+            INSERT INTO subcontractor_groups (id, owner_id, group_name, subcontractor_names)
+            VALUES (?, ?, ?, ?)
+            ON CONFLICT(id) DO UPDATE SET
+                group_name = excluded.group_name,
+                subcontractor_names = excluded.subcontractor_names,
+                updated_at = CURRENT_TIMESTAMP
+        `);
+        
+        stmt.run(groupId, userId, group_name, namesJson);
+        res.json({ message: 'Subcontractor group saved successfully', id: groupId });
+    } catch (error) {
+        console.error('Save subcontractor group error:', error);
+        res.status(500).json({ message: 'Error saving subcontractor group' });
+    }
+};
+
+// Delete subcontractor group
+export const deleteSubcontractorGroup = (req: Request, res: Response) => {
+    const userId = (req as any).user.id;
+    const { id } = req.params;
+
+    try {
+        const result = db.prepare('DELETE FROM subcontractor_groups WHERE id = ? AND owner_id = ?').run(id, userId);
+        if (result.changes === 0) {
+            return res.status(404).json({ message: 'Subcontractor group not found or unauthorized' });
+        }
+        res.json({ message: 'Subcontractor group deleted successfully' });
+    } catch (error) {
+        console.error('Delete subcontractor group error:', error);
+        res.status(500).json({ message: 'Error deleting subcontractor group' });
+    }
+};

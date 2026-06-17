@@ -950,44 +950,44 @@ export default function Planning({
             )}
 
             {multiIds.size > 0 && (
-                <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 bg-gray-900 text-white rounded-xl shadow-xl flex items-stretch overflow-hidden animate-[planning-fade-up_180ms_ease-out]">
-                    <div className="flex items-center gap-2 px-4 py-2.5 border-r border-gray-700 bg-gray-800">
-                        <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-gray-700 text-[11px] font-bold tabular-nums">{multiIds.size}</span>
-                        <span className="text-[12px] font-bold">sélectionné{multiIds.size > 1 ? 's' : ''}</span>
+                <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 bg-white text-slate-800 border border-slate-200/85 rounded-xl shadow-2xl flex items-stretch overflow-hidden animate-[planning-fade-up_180ms_ease-out]">
+                    <div className="flex items-center gap-2 px-4 py-2.5 border-r border-slate-150 bg-slate-50/85">
+                        <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-indigo-50 text-indigo-700 text-[11px] font-black tabular-nums">{multiIds.size}</span>
+                        <span className="text-[12px] font-bold text-slate-700">sélectionné{multiIds.size > 1 ? 's' : ''}</span>
                     </div>
                     <select
                         onChange={(e) => { if (e.target.value) { handleBulkMove(e.target.value); e.target.value = ''; } }}
                         defaultValue=""
-                        className="px-3 text-[12px] font-bold bg-gray-900 text-white border-r border-gray-700 outline-none cursor-pointer hover:bg-gray-800"
+                        className="px-3 text-[12px] font-bold bg-white text-slate-750 border-r border-slate-150 outline-none cursor-pointer hover:bg-slate-50"
                     >
-                        <option value="" disabled className="text-gray-400">Déplacer vers…</option>
+                        <option value="" disabled className="text-slate-450">Déplacer vers…</option>
                         {chains.map(c => (
-                            <option key={c.id} value={c.id} className="text-gray-400">{c.name}</option>
+                            <option key={c.id} value={c.id} className="text-slate-800">{c.name}</option>
                         ))}
                     </select>
                     <select
                         onChange={(e) => { if (e.target.value) { handleBulkStatus(e.target.value); e.target.value = ''; } }}
                         defaultValue=""
-                        className="px-3 text-[12px] font-bold bg-gray-900 text-white border-r border-gray-700 outline-none cursor-pointer hover:bg-gray-800"
+                        className="px-3 text-[12px] font-bold bg-white text-slate-750 border-r border-slate-150 outline-none cursor-pointer hover:bg-slate-50"
                     >
-                        <option value="" disabled className="text-gray-400">Changer statut…</option>
-                        <option value="READY" className="text-gray-400">Prêt</option>
-                        <option value="IN_PROGRESS" className="text-gray-400">En cours</option>
-                        <option value="BLOCKED_STOCK" className="text-gray-400">Bloqué stock</option>
-                        <option value="EXTERNAL_PROCESS" className="text-gray-400">Proc. Externe</option>
-                        <option value="DONE" className="text-gray-400">Terminé</option>
+                        <option value="" disabled className="text-slate-450">Changer statut…</option>
+                        <option value="READY" className="text-slate-850">Prêt</option>
+                        <option value="IN_PROGRESS" className="text-slate-850">En cours</option>
+                        <option value="BLOCKED_STOCK" className="text-slate-850">Bloqué stock</option>
+                        <option value="EXTERNAL_PROCESS" className="text-slate-850">Proc. Externe</option>
+                        <option value="DONE" className="text-slate-850">Terminé</option>
                     </select>
                     <button
                         type="button"
                         onClick={handleBulkDelete}
-                        className="px-3 text-[12px] font-bold text-red-300 hover:bg-red-650 hover:text-white transition-all duration-200 active:scale-95"
+                        className="px-3 text-[12px] font-bold text-red-600 hover:bg-red-50 hover:text-red-700 transition-all duration-200 active:scale-95 border-r border-slate-150"
                     >
                         Supprimer
                     </button>
                     <button
                         type="button"
                         onClick={() => setMultiIds(new Set())}
-                        className="px-3.5 flex items-center justify-center text-white/70 hover:bg-gray-800 hover:text-white transition-all duration-200 active:scale-95"
+                        className="px-3.5 flex items-center justify-center text-slate-450 hover:bg-slate-50 hover:text-slate-700 transition-all duration-200 active:scale-95"
                         aria-label="Annuler la sélection"
                     >
                         <XIcon className="w-3.5 h-3.5" />

@@ -245,6 +245,8 @@ const buildSnapshot = async (accessToken: string) => {
   const hrPointage = safe('SELECT * FROM hr_pointage');
   const hrProduction = safe('SELECT * FROM hr_production');
   const hrAvances = safe('SELECT * FROM hr_avances');
+  const subcontractOrders = safe('SELECT * FROM subcontract_orders');
+  const subcontractorGroups = safe('SELECT * FROM subcontractor_groups');
 
   // Upload images to Storage and replace base64 with public URLs.
   // This runs in parallel per-model for speed.
@@ -278,6 +280,8 @@ const buildSnapshot = async (accessToken: string) => {
     beramethode_suivis: extractRawData(suiviData),
     beramethode_demandesAppro: demandesAppro.map(parseJsonFields),
     beramethode_settings: appSettings.length === 1 ? parseJsonFields(appSettings[0]) : appSettings.map(parseJsonFields),
+    beramethode_subcontract_orders: subcontractOrders.map(parseJsonFields),
+    beramethode_subcontract_groups: subcontractorGroups.map(parseJsonFields),
     __sqlite_export__: {
       exported_at: new Date().toISOString(),
       counts: {

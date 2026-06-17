@@ -9,6 +9,8 @@ import { createServer as createViteServer } from 'vite';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import { register, login, logout, me, requestPasswordReset, verifyResetCode, resetPassword } from './server/authController';
+import { getSetupStatus, initSetup } from './server/setupController';
+import { reportError, getReports, resolveReport } from './server/errorController';
 import { getAllUsers, updateUserRole, deleteUser, isAdmin } from './server/userController';
 import {
   getMyPermissions, listRoles, createRole, deleteRole,
@@ -62,7 +64,10 @@ import {
   getSubcontractOrders,
   createSubcontractOrder,
   updateSubcontractOrder,
-  deleteSubcontractOrder
+  deleteSubcontractOrder,
+  getSubcontractorGroups,
+  saveSubcontractorGroup,
+  deleteSubcontractorGroup
 } from './server/subcontractController';
 import { getSuiviData, saveSuiviData, getSuiviStats } from './server/suiviController';
 import { getPosteSuivi, savePosteSuivi, deletePosteSuivi } from './server/posteSuiviController';
@@ -235,6 +240,25 @@ async function startServer() {
   app.post('/api/auth/verify-code', passwordResetByEmailLimiter, verifyResetCode);
   app.post('/api/auth/reset-password', resetPassword);
 
+  // ── Setup initial (Desktop Foundation) ──
+  app.get('/api/setup/status', getSetupStatus);
+  app.post('/api/setup/init', initSetup);
+
+  // ── Rapports de crash (Desktop Foundation) ──
+  app.post('/api/errors/report', reportError);
+  app.get('/api/errors/reports', authenticateToken, (req, res, next) => {
+    if ((req as any).user?.role !== 'admin') {
+      return res.status(403).json({ message: 'Réservé aux administrateurs' });
+    }
+    next();
+  }, getReports);
+  app.put('/api/errors/reports/:id/resolve', authenticateToken, (req, res, next) => {
+    if ((req as any).user?.role !== 'admin') {
+      return res.status(403).json({ message: 'Réservé aux administrateurs' });
+    }
+    next();
+  }, resolveReport);
+
   app.get('/api/models', authenticateToken, getModels);
   app.post('/api/models', authenticateToken, saveModel);
   app.delete('/api/models/:id', authenticateToken, deleteModel);
@@ -320,6 +344,9 @@ async function startServer() {
   app.post('/api/subcontract', authenticateToken, createSubcontractOrder);
   app.put('/api/subcontract/:id', authenticateToken, updateSubcontractOrder);
   app.delete('/api/subcontract/:id', authenticateToken, deleteSubcontractOrder);
+  app.get('/api/subcontract/groups', authenticateToken, getSubcontractorGroups);
+  app.post('/api/subcontract/groups', authenticateToken, saveSubcontractorGroup);
+  app.delete('/api/subcontract/groups/:id', authenticateToken, deleteSubcontractorGroup);
 
   app.get('/api/suivi', authenticateToken, getSuiviData);
   app.post('/api/suivi', authenticateToken, saveSuiviData);

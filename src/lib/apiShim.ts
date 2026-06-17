@@ -49,6 +49,8 @@ const STORES: Record<string, StoreRef> = {
   'hr/pointage':    { kind: 'export', path: ['hr', 'pointage'] },
   'hr/production':  { kind: 'export', path: ['hr', 'production'] },
   'hr/avances':     { kind: 'export', path: ['hr', 'avances'] },
+  subcontract:            { kind: 'ls', key: 'beramethode_subcontract_orders' },
+  'subcontract/groups':   { kind: 'ls', key: 'beramethode_subcontract_groups' },
 };
 
 // ─── Generic entity reader / writer ──────────────────────────────────────────

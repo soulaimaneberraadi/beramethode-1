@@ -112,7 +112,7 @@ export default function PlanningHeader({
                     <button
                         type="button"
                         onClick={onAddEvent}
-                        className="inline-flex items-center justify-center w-9 h-9 rounded-xl bg-gradient-to-r from-slate-900 to-indigo-950 hover:from-slate-800 hover:to-indigo-900 text-white transition-all duration-200 active:scale-95 shadow-sm"
+                        className="inline-flex items-center justify-center w-9 h-9 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white transition-all duration-200 active:scale-95 shadow-sm"
                         aria-label="Planifier"
                     >
                         <Plus className="w-4 h-4" strokeWidth={2.25} />
@@ -286,7 +286,7 @@ export default function PlanningHeader({
                     <button
                         type="button"
                         onClick={onAddEvent}
-                        className="inline-flex items-center gap-1.5 h-8 px-3 rounded-xl bg-gradient-to-r from-slate-900 to-indigo-950 hover:from-slate-800 hover:to-indigo-900 text-white text-[12px] font-bold transition-all duration-200 shadow-sm hover:shadow-md active:scale-95"
+                        className="inline-flex items-center gap-1.5 h-8 px-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-[12px] font-bold transition-all duration-200 shadow-sm hover:shadow-md active:scale-95"
                     >
                         <Plus className="w-3.5 h-3.5" strokeWidth={2.25} />
                         Planifier
