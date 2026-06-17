@@ -5,7 +5,9 @@ import http from 'http';
 import os from 'os';
 import path from 'path';
 import cookieParser from 'cookie-parser';
-import { createServer as createViteServer } from 'vite';
+// vite n'est utilisé qu'en dev (HMR). Importé DYNAMIQUEMENT dans startServer
+// pour qu'il soit exclu du bundle de production (EXE) — sinon il alourdit/casse
+// le bundle et n'existe pas dans les deps de prod.
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import { register, login, logout, me, requestPasswordReset, verifyResetCode, resetPassword } from './server/authController';
@@ -591,6 +593,8 @@ async function startServer() {
     const hmrOff =
       process.env.BERAMETHODE_NO_HMR === '1' ||
       process.env.BERAMETHODE_NO_HMR === 'true';
+    // Import dynamique : vite est exclu du bundle prod (voir tsup.config).
+    const { createServer: createViteServer } = await import('vite');
     const vite = await createViteServer({
       clearScreen: false,
       server: {

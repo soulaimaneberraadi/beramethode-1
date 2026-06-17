@@ -15,8 +15,17 @@ export default defineConfig([
     sourcemap: false,
     minify: false,
     clean: false,
-    // better-sqlite3 = addon natif (.node) → reste dans node_modules (asarUnpack)
-    external: ['better-sqlite3', 'electron'],
+    // Bundler TOUT (express + ses deps transitives, helmet, supabase…) DANS
+    // server.cjs → l'EXE ne dépend plus de node_modules (electron-builder élague
+    // parfois des deps transitives → "Cannot find module 'call-bind-apply-helpers'").
+    // Exceptions :
+    //  - better-sqlite3 : addon natif (.node), résolu depuis l'asar (unpacké) ;
+    //  - electron / vite : non requis côté serveur en production.
+    external: ['better-sqlite3', 'electron', 'vite'],
+    // Bundler tout SAUF les 3 ci-dessus. NB: dans tsup, noExternal l'emporte sur
+    // external — donc on EXCLUT explicitement better-sqlite3/electron/vite du
+    // noExternal (sinon better-sqlite3 natif serait bundlé → bindings introuvable).
+    noExternal: [/^(?!better-sqlite3|electron|vite)/],
     // main.ts référence dist-server/server.cjs → forcer l'extension .cjs
     outExtension: () => ({ js: '.cjs' }),
   },

@@ -19,10 +19,20 @@
 import { app, BrowserWindow } from 'electron';
 import * as path from 'path';
 import * as fs from 'fs';
+import * as os from 'os';
 import * as net from 'net';
 import * as crypto from 'crypto';
 import * as child_process from 'child_process';
 import * as http from 'http';
+import { createRequire } from 'node:module';
+
+// Journal de démarrage dans un emplacement TOUJOURS inscriptible (tmp), pour
+// diagnostiquer les échecs de boot de l'EXE empaqueté (pas de console visible).
+const STARTUP_LOG = path.join(os.tmpdir(), 'bera-startup.log');
+function logBoot(msg: string): void {
+  try { fs.appendFileSync(STARTUP_LOG, `[${new Date().toISOString()}] ${msg}\n`); } catch { /* ignore */ }
+  console.log(msg);
+}
 
 // ─── C1 : JWT_SECRET persistant ─────────────────────────────────────────────
 
@@ -108,8 +118,13 @@ function startExpressServer(port: number, jwtSecret: string, dbPath: string): ch
     // Chemin ABSOLU du build frontend (server.ts sert dist/ via BERA_DIST_PATH).
     process.env.BERA_DIST_PATH = path.join(app.getAppPath(), 'dist');
     const serverEntry = path.join(app.getAppPath(), 'dist-server', 'server.cjs');
-    console.log(`[BERA] Mode packagé — serveur in-process : ${serverEntry}`);
-    require(serverEntry);
+    logBoot(`[BERA] require serveur in-process: ${serverEntry}`);
+    logBoot(`[BERA] BERA_DIST_PATH=${process.env.BERA_DIST_PATH} | appPath=${app.getAppPath()}`);
+    // createRequire → vrai require natif (esbuild ne remplace PAS par son shim
+    // "Dynamic require not supported" qui ferait planter le boot).
+    const nodeRequire = createRequire(__filename);
+    nodeRequire(serverEntry);
+    logBoot('[BERA] serveur in-process chargé OK');
     return null;
   }
 
@@ -214,12 +229,13 @@ app.whenReady().then(async () => {
   splashWindow = createSplash();
 
   try {
+    logBoot(`[BERA] whenReady — packaged=${app.isPackaged} | userData=${app.getPath('userData')}`);
     const userDataPath = app.getPath('userData');
     const jwtSecret = getOrCreateSecret(userDataPath);
     const dbPath = path.join(userDataPath, 'database.sqlite');
     const port = await findFreePort(7000);
 
-    console.log(`[BERA] Démarrage du serveur sur le port ${port}…`);
+    logBoot(`[BERA] Démarrage du serveur sur le port ${port}…`);
 
     serverProcess = startExpressServer(port, jwtSecret, dbPath);
 
@@ -235,12 +251,12 @@ app.whenReady().then(async () => {
 
     // Attendre que le serveur soit prêt
     await waitForServer(port);
-    console.log(`[BERA] Serveur prêt sur http://127.0.0.1:${port}`);
+    logBoot(`[BERA] Serveur prêt sur http://127.0.0.1:${port}`);
 
     // Charger l'app (ferme le splash à l'intérieur)
     await createWindow(port);
   } catch (err) {
-    console.error('[BERA] Erreur au démarrage :', err);
+    logBoot(`[BERA] ERREUR démarrage: ${(err as Error)?.stack || String(err)}`);
     if (splashWindow && !splashWindow.isDestroyed()) {
       splashWindow.close();
     }
