@@ -40,6 +40,7 @@ import { DEFAULT_CALENDAR_APP_SETTINGS } from './lib/defaultCalendarSettings';
 
 const Login = lazy(() => import('./src/components/Login'));
 const Signup = lazy(() => import('./src/components/Signup'));
+const Setup = lazy(() => import('./components/Setup'));
 const AdminDashboard = lazy(() => import('./src/components/AdminDashboard'));
 const Dashboard = lazy(() => import('./components/Dashboard'));
 const Planning = lazy(() => import('./components/Planning'));
@@ -87,6 +88,25 @@ export default function App() {
     const { hiddenPages: permHiddenPages } = usePermissions();
     const [authView, setAuthView] = useState<'login' | 'signup'>('login');
     const [isGuest, setIsGuest] = useState(false);
+
+    // Vérification first-boot (Express uniquement).
+    // setupNeeded = null → en cours de vérification, false → déjà initialisé, true → setup requis.
+    const [setupNeeded, setSetupNeeded] = useState<boolean | null>(IS_STATIC ? false : null);
+
+    useEffect(() => {
+        if (IS_STATIC) return; // setup uniquement en mode Express (EXE local)
+        fetch('/api/setup/status', { credentials: 'include' })
+            .then((r) => r.json())
+            .then((data: { initialized?: boolean }) => {
+                setSetupNeeded(data.initialized === false);
+            })
+            .catch(() => {
+                // En cas d'erreur réseau on suppose que le setup est déjà fait
+                // pour ne pas bloquer l'accès indéfiniment.
+                setSetupNeeded(false);
+            });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
     const [lang, setLang] = useState<Lang>('fr');
     const t = TRANSLATIONS[lang];
 
@@ -1115,6 +1135,36 @@ export default function App() {
                 subText={appLoading.subText}
             />
         );
+    }
+
+    // ── First-boot setup (Express / EXE local uniquement) ──────────────────
+    // setupNeeded = null → vérification en cours → on attend avec le loader.
+    // setupNeeded = true ET pas d'utilisateur connecté → affiche le wizard.
+    if (!IS_STATIC) {
+        if (setupNeeded === null) {
+            return (
+                <GlobalLoader
+                    isActive
+                    progress={10}
+                    text="BERAMETHODE"
+                    subText="Vérification de la configuration…"
+                />
+            );
+        }
+        if (setupNeeded && !user) {
+            return (
+                <Suspense fallback={<GlobalLoader isActive={true} progress={30} text="BERAMETHODE" subText="Chargement du setup…" />}>
+                    <Setup
+                        onComplete={(newUser) => {
+                            // Le serveur a créé le compte et retourné l'utilisateur.
+                            // On l'injecte via login() (même chemin que la connexion normale).
+                            login(newUser);
+                            setSetupNeeded(false);
+                        }}
+                    />
+                </Suspense>
+            );
+        }
     }
 
     if (!user) {

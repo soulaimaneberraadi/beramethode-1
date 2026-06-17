@@ -69,6 +69,21 @@ export class ErrorBoundary extends Component<Props, State> {
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error('Uncaught error:', error, errorInfo);
     this.setState({ errorInfo });
+
+    // Rapport automatique best-effort vers /api/errors/report.
+    // On ne lève jamais d'exception ici : un crash dans componentDidCatch
+    // provoquerait une boucle infinie et masquerait l'erreur originale.
+    fetch('/api/errors/report', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        message: error.message,
+        stack: error.stack,
+        component_stack: errorInfo.componentStack,
+        url: typeof window !== 'undefined' ? window.location.href : '',
+        user_agent: typeof navigator !== 'undefined' ? navigator.userAgent : '',
+      }),
+    }).catch(() => {});
   }
 
   private buildReport = (kind: 'connexion' | 'page'): ErrorReport => ({
