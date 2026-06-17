@@ -32,10 +32,13 @@ export const register = async (req: Request, res: Response) => {
 
   try {
     const hashedPassword = await bcrypt.hash(password, 10);
+    // Premier utilisateur (hors guest@local) → rôle admin automatique
+    const userCount = (db.prepare('SELECT COUNT(*) as cnt FROM users WHERE email != ?').get('guest@local') as { cnt: number }).cnt;
+    const role = userCount === 0 ? 'admin' : 'user';
     const stmt = db.prepare('INSERT INTO users (email, password, name, role) VALUES (?, ?, ?, ?)');
-    const info = stmt.run(email, hashedPassword, name || '', 'user');
+    const info = stmt.run(email, hashedPassword, name || '', role);
 
-    const token = jwt.sign({ id: info.lastInsertRowid, email, role: 'user' }, JWT_SECRET, { expiresIn: '24h' });
+    const token = jwt.sign({ id: info.lastInsertRowid, email, role }, JWT_SECRET, { expiresIn: '24h' });
 
     res.cookie('token', token, {
       httpOnly: true,
@@ -44,7 +47,7 @@ export const register = async (req: Request, res: Response) => {
       maxAge: 24 * 60 * 60 * 1000 // 24 hours
     });
 
-    res.status(201).json({ user: { id: info.lastInsertRowid, email, name, role: 'user' } });
+    res.status(201).json({ user: { id: info.lastInsertRowid, email, name, role } });
   } catch (error: any) {
     if (error.code === 'SQLITE_CONSTRAINT_UNIQUE') {
       return res.status(409).json({ message: 'Email already exists' });

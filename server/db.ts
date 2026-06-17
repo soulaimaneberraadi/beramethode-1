@@ -853,6 +853,18 @@ db.exec(`
   )
 `);
 
+db.exec(`
+  CREATE TABLE IF NOT EXISTS subcontractor_groups (
+    id TEXT PRIMARY KEY,
+    owner_id INTEGER NOT NULL,
+    group_name TEXT NOT NULL,
+    subcontractor_names TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE CASCADE
+  )
+`);
+
 // 🚀 CRÉATION DES INDEX POUR OPTIMISER LES PERFORMANCES (Lectures / Jointures)
 db.exec(`
   -- Index généraux
@@ -1529,6 +1541,38 @@ for (const tbl of auditScopedTables) {
   }
 }
 
+// ════════════════════════════════════════════════════════════════════════════════
+// DESKTOP FOUNDATION — Paramètres société + Rapports de crash (Phase 1)
+// ════════════════════════════════════════════════════════════════════════════════
+
+// Paramètres de la société (singleton id=1, créé lors du Setup)
+db.exec(`
+  CREATE TABLE IF NOT EXISTS company_settings (
+    id INTEGER PRIMARY KEY CHECK (id = 1),
+    name TEXT,
+    logo TEXT,
+    specialty TEXT,
+    setup_complete INTEGER DEFAULT 0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  )
+`);
+
+// Rapports de crash envoyés par le frontend (Error Boundary ou window.onerror)
+db.exec(`
+  CREATE TABLE IF NOT EXISTS crash_reports (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    message TEXT,
+    stack TEXT,
+    component_stack TEXT,
+    url TEXT,
+    user_agent TEXT,
+    user_id INTEGER,
+    resolved INTEGER DEFAULT 0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  )
+`);
+
 export default db;
+
 
 
