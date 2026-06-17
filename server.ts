@@ -601,9 +601,13 @@ async function startServer() {
     });
     app.use(vite.middlewares);
   } else {
-    app.use(express.static('dist'));
+    // En production (EXE Electron), le cwd n'est pas le dossier du projet :
+    // on utilise un chemin ABSOLU fourni par electron/main (BERA_DIST_PATH),
+    // sinon 'dist' relatif (build statique classique).
+    const distPath = process.env.BERA_DIST_PATH || path.resolve('dist');
+    app.use(express.static(distPath));
     app.get('*', (_req, res) => {
-      res.sendFile(path.resolve('dist', 'index.html'));
+      res.sendFile(path.join(distPath, 'index.html'));
     });
   }
 

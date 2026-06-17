@@ -63,6 +63,7 @@
     ],
     "files": [
       "dist/**",
+      "dist-server/**",
       "electron/**",
       "node_modules/**",
       "!node_modules/.cache/**"
@@ -85,13 +86,6 @@
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
       "shortcutName": "BERAMETHODE"
-    },
-    "extraResources": [
-      {
-        "from": "dist-server",
-        "to": "dist-server",
-        "filter": ["**/*"]
-      }
-    ]
+    }
   }
 }

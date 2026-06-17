@@ -93,27 +93,35 @@ function waitForServer(port: number, timeoutMs = 30_000): Promise<void> {
 
 let serverProcess: child_process.ChildProcess | null = null;
 
-function startExpressServer(port: number, jwtSecret: string, dbPath: string): child_process.ChildProcess {
+function startExpressServer(port: number, jwtSecret: string, dbPath: string): child_process.ChildProcess | null {
+  if (app.isPackaged) {
+    // Mode production : on lance Express EN PROCESS (même process que le main
+    // Electron). Avantages décisifs :
+    //  - better-sqlite3 (compilé pour l'ABI Electron) se charge sans conflit ;
+    //  - require() résout node_modules depuis l'asar (better-sqlite3 unpacké) ;
+    //  - pas de fork (qui relancerait Electron au lieu de Node).
+    process.env.JWT_SECRET = jwtSecret;
+    process.env.BERA_DB_PATH = dbPath;
+    process.env.ELECTRON_MODE = 'true';
+    process.env.PORT = String(port);
+    process.env.NODE_ENV = 'production';
+    // Chemin ABSOLU du build frontend (server.ts sert dist/ via BERA_DIST_PATH).
+    process.env.BERA_DIST_PATH = path.join(app.getAppPath(), 'dist');
+    const serverEntry = path.join(app.getAppPath(), 'dist-server', 'server.cjs');
+    console.log(`[BERA] Mode packagé — serveur in-process : ${serverEntry}`);
+    require(serverEntry);
+    return null;
+  }
+
+  // Dev : tsx server.ts (processus séparé)
   const env: NodeJS.ProcessEnv = {
     ...process.env,
     JWT_SECRET: jwtSecret,
     BERA_DB_PATH: dbPath,
     ELECTRON_MODE: 'true',
     PORT: String(port),
-    NODE_ENV: app.isPackaged ? 'production' : 'development',
+    NODE_ENV: 'development',
   };
-
-  if (app.isPackaged) {
-    // Mode production : utilise le bundle tsup (server.cjs dans resources/dist-server/)
-    const serverEntry = path.join(process.resourcesPath, 'dist-server', 'server.cjs');
-    console.log(`[BERA] Mode packagé — chargement de : ${serverEntry}`);
-    return child_process.fork(serverEntry, [], {
-      env,
-      silent: true,
-    });
-  }
-
-  // Dev : tsx server.ts
   const tsxBin = path.join(
     app.getAppPath(),
     'node_modules',
@@ -215,13 +223,15 @@ app.whenReady().then(async () => {
 
     serverProcess = startExpressServer(port, jwtSecret, dbPath);
 
-    // Pipe stdout/stderr pour le débogage
-    serverProcess.stdout?.on('data', (d: Buffer) => process.stdout.write(`[server] ${d}`));
-    serverProcess.stderr?.on('data', (d: Buffer) => process.stderr.write(`[server:err] ${d}`));
-
-    serverProcess.on('exit', (code) => {
-      console.warn(`[BERA] Serveur arrêté avec code ${code}`);
-    });
+    // En mode dev (processus séparé) : pipe stdout/stderr pour le débogage.
+    // En mode packagé (in-process), serverProcess est null → rien à piper.
+    if (serverProcess) {
+      serverProcess.stdout?.on('data', (d: Buffer) => process.stdout.write(`[server] ${d}`));
+      serverProcess.stderr?.on('data', (d: Buffer) => process.stderr.write(`[server:err] ${d}`));
+      serverProcess.on('exit', (code) => {
+        console.warn(`[BERA] Serveur arrêté avec code ${code}`);
+      });
+    }
 
     // Attendre que le serveur soit prêt
     await waitForServer(port);
