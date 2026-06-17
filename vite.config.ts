@@ -3,7 +3,13 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import obfuscator from 'vite-plugin-javascript-obfuscator';
 
-export default defineConfig(({ mode }) => ({
+export default defineConfig(({ mode }) => {
+  // base './' uniquement pour le build Electron (fichiers chargés via file://)
+  // En mode web (dev Vite + Vercel), on garde '/' pour que le routing absolu fonctionne.
+  const isElectronBuild = process.env.ELECTRON_BUILD === 'true';
+
+  return {
+    base: isElectronBuild ? './' : '/',
     // « npx vite » / « vite preview » : le port est ≠ 7000 pour laisser **npm run dev** (Express + API) sur 7000.
     // Le proxy envoie /api vers le backend — sans ça, /api renvoie index.html → erreur « HTML au lieu de JSON ».
     server: {
@@ -64,7 +70,7 @@ export default defineConfig(({ mode }) => ({
         'react-qr-code'
       ]
     },
-resolve: {
+    resolve: {
       alias: {
         '@': path.resolve('.'),
       }
@@ -74,4 +80,5 @@ resolve: {
       sourcemap: false,
       minify: 'esbuild',
     }
-  }));
+  };
+});
