@@ -41,7 +41,10 @@ export default defineConfig(({ mode }) => {
     },
     plugins: [
       react(),
-      ...(mode !== 'static' ? [obfuscator({
+      // Pas d'obfuscation en mode 'static' (Vercel) NI 'electron' (EXE) :
+      // l'obfuscation (controlFlowFlattening + deadCodeInjection) casse les
+      // imports dynamiques (React.lazy) → "Failed to fetch dynamically imported".
+      ...(mode !== 'static' && mode !== 'electron' ? [obfuscator({
         include: ['src/**/*.ts', 'src/**/*.tsx', 'components/**/*.ts', 'components/**/*.tsx', 'App.tsx'],
         exclude: [/node_modules/],
         apply: 'build',
