@@ -1,14 +1,18 @@
 /**
  * electron/main.ts — BERAMETHODE Desktop Entry Point
  *
- * Phase 1.7 + 1.8 (BERAMETHODE_ARCHITECTURE.md)
+ * Phase 1.7 + 1.8 + 2 (BERAMETHODE_ARCHITECTURE.md)
  *
  * Responsabilités :
  *  - C1 : génère/lit un JWT_SECRET persistant dans userData/.secret
- *  - Fork du serveur Express (server.ts via tsx en dev, build tsup en prod — TODO Phase 2)
+ *  - Splash screen frameless affiché immédiatement au démarrage
+ *  - Fork du serveur Express :
+ *      • dev       → tsx server.ts
+ *      • packaged  → node dist-server/server.cjs (via resources/)
  *  - Trouve un port libre dynamiquement
  *  - Ouvre BrowserWindow avec preload + contextIsolation
  *  - Poll jusqu'à ce que le serveur soit prêt avant de charger l'URL
+ *  - Ferme splash → affiche app une fois le serveur prêt
  *  - Ferme proprement le processus serveur à la fermeture de la fenêtre
  */
 
@@ -100,13 +104,16 @@ function startExpressServer(port: number, jwtSecret: string, dbPath: string): ch
   };
 
   if (app.isPackaged) {
-    // TODO Phase 2 : utiliser le build tsup (server.cjs dans resources/)
-    // const serverEntry = path.join(process.resourcesPath, 'server', 'server.cjs');
-    // return child_process.fork(serverEntry, [], { env, silent: true });
-    console.warn('[BERA] Mode packagé non encore implémenté (Phase 2). Utilisation de tsx en fallback.');
+    // Mode production : utilise le bundle tsup (server.cjs dans resources/dist-server/)
+    const serverEntry = path.join(process.resourcesPath, 'dist-server', 'server.cjs');
+    console.log(`[BERA] Mode packagé — chargement de : ${serverEntry}`);
+    return child_process.fork(serverEntry, [], {
+      env,
+      silent: true,
+    });
   }
 
-  // Dev (et fallback prod temporaire) : tsx server.ts
+  // Dev : tsx server.ts
   const tsxBin = path.join(
     app.getAppPath(),
     'node_modules',
@@ -122,6 +129,33 @@ function startExpressServer(port: number, jwtSecret: string, dbPath: string): ch
   });
 }
 
+// ─── Splash screen ───────────────────────────────────────────────────────────
+
+let splashWindow: BrowserWindow | null = null;
+
+function createSplash(): BrowserWindow {
+  const splash = new BrowserWindow({
+    width: 400,
+    height: 300,
+    frame: false,
+    transparent: false,
+    resizable: false,
+    center: true,
+    alwaysOnTop: true,
+    skipTaskbar: true,
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true,
+      sandbox: true,
+    },
+  });
+
+  const splashPath = path.join(__dirname, 'splash.html');
+  splash.loadFile(splashPath);
+
+  return splash;
+}
+
 // ─── Fenêtre principale ──────────────────────────────────────────────────────
 
 let mainWindow: BrowserWindow | null = null;
@@ -135,6 +169,8 @@ async function createWindow(port: number) {
     minWidth: 1024,
     minHeight: 700,
     title: 'BERAMETHODE',
+    // Caché jusqu'à ce que la page soit chargée (évite la flash blanche)
+    show: false,
     webPreferences: {
       preload: preloadPath,
       contextIsolation: true,
@@ -153,11 +189,22 @@ async function createWindow(port: number) {
   }
 
   await mainWindow.loadURL(`http://127.0.0.1:${port}`);
+
+  // Fenêtre prête : fermer splash et afficher l'app
+  if (splashWindow && !splashWindow.isDestroyed()) {
+    splashWindow.close();
+    splashWindow = null;
+  }
+  mainWindow.show();
+  mainWindow.focus();
 }
 
 // ─── Bootstrap ───────────────────────────────────────────────────────────────
 
 app.whenReady().then(async () => {
+  // Afficher le splash immédiatement
+  splashWindow = createSplash();
+
   try {
     const userDataPath = app.getPath('userData');
     const jwtSecret = getOrCreateSecret(userDataPath);
@@ -180,9 +227,13 @@ app.whenReady().then(async () => {
     await waitForServer(port);
     console.log(`[BERA] Serveur prêt sur http://127.0.0.1:${port}`);
 
+    // Charger l'app (ferme le splash à l'intérieur)
     await createWindow(port);
   } catch (err) {
     console.error('[BERA] Erreur au démarrage :', err);
+    if (splashWindow && !splashWindow.isDestroyed()) {
+      splashWindow.close();
+    }
     app.quit();
   }
 });
