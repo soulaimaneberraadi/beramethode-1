@@ -618,7 +618,11 @@ async function startServer() {
           reject(err);
         }
       });
-      httpServer.listen(port, '0.0.0.0', () => {
+      // En mode Electron (EXE local), n'écouter que sur la loopback pour ne PAS
+      // exposer l'API sur le réseau (M3 — sécurité Desktop). En web/dev, 0.0.0.0
+      // garde l'accès LAN (téléphones sur le même WiFi).
+      const host = process.env.ELECTRON_MODE === 'true' ? '127.0.0.1' : '0.0.0.0';
+      httpServer.listen(port, host, () => {
         const usedPort = (httpServer.address() as any)?.port ?? port;
         const nets = os.networkInterfaces();
         console.log(`\n  🟢 BERAMETHODE Server running`);
