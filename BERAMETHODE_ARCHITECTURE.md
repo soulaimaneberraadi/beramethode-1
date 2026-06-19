@@ -526,10 +526,10 @@ can(user, resource, action):
 |------|---------|--------|------|---------|
 | C1 | 🔴 | JWT_SECRET ينهار في EXE | secret في userData | 0 |
 | C2 | 🔴 | better-sqlite3 ABI | electron-rebuild | 0 |
-| **0.1** | 🔴 | `hrController.ts:638,658` — endpoints تقرأ workers بلا owner_id (تسريب بين الشركات) | تمرير owner_id أو token الشركة | **6** |
-| **0.2** | 🔴 | `supabaseSync.ts:229` — `buildSnapshot()` بلا WHERE owner_id → يصدّر كل الـ tenants [بُعد egress أيضاً] | تمرير ownerId من loadUserContext → WHERE owner_id = ? | **6** |
-| **0.3** | 🔴 | `supabaseRealtime.ts:75` — merge يكتب `user_id: 1` ثابت + INSERT بلا تحقّق owner_id | استعمال userId المتمرّر + رفض صفوف owner مخالف | **6** |
-| **0.4** | 🟡 | `db.ts:65`, `modelController.ts:7`, `catalogController.ts:59` — جدول models يستعمل user_id legacy | migration: إضافة owner_id + تعمير من user_id + تحديث queries | **6** |
+| **0.1** | 🟢 مُحيَّد | endpoints العامل (`hrController` getWorkerByCin/PointageToday/ProductionToday) تقرأ بالـ CIN بلا owner_id | **قيد `UNIQUE(cin)` على `hr_workers` يجعل CIN فريداً عالمياً → لا غموض owner لاستغلاله.** الخطر المتبقّي = عامل بلا PIN يكشف بيانات قليلة. الإصلاح الكامل (`UNIQUE(owner_id,cin)` + هوية شركة في BERAOUVIER) = مع ميزة pairing مستقبلية | **مؤجَّل** |
+| **0.2** | ✅ مُصلَح | `supabaseSync.buildSnapshot()` — كان يصدّر كل الـ tenants | **تـمّ:** `getLocalOwnerId()` + كل query فيه `WHERE owner_id = ?` (owner-scoped) | تـمّ |
+| **0.3** | ✅ مُصلَح (2026-06-20) | `supabaseRealtime` merge كتب `user_id: 1` ثابت + INSERT بلا تحقّق owner | **تـمّ:** `getLocalOwnerId()` يحلّ id المحلي؛ models تُكتب تحته؛ `applyArrayToTable` يفرض owner_id محلي ويرفض صفوف tenant مخالف؛ merge يُلغى إن تعذّر حلّ المالك | تـمّ |
+| **0.4** | 🟢 مُحيَّد | جدول models يستعمل عمود `user_id` (legacy) بلا `owner_id` | **عمود `user_id` يعمل كـ owner_id بثبات** (modelController/catalogController يقرآن/يكتبان `WHERE user_id = companyId`)؛ خطر `user_id:1` زال بإصلاح 0.3. إعادة التسمية = تجميل خطر على بيانات مالية → مؤجَّل | **مؤجَّل** |
 | H1 | 🟠 | Supabase anon key مكشوف | RLS إجباري على كل الجداول | 7 |
 | H2 | 🟠 | worker endpoints عمومية | PIN-gating | 7 |
 | M1 | 🟡 | IDOR بين الشركات | owner_id backend + اختبارات منهجية | 6 |
@@ -540,6 +540,8 @@ can(user, resource, action):
 **نقاط قوة مؤكّدة:** SQL parameterized · JWT قوي · cookies httpOnly/sameSite · bcrypt · rate-limit · obfuscation.
 
 > ⚠️ **تنبيه خاص:** الثغرات 0.1 → 0.4 ليست عاجلة اليوم (مستخدم واحد) لكنها **إجبارية قبل onboarding أي شركة ثانية.** ثغرة 0.2 لها بُعد مزدوج: أمني (تسريب) + egress (تضخّم).
+
+> ✅ **تحديث 2026-06-20 (تحقّق حيّ + تنفيذ):** عند الفحص الحيّ تبيّن أن **0.2 مُصلَحة سابقاً** (buildSnapshot owner-scoped) و **0.1/0.4 مُحيَّدتان بنيوياً** (قيد `UNIQUE(cin)` + عمود user_id يعمل كـ owner_id). **0.3 أُصلِحت اليوم** (راجع الجدول). إضافةً، نُفِّذت **المرحلة 6.1 جزئياً**: تحويل 8 controllers (suivi · demandes-appro · poste-suivi · hr-sage · hr-identity · subcontract · dashboard · facturation) من `req.user.id` إلى `req.companyId` كمفتاح tenant موحّد (chrono/catalog/model/magasin/workers/planning/scheduling كانت صحيحة أصلاً؛ settings تُركت على user.id كتفضيلات شخصية). type-check ناجح.
 
 ---
 
