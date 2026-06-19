@@ -3,7 +3,7 @@ import db from './db';
 
 // Get suivi data per poste
 export const getPosteSuivi = (req: Request, res: Response) => {
-    const userId = (req as any).user.id;
+    const companyId = (req as any).companyId;
     const planningId = req.query.planningId as string;
     
     try {
@@ -12,7 +12,7 @@ export const getPosteSuivi = (req: Request, res: Response) => {
           : 'SELECT * FROM poste_suivi WHERE owner_id = ? ORDER BY date DESC';
           
         const stmt = db.prepare(query);
-        const rows = planningId ? stmt.all(userId, planningId) : stmt.all(userId);
+        const rows = planningId ? stmt.all(companyId, planningId) : stmt.all(companyId);
         
         const suivis = (rows as any[]).map(r => ({
             ...r,
@@ -27,7 +27,7 @@ export const getPosteSuivi = (req: Request, res: Response) => {
 
 // Batch upsert
 export const savePosteSuivi = (req: Request, res: Response) => {
-    const userId = (req as any).user.id;
+    const companyId = (req as any).companyId;
     const { suivis } = req.body;
 
     if (!Array.isArray(suivis)) {
@@ -47,7 +47,7 @@ export const savePosteSuivi = (req: Request, res: Response) => {
             for (const s of suivis) {
                 if (!s.id || !s.planningId || !s.posteId || !s.date || !s.modelId) continue;
                 stmt.run(
-                    s.id, userId, s.planningId, s.modelId, s.posteId, s.workerId || null, s.date, s.heure_debut || null, s.heure_fin || null, s.pieces_entrees || 0, s.pieces_sorties || 0, s.pieces_defaut || 0, s.temps_reel_par_piece || null, s.temps_prevu_par_piece || null, s.notes || null, JSON.stringify(s.problemes || [])
+                    s.id, companyId, s.planningId, s.modelId, s.posteId, s.workerId || null, s.date, s.heure_debut || null, s.heure_fin || null, s.pieces_entrees || 0, s.pieces_sorties || 0, s.pieces_defaut || 0, s.temps_reel_par_piece || null, s.temps_prevu_par_piece || null, s.notes || null, JSON.stringify(s.problemes || [])
                 );
             }
         });
@@ -62,12 +62,12 @@ export const savePosteSuivi = (req: Request, res: Response) => {
 
 // Delete
 export const deletePosteSuivi = (req: Request, res: Response) => {
-    const userId = (req as any).user.id;
+    const companyId = (req as any).companyId;
     const id = req.params.id;
 
     try {
         const stmt = db.prepare('DELETE FROM poste_suivi WHERE id = ? AND owner_id = ?');
-        stmt.run(id, userId);
+        stmt.run(id, companyId);
         res.json({ message: 'Poste_suivi deleted' });
     } catch (error) {
         res.status(500).json({ message: 'Error deleting poste_suivi' });

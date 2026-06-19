@@ -3,7 +3,7 @@ import db from './db';
 
 // Get suivi data
 export const getSuiviData = (req: Request, res: Response) => {
-    const userId = (req as any).user.id;
+    const companyId = (req as any).companyId;
     const planningId = req.query.planningId as string;
     
     try {
@@ -12,7 +12,7 @@ export const getSuiviData = (req: Request, res: Response) => {
           : 'SELECT * FROM suivi_data WHERE owner_id = ? ORDER BY date DESC';
           
         const stmt = db.prepare(query);
-        const rows = planningId ? stmt.all(userId, planningId) : stmt.all(userId);
+        const rows = planningId ? stmt.all(companyId, planningId) : stmt.all(companyId);
         
         const suivis = (rows as any[]).map(r => JSON.parse(r.raw_data));
         res.json(suivis);
@@ -24,7 +24,7 @@ export const getSuiviData = (req: Request, res: Response) => {
 
 // Batch upsert
 export const saveSuiviData = (req: Request, res: Response) => {
-    const userId = (req as any).user.id;
+    const companyId = (req as any).companyId;
     const { suivis } = req.body;
 
     if (!Array.isArray(suivis)) {
@@ -49,7 +49,7 @@ export const saveSuiviData = (req: Request, res: Response) => {
                 // We save it to pJournaliere and totalHeure columns so database queries work correctly.
                 const actualProd = s.totalHeure || s.pJournaliere || 0;
                 stmt.run(
-                    s.id, userId, s.planningId, s.modelId || null, s.chaineId || null, s.date, s.entrer || 0,
+                    s.id, companyId, s.planningId, s.modelId || null, s.chaineId || null, s.date, s.entrer || 0,
                     actualProd, actualProd, s.totalWorkers || 0, s.trs || 0,
                     JSON.stringify(s)
                 );
@@ -92,7 +92,7 @@ export const saveSuiviData = (req: Request, res: Response) => {
 
 // Simple Stats 
 export const getSuiviStats = (req: Request, res: Response) => {
-    const userId = (req as any).user.id;
+    const companyId = (req as any).companyId;
     // Just a placeholder for P1
     res.json({ message: "Stats endpoint available" });
 };

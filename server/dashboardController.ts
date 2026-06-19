@@ -180,7 +180,7 @@ export function computeDashboardKPIs(ownerId: number) {
 }
 
 export const getDashboardKPIs = (req: Request, res: Response) => {
-    const ownerId = (req as any).user?.id as number | undefined;
+    const ownerId = (req as any).companyId as number | undefined;
     if (ownerId == null) {
         return res.status(401).json({ message: 'Authentication required' });
     }
@@ -217,7 +217,7 @@ const DEBOUNCE_MS = 80;
 const HEARTBEAT_MS = 25000;
 
 export const streamDashboardKPIs = (req: Request, res: Response) => {
-    const ownerId = (req as any).user?.id as number | undefined;
+    const ownerId = (req as any).companyId as number | undefined;
     if (ownerId == null) {
         return res.status(401).json({ message: 'Authentication required' });
     }

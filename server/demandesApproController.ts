@@ -3,10 +3,10 @@ import db from './db';
 
 // Get demandes appro
 export const getDemandesAppro = (req: Request, res: Response) => {
-    const userId = (req as any).user.id;
+    const companyId = (req as any).companyId;
     try {
         const stmt = db.prepare('SELECT * FROM demandes_appro WHERE owner_id = ? ORDER BY dateDemande DESC');
-        const rows = stmt.all(userId) as any[];
+        const rows = stmt.all(companyId) as any[];
         // Return matching format as previous local storage
         const demandes = rows.map(r => ({
            ...r,
@@ -24,7 +24,7 @@ export const getDemandesAppro = (req: Request, res: Response) => {
 
 // Batch Upsert
 export const saveDemandesAppro = (req: Request, res: Response) => {
-    const userId = (req as any).user.id;
+    const companyId = (req as any).companyId;
     const { demandes } = req.body;
 
     if (!Array.isArray(demandes)) {
@@ -46,7 +46,7 @@ export const saveDemandesAppro = (req: Request, res: Response) => {
             for (const d of demandes) {
                 if (!d.id) continue;
                 stmt.run(
-                    d.id, userId, d.dateDemande || '', d.modelId || '', d.chaineId || '', d.produitDesignation || '',
+                    d.id, companyId, d.dateDemande || '', d.modelId || '', d.chaineId || '', d.produitDesignation || '',
                     d.quantiteDemandee || 0, d.demandeur || '', d.notes || null, d.statut || 'attente'
                 );
             }
@@ -62,12 +62,12 @@ export const saveDemandesAppro = (req: Request, res: Response) => {
 
 // Update status
 export const updateDemandeApproStatut = (req: Request, res: Response) => {
-    const userId = (req as any).user.id;
+    const companyId = (req as any).companyId;
     const { id } = req.params;
     const { statut } = req.body;
     
     try {
-        db.prepare('UPDATE demandes_appro SET statut = ? WHERE id = ? AND owner_id = ?').run(statut, id, userId);
+        db.prepare('UPDATE demandes_appro SET statut = ? WHERE id = ? AND owner_id = ?').run(statut, id, companyId);
         res.json({ message: 'Status updated successfully' });
     } catch (error) {
         res.status(500).json({ message: 'Error updating statut' });

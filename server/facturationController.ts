@@ -7,7 +7,7 @@ import db from './db';
 
 export const getFactures = (req: Request, res: Response) => {
   try {
-    const ownerId = req.user?.id || 1;
+    const ownerId = (req as any).companyId as number;
     const type = req.query.type as string; // Optional filter ACHAT/VENTE/DEVIS
     
     let query = 'SELECT * FROM factures WHERE owner_id = ?';
@@ -36,7 +36,7 @@ export const getFactures = (req: Request, res: Response) => {
 
 export const getFactureById = (req: Request, res: Response) => {
   try {
-    const ownerId = req.user?.id || 1;
+    const ownerId = (req as any).companyId as number;
     const row = db.prepare('SELECT * FROM factures WHERE owner_id = ? AND id = ?').get(ownerId, req.params.id) as any;
     if (!row) {
         return res.status(404).json({ error: 'Facture not found' });
@@ -53,7 +53,7 @@ export const getFactureById = (req: Request, res: Response) => {
 
 export const saveFacture = (req: Request, res: Response) => {
   try {
-    const ownerId = req.user?.id || 1;
+    const ownerId = (req as any).companyId as number;
     let payload = req.body;
     
     if (!payload.id) {
@@ -129,7 +129,7 @@ export const saveFacture = (req: Request, res: Response) => {
 
 export const deleteFacture = (req: Request, res: Response) => {
   try {
-    const ownerId = req.user?.id || 1;
+    const ownerId = (req as any).companyId as number;
     const { id } = req.params;
     
     // Deletion might fail if there are paiements depending on it (due to CASCADE, it should be fine, but we might want to prevent or cascade)
@@ -149,7 +149,7 @@ export const deleteFacture = (req: Request, res: Response) => {
 
 export const getBonsLivraison = (req: Request, res: Response) => {
   try {
-    const ownerId = req.user?.id || 1;
+    const ownerId = (req as any).companyId as number;
     const rows = db.prepare('SELECT * FROM bons_livraison WHERE owner_id = ? ORDER BY created_at DESC').all(ownerId) as any[];
     const parsed = rows.map(r => ({
       ...r,
@@ -164,7 +164,7 @@ export const getBonsLivraison = (req: Request, res: Response) => {
 
 export const saveBonLivraison = (req: Request, res: Response) => {
   try {
-    const ownerId = req.user?.id || 1;
+    const ownerId = (req as any).companyId as number;
     let payload = req.body;
     
     if (!payload.id) {
@@ -206,7 +206,7 @@ export const saveBonLivraison = (req: Request, res: Response) => {
 
 export const deleteBonLivraison = (req: Request, res: Response) => {
   try {
-    const ownerId = req.user?.id || 1;
+    const ownerId = (req as any).companyId as number;
     db.prepare('DELETE FROM bons_livraison WHERE owner_id = ? AND id = ?').run(ownerId, req.params.id);
     res.json({ success: true });
   } catch (error: any) {
@@ -222,7 +222,7 @@ export const deleteBonLivraison = (req: Request, res: Response) => {
 
 export const getPaiementsParFacture = (req: Request, res: Response) => {
   try {
-    const ownerId = req.user?.id || 1;
+    const ownerId = (req as any).companyId as number;
     const { facture_id } = req.params;
     const rows = db.prepare('SELECT * FROM paiements WHERE owner_id = ? AND facture_id = ? ORDER BY date_paiement ASC').all(ownerId, facture_id);
     res.json(rows);
@@ -234,7 +234,7 @@ export const getPaiementsParFacture = (req: Request, res: Response) => {
 
 export const savePaiement = (req: Request, res: Response) => {
   try {
-    const ownerId = req.user?.id || 1;
+    const ownerId = (req as any).companyId as number;
     let payload = req.body;
     
     if (!payload.id) {
@@ -281,7 +281,7 @@ export const savePaiement = (req: Request, res: Response) => {
 
 export const deletePaiement = (req: Request, res: Response) => {
   try {
-    const ownerId = req.user?.id || 1;
+    const ownerId = (req as any).companyId as number;
     const { id, facture_id } = req.params;
     
     const tx = db.transaction(() => {

@@ -4,9 +4,9 @@ import crypto from 'crypto';
 import { buildSageMoisCsv, computeSageMoisForOwner } from './sageMonthPay';
 
 export const getSageExports = (req: Request, res: Response) => {
-    const userId = (req as any).user.id;
+    const companyId = (req as any).companyId;
     try {
-        const exports = db.prepare('SELECT * FROM hr_sage_exports WHERE owner_id = ? ORDER BY mois DESC').all(userId);
+        const exports = db.prepare('SELECT * FROM hr_sage_exports WHERE owner_id = ? ORDER BY mois DESC').all(companyId);
         res.json(exports);
     } catch (e) {
         res.status(500).json({ message: 'Erreur' });
@@ -19,10 +19,10 @@ function paramString(v: string | string[] | undefined): string {
 }
 
 export const previewSageExport = (req: Request, res: Response) => {
-    const userId = (req as any).user.id;
+    const companyId = (req as any).companyId;
     const mois = paramString(req.params.mois);
     try {
-        const data = computeSageMoisForOwner(userId, mois);
+        const data = computeSageMoisForOwner(companyId, mois);
         if (!data) {
             return res.status(400).json({ message: 'Mois invalide (attendu YYYY-MM)' });
         }
@@ -33,10 +33,10 @@ export const previewSageExport = (req: Request, res: Response) => {
 };
 
 export const generateSageExport = (req: Request, res: Response) => {
-    const userId = (req as any).user.id;
+    const companyId = (req as any).companyId;
     const mois = paramString(req.params.mois);
     try {
-        const data = computeSageMoisForOwner(userId, mois);
+        const data = computeSageMoisForOwner(companyId, mois);
         if (!data) {
             return res.status(400).json({ message: 'Mois invalide (attendu YYYY-MM)' });
         }
@@ -46,7 +46,7 @@ export const generateSageExport = (req: Request, res: Response) => {
             crypto.randomUUID(),
             mois,
             new Date().toISOString(),
-            userId,
+            companyId,
         );
         res.setHeader('Content-Type', 'text/csv; charset=utf-8');
         res.setHeader('Content-Disposition', `attachment; filename="SAGE_PAIE_BERAMETHODE_${mois}.csv"`);

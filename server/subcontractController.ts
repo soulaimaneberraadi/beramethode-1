@@ -4,10 +4,10 @@ import { randomUUID } from 'crypto';
 
 // Get all subcontract orders
 export const getSubcontractOrders = (req: Request, res: Response) => {
-    const userId = (req as any).user.id;
+    const companyId = (req as any).companyId;
     try {
         const stmt = db.prepare('SELECT * FROM subcontract_orders WHERE owner_id = ? ORDER BY created_at DESC');
-        const rows = stmt.all(userId) as any[];
+        const rows = stmt.all(companyId) as any[];
         res.json(rows);
     } catch (error) {
         console.error('Get subcontract orders error:', error);
@@ -17,7 +17,7 @@ export const getSubcontractOrders = (req: Request, res: Response) => {
 
 // Create a subcontract order
 export const createSubcontractOrder = (req: Request, res: Response) => {
-    const userId = (req as any).user.id;
+    const companyId = (req as any).companyId;
     const {
         modelId, modelName, clientName, totalQuantity,
         subcontractorName, pricePerPiece, deliveryDate,
@@ -52,7 +52,7 @@ export const createSubcontractOrder = (req: Request, res: Response) => {
 
         stmt.run(
             id,
-            userId,
+            companyId,
             modelId,
             modelName || null,
             clientName || null,
@@ -94,7 +94,7 @@ export const createSubcontractOrder = (req: Request, res: Response) => {
 
 // Update subcontract order
 export const updateSubcontractOrder = (req: Request, res: Response) => {
-    const userId = (req as any).user.id;
+    const companyId = (req as any).companyId;
     const { id } = req.params;
     const {
         modelId, modelName, clientName, totalQuantity,
@@ -178,7 +178,7 @@ export const updateSubcontractOrder = (req: Request, res: Response) => {
             stitchingDetails || null,
             specifications_json || null,
             id,
-            userId
+            companyId
         );
 
         if (result.changes === 0) {
@@ -194,11 +194,11 @@ export const updateSubcontractOrder = (req: Request, res: Response) => {
 
 // Delete subcontract order
 export const deleteSubcontractOrder = (req: Request, res: Response) => {
-    const userId = (req as any).user.id;
+    const companyId = (req as any).companyId;
     const { id } = req.params;
 
     try {
-        const result = db.prepare('DELETE FROM subcontract_orders WHERE id = ? AND owner_id = ?').run(id, userId);
+        const result = db.prepare('DELETE FROM subcontract_orders WHERE id = ? AND owner_id = ?').run(id, companyId);
 
         if (result.changes === 0) {
             return res.status(404).json({ message: 'Subcontract order not found or unauthorized' });
@@ -213,10 +213,10 @@ export const deleteSubcontractOrder = (req: Request, res: Response) => {
 
 // Get all subcontractor groups
 export const getSubcontractorGroups = (req: Request, res: Response) => {
-    const userId = (req as any).user.id;
+    const companyId = (req as any).companyId;
     try {
         const stmt = db.prepare('SELECT * FROM subcontractor_groups WHERE owner_id = ? ORDER BY created_at DESC');
-        const rows = stmt.all(userId) as any[];
+        const rows = stmt.all(companyId) as any[];
         res.json(rows.map(r => ({
             ...r,
             subcontractor_names: JSON.parse(r.subcontractor_names || '[]')
@@ -229,7 +229,7 @@ export const getSubcontractorGroups = (req: Request, res: Response) => {
 
 // Create or update subcontractor group
 export const saveSubcontractorGroup = (req: Request, res: Response) => {
-    const userId = (req as any).user.id;
+    const companyId = (req as any).companyId;
     const { id, group_name, subcontractor_names } = req.body;
 
     if (!group_name) {
@@ -249,7 +249,7 @@ export const saveSubcontractorGroup = (req: Request, res: Response) => {
                 updated_at = CURRENT_TIMESTAMP
         `);
         
-        stmt.run(groupId, userId, group_name, namesJson);
+        stmt.run(groupId, companyId, group_name, namesJson);
         res.json({ message: 'Subcontractor group saved successfully', id: groupId });
     } catch (error) {
         console.error('Save subcontractor group error:', error);
@@ -259,11 +259,11 @@ export const saveSubcontractorGroup = (req: Request, res: Response) => {
 
 // Delete subcontractor group
 export const deleteSubcontractorGroup = (req: Request, res: Response) => {
-    const userId = (req as any).user.id;
+    const companyId = (req as any).companyId;
     const { id } = req.params;
 
     try {
-        const result = db.prepare('DELETE FROM subcontractor_groups WHERE id = ? AND owner_id = ?').run(id, userId);
+        const result = db.prepare('DELETE FROM subcontractor_groups WHERE id = ? AND owner_id = ?').run(id, companyId);
         if (result.changes === 0) {
             return res.status(404).json({ message: 'Subcontractor group not found or unauthorized' });
         }
