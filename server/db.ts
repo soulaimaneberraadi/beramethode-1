@@ -31,34 +31,43 @@ db.exec(`
   )
 `);
 
-// Default guest (password: guest2024) — not admin; promote admins via DB or a seeded account.
-const GUEST_PASSWORD_HASH =
-  '$2b$10$GcezDlouVCyPOWHj3UHnf.tNKX8HjlcUA7yO33Tb1aAvkmMUwzGna';
 try {
+  db.exec("ALTER TABLE users ADD COLUMN status TEXT DEFAULT 'active'");
+} catch (e) {
+  // column already exists
+}
+
+// Impersonation / BERA MASTER audit table (security & compliance).
+// IMPORTANT : table SÉPARÉE de `system_audit_logs` (défini plus bas, schéma
+// "AI-ready" : table_name/record_id/old_data...). Les deux portaient le même
+// nom → sur une DB NEUVE, ce CREATE gagnait puis l'index `idx_audit_table` sur
+// `table_name` (colonne absente de ce schéma) plantait l'init → Setup wizard
+// cassé. Renommé en `impersonation_audit_logs` pour lever la collision.
+db.exec(`
+  CREATE TABLE IF NOT EXISTS impersonation_audit_logs (
+    id TEXT PRIMARY KEY,
+    actor TEXT NOT NULL,
+    target_user_id INTEGER,
+    action TEXT NOT NULL,
+    details TEXT,
+    via_impersonation INTEGER DEFAULT 0,
+    ip_address TEXT,
+    user_agent TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  )
+`);
+
+// Default guest account — created only if it doesn't exist.
+// ⚠️ SECURITY: Password is NOT forced/reset on startup to prevent overriding admin changes.
+try {
+  const GUEST_PASSWORD_HASH =
+    '$2b$10$GcezDlouVCyPOWHj3UHnf.tNKX8HjlcUA7yO33Tb1aAvkmMUwzGna';
   db.prepare(
     `INSERT OR IGNORE INTO users (id, email, password, name, role) VALUES (1, 'guest@local', ?, 'Guest', 'user')`
   ).run(GUEST_PASSWORD_HASH);
-  db.prepare(`UPDATE users SET role = 'user' WHERE email = 'guest@local'`).run();
-  // Legacy DBs had a wrong bcrypt for guest2024; align password without touching custom guests.
-  const legacyBrokenGuest =
-    '$2b$10$Hy3NBUoxXyUym1dtrms.sus.Lb5CnxM6kOXJzn17qawn.5oCixj2K';
-  db.prepare(
-    `UPDATE users SET password = ? WHERE email = 'guest@local' AND password = ?`
-  ).run(GUEST_PASSWORD_HASH, legacyBrokenGuest);
+  // Ensure guest is never admin (safety net)
+  db.prepare(`UPDATE users SET role = 'user' WHERE email = 'guest@local' AND role = 'admin'`).run();
 } catch (e) {}
-
-// Any DB where guest@local exists but password ≠ guest2024 (manual edits, old seeds, wrong cwd DB)
-try {
-  const row = db
-    .prepare(`SELECT password FROM users WHERE LOWER(TRIM(email)) = 'guest@local'`)
-    .get() as { password: string } | undefined;
-  if (row?.password && !bcrypt.compareSync('guest2024', row.password)) {
-    db.prepare(`UPDATE users SET password = ? WHERE LOWER(TRIM(email)) = 'guest@local'`).run(GUEST_PASSWORD_HASH);
-    console.warn('[beramethode db] guest@local password was not guest2024; synchronized on startup.');
-  }
-} catch (e) {
-  /* ignore */
-}
 
 // Create models table
 db.exec(`
@@ -1569,6 +1578,19 @@ db.exec(`
     user_id INTEGER,
     resolved INTEGER DEFAULT 0,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  )
+`);
+
+// Table sync_outbox pour la synchronisation locale-first
+db.exec(`
+  CREATE TABLE IF NOT EXISTS sync_outbox (
+    id TEXT PRIMARY KEY,
+    table_name TEXT NOT NULL,
+    record_id TEXT NOT NULL,
+    action TEXT NOT NULL,
+    payload TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    status TEXT DEFAULT 'pending'
   )
 `);
 
