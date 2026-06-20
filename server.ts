@@ -12,6 +12,7 @@ import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import { register, login, logout, me, requestPasswordReset, verifyResetCode, resetPassword } from './server/authController';
 import { getSetupStatus, initSetup } from './server/setupController';
+import { verifyLicenseProxy } from './server/licenseController';
 import { reportError, getReports, resolveReport } from './server/errorController';
 import { getAllUsers, updateUserRole, deleteUser, isAdmin } from './server/userController';
 import {
@@ -89,6 +90,13 @@ import {
   getHRTransportLignes, saveHRTransportLigne, deleteHRTransportLigne,
 } from './server/hrController';
 import {
+  impersonateUser,
+  suspendUser,
+  activateUser,
+  getMasterAuditLogs,
+  requireLocalhost
+} from './server/masterController';
+import {
   getHRInvitations,
   postHRInvitation,
   postHRInvitationRespond,
@@ -101,7 +109,7 @@ import {
   getPaiementsParFacture, savePaiement, deletePaiement
 } from './server/facturationController';
 import { getDashboardKPIs, streamDashboardKPIs } from './server/dashboardController';
-import { authenticateToken } from './server/middleware';
+import { authenticateToken, requirePermission } from './server/middleware';
 import { postAnalyzeTextile, postSuggestVocabulary, postGenerateOperations, postOptimizePlanning } from './server/geminiController';
 import { supabaseSyncMiddleware, logSupabaseSyncStatus } from './server/supabaseSync';
 import { dataChangeNotifier } from './server/eventBus';
@@ -156,7 +164,8 @@ async function startServer() {
     );
   }
 
-  const isProd = process.env.NODE_ENV === 'production';
+  // Rate limiting is ON by default — only disabled in explicit development mode
+  const isDev = process.env.NODE_ENV === 'development';
 
   // En dev : pas de plafond global (HMR, proxy Vite, React StrictMode, rafraîchissements → faux positifs 429).
   // En prod : plafond large pour une appli riche (plusieurs modules + boot) sans ouvrir l’abus.
@@ -168,7 +177,7 @@ async function startServer() {
     // Skip the SSE stream (one long-lived connection per dashboard tab —
     // counting it against the request budget would penalize live users)
     // and skip entirely in dev.
-    skip: (req) => !isProd || req.path === '/api/dashboard/kpis/stream',
+    skip: (req) => isDev || req.path === '/api/dashboard/kpis/stream',
     handler: (_req, res) => {
       res.status(429).json({ message: 'Trop de requêtes. Réessayez dans 15 minutes.' });
     },
@@ -179,7 +188,7 @@ async function startServer() {
     limit: 50,
     standardHeaders: true,
     legacyHeaders: false,
-    skip: () => !isProd,
+    skip: () => isDev,
     handler: (_req, res) => {
       res.status(429).json({ message: 'Trop de tentatives de connexion. Attendez 15 minutes.' });
     },
@@ -191,7 +200,7 @@ async function startServer() {
     standardHeaders: true,
     legacyHeaders: false,
     validate: false,
-    skip: () => !isProd,
+    skip: () => isDev,
     keyGenerator: (req) => {
       const email = typeof (req.body as { email?: string })?.email === 'string'
         ? (req.body as { email: string }).email.trim().toLowerCase()
@@ -209,10 +218,26 @@ async function startServer() {
     standardHeaders: true,
     legacyHeaders: false,
     validate: false,
-    skip: () => !isProd,
+    skip: () => isDev,
     keyGenerator: (req) => `${req.ip ?? 'unknown'}:${(req.params as { cin?: string }).cin ?? ''}`,
     handler: (_req, res) => {
       res.status(429).json({ message: 'Trop de requêtes. Réessayez plus tard.' });
+    },
+  });
+
+  // H2 hardening : limiteur dédié et plus strict pour la vérification du PIN
+  // ouvrier (anti brute-force), clé = ip + cin. Plus restrictif que le
+  // beraouvierPublicLimiter partagé (40/15min).
+  const pinVerifyLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    limit: 8,
+    standardHeaders: true,
+    legacyHeaders: false,
+    validate: false,
+    skip: () => isDev,
+    keyGenerator: (req) => `${req.ip ?? 'unknown'}:${(req.params as { cin?: string }).cin ?? ''}`,
+    handler: (_req, res) => {
+      res.status(429).json({ message: 'Trop de tentatives de code PIN. Réessayez dans 15 minutes.' });
     },
   });
 
@@ -221,10 +246,20 @@ async function startServer() {
     limit: 100,
     standardHeaders: true,
     legacyHeaders: false,
-    skip: () => !isProd,
+    skip: () => isDev,
   });
 
-  app.use(express.json({ limit: '50mb' }));
+  const masterLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    limit: 5,
+    standardHeaders: true,
+    legacyHeaders: false,
+    handler: (_req, res) => {
+      res.status(429).json({ message: 'Too many master API attempts. Try again in 15 minutes.' });
+    },
+  });
+
+  app.use(express.json({ limit: '10mb' }));
   app.use(cookieParser());
   app.use('/api/', apiLimiter);
   app.use('/api/auth/', authLimiter);
@@ -246,6 +281,16 @@ async function startServer() {
   app.get('/api/setup/status', getSetupStatus);
   app.post('/api/setup/init', initSetup);
 
+  // ── Licence (proxy vers l'Edge Function Supabase verify-license) ──
+  // Public : appelé durant le boot, avant l'authentification.
+  app.post('/api/license/verify', verifyLicenseProxy);
+
+  // ── Master / Admin Central (Bera Master Integration) ──
+  app.post('/api/master/impersonate/:userId', requireLocalhost, masterLimiter, impersonateUser);
+  app.post('/api/master/users/:id/suspend', requireLocalhost, masterLimiter, suspendUser);
+  app.post('/api/master/users/:id/activate', requireLocalhost, masterLimiter, activateUser);
+  app.get('/api/master/audit-logs', requireLocalhost, masterLimiter, getMasterAuditLogs);
+
   // ── Rapports de crash (Desktop Foundation) ──
   app.post('/api/errors/report', reportError);
   app.get('/api/errors/reports', authenticateToken, (req, res, next) => {
@@ -261,56 +306,56 @@ async function startServer() {
     next();
   }, resolveReport);
 
-  app.get('/api/models', authenticateToken, getModels);
-  app.post('/api/models', authenticateToken, saveModel);
-  app.delete('/api/models/:id', authenticateToken, deleteModel);
+  app.get('/api/models', authenticateToken, requirePermission('page', 'ingenierie', 'view'), getModels);
+  app.post('/api/models', authenticateToken, requirePermission('page', 'ingenierie', 'edit'), saveModel);
+  app.delete('/api/models/:id', authenticateToken, requirePermission('page', 'ingenierie', 'edit'), deleteModel);
 
-  app.get('/api/magasin/products', authenticateToken, getMagasinProducts);
-  app.post('/api/magasin/products', authenticateToken, saveMagasinProduct);
-  app.delete('/api/magasin/products/:id', authenticateToken, deleteMagasinProduct);
-  app.get('/api/magasin/lots', authenticateToken, getMagasinLots);
-  app.get('/api/magasin/mouvements', authenticateToken, getMagasinMouvements);
-  app.put('/api/magasin/mouvements/:id', authenticateToken, updateMagasinMouvement);
-  app.delete('/api/magasin/mouvements/:id', authenticateToken, deleteMagasinMouvement);
-  app.post('/api/magasin/mvt', authenticateToken, registerMouvement);
+  app.get('/api/magasin/products', authenticateToken, requirePermission('page', 'magasin', 'view'), getMagasinProducts);
+  app.post('/api/magasin/products', authenticateToken, requirePermission('page', 'magasin', 'edit'), saveMagasinProduct);
+  app.delete('/api/magasin/products/:id', authenticateToken, requirePermission('page', 'magasin', 'edit'), deleteMagasinProduct);
+  app.get('/api/magasin/lots', authenticateToken, requirePermission('page', 'magasin', 'view'), getMagasinLots);
+  app.get('/api/magasin/mouvements', authenticateToken, requirePermission('page', 'magasin', 'view'), getMagasinMouvements);
+  app.put('/api/magasin/mouvements/:id', authenticateToken, requirePermission('page', 'magasin', 'edit'), updateMagasinMouvement);
+  app.delete('/api/magasin/mouvements/:id', authenticateToken, requirePermission('page', 'magasin', 'edit'), deleteMagasinMouvement);
+  app.post('/api/magasin/mvt', authenticateToken, requirePermission('page', 'magasin', 'edit'), registerMouvement);
 
-  app.get('/api/material-receipts', authenticateToken, getMaterialReceipts);
-  app.post('/api/material-receipts', authenticateToken, saveMaterialReceipt);
-  app.delete('/api/material-receipts/:id', authenticateToken, deleteMaterialReceipt);
+  app.get('/api/material-receipts', authenticateToken, requirePermission('page', 'magasin', 'view'), getMaterialReceipts);
+  app.post('/api/material-receipts', authenticateToken, requirePermission('page', 'magasin', 'edit'), saveMaterialReceipt);
+  app.delete('/api/material-receipts/:id', authenticateToken, requirePermission('page', 'magasin', 'edit'), deleteMaterialReceipt);
 
-  app.get('/api/material-invoices', authenticateToken, getMaterialInvoices);
-  app.post('/api/material-invoices', authenticateToken, saveMaterialInvoice);
-  app.get('/api/material-invoices/:id/file', authenticateToken, serveMaterialInvoice);
-  app.delete('/api/material-invoices/:id', authenticateToken, deleteMaterialInvoice);
+  app.get('/api/material-invoices', authenticateToken, requirePermission('page', 'magasin', 'view'), getMaterialInvoices);
+  app.post('/api/material-invoices', authenticateToken, requirePermission('page', 'magasin', 'edit'), saveMaterialInvoice);
+  app.get('/api/material-invoices/:id/file', authenticateToken, requirePermission('page', 'magasin', 'view'), serveMaterialInvoice);
+  app.delete('/api/material-invoices/:id', authenticateToken, requirePermission('page', 'magasin', 'edit'), deleteMaterialInvoice);
 
-  app.get('/api/inventory-movements', authenticateToken, getInventoryMovements);
-  app.post('/api/inventory-movements', authenticateToken, saveInventoryMovement);
-  app.delete('/api/inventory-movements/:id', authenticateToken, deleteInventoryMovement);
+  app.get('/api/inventory-movements', authenticateToken, requirePermission('page', 'magasin', 'view'), getInventoryMovements);
+  app.post('/api/inventory-movements', authenticateToken, requirePermission('page', 'magasin', 'edit'), saveInventoryMovement);
+  app.delete('/api/inventory-movements/:id', authenticateToken, requirePermission('page', 'magasin', 'edit'), deleteInventoryMovement);
 
-  app.get('/api/magasin/commandes', authenticateToken, getMagasinCommandes);
-  app.post('/api/magasin/commandes', authenticateToken, saveMagasinCommande);
-  app.delete('/api/magasin/commandes/:id', authenticateToken, deleteMagasinCommande);
+  app.get('/api/magasin/commandes', authenticateToken, requirePermission('page', 'magasin', 'view'), getMagasinCommandes);
+  app.post('/api/magasin/commandes', authenticateToken, requirePermission('page', 'magasin', 'edit'), saveMagasinCommande);
+  app.delete('/api/magasin/commandes/:id', authenticateToken, requirePermission('page', 'magasin', 'edit'), deleteMagasinCommande);
 
-  app.get('/api/magasin/demandes', authenticateToken, getMagasinDemandes);
-  app.post('/api/magasin/demandes', authenticateToken, saveMagasinDemande);
-  app.delete('/api/magasin/demandes/:id', authenticateToken, deleteMagasinDemande);
+  app.get('/api/magasin/demandes', authenticateToken, requirePermission('page', 'magasin', 'view'), getMagasinDemandes);
+  app.post('/api/magasin/demandes', authenticateToken, requirePermission('page', 'magasin', 'edit'), saveMagasinDemande);
+  app.delete('/api/magasin/demandes/:id', authenticateToken, requirePermission('page', 'magasin', 'edit'), deleteMagasinDemande);
 
-  app.get('/api/magasin/dechets', authenticateToken, getMagasinDechets);
-  app.post('/api/magasin/dechets', authenticateToken, saveMagasinDechet);
-  app.delete('/api/magasin/dechets/:id', authenticateToken, deleteMagasinDechet);
+  app.get('/api/magasin/dechets', authenticateToken, requirePermission('page', 'magasin', 'view'), getMagasinDechets);
+  app.post('/api/magasin/dechets', authenticateToken, requirePermission('page', 'magasin', 'edit'), saveMagasinDechet);
+  app.delete('/api/magasin/dechets/:id', authenticateToken, requirePermission('page', 'magasin', 'edit'), deleteMagasinDechet);
 
   // ── Stock Produit Fini ──
-  app.get('/api/finished-goods', authenticateToken, getFinishedGoods);
-  app.post('/api/finished-goods', authenticateToken, saveFinishedGood);
-  app.post('/api/finished-goods/cloture', authenticateToken, createFromCloture);
-  app.get('/api/finished-goods/mouvements', authenticateToken, getAllFinishedGoodMovements);
-  app.post('/api/finished-goods/mouvements', authenticateToken, saveFinishedGoodMovement);
-  app.get('/api/finished-goods/:fgId/mouvements', authenticateToken, getFinishedGoodMovements);
-  app.delete('/api/finished-goods/mouvements/:id', authenticateToken, deleteFinishedGoodMovement);
-  app.delete('/api/finished-goods/:id', authenticateToken, deleteFinishedGood);
+  app.get('/api/finished-goods', authenticateToken, requirePermission('page', ['magasin', 'atelierProd'], 'view'), getFinishedGoods);
+  app.post('/api/finished-goods', authenticateToken, requirePermission('page', ['magasin', 'atelierProd'], 'edit'), saveFinishedGood);
+  app.post('/api/finished-goods/cloture', authenticateToken, requirePermission('page', ['magasin', 'atelierProd'], 'edit'), createFromCloture);
+  app.get('/api/finished-goods/mouvements', authenticateToken, requirePermission('page', ['magasin', 'atelierProd'], 'view'), getAllFinishedGoodMovements);
+  app.post('/api/finished-goods/mouvements', authenticateToken, requirePermission('page', ['magasin', 'atelierProd'], 'edit'), saveFinishedGoodMovement);
+  app.get('/api/finished-goods/:fgId/mouvements', authenticateToken, requirePermission('page', ['magasin', 'atelierProd'], 'view'), getFinishedGoodMovements);
+  app.delete('/api/finished-goods/mouvements/:id', authenticateToken, requirePermission('page', ['magasin', 'atelierProd'], 'edit'), deleteFinishedGoodMovement);
+  app.delete('/api/finished-goods/:id', authenticateToken, requirePermission('page', ['magasin', 'atelierProd'], 'edit'), deleteFinishedGood);
 
-  app.get('/api/settings', authenticateToken, getSettings);
-  app.post('/api/settings', authenticateToken, saveSettings);
+  app.get('/api/settings', authenticateToken, requirePermission('page', 'config', 'view'), getSettings);
+  app.post('/api/settings', authenticateToken, requirePermission('page', 'config', 'edit'), saveSettings);
 
   app.get('/api/users', authenticateToken, isAdmin, getAllUsers);
   app.put('/api/users/:id/role', authenticateToken, isAdmin, updateUserRole);
@@ -332,107 +377,107 @@ async function startServer() {
   app.post('/api/permissions/members', authenticateToken, addMember);
   app.delete('/api/permissions/members/:userId', authenticateToken, removeMember);
 
-  app.get('/api/planning', authenticateToken, getPlanningEvents);
-  app.post('/api/planning', authenticateToken, savePlanningEvents);
-  app.delete('/api/planning/:id', authenticateToken, deletePlanningEvent);
+  app.get('/api/planning', authenticateToken, requirePermission('page', 'planning', 'view'), getPlanningEvents);
+  app.post('/api/planning', authenticateToken, requirePermission('page', 'planning', 'edit'), savePlanningEvents);
+  app.delete('/api/planning/:id', authenticateToken, requirePermission('page', 'planning', 'edit'), deletePlanningEvent);
 
-  app.get('/api/planning/reservations/:planningId', authenticateToken, getReservations);
-  app.post('/api/planning/reservations/:planningId', authenticateToken, saveReservations);
-  app.post('/api/planning/reservations/:planningId/deduct', authenticateToken, deductReservations);
-  app.delete('/api/planning/reservations/:planningId', authenticateToken, releaseReservations);
+  app.get('/api/planning/reservations/:planningId', authenticateToken, requirePermission('page', 'planning', 'view'), getReservations);
+  app.post('/api/planning/reservations/:planningId', authenticateToken, requirePermission('page', 'planning', 'edit'), saveReservations);
+  app.post('/api/planning/reservations/:planningId/deduct', authenticateToken, requirePermission('page', 'planning', 'edit'), deductReservations);
+  app.delete('/api/planning/reservations/:planningId', authenticateToken, requirePermission('page', 'planning', 'edit'), releaseReservations);
 
   // Subcontracting Routes
-  app.get('/api/subcontract', authenticateToken, getSubcontractOrders);
-  app.post('/api/subcontract', authenticateToken, createSubcontractOrder);
-  app.put('/api/subcontract/:id', authenticateToken, updateSubcontractOrder);
-  app.delete('/api/subcontract/:id', authenticateToken, deleteSubcontractOrder);
-  app.get('/api/subcontract/groups', authenticateToken, getSubcontractorGroups);
-  app.post('/api/subcontract/groups', authenticateToken, saveSubcontractorGroup);
-  app.delete('/api/subcontract/groups/:id', authenticateToken, deleteSubcontractorGroup);
+  app.get('/api/subcontract', authenticateToken, requirePermission('page', 'sousTraitance', 'view'), getSubcontractOrders);
+  app.post('/api/subcontract', authenticateToken, requirePermission('page', 'sousTraitance', 'edit'), createSubcontractOrder);
+  app.put('/api/subcontract/:id', authenticateToken, requirePermission('page', 'sousTraitance', 'edit'), updateSubcontractOrder);
+  app.delete('/api/subcontract/:id', authenticateToken, requirePermission('page', 'sousTraitance', 'edit'), deleteSubcontractOrder);
+  app.get('/api/subcontract/groups', authenticateToken, requirePermission('page', 'sousTraitance', 'view'), getSubcontractorGroups);
+  app.post('/api/subcontract/groups', authenticateToken, requirePermission('page', 'sousTraitance', 'edit'), saveSubcontractorGroup);
+  app.delete('/api/subcontract/groups/:id', authenticateToken, requirePermission('page', 'sousTraitance', 'edit'), deleteSubcontractorGroup);
 
-  app.get('/api/suivi', authenticateToken, getSuiviData);
-  app.post('/api/suivi', authenticateToken, saveSuiviData);
-  app.get('/api/suivi/stats', authenticateToken, getSuiviStats);
+  app.get('/api/suivi', authenticateToken, requirePermission('page', 'suivi', 'view'), getSuiviData);
+  app.post('/api/suivi', authenticateToken, requirePermission('page', 'suivi', 'edit'), saveSuiviData);
+  app.get('/api/suivi/stats', authenticateToken, requirePermission('page', 'suivi', 'view'), getSuiviStats);
 
-  app.get('/api/poste-suivi', authenticateToken, getPosteSuivi);
-  app.post('/api/poste-suivi', authenticateToken, savePosteSuivi);
-  app.delete('/api/poste-suivi/:id', authenticateToken, deletePosteSuivi);
+  app.get('/api/poste-suivi', authenticateToken, requirePermission('page', 'suivi', 'view'), getPosteSuivi);
+  app.post('/api/poste-suivi', authenticateToken, requirePermission('page', 'suivi', 'edit'), savePosteSuivi);
+  app.delete('/api/poste-suivi/:id', authenticateToken, requirePermission('page', 'suivi', 'edit'), deletePosteSuivi);
 
-  app.get('/api/demandes-appro', authenticateToken, getDemandesAppro);
-  app.post('/api/demandes-appro', authenticateToken, saveDemandesAppro);
-  app.put('/api/demandes-appro/:id/statut', authenticateToken, updateDemandeApproStatut);
+  app.get('/api/demandes-appro', authenticateToken, requirePermission('page', 'magasin', 'view'), getDemandesAppro);
+  app.post('/api/demandes-appro', authenticateToken, requirePermission('page', 'magasin', 'edit'), saveDemandesAppro);
+  app.put('/api/demandes-appro/:id/statut', authenticateToken, requirePermission('page', 'magasin', 'edit'), updateDemandeApproStatut);
 
   // Phase 5 — Effectifs
-  app.get('/api/workers', authenticateToken, getWorkers);
-  app.post('/api/workers', authenticateToken, saveWorker);
-  app.delete('/api/workers/:id', authenticateToken, deleteWorker);
-  app.post('/api/workers/bulk-import', authenticateToken, bulkImportWorkers);
+  app.get('/api/workers', authenticateToken, requirePermission('page', 'gestionRh', 'view'), getWorkers);
+  app.post('/api/workers', authenticateToken, requirePermission('page', 'gestionRh', 'edit'), saveWorker);
+  app.delete('/api/workers/:id', authenticateToken, requirePermission('page', 'gestionRh', 'edit'), deleteWorker);
+  app.post('/api/workers/bulk-import', authenticateToken, requirePermission('page', 'gestionRh', 'edit'), bulkImportWorkers);
 
-  app.get('/api/worker-skills', authenticateToken, getWorkerSkills);
-  app.post('/api/worker-skills', authenticateToken, saveWorkerSkill);
-  app.delete('/api/worker-skills/:id', authenticateToken, deleteWorkerSkill);
-  app.post('/api/worker-skills/auto-update', authenticateToken, updateSkillFromSuivi);
+  app.get('/api/worker-skills', authenticateToken, requirePermission('page', 'gestionRh', 'view'), getWorkerSkills);
+  app.post('/api/worker-skills', authenticateToken, requirePermission('page', 'gestionRh', 'edit'), saveWorkerSkill);
+  app.delete('/api/worker-skills/:id', authenticateToken, requirePermission('page', 'gestionRh', 'edit'), deleteWorkerSkill);
+  app.post('/api/worker-skills/auto-update', authenticateToken, requirePermission('page', 'gestionRh', 'edit'), updateSkillFromSuivi);
 
-  app.get('/api/worker-pointage', authenticateToken, getPointage);
-  app.get('/api/worker-pointage/export', authenticateToken, exportPointageMensuel);
-  app.get('/api/worker-pointage/activity', authenticateToken, getWorkerActivity);
-  app.post('/api/worker-pointage', authenticateToken, savePointage);
-  app.post('/api/worker-pointage/bulk', authenticateToken, bulkSavePointage);
-  app.delete('/api/worker-pointage/:id', authenticateToken, deletePointage);
+  app.get('/api/worker-pointage', authenticateToken, requirePermission('page', 'gestionRh', 'view'), getPointage);
+  app.get('/api/worker-pointage/export', authenticateToken, requirePermission('page', 'gestionRh', 'view'), exportPointageMensuel);
+  app.get('/api/worker-pointage/activity', authenticateToken, requirePermission('page', 'gestionRh', 'view'), getWorkerActivity);
+  app.post('/api/worker-pointage', authenticateToken, requirePermission('page', 'gestionRh', 'edit'), savePointage);
+  app.post('/api/worker-pointage/bulk', authenticateToken, requirePermission('page', 'gestionRh', 'edit'), bulkSavePointage);
+  app.delete('/api/worker-pointage/:id', authenticateToken, requirePermission('page', 'gestionRh', 'edit'), deletePointage);
 
   // Phase 5 — HR Full Module
-  app.get('/api/hr/workers', authenticateToken, getHRWorkers);
-  app.get('/api/hr/claim-legacy-preview', authenticateToken, getHRClaimPreview);
-  app.post('/api/hr/claim-legacy', authenticateToken, postHRClaimFromGuest);
-  app.get('/api/hr/workers/:id/dossier', authenticateToken, getHRWorkerDossier);
-  app.get('/api/hr/workers/:id', authenticateToken, getHRWorkerById);
-  app.post('/api/hr/workers', authenticateToken, saveHRWorker);
-  app.post('/api/hr/workers/:id/pin', authenticateToken, postHRWorkerPin);
-  app.delete('/api/hr/workers/:id', authenticateToken, deleteHRWorker);
+  app.get('/api/hr/workers', authenticateToken, requirePermission('page', 'gestionRh', 'view'), getHRWorkers);
+  app.get('/api/hr/claim-legacy-preview', authenticateToken, requirePermission('page', 'gestionRh', 'view'), getHRClaimPreview);
+  app.post('/api/hr/claim-legacy', authenticateToken, requirePermission('page', 'gestionRh', 'edit'), postHRClaimFromGuest);
+  app.get('/api/hr/workers/:id/dossier', authenticateToken, requirePermission('page', 'gestionRh', 'view'), getHRWorkerDossier);
+  app.get('/api/hr/workers/:id', authenticateToken, requirePermission('page', 'gestionRh', 'view'), getHRWorkerById);
+  app.post('/api/hr/workers', authenticateToken, requirePermission('page', 'gestionRh', 'edit'), saveHRWorker);
+  app.post('/api/hr/workers/:id/pin', authenticateToken, requirePermission('page', 'gestionRh', 'edit'), postHRWorkerPin);
+  app.delete('/api/hr/workers/:id', authenticateToken, requirePermission('page', 'gestionRh', 'edit'), deleteHRWorker);
 
-  app.get('/api/hr/pointage', authenticateToken, getHRPointage);
-  app.post('/api/hr/pointage', authenticateToken, saveHRPointage);
-  app.post('/api/hr/pointage/validate', authenticateToken, validateHRPointage);
+  app.get('/api/hr/pointage', authenticateToken, requirePermission('page', 'gestionRh', 'view'), getHRPointage);
+  app.post('/api/hr/pointage', authenticateToken, requirePermission('page', 'gestionRh', 'edit'), saveHRPointage);
+  app.post('/api/hr/pointage/validate', authenticateToken, requirePermission('page', 'gestionRh', 'edit'), validateHRPointage);
 
-  app.get('/api/hr/production', authenticateToken, getHRProduction);
-  app.post('/api/hr/production', authenticateToken, saveHRProduction);
+  app.get('/api/hr/production', authenticateToken, requirePermission('page', 'gestionRh', 'view'), getHRProduction);
+  app.post('/api/hr/production', authenticateToken, requirePermission('page', 'gestionRh', 'edit'), saveHRProduction);
 
-  app.get('/api/hr/avances', authenticateToken, getHRAvances);
-  app.post('/api/hr/avances', authenticateToken, saveHRAvance);
-  app.put('/api/hr/avances/:id/statut', authenticateToken, updateHRAvanceStatut);
+  app.get('/api/hr/avances', authenticateToken, requirePermission('page', 'gestionRh', 'view'), getHRAvances);
+  app.post('/api/hr/avances', authenticateToken, requirePermission('page', 'gestionRh', 'edit'), saveHRAvance);
+  app.put('/api/hr/avances/:id/statut', authenticateToken, requirePermission('page', 'gestionRh', 'edit'), updateHRAvanceStatut);
 
-  app.get('/api/hr/sage-exports', authenticateToken, getSageExports);
-  app.get('/api/hr/sage-preview/:mois', authenticateToken, previewSageExport);
-  app.get('/api/hr/sage-export/:mois', authenticateToken, generateSageExport);
+  app.get('/api/hr/sage-exports', authenticateToken, requirePermission('page', 'gestionRh', 'view'), getSageExports);
+  app.get('/api/hr/sage-preview/:mois', authenticateToken, requirePermission('page', 'gestionRh', 'view'), previewSageExport);
+  app.get('/api/hr/sage-export/:mois', authenticateToken, requirePermission('page', 'gestionRh', 'view'), generateSageExport);
 
-  app.get('/api/hr/transport-lignes', authenticateToken, getHRTransportLignes);
-  app.post('/api/hr/transport-lignes', authenticateToken, saveHRTransportLigne);
-  app.delete('/api/hr/transport-lignes/:id', authenticateToken, deleteHRTransportLigne);
+  app.get('/api/hr/transport-lignes', authenticateToken, requirePermission('page', 'gestionRh', 'view'), getHRTransportLignes);
+  app.post('/api/hr/transport-lignes', authenticateToken, requirePermission('page', 'gestionRh', 'edit'), saveHRTransportLigne);
+  app.delete('/api/hr/transport-lignes/:id', authenticateToken, requirePermission('page', 'gestionRh', 'edit'), deleteHRTransportLigne);
 
   // Section 23 — Identité plateforme + invitations
-  app.get('/api/hr/invitations', authenticateToken, getHRInvitations);
-  app.post('/api/hr/invitations', authenticateToken, postHRInvitation);
+  app.get('/api/hr/invitations', authenticateToken, requirePermission('page', 'gestionRh', 'view'), getHRInvitations);
+  app.post('/api/hr/invitations', authenticateToken, requirePermission('page', 'gestionRh', 'edit'), postHRInvitation);
   app.post('/api/hr/invitations/respond', beraouvierPublicLimiter, postHRInvitationRespond);
   app.get('/api/hr/invitations/preview/:token', beraouvierPublicLimiter, getHRInvitationByToken);
 
   // Phase 6 — Dashboard KPIs
-  app.get('/api/dashboard/kpis', authenticateToken, getDashboardKPIs);
+  app.get('/api/dashboard/kpis', authenticateToken, requirePermission('page', ['dashboard', 'vuegenerale'], 'view'), getDashboardKPIs);
   // SSE — instant push updates (WhatsApp-style, no 30s polling banner)
-  app.get('/api/dashboard/kpis/stream', authenticateToken, streamDashboardKPIs);
+  app.get('/api/dashboard/kpis/stream', authenticateToken, requirePermission('page', ['dashboard', 'vuegenerale'], 'view'), streamDashboardKPIs);
 
   // Phase: Facturation (Achat, Vente, Devis, BL)
-  app.get('/api/facturation/factures', authenticateToken, getFactures);
-  app.get('/api/facturation/factures/:id', authenticateToken, getFactureById);
-  app.post('/api/facturation/factures', authenticateToken, saveFacture);
-  app.delete('/api/facturation/factures/:id', authenticateToken, deleteFacture);
+  app.get('/api/facturation/factures', authenticateToken, requirePermission('page', 'facturation', 'view'), getFactures);
+  app.get('/api/facturation/factures/:id', authenticateToken, requirePermission('page', 'facturation', 'view'), getFactureById);
+  app.post('/api/facturation/factures', authenticateToken, requirePermission('page', 'facturation', 'edit'), saveFacture);
+  app.delete('/api/facturation/factures/:id', authenticateToken, requirePermission('page', 'facturation', 'edit'), deleteFacture);
 
-  app.get('/api/facturation/bl', authenticateToken, getBonsLivraison);
-  app.post('/api/facturation/bl', authenticateToken, saveBonLivraison);
-  app.delete('/api/facturation/bl/:id', authenticateToken, deleteBonLivraison);
+  app.get('/api/facturation/bl', authenticateToken, requirePermission('page', 'facturation', 'view'), getBonsLivraison);
+  app.post('/api/facturation/bl', authenticateToken, requirePermission('page', 'facturation', 'edit'), saveBonLivraison);
+  app.delete('/api/facturation/bl/:id', authenticateToken, requirePermission('page', 'facturation', 'edit'), deleteBonLivraison);
 
-  app.get('/api/facturation/paiements/:facture_id', authenticateToken, getPaiementsParFacture);
-  app.post('/api/facturation/paiements', authenticateToken, savePaiement);
-  app.delete('/api/facturation/paiements/:facture_id/:id', authenticateToken, deletePaiement);
+  app.get('/api/facturation/paiements/:facture_id', authenticateToken, requirePermission('page', 'facturation', 'view'), getPaiementsParFacture);
+  app.post('/api/facturation/paiements', authenticateToken, requirePermission('page', 'facturation', 'edit'), savePaiement);
+  app.delete('/api/facturation/paiements/:facture_id/:id', authenticateToken, requirePermission('page', 'facturation', 'edit'), deletePaiement);
 
   // Gemini / IA — API key server-side only
   app.post('/api/ai/analyze-textile', authenticateToken, postAnalyzeTextile);
@@ -441,34 +486,34 @@ async function startServer() {
   app.post('/api/ai/optimize-planning', authenticateToken, postOptimizePlanning);
 
   // APS — Advanced Planning & Scheduling (Blueprint Engine) 🧠
-  app.get('/api/scheduling/activity-rates', authenticateToken, getActivityRates);
-  app.post('/api/scheduling/activity-rates', authenticateToken, saveActivityRate);
-  app.get('/api/scheduling/learning-curves', authenticateToken, getLearningCurves);
-  app.post('/api/scheduling/learning-curves', authenticateToken, saveLearningCurve);
-  app.delete('/api/scheduling/learning-curves/:id', authenticateToken, deleteLearningCurve);
-  app.get('/api/scheduling/crisis-alerts', authenticateToken, getCrisisAlerts);
-  app.post('/api/scheduling/crisis-alerts', authenticateToken, saveCrisisAlert);
-  app.put('/api/scheduling/crisis-alerts/:id', authenticateToken, updateCrisisAlert);
-  app.post('/api/scheduling/update-cr', authenticateToken, updateAllCR);
+  app.get('/api/scheduling/activity-rates', authenticateToken, requirePermission('page', 'planning', 'view'), getActivityRates);
+  app.post('/api/scheduling/activity-rates', authenticateToken, requirePermission('page', 'planning', 'edit'), saveActivityRate);
+  app.get('/api/scheduling/learning-curves', authenticateToken, requirePermission('page', 'planning', 'view'), getLearningCurves);
+  app.post('/api/scheduling/learning-curves', authenticateToken, requirePermission('page', 'planning', 'edit'), saveLearningCurve);
+  app.delete('/api/scheduling/learning-curves/:id', authenticateToken, requirePermission('page', 'planning', 'edit'), deleteLearningCurve);
+  app.get('/api/scheduling/crisis-alerts', authenticateToken, requirePermission('page', 'planning', 'view'), getCrisisAlerts);
+  app.post('/api/scheduling/crisis-alerts', authenticateToken, requirePermission('page', 'planning', 'edit'), saveCrisisAlert);
+  app.put('/api/scheduling/crisis-alerts/:id', authenticateToken, requirePermission('page', 'planning', 'edit'), updateCrisisAlert);
+  app.post('/api/scheduling/update-cr', authenticateToken, requirePermission('page', 'planning', 'edit'), updateAllCR);
 
   // Chrono Sessions — Séances de chronométrage
-  app.get('/api/chrono/sessions', authenticateToken, getChronoSessions);
-  app.post('/api/chrono/sessions', authenticateToken, createChronoSession);
-  app.put('/api/chrono/sessions/:id', authenticateToken, updateChronoSession);
-  app.delete('/api/chrono/sessions/:id', authenticateToken, deleteChronoSession);
-  app.post('/api/chrono/sessions/batch', authenticateToken, batchSaveChronoSessions);
+  app.get('/api/chrono/sessions', authenticateToken, requirePermission('page', 'ingenierie', 'view'), getChronoSessions);
+  app.post('/api/chrono/sessions', authenticateToken, requirePermission('page', 'ingenierie', 'edit'), createChronoSession);
+  app.put('/api/chrono/sessions/:id', authenticateToken, requirePermission('page', 'ingenierie', 'edit'), updateChronoSession);
+  app.delete('/api/chrono/sessions/:id', authenticateToken, requirePermission('page', 'ingenierie', 'edit'), deleteChronoSession);
+  app.post('/api/chrono/sessions/batch', authenticateToken, requirePermission('page', 'ingenierie', 'edit'), batchSaveChronoSessions);
 
   // Catalogue de Temps
-  app.get('/api/catalog/entries', authenticateToken, getCatalogEntries);
-  app.post('/api/catalog/sync', authenticateToken, syncCatalog);
-  app.put('/api/catalog/:id', authenticateToken, updateCatalogEntry);
-  app.put('/api/catalog/:id/pin', authenticateToken, pinCatalogEntry);
-  app.post('/api/catalog/:id/confirm', authenticateToken, confirmCatalogEntry);
-  app.delete('/api/catalog/:id', authenticateToken, deleteCatalogEntry);
+  app.get('/api/catalog/entries', authenticateToken, requirePermission('page', ['catalogueTemps', 'catalogTemps'], 'view'), getCatalogEntries);
+  app.post('/api/catalog/sync', authenticateToken, requirePermission('page', ['catalogueTemps', 'catalogTemps'], 'edit'), syncCatalog);
+  app.put('/api/catalog/:id', authenticateToken, requirePermission('page', ['catalogueTemps', 'catalogTemps'], 'edit'), updateCatalogEntry);
+  app.put('/api/catalog/:id/pin', authenticateToken, requirePermission('page', ['catalogueTemps', 'catalogTemps'], 'edit'), pinCatalogEntry);
+  app.post('/api/catalog/:id/confirm', authenticateToken, requirePermission('page', ['catalogueTemps', 'catalogTemps'], 'edit'), confirmCatalogEntry);
+  app.delete('/api/catalog/:id', authenticateToken, requirePermission('page', ['catalogueTemps', 'catalogTemps'], 'edit'), deleteCatalogEntry);
 
   // BERAOUVIER — Read-Only (no financial data); rate-limited, minimal fields
   app.get('/api/worker/:cin', beraouvierPublicLimiter, getWorkerByCin);
-  app.post('/api/worker/:cin/pin-verify', beraouvierPublicLimiter, postWorkerPinVerify);
+  app.post('/api/worker/:cin/pin-verify', pinVerifyLimiter, postWorkerPinVerify);
   app.get('/api/worker/:cin/pointage', beraouvierPublicLimiter, getWorkerPointageToday);
   app.get('/api/worker/:cin/production', beraouvierPublicLimiter, getWorkerProductionToday);
 
