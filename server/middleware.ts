@@ -31,13 +31,15 @@ export const authenticateToken = (req: Request, res: Response, next: NextFunctio
  * Garde de permission (à utiliser APRÈS authenticateToken).
  * Force la permission côté serveur — ne jamais se fier au seul gating frontend.
  */
-export const requirePermission = (type: ResourceType, key: string, action: PermAction) =>
+export const requirePermission = (type: ResourceType, key: string | string[], action: PermAction) =>
   (req: Request, res: Response, next: NextFunction) => {
     try {
       const userId = (req as any).user?.id;
       if (!userId) return res.status(401).json({ ok: false, message: 'Authentication required' });
       const meta = loadUserContext(userId, (req as any).user?.role);
-      if (can(meta.ctx, type, key, action)) return next();
+      // Multi-clés = OR : la permission passe si l'une des pages/champs l'autorise.
+      const keys = Array.isArray(key) ? key : [key];
+      if (keys.some(k => can(meta.ctx, type, k, action))) return next();
       return res.status(403).json({ ok: false, code: 'PERMISSION_DENIED' });
     } catch (e) {
       console.error('requirePermission error:', e);

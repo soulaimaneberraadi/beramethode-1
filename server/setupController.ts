@@ -81,6 +81,23 @@ export const initSetup = async (req: Request, res: Response) => {
            setup_complete = 1`
       ).run(companyName, specialty || null);
 
+      // Seed du rôle système « Patron » (level 0) + adhésion du patron à sa
+      // propre société. Débloque le flux multi-membres : addMember exige un
+      // role_id existant, or aucun rôle n'était créé à l'onboarding. Le patron
+      // reste super (loadUserContext : userId === ownerId OU rôle is_system
+      // level 0). Idempotent via ids déterministes (ré-exécution sûre).
+      // Les utilisateurs solo existants (sans ligne company_members) gardent
+      // le fallback solo — ce seed ne touche que les NOUVELLES installations.
+      const patronRoleId = `role-patron-${userId}`;
+      db.prepare(
+        `INSERT OR IGNORE INTO company_roles (id, owner_id, name, level, parent_role_id, is_system)
+         VALUES (?, ?, 'Patron', 0, NULL, 1)`
+      ).run(patronRoleId, userId);
+      db.prepare(
+        `INSERT OR IGNORE INTO company_members (id, owner_id, user_id, role_id, status)
+         VALUES (?, ?, ?, ?, 'active')`
+      ).run(`member-${userId}`, userId, userId, patronRoleId);
+
       return userId;
     });
 
