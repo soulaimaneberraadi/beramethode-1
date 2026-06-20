@@ -1,8 +1,10 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { Settings, Clock, Calendar, Coins, Users, Shield, Save, Building, Plus, Trash2, CheckCircle, ListTodo, CalendarClock, AlertTriangle, Check, X, SkipForward, Factory, Zap, ChevronDown } from 'lucide-react';
 import { AppSettings, AppTask, Machine } from '../types';
+import { useTheme } from '../src/context/ThemeContext';
 import { isMachineOperational } from '../utils/machineMatch';
 import AgendaModal from './AgendaModal';
+import LicenseActivation from './LicenseActivation';
 import {
   buildPointageTranchesFromAppSettings,
   getDefaultPointageTranches,
@@ -521,6 +523,38 @@ export default function Configuration({ settings, setSettings, lang, machines, n
                                             >
                                                 <span className={`absolute top-1 w-5 h-5 bg-white rounded-full shadow transition-all ${isHidden ? 'left-6' : 'left-1'}`}></span>
                                             </button>
+                                        </div>
+                                    );
+                                })()}
+
+                                {/* Thème (Light / Dark / System) */}
+                                {(() => {
+                                    const { theme: currentTheme, setTheme } = useTheme();
+                                    const isAr = lang === 'ar';
+                                    return (
+                                        <div className="flex flex-col gap-2 bg-slate-50 border border-slate-200 rounded-xl p-3 mt-3">
+                                            <div>
+                                                <span className="font-bold text-slate-800 text-sm block text-start">{isAr ? 'مظهر التطبيق' : "Thème de l'application"}</span>
+                                                <span className="text-[11px] text-slate-400 block mt-1 leading-relaxed text-start">
+                                                    {isAr ? 'اختر مظهر التطبيق المفضل لديك (فاتح، داكن، أو متوافق مع النظام)' : "Choisissez le style visuel de l'application (Clair, Sombre, ou calqué sur le Système)."}
+                                                </span>
+                                            </div>
+                                            <div className="flex gap-2 mt-2">
+                                                {(['light', 'dark', 'system'] as const).map(mode => (
+                                                    <button
+                                                        key={mode}
+                                                        type="button"
+                                                        onClick={() => setTheme(mode)}
+                                                        className={`flex-1 py-2 px-3 rounded-lg text-[10px] font-extrabold uppercase tracking-wider transition-all border ${
+                                                            currentTheme === mode
+                                                                ? 'bg-slate-900 border-slate-900 text-white shadow-xs'
+                                                                : 'bg-white border-slate-200 text-slate-650 hover:bg-slate-50'
+                                                        }`}
+                                                    >
+                                                        {mode === 'light' ? (isAr ? 'فاتح ☀️' : 'Clair ☀️') : mode === 'dark' ? (isAr ? 'داكن 🌙' : 'Sombre 🌙') : (isAr ? 'النظام 🖥️' : 'Système 🖥️')}
+                                                    </button>
+                                                ))}
+                                            </div>
                                         </div>
                                     );
                                 })()}
@@ -1703,6 +1737,11 @@ export default function Configuration({ settings, setSettings, lang, machines, n
                         </div>
                     </div>
                 </div>
+            </div>
+
+            {/* Licence / Abonnement — activation par clé (n'impacte pas le démarrage de l'app) */}
+            <div className="mt-6">
+                <LicenseActivation lang={lang} />
             </div>
 
             <AgendaModal isOpen={showAgenda} onClose={() => setShowAgenda(false)} settings={settings} setSettings={setSettings} lang={lang} />
