@@ -16,7 +16,8 @@
  *  - Ferme proprement le processus serveur à la fermeture de la fenêtre
  */
 
-import { app, BrowserWindow } from 'electron';
+import { app, BrowserWindow, Menu } from 'electron';
+import { autoUpdater } from 'electron-updater';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as os from 'os';
@@ -51,6 +52,24 @@ function getOrCreateSecret(userDataPath: string): string {
     console.error('[BERA] Impossible d\'écrire .secret :', err);
   }
   return newSecret;
+}
+
+// ─── MASTER_KEY persistant ──────────────────────────────────────────────────
+
+function getOrCreateMasterKey(userDataPath: string): string {
+  const keyFile = path.join(userDataPath, '.master_key');
+  if (fs.existsSync(keyFile)) {
+    const key = fs.readFileSync(keyFile, 'utf8').trim();
+    if (key.length >= 32) return key;
+  }
+  const newKey = crypto.randomBytes(48).toString('base64');
+  try {
+    fs.mkdirSync(userDataPath, { recursive: true });
+    fs.writeFileSync(keyFile, newKey, { encoding: 'utf8', mode: 0o600 });
+  } catch (err) {
+    console.error('[BERA] Impossible d\'écrire .master_key :', err);
+  }
+  return newKey;
 }
 
 // ─── Port libre ──────────────────────────────────────────────────────────────
@@ -103,14 +122,39 @@ function waitForServer(port: number, timeoutMs = 30_000): Promise<void> {
 
 let serverProcess: child_process.ChildProcess | null = null;
 
-function startExpressServer(port: number, jwtSecret: string, dbPath: string): child_process.ChildProcess | null {
+function startExpressServer(port: number, jwtSecret: string, dbPath: string, userDataPath: string): child_process.ChildProcess | null {
   if (app.isPackaged) {
     // Mode production : on lance Express EN PROCESS (même process que le main
     // Electron). Avantages décisifs :
     //  - better-sqlite3 (compilé pour l'ABI Electron) se charge sans conflit ;
     //  - require() résout node_modules depuis l'asar (better-sqlite3 unpacké) ;
     //  - pas de fork (qui relancerait Electron au lieu de Node).
+    // Charger le fichier .env depuis l'ASAR pour injecter les variables s'il existe
+    const envPath = path.join(app.getAppPath(), '.env');
+    if (fs.existsSync(envPath)) {
+      try {
+        const envContent = fs.readFileSync(envPath, 'utf8');
+        envContent.split(/\r?\n/).forEach(line => {
+          const trimmed = line.trim();
+          if (trimmed && !trimmed.startsWith('#')) {
+            const index = trimmed.indexOf('=');
+            if (index !== -1) {
+              const key = trimmed.substring(0, index).trim();
+              const value = trimmed.substring(index + 1).trim().replace(/^['"]|['"]$/g, '');
+              if (key && !process.env[key]) {
+                process.env[key] = value;
+              }
+            }
+          }
+        });
+        logBoot('[BERA] Fichier .env charge dans le process package.');
+      } catch (err) {
+        logBoot(`[BERA] Impossible de charger le fichier .env: ${err}`);
+      }
+    }
+
     process.env.JWT_SECRET = jwtSecret;
+    process.env.MASTER_KEY = getOrCreateMasterKey(userDataPath);
     process.env.BERA_DB_PATH = dbPath;
     process.env.ELECTRON_MODE = 'true';
     process.env.PORT = String(port);
@@ -132,6 +176,7 @@ function startExpressServer(port: number, jwtSecret: string, dbPath: string): ch
   const env: NodeJS.ProcessEnv = {
     ...process.env,
     JWT_SECRET: jwtSecret,
+    MASTER_KEY: getOrCreateMasterKey(userDataPath),
     BERA_DB_PATH: dbPath,
     ELECTRON_MODE: 'true',
     PORT: String(port),
@@ -185,6 +230,7 @@ let mainWindow: BrowserWindow | null = null;
 
 async function createWindow(port: number) {
   const preloadPath = path.join(__dirname, 'preload.js');
+  const iconPath = path.join(__dirname, process.platform === 'win32' ? 'icon.ico' : 'icon.png');
 
   mainWindow = new BrowserWindow({
     width: 1400,
@@ -192,6 +238,7 @@ async function createWindow(port: number) {
     minWidth: 1024,
     minHeight: 700,
     title: 'BERAMETHODE',
+    icon: fs.existsSync(iconPath) ? iconPath : undefined,
     // Caché jusqu'à ce que la page soit chargée (évite la flash blanche)
     show: false,
     webPreferences: {
@@ -201,6 +248,8 @@ async function createWindow(port: number) {
       sandbox: true,
     },
   });
+
+  mainWindow.setMenu(null);
 
   mainWindow.on('closed', () => {
     mainWindow = null;
@@ -225,6 +274,9 @@ async function createWindow(port: number) {
 // ─── Bootstrap ───────────────────────────────────────────────────────────────
 
 app.whenReady().then(async () => {
+  // Désactiver le menu natif pour un look premium et moderne
+  Menu.setApplicationMenu(null);
+
   // Afficher le splash immédiatement
   splashWindow = createSplash();
 
@@ -237,7 +289,7 @@ app.whenReady().then(async () => {
 
     logBoot(`[BERA] Démarrage du serveur sur le port ${port}…`);
 
-    serverProcess = startExpressServer(port, jwtSecret, dbPath);
+    serverProcess = startExpressServer(port, jwtSecret, dbPath, userDataPath);
 
     // En mode dev (processus séparé) : pipe stdout/stderr pour le débogage.
     // En mode packagé (in-process), serverProcess est null → rien à piper.
@@ -255,6 +307,14 @@ app.whenReady().then(async () => {
 
     // Charger l'app (ferme le splash à l'intérieur)
     await createWindow(port);
+
+    // Initialiser les mises à jour automatiques en production
+    if (app.isPackaged) {
+      logBoot('[BERA] Initialisation de autoUpdater...');
+      autoUpdater.checkForUpdatesAndNotify().catch((err) => {
+        logBoot(`[BERA] Erreur autoUpdater: ${err}`);
+      });
+    }
   } catch (err) {
     logBoot(`[BERA] ERREUR démarrage: ${(err as Error)?.stack || String(err)}`);
     if (splashWindow && !splashWindow.isDestroyed()) {
