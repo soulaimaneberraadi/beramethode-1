@@ -62,39 +62,12 @@ function makeReq(companyId: number, opts: Partial<{ id: number; role: string; pa
 }
 
 async function main() {
-  // ── 2a) Pré-création d'un schéma compatible AVANT l'import de server/db ────
-  // NB (bug pré-existant dans server/db.ts, NON corrigé ici) : `system_audit_logs`
-  // est défini deux fois — d'abord SANS colonne `table_name` (~L42), puis le bloc
-  // "AI-READY" (~L992) la redéfinit AVEC `table_name` puis crée un index dessus.
-  // Comme `CREATE TABLE IF NOT EXISTS` est no-op si la table existe, sur une DB
-  // VIERGE la première définition gagne et l'index échoue ("no such column:
-  // table_name"). La vraie database.sqlite a été initialisée avant cette
-  // divergence, donc elle n'est jamais re-jouée et ne crashe pas. Pour pouvoir
-  // tester l'isolation sur une DB neuve, on pré-crée ici la variante riche.
-  {
-    const Database = (await import('better-sqlite3')).default;
-    const seed = new Database(TMP_DB);
-    seed.exec(`CREATE TABLE IF NOT EXISTS system_audit_logs (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      table_name TEXT NOT NULL,
-      action TEXT NOT NULL,
-      record_id TEXT NOT NULL,
-      old_data TEXT,
-      new_data TEXT,
-      changed_by TEXT DEFAULT 'SYSTEM',
-      actor TEXT,
-      target_user_id INTEGER,
-      details TEXT,
-      via_impersonation INTEGER DEFAULT 0,
-      ip_address TEXT,
-      user_agent TEXT,
-      timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    );`);
-    seed.close();
-  }
-
-  // ── 2b) Import dynamique APRÈS avoir fixé BERA_DB_PATH ──────────────────────
+  // ── 2) Import dynamique APRÈS avoir fixé BERA_DB_PATH ───────────────────────
+  // db.ts initialise ici une DB NEUVE entièrement depuis zéro. Le fait que cet
+  // import réussisse SANS crash sert aussi de garde de non-régression pour le
+  // bug d'init `system_audit_logs` / `impersonation_audit_logs` (commit 5e1978f) :
+  // les deux tables portaient le même nom avec des schémas incompatibles, ce qui
+  // faisait planter l'init sur une DB vierge (= Setup wizard cassé à l'onboarding).
   const dbMod = await import('../server/db');
   const db: any = dbMod.default;
 
@@ -103,6 +76,16 @@ async function main() {
   check('temp DB en service (vraie DB intacte)',
     !!dbFile && path.resolve(dbFile) === path.resolve(TMP_DB),
     `db=${dbFile}`);
+
+  // Garde onboarding : sur une DB neuve, les deux tables d'audit séparées + leur
+  // index doivent exister (sinon régression du bug d'init system_audit_logs).
+  {
+    const tbl = (n: string) => !!db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?").get(n);
+    const idx = (n: string) => !!db.prepare("SELECT 1 FROM sqlite_master WHERE type='index' AND name=?").get(n);
+    check('onboarding: init DB neuve OK (audit tables séparées + index)',
+      tbl('system_audit_logs') && tbl('impersonation_audit_logs') && idx('idx_audit_table'),
+      `system_audit_logs=${tbl('system_audit_logs')}, impersonation_audit_logs=${tbl('impersonation_audit_logs')}, idx_audit_table=${idx('idx_audit_table')}`);
+  }
 
   const modelCtrl = await import('../server/modelController');
   const suiviCtrl = await import('../server/suiviController');
