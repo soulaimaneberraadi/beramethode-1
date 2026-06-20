@@ -62,6 +62,18 @@
 - العطل وقع فقط لأن نسخة الويب (Vercel static، `VITE_STATIC_MODE=true`) تستعمل Supabase auth حصرياً.
 - **الإجراء = أولوية شحن الـ .exe، ماشي كتابة كود مصادقة جديد.**
 
+### 0.4 تقدّم جلسة 2026-06-20 (تنفيذ + تحقّق حيّ + وكلاء بإشراف)
+
+دفعة كبيرة على `feat/desktop-foundation` (commits حتى `a9b385e`):
+
+- **EXE:** أُصلِح عطل `userDataPath` (السيرفر كان يموت عند الإقلاع) + عطل `system_audit_logs` المُعرَّف مرّتين (كان يكسر تهيئة قاعدة جديدة = onboarding على جهاز نظيف). أُعيد البناء واختُبر حيّاً على قاعدة نظيفة عبر `--user-data-dir` → `Serveur prêt`. ✅
+- **المرحلة 6 (multi-tenant):** ثقب 0.3 (realtime merge) مُصلَح؛ 0.2/0.1/0.4 محقّقة/محيّدة؛ تحويل 8 controllers من `req.user.id` إلى `req.companyId`. سكربت `scripts/verify-tenancy.ts` (IDOR + حارس onboarding) = **13/13**.
+- **المرحلة 8 (ترخيص — تمكين البيع):** بُني proxy `POST /api/license/verify` (كان غائباً → التفعيل مستحيل) + شاشة تفعيل في الإعدادات (غير حاجبة). سقف `max_workers` **مُنفَّذ server-side** في hrController. (تبقّى: read-only server-side enforcement.)
+- **المرحلة 2 (أمان):** ثغرة H2 (العامل بلا PIN مكشوف) → fail-closed؛ limiter صارم على pin-verify.
+- **المرحلة 3 (RBAC):** seeding دور «Patron» النظامي عند الـ onboarding (كان البلوكر) → المسار متعدّد الأعضاء قابل للاختبار؛ حماية مسارات AI؛ تحقّق `role_id` في addMember؛ `requirePermission` يقبل `string|string[]`؛ مفتاح `catalogueTemps`. البنية (resolver/PermissionsManager/Profil/PermissionsContext+ViewAs) كانت موجودة ~85%.
+- **مؤجَّل بوعي (خطر/تركيز):** لفّ حقول HR الحساسة (salaire/avances) في `GESTION-RH.tsx` (3129 سطر، حسابات المادة 385)؛ read-only server enforcement؛ مواءمة `ALL_MODULES` (دلالة ترخيص).
+- **يدوي معلّق:** `SUPABASE_URL/ANON_KEY` في `.env` السيرفر + تغيير `LICENSE_SIGN_SECRET` في Edge Function قبل البيع.
+
 ---
 
 ## 1. الرؤية العامة
