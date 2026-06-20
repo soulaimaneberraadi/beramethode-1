@@ -480,10 +480,10 @@ async function startServer() {
   app.delete('/api/facturation/paiements/:facture_id/:id', authenticateToken, requirePermission('page', 'facturation', 'edit'), deletePaiement);
 
   // Gemini / IA — API key server-side only
-  app.post('/api/ai/analyze-textile', authenticateToken, postAnalyzeTextile);
-  app.post('/api/ai/suggest-vocabulary', authenticateToken, postSuggestVocabulary);
-  app.post('/api/ai/generate-operations', authenticateToken, postGenerateOperations);
-  app.post('/api/ai/optimize-planning', authenticateToken, postOptimizePlanning);
+  app.post('/api/ai/analyze-textile', authenticateToken, requirePermission('page', 'ingenierie', 'view'), postAnalyzeTextile);
+  app.post('/api/ai/suggest-vocabulary', authenticateToken, requirePermission('page', 'ingenierie', 'view'), postSuggestVocabulary);
+  app.post('/api/ai/generate-operations', authenticateToken, requirePermission('page', 'ingenierie', 'view'), postGenerateOperations);
+  app.post('/api/ai/optimize-planning', authenticateToken, requirePermission('page', ['planning', 'ingenierie'], 'view'), postOptimizePlanning);
 
   // APS — Advanced Planning & Scheduling (Blueprint Engine) 🧠
   app.get('/api/scheduling/activity-rates', authenticateToken, requirePermission('page', 'planning', 'view'), getActivityRates);

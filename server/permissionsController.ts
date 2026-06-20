@@ -217,6 +217,10 @@ export const addMember = (req: Request, res: Response) => {
   if (!email || !role_id) return res.status(400).json({ ok: false, error: 'email & role_id required' });
   const u = db.prepare(`SELECT id FROM users WHERE LOWER(TRIM(email)) = ?`).get(String(email).trim().toLowerCase()) as any;
   if (!u) return res.status(404).json({ ok: false, error: 'user not found' });
+  // Le rôle doit appartenir à CETTE société (évite d'attacher un membre à un
+  // rôle d'un autre tenant — intégrité + isolation).
+  const roleOk = db.prepare(`SELECT 1 FROM company_roles WHERE id = ? AND owner_id = ?`).get(role_id, meta.ownerId);
+  if (!roleOk) return res.status(400).json({ ok: false, error: 'role_id invalide pour cette société' });
   db.prepare(
     `INSERT INTO company_members (id, owner_id, user_id, role_id, status)
      VALUES (?, ?, ?, ?, 'active')
