@@ -2,6 +2,7 @@ import React from 'react';
 import { AppSettings, Material } from '../types';
 import { fmt } from '../constants';
 import { Scissors, Package, Tag, ArrowDown } from 'lucide-react';
+import SensitiveValue from './ui/SensitiveValue';
 
 interface TicketViewProps {
     t: any;
@@ -132,7 +133,7 @@ const TicketView: React.FC<TicketViewProps> = ({
                             <div className="text-[7px] text-slate-400">{materialsHidden ? 'Façon (tout compris)' : 'Matière + Façon'}</div>
                         </div>
                         <div className={`text-base font-black ${textPrimary}`}>
-                            {fmt(costPrice)} <span className="text-[7px] font-normal opacity-50">{currency}</span>
+                            <SensitiveValue field="model.prix_revient">{fmt(costPrice)} <span className="text-[7px] font-normal opacity-50">{currency}</span></SensitiveValue>
                         </div>
                     </div>
 

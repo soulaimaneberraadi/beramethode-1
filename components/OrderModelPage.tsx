@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { Material, PurchasingData, AppSettings, FicheData } from '../types';
 import { fmt } from '../constants';
+import SensitiveValue from './ui/SensitiveValue';
 
 // ─── Toast Notification ──────────────────────────────────────────────────────
 
@@ -247,7 +248,7 @@ const OrderModelPage: React.FC<OrderModelPageProps> = ({
                     <div className="flex gap-3 shrink-0 flex-wrap">
                         <div className="bg-white/15 backdrop-blur-sm rounded-xl px-4 py-3 text-center border border-white/10">
                             <p className="text-[10px] font-bold text-indigo-200 uppercase tracking-wider">سعر التكلفة</p>
-                            <p className="text-xl font-black text-white">{fmt(costPrice)} <span className="text-xs text-indigo-200">{currency}</span></p>
+                            <p className="text-xl font-black text-white"><SensitiveValue field="model.prix_revient">{fmt(costPrice)} <span className="text-xs text-indigo-200">{currency}</span></SensitiveValue></p>
                         </div>
                         <div className="bg-white/15 backdrop-blur-sm rounded-xl px-4 py-3 text-center border border-white/10">
                             <p className="text-[10px] font-bold text-indigo-200 uppercase tracking-wider">سعر البيع</p>
@@ -611,15 +612,21 @@ const OrderModelPage: React.FC<OrderModelPageProps> = ({
                 <div className="p-5">
                     <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
                         {[
-                            { label: 'سعر التكلفة (PR)', value: costPrice, color: 'text-slate-800' },
-                            { label: `سعر البيع HT (+${settings.marginAtelier}%)`, value: sellPriceHT, color: 'text-blue-700' },
-                            { label: `سعر البيع TTC (+${settings.tva}%)`, value: sellPriceTTC, color: 'text-indigo-700' },
-                            { label: `سعر المحل (+${settings.marginBoutique}%)`, value: boutiquePrice, color: 'text-violet-700' },
-                            { label: 'ربح المصنع / قطعة', value: sellPriceHT - costPrice, color: 'text-emerald-700' },
+                            { label: 'سعر التكلفة (PR)', value: costPrice, color: 'text-slate-800', field: 'model.prix_revient' },
+                            { label: `سعر البيع HT (+${settings.marginAtelier}%)`, value: sellPriceHT, color: 'text-blue-700', field: null },
+                            { label: `سعر البيع TTC (+${settings.tva}%)`, value: sellPriceTTC, color: 'text-indigo-700', field: null },
+                            { label: `سعر المحل (+${settings.marginBoutique}%)`, value: boutiquePrice, color: 'text-violet-700', field: null },
+                            { label: 'ربح المصنع / قطعة', value: sellPriceHT - costPrice, color: 'text-emerald-700', field: null },
                         ].map((item, i) => (
                             <div key={i} className="text-center p-3 rounded-xl bg-slate-50 border border-slate-100 hover:bg-white hover:border-slate-200 hover:shadow-sm transition-all">
                                 <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">{item.label}</p>
-                                <p className={`text-xl font-black ${item.color}`}>{fmt(item.value)} <span className="text-[10px] text-slate-400">{currency}</span></p>
+                                <p className={`text-xl font-black ${item.color}`}>
+                                  {item.field ? (
+                                    <SensitiveValue field={item.field}>{fmt(item.value)} <span className="text-[10px] text-slate-400">{currency}</span></SensitiveValue>
+                                  ) : (
+                                    <>{fmt(item.value)} <span className="text-[10px] text-slate-400">{currency}</span></>
+                                  )}
+                                </p>
                             </div>
                         ))}
                     </div>

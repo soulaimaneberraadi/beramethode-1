@@ -2,6 +2,7 @@ import React, { forwardRef } from 'react';
 import { Building2, CheckCircle, ChevronRight, PenTool } from 'lucide-react';
 import { Material, PurchasingData, AppSettings } from '../types';
 import { fmt } from '../constants';
+import SensitiveValue from './ui/SensitiveValue';
 
 interface A4DocumentViewProps {
     t: any;
@@ -210,7 +211,7 @@ const A4DocumentView = forwardRef<HTMLDivElement, A4DocumentViewProps>(({
                 <div className="w-full md:w-8/12 rounded border border-slate-200 overflow-hidden">
                     <div className="bg-slate-900 text-white px-3 py-2 flex justify-between items-center">
                         <span className="font-semibold uppercase tracking-widest text-[8px] text-slate-400">Coût de Revient</span>
-                        <div className="text-base font-black tabular-nums">{fmt(costPrice)} <span className="text-[8px] opacity-50">{currency}</span></div>
+                        <div className="text-base font-black tabular-nums"><SensitiveValue field="model.prix_revient">{fmt(costPrice)} <span className="text-[8px] opacity-50">{currency}</span></SensitiveValue></div>
                     </div>
                     <div className="bg-white px-3 py-2 space-y-1.5">
                         <div className="flex items-center justify-between pb-1.5 border-b border-slate-100">

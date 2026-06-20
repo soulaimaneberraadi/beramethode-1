@@ -2,6 +2,7 @@ import React from 'react';
 import { Palette, Layers } from 'lucide-react';
 import { FicheData, AppSettings } from '../types';
 import { fmt } from '../constants';
+import SensitiveValue from './ui/SensitiveValue';
 
 interface OrderTablesPanelProps {
     ficheData: FicheData;
@@ -257,15 +258,21 @@ const OrderTablesPanel: React.FC<OrderTablesPanelProps> = ({
                     ) : (
                         <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
                             {[
-                                { label: 'Prix de revient (PR)', value: costPrice, color: 'text-slate-800' },
-                                { label: `Prix de vente HT (+${settings.marginAtelier}%)`, value: sellPriceHT, color: 'text-[#2149C1]' },
-                                { label: `Prix de vente TTC (+${settings.tva}%)`, value: sellPriceTTC, color: 'text-indigo-600' },
-                                { label: `Prix boutique (+${settings.marginBoutique}%)`, value: boutiquePrice, color: 'text-violet-600' },
-                                { label: 'Marge usine / pièce', value: sellPriceHT - costPrice, color: 'text-emerald-600' },
+                                { label: 'Prix de revient (PR)', value: costPrice, color: 'text-slate-800', field: 'model.prix_revient' },
+                                { label: `Prix de vente HT (+${settings.marginAtelier}%)`, value: sellPriceHT, color: 'text-[#2149C1]', field: null },
+                                { label: `Prix de vente TTC (+${settings.tva}%)`, value: sellPriceTTC, color: 'text-indigo-600', field: null },
+                                { label: `Prix boutique (+${settings.marginBoutique}%)`, value: boutiquePrice, color: 'text-violet-600', field: null },
+                                { label: 'Marge usine / pièce', value: sellPriceHT - costPrice, color: 'text-emerald-600', field: null },
                             ].map((item, i) => (
                                 <div key={i} className="text-center p-3 rounded-md bg-slate-50/60 border border-slate-200 hover:bg-white hover:border-slate-300 transition-all">
                                     <p className="text-[10px] font-medium text-slate-500 uppercase tracking-wider mb-1.5">{item.label}</p>
-                                    <p className={`text-[16px] font-semibold ${item.color} tabular-nums`}>{fmt(item.value)} <span className="text-[10px] text-slate-400">{currency}</span></p>
+                                    <p className={`text-[16px] font-semibold ${item.color} tabular-nums`}>
+                                      {item.field ? (
+                                        <SensitiveValue field={item.field}>{fmt(item.value)} <span className="text-[10px] text-slate-400">{currency}</span></SensitiveValue>
+                                      ) : (
+                                        <>{fmt(item.value)} <span className="text-[10px] text-slate-400">{currency}</span></>
+                                      )}
+                                    </p>
                                 </div>
                             ))}
                         </div>

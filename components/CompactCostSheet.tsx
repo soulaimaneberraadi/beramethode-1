@@ -2,6 +2,7 @@ import React, { forwardRef } from 'react';
 import { Building2, Package, Scissors, Tag, ArrowDown, FileText } from 'lucide-react';
 import { Material, PurchasingData, AppSettings } from '../types';
 import { fmt } from '../constants';
+import SensitiveValue from './ui/SensitiveValue';
 
 interface CompactCostSheetProps {
     t: any;
@@ -242,7 +243,7 @@ const CompactCostSheet = forwardRef<HTMLDivElement, CompactCostSheetProps>(({
                 <div className="flex-1 border-2 border-slate-900 rounded-xl overflow-hidden">
                     <div className="bg-slate-900 text-white px-4 py-2.5 flex justify-between items-center">
                         <span className="font-black uppercase tracking-widest text-[9px] text-slate-400">Coût de Revient</span>
-                        <span className="text-base font-black tabular-nums">{fmt(costPrice)} <span className="text-[9px] opacity-50">{currency}</span></span>
+                        <span className="text-base font-black tabular-nums"><SensitiveValue field="model.prix_revient">{fmt(costPrice)} <span className="text-[9px] opacity-50">{currency}</span></SensitiveValue></span>
                     </div>
                     <div className="bg-white px-4 py-3 space-y-2">
                         <div className="flex justify-between items-center pb-2 border-b border-slate-100">
