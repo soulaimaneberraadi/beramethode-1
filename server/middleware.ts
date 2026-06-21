@@ -4,6 +4,7 @@ import db from './db';
 import { SECRET_KEY } from './jwtConfig';
 import { loadUserContext } from './permissionsController';
 import { can, ResourceType, PermAction } from './permissions/resolver';
+import { isLicenseWritable, isReadOnlyExemptPath } from './licenseGuard';
 
 export const authenticateToken = (req: Request, res: Response, next: NextFunction) => {
   const token = req.cookies?.token;
@@ -13,14 +14,34 @@ export const authenticateToken = (req: Request, res: Response, next: NextFunctio
   }
 
   try {
-    const decoded = jwt.verify(token, SECRET_KEY) as { id: number; email?: string; role?: string };
-    const row = db.prepare('SELECT id, email, name, role FROM users WHERE id = ?').get(decoded.id) as
-      | { id: number; email: string; name: string; role: string }
+    const decoded = jwt.verify(token, SECRET_KEY) as { id: number; email?: string; role?: string; imp_by?: string };
+    const row = db.prepare('SELECT id, email, name, role, status FROM users WHERE id = ?').get(decoded.id) as
+      | { id: number; email: string; name: string; role: string; status: string }
       | undefined;
     if (!row) {
       return res.status(401).json({ message: 'Authentication required' });
     }
+    if (row.status === 'suspended') {
+      return res.status(401).json({ message: 'Compte suspendu' });
+    }
     (req as any).user = { id: row.id, email: row.email, name: row.name, role: row.role };
+    if (decoded.imp_by === 'BERA_MASTER') {
+      (req as any).viaImpersonation = true;
+    }
+    // Société (= owner_id du patron) injectée pour TOUS les controllers tenant-scopés.
+    const meta = loadUserContext(row.id, row.role);
+    (req as any).companyId = meta.ownerId;
+
+    // Enforcement « lecture seule » : bloque les écritures si licence
+    // expirée/suspendue (et enforcement actif). Dormant par défaut
+    // (VITE_LICENSE_ENFORCE !== 'true' → isLicenseWritable = true). Chemins de
+    // récupération (settings/license/auth/setup/master) exemptés.
+    const httpMethod = req.method.toUpperCase();
+    const isWrite = httpMethod === 'POST' || httpMethod === 'PUT' || httpMethod === 'DELETE' || httpMethod === 'PATCH';
+    if (isWrite && !isReadOnlyExemptPath(req.path) && !isLicenseWritable(meta.ownerId)) {
+      return res.status(403).json({ ok: false, code: 'LICENSE_READ_ONLY', message: 'Licence expirée ou suspendue : mode lecture seule.' });
+    }
+
     next();
   } catch (error) {
     return res.status(403).json({ message: 'Invalid token' });
