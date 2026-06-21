@@ -34,7 +34,9 @@ import {
   PanelTop,
   Hand,
   Calculator,
-  ListPlus
+  ListPlus,
+  Split,
+  Combine
 } from 'lucide-react';
 import {
   ComposedChart,
@@ -50,6 +52,14 @@ import {
 import { ResponsiveChart } from './ui/ResponsiveChart';
 
 const SAM_MAJORATION = 1.20;
+
+// --- RÈGLES D'ÉQUILIBRAGE (méthode) ---
+// Saturation visée par poste : proche du takt (BF = 100%), plafonnée à ce seuil MÊME si la
+// Tolérance d'affichage est réglée plus haut. Un poste au-delà est un goulot : on le scinde
+// au lieu de l'accepter. C'est ce qui empêche les postes à 151% / 167%.
+const AUTO_BALANCE_TARGET_CEIL = 1.15;
+// Plafond absolu, toléré uniquement quand l'effectif est insuffisant (cram contrôlé, jamais 167%).
+const AUTO_BALANCE_HARD_CEIL = 1.30;
 
 interface BalancingProps {
   operations: Operation[];
@@ -441,7 +451,10 @@ export default function Balancing({
       const testBF = testNumWorkers > 0 ? tempsArticleVal / testNumWorkers : 0;
       if (testBF <= 0) return 0;
 
-      const baseLimitMax = (testBF / SAM_MAJORATION) * toleranceRatio;
+      // On vise le takt (BF), plafonné à un seuil sain indépendamment de la Tolérance d'affichage.
+      const packRatio = Math.min(toleranceRatio, AUTO_BALANCE_TARGET_CEIL);
+      const baseLimitMax = (testBF / SAM_MAJORATION) * packRatio;
+      const hardLimitMax = (testBF / SAM_MAJORATION) * AUTO_BALANCE_HARD_CEIL;
 
       let adjustmentFactor = 1.0;
       let attempts = 0;
@@ -449,8 +462,8 @@ export default function Balancing({
       let finalRequired = 999;
 
       while (attempts < maxAttempts) {
-          const limitMax = baseLimitMax * adjustmentFactor;
-          
+          const limitMax = Math.min(baseLimitMax * adjustmentFactor, hardLimitMax);
+
           const simAssignments: Record<string, string[]> = {};
           const simPostes: { id: string, machine: string }[] = [];
           let currentPosteOps: Operation[] = [];
@@ -458,7 +471,8 @@ export default function Balancing({
           let currentMachine = '';
           let posteIdx = 1;
 
-          const relaxMachine = attempts >= 15;
+          // Textile: 1 ouvrier = 1 machine. Jamais mélanger deux machines réelles (seul MAN absorbé).
+          const relaxMachine = false;
 
           const flushSim = () => {
               if (currentPosteOps.length === 0) return;
@@ -636,7 +650,10 @@ export default function Balancing({
     // Allow tolerance on cycle time
     const tempsArticleVal = operations.reduce((sum, op) => sum + (op.time || 0), 0) * 1.20;
     const targetBF = targetNumWorkers > 0 ? tempsArticleVal / targetNumWorkers : 0;
-    const baseLimitMax = targetBF > 0 ? (targetBF / SAM_MAJORATION) * toleranceRatio : Number.MAX_VALUE;
+    // Remplissage vers le takt (BF), plafonné à un seuil sain même si Tolérance d'affichage élevée.
+    const packRatio = Math.min(toleranceRatio, AUTO_BALANCE_TARGET_CEIL);
+    const baseLimitMax = targetBF > 0 ? (targetBF / SAM_MAJORATION) * packRatio : Number.MAX_VALUE;
+    const hardLimitMax = targetBF > 0 ? (targetBF / SAM_MAJORATION) * AUTO_BALANCE_HARD_CEIL : Number.MAX_VALUE;
 
     let adjustmentFactor = 1.0;
     let attempts = 0;
@@ -646,7 +663,7 @@ export default function Balancing({
     let finalPostes: Poste[] = [];
 
     while (attempts < maxAttempts) {
-        const limitMax = baseLimitMax * adjustmentFactor;
+        const limitMax = Math.min(baseLimitMax * adjustmentFactor, hardLimitMax);
         const currentAssignments: Record<string, string[]> = {};
         const currentPostes: Poste[] = [];
         let currentPosteOps: Operation[] = [];
@@ -654,7 +671,8 @@ export default function Balancing({
         let currentMachine = '';
         let posteIdx = 1;
 
-        const relaxMachine = attempts >= 15;
+        // Textile: 1 ouvrier = 1 machine. Pas de fusion automatique de deux machines réelles.
+        const relaxMachine = false;
 
         const flush = () => {
             if (currentPosteOps.length === 0) return;
@@ -802,7 +820,20 @@ export default function Balancing({
     setContextMenu({ visible: true, x: e.pageX, y: e.pageY, posteId });
   };
 
-  const handleContextAction = (action: 'insert' | 'delete' | 'clear' | 'copy' | 'cut' | 'paste' | 'duplicate' | 'toggleManual') => {
+  // Normalise un nom de machine d'une opération (MANUEL -> MAN).
+  const machineClassOf = (op: Operation): string => {
+      let raw = op.machineName;
+      if (!raw && op.machineId) {
+          const m = machines.find(mm => mm.id === op.machineId);
+          if (m) raw = m.name;
+      }
+      if (!raw) raw = 'MAN';
+      let m = raw.trim().toUpperCase();
+      if (m.includes('MANUEL')) m = 'MAN';
+      return m;
+  };
+
+  const handleContextAction = (action: 'insert' | 'delete' | 'clear' | 'copy' | 'cut' | 'paste' | 'duplicate' | 'separate' | 'merge' | 'toggleManual') => {
       
       if (action === 'toggleManual') {
           const nextManual = !isManual;
@@ -846,6 +877,86 @@ export default function Balancing({
                   colorName: currentPoste.colorName || getDefaultPosteColorName(idx + 1)
               };
               newPostes.splice(idx + 1, 0, newPoste);
+              break;
+          }
+          case 'separate': {
+              // Sépare un poste qui mélange plusieurs machines en un poste par machine.
+              const target = newPostes[idx];
+              const pid = target.id;
+              const ops = sortedOperations.filter(op => (newAssignments[op.id] || []).includes(pid));
+
+              const distinctNonMan = Array.from(new Set(ops.map(machineClassOf).filter(m => m !== 'MAN')));
+              if (distinctNonMan.length <= 1) {
+                  setContextMenu(null);
+                  return;
+              }
+
+              // Groupe les ops par classe machine, dans l'ordre de séquence. Les ops MAN sont
+              // rattachées à la machine qui les précède (réalité chaîne). Si une op MAN apparaît
+              // avant toute machine réelle, elle rejoint la première machine de la séquence.
+              const firstRealMachine = ops.map(machineClassOf).find(m => m !== 'MAN');
+              const order: string[] = [];
+              const groups: Record<string, Operation[]> = {};
+              let lastRealMachine: string | undefined = undefined;
+              ops.forEach(op => {
+                  const raw = machineClassOf(op);
+                  let key = raw;
+                  if (raw === 'MAN') {
+                      key = lastRealMachine || firstRealMachine || 'MAN';
+                  } else {
+                      lastRealMachine = raw;
+                  }
+                  if (!(key in groups)) { groups[key] = []; order.push(key); }
+                  groups[key].push(op);
+              });
+
+              const replacements: Poste[] = order.map((key, k) => ({
+                  ...target,
+                  id: `P_${Date.now()}_${k}`,
+                  machine: key,
+                  originalId: undefined,
+                  timeOverride: undefined,
+              }));
+              const keyToId: Record<string, string> = {};
+              order.forEach((key, k) => { keyToId[key] = replacements[k].id; });
+
+              ops.forEach(op => {
+                  newAssignments[op.id] = (newAssignments[op.id] || []).filter(id => id !== pid);
+                  newAssignments[op.id].push(keyToId[machineClassOf(op)]);
+              });
+
+              newPostes.splice(idx, 1, ...replacements);
+              break;
+          }
+          case 'merge': {
+              // Fusionne ce poste avec son voisin (suivant, sinon précédent).
+              if (newPostes.length < 2) {
+                  setContextMenu(null);
+                  return;
+              }
+              const neighbor = idx + 1 < newPostes.length ? idx + 1 : idx - 1;
+              const survivorIdx = Math.min(idx, neighbor);
+              const removedIdx = Math.max(idx, neighbor);
+              const survivorId = newPostes[survivorIdx].id;
+              const removedId = newPostes[removedIdx].id;
+
+              Object.keys(newAssignments).forEach(opId => {
+                  const arr = newAssignments[opId] || [];
+                  if (arr.includes(removedId)) {
+                      newAssignments[opId] = arr.filter(id => id !== removedId);
+                      if (!newAssignments[opId].includes(survivorId)) {
+                          newAssignments[opId].push(survivorId);
+                      }
+                  }
+              });
+
+              newPostes.splice(removedIdx, 1);
+              const survivorOps = sortedOperations.filter(op => (newAssignments[op.id] || []).includes(survivorId));
+              newPostes[survivorIdx] = {
+                  ...newPostes[survivorIdx],
+                  machine: getCombinedMachineName(survivorOps),
+                  timeOverride: undefined,
+              };
               break;
           }
           case 'delete': {
@@ -1321,13 +1432,15 @@ export default function Balancing({
                                     {postes.map((p, i) => {
                                         const color = showColors ? getPosteColor(p, i) : NEUTRAL_COLOR;
                                         const hasOverride = p.timeOverride !== undefined;
+                                        const isMixed = (p.machine || '').includes('+');
                                         return (
-                                            <th 
-                                                key={p.id} 
+                                            <th
+                                                key={p.id}
                                                 onContextMenu={(e) => handleContextMenu(e, p.id)}
                                                 className={`py-2 px-1 text-center min-w-[70px] ${color.bg} border-b-2 ${color.border} border-r border-slate-300 relative cursor-context-menu`}
                                             >
                                                 {hasOverride && <div className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-purple-500" title="Temps Forcé"></div>}
+                                                {isMixed && <div className="absolute top-1 left-1 text-amber-500" title="Poste multi-machines — clic droit → Séparer par machine"><AlertCircle className="w-3 h-3" /></div>}
                                                 <div className="flex flex-col items-center justify-center gap-1 pointer-events-none">
                                                     <span className={`inline-block px-1.5 py-0.5 rounded-[4px] text-[9px] font-bold bg-white border ${color.border} ${color.text} uppercase truncate max-w-[65px]`}>{p.machine}</span>
                                                     <div className={`flex items-center justify-center w-6 h-6 rounded-full font-bold text-xs shadow-sm bg-white border ${color.border} ${color.text}`}>{p.name.replace('P','')}</div>
@@ -1460,6 +1573,11 @@ export default function Balancing({
                         />
                         <span className="font-bold">%</span>
                     </div>
+                    {tolerance > AUTO_BALANCE_TARGET_CEIL * 100 && (
+                        <span className="text-[10px] font-bold text-amber-600 flex items-center gap-1" title={`L'équilibrage automatique ne remplit jamais un poste au-delà de ${AUTO_BALANCE_TARGET_CEIL * 100}% (règle anti-goulot). La Tolérance ne sert qu'à l'affichage des couleurs.`}>
+                            <AlertCircle className="w-3 h-3" /> Équilibrage plafonné à {Math.round(AUTO_BALANCE_TARGET_CEIL * 100)}% (anti-goulot)
+                        </span>
+                    )}
                 </div>
 
                 {/* Charts & Needs - Moved here to be visible in Matrix View too */}
@@ -1659,6 +1777,20 @@ export default function Balancing({
                    {isManual ? <Hand className="w-3.5 h-3.5" /> : <ArrowRightLeft className="w-3.5 h-3.5" />}
                    {isManual ? 'Désactiver Mode Manuel' : 'Activer Mode Manuel'}
                </button>
+
+               {(() => {
+                   const ctxOps = contextMenu.posteId ? sortedOperations.filter(op => (assignments[op.id] || []).includes(contextMenu.posteId!)) : [];
+                   const ctxDistinctMachines = Array.from(new Set(ctxOps.map(machineClassOf).filter(m => m !== 'MAN')));
+                   const canSeparate = ctxDistinctMachines.length > 1;
+                   const canMerge = postes.length > 1;
+                   return (
+                       <>
+                           <button onClick={() => canSeparate && handleContextAction('separate')} disabled={!canSeparate} title={canSeparate ? `Séparer en ${ctxDistinctMachines.length} postes (${ctxDistinctMachines.join(', ')})` : "Poste à une seule machine — rien à séparer"} className={`w-full text-left px-4 py-2 flex items-center gap-2 font-semibold ${canSeparate ? 'hover:bg-emerald-50 text-emerald-700' : 'opacity-40 cursor-not-allowed text-slate-400'}`}><Split className="w-3.5 h-3.5" /> Séparer par machine{canSeparate ? ` (${ctxDistinctMachines.length})` : ''}</button>
+                           <button onClick={() => canMerge && handleContextAction('merge')} disabled={!canMerge} title={canMerge ? "Fusionner avec le poste voisin" : "Un seul poste — rien à fusionner"} className={`w-full text-left px-4 py-2 flex items-center gap-2 font-semibold ${canMerge ? 'hover:bg-emerald-50 text-emerald-700' : 'opacity-40 cursor-not-allowed text-slate-400'}`}><Combine className="w-3.5 h-3.5" /> Fusionner (voisin)</button>
+                       </>
+                   );
+               })()}
+               <div className="h-px bg-slate-100 my-1"></div>
 
                <button onClick={() => handleContextAction('insert')} className="w-full text-left px-4 py-2 hover:bg-slate-50 flex items-center gap-2"><Plus className="w-3.5 h-3.5" /> Insérer Poste</button>
                <button onClick={() => handleContextAction('duplicate')} className="w-full text-left px-4 py-2 hover:bg-slate-50 flex items-center gap-2"><CopyPlus className="w-3.5 h-3.5" /> Dupliquer</button>

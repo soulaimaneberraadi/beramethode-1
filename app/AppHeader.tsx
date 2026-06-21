@@ -1,3 +1,5 @@
+import React, { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import {
     FolderOpen,
     Settings as SettingsIcon,
@@ -207,10 +209,8 @@ export default function AppHeader({
 
                 {/* Main Navigation - Hidden on mobile, shown on md+ based on style selection */}
                 {navConfig.style !== 'mobile-only' && (
-                    <nav className={`hidden md:flex items-center gap-1 mx-4 ${
-                        navConfig.style === 'flat' 
-                            ? 'max-w-[60vw] overflow-x-auto hide-scrollbar' 
-                            : 'overflow-visible'
+                    <nav className={`hidden md:flex items-center gap-1 mx-4 overflow-x-auto hide-scrollbar ${
+                        navConfig.style === 'flat' ? 'max-w-[60vw]' : 'max-w-[72vw]'
                     }`}>
                         {/* Style 1: Dynamic Dropdowns Grouped by Category */}
                         {navConfig.style === 'dropdown' && navConfig.categories?.map((category) => {
@@ -348,7 +348,7 @@ function NavButton({ view, currentView, onClick, activeClass, icon, label }: {
     return (
         <button
             onClick={() => onClick(view)}
-            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg transition-all text-[11px] font-bold uppercase tracking-wide whitespace-nowrap border ${currentView === view
+            className={`shrink-0 flex items-center gap-2 px-3 py-1.5 rounded-lg transition-all text-[11px] font-bold uppercase tracking-wide whitespace-nowrap border ${currentView === view
                 ? activeClass
                 : 'bg-transparent border-transparent text-gray-500 hover:text-gray-900 hover:bg-gray-50'
                 }`}
@@ -371,22 +371,60 @@ interface NavDropdownProps {
 
 function NavDropdown({ label, views, currentView, activeClass, align = 'left', children }: NavDropdownProps) {
     const isActive = views.includes(currentView);
-    const alignClass = align === 'right' ? 'right-0 origin-top-right' : 'left-0 origin-top-left';
+    const btnRef = useRef<HTMLButtonElement>(null);
+    const [open, setOpen] = useState(false);
+    const [pos, setPos] = useState<{ top: number; left: number; right: number }>({ top: 0, left: 0, right: 0 });
+
+    const updatePos = () => {
+        const r = btnRef.current?.getBoundingClientRect();
+        if (r) setPos({ top: r.bottom + 4, left: r.left, right: window.innerWidth - r.right });
+    };
+    const show = () => { updatePos(); setOpen(true); };
+    const hide = () => setOpen(false);
+
+    // Le menu est rendu en Portal (position fixed) : jamais coupé par le scroll horizontal de la nav.
+    // On le referme si la page défile, la fenêtre change de taille.
+    useEffect(() => {
+        if (!open) return;
+        const close = () => setOpen(false);
+        window.addEventListener('scroll', close, true);
+        window.addEventListener('resize', close);
+        return () => {
+            window.removeEventListener('scroll', close, true);
+            window.removeEventListener('resize', close);
+        };
+    }, [open]);
+
     return (
-        <div className="relative group shrink-0">
+        <div className="relative shrink-0" onMouseEnter={show} onMouseLeave={hide}>
             <button
+                ref={btnRef}
+                onClick={() => (open ? hide() : show())}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all text-[11px] font-extrabold uppercase tracking-wide whitespace-nowrap border ${
-                    isActive
+                    isActive || open
                         ? activeClass
                         : 'bg-transparent border-transparent text-gray-500 hover:text-gray-900 hover:bg-gray-50'
                 }`}
             >
                 {label}
-                <ChevronDown className="w-3 h-3 opacity-60 group-hover:rotate-180 transition-transform duration-200" />
+                <ChevronDown className={`w-3 h-3 opacity-60 transition-transform duration-200 ${open ? 'rotate-180' : ''}`} />
             </button>
-            <div className={`absolute top-full mt-1 w-48 bg-white border border-gray-100 rounded-xl shadow-lg p-1.5 transition-all duration-200 scale-95 opacity-0 pointer-events-none group-hover:scale-100 group-hover:opacity-100 group-hover:pointer-events-auto z-[110] flex flex-col gap-0.5 ${alignClass}`}>
-                {children}
-            </div>
+            {open && createPortal(
+                <div
+                    onMouseEnter={() => setOpen(true)}
+                    onMouseLeave={hide}
+                    onClick={() => setOpen(false)}
+                    style={{
+                        position: 'fixed',
+                        top: pos.top,
+                        ...(align === 'right' ? { right: pos.right } : { left: pos.left }),
+                    }}
+                    className="w-48 bg-white border border-gray-100 rounded-xl shadow-lg p-1.5 z-[200] flex flex-col gap-0.5 animate-in fade-in zoom-in-95 duration-150"
+                >
+                    {children}
+                </div>,
+                document.body
+            )}
         </div>
     );
 }

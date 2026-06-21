@@ -14,6 +14,20 @@ const GoogleIcon = ({ className }: { className?: string }) => (
   </svg>
 );
 
+// Délai max avant d'abandonner une tentative de connexion (serveur injoignable / réseau bloqué).
+const LOGIN_TIMEOUT_MS = 15000;
+
+// Course entre une promesse et un timeout : évite qu'un appel réseau bloqué fige l'UI à l'infini.
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new DOMException('Timeout', 'TimeoutError')), ms);
+    promise.then(
+      (value) => { clearTimeout(timer); resolve(value); },
+      (err) => { clearTimeout(timer); reject(err); }
+    );
+  });
+}
+
 export default function Login({ onSwitch, onGuest }: { onSwitch: () => void, onGuest?: () => void }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -117,6 +131,11 @@ export default function Login({ onSwitch, onGuest }: { onSwitch: () => void, onG
   };
 
   const networkErrorMessage = (err: unknown): string => {
+    // Timeout (notre withTimeout) ou requête abandonnée (AbortController) : message clair.
+    const name = err && typeof err === 'object' && 'name' in err ? (err as { name?: string }).name : '';
+    if (name === 'TimeoutError' || name === 'AbortError') {
+      return 'La connexion a expiré (délai dépassé). Vérifiez votre connexion Internet et réessayez.';
+    }
     let msg = err instanceof Error ? err.message : String(err);
     msg = (msg || '').trim();
     // Message vide ou inexploitable ("{}", "[object Object]", page HTML d'erreur) :
@@ -157,26 +176,34 @@ export default function Login({ onSwitch, onGuest }: { onSwitch: () => void, onG
       }
 
       if (staticLogin) {
-        const result = await staticLogin(email, password);
+        const result = await withTimeout(staticLogin(email, password), LOGIN_TIMEOUT_MS);
         if (!result.ok) throw new Error(result.message || 'E-mail ou mot de passe incorrect.');
         return;
       }
 
-      const res = await fetch('/api/auth/login', {
-        credentials: 'include',
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: email.trim(), password }),
-      });
+      // AbortController : coupe le fetch si le serveur ne répond pas dans le délai imparti.
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), LOGIN_TIMEOUT_MS);
+      try {
+        const res = await fetch('/api/auth/login', {
+          credentials: 'include',
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: email.trim(), password }),
+          signal: controller.signal,
+        });
 
-      const data = await res.json().catch(() => ({}));
+        const data = await res.json().catch(() => ({}));
 
-      if (!res.ok) {
-        throw new Error(loginErrorMessage(data, 'E-mail ou mot de passe incorrect.'));
+        if (!res.ok) {
+          throw new Error(loginErrorMessage(data, 'E-mail ou mot de passe incorrect.'));
+        }
+
+        notifyServerSessionEstablished(data.user?.id ?? 0);
+        login(data.user);
+      } finally {
+        clearTimeout(timeoutId);
       }
-
-      notifyServerSessionEstablished(data.user?.id ?? 0);
-      login(data.user);
     } catch (err: unknown) {
       setError(networkErrorMessage(err));
     } finally {
@@ -188,10 +215,15 @@ export default function Login({ onSwitch, onGuest }: { onSwitch: () => void, onG
     if (!signInWithGoogle) return;
     setError('');
     setIsLoading(true);
-    const result = await signInWithGoogle();
-    if (!result.ok) {
-      // En cas de succès le navigateur redirige vers Google : pas de reset ici.
-      setError(result.message || 'Échec de la connexion avec Google.');
+    try {
+      const result = await withTimeout(signInWithGoogle(), LOGIN_TIMEOUT_MS);
+      if (!result.ok) {
+        // En cas de succès le navigateur redirige vers Google : pas de reset ici.
+        setError(result.message || 'Échec de la connexion avec Google.');
+        setIsLoading(false);
+      }
+    } catch (err: unknown) {
+      setError(networkErrorMessage(err));
       setIsLoading(false);
     }
   };
