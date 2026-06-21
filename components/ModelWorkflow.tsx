@@ -1,6 +1,7 @@
 
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
+    ArrowLeft,
     FileText,
     ClipboardList,
     Activity,
@@ -121,6 +122,7 @@ const STEP_LABELS = {
         pedido: 'Pedido',
         save: 'Sauvegarder',
         next: 'Suivant',
+        back: 'Précédent',
         finish: 'Terminer',
         undo: 'Annuler (Ctrl+Z)',
         redo: 'Rétablir (Ctrl+Y)',
@@ -137,6 +139,7 @@ const STEP_LABELS = {
         pedido: 'الطلبية (Pedido)',
         save: 'حفظ',
         next: 'التالي',
+        back: 'السابق',
         finish: 'إنهاء',
         undo: 'تراجع (Ctrl+Z)',
         redo: 'إعادة (Ctrl+Y)',
@@ -227,6 +230,20 @@ export default function ModelWorkflow({
         }
     };
 
+    // Linear "Previous" Button (retour d'une étape, sans validation)
+    const handleLinearPrev = () => {
+        const currentIndex = steps.findIndex(s => s.id === currentStep);
+        if (currentIndex > 0) {
+            setCurrentStep(steps[currentIndex - 1].id as any);
+        }
+    };
+
+    // Auto-scroll : garde l'étape active visible dans la barre quand elle déborde.
+    const activeStepRef = useRef<HTMLButtonElement>(null);
+    useEffect(() => {
+        activeStepRef.current?.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+    }, [currentStep]);
+
     const handleSave = () => {
         if (!validateFiche()) {
             if (currentStep !== 'fiche') setCurrentStep('fiche');
@@ -293,6 +310,7 @@ export default function ModelWorkflow({
                             return (
                                 <React.Fragment key={step.id}>
                                     <button
+                                        ref={isActive ? activeStepRef : undefined}
                                         onClick={() => navigateTo(step.id)}
                                         className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${isActive
                                             ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200'
@@ -315,6 +333,19 @@ export default function ModelWorkflow({
 
                 {/* RIGHT: ACTIONS (Detached) */}
                 <div className="flex items-center gap-2 shrink-0">
+                    <button
+                        onClick={handleLinearPrev}
+                        disabled={currentIndex === 0}
+                        className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all shadow-sm border ${currentIndex === 0
+                            ? 'opacity-40 cursor-not-allowed border-slate-200 text-slate-300 bg-white'
+                            : 'bg-white border-slate-200 hover:bg-slate-50 text-slate-600'
+                            }`}
+                        title={st.back}
+                    >
+                        <ArrowLeft className="w-4 h-4" />
+                        <span className="hidden sm:inline">{st.back}</span>
+                    </button>
+
                     <button
                         onClick={handleSave}
                         className="flex items-center gap-2 px-3 py-2.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-600 rounded-xl text-xs font-bold shadow-sm transition-all"
