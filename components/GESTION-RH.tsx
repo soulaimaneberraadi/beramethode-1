@@ -382,45 +382,7 @@ function WorkerModal({ worker, onClose, onSave, transportLignes }: { worker: Par
               <div style={{ gridColumn: '1/-1' }}>
                 <Field label={tx(lang, { fr: 'Adresse', ar: 'العنوان', en: 'Address', es: 'Dirección', pt: 'Endereço', tr: 'Adres' })} value={form.adresse ?? ''} onChange={v => set('adresse', v)} placeholder={tx(lang, { fr: 'Adresse complète', ar: 'العنوان الكامل', en: 'Full address', es: 'Dirección completa', pt: 'Endereço completo', tr: 'Tam adres' })} />
               </div>
-                </div>
-              )}
-              <div style={{ gridColumn: '1/-1' }}>
-                <Field
-                  label="Rattacher à un person_id existant (optionnel)"
-                  value={form.link_person_id ?? ''}
-                  onChange={v => set('link_person_id', v)}
-                  placeholder="per-xxxxxxxx (fusion volontaire)"
-                />
-                <div style={{ fontSize: 11, color: '#94A3B8', marginTop: 4 }}>Laisser vide pour créer / garder le lien automatique. Ne remplir qu’en cas de fusion RH explicite.</div>
               </div>
-              {form.id && (
-                <div style={{ gridColumn: '1/-1', borderTop: '1px solid #E2E8F0', paddingTop: 16, marginTop: 4 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-                    <Key size={16} color="#2149C1" />
-                    <span style={{ fontWeight: 700, fontSize: 13, color: '#0F172A' }}>PIN BERAOUVIER (CIN + PIN)</span>
-                  </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                    <Field label="Nouveau PIN" value={pin1} onChange={setPin1} type="password" placeholder="4–8 chiffres" />
-                    <Field label="Confirmer PIN" value={pin2} onChange={setPin2} type="password" placeholder="répéter" />
-                  </div>
-                  <button type="button" onClick={handleSetPin} disabled={pinBusy} style={{ ...btnSecondary, marginTop: 10 }}>
-                    {pinBusy ? '…' : 'Enregistrer le PIN'}
-                  </button>
-                </div>
-              )}
-              <Field label="Téléphone" value={form.phone ?? ''} onChange={v => set('phone', v)} placeholder="06 XX XX XX" />
-              <Field label="Date Naissance" value={form.date_naissance ?? ''} onChange={v => set('date_naissance', v)} type="date" />
-              <div>
-                <label style={labelStyle}>Sexe</label>
-                <select value={form.sexe ?? 'M'} onChange={e => set('sexe', e.target.value)} style={inputStyle}>
-                  <option value="M">Homme</option>
-                  <option value="F">Femme</option>
-                </select>
-              </div>
-              <div style={{ gridColumn: '1/-1' }}>
-                <Field label="Adresse" value={form.adresse ?? ''} onChange={v => set('adresse', v)} placeholder="Adresse complète" />
-              </div>
-            </div>
           )}
 
           {subTab === 'emploi' && (
@@ -869,7 +831,7 @@ function StatistiquesTab({ workers, pointages, suivis, planningEvents, selectedD
                                 <div style={{ fontSize: 11, color: '#64748B', display: 'flex', gap: 6, alignItems: 'center', marginTop: 2 }}>
                                   <span>{w.matricule}</span>
                                   <span>•</span>
-                                  <span style={{ fontWeight: 600, color: ROLE_COLORS[roleK] }}>{ROLE_LABELS[roleK]}</span>
+                                  <span style={{ fontWeight: 600, color: ROLE_COLORS[roleK] }}>{tx(lang, ROLE_LABELS[roleK])}</span>
                                   {w.poste && (
                                     <>
                                       <span>•</span>
@@ -1982,7 +1944,7 @@ export default function GestionRH({
                                 <td style={{ padding: '10px 12px', color: '#475569', fontFamily: 'ui-monospace, monospace', fontSize: 12 }}>{w.matricule}</td>
                                 <td style={{ padding: '10px 12px', color: '#475569', fontSize: 12 }}>{w.cin || '—'}</td>
                                 <td style={{ padding: '10px 12px' }}>
-                                  <span style={{ padding: '2px 8px', borderRadius: 8, fontSize: 11, fontWeight: 700, background: ROLE_COLORS[roleK] + '18', color: ROLE_COLORS[roleK] }}>{ROLE_LABELS[roleK]}</span>
+                                  <span style={{ padding: '2px 8px', borderRadius: 8, fontSize: 11, fontWeight: 700, background: ROLE_COLORS[roleK] + '18', color: ROLE_COLORS[roleK] }}>{tx(lang, ROLE_LABELS[roleK])}</span>
                                 </td>
                                 <td style={{ padding: '10px 12px', color: '#475569' }}>{w.chaine_id || '—'}</td>
                                 <td style={{ padding: '10px 12px', color: '#475569' }}>{w.equipe || '—'}</td>
@@ -2039,7 +2001,7 @@ export default function GestionRH({
                             <div style={{ fontSize: 11, color: '#94A3B8' }}>{w.matricule} • {w.cin || '—'}</div>
                           </div>
                           <span style={{ padding: '3px 8px', borderRadius: 20, fontSize: 10, fontWeight: 700, background: ROLE_COLORS[roleK] + '20', color: ROLE_COLORS[roleK], flexShrink: 0 }}>
-                            {ROLE_LABELS[roleK]}
+                            {tx(lang, ROLE_LABELS[roleK])}
                           </span>
                         </div>
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, fontSize: 12, marginBottom: 12 }}>
@@ -2496,7 +2458,7 @@ export default function GestionRH({
                                     </optgroup>
                                     <optgroup label="Absence / Autre">
                                       {['ABSENT', 'CONGE', 'MALADIE', 'MISSION', 'FERIE'].map(k => (
-                                        <option key={k} value={k}>{STATUS_CONFIG[k as HRPointageStatus]?.label || k}</option>
+                                        <option key={k} value={k}>{tx(lang, STATUS_CONFIG[k as HRPointageStatus]?.label) || k}</option>
                                       ))}
                                     </optgroup>
                                   </select>
