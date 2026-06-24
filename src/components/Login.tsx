@@ -3,7 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { hasLocalDraftMarker, markPendingDraftAttachToEmail, notifyServerSessionEstablished } from '../../lib/dataIdentity';
 import { Lock, Mail, ArrowRight, User } from 'lucide-react';
 import { motion, AnimatePresence, Variants } from 'framer-motion';
-import { tx } from '../lib/i18n';
+import { tx } from '../../lib/i18n';
 import { useLang } from '../context/LanguageContext';
 
 // Icône Google officielle (multicolore)
