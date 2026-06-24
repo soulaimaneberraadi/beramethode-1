@@ -23,37 +23,45 @@ import {
   type PointageTranchesConfig,
   tranchesHeaderColCount,
 } from '../lib/pointageGrille';
+import { tx, type TxMap } from '../lib/i18n';
+import { useLang } from '../src/context/LanguageContext';
 
-/** Hauteur 1re ligne d’en-tête (px) — offset sticky pour la ligne des libellés de tranches */
+/** Hauteur 1re ligne d'en-tête (px) — offset sticky pour la ligne des libellés de tranches */
 const POINTAGE_THEAD_R1_H = 36;
 
 const ANNUAIRE_VIEW_KEY = 'beramethode_effectifs_annuaire_view';
 
 // ─── CONSTANTS ────────────────────────────────────────────
 const ROLES: HRWorkerRole[] = ['OPERATOR', 'SUPERVISOR', 'MECHANIC', 'ADMIN', 'QC', 'IRON', 'CUTTER', 'PACKER'];
-const ROLE_LABELS: Record<HRWorkerRole, string> = {
-  OPERATOR: 'Opérateur', SUPERVISOR: 'Superviseur', MECHANIC: 'Mécanicien',
-  ADMIN: 'Admin', QC: 'Contrôle Q.', IRON: 'Repassage', CUTTER: 'Coupeur', PACKER: 'Emballage'
+const ROLE_LABELS: Record<HRWorkerRole, TxMap> = {
+  OPERATOR: { fr: 'Opérateur', ar: 'مشغل', en: 'Operator', es: 'Operario', pt: 'Operador', tr: 'Operatör' },
+  SUPERVISOR: { fr: 'Superviseur', ar: 'مشرف', en: 'Supervisor', es: 'Supervisor', pt: 'Supervisor', tr: 'Denetçi' },
+  MECHANIC: { fr: 'Mécanicien', ar: 'ميكانيكي', en: 'Mechanic', es: 'Mecánico', pt: 'Mecânico', tr: 'Tamirci' },
+  ADMIN: { fr: 'Admin', ar: 'إداري', en: 'Admin', es: 'Admin', pt: 'Admin', tr: 'Yönetici' },
+  QC: { fr: 'Contrôle Q.', ar: 'مراقب جودة', en: 'QC', es: 'Control Q.', pt: 'Controle Q.', tr: 'Kalite Kontrol' },
+  IRON: { fr: 'Repassage', ar: 'كي', en: 'Ironing', es: 'Planchado', pt: 'Passadoria', tr: 'Ütü' },
+  CUTTER: { fr: 'Coupeur', ar: 'قصّاص', en: 'Cutter', es: 'Cortador', pt: 'Cortador', tr: 'Kesici' },
+  PACKER: { fr: 'Emballage', ar: 'تعبئة', en: 'Packer', es: 'Empaquetador', pt: 'Empacotador', tr: 'Paketçi' },
 };
 const ROLE_COLORS: Record<HRWorkerRole, string> = {
   OPERATOR: '#3B82F6', SUPERVISOR: '#8B5CF6', MECHANIC: '#F59E0B',
   ADMIN: '#EF4444', QC: '#10B981', IRON: '#EC4899', CUTTER: '#F97316', PACKER: '#6366F1'
 };
-const STATUS_CONFIG: Record<HRPointageStatus, { label: string; color: string; bg: string }> = {
-  PRESENT:  { label: 'Présent',  color: '#059669', bg: '#ecfdf5' },
-  RETARD:   { label: 'Retard',   color: '#d97706', bg: '#fffbeb' },
-  ABSENT:   { label: 'Absent',   color: '#dc2626', bg: '#fef2f2' },
-  CONGE:    { label: 'Congé',    color: '#2563eb', bg: '#eff6ff' },
-  MALADIE:  { label: 'Maladie',  color: '#7c3aed', bg: '#f5f3ff' },
-  MISSION:  { label: 'Mission',  color: '#0d9488', bg: '#f0fdfa' },
-  FERIE:    { label: 'Férié',    color: '#4b5563', bg: '#f9fafb' },
+const STATUS_CONFIG: Record<HRPointageStatus, { label: TxMap; color: string; bg: string }> = {
+  PRESENT:  { label: { fr: 'Présent',  ar: 'حاضر', en: 'Present', es: 'Presente', pt: 'Presente', tr: 'Mevcut' },  color: '#059669', bg: '#ecfdf5' },
+  RETARD:   { label: { fr: 'Retard',   ar: 'متأخر', en: 'Late', es: 'Tarde', pt: 'Atrasado', tr: 'Geç' },   color: '#d97706', bg: '#fffbeb' },
+  ABSENT:   { label: { fr: 'Absent',   ar: 'غائب', en: 'Absent', es: 'Ausente', pt: 'Ausente', tr: 'Yok' },   color: '#dc2626', bg: '#fef2f2' },
+  CONGE:    { label: { fr: 'Congé',    ar: 'عطلة', en: 'Leave', es: 'Vacaciones', pt: 'Férias', tr: 'İzin' },    color: '#2563eb', bg: '#eff6ff' },
+  MALADIE:  { label: { fr: 'Maladie',  ar: 'مرض', en: 'Sick', es: 'Enfermedad', pt: 'Doente', tr: 'Hasta' },  color: '#7c3aed', bg: '#f5f3ff' },
+  MISSION:  { label: { fr: 'Mission',  ar: 'مهمة', en: 'Mission', es: 'Misión', pt: 'Missão', tr: 'Görev' },  color: '#0d9488', bg: '#f0fdfa' },
+  FERIE:    { label: { fr: 'Férié',    ar: 'عطلة رسمية', en: 'Holiday', es: 'Festivo', pt: 'Feriado', tr: 'Tatil' },    color: '#4b5563', bg: '#f9fafb' },
 };
-const AVANCE_STATUS: Record<string, { label: string; color: string; bg: string }> = {
-  DEMANDE:   { label: 'En attente', color: '#d97706', bg: '#fffbeb' },
-  APPROUVE:  { label: 'Approuvé',  color: '#059669', bg: '#ecfdf5' },
-  EN_COURS:  { label: 'En cours',  color: '#2563eb', bg: '#eff6ff' },
-  REMBOURSE: { label: 'Remboursé', color: '#4b5563', bg: '#f9fafb' },
-  REFUSE:    { label: 'Refusé',    color: '#dc2626', bg: '#fef2f2' },
+const AVANCE_STATUS: Record<string, { label: TxMap; color: string; bg: string }> = {
+  DEMANDE:   { label: { fr: 'En attente', ar: 'قيد الانتظار', en: 'Pending', es: 'Pendiente', pt: 'Pendente', tr: 'Beklemede' }, color: '#d97706', bg: '#fffbeb' },
+  APPROUVE:  { label: { fr: 'Approuvé',  ar: 'موافق عليه', en: 'Approved', es: 'Aprobado', pt: 'Aprovado', tr: 'Onaylandı' },  color: '#059669', bg: '#ecfdf5' },
+  EN_COURS:  { label: { fr: 'En cours',  ar: 'قيد التنفيذ', en: 'In progress', es: 'En curso', pt: 'Em andamento', tr: 'Devam ediyor' },  color: '#2563eb', bg: '#eff6ff' },
+  REMBOURSE: { label: { fr: 'Remboursé', ar: 'مردود', en: 'Reimbursed', es: 'Reembolsado', pt: 'Reembolsado', tr: 'Geri ödendi' }, color: '#4b5563', bg: '#f9fafb' },
+  REFUSE:    { label: { fr: 'Refusé',    ar: 'مرفوض', en: 'Refused', es: 'Rechazado', pt: 'Recusado', tr: 'Reddedildi' },    color: '#dc2626', bg: '#fef2f2' },
 };
 
 const ABSENCE_LIKE: HRPointageStatus[] = ['CONGE', 'MALADIE', 'MISSION', 'FERIE'];
@@ -63,22 +71,23 @@ function getPointageEntreeSortieHint(
   heureEntre: string | null | undefined,
   heureSort: string | null | undefined,
   statut: HRPointageStatus | string | undefined,
+  lang: string = 'fr',
 ): { level: 'ok' | 'warn' | 'mute'; label: string } {
   const st = (statut as HRPointageStatus) || 'PRESENT';
   if (st === 'ABSENT' || ABSENCE_LIKE.includes(st as HRPointageStatus)) {
     if (heureEntre || heureSort) {
-      return { level: 'warn', label: 'Horaires saisis mais statut absence' };
+      return { level: 'warn', label: tx(lang, { fr: 'Horaires saisis mais statut absence', ar: 'تم إدخال الأوقات ولكن الحالة غياب', en: 'Times entered but status is absence', es: 'Horarios ingresados pero estado ausencia', pt: 'Horários inseridos mas status ausência', tr: 'Süre girildi ancak durum devamsızlık' }) };
     }
-    return { level: 'mute', label: '—' };
+    return { level: 'mute', label: tx(lang, { fr: '—', ar: '—', en: '—', es: '—', pt: '—', tr: '—' }) };
   }
   if (!heureEntre && !heureSort) {
-    return { level: 'warn', label: 'Aucun pointage' };
+    return { level: 'warn', label: tx(lang, { fr: 'Aucun pointage', ar: 'لا يوجد تسجيل حضور', en: 'No time log', es: 'Sin registro', pt: 'Sem registro', tr: 'Kayıt yok' }) };
   }
   if (heureEntre && !heureSort) {
-    return { level: 'warn', label: 'Sortie manquante' };
+    return { level: 'warn', label: tx(lang, { fr: 'Sortie manquante', ar: 'خروج مفقود', en: 'Missing exit', es: 'Salida faltante', pt: 'Saída ausente', tr: 'Çıkış eksik' }) };
   }
   if (!heureEntre && heureSort) {
-    return { level: 'warn', label: 'Sortie sans entrée — erreur de pointeuse / ordre' };
+    return { level: 'warn', label: tx(lang, { fr: 'Sortie sans entrée — erreur de pointeuse / ordre', ar: 'خروج بدون دخول — خطأ في الساعة / الأمر', en: 'Exit without entry — clock/order error', es: 'Salida sin entrada — error de reloj/orden', pt: 'Saída sem entrada — erro de relógio/ordem', tr: 'Girişsiz çıkış — saat/sipariş hatası' }) };
   }
   const toMin = (t: string) => {
     const [a, b] = t.split(':').map(Number);
@@ -87,9 +96,9 @@ function getPointageEntreeSortieHint(
   const e = toMin(String(heureEntre));
   const s = toMin(String(heureSort));
   if (s < e) {
-    return { level: 'ok', label: 'Nuit (sortie < entrée) — calcul 24h ok' };
+    return { level: 'ok', label: tx(lang, { fr: 'Nuit (sortie < entrée) — calcul 24h ok', ar: 'ليل (خروج < دخول) — حساب 24 ساعة', en: 'Night (exit < entry) — 24h calc ok', es: 'Noche (salida < entrada) — cálculo 24h correcto', pt: 'Noite (saída < entrada) — cálculo 24h ok', tr: 'Gece (çıkış < giriş) — 24s hesaplama tamam' }) };
   }
-  return { level: 'ok', label: 'Entrée → sortie' };
+  return { level: 'ok', label: tx(lang, { fr: 'Entrée → sortie', ar: 'دخول → خروج', en: 'Entry → exit', es: 'Entrada → salida', pt: 'Entrada → saída', tr: 'Giriş → çıkış' }) };
 }
 
 const API = (path: string, opts?: RequestInit) =>
@@ -164,11 +173,11 @@ type Tab = 'annuaire' | 'pointage' | 'statistiques' | 'production' | 'avances' |
 
 // Post categories shown in the stats tab
 const POST_CATEGORIES = [
-  { key: 'surge_piqueuse', label: 'Surgé / Piqueuse', roles: ['OPERATOR'] as HRWorkerRole[], postes: ['SURGE','PIQUEUSE','SURJETEUSE','PIQUEUSE PLATE','PIQUEUR','SURJETEUSE 5 FILS','SURJETEUSE 4 FILS'] },
-  { key: 'chef', label: 'Chef Chaîne', roles: ['SUPERVISOR'] as HRWorkerRole[], postes: ['CHEF','SUPERVISOR','CHEF DE CHAINE','CHEF CHAINE'] },
-  { key: 'trouseuse', label: 'Boutonnière / Bouton', roles: ['OPERATOR'] as HRWorkerRole[], postes: ['TROUSEUSE','BOUTONNIERE','BOUTON','BRIDEUSE'] },
-  { key: 'presse', label: 'Repassage / Presse', roles: ['IRON'] as HRWorkerRole[], postes: ['PRESSE','REPASSAGE','FER','IRON'] },
-  { key: 'recouvrement', label: 'Recouvreuse', roles: ['OPERATOR'] as HRWorkerRole[], postes: ['RECOUVREMENT','COLLETEUSE','RECOUVREUSE'] },
+  { key: 'surge_piqueuse', label: { fr: 'Surgé / Piqueuse', ar: 'سيرج / خياطة', en: 'Overlock / Sewing', es: 'Surgé / Costura', pt: 'Surgé / Costura', tr: 'Overlok / Dikiş' }, roles: ['OPERATOR'] as HRWorkerRole[], postes: ['SURGE','PIQUEUSE','SURJETEUSE','PIQUEUSE PLATE','PIQUEUR','SURJETEUSE 5 FILS','SURJETEUSE 4 FILS'] },
+  { key: 'chef', label: { fr: 'Chef Chaîne', ar: 'رئيس خط', en: 'Line Chief', es: 'Jefe de Línea', pt: 'Chefe de Linha', tr: 'Hat Şefi' }, roles: ['SUPERVISOR'] as HRWorkerRole[], postes: ['CHEF','SUPERVISOR','CHEF DE CHAINE','CHEF CHAINE'] },
+  { key: 'trouseuse', label: { fr: 'Boutonnière / Bouton', ar: 'عروة / زر', en: 'Buttonhole / Button', es: 'Ojal / Botón', pt: 'Casa / Botão', tr: 'İlik / Düğme' }, roles: ['OPERATOR'] as HRWorkerRole[], postes: ['TROUSEUSE','BOUTONNIERE','BOUTON','BRIDEUSE'] },
+  { key: 'presse', label: { fr: 'Repassage / Presse', ar: 'كي / مكواة', en: 'Ironing / Press', es: 'Planchado / Prensa', pt: 'Passadoria / Prensa', tr: 'Ütü / Pres' }, roles: ['IRON'] as HRWorkerRole[], postes: ['PRESSE','REPASSAGE','FER','IRON'] },
+  { key: 'recouvrement', label: { fr: 'Recouvreuse', ar: 'تغطية', en: 'Covering', es: 'Cubridora', pt: 'Recobridora', tr: 'Kaplamacı' }, roles: ['OPERATOR'] as HRWorkerRole[], postes: ['RECOUVREMENT','COLLETEUSE','RECOUVREUSE'] },
 ];
 
 // ─── WORKER MODAL ─────────────────────────────────────────
@@ -179,6 +188,7 @@ const EMPTY_WORKER: Partial<HRWorker> = {
 };
 
 function WorkerModal({ worker, onClose, onSave, transportLignes }: { worker: Partial<HRWorker> | null; onClose: () => void; onSave: () => void; transportLignes: HRTransportLigne[] }) {
+  const { lang } = useLang();
   const [form, setForm] = useState<Partial<HRWorker>>(worker ?? EMPTY_WORKER);
   const [saving, setSaving] = useState(false);
   const [subTab, setSubTab] = useState<'identity' | 'emploi' | 'financier' | 'urgence'>('identity');
@@ -206,7 +216,7 @@ function WorkerModal({ worker, onClose, onSave, transportLignes }: { worker: Par
 
   const handleSave = async () => {
     if (!form.matricule || !form.full_name) {
-      alert('Matricule et nom complet sont requis');
+      alert(tx(lang, { fr: 'Matricule et nom complet sont requis', ar: 'الرقم المهني والاسم الكامل مطلوبان', en: 'Registration number and full name are required', es: 'Matrícula y nombre completo son requeridos', pt: 'Matrícula e nome completo são obrigatórios', tr: 'Kayıt numarası ve tam ad gereklidir' }));
       return;
     }
     setSaving(true);
@@ -222,9 +232,9 @@ function WorkerModal({ worker, onClose, onSave, transportLignes }: { worker: Par
       if (!r.ok) {
         if (data.code === 'CIN_DUPLICATE') {
           const n = data.existing?.full_name ? ` (${data.existing.full_name})` : '';
-          alert(`Ce CIN existe déjà${n}. Utilisez « Rattacher person_id » ou corrigez le CIN.`);
+          alert(tx(lang, { fr: `Ce CIN existe déjà${n}. Utilisez « Rattacher person_id » ou corrigez le CIN.`, ar: `رقم البطاقة موجود مسبقاً${n}. استخدم "ربط person_id" أو صحّح رقم البطاقة.`, en: `This ID already exists${n}. Use "Attach person_id" or correct the ID.`, es: `Esta cédula ya existe${n}. Use "Vincular person_id" o corrija la cédula.`, pt: `Este CIN já existe${n}. Use "Vincular person_id" ou corrija o CIN.`, tr: `Bu kimlik zaten mevcut${n}. "person_id bağla" kullanın veya kimliği düzeltin.` }));
         } else {
-          alert(data.message || `Erreur ${r.status}`);
+          alert(data.message || tx(lang, { fr: `Erreur ${r.status}`, ar: `خطأ ${r.status}`, en: `Error ${r.status}`, es: `Error ${r.status}`, pt: `Erro ${r.status}`, tr: `Hata ${r.status}` }));
         }
         setSaving(false);
         return;
@@ -238,7 +248,15 @@ function WorkerModal({ worker, onClose, onSave, transportLignes }: { worker: Par
 
   const handleSetPin = async () => {
     if (!form.id) {
-      alert('Enregistrez d’abord la fiche pour définir le PIN.');
+      alert(tx(lang, { fr: 'Enregistrez d\'abord la fiche pour définir le PIN.', ar: 'احفظ الملف أولاً لتعريف PIN.', en: 'Save the record first to set the PIN.', es: 'Guarde la ficha primero para definir el PIN.', pt: 'Salve o registro primeiro para definir o PIN.', tr: 'PIN\'i ayarlamak için önce kaydı kaydedin.' }));
+      return;
+    }
+    if (!/^\d{4,8}$/.test(pin1)) {
+      alert(tx(lang, { fr: 'PIN : 4 à 8 chiffres.', ar: 'PIN: 4 إلى 8 أرقام.', en: 'PIN: 4 to 8 digits.', es: 'PIN: 4 a 8 dígitos.', pt: 'PIN: 4 a 8 dígitos.', tr: 'PIN: 4 ila 8 hane.' }));
+      return;
+    }
+    if (pin1 !== pin2) {
+      alert(tx(lang, { fr: 'Les deux saisies PIN diffèrent.', ar: 'إدخالا PIN غير متطابقين.', en: 'The two PIN entries differ.', es: 'Las dos entradas de PIN difieren.', pt: 'As duas entradas de PIN diferem.', tr: 'İki PIN girişi eşleşmiyor.' }));
       return;
     }
     if (!/^\d{4,8}$/.test(pin1)) {
@@ -254,22 +272,22 @@ function WorkerModal({ worker, onClose, onSave, transportLignes }: { worker: Par
       const r = await API(`/api/hr/workers/${encodeURIComponent(form.id)}/pin`, { method: 'POST', body: JSON.stringify({ pin: pin1 }) });
       const d = await r.json().catch(() => ({}));
       if (!r.ok) {
-        alert((d as { message?: string }).message || 'Erreur PIN');
+        alert((d as { message?: string }).message || tx(lang, { fr: 'Erreur PIN', ar: 'خطأ في PIN', en: 'PIN Error', es: 'Error PIN', pt: 'Erro PIN', tr: 'PIN Hatası' }));
         return;
       }
       setPin1('');
       setPin2('');
-      alert('PIN BERAOUVIER enregistré.');
+      alert(tx(lang, { fr: 'PIN BERAOUVIER enregistré.', ar: 'تم حفظ PIN BERAOUVIER.', en: 'PIN BERAOUVIER saved.', es: 'PIN BERAOUVIER guardado.', pt: 'PIN BERAOUVIER salvo.', tr: 'PIN BERAOUVIER kaydedildi.' }));
     } finally {
       setPinBusy(false);
     }
   };
 
   const subTabs = [
-    { id: 'identity', label: '👤 Identité' },
-    { id: 'emploi',   label: '💼 Emploi' },
-    { id: 'financier', label: '💰 Financier' },
-    { id: 'urgence',  label: '🆘 Urgence' },
+    { id: 'identity', label: tx(lang, { fr: '👤 Identité', ar: '👤 الهوية', en: '👤 Identity', es: '👤 Identidad', pt: '👤 Identidade', tr: '👤 Kimlik' }) },
+    { id: 'emploi',   label: tx(lang, { fr: '💼 Emploi', ar: '💼 الوظيفة', en: '💼 Employment', es: '💼 Empleo', pt: '💼 Emprego', tr: '💼 İş' }) },
+    { id: 'financier', label: tx(lang, { fr: '💰 Financier', ar: '💰 المالية', en: '💰 Financial', es: '💰 Financiero', pt: '💰 Financeiro', tr: '💰 Finansal' }) },
+    { id: 'urgence',  label: tx(lang, { fr: '🆘 Urgence', ar: '🆘 طوارئ', en: '🆘 Emergency', es: '🆘 Emergencia', pt: '🆘 Emergência', tr: '🆘 Acil' }) },
   ] as const;
 
   return (
@@ -279,7 +297,7 @@ function WorkerModal({ worker, onClose, onSave, transportLignes }: { worker: Par
         {/* Header */}
         <div style={{ padding: '20px 24px', borderBottom: '1px solid #E2E8F0', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: '#0F172A' }}>
-            {form.id ? `Modifier — ${form.full_name}` : 'Nouvel Ouvrier'}
+            {form.id ? `${tx(lang, { fr: 'Modifier', ar: 'تعديل', en: 'Edit', es: 'Editar', pt: 'Editar', tr: 'Düzenle' })} — ${form.full_name}` : tx(lang, { fr: 'Nouvel Ouvrier', ar: 'عامل جديد', en: 'New Worker', es: 'Nuevo Operario', pt: 'Novo Operário', tr: 'Yeni İşçi' })}
           </h2>
           <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94A3B8' }}><X size={20} /></button>
         </div>
@@ -311,21 +329,59 @@ function WorkerModal({ worker, onClose, onSave, transportLignes }: { worker: Par
                 <input ref={photoRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handlePhoto} />
                 <div>
                   <button onClick={() => photoRef.current?.click()} style={{ ...btnSecondary, fontSize: 12 }}>
-                    <Camera size={14} style={{ marginRight: 6 }} />Choisir photo
+                    <Camera size={14} style={{ marginRight: 6 }} />{tx(lang, { fr: 'Choisir photo', ar: 'اختيار صورة', en: 'Choose photo', es: 'Elegir foto', pt: 'Escolher foto', tr: 'Fotoğraf seç' })}
                   </button>
-                  <div style={{ fontSize: 11, color: '#94A3B8', marginTop: 4 }}>JPG, PNG — max 2MB</div>
+                  <div style={{ fontSize: 11, color: '#94A3B8', marginTop: 4 }}>{tx(lang, { fr: 'JPG, PNG — max 2MB', ar: 'JPG، PNG — 2MB كحد أقصى', en: 'JPG, PNG — max 2MB', es: 'JPG, PNG — máx 2MB', pt: 'JPG, PNG — máx 2MB', tr: 'JPG, PNG — maks 2MB' })}</div>
                 </div>
               </div>
-              <Field label="Matricule" value={form.matricule} onChange={v => set('matricule', v)} placeholder="MAT-001" required />
-              <Field label="Nom Complet" value={form.full_name} onChange={v => set('full_name', v)} placeholder="Prénom Nom" required />
-              <Field label="CIN" value={form.cin ?? ''} onChange={v => set('cin', v)} placeholder="AB123456" />
-              <Field label="CNSS" value={form.cnss ?? ''} onChange={v => set('cnss', v)} placeholder="Numéro CNSS" />
+              <Field label={tx(lang, { fr: 'Matricule', ar: 'الرقم المهني', en: 'Registration No.', es: 'Matrícula', pt: 'Matrícula', tr: 'Kayıt No' })} value={form.matricule} onChange={v => set('matricule', v)} placeholder="MAT-001" required />
+              <Field label={tx(lang, { fr: 'Nom Complet', ar: 'الاسم الكامل', en: 'Full Name', es: 'Nombre Completo', pt: 'Nome Completo', tr: 'Tam Ad' })} value={form.full_name} onChange={v => set('full_name', v)} placeholder="Prénom Nom" required />
+              <Field label={tx(lang, { fr: 'CIN', ar: 'رقم البطاقة الوطنية', en: 'ID No.', es: 'Cédula', pt: 'CIN', tr: 'Kimlik No' })} value={form.cin ?? ''} onChange={v => set('cin', v)} placeholder="AB123456" />
+              <Field label={tx(lang, { fr: 'CNSS', ar: 'رقم CNSS', en: 'CNSS No.', es: 'CNSS', pt: 'CNSS', tr: 'CNSS No' })} value={form.cnss ?? ''} onChange={v => set('cnss', v)} placeholder={tx(lang, { fr: 'Numéro CNSS', ar: 'رقم CNSS', en: 'CNSS Number', es: 'Número CNSS', pt: 'Número CNSS', tr: 'CNSS Numarası' })} />
               {form.id && (
                 <div style={{ gridColumn: '1/-1' }}>
-                  <label style={labelStyle}>Person ID (plateforme)</label>
-                  <div style={{ ...inputStyle, background: '#F8FAFC', color: '#475569', fontSize: 12 }} title="Identifiant stable Section 23">
-                    {form.person_id || '—'}
+                  <label style={labelStyle}>{tx(lang, { fr: 'Person ID (plateforme)', ar: 'معرف الشخص (المنصة)', en: 'Person ID (platform)', es: 'ID Persona (plataforma)', pt: 'ID Pessoa (plataforma)', tr: 'Kişi ID (platform)' })}</label>
+                  <div style={{ ...inputStyle, background: '#F8FAFC', color: '#475569', fontSize: 12 }} title={tx(lang, { fr: 'Identifiant stable Section 23', ar: 'معرف ثابت القسم 23', en: 'Stable ID Section 23', es: 'ID estable Sección 23', pt: 'ID estável Seção 23', tr: 'Kararlı ID Bölüm 23' })}>
+                    {form.person_id || tx(lang, { fr: '—', ar: '—', en: '—', es: '—', pt: '—', tr: '—' })}
                   </div>
+                </div>
+              )}
+              <div style={{ gridColumn: '1/-1' }}>
+                <Field
+                  label={tx(lang, { fr: 'Rattacher à un person_id existant (optionnel)', ar: 'ربط بمعرف شخص موجود (اختياري)', en: 'Attach to existing person_id (optional)', es: 'Vincular a person_id existente (opcional)', pt: 'Vincular a person_id existente (opcional)', tr: 'Mevcut person_id\'ye bağla (isteğe bağlı)' })}
+                  value={form.link_person_id ?? ''}
+                  onChange={v => set('link_person_id', v)}
+                  placeholder="per-xxxxxxxx (fusion volontaire)"
+                />
+                <div style={{ fontSize: 11, color: '#94A3B8', marginTop: 4 }}>{tx(lang, { fr: 'Laisser vide pour créer / garder le lien automatique. Ne remplir qu\'en cas de fusion RH explicite.', ar: 'اتركه فارغاً لإنشاء / الاحتفاظ بالارتباط التلقائي. املأ فقط في حالة الدمج الصريح للموارد البشرية.', en: 'Leave empty to create / keep automatic link. Only fill in case of explicit HR merge.', es: 'Dejar vacío para crear / mantener enlace automático. Rellenar solo en caso de fusión RH explícita.', pt: 'Deixar vazio para criar / manter link automático. Preencher apenas em caso de fusão RH explícita.', tr: 'Otomatik bağlantı oluşturmak/korumak için boş bırakın. Yalnızca açık İK birleştirme durumunda doldurun.' })}</div>
+              </div>
+              {form.id && (
+                <div style={{ gridColumn: '1/-1', borderTop: '1px solid #E2E8F0', paddingTop: 16, marginTop: 4 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                    <Key size={16} color="#2149C1" />
+                    <span style={{ fontWeight: 700, fontSize: 13, color: '#0F172A' }}>PIN BERAOUVIER (CIN + PIN)</span>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                    <Field label={tx(lang, { fr: 'Nouveau PIN', ar: 'PIN جديد', en: 'New PIN', es: 'Nuevo PIN', pt: 'Novo PIN', tr: 'Yeni PIN' })} value={pin1} onChange={setPin1} type="password" placeholder={tx(lang, { fr: '4–8 chiffres', ar: '4–8 أرقام', en: '4–8 digits', es: '4–8 dígitos', pt: '4–8 dígitos', tr: '4–8 hane' })} />
+                    <Field label={tx(lang, { fr: 'Confirmer PIN', ar: 'تأكيد PIN', en: 'Confirm PIN', es: 'Confirmar PIN', pt: 'Confirmar PIN', tr: 'PIN\'i Onayla' })} value={pin2} onChange={setPin2} type="password" placeholder={tx(lang, { fr: 'répéter', ar: 'أعد الإدخال', en: 'repeat', es: 'repetir', pt: 'repetir', tr: 'tekrarla' })} />
+                  </div>
+                  <button type="button" onClick={handleSetPin} disabled={pinBusy} style={{ ...btnSecondary, marginTop: 10 }}>
+                    {pinBusy ? tx(lang, { fr: '…', ar: '…', en: '…', es: '…', pt: '…', tr: '…' }) : tx(lang, { fr: 'Enregistrer le PIN', ar: 'حفظ PIN', en: 'Save PIN', es: 'Guardar PIN', pt: 'Salvar PIN', tr: 'PIN\'i Kaydet' })}
+                  </button>
+                </div>
+              )}
+              <Field label={tx(lang, { fr: 'Téléphone', ar: 'الهاتف', en: 'Phone', es: 'Teléfono', pt: 'Telefone', tr: 'Telefon' })} value={form.phone ?? ''} onChange={v => set('phone', v)} placeholder="06 XX XX XX" />
+              <Field label={tx(lang, { fr: 'Date Naissance', ar: 'تاريخ الميلاد', en: 'Date of Birth', es: 'Fecha de Nacimiento', pt: 'Data de Nascimento', tr: 'Doğum Tarihi' })} value={form.date_naissance ?? ''} onChange={v => set('date_naissance', v)} type="date" />
+              <div>
+                <label style={labelStyle}>{tx(lang, { fr: 'Sexe', ar: 'الجنس', en: 'Sex', es: 'Sexo', pt: 'Sexo', tr: 'Cinsiyet' })}</label>
+                <select value={form.sexe ?? 'M'} onChange={e => set('sexe', e.target.value)} style={inputStyle}>
+                  <option value="M">{tx(lang, { fr: 'Homme', ar: 'ذكر', en: 'Male', es: 'Hombre', pt: 'Homem', tr: 'Erkek' })}</option>
+                  <option value="F">{tx(lang, { fr: 'Femme', ar: 'أنثى', en: 'Female', es: 'Mujer', pt: 'Mulher', tr: 'Kadın' })}</option>
+                </select>
+              </div>
+              <div style={{ gridColumn: '1/-1' }}>
+                <Field label={tx(lang, { fr: 'Adresse', ar: 'العنوان', en: 'Address', es: 'Dirección', pt: 'Endereço', tr: 'Adres' })} value={form.adresse ?? ''} onChange={v => set('adresse', v)} placeholder={tx(lang, { fr: 'Adresse complète', ar: 'العنوان الكامل', en: 'Full address', es: 'Dirección completa', pt: 'Endereço completo', tr: 'Tam adres' })} />
+              </div>
                 </div>
               )}
               <div style={{ gridColumn: '1/-1' }}>
@@ -370,36 +426,36 @@ function WorkerModal({ worker, onClose, onSave, transportLignes }: { worker: Par
           {subTab === 'emploi' && (
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
               <div>
-                <label style={labelStyle}>Rôle</label>
+                <label style={labelStyle}>{tx(lang, { fr: 'Rôle', ar: 'الدور', en: 'Role', es: 'Rol', pt: 'Função', tr: 'Rol' })}</label>
                 <select value={form.role ?? 'OPERATOR'} onChange={e => set('role', e.target.value as HRWorkerRole)} style={inputStyle}>
-                  {ROLES.map(r => <option key={r} value={r}>{ROLE_LABELS[r]}</option>)}
+                  {ROLES.map(r => <option key={r} value={r}>{tx(lang, ROLE_LABELS[r])}</option>)}
                 </select>
               </div>
-              <Field label="Chaîne" value={form.chaine_id ?? ''} onChange={v => set('chaine_id', v)} placeholder="ex: CHAINE 1" />
-              <Field label="Parda / Équipe" value={form.equipe ?? ''} onChange={v => set('equipe', v)} placeholder="ex: Équipe A / Équipe B" />
-              <Field label="Poste" value={form.poste ?? ''} onChange={v => set('poste', v)} placeholder="ex: Piqueur" />
-              <Field label="Spécialité" value={form.specialite ?? ''} onChange={v => set('specialite', v)} placeholder="ex: Jupe" />
-              <Field label="Date Embauche" value={form.date_embauche ?? ''} onChange={v => set('date_embauche', v)} type="date" required />
+              <Field label={tx(lang, { fr: 'Chaîne', ar: 'الخط', en: 'Line', es: 'Línea', pt: 'Linha', tr: 'Hat' })} value={form.chaine_id ?? ''} onChange={v => set('chaine_id', v)} placeholder="ex: CHAINE 1" />
+              <Field label={tx(lang, { fr: 'Parda / Équipe', ar: 'الوردية / الفريق', en: 'Shift / Team', es: 'Turno / Equipo', pt: 'Turno / Equipe', tr: 'Vardiya / Takım' })} value={form.equipe ?? ''} onChange={v => set('equipe', v)} placeholder={tx(lang, { fr: 'ex: Équipe A / Équipe B', ar: 'مثال: الفريق أ / الفريق ب', en: 'ex: Team A / Team B', es: 'ej: Equipo A / Equipo B', pt: 'ex: Equipe A / Equipe B', tr: 'ör: Takım A / Takım B' })} />
+              <Field label={tx(lang, { fr: 'Poste', ar: 'المنصب', en: 'Position', es: 'Puesto', pt: 'Posto', tr: 'Pozisyon' })} value={form.poste ?? ''} onChange={v => set('poste', v)} placeholder={tx(lang, { fr: 'ex: Piqueur', ar: 'مثال: خياط', en: 'ex: Sewer', es: 'ej: Costurero', pt: 'ex: Costureiro', tr: 'ör: Dikişçi' })} />
+              <Field label={tx(lang, { fr: 'Spécialité', ar: 'التخصص', en: 'Specialty', es: 'Especialidad', pt: 'Especialidade', tr: 'Uzmanlık' })} value={form.specialite ?? ''} onChange={v => set('specialite', v)} placeholder={tx(lang, { fr: 'ex: Jupe', ar: 'مثال: تنورة', en: 'ex: Skirt', es: 'ej: Falda', pt: 'ex: Saia', tr: 'ör: Etek' })} />
+              <Field label={tx(lang, { fr: 'Date Embauche', ar: 'تاريخ التوظيف', en: 'Hire Date', es: 'Fecha de Contratación', pt: 'Data de Contratação', tr: 'İşe Giriş Tarihi' })} value={form.date_embauche ?? ''} onChange={v => set('date_embauche', v)} type="date" required />
               <div>
-                <label style={labelStyle}>Type Contrat</label>
+                <label style={labelStyle}>{tx(lang, { fr: 'Type Contrat', ar: 'نوع العقد', en: 'Contract Type', es: 'Tipo de Contrato', pt: 'Tipo de Contrato', tr: 'Sözleşme Türü' })}</label>
                 <select value={form.type_contrat ?? 'CDI'} onChange={e => set('type_contrat', e.target.value as HRContractType)} style={inputStyle}>
                   {(['CDI','CDD','ANAPEC','STAGE'] as HRContractType[]).map(t => <option key={t} value={t}>{t}</option>)}
                 </select>
               </div>
               {form.type_contrat !== 'CDI' && (
-                <Field label="Date Fin Contrat" value={form.date_fin_contrat ?? ''} onChange={v => set('date_fin_contrat', v)} type="date" />
+                <Field label={tx(lang, { fr: 'Date Fin Contrat', ar: 'تاريخ نهاية العقد', en: 'Contract End Date', es: 'Fecha de Fin de Contrato', pt: 'Data de Fim do Contrato', tr: 'Sözleşme Bitiş Tarihi' })} value={form.date_fin_contrat ?? ''} onChange={v => set('date_fin_contrat', v)} type="date" />
               )}
               <div>
-                <label style={labelStyle}>Statut</label>
+                <label style={labelStyle}>{tx(lang, { fr: 'Statut', ar: 'الحالة', en: 'Status', es: 'Estado', pt: 'Status', tr: 'Durum' })}</label>
                 <select value={form.is_active ? '1' : '0'} onChange={e => set('is_active', e.target.value === '1')} style={inputStyle}>
-                  <option value="1">Actif</option>
-                  <option value="0">Inactif</option>
+                  <option value="1">{tx(lang, { fr: 'Actif', ar: 'نشط', en: 'Active', es: 'Activo', pt: 'Ativo', tr: 'Aktif' })}</option>
+                  <option value="0">{tx(lang, { fr: 'Inactif', ar: 'غير نشط', en: 'Inactive', es: 'Inactivo', pt: 'Inativo', tr: 'Pasif' })}</option>
                 </select>
               </div>
               <div>
-                <label style={labelStyle}>Ligne de Transport</label>
+                <label style={labelStyle}>{tx(lang, { fr: 'Ligne de Transport', ar: 'خط النقل', en: 'Transport Line', es: 'Línea de Transporte', pt: 'Linha de Transporte', tr: 'Ulaşım Hattı' })}</label>
                 <select value={form.transport_ligne_id ?? ''} onChange={e => set('transport_ligne_id', e.target.value || null)} style={inputStyle}>
-                  <option value="">-- Sans Transport --</option>
+                  <option value="">{tx(lang, { fr: '-- Sans Transport --', ar: '-- بدون نقل --', en: '-- No Transport --', es: '-- Sin Transporte --', pt: '-- Sem Transporte --', tr: '-- Ulaşım Yok --' })}</option>
                   {transportLignes.map(l => (
                     <option key={l.id} value={l.id}>{l.nom} {l.chauffeur_nom ? `(${l.chauffeur_nom})` : ''}</option>
                   ))}
@@ -411,19 +467,19 @@ function WorkerModal({ worker, onClose, onSave, transportLignes }: { worker: Par
           {subTab === 'financier' && (
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
               <div style={{ gridColumn: '1/-1', background: '#F0F9FF', borderRadius: 10, padding: '10px 14px', fontSize: 12, color: '#0369A1' }}>
-                ℹ️ Ces données sont confidentielles — non exposées aux ouvriers via BERAOUVIER
+                {tx(lang, { fr: 'ℹ️ Ces données sont confidentielles — non exposées aux ouvriers via BERAOUVIER', ar: 'ℹ️ هذه البيانات سرية — لا يطلع عليها العمال عبر BERAOUVIER', en: 'ℹ️ This data is confidential — not exposed to workers via BERAOUVIER', es: 'ℹ️ Estos datos son confidenciales — no expuestos a los trabajadores via BERAOUVIER', pt: 'ℹ️ Estes dados são confidenciais — não expostos aos trabalhadores via BERAOUVIER', tr: 'ℹ️ Bu veriler gizlidir — BERAOUVIER üzerinden işçilere gösterilmez' })}
               </div>
-              <Field label="Salaire Base (MAD)" value={form.salaire_base ?? 0} onChange={v => set('salaire_base', parseFloat(v) || 0)} type="number" />
-              <Field label="Taux Horaire (MAD/h)" value={form.taux_horaire ?? 0} onChange={v => set('taux_horaire', parseFloat(v) || 0)} type="number" />
-              <Field label="Taux Pièce (MAD)" value={form.taux_piece ?? 0} onChange={v => set('taux_piece', parseFloat(v) || 0)} type="number" />
-              <Field label="Prime Assiduité (MAD)" value={form.prime_assiduite ?? 0} onChange={v => set('prime_assiduite', parseFloat(v) || 0)} type="number" />
-              <Field label="Prime Transport (MAD)" value={form.prime_transport ?? 0} onChange={v => set('prime_transport', parseFloat(v) || 0)} type="number" />
+              <Field label={tx(lang, { fr: 'Salaire Base (MAD)', ar: 'Salaire Base (MAD)', en: 'Salaire Base (MAD)', es: 'Salaire Base (MAD)', pt: 'Salaire Base (MAD)', tr: 'Salaire Base (MAD)' })} value={form.salaire_base ?? 0} onChange={v => set('salaire_base', parseFloat(v) || 0)} type="number" />
+              <Field label={tx(lang, { fr: 'Taux Horaire (MAD/h)', ar: 'Taux Horaire (MAD/h)', en: 'Taux Horaire (MAD/h)', es: 'Taux Horaire (MAD/h)', pt: 'Taux Horaire (MAD/h)', tr: 'Taux Horaire (MAD/h)' })} value={form.taux_horaire ?? 0} onChange={v => set('taux_horaire', parseFloat(v) || 0)} type="number" />
+              <Field label={tx(lang, { fr: 'Taux Pièce (MAD)', ar: 'Taux Pièce (MAD)', en: 'Taux Pièce (MAD)', es: 'Taux Pièce (MAD)', pt: 'Taux Pièce (MAD)', tr: 'Taux Pièce (MAD)' })} value={form.taux_piece ?? 0} onChange={v => set('taux_piece', parseFloat(v) || 0)} type="number" />
+              <Field label={tx(lang, { fr: 'Prime Assiduité (MAD)', ar: 'Prime Assiduité (MAD)', en: 'Prime Assiduité (MAD)', es: 'Prime Assiduité (MAD)', pt: 'Prime Assiduité (MAD)', tr: 'Prime Assiduité (MAD)' })} value={form.prime_assiduite ?? 0} onChange={v => set('prime_assiduite', parseFloat(v) || 0)} type="number" />
+              <Field label={tx(lang, { fr: 'Prime Transport (MAD)', ar: 'Prime Transport (MAD)', en: 'Prime Transport (MAD)', es: 'Prime Transport (MAD)', pt: 'Prime Transport (MAD)', tr: 'Prime Transport (MAD)' })} value={form.prime_transport ?? 0} onChange={v => set('prime_transport', parseFloat(v) || 0)} type="number" />
               <div>
-                <label style={labelStyle}>Mode Paiement</label>
+                <label style={labelStyle}>{tx(lang, { fr: 'Mode Paiement', ar: 'طريقة الدفع', en: 'Payment Method', es: 'Método de Pago', pt: 'Método de Pagamento', tr: 'Ödeme Yöntemi' })}</label>
                 <select value={form.mode_paiement ?? 'VIREMENT'} onChange={e => set('mode_paiement', e.target.value)} style={inputStyle}>
-                  <option value="VIREMENT">Virement bancaire</option>
-                  <option value="ESPECES">Espèces</option>
-                  <option value="CHEQUE">Chèque</option>
+                  <option value="VIREMENT">{tx(lang, { fr: 'Virement bancaire', ar: 'تحويل بنكي', en: 'Bank Transfer', es: 'Transferencia bancaria', pt: 'Transferência bancária', tr: 'Banka Havalesi' })}</option>
+                  <option value="ESPECES">{tx(lang, { fr: 'Espèces', ar: 'نقداً', en: 'Cash', es: 'Efectivo', pt: 'Dinheiro', tr: 'Nakit' })}</option>
+                  <option value="CHEQUE">{tx(lang, { fr: 'Chèque', ar: 'شيك', en: 'Cheque', es: 'Cheque', pt: 'Cheque', tr: 'Çek' })}</option>
                 </select>
               </div>
             </div>
@@ -431,19 +487,26 @@ function WorkerModal({ worker, onClose, onSave, transportLignes }: { worker: Par
 
           {subTab === 'urgence' && (
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-              <Field label="Nom Contact Urgence" value={form.contact_urgence_nom ?? ''} onChange={v => set('contact_urgence_nom', v)} placeholder="Nom complet" />
-              <Field label="Tél Contact Urgence" value={form.contact_urgence_tel ?? ''} onChange={v => set('contact_urgence_tel', v)} placeholder="06 XX XX XX" />
+              <Field label={tx(lang, { fr: 'Nom Contact Urgence', ar: 'اسم جهة الاتصال في الطوارئ', en: 'Emergency Contact Name', es: 'Nombre Contacto Emergencia', pt: 'Nome Contato Emergência', tr: 'Acil Durum İletişim Adı' })} value={form.contact_urgence_nom ?? ''} onChange={v => set('contact_urgence_nom', v)} placeholder={tx(lang, { fr: 'Nom complet', ar: 'الاسم الكامل', en: 'Full name', es: 'Nombre completo', pt: 'Nome completo', tr: 'Tam ad' })} />
+              <Field label={tx(lang, { fr: 'Tél Contact Urgence', ar: 'هاتف جهة الاتصال في الطوارئ', en: 'Emergency Contact Phone', es: 'Teléfono Contacto Emergencia', pt: 'Telefone Contato Emergência', tr: 'Acil İletişim Telefonu' })} value={form.contact_urgence_tel ?? ''} onChange={v => set('contact_urgence_tel', v)} placeholder="06 XX XX XX" />
               <div>
-                <label style={labelStyle}>Lien de parenté</label>
+                <label style={labelStyle}>{tx(lang, { fr: 'Lien de parenté', ar: 'صلة القرابة', en: 'Relationship', es: 'Parentesco', pt: 'Parentesco', tr: 'Yakınlık Derecesi' })}</label>
                 <select value={form.contact_urgence_lien ?? ''} onChange={e => set('contact_urgence_lien', e.target.value)} style={inputStyle}>
-                  <option value="">-- Sélectionner --</option>
-                  {['Père','Mère','Conjoint(e)','Frère','Sœur','Autre'].map(l => <option key={l} value={l}>{l}</option>)}
+                  <option value="">{tx(lang, { fr: '-- Sélectionner --', ar: '-- اختر --', en: '-- Select --', es: '-- Seleccionar --', pt: '-- Selecionar --', tr: '-- Seç --' })}</option>
+                  {[
+                    { fr: 'Père', ar: 'أب', en: 'Father', es: 'Padre', pt: 'Pai', tr: 'Baba' },
+                    { fr: 'Mère', ar: 'أم', en: 'Mother', es: 'Madre', pt: 'Mãe', tr: 'Anne' },
+                    { fr: 'Conjoint(e)', ar: 'زوج/زوجة', en: 'Spouse', es: 'Cónyuge', pt: 'Cônjuge', tr: 'Eş' },
+                    { fr: 'Frère', ar: 'أخ', en: 'Brother', es: 'Hermano', pt: 'Irmão', tr: 'Erkek Kardeş' },
+                    { fr: 'Sœur', ar: 'أخت', en: 'Sister', es: 'Hermana', pt: 'Irmã', tr: 'Kız Kardeş' },
+                    { fr: 'Autre', ar: 'آخر', en: 'Other', es: 'Otro', pt: 'Outro', tr: 'Diğer' },
+                  ].map(l => <option key={l.fr} value={l.fr}>{tx(lang, l)}</option>)}
                 </select>
               </div>
               <div style={{ gridColumn: '1/-1' }}>
-                <label style={labelStyle}>Notes</label>
+                <label style={labelStyle}>{tx(lang, { fr: 'Notes', ar: 'ملاحظات', en: 'Notes', es: 'Notas', pt: 'Notas', tr: 'Notlar' })}</label>
                 <textarea value={form.notes ?? ''} onChange={e => set('notes', e.target.value)} rows={4}
-                  style={{ ...inputStyle, resize: 'vertical' }} placeholder="Notes libres..." />
+                  style={{ ...inputStyle, resize: 'vertical' }} placeholder={tx(lang, { fr: 'Notes libres...', ar: 'ملاحظات...', en: 'Free notes...', es: 'Notas libres...', pt: 'Notas livres...', tr: 'Serbest notlar...' })} />
               </div>
             </div>
           )}
@@ -451,9 +514,9 @@ function WorkerModal({ worker, onClose, onSave, transportLignes }: { worker: Par
 
         {/* Footer */}
         <div style={{ padding: '16px 24px', borderTop: '1px solid #E2E8F0', display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
-          <button onClick={onClose} style={btnSecondary}>Annuler</button>
+          <button onClick={onClose} style={btnSecondary}>{tx(lang, { fr: 'Annuler', ar: 'إلغاء', en: 'Cancel', es: 'Cancelar', pt: 'Cancelar', tr: 'İptal' })}</button>
           <button onClick={handleSave} disabled={saving} style={btnPrimary}>
-            {saving ? 'Enregistrement...' : <><Save size={14} style={{ marginRight: 6 }} />Enregistrer</>}
+            {saving ? tx(lang, { fr: 'Enregistrement...', ar: 'جارٍ الحفظ...', en: 'Saving...', es: 'Guardando...', pt: 'Salvando...', tr: 'Kaydediliyor...' }) : <><Save size={14} style={{ marginRight: 6 }} />{tx(lang, { fr: 'Enregistrer', ar: 'حفظ', en: 'Save', es: 'Guardar', pt: 'Salvar', tr: 'Kaydet' })}</>}
           </button>
         </div>
       </motion.div>
@@ -473,6 +536,7 @@ interface StatsTabProps {
 }
 
 function StatistiquesTab({ workers, pointages, suivis, planningEvents, selectedDate, setSelectedDate, onRefresh }: StatsTabProps) {
+  const { lang } = useLang();
   const [selectedChainDetail, setSelectedChainDetail] = useState<string | null>(null);
   const chaineCount = useMemo(() => {
     const ids = new Set<string>();
@@ -561,14 +625,14 @@ function StatistiquesTab({ workers, pointages, suivis, planningEvents, selectedD
           <input type="date" value={selectedDate} onChange={e => setSelectedDate(e.target.value)}
             style={{ ...inputStyle, width: 160 }} />
         </div>
-        <button onClick={onRefresh} style={btnSecondary}><RefreshCw size={14} style={{ marginRight: 6 }} />Actualiser</button>
+        <button onClick={onRefresh} style={btnSecondary}><RefreshCw size={14} style={{ marginRight: 6 }} />{tx(lang, { fr: 'Actualiser', ar: 'تحديث', en: 'Refresh', es: 'Actualizar', pt: 'Atualizar', tr: 'Yenile' })}</button>
 
         {/* Global KPIs */}
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 12 }}>
           {[
-            { label: 'Total Effectif', val: workers.length, bg: '#EFF6FF', color: '#1D4ED8' },
-            { label: 'Présents', val: totalPresents, bg: '#ECFDF5', color: '#065F46' },
-            { label: 'Absents', val: totalAbsents, bg: '#FEF2F2', color: '#991B1B' },
+            { label: tx(lang, { fr: 'Total Effectif', ar: 'إجمالي العمال', en: 'Total Staff', es: 'Total Efectivo', pt: 'Total Efetivo', tr: 'Toplam Personel' }), val: workers.length, bg: '#EFF6FF', color: '#1D4ED8' },
+            { label: tx(lang, { fr: 'Présents', ar: 'حاضرون', en: 'Present', es: 'Presentes', pt: 'Presentes', tr: 'Mevcut' }), val: totalPresents, bg: '#ECFDF5', color: '#065F46' },
+            { label: tx(lang, { fr: 'Absents', ar: 'غائبون', en: 'Absent', es: 'Ausentes', pt: 'Ausentes', tr: 'Yok' }), val: totalAbsents, bg: '#FEF2F2', color: '#991B1B' },
           ].map(k => (
             <div key={k.label} style={{ padding: '8px 16px', borderRadius: 10, background: k.bg, textAlign: 'center' }}>
               <div style={{ fontSize: 20, fontWeight: 800, color: k.color }}>{k.val}</div>
@@ -614,7 +678,7 @@ function StatistiquesTab({ workers, pointages, suivis, planningEvents, selectedD
                     <div style={{ fontWeight: 800, fontSize: 14, color: '#0F172A' }}>{ch.chaineId}</div>
                     {ch.activePlan && (
                       <div style={{ fontSize: 10, color: '#6366F1', fontWeight: 600, maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        ▶ {ch.activePlan.modelName || 'Modèle en cours'}
+                        ▶ {ch.activePlan.modelName || tx(lang, { fr: 'Modèle en cours', ar: 'النموذج الحالي', en: 'Current model', es: 'Modelo en curso', pt: 'Modelo em andamento', tr: 'Mevcut model' })}
                       </div>
                     )}
                   </div>
@@ -623,7 +687,7 @@ function StatistiquesTab({ workers, pointages, suivis, planningEvents, selectedD
                   <div style={{ fontSize: 18, fontWeight: 800, color: presencePct >= 80 ? '#065F46' : presencePct >= 60 ? '#92400E' : '#991B1B' }}>
                     {presencePct}%
                   </div>
-                  <div style={{ fontSize: 10, color: '#94A3B8' }}>Présence</div>
+                  <div style={{ fontSize: 10, color: '#94A3B8' }}>{tx(lang, { fr: 'Présence', ar: 'الحضور', en: 'Attendance', es: 'Asistencia', pt: 'Presença', tr: 'Devam' })}</div>
                 </div>
               </div>
 
@@ -635,10 +699,10 @@ function StatistiquesTab({ workers, pointages, suivis, planningEvents, selectedD
               {/* Counts row */}
               <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
                 {[
-                  { label: 'Total', val: ch.total, bg: '#F8FAFC', color: '#374151' },
-                  { label: 'Présents', val: ch.presents, bg: '#ECFDF5', color: '#065F46' },
-                  { label: 'Absents', val: ch.absents, bg: '#FEF2F2', color: '#991B1B' },
-                  ...(ch.todayProduced > 0 ? [{ label: 'Pcs/jour', val: ch.todayProduced, bg: '#EEF2FF', color: '#4F46E5' }] : []),
+                  { label: tx(lang, { fr: 'Total', ar: 'المجموع', en: 'Total', es: 'Total', pt: 'Total', tr: 'Toplam' }), val: ch.total, bg: '#F8FAFC', color: '#374151' },
+                  { label: tx(lang, { fr: 'Présents', ar: 'حاضرون', en: 'Present', es: 'Presentes', pt: 'Presentes', tr: 'Mevcut' }), val: ch.presents, bg: '#ECFDF5', color: '#065F46' },
+                  { label: tx(lang, { fr: 'Absents', ar: 'غائبون', en: 'Absent', es: 'Ausentes', pt: 'Ausentes', tr: 'Yok' }), val: ch.absents, bg: '#FEF2F2', color: '#991B1B' },
+                  ...(ch.todayProduced > 0 ? [{ label: tx(lang, { fr: 'Pcs/jour', ar: 'قطعة/يوم', en: 'Pcs/day', es: 'Pzs/día', pt: 'Peças/dia', tr: 'Adet/gün' }), val: ch.todayProduced, bg: '#EEF2FF', color: '#4F46E5' }] : []),
                 ].map(k => (
                   <div key={k.label} style={{ flex: 1, padding: '6px 8px', borderRadius: 8, background: k.bg, textAlign: 'center' }}>
                     <div style={{ fontSize: 15, fontWeight: 800, color: k.color }}>{k.val}</div>
@@ -651,7 +715,7 @@ function StatistiquesTab({ workers, pointages, suivis, planningEvents, selectedD
               <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                 {ch.postBreakdown.filter(p => p.total > 0).map(p => (
                   <div key={p.key} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <div style={{ fontSize: 11, color: '#64748B', flex: 1, fontWeight: 500 }}>{p.label}</div>
+                    <div style={{ fontSize: 11, color: '#64748B', flex: 1, fontWeight: 500 }}>{tx(lang, p.label)}</div>
                     <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
                       <span style={{ fontSize: 11, fontWeight: 700, color: '#065F46', background: '#ECFDF5', padding: '1px 6px', borderRadius: 10 }}>{p.presents}✓</span>
                       <span style={{ fontSize: 11, fontWeight: 600, color: '#64748B' }}>/{p.total}</span>
@@ -659,7 +723,7 @@ function StatistiquesTab({ workers, pointages, suivis, planningEvents, selectedD
                   </div>
                 ))}
                 {ch.postBreakdown.every(p => p.total === 0) && (
-                  <div style={{ fontSize: 11, color: '#CBD5E1', fontStyle: 'italic' }}>Postes non définis</div>
+                  <div style={{ fontSize: 11, color: '#CBD5E1', fontStyle: 'italic' }}>{tx(lang, { fr: 'Postes non définis', ar: 'مناصب غير محددة', en: 'Undefined positions', es: 'Puestos no definidos', pt: 'Cargos não definidos', tr: 'Tanımlanmamış pozisyonlar' })}</div>
                 )}
               </div>
             </div>
@@ -676,8 +740,8 @@ function StatistiquesTab({ workers, pointages, suivis, planningEvents, selectedD
               <span style={{ fontSize: 18 }}>📦</span>
             </div>
             <div>
-              <div style={{ fontWeight: 800, fontSize: 14, color: '#0F172A' }}>Emballage</div>
-              <div style={{ fontSize: 11, color: '#94A3B8' }}>{emballagePresents.length}/{emballageWorkers.length} présents</div>
+              <div style={{ fontWeight: 800, fontSize: 14, color: '#0F172A' }}>{tx(lang, { fr: 'Emballage', ar: 'التعبئة', en: 'Packing', es: 'Embalaje', pt: 'Embalagem', tr: 'Paketleme' })}</div>
+              <div style={{ fontSize: 11, color: '#94A3B8' }}>{tx(lang, { fr: `${emballagePresents.length}/${emballageWorkers.length} présents`, ar: `${emballagePresents.length}/${emballageWorkers.length} حاضر`, en: `${emballagePresents.length}/${emballageWorkers.length} present`, es: `${emballagePresents.length}/${emballageWorkers.length} presentes`, pt: `${emballagePresents.length}/${emballageWorkers.length} presentes`, tr: `${emballagePresents.length}/${emballageWorkers.length} mevcut` })}</div>
             </div>
           </div>
           {emballageWorkers.length > 0 ? (
@@ -688,13 +752,13 @@ function StatistiquesTab({ workers, pointages, suivis, planningEvents, selectedD
                 return (
                   <div key={w.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 10px', background: '#F8FAFC', borderRadius: 8 }}>
                     <span style={{ fontSize: 12, fontWeight: 600, color: '#374151' }}>{w.full_name}</span>
-                    <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 10, background: sc.bg, color: sc.color }}>{sc.label}</span>
+                    <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 10, background: sc.bg, color: sc.color }}>{tx(lang, sc.label)}</span>
                   </div>
                 );
               })}
             </div>
           ) : (
-            <div style={{ textAlign: 'center', padding: 20, color: '#CBD5E1', fontSize: 12 }}>Aucun ouvrier emballage</div>
+            <div style={{ textAlign: 'center', padding: 20, color: '#CBD5E1', fontSize: 12 }}>{tx(lang, { fr: 'Aucun ouvrier emballage', ar: 'لا يوجد عامل تعبئة', en: 'No packing worker', es: 'Ningún operario de embalaje', pt: 'Nenhum operário de embalagem', tr: 'Paketleme işçisi yok' })}</div>
           )}
         </div>
 
@@ -705,8 +769,8 @@ function StatistiquesTab({ workers, pointages, suivis, planningEvents, selectedD
               <span style={{ fontSize: 18 }}>🏢</span>
             </div>
             <div>
-              <div style={{ fontWeight: 800, fontSize: 14, color: '#0F172A' }}>Administration</div>
-              <div style={{ fontSize: 11, color: '#94A3B8' }}>{adminPresents.length}/{adminWorkers.length} présents</div>
+              <div style={{ fontWeight: 800, fontSize: 14, color: '#0F172A' }}>{tx(lang, { fr: 'Administration', ar: 'الإدارة', en: 'Administration', es: 'Administración', pt: 'Administração', tr: 'Yönetim' })}</div>
+              <div style={{ fontSize: 11, color: '#94A3B8' }}>{tx(lang, { fr: `${adminPresents.length}/${adminWorkers.length} présents`, ar: `${adminPresents.length}/${adminWorkers.length} حاضر`, en: `${adminPresents.length}/${adminWorkers.length} present`, es: `${adminPresents.length}/${adminWorkers.length} presentes`, pt: `${adminPresents.length}/${adminWorkers.length} presentes`, tr: `${adminPresents.length}/${adminWorkers.length} mevcut` })}</div>
             </div>
           </div>
           {adminWorkers.length > 0 ? (
@@ -717,13 +781,13 @@ function StatistiquesTab({ workers, pointages, suivis, planningEvents, selectedD
                 return (
                   <div key={w.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 10px', background: '#F8FAFC', borderRadius: 8 }}>
                     <span style={{ fontSize: 12, fontWeight: 600, color: '#374151' }}>{w.full_name}</span>
-                    <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 10, background: sc.bg, color: sc.color }}>{sc.label}</span>
+                    <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 10, background: sc.bg, color: sc.color }}>{tx(lang, sc.label)}</span>
                   </div>
                 );
               })}
             </div>
           ) : (
-            <div style={{ textAlign: 'center', padding: 20, color: '#CBD5E1', fontSize: 12 }}>Aucun personnel admin</div>
+            <div style={{ textAlign: 'center', padding: 20, color: '#CBD5E1', fontSize: 12 }}>{tx(lang, { fr: 'Aucun personnel admin', ar: 'لا يوجد موظف إداري', en: 'No admin staff', es: 'Ningún personal admin', pt: 'Nenhum pessoal administrativo', tr: 'Yönetim personeli yok' })}</div>
           )}
         </div>
       </div>
@@ -761,7 +825,7 @@ function StatistiquesTab({ workers, pointages, suivis, planningEvents, selectedD
                         {selectedChainDetail}
                       </h3>
                       <div style={{ fontSize: 11, color: '#64748B', marginTop: 2 }}>
-                        {chainWorkers.length} ouvrier(s) affecté(s)
+                        {tx(lang, { fr: `${chainWorkers.length} ouvrier(s) affecté(s)`, ar: `${chainWorkers.length} عامل معين`, en: `${chainWorkers.length} worker(s) assigned`, es: `${chainWorkers.length} operario(s) asignado(s)`, pt: `${chainWorkers.length} operário(s) designado(s)`, tr: `${chainWorkers.length} işçi atandı` })}
                       </div>
                     </div>
                   </div>
@@ -798,7 +862,7 @@ function StatistiquesTab({ workers, pointages, suivis, planningEvents, selectedD
                                 <div style={{ width: 40, height: 40, borderRadius: '50%', background: w.photo ? 'transparent' : ROLE_COLORS[roleK] + '20', border: `2px solid ${ROLE_COLORS[roleK]}`, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                   {w.photo ? <img src={w.photo} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" /> : <span style={{ fontSize: 14, fontWeight: 800, color: ROLE_COLORS[roleK] }}>{(w.full_name || '?')[0]}</span>}
                                 </div>
-                                <div style={{ position: 'absolute', bottom: -1, right: -1, width: 10, height: 10, borderRadius: '50%', background: sc.color, border: '2px solid #fff' }} title={sc.label} />
+                                <div style={{ position: 'absolute', bottom: -1, right: -1, width: 10, height: 10, borderRadius: '50%', background: sc.color, border: '2px solid #fff' }} title={tx(lang, sc.label)} />
                               </div>
                               <div style={{ minWidth: 0 }}>
                                 <div style={{ fontWeight: 700, fontSize: 13, color: '#0F172A', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>{w.full_name}</div>
@@ -818,16 +882,16 @@ function StatistiquesTab({ workers, pointages, suivis, planningEvents, selectedD
                             <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
                               <div style={{ textAlign: 'right' }}>
                                 <div style={{ fontSize: 11, fontWeight: 700, color: '#475569' }}>
-                                  Parda: <span style={{ color: '#1E293B' }}>{w.equipe || '—'}</span>
+                                  {tx(lang, { fr: 'Parda:', ar: 'الوردية:', en: 'Shift:', es: 'Turno:', pt: 'Turno:', tr: 'Vardiya:' })} <span style={{ color: '#1E293B' }}>{w.equipe || tx(lang, { fr: '—', ar: '—', en: '—', es: '—', pt: '—', tr: '—' })}</span>
                                 </div>
                                 <div style={{ fontSize: 10, fontWeight: 600, padding: '2px 8px', borderRadius: 8, background: sc.bg, color: sc.color, marginTop: 4, display: 'inline-block' }}>
-                                  {sc.label}
+                                  {tx(lang, sc.label)}
                                 </div>
                               </div>
                               {w.phone ? (
                                 <a 
                                   href={`tel:${w.phone}`} 
-                                  title={`Appeler ${w.full_name}`}
+                                  title={tx(lang, { fr: `Appeler ${w.full_name}`, ar: `اتصال بـ ${w.full_name}`, en: `Call ${w.full_name}`, es: `Llamar a ${w.full_name}`, pt: `Ligar para ${w.full_name}`, tr: `${w.full_name} Ara` })}
                                   style={{ 
                                     width: 36, 
                                     height: 36, 
@@ -847,7 +911,7 @@ function StatistiquesTab({ workers, pointages, suivis, planningEvents, selectedD
                                   <Phone size={16} />
                                 </a>
                               ) : (
-                                <div style={{ width: 36, height: 36, borderRadius: '50%', background: '#F1F5F9', border: '1px solid #E2E8F0', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94A3B8' }} title="Aucun téléphone">
+                                <div style={{ width: 36, height: 36, borderRadius: '50%', background: '#F1F5F9', border: '1px solid #E2E8F0', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94A3B8' }} title={tx(lang, { fr: 'Aucun téléphone', ar: 'لا يوجد هاتف', en: 'No phone', es: 'Sin teléfono', pt: 'Sem telefone', tr: 'Telefon yok' })}>
                                   <Phone size={16} style={{ opacity: 0.5 }} />
                                 </div>
                               )}
@@ -859,7 +923,7 @@ function StatistiquesTab({ workers, pointages, suivis, planningEvents, selectedD
                   ) : (
                     <div style={{ textAlign: 'center', padding: '40px 20px', color: '#94A3B8' }}>
                       <Users size={40} style={{ opacity: 0.4, marginBottom: 8 }} />
-                      <div style={{ fontWeight: 600 }}>Aucun ouvrier affecté à cette chaîne</div>
+                      <div style={{ fontWeight: 600 }}>{tx(lang, { fr: 'Aucun ouvrier affecté à cette chaîne', ar: 'لا يوجد عامل معين لهذا الخط', en: 'No worker assigned to this line', es: 'Ningún operario asignado a esta línea', pt: 'Nenhum operário designado a esta linha', tr: 'Bu hatta atanmış işçi yok' })}</div>
                     </div>
                   )}
                 </div>
@@ -867,7 +931,7 @@ function StatistiquesTab({ workers, pointages, suivis, planningEvents, selectedD
                 {/* Footer */}
                 <div style={{ padding: '16px 24px', borderTop: '1px solid #E2E8F0', display: 'flex', justifyContent: 'flex-end', background: '#F8FAFC', borderBottomLeftRadius: 16, borderBottomRightRadius: 16 }}>
                   <button onClick={() => setSelectedChainDetail(null)} style={btnSecondary}>
-                    Fermer
+                    {tx(lang, { fr: 'Fermer', ar: 'إغلاق', en: 'Close', es: 'Cerrar', pt: 'Fechar', tr: 'Kapat' })}
                   </button>
                 </div>
               </motion.div>
@@ -887,6 +951,7 @@ function InvitationsTab({
   workers: HRWorker[];
   showToast: (msg: string, type?: 'ok' | 'err') => void;
 }) {
+  const { lang } = useLang();
   const [list, setList] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [personId, setPersonId] = useState('');
@@ -914,7 +979,7 @@ function InvitationsTab({
 
   const createInvite = async () => {
     if (!personId || !mat.trim() || !nom.trim()) {
-      showToast('person_id, matricule et nom requis', 'err');
+      showToast(tx(lang, { fr: 'person_id, matricule et nom requis', ar: 'person_id والرقم المهني والاسم مطلوب', en: 'person_id, registration no. and name required', es: 'person_id, matrícula y nombre requeridos', pt: 'person_id, matrícula e nome obrigatórios', tr: 'person_id, kayıt no ve ad gerekli' }), 'err');
       return;
     }
     const r = await API('/api/hr/invitations', {
@@ -929,13 +994,13 @@ function InvitationsTab({
     });
     const d = await r.json().catch(() => ({}));
     if (!r.ok) {
-      showToast((d as { message?: string }).message || 'Erreur création', 'err');
+      showToast((d as { message?: string }).message || tx(lang, { fr: 'Erreur création', ar: 'خطأ في الإنشاء', en: 'Creation error', es: 'Error de creación', pt: 'Erro de criação', tr: 'Oluşturma hatası' }), 'err');
       return;
     }
-    const emailNote = (d as { emailSent?: boolean }).emailSent ? ' E-mail envoyé.' : '';
-    showToast(`Invitation créée.${emailNote}`);
+    const emailNote = (d as { emailSent?: boolean }).emailSent ? tx(lang, { fr: ' E-mail envoyé.', ar: ' تم إرسال البريد الإلكتروني.', en: ' Email sent.', es: ' Correo enviado.', pt: ' Email enviado.', tr: ' E-posta gönderildi.' }) : '';
+    showToast(tx(lang, { fr: `Invitation créée.${emailNote}`, ar: `تم إنشاء الدعوة.${emailNote}`, en: `Invitation created.${emailNote}`, es: `Invitación creada.${emailNote}`, pt: `Convite criado.${emailNote}`, tr: `Davetiye oluşturuldu.${emailNote}` }));
     if ((d as { emailError?: string }).emailError === 'smtp_not_configured' && inviteEmail.trim()) {
-      showToast('SMTP non configuré (.env) — lien copiable ci-dessous.', 'err');
+      showToast(tx(lang, { fr: 'SMTP non configuré (.env) — lien copiable ci-dessous.', ar: 'SMTP غير مهيأ (.env) — الرابط قابل للنسخ أدناه.', en: 'SMTP not configured (.env) — link can be copied below.', es: 'SMTP no configurado (.env) — enlace copiable abajo.', pt: 'SMTP não configurado (.env) — link copiável abaixo.', tr: 'SMTP yapılandırılmamış (.env) — bağlantı aşağıda kopyalanabilir.' }), 'err');
     }
     setMat('');
     setNom('');
@@ -947,9 +1012,9 @@ function InvitationsTab({
   const copyText = async (t: string) => {
     try {
       await navigator.clipboard.writeText(t);
-      showToast('Copié dans le presse-papiers');
+      showToast(tx(lang, { fr: 'Copié dans le presse-papiers', ar: 'تم النسخ إلى الحافظة', en: 'Copied to clipboard', es: 'Copiado al portapapeles', pt: 'Copiado para a área de transferência', tr: 'Panoya kopyalandı' }));
     } catch {
-      showToast('Copie impossible', 'err');
+      showToast(tx(lang, { fr: 'Copie impossible', ar: 'تعذر النسخ', en: 'Copy failed', es: 'Copia imposible', pt: 'Cópia impossível', tr: 'Kopyalama başarısız' }), 'err');
     }
   };
 
@@ -957,19 +1022,19 @@ function InvitationsTab({
     <div>
       {withPerson.length === 0 && (
         <div style={{ marginBottom: 16, padding: 12, borderRadius: 10, background: '#FEF3C7', color: '#92400E', fontSize: 13 }}>
-          Aucun <strong>person_id</strong> encore : ouvrez chaque fiche depuis l’annuaire (ou enregistrez un ouvrier) pour générer les liens, puis revenez ici.
+          {tx(lang, { fr: 'Aucun <strong>person_id</strong> encore : ouvrez chaque fiche depuis l\'annuaire (ou enregistrez un ouvrier) pour générer les liens, puis revenez ici.', ar: 'لا يوجد <strong>person_id</strong> بعد: افتح كل ملف من الدليل (أو سجّل عاملاً) لإنشاء الروابط، ثم عد إلى هنا.', en: 'No <strong>person_id</strong> yet: open each record from the directory (or register a worker) to generate links, then come back here.', es: 'Aún no hay <strong>person_id</strong>: abra cada ficha desde el directorio (o registre un operario) para generar los enlaces, luego vuelva aquí.', pt: 'Nenhum <strong>person_id</strong> ainda: abra cada ficha do diretório (ou registre um operário) para gerar os links, depois volte aqui.', tr: 'Henüz <strong>person_id</strong> yok: bağlantıları oluşturmak için her kaydı rehberden açın (veya bir işçi kaydedin), ardından buraya geri dönün.' })}
         </div>
       )}
       <div style={{ background: '#fff', borderRadius: 14, padding: 20, border: '1px solid #E2E8F0', marginBottom: 20, maxWidth: 720 }}>
-        <h3 style={{ margin: '0 0 12px', fontSize: 16, fontWeight: 800, color: '#0F172A' }}>Nouvelle invitation</h3>
+        <h3 style={{ margin: '0 0 12px', fontSize: 16, fontWeight: 800, color: '#0F172A' }}>{tx(lang, { fr: 'Nouvelle invitation', ar: 'دعوة جديدة', en: 'New invitation', es: 'Nueva invitación', pt: 'Novo convite', tr: 'Yeni davetiye' })}</h3>
         <p style={{ margin: '0 0 16px', fontSize: 13, color: '#64748B' }}>
-          Choisir un salarié déjà lié à un <strong>person_id</strong>, puis proposer matricule / nom pour la nouvelle fiche (ex. nouvelle usine). Le destinataire répond via le lien ou la page <code style={{ background: '#F1F5F9', padding: '2px 6px', borderRadius: 4 }}>/hr-invite.html</code>.
+          {tx(lang, { fr: 'Choisir un salarié déjà lié à un <strong>person_id</strong>, puis proposer matricule / nom pour la nouvelle fiche (ex. nouvelle usine). Le destinataire répond via le lien ou la page <code style={{ background: \'#F1F5F9\', padding: \'2px 6px\', borderRadius: 4 }}>/hr-invite.html</code>.', ar: 'اختر موظفاً مرتبطاً بالفعل بـ <strong>person_id</strong>، ثم اقترح رقماً مهنياً / اسماً للملف الجديد (مثال: مصنع جديد). يرد المستلم عبر الرابط أو الصفحة <code style={{ background: \'#F1F5F9\', padding: \'2px 6px\', borderRadius: 4 }}>/hr-invite.html</code>.', en: 'Choose an employee already linked to a <strong>person_id</strong>, then propose a registration number / name for the new record (e.g. new factory). The recipient responds via the link or the page <code style={{ background: \'#F1F5F9\', padding: \'2px 6px\', borderRadius: 4 }}>/hr-invite.html</code>.', es: 'Elija un empleado ya vinculado a un <strong>person_id</strong>, luego proponga matrícula / nombre para la nueva ficha (ej. nueva fábrica). El destinatario responde mediante el enlace o la página <code style={{ background: \'#F1F5F9\', padding: \'2px 6px\', borderRadius: 4 }}>/hr-invite.html</code>.', pt: 'Escolha um funcionário já vinculado a um <strong>person_id</strong>, depois proponha matrícula / nome para o novo registro (ex. nova fábrica). O destinatário responde através do link ou da página <code style={{ background: \'#F1F5F9\', padding: \'2px 6px\', borderRadius: 4 }}>/hr-invite.html</code>.', tr: 'Zaten bir <strong>person_id</strong>\'ye bağlı bir çalışan seçin, ardından yeni kayıt için kayıt numarası / ad önerin (örn. yeni fabrika). Alıcı, bağlantı veya <code style={{ background: \'#F1F5F9\', padding: \'2px 6px\', borderRadius: 4 }}>/hr-invite.html</code> sayfası aracılığıyla yanıt verir.' })}
         </p>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 12 }}>
           <div>
-            <label style={labelStyle}>Person ID (depuis annuaire)</label>
+            <label style={labelStyle}>{tx(lang, { fr: 'Person ID (depuis annuaire)', ar: 'Person ID (من الدليل)', en: 'Person ID (from directory)', es: 'Person ID (del directorio)', pt: 'Person ID (do diretório)', tr: 'Person ID (rehberden)' })}</label>
             <select value={personId} onChange={e => setPersonId(e.target.value)} style={inputStyle}>
-              <option value="">— Choisir un ouvrier —</option>
+              <option value="">{tx(lang, { fr: '— Choisir un ouvrier —', ar: '— اختر عاملاً —', en: '— Choose a worker —', es: '— Elija un operario —', pt: '— Escolha um operário —', tr: '— Bir işçi seçin —' })}</option>
               {withPerson.map(w => (
                 <option key={w.id} value={w.person_id || ''}>
                   {w.full_name} · {w.matricule} · {w.person_id}
@@ -977,30 +1042,36 @@ function InvitationsTab({
               ))}
             </select>
           </div>
-          <Field label="Matricule proposé" value={mat} onChange={setMat} placeholder="MAT-NEW-01" required />
-          <Field label="Nom complet proposé" value={nom} onChange={setNom} placeholder="Prénom Nom" required />
-          <Field label="CIN (optionnel)" value={cin} onChange={setCin} placeholder="Si connu" />
+          <Field label={tx(lang, { fr: 'Matricule proposé', ar: 'الرقم المهني المقترح', en: 'Proposed registration no.', es: 'Matrícula propuesta', pt: 'Matrícula proposta', tr: 'Önerilen kayıt no' })} value={mat} onChange={setMat} placeholder="MAT-NEW-01" required />
+          <Field label={tx(lang, { fr: 'Nom complet proposé', ar: 'الاسم الكامل المقترح', en: 'Proposed full name', es: 'Nombre completo propuesto', pt: 'Nome completo proposto', tr: 'Önerilen tam ad' })} value={nom} onChange={setNom} placeholder={tx(lang, { fr: 'Prénom Nom', ar: 'الاسم الأول والنسب', en: 'First Last', es: 'Nombre Apellido', pt: 'Nome Sobrenome', tr: 'Ad Soyad' })} required />
+          <Field label={tx(lang, { fr: 'CIN (optionnel)', ar: 'رقم البطاقة (اختياري)', en: 'ID No. (optional)', es: 'Cédula (opcional)', pt: 'CIN (opcional)', tr: 'Kimlik No (isteğe bağlı)' })} value={cin} onChange={setCin} placeholder={tx(lang, { fr: 'Si connu', ar: 'إن وجد', en: 'If known', es: 'Si se conoce', pt: 'Se conhecido', tr: 'Biliniyorsa' })} />
           <div style={{ gridColumn: '1/-1' }}>
-            <Field label="E-mail destinataire (optionnel, SMTP .env)" value={inviteEmail} onChange={setInviteEmail} placeholder="ouvrier@example.com" />
+            <Field label={tx(lang, { fr: 'E-mail destinataire (optionnel, SMTP .env)', ar: 'البريد الإلكتروني للمستلم (اختياري، SMTP .env)', en: 'Recipient email (optional, SMTP .env)', es: 'Correo del destinatario (opcional, SMTP .env)', pt: 'E-mail do destinatário (opcional, SMTP .env)', tr: 'Alıcı e-posta (isteğe bağlı, SMTP .env)' })} value={inviteEmail} onChange={setInviteEmail} placeholder="ouvrier@example.com" />
           </div>
         </div>
         <button type="button" onClick={createInvite} style={{ ...btnPrimary, marginTop: 16 }}>
-          <Mail size={15} style={{ marginRight: 8 }} />Créer l’invitation
+          <Mail size={15} style={{ marginRight: 8 }} />{tx(lang, { fr: 'Créer l\'invitation', ar: 'إنشاء الدعوة', en: 'Create invitation', es: 'Crear invitación', pt: 'Criar convite', tr: 'Davetiye oluştur' })}
         </button>
       </div>
 
-      <h3 style={{ fontSize: 15, fontWeight: 800, color: '#0F172A', marginBottom: 12 }}>Historique</h3>
+      <h3 style={{ fontSize: 15, fontWeight: 800, color: '#0F172A', marginBottom: 12 }}>{tx(lang, { fr: 'Historique', ar: 'السجل', en: 'History', es: 'Historial', pt: 'Histórico', tr: 'Geçmiş' })}</h3>
       {loading ? (
-        <div style={{ color: '#94A3B8' }}>Chargement…</div>
+        <div style={{ color: '#94A3B8' }}>{tx(lang, { fr: 'Chargement…', ar: 'جارٍ التحميل…', en: 'Loading…', es: 'Cargando…', pt: 'Carregando…', tr: 'Yükleniyor…' })}</div>
       ) : list.length === 0 ? (
-        <div style={{ color: '#94A3B8', fontSize: 14 }}>Aucune invitation</div>
+        <div style={{ color: '#94A3B8', fontSize: 14 }}>{tx(lang, { fr: 'Aucune invitation', ar: 'لا توجد دعوات', en: 'No invitations', es: 'Ninguna invitación', pt: 'Nenhum convite', tr: 'Davetiye yok' })}</div>
       ) : (
         <div style={{ overflowX: 'auto', background: '#fff', borderRadius: 12, border: '1px solid #E2E8F0' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
             <thead>
               <tr style={{ background: '#F8FAFC' }}>
-                {['Date', 'Matricule', 'Nom', 'Statut', 'Jeton / Lien'].map(h => (
-                  <th key={h} style={{ textAlign: 'left', padding: '10px 12px', borderBottom: '1px solid #E2E8F0', color: '#64748B', fontWeight: 700 }}>{h}</th>
+                {[
+                  { fr: 'Date', ar: 'التاريخ', en: 'Date', es: 'Fecha', pt: 'Data', tr: 'Tarih' },
+                  { fr: 'Matricule', ar: 'الرقم المهني', en: 'Reg. No.', es: 'Matrícula', pt: 'Matrícula', tr: 'Kayıt No' },
+                  { fr: 'Nom', ar: 'الاسم', en: 'Name', es: 'Nombre', pt: 'Nome', tr: 'Ad' },
+                  { fr: 'Statut', ar: 'الحالة', en: 'Status', es: 'Estado', pt: 'Status', tr: 'Durum' },
+                  { fr: 'Jeton / Lien', ar: 'الرمز / الرابط', en: 'Token / Link', es: 'Token / Enlace', pt: 'Token / Link', tr: 'Token / Bağlantı' },
+                ].map(h => (
+                  <th key={h.fr} style={{ textAlign: 'left', padding: '10px 12px', borderBottom: '1px solid #E2E8F0', color: '#64748B', fontWeight: 700 }}>{tx(lang, h)}</th>
                 ))}
               </tr>
             </thead>
@@ -1017,7 +1088,7 @@ function InvitationsTab({
                     <td style={{ padding: '10px 12px', borderBottom: '1px solid #F1F5F9' }}>
                       {inv.status === 'PENDING' && inv.token && (
                         <button type="button" onClick={() => copyText(link)} style={{ ...btnSecondary, fontSize: 12, padding: '6px 10px' }}>
-                          <Copy size={14} style={{ marginRight: 6 }} />Copier le lien
+                          <Copy size={14} style={{ marginRight: 6 }} />{tx(lang, { fr: 'Copier le lien', ar: 'نسخ الرابط', en: 'Copy link', es: 'Copiar enlace', pt: 'Copiar link', tr: 'Bağlantıyı kopyala' })}
                         </button>
                       )}
                     </td>
@@ -1052,6 +1123,7 @@ export default function GestionRH({
   setSelectedDate: propSetSelectedDate,
   selectedChaineId
 }: GestionRHProps) {
+  const { lang } = useLang();
   const [tab, setTab] = useState<Tab>('annuaire');
   const [workers, setWorkers] = useState<HRWorker[]>([]);
   const [pointages, setPointages] = useState<any[]>([]);
@@ -1185,17 +1257,17 @@ export default function GestionRH({
     try {
       const r = await API('/api/hr/workers');
       if (r.status === 401) {
-        setLoadError('Session expirée ou non connecté — reconnectez-vous (Profil / Login).');
+        setLoadError(tx(lang, { fr: 'Session expirée ou non connecté — reconnectez-vous (Profil / Login).', ar: 'انتهت الجلسة أو غير متصل — أعد الاتصال (الملف الشخصي / تسجيل الدخول).', en: 'Session expired or not logged in — reconnect (Profile / Login).', es: 'Sesión expirada o no conectado — reconéctese (Perfil / Iniciar sesión).', pt: 'Sessão expirada ou não conectado — reconecte-se (Perfil / Login).', tr: 'Oturum süresi doldu veya giriş yapılmamış — yeniden bağlanın (Profil / Giriş).' }));
         setWorkers([]);
       } else if (!r.ok) {
-        setLoadError(`Impossible de charger les effectifs (erreur ${r.status}).`);
+        setLoadError(tx(lang, { fr: `Impossible de charger les effectifs (erreur ${r.status}).`, ar: `تعذر تحميل العمال (خطأ ${r.status}).`, en: `Unable to load staff (error ${r.status}).`, es: `No se pudo cargar el personal (error ${r.status}).`, pt: `Não foi possível carregar os efetivos (erro ${r.status}).`, tr: `Personel yüklenemedi (hata ${r.status}).` }));
         setWorkers([]);
       } else {
         setWorkers(await r.json());
         setLoadError(null);
       }
     } catch {
-      setLoadError('Réseau indisponible. Vérifiez la connexion au serveur.');
+      setLoadError(tx(lang, { fr: 'Réseau indisponible. Vérifiez la connexion au serveur.', ar: 'الشبكة غير متاحة. تحقق من الاتصال بالخادم.', en: 'Network unavailable. Check server connection.', es: 'Red no disponible. Verifique la conexión al servidor.', pt: 'Rede indisponível. Verifique a conexão com o servidor.', tr: 'Ağ kullanılamıyor. Sunucu bağlantısını kontrol edin.' }));
       setWorkers([]);
     } finally {
       setLoading(false);
@@ -1254,18 +1326,18 @@ export default function GestionRH({
 
   const handleClaimFromGuest = async () => {
     if (!claimPreview?.canClaim) return;
-    if (!confirm(`Rattacher ${claimPreview.guestCount} fiche(s) du compte invité local à votre compte actuel ?\n(Impossible d’annuler. Utilisez un compte qui n’a encore aucun ouvrier.)`)) return;
+    if (!confirm(tx(lang, { fr: `Rattacher ${claimPreview.guestCount} fiche(s) du compte invité local à votre compte actuel ?\n(Impossible d'annuler. Utilisez un compte qui n'a encore aucun ouvrier.)`, ar: `ربط ${claimPreview.guestCount} ملف من حساب الزائر المحلي بحسابك الحالي؟\n(لا يمكن التراجع. استخدم حساباً لا يملك أي عامل بعد.)`, en: `Attach ${claimPreview.guestCount} record(s) from the local guest account to your current account?\n(Cannot be undone. Use an account that has no workers yet.)`, es: `¿Vincular ${claimPreview.guestCount} ficha(s) de la cuenta de invitado local a su cuenta actual?\n(No se puede deshacer. Use una cuenta que aún no tenga operarios.)`, pt: `Vincular ${claimPreview.guestCount} registro(s) da conta convidada local à sua conta atual?\n(Não pode ser desfeito. Use uma conta que ainda não tenha operários.)`, tr: `Yerel misafir hesabındaki ${claimPreview.guestCount} kaydı mevcut hesabınıza bağlasın mı?\n(Geri alınamaz. Henüz işçisi olmayan bir hesap kullanın.)` }))) return;
     setClaiming(true);
     try {
       const r = await API('/api/hr/claim-legacy', { method: 'POST' });
       const data = r.ok ? await r.json() : null;
       if (r.ok && data?.migrated != null) {
-        showToast(`${data.migrated} fiche(s) rattachée(s)`);
+        showToast(tx(lang, { fr: `${data.migrated} fiche(s) rattachée(s)`, ar: `تم ربط ${data.migrated} ملف`, en: `${data.migrated} record(s) attached`, es: `${data.migrated} ficha(s) vinculada(s)`, pt: `${data.migrated} registro(s) vinculado(s)`, tr: `${data.migrated} kayıt bağlandı` }));
         await fetchWorkers();
         await fetchClaimPreview();
       } else {
         const err = await r.json().catch(() => ({}));
-        showToast((err as { message?: string })?.message || 'Rattachement impossible', 'err');
+        showToast((err as { message?: string })?.message || tx(lang, { fr: 'Rattachement impossible', ar: 'تعذر الربط', en: 'Attachment impossible', es: 'Vinculación imposible', pt: 'Vinculação impossível', tr: 'Bağlanamadı' }), 'err');
       }
     } finally {
       setClaiming(false);
@@ -1273,25 +1345,25 @@ export default function GestionRH({
   };
 
   const handleDeleteLigne = async (id: string, name: string) => {
-    if (!confirm(`حذف خط النقل "${name}"؟\n(سيتم إلغاء تعيين جميع العمال المرتبطين بهذا الخط تلقائياً)`)) return;
+    if (!confirm(tx(lang, { fr: `Supprimer la ligne de transport "${name}" ?\n(Tous les travailleurs liés seront automatiquement désassignés)`, ar: `حذف خط النقل "${name}"؟\n(سيتم إلغاء تعيين جميع العمال المرتبطين بهذا الخط تلقائياً)`, en: `Delete transport line "${name}"?\n(All linked workers will be automatically unassigned)`, es: `¿Eliminar la línea de transporte "${name}"?\n(Todos los trabajadores vinculados serán desasignados automáticamente)`, pt: `Excluir linha de transporte "${name}"?\n(Todos os trabalhadores vinculados serão automaticamente desatribuídos)`, tr: `"${name}" ulaşım hattı silinsin mi?\n(Tüm bağlı işçiler otomatik olarak atamadan çıkarılacak)` }))) return;
     try {
       const r = await API(`/api/hr/transport-lignes/${id}`, { method: 'DELETE' });
       if (r.ok) {
-        showToast('تم حذف خط النقل بنجاح');
+        showToast(tx(lang, { fr: 'Ligne de transport supprimée', ar: 'تم حذف خط النقل بنجاح', en: 'Transport line deleted', es: 'Línea de transporte eliminada', pt: 'Linha de transporte excluída', tr: 'Ulaşım hattı silindi' }));
         fetchTransportLignes();
         fetchWorkers();
       } else {
-        showToast('حدث خطأ أثناء الحذف', 'err');
+        showToast(tx(lang, { fr: 'Erreur lors de la suppression', ar: 'حدث خطأ أثناء الحذف', en: 'Error while deleting', es: 'Error al eliminar', pt: 'Erro ao excluir', tr: 'Silme sırasında hata' }), 'err');
       }
     } catch (e) {
       console.error(e);
-      showToast('خطأ في الاتصال بالخادم', 'err');
+      showToast(tx(lang, { fr: 'Erreur de connexion au serveur', ar: 'خطأ في الاتصال بالخادم', en: 'Server connection error', es: 'Error de conexión al servidor', pt: 'Erro de conexão com o servidor', tr: 'Sunucu bağlantı hatası' }), 'err');
     }
   };
 
   const handleSaveLigne = async () => {
     if (!selectedLigne?.nom) {
-      alert('Nom de la ligne requis');
+      alert(tx(lang, { fr: 'Nom de la ligne requis', ar: 'اسم الخط مطلوب', en: 'Line name required', es: 'Nombre de la línea requerido', pt: 'Nome da linha obrigatório', tr: 'Hat adı gerekli' }));
       return;
     }
     try {
@@ -1312,15 +1384,15 @@ export default function GestionRH({
         body: JSON.stringify(payload),
       });
       if (r.ok) {
-        showToast('Ligne de transport enregistrée');
+        showToast(tx(lang, { fr: 'Ligne de transport enregistrée', ar: 'تم حفظ خط النقل', en: 'Transport line saved', es: 'Línea de transporte guardada', pt: 'Linha de transporte salva', tr: 'Ulaşım hattı kaydedildi' }));
         setShowLigneModal(false);
         fetchTransportLignes();
       } else {
-        showToast('Erreur lors de l\'enregistrement', 'err');
+        showToast(tx(lang, { fr: 'Erreur lors de l\'enregistrement', ar: 'خطأ أثناء الحفظ', en: 'Error while saving', es: 'Error al guardar', pt: 'Erro ao salvar', tr: 'Kaydetme hatası' }), 'err');
       }
     } catch (e) {
       console.error(e);
-      showToast('Erreur de connexion au serveur', 'err');
+      showToast(tx(lang, { fr: 'Erreur de connexion au serveur', ar: 'خطأ في الاتصال بالخادم', en: 'Server connection error', es: 'Error de conexión al servidor', pt: 'Erro de conexão com o servidor', tr: 'Sunucu bağlantı hatası' }), 'err');
     }
   };
 
@@ -1369,10 +1441,10 @@ export default function GestionRH({
       });
     }
 
-    const text = `*RECENSEMENT TRANSPORT - HEURES SUPPLEMENTAIRES*\nDate: ${filterTransportDate}\n\n*Résumé par Équipe (Parda):*\n${pardaText || 'Aucun.'}\n*Total passagers:* ${selected.length} personnes\n\n*Détail par Ligne de Transport:*${lineText || '\nAucun passager.'}`;
+    const text = tx(lang, { fr: `*RECENSEMENT TRANSPORT - HEURES SUPPLEMENTAIRES*\nDate: ${filterTransportDate}\n\n*Résumé par Équipe (Parda):*\n${pardaText || 'Aucun.'}\n*Total passagers:* ${selected.length} personnes\n\n*Détail par Ligne de Transport:*${lineText || '\nAucun passager.'}`, ar: `*حصر النقل - ساعات إضافية*\nالتاريخ: ${filterTransportDate}\n\n*ملخص حسب الفريق:*\n${pardaText || 'لا يوجد.'}\n*إجمالي الركاب:* ${selected.length} شخص\n\n*تفاصيل حسب خط النقل:*${lineText || '\nلا يوجد ركاب.'}`, en: `*TRANSPORT CENSUS - OVERTIME*\nDate: ${filterTransportDate}\n\n*Summary by Team (Parda):*\n${pardaText || 'None.'}\n*Total passengers:* ${selected.length} people\n\n*Detail by Transport Line:*${lineText || '\nNo passengers.'}`, es: `*CENSO DE TRANSPORTE - HORAS EXTRAS*\nFecha: ${filterTransportDate}\n\n*Resumen por Equipo (Parda):*\n${pardaText || 'Ninguno.'}\n*Total pasajeros:* ${selected.length} personas\n\n*Detalle por Línea de Transporte:*${lineText || '\nNingún pasajero.'}`, pt: `*RECENSEAMENTO DE TRANSPORTE - HORAS EXTRAS*\nData: ${filterTransportDate}\n\n*Resumo por Equipe (Parda):*\n${pardaText || 'Nenhum.'}\n*Total passageiros:* ${selected.length} pessoas\n\n*Detalhe por Linha de Transporte:*${lineText || '\nNenhum passageiro.'}`, tr: `*ULAŞIM SAYIMI - FAZLA MESAİ*\nTarih: ${filterTransportDate}\n\n*Takıma Göre Özet (Parda):*\n${pardaText || 'Yok.'}\n*Toplam yolcu:* ${selected.length} kişi\n\n*Ulaşım Hattına Göre Detay:*${lineText || '\nYolcu yok.'}` });
 
     navigator.clipboard.writeText(text);
-    showToast('Récapitulatif copié pour WhatsApp !');
+    showToast(tx(lang, { fr: 'Récapitulatif copié pour WhatsApp !', ar: 'تم نسخ الملخص لـ WhatsApp!', en: 'Summary copied for WhatsApp!', es: '¡Resumen copiado para WhatsApp!', pt: 'Resumo copiado para WhatsApp!', tr: 'Özet WhatsApp için kopyalandı!' }));
   };
 
   // Liste RH toujours chargée à l’ouverture (compteur header + onglets)
@@ -1437,7 +1509,7 @@ export default function GestionRH({
       await fetchPointage();
     } else {
       const d = (await r.json().catch(() => ({}))) as { message?: string };
-      showToast(d.message || `Enregistrement pointage impossible (${r.status})`, 'err');
+      showToast(d.message || tx(lang, { fr: `Enregistrement pointage impossible (${r.status})`, ar: `تعذر حفظ تسجيل الحضور (${r.status})`, en: `Cannot save time log (${r.status})`, es: `No se pudo guardar el registro (${r.status})`, pt: `Não foi possível salvar o registro (${r.status})`, tr: `Süre kaydı kaydedilemedi (${r.status})` }), 'err');
     }
   };
 
@@ -1446,7 +1518,7 @@ export default function GestionRH({
     async (workerId: string, currentRow: any | undefined, slotIndex: number) => {
       const st = ((currentRow?.statut as HRPointageStatus) || 'PRESENT') as HRPointageStatus;
       if (st === 'ABSENT' || ABSENCE_LIKE.includes(st)) {
-        showToast('Passez le statut à « Présent » ou « Retard » pour modifier la grille horaire.', 'err');
+        showToast(tx(lang, { fr: 'Passez le statut à « Présent » ou « Retard » pour modifier la grille horaire.', ar: 'غيّر الحالة إلى "حاضر" أو "متأخر" لتعديل جدول الساعات.', en: 'Change the status to "Present" or "Late" to edit the time grid.', es: 'Cambie el estado a "Presente" o "Tarde" para modificar la cuadrícula horaria.', pt: 'Altere o status para "Presente" ou "Atrasado" para modificar a grade de horários.', tr: 'Saat tablosunu düzenlemek için durumu "Mevcut" veya "Geç" olarak değiştirin.' }), 'err');
         return;
       }
       const slots = pointageTranches.slots;
@@ -1480,7 +1552,7 @@ export default function GestionRH({
         await fetchPointage();
       } else {
         const d = (await r.json().catch(() => ({}))) as { message?: string };
-        showToast(d.message || `Enregistrement grille impossible (${r.status})`, 'err');
+        showToast(d.message || tx(lang, { fr: `Enregistrement grille impossible (${r.status})`, ar: `تعذر حفظ الجدول (${r.status})`, en: `Cannot save grid (${r.status})`, es: `No se pudo guardar la cuadrícula (${r.status})`, pt: `Não foi possível salvar a grade (${r.status})`, tr: `Tablo kaydedilemedi (${r.status})` }), 'err');
       }
     },
     [fetchPointage, selectedDate, pointageTranches],
@@ -1496,10 +1568,10 @@ export default function GestionRH({
       const a = document.createElement('a');
       a.href = url; a.download = `SAGE_PAIE_BERAMETHODE_${selectedMois}.csv`; a.click();
       URL.revokeObjectURL(url);
-      showToast('Export Sage CSV généré avec succès');
+      showToast(tx(lang, { fr: 'Export Sage CSV généré avec succès', ar: 'تم إنشاء تصدير Sage CSV بنجاح', en: 'Sage CSV export generated successfully', es: 'Exportación Sage CSV generada con éxito', pt: 'Exportação Sage CSV gerada com sucesso', tr: 'Sage CSV dışa aktarımı başarıyla oluşturuldu' }));
       fetchSage();
     } else {
-      showToast('Erreur génération Sage', 'err');
+      showToast(tx(lang, { fr: 'Erreur génération Sage', ar: 'خطأ في إنشاء Sage', en: 'Sage generation error', es: 'Error de generación Sage', pt: 'Erro de geração Sage', tr: 'Sage oluşturma hatası' }), 'err');
     }
     setGeneratingSage(false);
   };
@@ -1512,7 +1584,7 @@ export default function GestionRH({
         API('/api/hr/avances'),
         API('/api/hr/workers'),
       ]);
-      if (!previewRes.ok) { showToast('Erreur récupération données', 'err'); return; }
+      if (!previewRes.ok) { showToast(tx(lang, { fr: 'Erreur récupération données', ar: 'خطأ في استرجاع البيانات', en: 'Data retrieval error', es: 'Error al recuperar datos', pt: 'Erro ao recuperar dados', tr: 'Veri alma hatası' }), 'err'); return; }
       const preview = await previewRes.json();
       const avancesData = avancesRes.ok ? await avancesRes.json() : [];
       const workersData = workersRes.ok ? await workersRes.json() : [];
@@ -1563,34 +1635,34 @@ export default function GestionRH({
       ws3['!cols'] = [{ wch: 28 }, { wch: 22 }];
       XLSX.utils.book_append_sheet(wb, ws3, 'Résumé');
       XLSX.writeFile(wb, `RH_MENSUEL_BERAMETHODE_${selectedMois}.xlsx`);
-      showToast('Export Excel RH généré avec succès');
-    } catch { showToast('Erreur export Excel', 'err'); }
+      showToast(tx(lang, { fr: 'Export Excel RH généré avec succès', ar: 'تم إنشاء تصدير Excel للموارد البشرية بنجاح', en: 'HR Excel export generated successfully', es: 'Exportación Excel RH generada con éxito', pt: 'Exportação Excel RH gerada com sucesso', tr: 'İK Excel dışa aktarımı başarıyla oluşturuldu' }));
+    } catch { showToast(tx(lang, { fr: 'Erreur export Excel', ar: 'خطأ في تصدير Excel', en: 'Excel export error', es: 'Error de exportación Excel', pt: 'Erro de exportação Excel', tr: 'Excel dışa aktarma hatası' }), 'err'); }
   };
 
   // ── Avance statut ──
   const handleAvanceStatut = async (id: string, statut: string) => {
     const r = await API(`/api/hr/avances/${id}/statut`, { method: 'PUT', body: JSON.stringify({ statut }) });
-    if (r.ok) { showToast('Statut mis à jour'); fetchAvances(); }
-    else showToast('Erreur', 'err');
+    if (r.ok) { showToast(tx(lang, { fr: 'Statut mis à jour', ar: 'تم تحديث الحالة', en: 'Status updated', es: 'Estado actualizado', pt: 'Status atualizado', tr: 'Durum güncellendi' })); fetchAvances(); }
+    else showToast(tx(lang, { fr: 'Erreur', ar: 'خطأ', en: 'Error', es: 'Error', pt: 'Erro', tr: 'Hata' }), 'err');
   };
 
   // ── Delete worker ──
   const handleDeleteWorker = async (id: string, name: string) => {
-    if (!confirm(`Supprimer ${name} ?`)) return;
+    if (!confirm(tx(lang, { fr: `Supprimer ${name} ?`, ar: `حذف ${name}؟`, en: `Delete ${name}?`, es: `¿Eliminar ${name}?`, pt: `Excluir ${name}?`, tr: `${name} silinsin mi?` }))) return;
     const r = await API(`/api/hr/workers/${id}`, { method: 'DELETE' });
-    if (r.ok) { showToast('Ouvrier supprimé'); fetchWorkers(); }
-    else showToast('Erreur suppression', 'err');
+    if (r.ok) { showToast(tx(lang, { fr: 'Ouvrier supprimé', ar: 'تم حذف العامل', en: 'Worker deleted', es: 'Operario eliminado', pt: 'Operário excluído', tr: 'İşçi silindi' })); fetchWorkers(); }
+    else showToast(tx(lang, { fr: 'Erreur suppression', ar: 'خطأ في الحذف', en: 'Deletion error', es: 'Error de eliminación', pt: 'Erro de exclusão', tr: 'Silme hatası' }), 'err');
   };
 
   const TABS = [
-    { id: 'annuaire',      label: 'Annuaire',       icon: <Users size={15} /> },
-    { id: 'pointage',      label: 'Pointage',       icon: <Clock size={15} /> },
-    { id: 'statistiques',  label: 'Statistiques',   icon: <PieChart size={15} /> },
-    { id: 'production',    label: 'Production',     icon: <BarChart2 size={15} /> },
-    { id: 'avances',       label: 'Avances',        icon: <DollarSign size={15} /> },
-    { id: 'transport',     label: 'Transport',      icon: <Truck size={15} /> },
-    { id: 'sage',          label: 'Sage Paie',      icon: <FileText size={15} /> },
-    { id: 'invitations',   label: 'Invitations',    icon: <Mail size={15} /> },
+    { id: 'annuaire',      label: tx(lang, { fr: 'Annuaire', ar: 'الدليل', en: 'Directory', es: 'Directorio', pt: 'Diretório', tr: 'Rehber' }),       icon: <Users size={15} /> },
+    { id: 'pointage',      label: tx(lang, { fr: 'Pointage', ar: 'تسجيل الحضور', en: 'Time Log', es: 'Registro', pt: 'Registro', tr: 'Süre Kaydı' }),       icon: <Clock size={15} /> },
+    { id: 'statistiques',  label: tx(lang, { fr: 'Statistiques', ar: 'إحصائيات', en: 'Statistics', es: 'Estadísticas', pt: 'Estatísticas', tr: 'İstatistikler' }),   icon: <PieChart size={15} /> },
+    { id: 'production',    label: tx(lang, { fr: 'Production', ar: 'الإنتاج', en: 'Production', es: 'Producción', pt: 'Produção', tr: 'Üretim' }),     icon: <BarChart2 size={15} /> },
+    { id: 'avances',       label: tx(lang, { fr: 'Avances', ar: 'السلف', en: 'Advances', es: 'Anticipos', pt: 'Adiantamentos', tr: 'Avanslar' }),        icon: <DollarSign size={15} /> },
+    { id: 'transport',     label: tx(lang, { fr: 'Transport', ar: 'النقل', en: 'Transport', es: 'Transporte', pt: 'Transporte', tr: 'Ulaşım' }),      icon: <Truck size={15} /> },
+    { id: 'sage',          label: tx(lang, { fr: 'Sage Paie', ar: 'Sage للرواتب', en: 'Sage Payroll', es: 'Sage Nómina', pt: 'Sage Folha', tr: 'Sage Maaş' }),      icon: <FileText size={15} /> },
+    { id: 'invitations',   label: tx(lang, { fr: 'Invitations', ar: 'دعوات', en: 'Invitations', es: 'Invitaciones', pt: 'Convites', tr: 'Davetiyeler' }),    icon: <Mail size={15} /> },
   ] as const;
 
   const filteredWorkers = workers.filter(w => {
@@ -1714,8 +1786,8 @@ export default function GestionRH({
               <button
                 type="button"
                 onClick={onBack}
-                aria-label="Retour au tableau de bord"
-                title="Retour au tableau de bord"
+                aria-label={tx(lang, { fr: 'Retour au tableau de bord', ar: 'العودة إلى لوحة القيادة', en: 'Back to dashboard', es: 'Volver al panel', pt: 'Voltar ao painel', tr: 'Panoya dön' })}
+                title={tx(lang, { fr: 'Retour au tableau de bord', ar: 'العودة إلى لوحة القيادة', en: 'Back to dashboard', es: 'Volver al panel', pt: 'Voltar ao painel', tr: 'Panoya dön' })}
                 style={{
                   minHeight: 44,
                   padding: '0 14px 0 10px',
@@ -1732,26 +1804,26 @@ export default function GestionRH({
                 }}
               >
                 <ChevronLeft size={22} strokeWidth={2.5} aria-hidden />
-                <span>Accueil</span>
+                <span>{tx(lang, { fr: 'Accueil', ar: 'الرئيسية', en: 'Home', es: 'Inicio', pt: 'Início', tr: 'Ana Sayfa' })}</span>
               </button>
             )}
             <div style={{ width: 44, height: 44, borderRadius: 12, background: 'linear-gradient(135deg, #2149C1, #3B82F6)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <Users size={22} color="#fff" />
             </div>
             <div>
-              <h1 style={{ margin: 0, fontSize: 20, fontWeight: 800, color: '#0F172A' }}>Gestion RH</h1>
+              <h1 style={{ margin: 0, fontSize: 20, fontWeight: 800, color: '#0F172A' }}>{tx(lang, { fr: 'Gestion RH', ar: 'إدارة الموارد البشرية', en: 'HR Management', es: 'Gestión RH', pt: 'Gestão RH', tr: 'İK Yönetimi' })}</h1>
               <p style={{ margin: 0, fontSize: 12, color: '#64748B' }}>
                 {loading
-                  ? 'Chargement des effectifs…'
+                  ? tx(lang, { fr: 'Chargement des effectifs…', ar: 'جارٍ تحميل العمال…', en: 'Loading staff…', es: 'Cargando personal…', pt: 'Carregando efetivos…', tr: 'Personel yükleniyor…' })
                   : loadError
-                    ? '—'
-                    : `${workers.length} ouvrier${workers.length !== 1 ? 's' : ''} enregistré${workers.length !== 1 ? 's' : ''}`}
+                    ? tx(lang, { fr: '—', ar: '—', en: '—', es: '—', pt: '—', tr: '—' })
+                    : tx(lang, { fr: `${workers.length} ouvrier${workers.length !== 1 ? 's' : ''} enregistré${workers.length !== 1 ? 's' : ''}`, ar: `${workers.length} عامل مسجل`, en: `${workers.length} worker${workers.length !== 1 ? 's' : ''} registered`, es: `${workers.length} operario${workers.length !== 1 ? 's' : ''} registrado${workers.length !== 1 ? 's' : ''}`, pt: `${workers.length} operário${workers.length !== 1 ? 's' : ''} registrado${workers.length !== 1 ? 's' : ''}`, tr: `${workers.length} işçi kayıtlı` })}
               </p>
             </div>
           </div>
           {tab === 'annuaire' && (
             <button onClick={() => { setEditWorker(null); setShowWorkerModal(true); }} style={btnPrimary}>
-              <UserPlus size={15} style={{ marginRight: 8 }} />Ajouter Ouvrier
+              <UserPlus size={15} style={{ marginRight: 8 }} />{tx(lang, { fr: 'Ajouter Ouvrier', ar: 'إضافة عامل', en: 'Add Worker', es: 'Añadir Operario', pt: 'Adicionar Operário', tr: 'İşçi Ekle' })}
             </button>
           )}
         </div>
@@ -1819,66 +1891,78 @@ export default function GestionRH({
                 <div style={{ display: 'flex', gap: 10, marginBottom: 16, flexWrap: 'wrap', alignItems: 'center' }}>
                   <div style={{ position: 'relative', flex: 1, minWidth: 200 }}>
                     <Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: '#94A3B8' }} />
-                    <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Chercher par nom, matricule, CIN..."
+                    <input value={search} onChange={e => setSearch(e.target.value)} placeholder={tx(lang, { fr: 'Chercher par nom, matricule, CIN...', ar: 'ابحث بالاسم، الرقم المهني، رقم البطاقة...', en: 'Search by name, reg. no., ID...', es: 'Buscar por nombre, matrícula, cédula...', pt: 'Pesquisar por nome, matrícula, CIN...', tr: 'İsim, kayıt no, kimlik ile ara...' })}
                       style={{ ...inputStyle, paddingLeft: 32, width: '100%' }} />
                   </div>
                   <select value={filterRole} onChange={e => setFilterRole(e.target.value)} style={{ ...inputStyle, width: 160 }}>
-                    <option value="">Tous les rôles</option>
-                    {ROLES.map(r => <option key={r} value={r}>{ROLE_LABELS[r]}</option>)}
+                    <option value="">{tx(lang, { fr: 'Tous les rôles', ar: 'جميع الأدوار', en: 'All roles', es: 'Todos los roles', pt: 'Todos os cargos', tr: 'Tüm roller' })}</option>
+                    {ROLES.map(r => <option key={r} value={r}>{tx(lang, ROLE_LABELS[r])}</option>)}
                   </select>
                   <select value={filterChaine} onChange={e => setFilterChaine(e.target.value)} style={{ ...inputStyle, width: 160 }}>
-                    <option value="">Toutes les chaînes</option>
+                    <option value="">{tx(lang, { fr: 'Toutes les chaînes', ar: 'جميع الخطوط', en: 'All lines', es: 'Todas las líneas', pt: 'Todas as linhas', tr: 'Tüm hatlar' })}</option>
                     {pointageChaineOptions.map(c => <option key={c} value={c}>{c}</option>)}
                   </select>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginLeft: 'auto', flexWrap: 'wrap' }}>
-                    <span style={{ fontSize: 11, fontWeight: 600, color: '#94A3B8', textTransform: 'uppercase' }}>Affichage</span>
-                    <button
-                      type="button"
-                      onClick={() => setAnnuaireViewPersist('cards')}
-                      title="Vue cartes"
-                      style={{
-                        ...btnSecondary,
-                        padding: '7px 12px',
-                        fontSize: 12,
-                        fontWeight: 600,
-                        background: annuaireView === 'cards' ? '#EEF2FF' : '#fff',
-                        borderColor: annuaireView === 'cards' ? '#C7D2FE' : '#E2E8F0',
-                        color: annuaireView === 'cards' ? '#2149C1' : '#64748B',
-                      }}
-                    >
-                      <LayoutGrid size={14} style={{ marginRight: 6, verticalAlign: 'middle' }} />
-                      Cartes
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setAnnuaireViewPersist('table')}
-                      title="Vue liste / tableau"
-                      style={{
-                        ...btnSecondary,
-                        padding: '7px 12px',
-                        fontSize: 12,
-                        fontWeight: 600,
-                        background: annuaireView === 'table' ? '#EEF2FF' : '#fff',
-                        borderColor: annuaireView === 'table' ? '#C7D2FE' : '#E2E8F0',
-                        color: annuaireView === 'table' ? '#2149C1' : '#64748B',
-                      }}
-                    >
-                      <Table2 size={14} style={{ marginRight: 6, verticalAlign: 'middle' }} />
-                      Liste
-                    </button>
+                    <span style={{ fontSize: 11, fontWeight: 600, color: '#94A3B8', textTransform: 'uppercase' }}>{tx(lang, { fr: 'Affichage', ar: 'العرض', en: 'View', es: 'Vista', pt: 'Exibição', tr: 'Görünüm' })}</span>
+                      <button
+                        type="button"
+                        onClick={() => setAnnuaireViewPersist('cards')}
+                        title={tx(lang, { fr: 'Vue cartes', ar: 'عرض البطاقات', en: 'Card view', es: 'Vista tarjetas', pt: 'Visualização em cartões', tr: 'Kart görünümü' })}
+                        style={{
+                          ...btnSecondary,
+                          padding: '7px 12px',
+                          fontSize: 12,
+                          fontWeight: 600,
+                          background: annuaireView === 'cards' ? '#EEF2FF' : '#fff',
+                          borderColor: annuaireView === 'cards' ? '#C7D2FE' : '#E2E8F0',
+                          color: annuaireView === 'cards' ? '#2149C1' : '#64748B',
+                        }}
+                      >
+                        <LayoutGrid size={14} style={{ marginRight: 6, verticalAlign: 'middle' }} />
+                        {tx(lang, { fr: 'Cartes', ar: 'بطاقات', en: 'Cards', es: 'Tarjetas', pt: 'Cartões', tr: 'Kartlar' })}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setAnnuaireViewPersist('table')}
+                        title={tx(lang, { fr: 'Vue liste / tableau', ar: 'عرض القائمة / الجدول', en: 'List / Table view', es: 'Vista lista / tabla', pt: 'Visualização em lista / tabela', tr: 'Liste / Tablo görünümü' })}
+                        style={{
+                          ...btnSecondary,
+                          padding: '7px 12px',
+                          fontSize: 12,
+                          fontWeight: 600,
+                          background: annuaireView === 'table' ? '#EEF2FF' : '#fff',
+                          borderColor: annuaireView === 'table' ? '#C7D2FE' : '#E2E8F0',
+                          color: annuaireView === 'table' ? '#2149C1' : '#64748B',
+                        }}
+                      >
+                        <Table2 size={14} style={{ marginRight: 6, verticalAlign: 'middle' }} />
+                        {tx(lang, { fr: 'Liste', ar: 'قائمة', en: 'List', es: 'Lista', pt: 'Lista', tr: 'Liste' })}
+                      </button>
                   </div>
                 </div>
 
                 {loading ? (
-                  <div style={{ textAlign: 'center', padding: 60, color: '#94A3B8' }}>Chargement...</div>
+                  <div style={{ textAlign: 'center', padding: 60, color: '#94A3B8' }}>{tx(lang, { fr: 'Chargement...', ar: 'جارٍ التحميل...', en: 'Loading...', es: 'Cargando...', pt: 'Carregando...', tr: 'Yükleniyor...' })}</div>
                 ) : annuaireView === 'table' ? (
                   <div style={{ background: '#fff', borderRadius: 14, border: '1px solid #E2E8F0', overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
                     <div style={{ overflowX: 'auto' }}>
                       <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, minWidth: 880 }}>
                         <thead>
                           <tr style={{ background: '#F8FAFC', borderBottom: '2px solid #E2E8F0' }}>
-                            {['Nom', 'Matricule', 'CIN', 'Rôle', 'Chaîne', 'Parda', 'Quartier', 'Poste', 'Contrat', 'Tél.', 'Actions'].map(h => (
-                              <th key={h} style={{ textAlign: 'left', padding: '10px 12px', fontWeight: 700, color: '#64748B', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.04em', whiteSpace: 'nowrap' }}>{h}</th>
+                            {[
+                              { fr: 'Nom', ar: 'الاسم', en: 'Name', es: 'Nombre', pt: 'Nome', tr: 'Ad' },
+                              { fr: 'Matricule', ar: 'الرقم المهني', en: 'Reg. No.', es: 'Matrícula', pt: 'Matrícula', tr: 'Kayıt No' },
+                              { fr: 'CIN', ar: 'رقم البطاقة', en: 'ID No.', es: 'Cédula', pt: 'CIN', tr: 'Kimlik No' },
+                              { fr: 'Rôle', ar: 'الدور', en: 'Role', es: 'Rol', pt: 'Função', tr: 'Rol' },
+                              { fr: 'Chaîne', ar: 'الخط', en: 'Line', es: 'Línea', pt: 'Linha', tr: 'Hat' },
+                              { fr: 'Parda', ar: 'الوردية', en: 'Shift', es: 'Turno', pt: 'Turno', tr: 'Vardiya' },
+                              { fr: 'Quartier', ar: 'الحي', en: 'District', es: 'Barrio', pt: 'Bairro', tr: 'Mahalle' },
+                              { fr: 'Poste', ar: 'المنصب', en: 'Position', es: 'Puesto', pt: 'Posto', tr: 'Pozisyon' },
+                              { fr: 'Contrat', ar: 'العقد', en: 'Contract', es: 'Contrato', pt: 'Contrato', tr: 'Sözleşme' },
+                              { fr: 'Tél.', ar: 'الهاتف', en: 'Phone', es: 'Tel.', pt: 'Tel.', tr: 'Tel' },
+                              { fr: 'Actions', ar: 'الإجراءات', en: 'Actions', es: 'Acciones', pt: 'Ações', tr: 'İşlemler' },
+                            ].map(h => (
+                              <th key={h.fr} style={{ textAlign: 'left', padding: '10px 12px', fontWeight: 700, color: '#64748B', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.04em', whiteSpace: 'nowrap' }}>{tx(lang, h)}</th>
                             ))}
                           </tr>
                         </thead>
@@ -1914,8 +1998,8 @@ export default function GestionRH({
                                   ) : '—'}
                                 </td>
                                 <td style={{ padding: '8px 12px', whiteSpace: 'nowrap' }}>
-                                  <button type="button" onClick={() => setProfileWorkerId(w.id)} style={{ ...btnPrimary, display: 'inline-flex', padding: '5px 10px', fontSize: 11, marginRight: 6 }}><IdCard size={11} style={{ marginRight: 4 }} />Fiche</button>
-                                  <button type="button" onClick={() => { setEditWorker(w); setShowWorkerModal(true); }} style={{ ...btnSecondary, display: 'inline-flex', padding: '5px 10px', fontSize: 11, marginRight: 6 }}><Edit3 size={11} style={{ marginRight: 4 }} />Édit.</button>
+                                  <button type="button" onClick={() => setProfileWorkerId(w.id)} style={{ ...btnPrimary, display: 'inline-flex', padding: '5px 10px', fontSize: 11, marginRight: 6 }}><IdCard size={11} style={{ marginRight: 4 }} />{tx(lang, { fr: 'Fiche', ar: 'ملف', en: 'Profile', es: 'Ficha', pt: 'Ficha', tr: 'Profil' })}</button>
+                                  <button type="button" onClick={() => { setEditWorker(w); setShowWorkerModal(true); }} style={{ ...btnSecondary, display: 'inline-flex', padding: '5px 10px', fontSize: 11, marginRight: 6 }}><Edit3 size={11} style={{ marginRight: 4 }} />{tx(lang, { fr: 'Édit.', ar: 'تعديل', en: 'Edit', es: 'Editar', pt: 'Editar', tr: 'Düzenle' })}</button>
                                   <button type="button" onClick={() => handleDeleteWorker(w.id, w.full_name)} style={{ ...btnDanger, display: 'inline-flex', padding: '5px 8px', fontSize: 11 }}><Trash2 size={11} /></button>
                                 </td>
                               </tr>
@@ -1928,12 +2012,12 @@ export default function GestionRH({
                       <div style={{ textAlign: 'center', padding: 48, color: '#94A3B8' }}>
                         <Users size={40} style={{ marginBottom: 10, opacity: 0.3 }} />
                         <div style={{ fontWeight: 600 }}>
-                          {workers.length > 0 ? 'Aucun ouvrier ne correspond aux filtres' : 'Aucun ouvrier enregistré pour ce compte'}
+                          {workers.length > 0 ? tx(lang, { fr: 'Aucun ouvrier ne correspond aux filtres', ar: 'لا يوجد عامل يطابق معايير البحث', en: 'No worker matches the filters', es: 'Ningún operario coincide con los filtros', pt: 'Nenhum operário corresponde aos filtros', tr: 'Filtrelere uygun işçi yok' }) : tx(lang, { fr: 'Aucun ouvrier enregistré pour ce compte', ar: 'لا يوجد عامل مسجل لهذا الحساب', en: 'No worker registered for this account', es: 'Ningún operario registrado para esta cuenta', pt: 'Nenhum operário registrado para esta conta', tr: 'Bu hesap için kayıtlı işçi yok' })}
                         </div>
                         <div style={{ fontSize: 12, marginTop: 4, maxWidth: 420, marginLeft: 'auto', marginRight: 'auto', lineHeight: 1.5 }}>
                           {workers.length > 0
-                            ? 'Modifiez la recherche ou le filtre « Tous les rôles ».'
-                            : "Les fiches sont liées à l'utilisateur connecté. Connectez-vous avec le compte qui a créé les données, ou cliquez sur « Ajouter Ouvrier »."}
+                            ? tx(lang, { fr: 'Modifiez la recherche ou le filtre « Tous les rôles ».', ar: 'غيّر معايير البحث أو فلتر "جميع الأدوار".', en: 'Change the search or the "All roles" filter.', es: 'Modifique la búsqueda o el filtro "Todos los roles".', pt: 'Modifique a pesquisa ou o filtro "Todos os cargos".', tr: 'Aramayı veya "Tüm roller" filtresini değiştirin.' })
+                            : tx(lang, { fr: 'Les fiches sont liées à l\'utilisateur connecté. Connectez-vous avec le compte qui a créé les données, ou cliquez sur « Ajouter Ouvrier ».', ar: 'الملفات مرتبطة بالمستخدم المتصل. سجّل الدخول بالحساب الذي أنشأ البيانات، أو انقر على "إضافة عامل".', en: 'Records are linked to the logged-in user. Log in with the account that created the data, or click "Add Worker".', es: 'Las fichas están vinculadas al usuario conectado. Inicie sesión con la cuenta que creó los datos, o haga clic en "Añadir Operario".', pt: 'Os registros estão vinculados ao usuário conectado. Faça login com a conta que criou os dados, ou clique em "Adicionar Operário".', tr: 'Kayıtlar, giriş yapmış kullanıcıya bağlıdır. Verileri oluşturan hesapla giriş yapın veya "İşçi Ekle"ye tıklayın.' })}
                         </div>
                       </div>
                     )}
@@ -1984,11 +2068,11 @@ export default function GestionRH({
                         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                           <button type="button" onClick={() => setProfileWorkerId(w.id)}
                             style={{ ...btnPrimary, flex: 1, justifyContent: 'center', fontSize: 12, padding: '7px 10px' }}>
-                            <IdCard size={12} style={{ marginRight: 4 }} />Fiche
+                            <IdCard size={12} style={{ marginRight: 4 }} />{tx(lang, { fr: 'Fiche', ar: 'ملف', en: 'Profile', es: 'Ficha', pt: 'Ficha', tr: 'Profil' })}
                           </button>
                           <button onClick={() => { setEditWorker(w); setShowWorkerModal(true); }}
                             style={{ ...btnSecondary, flex: 1, justifyContent: 'center', fontSize: 12, padding: '7px 10px' }}>
-                            <Edit3 size={12} style={{ marginRight: 4 }} />Modifier
+                            <Edit3 size={12} style={{ marginRight: 4 }} />{tx(lang, { fr: 'Modifier', ar: 'تعديل', en: 'Edit', es: 'Editar', pt: 'Editar', tr: 'Düzenle' })}
                           </button>
                           <button onClick={() => handleDeleteWorker(w.id, w.full_name)}
                             style={{ ...btnDanger, padding: '7px 10px', fontSize: 12 }}>
@@ -2582,15 +2666,15 @@ export default function GestionRH({
                                 {a.solde_restant != null ? `${a.solde_restant?.toLocaleString()} MAD` : '—'}
                               </td>
                               <td style={{ padding: '10px 14px' }}>
-                                <span style={{ padding: '3px 10px', borderRadius: 20, fontSize: 11, fontWeight: 700, background: sc.bg, color: sc.color }}>{sc.label}</span>
+                                <span style={{ padding: '3px 10px', borderRadius: 20, fontSize: 11, fontWeight: 700, background: sc.bg, color: sc.color }}>{tx(lang, sc.label)}</span>
                               </td>
                               <td style={{ padding: '10px 14px' }}>
                                 {a.statut === 'DEMANDE' && (
                                   <div style={{ display: 'flex', gap: 6 }}>
                                     <button onClick={() => handleAvanceStatut(a.id, 'APPROUVE')}
-                                      style={{ padding: '4px 10px', border: 'none', borderRadius: 6, background: '#D1FAE5', color: '#065F46', cursor: 'pointer', fontSize: 11, fontWeight: 600 }}>✓ Approuver</button>
+                                      style={{ padding: '4px 10px', border: 'none', borderRadius: 6, background: '#D1FAE5', color: '#065F46', cursor: 'pointer', fontSize: 11, fontWeight: 600 }}>{tx(lang, { fr: '✓ Approuver', ar: '✓ موافقة', en: '✓ Approve', es: '✓ Aprobar', pt: '✓ Aprovar', tr: '✓ Onayla' })}</button>
                                     <button onClick={() => handleAvanceStatut(a.id, 'REFUSE')}
-                                      style={{ padding: '4px 10px', border: 'none', borderRadius: 6, background: '#FEE2E2', color: '#991B1B', cursor: 'pointer', fontSize: 11, fontWeight: 600 }}>✗ Refuser</button>
+                                      style={{ padding: '4px 10px', border: 'none', borderRadius: 6, background: '#FEE2E2', color: '#991B1B', cursor: 'pointer', fontSize: 11, fontWeight: 600 }}>{tx(lang, { fr: '✗ Refuser', ar: '✗ رفض', en: '✗ Refuse', es: '✗ Rechazar', pt: '✗ Recusar', tr: '✗ Reddet' })}</button>
                                   </div>
                                 )}
                               </td>
