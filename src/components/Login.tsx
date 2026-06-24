@@ -3,6 +3,8 @@ import { useAuth } from '../context/AuthContext';
 import { hasLocalDraftMarker, markPendingDraftAttachToEmail, notifyServerSessionEstablished } from '../../lib/dataIdentity';
 import { Lock, Mail, ArrowRight, User } from 'lucide-react';
 import { motion, AnimatePresence, Variants } from 'framer-motion';
+import { tx } from '../lib/i18n';
+import { useLang } from '../context/LanguageContext';
 
 // Icône Google officielle (multicolore)
 const GoogleIcon = ({ className }: { className?: string }) => (
@@ -34,6 +36,7 @@ export default function Login({ onSwitch, onGuest }: { onSwitch: () => void, onG
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const { login, staticLogin, signInWithGoogle } = useAuth();
+  const { lang } = useLang();
   
   // Forgot Password State
   const [showForgotPassword, setShowForgotPassword] = useState(false);
@@ -368,17 +371,17 @@ export default function Login({ onSwitch, onGuest }: { onSwitch: () => void, onG
             </h1>
             
             <span className="text-[10px] font-semibold uppercase tracking-[0.2em] mt-1.5 text-slate-500">
-              Industrial Intelligence
+              {tx(lang, {fr:'Intelligence Industrielle',ar:'الذكاء الصناعي',en:'Industrial Intelligence',es:'Inteligencia Industrial',pt:'Inteligência Industrial',tr:'Endüstriyel Zeka'})}
             </span>
           </div>
 
           <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-center text-slate-900">
-            {showForgotPassword ? (resetStep === 3 ? 'New Password' : 'Reset Password') : 'Welcome back'}
+            {showForgotPassword ? (resetStep === 3 ? tx(lang, {fr:'Nouveau mot de passe',ar:'كلمة سر جديدة',en:'New Password',es:'Nueva contraseña',pt:'Nova palavra-passe',tr:'Yeni Şifre'}) : tx(lang, {fr:'Réinitialiser le mot de passe',ar:'إعادة تعيين كلمة السر',en:'Reset Password',es:'Restablecer contraseña',pt:'Redefinir palavra-passe',tr:'Şifre Sıfırla'})) : tx(lang, {fr:'Bon retour',ar:'مرحباً بعودتك',en:'Welcome back',es:'Bienvenido de nuevo',pt:'Bem-vindo de volta',tr:'Hoş geldiniz'})}
           </h2>
           <p className="mt-2 text-sm text-center max-w-xs text-slate-600">
             {showForgotPassword 
-              ? (resetStep === 1 ? 'Enter your email to receive a verification code' : resetStep === 2 ? `Enter the code sent to ${getMaskedEmail(resetEmail)}` : 'Create a strong password for your account')
-              : 'Enter your credentials to access your industrial workspace'}
+              ? (resetStep === 1 ? tx(lang, {fr:'Saisissez votre e-mail pour recevoir un code de vérification',ar:'أدخل بريدك الإلكتروني لاستلام رمز التحقق',en:'Enter your email to receive a verification code',es:'Introduzca su correo para recibir un código de verificación',pt:'Introduza o seu e-mail para receber um código de verificação',tr:'Doğrulama kodu almak için e-postanızı girin'}) : resetStep === 2 ? `${tx(lang, {fr:'Saisissez le code envoyé à ',ar:'أدخل الرمز المرسل إلى ',en:'Enter the code sent to ',es:'Introduzca el código enviado a ',pt:'Introduza o código enviado para ',tr:'Gönderilen kodu girin: '})}${getMaskedEmail(resetEmail)}` : tx(lang, {fr:'Créez un mot de passe fort pour votre compte',ar:'أنشئ كلمة سر قوية لحسابك',en:'Create a strong password for your account',es:'Cree una contraseña segura para su cuenta',pt:'Crie uma palavra-passe forte para a sua conta',tr:'Hesabınız için güçlü bir şifre oluşturun'}))
+              : tx(lang, {fr:'Saisissez vos identifiants pour accéder à votre espace de travail industriel',ar:'أدخل بيانات الدخول للوصول إلى مساحة عملك الصناعية',en:'Enter your credentials to access your industrial workspace',es:'Introduzca sus credenciales para acceder a su espacio de trabajo industrial',pt:'Introduza as suas credenciais para aceder ao seu espaço de trabalho industrial',tr:'Endüstriyel çalışma alanınıza erişmek için kimlik bilgilerinizi girin'})}
           </p>
         </motion.div>
 
@@ -394,7 +397,7 @@ export default function Login({ onSwitch, onGuest }: { onSwitch: () => void, onG
                     type="email"
                     required
                     className="w-full pl-11 pr-4 py-4 rounded-xl border border-slate-200 text-slate-900 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 bg-slate-50/50 focus:bg-white placeholder-slate-400 sm:text-sm transition-all duration-200 shadow-sm"
-                    placeholder="Email address"
+                    placeholder={tx(lang, {fr:'Adresse e-mail',ar:'البريد الإلكتروني',en:'Email address',es:'Correo electrónico',pt:'Endereço de e-mail',tr:'E-posta adresi'})}
                     value={resetEmail}
                     onChange={(e) => setResetEmail(e.target.value)}
                   />
@@ -420,7 +423,7 @@ export default function Login({ onSwitch, onGuest }: { onSwitch: () => void, onG
                   disabled={resetLoading}
                   className="w-full flex justify-center items-center gap-2 py-4 px-4 border border-transparent text-sm font-bold rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-offset-2 bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 hover:shadow-emerald-500/20 shadow-lg transition-all duration-200 cursor-pointer disabled:opacity-70 disabled:cursor-not-allowed"
                 >
-                  {resetLoading ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : 'Send Verification Code'}
+                  {resetLoading ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : tx(lang, {fr:'Envoyer le code de vérification',ar:'إرسال رمز التحقق',en:'Send Verification Code',es:'Enviar código de verificación',pt:'Enviar código de verificação',tr:'Doğrulama Kodu Gönder'})}
                 </motion.button>
               </form>
             )}
@@ -450,7 +453,7 @@ export default function Login({ onSwitch, onGuest }: { onSwitch: () => void, onG
                 
                 <div className="text-center">
                   <p className="text-sm text-slate-500">
-                    Resend code in <span className="font-mono font-bold text-emerald-500">00:{timer.toString().padStart(2, '0')}</span>
+                    {tx(lang, {fr:'Renvoyer le code dans',ar:'إعادة إرسال الرمز بعد',en:'Resend code in',es:'Reenviar código en',pt:'Reenviar código em',tr:'Kodu yeniden gönder'})} <span className="font-mono font-bold text-emerald-500">00:{timer.toString().padStart(2, '0')}</span>
                   </p>
                   {canResend && (
                     <button
@@ -458,7 +461,7 @@ export default function Login({ onSwitch, onGuest }: { onSwitch: () => void, onG
                       onClick={handleResendCode}
                       className="mt-2 text-sm font-medium text-emerald-600 hover:text-emerald-500 hover:underline"
                     >
-                      Resend Code
+                      {tx(lang, {fr:'Renvoyer le code',ar:'إعادة إرسال الرمز',en:'Resend Code',es:'Reenviar código',pt:'Reenviar código',tr:'Kodu Yeniden Gönder'})}
                     </button>
                   )}
                 </div>
@@ -484,7 +487,7 @@ export default function Login({ onSwitch, onGuest }: { onSwitch: () => void, onG
                   disabled={resetLoading}
                   className="w-full flex justify-center items-center gap-2 py-4 px-4 border border-transparent text-sm font-bold rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-offset-2 bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 hover:shadow-emerald-500/20 shadow-lg transition-all duration-200 cursor-pointer disabled:opacity-70 disabled:cursor-not-allowed"
                 >
-                  {resetLoading ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : 'Verify Code'}
+                  {resetLoading ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : tx(lang, {fr:'Vérifier le code',ar:'تحقق من الرمز',en:'Verify Code',es:'Verificar código',pt:'Verificar código',tr:'Kodu Doğrula'})}
                 </motion.button>
               </form>
             )}
@@ -499,7 +502,7 @@ export default function Login({ onSwitch, onGuest }: { onSwitch: () => void, onG
                     type="password"
                     required
                     className="w-full pl-11 pr-4 py-4 rounded-xl border border-slate-200 text-slate-900 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 bg-slate-50/50 focus:bg-white placeholder-slate-400 sm:text-sm transition-all duration-200 shadow-sm"
-                    placeholder="New Password"
+                    placeholder={tx(lang, {fr:'Nouveau mot de passe',ar:'كلمة سر جديدة',en:'New Password',es:'Nueva contraseña',pt:'Nova palavra-passe',tr:'Yeni Şifre'})}
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
                   />
@@ -508,8 +511,8 @@ export default function Login({ onSwitch, onGuest }: { onSwitch: () => void, onG
                 {/* Password Strength Indicator */}
                 <div className="space-y-2">
                   <div className="flex justify-between text-xs font-medium text-slate-550">
-                    <span>Password Strength</span>
-                    <span>{['Weak', 'Fair', 'Good', 'Strong'][passwordStrength - 1] || 'Too Weak'}</span>
+                    <span>{tx(lang, {fr:'Force du mot de passe',ar:'قوة كلمة السر',en:'Password Strength',es:'Fortaleza de la contraseña',pt:'Força da palavra-passe',tr:'Şifre Gücü'})}</span>
+                    <span>{[tx(lang, {fr:'Faible',ar:'ضعيفة',en:'Weak',es:'Débil',pt:'Fraca',tr:'Zayıf'}), tx(lang, {fr:'Moyen',ar:'مقبولة',en:'Fair',es:'Aceptable',pt:'Razoável',tr:'Orta'}), tx(lang, {fr:'Bon',ar:'جيدة',en:'Good',es:'Buena',pt:'Boa',tr:'İyi'}), tx(lang, {fr:'Fort',ar:'قوية',en:'Strong',es:'Fuerte',pt:'Forte',tr:'Güçlü'})][passwordStrength - 1] || tx(lang, {fr:'Trop faible',ar:'ضعيفة جداً',en:'Too Weak',es:'Muy débil',pt:'Muito fraca',tr:'Çok zayıf'})}</span>
                   </div>
                   <div className="h-1.5 w-full bg-slate-200 rounded-full overflow-hidden flex">
                     {[1, 2, 3, 4].map((level) => (
@@ -547,7 +550,7 @@ export default function Login({ onSwitch, onGuest }: { onSwitch: () => void, onG
                   disabled={resetLoading}
                   className="w-full flex justify-center items-center gap-2 py-4 px-4 border border-transparent text-sm font-bold rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-offset-2 bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-emerald-400 hover:shadow-emerald-500/20 shadow-lg transition-all duration-200 cursor-pointer disabled:opacity-70 disabled:cursor-not-allowed"
                 >
-                  {resetLoading ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : 'Reset Password'}
+                  {resetLoading ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : tx(lang, {fr:'Réinitialiser le mot de passe',ar:'إعادة تعيين كلمة السر',en:'Reset Password',es:'Restablecer contraseña',pt:'Redefinir palavra-passe',tr:'Şifre Sıfırla'})}
                 </motion.button>
               </form>
             )}
@@ -562,7 +565,7 @@ export default function Login({ onSwitch, onGuest }: { onSwitch: () => void, onG
                 }}
                 className="text-sm font-medium text-slate-500 hover:text-slate-800 hover:underline transition-colors"
               >
-                Back to Login
+                {tx(lang, {fr:'Retour à la connexion',ar:'العودة إلى تسجيل الدخول',en:'Back to Login',es:'Volver al inicio de sesión',pt:'Voltar ao início de sessão',tr:'Girişe Dön'})}
               </button>
             </div>
           </div>
@@ -577,7 +580,7 @@ export default function Login({ onSwitch, onGuest }: { onSwitch: () => void, onG
                   type="email"
                   required
                   className="w-full pl-11 pr-4 py-4 rounded-xl border border-slate-200 text-slate-900 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 bg-slate-50/50 focus:bg-white placeholder-slate-400 sm:text-sm transition-all duration-200 shadow-sm"
-                  placeholder="Email address"
+                  placeholder={tx(lang, {fr:'Adresse e-mail',ar:'البريد الإلكتروني',en:'Email address',es:'Correo electrónico',pt:'Endereço de e-mail',tr:'E-posta adresi'})}
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                 />
@@ -590,7 +593,7 @@ export default function Login({ onSwitch, onGuest }: { onSwitch: () => void, onG
                   type="password"
                   required
                   className="w-full pl-11 pr-4 py-4 rounded-xl border border-slate-200 text-slate-900 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 bg-slate-50/50 focus:bg-white placeholder-slate-400 sm:text-sm transition-all duration-200 shadow-sm"
-                  placeholder="Password"
+                  placeholder={tx(lang, {fr:'Mot de passe',ar:'كلمة السر',en:'Password',es:'Contraseña',pt:'Palavra-passe',tr:'Şifre'})}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                 />
@@ -601,7 +604,7 @@ export default function Login({ onSwitch, onGuest }: { onSwitch: () => void, onG
                   onClick={() => setShowForgotPassword(true)}
                   className="text-sm font-medium text-emerald-600 hover:text-emerald-500 hover:underline transition-colors"
                 >
-                  Forgot password?
+                  {tx(lang, {fr:'Mot de passe oublié ?',ar:'هل نسيت كلمة السر؟',en:'Forgot password?',es:'¿Olvidó su contraseña?',pt:'Esqueceu a palavra-passe?',tr:'Şifrenizi mi unuttunuz?'})}
                 </button>
               </div>
             </motion.div>
@@ -633,7 +636,7 @@ export default function Login({ onSwitch, onGuest }: { onSwitch: () => void, onG
                 <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
               ) : (
                 <>
-                  Sign in <ArrowRight className="w-4 h-4" />
+                  {tx(lang, {fr:'Se connecter',ar:'تسجيل الدخول',en:'Sign in',es:'Iniciar sesión',pt:'Iniciar sessão',tr:'Oturum Aç'})} <ArrowRight className="w-4 h-4" />
                 </>
               )}
             </motion.button>
@@ -642,7 +645,7 @@ export default function Login({ onSwitch, onGuest }: { onSwitch: () => void, onG
               <motion.div variants={itemVariants} className="mt-6">
                 <div className="flex items-center gap-3">
                   <div className="h-px flex-1 bg-slate-200" />
-                  <span className="text-xs font-medium uppercase tracking-wider text-slate-500">Or</span>
+                  <span className="text-xs font-medium uppercase tracking-wider text-slate-500">{tx(lang, {fr:'Ou',ar:'أو',en:'Or',es:'O',pt:'Ou',tr:'Veya'})}</span>
                   <div className="h-px flex-1 bg-slate-200" />
                 </div>
 
@@ -656,7 +659,7 @@ export default function Login({ onSwitch, onGuest }: { onSwitch: () => void, onG
                     className="mt-4 w-full flex justify-center items-center gap-3 border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 hover:border-slate-300 py-3.5 px-4 rounded-xl shadow-sm cursor-pointer text-sm font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 transition-all duration-200 disabled:opacity-70 disabled:cursor-not-allowed"
                   >
                     <GoogleIcon className="w-5 h-5" />
-                    Continuer avec Google
+                    {tx(lang, {fr:'Continuer avec Google',ar:'الاستمرار مع Google',en:'Continue with Google',es:'Continuar con Google',pt:'Continuar com Google',tr:'Google ile Devam Et'})}
                   </motion.button>
                 )}
 
@@ -669,7 +672,7 @@ export default function Login({ onSwitch, onGuest }: { onSwitch: () => void, onG
                     className="mt-3 w-full flex justify-center items-center gap-2 border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:border-slate-300 py-3.5 px-4 rounded-xl shadow-sm cursor-pointer text-sm font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 transition-all duration-200"
                   >
                     <User className="w-4 h-4" />
-                    Continue as Guest
+                    {tx(lang, {fr:'Continuer en tant qu\'invité',ar:'متابعة كضيف',en:'Continue as Guest',es:'Continuar como invitado',pt:'Continuar como convidado',tr:'Misafir Olarak Devam Et'})}
                   </motion.button>
                 )}
               </motion.div>
@@ -679,12 +682,12 @@ export default function Login({ onSwitch, onGuest }: { onSwitch: () => void, onG
         
         <motion.div variants={itemVariants} className="mt-8 text-center">
           <p className="text-sm text-slate-500">
-            Don't have an account?{' '}
+            {tx(lang, {fr:'Vous n\'avez pas de compte ?',ar:'ليس لديك حساب؟',en:'Don\'t have an account?',es:'¿No tiene una cuenta?',pt:'Não tem uma conta?',tr:'Hesabınız yok mu?'})}{' '}
             <button 
               onClick={onSwitch} 
               className="font-bold transition-colors hover:underline decoration-2 underline-offset-4 text-emerald-600 hover:text-emerald-500"
             >
-              Create account
+              {tx(lang, {fr:'Créer un compte',ar:'إنشاء حساب',en:'Create account',es:'Crear cuenta',pt:'Criar conta',tr:'Hesap Oluştur'})}
             </button>
           </p>
         </motion.div>
@@ -692,7 +695,7 @@ export default function Login({ onSwitch, onGuest }: { onSwitch: () => void, onG
 
       {/* Footer Copyright */}
       <div className="absolute bottom-6 text-center w-full z-10">
-         <p className="text-xs font-medium text-slate-600">© {new Date().getFullYear()} BeraMethode. Tous droits réservés.</p>
+         <p className="text-xs font-medium text-slate-600">© {new Date().getFullYear()} BeraMethode. {tx(lang, {fr:'Tous droits réservés.',ar:'جميع الحقوق محفوظة.',en:'All rights reserved.',es:'Todos los derechos reservados.',pt:'Todos os direitos reservados.',tr:'Tüm hakları saklıdır.'})}</p>
       </div>
     </div>
   );

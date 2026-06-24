@@ -9,6 +9,8 @@ import {
     Download, Filter, Copy, Edit3, MoreVertical, ArrowRight, TrendingUp,
     ArrowUpDown, RefreshCw, Zap, Target, Star, Hash
 } from 'lucide-react';
+import { tx } from '../lib/i18n';
+import { useLang } from '../src/context/LanguageContext';
 import ExcelInput from './ExcelInput';
 import { TEXTILE_COLORS } from '../data/textileData';
 import { PurchasingData } from '../types';
@@ -51,6 +53,7 @@ function useIsMobile(): boolean {
 
 export default function LaCoupe({ models, setModels, onOpenInAtelier, currentModelId, setFicheData }: LaCoupeProps) {
     const isMobile = useIsMobile();
+    const { lang } = useLang();
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedModel, setSelectedModel] = useState<ModelData | null>(null);
     const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -78,12 +81,12 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(model)
             });
-            if (!res.ok) throw new Error('Erreur de sauvegarde serveur');
+            if (!res.ok) throw new Error(tx(lang, { fr: 'Erreur de sauvegarde serveur', ar: 'خطأ في حفظ الخادم', en: 'Server save error', es: 'Error de guardado del servidor', pt: 'Erro ao salvar no servidor', tr: 'Sunucu kaydetme hatası' }));
             if (successMessage) showToast(successMessage, 'success');
             return true;
         } catch (e) {
             console.error("Failed to save model to server:", e);
-            showToast("Erreur de sauvegarde Cloud", "error");
+            showToast(tx(lang, { fr: 'Erreur de sauvegarde Cloud', ar: 'خطأ في الحفظ السحابي', en: 'Cloud save error', es: 'Error de guardado en la nube', pt: 'Erro ao salvar na nuvem', tr: 'Bulut kaydetme hatası' }), "error");
             return false;
         }
     }, [showToast]);
@@ -94,12 +97,12 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                 credentials: 'include',
                 method: 'DELETE'
             });
-            if (!res.ok) throw new Error('Erreur de suppression serveur');
+            if (!res.ok) throw new Error(tx(lang, { fr: 'Erreur de suppression serveur', ar: 'خطأ في حذف الخادم', en: 'Server delete error', es: 'Error de eliminación del servidor', pt: 'Erro ao excluir no servidor', tr: 'Sunucu silme hatası' }));
             if (successMessage) showToast(successMessage, 'success');
             return true;
         } catch (e) {
             console.error("Failed to delete model on server:", e);
-            showToast("Erreur de suppression Cloud", "error");
+            showToast(tx(lang, { fr: 'Erreur de suppression Cloud', ar: 'خطأ في الحذف السحابي', en: 'Cloud delete error', es: 'Error de eliminación en la nube', pt: 'Erro ao excluir na nuvem', tr: 'Bulut silme hatası' }), "error");
             return false;
         }
     }, [showToast]);
@@ -196,7 +199,16 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
     };
 
     const handleExportExcel = () => {
-        const headers = ['Référence', 'Nom Modèle', 'Statut', 'Quantité', 'Longueur', 'Consommation', 'Feuilles', 'Matelas'];
+        const headers = [
+            tx(lang, { fr: 'Référence', ar: 'المرجع', en: 'Reference', es: 'Referencia', pt: 'Referência', tr: 'Referans' }),
+            tx(lang, { fr: 'Nom Modèle', ar: 'اسم النموذج', en: 'Model Name', es: 'Nombre del Modelo', pt: 'Nome do Modelo', tr: 'Model Adı' }),
+            tx(lang, { fr: 'Statut', ar: 'الحالة', en: 'Status', es: 'Estado', pt: 'Status', tr: 'Durum' }),
+            tx(lang, { fr: 'Quantité', ar: 'الكمية', en: 'Quantity', es: 'Cantidad', pt: 'Quantidade', tr: 'Miktar' }),
+            tx(lang, { fr: 'Longueur', ar: 'الطول', en: 'Length', es: 'Longitud', pt: 'Comprimento', tr: 'Uzunluk' }),
+            tx(lang, { fr: 'Consommation', ar: 'الاستهلاك', en: 'Consumption', es: 'Consumo', pt: 'Consumo', tr: 'Tüketim' }),
+            tx(lang, { fr: 'Feuilles', ar: 'الصفائح', en: 'Sheets', es: 'Capas', pt: 'Folhas', tr: 'Tabakalar' }),
+            tx(lang, { fr: 'Matelas', ar: 'المفرشات', en: 'Layers', es: 'Capas', pt: 'Esteiras', tr: 'Katmanlar' }),
+        ];
         const rows = filteredModels.map(m => [
             m.ordreCoupe?.refModele || '-',
             m.meta_data?.nom_modele || '-',
@@ -215,7 +227,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
         a.download = `ordres_coupe_${new Date().toISOString().split('T')[0]}.csv`;
         a.click();
         URL.revokeObjectURL(url);
-        showToast('Export Excel réussi', 'success');
+        showToast(tx(lang, { fr: 'Export Excel réussi', ar: 'تم تصدير Excel بنجاح', en: 'Excel export successful', es: 'Exportación Excel exitosa', pt: 'Exportação Excel bem-sucedida', tr: 'Excel dışa aktarma başarılı' }), 'success');
     };
 
     const handlePrint = () => {
@@ -232,7 +244,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
             workflowStatus: 'COUPE',
             meta_data: {
                 ...(model.meta_data || { nom_modele: '', date_creation: new Date().toISOString(), total_temps: 0, effectif: 1 }),
-                nom_modele: `${model.meta_data?.nom_modele || 'Modèle'} (Copie)`,
+                nom_modele: `${model.meta_data?.nom_modele || 'Modèle'} (${tx(lang, { fr: 'Copie', ar: 'نسخة', en: 'Copy', es: 'Copia', pt: 'Cópia', tr: 'Kopya' })})`,
                 date_creation: new Date().toISOString(),
             },
             ordreCoupe: model.ordreCoupe ? { ...model.ordreCoupe, status: 'EN_PREPARATION' } : undefined,
@@ -240,7 +252,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
         const success = await saveModelToServer(duplicate);
         if (success) {
             setModels(prev => [duplicate, ...prev]);
-            showToast('Ordre dupliqué', 'success');
+            showToast(tx(lang, { fr: 'Ordre dupliqué', ar: 'تم تكرار الأمر', en: 'Order duplicated', es: 'Orden duplicada', pt: 'Ordem duplicada', tr: 'Emir kopyalandı' }), 'success');
         }
         setQuickActionMenu(null);
     };
@@ -265,18 +277,18 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
         const success = await saveModelToServer(updatedModel);
         if (success) {
             setModels(prev => prev.map(m => m.id === draggedModel ? updatedModel : m));
-            showToast(`Statut modifié: ${STATUS_MAP[status as keyof typeof STATUS_MAP]?.label}`, 'success');
+            showToast(`${tx(lang, { fr: 'Statut modifié', ar: 'تم تغيير الحالة', en: 'Status changed', es: 'Estado modificado', pt: 'Status alterado', tr: 'Durum değiştirildi' })}: ${STATUS_MAP[status as keyof typeof STATUS_MAP]?.label}`, 'success');
         }
         setDraggedModel(null);
         setDragOverColumn(null);
     };
 
     const STATUS_MAP = {
-        'EN_PREPARATION': { label: 'En Préparation', color: 'text-slate-700 border-slate-300', icon: Clock },
-        'EN_COURS': { label: 'En Cours', color: 'text-blue-700 border-blue-400', icon: PlayCircle },
-        'SOUS_TRAITANCE': { label: 'Extériorisé', color: 'text-purple-700 border-purple-400', icon: Truck },
-        'VALIDE': { label: 'Validé', color: 'text-emerald-700 border-emerald-400', icon: CheckCircle },
-        'REJETE': { label: 'Rejeté', color: 'text-red-700 border-red-400', icon: XCircle },
+        'EN_PREPARATION': { label: tx(lang, { fr: 'En Préparation', ar: 'قيد التحضير', en: 'In Preparation', es: 'En Preparación', pt: 'Em Preparação', tr: 'Hazırlıkta' }), color: 'text-slate-700 border-slate-300', icon: Clock },
+        'EN_COURS': { label: tx(lang, { fr: 'En Cours', ar: 'قيد التنفيذ', en: 'In Progress', es: 'En Curso', pt: 'Em Andamento', tr: 'Devam Ediyor' }), color: 'text-blue-700 border-blue-400', icon: PlayCircle },
+        'SOUS_TRAITANCE': { label: tx(lang, { fr: 'Extériorisé', ar: 'مقاول خارجي', en: 'Subcontracted', es: 'Subcontratado', pt: 'Terceirizado', tr: 'Taşeron' }), color: 'text-purple-700 border-purple-400', icon: Truck },
+        'VALIDE': { label: tx(lang, { fr: 'Validé', ar: 'تم التحقق', en: 'Validated', es: 'Validado', pt: 'Validado', tr: 'Onaylandı' }), color: 'text-emerald-700 border-emerald-400', icon: CheckCircle },
+        'REJETE': { label: tx(lang, { fr: 'Rejeté', ar: 'مرفوض', en: 'Rejected', es: 'Rechazado', pt: 'Rejeitado', tr: 'Reddedildi' }), color: 'text-red-700 border-red-400', icon: XCircle },
     };
 
     const openModel = (model: ModelData) => {
@@ -291,7 +303,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
             });
         } else {
             setOrdre({
-                refModele: model.meta_data?.nom_modele || 'Sans Nom',
+                refModele: model.meta_data?.nom_modele || tx(lang, { fr: 'Sans Nom', ar: 'بدون اسم', en: 'Unnamed', es: 'Sin Nombre', pt: 'Sem Nome', tr: 'İsimsiz' }),
                 longueurMatelas: 0,
                 consommation: 0,
                 nbrFeuilles: 0,
@@ -314,7 +326,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
             workflowStatus: 'COUPE',
             isPublishedToLibrary: false,
             meta_data: {
-                nom_modele: `Nouveau Modèle ${Math.floor(Math.random() * 1000)}`,
+                nom_modele: `${tx(lang, { fr: 'Nouveau Modèle', ar: 'نموذج جديد', en: 'New Model', es: 'Nuevo Modelo', pt: 'Novo Modelo', tr: 'Yeni Model' })} ${Math.floor(Math.random() * 1000)}`,
                 date_creation: new Date().toISOString(),
                 total_temps: 0,
                 effectif: 1
@@ -337,7 +349,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
         if (success) {
             setModels(prev => [newModel, ...prev]);
             openModel(newModel);
-            showToast('Nouveau modèle créé', 'success');
+            showToast(tx(lang, { fr: 'Nouveau modèle créé', ar: 'تم إنشاء نموذج جديد', en: 'New model created', es: 'Nuevo modelo creado', pt: 'Novo modelo criado', tr: 'Yeni model oluşturuldu' }), 'success');
         }
     };
 
@@ -372,7 +384,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                             type: 'sortie_production',
                             quantite: -mat.neededForProduction,
                             reference: `Coupe → Planning : ${ordre.refModele}`,
-                            responsable: 'La Coupe'
+                            responsable: tx(lang, { fr: 'La Coupe', ar: 'قسم القص', en: 'Cutting Dept.', es: 'Departamento de Corte', pt: 'Departamento de Corte', tr: 'Kesim Departmanı' })
                         });
                     }
                 });
@@ -396,7 +408,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
             ordreCoupe: updatedOrdre,
             meta_data: {
                 ...(selectedModel.meta_data || { nom_modele: '', date_creation: new Date().toISOString(), total_temps: 0, effectif: 1 }),
-                nom_modele: ordre.refModele || selectedModel.meta_data?.nom_modele || 'Sans Nom',
+                nom_modele: ordre.refModele || selectedModel.meta_data?.nom_modele || tx(lang, { fr: 'Sans Nom', ar: 'بدون اسم', en: 'Unnamed', es: 'Sin Nombre', pt: 'Sem Nome', tr: 'İsimsiz' }),
                 quantity: finalQte
             }
         };
@@ -407,9 +419,9 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
             setSelectedModel(updatedModel);
             if (transferTo) {
                 setSelectedModel(null);
-                showToast(`Transféré vers ${transferTo}`, 'success');
+                showToast(`${tx(lang, { fr: 'Transféré vers', ar: 'تم النقل إلى', en: 'Transferred to', es: 'Transferido a', pt: 'Transferido para', tr: 'Aktarıldı' })} ${transferTo}`, 'success');
             } else {
-                showToast('Sauvegarde effectuée', 'success');
+                showToast(tx(lang, { fr: 'Sauvegarde effectuée', ar: 'تم الحفظ بنجاح', en: 'Save successful', es: 'Guardado exitoso', pt: 'Salvo com sucesso', tr: 'Kaydetme başarılı' }), 'success');
             }
         }
     };
@@ -658,12 +670,12 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
             setModels(prev => prev.filter(m => m.id !== id));
             setSelectedModel(null);
             setDeleteConfirm(null);
-            showToast('Ordre supprimé', 'success');
+            showToast(tx(lang, { fr: 'Ordre supprimé', ar: 'تم حذف الأمر', en: 'Order deleted', es: 'Orden eliminada', pt: 'Ordem excluída', tr: 'Emir silindi' }), 'success');
         }
     };
 
     const handleGenerateBarcodes = () => {
-        showToast("Impression des étiquettes code-barres...", 'info');
+        showToast(tx(lang, { fr: 'Impression des étiquettes code-barres...', ar: 'طباعة ملصقات الباركود...', en: 'Printing barcode labels...', es: 'Imprimiendo etiquetas de código de barras...', pt: 'Imprimindo etiquetas de código de barras...', tr: 'Barkod etiketleri yazdırılıyor...' }), 'info');
     };
 
     const consoTheorique = matelasCalculations.totalFabric > 0
@@ -711,7 +723,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" strokeWidth={2} />
                         <input
                             type="text"
-                            placeholder="Rechercher un ordre..."
+                            placeholder={tx(lang, { fr: 'Rechercher un ordre...', ar: 'البحث عن أمر...', en: 'Search an order...', es: 'Buscar una orden...', pt: 'Pesquisar uma ordem...', tr: 'Bir emir ara...' })}
                             value={searchTerm}
                             onChange={e => setSearchTerm(e.target.value)}
                             className="w-full h-9 pl-9 pr-3 text-[13px] text-slate-700 placeholder:text-slate-400 bg-slate-50 focus:bg-white border border-transparent focus:border-slate-200 focus:ring-2 focus:ring-slate-100 rounded-md outline-none transition-all"
@@ -726,7 +738,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                 {/* Quick stats row + Sort */}
                 <div className="flex items-center justify-between mt-2.5 px-1">
                     <div className="flex items-center gap-3">
-                        <span className="text-[10px] font-semibold text-slate-500">{sortedModels.length} ordre{sortedModels.length !== 1 ? 's' : ''}</span>
+                        <span className="text-[10px] font-semibold text-slate-500">{sortedModels.length} {sortedModels.length !== 1 ? tx(lang, { fr: 'ordres', ar: 'أوامر', en: 'orders', es: 'órdenes', pt: 'ordens', tr: 'emirler' }) : tx(lang, { fr: 'ordre', ar: 'أمر', en: 'order', es: 'orden', pt: 'ordem', tr: 'emir' })}</span>
                         <div className="w-px h-3 bg-slate-200" />
                         <div className="flex items-center gap-1">
                             <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />
@@ -744,10 +756,10 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                     <button
                         onClick={cycleSortBy}
                         className="flex items-center gap-1 text-[9px] font-bold text-slate-400 hover:text-slate-700 transition-colors uppercase tracking-wide"
-                        title={`Trier par: ${sortBy === 'date' ? 'Date' : sortBy === 'name' ? 'Nom' : sortBy === 'status' ? 'Statut' : 'Quantité'}`}
+                        title={`${tx(lang, { fr: 'Trier par', ar: 'ترتيب حسب', en: 'Sort by', es: 'Ordenar por', pt: 'Ordenar por', tr: 'Sırala' })}: ${sortBy === 'date' ? tx(lang, { fr: 'Date', ar: 'التاريخ', en: 'Date', es: 'Fecha', pt: 'Data', tr: 'Tarih' }) : sortBy === 'name' ? tx(lang, { fr: 'Nom', ar: 'الاسم', en: 'Name', es: 'Nombre', pt: 'Nome', tr: 'Ad' }) : sortBy === 'status' ? tx(lang, { fr: 'Statut', ar: 'الحالة', en: 'Status', es: 'Estado', pt: 'Status', tr: 'Durum' }) : tx(lang, { fr: 'Quantité', ar: 'الكمية', en: 'Quantity', es: 'Cantidad', pt: 'Quantidade', tr: 'Miktar' })}`}
                     >
                         <ArrowUpDown className="w-3 h-3" />
-                        {sortBy === 'date' ? 'Date' : sortBy === 'name' ? 'Nom' : sortBy === 'status' ? 'Statut' : 'Qté'}
+                        {sortBy === 'date' ? tx(lang, { fr: 'Date', ar: 'التاريخ', en: 'Date', es: 'Fecha', pt: 'Data', tr: 'Tarih' }) : sortBy === 'name' ? tx(lang, { fr: 'Nom', ar: 'الاسم', en: 'Name', es: 'Nombre', pt: 'Nome', tr: 'Ad' }) : sortBy === 'status' ? tx(lang, { fr: 'Statut', ar: 'الحالة', en: 'Status', es: 'Estado', pt: 'Status', tr: 'Durum' }) : tx(lang, { fr: 'Qté', ar: 'الكمية', en: 'Qty', es: 'Cant', pt: 'Qtd', tr: 'Mik' })}
                     </button>
                 </div>
             </div>
@@ -786,7 +798,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                             {model.meta_data?.nom_modele}
                                         </h4>
                                         {model.isPublishedToLibrary === false && (
-                                            <span className="shrink-0 px-1 py-0.5 text-[8px] font-bold uppercase text-amber-600 bg-amber-50 border border-amber-200 rounded">Draft</span>
+                                            <span className="shrink-0 px-1 py-0.5 text-[8px] font-bold uppercase text-amber-600 bg-amber-50 border border-amber-200 rounded">{tx(lang, { fr: 'Draft', ar: 'مسودة', en: 'Draft', es: 'Borrador', pt: 'Rascunho', tr: 'Taslak' })}</span>
                                         )}
                                     </div>
                                     <div className="flex items-center gap-2 mt-0.5">
@@ -829,16 +841,16 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                         <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
                             <Scissors className="w-7 h-7 text-slate-300" />
                         </div>
-                        <p className="text-[13px] font-semibold text-slate-600">Aucun ordre trouvé</p>
+                        <p className="text-[13px] font-semibold text-slate-600">{tx(lang, { fr: 'Aucun ordre trouvé', ar: 'لم يتم العثور على أي أمر', en: 'No order found', es: 'Ninguna orden encontrada', pt: 'Nenhuma ordem encontrada', tr: 'Hiçbir emir bulunamadı' })}</p>
                         <p className="text-[11px] text-slate-400 mt-1.5 max-w-[200px] mx-auto">
-                            {searchTerm ? 'Essayez un autre terme de recherche' : 'Créez un nouvel ordre pour commencer'}
+                            {searchTerm ? tx(lang, { fr: 'Essayez un autre terme de recherche', ar: 'جرب مصطلح بحث آخر', en: 'Try another search term', es: 'Pruebe otro término de búsqueda', pt: 'Tente outro termo de pesquisa', tr: 'Başka bir arama terimi deneyin' }) : tx(lang, { fr: 'Créez un nouvel ordre pour commencer', ar: 'أنشئ أمرًا جديدًا للبدء', en: 'Create a new order to start', es: 'Cree una nueva orden para empezar', pt: 'Crie uma nova ordem para começar', tr: 'Başlamak için yeni bir emir oluşturun' })}
                         </p>
                         {!searchTerm && (
                             <button
                                 onClick={handleNewModel}
                                 className="mt-4 h-8 px-3 bg-slate-900 hover:bg-slate-800 text-white text-[11px] font-semibold rounded-md transition-colors inline-flex items-center gap-1.5"
                             >
-                                <Plus className="w-3 h-3" strokeWidth={2.5} /> Nouvel Ordre
+                                <Plus className="w-3 h-3" strokeWidth={2.5} /> {tx(lang, { fr: 'Nouvel Ordre', ar: 'أمر جديد', en: 'New Order', es: 'Nueva Orden', pt: 'Nova Ordem', tr: 'Yeni Emir' })}
                             </button>
                         )}
                     </div>
@@ -870,17 +882,17 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                     )}
 
                     <div className="flex items-baseline gap-2 shrink-0">
-                        <h1 className={`${isMobile ? 'text-[15px]' : 'text-[15px]'} font-semibold text-slate-900 tracking-tight`}>La Coupe</h1>
-                        {!isMobile && <span className="text-[12px] text-slate-400">Ordre de Fabrication</span>}
+                        <h1 className={`${isMobile ? 'text-[15px]' : 'text-[15px]'} font-semibold text-slate-900 tracking-tight`}>{tx(lang, { fr: 'La Coupe', ar: 'قسم القص', en: 'Cutting Dept.', es: 'Departamento de Corte', pt: 'Corte', tr: 'Kesim' })}</h1>
+                        {!isMobile && <span className="text-[12px] text-slate-400">{tx(lang, { fr: 'Ordre de Fabrication', ar: 'أمر تصنيع', en: 'Production Order', es: 'Orden de Fabricación', pt: 'Ordem de Fabricação', tr: 'Üretim Emri' })}</span>}
                     </div>
 
                     {/* Stats inline */}
                     {!isMobile && (
                         <div className="hidden md:flex items-center gap-4 ml-2">
-                            <HeaderStat label="Total" value={coupeModels.length} />
-                            <HeaderStat label="Préparation" value={prepCount} color="bg-slate-400" />
-                            <HeaderStat label="En cours" value={activeCount} color="bg-blue-500" />
-                            <HeaderStat label="Validés" value={valCount} color="bg-emerald-500" />
+                            <HeaderStat label={tx(lang, { fr: 'Total', ar: 'المجموع', en: 'Total', es: 'Total', pt: 'Total', tr: 'Toplam' })} value={coupeModels.length} />
+                            <HeaderStat label={tx(lang, { fr: 'Préparation', ar: 'تحضير', en: 'Preparation', es: 'Preparación', pt: 'Preparação', tr: 'Hazırlık' })} value={prepCount} color="bg-slate-400" />
+                            <HeaderStat label={tx(lang, { fr: 'En cours', ar: 'قيد التنفيذ', en: 'In Progress', es: 'En Curso', pt: 'Em Andamento', tr: 'Devam Ediyor' })} value={activeCount} color="bg-blue-500" />
+                            <HeaderStat label={tx(lang, { fr: 'Validés', ar: 'تم التحقق', en: 'Validated', es: 'Validados', pt: 'Validados', tr: 'Onaylanan' })} value={valCount} color="bg-emerald-500" />
                         </div>
                     )}
 
@@ -888,10 +900,10 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                     {!isMobile && (
                         <div className="hidden lg:flex items-center bg-slate-100 rounded-lg p-0.5 gap-0.5 ml-2">
                             {[
-                                { id: 'list', icon: List, label: 'Liste' },
-                                { id: 'board', icon: LayoutGrid, label: 'Tableau' },
-                                { id: 'calendar', icon: Calendar, label: 'Calendrier' },
-                                { id: 'stats', icon: BarChart3, label: 'Stats' },
+                                { id: 'list', icon: List, label: tx(lang, { fr: 'Liste', ar: 'قائمة', en: 'List', es: 'Lista', pt: 'Lista', tr: 'Liste' }) },
+                                { id: 'board', icon: LayoutGrid, label: tx(lang, { fr: 'Tableau', ar: 'لوحة', en: 'Board', es: 'Tablero', pt: 'Quadro', tr: 'Pano' }) },
+                                { id: 'calendar', icon: Calendar, label: tx(lang, { fr: 'Calendrier', ar: 'تقويم', en: 'Calendar', es: 'Calendario', pt: 'Calendário', tr: 'Takvim' }) },
+                                { id: 'stats', icon: BarChart3, label: tx(lang, { fr: 'Stats', ar: 'إحصائيات', en: 'Stats', es: 'Estadísticas', pt: 'Estatísticas', tr: 'İstatistikler' }) },
                             ].map(v => {
                                 const Icon = v.icon;
                                 return (
@@ -921,10 +933,10 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                             <button
                                 onClick={() => setSelectedModel(null)}
                                 className="h-8 px-2.5 inline-flex items-center justify-center gap-1.5 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-100 text-[12px] font-medium transition-colors"
-                                title="Retour à la liste"
+                                title={tx(lang, { fr: 'Retour à la liste', ar: 'العودة إلى القائمة', en: 'Back to list', es: 'Volver a la lista', pt: 'Voltar à lista', tr: 'Listeye dön' })}
                             >
                                 <ArrowRight className="w-4 h-4" strokeWidth={2} />
-                                <span>Retour</span>
+                                <span>{tx(lang, { fr: 'Retour', ar: 'عودة', en: 'Back', es: 'Volver', pt: 'Voltar', tr: 'Geri' })}</span>
                             </button>
                         )}
                         <button
@@ -932,55 +944,55 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                             className={`${isMobile ? 'w-11 h-11' : 'h-8 px-2.5'} inline-flex items-center justify-center gap-1.5 rounded-lg text-[12px] font-medium transition-colors ${
                                 showFilters ? 'bg-indigo-50 text-indigo-700' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'
                             }`}
-                            title="Filtres"
+                            title={tx(lang, { fr: 'Filtres', ar: 'مرشحات', en: 'Filters', es: 'Filtros', pt: 'Filtros', tr: 'Filtreler' })}
                         >
                             <Filter className="w-4 h-4" strokeWidth={1.75} />
-                            {!isMobile && <span>Filtres</span>}
+                            {!isMobile && <span>{tx(lang, { fr: 'Filtres', ar: 'مرشحات', en: 'Filters', es: 'Filtros', pt: 'Filtros', tr: 'Filtreler' })}</span>}
                         </button>
                         <button
                             onClick={handleExportExcel}
                             className={`${isMobile ? 'w-11 h-11' : 'h-8 px-2.5'} inline-flex items-center justify-center gap-1.5 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-100 text-[12px] font-medium transition-colors`}
-                            title="Export Excel"
+                            title={tx(lang, { fr: 'Export Excel', ar: 'تصدير Excel', en: 'Export Excel', es: 'Exportar Excel', pt: 'Exportar Excel', tr: 'Excel Aktar' })}
                         >
                             <Download className="w-4 h-4" strokeWidth={1.75} />
-                            {!isMobile && <span>Export</span>}
+                            {!isMobile && <span>{tx(lang, { fr: 'Export', ar: 'تصدير', en: 'Export', es: 'Exportar', pt: 'Exportar', tr: 'Aktar' })}</span>}
                         </button>
                         {selectedModel && (
                             <>
                                 <button
                                     onClick={() => onOpenInAtelier && onOpenInAtelier(selectedModel)}
                                     className={`${isMobile ? 'w-11 h-11' : 'h-8 px-3'} inline-flex items-center justify-center gap-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-[12px] font-medium transition-colors border border-indigo-200`}
-                                    title="Méthodes"
+                                    title={tx(lang, { fr: 'Méthodes', ar: 'الطرق', en: 'Methods', es: 'Métodos', pt: 'Métodos', tr: 'Yöntemler' })}
                                 >
                                     <Layers className="w-4 h-4" strokeWidth={1.75} />
-                                    {!isMobile && 'Méthodes'}
+                                    {!isMobile && tx(lang, { fr: 'Méthodes', ar: 'الطرق', en: 'Methods', es: 'Métodos', pt: 'Métodos', tr: 'Yöntemler' })}
                                 </button>
                                 <button
                                     onClick={() => handleSaveCoupe(false)}
                                     className={`${isMobile ? 'w-11 h-11' : 'h-8 px-3'} inline-flex items-center justify-center gap-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-[12px] font-medium transition-colors`}
-                                    title="Sauvegarder"
+                                    title={tx(lang, { fr: 'Sauvegarder', ar: 'حفظ', en: 'Save', es: 'Guardar', pt: 'Salvar', tr: 'Kaydet' })}
                                 >
                                     <Save className="w-4 h-4" strokeWidth={2} />
-                                    {!isMobile && 'Sauvegarder'}
+                                    {!isMobile && tx(lang, { fr: 'Sauvegarder', ar: 'حفظ', en: 'Save', es: 'Guardar', pt: 'Salvar', tr: 'Kaydet' })}
                                 </button>
                                 {selectedModel.isPublishedToLibrary === false && (
                                     <button
                                         onClick={() => handleSaveCoupe(true)}
                                         className={`${isMobile ? 'w-11 h-11' : 'h-8 px-3'} inline-flex items-center justify-center gap-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[12px] font-medium transition-colors`}
-                                        title="Publier"
+                                        title={tx(lang, { fr: 'Publier', ar: 'نشر', en: 'Publish', es: 'Publicar', pt: 'Publicar', tr: 'Yayınla' })}
                                     >
                                         <Send className="w-4 h-4" strokeWidth={2} />
-                                        {!isMobile && 'Publier'}
+                                        {!isMobile && tx(lang, { fr: 'Publier', ar: 'نشر', en: 'Publish', es: 'Publicar', pt: 'Publicar', tr: 'Yayınla' })}
                                     </button>
                                 )}
                                 {ordre.status === 'VALIDE' && (
                                     <button
                                         onClick={() => handleSaveCoupe(false, 'PLANNING')}
                                         className={`${isMobile ? 'w-11 h-11' : 'h-8 px-3'} inline-flex items-center justify-center gap-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-[12px] font-medium transition-colors`}
-                                        title="Vers Planning"
+                                        title={tx(lang, { fr: 'Vers Planning', ar: 'إلى التخطيط', en: 'To Planning', es: 'A Planificación', pt: 'Para Planejamento', tr: 'Planlamaya Git' })}
                                     >
                                         <Truck className="w-4 h-4" strokeWidth={2} />
-                                        {!isMobile && 'Vers Planning'}
+                                        {!isMobile && tx(lang, { fr: 'Vers Planning', ar: 'إلى التخطيط', en: 'To Planning', es: 'A Planificación', pt: 'Para Planejamento', tr: 'Planlamaya Git' })}
                                     </button>
                                 )}
                             </>
@@ -992,23 +1004,23 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                 className={`${isMobile ? 'w-11 h-11' : 'h-8 px-3'} inline-flex items-center justify-center gap-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-[12px] font-medium transition-colors`}
                             >
                                 <Plus className="w-4 h-4" strokeWidth={2.25} />
-                                {!isMobile && 'Nouvel Ordre'}
+                                {!isMobile && tx(lang, { fr: 'Nouvel Ordre', ar: 'أمر جديد', en: 'New Order', es: 'Nueva Orden', pt: 'Nova Ordem', tr: 'Yeni Emir' })}
                             </button>
                         )}
 
                         <button
-                            onClick={() => showToast('Fonction impression à venir', 'info')}
+                            onClick={() => showToast(tx(lang, { fr: 'Fonction impression à venir', ar: 'وظيفة الطباعة قادمة قريبًا', en: 'Print function coming soon', es: 'Función de impresión próximamente', pt: 'Função de impressão em breve', tr: 'Yazdırma işlevi çok yakında' }), 'info')}
                             className={`${isMobile ? 'w-11 h-11' : 'h-8 px-3'} inline-flex items-center justify-center gap-1.5 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-100 text-[12px] font-medium transition-colors`}
-                            title="Imprimer"
+                            title={tx(lang, { fr: 'Imprimer', ar: 'طباعة', en: 'Print', es: 'Imprimir', pt: 'Imprimir', tr: 'Yazdır' })}
                         >
                             <Printer className="w-4 h-4" strokeWidth={1.75} />
-                            {!isMobile && 'Rapport'}
+                            {!isMobile && tx(lang, { fr: 'Rapport', ar: 'تقرير', en: 'Report', es: 'Informe', pt: 'Relatório', tr: 'Rapor' })}
                         </button>
                         {selectedModel && (
                             <button
                                 onClick={() => setDeleteConfirm(selectedModel.id)}
                                 className={`${isMobile ? 'w-11 h-11' : 'h-8 px-3'} inline-flex items-center justify-center gap-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 text-[12px] font-medium transition-colors`}
-                                title="Supprimer"
+                                title={tx(lang, { fr: 'Supprimer', ar: 'حذف', en: 'Delete', es: 'Eliminar', pt: 'Excluir', tr: 'Sil' })}
                             >
                                 <Trash2 className="w-4 h-4" strokeWidth={1.75} />
                             </button>
@@ -1037,14 +1049,14 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                 <div className="flex-1 overflow-y-auto">
                     {showFilters && (
                         <div className="bg-white border-b border-slate-100 px-4 md:px-6 py-3 flex flex-wrap items-center gap-2">
-                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Statut:</span>
+                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">{tx(lang, { fr: 'Statut', ar: 'الحالة', en: 'Status', es: 'Estado', pt: 'Status', tr: 'Durum' })}:</span>
                             {[
-                                { v: 'ALL', l: 'Tous', c: 'bg-slate-100 text-slate-700' },
-                                { v: 'EN_PREPARATION', l: 'Préparation', c: 'bg-slate-50 text-slate-700' },
-                                { v: 'EN_COURS', l: 'En Cours', c: 'bg-blue-50 text-blue-700' },
-                                { v: 'SOUS_TRAITANCE', l: 'Extériorisé', c: 'bg-purple-50 text-purple-700' },
-                                { v: 'VALIDE', l: 'Validé', c: 'bg-emerald-50 text-emerald-700' },
-                                { v: 'REJETE', l: 'Rejeté', c: 'bg-rose-50 text-rose-700' },
+                                { v: 'ALL', l: tx(lang, { fr: 'Tous', ar: 'الكل', en: 'All', es: 'Todos', pt: 'Todos', tr: 'Tümü' }), c: 'bg-slate-100 text-slate-700' },
+                                { v: 'EN_PREPARATION', l: tx(lang, { fr: 'Préparation', ar: 'تحضير', en: 'Preparation', es: 'Preparación', pt: 'Preparação', tr: 'Hazırlık' }), c: 'bg-slate-50 text-slate-700' },
+                                { v: 'EN_COURS', l: tx(lang, { fr: 'En Cours', ar: 'قيد التنفيذ', en: 'In Progress', es: 'En Curso', pt: 'Em Andamento', tr: 'Devam Ediyor' }), c: 'bg-blue-50 text-blue-700' },
+                                { v: 'SOUS_TRAITANCE', l: tx(lang, { fr: 'Extériorisé', ar: 'مقاول خارجي', en: 'Subcontracted', es: 'Subcontratado', pt: 'Terceirizado', tr: 'Taşeron' }), c: 'bg-purple-50 text-purple-700' },
+                                { v: 'VALIDE', l: tx(lang, { fr: 'Validé', ar: 'تم التحقق', en: 'Validated', es: 'Validado', pt: 'Validado', tr: 'Onaylandı' }), c: 'bg-emerald-50 text-emerald-700' },
+                                { v: 'REJETE', l: tx(lang, { fr: 'Rejeté', ar: 'مرفوض', en: 'Rejected', es: 'Rechazado', pt: 'Rejeitado', tr: 'Reddedildi' }), c: 'bg-rose-50 text-rose-700' },
                             ].map(f => (
                                 <button
                                     key={f.v}
@@ -1082,20 +1094,20 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                             <div>
                                                 <div className="flex items-center gap-2 mb-1.5">
                                                     <span className="px-2 py-0.5 bg-rose-500 text-white text-[9px] font-bold uppercase tracking-wider rounded">OF</span>
-                                                    <span className="text-slate-400 text-[11px] font-medium">Ref: {ordre.refModele || 'N/A'}</span>
+                                                    <span className="text-slate-400 text-[11px] font-medium">{tx(lang, { fr: 'Réf', ar: 'مرجع', en: 'Ref', es: 'Ref', pt: 'Ref', tr: 'Ref' })}: {ordre.refModele || 'N/A'}</span>
                                                 </div>
                                                 <input
                                                     type="text"
                                                     value={ordre.refModele}
                                                     onChange={e => setOrdre({ ...ordre, refModele: e.target.value })}
                                                     className="bg-transparent text-xl md:text-2xl font-bold text-white tracking-tight border-b border-transparent hover:border-white/20 focus:border-rose-500 outline-none w-full sm:w-72 transition-colors"
-                                                    placeholder="Nom de la référence..."
+                                                    placeholder={tx(lang, { fr: 'Nom de la référence...', ar: 'اسم المرجع...', en: 'Reference name...', es: 'Nombre de la referencia...', pt: 'Nome da referência...', tr: 'Referans adı...' })}
                                                 />
-                                                <p className="text-slate-400 mt-1 text-[11px] font-medium">Paramètres de matelassage</p>
+                                                <p className="text-slate-400 mt-1 text-[11px] font-medium">{tx(lang, { fr: 'Paramètres de matelassage', ar: 'إعدادات المفرشة', en: 'Layering settings', es: 'Configuración de capas', pt: 'Configurações de esteiramento', tr: 'Katman ayarları' })}</p>
                                             </div>
                                         </div>
                                         <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-xl p-3 text-center">
-                                            <p className="text-slate-400 text-[9px] font-bold uppercase tracking-wider mb-1">Quantité</p>
+                                            <p className="text-slate-400 text-[9px] font-bold uppercase tracking-wider mb-1">{tx(lang, { fr: 'Quantité', ar: 'الكمية', en: 'Quantity', es: 'Cantidad', pt: 'Quantidade', tr: 'Miktar' })}</p>
                                             <div className="flex items-end gap-1.5 text-white">
                                                 <input
                                                     type="number"
@@ -1115,7 +1127,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                     <div className="flex items-center justify-between mb-5">
                                         <div className="flex items-center gap-2">
                                             <Layers className="w-4 h-4 text-slate-400" />
-                                            <h3 className="text-[14px] font-semibold text-slate-800">Paramètres du Matelas</h3>
+                                            <h3 className="text-[14px] font-semibold text-slate-800">{tx(lang, { fr: 'Paramètres du Matelas', ar: 'إعدادات المفرشة', en: 'Layering Parameters', es: 'Parámetros de Capas', pt: 'Parâmetros do Esteiramento', tr: 'Katman Parametreleri' })}</h3>
                                         </div>
                                     {/* Status segmented control */}
                                     <div className="flex items-center bg-slate-100 rounded-lg p-0.5 gap-0.5 overflow-x-auto">
@@ -1145,7 +1157,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4 mb-6">
                                         <div>
                                             <label className="block text-[10px] font-bold text-slate-400 mb-1.5 uppercase tracking-wide">
-                                                Consommation Référence / Pièce
+                                                {tx(lang, { fr: 'Consommation Référence / Pièce', ar: 'استهلاك المرجع / القطعة', en: 'Reference Consumption / Piece', es: 'Consumo Referencia / Pieza', pt: 'Consumo Referência / Peça', tr: 'Referans Tüketimi / Parça' })}
                                             </label>
                                             <div className="relative">
                                                 <input
@@ -1161,7 +1173,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                         </div>
                                         <div>
                                             <label className="block text-[10px] font-bold text-slate-400 mb-1.5 uppercase tracking-wide">
-                                                Tissu Reçu (Métrage Initial)
+                                                {tx(lang, { fr: 'Tissu Reçu (Métrage Initial)', ar: 'النسيج المستلم (المترات الأولية)', en: 'Fabric Received (Initial Length)', es: 'Tejido Recibido (Metraje Inicial)', pt: 'Tecido Recebido (Metragem Inicial)', tr: 'Alınan Kumaş (Başlangıç Metrajı)' })}
                                             </label>
                                             <div className="relative">
                                                 <input
@@ -1181,34 +1193,34 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                         <div className="flex items-center justify-between mb-4">
                                             <h4 className="text-[12px] font-bold text-slate-700 uppercase tracking-wide flex items-center gap-1.5">
                                                 <Scissors className="w-3.5 h-3.5 text-indigo-500" />
-                                                Lignes de Matelas (Coupe)
+                                                {tx(lang, { fr: 'Lignes de Matelas (Coupe)', ar: 'خطوط المفرشات (القص)', en: 'Layer Lines (Cutting)', es: 'Líneas de Capas (Corte)', pt: 'Linhas de Esteiramento (Corte)', tr: 'Katman Hatları (Kesim)' })}
                                             </h4>
                                             <button
                                                 type="button"
                                                 onClick={handleAddMatelasLine}
                                                 className="px-3 py-1.5 bg-indigo-600 text-white hover:bg-indigo-700 text-[11px] font-semibold rounded-md flex items-center gap-1 transition-colors"
                                             >
-                                                <Plus className="w-3 h-3" /> Ajouter Matelas
+                                                <Plus className="w-3 h-3" /> {tx(lang, { fr: 'Ajouter Matelas', ar: 'إضافة مفرشة', en: 'Add Layer', es: 'Agregar Capa', pt: 'Adicionar Esteira', tr: 'Katman Ekle' })}
                                             </button>
                                         </div>
 
                                         {(ordre.matelasLines || []).length === 0 ? (
                                             <div className="text-center py-6 text-slate-400 text-[12px] font-medium bg-slate-50 rounded-lg border border-dashed border-slate-200">
-                                                Aucun matelas défini. Ajoutez une ligne pour commencer à couper.
+                                                {tx(lang, { fr: 'Aucun matelas défini. Ajoutez une ligne pour commencer à couper.', ar: 'لم يتم تحديد أي مفرشة. أضف خطًا لبدء القص.', en: 'No layer defined. Add a line to start cutting.', es: 'Ninguna capa definida. Agregue una línea para comenzar a cortar.', pt: 'Nenhuma esteira definida. Adicione uma linha para começar a cortar.', tr: 'Hiçbir katman tanımlanmadı. Kesmeye başlamak için bir satır ekleyin.' })}
                                             </div>
                                         ) : (
                                             <div className="overflow-x-auto">
                                                 <table className="w-full text-[12px] border-collapse border border-slate-200 bg-white rounded-lg overflow-hidden min-w-[650px]">
                                                     <thead>
                                                         <tr className="bg-slate-50 text-slate-600 border-b border-slate-200 text-[10px] uppercase tracking-wider text-left">
-                                                            <th className="py-2.5 px-3 font-bold text-center w-12">N°</th>
-                                                            <th className="py-2.5 px-3 font-bold text-center w-24">Plis</th>
-                                                            <th className="py-2.5 px-3 font-bold text-center w-32">Long. Tracée (m)</th>
+                                                            <th className="py-2.5 px-3 font-bold text-center w-12">{tx(lang, { fr: 'N°', ar: 'رقم', en: 'No.', es: 'N°', pt: 'N°', tr: 'No.' })}</th>
+                                                            <th className="py-2.5 px-3 font-bold text-center w-24">{tx(lang, { fr: 'Plis', ar: 'طيات', en: 'Plys', es: 'Pliegues', pt: 'Dobras', tr: 'Kat Sayısı' })}</th>
+                                                            <th className="py-2.5 px-3 font-bold text-center w-32">{tx(lang, { fr: 'Long. Tracée (m)', ar: 'الطول المرسوم (م)', en: 'Traced Length (m)', es: 'Long. Trazada (m)', pt: 'Comp. Traçado (m)', tr: 'Çizilen Uzunluk (m)' })}</th>
                                                             {sizes.map((s, idx) => (
                                                                 <th key={idx} className="py-2.5 px-2 font-bold text-center text-emerald-700 min-w-[50px]">{s}</th>
                                                             ))}
-                                                            <th className="py-2.5 px-3 font-bold text-center w-24">Total Pcs</th>
-                                                            <th className="py-2.5 px-3 font-bold text-center w-28">Cons. (m)</th>
+                                                            <th className="py-2.5 px-3 font-bold text-center w-24">{tx(lang, { fr: 'Total Pcs', ar: 'إجمالي القطع', en: 'Total Pcs', es: 'Total Pzs', pt: 'Total Peças', tr: 'Toplam Adet' })}</th>
+                                                            <th className="py-2.5 px-3 font-bold text-center w-28">{tx(lang, { fr: 'Cons. (m)', ar: 'الاستهلاك (م)', en: 'Cons. (m)', es: 'Cons. (m)', pt: 'Cons. (m)', tr: 'Tük. (m)' })}</th>
                                                             <th className="py-2.5 px-3 font-bold text-center w-16"></th>
                                                         </tr>
                                                     </thead>
@@ -1262,7 +1274,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                                                             type="button"
                                                                             onClick={() => handleDeleteMatelasLine(line.id)}
                                                                             className="p-1.5 text-slate-400 hover:text-rose-600 rounded-md hover:bg-rose-50 transition-colors"
-                                                                            title="Supprimer la ligne"
+                                                                            title={tx(lang, { fr: 'Supprimer la ligne', ar: 'حذف السطر', en: 'Delete line', es: 'Eliminar línea', pt: 'Excluir linha', tr: 'Satırı sil' })}
                                                                         >
                                                                             <Trash2 className="w-3.5 h-3.5" />
                                                                         </button>
@@ -1281,21 +1293,21 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 border-t border-slate-100 pt-5">
                                             {/* Comparative table */}
                                             <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
-                                                <h5 className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2.5">Bilan par Taille (Cible vs Réalisé)</h5>
+                                                <h5 className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2.5">{tx(lang, { fr: 'Bilan par Taille (Cible vs Réalisé)', ar: 'الحسبنة حسب المقاس (المستهدف مقابل المحقق)', en: 'Balance by Size (Target vs Actual)', es: 'Balance por Talla (Objetivo vs Realizado)', pt: 'Balanço por Tamanho (Alvo vs Realizado)', tr: 'Beden Bazında Bilanço (Hedef vs Gerçekleşen)' })}</h5>
                                                 <div className="overflow-x-auto">
                                                     <table className="w-full text-[11px] border-collapse bg-white rounded-lg overflow-hidden border border-slate-200">
                                                         <thead>
                                                             <tr className="bg-slate-100 text-slate-600 border-b border-slate-200 text-[9px] uppercase tracking-wider text-left">
-                                                                <th className="py-2 px-2.5 font-bold">Mesure</th>
+                                                                <th className="py-2 px-2.5 font-bold">{tx(lang, { fr: 'Mesure', ar: 'المقاس', en: 'Size', es: 'Medida', pt: 'Medida', tr: 'Ölçü' })}</th>
                                                                 {sizes.map((s, idx) => (
                                                                     <th key={idx} className="py-2 px-1 text-center font-bold">{s}</th>
                                                                 ))}
-                                                                <th className="py-2 px-2.5 text-center font-bold bg-slate-200 text-slate-700 w-16">Total</th>
+                                                                <th className="py-2 px-2.5 text-center font-bold bg-slate-200 text-slate-700 w-16">{tx(lang, { fr: 'Total', ar: 'المجموع', en: 'Total', es: 'Total', pt: 'Total', tr: 'Toplam' })}</th>
                                                             </tr>
                                                         </thead>
                                                         <tbody className="divide-y divide-slate-100">
                                                             <tr>
-                                                                <td className="py-2 px-2.5 font-semibold text-slate-600">Cible (Fiche)</td>
+                                                                <td className="py-2 px-2.5 font-semibold text-slate-600">{tx(lang, { fr: 'Cible (Fiche)', ar: 'المستهدف (الورقة)', en: 'Target (Sheet)', es: 'Objetivo (Ficha)', pt: 'Alvo (Ficha)', tr: 'Hedef (Fiş)' })}</td>
                                                                 {sizes.map((s, idx) => {
                                                                     // Map size to its column index in gridQuantities
                                                                     return (
@@ -1307,7 +1319,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                                                 <td className="py-2 px-2.5 text-center font-bold bg-slate-100 text-slate-700">{matrixStats.grandTotal}</td>
                                                             </tr>
                                                             <tr>
-                                                                <td className="py-2 px-2.5 font-semibold text-indigo-700 bg-indigo-50/10">Réalisé (Coupe)</td>
+                                                                <td className="py-2 px-2.5 font-semibold text-indigo-700 bg-indigo-50/10">{tx(lang, { fr: 'Réalisé (Coupe)', ar: 'المحقق (القص)', en: 'Actual (Cut)', es: 'Realizado (Corte)', pt: 'Realizado (Corte)', tr: 'Gerçekleşen (Kesim)' })}</td>
                                                                 {sizes.map((s, idx) => (
                                                                     <td key={idx} className="py-2 px-1 text-center font-bold text-indigo-700 bg-indigo-50/10">
                                                                         {matelasCalculations.perSize[s] || 0}
@@ -1316,7 +1328,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                                                 <td className="py-2 px-2.5 text-center font-bold bg-indigo-100 text-indigo-800">{matelasCalculations.totalPieces}</td>
                                                             </tr>
                                                             <tr className="border-t border-slate-200">
-                                                                <td className="py-2 px-2.5 font-bold text-slate-800">Écart (DIF)</td>
+                                                                <td className="py-2 px-2.5 font-bold text-slate-800">{tx(lang, { fr: 'Écart (DIF)', ar: 'الفرق', en: 'Gap (DIF)', es: 'Diferencia (DIF)', pt: 'Diferença (DIF)', tr: 'Fark (DIF)' })}</td>
                                                                 {sizes.map((s, idx) => {
                                                                     const diff = (matelasCalculations.perSize[s] || 0) - (matrixStats.colTotals[idx] || 0);
                                                                     return (
@@ -1351,21 +1363,21 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                             {/* Tissu summary card */}
                                             <div className="bg-slate-50 rounded-xl p-4 border border-slate-200 flex flex-col justify-between">
                                                 <div>
-                                                    <h5 className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2.5">Bilan Matière (الثوب والمخزون)</h5>
+                                                    <h5 className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2.5">{tx(lang, { fr: 'Bilan Matière', ar: 'حساب المواد', en: 'Material Balance', es: 'Balance de Material', pt: 'Balanço de Material', tr: 'Malzeme Bilançosu' })} (الثوب والمخزون)</h5>
                                                     <div className="grid grid-cols-3 gap-2 text-center">
                                                         <div className="bg-white rounded-lg p-2 border border-slate-100">
-                                                            <p className="text-[9px] font-bold text-slate-400 uppercase">Tissu Reçu</p>
+                                                            <p className="text-[9px] font-bold text-slate-400 uppercase">{tx(lang, { fr: 'Tissu Reçu', ar: 'النسيج المستلم', en: 'Fabric Received', es: 'Tejido Recibido', pt: 'Tecido Recebido', tr: 'Alınan Kumaş' })}</p>
                                                             <p className="text-sm font-bold text-slate-700 mt-0.5">{ordre.tissuRecu || 0} m</p>
                                                         </div>
                                                         <div className="bg-white rounded-lg p-2 border border-slate-100">
-                                                            <p className="text-[9px] font-bold text-slate-400 uppercase">Consommé</p>
+                                                            <p className="text-[9px] font-bold text-slate-400 uppercase">{tx(lang, { fr: 'Consommé', ar: 'المستهلك', en: 'Consumed', es: 'Consumido', pt: 'Consumido', tr: 'Tüketilen' })}</p>
                                                             <p className="text-sm font-bold text-indigo-600 mt-0.5">{matelasCalculations.totalFabric.toFixed(1)} m</p>
                                                         </div>
                                                         {(() => {
                                                             const solde = (ordre.tissuRecu || 0) - matelasCalculations.totalFabric;
                                                             return (
                                                                 <div className={`rounded-lg p-2 border ${solde >= 0 ? 'bg-emerald-50/55 border-emerald-100 text-emerald-800' : 'bg-rose-50/55 border-rose-100 text-rose-800'}`}>
-                                                                    <p className="text-[9px] font-bold uppercase opacity-80">Reste (DIF)</p>
+                                                                    <p className="text-[9px] font-bold uppercase opacity-80">{tx(lang, { fr: 'Reste (DIF)', ar: 'المتبقي', en: 'Remaining (DIF)', es: 'Restante (DIF)', pt: 'Restante (DIF)', tr: 'Kalan (DIF)' })}</p>
                                                                     <p className="text-sm font-bold mt-0.5">{solde.toFixed(1)} m</p>
                                                                 </div>
                                                             );
@@ -1386,9 +1398,9 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                                                 <div className="p-2.5 bg-emerald-50 rounded-lg border border-emerald-200 flex gap-2">
                                                                     <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
                                                                     <div>
-                                                                        <p className="text-[11px] font-bold text-emerald-800">Économie de tissu réalisée !</p>
+                                                                        <p className="text-[11px] font-bold text-emerald-800">{tx(lang, { fr: 'Économie de tissu réalisée !', ar: 'تم تحقيق توفير في النسيج!', en: 'Fabric savings achieved!', es: '¡Ahorro de tejido logrado!', pt: 'Economia de tecido realizada!', tr: 'Kumaş tasarrufu sağlandı!' })}</p>
                                                                         <p className="text-[10px] text-emerald-700/90 mt-0.5">
-                                                                            Gain de <strong>{gap.toFixed(1)}m</strong> par rapport au besoin théorique ({targetNeed.toFixed(1)}m).
+                                                                            {tx(lang, { fr: 'Gain de', ar: 'توفير', en: 'Savings of', es: 'Ahorro de', pt: 'Ganho de', tr: 'Tasarruf' })} <strong>{gap.toFixed(1)}m</strong> {tx(lang, { fr: 'par rapport au besoin théorique', ar: 'مقابل الاحتياج النظري', en: 'compared to theoretical need', es: 'con respecto a la necesidad teórica', pt: 'em relação à necessidade teórica', tr: 'teorik ihtiyaca kıyasla' })} ({targetNeed.toFixed(1)}m).
                                                                         </p>
                                                                     </div>
                                                                 </div>
@@ -1398,9 +1410,9 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                                                 <div className="p-2.5 bg-orange-50 rounded-lg border border-orange-200 flex gap-2">
                                                                     <AlertCircle className="w-4 h-4 text-orange-500 shrink-0 mt-0.5" />
                                                                     <div>
-                                                                        <p className="text-[11px] font-bold text-orange-800">Surconsommation ( ضياع الثوب )</p>
+                                                                        <p className="text-[11px] font-bold text-orange-800">{tx(lang, { fr: 'Surconsommation', ar: 'استهلاك زائد', en: 'Overconsumption', es: 'Sobreconsumo', pt: 'Sobreconsumo', tr: 'Aşırı Tüketim' })} ( ضياع الثوب )</p>
                                                                         <p className="text-[10px] text-orange-700/90 mt-0.5">
-                                                                            Dépassement de <strong>{Math.abs(gap).toFixed(1)}m</strong> par rapport au besoin théorique ({targetNeed.toFixed(1)}m).
+                                                                            {tx(lang, { fr: 'Dépassement de', ar: 'تجاوز', en: 'Excess of', es: 'Exceso de', pt: 'Excedente de', tr: 'Fazla' })} <strong>{Math.abs(gap).toFixed(1)}m</strong> {tx(lang, { fr: 'par rapport au besoin théorique', ar: 'مقابل الاحتياج النظري', en: 'compared to theoretical need', es: 'con respecto a la necesidad teórica', pt: 'em relação à necessidade teórica', tr: 'teorik ihtiyaca kıyasla' })} ({targetNeed.toFixed(1)}m).
                                                                         </p>
                                                                     </div>
                                                                 </div>
@@ -1419,13 +1431,13 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                 <div className="px-4 md:px-6 py-4 border-b border-slate-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
                                     <div className="flex items-center gap-2">
                                         <Palette className="w-4 h-4 text-emerald-600" />
-                                        <h3 className="text-[14px] font-semibold text-slate-800">Répartition Tailles / Couleurs</h3>
+                                        <h3 className="text-[14px] font-semibold text-slate-800">{tx(lang, { fr: 'Répartition Tailles / Couleurs', ar: 'توزيع المقاسات / الألوان', en: 'Size / Color Distribution', es: 'Distribución de Tallas / Colores', pt: 'Distribuição de Tamanhos / Cores', tr: 'Beden / Renk Dağılımı' })}</h3>
                                     </div>
                                     <div className="flex flex-wrap gap-2 items-center w-full sm:w-auto">
                                         <div className="flex items-center bg-slate-100 rounded-md p-0.5 border border-slate-200">
                                             <input
                                                 type="text"
-                                                placeholder="Tailles (ex: 36 38 40)"
+                                                placeholder={tx(lang, { fr: 'Tailles (ex: 36 38 40)', ar: 'مقاسات (مثال: 36 38 40)', en: 'Sizes (e.g. 36 38 40)', es: 'Tallas (ej: 36 38 40)', pt: 'Tamanhos (ex: 36 38 40)', tr: 'Bedenler (örn: 36 38 40)' })}
                                                 className="bg-transparent text-[12px] font-medium px-2 outline-none w-40 text-slate-700 placeholder:text-slate-400 py-1"
                                                 value={newSizeInput}
                                                 onChange={(e) => setNewSizeInput(e.target.value)}
@@ -1440,14 +1452,14 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                             disabled={matrixStats.grandTotal === 0}
                                             className="px-3 py-1.5 bg-slate-900 text-white text-[11px] font-semibold rounded-md hover:bg-slate-800 transition-colors flex items-center gap-1 disabled:opacity-40 disabled:cursor-not-allowed"
                                         >
-                                            <Barcode className="w-3 h-3" /> Tickets
+                                            <Barcode className="w-3 h-3" /> {tx(lang, { fr: 'Tickets', ar: 'تذاكر', en: 'Tickets', es: 'Tickets', pt: 'Etiquetas', tr: 'Etiketler' })}
                                         </button>
                                     </div>
                                 </div>
 
                                 {/* Color toolbar */}
                                 <div className="px-4 md:px-6 py-2 border-b border-slate-100 bg-slate-50/50 flex flex-wrap gap-2 items-center">
-                                    <label className="relative flex items-center justify-center cursor-pointer shrink-0" title="Couleur">
+                                    <label className="relative flex items-center justify-center cursor-pointer shrink-0" title={tx(lang, { fr: 'Couleur', ar: 'لون', en: 'Color', es: 'Color', pt: 'Cor', tr: 'Renk' })}>
                                         <input type="color" value={pickedHexColor} onChange={(e) => setPickedHexColor(e.target.value)} className="opacity-0 absolute inset-0 w-full h-full cursor-pointer" />
                                         <div className="w-6 h-6 rounded border-2 border-slate-300 shadow-sm cursor-pointer hover:scale-110 transition-transform" style={{ backgroundColor: pickedHexColor }} />
                                     </label>
@@ -1456,7 +1468,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                         <Palette className="w-3 h-3 text-slate-400 mr-1.5 z-20 relative shrink-0" />
                                         <ExcelInput
                                             suggestions={TEXTILE_COLORS.map(c => c.value)}
-                                            placeholder="Nom couleur..."
+                                            placeholder={tx(lang, { fr: 'Nom couleur...', ar: 'اسم اللون...', en: 'Color name...', es: 'Nombre del color...', pt: 'Nome da cor...', tr: 'Renk adı...' })}
                                             className="text-[11px] font-semibold text-slate-700 outline-none w-full pl-5 pr-1"
                                             containerClassName="absolute inset-0 flex items-center"
                                             value={newColorInput}
@@ -1473,7 +1485,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                         onClick={() => { if (newColorInput.trim()) handleAddColorText(); else handleAddVisualColor(pickedHexColor); }}
                                         className="bg-indigo-600 hover:bg-indigo-700 text-white px-2 py-1 rounded-md text-[11px] font-bold flex items-center gap-1 transition-colors z-20 h-7"
                                     >
-                                        <Plus className="w-3 h-3" /> Ajouter
+                                        <Plus className="w-3 h-3" /> {tx(lang, { fr: 'Ajouter', ar: 'إضافة', en: 'Add', es: 'Agregar', pt: 'Adicionar', tr: 'Ekle' })}
                                     </button>
                                 </div>
 
@@ -1483,16 +1495,16 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                         <table className="w-full text-[12px] border-collapse rounded-lg overflow-hidden border border-slate-200 bg-white min-w-[500px]">
                                         <thead>
                                             <tr className="bg-slate-50 text-slate-600 border-b border-slate-200 text-[10px] uppercase tracking-wider">
-                                                <th className="py-3 px-3 text-right font-bold border-l border-slate-200 min-w-[120px]">Couleur \ Taille</th>
+                                                <th className="py-3 px-3 text-right font-bold border-l border-slate-200 min-w-[120px]">{tx(lang, { fr: 'Couleur \\ Taille', ar: 'اللون \\ المقاس', en: 'Color \\ Size', es: 'Color \\ Talla', pt: 'Cor \\ Tamanho', tr: 'Renk \\ Beden' })}</th>
                                                 {sizes.length === 0 && (
-                                                    <th className="py-3 px-3 text-center font-normal italic text-slate-400 border-l border-slate-200">Aucune taille</th>
+                                                    <th className="py-3 px-3 text-center font-normal italic text-slate-400 border-l border-slate-200">{tx(lang, { fr: 'Aucune taille', ar: 'لا يوجد مقاس', en: 'No size', es: 'Ninguna talla', pt: 'Nenhum tamanho', tr: 'Beden yok' })}</th>
                                                 )}
                                                 {sizes.map((s, i) => (
                                                     <th
                                                         key={i}
                                                         className="py-3 px-2 text-center font-bold border-l border-slate-200 text-emerald-700 min-w-[70px] cursor-pointer hover:bg-emerald-50 transition-colors"
                                                         onContextMenu={(e) => { e.preventDefault(); setMatrixCtx({ x: e.pageX, y: e.pageY, type: 'size', index: i, name: s }); }}
-                                                        title="Clic droit pour modifier"
+                                                        title={tx(lang, { fr: 'Clic droit pour modifier', ar: 'انقر بزر الماوس الأيمن للتعديل', en: 'Right-click to edit', es: 'Clic derecho para editar', pt: 'Clique direito para editar', tr: 'Düzenlemek için sağ tıklayın' })}
                                                     >
                                                         {editingMatrixItem?.type === 'size' && editingMatrixItem.index === i ? (
                                                             <input
@@ -1506,14 +1518,14 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                                         ) : s}
                                                     </th>
                                                 ))}
-                                                <th className="py-3 px-3 text-center font-bold bg-slate-200 text-slate-800 w-20">Total</th>
+                                                <th className="py-3 px-3 text-center font-bold bg-slate-200 text-slate-800 w-20">{tx(lang, { fr: 'Total', ar: 'المجموع', en: 'Total', es: 'Total', pt: 'Total', tr: 'Toplam' })}</th>
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-slate-100">
                                             {colors.length === 0 && (
                                                 <tr>
                                                     <td colSpan={sizes.length + 2} className="py-8 text-center text-slate-400 text-[12px] font-medium">
-                                                        Aucune couleur définie
+                                                        {tx(lang, { fr: 'Aucune couleur définie', ar: 'لم يتم تحديد أي لون', en: 'No color defined', es: 'Ningún color definido', pt: 'Nenhuma cor definida', tr: 'Renk tanımlanmadı' })}
                                                     </td>
                                                 </tr>
                                             )}
@@ -1527,7 +1539,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                                         <td
                                                             className="py-2.5 px-3 border-l border-slate-200 font-semibold text-slate-800 cursor-pointer hover:bg-slate-50 transition-colors"
                                                             onContextMenu={(e) => { e.preventDefault(); setMatrixCtx({ x: e.pageX, y: e.pageY, type: 'color', index: cIdx, id: cId, name: cName }); }}
-                                                            title="Clic droit pour modifier"
+                                                            title={tx(lang, { fr: 'Clic droit pour modifier', ar: 'انقر بزر الماوس الأيمن للتعديل', en: 'Right-click to edit', es: 'Clic derecho para editar', pt: 'Clique direito para editar', tr: 'Düzenlemek için sağ tıklayın' })}
                                                         >
                                                             {editingMatrixItem?.type === 'color' && editingMatrixItem.index === cIdx ? (
                                                                 <input
@@ -1577,7 +1589,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                         </tbody>
                                         <tfoot className="border-t border-slate-200 bg-slate-50">
                                             <tr>
-                                                <td className="py-3 px-3 text-left font-bold text-slate-600 border-l border-slate-200 text-[11px]">GÉNÉRAL</td>
+                                                <td className="py-3 px-3 text-left font-bold text-slate-600 border-l border-slate-200 text-[11px]">{tx(lang, { fr: 'GÉNÉRAL', ar: 'الإجمالي', en: 'TOTAL', es: 'GENERAL', pt: 'GERAL', tr: 'GENEL' })}</td>
                                                 {sizes.length === 0 && <td className="py-2 px-3 text-center text-slate-300 border-l border-slate-200">-</td>}
                                                 {sizes.map((_, sIdx) => (
                                                     <td key={sIdx} className="py-2 px-2 text-center border-l border-slate-200 font-bold text-slate-700 text-[12px]">
@@ -1603,7 +1615,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                         onClick={(e) => e.stopPropagation()}
                                     >
                                         <div className="px-3 py-1 text-[9px] font-bold text-slate-400 uppercase tracking-wider">
-                                            {matrixCtx.type === 'size' ? 'Taille' : 'Couleur'}: {matrixCtx.name}
+                                            {matrixCtx.type === 'size' ? tx(lang, { fr: 'Taille', ar: 'مقاس', en: 'Size', es: 'Talla', pt: 'Tamanho', tr: 'Beden' }) : tx(lang, { fr: 'Couleur', ar: 'لون', en: 'Color', es: 'Color', pt: 'Cor', tr: 'Renk' })}: {matrixCtx.name}
                                         </div>
                                         <div className="h-px bg-slate-100 my-1" />
                                         <button
@@ -1611,18 +1623,18 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                             onClick={() => { setEditingMatrixItem({ type: matrixCtx.type, index: matrixCtx.index, value: matrixCtx.name || '' }); setMatrixCtx(null); }}
                                             className="w-full text-left px-3 py-1.5 hover:bg-indigo-50 text-indigo-700 flex items-center gap-2 font-semibold"
                                         >
-                                            Renommer
+                                            {tx(lang, { fr: 'Renommer', ar: 'إعادة تسمية', en: 'Rename', es: 'Renombrar', pt: 'Renomear', tr: 'Yeniden Adlandır' })}
                                         </button>
                                         <button
                                             type="button"
                                             onClick={() => {
-                                                if (matrixCtx.type === 'size') { if (confirm(`Supprimer la taille "${matrixCtx.name}" ?`)) removeSize(matrixCtx.index); }
-                                                else { if (confirm(`Supprimer la couleur "${matrixCtx.name}" ?`)) removeColor(matrixCtx.id!); }
+                                                if (matrixCtx.type === 'size') { if (confirm(`${tx(lang, { fr: 'Supprimer la taille', ar: 'حذف المقاس', en: 'Delete size', es: 'Eliminar talla', pt: 'Excluir tamanho', tr: 'Bedeni sil' })} "${matrixCtx.name}" ?`)) removeSize(matrixCtx.index); }
+                                                else { if (confirm(`${tx(lang, { fr: 'Supprimer la couleur', ar: 'حذف اللون', en: 'Delete color', es: 'Eliminar color', pt: 'Excluir cor', tr: 'Rengi sil' })} "${matrixCtx.name}" ?`)) removeColor(matrixCtx.id!); }
                                                 setMatrixCtx(null);
                                             }}
                                             className="w-full text-left px-3 py-1.5 hover:bg-rose-50 text-rose-600 flex items-center gap-2"
                                         >
-                                            Supprimer
+                                            {tx(lang, { fr: 'Supprimer', ar: 'حذف', en: 'Delete', es: 'Eliminar', pt: 'Excluir', tr: 'Sil' })}
                                         </button>
                                     </div>,
                                     document.body
@@ -1634,26 +1646,26 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                 <div className="px-4 md:px-6 py-4 border-b border-slate-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
                                     <div className="flex items-center gap-2">
                                         <PackageSearch className="w-4 h-4 text-indigo-600" />
-                                        <h3 className="text-[14px] font-semibold text-slate-800">Simulation Fournitures</h3>
+                                        <h3 className="text-[14px] font-semibold text-slate-800">{tx(lang, { fr: 'Simulation Fournitures', ar: 'محاكاة المواد', en: 'Supplies Simulation', es: 'Simulación de Suministros', pt: 'Simulação de Suprimentos', tr: 'Malzeme Simülasyonu' })}</h3>
                                     </div>
                                     <span className="text-[11px] font-medium text-slate-500 bg-slate-50 px-2 py-1 rounded border border-slate-200">
-                                        {ordre.qteTotale} pièces
+                                        {ordre.qteTotale} {tx(lang, { fr: 'pièces', ar: 'قطعة', en: 'pcs', es: 'pzas', pt: 'peças', tr: 'adet' })}
                                     </span>
                                 </div>
 
                                 <div className="p-3 md:p-4 overflow-x-auto">
                                     {requiredMaterials.length === 0 ? (
                                         <div className="text-center py-8 text-slate-400 text-[12px] font-medium bg-slate-50 rounded-lg border border-dashed border-slate-200">
-                                            Aucune fourniture définie dans la Fiche de Coût
+                                            {tx(lang, { fr: 'Aucune fourniture définie dans la Fiche de Coût', ar: 'لم يتم تحديد أي مواد في بطاقة التكلفة', en: 'No supplies defined in the Cost Sheet', es: 'Ningún suministro definido en la Ficha de Costo', pt: 'Nenhum suprimento definido na Ficha de Custo', tr: 'Maliyet Fişinde malzeme tanımlanmadı' })}
                                         </div>
                                     ) : (
                                         <table className="w-full text-[12px] border-collapse rounded-lg overflow-hidden border border-slate-200 bg-white">
                                             <thead>
                                                 <tr className="bg-slate-50 text-slate-600 border-b border-slate-200 text-[10px] uppercase tracking-wider text-left">
-                                                    <th className="py-3 px-3 font-bold">Article</th>
-                                                    <th className="py-3 px-3 font-bold">Besoin</th>
-                                                    <th className="py-3 px-3 font-bold">Stock</th>
-                                                    <th className="py-3 px-3 font-bold text-center w-24">Statut</th>
+                                                    <th className="py-3 px-3 font-bold">{tx(lang, { fr: 'Article', ar: 'الخامة', en: 'Article', es: 'Artículo', pt: 'Artigo', tr: 'Malzeme' })}</th>
+                                                    <th className="py-3 px-3 font-bold">{tx(lang, { fr: 'Besoin', ar: 'الاحتياج', en: 'Need', es: 'Necesidad', pt: 'Necessidade', tr: 'İhtiyaç' })}</th>
+                                                    <th className="py-3 px-3 font-bold">{tx(lang, { fr: 'Stock', ar: 'المخزون', en: 'Stock', es: 'Stock', pt: 'Estoque', tr: 'Stok' })}</th>
+                                                    <th className="py-3 px-3 font-bold text-center w-24">{tx(lang, { fr: 'Statut', ar: 'الحالة', en: 'Status', es: 'Estado', pt: 'Status', tr: 'Durum' })}</th>
                                                 </tr>
                                             </thead>
                                             <tbody className="divide-y divide-slate-100">
@@ -1674,11 +1686,11 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                                         <td className="py-3 px-3 text-center">
                                                             {mat.isSufficient ? (
                                                                 <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-50 text-emerald-700 rounded text-[10px] font-bold border border-emerald-200">
-                                                                    <CheckCircle2 className="w-3 h-3" /> OK
-                                                                </span>
-                                                            ) : (
-                                                                <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-rose-50 text-rose-700 rounded text-[10px] font-bold border border-rose-200">
-                                                                    <AlertCircle className="w-3 h-3" /> Rupture
+                                                                    <CheckCircle2 className="w-3 h-3" /> {tx(lang, { fr: 'OK', ar: 'متوفر', en: 'OK', es: 'OK', pt: 'OK', tr: 'Tamam' })}
+                                                                 </span>
+                                                             ) : (
+                                                                 <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-rose-50 text-rose-700 rounded text-[10px] font-bold border border-rose-200">
+                                                                     <AlertCircle className="w-3 h-3" /> {tx(lang, { fr: 'Rupture', ar: 'نفاد', en: 'Out of Stock', es: 'Agotado', pt: 'Esgotado', tr: 'Stok Yok' })}
                                                                 </span>
                                                             )}
                                                         </td>
@@ -1698,7 +1710,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                         className={`${isMobile ? 'h-12 w-full' : 'h-10 px-5'} bg-emerald-600 hover:bg-emerald-700 text-white text-[13px] font-semibold rounded-lg transition-colors flex items-center justify-center gap-2`}
                                     >
                                         <Send className="w-4 h-4" />
-                                        Valider & Publier
+                                        {tx(lang, { fr: 'Valider & Publier', ar: 'تحقق وانشر', en: 'Validate & Publish', es: 'Validar y Publicar', pt: 'Validar e Publicar', tr: 'Onayla ve Yayınla' })}
                                     </button>
                                 </div>
                             )}
@@ -1746,8 +1758,8 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                 <Trash2 className="w-5 h-5 text-red-500" />
                             </div>
                             <div>
-                                <h3 className="text-[14px] font-semibold text-slate-900">Supprimer l'ordre ?</h3>
-                                <p className="text-[11px] text-slate-500 mt-0.5">Cette action est définitive.</p>
+                                <h3 className="text-[14px] font-semibold text-slate-900">{tx(lang, { fr: "Supprimer l'ordre ?", ar: 'حذف الأمر؟', en: 'Delete order?', es: '¿Eliminar orden?', pt: 'Excluir ordem?', tr: 'Emir silinsin mi?' })}</h3>
+                                <p className="text-[11px] text-slate-500 mt-0.5">{tx(lang, { fr: 'Cette action est définitive.', ar: 'هذا الإجراء نهائي.', en: 'This action is irreversible.', es: 'Esta acción es definitiva.', pt: 'Esta ação é definitiva.', tr: 'Bu işlem geri alınamaz.' })}</p>
                             </div>
                         </div>
                         <div className="flex items-center justify-end gap-2 mt-5">
@@ -1756,14 +1768,14 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                 onClick={() => setDeleteConfirm(null)}
                                 className="h-9 px-4 rounded-lg text-[12px] font-semibold text-slate-600 hover:bg-slate-100 transition-colors"
                             >
-                                Annuler
+                                {tx(lang, { fr: 'Annuler', ar: 'إلغاء', en: 'Cancel', es: 'Cancelar', pt: 'Cancelar', tr: 'İptal' })}
                             </button>
                             <button
                                 type="button"
                                 onClick={() => handleDeleteOrder(deleteConfirm)}
                                 className="h-9 px-4 rounded-lg text-[12px] font-semibold bg-red-600 text-white hover:bg-red-700 transition-colors"
                             >
-                                Supprimer
+                                {tx(lang, { fr: 'Supprimer', ar: 'حذف', en: 'Delete', es: 'Eliminar', pt: 'Excluir', tr: 'Sil' })}
                             </button>
                         </div>
                     </div>
@@ -1802,7 +1814,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                             }}
                             className="w-full text-left px-3 py-2 hover:bg-slate-50 flex items-center gap-2"
                         >
-                            <Edit3 className="w-3.5 h-3.5" /> Ouvrir
+                                                            <Edit3 className="w-3.5 h-3.5" /> {tx(lang, { fr: 'Ouvrir', ar: 'فتح', en: 'Open', es: 'Abrir', pt: 'Abrir', tr: 'Aç' })}
                         </button>
                         <button
                             onClick={() => {
@@ -1811,7 +1823,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                             }}
                             className="w-full text-left px-3 py-2 hover:bg-slate-50 flex items-center gap-2"
                         >
-                            <Copy className="w-3.5 h-3.5" /> Dupliquer
+                                                            <Copy className="w-3.5 h-3.5" /> {tx(lang, { fr: 'Dupliquer', ar: 'تكرار', en: 'Duplicate', es: 'Duplicar', pt: 'Duplicar', tr: 'Kopyala' })}
                         </button>
                         <button
                             onClick={() => {
@@ -1821,7 +1833,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                             }}
                             className="w-full text-left px-3 py-2 hover:bg-slate-50 flex items-center gap-2"
                         >
-                            <Layers className="w-3.5 h-3.5" /> Méthodes
+                                                            <Layers className="w-3.5 h-3.5" /> {tx(lang, { fr: 'Méthodes', ar: 'الطرق', en: 'Methods', es: 'Métodos', pt: 'Métodos', tr: 'Yöntemler' })}
                         </button>
                         <div className="h-px bg-slate-100 my-1" />
                         <button
@@ -1831,7 +1843,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                             }}
                             className="w-full text-left px-3 py-2 hover:bg-rose-50 text-rose-600 flex items-center gap-2"
                         >
-                            <Trash2 className="w-3.5 h-3.5" /> Supprimer
+                                                            <Trash2 className="w-3.5 h-3.5" /> {tx(lang, { fr: 'Supprimer', ar: 'حذف', en: 'Delete', es: 'Eliminar', pt: 'Excluir', tr: 'Sil' })}
                         </button>
                     </div>
                 </div>,
@@ -1872,11 +1884,12 @@ function BoardView({
     getProgress: (m: ModelData) => number;
     onQuickAction: (modelId: string, x: number, y: number) => void;
 }) {
+    const { lang } = useLang();
     const columns = [
-        { key: 'EN_PREPARATION', label: 'Préparation', color: 'border-slate-300', bg: 'bg-slate-50', icon: Clock, textColor: 'text-slate-700', cardBorder: 'hover:border-slate-300', progressColor: 'bg-slate-400' },
-        { key: 'EN_COURS', label: 'En Cours', color: 'border-blue-300', bg: 'bg-blue-50', icon: PlayCircle, textColor: 'text-blue-700', cardBorder: 'hover:border-blue-300', progressColor: 'bg-blue-500' },
-        { key: 'SOUS_TRAITANCE', label: 'Extériorisé', color: 'border-purple-300', bg: 'bg-purple-50', icon: Truck, textColor: 'text-purple-700', cardBorder: 'hover:border-purple-300', progressColor: 'bg-purple-500' },
-        { key: 'VALIDE', label: 'Validé', color: 'border-emerald-300', bg: 'bg-emerald-50', icon: CheckCircle, textColor: 'text-emerald-700', cardBorder: 'hover:border-emerald-300', progressColor: 'bg-emerald-500' },
+        { key: 'EN_PREPARATION', label: tx(lang, { fr: 'Préparation', ar: 'تحضير', en: 'Preparation', es: 'Preparación', pt: 'Preparação', tr: 'Hazırlık' }), color: 'border-slate-300', bg: 'bg-slate-50', icon: Clock, textColor: 'text-slate-700', cardBorder: 'hover:border-slate-300', progressColor: 'bg-slate-400' },
+        { key: 'EN_COURS', label: tx(lang, { fr: 'En Cours', ar: 'قيد التنفيذ', en: 'In Progress', es: 'En Curso', pt: 'Em Andamento', tr: 'Devam Ediyor' }), color: 'border-blue-300', bg: 'bg-blue-50', icon: PlayCircle, textColor: 'text-blue-700', cardBorder: 'hover:border-blue-300', progressColor: 'bg-blue-500' },
+        { key: 'SOUS_TRAITANCE', label: tx(lang, { fr: 'Extériorisé', ar: 'مقاول خارجي', en: 'Subcontracted', es: 'Subcontratado', pt: 'Terceirizado', tr: 'Taşeron' }), color: 'border-purple-300', bg: 'bg-purple-50', icon: Truck, textColor: 'text-purple-700', cardBorder: 'hover:border-purple-300', progressColor: 'bg-purple-500' },
+        { key: 'VALIDE', label: tx(lang, { fr: 'Validé', ar: 'تم التحقق', en: 'Validated', es: 'Validado', pt: 'Validado', tr: 'Onaylandı' }), color: 'border-emerald-300', bg: 'bg-emerald-50', icon: CheckCircle, textColor: 'text-emerald-700', cardBorder: 'hover:border-emerald-300', progressColor: 'bg-emerald-500' },
     ];
 
     return (
@@ -1942,7 +1955,7 @@ function BoardView({
                                                 {/* Draft badge */}
                                                 {m.isPublishedToLibrary === false && (
                                                     <div className="absolute top-1.5 left-1.5">
-                                                        <span className="px-1.5 py-0.5 text-[8px] font-bold uppercase bg-amber-400 text-white rounded-md shadow-sm">Draft</span>
+                                                        <span className="px-1.5 py-0.5 text-[8px] font-bold uppercase bg-amber-400 text-white rounded-md shadow-sm">{tx(lang, { fr: 'Draft', ar: 'مسودة', en: 'Draft', es: 'Borrador', pt: 'Rascunho', tr: 'Taslak' })}</span>
                                                     </div>
                                                 )}
                                             </div>
@@ -1952,7 +1965,7 @@ function BoardView({
                                                 <h4 className="text-[12px] font-bold text-slate-800 truncate leading-tight">
                                                     {m.meta_data?.nom_modele}
                                                 </h4>
-                                                <p className="text-[10px] text-slate-400 font-medium truncate">{ref || 'Référence inconnue'}</p>
+                                                <p className="text-[10px] text-slate-400 font-medium truncate">{ref || tx(lang, { fr: 'Référence inconnue', ar: 'مرجع غير معروف', en: 'Unknown reference', es: 'Referencia desconocida', pt: 'Referência desconhecida', tr: 'Bilinmeyen referans' })}</p>
                                                 <div className="flex items-center justify-between">
                                                     <span className="text-[10px] font-bold text-slate-600 bg-slate-50 px-1.5 py-0.5 rounded">{qte > 0 ? `${qte} pcs` : '—'}</span>
                                                     {m.isPublishedToLibrary !== false && (
@@ -1977,9 +1990,9 @@ function BoardView({
                                     );
                                 })}
                                 {colModels.length === 0 && (
-                                    <div className="text-center py-6 text-[11px] text-slate-400 italic">
-                                        Aucun ordre
-                                    </div>
+                                                                    <div className="text-center py-6 text-[11px] text-slate-400 italic">
+                                                                        {tx(lang, { fr: 'Aucun ordre', ar: 'لا يوجد أمر', en: 'No orders', es: 'Ninguna orden', pt: 'Nenhuma ordem', tr: 'Emir yok' })}
+                                                                    </div>
                                 )}
                             </div>
                         </div>
@@ -1996,6 +2009,7 @@ function CalendarView({ models, onOpen, getProgress }: {
     onOpen: (m: ModelData) => void;
     getProgress: (m: ModelData) => number;
 }) {
+    const { lang } = useLang();
     const [currentMonth, setCurrentMonth] = useState(new Date());
 
     const daysInMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0).getDate();
@@ -2040,7 +2054,7 @@ function CalendarView({ models, onOpen, getProgress }: {
                             <ChevronLeft className="w-4 h-4" />
                         </button>
                         <button onClick={() => setCurrentMonth(new Date())} className="h-8 px-3 text-[11px] font-semibold text-slate-600 hover:bg-slate-100 rounded-md">
-                            Aujourd'hui
+                            {tx(lang, { fr: "Aujourd'hui", ar: 'اليوم', en: 'Today', es: 'Hoy', pt: 'Hoje', tr: 'Bugün' })}
                         </button>
                         <button onClick={next} className="w-8 h-8 flex items-center justify-center rounded-md hover:bg-slate-100 text-slate-600">
                             <ChevronRight className="w-4 h-4" />
@@ -2048,7 +2062,17 @@ function CalendarView({ models, onOpen, getProgress }: {
                     </div>
                 </div>
                 <div className="grid grid-cols-7 border-b border-slate-100 bg-slate-50">
-                    {['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'].map(d => (
+                    {(() => {
+                        const dayNames: Record<string, string[]> = {
+                            fr: ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'],
+                            ar: ['الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت', 'الأحد'],
+                            en: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+                            es: ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'],
+                            pt: ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'],
+                            tr: ['Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt', 'Paz'],
+                        };
+                        return (dayNames[lang] || dayNames.fr);
+                    })().map(d => (
                         <div key={d} className="py-2 text-center text-[10px] font-bold text-slate-500 uppercase tracking-wide">{d}</div>
                     ))}
                 </div>
@@ -2082,7 +2106,7 @@ function CalendarView({ models, onOpen, getProgress }: {
                                         );
                                     })}
                                     {dayModels.length > 3 && (
-                                        <div className="text-[9px] text-indigo-500 font-semibold px-1">+{dayModels.length - 3} de plus</div>
+                                        <div className="text-[9px] text-indigo-500 font-semibold px-1">+{dayModels.length - 3} {tx(lang, { fr: 'de plus', ar: 'أخرى', en: 'more', es: 'más', pt: 'mais', tr: 'daha fazla' })}</div>
                                     )}
                                 </div>
                             </div>
@@ -2096,6 +2120,7 @@ function CalendarView({ models, onOpen, getProgress }: {
 
 /* ─────── Stats View ─────── */
 function StatsView({ models, statusMap }: { models: ModelData[]; statusMap: any }) {
+    const { lang } = useLang();
     const stats = useMemo(() => {
         const byStatus: Record<string, number> = {};
         const qtyByStatus: Record<string, number> = {};
@@ -2157,10 +2182,10 @@ function StatsView({ models, statusMap }: { models: ModelData[]; statusMap: any 
         <div className="p-4 md:p-6 max-w-6xl mx-auto space-y-4">
             {/* Top stats */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                <StatCard label="Total Ordres" value={models.length} icon={Layers} color="bg-slate-900" />
-                <StatCard label="Brouillons" value={stats.totalDrafts} icon={FileText} color="bg-amber-500" />
-                <StatCard label="Publiés" value={stats.totalPublished} icon={CheckCircle2} color="bg-emerald-500" />
-                <StatCard label="Total Pièces" value={stats.totalQty} icon={PackageSearch} color="bg-indigo-500" />
+                <StatCard label={tx(lang, { fr: 'Total Ordres', ar: 'إجمالي الأوامر', en: 'Total Orders', es: 'Total Órdenes', pt: 'Total Ordens', tr: 'Toplam Emirler' })} value={models.length} icon={Layers} color="bg-slate-900" />
+                <StatCard label={tx(lang, { fr: 'Brouillons', ar: 'مسودات', en: 'Drafts', es: 'Borradores', pt: 'Rascunhos', tr: 'Taslaklar' })} value={stats.totalDrafts} icon={FileText} color="bg-amber-500" />
+                <StatCard label={tx(lang, { fr: 'Publiés', ar: 'منشور', en: 'Published', es: 'Publicados', pt: 'Publicados', tr: 'Yayınlanan' })} value={stats.totalPublished} icon={CheckCircle2} color="bg-emerald-500" />
+                <StatCard label={tx(lang, { fr: 'Total Pièces', ar: 'إجمالي القطع', en: 'Total Pieces', es: 'Total Piezas', pt: 'Total Peças', tr: 'Toplam Adet' })} value={stats.totalQty} icon={PackageSearch} color="bg-indigo-500" />
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -2168,7 +2193,7 @@ function StatsView({ models, statusMap }: { models: ModelData[]; statusMap: any 
                 <div className="bg-white rounded-xl border border-slate-200 p-4 md:p-6">
                     <div className="flex items-center gap-2 mb-4">
                         <Target className="w-4 h-4 text-slate-400" />
-                        <h3 className="text-[14px] font-semibold text-slate-800">Répartition</h3>
+                        <h3 className="text-[14px] font-semibold text-slate-800">{tx(lang, { fr: 'Répartition', ar: 'التوزيع', en: 'Distribution', es: 'Distribución', pt: 'Distribuição', tr: 'Dağılım' })}</h3>
                     </div>
                     <div className="flex items-center justify-center gap-6">
                         <div
@@ -2177,7 +2202,7 @@ function StatsView({ models, statusMap }: { models: ModelData[]; statusMap: any 
                         >
                             <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center flex-col">
                                 <span className="text-xl font-bold text-slate-800">{models.length}</span>
-                                <span className="text-[9px] text-slate-400 font-bold uppercase">Ordres</span>
+                                <span className="text-[9px] text-slate-400 font-bold uppercase">{tx(lang, { fr: 'Ordres', ar: 'أوامر', en: 'Orders', es: 'Órdenes', pt: 'Ordens', tr: 'Emirler' })}</span>
                             </div>
                         </div>
                         <div className="space-y-2">
@@ -2196,12 +2221,12 @@ function StatsView({ models, statusMap }: { models: ModelData[]; statusMap: any 
                 <div className="bg-white rounded-xl border border-slate-200 p-4 md:p-6">
                     <div className="flex items-center gap-2 mb-4">
                         <Zap className="w-4 h-4 text-amber-500" />
-                        <h3 className="text-[14px] font-semibold text-slate-800">Performance</h3>
+                        <h3 className="text-[14px] font-semibold text-slate-800">{tx(lang, { fr: 'Performance', ar: 'الأداء', en: 'Performance', es: 'Rendimiento', pt: 'Desempenho', tr: 'Performans' })}</h3>
                     </div>
                     <div className="space-y-4">
                         <div>
                             <div className="flex items-center justify-between mb-1.5">
-                                <span className="text-[11px] font-semibold text-slate-500">Taux de chute moyen</span>
+                                <span className="text-[11px] font-semibold text-slate-500">{tx(lang, { fr: 'Taux de chute moyen', ar: 'متوسط نسبة الفاقد', en: 'Avg waste rate', es: 'Tasa de desperdicio media', pt: 'Taxa de desperdício média', tr: 'Ort. fire oranı' })}</span>
                                 <span className={`text-[13px] font-bold ${stats.avgWaste > 10 ? 'text-rose-600' : stats.avgWaste > 5 ? 'text-amber-600' : 'text-emerald-600'}`}>
                                     {stats.avgWaste}%
                                 </span>
@@ -2216,7 +2241,7 @@ function StatsView({ models, statusMap }: { models: ModelData[]; statusMap: any 
 
                         {/* Qty by status */}
                         <div>
-                            <span className="text-[11px] font-semibold text-slate-500 block mb-2">Production par statut</span>
+                            <span className="text-[11px] font-semibold text-slate-500 block mb-2">{tx(lang, { fr: 'Production par statut', ar: 'الإنتاج حسب الحالة', en: 'Production by status', es: 'Producción por estado', pt: 'Produção por status', tr: 'Duruma göre üretim' })}</span>
                             <div className="space-y-2">
                                 {Object.entries(stats.qtyByStatus).map(([key, qty]) => {
                                     const maxQty = Math.max(...Object.values(stats.qtyByStatus), 1);
@@ -2243,7 +2268,7 @@ function StatsView({ models, statusMap }: { models: ModelData[]; statusMap: any 
             <div className="bg-white rounded-xl border border-slate-200 p-4 md:p-6">
                 <div className="flex items-center gap-2 mb-4">
                     <BarChart3 className="w-4 h-4 text-slate-400" />
-                    <h3 className="text-[14px] font-semibold text-slate-800">Détail par Statut</h3>
+                    <h3 className="text-[14px] font-semibold text-slate-800">{tx(lang, { fr: 'Détail par Statut', ar: 'تفاصيل حسب الحالة', en: 'Detail by Status', es: 'Detalle por Estado', pt: 'Detalhe por Status', tr: 'Duruma Göre Detay' })}</h3>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3">
                     {Object.entries(statusMap).map(([key, config]: [string, any]) => {
@@ -2303,6 +2328,7 @@ function EmptyDashboard({
     onNew: () => void;
     onOpen: (m: ModelData) => void;
 }) {
+    const { lang } = useLang();
     const recent = [...models].sort((a, b) => {
         const da = new Date(a.meta_data?.date_creation || 0).getTime();
         const db = new Date(b.meta_data?.date_creation || 0).getTime();
@@ -2325,11 +2351,11 @@ function EmptyDashboard({
                             <div className="w-8 h-8 bg-rose-500/20 rounded-lg flex items-center justify-center">
                                 <Scissors className="w-4 h-4 text-rose-400" />
                             </div>
-                            <span className="text-[10px] font-bold text-rose-400 uppercase tracking-widest">Atelier Coupe</span>
+                            <span className="text-[10px] font-bold text-rose-400 uppercase tracking-widest">{tx(lang, { fr: 'Atelier Coupe', ar: 'ورشة القص', en: 'Cutting Workshop', es: 'Taller de Corte', pt: 'Oficina de Corte', tr: 'Kesim Atölyesi' })}</span>
                         </div>
-                        <h1 className="text-2xl md:text-3xl font-bold text-white tracking-tight">Bienvenue à La Coupe</h1>
+                        <h1 className="text-2xl md:text-3xl font-bold text-white tracking-tight">{tx(lang, { fr: 'Bienvenue à La Coupe', ar: 'مرحبًا بك في قسم القص', en: 'Welcome to Cutting Dept.', es: 'Bienvenido al Departamento de Corte', pt: 'Bem-vindo ao Corte', tr: 'Kesim Departmanına Hoş Geldiniz' })}</h1>
                         <p className="text-slate-400 text-[13px] mt-1.5 max-w-md leading-relaxed">
-                            Gérez vos ordres de fabrication, suivez la production et optimisez vos processus de coupe textile.
+                            {tx(lang, { fr: 'Gérez vos ordres de fabrication, suivez la production et optimisez vos processus de coupe textile.', ar: 'إدارة أوامر التصنيع الخاصة بك، تتبع الإنتاج وتحسين عمليات القص النسيجي.', en: 'Manage your production orders, track production and optimize your textile cutting processes.', es: 'Gestione sus órdenes de fabricación, siga la producción y optimice sus procesos de corte textil.', pt: 'Gerencie suas ordens de fabricação, acompanhe a produção e otimize seus processos de corte têxtil.', tr: 'Üretim emirlerinizi yönetin, üretimi takip edin ve tekstil kesim süreçlerinizi optimize edin.' })}
                         </p>
                     </div>
                     <div className="flex flex-col gap-2 shrink-0">
@@ -2338,32 +2364,32 @@ function EmptyDashboard({
                             className="h-12 px-6 bg-white hover:bg-slate-50 text-slate-900 text-[13px] font-bold rounded-xl transition-colors inline-flex items-center gap-2 shadow-lg shadow-white/10"
                         >
                             <Plus className="w-4 h-4" strokeWidth={2.5} />
-                            Nouvel Ordre
+                            {tx(lang, { fr: 'Nouvel Ordre', ar: 'أمر جديد', en: 'New Order', es: 'Nueva Orden', pt: 'Nova Ordem', tr: 'Yeni Emir' })}
                         </button>
-                        <p className="text-[10px] text-slate-500 text-center">Ou sélectionnez un ordre existant</p>
+                        <p className="text-[10px] text-slate-500 text-center">{tx(lang, { fr: 'Ou sélectionnez un ordre existant', ar: 'أو اختر أمرًا موجودًا', en: 'Or select an existing order', es: 'O seleccione una orden existente', pt: 'Ou selecione uma ordem existente', tr: 'Veya mevcut bir emir seçin' })}</p>
                     </div>
                 </div>
             </div>
 
             {/* Quick stats */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                <StatCard label="Total Ordres" value={models.length} icon={Layers} color="bg-slate-900" delay={0} />
-                <StatCard label="Préparation" value={prepCount} icon={Clock} color="bg-slate-500" delay={50} />
-                <StatCard label="En Cours" value={activeCount} icon={PlayCircle} color="bg-blue-500" delay={100} />
-                <StatCard label="Validés" value={valCount} icon={CheckCircle} color="bg-emerald-500" delay={150} />
+                <StatCard label={tx(lang, { fr: 'Total Ordres', ar: 'إجمالي الأوامر', en: 'Total Orders', es: 'Total Órdenes', pt: 'Total Ordens', tr: 'Toplam Emirler' })} value={models.length} icon={Layers} color="bg-slate-900" delay={0} />
+                <StatCard label={tx(lang, { fr: 'Préparation', ar: 'تحضير', en: 'Preparation', es: 'Preparación', pt: 'Preparação', tr: 'Hazırlık' })} value={prepCount} icon={Clock} color="bg-slate-500" delay={50} />
+                <StatCard label={tx(lang, { fr: 'En Cours', ar: 'قيد التنفيذ', en: 'In Progress', es: 'En Curso', pt: 'Em Andamento', tr: 'Devam Ediyor' })} value={activeCount} icon={PlayCircle} color="bg-blue-500" delay={100} />
+                <StatCard label={tx(lang, { fr: 'Validés', ar: 'تم التحقق', en: 'Validated', es: 'Validados', pt: 'Validados', tr: 'Onaylanan' })} value={valCount} icon={CheckCircle} color="bg-emerald-500" delay={150} />
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                <StatCard label="Total Pièces" value={totalQty} icon={PackageSearch} color="bg-indigo-500" delay={200} />
-                <StatCard label="Brouillons" value={drafts} icon={FileText} color="bg-amber-500" delay={250} />
-                <StatCard label="Statuts" value={Object.keys(statusMap).length} icon={BarChart3} color="bg-purple-500" delay={300} />
+                <StatCard label={tx(lang, { fr: 'Total Pièces', ar: 'إجمالي القطع', en: 'Total Pieces', es: 'Total Piezas', pt: 'Total Peças', tr: 'Toplam Adet' })} value={totalQty} icon={PackageSearch} color="bg-indigo-500" delay={200} />
+                <StatCard label={tx(lang, { fr: 'Brouillons', ar: 'مسودات', en: 'Drafts', es: 'Borradores', pt: 'Rascunhos', tr: 'Taslaklar' })} value={drafts} icon={FileText} color="bg-amber-500" delay={250} />
+                <StatCard label={tx(lang, { fr: 'Statuts', ar: 'الحالات', en: 'Statuses', es: 'Estados', pt: 'Status', tr: 'Durumlar' })} value={Object.keys(statusMap).length} icon={BarChart3} color="bg-purple-500" delay={300} />
             </div>
 
             {/* Quick guide */}
             <div className="bg-gradient-to-r from-indigo-50 to-rose-50 rounded-xl border border-indigo-100 p-4 md:p-5">
                 <div className="flex items-center gap-2 mb-3">
                     <Zap className="w-4 h-4 text-indigo-500" />
-                    <h3 className="text-[13px] font-bold text-slate-800">Guide Rapide</h3>
+                    <h3 className="text-[13px] font-bold text-slate-800">{tx(lang, { fr: 'Guide Rapide', ar: 'دليل سريع', en: 'Quick Guide', es: 'Guía Rápida', pt: 'Guia Rápido', tr: 'Hızlı Rehber' })}</h3>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     <div className="flex items-start gap-2.5">
@@ -2371,8 +2397,8 @@ function EmptyDashboard({
                             <span className="text-[10px] font-bold text-indigo-600">1</span>
                         </div>
                         <div>
-                            <p className="text-[11px] font-semibold text-slate-700">Créer un ordre</p>
-                            <p className="text-[10px] text-slate-500">Définissez les paramètres de matelas</p>
+                            <p className="text-[11px] font-semibold text-slate-700">{tx(lang, { fr: 'Créer un ordre', ar: 'إنشاء أمر', en: 'Create an order', es: 'Crear una orden', pt: 'Criar uma ordem', tr: 'Emir oluştur' })}</p>
+                            <p className="text-[10px] text-slate-500">{tx(lang, { fr: 'Définissez les paramètres de matelas', ar: 'حدد إعدادات المفرشة', en: 'Set layering parameters', es: 'Defina los parámetros de capas', pt: 'Defina os parâmetros de esteiramento', tr: 'Katman parametrelerini ayarlayın' })}</p>
                         </div>
                     </div>
                     <div className="flex items-start gap-2.5">
@@ -2380,8 +2406,8 @@ function EmptyDashboard({
                             <span className="text-[10px] font-bold text-indigo-600">2</span>
                         </div>
                         <div>
-                            <p className="text-[11px] font-semibold text-slate-700">Répartir tailles/couleurs</p>
-                            <p className="text-[10px] text-slate-500">Remplissez la matrice de production</p>
+                            <p className="text-[11px] font-semibold text-slate-700">{tx(lang, { fr: 'Répartir tailles/couleurs', ar: 'توزيع المقاسات/الألوان', en: 'Distribute sizes/colors', es: 'Distribuir tallas/colores', pt: 'Distribuir tamanhos/cores', tr: 'Bedenleri/renkleri dağıt' })}</p>
+                            <p className="text-[10px] text-slate-500">{tx(lang, { fr: 'Remplissez la matrice de production', ar: 'املأ مصفوفة الإنتاج', en: 'Fill the production matrix', es: 'Complete la matriz de producción', pt: 'Preencha a matriz de produção', tr: 'Üretim matrisini doldurun' })}</p>
                         </div>
                     </div>
                     <div className="flex items-start gap-2.5">
@@ -2389,8 +2415,8 @@ function EmptyDashboard({
                             <span className="text-[10px] font-bold text-indigo-600">3</span>
                         </div>
                         <div>
-                            <p className="text-[11px] font-semibold text-slate-700">Publier & Valider</p>
-                            <p className="text-[10px] text-slate-500">Envoyez vers le Planning</p>
+                            <p className="text-[11px] font-semibold text-slate-700">{tx(lang, { fr: 'Publier & Valider', ar: 'نشر وتحقق', en: 'Publish & Validate', es: 'Publicar y Validar', pt: 'Publicar e Validar', tr: 'Yayınla ve Onayla' })}</p>
+                            <p className="text-[10px] text-slate-500">{tx(lang, { fr: 'Envoyez vers le Planning', ar: 'أرسل إلى التخطيط', en: 'Send to Planning', es: 'Enviar a Planificación', pt: 'Enviar para Planejamento', tr: 'Planlamaya gönder' })}</p>
                         </div>
                     </div>
                 </div>
@@ -2402,9 +2428,9 @@ function EmptyDashboard({
                     <div className="px-4 md:px-6 py-4 border-b border-slate-100 flex items-center justify-between">
                         <div className="flex items-center gap-2">
                             <Clock className="w-4 h-4 text-slate-400" />
-                            <h3 className="text-[14px] font-semibold text-slate-800">Ordres Récents</h3>
+                            <h3 className="text-[14px] font-semibold text-slate-800">{tx(lang, { fr: 'Ordres Récents', ar: 'الأوامر الأخيرة', en: 'Recent Orders', es: 'Órdenes Recientes', pt: 'Ordens Recentes', tr: 'Son Emirler' })}</h3>
                         </div>
-                        <span className="text-[11px] text-slate-400 font-medium">{recent.length} derniers</span>
+                        <span className="text-[11px] text-slate-400 font-medium">{recent.length} {tx(lang, { fr: 'derniers', ar: 'الأخيرة', en: 'latest', es: 'últimos', pt: 'últimos', tr: 'son' })}</span>
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-slate-100">
                         {recent.map(m => {
@@ -2468,16 +2494,16 @@ function EmptyDashboard({
                     <div className="w-20 h-20 bg-gradient-to-br from-slate-100 to-slate-50 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-slate-200">
                         <Scissors className="w-8 h-8 text-slate-300" />
                     </div>
-                    <h3 className="text-[15px] font-bold text-slate-700">Aucun ordre de coupe</h3>
+                    <h3 className="text-[15px] font-bold text-slate-700">{tx(lang, { fr: 'Aucun ordre de coupe', ar: 'لا يوجد أمر قص', en: 'No cutting order', es: 'Ninguna orden de corte', pt: 'Nenhuma ordem de corte', tr: 'Kesim emri yok' })}</h3>
                     <p className="text-[12px] text-slate-400 mt-1.5 max-w-sm mx-auto leading-relaxed">
-                        Commencez par créer votre premier ordre de fabrication pour suivre vos productions textile.
+                        {tx(lang, { fr: 'Commencez par créer votre premier ordre de fabrication pour suivre vos productions textile.', ar: 'ابدأ بإنشاء أول أمر تصنيع لك لمتابعة إنتاجاتك النسيجية.', en: 'Start by creating your first production order to track your textile productions.', es: 'Comience creando su primera orden de fabricación para seguir sus producciones textiles.', pt: 'Comece criando sua primeira ordem de fabricação para acompanhar suas produções têxteis.', tr: 'Tekstil üretimlerinizi takip etmek için ilk üretim emrinizi oluşturarak başlayın.' })}
                     </p>
                     <button
                         onClick={onNew}
                         className="mt-5 h-11 px-6 bg-slate-900 hover:bg-slate-800 text-white text-[12px] font-bold rounded-xl transition-colors inline-flex items-center gap-2 shadow-lg shadow-slate-900/20"
                     >
                         <Plus className="w-4 h-4" strokeWidth={2.5} />
-                        Créer un ordre
+                        {tx(lang, { fr: 'Créer un ordre', ar: 'إنشاء أمر', en: 'Create order', es: 'Crear orden', pt: 'Criar ordem', tr: 'Emir oluştur' })}
                     </button>
                 </div>
             )}

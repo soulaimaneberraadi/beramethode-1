@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useLang } from '../context/LanguageContext';
+import { tx } from '../../lib/i18n';
 import { notifyServerSessionEstablished } from '../../lib/dataIdentity';
 import { Lock, Mail, User, ArrowRight } from 'lucide-react';
 import { motion, AnimatePresence, Variants } from 'framer-motion';
@@ -21,6 +23,7 @@ export default function Signup({ onSwitch, onGuest }: { onSwitch: () => void; on
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [confirmationSent, setConfirmationSent] = useState(false);
+  const { lang } = useLang();
   const { login, signup, signInWithGoogle } = useAuth();
 
   const handleGoogleLogin = async () => {
@@ -29,7 +32,7 @@ export default function Signup({ onSwitch, onGuest }: { onSwitch: () => void; on
     setIsLoading(true);
     const result = await signInWithGoogle();
     if (!result.ok) {
-      setError(result.message || 'Échec de la connexion avec Google.');
+      setError(result.message || tx(lang, {fr:'Échec de la connexion avec Google.',ar:'فشل تسجيل الدخول عبر Google.',en:'Google sign-in failed.',es:'Error al iniciar sesión con Google.',pt:'Falha ao entrar com o Google.',tr:'Google ile giriş başarısız.'}));
       setIsLoading(false);
     }
   };
@@ -43,7 +46,7 @@ export default function Signup({ onSwitch, onGuest }: { onSwitch: () => void; on
       // Static mode (Vercel) → use Supabase signup directly
       if (signup) {
         const result = await signup(email, password, name);
-        if (!result.ok) throw new Error(result.message || 'Échec inscription.');
+        if (!result.ok) throw new Error(result.message || tx(lang, {fr:'Échec inscription.',ar:'فشل التسجيل.',en:'Signup failed.',es:'Error al registrarse.',pt:'Falha no cadastro.',tr:'Kayıt başarısız.'}));
         if (result.requiresConfirmation) {
           setConfirmationSent(true);
           return;
@@ -62,7 +65,7 @@ export default function Signup({ onSwitch, onGuest }: { onSwitch: () => void; on
       const data = await res.json();
 
       if (!res.ok) {
-        throw new Error(data.message || 'Registration failed');
+        throw new Error(data.message || tx(lang, {fr:'Échec inscription.',ar:'فشل التسجيل.',en:'Registration failed.',es:'Error al registrarse.',pt:'Falha no registro.',tr:'Kayıt başarısız.'}));
       }
 
       notifyServerSessionEstablished(data.user?.id ?? 0);
@@ -145,10 +148,10 @@ export default function Signup({ onSwitch, onGuest }: { onSwitch: () => void; on
           </div>
 
           <h2 className="text-3xl font-bold tracking-tight text-center text-slate-900">
-            Create account
+            {tx(lang, {fr:'Créer un compte',ar:'إنشاء حساب',en:'Create account',es:'Crear cuenta',pt:'Criar conta',tr:'Hesap oluştur'})}
           </h2>
           <p className="mt-2 text-sm text-center max-w-xs text-slate-600">
-            Join us to start optimizing your industrial workflow
+            {tx(lang, {fr:'Rejoignez-nous pour optimiser votre flux industriel',ar:'انضم إلينا لبدء تحسين سير عملك الصناعي',en:'Join us to start optimizing your industrial workflow',es:'Únete para optimizar tu flujo de trabajo industrial',pt:'Junte-se a nós para otimizar seu fluxo de trabalho industrial',tr:'Endüstriyel iş akışınızı optimize etmek için bize katılın'})}
           </p>
         </motion.div>
 
@@ -158,16 +161,17 @@ export default function Signup({ onSwitch, onGuest }: { onSwitch: () => void; on
             <div className="w-16 h-16 mx-auto rounded-full bg-emerald-100 flex items-center justify-center">
               <Mail className="w-8 h-8 text-emerald-600" />
             </div>
-            <h3 className="text-lg font-bold text-slate-900">Vérifiez votre boîte mail</h3>
+            <h3 className="text-lg font-bold text-slate-900">{tx(lang, {fr:'Vérifiez votre boîte mail',ar:'تحقق من بريدك الإلكتروني',en:'Check your inbox',es:'Revisa tu bandeja de entrada',pt:'Verifique sua caixa de entrada',tr:'E-posta kutunuzu kontrol edin'})}</h3>
             <p className="text-sm text-slate-600">
-              Un lien de confirmation a été envoyé à <span className="font-semibold text-emerald-600">{email}</span>.<br />
-              Cliquez sur ce lien puis revenez vous connecter.
+              {tx(lang, {fr:'Un lien de confirmation a été envoyé à ',ar:'تم إرسال رابط التأكيد إلى ',en:'A confirmation link has been sent to ',es:'Se ha enviado un enlace de confirmación a ',pt:'Um link de confirmação foi enviado para ',tr:'Onay bağlantısı gönderildi: '})}
+              <span className="font-semibold text-emerald-600">{email}</span>.<br />
+              {tx(lang, {fr:'Cliquez sur ce lien puis revenez vous connecter.',ar:'انقر على الرابط ثم عد لتسجيل الدخول.',en:'Click the link, then come back to sign in.',es:'Haz clic en el enlace y vuelve para iniciar sesión.',pt:'Clique no link e volte para fazer login.',tr:'Bağlantıya tıklayın ve giriş yapmak için geri dönün.'})}
             </p>
             <button
               onClick={onSwitch}
               className="mt-4 w-full py-3.5 px-4 rounded-xl text-sm font-bold text-white bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 shadow-[0_10px_20px_rgba(16,185,129,0.15)] hover:shadow-[0_15px_30px_rgba(16,185,129,0.25)] transition-all cursor-pointer"
             >
-              Aller à la connexion
+              {tx(lang, {fr:'Aller à la connexion',ar:'الذهاب إلى تسجيل الدخول',en:'Go to sign in',es:'Ir a iniciar sesión',pt:'Ir para o login',tr:'Giriş yapmaya git'})}
             </button>
           </motion.div>
         )}
@@ -182,7 +186,7 @@ export default function Signup({ onSwitch, onGuest }: { onSwitch: () => void; on
                 type="text"
                 required
                 className="w-full pl-11 pr-4 py-4 rounded-xl border border-slate-200 text-slate-900 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 bg-slate-50/50 focus:bg-white placeholder-slate-400 sm:text-sm transition-all duration-200 shadow-sm"
-                placeholder="Full Name"
+                placeholder={tx(lang, {fr:'Nom complet',ar:'الاسم الكامل',en:'Full Name',es:'Nombre completo',pt:'Nome completo',tr:'Ad Soyad'})}
                 value={name}
                 onChange={(e) => setName(e.target.value)}
               />
@@ -195,7 +199,7 @@ export default function Signup({ onSwitch, onGuest }: { onSwitch: () => void; on
                 type="email"
                 required
                 className="w-full pl-11 pr-4 py-4 rounded-xl border border-slate-200 text-slate-900 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 bg-slate-50/50 focus:bg-white placeholder-slate-400 sm:text-sm transition-all duration-200 shadow-sm"
-                placeholder="Email address"
+                placeholder={tx(lang, {fr:'Adresse email',ar:'البريد الإلكتروني',en:'Email address',es:'Correo electrónico',pt:'Endereço de email',tr:'E-posta adresi'})}
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
               />
@@ -208,7 +212,7 @@ export default function Signup({ onSwitch, onGuest }: { onSwitch: () => void; on
                 type="password"
                 required
                 className="w-full pl-11 pr-4 py-4 rounded-xl border border-slate-200 text-slate-900 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 bg-slate-50/50 focus:bg-white placeholder-slate-400 sm:text-sm transition-all duration-200 shadow-sm"
-                placeholder="Password"
+                placeholder={tx(lang, {fr:'Mot de passe',ar:'كلمة المرور',en:'Password',es:'Contraseña',pt:'Senha',tr:'Şifre'})}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
               />
@@ -242,7 +246,7 @@ export default function Signup({ onSwitch, onGuest }: { onSwitch: () => void; on
               <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
             ) : (
               <>
-                Créer le compte <ArrowRight className="w-4 h-4" />
+                {tx(lang, {fr:'Créer le compte',ar:'إنشاء الحساب',en:'Create account',es:'Crear cuenta',pt:'Criar conta',tr:'Hesap oluştur'})} <ArrowRight className="w-4 h-4" />
               </>
             )}
           </motion.button>
@@ -251,7 +255,7 @@ export default function Signup({ onSwitch, onGuest }: { onSwitch: () => void; on
             <motion.div variants={itemVariants} className="mt-6">
               <div className="flex items-center gap-3">
                 <div className="h-px flex-1 bg-slate-200" />
-                <span className="text-xs font-medium uppercase tracking-wider text-slate-500">Ou</span>
+                <span className="text-xs font-medium uppercase tracking-wider text-slate-500">{tx(lang, {fr:'Ou',ar:'أو',en:'Or',es:'O',pt:'Ou',tr:'Veya'})}</span>
                 <div className="h-px flex-1 bg-slate-200" />
               </div>
 
@@ -265,7 +269,7 @@ export default function Signup({ onSwitch, onGuest }: { onSwitch: () => void; on
                   className="mt-4 w-full flex justify-center items-center gap-3 border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 hover:border-slate-300 py-3.5 px-4 rounded-xl shadow-sm cursor-pointer text-sm font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 transition-all duration-200 disabled:opacity-70 disabled:cursor-not-allowed"
                 >
                   <GoogleIcon className="w-5 h-5" />
-                  Continuer avec Google
+                  {tx(lang, {fr:'Continuer avec Google',ar:'المتابعة عبر Google',en:'Continue with Google',es:'Continuar con Google',pt:'Continuar com Google',tr:'Google ile devam et'})}
                 </motion.button>
               )}
 
@@ -278,7 +282,7 @@ export default function Signup({ onSwitch, onGuest }: { onSwitch: () => void; on
                   className="mt-3 w-full flex justify-center items-center gap-2 border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:border-slate-300 py-3.5 px-4 rounded-xl shadow-sm cursor-pointer text-sm font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 transition-all duration-200"
                 >
                   <User className="w-4 h-4" />
-                  Continuer en tant qu'invité
+                  {tx(lang, {fr:'Continuer en tant qu\'invité',ar:'المتابعة كزائر',en:'Continue as guest',es:'Continuar como invitado',pt:'Continuar como convidado',tr:'Misafir olarak devam et'})}
                 </motion.button>
               )}
             </motion.div>
@@ -288,12 +292,12 @@ export default function Signup({ onSwitch, onGuest }: { onSwitch: () => void; on
 
         <motion.div variants={itemVariants} className="mt-8 text-center">
           <p className="text-sm text-slate-500">
-            Already have an account?{' '}
+            {tx(lang, {fr:'Vous avez déjà un compte ?',ar:'هل لديك حساب بالفعل؟',en:'Already have an account?',es:'¿Ya tienes una cuenta?',pt:'Já tem uma conta?',tr:'Zaten hesabınız var mı?'})}{' '}
             <button 
               onClick={onSwitch} 
               className="font-bold transition-colors hover:underline decoration-2 underline-offset-4 text-emerald-600 hover:text-emerald-500"
             >
-              Sign in
+              {tx(lang, {fr:'Se connecter',ar:'تسجيل الدخول',en:'Sign in',es:'Iniciar sesión',pt:'Entrar',tr:'Giriş yap'})}
             </button>
           </p>
         </motion.div>
@@ -301,7 +305,7 @@ export default function Signup({ onSwitch, onGuest }: { onSwitch: () => void; on
 
       {/* Footer Copyright */}
       <div className="absolute bottom-6 text-center w-full z-10">
-         <p className="text-xs font-medium text-slate-600">© {new Date().getFullYear()} BeraMethode. All rights reserved.</p>
+         <p className="text-xs font-medium text-slate-600">{tx(lang, {fr:`© ${new Date().getFullYear()} BeraMethode. Tous droits réservés.`,ar:`© ${new Date().getFullYear()} BeraMethode. جميع الحقوق محفوظة.`,en:`© ${new Date().getFullYear()} BeraMethode. All rights reserved.`,es:`© ${new Date().getFullYear()} BeraMethode. Todos los derechos reservados.`,pt:`© ${new Date().getFullYear()} BeraMethode. Todos os direitos reservados.`,tr:`© ${new Date().getFullYear()} BeraMethode. Tüm hakları saklıdır.`})}</p>
       </div>
     </div>
   );
