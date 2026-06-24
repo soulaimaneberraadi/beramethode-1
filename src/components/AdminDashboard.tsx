@@ -2,6 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { Trash2, Shield, User, Search, AlertCircle, Download, GitMerge, Database } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { tx } from '../../lib/i18n';
+import { useLang } from '../context/LanguageContext';
 
 interface UserData {
   id: number;
@@ -13,6 +15,7 @@ interface UserData {
 
 export default function AdminDashboard() {
   const { user } = useAuth();
+  const { lang } = useLang();
   const [users, setUsers] = useState<UserData[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -45,8 +48,8 @@ export default function AdminDashboard() {
   };
 
   const handleMergeToUser = async () => {
-    if (!mergeTarget) return alert('Entrez un email cible');
-    if (!confirm(`Fusionner TOUTES les données vers ${mergeTarget} ? Cette action est irréversible.`)) return;
+    if (!mergeTarget) return alert(tx(lang, {fr:'Entrez un email cible',ar:'أدخل البريد الإلكتروني المستهدف',en:'Enter target email',es:'Ingrese el correo electrónico objetivo',pt:'Insira o e-mail alvo',tr:'Hedef e-postayı girin'}));
+    if (!confirm(tx(lang, {fr:`Fusionner TOUTES les données vers ${mergeTarget} ? Cette action est irréversible.`,ar:`دمج جميع البيانات إلى ${mergeTarget}؟ هذا الإجراء لا رجعة فيه.`,en:`Merge ALL data to ${mergeTarget}? This action is irreversible.`,es:`¿Fusionar TODOS los datos a ${mergeTarget}? Esta acción es irreversible.`,pt:`Mesclar TODOS os dados para ${mergeTarget}? Esta ação é irreversível.`,tr:`TÜM veriler ${mergeTarget} adresine birleştirilsin mi? Bu işlem geri alınamaz.`}))) return;
     setMergeLoading(true);
     setMergeResult(null);
     try {
@@ -57,9 +60,9 @@ export default function AdminDashboard() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message);
-      setMergeResult(`✅ ${data.message} — Modèles: ${data.modelsUpdated}, Produits: ${data.productsUpdated}, Ouvriers: ${data.workersUpdated}, Paramètres copiés: ${data.settingsCopied}`);
+      setMergeResult(tx(lang, {fr:`✅ ${data.message} — Modèles: ${data.modelsUpdated}, Produits: ${data.productsUpdated}, Ouvriers: ${data.workersUpdated}, Paramètres copiés: ${data.settingsCopied}`,ar:`✅ ${data.message} — النماذج: ${data.modelsUpdated}, المنتجات: ${data.productsUpdated}, العمال: ${data.workersUpdated}, الإعدادات المنسوخة: ${data.settingsCopied}`,en:`✅ ${data.message} — Models: ${data.modelsUpdated}, Products: ${data.productsUpdated}, Workers: ${data.workersUpdated}, Settings copied: ${data.settingsCopied}`,es:`✅ ${data.message} — Modelos: ${data.modelsUpdated}, Productos: ${data.productsUpdated}, Trabajadores: ${data.workersUpdated}, Configuración copiada: ${data.settingsCopied}`,pt:`✅ ${data.message} — Modelos: ${data.modelsUpdated}, Produtos: ${data.productsUpdated}, Trabalhadores: ${data.workersUpdated}, Configurações copiadas: ${data.settingsCopied}`,tr:`✅ ${data.message} — Modeller: ${data.modelsUpdated}, Ürünler: ${data.productsUpdated}, İşçiler: ${data.workersUpdated}, Kopyalanan ayarlar: ${data.settingsCopied}`}));
     } catch (err: any) {
-      setMergeResult('❌ Erreur: ' + err.message);
+      setMergeResult(tx(lang, {fr:`❌ Erreur: ${err.message}`,ar:`❌ خطأ: ${err.message}`,en:`❌ Error: ${err.message}`,es:`❌ Error: ${err.message}`,pt:`❌ Erro: ${err.message}`,tr:`❌ Hata: ${err.message}`}));
     } finally {
       setMergeLoading(false);
     }
@@ -100,7 +103,7 @@ export default function AdminDashboard() {
       fetchUsers();
       setShowCreateModal(false);
       setNewUser({ email: '', password: '', name: '', role: 'user' });
-      alert("Utilisateur créé avec succès !");
+      alert(tx(lang, {fr:'Utilisateur créé avec succès !',ar:'تم إنشاء المستخدم بنجاح!',en:'User created successfully!',es:'¡Usuario creado con éxito!',pt:'Utilizador criado com sucesso!',tr:'Kullanıcı başarıyla oluşturuldu!'}));
     } catch (err: any) {
       alert(err.message);
     }
@@ -172,7 +175,7 @@ export default function AdminDashboard() {
             onClick={() => setShowCreateModal(true)}
             className="px-4 py-2 bg-emerald-600 text-white rounded-xl font-bold hover:bg-emerald-700 transition-colors shadow-sm"
           >
-            + Nouvel Utilisateur
+            {tx(lang, {fr:'+ Nouvel Utilisateur',ar:'+ مستخدم جديد',en:'+ New User',es:'+ Nuevo Usuario',pt:'+ Novo Utilizador',tr:'+ Yeni Kullanıcı'})}
           </button>
         </div>
 
@@ -180,10 +183,10 @@ export default function AdminDashboard() {
         {showCreateModal && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl">
-              <h2 className="text-xl font-bold mb-4">Créer un nouvel utilisateur</h2>
+              <h2 className="text-xl font-bold mb-4">{tx(lang, {fr:'Créer un nouvel utilisateur',ar:'إنشاء مستخدم جديد',en:'Create a new user',es:'Crear un nuevo usuario',pt:'Criar um novo utilizador',tr:'Yeni kullanıcı oluştur'})}</h2>
               <form onSubmit={handleCreateUser} className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Nom</label>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">{tx(lang, {fr:'Nom',ar:'الاسم',en:'Name',es:'Nombre',pt:'Nome',tr:'Ad'})}</label>
                   <input 
                     type="text" 
                     required
@@ -193,7 +196,7 @@ export default function AdminDashboard() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Email</label>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">{tx(lang, {fr:'Email',ar:'البريد الإلكتروني',en:'Email',es:'Correo electrónico',pt:'E-mail',tr:'E-posta'})}</label>
                   <input 
                     type="email" 
                     required
@@ -203,7 +206,7 @@ export default function AdminDashboard() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Mot de passe</label>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">{tx(lang, {fr:'Mot de passe',ar:'كلمة السر',en:'Password',es:'Contraseña',pt:'Palavra-passe',tr:'Şifre'})}</label>
                   <input 
                     type="password" 
                     required
@@ -218,13 +221,13 @@ export default function AdminDashboard() {
                     onClick={() => setShowCreateModal(false)}
                     className="px-4 py-2 text-slate-600 hover:bg-slate-50 rounded-lg font-medium"
                   >
-                    Annuler
+                    {tx(lang, {fr:'Annuler',ar:'إلغاء',en:'Cancel',es:'Cancelar',pt:'Cancelar',tr:'İptal'})}
                   </button>
                   <button 
                     type="submit"
                     className="px-4 py-2 bg-emerald-600 text-white rounded-lg font-bold hover:bg-emerald-700"
                   >
-                    Créer
+                    {tx(lang, {fr:'Créer',ar:'إنشاء',en:'Create',es:'Crear',pt:'Criar',tr:'Oluştur'})}
                   </button>
                 </div>
               </form>
@@ -324,8 +327,8 @@ export default function AdminDashboard() {
               <Database className="w-5 h-5 text-indigo-600" />
             </div>
             <div>
-              <h2 className="text-lg font-bold text-slate-800">Outils de Données</h2>
-              <p className="text-xs text-slate-500">Exporter, fusionner ou migrer les données entre comptes</p>
+              <h2 className="text-lg font-bold text-slate-800">{tx(lang, {fr:'Outils de Données',ar:'أدوات البيانات',en:'Data Tools',es:'Herramientas de Datos',pt:'Ferramentas de Dados',tr:'Veri Araçları'})}</h2>
+              <p className="text-xs text-slate-500">{tx(lang, {fr:'Exporter, fusionner ou migrer les données entre comptes',ar:'تصدير أو دمج أو ترحيل البيانات بين الحسابات',en:'Export, merge or migrate data between accounts',es:'Exportar, fusionar o migrar datos entre cuentas',pt:'Exportar, mesclar ou migrar dados entre contas',tr:'Hesaplar arasında verileri dışa aktar, birleştir veya taşı'})}</p>
             </div>
           </div>
 
@@ -334,15 +337,15 @@ export default function AdminDashboard() {
             <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
               <div className="flex items-center gap-2 mb-3">
                 <Download className="w-4 h-4 text-emerald-600" />
-                <h3 className="font-bold text-slate-800">Exporter toutes les données</h3>
+                <h3 className="font-bold text-slate-800">{tx(lang, {fr:'Exporter toutes les données',ar:'تصدير جميع البيانات',en:'Export all data',es:'Exportar todos los datos',pt:'Exportar todos os dados',tr:'Tüm verileri dışa aktar'})}</h3>
               </div>
-              <p className="text-xs text-slate-500 mb-4">Télécharger un fichier JSON complet avec tous les utilisateurs, modèles, produits magasin, et paramètres.</p>
+              <p className="text-xs text-slate-500 mb-4">{tx(lang, {fr:'Télécharger un fichier JSON complet avec tous les utilisateurs, modèles, produits magasin, et paramètres.',ar:'تنزيل ملف JSON كامل بجميع المستخدمين والنماذج ومنتجات المخزن والإعدادات.',en:'Download a complete JSON file with all users, models, store products, and settings.',es:'Descargar un archivo JSON completo con todos los usuarios, modelos, productos de tienda y configuración.',pt:'Baixar um ficheiro JSON completo com todos os utilizadores, modelos, produtos da loja e configurações.',tr:'Tüm kullanıcılar, modeller, mağaza ürünleri ve ayarlarla birlikte eksiksiz bir JSON dosyası indirin.'})}</p>
               <button
                 onClick={handleExportAllData}
                 className="w-full py-2.5 bg-emerald-600 text-white text-sm font-bold rounded-xl hover:bg-emerald-700 transition-colors flex items-center justify-center gap-2"
               >
                 <Download className="w-4 h-4" />
-                Télécharger Export JSON
+                {tx(lang, {fr:'Télécharger Export JSON',ar:'تنزيل التصدير JSON',en:'Download JSON Export',es:'Descargar Exportación JSON',pt:'Baixar Exportação JSON',tr:'JSON Dışa Aktarımını İndir'})}
               </button>
             </div>
 
@@ -350,15 +353,15 @@ export default function AdminDashboard() {
             <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
               <div className="flex items-center gap-2 mb-3">
                 <GitMerge className="w-4 h-4 text-indigo-600" />
-                <h3 className="font-bold text-slate-800">Fusionner vers un compte</h3>
+                <h3 className="font-bold text-slate-800">{tx(lang, {fr:'Fusionner vers un compte',ar:'دمج إلى حساب',en:'Merge to an account',es:'Fusionar a una cuenta',pt:'Mesclar para uma conta',tr:'Bir hesaba birleştir'})}</h3>
               </div>
-              <p className="text-xs text-slate-500 mb-3">Consolider toutes les données de tous les utilisateurs dans un seul compte email.</p>
+              <p className="text-xs text-slate-500 mb-3">{tx(lang, {fr:'Consolider toutes les données de tous les utilisateurs dans un seul compte email.',ar:'دمج جميع بيانات جميع المستخدمين في حساب بريد إلكتروني واحد.',en:'Consolidate all data from all users into a single email account.',es:'Consolidar todos los datos de todos los usuarios en una sola cuenta de correo.',pt:'Consolidar todos os dados de todos os utilizadores numa única conta de e-mail.',tr:'Tüm kullanıcıların tüm verilerini tek bir e-posta hesabında birleştirin.'})}</p>
               <div className="space-y-3">
                 <input
                   type="email"
                   value={mergeTarget}
                   onChange={e => setMergeTarget(e.target.value)}
-                  placeholder="email cible"
+                  placeholder={tx(lang, {fr:'email cible',ar:'البريد الإلكتروني المستهدف',en:'target email',es:'correo electrónico objetivo',pt:'e-mail alvo',tr:'hedef e-posta'})}
                   className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none"
                 />
                 <button
@@ -367,7 +370,7 @@ export default function AdminDashboard() {
                   className="w-full py-2.5 bg-indigo-600 text-white text-sm font-bold rounded-xl hover:bg-indigo-700 transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
                 >
                   <GitMerge className="w-4 h-4" />
-                  {mergeLoading ? 'Fusion en cours...' : 'Fusionner'}
+                  {mergeLoading ? tx(lang, {fr:'Fusion en cours...',ar:'جارٍ الدمج...',en:'Merging...',es:'Fusionando...',pt:'A mesclar...',tr:'Birleştiriliyor...'}) : tx(lang, {fr:'Fusionner',ar:'دمج',en:'Merge',es:'Fusionar',pt:'Mesclar',tr:'Birleştir'})}
                 </button>
                 {mergeResult && (
                   <div className={`text-xs font-medium p-3 rounded-lg ${mergeResult.startsWith('✅') ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'}`}>

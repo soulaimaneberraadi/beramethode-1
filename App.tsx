@@ -1704,7 +1704,7 @@ export default function App() {
 
                     {currentView === 'facturation' && (
                         <div className="flex-1 min-h-0 flex flex-col overflow-hidden w-full">
-                            <Facturation t={(k) => k} lang={lang as 'fr' | 'ar' | 'en'} />
+                            <Facturation t={(k) => k} />
                         </div>
                     )}
 

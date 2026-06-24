@@ -5,13 +5,15 @@ import {
     Building2, FileCheck2, Calculator, Receipt, Tag, ArrowRight
 } from 'lucide-react';
 import { Facture, FactureLigne, BonLivraison, Paiement } from '../types';
+import { tx } from '../lib/i18n';
+import { useLang } from '../src/context/LanguageContext';
 
 interface FacturationProps {
     t: (key: string) => string;
-    lang: 'fr' | 'ar' | 'en';
 }
 
-export default function Facturation({ t, lang }: FacturationProps) {
+export default function Facturation({ t }: FacturationProps) {
+    const { lang } = useLang();
     const [activeTab, setActiveTab] = useState<'ACHAT' | 'VENTE' | 'DEVIS' | 'BL'>('VENTE');
     const [factures, setFactures] = useState<Facture[]>([]);
     const [bonsLivraison, setBonsLivraison] = useState<BonLivraison[]>([]);
@@ -74,12 +76,12 @@ export default function Facturation({ t, lang }: FacturationProps) {
                     <table className="w-full text-sm text-left">
                         <thead className="bg-slate-50 border-b border-slate-100 text-slate-500 font-medium">
                             <tr>
-                                <th className="px-6 py-4">N° Document</th>
-                                <th className="px-6 py-4">{activeTab === 'ACHAT' ? 'Fournisseur' : 'Client'}</th>
-                                <th className="px-6 py-4">Date</th>
-                                <th className="px-6 py-4">Montant TTC</th>
-                                <th className="px-6 py-4">Statut</th>
-                                <th className="px-6 py-4 text-right">Actions</th>
+                                <th className="px-6 py-4">{tx(lang,{fr:'N° Document',ar:'رقم المستند',en:'Doc. No.',es:'N.º Doc.',pt:'N.º Doc.',tr:'Belge No.'})}</th>
+                                <th className="px-6 py-4">{activeTab === 'ACHAT' ? tx(lang,{fr:'Fournisseur',ar:'المورد',en:'Supplier',es:'Proveedor',pt:'Fornecedor',tr:'Tedarikçi'}) : tx(lang,{fr:'Client',ar:'العميل',en:'Client',es:'Cliente',pt:'Cliente',tr:'Müşteri'})}</th>
+                                <th className="px-6 py-4">{tx(lang,{fr:'Date',ar:'التاريخ',en:'Date',es:'Fecha',pt:'Data',tr:'Tarih'})}</th>
+                                <th className="px-6 py-4">{tx(lang,{fr:'Montant TTC',ar:'المبلغ شامل الضريبة',en:'Total incl. Tax',es:'Total IVA incl.',pt:'Total c/ Imposto',tr:'Vergi Dahil Toplam'})}</th>
+                                <th className="px-6 py-4">{tx(lang,{fr:'Statut',ar:'الحالة',en:'Status',es:'Estado',pt:'Status',tr:'Durum'})}</th>
+                                <th className="px-6 py-4 text-right">{tx(lang,{fr:'Actions',ar:'الإجراءات',en:'Actions',es:'Acciones',pt:'Ações',tr:'İşlemler'})}</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
@@ -87,7 +89,7 @@ export default function Facturation({ t, lang }: FacturationProps) {
                                 <tr>
                                     <td colSpan={6} className="px-6 py-12 text-center text-slate-400">
                                         <FileText className="w-12 h-12 mx-auto mb-3 opacity-20" />
-                                        <p>Aucun document trouvé</p>
+                                        <p>{tx(lang,{fr:'Aucun document trouvé',ar:'لم يتم العثور على أي مستند',en:'No document found',es:'No se encontró ningún documento',pt:'Nenhum documento encontrado',tr:'Hiçbir belge bulunamadı'})}</p>
                                     </td>
                                 </tr>
                             ) : filtered.map(f => (
@@ -134,12 +136,12 @@ export default function Facturation({ t, lang }: FacturationProps) {
                     <table className="w-full text-sm text-left">
                         <thead className="bg-slate-50 border-b border-slate-100 text-slate-500 font-medium">
                             <tr>
-                                <th className="px-6 py-4">N° BL</th>
-                                <th className="px-6 py-4">Destinataire</th>
-                                <th className="px-6 py-4">Date de livraison</th>
-                                <th className="px-6 py-4">Ref. Facture</th>
-                                <th className="px-6 py-4">Statut</th>
-                                <th className="px-6 py-4 text-right">Actions</th>
+                                <th className="px-6 py-4">{tx(lang,{fr:'N° BL',ar:'رقم إيصال التسليم',en:'DN No.',es:'N.º Alb.',pt:'N.º GR',tr:'TN No.'})}</th>
+                                <th className="px-6 py-4">{tx(lang,{fr:'Destinataire',ar:'المستلم',en:'Recipient',es:'Destinatario',pt:'Destinatário',tr:'Alıcı'})}</th>
+                                <th className="px-6 py-4">{tx(lang,{fr:'Date de livraison',ar:'تاريخ التسليم',en:'Delivery Date',es:'Fecha de entrega',pt:'Data de entrega',tr:'Teslimat Tarihi'})}</th>
+                                <th className="px-6 py-4">{tx(lang,{fr:'Ref. Facture',ar:'رقم الفاتورة',en:'Invoice Ref.',es:'Ref. Factura',pt:'Ref. Fatura',tr:'Fatura Ref.'})}</th>
+                                <th className="px-6 py-4">{tx(lang,{fr:'Statut',ar:'الحالة',en:'Status',es:'Estado',pt:'Status',tr:'Durum'})}</th>
+                                <th className="px-6 py-4 text-right">{tx(lang,{fr:'Actions',ar:'الإجراءات',en:'Actions',es:'Acciones',pt:'Ações',tr:'İşlemler'})}</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
@@ -147,7 +149,7 @@ export default function Facturation({ t, lang }: FacturationProps) {
                                 <tr>
                                     <td colSpan={6} className="px-6 py-12 text-center text-slate-400">
                                         <FileCheck2 className="w-12 h-12 mx-auto mb-3 opacity-20" />
-                                        <p>Aucun bon de livraison trouvé</p>
+                                        <p>{tx(lang,{fr:'Aucun bon de livraison trouvé',ar:'لم يتم العثور على أي إيصال تسليم',en:'No delivery note found',es:'No se encontró ningún albarán',pt:'Nenhuma guia de remessa encontrada',tr:'Hiçbir teslimat notu bulunamadı'})}</p>
                                     </td>
                                 </tr>
                             ) : filtered.map(bl => (
@@ -190,19 +192,19 @@ export default function Facturation({ t, lang }: FacturationProps) {
                 
                 <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
                     <div>
-                        <h1 className="text-3xl font-bold mb-2 tracking-tight">Facturation & Documents</h1>
+                        <h1 className="text-3xl font-bold mb-2 tracking-tight">{tx(lang,{fr:'Facturation & Documents',ar:'الفوترة والمستندات',en:'Invoicing & Documents',es:'Facturación & Documentos',pt:'Faturação & Documentos',tr:'Faturalama & Belgeler'})}</h1>
                         <p className="text-indigo-200 max-w-xl text-lg">
-                            Gérez vos factures d'achat, de vente, devis et bons de livraison en un seul endroit.
+                            {tx(lang,{fr:'Gérez vos factures d\'achat, de vente, devis et bons de livraison en un seul endroit.',ar:'إدارة فواتير الشراء والبيع وعروض الأسعار وإيصالات التسليم في مكان واحد.',en:'Manage your purchase invoices, sales invoices, quotes and delivery notes in one place.',es:'Gestione sus facturas de compra, venta, presupuestos y albaranes en un solo lugar.',pt:'Gerencie suas faturas de compra, venda, orçamentos e guias de remessa em um só lugar.',tr:'Satın alma faturalarınızı, satış faturalarınızı, tekliflerinizi ve teslimat notlarınızı tek bir yerde yönetin.'})}
                         </p>
                     </div>
                     <div className="flex items-center gap-3">
                         <button className="bg-white/10 hover:bg-white/20 text-white px-5 py-2.5 rounded-xl transition-all flex items-center gap-2 font-medium border border-white/10 backdrop-blur-sm">
                             <Settings className="w-5 h-5" />
-                            <span>Paramètres</span>
+                            <span>{tx(lang,{fr:'Paramètres',ar:'الإعدادات',en:'Settings',es:'Ajustes',pt:'Configurações',tr:'Ayarlar'})}</span>
                         </button>
                         <button className="bg-emerald-500 hover:bg-emerald-400 text-white px-6 py-2.5 rounded-xl transition-all shadow-lg hover:shadow-emerald-500/30 flex items-center gap-2 font-medium border border-emerald-400/50">
                             <Plus className="w-5 h-5" />
-                            <span>Nouveau Document</span>
+                            <span>{tx(lang,{fr:'Nouveau Document',ar:'مستند جديد',en:'New Document',es:'Nuevo Documento',pt:'Novo Documento',tr:'Yeni Belge'})}</span>
                         </button>
                     </div>
                 </div>
@@ -217,7 +219,7 @@ export default function Facturation({ t, lang }: FacturationProps) {
                     >
                         <div className="flex items-center gap-3 font-medium">
                             <ArrowRight className="w-5 h-5" />
-                            <span>Factures Clients</span>
+                            <span>{tx(lang,{fr:'Factures Clients',ar:'فواتير العملاء',en:'Customer Invoices',es:'Facturas de Clientes',pt:'Faturas de Clientes',tr:'Müşteri Faturaları'})}</span>
                         </div>
                         {activeTab === 'VENTE' && <ChevronRight className="w-5 h-5 opacity-50" />}
                     </button>
@@ -228,7 +230,7 @@ export default function Facturation({ t, lang }: FacturationProps) {
                     >
                         <div className="flex items-center gap-3 font-medium">
                             <ArrowRight className="w-5 h-5 rotate-180" />
-                            <span>Factures Achats</span>
+                            <span>{tx(lang,{fr:'Factures Achats',ar:'فواتير المشتريات',en:'Purchase Invoices',es:'Facturas de Compra',pt:'Faturas de Compra',tr:'Satın Alma Faturaları'})}</span>
                         </div>
                         {activeTab === 'ACHAT' && <ChevronRight className="w-5 h-5 opacity-50" />}
                     </button>
@@ -239,7 +241,7 @@ export default function Facturation({ t, lang }: FacturationProps) {
                     >
                         <div className="flex items-center gap-3 font-medium">
                             <Tag className="w-5 h-5" />
-                            <span>Devis & Proformas</span>
+                            <span>{tx(lang,{fr:'Devis & Proformas',ar:'عروض الأسعار والفواتير الأولية',en:'Quotes & Proformas',es:'Presupuestos & Proformas',pt:'Orçamentos & Proformas',tr:'Teklifler & Proformalar'})}</span>
                         </div>
                         {activeTab === 'DEVIS' && <ChevronRight className="w-5 h-5 opacity-50" />}
                     </button>
@@ -250,7 +252,7 @@ export default function Facturation({ t, lang }: FacturationProps) {
                     >
                         <div className="flex items-center gap-3 font-medium">
                             <FileCheck2 className="w-5 h-5" />
-                            <span>Bons de Livraison</span>
+                            <span>{tx(lang,{fr:'Bons de Livraison',ar:'إيصالات التسليم',en:'Delivery Notes',es:'Albaranes',pt:'Guias de Remessa',tr:'Teslimat Notları'})}</span>
                         </div>
                         {activeTab === 'BL' && <ChevronRight className="w-5 h-5 opacity-50" />}
                     </button>
@@ -263,7 +265,7 @@ export default function Facturation({ t, lang }: FacturationProps) {
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
                             <input 
                                 type="text"
-                                placeholder={`Rechercher un document ou ${activeTab === 'ACHAT' ? 'fournisseur' : 'client'}...`}
+                                placeholder={activeTab === 'ACHAT' ? tx(lang,{fr:'Rechercher un document ou fournisseur...',ar:'ابحث عن مستند أو مورد...',en:'Search document or supplier...',es:'Buscar documento o proveedor...',pt:'Pesquisar documento ou fornecedor...',tr:'Belge veya tedarikçi ara...'}) : tx(lang,{fr:'Rechercher un document ou client...',ar:'ابحث عن مستند أو عميل...',en:'Search document or client...',es:'Buscar documento o cliente...',pt:'Pesquisar documento ou cliente...',tr:'Belge veya müşteri ara...'})}
                                 value={searchTerm}
                                 onChange={e => setSearchTerm(e.target.value)}
                                 className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all placeholder:text-slate-400"
