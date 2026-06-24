@@ -2,6 +2,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useAuth } from '../src/context/AuthContext';
+import { useLang } from '../src/context/LanguageContext';
+import { tx } from '../lib/i18n';
 import { pushSnapshotToCloud } from '../src/lib/cloudSync';
 import {
     Search,
@@ -139,6 +141,7 @@ export default function Library({
     // Photo sync (Vercel/static mode only)
     const [syncPhotoStatus, setSyncPhotoStatus] = useState<'idle' | 'syncing' | 'done' | 'error'>('idle');
     const { user } = useAuth();
+    const { lang } = useLang();
     const IS_STATIC = import.meta.env.VITE_STATIC_MODE === 'true' || !window.location.hostname.includes('localhost');
 
     const handleSyncPhotos = async () => {
@@ -226,7 +229,14 @@ export default function Library({
         const file = e.target.files?.[0];
         if (!file) return;
 
-        if (!window.confirm("ATTENTION : Cette action va remplacer toutes vos données actuelles (modèles, sauvegarde auto, templates) par celles du fichier.\n\nVoulez-vous continuer ?")) {
+        if (!window.confirm(tx(lang, {
+            fr: "ATTENTION : Cette action va remplacer toutes vos données actuelles (modèles, sauvegarde auto, templates) par celles du fichier.\n\nVoulez-vous continuer ?",
+            ar: "تنبيه: هذا الإجراء سيستبدل جميع بياناتكم الحالية (النماذج، الحفظ الآلي، القوالب) ببيانات الملف.\n\nهل تريدون الاستمرار؟",
+            en: "WARNING: This action will replace all your current data (models, autosave, templates) with the file's data.\n\nDo you want to continue?",
+            es: "ATENCIÓN: Esta acción reemplazará todos sus datos actuales (modelos, autoguardado, plantillas) por los del archivo.\n\n¿Desea continuar?",
+            pt: "ATENÇÃO: Esta ação substituirá todos os seus dados atuais (modelos, salvamento automático, modelos de layout) pelos do arquivo.\n\nDeseja continuar?",
+            tr: "UYARI: Bu işlem mevcut tüm verilerinizi (modeller, otomatik kayıt, şablonlar) dosyadakilerle değiştirecektir.\n\nDevam etmek istiyor musunuz?",
+        }))) {
             e.target.value = ''; // Reset
             return;
         }
@@ -238,7 +248,14 @@ export default function Library({
                 const json = JSON.parse(event.target?.result as string);
 
                 if (json.type !== 'BERAMETHODE_FULL_BACKUP' || !json.data) {
-                    throw new Error("Format de fichier invalide");
+                    throw new Error(tx(lang, {
+                        fr: "Format de fichier invalide",
+                        ar: "صيغة الملف غير صالحة",
+                        en: "Invalid file format",
+                        es: "Formato de archivo no válido",
+                        pt: "Formato de arquivo inválido",
+                        tr: "Geçersiz dosya biçimi",
+                    }));
                 }
 
                 // Restore Items
@@ -247,12 +264,26 @@ export default function Library({
                 if (json.data.layouts) localStorage.setItem('beramethode_layouts', JSON.stringify(json.data.layouts));
 
                 setDbStatus('success');
-                alert("Restauration terminée avec succès ! La page va se recharger.");
+                alert(tx(lang, {
+                    fr: "Restauration terminée avec succès ! La page va se recharger.",
+                    ar: "تمت الاستعادة بنجاح! ستُعاد تحميل الصفحة.",
+                    en: "Restore completed successfully! The page will reload.",
+                    es: "¡Restauración completada con éxito! La página se recargará.",
+                    pt: "Restauração concluída com sucesso! A página será recarregada.",
+                    tr: "Geri yükleme başarıyla tamamlandı! Sayfa yeniden yüklenecek.",
+                }));
                 window.location.reload();
 
             } catch (err) {
                 console.error("Restore failed", err);
-                alert("Erreur lors de la restauration. Vérifiez le fichier.");
+                alert(tx(lang, {
+                    fr: "Erreur lors de la restauration. Vérifiez le fichier.",
+                    ar: "خطأ خلال الاستعادة. تحقق من الملف.",
+                    en: "Error during restore. Check the file.",
+                    es: "Error durante la restauración. Verifique el archivo.",
+                    pt: "Erro durante a restauração. Verifique o arquivo.",
+                    tr: "Geri yükleme sırasında hata. Dosyayı kontrol edin.",
+                }));
                 setDbStatus('error');
             } finally {
                 setDbStatus('idle');
@@ -310,12 +341,26 @@ export default function Library({
             if (navigator.canShare && navigator.canShare({ files: [file] })) {
                 await navigator.share({
                     title: model.meta_data.nom_modele,
-                    text: `Fiche Technique: ${model.meta_data.nom_modele}`,
+                    text: `${tx(lang, {
+                        fr: "Fiche Technique",
+                        ar: "البطاقة التقنية",
+                        en: "Technical Sheet",
+                        es: "Ficha Técnica",
+                        pt: "Ficha Técnica",
+                        tr: "Teknik Föy",
+                    })}: ${model.meta_data.nom_modele}`,
                     files: [file]
                 });
             } else {
                 // Force throw to trigger catch block
-                throw new Error("Partage natif non supporté");
+                throw new Error(tx(lang, {
+                    fr: "Partage natif non supporté",
+                    ar: "المشاركة الأصلية غير مدعومة",
+                    en: "Native sharing not supported",
+                    es: "Uso compartido nativo no compatible",
+                    pt: "Compartilhamento nativo não suportado",
+                    tr: "Yerel paylaşım desteklenmiyor",
+                }));
             }
         } catch (error) {
             // Fallback to export if sharing fails or is cancelled
@@ -353,9 +398,16 @@ export default function Library({
                     <div>
                         <h1 className="text-xl font-bold text-slate-800 flex items-center gap-2">
                             <FolderOpen className="w-5 h-5 text-indigo-500" />
-                            Bibliothèque
+                            {tx(lang, { fr: "Bibliothèque", ar: "المكتبة", en: "Library", es: "Biblioteca", pt: "Biblioteca", tr: "Kütüphane" })}
                         </h1>
-                        <p className="text-slate-500 text-xs mt-0.5">Gérez vos modèles de production sauvegardés</p>
+                        <p className="text-slate-500 text-xs mt-0.5">{tx(lang, {
+                            fr: "Gérez vos modèles de production sauvegardés",
+                            ar: "أدِر نماذج الإنتاج المحفوظة",
+                            en: "Manage your saved production models",
+                            es: "Gestione sus modelos de producción guardados",
+                            pt: "Gerencie seus modelos de produção salvos",
+                            tr: "Kayıtlı üretim modellerinizi yönetin",
+                        })}</p>
                     </div>
 
                     <div className="flex flex-wrap gap-2 w-full xl:w-auto items-center">
@@ -366,7 +418,7 @@ export default function Library({
                             className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs shadow-md shadow-emerald-200 transition-all active:scale-95"
                         >
                             <Plus className="w-4 h-4" />
-                            <span>Nouveau Modèle</span>
+                            <span>{tx(lang, { fr: "Nouveau Modèle", ar: "نموذج جديد", en: "New Model", es: "Nuevo Modelo", pt: "Novo Modelo", tr: "Yeni Model" })}</span>
                         </button>
 
                         <div className="h-6 w-px bg-slate-200 mx-1 hidden xl:block"></div>
@@ -376,7 +428,14 @@ export default function Library({
                             <button
                                 onClick={handleSyncPhotos}
                                 disabled={syncPhotoStatus === 'syncing'}
-                                title="Resynchroniser les photos des modèles vers le cloud"
+                                title={tx(lang, {
+                                    fr: "Resynchroniser les photos des modèles vers le cloud",
+                                    ar: "إعادة مزامنة صور النماذج مع السحابة",
+                                    en: "Resync model photos to the cloud",
+                                    es: "Resincronizar las fotos de los modelos con la nube",
+                                    pt: "Ressincronizar as fotos dos modelos com a nuvem",
+                                    tr: "Model fotoğraflarını buluta yeniden senkronize et",
+                                })}
                                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold border transition-all active:scale-95
                                     ${syncPhotoStatus === 'done' ? 'bg-emerald-500 text-white border-emerald-500' :
                                       syncPhotoStatus === 'error' ? 'bg-red-500 text-white border-red-500' :
@@ -388,9 +447,9 @@ export default function Library({
                                     ? <CheckCircle2 className="w-3.5 h-3.5" />
                                     : <UploadCloud className="w-3.5 h-3.5" />}
                                 <span className="hidden sm:inline">
-                                    {syncPhotoStatus === 'syncing' ? 'Sync...' :
-                                     syncPhotoStatus === 'done' ? 'Synced ✓' :
-                                     syncPhotoStatus === 'error' ? 'Erreur' : 'Sync Photos'}
+                                    {syncPhotoStatus === 'syncing' ? tx(lang, { fr: 'Sync...', ar: 'مزامنة...', en: 'Sync...', es: 'Sync...', pt: 'Sync...', tr: 'Sync...' }) :
+                                     syncPhotoStatus === 'done' ? tx(lang, { fr: 'Synced ✓', ar: 'تمت المزامنة ✓', en: 'Synced ✓', es: 'Synced ✓', pt: 'Synced ✓', tr: 'Synced ✓' }) :
+                                     syncPhotoStatus === 'error' ? tx(lang, { fr: 'Erreur', ar: 'خطأ', en: 'Error', es: 'Error', pt: 'Erro', tr: 'Hata' }) : tx(lang, { fr: 'Sync Photos', ar: 'مزامنة الصور', en: 'Sync Photos', es: 'Sync Photos', pt: 'Sync Photos', tr: 'Sync Photos' })}
                                 </span>
                             </button>
                         )}
@@ -401,7 +460,14 @@ export default function Library({
                                 onClick={handleBackupDatabase}
                                 disabled={dbStatus === 'processing'}
                                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[10px] font-bold transition-all ${dbStatus === 'success' ? 'bg-emerald-500 text-white' : 'hover:bg-white text-slate-600'}`}
-                                title="Sauvegarder toute la base de données (Backup)"
+                                title={tx(lang, {
+                                    fr: "Sauvegarder toute la base de données (Backup)",
+                                    ar: "حفظ كامل قاعدة البيانات (Backup)",
+                                    en: "Back up the entire database (Backup)",
+                                    es: "Respaldar toda la base de datos (Backup)",
+                                    pt: "Fazer backup de todo o banco de dados (Backup)",
+                                    tr: "Tüm veritabanını yedekle (Backup)",
+                                })}
                             >
                                 {dbStatus === 'processing' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : (dbStatus === 'success' ? <CheckCircle2 className="w-3.5 h-3.5" /> : <DownloadCloud className="w-3.5 h-3.5" />)}
                                 <span className="hidden sm:inline">Backup</span>
@@ -413,10 +479,17 @@ export default function Library({
                                 onClick={() => dbInputRef.current?.click()}
                                 disabled={dbStatus === 'processing'}
                                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[10px] font-bold hover:bg-white text-slate-600 transition-all"
-                                title="Restaurer une base de données"
+                                title={tx(lang, {
+                                    fr: "Restaurer une base de données",
+                                    ar: "استعادة قاعدة بيانات",
+                                    en: "Restore a database",
+                                    es: "Restaurar una base de datos",
+                                    pt: "Restaurar um banco de dados",
+                                    tr: "Bir veritabanını geri yükle",
+                                })}
                             >
                                 <UploadCloud className="w-3.5 h-3.5" />
-                                <span className="hidden sm:inline">Restaurer</span>
+                                <span className="hidden sm:inline">{tx(lang, { fr: "Restaurer", ar: "استعادة", en: "Restore", es: "Restaurar", pt: "Restaurar", tr: "Geri Yükle" })}</span>
                             </button>
                             <input
                                 type="file"
@@ -438,7 +511,14 @@ export default function Library({
                         <button
                             onClick={triggerFileInput}
                             className="p-2 bg-white hover:bg-slate-50 text-slate-500 rounded-xl border border-slate-200 transition-colors"
-                            title="Importer un modèle unique"
+                            title={tx(lang, {
+                                fr: "Importer un modèle unique",
+                                ar: "استيراد نموذج واحد",
+                                en: "Import a single model",
+                                es: "Importar un solo modelo",
+                                pt: "Importar um único modelo",
+                                tr: "Tek bir model içe aktar",
+                            })}
                         >
                             <Upload className="w-4 h-4" />
                         </button>
@@ -448,14 +528,14 @@ export default function Library({
                             <button
                                 onClick={() => setViewMode('grid')}
                                 className={`p-1.5 rounded-md transition-all ${viewMode === 'grid' ? 'bg-white shadow-sm text-indigo-600' : 'text-slate-400 hover:text-slate-600'}`}
-                                title="Vue Grille"
+                                title={tx(lang, { fr: "Vue Grille", ar: "عرض الشبكة", en: "Grid View", es: "Vista de Cuadrícula", pt: "Visualização em Grade", tr: "Izgara Görünümü" })}
                             >
                                 <LayoutGrid className="w-3.5 h-3.5" />
                             </button>
                             <button
                                 onClick={() => setViewMode('list')}
                                 className={`p-1.5 rounded-md transition-all ${viewMode === 'list' ? 'bg-white shadow-sm text-indigo-600' : 'text-slate-400 hover:text-slate-600'}`}
-                                title="Vue Liste"
+                                title={tx(lang, { fr: "Vue Liste", ar: "عرض القائمة", en: "List View", es: "Vista de Lista", pt: "Visualização em Lista", tr: "Liste Görünümü" })}
                             >
                                 <ListIcon className="w-3.5 h-3.5" />
                             </button>
@@ -466,10 +546,24 @@ export default function Library({
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
                             <input
                                 type="text"
-                                placeholder="Nom, client, mot gamme, chiffre…"
+                                placeholder={tx(lang, {
+                                    fr: "Nom, client, mot gamme, chiffre…",
+                                    ar: "الاسم، العميل، كلمة من الغامة، رقم…",
+                                    en: "Name, client, routing word, number…",
+                                    es: "Nombre, cliente, palabra de gama, número…",
+                                    pt: "Nome, cliente, palavra da gama, número…",
+                                    tr: "Ad, müşteri, rota kelimesi, sayı…",
+                                })}
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
-                                title="Plusieurs mots : chaque mot doit être trouvé (fiche + lignes de gamme)."
+                                title={tx(lang, {
+                                    fr: "Plusieurs mots : chaque mot doit être trouvé (fiche + lignes de gamme).",
+                                    ar: "عدّة كلمات: يجب إيجاد كل كلمة (البطاقة + خطوط الغامة).",
+                                    en: "Multiple words: each word must be found (sheet + routing lines).",
+                                    es: "Varias palabras: cada palabra debe encontrarse (ficha + líneas de gama).",
+                                    pt: "Várias palavras: cada palavra deve ser encontrada (ficha + linhas da gama).",
+                                    tr: "Birden fazla kelime: her kelime bulunmalıdır (föy + rota satırları).",
+                                })}
                                 className="w-full pl-8 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs outline-none focus:border-indigo-500 focus:bg-white transition-all"
                             />
                         </div>
@@ -484,9 +578,9 @@ export default function Library({
                                 onChange={(e) => setSortBy(e.target.value as any)}
                                 className="pl-8 pr-7 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-600 outline-none focus:border-indigo-500 cursor-pointer appearance-none"
                             >
-                                <option value="date">Récent</option>
-                                <option value="name">Nom</option>
-                                <option value="time">Temps</option>
+                                <option value="date">{tx(lang, { fr: "Récent", ar: "الأحدث", en: "Recent", es: "Reciente", pt: "Recente", tr: "Son" })}</option>
+                                <option value="name">{tx(lang, { fr: "Nom", ar: "الاسم", en: "Name", es: "Nombre", pt: "Nome", tr: "Ad" })}</option>
+                                <option value="time">{tx(lang, { fr: "Temps", ar: "الوقت", en: "Time", es: "Tiempo", pt: "Tempo", tr: "Süre" })}</option>
                             </select>
                             <Filter className="absolute right-2 top-1/2 -translate-y-1/2 w-2.5 h-2.5 text-slate-400 pointer-events-none" />
                         </div>
@@ -524,7 +618,7 @@ export default function Library({
                                                     <div className="w-12 h-12 bg-slate-100 rounded-full flex items-center justify-center">
                                                         <FileJson className="w-6 h-6 text-slate-300 group-hover:text-indigo-400 transition-colors" />
                                                     </div>
-                                                    <span className="text-xs text-slate-400 font-medium">Aucun aperçu</span>
+                                                    <span className="text-xs text-slate-400 font-medium">{tx(lang, { fr: "Aucun aperçu", ar: "لا توجد معاينة", en: "No preview", es: "Sin vista previa", pt: "Sem pré-visualização", tr: "Önizleme yok" })}</span>
                                                 </div>
                                             )}
 
@@ -588,7 +682,7 @@ export default function Library({
                                                 </div>
                                                 <div className="bg-slate-50 rounded-lg p-1.5 border border-slate-100 flex flex-col items-center justify-center">
                                                     <Users className="w-3 h-3 text-slate-400 mb-0.5" />
-                                                    <span className="text-[10px] font-bold text-slate-700">{model.meta_data.effectif} Op.</span>
+                                                    <span className="text-[10px] font-bold text-slate-700">{model.meta_data.effectif} {tx(lang, { fr: "Op.", ar: "عامل", en: "Op.", es: "Op.", pt: "Op.", tr: "Op." })}</span>
                                                 </div>
                                             </div>
                                         </div>
@@ -633,7 +727,7 @@ export default function Library({
                                             )}
                                             <div className="flex items-center gap-2 mt-1">
                                                 <span className="text-[10px] px-2 py-0.5 bg-slate-100 text-slate-500 rounded-full font-bold uppercase tracking-wide">
-                                                    {model.meta_data.category || "Standard"}
+                                                    {model.meta_data.category || tx(lang, { fr: "Standard", ar: "عادي", en: "Standard", es: "Estándar", pt: "Padrão", tr: "Standart" })}
                                                 </span>
                                                 <span className="text-[10px] text-slate-400 flex items-center gap-1">
                                                     <Calendar className="w-3 h-3" />
@@ -645,12 +739,12 @@ export default function Library({
                                         {/* List View Stats */}
                                         <div className="flex items-center gap-6 mr-4 hidden sm:flex">
                                             <div className="flex flex-col items-center w-16">
-                                                <span className="text-[10px] font-bold text-slate-400 uppercase">Temps</span>
+                                                <span className="text-[10px] font-bold text-slate-400 uppercase">{tx(lang, { fr: "Temps", ar: "الوقت", en: "Time", es: "Tiempo", pt: "Tempo", tr: "Süre" })}</span>
                                                 <span className="text-sm font-bold text-slate-700">{model.meta_data.total_temps.toFixed(2)}m</span>
                                             </div>
                                             <div className="flex flex-col items-center w-16">
-                                                <span className="text-[10px] font-bold text-slate-400 uppercase">Effectif</span>
-                                                <span className="text-sm font-bold text-slate-700">{model.meta_data.effectif} Op.</span>
+                                                <span className="text-[10px] font-bold text-slate-400 uppercase">{tx(lang, { fr: "Effectif", ar: "العدد", en: "Staff", es: "Personal", pt: "Efetivo", tr: "Personel" })}</span>
+                                                <span className="text-sm font-bold text-slate-700">{model.meta_data.effectif} {tx(lang, { fr: "Op.", ar: "عامل", en: "Op.", es: "Op.", pt: "Op.", tr: "Op." })}</span>
                                             </div>
                                         </div>
 
@@ -674,14 +768,21 @@ export default function Library({
                         <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center mb-4 shadow-sm">
                             <FolderOpen className="w-8 h-8 text-slate-300" />
                         </div>
-                        <h3 className="font-bold text-slate-600 mb-1">Aucun modèle trouvé</h3>
-                        <p className="text-sm mb-4">La bibliothèque est vide ou ne correspond pas à votre recherche.</p>
+                        <h3 className="font-bold text-slate-600 mb-1">{tx(lang, { fr: "Aucun modèle trouvé", ar: "لم يتم العثور على أي نموذج", en: "No model found", es: "No se encontró ningún modelo", pt: "Nenhum modelo encontrado", tr: "Model bulunamadı" })}</h3>
+                        <p className="text-sm mb-4">{tx(lang, {
+                            fr: "La bibliothèque est vide ou ne correspond pas à votre recherche.",
+                            ar: "المكتبة فارغة أو لا تطابق بحثك.",
+                            en: "The library is empty or doesn't match your search.",
+                            es: "La biblioteca está vacía o no coincide con su búsqueda.",
+                            pt: "A biblioteca está vazia ou não corresponde à sua pesquisa.",
+                            tr: "Kütüphane boş veya aramanızla eşleşmiyor.",
+                        })}</p>
                         <div className="flex gap-3">
                             <button onClick={onCreateNewProject} className="px-4 py-2 bg-emerald-600 text-white hover:bg-emerald-700 rounded-lg text-sm font-bold shadow-md transition-colors flex items-center gap-2">
-                                <Plus className="w-4 h-4" /> Nouveau Modèle
+                                <Plus className="w-4 h-4" /> {tx(lang, { fr: "Nouveau Modèle", ar: "نموذج جديد", en: "New Model", es: "Nuevo Modelo", pt: "Novo Modelo", tr: "Yeni Model" })}
                             </button>
                             <button onClick={triggerFileInput} className="px-4 py-2 bg-white text-slate-600 hover:bg-slate-50 rounded-lg text-sm font-bold border border-slate-200 transition-colors">
-                                Importer
+                                {tx(lang, { fr: "Importer", ar: "استيراد", en: "Import", es: "Importar", pt: "Importar", tr: "İçe Aktar" })}
                             </button>
                         </div>
                     </div>
@@ -705,7 +806,14 @@ export default function Library({
                                 }}
                                 className="w-full text-left px-4 py-2.5 text-xs font-bold text-slate-700 hover:bg-indigo-50 hover:text-indigo-600 flex items-center gap-3 transition-colors"
                             >
-                                <FolderOpen className="w-4 h-4" /> Ouvrir dans l'Atelier / Méthodes
+                                <FolderOpen className="w-4 h-4" /> {tx(lang, {
+                                    fr: "Ouvrir dans l'Atelier / Méthodes",
+                                    ar: "فتح في الورشة / المناهج",
+                                    en: "Open in Workshop / Methods",
+                                    es: "Abrir en Taller / Métodos",
+                                    pt: "Abrir em Ateliê / Métodos",
+                                    tr: "Atölye / Yöntemlerde Aç",
+                                })}
                             </button>
 
                             {onTransferToCoupe && (
@@ -717,7 +825,14 @@ export default function Library({
                                     }}
                                     className="w-full text-left px-4 py-2 text-xs font-bold text-slate-700 hover:bg-rose-50 hover:text-rose-600 flex items-center gap-3 transition-colors"
                                 >
-                                    <Scissors className="w-4 h-4" /> Transférer vers La Coupe
+                                    <Scissors className="w-4 h-4" /> {tx(lang, {
+                                        fr: "Transférer vers La Coupe",
+                                        ar: "تحويل إلى القص",
+                                        en: "Transfer to Cutting",
+                                        es: "Transferir al Corte",
+                                        pt: "Transferir para o Corte",
+                                        tr: "Kesime Aktar",
+                                    })}
                                 </button>
                             )}
 
@@ -731,7 +846,14 @@ export default function Library({
                                     className="w-full text-left px-4 py-2 text-xs font-bold text-slate-700 hover:bg-emerald-50 hover:text-emerald-600 flex items-center gap-3 transition-colors"
                                 >
                                     <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M19 4H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2Z" /><path d="M16 2v4" /><path d="M8 2v4" /><path d="M3 10h18" /></svg>
-                                    Transférer vers Planning
+                                    {tx(lang, {
+                                        fr: "Transférer vers Planning",
+                                        ar: "تحويل إلى التخطيط",
+                                        en: "Transfer to Planning",
+                                        es: "Transferir a Planificación",
+                                        pt: "Transferir para Planejamento",
+                                        tr: "Planlamaya Aktar",
+                                    })}
                                 </button>
                             )}
 
@@ -745,7 +867,7 @@ export default function Library({
                                     className="w-full text-left px-4 py-2 text-xs font-bold text-slate-700 hover:bg-indigo-50 hover:text-indigo-600 flex items-center gap-3 transition-colors"
                                 >
                                     <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 3v18h18"/><path d="M7 14l4-4 4 4 5-5"/></svg>
-                                    Lancer Suivi
+                                    {tx(lang, { fr: "Lancer Suivi", ar: "بدء المتابعة", en: "Start Tracking", es: "Iniciar Seguimiento", pt: "Iniciar Acompanhamento", tr: "Takibi Başlat" })}
                                 </button>
                             )}
 
@@ -756,7 +878,7 @@ export default function Library({
                                 onClick={() => handleRenameStart(activeModel)}
                                 className="w-full text-left px-4 py-2.5 text-xs font-medium text-slate-600 hover:bg-slate-50 flex items-center gap-3 transition-colors"
                             >
-                                <Edit2 className="w-4 h-4" /> Renommer
+                                <Edit2 className="w-4 h-4" /> {tx(lang, { fr: "Renommer", ar: "إعادة تسمية", en: "Rename", es: "Renombrar", pt: "Renomear", tr: "Yeniden Adlandır" })}
                             </button>
 
                             <button
@@ -764,7 +886,7 @@ export default function Library({
                                 onClick={() => handleDuplicate(activeModel)}
                                 className="w-full text-left px-4 py-2.5 text-xs font-medium text-slate-600 hover:bg-slate-50 flex items-center gap-3 transition-colors"
                             >
-                                <Copy className="w-4 h-4" /> Dupliquer
+                                <Copy className="w-4 h-4" /> {tx(lang, { fr: "Dupliquer", ar: "تكرار", en: "Duplicate", es: "Duplicar", pt: "Duplicar", tr: "Çoğalt" })}
                             </button>
 
                             <button
@@ -772,7 +894,7 @@ export default function Library({
                                 onClick={() => handleShare(activeModel)}
                                 className="w-full text-left px-4 py-2.5 text-xs font-bold text-emerald-600 hover:bg-emerald-50 flex items-center gap-3 transition-colors"
                             >
-                                <Share2 className="w-4 h-4" /> Partager / Envoyer
+                                <Share2 className="w-4 h-4" /> {tx(lang, { fr: "Partager / Envoyer", ar: "مشاركة / إرسال", en: "Share / Send", es: "Compartir / Enviar", pt: "Compartilhar / Enviar", tr: "Paylaş / Gönder" })}
                             </button>
 
                             <button
@@ -780,7 +902,7 @@ export default function Library({
                                 onClick={() => handleExport(activeModel)}
                                 className="w-full text-left px-4 py-2.5 text-xs font-medium text-slate-600 hover:bg-slate-50 flex items-center gap-3 transition-colors"
                             >
-                                <Download className="w-4 h-4" /> Exporter (JSON)
+                                <Download className="w-4 h-4" /> {tx(lang, { fr: "Exporter (JSON)", ar: "تصدير (JSON)", en: "Export (JSON)", es: "Exportar (JSON)", pt: "Exportar (JSON)", tr: "Dışa Aktar (JSON)" })}
                             </button>
 
                             <div className="h-px bg-slate-100 my-1"></div>
@@ -793,7 +915,7 @@ export default function Library({
                                 }}
                                 className="w-full text-left px-4 py-2.5 text-xs font-bold text-rose-600 hover:bg-rose-50 flex items-center gap-3 transition-colors"
                             >
-                                <Trash2 className="w-4 h-4" /> Supprimer
+                                <Trash2 className="w-4 h-4" /> {tx(lang, { fr: "Supprimer", ar: "حذف", en: "Delete", es: "Eliminar", pt: "Excluir", tr: "Sil" })}
                             </button>
                         </>
                     )}
@@ -808,24 +930,38 @@ export default function Library({
                         <div className="w-16 h-16 bg-rose-100 rounded-full flex items-center justify-center mx-auto mb-4 text-rose-600">
                             <Trash2 className="w-8 h-8" />
                         </div>
-                        <h3 className="text-xl font-bold text-slate-800 mb-2">Confirmer la suppression</h3>
+                        <h3 className="text-xl font-bold text-slate-800 mb-2">{tx(lang, { fr: "Confirmer la suppression", ar: "تأكيد الحذف", en: "Confirm Deletion", es: "Confirmar la eliminación", pt: "Confirmar exclusão", tr: "Silmeyi Onayla" })}</h3>
                         <p className="text-slate-500 text-sm mb-6 leading-relaxed">
-                            Êtes-vous sûr de vouloir supprimer le modèle <br />
+                            {tx(lang, {
+                                fr: "Êtes-vous sûr de vouloir supprimer le modèle",
+                                ar: "هل تريد بالتأكيد حذف النموذج",
+                                en: "Are you sure you want to delete the model",
+                                es: "¿Está seguro de que desea eliminar el modelo",
+                                pt: "Tem certeza de que deseja excluir o modelo",
+                                tr: "Modeli silmek istediğinizden emin misiniz",
+                            })} <br />
                             <span className="font-bold text-slate-800">"{deleteConfirm.name}"</span> ? <br />
-                            <span className="text-rose-500 font-medium text-xs">Cette action est irréversible.</span>
+                            <span className="text-rose-500 font-medium text-xs">{tx(lang, {
+                                fr: "Cette action est irréversible.",
+                                ar: "هذا الإجراء لا رجعة فيه.",
+                                en: "This action cannot be undone.",
+                                es: "Esta acción es irreversible.",
+                                pt: "Esta ação é irreversível.",
+                                tr: "Bu işlem geri alınamaz.",
+                            })}</span>
                         </p>
                         <div className="flex gap-3">
                             <button
                                 onClick={() => setDeleteConfirm(null)}
                                 className="flex-1 px-4 py-2.5 bg-slate-100 text-slate-700 hover:bg-slate-200 rounded-xl font-bold text-sm transition-colors"
                             >
-                                Annuler
+                                {tx(lang, { fr: "Annuler", ar: "إلغاء", en: "Cancel", es: "Cancelar", pt: "Cancelar", tr: "İptal" })}
                             </button>
                             <button
                                 onClick={() => { onDeleteModel(deleteConfirm.id); setDeleteConfirm(null); }}
                                 className="flex-1 px-4 py-2.5 bg-rose-600 text-white hover:bg-rose-700 rounded-xl font-bold text-sm shadow-lg shadow-rose-200 transition-colors"
                             >
-                                Supprimer
+                                {tx(lang, { fr: "Supprimer", ar: "حذف", en: "Delete", es: "Eliminar", pt: "Excluir", tr: "Sil" })}
                             </button>
                         </div>
                     </div>

@@ -6,6 +6,8 @@ import {
   ChevronRight, ArrowUpRight, Layers, Target
 } from 'lucide-react';
 import { ModelData, PlanningEvent, AppSettings, MachineInstance, Machine } from '../types';
+import { useLang } from '../src/context/LanguageContext';
+import { tx } from '../lib/i18n';
 
 interface VueGeneraleProps {
   models: ModelData[];
@@ -37,6 +39,7 @@ export default function VueGenerale({
   machineInstances,
   onNavigate
 }: VueGeneraleProps) {
+  const { lang } = useLang();
 
   const activeEvents = useMemo(() =>
     planningEvents.filter(e => e.status === 'IN_PROGRESS' || e.status === 'READY'),
@@ -69,9 +72,9 @@ export default function VueGenerale({
   const kpis = useMemo(() => {
     const base = [
     {
-      label: 'OF En Cours',
+      label: tx(lang, { fr: 'OF En Cours', ar: 'أوامر التصنيع الجارية', en: 'WO In Progress', es: 'OF En Curso', pt: 'OF Em Andamento', tr: 'Devam Eden İş Emri' }),
       value: activeEvents.length,
-      sub: `${activeChains} chaîne(s) active(s)`,
+      sub: tx(lang, { fr: `${activeChains} chaîne(s) active(s)`, ar: `${activeChains} خط(وط) نشط(ة)`, en: `${activeChains} active line(s)`, es: `${activeChains} cadena(s) activa(s)`, pt: `${activeChains} linha(s) ativa(s)`, tr: `${activeChains} aktif hat` }),
       icon: Factory,
       color: 'indigo',
       bg: 'bg-indigo-50',
@@ -79,9 +82,9 @@ export default function VueGenerale({
       border: 'border-indigo-100'
     },
     {
-      label: 'Production',
+      label: tx(lang, { fr: 'Production', ar: 'الإنتاج', en: 'Production', es: 'Producción', pt: 'Produção', tr: 'Üretim' }),
       value: `${totalProduced}/${totalTarget}`,
-      sub: `${globalProgress}% avancement global`,
+      sub: tx(lang, { fr: `${globalProgress}% avancement global`, ar: `${globalProgress}% تقدّم عام`, en: `${globalProgress}% overall progress`, es: `${globalProgress}% progreso global`, pt: `${globalProgress}% progresso global`, tr: `${globalProgress}% genel ilerleme` }),
       icon: Target,
       color: 'emerald',
       bg: 'bg-emerald-50',
@@ -89,9 +92,9 @@ export default function VueGenerale({
       border: 'border-emerald-100'
     },
     {
-      label: 'Parc Machines',
+      label: tx(lang, { fr: 'Parc Machines', ar: 'أسطول الآلات', en: 'Machine Fleet', es: 'Parque de Máquinas', pt: 'Parque de Máquinas', tr: 'Makine Filosu' }),
       value: machineInstances.length,
-      sub: `${okMachines} opérationnelles`,
+      sub: tx(lang, { fr: `${okMachines} opérationnelles`, ar: `${okMachines} تعمل بشكل سليم`, en: `${okMachines} operational`, es: `${okMachines} operativas`, pt: `${okMachines} operacionais`, tr: `${okMachines} çalışır durumda` }),
       icon: Layers,
       color: 'sky',
       bg: 'bg-sky-50',
@@ -99,9 +102,9 @@ export default function VueGenerale({
       border: 'border-sky-100'
     },
     {
-      label: 'Santé Machines',
+      label: tx(lang, { fr: 'Santé Machines', ar: 'سلامة الآلات', en: 'Machine Health', es: 'Salud de Máquinas', pt: 'Saúde das Máquinas', tr: 'Makine Sağlığı' }),
       value: `${machineHealth}%`,
-      sub: `${panneMachines} en panne · ${maintMachines} maintenance`,
+      sub: tx(lang, { fr: `${panneMachines} en panne · ${maintMachines} maintenance`, ar: `${panneMachines} معطلة · ${maintMachines} صيانة`, en: `${panneMachines} broken down · ${maintMachines} maintenance`, es: `${panneMachines} averiadas · ${maintMachines} mantenimiento`, pt: `${panneMachines} com defeito · ${maintMachines} manutenção`, tr: `${panneMachines} arızalı · ${maintMachines} bakımda` }),
       icon: Activity,
       color: panneMachines > 0 ? 'rose' : 'emerald',
       bg: panneMachines > 0 ? 'bg-rose-50' : 'bg-emerald-50',
@@ -110,10 +113,12 @@ export default function VueGenerale({
     }
     ];
     // Module Machines désactivé (Configuration) → on retire les cartes liées aux machines
+    const parcLabel = tx(lang, { fr: 'Parc Machines', ar: 'أسطول الآلات', en: 'Machine Fleet', es: 'Parque de Máquinas', pt: 'Parque de Máquinas', tr: 'Makine Filosu' });
+    const santeLabel = tx(lang, { fr: 'Santé Machines', ar: 'سلامة الآلات', en: 'Machine Health', es: 'Salud de Máquinas', pt: 'Saúde das Máquinas', tr: 'Makine Sağlığı' });
     return settings.machineAlertsEnabled === false
-      ? base.filter(k => k.label !== 'Parc Machines' && k.label !== 'Santé Machines')
+      ? base.filter(k => k.label !== parcLabel && k.label !== santeLabel)
       : base;
-  }, [activeEvents, activeChains, totalProduced, totalTarget, globalProgress, machineInstances.length, okMachines, panneMachines, maintMachines, machineHealth, settings.machineAlertsEnabled]);
+  }, [activeEvents, activeChains, totalProduced, totalTarget, globalProgress, machineInstances.length, okMachines, panneMachines, maintMachines, machineHealth, settings.machineAlertsEnabled, lang]);
 
   const recentModels = useMemo(() => {
     const sorted = [...planningEvents].sort((a, b) =>
@@ -139,13 +144,13 @@ export default function VueGenerale({
               <BarChart3 className="w-5 h-5 text-white" />
             </div>
             <div>
-              <h1 className="text-lg font-bold text-slate-900">Vue Générale</h1>
-              <p className="text-[11px] text-slate-400 font-medium">Tableau de bord de production</p>
+              <h1 className="text-lg font-bold text-slate-900">{tx(lang, { fr: 'Vue Générale', ar: 'نظرة عامة', en: 'Overview', es: 'Vista General', pt: 'Visão Geral', tr: 'Genel Görünüm' })}</h1>
+              <p className="text-[11px] text-slate-400 font-medium">{tx(lang, { fr: 'Tableau de bord de production', ar: 'لوحة قيادة الإنتاج', en: 'Production dashboard', es: 'Panel de producción', pt: 'Painel de produção', tr: 'Üretim panosu' })}</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
             <span className="text-[11px] text-slate-400 font-medium">
-              {new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+              {new Date().toLocaleDateString(tx(lang, { fr: 'fr-FR', ar: 'ar-MA', en: 'en-US', es: 'es-ES', pt: 'pt-PT', tr: 'tr-TR' }), { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
             </span>
           </div>
         </div>
@@ -197,7 +202,7 @@ export default function VueGenerale({
                 <div className="w-8 h-8 rounded-lg bg-indigo-50 flex items-center justify-center">
                   <Factory className="w-4 h-4 text-indigo-600" />
                 </div>
-                <h2 className="text-sm font-bold text-slate-800">Productions Actives</h2>
+                <h2 className="text-sm font-bold text-slate-800">{tx(lang, { fr: 'Productions Actives', ar: 'الإنتاجات النشطة', en: 'Active Productions', es: 'Producciones Activas', pt: 'Produções Ativas', tr: 'Aktif Üretimler' })}</h2>
               </div>
               <span className="text-[11px] font-semibold text-slate-400">{activeEvents.length} OF</span>
             </div>
@@ -208,8 +213,8 @@ export default function VueGenerale({
                   <div className="w-12 h-12 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-center mb-3">
                     <Factory className="w-5 h-5 text-slate-300" />
                   </div>
-                  <p className="text-sm font-semibold text-slate-400">Aucune production active</p>
-                  <p className="text-[11px] text-slate-400 mt-1">Les OF planifiés apparaîtront ici</p>
+                  <p className="text-sm font-semibold text-slate-400">{tx(lang, { fr: 'Aucune production active', ar: 'لا يوجد إنتاج نشط', en: 'No active production', es: 'Sin producción activa', pt: 'Nenhuma produção ativa', tr: 'Aktif üretim yok' })}</p>
+                  <p className="text-[11px] text-slate-400 mt-1">{tx(lang, { fr: 'Les OF planifiés apparaîtront ici', ar: 'أوامر التصنيع المبرمجة ستظهر هنا', en: 'Scheduled WOs will appear here', es: 'Las OF planificadas aparecerán aquí', pt: 'As OF planejadas aparecerão aqui', tr: 'Planlanan iş emirleri burada görünecek' })}</p>
                 </div>
               ) : (
                 recentModels.map(({ event, model, progress }) => (
@@ -224,13 +229,13 @@ export default function VueGenerale({
                       )}
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">
-                          <p className="text-sm font-bold text-slate-800 truncate">{model?.meta_data?.nom_modele || 'Modèle sans nom'}</p>
+                          <p className="text-sm font-bold text-slate-800 truncate">{model?.meta_data?.nom_modele || tx(lang, { fr: 'Modèle sans nom', ar: 'نموذج بدون اسم', en: 'Unnamed model', es: 'Modelo sin nombre', pt: 'Modelo sem nome', tr: 'Adsız model' })}</p>
                           <span className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider ${event.status === 'IN_PROGRESS' ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'}`}>
-                            {event.status === 'IN_PROGRESS' ? 'En cours' : 'Prêt'}
+                            {event.status === 'IN_PROGRESS' ? tx(lang, { fr: 'En cours', ar: 'جارٍ', en: 'In progress', es: 'En curso', pt: 'Em andamento', tr: 'Devam ediyor' }) : tx(lang, { fr: 'Prêt', ar: 'جاهز', en: 'Ready', es: 'Listo', pt: 'Pronto', tr: 'Hazır' })}
                           </span>
                         </div>
                         <p className="text-[11px] text-slate-400 mt-0.5">
-                          {event.chaineId} · {model?.ficheData?.client || 'Client N/A'}
+                          {event.chaineId} · {model?.ficheData?.client || tx(lang, { fr: 'Client N/A', ar: 'لا يوجد زبون', en: 'Client N/A', es: 'Cliente N/D', pt: 'Cliente N/D', tr: 'Müşteri Yok' })}
                         </p>
                       </div>
                       <div className="text-right shrink-0">
@@ -263,7 +268,7 @@ export default function VueGenerale({
               <div className="w-8 h-8 rounded-lg bg-sky-50 flex items-center justify-center">
                 <Layers className="w-4 h-4 text-sky-600" />
               </div>
-              <h2 className="text-sm font-bold text-slate-800">État du Parc</h2>
+              <h2 className="text-sm font-bold text-slate-800">{tx(lang, { fr: 'État du Parc', ar: 'حالة الأسطول', en: 'Fleet Status', es: 'Estado del Parque', pt: 'Status do Parque', tr: 'Filo Durumu' })}</h2>
             </div>
 
             <div className="p-6 space-y-5">
@@ -283,7 +288,7 @@ export default function VueGenerale({
                   </svg>
                   <div className="absolute inset-0 flex flex-col items-center justify-center">
                     <span className="text-2xl font-bold text-slate-900">{machineHealth}%</span>
-                    <span className="text-[9px] font-semibold text-slate-400 uppercase tracking-wider">Opérationnel</span>
+                    <span className="text-[9px] font-semibold text-slate-400 uppercase tracking-wider">{tx(lang, { fr: 'Opérationnel', ar: 'تشغيلي', en: 'Operational', es: 'Operativo', pt: 'Operacional', tr: 'Çalışır Durumda' })}</span>
                   </div>
                 </div>
               </div>
@@ -293,21 +298,21 @@ export default function VueGenerale({
                 <div className="flex items-center justify-between px-3 py-2.5 rounded-xl bg-emerald-50/50 border border-emerald-100/50">
                   <div className="flex items-center gap-2">
                     <div className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
-                    <span className="text-[11px] font-semibold text-slate-600">Opérationnelles</span>
+                    <span className="text-[11px] font-semibold text-slate-600">{tx(lang, { fr: 'Opérationnelles', ar: 'تعمل بشكل سليم', en: 'Operational', es: 'Operativas', pt: 'Operacionais', tr: 'Çalışır Durumda' })}</span>
                   </div>
                   <span className="text-sm font-bold text-emerald-700">{okMachines}</span>
                 </div>
                 <div className="flex items-center justify-between px-3 py-2.5 rounded-xl bg-rose-50/50 border border-rose-100/50">
                   <div className="flex items-center gap-2">
                     <div className="w-2.5 h-2.5 rounded-full bg-rose-500" />
-                    <span className="text-[11px] font-semibold text-slate-600">En Panne</span>
+                    <span className="text-[11px] font-semibold text-slate-600">{tx(lang, { fr: 'En Panne', ar: 'معطلة', en: 'Broken Down', es: 'Averiadas', pt: 'Com Defeito', tr: 'Arızalı' })}</span>
                   </div>
                   <span className="text-sm font-bold text-rose-700">{panneMachines}</span>
                 </div>
                 <div className="flex items-center justify-between px-3 py-2.5 rounded-xl bg-amber-50/50 border border-amber-100/50">
                   <div className="flex items-center gap-2">
                     <div className="w-2.5 h-2.5 rounded-full bg-amber-500" />
-                    <span className="text-[11px] font-semibold text-slate-600">Maintenance</span>
+                    <span className="text-[11px] font-semibold text-slate-600">{tx(lang, { fr: 'Maintenance', ar: 'الصيانة', en: 'Maintenance', es: 'Mantenimiento', pt: 'Manutenção', tr: 'Bakım' })}</span>
                   </div>
                   <span className="text-sm font-bold text-amber-700">{maintMachines}</span>
                 </div>
@@ -315,7 +320,7 @@ export default function VueGenerale({
 
               {/* Total */}
               <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
-                <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Total</span>
+                <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">{tx(lang, { fr: 'Total', ar: 'الإجمالي', en: 'Total', es: 'Total', pt: 'Total', tr: 'Toplam' })}</span>
                 <span className="text-lg font-bold text-slate-900">{machineInstances.length}</span>
               </div>
             </div>
@@ -334,25 +339,25 @@ export default function VueGenerale({
           <div className="flex items-center gap-6">
             <div className="flex items-center gap-2">
               <Clock className="w-4 h-4 text-slate-400" />
-              <span className="text-[11px] font-semibold text-slate-500">Chaînes</span>
+              <span className="text-[11px] font-semibold text-slate-500">{tx(lang, { fr: 'Chaînes', ar: 'الخطوط', en: 'Lines', es: 'Cadenas', pt: 'Linhas', tr: 'Hatlar' })}</span>
               <span className="text-sm font-bold text-slate-800">{activeChains}/{chainsCount}</span>
             </div>
             <div className="w-px h-6 bg-slate-200" />
             <div className="flex items-center gap-2">
               <Calendar className="w-4 h-4 text-slate-400" />
-              <span className="text-[11px] font-semibold text-slate-500">Modèles</span>
+              <span className="text-[11px] font-semibold text-slate-500">{tx(lang, { fr: 'Modèles', ar: 'النماذج', en: 'Models', es: 'Modelos', pt: 'Modelos', tr: 'Modeller' })}</span>
               <span className="text-sm font-bold text-slate-800">{models.length}</span>
             </div>
             <div className="w-px h-6 bg-slate-200" />
             <div className="flex items-center gap-2">
               <Users className="w-4 h-4 text-slate-400" />
-              <span className="text-[11px] font-semibold text-slate-500">Effectif</span>
+              <span className="text-[11px] font-semibold text-slate-500">{tx(lang, { fr: 'Effectif', ar: 'العدد', en: 'Staff', es: 'Personal', pt: 'Efetivo', tr: 'Personel' })}</span>
               <span className="text-sm font-bold text-slate-800">{settings?.employees?.length || '—'}</span>
             </div>
           </div>
           <div className="flex items-center gap-2">
             <TrendingUp className="w-4 h-4 text-emerald-500" />
-            <span className="text-[11px] font-semibold text-emerald-600">Production en cours</span>
+            <span className="text-[11px] font-semibold text-emerald-600">{tx(lang, { fr: 'Production en cours', ar: 'الإنتاج جارٍ', en: 'Production in progress', es: 'Producción en curso', pt: 'Produção em andamento', tr: 'Üretim devam ediyor' })}</span>
           </div>
         </motion.div>
 

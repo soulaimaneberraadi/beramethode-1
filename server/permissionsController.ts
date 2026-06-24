@@ -81,12 +81,21 @@ export const getMyPermissions = (req: Request, res: Response) => {
       fields[f] = { view: can(meta.ctx, 'field', f, 'view'), edit: can(meta.ctx, 'field', f, 'edit') };
     }
     const hiddenPages = PROTECTED_PAGES.filter((p) => !pages[p].view);
+    // Type de compte de l'espace de travail (onboarding) → adapte les modules
+    // visibles côté frontend. Défaut 'societe' si colonne/ligne absente.
+    let accountType = 'societe';
+    try {
+      const row = db
+        .prepare('SELECT account_type FROM company_settings WHERE id = 1')
+        .get() as { account_type?: string } | undefined;
+      if (row?.account_type) accountType = row.account_type;
+    } catch { /* colonne absente (ancienne base) => societe */ }
     res.json({
       ok: true,
       isSuper: meta.isSuper,
       ownerId: meta.ownerId,
       roleId: meta.roleId,
-      pages, fields, hiddenPages,
+      pages, fields, hiddenPages, accountType,
     });
   } catch (e) {
     console.error('getMyPermissions error:', e);

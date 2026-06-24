@@ -10,6 +10,7 @@ import {
     Banknote,
     Save,
     CheckCircle2,
+    ChevronLeft,
     ChevronRight,
     ArrowRight,
     Check,
@@ -30,6 +31,8 @@ import CostCalculator from './CostCalculator';
 import Pedido from './Pedido';
 
 import { Machine, Operation, ComplexityFactor, StandardTime, Guide, Poste, FicheData, Material, ChronoData, AppSettings, ManualLink, PlanningEvent, CustomStation } from '../types';
+import { tx, pickT } from '../lib/i18n';
+import type { Lang } from '../app/constants';
 
 interface ModelWorkflowProps {
     // Shared Data Props
@@ -97,7 +100,7 @@ interface ModelWorkflowProps {
     canRedo?: boolean;
 
     // Language
-    lang?: 'fr' | 'ar';
+    lang?: Lang;
 
     // Global Settings
     settings: AppSettings;
@@ -145,6 +148,74 @@ const STEP_LABELS = {
         redo: 'إعادة (Ctrl+Y)',
         refresh: 'تحديث العرض',
     },
+    en: {
+        fiche: 'Technical Sheet',
+        gamme: 'Operation Sequence',
+        chrono: 'Timing',
+        analyse: 'Analysis',
+        equilibrage: 'Balancing',
+        implantation: 'Layout',
+        couts: 'Costs & Budget',
+        pedido: 'Pedido',
+        save: 'Save',
+        next: 'Next',
+        back: 'Back',
+        finish: 'Finish',
+        undo: 'Undo (Ctrl+Z)',
+        redo: 'Redo (Ctrl+Y)',
+        refresh: 'Refresh view',
+    },
+    es: {
+        fiche: 'Ficha Técnica',
+        gamme: 'Secuencia de Operaciones',
+        chrono: 'Cronometraje',
+        analyse: 'Análisis',
+        equilibrage: 'Equilibrado',
+        implantation: 'Implantación',
+        couts: 'Costos y Presupuesto',
+        pedido: 'Pedido',
+        save: 'Guardar',
+        next: 'Siguiente',
+        back: 'Anterior',
+        finish: 'Finalizar',
+        undo: 'Deshacer (Ctrl+Z)',
+        redo: 'Rehacer (Ctrl+Y)',
+        refresh: 'Actualizar vista',
+    },
+    pt: {
+        fiche: 'Ficha Técnica',
+        gamme: 'Sequência de Operações',
+        chrono: 'Cronometragem',
+        analyse: 'Análise',
+        equilibrage: 'Balanceamento',
+        implantation: 'Implantação',
+        couts: 'Custos e Orçamento',
+        pedido: 'Pedido',
+        save: 'Salvar',
+        next: 'Próximo',
+        back: 'Anterior',
+        finish: 'Concluir',
+        undo: 'Desfazer (Ctrl+Z)',
+        redo: 'Refazer (Ctrl+Y)',
+        refresh: 'Atualizar vista',
+    },
+    tr: {
+        fiche: 'Teknik Föy',
+        gamme: 'Operasyon Sırası',
+        chrono: 'Zamanlama',
+        analyse: 'Analiz',
+        equilibrage: 'Dengeleme',
+        implantation: 'Yerleşim',
+        couts: 'Maliyet ve Bütçe',
+        pedido: 'Pedido',
+        save: 'Kaydet',
+        next: 'İleri',
+        back: 'Geri',
+        finish: 'Bitir',
+        undo: 'Geri al (Ctrl+Z)',
+        redo: 'Yinele (Ctrl+Y)',
+        refresh: 'Görünümü yenile',
+    },
 } as const;
 
 export default function ModelWorkflow({
@@ -164,7 +235,7 @@ export default function ModelWorkflow({
     settings, setSettings,
     currentModelId, planningEvents, setPlanningEvents
 }: ModelWorkflowProps) {
-    const st = STEP_LABELS[lang];
+    const st = pickT(STEP_LABELS as any, lang);
 
     // Current Step State
     const [currentStep, setCurrentStep] = useState<'fiche' | 'gamme' | 'chrono' | 'analyse' | 'equilibrage' | 'implantation' | 'couts' | 'pedido'>('fiche');
@@ -177,7 +248,7 @@ export default function ModelWorkflow({
 
     const validateFiche = () => {
         if (!articleName || !articleName.trim()) {
-            showValidationError(lang === 'ar' ? 'مرجع الموديل مطلوب' : 'La référence du modèle est obligatoire.');
+            showValidationError(tx(lang, { fr: 'La référence du modèle est obligatoire.', ar: 'مرجع الموديل مطلوب', en: 'The model reference is required.', es: 'La referencia del modelo es obligatoria.', pt: 'A referência do modelo é obrigatória.', tr: 'Model referansı zorunludur.' }));
             return false;
         }
 
@@ -240,9 +311,21 @@ export default function ModelWorkflow({
 
     // Auto-scroll : garde l'étape active visible dans la barre quand elle déborde.
     const activeStepRef = useRef<HTMLButtonElement>(null);
+    const stepperRef = useRef<HTMLDivElement>(null);
+
     useEffect(() => {
         activeStepRef.current?.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
     }, [currentStep]);
+
+    const scrollSteps = (direction: 'left' | 'right') => {
+        if (stepperRef.current) {
+            const offset = 200;
+            stepperRef.current.scrollBy({
+                left: direction === 'left' ? -offset : offset,
+                behavior: 'smooth'
+            });
+        }
+    };
 
     const handleSave = () => {
         if (!validateFiche()) {
@@ -301,9 +384,22 @@ export default function ModelWorkflow({
                     </button>
                 </div>
 
-                {/* CENTER: STEPS LIST (Scrollable) */}
-                <div className="order-last w-full md:order-none md:w-auto md:flex-1 flex items-center justify-start md:justify-center overflow-hidden">
-                    <div className="flex items-center gap-1 overflow-x-auto no-scrollbar max-w-full px-2">
+                {/* CENTER: STEPS LIST (Scrollable with Integrated Glassy Arrow Navigation) */}
+                <div className="order-last w-full md:order-none md:w-auto md:flex-1 flex items-center justify-start md:justify-center overflow-hidden relative group/stepper py-1">
+                    {/* Left Scroll Button */}
+                    <button
+                        onClick={() => scrollSteps('left')}
+                        className="absolute left-0 top-0 bottom-0 z-10 w-8 bg-white/40 hover:bg-white/60 backdrop-blur-md border-r border-slate-200/50 text-slate-600 hover:text-indigo-600 transition-all duration-200 active:bg-white/80 opacity-0 group-hover/stepper:opacity-100 flex items-center justify-center"
+                        title={tx(lang, { fr: 'Précédent', ar: 'السابق', en: 'Previous', es: 'Anterior', pt: 'Anterior', tr: 'Önceki' })}
+                    >
+                        <ChevronLeft className="w-4 h-4" />
+                    </button>
+
+                    {/* Scrollable Container */}
+                    <div 
+                        ref={stepperRef}
+                        className="flex items-center gap-1 overflow-x-auto no-scrollbar max-w-full px-10 scroll-smooth"
+                    >
                         {steps.map((step, index) => {
                             const isActive = currentStep === step.id;
                             const isPast = steps.findIndex(s => s.id === currentStep) > index;
@@ -329,6 +425,15 @@ export default function ModelWorkflow({
                             );
                         })}
                     </div>
+
+                    {/* Right Scroll Button */}
+                    <button
+                        onClick={() => scrollSteps('right')}
+                        className="absolute right-0 top-0 bottom-0 z-10 w-8 bg-white/40 hover:bg-white/60 backdrop-blur-md border-l border-slate-200/50 text-slate-600 hover:text-indigo-600 transition-all duration-200 active:bg-white/80 opacity-0 group-hover/stepper:opacity-100 flex items-center justify-center"
+                        title={tx(lang, { fr: 'Suivant', ar: 'التالي', en: 'Next', es: 'Siguiente', pt: 'Próximo', tr: 'İleri' })}
+                    >
+                        <ChevronRight className="w-4 h-4" />
+                    </button>
                 </div>
 
                 {/* RIGHT: ACTIONS (Detached) */}
@@ -401,7 +506,7 @@ export default function ModelWorkflow({
                             setPlanningEvents={setPlanningEvents}
                             articleName={articleName}
                             setArticleName={setArticleName}
-                            articleNameError={validationError?.includes(lang === 'ar' ? 'مرجع' : 'référence') || false}
+                            articleNameError={validationError?.includes(tx(lang, { fr: 'référence', ar: 'مرجع', en: 'reference', es: 'referencia', pt: 'referência', tr: 'referans' })) || false}
                         />
                     )}
 
@@ -549,7 +654,7 @@ export default function ModelWorkflow({
                             articleName={articleName}
                             setArticleName={setArticleName}
                             lang={lang}
-                            articleNameError={validationError?.includes(lang === 'ar' ? 'مرجع' : 'référence') || false}
+                            articleNameError={validationError?.includes(tx(lang, { fr: 'référence', ar: 'مرجع', en: 'reference', es: 'referencia', pt: 'referência', tr: 'referans' })) || false}
                             settings={settings}
                             currentModelId={currentModelId}
                             planningEvents={planningEvents}

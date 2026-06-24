@@ -354,8 +354,8 @@ export function rollPlanningEvents(
 
       let start = ev.startDate || ev.dateLancement || '';
 
-      // Shift subsequent events if they are not DONE
-      if (ev.status !== 'DONE' && nextAvailableDate) {
+      // Shift subsequent events if they are not DONE and not locked
+      if (ev.status !== 'DONE' && nextAvailableDate && !ev.isLocked) {
         if (nextAvailableDate > start) {
           start = nextAvailableDate;
         }

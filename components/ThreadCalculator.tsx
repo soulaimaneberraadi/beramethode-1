@@ -371,6 +371,13 @@ export default function ThreadCalculator({
     const [wastePercent, setWastePercent] = useState(10);
     const [selectedBobbinSize, setSelectedBobbinSize] = useState(5000);
     const [isExpanded, setIsExpanded] = useState(false);
+
+    // Clé unique pour le cache localStorage basée sur les IDs des opérations.
+    // Change automatiquement si la gamme change (nouvelles opérations).
+    const cacheKey = React.useMemo(() => {
+        const ids = operations.map(o => o.id).join(',');
+        return `beramethode_threadcalc_${btoa(ids).slice(0, 32)}`;
+    }, [operations]);
     const [availableThreadTypes, setAvailableThreadTypes] = useState<string[]>(() => {
         try {
             const saved = localStorage.getItem('beramethode_thread_types');
@@ -464,7 +471,8 @@ export default function ThreadCalculator({
             const machineCode = extractCodeFromClass(machineName) || suggestClasseFromFamilyInput(machineName) || '';
             const stitchType = findStitchTypeByMachineCode(machineCode);
             const isPerPiece = !!stitchType && PER_PIECE_STITCH_CODES.has(stitchType.code);
-            const lengthCm = op.length || 0;
+            // Pour les opérations par pièce (boutonnière, bride) : si length=0, on part de 1 pièce
+            const lengthCm = op.length || (isPerPiece ? 1 : 0);
             const consumptionFactor = stitchType?.consumptionFactor || 0;
             const threadMetersPerUnit = computeThreadPerUnit(lengthCm, consumptionFactor, isPerPiece);
 
@@ -476,7 +484,8 @@ export default function ThreadCalculator({
 
             return {
                 operation: op,
-                selected: threadMetersPerUnit > 0,
+                // Boutonnière/Bride : sélectionnées par défaut même si threadMeters = 0
+                selected: threadMetersPerUnit > 0 || isPerPiece,
                 machineCode,
                 machineRaw: machineName,
                 machineLabel,
@@ -493,16 +502,84 @@ export default function ThreadCalculator({
         });
     }, [operations, effectiveColors]);
 
-    const [opsData, setOpsData] = useState<OperationThreadData[]>(operationsData);
+    const [opsData, setOpsData] = useState<OperationThreadData[]>(() => {
+        // Restaurer depuis le cache si disponible
+        try {
+            const raw = localStorage.getItem(cacheKey);
+            if (raw) {
+                const cache = JSON.parse(raw) as {
+                    opsEdits: Record<string, {
+                        selected: boolean;
+                        threadType: string;
+                        colorThreads: Record<string, { active: boolean; threadType: string }>;
+                        multiThread: boolean;
+                        threadSlots: string[];
+                        lengthCm: number;
+                    }>;
+                    wastePercent?: number;
+                    selectedBobbinSize?: number;
+                    calcMode?: 'poste' | 'indice';
+                };
+                // Fusionner les éditions sauvegardées avec operationsData frais
+                return operationsData.map(op => {
+                    const saved = cache.opsEdits?.[op.operation.id];
+                    if (!saved) return op;
+                    const lengthCm = saved.lengthCm ?? op.lengthCm;
+                    return {
+                        ...op,
+                        selected: saved.selected ?? op.selected,
+                        threadType: saved.threadType ?? op.threadType,
+                        colorThreads: saved.colorThreads ?? op.colorThreads,
+                        multiThread: saved.multiThread ?? op.multiThread,
+                        threadSlots: saved.threadSlots?.length === op.threadSlots.length
+                            ? saved.threadSlots
+                            : op.threadSlots,
+                        lengthCm,
+                        threadMetersPerUnit: computeThreadPerUnit(lengthCm, op.consumptionFactor, op.isPerPiece),
+                    };
+                });
+            }
+        } catch { /* ignore */ }
+        return operationsData;
+    });
 
     // Mode de calcul : "poste" (precis, base sur la gamme) ou "indice" (estimation
     // par type de modele). Sans gamme exploitable, on bascule par defaut sur "indice".
     const hasGammeData = useMemo(() => operationsData.some(o => o.threadMetersPerUnit > 0), [operationsData]);
     const autoGarment = useMemo(() => findGarmentIndice(modelCategory), [modelCategory]);
-    const [calcMode, setCalcMode] = useState<'poste' | 'indice'>('poste');
+    const [calcMode, setCalcMode] = useState<'poste' | 'indice'>(() => {
+        try {
+            const raw = localStorage.getItem(cacheKey);
+            if (raw) return (JSON.parse(raw)?.calcMode || 'poste') as 'poste' | 'indice';
+        } catch { /* ignore */ }
+        return 'poste';
+    });
     const [garmentKey, setGarmentKey] = useState<string>(autoGarment?.key || '');
     const [indiceOverride, setIndiceOverride] = useState<number | null>(null);
     const [modeAutoSet, setModeAutoSet] = useState(false);
+
+    // Auto-save à chaque modification de opsData ou paramètres
+    React.useEffect(() => {
+        try {
+            const opsEdits: Record<string, object> = {};
+            opsData.forEach(op => {
+                opsEdits[op.operation.id] = {
+                    selected: op.selected,
+                    threadType: op.threadType,
+                    colorThreads: op.colorThreads,
+                    multiThread: op.multiThread,
+                    threadSlots: op.threadSlots,
+                    lengthCm: op.lengthCm,
+                };
+            });
+            localStorage.setItem(cacheKey, JSON.stringify({
+                opsEdits,
+                wastePercent,
+                selectedBobbinSize,
+                calcMode,
+            }));
+        } catch { /* ignore */ }
+    }, [opsData, wastePercent, selectedBobbinSize, calcMode, cacheKey]);
 
     // Une seule bascule automatique vers "indice" si la gamme n'a aucune donnee.
     React.useEffect(() => {
@@ -517,9 +594,38 @@ export default function ThreadCalculator({
         if (autoGarment && !garmentKey) setGarmentKey(autoGarment.key);
     }, [autoGarment, garmentKey]);
 
-    // Update when operations change
+    // Update when operations change — preserve user edits (threadType, colorThreads,
+    // multiThread, threadSlots, selected) and only refresh structural/computed fields.
+    const isFirstRender = React.useRef(true);
     React.useEffect(() => {
-        setOpsData(operationsData);
+        if (isFirstRender.current) {
+            isFirstRender.current = false;
+            return; // already initialized via useState
+        }
+        setOpsData(prev =>
+            operationsData.map((newOp, i) => {
+                const existing = prev.find(p => p.operation.id === newOp.operation.id);
+                if (!existing) return newOp;
+                // Keep all user edits, only refresh structural fields
+                return {
+                    ...newOp,
+                    selected: existing.selected,
+                    threadType: existing.threadType,
+                    colorThreads: existing.colorThreads,
+                    multiThread: existing.multiThread,
+                    threadSlots: existing.threadSlots.length === newOp.threadSlots.length
+                        ? existing.threadSlots
+                        : newOp.threadSlots,
+                    // Keep user-edited length unless the operation itself changed
+                    lengthCm: existing.lengthCm,
+                    threadMetersPerUnit: computeThreadPerUnit(
+                        existing.lengthCm,
+                        newOp.consumptionFactor,
+                        newOp.isPerPiece
+                    ),
+                };
+            })
+        );
     }, [operationsData]);
 
     const toggleOperation = (index: number) => {
@@ -572,15 +678,10 @@ export default function ThreadCalculator({
             };
         }));
 
-        // Sync back to the Gamme: op.length is the same field as the "L/QTÉ" column
-        if (setOperations) {
-            const opId = opsData[index]?.operation.id;
-            if (opId) {
-                setOperations(prev => prev.map(o =>
-                    o.id === opId ? { ...o, length: lengthCm } : o
-                ));
-            }
-        }
+        // NOTE: on ne synchonise PAS en temps réel vers la Gamme pour éviter la
+        // boucle de reset (operations → operationsData → useEffect → setOpsData).
+        // La longueur sera appliquée à la Gamme uniquement si l'utilisateur clique
+        // sur « Appliquer » (handleApply s'en charge via onApply).
     };
 
     // Edit bobine count directly: threadMetersPerUnit = bobines × selectedBobbinSize

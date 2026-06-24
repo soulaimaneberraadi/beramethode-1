@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { useAuth } from './AuthContext';
+import { AccountType, normalizeAccountType, DEFAULT_ACCOUNT_TYPE } from '../../app/accountTypes';
 
 /**
  * Contexte de permissions hiérarchiques (Epic 2).
@@ -20,6 +21,7 @@ interface PermissionsState {
   pages: PermMap;
   fields: PermMap;
   hiddenPages: string[];
+  accountType: AccountType;
 }
 
 interface PermissionsContextType extends PermissionsState {
@@ -32,7 +34,7 @@ interface PermissionsContextType extends PermissionsState {
 
 const DEFAULT: PermissionsState = {
   loading: true, isSuper: true, ownerId: null, roleId: null,
-  pages: {}, fields: {}, hiddenPages: [],
+  pages: {}, fields: {}, hiddenPages: [], accountType: DEFAULT_ACCOUNT_TYPE,
 };
 
 const Ctx = createContext<PermissionsContextType | undefined>(undefined);
@@ -61,6 +63,7 @@ export function PermissionsProvider({ children }: { children: React.ReactNode })
         pages: d.pages || {},
         fields: d.fields || {},
         hiddenPages: d.hiddenPages || [],
+        accountType: normalizeAccountType(d.accountType),
       });
     } catch {
       // Échec réseau => ne rien casser : accès total.

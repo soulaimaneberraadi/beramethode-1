@@ -184,47 +184,9 @@ const calculatePostRequirements = (
     const requirements: Record<string, number> = {};
     
     postes.forEach(p => {
-        requirements[p.id] = 0;
+        const nTheo = posteStats[p.id]?.nTheo || 0;
+        requirements[p.id] = nTheo > 0 ? Math.max(1, Math.ceil(nTheo / toleranceRatio)) : 0;
     });
-
-    const activePostes = postes.filter(p => (posteStats[p.id]?.nTheo || 0) > 0);
-    const numActive = activePostes.length;
-
-    if (targetNumWorkers <= 0 || numActive === 0) {
-        return requirements;
-    }
-
-    // 1. Initial allocation
-    let currentAllocated = 0;
-    if (targetNumWorkers >= numActive) {
-        activePostes.forEach(p => {
-            requirements[p.id] = 1;
-        });
-        currentAllocated = numActive;
-    } else {
-        currentAllocated = 0;
-    }
-
-    // 2. Greedy distribution of remaining workers
-    const extra = targetNumWorkers - currentAllocated;
-    for (let i = 0; i < extra; i++) {
-        let bestPostId = '';
-        let maxNeed = -Infinity;
-
-        activePostes.forEach(p => {
-            const nTheo = posteStats[p.id]?.nTheo || 0;
-            const current = requirements[p.id] || 0;
-            const need = nTheo - current;
-            if (need > maxNeed) {
-                maxNeed = need;
-                bestPostId = p.id;
-            }
-        });
-
-        if (bestPostId) {
-            requirements[bestPostId] = (requirements[bestPostId] || 0) + 1;
-        }
-    }
 
     return requirements;
 };
@@ -344,6 +306,13 @@ export default function Balancing({
   const tolerance = ficheData?.toleranceSaturation ?? 115;
   const toleranceRatio = tolerance / 100;
 
+  const roundedOperations = useMemo(() => {
+    return operations.map(op => ({
+      ...op,
+      time: Math.round((op.time || 0) * 60) / 60
+    }));
+  }, [operations]);
+
   const calculateStats = (currAssignments: Record<string, string[]>, currPostes: Poste[]) => {
       const stats: Record<string, { time: number, nTheo: number, saturation: number }> = {};
       
@@ -351,7 +320,7 @@ export default function Balancing({
           stats[p.id] = { time: p.timeOverride !== undefined ? p.timeOverride : 0, nTheo: 0, saturation: 0 };
       });
 
-      operations.forEach(op => {
+      roundedOperations.forEach(op => {
           const assignedIds = currAssignments[op.id] || [];
           const count = assignedIds.length;
           if (count > 0) {
@@ -385,7 +354,7 @@ export default function Balancing({
   // Section split summary (read-only insights when ops are tagged Préparation/Montage)
   const sectionStats = React.useMemo(() => {
       const acc = { PREPARATION: 0, MONTAGE: 0, GLOBAL: 0 };
-      operations.forEach(o => { acc[o.section || 'GLOBAL'] += (o.time || 0); });
+      roundedOperations.forEach(o => { acc[o.section || 'GLOBAL'] += (o.time || 0); });
       const has = acc.PREPARATION > 0 || acc.MONTAGE > 0;
       const targetPH = (sam: number) => sam > 0 ? Math.round((numWorkers * efficiency * 60) / sam) : 0;
       return {
@@ -396,7 +365,7 @@ export default function Balancing({
           prepPH: targetPH(acc.PREPARATION),
           montagePH: targetPH(acc.MONTAGE),
       };
-  }, [operations, numWorkers, efficiency]);
+  }, [roundedOperations, numWorkers, efficiency]);
 
   // --- INSERT MODAL STATE ---
   const [showInsertModal, setShowInsertModal] = useState(false);
@@ -423,8 +392,8 @@ export default function Balancing({
 
   // --- ENSURE SORTING (STRICT GAMME ORDER) ---
   const sortedOperations = useMemo(() => {
-      return [...operations].sort((a, b) => a.order - b.order);
-  }, [operations]);
+      return [...roundedOperations].sort((a, b) => a.order - b.order);
+  }, [roundedOperations]);
 
   const getCombinedMachineName = (ops: Operation[]) => {
       const machs = new Set<string>();
@@ -447,7 +416,7 @@ export default function Balancing({
 
   const simulateRequiredWorkers = useCallback((testNumWorkers: number): number => {
       if (testNumWorkers <= 0) return 0;
-      const tempsArticleVal = operations.reduce((sum, op) => sum + (op.time || 0), 0) * 1.20;
+      const tempsArticleVal = roundedOperations.reduce((sum, op) => sum + (op.time || 0), 0) * 1.20;
       const testBF = testNumWorkers > 0 ? tempsArticleVal / testNumWorkers : 0;
       if (testBF <= 0) return 0;
 
@@ -567,7 +536,7 @@ export default function Balancing({
               const time = stats[p.id]?.time || 0;
               const sam = time * SAM_MAJORATION;
               const nTheo = testBF > 0 ? sam / testBF : 0;
-              const nReq = nTheo > toleranceRatio ? Math.ceil(nTheo) : (nTheo > 0 ? 1 : 0);
+              const nReq = nTheo > 0 ? Math.max(1, Math.ceil(nTheo / toleranceRatio)) : 0;
               simTotalRequiredWorkers += nReq;
           });
 
@@ -648,7 +617,7 @@ export default function Balancing({
     );
 
     // Allow tolerance on cycle time
-    const tempsArticleVal = operations.reduce((sum, op) => sum + (op.time || 0), 0) * 1.20;
+    const tempsArticleVal = roundedOperations.reduce((sum, op) => sum + (op.time || 0), 0) * 1.20;
     const targetBF = targetNumWorkers > 0 ? tempsArticleVal / targetNumWorkers : 0;
     // Remplissage vers le takt (BF), plafonné à un seuil sain même si Tolérance d'affichage élevée.
     const packRatio = Math.min(toleranceRatio, AUTO_BALANCE_TARGET_CEIL);
@@ -760,7 +729,7 @@ export default function Balancing({
             stats[p.id] = { time: 0 };
         });
 
-        operations.forEach(op => {
+        roundedOperations.forEach(op => {
             const assignedIds = currentAssignments[op.id] || [];
             const count = assignedIds.length;
             if (count > 0) {
@@ -778,7 +747,7 @@ export default function Balancing({
             const time = stats[p.id]?.time || 0;
             const sam = time * SAM_MAJORATION;
             const nTheo = targetBF > 0 ? sam / targetBF : 0;
-            const nReq = nTheo > toleranceRatio ? Math.ceil(nTheo) : (nTheo > 0 ? 1 : 0);
+            const nReq = nTheo > 0 ? Math.max(1, Math.ceil(nTheo / toleranceRatio)) : 0;
             simTotalRequiredWorkers += nReq;
         });
 
@@ -811,7 +780,33 @@ export default function Balancing({
     if (!isManual) {
         runAutoBalancing();
     }
-  }, [operations, bf, isManual, machines]);
+  }, [roundedOperations, bf, isManual, machines]);
+
+  // Keep parent postes in sync with computed machine names when assignments change in manual mode
+  useEffect(() => {
+    if (!isManual) return;
+    
+    let changed = false;
+    const nextPostes = postes.map(p => {
+      const assignedOps = roundedOperations.filter(op => (assignments[op.id] || []).includes(p.id));
+      const machinesSet = new Set<string>();
+      assignedOps.forEach(op => {
+          machinesSet.add(machineClassOf(op));
+      });
+      if (machinesSet.size > 1 && machinesSet.has('MAN')) {
+          machinesSet.delete('MAN');
+      }
+      const machineName = Array.from(machinesSet).sort().join('+') || 'MAN';
+      if (p.machine !== machineName) {
+        changed = true;
+      }
+      return { ...p, machine: machineName };
+    });
+
+    if (changed) {
+      setPostes(nextPostes);
+    }
+  }, [assignments, postes, roundedOperations, machines, isManual, setPostes]);
 
   // --- CONTEXT MENU HANDLERS ---
   const handleContextMenu = (e: React.MouseEvent, posteId: string) => {
@@ -914,6 +909,7 @@ export default function Balancing({
                   ...target,
                   id: `P_${Date.now()}_${k}`,
                   machine: key,
+                  colorName: undefined, // Reset color so they alternate based on column index
                   originalId: undefined,
                   timeOverride: undefined,
               }));
@@ -1114,13 +1110,24 @@ export default function Balancing({
   };
 
   // --- CALCULATIONS ---
-  const posteStats = useMemo(() => calculateStats(assignments, postes), [operations, assignments, postes, bf]);
+  const posteStats = useMemo(() => calculateStats(assignments, postes), [roundedOperations, assignments, postes, bf]);
 
   const postRequirements = useMemo(() => {
     return calculatePostRequirements(postes, posteStats, numWorkers, toleranceRatio);
   }, [postes, posteStats, numWorkers, toleranceRatio]);
+
+  const totalMinReq = useMemo(() => {
+    let total = 0;
+    postes.forEach(p => {
+      const stat = posteStats[p.id];
+      const nTheo = stat?.nTheo || 0;
+      const req = nTheo > 0 ? Math.max(1, Math.ceil(nTheo / toleranceRatio)) : 0;
+      total += req;
+    });
+    return total;
+  }, [postes, posteStats, toleranceRatio]);
   
-  const tempsArticle = operations.reduce((sum, op) => sum + (op.time || 0), 0) * 1.20;
+  const tempsArticle = roundedOperations.reduce((sum, op) => sum + (op.time || 0), 0) * 1.20;
   
   // --- CHART DATA PREP ---
   const chartData = useMemo(() => {
@@ -1416,14 +1423,14 @@ export default function Balancing({
        {/* 3. MAIN CONTENT (CONDITIONAL VIEW) */}
        {viewMode === 'matrix' ? (
            <div className="flex flex-col gap-6">
-                <div className="bg-white rounded-[1rem] border border-slate-200 shadow-sm overflow-hidden h-[600px]">
+                <div className="bg-white rounded-[1rem] border border-slate-200 shadow-sm overflow-hidden h-[450px] sm:h-[600px]">
                     <div className="overflow-auto w-full h-full relative custom-scrollbar pb-2">
                         <table className="text-left border-collapse border-spacing-0 min-w-full">
                             <thead className={`${isHeaderSticky ? 'sticky top-0 z-30' : ''} bg-white shadow-sm`}>
                                 <tr className="bg-slate-50">
-                                    <th className={`py-2 px-2 border-b-2 border-slate-300 border-r border-slate-300 min-w-[200px] ${isSticky ? 'sticky left-0 z-50 bg-slate-50 shadow-[4px_0_12px_-4px_rgba(0,0,0,0.1)]' : 'z-40'}`}>
+                                    <th className={`py-2 px-2 border-b-2 border-slate-300 border-r border-slate-300 min-w-[130px] sm:min-w-[200px] ${isSticky ? 'sticky left-0 z-50 bg-slate-50 shadow-[4px_0_12px_-4px_rgba(0,0,0,0.1)]' : 'z-40'}`}>
                                         <div className="flex items-center justify-between">
-                                            <span className="text-[10px] font-black text-slate-600 uppercase tracking-widest">Séquence Opératoire</span>
+                                            <span className="text-[10px] font-black text-slate-600 uppercase tracking-widest truncate">Séquence Opératoire</span>
                                             <button onClick={() => setIsSticky(!isSticky)} className={`p-1 rounded-md transition-colors ${isSticky ? 'bg-indigo-100 text-indigo-600' : 'text-slate-400 hover:bg-slate-200'}`} title={isSticky ? "Détacher la colonne" : "Figer la colonne"}>
                                             {isSticky ? <Pin className="w-3 h-3" /> : <PinOff className="w-3 h-3" />}
                                             </button>
@@ -1470,11 +1477,11 @@ export default function Balancing({
 
                                     return (
                                         <tr key={op.id} className={`group transition-colors ${rowBgClass}`}>
-                                            <td className={`py-1.5 px-2 border-r border-slate-300 ${groupStyle ? groupStyle.bg : 'bg-white'} group-hover:bg-slate-50 transition-colors border-b border-slate-200 ${isSticky ? 'sticky left-0 z-20 shadow-[4px_0_12px_-4px_rgba(0,0,0,0.05)]' : ''} ${borderLeftStyle}`}>
+                                            <td className={`py-1.5 px-2 border-r border-slate-300 min-w-[130px] sm:min-w-[200px] ${groupStyle ? groupStyle.bg : 'bg-white'} group-hover:bg-slate-50 transition-colors border-b border-slate-200 ${isSticky ? 'sticky left-0 z-20 shadow-[4px_0_12px_-4px_rgba(0,0,0,0.05)]' : ''} ${borderLeftStyle}`}>
                                                 <div className="flex items-center gap-2">
                                                     <span className="font-mono text-[9px] text-slate-400 font-bold w-6 text-center">{getDisplayIndex(sortedOperations, idx)}</span>
                                                     <div className="flex flex-col min-w-0">
-                                                        <span className="font-bold text-slate-700 text-[11px] truncate max-w-[180px]" title={op.description}>{op.description}</span>
+                                                        <span className="font-bold text-slate-700 text-[11px] truncate max-w-[90px] sm:max-w-[180px]" title={op.description}>{op.description}</span>
                                                         <div className="flex items-center gap-1.5 mt-0.5">
                                                             <span className="text-[8px] font-bold px-1 rounded bg-slate-100 text-slate-500 uppercase">{displayName}</span>
                                                             <span className="text-[9px] font-bold text-emerald-600">{Math.round(timeSec)}s</span>
@@ -1546,37 +1553,52 @@ export default function Balancing({
                 </div>
 
                 {/* TOLÉRANCE CONTROLLER BELOW TABLE */}
-                <div className="flex items-center gap-3 px-4 py-2.5 bg-white rounded-xl border border-slate-200 shadow-sm w-fit mt-2 mb-2">
-                    <span className="text-xs font-black text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
-                        <Activity className="w-3.5 h-3.5 text-indigo-500" /> Tolérance Saturation :
-                    </span>
-                    <div className="flex items-center gap-1.5 text-xs bg-rose-50 text-rose-700 px-2 py-0.5 rounded-lg border border-rose-200 shadow-sm">
-                        <input 
-                            type="number" 
-                            min="50" max="200" 
-                            value={tolerance || ''} 
-                            onChange={(e) => {
-                                const val = e.target.value;
-                                if (val === '') {
-                                    setFicheData(prev => ({ ...prev, toleranceSaturation: 0 }));
-                                    return;
-                                }
-                                setFicheData(prev => ({ ...prev, toleranceSaturation: Number(val) }));
-                            }}
-                            onBlur={() => {
-                                setFicheData(prev => ({ 
-                                    ...prev, 
-                                    toleranceSaturation: Math.max(50, Math.min(200, prev.toleranceSaturation || 115)) 
-                                }));
-                            }}
-                            className="w-10 text-center bg-transparent font-black text-rose-700 outline-none p-0 border-b border-rose-300" 
-                        />
-                        <span className="font-bold">%</span>
-                    </div>
-                    {tolerance > AUTO_BALANCE_TARGET_CEIL * 100 && (
-                        <span className="text-[10px] font-bold text-amber-600 flex items-center gap-1" title={`L'équilibrage automatique ne remplit jamais un poste au-delà de ${AUTO_BALANCE_TARGET_CEIL * 100}% (règle anti-goulot). La Tolérance ne sert qu'à l'affichage des couleurs.`}>
-                            <AlertCircle className="w-3 h-3" /> Équilibrage plafonné à {Math.round(AUTO_BALANCE_TARGET_CEIL * 100)}% (anti-goulot)
+                <div className="flex flex-wrap items-center gap-3 mt-2 mb-2">
+                    <div className="flex items-center gap-3 px-4 py-2.5 bg-white rounded-xl border border-slate-200 shadow-sm w-fit">
+                        <span className="text-xs font-black text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+                            <Activity className="w-3.5 h-3.5 text-indigo-500" /> Tolérance Saturation :
                         </span>
+                        <div className="flex items-center gap-1.5 text-xs bg-rose-50 text-rose-700 px-2 py-0.5 rounded-lg border border-rose-200 shadow-sm">
+                            <input 
+                                type="number" 
+                                min="50" max="200" 
+                                value={tolerance || ''} 
+                                onChange={(e) => {
+                                    const val = e.target.value;
+                                    if (val === '') {
+                                        setFicheData(prev => ({ ...prev, toleranceSaturation: 0 }));
+                                        return;
+                                    }
+                                    setFicheData(prev => ({ ...prev, toleranceSaturation: Number(val) }));
+                                }}
+                                onBlur={() => {
+                                    setFicheData(prev => ({ 
+                                        ...prev, 
+                                        toleranceSaturation: Math.max(50, Math.min(200, prev.toleranceSaturation || 115)) 
+                                    }));
+                                }}
+                                className="w-10 text-center bg-transparent font-black text-rose-700 outline-none p-0 border-b border-rose-300" 
+                            />
+                            <span className="font-bold">%</span>
+                        </div>
+                        {tolerance > AUTO_BALANCE_TARGET_CEIL * 100 && (
+                            <span className="text-[10px] font-bold text-amber-600 flex items-center gap-1" title={`L'équilibrage automatique ne remplit jamais un poste au-delà de ${AUTO_BALANCE_TARGET_CEIL * 100}% (règle anti-goulot). La Tolérance ne sert qu'à l'affichage des couleurs.`}>
+                                <AlertCircle className="w-3 h-3" /> Équilibrage plafonné à {Math.round(AUTO_BALANCE_TARGET_CEIL * 100)}% (anti-goulot)
+                            </span>
+                        )}
+                    </div>
+
+                    {numWorkers < totalMinReq && (
+                        <div className="flex items-center gap-2 px-4 py-2.5 bg-rose-50 border border-rose-200 rounded-xl shadow-sm text-xs text-rose-700 font-bold animate-in fade-in slide-in-from-left-2 duration-300">
+                            <AlertCircle className="w-4 h-4 text-rose-500 animate-pulse" />
+                            <span>Effectif insuffisant pour respecter la tolérance (Requis : {totalMinReq} ouvriers)</span>
+                            <button 
+                                onClick={() => setNumWorkers(totalMinReq)}
+                                className="ml-2 bg-rose-600 hover:bg-rose-700 text-white px-2.5 py-1 rounded-lg text-[10px] font-black transition-all hover:scale-105 active:scale-95 shadow-sm animate-bounce"
+                            >
+                                Ajuster à {totalMinReq}
+                            </button>
+                        </div>
                     )}
                 </div>
 
@@ -1588,19 +1610,19 @@ export default function Balancing({
                         <ResponsiveChart>
                             <ComposedChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 60 }}>
                                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                                <XAxis dataKey="name" tick={{ fontSize: 10, fill: '#64748b' }} axisLine={false} tickLine={false} />
+                                <XAxis dataKey="name" tick={{ fontSize: 8, fill: '#64748b' }} axisLine={false} tickLine={false} interval={0} angle={-45} textAnchor="end" height={45} />
                                 <YAxis yAxisId="left" orientation="left" stroke="#64748b" tick={{ fontSize: 10 }} axisLine={false} tickLine={false} label={{ value: 'Temps (s)', angle: -90, position: 'insideLeft', fontSize: 10, fill: '#94a3b8' }} />
                                 <YAxis yAxisId="right" orientation="right" stroke="#94a3b8" tick={{ fontSize: 10 }} axisLine={false} tickLine={false} unit="%" />
                                 <Tooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} cursor={{ fill: '#f8fafc' }} />
                                 <ReferenceLine yAxisId="left" y={bfSeconds} stroke="#ef4444" strokeDasharray="3 3" label={{ value: 'BF', position: 'right', fill: '#ef4444', fontSize: 10 }} />
-                                <Bar yAxisId="left" dataKey="time" radius={[4, 4, 0, 0]} barSize={40}>
+                                <Bar yAxisId="left" dataKey="time" radius={[4, 4, 0, 0]} barSize={40} isAnimationActive={false}>
                                     {chartData.map((entry, index) => (
                                         <Cell key={`cell-${index}`} fill={entry.fill} />
                                     ))}
                                 </Bar>
-                                <Line yAxisId="right" type="monotone" dataKey="saturation" stroke="none" dot={{ r: 3, fill: '#6366f1', strokeWidth: 2, stroke: '#fff' }} />
-                                <Line yAxisId="right" type="monotone" dataKey="satSolid" stroke="#6366f1" strokeWidth={2} connectNulls={false} dot={false} />
-                                <Line yAxisId="right" type="monotone" dataKey="satDashed" stroke="#6366f1" strokeWidth={2} strokeDasharray="3 3" connectNulls={false} dot={false} />
+                                <Line yAxisId="right" type="monotone" dataKey="saturation" stroke="none" dot={{ r: 3, fill: '#6366f1', strokeWidth: 2, stroke: '#fff' }} isAnimationActive={false} />
+                                <Line yAxisId="right" type="monotone" dataKey="satSolid" stroke="#6366f1" strokeWidth={2} connectNulls={false} dot={false} isAnimationActive={false} />
+                                <Line yAxisId="right" type="monotone" dataKey="satDashed" stroke="#6366f1" strokeWidth={2} strokeDasharray="3 3" connectNulls={false} dot={false} isAnimationActive={false} />
                             </ComposedChart>
                         </ResponsiveChart>
                     </div>
@@ -1614,21 +1636,21 @@ export default function Balancing({
                             <table className="w-full text-left">
                                 <thead className="bg-slate-50 text-[10px] uppercase font-bold text-slate-500 sticky top-0 z-10">
                                     <tr>
-                                        <th className="py-3 px-6">Machine</th>
-                                        <th className="py-3 px-6 text-center">Opérations</th>
-                                        <th className="py-3 px-6 text-center">Temps Total</th>
-                                        <th className="py-3 px-6 text-center">N. Théorique</th>
-                                        <th className="py-3 px-6 text-center">N. Requis</th>
+                                        <th className="py-2 sm:py-3 px-2 sm:px-6">Machine</th>
+                                        <th className="py-2 sm:py-3 px-2 sm:px-6 text-center">Opérations</th>
+                                        <th className="py-2 sm:py-3 px-2 sm:px-6 text-center">Temps Total</th>
+                                        <th className="py-2 sm:py-3 px-2 sm:px-6 text-center">N. Théorique</th>
+                                        <th className="py-2 sm:py-3 px-2 sm:px-6 text-center">N. Requis</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-100 text-xs">
                                     {machineRequirements.map((row, idx) => (
                                         <tr key={idx} className="hover:bg-slate-50 transition-colors">
-                                            <td className="py-3 px-6 font-bold text-slate-700">{row.name}</td>
-                                            <td className="py-3 px-6 text-center">{row.opsCount}</td>
-                                            <td className="py-3 px-6 text-center font-mono text-slate-500">{row.totalTime.toFixed(2)} min</td>
-                                            <td className="py-3 px-6 text-center font-mono text-slate-500">{row.nTheo.toFixed(2)}</td>
-                                            <td className="py-3 px-6 text-center"><span className="inline-block px-2 py-1 bg-emerald-100 text-emerald-700 rounded font-bold">{row.nReq}</span></td>
+                                            <td className="py-2 sm:py-3 px-2 sm:px-6 font-bold text-slate-700">{row.name}</td>
+                                            <td className="py-2 sm:py-3 px-2 sm:px-6 text-center">{row.opsCount}</td>
+                                            <td className="py-2 sm:py-3 px-2 sm:px-6 text-center font-mono text-slate-500">{row.totalTime.toFixed(2)} min</td>
+                                            <td className="py-2 sm:py-3 px-2 sm:px-6 text-center font-mono text-slate-500">{row.nTheo.toFixed(2)}</td>
+                                            <td className="py-2 sm:py-3 px-2 sm:px-6 text-center"><span className="inline-block px-2 py-1 bg-emerald-100 text-emerald-700 rounded font-bold">{row.nReq}</span></td>
                                         </tr>
                                     ))}
                                 </tbody>
@@ -1641,7 +1663,7 @@ export default function Balancing({
            <div className="space-y-6">
                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
                   {postes.map((p, index) => {
-                      const ops = operations.filter(op => (assignments[op.id] || []).includes(p.id));
+                      const ops = roundedOperations.filter(op => (assignments[op.id] || []).includes(p.id));
                       const stat = posteStats[p.id] || { time: 0, saturation: 0, nTheo: 0 };
                       const nReq = postRequirements[p.id] || 0;
                       const saturation = nReq > 0 ? Math.round(stat.saturation / nReq) : 0;
@@ -1678,12 +1700,12 @@ export default function Balancing({
                               </div>
                               <div className="flex flex-col items-end">
                                 <span className="text-[9px] text-slate-400 font-bold uppercase">Sat.</span>
-                                <span className={`text-xs font-black ${saturation > 100 ? 'text-rose-500' : 'text-emerald-500'}`}>{saturation}%</span>
+                                <span className={`text-xs font-black ${saturation > tolerance ? 'text-rose-500' : 'text-emerald-500'}`}>{saturation}%</span>
                               </div>
                            </div>
                            
                            <div className="absolute bottom-0 left-0 h-1 bg-slate-100 w-full rounded-b-xl overflow-hidden">
-                              <div className={`h-full ${saturation > 100 ? 'bg-rose-500' : color.fill}`} style={{ width: `${Math.min(saturation, 100)}%` }}></div>
+                              <div className={`h-full ${saturation > tolerance ? 'bg-rose-500' : color.fill}`} style={{ width: `${Math.min(saturation, 100)}%` }}></div>
                            </div>
                         </div>
                       );

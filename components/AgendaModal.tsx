@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { X, ChevronLeft, ChevronRight, Calendar, Info, Clock, CheckCircle2, XCircle, Zap, PartyPopper, Globe } from 'lucide-react';
 import { AppSettings } from '../types';
+import { pickT } from '../lib/i18n';
+import type { Lang } from '../app/constants';
 
 // ── National Holidays Database ──────────────────────────────────────────────
 // Fixed dates: MM-DD format. Islamic dates: exact YYYY-MM-DD per year.
@@ -146,7 +148,7 @@ interface AgendaModalProps {
     onClose: () => void;
     settings: AppSettings;
     setSettings: React.Dispatch<React.SetStateAction<AppSettings>>;
-    lang: 'fr' | 'ar';
+    lang: Lang;
 }
 
 const TRANSLATIONS = {
@@ -205,11 +207,123 @@ const TRANSLATIONS = {
         offDays: 'أيام الراحة',
         exceptions: 'استثناءات',
         quickToggle: 'نقرة سريعة: تبديل الحالة',
+    },
+    en: {
+        title: 'Monthly Agenda',
+        close: 'Close',
+        prev: 'Previous Month',
+        next: 'Next Month',
+        workingDay: 'Working Day',
+        holiday: 'Holiday',
+        exceptionalWork: 'Exceptional Work',
+        save: 'Save Exception',
+        remove: 'Remove',
+        notePlaceholder: 'Exception name (e.g. Aïd, Breakdown...)',
+        days: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+        months: ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'],
+        details: 'Day Details',
+        selectPrompt: 'Click a day to configure it.\n\nDouble-click = quick toggle.',
+        selectedDate: 'Selected Date',
+        status: 'Production Status',
+        work: 'Work',
+        off: 'Off / Rest',
+        note: 'Note / Reason',
+        reset: 'Restore Default',
+        workingHours: 'Working Hours',
+        summary: 'Month Summary',
+        workDays: 'Working Days',
+        offDays: 'Off Days',
+        exceptions: 'Exceptions',
+        quickToggle: 'Quick click: toggle status',
+    },
+    es: {
+        title: 'Agenda del Mes',
+        close: 'Cerrar',
+        prev: 'Mes Anterior',
+        next: 'Mes Siguiente',
+        workingDay: 'Día Laborable',
+        holiday: 'Día Festivo',
+        exceptionalWork: 'Trabajo Excepcional',
+        save: 'Guardar Excepción',
+        remove: 'Eliminar',
+        notePlaceholder: 'Nombre de la excepción (ej: Aïd, Avería...)',
+        days: ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'],
+        months: ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'],
+        details: 'Detalles del día',
+        selectPrompt: 'Haga clic en un día para configurarlo.\n\nDoble clic = alternar rápido.',
+        selectedDate: 'Fecha seleccionada',
+        status: 'Estado de producción',
+        work: 'Trabajo',
+        off: 'Festivo / Descanso',
+        note: 'Nota / Motivo',
+        reset: 'Restablecer por defecto',
+        workingHours: 'Horario de trabajo',
+        summary: 'Resumen del mes',
+        workDays: 'Días laborables',
+        offDays: 'Días de descanso',
+        exceptions: 'Excepciones',
+        quickToggle: 'Clic rápido: alternar estado',
+    },
+    pt: {
+        title: 'Agenda do Mês',
+        close: 'Fechar',
+        prev: 'Mês Anterior',
+        next: 'Mês Seguinte',
+        workingDay: 'Dia Útil',
+        holiday: 'Feriado',
+        exceptionalWork: 'Trabalho Excecional',
+        save: 'Guardar Exceção',
+        remove: 'Remover',
+        notePlaceholder: 'Nome da exceção (ex: Aïd, Avaria...)',
+        days: ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'],
+        months: ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'],
+        details: 'Detalhes do dia',
+        selectPrompt: 'Clique num dia para o configurar.\n\nDuplo clique = alternar rápido.',
+        selectedDate: 'Data selecionada',
+        status: 'Estado de produção',
+        work: 'Trabalho',
+        off: 'Feriado / Folga',
+        note: 'Nota / Motivo',
+        reset: 'Repor predefinição',
+        workingHours: 'Horário de trabalho',
+        summary: 'Resumo do mês',
+        workDays: 'Dias úteis',
+        offDays: 'Dias de folga',
+        exceptions: 'Exceções',
+        quickToggle: 'Clique rápido: alternar estado',
+    },
+    tr: {
+        title: 'Aylık Ajanda',
+        close: 'Kapat',
+        prev: 'Önceki Ay',
+        next: 'Sonraki Ay',
+        workingDay: 'Çalışma Günü',
+        holiday: 'Tatil Günü',
+        exceptionalWork: 'İstisnai Çalışma',
+        save: 'İstisnayı Kaydet',
+        remove: 'Sil',
+        notePlaceholder: 'İstisna adı (örn: Bayram, Arıza...)',
+        days: ['Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt', 'Paz'],
+        months: ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'],
+        details: 'Gün Detayları',
+        selectPrompt: 'Yapılandırmak için bir güne tıklayın.\n\nÇift tıklama = hızlı değiştir.',
+        selectedDate: 'Seçilen Tarih',
+        status: 'Üretim Durumu',
+        work: 'Çalışma',
+        off: 'Tatil / Dinlenme',
+        note: 'Not / Sebep',
+        reset: 'Varsayılana Döndür',
+        workingHours: 'Çalışma Saatleri',
+        summary: 'Ay Özeti',
+        workDays: 'Çalışma Günleri',
+        offDays: 'Dinlenme Günleri',
+        exceptions: 'İstisnalar',
+        quickToggle: 'Hızlı tıklama: durumu değiştir',
     }
 };
 
 export default function AgendaModal({ isOpen, onClose, settings, setSettings, lang }: AgendaModalProps) {
-    const t = TRANSLATIONS[lang];
+    const t = pickT(TRANSLATIONS, lang);
 
     const [currentDate, setCurrentDate] = useState(new Date());
     const [selectedDate, setSelectedDate] = useState<string | null>(null);

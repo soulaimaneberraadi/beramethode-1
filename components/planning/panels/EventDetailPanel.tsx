@@ -347,6 +347,17 @@ export default function EventDetailPanel({
             <div className="flex-1 overflow-y-auto">
 
                 {tab === 'details' && (<>
+                {!model && (
+                    <div className="mx-6 mt-4 p-4 rounded-xl bg-amber-500/10 border border-amber-500/20 text-slate-700 space-y-2">
+                        <div className="flex items-center gap-2 text-[12px] font-bold text-amber-800">
+                            <AlertTriangle className="h-4 w-4 shrink-0 text-amber-600" />
+                            Modèle introuvable dans la bibliothèque
+                        </div>
+                        <p className="text-[11px] leading-normal text-amber-700 font-medium">
+                            Ce modèle a été supprimé ou n'existe pas. Certaines informations de production ne peuvent pas être calculées ou affichées.
+                        </p>
+                    </div>
+                )}
 
                 {/* Progress block */}
                 <section className="px-6 py-5 border-b border-slate-200/30">

@@ -532,7 +532,7 @@ const OrderSimulation: React.FC<OrderSimulationProps> = ({
                                     <div key={pg.colorId} className={`rounded-lg border p-3 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-slate-100'}`}>
                                         <div className="flex items-center justify-between mb-2">
                                             <div className="flex items-center gap-2">
-                                                <div className="w-3 h-3 rounded-full border border-slate-300" style={{ backgroundColor: pg.colorName }} />
+                                                <div className="w-3 h-3 rounded-full border border-slate-300" style={pg.colorId && pg.colorId.startsWith('#') ? { backgroundColor: pg.colorId } : { backgroundColor: pg.colorName }} />
                                                 <span className={`text-[13px] font-semibold ${darkMode ? 'text-slate-200' : 'text-slate-800'}`}>{pg.colorName}</span>
                                                 <span className="text-[11px] text-slate-400 font-medium">{pg.pieces} pcs</span>
                                             </div>

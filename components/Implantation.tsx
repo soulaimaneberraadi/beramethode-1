@@ -838,7 +838,7 @@ export default function Implantation({
                     });
                 }
                 const nTheo = bf > 0 ? totalTime / bf : 0;
-                let operatorCount = nTheo > toleranceRatio ? Math.ceil(nTheo) : (nTheo > 0 ? 1 : 0);
+                let operatorCount = nTheo > 0 ? Math.max(1, Math.ceil(nTheo / toleranceRatio)) : 0;
                 operatorCount = Math.max(1, operatorCount);
                 if (operatorCount > 1 && !p.originalId) {
                     for (let i = 1; i <= operatorCount; i++) {
@@ -870,7 +870,7 @@ export default function Implantation({
                     });
                 }
                 const nTheo = bf > 0 ? totalTime / bf : 0;
-                let operatorCount = nTheo > toleranceRatio ? Math.ceil(nTheo) : (nTheo > 0 ? 1 : 0);
+                let operatorCount = nTheo > 0 ? Math.max(1, Math.ceil(nTheo / toleranceRatio)) : 0;
                 operatorCount = Math.max(1, operatorCount);
                 if (operatorCount > 1 && !p.originalId) {
                     for (let i = 1; i <= operatorCount; i++) {
@@ -2064,7 +2064,7 @@ export default function Implantation({
                     });
 
                     const nTheo = bf > 0 ? (totalTime * SAM_MAJORATION) / bf : 0;
-                    operators = nTheo > toleranceRatio ? Math.ceil(nTheo) : (nTheo > 0 ? 1 : 0);
+                    operators = nTheo > 0 ? Math.max(1, Math.ceil(nTheo / toleranceRatio)) : 0;
 
                     if (p.originalId) {
                         operators = 1;
@@ -2153,7 +2153,7 @@ export default function Implantation({
                     totalTime += (op.time || 0) / sharingCount;
                 });
                 const nTheo = bf > 0 ? (totalTime * SAM_MAJORATION) / bf : 0;
-                operators = nTheo > toleranceRatio ? Math.ceil(nTheo) : (nTheo > 0 ? 1 : 0);
+                operators = nTheo > 0 ? Math.max(1, Math.ceil(nTheo / toleranceRatio)) : 0;
                 if (p.originalId) { operators = 1; }
                 saturation = (operators > 0 && bf > 0) ? ((totalTime * SAM_MAJORATION) / (operators * bf)) * 100 : 0;
             }

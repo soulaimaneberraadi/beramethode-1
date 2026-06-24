@@ -6,6 +6,8 @@ import {
     Zap, BarChart3, Target, ChevronDown, ChevronUp, Settings, Flag, X, Hash, Columns3, Pin,
     Plus, History, Trash2, TrendingUp, Pencil, Check, Eye
 } from 'lucide-react';
+import { tx } from '../lib/i18n';
+import { useLang } from '../src/context/LanguageContext';
 
 interface ChronometrageProps {
     operations: Operation[];
@@ -112,6 +114,7 @@ function AdvancedStopwatch({ onRecord, onClear, onAdvance, onPrev, onNext, onUnd
     filledCount?: number;
     compact?: boolean;
 }) {
+    const { lang } = useLang();
     const [running, setRunning] = useState(false);
     const [elapsed, setElapsed] = useState(0);
     const [laps, setLaps] = useState<{ time: number; total: number }[]>([]);
@@ -277,7 +280,9 @@ function AdvancedStopwatch({ onRecord, onClear, onAdvance, onPrev, onNext, onUnd
     }, [lapTimesMs]);
     const cvStatus: 'valid' | 'warn' | 'invalid' =
         lapTimesMs.length < neededLaps ? 'warn' : cv < 10 ? 'valid' : cv < 15 ? 'warn' : 'invalid';
-    const cvLabel = cvStatus === 'valid' ? 'Série valide' : cvStatus === 'warn' ? 'Vérifier' : 'Série invalide';
+    const cvLabel = cvStatus === 'valid' ? tx(lang, { fr: 'Série valide', ar: 'سلسلة صالحة', en: 'Valid series', es: 'Serie válida', pt: 'Série válida', tr: 'Geçerli seri' })
+        : cvStatus === 'warn' ? tx(lang, { fr: 'Vérifier', ar: 'يجب التحقق', en: 'Check', es: 'Verificar', pt: 'Verificar', tr: 'Kontrol et' })
+        : tx(lang, { fr: 'Série invalide', ar: 'سلسلة غير صالحة', en: 'Invalid series', es: 'Serie no válida', pt: 'Série inválida', tr: 'Geçersiz seri' });
     const cvColor = cvStatus === 'valid' ? 'text-emerald-600 bg-emerald-50 border-emerald-200'
         : cvStatus === 'warn' ? 'text-amber-600 bg-amber-50 border-amber-200'
         : 'text-rose-600 bg-rose-50 border-rose-200';
@@ -301,9 +306,9 @@ function AdvancedStopwatch({ onRecord, onClear, onAdvance, onPrev, onNext, onUnd
             {/* Status row */}
             <div className={`flex items-center justify-between px-3 ${compact ? 'pt-1.5 pb-0.5' : 'pt-2.5 pb-0.5'}`}>
                 <span className={`${compact ? 'text-[9px]' : 'text-[10px]'} font-semibold tracking-wide`} style={{ color: '#8e8e93' }}>
-                    {isCompleted ? '✓ Complétés'
-                        : running ? `Tour ${laps.length + 1}/${neededLaps}`
-                        : `${remainingSlots} restant${remainingSlots !== 1 ? 's' : ''}`}
+                    {isCompleted ? tx(lang, { fr: '✓ Complétés', ar: '✓ مكتمل', en: '✓ Completed', es: '✓ Completados', pt: '✓ Concluídos', tr: '✓ Tamamlandı' })
+                        : running ? tx(lang, { fr: `Tour ${laps.length + 1}/${neededLaps}`, ar: `الدورة ${laps.length + 1}/${neededLaps}`, en: `Lap ${laps.length + 1}/${neededLaps}`, es: `Vuelta ${laps.length + 1}/${neededLaps}`, pt: `Volta ${laps.length + 1}/${neededLaps}`, tr: `Tur ${laps.length + 1}/${neededLaps}` })
+                        : tx(lang, { fr: `${remainingSlots} restant${remainingSlots !== 1 ? 's' : ''}`, ar: `${remainingSlots} متبقٍ`, en: `${remainingSlots} remaining`, es: `${remainingSlots} restante(s)`, pt: `${remainingSlots} restante(s)`, tr: `${remainingSlots} kaldı` })}
                 </span>
                 <div className="flex items-center gap-1.5">
                     <span className={`${compact ? 'text-[9px]' : 'text-[10px]'} font-bold tabular-nums`} style={{ color: '#8e8e93' }}>
@@ -334,7 +339,7 @@ function AdvancedStopwatch({ onRecord, onClear, onAdvance, onPrev, onNext, onUnd
                 {rejectedFlash ? (
                     <div className="flex items-center gap-1 animate-pulse"
                          style={{ fontSize: compact ? '0.7rem' : '0.75rem', fontWeight: 700, color: '#e5383b' }}>
-                        <span style={{ fontSize: compact ? '0.85rem' : '1rem' }}>⊘</span> Rejeté !
+                        <span style={{ fontSize: compact ? '0.85rem' : '1rem' }}>⊘</span> {tx(lang, { fr: 'Rejeté !', ar: 'مرفوض!', en: 'Rejected!', es: '¡Rechazado!', pt: 'Rejeitado!', tr: 'Reddedildi!' })}
                     </div>
                 ) : laps.length > 0 && !isCompleted ? (
                     <div className="tabular-nums" style={{ fontSize: compact ? '0.75rem' : '0.9rem', fontWeight: 400, color: '#8e8e93' }}>
@@ -349,9 +354,9 @@ function AdvancedStopwatch({ onRecord, onClear, onAdvance, onPrev, onNext, onUnd
                 <div className="mx-2 mb-1 rounded-xl overflow-hidden" style={{ background: '#ffffff' }}>
                     {!compact && (
                         <div className="grid grid-cols-3 px-3 py-1 border-b" style={{ borderColor: '#e5e5ea' }}>
-                            <span className="text-[10px] font-semibold" style={{ color: '#8e8e93' }}>Tour</span>
-                            <span className="text-[10px] font-semibold text-center" style={{ color: '#8e8e93' }}>T. Tour</span>
-                            <span className="text-[10px] font-semibold text-right" style={{ color: '#8e8e93' }}>T. Total</span>
+                            <span className="text-[10px] font-semibold" style={{ color: '#8e8e93' }}>{tx(lang, { fr: 'Tour', ar: 'الدورة', en: 'Lap', es: 'Vuelta', pt: 'Volta', tr: 'Tur' })}</span>
+                            <span className="text-[10px] font-semibold text-center" style={{ color: '#8e8e93' }}>{tx(lang, { fr: 'T. Tour', ar: 'وقت الدورة', en: 'Lap T.', es: 'T. Vuelta', pt: 'T. Volta', tr: 'Tur S.' })}</span>
+                            <span className="text-[10px] font-semibold text-right" style={{ color: '#8e8e93' }}>{tx(lang, { fr: 'T. Total', ar: 'الوقت الإجمالي', en: 'Total T.', es: 'T. Total', pt: 'T. Total', tr: 'Toplam S.' })}</span>
                         </div>
                     )}
                     {/* Keep lap area bounded so control buttons stay in place while recording tours. */}
@@ -416,7 +421,7 @@ function AdvancedStopwatch({ onRecord, onClear, onAdvance, onPrev, onNext, onUnd
                     {/* Lifson warning if needed */}
                     {nRequired !== null && nRequired > neededLaps && (
                         <div className={`px-2.5 ${compact ? 'py-0.5 text-[8.5px] rounded-lg' : 'py-1 text-[10px] rounded-xl'} border border-amber-200 bg-amber-50 font-bold text-amber-700`}>
-                            ⚠ Lifson : {nRequired} relevés recommandés pour fiabilité 95%
+                            ⚠ {tx(lang, { fr: `Lifson : ${nRequired} relevés recommandés pour fiabilité 95%`, ar: `Lifson: يُنصح بـ ${nRequired} قراءات لموثوقية 95%`, en: `Lifson: ${nRequired} readings recommended for 95% reliability`, es: `Lifson: se recomiendan ${nRequired} lecturas para una fiabilidad del 95%`, pt: `Lifson: recomendam-se ${nRequired} leituras para confiabilidade de 95%`, tr: `Lifson: %95 güvenilirlik için ${nRequired} ölçüm önerilir` })}
                         </div>
                     )}
                     {/* Outlier warning */}
@@ -427,14 +432,14 @@ function AdvancedStopwatch({ onRecord, onClear, onAdvance, onPrev, onNext, onUnd
                         return Math.abs(t - m) > 2 * sd;
                     }) && (
                         <div className={`px-2.5 ${compact ? 'py-0.5 text-[8.5px] rounded-lg' : 'py-1 text-[10px] rounded-xl'} border border-rose-200 bg-rose-50 font-bold text-rose-700`}>
-                            ✗ Valeur aberrante détectée — vérifiez avant de continuer
+                            ✗ {tx(lang, { fr: 'Valeur aberrante détectée — vérifiez avant de continuer', ar: 'تم رصد قيمة شاذة — يرجى التحقق قبل المتابعة', en: 'Outlier detected — verify before continuing', es: 'Valor atípico detectado — verifique antes de continuar', pt: 'Valor atípico detectado — verifique antes de continuar', tr: 'Aykırı değer tespit edildi — devam etmeden önce kontrol edin' })}
                         </div>
                     )}
                     <div className={`flex items-center gap-1.5 bg-emerald-50 border border-emerald-200 rounded-xl px-2.5 ${compact ? 'py-0.5 text-[9px]' : 'py-1.5'}`}>
                         <div className={`${compact ? 'w-3 h-3' : 'w-4 h-4'} rounded-full bg-emerald-500 flex items-center justify-center shrink-0`}>
                             <Hash className={`${compact ? 'w-1.5 h-1.5' : 'w-2.5 h-2.5'} text-white`} />
                         </div>
-                        <span className={`${compact ? 'text-[9px]' : 'text-[11px]'} font-bold text-emerald-700`}>{trCount} relevés enregistrés</span>
+                        <span className={`${compact ? 'text-[9px]' : 'text-[11px]'} font-bold text-emerald-700`}>{tx(lang, { fr: `${trCount} relevés enregistrés`, ar: `تم تسجيل ${trCount} قراءات`, en: `${trCount} readings recorded`, es: `${trCount} lecturas registradas`, pt: `${trCount} leituras registadas`, tr: `${trCount} ölçüm kaydedildi` })}</span>
                     </div>
                 </div>
             )}
@@ -456,7 +461,7 @@ function AdvancedStopwatch({ onRecord, onClear, onAdvance, onPrev, onNext, onUnd
                                 border: 'none', outline: 'none',
                                 cursor: onPrev ? 'pointer' : 'not-allowed',
                             }}
-                            title="Poste précédent"
+                            title={tx(lang, { fr: 'Poste précédent', ar: 'المحطة السابقة', en: 'Previous station', es: 'Estación anterior', pt: 'Posto anterior', tr: 'Önceki istasyon' })}
                         >
                             <ChevronDown className="w-3.5 h-3.5 rotate-90" />
                         </button>
@@ -465,17 +470,17 @@ function AdvancedStopwatch({ onRecord, onClear, onAdvance, onPrev, onNext, onUnd
                         <div className="flex-1 flex justify-center items-center gap-1.5">
                             {confirmClear ? (
                                 <div className="flex gap-1.5 items-center">
-                                    <span className="text-[8px] font-bold text-rose-600">Effacer?</span>
-                                    <button onClick={() => setConfirmClear(false)} className="px-1.5 py-0.5 text-[8px] font-bold bg-slate-200 rounded">Non</button>
-                                    <button onClick={() => { onClear(); handleReset(); setConfirmClear(false); vibrate([50, 30, 50]); }} className="px-1.5 py-0.5 text-[8px] font-bold bg-rose-500 text-white rounded">Oui</button>
+                                    <span className="text-[8px] font-bold text-rose-600">{tx(lang, { fr: 'Effacer?', ar: 'مسح؟', en: 'Clear?', es: '¿Borrar?', pt: 'Limpar?', tr: 'Sil?' })}</span>
+                                    <button onClick={() => setConfirmClear(false)} className="px-1.5 py-0.5 text-[8px] font-bold bg-slate-200 rounded">{tx(lang, { fr: 'Non', ar: 'لا', en: 'No', es: 'No', pt: 'Não', tr: 'Hayır' })}</button>
+                                    <button onClick={() => { onClear(); handleReset(); setConfirmClear(false); vibrate([50, 30, 50]); }} className="px-1.5 py-0.5 text-[8px] font-bold bg-rose-500 text-white rounded">{tx(lang, { fr: 'Oui', ar: 'نعم', en: 'Yes', es: 'Sí', pt: 'Sim', tr: 'Evet' })}</button>
                                 </div>
                             ) : isCompleted ? (
                                 <div className="flex gap-1">
                                     <button onClick={handleReset} className="flex items-center gap-0.5 px-2 py-0.5 text-[8.5px] font-bold bg-slate-200 hover:bg-slate-300 rounded text-slate-750 active:scale-95 transition-all">
-                                        <RotateCcw className="w-2.5 h-2.5" /> Nouveau
+                                        <RotateCcw className="w-2.5 h-2.5" /> {tx(lang, { fr: 'Nouveau', ar: 'جديد', en: 'New', es: 'Nuevo', pt: 'Novo', tr: 'Yeni' })}
                                     </button>
                                     <button onClick={() => setConfirmClear(true)} className="flex items-center gap-0.5 px-2 py-0.5 text-[8.5px] font-bold bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-600 rounded active:scale-95 transition-all">
-                                        <X className="w-2.5 h-2.5" /> Effacer
+                                        <X className="w-2.5 h-2.5" /> {tx(lang, { fr: 'Effacer', ar: 'مسح', en: 'Clear', es: 'Borrar', pt: 'Limpar', tr: 'Sil' })}
                                     </button>
                                 </div>
                             ) : (
@@ -492,7 +497,7 @@ function AdvancedStopwatch({ onRecord, onClear, onAdvance, onPrev, onNext, onUnd
                                     )}
                                     {/* Inline clear button if has laps but not finished */}
                                     {(laps.length > 0 || initialFilledRef.current > 0) && (
-                                        <button onClick={() => setConfirmClear(true)} className="ml-1 p-0.5 text-slate-400 hover:text-rose-500 rounded active:scale-95 transition-all" title="Effacer tout">
+                                        <button onClick={() => setConfirmClear(true)} className="ml-1 p-0.5 text-slate-400 hover:text-rose-500 rounded active:scale-95 transition-all" title={tx(lang, { fr: 'Effacer tout', ar: 'مسح الكل', en: 'Clear all', es: 'Borrar todo', pt: 'Limpar tudo', tr: 'Tümünü sil' })}>
                                             <Trash2 className="w-3 h-3" />
                                         </button>
                                     )}
@@ -513,7 +518,7 @@ function AdvancedStopwatch({ onRecord, onClear, onAdvance, onPrev, onNext, onUnd
                                 cursor: (onNext || onAdvance) ? 'pointer' : 'not-allowed',
                                 boxShadow: isCompleted ? '0 1px 6px rgba(52,199,89,0.3)' : 'none',
                             }}
-                            title="Poste suivant"
+                            title={tx(lang, { fr: 'Poste suivant', ar: 'المحطة التالية', en: 'Next station', es: 'Estación siguiente', pt: 'Próximo posto', tr: 'Sonraki istasyon' })}
                         >
                             <ChevronDown className="w-3.5 h-3.5 -rotate-90" />
                         </button>
@@ -528,26 +533,26 @@ function AdvancedStopwatch({ onRecord, onClear, onAdvance, onPrev, onNext, onUnd
                                 <button onClick={handleReset}
                                     className={`flex-1 flex items-center justify-center gap-1 py-1.5 text-[11px] font-bold active:scale-95 transition-all`}
                                     style={{ background: '#e5e5ea', color: '#3c3c43' }}>
-                                    <RotateCcw className="w-3 h-3" /> Nouveau cycle
+                                    <RotateCcw className="w-3 h-3" /> {tx(lang, { fr: 'Nouveau cycle', ar: 'دورة جديدة', en: 'New cycle', es: 'Nuevo ciclo', pt: 'Novo ciclo', tr: 'Yeni döngü' })}
                                 </button>
                             )}
                             <button onClick={() => setConfirmClear(true)}
                                 className={`flex-1 flex items-center justify-center gap-1 py-1.5 text-[11px] font-bold active:scale-95 transition-all`}
                                 style={{ background: '#ffe5e5', color: '#e5383b', border: '1px solid #fecaca' }}>
-                                <X className="w-3 h-3" /> Effacer
+                                <X className="w-3 h-3" /> {tx(lang, { fr: 'Effacer', ar: 'مسح', en: 'Clear', es: 'Borrar', pt: 'Limpar', tr: 'Sil' })}
                             </button>
                         </div>
                     )}
                     {confirmClear && (
                         <div className="flex flex-col gap-1">
-                            <p className="text-[10px] font-bold text-rose-600 text-center">Effacer les {trCount} relevés ?</p>
+                            <p className="text-[10px] font-bold text-rose-600 text-center">{tx(lang, { fr: `Effacer les ${trCount} relevés ?`, ar: `هل تريد مسح ${trCount} قراءات؟`, en: `Clear ${trCount} readings?`, es: `¿Borrar las ${trCount} lecturas?`, pt: `Limpar as ${trCount} leituras?`, tr: `${trCount} ölçüm silinsin mi?` })}</p>
                             <div className="flex gap-1.5">
                                 <button onClick={() => setConfirmClear(false)}
                                     className="flex-1 py-1.5 text-[11px] font-bold active:scale-95 transition-all"
-                                    style={{ background: '#e5e5ea', color: '#3c3c43' }}>Annuler</button>
+                                    style={{ background: '#e5e5ea', color: '#3c3c43' }}>{tx(lang, { fr: 'Annuler', ar: 'إلغاء', en: 'Cancel', es: 'Cancelar', pt: 'Cancelar', tr: 'İptal' })}</button>
                                 <button onClick={() => { onClear(); handleReset(); setConfirmClear(false); vibrate([50, 30, 50]); }}
                                     className="flex-1 py-1.5 text-[11px] font-bold active:scale-95 transition-all text-white"
-                                    style={{ background: '#e5383b' }}>Confirmer</button>
+                                    style={{ background: '#e5383b' }}>{tx(lang, { fr: 'Confirmer', ar: 'تأكيد', en: 'Confirm', es: 'Confirmar', pt: 'Confirmar', tr: 'Onayla' })}</button>
                             </div>
                         </div>
                     )}
@@ -566,7 +571,7 @@ function AdvancedStopwatch({ onRecord, onClear, onAdvance, onPrev, onNext, onUnd
                                 border: 'none', outline: 'none',
                                 cursor: onPrev ? 'pointer' : 'not-allowed',
                             }}
-                            title="Poste précédent"
+                            title={tx(lang, { fr: 'Poste précédent', ar: 'المحطة السابقة', en: 'Previous station', es: 'Estación anterior', pt: 'Posto anterior', tr: 'Önceki istasyon' })}
                         >
                             <ChevronDown className="w-4 h-4 rotate-90" />
                         </button>
@@ -595,7 +600,7 @@ function AdvancedStopwatch({ onRecord, onClear, onAdvance, onPrev, onNext, onUnd
                                 cursor: (onNext || onAdvance) ? 'pointer' : 'not-allowed',
                                 boxShadow: isCompleted ? '0 2px 8px rgba(52,199,89,0.35)' : 'none',
                             }}
-                            title="Poste suivant"
+                            title={tx(lang, { fr: 'Poste suivant', ar: 'المحطة التالية', en: 'Next station', es: 'Estación siguiente', pt: 'Próximo posto', tr: 'Sonraki istasyon' })}
                         >
                             <ChevronDown className="w-4 h-4 -rotate-90" />
                         </button>
@@ -619,14 +624,14 @@ function AdvancedStopwatch({ onRecord, onClear, onAdvance, onPrev, onNext, onUnd
                             cursor: elapsed === 0 && !running ? 'not-allowed' : 'pointer',
                         }}
                     >
-                        {running ? 'Tour' : 'Réinit'}
+                        {running ? tx(lang, { fr: 'Tour', ar: 'دورة', en: 'Lap', es: 'Vuelta', pt: 'Volta', tr: 'Tur' }) : tx(lang, { fr: 'Réinit', ar: 'إعادة', en: 'Reset', es: 'Reinic.', pt: 'Reiniciar', tr: 'Sıfırla' })}
                     </button>
                     <div className="flex-1 flex justify-center items-center">
                         {laps.length > 0 && !isCompleted && (
                             <button onClick={handleUndo}
                                 className={`flex items-center gap-0.5 ${compact ? 'text-[8px]' : 'text-[9px]'} font-bold px-2 py-0.5 rounded-full active:scale-95 transition-all hover:bg-white/50`}
-                                style={{ color: '#8e8e93', background: 'rgba(0,0,0,0.04)' }} title="Annuler le dernier relevé">
-                                <RotateCcw className={compact ? 'w-2 h-2' : 'w-2.5 h-2.5'} /> Annuler
+                                style={{ color: '#8e8e93', background: 'rgba(0,0,0,0.04)' }} title={tx(lang, { fr: 'Annuler le dernier relevé', ar: 'إلغاء آخر قراءة', en: 'Undo last reading', es: 'Deshacer última lectura', pt: 'Desfazer última leitura', tr: 'Son ölçümü geri al' })}>
+                                <RotateCcw className={compact ? 'w-2 h-2' : 'w-2.5 h-2.5'} /> {tx(lang, { fr: 'Annuler', ar: 'إلغاء', en: 'Undo', es: 'Deshacer', pt: 'Desfazer', tr: 'Geri al' })}
                             </button>
                         )}
                     </div>
@@ -640,7 +645,7 @@ function AdvancedStopwatch({ onRecord, onClear, onAdvance, onPrev, onNext, onUnd
                             boxShadow: running ? '0 2px 8px rgba(229,56,59,0.30)' : '0 2px 8px rgba(52,199,89,0.30)',
                         }}
                     >
-                        {running ? 'Arrêt' : 'Début'}
+                        {running ? tx(lang, { fr: 'Arrêt', ar: 'إيقاف', en: 'Stop', es: 'Detener', pt: 'Parar', tr: 'Durdur' }) : tx(lang, { fr: 'Début', ar: 'بدء', en: 'Start', es: 'Iniciar', pt: 'Iniciar', tr: 'Başlat' })}
                     </button>
                 </div>
             )}
@@ -692,6 +697,7 @@ export default function Chronometrage({
     setChronoLayoutSide
 }: ChronometrageProps) {
 
+    const { lang } = useLang();
     const [activeRowId, setActiveRowId] = useState<string | null>(null);
     const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
     const [trCount, setTrCount] = useState(5);
@@ -983,7 +989,20 @@ export default function Chronometrage({
         return roundValue(fromSeconds(toSeconds(value, sourceUnit), targetUnit));
     };
 
-    const unitLabel = getUnitMeta(unit).name.toLowerCase();
+
+    const getUnitName = (u: TimeUnit) => {
+        const meta = getUnitMeta(u);
+        return tx(lang, {
+            fr: meta.name,
+            ar: u === 'ms' ? 'مللي ثانية' : u === 'cs' ? 'جزء من المئة من الثانية' : u === 'ds' ? 'جزء من العشرة من الثانية' : u === 'sec' ? 'ثواني' : u === 'min' ? 'دقائق' : u === 'cmin' ? 'جزء من المئة من الدقيقة' : u === 'dmin' ? 'جزء من العشرة من الدقيقة' : u === 'hour' ? 'ساعات' : u === 'tmu' ? 'وحدة قياس الوقت (TMU)' : 'دقيقة مسموح بها قياسية (SAM)',
+            en: u === 'ms' ? 'Milliseconds' : u === 'cs' ? 'Centiseconds' : u === 'ds' ? 'Deciseconds' : u === 'sec' ? 'Seconds' : u === 'min' ? 'Minutes' : u === 'cmin' ? 'Centiminutes' : u === 'dmin' ? 'Deciminutes' : u === 'hour' ? 'Hours' : u === 'tmu' ? 'Time Measurement Unit' : 'Standard Allowed Minute',
+            es: u === 'ms' ? 'Milisegundos' : u === 'cs' ? 'Centisegundos' : u === 'ds' ? 'Decisegundos' : u === 'sec' ? 'Segundos' : u === 'min' ? 'Minutos' : u === 'cmin' ? 'Centiminutos' : u === 'dmin' ? 'Deciminutos' : u === 'hour' ? 'Horas' : u === 'tmu' ? 'Unidad de Medida de Tiempo (TMU)' : 'Minuto Permitido Estándar (SAM)',
+            pt: u === 'ms' ? 'Milissegundos' : u === 'cs' ? 'Centissegundos' : u === 'ds' ? 'Decissegundos' : u === 'sec' ? 'Segundos' : u === 'min' ? 'Minutos' : u === 'cmin' ? 'Centiminutos' : u === 'dmin' ? 'Deciminutos' : u === 'hour' ? 'Horas' : u === 'tmu' ? 'Unidade de Medida de Tempo (TMU)' : 'Minuto Padrão Permitido (SAM)',
+            tr: u === 'ms' ? 'Milisaniye' : u === 'cs' ? 'Salise' : u === 'ds' ? 'Desisaniye' : u === 'sec' ? 'Saniye' : u === 'min' ? 'Dakika' : u === 'cmin' ? 'Santidakika' : u === 'dmin' ? 'Desidakika' : u === 'hour' ? 'Saat' : u === 'tmu' ? 'Zaman Ölçüm Birimi (TMU)' : 'Standart İzin Verilen Dakika (SAM)'
+        });
+    };
+
+    const unitLabel = getUnitName(unit).toLowerCase();
     const unitShort = getUnitMeta(unit).label;
     const resolveMachineForOperation = useCallback((opId: string): Machine | undefined => {
         const op = operationsById[opId];
@@ -1004,7 +1023,7 @@ export default function Chronometrage({
         if (resolvedMachine?.name) return resolvedMachine.name;
         const op = operationsById[opId];
         const label = op?.machineName?.trim() || op?.machineId?.trim();
-        return label && label.length > 0 ? label : 'Machine non définie';
+        return label && label.length > 0 ? label : tx(lang, { fr: 'Machine non définie', ar: 'الآلة غير محددة', en: 'Machine not defined', es: 'Máquina no definida', pt: 'Máquina não definida', tr: 'Makine tanımlanmadı' });
     }, [operationsById, resolveMachineForOperation]);
     const ensureRow = useCallback((opId: string, current?: ChronoData): ChronoData => {
         const defaultMaj = getDefaultMajoration(opId);
@@ -1271,9 +1290,9 @@ export default function Chronometrage({
     };
 
     const gammeTypeOptions = [
-        { value: 'default' as const, label: 'Défaut', desc: 'Ordre de la Gamme' },
-        { value: 'plantation' as const, label: 'Plantation', desc: 'Flux réel atelier' },
-        { value: 'new' as const, label: 'Nouveau', desc: 'Nouvelle séquence' },
+        { value: 'default' as const, label: tx(lang, { fr: 'Défaut', ar: 'افتراضي', en: 'Default', es: 'Predeterminado', pt: 'Padrão', tr: 'Varsayılan' }), desc: tx(lang, { fr: 'Ordre de la Gamme', ar: 'ترتيب الغامة', en: 'Routing order', es: 'Orden de la gama', pt: 'Ordem da gama', tr: 'Rota sırası' }) },
+        { value: 'plantation' as const, label: tx(lang, { fr: 'Plantation', ar: 'التخطيط (Plantation)', en: 'Plantation', es: 'Plantation', pt: 'Plantation', tr: 'Plantation' }), desc: tx(lang, { fr: 'Flux réel atelier', ar: 'التدفق الفعلي للورشة', en: 'Actual shop floor flow', es: 'Flujo real del taller', pt: 'Fluxo real da oficina', tr: 'Gerçek atölye akışı' }) },
+        { value: 'new' as const, label: tx(lang, { fr: 'Nouveau', ar: 'جديد', en: 'New', es: 'Nuevo', pt: 'Novo', tr: 'Yeni' }), desc: tx(lang, { fr: 'Nouvelle séquence', ar: 'تسلسل جديد', en: 'New sequence', es: 'Nueva secuencia', pt: 'Nova sequência', tr: 'Yeni sıralama' }) },
     ];
 
     const getGlobalStationIndex = (st: Workstation) => {
@@ -1345,7 +1364,7 @@ export default function Chronometrage({
                     });
 
                     const nTheo = activeBf > 0 ? (standardTotalTime * SAM_MAJORATION) / activeBf : 0;
-                    operators = nTheo > toleranceRatio ? Math.ceil(nTheo) : (nTheo > 0 ? 1 : 0);
+                    operators = nTheo > 0 ? Math.max(1, Math.ceil(nTheo / toleranceRatio)) : 0;
 
                     if (p.originalId) {
                         operators = 1;
@@ -1422,19 +1441,21 @@ export default function Chronometrage({
         const sections = [];
         if (prep.length > 0) sections.push({ 
             id: 'PREPARATION', 
-            name: 'PRÉPARATION', 
+            name: tx(lang, { fr: 'PRÉPARATION', ar: 'التحضير', en: 'PREPARATION', es: 'PREPARACIÓN', pt: 'PREPARAÇÃO', tr: 'HAZIRLIK' }), 
             stations: prep, 
             theme: 'amber'
         });
         if (montage.length > 0) sections.push({ 
             id: 'MONTAGE', 
-            name: 'MONTAGE', 
+            name: tx(lang, { fr: 'MONTAGE', ar: 'التركيب', en: 'ASSEMBLY', es: 'MONTAJE', pt: 'MONTAGEM', tr: 'MONTAJ' }), 
             stations: montage, 
             theme: 'sky'
         });
         if (global.length > 0) sections.push({ 
             id: 'GLOBAL', 
-            name: (prep.length || montage.length) ? 'ZONE COMMUNE' : 'PRODUCTION GLOBALE', 
+            name: (prep.length || montage.length)
+                ? tx(lang, { fr: 'ZONE COMMUNE', ar: 'منطقة مشتركة', en: 'COMMON ZONE', es: 'ZONA COMÚN', pt: 'ZONA COMUM', tr: 'ORTAK ALAN' })
+                : tx(lang, { fr: 'PRODUCTION GLOBALE', ar: 'الإنتاج الإجمالي', en: 'GLOBAL PRODUCTION', es: 'PRODUCCIÓN GLOBAL', pt: 'PRODUÇÃO GLOBAL', tr: 'GENEL ÜRETİM' }), 
             stations: global, 
             theme: 'indigo'
         });
@@ -1442,7 +1463,7 @@ export default function Chronometrage({
         if (prep.length === 0 && montage.length === 0 && global.length === 0 && workstationsList.length > 0) {
              sections.push({
                 id: 'GLOBAL',
-                name: 'Flux de Production',
+                name: tx(lang, { fr: 'Flux de Production', ar: 'تدفق الإنتاج', en: 'Production Flow', es: 'Flujo de producción', pt: 'Fluxo de produção', tr: 'Üretim Akışı' }),
                 stations: workstationsList,
                 theme: 'indigo'
              });
@@ -1609,11 +1630,11 @@ export default function Chronometrage({
                 <div className="bg-gradient-to-r from-indigo-50/50 to-white px-5 py-4 border-b border-indigo-50 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-left">
                     <div>
                         <span className="text-[10px] font-extrabold uppercase tracking-wider text-indigo-500 bg-indigo-50 px-2 py-0.5 rounded-md border border-indigo-100">
-                            Chronométrage Actif
+                            {tx(lang, { fr: 'Chronométrage Actif', ar: 'التحكيم الزمني نشط', en: 'Active Time Study', es: 'Cronometraje Activo', pt: 'Cronometragem Ativa', tr: 'Etkin Zaman Etüdü' })}
                         </span>
                         <h4 className="font-black text-slate-800 text-sm mt-1.5 leading-snug line-clamp-2">{op.description}</h4>
                         <p className="text-slate-500 text-[11px] font-medium mt-0.5 flex items-center gap-1.5">
-                            <span className="font-semibold text-slate-400">Machine :</span> 
+                            <span className="font-semibold text-slate-400">{tx(lang, { fr: 'Machine :', ar: 'الآلة:', en: 'Machine:', es: 'Máquina:', pt: 'Máquina:', tr: 'Makine:' })}</span>
                             <strong className="text-indigo-600 bg-indigo-50/50 px-1.5 py-0.5 rounded border border-indigo-100/50">{getMachineLabel(op.id)}</strong>
                         </p>
                     </div>
@@ -1642,9 +1663,9 @@ export default function Chronometrage({
                 {/* TR Inputs & Calculations (Only needed in plantation because columns don't exist) */}
                 <div className="p-5 border-t border-slate-100 bg-slate-50/50 text-left">
                     <div className="flex items-center justify-between mb-3">
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Saisie des Relevés (Unité : {unitShort})</span>
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{tx(lang, { fr: `Saisie des Relevés (Unité : ${unitShort})`, ar: `إدخال القراءات (الوحدة: ${unitShort})`, en: `Reading Entry (Unit: ${unitShort})`, es: `Entrada de Lecturas (Unidad: ${unitShort})`, pt: `Entrada de Leituras (Unidade: ${unitShort})`, tr: `Ölçüm Girişi (Birim: ${unitShort})` })}</span>
                         {!trEnabled && (
-                            <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">TR OFF</span>
+                            <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">{tx(lang, { fr: 'TR OFF', ar: 'TR متوقف', en: 'TR OFF', es: 'TR OFF', pt: 'TR OFF', tr: 'TR KAPALI' })}</span>
                         )}
                     </div>
 
@@ -1668,10 +1689,10 @@ export default function Chronometrage({
                                             {hasVal && (
                                                 <button
                                                     type="button"
-                                                    aria-label={`Supprimer TR ${trNum}`}
+                                                    aria-label={`${tx(lang, { fr: 'Supprimer', ar: 'حذف', en: 'Delete', es: 'Eliminar', pt: 'Excluir', tr: 'Sil' })} TR ${trNum}`}
                                                     onClick={(e) => handleClearTRClick(e, op.id, trNum)}
                                                     className="absolute -top-1.5 -right-1.5 z-10 flex h-[16px] w-[16px] items-center justify-center rounded-full border border-rose-200 bg-white text-rose-500 shadow-sm opacity-0 scale-90 transition-all duration-200 group-hover/cell:opacity-100 group-hover/cell:scale-100 hover:bg-rose-50 hover:text-rose-600"
-                                                    title="Supprimer"
+                                                    title={tx(lang, { fr: 'Supprimer', ar: 'حذف', en: 'Delete', es: 'Eliminar', pt: 'Excluir', tr: 'Sil' })}
                                                 >
                                                     <X className="w-2.5 h-2.5" />
                                                 </button>
@@ -1683,14 +1704,14 @@ export default function Chronometrage({
                         </div>
                     ) : (
                         <div className="text-center py-3 bg-slate-50 border border-dashed border-slate-200 rounded-xl text-slate-400 text-xs font-semibold mb-4">
-                            Les relevés individuels (TR) sont désactivés. Vous pouvez saisir directement le temps moyen (T. Moyen) ci-dessous.
+                            {tx(lang, { fr: 'Les relevés individuels (TR) sont désactivés. Vous pouvez saisir directement le temps moyen (T. Moyen) ci-dessous.', ar: 'القراءات الفردية (TR) معطّلة. يمكنك إدخال الوقت المتوسط (T. Moyen) مباشرة أدناه.', en: 'Individual readings (TR) are disabled. You can enter the average time (T. Moyen) directly below.', es: 'Las lecturas individuales (TR) están desactivadas. Puede introducir directamente el tiempo medio (T. Moyen) a continuación.', pt: 'As leituras individuais (TR) estão desativadas. Pode introduzir diretamente o tempo médio (T. Moyen) abaixo.', tr: 'Tekil ölçümler (TR) devre dışı. Aşağıya doğrudan ortalama süreyi (T. Moyen) girebilirsiniz.' })}
                         </div>
                     )}
 
                     {/* Calculations strip */}
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 bg-white border border-slate-200/80 rounded-xl p-4 shadow-sm">
                         <div className="text-center">
-                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">T. Moyen</span>
+                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">{tx(lang, { fr: 'T. Moyen', ar: 'الوقت المتوسط', en: 'Avg. Time', es: 'T. Medio', pt: 'T. Médio', tr: 'Ort. Süre' })}</span>
                             <div className="mt-1 relative flex flex-col items-center">
                                 <input
                                     type="number"
@@ -1702,13 +1723,13 @@ export default function Chronometrage({
                                     onChange={e => handleCellChange(op.id, 'tm', e.target.value)}
                                 />
                                 {row.tmManual && (
-                                    <span className="text-[8px] font-bold text-slate-400 uppercase tracking-wider mt-0.5">manuel</span>
+                                    <span className="text-[8px] font-bold text-slate-400 uppercase tracking-wider mt-0.5">{tx(lang, { fr: 'manuel', ar: 'يدوي', en: 'manual', es: 'manual', pt: 'manual', tr: 'manuel' })}</span>
                                 )}
                             </div>
                         </div>
-                        
+
                         <div className="text-center">
-                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Majoration</span>
+                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">{tx(lang, { fr: 'Majoration', ar: 'الترفيع', en: 'Allowance', es: 'Recargo', pt: 'Acréscimo', tr: 'İlave Pay' })}</span>
                             <input
                                 type="number"
                                 step="0.01"
@@ -1720,16 +1741,16 @@ export default function Chronometrage({
                         </div>
                         
                         <div className="text-center flex flex-col justify-center border-l border-slate-100 pl-2">
-                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">T. Majoré</span>
+                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">{tx(lang, { fr: 'T. Majoré', ar: 'الوقت المرفّع', en: 'Allowed Time', es: 'T. Concedido', pt: 'T. Acrescido', tr: 'İlaveli Süre' })}</span>
                             <span className="mt-1.5 text-sm font-black text-emerald-700 font-mono block">
                                 {formatTempMajoreInUnit(row.tempMajore)}
                             </span>
                         </div>
-                        
+
                         {showThroughputKpi && (
                             <div className="text-center flex flex-col justify-center border-l border-slate-100 pl-2">
                                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">
-                                    {outputMode === 'PJ' ? 'P° Rdt (85%)' : 'P/H Rdt'}
+                                    {outputMode === 'PJ' ? tx(lang, { fr: 'P° Rdt (85%)', ar: 'الإنتاج بالمردود (85%)', en: 'Output Eff. (85%)', es: 'Prod. Rdto (85%)', pt: 'Produção Rend. (85%)', tr: 'Üretim Verim (85%)' }) : tx(lang, { fr: 'P/H Rdt', ar: 'الإنتاج/ساعة بالمردود', en: 'P/H Eff.', es: 'P/H Rdto', pt: 'P/H Rend.', tr: 'P/S Verim' })}
                                 </span>
                                 <span className="mt-1.5 text-sm font-black text-slate-800 font-mono block">
                                     {formatProductionCell(row.p85, outputMode)}
@@ -1752,7 +1773,7 @@ export default function Chronometrage({
                             }}
                             className="px-4 py-2 rounded-lg text-xs font-black bg-slate-100 hover:bg-slate-200 text-slate-600 transition-colors flex items-center gap-1.5 active:scale-95 shadow-sm"
                         >
-                            <X className="w-3.5 h-3.5" /> Fermer
+                            <X className="w-3.5 h-3.5" /> {tx(lang, { fr: 'Fermer', ar: 'إغلاق', en: 'Close', es: 'Cerrar', pt: 'Fechar', tr: 'Kapat' })}
                         </button>
                     </div>
                 </div>
@@ -1835,7 +1856,7 @@ export default function Chronometrage({
                     {/* Top row: Calculations */}
                     <div className="flex items-center justify-between gap-2 border-b border-slate-200/60 pb-1 flex-wrap">
                         <div className="flex items-center gap-1">
-                            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wide">T.Moy:</span>
+                            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wide">{tx(lang, { fr: 'T.Moy :', ar: 'الوقت المتوسط:', en: 'Avg. Time:', es: 'T.Medio:', pt: 'T.Médio:', tr: 'Ort.Süre:' })}</span>
                             <input
                                 type="number"
                                 step="0.01"
@@ -1846,12 +1867,12 @@ export default function Chronometrage({
                                 onChange={e => handleCellChange(op.id, 'tm', e.target.value, stId)}
                             />
                             {row.tmManual && (
-                                <span className="text-[7px] font-bold text-indigo-500 uppercase tracking-wider">manuel</span>
+                                <span className="text-[7px] font-bold text-indigo-500 uppercase tracking-wider">{tx(lang, { fr: 'manuel', ar: 'يدوي', en: 'manual', es: 'manual', pt: 'manual', tr: 'manuel' })}</span>
                             )}
                         </div>
 
                         <div className="flex items-center gap-1">
-                            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wide">Majoration:</span>
+                            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wide">{tx(lang, { fr: 'Majoration :', ar: 'الترفيع:', en: 'Allowance:', es: 'Recargo:', pt: 'Acréscimo:', tr: 'İlave Pay:' })}</span>
                             <input
                                 type="number"
                                 step="0.01"
@@ -1863,7 +1884,7 @@ export default function Chronometrage({
                         </div>
 
                         <div className="flex items-center gap-1">
-                            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wide">T.Maj:</span>
+                            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wide">{tx(lang, { fr: 'T.Maj :', ar: 'الوقت المرفّع:', en: 'Allowed T.:', es: 'T.Conced.:', pt: 'T.Acresc.:', tr: 'İl.Süre:' })}</span>
                             <span className="text-xs font-black text-emerald-600 font-mono">
                                 {row.tempMajore !== undefined ? formatTempMajoreInUnit(row.tempMajore) : '—'}
                             </span>
@@ -1873,7 +1894,7 @@ export default function Chronometrage({
                     {/* Bottom row: TR Inputs */}
                     {trEnabled && (
                         <div className="flex items-center gap-1.5 flex-wrap">
-                            <span className="text-[8px] font-bold uppercase tracking-wider text-slate-400 shrink-0">Relevés:</span>
+                            <span className="text-[8px] font-bold uppercase tracking-wider text-slate-400 shrink-0">{tx(lang, { fr: 'Relevés :', ar: 'القراءات:', en: 'Readings:', es: 'Lecturas:', pt: 'Leituras:', tr: 'Ölçümler:' })}</span>
                             <div className="flex gap-0.5 items-center flex-wrap">
                                 {trSlots.map(trNum => {
                                     const val = data[`tr${trNum}` as keyof ChronoData];
@@ -1891,10 +1912,10 @@ export default function Chronometrage({
                                             {hasVal && (
                                                 <button
                                                     type="button"
-                                                    aria-label={`Supprimer TR ${trNum}`}
+                                                    aria-label={`${tx(lang, { fr: 'Supprimer', ar: 'حذف', en: 'Delete', es: 'Eliminar', pt: 'Excluir', tr: 'Sil' })} TR ${trNum}`}
                                                     onClick={(e) => handleClearTRClick(e, op.id, trNum, stId)}
                                                     className="absolute -top-1 -right-1 z-10 flex h-[10px] w-[10px] items-center justify-center rounded-full border border-rose-200 bg-white text-rose-500 shadow-sm opacity-0 scale-90 transition-all duration-200 group-hover/cell:opacity-100 group-hover/cell:scale-100 hover:bg-rose-50 hover:text-rose-600"
-                                                    title="Supprimer"
+                                                    title={tx(lang, { fr: 'Supprimer', ar: 'حذف', en: 'Delete', es: 'Eliminar', pt: 'Excluir', tr: 'Sil' })}
                                                 >
                                                     <X className="w-1.5 h-1.5" />
                                                 </button>
@@ -1954,11 +1975,11 @@ export default function Chronometrage({
                     </span>
 
                     <span className="text-xs sm:text-sm font-medium text-slate-400 italic truncate">
-                        Aucune opération
+                        {tx(lang, { fr: 'Aucune opération', ar: 'لا توجد عملية', en: 'No operation', es: 'Ninguna opération', pt: 'Nenhuma operação', tr: 'İşlem yok' })}
                     </span>
                 </div>
                 <div className="text-[9px] font-bold text-slate-400 bg-slate-100/80 px-2 py-0.5 rounded border border-slate-200/50 uppercase tracking-wider shrink-0">
-                    Poste Vide
+                    {tx(lang, { fr: 'Poste vide', ar: 'مركز فارغ', en: 'Empty station', es: 'Estación vacía', pt: 'Posto vazio', tr: 'Boş istasyon' })}
                 </div>
             </div>
         );
@@ -2078,7 +2099,7 @@ export default function Chronometrage({
                         )}
 
                         {/* Flow Index (e.g. #1) - Using st.index to be unique for each worker and matches Implantation */}
-                        <span className="bg-slate-100 text-slate-700 text-[10px] px-1.5 py-0.5 rounded border border-slate-200 font-extrabold shrink-0" title="Ordre dans le flux">
+                        <span className="bg-slate-100 text-slate-700 text-[10px] px-1.5 py-0.5 rounded border border-slate-200 font-extrabold shrink-0" title={tx(lang, { fr: 'Ordre dans le flux', ar: 'الترتيب في التدفق', en: 'Flow order', es: 'Orden en el flujo', pt: 'Ordem no fluxo', tr: 'Akış sırası' })}>
                             #{st.index}
                         </span>
 
@@ -2106,7 +2127,7 @@ export default function Chronometrage({
                             {/* Affectation de l'opérateur (identique au mode "Nouveau") */}
                             <div className="flex items-center gap-1.5 w-full sm:w-auto mt-1.5" onClick={e => e.stopPropagation()}>
                                 <span className="text-[9px] sm:text-[10px] font-extrabold text-slate-400 uppercase tracking-wider shrink-0">
-                                    Opé:
+                                    {tx(lang, { fr: 'Opé :', ar: 'العامل:', en: 'Worker:', es: 'Oper.:', pt: 'Op.:', tr: 'Oper.:' })}
                                 </span>
                                 <div className="relative flex-1 sm:flex-none sm:w-56">
                                     <input
@@ -2126,7 +2147,7 @@ export default function Chronometrage({
                                                 setActiveOperatorStationId(null);
                                             }, 250);
                                         }}
-                                        placeholder="Nom / Matricule..."
+                                        placeholder={tx(lang, { fr: 'Nom / Matricule...', ar: 'الاسم / الرقم الوظيفي...', en: 'Name / ID...', es: 'Nombre / Matrícula...', pt: 'Nome / Matrícula...', tr: 'İsim / Sicil No...' })}
                                         className="bg-slate-50 border border-slate-200 focus:border-indigo-400 focus:bg-white rounded px-2 py-1 sm:py-0.5 outline-none w-full text-[11px] sm:text-xs font-black text-slate-700 placeholder-slate-400 transition-all shadow-sm"
                                     />
 
@@ -2137,18 +2158,18 @@ export default function Chronometrage({
                                             className="absolute z-[200] left-0 top-full mt-1.5 w-full sm:w-72 max-h-60 sm:max-h-72 overflow-y-auto bg-white border border-slate-200/90 rounded-xl sm:rounded-2xl shadow-xl divide-y divide-slate-100 p-1.5"
                                         >
                                             <div className="px-3 py-2 bg-slate-50/80 rounded-t-lg text-[9px] sm:text-[10px] font-black text-slate-400 uppercase tracking-wider sticky top-0 z-10 border-b border-slate-100 flex items-center justify-between">
-                                                <span>Membres d'Effectifs Disponibles</span>
-                                                <span className="text-[8px] bg-slate-200/60 text-slate-500 px-1 py-0.2 rounded font-mono">
-                                                    {workerSuggestions.length} dispo
+                                                <span>{tx(lang, { fr: "Membres d'effectifs disponibles", ar: 'أعضاء الفريق المتاحين', en: 'Available staff members', es: 'Miembros de personal disponibles', pt: 'Membros da equipe disponíveis', tr: 'Mevcut personel üyeleri' })}</span>
+                                                <span className="text-[8px] bg-slate-200/60 text-slate-555 px-1 py-0.2 rounded font-mono">
+                                                    {workerSuggestions.length} {tx(lang, { fr: 'dispo', ar: 'متاح', en: 'avail.', es: 'disp.', pt: 'disp.', tr: 'mevcut' })}
                                                 </span>
                                             </div>
                                             {activeWorkers.length === 0 ? (
                                                 <div className="px-4 py-4 text-center text-xs text-slate-450 font-semibold">
-                                                    Chargement des effectifs...
+                                                    {tx(lang, { fr: 'Chargement des effectifs...', ar: 'جاري تحميل الفريق...', en: 'Loading staff...', es: 'Cargando personal...', pt: 'Carregando equipe...', tr: 'Personel yükleniyor...' })}
                                                 </div>
                                             ) : workerSuggestions.length === 0 ? (
                                                 <div className="px-4 py-4 text-center text-xs text-slate-450 font-semibold">
-                                                    Aucun membre disponible
+                                                    {tx(lang, { fr: 'Aucun membre disponible', ar: 'لا يوجد عضو متاح', en: 'No member available', es: 'Ningún miembro disponible', pt: 'Nenhum membre disponible', tr: 'Mevcut üye yok' })}
                                                 </div>
                                             ) : (
                                                 workerSuggestions.map(w => (
@@ -2168,7 +2189,7 @@ export default function Chronometrage({
                                                         <div className="flex flex-col gap-0.5 min-w-0">
                                                             <span className="text-xs sm:text-sm font-bold text-slate-800 truncate">{w.full_name}</span>
                                                             <span className="text-[9px] sm:text-[10px] font-semibold text-slate-400 truncate">
-                                                                Matricule: {w.matricule}
+                                                                {tx(lang, { fr: 'Matricule :', ar: 'الرقم الوظيفي:', en: 'ID:', es: 'Matrícula:', pt: 'Matrícula:', tr: 'Sicil No:' })} {w.matricule}
                                                             </span>
                                                         </div>
                                                         {w.role && (
@@ -2210,14 +2231,14 @@ export default function Chronometrage({
                 <div className="flex items-center justify-between mt-auto pt-1.5 border-t border-slate-100">
                     {stationTimeInSeconds > 0 ? (
                         <div className="flex flex-col">
-                            <span className="text-[7px] font-bold text-slate-400 uppercase tracking-wider">Total Poste</span>
+                            <span className="text-[7px] font-bold text-slate-400 uppercase tracking-wider">{tx(lang, { fr: 'Total Poste', ar: 'إجمالي المحطة', en: 'Station Total', es: 'Total Estación', pt: 'Total Posto', tr: 'İstasyon Toplamı' })}</span>
                             <span className={`text-sm font-bold ${color.text}`}>{stationTimeInSeconds}s</span>
                         </div>
                     ) : (
                         <div />
                     )}
                     <div className="flex flex-col items-end">
-                        <span className="text-[7px] font-bold text-slate-400 uppercase tracking-wider">Sat. Poste</span>
+                        <span className="text-[7px] font-bold text-slate-400 uppercase tracking-wider">{tx(lang, { fr: 'Sat. Poste', ar: 'إشباع المحطة', en: 'Station Sat.', es: 'Sat. Estación', pt: 'Sat. Posto', tr: 'İstasyon Sat.' })}</span>
                         <div className="flex items-center gap-1">
                             {st.operators > 1 && <span className="text-[9px] font-black px-1 rounded bg-amber-100 text-amber-700">x{st.operators}</span>}
                             <span className={`text-[9px] font-black px-1.5 py-0.5 rounded ${satBadgeClass}`}>{sat}%</span>
@@ -2563,7 +2584,16 @@ export default function Chronometrage({
                 className="w-full bg-slate-50/20 hover:bg-slate-100/40 rounded-xl sm:rounded-2xl border-2 border-dashed border-slate-300 hover:border-indigo-400 py-6 px-4 flex items-center justify-center gap-2 text-center opacity-70 text-slate-400 hover:text-indigo-650 transition-all min-h-[96px] shadow-sm select-none"
             >
                 <Plus className="w-5 h-5 shrink-0 text-slate-400 group-hover:text-indigo-650" />
-                <span className="text-xs sm:text-sm font-black uppercase tracking-wide">Ajouter un poste {side === 'left' ? 'Gauche' : 'Droit'}</span>
+                <span className="text-xs sm:text-sm font-black uppercase tracking-wide">
+                    {tx(lang, { 
+                        fr: `Ajouter un poste ${side === 'left' ? 'Gauche' : 'Droit'}`, 
+                        ar: `إضافة محطة ${side === 'left' ? 'يسرى' : 'يمين'}`, 
+                        en: `Add a ${side === 'left' ? 'Left' : 'Right'} station`, 
+                        es: `Agregar una estación ${side === 'left' ? 'Izquierda' : 'Derecha'}`, 
+                        pt: `Adicionar um posto ${side === 'left' ? 'Esquerdo' : 'Direito'}`, 
+                        tr: `${side === 'left' ? 'Sol' : 'Sağ'} istasyon ekle` 
+                    })}
+                </span>
             </button>
         );
     };
@@ -2582,7 +2612,7 @@ export default function Chronometrage({
                     {/* Top row: Calculations */}
                     <div className="flex items-center justify-between gap-2 border-b border-slate-200/60 pb-1 flex-wrap">
                         <div className="flex items-center gap-1">
-                            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wide">T.Moy:</span>
+                            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wide">{tx(lang, { fr: 'T.Moy :', ar: 'الوقت المتوسط:', en: 'Avg. Time:', es: 'T.Medio:', pt: 'T.Médio:', tr: 'Ort.Süre:' })}</span>
                             <input
                                 type="number"
                                 step="0.01"
@@ -2593,12 +2623,12 @@ export default function Chronometrage({
                                 onChange={e => handleCellChange(stationId, 'tm', e.target.value)}
                             />
                             {row.tmManual && (
-                                <span className="text-[7px] font-bold text-indigo-500 uppercase tracking-wider">manuel</span>
+                                <span className="text-[7px] font-bold text-indigo-500 uppercase tracking-wider">{tx(lang, { fr: 'manuel', ar: 'يدوي', en: 'manual', es: 'manual', pt: 'manual', tr: 'manuel' })}</span>
                             )}
                         </div>
 
                         <div className="flex items-center gap-1">
-                            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wide">Majoration:</span>
+                            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wide">{tx(lang, { fr: 'Majoration :', ar: 'الترفيع:', en: 'Allowance:', es: 'Recargo:', pt: 'Acréscimo:', tr: 'İlave Pay:' })}</span>
                             <input
                                 type="number"
                                 step="0.01"
@@ -2610,7 +2640,7 @@ export default function Chronometrage({
                         </div>
 
                         <div className="flex items-center gap-1">
-                            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wide">T.Maj:</span>
+                            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wide">{tx(lang, { fr: 'T.Maj :', ar: 'الوقت المرفّع:', en: 'Allowed T.:', es: 'T.Conced.:', pt: 'T.Acresc.:', tr: 'İl.Süre:' })}</span>
                             <span className="text-xs font-black text-emerald-600 font-mono">
                                 {row.tempMajore !== undefined ? formatTempMajoreInUnit(row.tempMajore) : '—'}
                             </span>
@@ -2620,7 +2650,7 @@ export default function Chronometrage({
                     {/* Bottom row: TR Inputs */}
                     {trEnabled && (
                         <div className="flex items-center gap-1.5 flex-wrap">
-                            <span className="text-[8px] font-bold uppercase tracking-wider text-slate-400 shrink-0">Relevés:</span>
+                            <span className="text-[8px] font-bold uppercase tracking-wider text-slate-400 shrink-0">{tx(lang, { fr: 'Relevés :', ar: 'القراءات:', en: 'Readings:', es: 'Lecturas:', pt: 'Leituras:', tr: 'Ölçümler:' })}</span>
                             <div className="flex gap-0.5 items-center flex-wrap">
                                 {trSlots.map(trNum => {
                                     const val = data[`tr${trNum}` as keyof ChronoData];
@@ -2638,10 +2668,10 @@ export default function Chronometrage({
                                             {hasVal && (
                                                 <button
                                                     type="button"
-                                                    aria-label={`Supprimer TR ${trNum}`}
+                                                    aria-label={`${tx(lang, { fr: 'Supprimer', ar: 'حذف', en: 'Delete', es: 'Eliminar', pt: 'Excluir', tr: 'Sil' })} TR ${trNum}`}
                                                     onClick={(e) => handleClearTRClick(e, stationId, trNum)}
                                                     className="absolute -top-1 -right-1 z-10 flex h-[10px] w-[10px] items-center justify-center rounded-full border border-rose-200 bg-white text-rose-500 shadow-sm opacity-0 scale-90 transition-all duration-200 group-hover/cell:opacity-100 group-hover/cell:scale-100 hover:bg-rose-50 hover:text-rose-600"
-                                                    title="Supprimer"
+                                                    title={tx(lang, { fr: 'Supprimer', ar: 'حذف', en: 'Delete', es: 'Eliminar', pt: 'Excluir', tr: 'Sil' })}
                                                 >
                                                     <X className="w-1.5 h-1.5" />
                                                 </button>
@@ -2788,7 +2818,7 @@ export default function Chronometrage({
                         </div>
 
                         {/* Flow Index */}
-                        <span className="bg-slate-100 text-slate-700 text-[10px] px-1.5 py-0.5 rounded border border-slate-200 font-extrabold shrink-0" title="Ordre dans le flux">
+                        <span className="bg-slate-100 text-slate-700 text-[10px] px-1.5 py-0.5 rounded border border-slate-200 font-extrabold shrink-0" title={tx(lang, { fr: 'Ordre dans le flux', ar: 'الترتيب في التدفق', en: 'Flow order', es: 'Orden en el flujo', pt: 'Ordem no fluxo', tr: 'Akış sırası' })}>
                             #{flowNum}
                         </span>
 
@@ -2805,7 +2835,7 @@ export default function Chronometrage({
                             onClick={e => e.stopPropagation()}
                             className="text-white text-[9px] sm:text-xs px-1.5 sm:px-2 py-0.5 rounded font-black tracking-wide shrink-0 w-10 sm:w-12 text-center border-none outline-none focus:ring-1 focus:ring-white/50"
                             style={{ backgroundColor: fill }}
-                            placeholder="Nom"
+                            placeholder={tx(lang, { fr: 'Nom', ar: 'الاسم', en: 'Name', es: 'Nombre', pt: 'Nome', tr: 'İsim' })}
                         />
 
                         {/* Operation description and Station/Machine details */}
@@ -2836,7 +2866,7 @@ export default function Chronometrage({
                                         }, 250);
                                     }}
                                     className="text-[11px] sm:text-sm font-black text-slate-800 bg-transparent border-b border-dashed border-slate-200 hover:border-slate-350 focus:border-indigo-500 outline-none w-full placeholder-slate-400 py-0.5"
-                                    placeholder="Opération / Desc..."
+                                    placeholder={tx(lang, { fr: 'Opération / Desc...', ar: 'العملية / الوصف...', en: 'Operation / Desc...', es: 'Operación / Desc...', pt: 'Operação / Desc...', tr: 'İşlem / Açıklama...' })}
                                 />
 
                                 {/* Suggestions d'opérations : ancrées juste sous le champ "Opération / Desc" */}
@@ -2858,8 +2888,8 @@ export default function Chronometrage({
                                             >
                                                 <span className="text-xs sm:text-sm font-bold text-slate-800 truncate">{op.description}</span>
                                                 <div className="flex items-center gap-1.5">
-                                                    <span className="text-[9px] sm:text-[10px] font-semibold text-slate-400">Machine: {op.machineId || '—'}</span>
-                                                    <span className="text-[9px] sm:text-[10px] font-semibold text-slate-400">Temps: {op.time} min</span>
+                                                    <span className="text-[9px] sm:text-[10px] font-semibold text-slate-400">{tx(lang, { fr: 'Machine :', ar: 'الآلة:', en: 'Machine:', es: 'Máquina:', pt: 'Máquina:', tr: 'Makine:' })} {op.machineId || '—'}</span>
+                                                    <span className="text-[9px] sm:text-[10px] font-semibold text-slate-400">{tx(lang, { fr: 'Temps :', ar: 'الوقت:', en: 'Time:', es: 'Tiempo:', pt: 'Tempo:', tr: 'Süre:' })} {op.time} min</span>
                                                 </div>
                                             </button>
                                         ))}
@@ -2888,7 +2918,7 @@ export default function Chronometrage({
 
                                 <div className="flex items-center gap-1.5 w-full sm:w-auto" onClick={e => e.stopPropagation()}>
                                     <span className="text-[9px] sm:text-[10px] font-extrabold text-slate-400 uppercase tracking-wider shrink-0">
-                                        Opé:
+                                        {tx(lang, { fr: 'Opé :', ar: 'العامل:', en: 'Worker:', es: 'Oper.:', pt: 'Op.:', tr: 'Oper.:' })}
                                     </span>
                                     <div className="relative flex-1 sm:flex-none sm:w-56">
                                         <input
@@ -2910,7 +2940,7 @@ export default function Chronometrage({
                                                     setActiveOperatorStationId(null);
                                                 }, 250);
                                             }}
-                                            placeholder="Nom / Matricule..."
+                                            placeholder={tx(lang, { fr: 'Nom / Matricule...', ar: 'الاسم / الرقم الوظيفي...', en: 'Name / ID...', es: 'Nombre / Matrícula...', pt: 'Nome / Matrícula...', tr: 'İsim / Sicil No...' })}
                                             className="bg-slate-50 border border-slate-200 focus:border-indigo-400 focus:bg-white rounded px-2 py-1 sm:py-0.5 outline-none w-full text-[11px] sm:text-xs font-black text-slate-700 placeholder-slate-400 transition-all shadow-sm"
                                         />
 
@@ -2921,18 +2951,18 @@ export default function Chronometrage({
                                                 className="absolute z-[200] left-0 top-full mt-1.5 w-full sm:w-72 max-h-60 sm:max-h-72 overflow-y-auto bg-white border border-slate-200/90 rounded-xl sm:rounded-2xl shadow-xl divide-y divide-slate-100 p-1.5"
                                             >
                                                 <div className="px-3 py-2 bg-slate-50/80 rounded-t-lg text-[9px] sm:text-[10px] font-black text-slate-400 uppercase tracking-wider sticky top-0 z-10 border-b border-slate-100 flex items-center justify-between">
-                                                    <span>Membres d'Effectifs Disponibles</span>
+                                                    <span>{tx(lang, { fr: "Membres d'effectifs disponibles", ar: 'أعضاء الفريق المتاحين', en: 'Available staff members', es: 'Miembros de personal disponibles', pt: 'Membros da equipe disponíveis', tr: 'Mevcut personel üyeleri' })}</span>
                                                     <span className="text-[8px] bg-slate-200/60 text-slate-500 px-1 py-0.2 rounded font-mono">
-                                                        {workerSuggestions.length} dispo
+                                                        {workerSuggestions.length} {tx(lang, { fr: 'dispo', ar: 'متاح', en: 'avail.', es: 'disp.', pt: 'disp.', tr: 'mevcut' })}
                                                     </span>
                                                 </div>
                                                 {activeWorkers.length === 0 ? (
                                                     <div className="px-4 py-4 text-center text-xs text-slate-450 font-semibold">
-                                                        Chargement des effectifs...
+                                                        {tx(lang, { fr: 'Chargement des effectifs...', ar: 'جاري تحميل الفريق...', en: 'Loading staff...', es: 'Cargando personal...', pt: 'Carregando equipe...', tr: 'Personel yükleniyor...' })}
                                                     </div>
                                                 ) : workerSuggestions.length === 0 ? (
                                                     <div className="px-4 py-4 text-center text-xs text-slate-450 font-semibold">
-                                                        Aucun membre disponible
+                                                        {tx(lang, { fr: 'Aucun membre disponible', ar: 'لا يوجد عضو متاح', en: 'No member available', es: 'Ningún miembro disponible', pt: 'Nenhum membre disponível', tr: 'Mevcut üye yok' })}
                                                     </div>
                                                 ) : (
                                                     workerSuggestions.map(w => (
@@ -2954,7 +2984,7 @@ export default function Chronometrage({
                                                             <div className="flex flex-col gap-0.5 min-w-0">
                                                                 <span className="text-xs sm:text-sm font-bold text-slate-800 truncate">{w.full_name}</span>
                                                                 <span className="text-[9px] sm:text-[10px] font-semibold text-slate-400 truncate">
-                                                                    Matricule: {w.matricule}
+                                                                    {tx(lang, { fr: 'Matricule :', ar: 'الرقم الوظيفي:', en: 'ID:', es: 'Matrícula:', pt: 'Matrícula:', tr: 'Sicil No:' })} {w.matricule}
                                                                 </span>
                                                             </div>
                                                             {w.role && (
@@ -2976,7 +3006,7 @@ export default function Chronometrage({
                                     </span>
                                 )}
                                 {linkedOp && (
-                                    <span className="text-[9px] font-bold uppercase text-indigo-600 bg-indigo-50 border border-indigo-100 px-1 py-0.2 rounded leading-none shrink-0" title="Lié à l'opération de la Gamme">
+                                    <span className="text-[9px] font-bold uppercase text-indigo-600 bg-indigo-50 border border-indigo-100 px-1 py-0.2 rounded leading-none shrink-0" title={tx(lang, { fr: "Lié à l'opération de la Gamme", ar: 'مرتبط بعملية الغامة', en: 'Linked to routing operation', es: 'Vinculado a la operación de la gama', pt: 'Vinculado à operação da gama', tr: 'Rota işlemine bağlı' })}>
                                         Gamme Op #{linkedOp.order}
                                     </span>
                                 )}
@@ -3001,12 +3031,12 @@ export default function Chronometrage({
                             type="button"
                             onClick={(e) => {
                                 e.stopPropagation();
-                                if (confirm("Voulez-vous vraiment supprimer ce poste ?")) {
+                                if (confirm(tx(lang, { fr: 'Voulez-vous vraiment supprimer ce poste ?', ar: 'هل تريد حقًا حذف هذا المركز؟', en: 'Do you really want to delete this station?', es: '¿Realmente desea eliminar esta estación?', pt: 'Deseja realmente excluir este posto?', tr: 'Bu istasyonu gerçekten silmek istiyor musunuz?' }))) {
                                     deleteCustomStation(station.id);
                                 }
                             }}
                             className="p-1 text-slate-400 hover:text-rose-600 hover:bg-slate-100 rounded-lg transition-colors shrink-0"
-                            title="Supprimer ce poste"
+                            title={tx(lang, { fr: 'Supprimer ce poste', ar: 'حذف هذا المركز', en: 'Delete this station', es: 'Eliminar esta estación', pt: 'Excluir este posto', tr: 'Bu istasyonu sil' })}
                         >
                             <Trash2 className="w-3.5 h-3.5" />
                         </button>
@@ -3024,14 +3054,14 @@ export default function Chronometrage({
                 <div className="flex items-center justify-between mt-auto pt-1.5 border-t border-slate-100">
                     {stationTimeInSeconds > 0 ? (
                         <div className="flex flex-col">
-                            <span className="text-[7px] font-bold text-slate-400 uppercase tracking-wider">Total Poste</span>
+                            <span className="text-[7px] font-bold text-slate-400 uppercase tracking-wider">{tx(lang, { fr: 'Total Poste', ar: 'إجمالي المحطة', en: 'Station Total', es: 'Total Estación', pt: 'Total Posto', tr: 'İstasyon Toplamı' })}</span>
                             <span className={`text-sm font-bold ${colorText}`}>{stationTimeInSeconds}s</span>
                         </div>
                     ) : (
                         <div />
                     )}
                     <div className="flex flex-col items-end">
-                        <span className="text-[7px] font-bold text-slate-400 uppercase tracking-wider">Sat. Poste</span>
+                        <span className="text-[7px] font-bold text-slate-400 uppercase tracking-wider">{tx(lang, { fr: 'Sat. Poste', ar: 'إشباع المحطة', en: 'Station Sat.', es: 'Sat. Estación', pt: 'Sat. Posto', tr: 'İstasyon Sat.' })}</span>
                         <div className="flex items-center gap-1">
                             <span className={`text-[9px] font-black px-1.5 py-0.5 rounded ${satBadgeClass}`}>{sat}%</span>
                         </div>
@@ -3070,7 +3100,7 @@ export default function Chronometrage({
                     {/* OUVRIERS / HEURES — compact mobile */}
                     <div className="flex items-center gap-1 sm:gap-3 px-1.5 py-0.5 sm:px-3 sm:py-2 bg-slate-50 rounded-lg border border-slate-100 shadow-sm shrink-0">
                         <div className="flex flex-col items-center border-r border-slate-200 pr-1.5 sm:pr-3 mr-1.5 sm:mr-3">
-                            <span className="text-[7px] sm:text-[9px] font-bold text-slate-400 uppercase">Ouvriers</span>
+                            <span className="text-[7px] sm:text-[9px] font-bold text-slate-400 uppercase">{tx(lang, { fr: 'Ouvriers', ar: 'العمال', en: 'Workers', es: 'Operarios', pt: 'Trabalhadores', tr: 'İşçiler' })}</span>
                             <input 
                                 type="number" 
                                 min="1" 
@@ -3080,7 +3110,7 @@ export default function Chronometrage({
                             />
                         </div>
                         <div className="flex flex-col items-center">
-                            <span className="text-[7px] sm:text-[9px] font-bold text-slate-400 uppercase">Heures</span>
+                            <span className="text-[7px] sm:text-[9px] font-bold text-slate-400 uppercase">{tx(lang, { fr: 'Heures', ar: 'الساعات', en: 'Hours', es: 'Horas', pt: 'Horas', tr: 'Saatler' })}</span>
                             <input 
                                 type="number" 
                                 min="0" 
@@ -3095,11 +3125,11 @@ export default function Chronometrage({
                     {/* OPERATIONS / CHRONO — compact mobile */}
                     <div className="flex items-center gap-1 sm:gap-3 px-1.5 py-0.5 sm:px-3 sm:py-2 bg-slate-50 rounded-lg border border-slate-100 shadow-sm shrink-0">
                         <div className="flex flex-col items-center border-r border-slate-200 pr-1.5 sm:pr-3">
-                            <span className="text-[7px] sm:text-[10px] font-bold text-slate-500 uppercase tracking-wider">Opérations</span>
+                            <span className="text-[7px] sm:text-[10px] font-bold text-slate-500 uppercase tracking-wider">{tx(lang, { fr: 'Opérations', ar: 'العمليات', en: 'Operations', es: 'Operaciones', pt: 'Operações', tr: 'İşlemler' })}</span>
                             <span className="font-black text-slate-800 text-[10px] sm:text-base">{operations.length}</span>
                         </div>
                         <div className="flex flex-col items-center">
-                            <span className="text-[7px] sm:text-[10px] font-bold text-slate-500 uppercase tracking-wider">Chrono.</span>
+                            <span className="text-[7px] sm:text-[10px] font-bold text-slate-500 uppercase tracking-wider">{tx(lang, { fr: 'Chrono.', ar: 'كرونو.', en: 'Chrono.', es: 'Crono.', pt: 'Crono.', tr: 'Krono.' })}</span>
                             <span className="font-black text-indigo-600 text-[10px] sm:text-base">{totals.filledCount}</span>
                         </div>
                     </div>
@@ -3111,8 +3141,22 @@ export default function Chronometrage({
                             <span
                                 className="font-black text-emerald-700 text-[10px] sm:text-sm mt-0.5 sm:mt-1"
                                 title={hasChronoCycle
-                                    ? `BF chrono ≈ ${chronoBfMinutes.toFixed(2)} min (cycle chrono ${totals.tempMajore.toFixed(2)} min, ${numWorkers} ouvrier(s))`
-                                    : `BF global ≈ ${bf.toFixed(2)} min (en attente des relevés chrono)`}
+                                    ? tx(lang, {
+                                        fr: `BF chrono ≈ ${chronoBfMinutes.toFixed(2)} min (cycle chrono ${totals.tempMajore.toFixed(2)} min, ${numWorkers} ouvrier(s))`,
+                                        ar: `BF chrono ≈ ${chronoBfMinutes.toFixed(2)} min (دورة كرونو ${totals.tempMajore.toFixed(2)} min، ${numWorkers} عامل(عمال))`,
+                                        en: `BF chrono ≈ ${chronoBfMinutes.toFixed(2)} min (chrono cycle ${totals.tempMajore.toFixed(2)} min, ${numWorkers} worker(s))`,
+                                        es: `BF chrono ≈ ${chronoBfMinutes.toFixed(2)} min (ciclo crono ${totals.tempMajore.toFixed(2)} min, ${numWorkers} operario(s))`,
+                                        pt: `BF chrono ≈ ${chronoBfMinutes.toFixed(2)} min (ciclo crono ${totals.tempMajore.toFixed(2)} min, ${numWorkers} operário(s))`,
+                                        tr: `BF chrono ≈ ${chronoBfMinutes.toFixed(2)} min (krono döngüsü ${totals.tempMajore.toFixed(2)} min, ${numWorkers} işçi)`
+                                    })
+                                    : tx(lang, {
+                                        fr: `BF global ≈ ${bf.toFixed(2)} min (en attente des relevés chrono)`,
+                                        ar: `BF global ≈ ${bf.toFixed(2)} min (في انتظار تسجيلات الكرونو)`,
+                                        en: `BF global ≈ ${bf.toFixed(2)} min (waiting for chrono readings)`,
+                                        es: `BF global ≈ ${bf.toFixed(2)} min (esperando lecturas de crono)`,
+                                        pt: `BF global ≈ ${bf.toFixed(2)} min (aguardando leituras de crono)`,
+                                        tr: `BF global ≈ ${bf.toFixed(2)} min (krono ölçümleri bekleniyor)`
+                                    })}
                             >
                                 {(chronoBfMinutes * 60).toFixed(1)}
                             </span>
@@ -3165,7 +3209,7 @@ export default function Chronometrage({
                         type="button"
                         onClick={() => setStickyToolbar(v => !v)}
                         className={`shrink-0 flex items-center gap-0.5 sm:gap-1.5 px-1.5 py-0.5 sm:px-3 sm:py-2 rounded-lg text-[9px] sm:text-xs font-bold transition-all border shadow-sm min-h-[24px] sm:min-h-[40px] focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-slate-400 focus:outline-none ${stickyToolbar ? 'bg-slate-100 text-slate-800 border-slate-300' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}
-                        title={stickyToolbar ? 'Désactiver : la barre défile avec la page' : 'Activer : la barre reste fixée en haut au scroll'}
+                        title={stickyToolbar ? tx(lang, { fr: 'Désactiver : la barre défile avec la page', ar: 'تعطيل: شريط التمرير يتحرك مع الصفحة', en: 'Disable: the bar scrolls with the page', es: 'Desactivar: la barra se desplaza con la página', pt: 'Desativar: a barra rola com a página', tr: 'Devre dışı bırak: bar sayfa ile birlikte kayar' }) : tx(lang, { fr: 'Activer : la barre reste fixée en haut au scroll', ar: 'تفعيل: يظل شريط التمرير مثبتًا في الأعلى عند التمرير', en: 'Enable: the bar remains fixed at the top on scroll', es: 'Activar: la barra permanece fija en la parte superior al desplazarse', pt: 'Ativar: a barra permanece fixa no topo ao rolar', tr: 'Etkinleştir: bar kaydırma sırasında üstte sabit kalır' })}
                     >
                         <Pin className={`w-3 h-3 sm:w-4 sm:h-4 shrink-0 ${stickyToolbar ? '' : 'opacity-60'}`} /> <span className="hidden sm:inline">Pin:</span>{stickyToolbar ? 'ON' : 'OFF'}
                     </button>
@@ -3173,7 +3217,14 @@ export default function Chronometrage({
                         type="button"
                         onClick={() => setShowTsColumn(v => !v)}
                         className={`shrink-0 flex items-center gap-0.5 sm:gap-1.5 px-1.5 py-0.5 sm:px-3 sm:py-2 rounded-lg text-[9px] sm:text-xs font-bold transition-all border shadow-sm min-h-[24px] sm:min-h-[40px] focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-amber-400 focus:outline-none ${showTsColumn ? 'bg-amber-50 text-amber-800 border-amber-200' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}
-                        title="Afficher ou masquer la colonne TS (temps standard gamme)"
+                        title={tx(lang, {
+                            fr: "Afficher ou masquer la colonne TS (temps standard gamme)",
+                            ar: "إظهار أو إخفاء عمود TS (وقت قياسي للغامة)",
+                            en: "Show or hide TS column (routing standard time)",
+                            es: "Mostrar u ocultar la columna TS (tiempo estándar de gama)",
+                            pt: "Mostrar ou ocultar a coluna TS (tempo padrão da gama)",
+                            tr: "TS sütununu göster veya gizle (rota standart süresi)"
+                        })}
                     >
                         <Columns3 className="w-3 h-3 sm:w-4 sm:h-4" /> TS:{showTsColumn ? 'ON' : 'OFF'}
                     </button>
@@ -3184,7 +3235,14 @@ export default function Chronometrage({
                             setShowTrConfig(false);
                         }}
                         className={`shrink-0 flex items-center gap-0.5 sm:gap-1.5 px-1.5 py-0.5 sm:px-3 sm:py-2 rounded-lg text-[9px] sm:text-xs font-bold transition-all border shadow-sm min-h-[24px] sm:min-h-[40px] focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-emerald-400 focus:outline-none ${trEnabled ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}
-                        title="Activer / désactiver TR"
+                        title={tx(lang, {
+                            fr: "Activer / désactiver TR",
+                            ar: "تفعيل / تعطيل TR",
+                            en: "Enable / disable TR",
+                            es: "Activar / desactivar TR",
+                            pt: "Ativar / desativar TR",
+                            tr: "TR'yi etkinleştir / devre dışı bırak"
+                        })}
                     >
                         <Timer className="w-3 h-3 sm:w-4 sm:h-4" /> TR:{trEnabled ? 'ON' : 'OFF'}
                     </button>
@@ -3194,58 +3252,58 @@ export default function Chronometrage({
                         disabled={!trEnabled}
                         className={`shrink-0 flex items-center gap-0.5 sm:gap-1.5 px-1.5 py-0.5 sm:px-3 sm:py-2 rounded-lg text-[9px] sm:text-xs font-bold transition-all border shadow-sm min-h-[24px] sm:min-h-[40px] focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-indigo-400 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed ${showTrConfig ? 'bg-indigo-100 text-indigo-700 border-indigo-200' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}
                     >
-                        <Settings className="w-3 h-3 sm:w-4 sm:h-4" /> {trCount} lancers
+                        <Settings className="w-3 h-3 sm:w-4 sm:h-4" /> {tx(lang, { fr: `${trCount} lancers`, ar: `${trCount} دورات`, en: `${trCount} runs`, es: `${trCount} lanzamientos`, pt: `${trCount} lançamentos`, tr: `${trCount} ölçüm` })}
                     </button>
 
-                    <div className="shrink-0 flex items-stretch rounded-lg border border-slate-200 overflow-hidden shadow-sm h-[24px] sm:h-[40px]" title="Ordre des opérations : Gamme, implantation (Plantation) ou nouvelle séquence libre (Nouveau)">
+                    <div className="shrink-0 flex items-stretch rounded-lg border border-slate-200 overflow-hidden shadow-sm h-[24px] sm:h-[40px]" title={tx(lang, { fr: "Ordre des opérations : Gamme, implantation (Plantation) ou nouvelle séquence libre (Nouveau)", ar: "ترتيب العمليات: الغامة، التخطيط (Plantation) أو تسلسل حر جديد (Nouveau)", en: "Operation order: Routing, layout (Plantation) or new free sequence (New)", es: "Orden de operaciones: Gama, implantación (Plantation) ou nueva secuencia libre (Nuevo)", pt: "Ordem de operações: Gama, implantação (Plantation) ou nova sequência livre (Novo)", tr: "İşlem sırası: Rota, yerleşim (Plantation) veya yeni serbest sıralama (Yeni)" })}>
                         <button
                             type="button"
                             onClick={() => setOrderSource('gamme')}
                             className={`px-1.5 py-0.5 sm:px-3 sm:py-2 text-[8px] sm:text-xs font-bold transition-colors focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-400 focus:outline-none ${orderSource === 'gamme' ? 'bg-indigo-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-50'}`}
-                            title="Ordre de la Gamme"
+                            title={tx(lang, { fr: 'Ordre de la Gamme', ar: 'ترتيب الغامة', en: 'Routing order', es: 'Orden de la gama', pt: 'Ordem da gama', tr: 'Rota sırası' })}
                         >
-                            Gamme
+                            {tx(lang, { fr: 'Gamme', ar: 'الغامة', en: 'Routing', es: 'Gama', pt: 'Gama', tr: 'Rota' })}
                         </button>
                         <button
                             type="button"
                             onClick={() => setOrderSource('plantation')}
                             className={`px-1.5 py-0.5 sm:px-3 sm:py-2 text-[8px] sm:text-xs font-bold transition-colors border-l border-slate-200 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-400 focus:outline-none ${orderSource === 'plantation' ? 'bg-indigo-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-50'}`}
-                            title="Ordre réel du flux d'implantation (lancement de la chaîne)"
+                            title={tx(lang, { fr: "Ordre réel du flux d'implantation (lancement de la chaîne)", ar: "الترتيب الفعلي لتدفق التخطيط (بدء السلسلة)", en: "Actual layout flow order (line balancing)", es: "Orden real del flujo de implantación (lanzamiento de la cadena)", pt: "Ordem real do fluxo de implantação (lançamento da linha)", tr: "Gerçek yerleşim akış sırası (hat dengeleme)" })}
                         >
-                            Plantation
+                            {tx(lang, { fr: 'Plantation', ar: 'التخطيط (Plantation)', en: 'Plantation', es: 'Plantation', pt: 'Plantation', tr: 'Plantation' })}
                         </button>
                         <button
                             type="button"
                             onClick={() => setOrderSource('new')}
                             className={`px-1.5 py-0.5 sm:px-3 sm:py-2 text-[8px] sm:text-xs font-bold transition-colors border-l border-slate-200 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-400 focus:outline-none ${orderSource === 'new' ? 'bg-indigo-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-50'}`}
-                            title="Créer une nouvelle séquence personnalisée sur le terrain"
+                            title={tx(lang, { fr: 'Créer une nouvelle séquence personnalisée sur le terrain', ar: 'إنشاء تسلسل مخصص جديد في الميدان', en: 'Create a new custom sequence on the floor', es: 'Crear una nueva secuencia personalizada en el terreno', pt: 'Criar uma nova sequência personalizada no terreno', tr: 'Sahada yeni bir özel sıralama oluşturun' })}
                         >
-                            Nouveau
+                            {tx(lang, { fr: 'Nouveau', ar: 'جديد', en: 'New', es: 'Nuevo', pt: 'Novo', tr: 'Yeni' })}
                         </button>
                     </div>
 
                     {(orderSource === 'new' || orderSource === 'plantation') && (
-                        <div className="shrink-0 flex items-stretch rounded-lg border border-slate-200 overflow-hidden shadow-sm h-[24px] sm:h-[40px]" title="Disposition du terrain">
+                        <div className="shrink-0 flex items-stretch rounded-lg border border-slate-200 overflow-hidden shadow-sm h-[24px] sm:h-[40px]" title={tx(lang, { fr: 'Disposition du terrain', ar: 'تخطيط الميدان', en: 'Floor layout', es: 'Disposición del terreno', pt: 'Disposição do terreno', tr: 'Saha yerleşimi' })}>
                             <button
                                 type="button"
                                 onClick={() => setChronoLayoutSide?.('left')}
                                 className={`px-1.5 py-0.5 sm:px-3 sm:py-2 text-[8px] sm:text-xs font-bold transition-colors focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-400 focus:outline-none ${chronoLayoutSide === 'left' ? 'bg-indigo-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-50'}`}
                             >
-                                Gauche
+                                {tx(lang, { fr: 'Gauche', ar: 'يسار', en: 'Left', es: 'Izquierda', pt: 'Esquerda', tr: 'Sol' })}
                             </button>
                             <button
                                 type="button"
                                 onClick={() => setChronoLayoutSide?.('right')}
                                 className={`px-1.5 py-0.5 sm:px-3 sm:py-2 text-[8px] sm:text-xs font-bold transition-colors border-l border-slate-200 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-400 focus:outline-none ${chronoLayoutSide === 'right' ? 'bg-indigo-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-50'}`}
                             >
-                                Droite
+                                {tx(lang, { fr: 'Droite', ar: 'يمين', en: 'Right', es: 'Derecha', pt: 'Direita', tr: 'Sağ' })}
                             </button>
                             <button
                                 type="button"
                                 onClick={() => setChronoLayoutSide?.('both')}
                                 className={`px-1.5 py-0.5 sm:px-3 sm:py-2 text-[8px] sm:text-xs font-bold transition-colors border-l border-slate-200 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-400 focus:outline-none ${chronoLayoutSide === 'both' ? 'bg-indigo-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-50'}`}
                             >
-                                Les deux
+                                {tx(lang, { fr: 'Les deux', ar: 'كلاهما', en: 'Both', es: 'Ambos', pt: 'Ambos', tr: 'Her ikisi' })}
                             </button>
                         </div>
                     )}
@@ -3255,7 +3313,7 @@ export default function Chronometrage({
                             type="button"
                             onClick={() => setOutputMode('PJ')}
                             className={`px-2 sm:px-3 py-1 sm:py-2 text-[10px] sm:text-xs font-bold transition-colors focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-400 focus:outline-none ${outputMode === 'PJ' ? 'bg-indigo-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-50'}`}
-                            title="Afficher en pièces par jour"
+                            title={tx(lang, { fr: 'Afficher en pièces par jour', ar: 'عرض بالقطع في اليوم', en: 'Show in pieces per day', es: 'Mostrar en piezas por día', pt: 'Mostrar em peças por dia', tr: 'Günlük adet olarak göster' })}
                         >
                             P/J
                         </button>
@@ -3263,7 +3321,7 @@ export default function Chronometrage({
                             type="button"
                             onClick={() => setOutputMode('PH')}
                             className={`px-2 sm:px-3 py-1 sm:py-2 text-[10px] sm:text-xs font-bold transition-colors border-l border-slate-200 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-400 focus:outline-none ${outputMode === 'PH' ? 'bg-indigo-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-50'}`}
-                            title="Afficher en pièces par heure"
+                            title={tx(lang, { fr: 'Afficher en pièces par heure', ar: 'عرض بالقطع في الساعة', en: 'Show in pieces per hour', es: 'Mostrar en piezas por hora', pt: 'Mostrar em pièces por hora', tr: 'Saatlik adet olarak göster' })}
                         >
                             P/H
                         </button>
@@ -3273,7 +3331,7 @@ export default function Chronometrage({
                         type="button"
                         onClick={() => setShowThroughputKpi(v => !v)}
                         className={`shrink-0 flex items-center gap-0.5 sm:gap-1.5 px-1.5 py-0.5 sm:px-3 sm:py-2 rounded-lg text-[9px] sm:text-xs font-bold transition-all border shadow-sm min-h-[24px] sm:min-h-[40px] focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-orange-400 focus:outline-none ${showThroughputKpi ? 'bg-orange-50 text-orange-800 border-orange-200' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}
-                        title="Afficher/masquer P° Max / P° Rdt"
+                        title={tx(lang, { fr: 'Afficher/masquer P° Max / P° Rdt', ar: 'إظهار/إخفاء الإنتاج الأقصى / الإنتاج بالمردود', en: 'Show/hide Max Output / Eff. Output', es: 'Mostrar/ocultar Prod. Máx. / Prod. Rdto.', pt: 'Mostrar/ocultar Prod. Máx. / Prod. Rend.', tr: 'Maks Üretim / Verimli Üretim göster/gizle' })}
                     >
                         <Target className="w-3 h-3 sm:w-4 sm:h-4" /> P° KPI
                     </button>
@@ -3283,10 +3341,10 @@ export default function Chronometrage({
                             type="button"
                             onClick={() => setShowUnitMenu(v => !v)}
                             className={`flex items-center justify-between gap-0.5 sm:gap-2 px-1.5 sm:px-3 py-0.5 sm:py-2 rounded-lg text-left transition-all border shadow-sm min-w-[70px] sm:min-w-[100px] min-h-[24px] sm:min-h-[40px] focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-indigo-400 focus:outline-none ${showUnitMenu ? 'bg-indigo-50 text-indigo-800 border-indigo-200' : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'}`}
-                            title={`Unité: ${getUnitMeta(unit).name}`}
+                            title={tx(lang, { fr: `Unité : ${getUnitName(unit)}`, ar: `الوحدة: ${getUnitName(unit)}`, en: `Unit: ${getUnitName(unit)}`, es: `Unidad: ${getUnitName(unit)}`, pt: `Unidade: ${getUnitName(unit)}`, tr: `Birim: ${getUnitName(unit)}` })}
                         >
                             <span className="flex flex-col leading-none">
-                                <span className="text-[7px] sm:text-[9px] font-bold uppercase tracking-wider text-slate-500">Unité</span>
+                                <span className="text-[7px] sm:text-[9px] font-bold uppercase tracking-wider text-slate-500">{tx(lang, { fr: 'Unité', ar: 'الوحدة', en: 'Unit', es: 'Unidad', pt: 'Unidade', tr: 'Birim' })}</span>
                                 <span className="font-black text-[10px] sm:text-sm">{unitShort}</span>
                             </span>
                             <ChevronDown className={`w-3 h-3 sm:w-4 sm:h-4 text-slate-400 transition-transform ${showUnitMenu ? 'rotate-180 text-indigo-500' : ''}`} />
@@ -3294,7 +3352,7 @@ export default function Chronometrage({
                         {showUnitMenu && (
                             <div className="absolute right-0 top-[calc(100%+8px)] z-[200] w-[240px] rounded-xl border border-slate-200 bg-white p-2.5 shadow-2xl animate-in fade-in slide-in-from-top-2 duration-150">
                                 <div className="px-2 pb-2 border-b border-slate-100 mb-2">
-                                    <p className="text-xs font-bold text-slate-700">Choisir l'unité de temps</p>
+                                    <p className="text-xs font-bold text-slate-700">{tx(lang, { fr: "Choisir l'unité de temps", ar: 'اختر وحدة الوقت', en: 'Choose time unit', es: 'Elegir unidad de tiempo', pt: 'Escolher unidade de tempo', tr: 'Zaman birimini seçin' })}</p>
                                 </div>
                                 <div className="grid grid-cols-3 gap-2 max-h-[300px] overflow-y-auto p-1 custom-scrollbar">
                                     {TIME_UNIT_OPTIONS.map((opt) => (
@@ -3303,7 +3361,14 @@ export default function Chronometrage({
                                             type="button"
                                             onClick={() => { setUnit(opt.id); setShowUnitMenu(false); }}
                                             className={`flex items-center justify-center p-2 rounded-lg text-xs font-bold border transition-colors focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-indigo-400 focus:outline-none ${unit === opt.id ? 'bg-indigo-600 text-white border-indigo-600 shadow-md' : 'bg-slate-50 text-slate-600 border-slate-100 hover:border-slate-300 hover:bg-slate-100'}`}
-                                            title={opt.name}
+                                            title={tx(lang, {
+                                                fr: opt.name,
+                                                ar: opt.id === 'ms' ? 'مللي ثانية' : opt.id === 'cs' ? 'جزء من المئة من الثانية' : opt.id === 'ds' ? 'جزء من العشرة من الثانية' : opt.id === 'sec' ? 'ثواني' : opt.id === 'min' ? 'دقائق' : opt.id === 'cmin' ? 'جزء من المئة من الدقيقة' : opt.id === 'dmin' ? 'جزء من العشرة من الدقيقة' : opt.id === 'hour' ? 'ساعات' : opt.id === 'tmu' ? 'وحدة قياس الوقت (TMU)' : 'دقيقة مسموح بها قياسية (SAM)',
+                                                en: opt.id === 'ms' ? 'Milliseconds' : opt.id === 'cs' ? 'Centiseconds' : opt.id === 'ds' ? 'Deciseconds' : opt.id === 'sec' ? 'Seconds' : opt.id === 'min' ? 'Minutes' : opt.id === 'cmin' ? 'Centiminutes' : opt.id === 'dmin' ? 'Deciminutes' : opt.id === 'hour' ? 'Hours' : opt.id === 'tmu' ? 'Time Measurement Unit' : 'Standard Allowed Minute',
+                                                es: opt.id === 'ms' ? 'Milisegundos' : opt.id === 'cs' ? 'Centisegundos' : opt.id === 'ds' ? 'Decisegundos' : opt.id === 'sec' ? 'Segundos' : opt.id === 'min' ? 'Minutos' : opt.id === 'cmin' ? 'Centiminutos' : opt.id === 'dmin' ? 'Deciminutos' : opt.id === 'hour' ? 'Horas' : opt.id === 'tmu' ? 'Unidad de Medida de Tiempo (TMU)' : 'Minuto Permitido Estándar (SAM)',
+                                                pt: opt.id === 'ms' ? 'Milissegundos' : opt.id === 'cs' ? 'Centissegundos' : opt.id === 'ds' ? 'Decissegundos' : opt.id === 'sec' ? 'Segundos' : opt.id === 'min' ? 'Minutos' : opt.id === 'cmin' ? 'Centiminutos' : opt.id === 'dmin' ? 'Deciminutos' : opt.id === 'hour' ? 'Horas' : opt.id === 'tmu' ? 'Unidade de Medida de Tempo (TMU)' : 'Minuto Padrão Permitido (SAM)',
+                                                tr: opt.id === 'ms' ? 'Milisaniye' : opt.id === 'cs' ? 'Salise' : opt.id === 'ds' ? 'Desisaniye' : opt.id === 'sec' ? 'Saniye' : opt.id === 'min' ? 'Dakika' : opt.id === 'cmin' ? 'Santidakika' : opt.id === 'dmin' ? 'Desidakika' : opt.id === 'hour' ? 'Saat' : opt.id === 'tmu' ? 'Zaman Ölçüm Birimi (TMU)' : 'Standart İzin Verilen Dakika (SAM)'
+                                            })}
                                         >
                                             <span className="font-mono">{opt.label}</span>
                                         </button>
@@ -3344,9 +3409,18 @@ export default function Chronometrage({
                             <BarChart3 className="w-3 h-3 sm:w-5 sm:h-5 text-indigo-600" />
                         </div>
                         <div>
-                            <h3 className="font-black text-slate-800 text-[11px] sm:text-lg leading-tight">Relevés Terrain</h3>
+                            <h3 className="font-black text-slate-800 text-[11px] sm:text-lg leading-tight">
+                                {tx(lang, { fr: 'Relevés Terrain', ar: 'تسجيلات الميدان', en: 'Floor Readings', es: 'Lecturas de campo', pt: 'Leituras de campo', tr: 'Saha Ölçümleri' })}
+                            </h3>
                             <p className="text-slate-500 text-[9px] sm:text-sm font-medium mt-0.5">
-                                {trCount} relevés configurés • Unité : <strong className="text-indigo-600 bg-indigo-50 px-1 rounded">{unitLabel}</strong>
+                                {trCount} {tx(lang, {
+                                    fr: 'relevés configurés • Unité :',
+                                    ar: 'تسجيلات مكونة • الوحدة :',
+                                    en: 'readings configured • Unit:',
+                                    es: 'lecturas configuradas • Unidad:',
+                                    pt: 'leituras configuradas • Unidade:',
+                                    tr: 'ölçüm yapılandırıldı • Birim:'
+                                })} <strong className="text-indigo-600 bg-indigo-50 px-1 rounded">{unitLabel}</strong>
                             </p>
                         </div>
                     </div>
@@ -3359,7 +3433,11 @@ export default function Chronometrage({
                                     return (
                                         <button key={s} onClick={() => setSectionFilter(s)}
                                             className={`px-2 py-1 rounded-md text-[10px] sm:text-xs font-bold transition-all focus:outline-none focus:ring-2 focus:ring-indigo-400 ${active ? 'bg-white text-slate-800 shadow-sm border border-slate-200' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'}`}>
-                                            {s === 'ALL' ? 'Toutes' : s === 'PREPARATION' ? 'Prépa' : 'Montage'}
+                                            {s === 'ALL' 
+                                                ? tx(lang, { fr: 'Toutes', ar: 'الكل', en: 'All', es: 'Todas', pt: 'Todas', tr: 'Tümü' }) 
+                                                : s === 'PREPARATION' 
+                                                ? tx(lang, { fr: 'Prépa', ar: 'التحضير', en: 'Prep', es: 'Prep', pt: 'Prep', tr: 'Hazırlık' }) 
+                                                : tx(lang, { fr: 'Montage', ar: 'التركيب', en: 'Assembly', es: 'Montaje', pt: 'Montagem', tr: 'Montaj' })}
                                         </button>
                                     );
                                 })}
@@ -3367,9 +3445,9 @@ export default function Chronometrage({
                         )}
                         
                         <div className="flex items-center gap-1 text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-slate-400 bg-slate-50 px-2 py-1 rounded-lg border border-slate-100">
-                            <span className="flex items-center gap-0.5"><div className="w-1.5 h-1.5 rounded-full bg-rose-400"></div>Lent</span>
+                            <span className="flex items-center gap-0.5"><div className="w-1.5 h-1.5 rounded-full bg-rose-400"></div>{tx(lang, { fr: 'Lent', ar: 'بطيء', en: 'Slow', es: 'Lento', pt: 'Lento', tr: 'Yavaş' })}</span>
                             <span className="mx-1 text-slate-300">|</span>
-                            <span className="flex items-center gap-0.5"><div className="w-1.5 h-1.5 rounded-full bg-emerald-400"></div>Rapide</span>
+                            <span className="flex items-center gap-0.5"><div className="w-1.5 h-1.5 rounded-full bg-emerald-400"></div>{tx(lang, { fr: 'Rapide', ar: 'سريع', en: 'Fast', es: 'Rápido', pt: 'Rápido', tr: 'Hızlı' })}</span>
                         </div>
                     </div>
                 </div>
@@ -3428,7 +3506,7 @@ export default function Chronometrage({
                                             <span className={`px-3 py-1 rounded-lg text-xs font-black tracking-wide text-white uppercase bg-${section.theme}-600`}>
                                                 {section.name}
                                             </span>
-                                            <span className="text-xs text-slate-500 font-bold">{section.stations.length} postes</span>
+                                            <span className="text-xs text-slate-500 font-bold">{section.stations.length} {tx(lang, { fr: 'postes', ar: 'مراكز', en: 'stations', es: 'puestos', pt: 'postos', tr: 'istasyon' })}</span>
                                         </div>
 
                                         <div className={`grid grid-cols-1 ${chronoLayoutSide === 'both' ? 'lg:grid-cols-2' : ''} gap-6 items-start`}>
@@ -3436,7 +3514,7 @@ export default function Chronometrage({
                                             {(chronoLayoutSide === 'left' || chronoLayoutSide === 'both') && (
                                                 <div className="flex flex-col gap-4">
                                                     <div className="bg-indigo-50 border border-indigo-100 text-indigo-850 py-2 px-3 rounded-xl font-black text-center text-xs uppercase tracking-wide">
-                                                        CÔTÉ GAUCHE (POSTES IMPAIRS)
+                                                        {tx(lang, { fr: 'CÔTÉ GAUCHE (POSTES IMPAIRS)', ar: 'الجانب الأيسر (المراكز الفردية)', en: 'LEFT SIDE (ODD STATIONS)', es: 'LADO IZQUIERDO (PUESTOS IMPARES)', pt: 'LADO ESQUERDO (POSTOS ÍMPARES)', tr: 'SOL TARAF (TEK İSTASYONLAR)' })}
                                                     </div>
                                                     {sideA.map((item, idx) => (
                                                         <React.Fragment key={`${item.st.id}__${item.op?.id || idx}`}>
@@ -3454,7 +3532,7 @@ export default function Chronometrage({
                                             {(chronoLayoutSide === 'right' || chronoLayoutSide === 'both') && (
                                                 <div className="flex flex-col gap-4">
                                                     <div className="bg-slate-100 border border-slate-250 text-slate-750 py-2 px-3 rounded-xl font-black text-center text-xs uppercase tracking-wide">
-                                                        CÔTÉ DROIT (POSTES PAIRS)
+                                                        {tx(lang, { fr: 'CÔTÉ DROIT (POSTES PAIRS)', ar: 'الجانب الأيمن (المراكز الزوجية)', en: 'RIGHT SIDE (EVEN STATIONS)', es: 'LADO DERECHO (PUESTOS PARES)', pt: 'LADO DIREITO (POSTOS PARES)', tr: 'SAĞ TARAF (ÇİFT İSTASYONLAR)' })}
                                                     </div>
                                                     {sideB.map((item, idx) => (
                                                         <React.Fragment key={`${item.st.id}__${item.op?.id || idx}`}>
@@ -3477,7 +3555,7 @@ export default function Chronometrage({
                                             <span className={`px-3 py-1 rounded-lg text-xs font-black tracking-wide text-white uppercase bg-${section.theme}-600`}>
                                                 {section.name}
                                             </span>
-                                            <span className="text-xs text-slate-500 font-bold">{section.stations.length} postes</span>
+                                            <span className="text-xs text-slate-500 font-bold">{section.stations.length} {tx(lang, { fr: 'postes', ar: 'مراكز', en: 'stations', es: 'puestos', pt: 'postos', tr: 'istasyon' })}</span>
                                         </div>
 
                                         <div className="grid grid-cols-1 gap-4">
@@ -3507,7 +3585,7 @@ export default function Chronometrage({
                                 {(chronoLayoutSide === 'left' || chronoLayoutSide === 'both') && (
                                     <div className="flex flex-col gap-2.5 sm:gap-4">
                                         <div className="bg-indigo-50 border border-indigo-100 text-indigo-850 py-1.5 sm:py-2 px-2 sm:px-3 rounded-lg sm:rounded-xl font-black text-center text-[10px] sm:text-xs uppercase tracking-wide">
-                                            CÔTÉ GAUCHE (POSTES IMPAIRS)
+                                            {tx(lang, { fr: 'CÔTÉ GAUCHE (POSTES IMPAIRS)', ar: 'الجانب الأيسر (المراكز الفردية)', en: 'LEFT SIDE (ODD STATIONS)', es: 'LADO IZQUIERDO (PUESTOS IMPARES)', pt: 'LADO ESQUERDO (POSTOS ÍMPARES)', tr: 'SOL TARAF (TEK İSTASYONLAR)' })}
                                         </div>
                                         {leftStations.map((station, idx) => (
                                             renderCustomStationCard(station, idx * 2 + 1)
@@ -3520,7 +3598,7 @@ export default function Chronometrage({
                                 {(chronoLayoutSide === 'right' || chronoLayoutSide === 'both') && (
                                     <div className="flex flex-col gap-2.5 sm:gap-4">
                                         <div className="bg-slate-100 border border-slate-205 text-slate-750 py-1.5 sm:py-2 px-2 sm:px-3 rounded-lg sm:rounded-xl font-black text-center text-[10px] sm:text-xs uppercase tracking-wide">
-                                            CÔTÉ DROIT (POSTES PAIRS)
+                                            {tx(lang, { fr: 'CÔTÉ DROIT (POSTES PAIRS)', ar: 'الجانب الأيمن (المراكز الزوجية)', en: 'RIGHT SIDE (EVEN STATIONS)', es: 'LADO DERECHO (PUESTOS PARES)', pt: 'LADO DIREITO (POSTOS PARES)', tr: 'SAĞ TARAF (ÇİFT İSTASYONLAR)' })}
                                         </div>
                                         {rightStations.map((station, idx) => (
                                             renderCustomStationCard(station, idx * 2 + 2)
@@ -3538,11 +3616,20 @@ export default function Chronometrage({
                                 <thead>
                                     <tr className="bg-slate-50 text-slate-500 border-b-2 border-slate-200 text-[11px] uppercase tracking-wider font-bold">
                                         <th className="py-3 px-3 text-left w-10">#</th>
-                                        <th className="py-3 px-3 text-left min-w-[160px]">Opération</th>
+                                        <th className="py-3 px-3 text-left min-w-[160px]">
+                                            {tx(lang, { fr: 'Opération', ar: 'عملية', en: 'Operation', es: 'Operación', pt: 'Operação', tr: 'İşlem' })}
+                                        </th>
                                         {showTsColumn && (
                                             <th
                                                 className="py-3 px-3 text-center bg-amber-50/50 text-amber-600 border-x border-slate-100 w-16"
-                                                title="Temps standard (gamme), affiché en secondes — indépendant de l’unité des relevés"
+                                                title={tx(lang, {
+                                                    fr: "Temps standard (gamme), affiché en secondes — indépendant de l’unité des relevés",
+                                                    ar: "وقت قياسي (الغامة)، يعرض بالثواني - مستقل عن وحدة التسجيلات",
+                                                    en: "Standard time (routing), displayed in seconds — independent of readings unit",
+                                                    es: "Tiempo estándar (gama), mostrado en segundos — independiente de la unidad de lecturas",
+                                                    pt: "Tempo padrão (gama), exibido em segundos — independente da unidade de leituras",
+                                                    tr: "Standart süre (rota), saniye cinsinden gösterilir — ölçüm biriminden bağımsızdır"
+                                                })}
                                             >
                                                 TS <span className="normal-case font-semibold text-[10px]">(s)</span>
                                             </th>
@@ -3553,13 +3640,27 @@ export default function Chronometrage({
                                         <th className="py-3 px-2 text-center bg-indigo-50/60 text-indigo-700 w-16 border-l border-slate-200">T.Moy</th>
                                         <th
                                             className="py-3 px-1 text-center w-14"
-                                            title="Majoration : coefficient multiplicateur (ex. 1,15 = +15 % sur le temps moyen)"
+                                            title={tx(lang, {
+                                                fr: "Majoration : coefficient multiplicateur (ex. 1,15 = +15 % sur le temps moyen)",
+                                                ar: "علاوة: معامل مضاعف (مثال: 1.15 = +15 % على متوسط الوقت)",
+                                                en: "Allowance: multiplier coefficient (e.g., 1.15 = +15% on mean time)",
+                                                es: "Suplemento: coeficiente multiplicador (ej. 1,15 = +15 % sobre el tiempo medio)",
+                                                pt: "Suplemento: coeficiente multiplicador (ex. 1,15 = +15% sobre o tempo médio)",
+                                                tr: "Tolerans: çarpan katsayısı (örn. 1.15 = ortalama süreye +%15)"
+                                            })}
                                         >
                                             Maj.
                                         </th>
                                         <th
                                             className={`py-3 px-2 text-center bg-emerald-50/60 text-emerald-700 w-[5.25rem] ${!showThroughputKpi ? 'rounded-tr-lg' : ''}`}
-                                            title={`Temps majoré = T.Moy × Maj. Affichage en ${getUnitMeta(unit).name} (${unitShort}).`}
+                                            title={tx(lang, {
+                                                fr: `Temps majoré = T.Moy × Maj. Affichage en ${getUnitName(unit)} (${unitShort}).`,
+                                                ar: `الوقت المضاف = T.Moy × علاوة. العرض بـ ${getUnitName(unit)} (${unitShort}).`,
+                                                en: `Allowed time = Mean Time × Allowance. Display in ${getUnitName(unit)} (${unitShort}).`,
+                                                es: `Tiempo suplementado = T.Medio × Supl. Visualización en ${getUnitName(unit)} (${unitShort}).`,
+                                                pt: `Tempo suplementado = T.Médio × Supl. Exibição em ${getUnitName(unit)} (${unitShort}).`,
+                                                tr: `Toleranslı süre = Ortalama Süre × Tolerans. ${getUnitName(unit)} (${unitShort}) olarak gösterilir.`
+                                            })}
                                         >
                                             <span className="block leading-tight">T.Maj</span>
                                             <span className="block text-[9px] font-semibold normal-case tracking-normal text-emerald-600/90">× Maj</span>
@@ -3580,8 +3681,12 @@ export default function Chronometrage({
                                                     <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center">
                                                         <ClipboardList className="w-8 h-8 text-slate-300" />
                                                     </div>
-                                                    <p className="text-slate-500 font-bold text-lg">Aucune opération</p>
-                                                    <p className="text-slate-400 text-sm">Veuillez d'abord remplir la Gamme Opératoire (étape 2).</p>
+                                                    <p className="text-slate-500 font-bold text-lg">
+                                                        {tx(lang, { fr: 'Aucune opération', ar: 'لا توجد عملية', en: 'No operations', es: 'Ninguna operación', pt: 'Nenhuma operação', tr: 'İşlem yok' })}
+                                                    </p>
+                                                    <p className="text-slate-400 text-sm">
+                                                        {tx(lang, { fr: "Veuillez d'abord remplir la Gamme Opératoire (étape 2).", ar: 'يرجى ملء الغامة التشغيلية أولاً (الخطوة 2).', en: 'Please fill the Operating Routing first (step 2).', es: 'Por favor, complete primero la gama de operaciones (paso 2).', pt: 'Por favor, preencha primeiro a gama operacional (etapa 2).', tr: 'Lütfen önce İşlem Rotasını doldurun (adım 2).' })}
+                                                    </p>
                                                 </div>
                                             </td>
                                         </tr>
@@ -3625,10 +3730,10 @@ export default function Chronometrage({
                                                                         {trEnabled && filledTRs >= 2 && (() => {
                                                                             const v = getRowValidity(op.id);
                                                                             const cfg = v === 'valid'
-                                                                                ? { dot: 'bg-emerald-400', title: 'Série valide (CV<10%)' }
+                                                                                ? { dot: 'bg-emerald-400', title: tx(lang, { fr: 'Série valide (CV<10%)', ar: 'سلسلة صالحة (CV<10%)', en: 'Valid series (CV<10%)', es: 'Serie válida (CV<10%)', pt: 'Série válida (CV<10%)', tr: 'Geçerli seri (CV<%10)' }) }
                                                                                 : v === 'warn'
-                                                                                ? { dot: 'bg-amber-400', title: 'Série à vérifier (CV 10-15%)' }
-                                                                                : { dot: 'bg-rose-500',   title: 'Série invalide (CV>15%)' };
+                                                                                ? { dot: 'bg-amber-400', title: tx(lang, { fr: 'Série à vérifier (CV 10-15%)', ar: 'سلسلة للتحقق (CV 10-15%)', en: 'Series to check (CV 10-15%)', es: 'Serie a verificar (CV 10-15%)', pt: 'Série a verificar (CV 10-15%)', tr: 'Kontrol edilecek seri (CV %10-15)' }) }
+                                                                                : { dot: 'bg-rose-500',   title: tx(lang, { fr: 'Série invalide (CV>15%)', ar: 'سلسلة غير صالحة (CV>15%)', en: 'Invalid series (CV>15%)', es: 'Serie inválida (CV>15%)', pt: 'Série inválida (CV>15%)', tr: 'Geçersiz seri (CV>%15)' }) };
                                                                             if (v === 'empty') return null;
                                                                             return <span className={`w-2 h-2 rounded-full shrink-0 ${cfg.dot} mb-0.5`} title={cfg.title} />;
                                                                         })()}
@@ -3642,11 +3747,12 @@ export default function Chronometrage({
                                                                             <span className="text-[10px] text-slate-500 font-bold">{trEnabled ? `${filledTRs}/${trCount}` : 'TR OFF'}</span>
                                                                         </div>
                                                                     </div>
+                                                                    {/* eslint-disable-next-line react-hooks/exhaustive-deps */}
                                                                 </div>
                                                                 <button
                                                                     onClick={(e) => { e.stopPropagation(); toggleRowExpand(op.id); }}
                                                                     className="w-8 h-8 rounded-lg bg-slate-100 hover:bg-indigo-100 flex items-center justify-center text-slate-500 hover:text-indigo-600 transition-all shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400"
-                                                                    title={isExpanded ? 'Réduire' : 'Chronométrer'}
+                                                                    title={isExpanded ? tx(lang, { fr: 'Réduire', ar: 'تقليص', en: 'Collapse', es: 'Contraer', pt: 'Contrair', tr: 'Daralt' }) : tx(lang, { fr: 'Chronométrer', ar: 'توقيت', en: 'Time', es: 'Cronometrar', pt: 'Cronometrar', tr: 'Zamanı ölç' })}
                                                                 >
                                                                     {isExpanded ? <ChevronUp className="w-4 h-4" /> : <Timer className="w-4 h-4" />}
                                                                 </button>
@@ -3655,7 +3761,7 @@ export default function Chronometrage({
                                                         {showTsColumn && (
                                                             <td
                                                                 className="px-2 py-3 text-center font-bold text-amber-700 bg-amber-50/40 border-x border-slate-100 font-mono text-xs"
-                                                                title="Temps standard gamme (secondes)"
+                                                                title={tx(lang, { fr: 'Temps standard gamme (secondes)', ar: 'الوقت القياسي للغامة (بالثواني)', en: 'Routing standard time (seconds)', es: 'Tiempo estándar de gama (segundos)', pt: 'Tempo padrão da gama (segundos)', tr: 'Rota standart süresi (saniye)' })}
                                                             >
                                                                 {formatTsSeconds(op.time)}
                                                             </td>
@@ -3679,12 +3785,12 @@ export default function Chronometrage({
                                                                         />
                                                                         {hasVal && (
                                                                             <button
-                                                                            type="button"
-                                                                            aria-label={`Supprimer TR ${trNum}`}
-                                                                            onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); }}
-                                                                            onClick={(e) => handleClearTRClick(e, op.id, trNum)}
-                                                                            className="absolute right-0.5 top-1/2 -translate-y-1/2 z-10 flex h-[18px] w-[18px] items-center justify-center rounded-md border border-rose-200 bg-white/95 text-rose-500 shadow-sm opacity-0 scale-90 pointer-events-none transition-all duration-200 group-hover/cell:opacity-100 group-hover/cell:scale-100 group-hover/cell:pointer-events-auto group-focus-within/cell:opacity-100 group-focus-within/cell:scale-100 group-focus-within/cell:pointer-events-auto hover:bg-rose-50 hover:text-rose-600 hover:shadow active:scale-95"
-                                                                                title="Supprimer ce relevé"
+                                                                                type="button"
+                                                                                aria-label={`${tx(lang, { fr: 'Supprimer', ar: 'حذف', en: 'Delete', es: 'Eliminar', pt: 'Excluir', tr: 'Sil' })} TR ${trNum}`}
+                                                                                onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                                                                                onClick={(e) => handleClearTRClick(e, op.id, trNum)}
+                                                                                className="absolute right-0.5 top-1/2 -translate-y-1/2 z-10 flex h-[18px] w-[18px] items-center justify-center rounded-md border border-rose-200 bg-white/95 text-rose-500 shadow-sm opacity-0 scale-90 pointer-events-none transition-all duration-200 group-hover/cell:opacity-100 group-hover/cell:scale-100 group-hover/cell:pointer-events-auto group-focus-within/cell:opacity-100 group-focus-within/cell:scale-100 group-focus-within/cell:pointer-events-auto hover:bg-rose-50 hover:text-rose-600 hover:shadow active:scale-95"
+                                                                                title={tx(lang, { fr: 'Supprimer ce relevé', ar: 'حذف هذا التسجيل', en: 'Delete this reading', es: 'Eliminar esta lectura', pt: 'Excluir esta leitura', tr: 'Bu ölçümü sil' })}
                                                                             >
                                                                                 <X className="w-2.5 h-2.5" />
                                                                             </button>
@@ -3702,13 +3808,15 @@ export default function Chronometrage({
                                                                 step="0.01"
                                                                 min="0"
                                                                 className={`w-full min-w-[3.5rem] px-1 py-1 text-center text-[13px] font-mono font-black rounded-md border border-transparent hover:bg-white hover:border-slate-300 focus:bg-white focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 outline-none transition-all ${INPUT_NO_SPIN} text-indigo-700 shadow-sm`}
-                                                                placeholder="—"
-                                                                title={row.tmManual ? 'T.Moy manuel — T.Maj / P° recalculés' : 'Moyenne des TR — ou saisie manuelle ici'}
+                                                                title={row.tmManual 
+                                                                    ? tx(lang, { fr: 'T.Moy manuel — T.Maj / P° recalculés', ar: 'T.Moy يدوي — إعادة حساب T.Maj / P°', en: 'Manual Mean Time — recalculated Allowed Time / Output', es: 'T.Medio manual — T.Supl. / Prod. recalculados', pt: 'T.Médio manual — T.Supl. / Prod. recalculados', tr: 'Manuel Ortalama Süre — yeniden hesaplanan Toleranslı Süre / Üretim' })
+                                                                    : tx(lang, { fr: 'Moyenne des TR — ou saisie manuelle ici', ar: 'متوسط TR — أو إدخال يدوي هنا', en: 'Average of TR — or enter manually here', es: 'Promedio de TR — o ingreso manual aquí', pt: 'Média de TR — ou insira manualmente aqui', tr: 'TR ortalaması — veya buraya manuel olarak girin' })
+                                                                }
                                                                 value={displayValue(row.tm)}
                                                                 onChange={e => handleCellChange(op.id, 'tm', e.target.value)}
                                                             />
                                                             {row.tmManual && (
-                                                                <span className="block text-[9px] font-bold text-indigo-400 leading-none mt-1 uppercase tracking-wider">manuel</span>
+                                                                <span className="block text-[9px] font-bold text-indigo-400 leading-none mt-1 uppercase tracking-wider">{tx(lang, { fr: 'manuel', ar: 'يدوي', en: 'manual', es: 'manual', pt: 'manual', tr: 'manuel' })}</span>
                                                             )}
                                                         </td>
                                                         <td className="px-1.5 py-1.5 text-center" onClick={(e) => e.stopPropagation()}>
@@ -3723,7 +3831,14 @@ export default function Chronometrage({
                                                             className="px-2 py-3 text-center font-mono font-bold text-emerald-700 bg-emerald-50/30 text-xs"
                                                             title={
                                                                 row.tempMajore !== undefined
-                                                                    ? `T.Moy × Maj. → ${row.tempMajore.toFixed(2)} min (affiché : ${formatTempMajoreInUnit(row.tempMajore)} ${unitShort})`
+                                                                    ? tx(lang, {
+                                                                        fr: `T.Moy × Maj. → ${row.tempMajore.toFixed(2)} min (affiché : ${formatTempMajoreInUnit(row.tempMajore)} ${unitShort})`,
+                                                                        ar: `T.Moy × علاوة ← ${row.tempMajore.toFixed(2)} min (المعروض: ${formatTempMajoreInUnit(row.tempMajore)} ${unitShort})`,
+                                                                        en: `Mean Time × Allowance → ${row.tempMajore.toFixed(2)} min (displayed: ${formatTempMajoreInUnit(row.tempMajore)} ${unitShort})`,
+                                                                        es: `T.Medio × Supl. → ${row.tempMajore.toFixed(2)} min (mostrado: ${formatTempMajoreInUnit(row.tempMajore)} ${unitShort})`,
+                                                                        pt: `T.Médio × Supl. → ${row.tempMajore.toFixed(2)} min (exibido: ${formatTempMajoreInUnit(row.tempMajore)} ${unitShort})`,
+                                                                        tr: `Ortalama Süre × Tolerans → ${row.tempMajore.toFixed(2)} min (gösterilen: ${formatTempMajoreInUnit(row.tempMajore)} ${unitShort})`
+                                                                    })
                                                                     : undefined
                                                             }
                                                         >
@@ -3772,19 +3887,21 @@ export default function Chronometrage({
                                     <tfoot>
                                         <tr className="border-t-2 border-slate-800 bg-gradient-to-r from-slate-50 to-slate-100">
                                             <td colSpan={2} className="px-4 py-4 text-right font-black uppercase tracking-wider text-slate-700 text-xs">
-                                                Total Général
+                                                {tx(lang, { fr: 'Total Général', ar: 'المجموع العام', en: 'Grand Total', es: 'Total general', pt: 'Total geral', tr: 'Genel Toplam' })}
                                             </td>
                                             {showTsColumn && (
                                                 <td
                                                     className="px-2 py-4 text-center font-black font-mono text-amber-600 border-x border-slate-200 bg-amber-50/50 text-xs"
-                                                    title="Σ temps gamme (secondes)"
+                                                    title={tx(lang, { fr: 'Σ temps gamme (secondes)', ar: 'مجموع وقت الغامة (بالثواني)', en: 'Σ routing time (seconds)', es: 'Σ tiempo de gama (segundos)', pt: 'Σ tempo de gama (segundos)', tr: 'Σ rota süresi (saniye)' })}
                                                 >
                                                     {totalTsSeconds.toFixed(2)}
                                                 </td>
                                             )}
                                             {trEnabled && (
                                                 <td colSpan={visibleTrCount} className="border-r border-slate-200 px-3 py-4 text-center">
-                                                    <span className="text-[10px] font-bold text-slate-400 uppercase">— Relevés Individuels —</span>
+                                                    <span className="text-[10px] font-bold text-slate-400 uppercase">
+                                                        {tx(lang, { fr: '— Relevés Individuels —', ar: '— تسجيلات فردية —', en: '— Individual Readings —', es: '— Lecturas individuales —', pt: '— Leituras individuais —', tr: '— Bireysel Ölçümler —' })}
+                                                    </span>
                                                 </td>
                                             )}
                                             <td className="px-2 py-4 text-center font-black font-mono text-indigo-700 bg-indigo-100/70 text-sm border-l border-slate-200">
@@ -3793,7 +3910,14 @@ export default function Chronometrage({
                                             <td className="px-2 py-4"></td>
                                             <td
                                                 className={`px-2 py-4 text-center font-black font-mono text-emerald-700 bg-emerald-100/70 text-sm ${!showThroughputKpi ? 'rounded-br-lg' : ''}`}
-                                                title={`Σ (T.Moy × Maj.) : ${totals.tempMajore.toFixed(2)} min — affiché en ${unitShort}`}
+                                                title={tx(lang, {
+                                                    fr: `Σ (T.Moy × Maj.) : ${totals.tempMajore.toFixed(2)} min — affiché en ${unitShort}`,
+                                                    ar: `مجموع (T.Moy × علاوة) : ${totals.tempMajore.toFixed(2)} min — معروض بـ ${unitShort}`,
+                                                    en: `Σ (Mean Time × Allowance): ${totals.tempMajore.toFixed(2)} min — displayed in ${unitShort}`,
+                                                    es: `Σ (T.Medio × Supl.): ${totals.tempMajore.toFixed(2)} min — mostrado en ${unitShort}`,
+                                                    pt: `Σ (T.Médio × Supl.): ${totals.tempMajore.toFixed(2)} min — exibido em ${unitShort}`,
+                                                    tr: `Σ (Ortalama Süre × Tolerans): ${totals.tempMajore.toFixed(2)} min — ${unitShort} olarak gösterilir`
+                                                })}
                                             >
                                                 {formatTempMajoreInUnit(totals.tempMajore)}
                                             </td>
@@ -3823,8 +3947,8 @@ export default function Chronometrage({
                                     <div className="w-12 h-12 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-3">
                                         <ClipboardList className="w-6 h-6 text-slate-300" />
                                     </div>
-                                    <p className="text-slate-500 font-bold">Aucune opération</p>
-                                    <p className="text-slate-400 text-xs mt-1">Remplir la Gamme Opératoire d'abord.</p>
+                                    <p className="text-slate-500 font-bold">{tx(lang, { fr: 'Aucune opération', ar: 'لا توجد عملية', en: 'No operations', es: 'Ninguna operación', pt: 'Nenhuma operação', tr: 'İşlem yok' })}</p>
+                                    <p className="text-slate-400 text-xs mt-1">{tx(lang, { fr: "Remplir la Gamme Opératoire d'abord.", ar: 'املاً الغامة التشغيلية أولاً.', en: 'Fill the Operating Routing first.', es: 'Complete la gama de operaciones primero.', pt: 'Preencha a gama operacional primeiro.', tr: 'Önce İşlem Rotasını doldurun.' })}</p>
                                 </div>
                             ) : (
                                 filteredOperations.map((op, index) => {
@@ -3858,7 +3982,7 @@ export default function Chronometrage({
                                                             {showTsColumn && (
                                                                 <span
                                                                     className="text-[9px] font-mono font-bold text-amber-600 px-1.5 py-0.5 rounded-md bg-amber-50/80 border border-amber-100"
-                                                                    title="Temps standard gamme (s)"
+                                                                    title={tx(lang, { fr: 'Temps standard gamme (s)', ar: 'الوقت القياسي للغامة (ث)', en: 'Routing standard time (s)', es: 'Tiempo estándar de gama (s)', pt: 'Tempo padrão da gama (s)', tr: 'Rota standart süresi (s)' })}
                                                                 >
                                                                     TS {formatTsSeconds(op.time)} s
                                                                 </span>
@@ -3895,7 +4019,7 @@ export default function Chronometrage({
                                             {/* Results Strip */}
                                             <div className="bg-slate-50 rounded-xl p-2.5 space-y-2">
                                                 <div className="flex items-center justify-between gap-2">
-                                                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">Majoration</label>
+                                                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">{tx(lang, { fr: 'Majoration', ar: 'علاوة', en: 'Allowance', es: 'Suplemento', pt: 'Suplemento', tr: 'Tolerans' })}</label>
                                                     <input
                                                         type="number"
                                                         step="0.01"
@@ -3917,11 +4041,11 @@ export default function Chronometrage({
                                                         value={displayValue(row.tm)}
                                                         onChange={e => handleCellChange(op.id, 'tm', e.target.value)}
                                                     />
-                                                    {row.tmManual && <span className="text-[8px] font-bold text-slate-400">manuel</span>}
+                                                    {row.tmManual && <span className="text-[8px] font-bold text-slate-400">{tx(lang, { fr: 'manuel', ar: 'يدوي', en: 'manual', es: 'manual', pt: 'manual', tr: 'manuel' })}</span>}
                                                 </div>
                                                 <div className="w-px h-6 bg-slate-200"></div>
                                                 <div className="flex-1 text-center">
-                                                    <p className="text-[9px] font-bold text-slate-400 uppercase" title="T.Moy × Maj.">T.Maj × Maj ({unitShort})</p>
+                                                    <p className="text-[9px] font-bold text-slate-400 uppercase" title={tx(lang, { fr: 'T.Moy × Maj.', ar: 'T.Moy × علاوة', en: 'Mean Time × Allowance', es: 'T.Medio × Supl.', pt: 'T.Médio × Supl.', tr: 'Ortalama Süre × Tolerans' })}>T.Maj × Maj ({unitShort})</p>
                                                     <p className="text-sm font-black text-emerald-700 font-mono">{formatTempMajoreInUnit(row.tempMajore)}</p>
                                                 </div>
                                                 {showThroughputKpi && (
@@ -3943,7 +4067,11 @@ export default function Chronometrage({
                                                         {trEnabled && filledTRs >= 2 && (() => {
                                                             const v = getRowValidity(op.id);
                                                             const dot = v === 'valid' ? 'bg-emerald-400' : v === 'warn' ? 'bg-amber-400' : 'bg-rose-500';
-                                                            const tip = v === 'valid' ? 'Série valide' : v === 'warn' ? 'Vérifier CV' : 'Série invalide';
+                                                            const tip = v === 'valid' 
+                                                                ? tx(lang, { fr: 'Série valide', ar: 'سلسلة صالحة', en: 'Valid series', es: 'Serie válida', pt: 'Série válida', tr: 'Geçerli seri' }) 
+                                                                : v === 'warn' 
+                                                                ? tx(lang, { fr: 'Vérifier CV', ar: 'تحقق من CV', en: 'Check CV', es: 'Verificar CV', pt: 'Verificar CV', tr: 'CV kontrol et' }) 
+                                                                : tx(lang, { fr: 'Série invalide', ar: 'سلسلة غير صالحة', en: 'Invalid series', es: 'Serie inválida', pt: 'Série inválida', tr: 'Geçersiz seri' });
                                                             return <span className={`w-2 h-2 rounded-full shrink-0 ${dot}`} title={tip} />;
                                                         })()}
                                                     </div>
@@ -3983,23 +4111,23 @@ export default function Chronometrage({
                 <div className="bg-white rounded-2xl border border-slate-200 shadow-lg p-5 flex flex-col md:flex-row md:items-center justify-between gap-6">
                     <div className="flex flex-wrap items-center gap-3">
                         <div className="flex flex-col">
-                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Configuration</span>
+                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">{tx(lang, { fr: 'Configuration', ar: 'الإعدادات', en: 'Configuration', es: 'Configuración', pt: 'Configuração', tr: 'Yapılandırma' })}</span>
                             <span className="px-3 py-1.5 rounded-lg bg-slate-50 border border-slate-200 font-black text-slate-700 shadow-sm text-sm">{presenceHours.toFixed(1)} h/j</span>
                         </div>
                         <div className="flex flex-col">
-                            <span className="text-[10px] font-bold text-emerald-500 uppercase tracking-wider mb-0.5">Temps de Cycle</span>
+                            <span className="text-[10px] font-bold text-emerald-500 uppercase tracking-wider mb-0.5">{tx(lang, { fr: 'Temps de Cycle', ar: 'وقت الدورة', en: 'Cycle Time', es: 'Tiempo de ciclo', pt: 'Tempo de ciclo', tr: 'Döngü Süresi' })}</span>
                             <span className="px-3 py-1.5 rounded-lg bg-emerald-50 border border-emerald-200 font-black text-emerald-700 shadow-sm text-sm">{totals.tempMajore.toFixed(2)} min</span>
                         </div>
                         {showThroughputKpi && (
                             <>
                                 <div className="flex flex-col">
-                                    <span className="text-[10px] font-bold text-indigo-500 uppercase tracking-wider mb-0.5">Rendement {Math.max(1, Math.min(100, efficiency))}%</span>
+                                    <span className="text-[10px] font-bold text-indigo-500 uppercase tracking-wider mb-0.5">{tx(lang, { fr: 'Rendement', ar: 'المردودية', en: 'Efficiency', es: 'Rendimiento', pt: 'Rendimento', tr: 'Verimlilik' })} {Math.max(1, Math.min(100, efficiency))}%</span>
                                     <span className="px-3 py-1.5 rounded-lg bg-indigo-50 border border-indigo-200 font-black text-indigo-700 shadow-sm text-sm">
                                         {outputMode === 'PJ' ? `${totals.p85Global} pcs/j` : `${formatProductionCell(totals.p85Global || undefined, 'PH')} pcs/h`}
                                     </span>
                                 </div>
                                 <div className="flex flex-col">
-                                    <span className="text-[10px] font-bold text-orange-500 uppercase tracking-wider mb-0.5">Capacité Max</span>
+                                    <span className="text-[10px] font-bold text-orange-500 uppercase tracking-wider mb-0.5">{tx(lang, { fr: 'Capacité Max', ar: 'السعة القصوى', en: 'Max Capacity', es: 'Capacidad máx.', pt: 'Capacidade máx.', tr: 'Maks Kapasite' })}</span>
                                     <span className="px-3 py-1.5 rounded-lg bg-orange-50 border border-orange-200 font-black text-orange-700 shadow-sm text-sm">
                                         {outputMode === 'PJ' ? `${totals.pMaxGlobal} pcs/j` : `${formatProductionCell(totals.pMaxGlobal || undefined, 'PH')} pcs/h`}
                                     </span>
@@ -4010,7 +4138,7 @@ export default function Chronometrage({
                     
                     <div className="flex flex-wrap items-end gap-4 bg-slate-50 p-3 rounded-xl border border-slate-200">
                         <div className="flex flex-col gap-1">
-                            <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Objectif (Pièces)</label>
+                            <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">{tx(lang, { fr: 'Objectif (Pièces)', ar: 'الهدف (قطع)', en: 'Target (Pieces)', es: 'Objetivo (Piezas)', pt: 'Objetivo (Peças)', tr: 'Hedef (Adet)' })}</label>
                             <input
                                 type="number"
                                 min="1"
@@ -4021,11 +4149,11 @@ export default function Chronometrage({
                         </div>
                         <div className="flex items-center gap-2 mb-1">
                             <span className="flex flex-col px-3 py-1.5 rounded-lg bg-purple-100 border border-purple-200 font-black text-purple-700 shadow-sm">
-                                <span className="text-[9px] font-bold text-purple-500 uppercase tracking-wider leading-none mb-1">Délai estimé</span>
-                                {estimatedDays > 0 ? estimatedDays.toFixed(1) : '—'} jours
+                                <span className="text-[9px] font-bold text-purple-500 uppercase tracking-wider leading-none mb-1">{tx(lang, { fr: 'Délai estimé', ar: 'الوقت المقدر', en: 'Estimated time', es: 'Plazo estimado', pt: 'Prazo estimado', tr: 'Tahmini süre' })}</span>
+                                {estimatedDays > 0 ? estimatedDays.toFixed(1) : '—'} {tx(lang, { fr: 'jours', ar: 'أيام', en: 'days', es: 'días', pt: 'dias', tr: 'gün' })}
                             </span>
                             <span className="hidden sm:flex flex-col px-3 py-1.5 rounded-lg bg-cyan-50 border border-cyan-200 font-black text-cyan-700 shadow-sm">
-                                <span className="text-[9px] font-bold text-cyan-500 uppercase tracking-wider leading-none mb-1">Cadence</span>
+                                <span className="text-[9px] font-bold text-cyan-500 uppercase tracking-wider leading-none mb-1">{tx(lang, { fr: 'Cadence', ar: 'الإيقاع', en: 'Cadence', es: 'Cadencia', pt: 'Cadência', tr: 'Tempo' })}</span>
                                 {cycleHours.toFixed(2)} h / pce
                             </span>
                         </div>
@@ -4039,8 +4167,14 @@ export default function Chronometrage({
                     <Activity className="w-5 h-5 text-blue-600" />
                 </div>
                 <p className="text-xs text-blue-800/80 font-medium leading-relaxed">
-                    Production calculée sur <strong>{presenceTime}</strong> minutes avec une majoration par défaut de <strong>15%</strong> (1.15).
-                    L'unité de temps définie est <strong className="uppercase">{unitLabel}</strong>. La moyenne (T.Moy) est automatique mais peut être ajustée manuellement.
+                    {tx(lang, {
+                        fr: `Production calculée sur ${presenceTime} minutes avec une majoration par défaut de 15% (1.15). L'unité de temps définie est ${unitLabel}. La moyenne (T.Moy) est automatique mais peut être ajustée manuellement.`,
+                        ar: `الإنتاج المحسوب على ${presenceTime} دقائق مع علاوة افتراضية بنسبة 15% (1.15). وحدة الوقت المحددة هي ${unitLabel}. المتوسط (T.Moy) تلقائي ولكن يمكن ضبطه يدويًا.`,
+                        en: `Production calculated over ${presenceTime} minutes with a default allowance of 15% (1.15). The defined time unit is ${unitLabel}. The average (Mean Time) is automatic but can be adjusted manually.`,
+                        es: `Producción calculada sobre ${presenceTime} minutos con un suplemento por defecto de 15% (1.15). La unidad de tiempo definida es ${unitLabel}. El promedio (T.Moy) es automático pero se puede ajustar manualmente.`,
+                        pt: `Produção calculada sobre ${presenceTime} minutos com um suplemento padrão de 15% (1.15). A unidade de tempo definida é ${unitLabel}. A média (T.Moy) é automática, mas pode ser ajustada manualmente.`,
+                        tr: `Üretim, ${presenceTime} dakika üzerinden varsayılan %15 (1.15) tolerans ile hesaplanmıştır. Tanımlanan zaman birimi ${unitLabel}. Ortalama (Ortalama Süre) otomatiktir ancak manuel olarak ayarlanabilir.`
+                    })}
                 </p>
             </div>
 
@@ -4050,8 +4184,8 @@ export default function Chronometrage({
                     <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-md mx-4 overflow-hidden animate-in zoom-in-95 duration-200">
                         <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between">
                             <div>
-                                <h3 className="font-black text-slate-800 text-lg">Nouvelle Séance Chrono</h3>
-                                <p className="text-slate-500 text-xs mt-0.5">Choisir le type de gamme et créer la séance</p>
+                                <h3 className="font-black text-slate-800 text-lg">{tx(lang, { fr: 'Nouvelle Séance Chrono', ar: 'جلسة توقيت جديدة', en: 'New Timing Session', es: 'Nueva Sesión de Cronometraje', pt: 'Nova Sessão de Cronometragem', tr: 'Yeni Kronometre Seansı' })}</h3>
+                                <p className="text-slate-500 text-xs mt-0.5">{tx(lang, { fr: 'Choisir le type de gamme et créer la séance', ar: 'اختر نوع النطاق وأنشئ الجلسة', en: 'Choose the routing type and create the session', es: 'Elegir el tipo de gama y créer la sesión', pt: 'Escolher o tipo de gama e criar a sessão', tr: 'Rota türünü seçin ve seansı oluşturun' })}</p>
                             </div>
                             <button onClick={() => setShowCreateDialog(false)} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-colors">
                                 <X className="w-5 h-5" />
@@ -4060,7 +4194,7 @@ export default function Chronometrage({
                         <div className="px-6 py-5 space-y-4">
                             {/* Gamme Type Selector */}
                             <div>
-                                <label className="text-xs font-bold text-slate-600 uppercase tracking-wider block mb-2">Type de Gamme</label>
+                                <label className="text-xs font-bold text-slate-600 uppercase tracking-wider block mb-2">{tx(lang, { fr: 'Type de Gamme', ar: 'نوع النطاق', en: 'Routing Type', es: 'Tipo de Gama', pt: 'Tipo de Gama', tr: 'Rota Türü' })}</label>
                                 <div className="grid grid-cols-3 gap-2">
                                     {gammeTypeOptions.map(opt => (
                                         <button
@@ -4083,7 +4217,7 @@ export default function Chronometrage({
                             </div>
                             {/* Order Source Toggle */}
                             <div>
-                                <label className="text-xs font-bold text-slate-600 uppercase tracking-wider block mb-2">Ordre des Opérations</label>
+                                <label className="text-xs font-bold text-slate-600 uppercase tracking-wider block mb-2">{tx(lang, { fr: 'Ordre des Opérations', ar: 'ترتيب العمليات', en: 'Operation Order', es: 'Orden de Operaciones', pt: 'Ordem das Operações', tr: 'Operasyon Sırası' })}</label>
                                 <div className="flex rounded-xl border border-slate-200 overflow-hidden">
                                     <button
                                         onClick={() => setNewSessionOrderSource('gamme')}
@@ -4091,7 +4225,7 @@ export default function Chronometrage({
                                             newSessionOrderSource === 'gamme' ? 'bg-indigo-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-50'
                                         }`}
                                     >
-                                        Gamme
+                                        {tx(lang, { fr: 'Gamme', ar: 'نطاق (Gamme)', en: 'Routing', es: 'Gama', pt: 'Gama', tr: 'Rota' })}
                                     </button>
                                     <button
                                         onClick={() => setNewSessionOrderSource('plantation')}
@@ -4099,22 +4233,22 @@ export default function Chronometrage({
                                             newSessionOrderSource === 'plantation' ? 'bg-indigo-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-50'
                                         }`}
                                     >
-                                        Plantation
+                                        {tx(lang, { fr: 'Plantation', ar: 'التخطيط (Plantation)', en: 'Plantation', es: 'Plantation', pt: 'Plantation', tr: 'Plantation' })}
                                     </button>
                                 </div>
                             </div>
                             {/* Preview */}
                             <div className="bg-slate-50 rounded-xl p-4 border border-slate-100">
                                 <div className="flex items-center gap-2 text-xs text-slate-600">
-                                    <span className="font-bold">Modèle :</span>
-                                    <span className="text-indigo-600 font-black">{articleName || 'Non défini'}</span>
+                                    <span className="font-bold">{tx(lang, { fr: 'Modèle :', ar: 'الموديل:', en: 'Model:', es: 'Modelo:', pt: 'Modelo:', tr: 'Model:' })}</span>
+                                    <span className="text-indigo-600 font-black">{articleName || tx(lang, { fr: 'Non défini', ar: 'غير محدد', en: 'Not defined', es: 'No definido', pt: 'Não definido', tr: 'Tanımlanmamış' })}</span>
                                 </div>
                                 <div className="flex items-center gap-2 text-xs text-slate-600 mt-1">
-                                    <span className="font-bold">Opérations :</span>
+                                    <span className="font-bold">{tx(lang, { fr: 'Opérations :', ar: 'العمليات:', en: 'Operations:', es: 'Operaciones:', pt: 'Operações:', tr: 'Operasyonlar:' })}</span>
                                     <span className="font-black">{operations.length}</span>
                                 </div>
                                 <div className="flex items-center gap-2 text-xs text-slate-600 mt-1">
-                                    <span className="font-bold">Séances existantes :</span>
+                                    <span className="font-bold">{tx(lang, { fr: 'Séances existantes :', ar: 'الجلسات الموجودة:', en: 'Existing sessions:', es: 'Sesiones existentes:', pt: 'Sessões existentes:', tr: 'Mevcut seanslar:' })}</span>
                                     <span className="font-black">{sessions.length}</span>
                                 </div>
                             </div>
@@ -4124,13 +4258,13 @@ export default function Chronometrage({
                                 onClick={() => setShowCreateDialog(false)}
                                 className="px-4 py-2.5 rounded-xl text-sm font-bold text-slate-600 hover:bg-slate-100 transition-colors"
                             >
-                                Annuler
+                                {tx(lang, { fr: 'Annuler', ar: 'إلغاء', en: 'Cancel', es: 'Cancelar', pt: 'Cancelar', tr: 'İptal' })}
                             </button>
                             <button
                                 onClick={createSession}
                                 className="px-6 py-2.5 rounded-xl text-sm font-black bg-indigo-600 text-white shadow-md shadow-indigo-200 hover:bg-indigo-700 transition-all"
                             >
-                                <Plus className="w-4 h-4 inline mr-1" /> Créer la Séance
+                                <Plus className="w-4 h-4 inline mr-1" /> {tx(lang, { fr: 'Créer la Séance', ar: 'إنشاء الجلسة', en: 'Create Session', es: 'Crear la Sesión', pt: 'Criar Sessão', tr: 'Seans Oluştur' })}
                             </button>
                         </div>
                     </div>
@@ -4155,7 +4289,7 @@ export default function Chronometrage({
                                     {new Date(selectedSession.createdAt).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
                                     {selectedSession.gammeType && selectedSession.gammeType !== 'default' && (
                                         <span className={`ml-2 text-[10px] font-bold px-1.5 py-0.5 rounded ${selectedSession.gammeType === 'plantation' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
-                                            {selectedSession.gammeType === 'plantation' ? 'Plantation' : 'Nouveau'}
+                                            {selectedSession.gammeType === 'plantation' ? tx(lang, { fr: 'Plantation', ar: 'التخطيط (Plantation)', en: 'Plantation', es: 'Plantation', pt: 'Plantation', tr: 'Plantation' }) : tx(lang, { fr: 'Nouveau', ar: 'جديد', en: 'New', es: 'Nuevo', pt: 'Novo', tr: 'Yeni' })}
                                         </span>
                                     )}
                                 </p>
@@ -4166,36 +4300,43 @@ export default function Chronometrage({
                         {/* Summary Cards */}
                         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                             <div className="bg-indigo-50 rounded-xl p-4 border border-indigo-100">
-                                <p className="text-[10px] font-bold text-indigo-500 uppercase tracking-wider">Total T.Maj</p>
+                                <p className="text-[10px] font-bold text-indigo-500 uppercase tracking-wider">{tx(lang, { fr: 'Total T.Maj', ar: 'إجمالي T.Maj', en: 'Total T.Maj', es: 'Total T.Maj', pt: 'Total T.Maj', tr: 'Toplam T.Maj' })}</p>
                                 <p className="font-black text-indigo-700 text-xl mt-1">{(selectedSession.totalTempMajore || 0).toFixed(2)} min</p>
                             </div>
                             <div className="bg-emerald-50 rounded-xl p-4 border border-emerald-100">
-                                <p className="text-[10px] font-bold text-emerald-500 uppercase tracking-wider">Opérations</p>
+                                <p className="text-[10px] font-bold text-emerald-500 uppercase tracking-wider">{tx(lang, { fr: 'Opérations', ar: 'العمليات', en: 'Operations', es: 'Operaciones', pt: 'Operações', tr: 'Operasyonlar' })}</p>
                                 <p className="font-black text-emerald-700 text-xl mt-1">{Object.keys(selectedSession.entries).length}</p>
                             </div>
                             <div className="bg-orange-50 rounded-xl p-4 border border-orange-100">
-                                <p className="text-[10px] font-bold text-orange-500 uppercase tracking-wider">Séance #</p>
+                                <p className="text-[10px] font-bold text-orange-500 uppercase tracking-wider">{tx(lang, { fr: 'Séance #', ar: 'الجلسة #', en: 'Session #', es: 'Sesión #', pt: 'Sessão #', tr: 'Seans #' })}</p>
                                 <p className="font-black text-orange-700 text-xl mt-1">{sessions.findIndex(s => s.id === selectedSession.id) + 1} / {sessions.length}</p>
                             </div>
                             <div className="bg-purple-50 rounded-xl p-4 border border-purple-100">
-                                <p className="text-[10px] font-bold text-purple-500 uppercase tracking-wider">Ordre</p>
-                                <p className="font-black text-purple-700 text-xl mt-1 capitalize">{selectedSession.orderSource || 'gamme'}</p>
+                                <p className="text-[10px] font-bold text-purple-500 uppercase tracking-wider">{tx(lang, { fr: 'Ordre', ar: 'الترتيب', en: 'Order', es: 'Orden', pt: 'Ordem', tr: 'Sıra' })}</p>
+                                <p className="font-black text-purple-700 text-xl mt-1">
+                                    {(() => {
+                                        const src = selectedSession.orderSource || 'gamme';
+                                        return src === 'plantation'
+                                            ? tx(lang, { fr: 'Plantation', ar: 'التخطيط (Plantation)', en: 'Plantation', es: 'Plantation', pt: 'Plantation', tr: 'Plantation' })
+                                            : tx(lang, { fr: 'Gamme', ar: 'نطاق (Gamme)', en: 'Routing', es: 'Gama', pt: 'Gama', tr: 'Rota' });
+                                    })()}
+                                </p>
                             </div>
                         </div>
 
                         {/* Bar Chart — Temps majoré par opération */}
                         <div className="bg-white rounded-2xl border border-slate-200 shadow-lg p-5">
                             <h3 className="font-black text-slate-800 text-sm mb-4 flex items-center gap-2">
-                                <BarChart3 className="w-4 h-4 text-indigo-500" /> Temps Majoré par Opération (min)
+                                <BarChart3 className="w-4 h-4 text-indigo-500" /> {tx(lang, { fr: 'Temps Majoré par Opération (min)', ar: 'الوقت المرفّع لكل عملية (min)', en: 'Allowed Time per Operation (min)', es: 'Tiempo Suplementado por Operación (min)', pt: 'Tempo Suplementado por Operação (min)', tr: 'Operasyon Başına Toleranslı Süre (min)' })}
                             </h3>
                             {(() => {
                                 const entries = Object.entries(selectedSession.entries);
-                                if (entries.length === 0) return <p className="text-slate-400 text-sm">Aucune donnée</p>;
+                                if (entries.length === 0) return <p className="text-slate-400 text-sm">{tx(lang, { fr: 'Aucune donnée', ar: 'لا توجد بيانات', en: 'No data', es: 'Sin datos', pt: 'Sem dados', tr: 'Veri yok' })}</p>;
                                 const maxVal = Math.max(...entries.map(([, e]) => e.tempMajore || 0), 0.1);
                                 return (
                                     <div className="space-y-2">
                                         {entries.map(([opId, entry], idx) => {
-                                            const name = selectedSession.opNames[opId] || `Op. ${idx + 1}`;
+                                            const name = selectedSession.opNames[opId] || `${tx(lang, { fr: 'Op.', ar: 'عملية', en: 'Op.', es: 'Op.', pt: 'Op.', tr: 'Op.' })} ${idx + 1}`;
                                             const val = entry.tempMajore || 0;
                                             const pct = (val / maxVal) * 100;
                                             return (
@@ -4222,14 +4363,14 @@ export default function Chronometrage({
                             <div className="bg-white rounded-2xl border border-slate-200 shadow-lg overflow-hidden">
                                 <div className="px-5 py-4 border-b border-slate-100">
                                     <h3 className="font-black text-slate-800 text-sm flex items-center gap-2">
-                                        <TrendingUp className="w-4 h-4 text-indigo-500" /> Comparaison avec les Autres Séances
+                                        <TrendingUp className="w-4 h-4 text-indigo-500" /> {tx(lang, { fr: 'Comparaison avec les Autres Séances', ar: 'مقارنة مع الجلسات الأخرى', en: 'Comparison with Other Sessions', es: 'Comparación con las Otras Sesiones', pt: 'Comparação com as Outras Sessões', tr: 'Diğer Seanslarla Karşılaştırma' })}
                                     </h3>
                                 </div>
                                 <div className="overflow-x-auto">
                                     <table className="w-full text-xs border-collapse">
                                         <thead>
                                             <tr className="bg-slate-50 text-slate-500 border-b border-slate-200">
-                                                <th className="py-2.5 px-3 text-left font-black sticky left-0 bg-slate-50 min-w-[140px]">Opération</th>
+                                                <th className="py-2.5 px-3 text-left font-black sticky left-0 bg-slate-50 min-w-[140px]">{tx(lang, { fr: 'Opération', ar: 'العملية', en: 'Operation', es: 'Operación', pt: 'Operação', tr: 'Operasyon' })}</th>
                                                 {sessions.map((s, i) => (
                                                     <th key={s.id} className={`py-2.5 px-2 text-center font-bold min-w-[60px] ${s.id === selectedSession.id ? 'bg-indigo-50 text-indigo-700' : ''}`} title={s.label}>
                                                         #{i + 1}

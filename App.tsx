@@ -29,6 +29,7 @@ import {
 import { useAuth } from './src/context/AuthContext';
 import { useLicense } from './src/context/LicenseContext';
 import { usePermissions } from './src/context/PermissionsContext';
+import { ACCOUNT_TYPE_HIDDEN } from './app/accountTypes';
 import { DataOwnerProvider } from './src/context/DataOwnerContext';
 import { notifyServerSessionEstablished } from './lib/dataIdentity';
 import { Machine, MachineInstance, MachineFleetHistoryEntry, Operation, FicheData, Poste, SpeedFactor, ComplexityFactor, StandardTime, Guide, ModelData, AppSettings, ManualLink } from './types';
@@ -64,6 +65,7 @@ const CatalogueTemps = lazy(() => import('./components/CatalogueTemps'));
 
 // ── Extracted modules ──
 import { TRANSLATIONS, Lang, DEFAULT_MACHINES, DEFAULT_GUIDES, AUTO_SAVE_KEY, LIBRARY_KEY, MANUAL_LINKS_BY_MODEL_KEY, MACHINES_STORAGE_KEY, MACHINE_INSTANCES_KEY, MACHINE_FLEET_HISTORY_KEY, MAX_MACHINE_FLEET_HISTORY, defaultNavOrder } from './app/constants';
+import { useLang } from './src/context/LanguageContext';
 import { isLegacyBundledMachineFleet, looksLikeGeneratedDemoFleet, isDemoMachineName, mergeServerFleetWithPendingLocal, loadMachinesFromStorage, loadMachineFleetHistoryFromStorage, normalizeLoadedLayout, loadManualLinksByModel, saveManualLinksByModel, deleteManualLinksByModel } from './app/machineUtils';
 import AppHeader from './app/AppHeader';
 import NavConfirmModal from './app/NavConfirmModal';
@@ -85,7 +87,7 @@ export default function App() {
     // Licence BERA MASTER : modules masqués selon le forfait (vide si non appliqué).
     const { hiddenModules: licenseHiddenModules } = useLicense();
     // Permissions hiérarchiques (Epic 2) : pages masquées selon le rôle (vide si super/solo).
-    const { hiddenPages: permHiddenPages } = usePermissions();
+    const { hiddenPages: permHiddenPages, accountType } = usePermissions();
     const [authView, setAuthView] = useState<'login' | 'signup'>('login');
     const [isGuest, setIsGuest] = useState(false);
 
@@ -107,7 +109,7 @@ export default function App() {
             });
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
-    const [lang, setLang] = useState<Lang>('fr');
+    const { lang, setLang } = useLang();
     const t = TRANSLATIONS[lang];
 
     const [appLoading, setAppLoading] = useState<{
@@ -300,8 +302,9 @@ export default function App() {
     });
     const saveNavConfig = (cfg: typeof navConfig) => { setNavConfig(cfg); localStorage.setItem('bera_nav_config', JSON.stringify(cfg)); };
     const navOrder = navConfig.order.length ? navConfig.order : defaultNavOrder;
-    // Config de nav effective : fusionne les modules masqués par la licence (vide si non appliqué).
-    const extraHidden = [...licenseHiddenModules, ...permHiddenPages];
+    // Config de nav effective : fusionne les modules masqués par la licence,
+    // les permissions, et le type de compte (société = rien masqué).
+    const extraHidden = [...licenseHiddenModules, ...permHiddenPages, ...(ACCOUNT_TYPE_HIDDEN[accountType] || [])];
     const effectiveNavConfig = extraHidden.length
         ? { ...navConfig, hidden: [...new Set([...navConfig.hidden, ...extraHidden])] }
         : navConfig;
@@ -1137,6 +1140,17 @@ export default function App() {
         );
     }
 
+    // ── DEV PREVIEW GATE (dev-only, removable) ─────────────────────────────
+    // Affiche l'écran Setup isolé pour le design : http://localhost:5173/?preview=setup
+    // N'affecte PAS le boot réel (uniquement en mode DEV + query param explicite).
+    if (import.meta.env.DEV && (new URLSearchParams(window.location.search).get('preview') === 'setup' || (typeof localStorage !== 'undefined' && localStorage.getItem('bera_preview') === 'setup'))) {
+        return (
+            <Suspense fallback={<GlobalLoader isActive={true} progress={30} text="BERAMETHODE" subText="Preview…" />}>
+                <Setup onComplete={() => { /* preview: no-op */ }} />
+            </Suspense>
+        );
+    }
+
     // ── First-boot setup (Express / EXE local uniquement) ──────────────────
     // setupNeeded = null → vérification en cours → on attend avec le loader.
     // setupNeeded = true ET pas d'utilisateur connecté → affiche le wizard.
@@ -1160,6 +1174,14 @@ export default function App() {
                             // On l'injecte via login() (même chemin que la connexion normale).
                             login(newUser);
                             setSetupNeeded(false);
+                            // Reprendre les préférences écrites par le wizard (langue, devise, TVA)
+                            // pour qu'elles s'appliquent dès cette session, sans reload.
+                            try {
+                                const savedLang = localStorage.getItem('bera_lang');
+                                if (savedLang && ['fr', 'ar', 'en', 'es', 'pt', 'tr'].includes(savedLang)) setLang(savedLang as Lang);
+                                const savedSettings = localStorage.getItem('beramethode_settings');
+                                if (savedSettings) setGlobalSettings({ ...DEFAULT_SETTINGS, ...JSON.parse(savedSettings) });
+                            } catch { /* non bloquant */ }
                         }}
                     />
                 </Suspense>
@@ -1240,7 +1262,7 @@ export default function App() {
 
     return (
         <DataOwnerProvider user={user ? { ...user, id: Number(user.id) } : null} isGuest={isGuest}>
-            <div className="flex flex-col h-screen bg-white text-gray-800 font-sans overflow-hidden" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
+            <div className="flex flex-col h-screen bg-white text-gray-800 font-sans overflow-hidden transition-colors duration-300" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
                 <AnnouncementBar />
                 <LicenseBanner />
                 {/* HEADER TOP BAR - COMPACT (h-12) & CLEAN */}
@@ -1441,7 +1463,7 @@ export default function App() {
                             onRedo={handleRedo}
                             canUndo={historyIndex > 0}
                             canRedo={historyIndex < history.length - 1}
-                            lang={lang}
+                            lang={lang as 'fr' | 'ar'}
                         />
                     )}
 
@@ -1605,7 +1627,7 @@ export default function App() {
                             planningEvents={planningEvents}
                             demandes={demandesAppro}
                             setDemandes={setDemandesAppro}
-                            lang={lang}
+                            lang={lang as 'fr' | 'ar' | 'en'}
                             settings={globalSettings}
                         />
                     )}
@@ -1628,7 +1650,9 @@ export default function App() {
                             <Configuration
                                 settings={globalSettings}
                                 setSettings={setGlobalSettings}
-                                lang={lang}
+                                lang={lang as 'fr' | 'ar'}
+                                currentLang={lang}
+                                onSetLang={(l) => setLang(l as Lang)}
                                 machines={machines}
                                 navConfig={navConfig}
                                 setNavConfig={saveNavConfig}
@@ -1680,7 +1704,7 @@ export default function App() {
 
                     {currentView === 'facturation' && (
                         <div className="flex-1 min-h-0 flex flex-col overflow-hidden w-full">
-                            <Facturation t={(k) => k} lang={lang} />
+                            <Facturation t={(k) => k} lang={lang as 'fr' | 'ar' | 'en'} />
                         </div>
                     )}
 

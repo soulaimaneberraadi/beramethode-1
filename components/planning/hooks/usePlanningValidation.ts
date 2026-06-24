@@ -48,7 +48,10 @@ export function getMaterialAvailability(
     } catch (_) { /* ignore */ }
 
     const model = models.find(m => m.id === modelId);
-    const materials = model?.ficheData?.materials || [];
+    if (!model) {
+        return { color: 'none', emoji: '⚪', label: 'Modèle introuvable', details: [] };
+    }
+    const materials = model.ficheData?.materials || [];
     if (materials.length === 0 || receipts.length === 0) {
         return { color: 'none', emoji: '⚪', label: 'Pas de BOM/BR', details: [] };
     }
@@ -129,6 +132,19 @@ export function usePlanningValidation({ planningEvents, models, machines, settin
             if (ev.status === 'DONE') continue;
 
             const model = modelsMap.get(ev.modelId);
+
+            if (!model) {
+                issues.push({
+                    id: `${ev.id}-missing-model`,
+                    eventId: ev.id,
+                    severity: 'error',
+                    type: 'machines',
+                    title: 'Modèle introuvable',
+                    detail: "Le modèle spécifié pour cet ordre de fabrication n'existe pas dans la bibliothèque.",
+                    suggestion: "Vérifier si le modèle a été supprimé ou recréer le modèle.",
+                });
+                continue;
+            }
 
             // 1. Stock magasin
             const isLocal = model?.ficheData?.typeMarche !== 'Export';

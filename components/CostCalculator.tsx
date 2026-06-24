@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Banknote, Receipt, LayoutTemplate, FileDown, Clock, FileText, PieChart as PieChartIcon, SlidersHorizontal, Scissors, Trash2, Check, AlertTriangle, Factory } from 'lucide-react';
+import { Banknote, Receipt, LayoutTemplate, FileDown, Clock, FileText, PieChart as PieChartIcon, SlidersHorizontal, Scissors, Trash2, Check, AlertTriangle, Factory, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Material, AppSettings, PdfSettings, FicheData, PurchasingData } from '../types';
 import { translations, fmt } from '../constants';
 import { findMagasinItem } from '../lib/magasinMatch';
@@ -58,6 +58,7 @@ export default function CostCalculator({
     const [viewMode, setViewMode] = useState<'ticket' | 'a4'>('a4'); // Default to A4 as requested
     const docRefA4 = useRef<HTMLDivElement>(null);
     const docRefTicket = useRef<HTMLDivElement>(null);
+    const mainSwipeStartRef = useRef<{ x: number; y: number } | null>(null);
     // Dimensions du ticket (mm) — réglables dans le modal d'export.
     const [ticketSize, setTicketSize] = useState<{ width: number; height: number }>({ width: 80, height: 150 });
     // Largeur de référence du design du ticket (TicketView = max-w-[400px]). Le contenu
@@ -68,23 +69,24 @@ export default function CostCalculator({
     const ticketContentScale = mmToPxC(ticketSize.width) / TICKET_BASE_W;
 
     // --- PDF Settings State ---
-    const [showPdfModal, setShowPdfModal] = useState(false);
-    const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
-    const [isLibLoaded, setIsLibLoaded] = useState(false);
-    const [pdfSettings, setPdfSettings] = useState<PdfSettings>({
-        orientation: 'portrait',
-        colorMode: 'color',
-        scale: 1
-    });
-
-    // Sections visibles dans la fiche PDF (l'utilisateur masque ce qu'il ne veut pas).
-    const [pdfSections, setPdfSections] = useState({
-        info: true,
-        nomenclature: true,
-        pricing: true,
-        order: true,
-        notes: true,
-    });
+     const [showPdfModal, setShowPdfModal] = useState(false);
+     const [mainActivePage, setMainActivePage] = useState(1);
+     const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+     const [isLibLoaded, setIsLibLoaded] = useState(false);
+     const [pdfSettings, setPdfSettings] = useState<PdfSettings>({
+         orientation: 'portrait',
+         colorMode: 'color',
+         scale: 1
+     });
+ 
+     // Sections visibles dans la fiche PDF (l'utilisateur masque ce qu'il ne veut pas).
+     const [pdfSections, setPdfSections] = useState({
+         info: true,
+         nomenclature: true,
+         pricing: true,
+         order: true,
+         notes: true,
+     });
 
     // --- Editable Fields for Document ---
     const [companyName, setCompanyName] = useState("");
@@ -261,6 +263,41 @@ export default function CostCalculator({
 
     // --- Calculations ---
     const isExport = ficheData.typeMarche === 'Export';
+
+    const mainTotalPages = useMemo(() => {
+        return (viewMode === 'a4' && orderQty > 0 && (materials.length > 0 || (ficheData.colors && ficheData.colors.length > 0))) ? 2 : 1;
+    }, [viewMode, orderQty, materials.length, ficheData.colors]);
+
+    useEffect(() => {
+        if (mainActivePage > mainTotalPages) {
+            setMainActivePage(1);
+        }
+    }, [mainTotalPages, mainActivePage]);
+
+    const onMainTouchStart = (e: React.TouchEvent) => {
+        if (e.touches.length === 1) {
+            mainSwipeStartRef.current = {
+                x: e.touches[0].clientX,
+                y: e.touches[0].clientY
+            };
+        }
+    };
+
+    const onMainTouchEnd = (e: React.TouchEvent) => {
+        if (mainSwipeStartRef.current && e.changedTouches.length === 1) {
+            const deltaX = e.changedTouches[0].clientX - mainSwipeStartRef.current.x;
+            const deltaY = e.changedTouches[0].clientY - mainSwipeStartRef.current.y;
+
+            if (Math.abs(deltaX) > 50 && Math.abs(deltaY) < 40) {
+                if (deltaX < 0) {
+                    setMainActivePage(p => Math.min(mainTotalPages, p + 1));
+                } else {
+                    setMainActivePage(p => Math.max(1, p - 1));
+                }
+            }
+        }
+        mainSwipeStartRef.current = null;
+    };
 
     // --- Sous-traitance (façon) ---
     // Si active : la main d'œuvre = prix fixe / pièce du sous-traitant (au lieu du
@@ -953,6 +990,7 @@ export default function CostCalculator({
                 onExcel={exportToExcel}
                 pdfSections={pdfSections} setPdfSections={setPdfSections}
                 mode={viewMode} ticketSize={ticketSize} setTicketSize={setTicketSize}
+                totalPages={viewMode === 'a4' && orderQty > 0 && (materials.length > 0 || (ficheData.colors && ficheData.colors.length > 0)) ? 2 : 1}
             >
                 {viewMode === 'ticket' ? (
                     // Aperçu : on met le contenu (largeur de référence) à l'échelle pour
@@ -1247,12 +1285,39 @@ export default function CostCalculator({
                                 <>
                                     <div className={`px-5 h-12 border-b flex justify-between items-center bg-slate-50/60 border-slate-100 print:hidden`}>
                                         <h2 className={`text-[13px] font-semibold text-slate-900`}>Fiche de Coût A4</h2>
-                                        <div className="flex gap-1.5">
-                                            <button onClick={() => setShowPdfModal(true)} className="inline-flex items-center gap-1.5 h-8 px-3 text-[12px] font-medium rounded-md bg-slate-900 hover:bg-slate-800 text-white transition-colors" title="Exporter (PDF / Excel) ou imprimer la fiche"><FileDown className="w-3.5 h-3.5" strokeWidth={1.75} /> Exporter / Imprimer</button>
-                                        </div>
-                                    </div>
+                                        <div className="flex items-center gap-2">
+                                             {mainTotalPages > 1 && (
+                                                 <div className="flex items-center gap-2 px-3 py-1 bg-slate-900/95 text-white rounded-full border border-slate-800 shadow-md">
+                                                     <button
+                                                         onClick={() => setMainActivePage(p => Math.max(1, p - 1))}
+                                                         disabled={mainActivePage === 1}
+                                                         className="p-1 rounded-full hover:bg-slate-800 disabled:opacity-30 transition-all active:scale-90"
+                                                         title="Page précédente"
+                                                     >
+                                                         <ChevronLeft className="w-3.5 h-3.5" />
+                                                     </button>
+                                                     <span className="text-[11px] font-bold font-mono select-none px-1">
+                                                         Page {mainActivePage} / {mainTotalPages}
+                                                     </span>
+                                                     <button
+                                                         onClick={() => setMainActivePage(p => Math.min(mainTotalPages, p + 1))}
+                                                         disabled={mainActivePage === mainTotalPages}
+                                                         className="p-1 rounded-full hover:bg-slate-800 disabled:opacity-30 transition-all active:scale-90"
+                                                         title="Page suivante"
+                                                     >
+                                                         <ChevronRight className="w-3.5 h-3.5" />
+                                                     </button>
+                                                 </div>
+                                             )}
+                                             <button onClick={() => setShowPdfModal(true)} className="inline-flex items-center gap-1.5 h-8 px-3 text-[12px] font-medium rounded-md bg-slate-900 hover:bg-slate-800 text-white transition-colors" title="Exporter (PDF / Excel) ou imprimer la fiche"><FileDown className="w-3.5 h-3.5" strokeWidth={1.75} /> Exporter / Imprimer</button>
+                                         </div>
+                                     </div>
 
-                                    <div className="bg-slate-100 p-3 sm:p-8 overflow-hidden">
+                                     <div 
+                                         className={`bg-slate-100 p-3 sm:p-8 overflow-hidden active-page-${mainActivePage}`}
+                                         onTouchStart={onMainTouchStart}
+                                         onTouchEnd={onMainTouchEnd}
+                                     >
                                       <A4ResponsiveFrame>
                                         {/* A4 = design « Fiche Compacte » (facture) — choix utilisateur. */}
                                         <CompactCostSheet

@@ -16,6 +16,8 @@ import {
   Legend,
 } from 'recharts';
 import { ResponsiveChart } from './ui/ResponsiveChart';
+import { tx } from '../lib/i18n';
+import { useLang } from '../src/context/LanguageContext';
 
 type DashboardNavTarget =
   | 'planning'
@@ -88,24 +90,25 @@ const KpiCard = React.memo(function KpiCard({ kpi, showLoading, onNavigateModule
   return <div key={kpi.key} className={shell}>{Inner}</div>;
 });
 
-function useDashboardKpis(liveKPIs: any, activeModelsCount: number, totalEffectif: number, globalTRS: number, pJournaliere: number) {
+function useDashboardKpis(liveKPIs: any, activeModelsCount: number, totalEffectif: number, globalTRS: number, pJournaliere: number, lang: string) {
   return useMemo(() => {
     const stockVal = liveKPIs?.stock?.valeur_totale != null ? `${(liveKPIs.stock.valeur_totale / 1000).toFixed(1)}k` : '—';
     const avancesVal = liveKPIs?.rh?.avances_encours != null ? `${(liveKPIs.rh.avances_encours / 1000).toFixed(1)}k` : '—';
     return [
-      { key: 'of', label: 'OF En Cours', value: liveKPIs?.planning?.en_cours ?? '—', sub: `${liveKPIs?.planning?.avancement ?? 0}% avancement`, icon: Factory, iconBg: 'bg-indigo-50', iconColor: 'text-indigo-600', nav: 'planning' as DashboardNavTarget, valueFromApi: true, sparkData: liveKPIs?.charts?.spark_ofs || [], sparkColor: '#6366f1' },
-      { key: 'eff-rh', label: 'Effectif Actif', value: liveKPIs?.effectifs?.total ?? '—', sub: `${liveKPIs?.effectifs?.presents ?? 0} présents`, icon: Users, iconBg: 'bg-emerald-50', iconColor: 'text-emerald-600', nav: 'effectifs' as DashboardNavTarget, valueFromApi: true, sparkData: liveKPIs?.charts?.spark_presence || [], sparkColor: '#10b981' },
-      { key: 'stock', label: 'Valeur Stock', value: stockVal, sub: `${liveKPIs?.stock?.nb_alertes ?? 0} alerte(s)`, icon: Package, iconBg: 'bg-amber-50', iconColor: 'text-amber-600', nav: 'magasin' as DashboardNavTarget, valueFromApi: true, sparkData: (liveKPIs?.charts?.mouvements_7j || []).map((m:any) => ({ value: m.total_entrees })), sparkColor: '#f59e0b' },
-      { key: 'avances', label: 'Avances', value: avancesVal, sub: `${liveKPIs?.rh?.demandes_attente ?? 0} demande(s)`, icon: DollarSign, iconBg: 'bg-violet-50', iconColor: 'text-violet-600', nav: 'effectifs' as DashboardNavTarget, valueFromApi: true, sparkData: [], sparkColor: '#8b5cf6' },
-      { key: 'modeles', label: 'Modèles Actifs', value: activeModelsCount.toString(), sub: 'En planification', icon: Layers, iconBg: 'bg-sky-50', iconColor: 'text-sky-600', nav: 'library' as DashboardNavTarget, valueFromApi: false, sparkData: [], sparkColor: '#06b6d4' },
-      { key: 'eff-suivi', label: 'Effectif Présent', value: totalEffectif.toString(), sub: "Aujourd'hui", icon: Users, iconBg: 'bg-teal-50', iconColor: 'text-teal-600', nav: 'suivi' as DashboardNavTarget, valueFromApi: false, sparkData: [], sparkColor: '#14b8a6' },
-      { key: 'trs', label: 'T.R.S Global', value: `${globalTRS}%`, sub: 'Synthèse du jour', icon: Activity, iconBg: 'bg-rose-50', iconColor: 'text-rose-600', nav: 'rendement' as DashboardNavTarget, valueFromApi: false, sparkData: [], sparkColor: '#f43f5e' },
-      { key: 'pj', label: 'P° Journalière', value: pJournaliere.toLocaleString(), sub: 'Cumul pièces', icon: TrendingUp, iconBg: 'bg-blue-50', iconColor: 'text-blue-600', nav: 'suivi' as DashboardNavTarget, valueFromApi: false, sparkData: (liveKPIs?.charts?.prod_7j || []).map((p:any) => ({ value: p.total })), sparkColor: '#3b82f6' },
+      { key: 'of', label: tx(lang, { fr: 'OF En Cours', ar: 'أوامر الإنتاج الجارية', en: 'OF In Progress', es: 'OF En Curso', pt: 'OF Em Andamento', tr: 'Devam Eden OF' }), value: liveKPIs?.planning?.en_cours ?? '—', sub: tx(lang, { fr: `${liveKPIs?.planning?.avancement ?? 0}% avancement`, ar: `${liveKPIs?.planning?.avancement ?? 0}% تقدّم`, en: `${liveKPIs?.planning?.avancement ?? 0}% progress`, es: `${liveKPIs?.planning?.avancement ?? 0}% avance`, pt: `${liveKPIs?.planning?.avancement ?? 0}% progresso`, tr: `${liveKPIs?.planning?.avancement ?? 0}% ilerleme` }), icon: Factory, iconBg: 'bg-indigo-50', iconColor: 'text-indigo-600', nav: 'planning' as DashboardNavTarget, valueFromApi: true, sparkData: liveKPIs?.charts?.spark_ofs || [], sparkColor: '#6366f1' },
+      { key: 'eff-rh', label: tx(lang, { fr: 'Effectif Actif', ar: 'العمالة النشطة', en: 'Active Workforce', es: 'Plantilla Activa', pt: 'Efetivo Ativo', tr: 'Aktif Personel' }), value: liveKPIs?.effectifs?.total ?? '—', sub: tx(lang, { fr: `${liveKPIs?.effectifs?.presents ?? 0} présents`, ar: `${liveKPIs?.effectifs?.presents ?? 0} حاضرون`, en: `${liveKPIs?.effectifs?.presents ?? 0} present`, es: `${liveKPIs?.effectifs?.presents ?? 0} presentes`, pt: `${liveKPIs?.effectifs?.presents ?? 0} presentes`, tr: `${liveKPIs?.effectifs?.presents ?? 0} mevcut` }), icon: Users, iconBg: 'bg-emerald-50', iconColor: 'text-emerald-600', nav: 'effectifs' as DashboardNavTarget, valueFromApi: true, sparkData: liveKPIs?.charts?.spark_presence || [], sparkColor: '#10b981' },
+      { key: 'stock', label: tx(lang, { fr: 'Valeur Stock', ar: 'قيمة المخزون', en: 'Stock Value', es: 'Valor de Stock', pt: 'Valor de Estoque', tr: 'Stok Değeri' }), value: stockVal, sub: tx(lang, { fr: `${liveKPIs?.stock?.nb_alertes ?? 0} alerte(s)`, ar: `${liveKPIs?.stock?.nb_alertes ?? 0} تنبيه`, en: `${liveKPIs?.stock?.nb_alertes ?? 0} alert(s)`, es: `${liveKPIs?.stock?.nb_alertes ?? 0} alerta(s)`, pt: `${liveKPIs?.stock?.nb_alertes ?? 0} alerta(s)`, tr: `${liveKPIs?.stock?.nb_alertes ?? 0} uyarı` }), icon: Package, iconBg: 'bg-amber-50', iconColor: 'text-amber-600', nav: 'magasin' as DashboardNavTarget, valueFromApi: true, sparkData: (liveKPIs?.charts?.mouvements_7j || []).map((m:any) => ({ value: m.total_entrees })), sparkColor: '#f59e0b' },
+      { key: 'avances', label: tx(lang, { fr: 'Avances', ar: 'السلفات', en: 'Advances', es: 'Anticipos', pt: 'Adiantamentos', tr: 'Avanslar' }), value: avancesVal, sub: tx(lang, { fr: `${liveKPIs?.rh?.demandes_attente ?? 0} demande(s)`, ar: `${liveKPIs?.rh?.demandes_attente ?? 0} طلب`, en: `${liveKPIs?.rh?.demandes_attente ?? 0} request(s)`, es: `${liveKPIs?.rh?.demandes_attente ?? 0} solicitud(es)`, pt: `${liveKPIs?.rh?.demandes_attente ?? 0} pedido(s)`, tr: `${liveKPIs?.rh?.demandes_attente ?? 0} talep` }), icon: DollarSign, iconBg: 'bg-violet-50', iconColor: 'text-violet-600', nav: 'effectifs' as DashboardNavTarget, valueFromApi: true, sparkData: [], sparkColor: '#8b5cf6' },
+      { key: 'modeles', label: tx(lang, { fr: 'Modèles Actifs', ar: 'النماذج النشطة', en: 'Active Models', es: 'Modelos Activos', pt: 'Modelos Ativos', tr: 'Aktif Modeller' }), value: activeModelsCount.toString(), sub: tx(lang, { fr: 'En planification', ar: 'في التخطيط', en: 'In planning', es: 'En planificación', pt: 'Em planejamento', tr: 'Planlamada' }), icon: Layers, iconBg: 'bg-sky-50', iconColor: 'text-sky-600', nav: 'library' as DashboardNavTarget, valueFromApi: false, sparkData: [], sparkColor: '#06b6d4' },
+      { key: 'eff-suivi', label: tx(lang, { fr: 'Effectif Présent', ar: 'العمالة الحاضرة', en: 'Present Workforce', es: 'Plantilla Presente', pt: 'Efetivo Presente', tr: 'Mevcut Personel' }), value: totalEffectif.toString(), sub: tx(lang, { fr: "Aujourd'hui", ar: 'اليوم', en: 'Today', es: 'Hoy', pt: 'Hoje', tr: 'Bugün' }), icon: Users, iconBg: 'bg-teal-50', iconColor: 'text-teal-600', nav: 'suivi' as DashboardNavTarget, valueFromApi: false, sparkData: [], sparkColor: '#14b8a6' },
+      { key: 'trs', label: tx(lang, { fr: 'T.R.S Global', ar: 'TRS الإجمالي', en: 'Global TRS', es: 'TRS Global', pt: 'TRS Global', tr: 'Genel TRS' }), value: `${globalTRS}%`, sub: tx(lang, { fr: 'Synthèse du jour', ar: 'ملخص اليوم', en: "Today's summary", es: 'Resumen del día', pt: 'Resumo do dia', tr: 'Günün özeti' }), icon: Activity, iconBg: 'bg-rose-50', iconColor: 'text-rose-600', nav: 'rendement' as DashboardNavTarget, valueFromApi: false, sparkData: [], sparkColor: '#f43f5e' },
+      { key: 'pj', label: tx(lang, { fr: 'P° Journalière', ar: 'الإنتاج اليومي', en: 'Daily Output', es: 'P° Diaria', pt: 'P° Diária', tr: 'Günlük Üretim' }), value: pJournaliere.toLocaleString(), sub: tx(lang, { fr: 'Cumul pièces', ar: 'مجموع القطع', en: 'Total pieces', es: 'Total piezas', pt: 'Total de peças', tr: 'Toplam parça' }), icon: TrendingUp, iconBg: 'bg-blue-50', iconColor: 'text-blue-600', nav: 'suivi' as DashboardNavTarget, valueFromApi: false, sparkData: (liveKPIs?.charts?.prod_7j || []).map((p:any) => ({ value: p.total })), sparkColor: '#3b82f6' },
     ];
-  }, [liveKPIs, activeModelsCount, totalEffectif, globalTRS, pJournaliere]);
+  }, [liveKPIs, activeModelsCount, totalEffectif, globalTRS, pJournaliere, lang]);
 }
 
 export default function Dashboard({ models, suivis, planningEvents, settings, setSettings, onOpenAgenda, onNavigateModule }: DashboardProps) {
+  const { lang } = useLang();
 
   const [liveKPIs, setLiveKPIs] = useState<any>(null);
   const [kpiLoading, setKpiLoading] = useState(true);
@@ -283,7 +286,7 @@ export default function Dashboard({ models, suivis, planningEvents, settings, se
         sumTRS += trs;
         countTRS++;
         if (trs < 65) {
-          alerts.push({ title: `Alerte TRS ${event?.chaineId || '?'}`, trs, time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) });
+          alerts.push({ title: tx(lang, { fr: `Alerte TRS ${event?.chaineId || '?'}`, ar: `تنبيه TRS ${event?.chaineId || '?'}`, en: `TRS Alert ${event?.chaineId || '?'}`, es: `Alerta TRS ${event?.chaineId || '?'}`, pt: `Alerta TRS ${event?.chaineId || '?'}`, tr: `TRS Uyarısı ${event?.chaineId || '?'}` }), trs, time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) });
         }
       }
     });
@@ -310,9 +313,9 @@ export default function Dashboard({ models, suivis, planningEvents, settings, se
     if (eData.length === 0) eData.push({ name: 'CH 1', rendement: 0, fill: '#6366f1' });
 
     return { totalEffectif: effectif, globalTRS: overallTRS, pJournaliere: totalH, productionData: pData, efficiencyData: eData, andonAlerts: alerts };
-  }, [suivis, planningEvents, todayDateStr]);
+  }, [suivis, planningEvents, todayDateStr, lang]);
 
-  const mergedDashboardKpis = useDashboardKpis(effectiveLiveKPIs, activeModelsCount, productionStats.totalEffectif, productionStats.globalTRS, productionStats.pJournaliere);
+  const mergedDashboardKpis = useDashboardKpis(effectiveLiveKPIs, activeModelsCount, productionStats.totalEffectif, productionStats.globalTRS, productionStats.pJournaliere, lang);
 
   const [skipReasonModal, setSkipReasonModal] = useState<AppTask | null>(null);
   const [skipReasonText, setSkipReasonText] = useState('');
@@ -332,7 +335,7 @@ export default function Dashboard({ models, suivis, planningEvents, settings, se
       setSkipReasonModal(null);
       setSkipReasonText('');
     } else {
-      alert('Veuillez entrer une raison valide.');
+      alert(tx(lang, { fr: 'Veuillez entrer une raison valide.', ar: 'يرجى إدخال سبب صحيح.', en: 'Please enter a valid reason.', es: 'Por favor, introduzca un motivo válido.', pt: 'Por favor, insira um motivo válido.', tr: 'Lütfen geçerli bir neden girin.' }));
     }
   }, [skipReasonModal, skipReasonText, handleUpdateTaskStatus]);
 
@@ -345,8 +348,11 @@ export default function Dashboard({ models, suivis, planningEvents, settings, se
   const firstDayOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).getDay();
   const daysInMonth = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate();
 
+  const weekDayLabels: Record<string, string[]> = { fr: ['L','M','M','J','V','S','D'], ar: ['ن','ث','ر','خ','ج','س','ح'], en: ['M','T','W','T','F','S','S'], es: ['L','M','X','J','V','S','D'], pt: ['S','T','Q','Q','S','S','D'], tr: ['P','S','Ç','P','C','C','P'] };
+  const currentWeekDayLabels = weekDayLabels[lang] || weekDayLabels.fr;
+
   const handleExportCSV = useCallback(() => {
-    const csvRows = ['Heure,Production Reelle,Objectif Dynamique'];
+    const csvRows = [tx(lang, { fr: 'Heure,Production Reelle,Objectif Dynamique', ar: 'الوقت,الإنتاج الفعلي,الهدف الديناميكي', en: 'Time,Actual Production,Dynamic Target', es: 'Hora,Producción Real,Objetivo Dinámico', pt: 'Hora,Produção Real,Meta Dinâmica', tr: 'Saat,Gerçek Üretim,Dinamik Hedef' })];
     productionStats.productionData.forEach(row => csvRows.push(`${row.time},${row.pCount},${row.target}`));
     const blob = new Blob([csvRows.join('\n')], { type: 'text/csv' });
     const url = window.URL.createObjectURL(blob);
@@ -374,8 +380,8 @@ export default function Dashboard({ models, suivis, planningEvents, settings, se
             <div className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 sm:w-3 sm:h-3 bg-emerald-400 rounded-full border-2 border-white" />
           </div>
           <div className="min-w-0">
-            <h1 className="text-base sm:text-lg md:text-xl font-black text-slate-800 tracking-tight truncate">Tableau de Bord</h1>
-            <p className="text-[10px] sm:text-xs text-slate-400 font-medium hidden sm:block">Vue d&apos;ensemble synchronisee automatiquement</p>
+            <h1 className="text-base sm:text-lg md:text-xl font-black text-slate-800 tracking-tight truncate">{tx(lang, { fr: 'Tableau de Bord', ar: 'لوحة القيادة', en: 'Dashboard', es: 'Panel de Control', pt: 'Painel de Controle', tr: 'Kontrol Paneli' })}</h1>
+            <p className="text-[10px] sm:text-xs text-slate-400 font-medium hidden sm:block">{tx(lang, { fr: "Vue d'ensemble synchronisee automatiquement", ar: 'نظرة عامة تتزامن آلياً', en: 'Overview synchronized automatically', es: 'Vista general sincronizada automáticamente', pt: 'Visão geral sincronizada automaticamente', tr: 'Otomatik senkronize edilen genel görünüm' })}</p>
           </div>
         </div>
         <div className="flex items-center gap-2 sm:gap-3 shrink-0">
@@ -387,10 +393,10 @@ export default function Dashboard({ models, suivis, planningEvents, settings, se
             disabled={kpiLoading}
             title={
               liveConnected
-                ? `En direct${lastUpdate ? ` - dernier MAJ ${new Date(lastUpdate).toLocaleTimeString()}` : ''}`
-                : 'Hors ligne - cliquer pour rafraichir'
+                ? tx(lang, { fr: `En direct${lastUpdate ? ` - dernier MAJ ${new Date(lastUpdate).toLocaleTimeString()}` : ''}`, ar: `مباشر${lastUpdate ? ` - آخر تحديث ${new Date(lastUpdate).toLocaleTimeString()}` : ''}`, en: `Live${lastUpdate ? ` - last update ${new Date(lastUpdate).toLocaleTimeString()}` : ''}`, es: `En directo${lastUpdate ? ` - última actualización ${new Date(lastUpdate).toLocaleTimeString()}` : ''}`, pt: `Em direto${lastUpdate ? ` - última atualização ${new Date(lastUpdate).toLocaleTimeString()}` : ''}`, tr: `Canlı${lastUpdate ? ` - son güncelleme ${new Date(lastUpdate).toLocaleTimeString()}` : ''}` })
+                : tx(lang, { fr: 'Hors ligne - cliquer pour rafraichir', ar: 'غير متصل - اضغط للتحديث', en: 'Offline - click to refresh', es: 'Sin conexión - haga clic para actualizar', pt: 'Offline - clique para atualizar', tr: 'Çevrimdışı - yenilemek için tıklayın' })
             }
-            aria-label="Rafraichir les KPIs"
+            aria-label={tx(lang, { fr: 'Rafraichir les KPIs', ar: 'تحديث مؤشرات الأداء', en: 'Refresh KPIs', es: 'Actualizar KPIs', pt: 'Atualizar KPIs', tr: 'KPI\'ları Yenile' })}
             className="relative w-9 h-9 sm:w-10 sm:h-10 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 active:scale-95 transition-all flex items-center justify-center text-slate-600 hover:text-slate-900 disabled:opacity-60 disabled:cursor-not-allowed"
           >
             <RefreshCw className={`w-4 h-4 ${kpiLoading ? 'animate-spin' : ''}`} />
@@ -432,7 +438,7 @@ export default function Dashboard({ models, suivis, planningEvents, settings, se
                   <AlertTriangle className="w-4 h-4 sm:w-5 sm:h-5 text-amber-600" />
                 </div>
                 <div className="text-xs sm:text-sm min-w-0 flex-1">
-                  <strong className="text-amber-900 font-bold">Alertes Stock ({liveKPIs.stock.alertes.length})</strong>
+                  <strong className="text-amber-900 font-bold">{tx(lang, { fr: 'Alertes Stock', ar: 'تنبيهات المخزون', en: 'Stock Alerts', es: 'Alertas de Stock', pt: 'Alertas de Estoque', tr: 'Stok Uyarıları' })} ({liveKPIs.stock.alertes.length})</strong>
                   <span className="text-amber-700/80 ml-1 sm:ml-2 hidden sm:inline">{liveKPIs.stock.alertes.map((a: any) => `${a.designation} (${a.stock_actuel}/${a.stockAlerte})`).join(' • ')}</span>
                 </div>
                 <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5 text-amber-600/60 shrink-0" aria-hidden />
@@ -443,7 +449,7 @@ export default function Dashboard({ models, suivis, planningEvents, settings, se
                   <AlertTriangle className="w-4 h-4 sm:w-5 sm:h-5 text-amber-600" />
                 </div>
                 <div className="text-xs sm:text-sm min-w-0">
-                  <strong className="text-amber-900 font-bold">Alertes Stock ({liveKPIs.stock.alertes.length})</strong>
+                  <strong className="text-amber-900 font-bold">{tx(lang, { fr: 'Alertes Stock', ar: 'تنبيهات المخزون', en: 'Stock Alerts', es: 'Alertas de Stock', pt: 'Alertas de Estoque', tr: 'Stok Uyarıları' })} ({liveKPIs.stock.alertes.length})</strong>
                   <span className="text-amber-700/80 ml-1 sm:ml-2 hidden sm:inline">{liveKPIs.stock.alertes.map((a: any) => `${a.designation} (${a.stock_actuel}/${a.stockAlerte})`).join(' • ')}</span>
                 </div>
               </div>
@@ -463,12 +469,12 @@ export default function Dashboard({ models, suivis, planningEvents, settings, se
                     <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-indigo-100 flex items-center justify-center">
                       <ListTodo className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-indigo-600" />
                     </div>
-                    <h2 className="font-bold text-slate-800 text-xs sm:text-sm">Tâches</h2>
+                    <h2 className="font-bold text-slate-800 text-xs sm:text-sm">{tx(lang, { fr: 'Tâches', ar: 'المهام', en: 'Tasks', es: 'Tareas', pt: 'Tarefas', tr: 'Görevler' })}</h2>
                   </div>
-                  <span className="text-[10px] sm:text-xs font-bold px-2 sm:px-2.5 py-1 rounded-full bg-indigo-100 text-indigo-700">{pendingTasks.length} en attente</span>
+                  <span className="text-[10px] sm:text-xs font-bold px-2 sm:px-2.5 py-1 rounded-full bg-indigo-100 text-indigo-700">{pendingTasks.length} {tx(lang, { fr: 'en attente', ar: 'قيد الانتظار', en: 'pending', es: 'pendiente(s)', pt: 'pendente(s)', tr: 'beklemede' })}</span>
                 </div>
                 <div className="p-3 sm:p-4 md:p-5 flex-1 flex flex-col">
-                  <p className="text-[10px] sm:text-xs text-slate-400 mb-3 sm:mb-4 font-medium hidden sm:block">Aujourd'hui et retards. Cliquez pour ouvrir l'Agenda.</p>
+                  <p className="text-[10px] sm:text-xs text-slate-400 mb-3 sm:mb-4 font-medium hidden sm:block">{tx(lang, { fr: "Aujourd'hui et retards. Cliquez pour ouvrir l'Agenda.", ar: 'اليوم والمتأخرات. اضغط لفتح الأجندة.', en: "Today and overdue. Click to open the Agenda.", es: 'Hoy y atrasos. Haga clic para abrir la Agenda.', pt: 'Hoje e atrasos. Clique para abrir a Agenda.', tr: 'Bugün ve geciken görevler. Ajandayı açmak için tıklayın.' })}</p>
                   <div className="flex-1 overflow-y-auto space-y-2 sm:space-y-3 custom-scrollbar">
                     {pendingTasks.map(task => (
                       <div key={task.id} className="bg-slate-50/80 border border-slate-200/60 rounded-lg sm:rounded-xl p-2.5 sm:p-3 md:p-3.5 hover:border-indigo-300 hover:shadow-sm transition-all duration-200 flex flex-col gap-2 sm:gap-3">
@@ -484,7 +490,7 @@ export default function Dashboard({ models, suivis, planningEvents, settings, se
                         <div className="flex gap-1.5 sm:gap-2 pt-2 sm:pt-2.5 border-t border-slate-200/60">
                           <button onClick={(e) => { e.stopPropagation(); handleUpdateTaskStatus(task.id, 'DONE_OK'); }} className="flex-1 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 text-[9px] sm:text-[10px] font-bold py-1.5 sm:py-2 rounded-lg transition-colors border border-emerald-200/60">OK</button>
                           <button onClick={(e) => { e.stopPropagation(); handleUpdateTaskStatus(task.id, 'DONE_NOT_OK'); }} className="flex-1 bg-rose-50 text-rose-700 hover:bg-rose-100 text-[9px] sm:text-[10px] font-bold py-1.5 sm:py-2 rounded-lg transition-colors border border-rose-200/60">NOT OK</button>
-                          <button onClick={(e) => { e.stopPropagation(); setSkipReasonModal(task as AppTask); }} className="flex-1 bg-slate-100 text-slate-600 hover:bg-slate-200 text-[9px] sm:text-[10px] font-bold py-1.5 sm:py-2 rounded-lg transition-colors border border-slate-200/60">SKIP</button>
+                          <button onClick={(e) => { e.stopPropagation(); setSkipReasonModal(task as AppTask); }} className="flex-1 bg-slate-100 text-slate-600 hover:bg-slate-200 text-[9px] sm:text-[10px] font-bold py-1.5 sm:py-2 rounded-lg transition-colors border border-slate-200/60">{tx(lang, { fr: 'IGNORER', ar: 'تجاوز', en: 'SKIP', es: 'OMITIR', pt: 'IGNORAR', tr: 'ATLA' })}</button>
                         </div>
                       </div>
                     ))}
@@ -493,8 +499,8 @@ export default function Dashboard({ models, suivis, planningEvents, settings, se
                         <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-xl sm:rounded-2xl bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-200/60 flex items-center justify-center shadow-inner mb-3 sm:mb-4">
                           <CheckCircle2 className="w-6 h-6 sm:w-8 sm:h-8 text-emerald-400" strokeWidth={1.5} />
                         </div>
-                        <p className="text-xs sm:text-sm font-bold text-slate-400">Aucune tâche</p>
-                        <p className="text-[10px] sm:text-xs text-slate-300 mt-1 hidden sm:block">Tout est à jour</p>
+                        <p className="text-xs sm:text-sm font-bold text-slate-400">{tx(lang, { fr: 'Aucune tâche', ar: 'لا توجد مهام', en: 'No tasks', es: 'Sin tareas', pt: 'Nenhuma tarefa', tr: 'Görev yok' })}</p>
+                        <p className="text-[10px] sm:text-xs text-slate-300 mt-1 hidden sm:block">{tx(lang, { fr: 'Tout est à jour', ar: 'كل شيء محدّث', en: 'Everything is up to date', es: 'Todo está actualizado', pt: 'Tudo está atualizado', tr: 'Her şey güncel' })}</p>
                       </div>
                     )}
                   </div>
@@ -507,11 +513,11 @@ export default function Dashboard({ models, suivis, planningEvents, settings, se
                   <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-emerald-100 flex items-center justify-center">
                     <CalendarIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-600" />
                   </div>
-                  <h2 className="font-bold text-slate-800 text-xs sm:text-sm">Planning</h2>
+                  <h2 className="font-bold text-slate-800 text-xs sm:text-sm">{tx(lang, { fr: 'Planning', ar: 'التخطيط', en: 'Planning', es: 'Planificación', pt: 'Planejamento', tr: 'Planlama' })}</h2>
                 </div>
                 <div className="p-3 sm:p-4 md:p-5">
                   <div className="grid grid-cols-7 gap-0.5 sm:gap-1 text-center mb-2 sm:mb-3">
-                    {['L','M','M','J','V','S','D'].map((d, idx) => (
+                    {currentWeekDayLabels.map((d, idx) => (
                       <div key={idx} className="text-[9px] sm:text-[10px] font-bold text-slate-400 py-1 sm:py-1.5">{d}</div>
                     ))}
                   </div>
@@ -533,8 +539,8 @@ export default function Dashboard({ models, suivis, planningEvents, settings, se
                     })}
                   </div>
                   <div className="mt-3 sm:mt-5 pt-3 sm:pt-4 border-t border-slate-100 flex gap-3 sm:gap-4 text-[10px] sm:text-xs">
-                    <div className="flex items-center gap-1.5 sm:gap-2 font-medium text-slate-500"><div className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded bg-emerald-100 border border-emerald-200" /> Prod</div>
-                    <div className="flex items-center gap-1.5 sm:gap-2 font-medium text-slate-500"><div className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded bg-indigo-500 shadow-sm" /> Aujourd'hui</div>
+                    <div className="flex items-center gap-1.5 sm:gap-2 font-medium text-slate-500"><div className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded bg-emerald-100 border border-emerald-200" /> {tx(lang, { fr: 'Prod', ar: 'إنتاج', en: 'Prod', es: 'Prod', pt: 'Prod', tr: 'Üretim' })}</div>
+                    <div className="flex items-center gap-1.5 sm:gap-2 font-medium text-slate-500"><div className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded bg-indigo-500 shadow-sm" /> {tx(lang, { fr: "Aujourd'hui", ar: 'اليوم', en: 'Today', es: 'Hoy', pt: 'Hoje', tr: 'Bugün' })}</div>
                   </div>
                 </div>
               </div>
@@ -547,11 +553,11 @@ export default function Dashboard({ models, suivis, planningEvents, settings, se
                   <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-indigo-100 flex items-center justify-center">
                     <TrendingUp className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-indigo-600" />
                   </div>
-                  <h2 className="font-bold text-slate-800 text-xs sm:text-sm">Évolution Production</h2>
+                  <h2 className="font-bold text-slate-800 text-xs sm:text-sm">{tx(lang, { fr: 'Évolution Production', ar: 'تطور الإنتاج', en: 'Production Trend', es: 'Evolución de Producción', pt: 'Evolução da Produção', tr: 'Üretim Trendi' })}</h2>
                 </div>
                 <button onClick={handleExportCSV} className="inline-flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-lg sm:rounded-xl bg-gradient-to-r from-indigo-500 to-indigo-600 hover:from-indigo-600 hover:to-indigo-700 text-white font-bold text-[10px] sm:text-xs shadow-lg shadow-indigo-500/30 transition-all duration-200 hover:shadow-xl hover:-translate-y-0.5">
                   <Download className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
-                  <span className="hidden sm:inline">Export CSV</span>
+                  <span className="hidden sm:inline">{tx(lang, { fr: 'Export CSV', ar: 'تصدير CSV', en: 'Export CSV', es: 'Exportar CSV', pt: 'Exportar CSV', tr: 'CSV Dışa Aktar' })}</span>
                   <span className="sm:hidden">CSV</span>
                 </button>
               </div>
@@ -570,8 +576,8 @@ export default function Dashboard({ models, suivis, planningEvents, settings, se
                       <YAxis axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 10, fontWeight: 600 }} dx={-5} width={30} />
                       <RechartsTooltip contentStyle={{ borderRadius: '10px', border: 'none', boxShadow: '0 8px 16px rgba(0,0,0,0.1)', fontSize: '11px' }} itemStyle={{ fontWeight: 'bold' }} labelStyle={{ color: '#64748b', fontWeight: 'bold', marginBottom: '4px' }} />
                       <Legend verticalAlign="top" height={36} iconType="circle" wrapperStyle={{ fontSize: '11px' }} />
-                      <Area type="monotone" name="P° Réelle" dataKey="pCount" stroke="#6366f1" strokeWidth={2.5} fillOpacity={1} fill="url(#colorCount)" />
-                      <Area type="monotone" name="Objectif" dataKey="target" stroke="#cbd5e1" strokeWidth={2} strokeDasharray="5 5" fill="none" />
+                      <Area type="monotone" name={tx(lang, { fr: 'P° Réelle', ar: 'الإنتاج الفعلي', en: 'Actual Output', es: 'P° Real', pt: 'P° Real', tr: 'Gerçek Üretim' })} dataKey="pCount" stroke="#6366f1" strokeWidth={2.5} fillOpacity={1} fill="url(#colorCount)" />
+                      <Area type="monotone" name={tx(lang, { fr: 'Objectif', ar: 'الهدف', en: 'Target', es: 'Objetivo', pt: 'Meta', tr: 'Hedef' })} dataKey="target" stroke="#cbd5e1" strokeWidth={2} strokeDasharray="5 5" fill="none" />
                     </AreaChart>
                   </ResponsiveChart>
                 </div>
@@ -588,7 +594,7 @@ export default function Dashboard({ models, suivis, planningEvents, settings, se
                 <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-indigo-100 flex items-center justify-center">
                   <Activity className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-indigo-600" />
                 </div>
-                <h2 className="font-bold text-slate-800 text-xs sm:text-sm">Rendement Chaînes</h2>
+                <h2 className="font-bold text-slate-800 text-xs sm:text-sm">{tx(lang, { fr: 'Rendement Chaînes', ar: 'مردودية الخطوط', en: 'Line Efficiency', es: 'Rendimiento de Líneas', pt: 'Rendimento das Linhas', tr: 'Hat Verimliliği' })}</h2>
               </div>
               <div className="p-3 sm:p-4 md:p-5">
                 <div className="h-[180px] sm:h-[200px] w-full">
@@ -597,7 +603,7 @@ export default function Dashboard({ models, suivis, planningEvents, settings, se
                       <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="#f1f5f9" />
                       <XAxis type="number" domain={[0, 100]} hide />
                       <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{ fill: '#475569', fontSize: 11, fontWeight: 700 }} width={45} />
-                      <RechartsTooltip cursor={{ fill: '#f8fafc' }} contentStyle={{ borderRadius: '10px', border: 'none', boxShadow: '0 8px 16px rgba(0,0,0,0.1)' }} formatter={(val: number) => [`${val}%`, 'Rendement']} />
+                      <RechartsTooltip cursor={{ fill: '#f8fafc' }} contentStyle={{ borderRadius: '10px', border: 'none', boxShadow: '0 8px 16px rgba(0,0,0,0.1)' }} formatter={(val: number) => [`${val}%`, tx(lang, { fr: 'Rendement', ar: 'المردودية', en: 'Efficiency', es: 'Rendimiento', pt: 'Rendimento', tr: 'Verimlilik' })]} />
                       <Bar dataKey="rendement" radius={[0, 6, 6, 0]} maxBarSize={20}>
                         {productionStats.efficiencyData.map((entry: any, index: number) => <Cell key={`cell-${index}`} fill={entry.fill} />)}
                       </Bar>
@@ -613,7 +619,7 @@ export default function Dashboard({ models, suivis, planningEvents, settings, se
                 <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-rose-100 flex items-center justify-center">
                   <AlertTriangle className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-rose-600" />
                 </div>
-                <h2 className="font-bold text-slate-800 text-xs sm:text-sm">Alertes Andon</h2>
+                <h2 className="font-bold text-slate-800 text-xs sm:text-sm">{tx(lang, { fr: 'Alertes Andon', ar: 'تنبيهات Andon', en: 'Andon Alerts', es: 'Alertas Andon', pt: 'Alertas Andon', tr: 'Andon Uyarıları' })}</h2>
               </div>
               <div className="p-3 sm:p-4 md:p-5 flex-1" style={{ minHeight: '200px' }}>
                 <div className="h-full overflow-y-auto space-y-2 sm:space-y-3 custom-scrollbar">
@@ -627,7 +633,7 @@ export default function Dashboard({ models, suivis, planningEvents, settings, se
                           <p className="text-xs sm:text-sm font-bold text-rose-900 truncate">{alert.title}</p>
                           <span className="text-[10px] sm:text-xs font-bold text-rose-500 bg-rose-100 px-1.5 sm:px-2 py-0.5 rounded-full shrink-0">{alert.time}</span>
                         </div>
-                        <p className="text-[10px] sm:text-xs text-rose-700 mt-0.5 sm:mt-1 font-medium">Performance critique à <span className="font-black text-rose-900">{alert.trs}%</span></p>
+                        <p className="text-[10px] sm:text-xs text-rose-700 mt-0.5 sm:mt-1 font-medium">{tx(lang, { fr: 'Performance critique à', ar: 'أداء حرج عند', en: 'Critical performance at', es: 'Rendimiento crítico en', pt: 'Desempenho crítico em', tr: 'Kritik performans' })} <span className="font-black text-rose-900">{alert.trs}%</span></p>
                       </div>
                     </div>
                   ))}
@@ -636,8 +642,8 @@ export default function Dashboard({ models, suivis, planningEvents, settings, se
                       <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-xl sm:rounded-2xl bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-200/60 flex items-center justify-center shadow-inner mb-3 sm:mb-4">
                         <CheckCircle2 className="w-6 h-6 sm:w-8 sm:h-8 text-emerald-400" strokeWidth={1.5} />
                       </div>
-                      <p className="text-xs sm:text-sm font-bold text-slate-400">Aucune alerte</p>
-                      <p className="text-[10px] sm:text-xs text-slate-300 mt-1 hidden sm:block">Tout fonctionne normalement</p>
+                      <p className="text-xs sm:text-sm font-bold text-slate-400">{tx(lang, { fr: 'Aucune alerte', ar: 'لا توجد تنبيهات', en: 'No alerts', es: 'Sin alertas', pt: 'Nenhum alerta', tr: 'Uyarı yok' })}</p>
+                      <p className="text-[10px] sm:text-xs text-slate-300 mt-1 hidden sm:block">{tx(lang, { fr: 'Tout fonctionne normalement', ar: 'كل شيء يعمل بشكل طبيعي', en: 'Everything is running normally', es: 'Todo funciona normalmente', pt: 'Tudo está funcionando normalmente', tr: 'Her şey normal çalışıyor' })}</p>
                     </div>
                   )}
                 </div>
@@ -655,7 +661,7 @@ export default function Dashboard({ models, suivis, planningEvents, settings, se
           <div className="bg-white rounded-xl sm:rounded-2xl w-full max-w-sm sm:max-w-md overflow-hidden shadow-2xl border border-slate-200/80">
             <div className="h-1.5 w-full bg-gradient-to-r from-amber-400 to-orange-500" />
             <div className="p-4 sm:p-6 border-b border-slate-100 flex justify-between items-center">
-              <h3 className="font-bold text-slate-800 text-base sm:text-lg">Motif d'annulation</h3>
+              <h3 className="font-bold text-slate-800 text-base sm:text-lg">{tx(lang, { fr: "Motif d'annulation", ar: 'سبب الإلغاء', en: 'Cancellation reason', es: 'Motivo de cancelación', pt: 'Motivo do cancelamento', tr: 'İptal nedeni' })}</h3>
               <button onClick={() => { setSkipReasonModal(null); setSkipReasonText(''); }} className="p-2 rounded-xl hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors">
                 <AlertTriangle className="w-5 h-5 opacity-0" />
               </button>
@@ -665,16 +671,16 @@ export default function Dashboard({ models, suivis, planningEvents, settings, se
                 <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-amber-100 flex items-center justify-center shrink-0">
                   <AlertTriangle className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-600" />
                 </div>
-                <p>Vous êtes sur le point d'ignorer la tâche : <br /><span className="font-bold">"{skipReasonModal.text}"</span>.</p>
+                <p>{tx(lang, { fr: "Vous êtes sur le point d'ignorer la tâche :", ar: 'أنت على وشك تجاوز المهمة:', en: 'You are about to skip the task:', es: 'Está a punto de omitir la tarea:', pt: 'Você está prestes a ignorar a tarefa:', tr: 'Görevi atlamak üzeresiniz:' })} <br /><span className="font-bold">"{skipReasonModal.text}"</span>.</p>
               </div>
               <div>
-                <label className="block text-xs font-bold uppercase text-slate-500 mb-2">Raison / Justification</label>
-                <textarea value={skipReasonText} onChange={(e) => setSkipReasonText(e.target.value)} placeholder="Ex: Machine en panne..." className="w-full border border-slate-200 bg-white rounded-lg sm:rounded-xl px-3 sm:px-4 py-2.5 sm:py-3 text-xs sm:text-sm outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 transition-all shadow-sm h-20 sm:h-24 resize-none" autoFocus />
+                <label className="block text-xs font-bold uppercase text-slate-500 mb-2">{tx(lang, { fr: 'Raison / Justification', ar: 'السبب / التبرير', en: 'Reason / Justification', es: 'Motivo / Justificación', pt: 'Motivo / Justificativa', tr: 'Neden / Gerekçe' })}</label>
+                <textarea value={skipReasonText} onChange={(e) => setSkipReasonText(e.target.value)} placeholder={tx(lang, { fr: 'Ex: Machine en panne...', ar: 'مثال: عطل في الآلة...', en: 'E.g.: Machine breakdown...', es: 'Ej: Máquina averiada...', pt: 'Ex: Máquina avariada...', tr: 'Örn: Makine arızası...' })} className="w-full border border-slate-200 bg-white rounded-lg sm:rounded-xl px-3 sm:px-4 py-2.5 sm:py-3 text-xs sm:text-sm outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 transition-all shadow-sm h-20 sm:h-24 resize-none" autoFocus />
               </div>
             </div>
             <div className="p-3 sm:p-4 bg-slate-50/80 border-t border-slate-100 flex justify-end gap-2">
-              <button onClick={() => { setSkipReasonModal(null); setSkipReasonText(''); }} className="px-3 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm font-bold text-slate-600 hover:bg-slate-100 rounded-lg sm:rounded-xl transition-colors">Annuler</button>
-              <button onClick={handleSkipSubmit} disabled={!skipReasonText.trim()} className="px-4 sm:px-5 py-2 sm:py-2.5 text-xs sm:text-sm font-bold bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white rounded-lg sm:rounded-xl shadow-lg shadow-amber-500/30 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed">Confirmer</button>
+              <button onClick={() => { setSkipReasonModal(null); setSkipReasonText(''); }} className="px-3 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm font-bold text-slate-600 hover:bg-slate-100 rounded-lg sm:rounded-xl transition-colors">{tx(lang, { fr: 'Annuler', ar: 'إلغاء', en: 'Cancel', es: 'Cancelar', pt: 'Cancelar', tr: 'İptal' })}</button>
+              <button onClick={handleSkipSubmit} disabled={!skipReasonText.trim()} className="px-4 sm:px-5 py-2 sm:py-2.5 text-xs sm:text-sm font-bold bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white rounded-lg sm:rounded-xl shadow-lg shadow-amber-500/30 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed">{tx(lang, { fr: 'Confirmer', ar: 'تأكيد', en: 'Confirm', es: 'Confirmar', pt: 'Confirmar', tr: 'Onayla' })}</button>
             </div>
           </div>
         </div>

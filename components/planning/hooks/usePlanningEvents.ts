@@ -34,6 +34,7 @@ export interface NewEventInput {
     subcontractPricePerPiece?: number;
     subcontractSizeColorDistribution?: Record<string, Record<string, number>>;
     sizeColorDistribution?: Record<string, Record<string, number>>;
+    isLocked?: boolean;
 }
 
 function scaleDistribution(
@@ -196,6 +197,7 @@ export function usePlanningEvents({
         const splitEnabled = !!model?.ficheData?.sectionSplitEnabled;
         const baseEv: PlanningEvent = {
             id: `event_${Date.now()}`,
+            isLocked: input.isLocked,
             modelId: input.modelId,
             chaineId: input.chaineId,
             dateLancement: input.startDate,

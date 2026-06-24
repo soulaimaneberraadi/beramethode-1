@@ -171,6 +171,15 @@ export default function GanttView({
         return diff * dayWidth + SIDEBAR_W + dayWidth / 2;
     }, [dates, dayWidth]);
 
+    const currentDateOffset = useMemo(() => {
+        const first = dates[0];
+        if (!first) return 0;
+        const origin = new Date(first.getFullYear(), first.getMonth(), first.getDate(), 12, 0, 0, 0);
+        const target = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1, 12, 0, 0, 0);
+        const diff = (target.getTime() - origin.getTime()) / 86400000;
+        return diff * dayWidth + SIDEBAR_W;
+    }, [dates, dayWidth, currentDate]);
+
     // Sync todayOffset into ref for the scroll handler
     useEffect(() => {
         todayOffsetRef.current = todayOffset;
@@ -237,6 +246,27 @@ export default function GanttView({
         if (!el) return;
         el.scrollTo({ left: Math.max(0, todayOffset - el.clientWidth / 3), behavior: 'smooth' });
     }, [pulseToday, todayOffset]);
+
+    const isMountedRef = useRef(false);
+    const prevMonthYearRef = useRef('');
+
+    // Scroll to selected month when currentDate changes
+    useEffect(() => {
+        const currentKey = `${currentDate.getFullYear()}-${currentDate.getMonth()}`;
+        if (prevMonthYearRef.current === currentKey) {
+            return;
+        }
+        prevMonthYearRef.current = currentKey;
+
+        if (!isMountedRef.current) {
+            isMountedRef.current = true;
+            return;
+        }
+
+        const el = scrollRef.current;
+        if (!el) return;
+        el.scrollTo({ left: Math.max(0, currentDateOffset), behavior: 'smooth' });
+    }, [currentDate, currentDateOffset]);
 
     const handleDrop = useCallback((chaineId: string, dateKey: string) => {
         if (!dragging) return;

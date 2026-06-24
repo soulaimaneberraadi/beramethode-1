@@ -1166,6 +1166,11 @@ export default function Gamme({
     e.preventDefault();
     e.stopPropagation();
     
+    // Haptic feedback (Vibrate 50ms on mobile long press)
+    try {
+        window.navigator.vibrate?.(50);
+    } catch (err) {}
+    
     // Viewport & Scroll
     const vw = window.innerWidth;
     const vh = window.innerHeight;
@@ -1712,7 +1717,7 @@ export default function Gamme({
             .map((op, idx) => op.groupId === itemToMove.groupId ? idx : -1)
             .filter(idx => idx !== -1);
             
-        // Extract group items (sort indices descending to remove safely)
+        // Extract group items in their current sequence
         const groupItems = groupIndices.map(idx => newOps[idx]);
         
         // Remove from old positions (iterate backwards)
@@ -1720,11 +1725,13 @@ export default function Gamme({
             newOps.splice(groupIndices[i], 1);
         }
         
-        // Determine insertion index
-        // If we dragged downwards, we need to adjust dropIndex because items were removed
-        let insertAt = dropIndex;
-        const itemsRemovedBeforeDrop = groupIndices.filter(idx => idx < dropIndex).length;
-        insertAt -= itemsRemovedBeforeDrop;
+        // Find where the drop target item is now in the array after removal
+        const dropTargetItem = operations[dropIndex];
+        const targetNewIndex = newOps.indexOf(dropTargetItem);
+        
+        // Determine insertion position:
+        // If dragging downwards, insert after the target. Otherwise insert before.
+        const insertAt = draggedIndex < dropIndex ? targetNewIndex + 1 : targetNewIndex;
         
         // Insert group items
         newOps.splice(insertAt, 0, ...groupItems);
@@ -1759,22 +1766,6 @@ export default function Gamme({
     const minOpTime = positiveOpTimes.length ? Math.min(...positiveOpTimes) : 0;
     const maxOpTime = positiveOpTimes.length ? Math.max(...positiveOpTimes) : 0;
     const avgOpTime = positiveOpTimes.length ? positiveOpTimes.reduce((a, b) => a + b, 0) / positiveOpTimes.length : 0;
-
-    // #region agent log
-    fetch('http://127.0.0.1:7458/ingest/b30750ed-ac12-45c3-b821-28526e2a963d',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'057e48'},body:JSON.stringify({sessionId:'057e48',runId:'pre-fix',hypothesisId:'H1',location:'components/Gamme.tsx:header-metrics',message:'Header card source values snapshot',data:{numWorkers,presenceTime,totalMin,tempsArticle,efficiency,bf},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
-
-    // #region agent log
-    fetch('http://127.0.0.1:7458/ingest/b30750ed-ac12-45c3-b821-28526e2a963d',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'057e48'},body:JSON.stringify({sessionId:'057e48',runId:'pre-fix',hypothesisId:'H2',location:'components/Gamme.tsx:header-metrics',message:'P/H formula comparison with and without presenceTime',data:{pH100,pHDerivedNoPresence,presenceTime},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
-
-    // #region agent log
-    fetch('http://127.0.0.1:7458/ingest/b30750ed-ac12-45c3-b821-28526e2a963d',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'057e48'},body:JSON.stringify({sessionId:'057e48',runId:'pre-fix',hypothesisId:'H3',location:'components/Gamme.tsx:header-metrics',message:'Operation time distribution snapshot',data:{opCount,positiveCount:positiveOpTimes.length,minOpTime,maxOpTime,avgOpTime},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
-
-    // #region agent log
-    fetch('http://127.0.0.1:7458/ingest/b30750ed-ac12-45c3-b821-28526e2a963d',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'057e48'},body:JSON.stringify({sessionId:'057e48',runId:'pre-fix',hypothesisId:'H4',location:'components/Gamme.tsx:header-metrics',message:'Efficiency impact check',data:{efficiency,pH100,pHReal},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
   }, [operations, totalMin, tempsArticle, numWorkers, presenceTime, efficiency, bf, pH100, pHDerivedNoPresence, pHReal]);
 
   // Prepare suggestions for Machine Input (combining name and classe)
@@ -1803,9 +1794,6 @@ export default function Gamme({
                         value={Math.round(numWorkers)} 
                         onChange={(e) => {
                           const nextWorkers = Math.max(1, Math.round(Number(e.target.value)));
-                          // #region agent log
-                          fetch('http://127.0.0.1:7458/ingest/b30750ed-ac12-45c3-b821-28526e2a963d',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'057e48'},body:JSON.stringify({sessionId:'057e48',runId:'pre-fix',hypothesisId:'H1',location:'components/Gamme.tsx:ouvriers-onChange',message:'Ouvriers input changed',data:{prevWorkers:numWorkers,nextWorkers,presenceTime,totalMin,tempsArticle,pH100},timestamp:Date.now()})}).catch(()=>{});
-                          // #endregion
                           setNumWorkers(nextWorkers);
                         }} 
                         className="w-12 text-center bg-transparent font-black text-slate-700 outline-none text-sm p-0" 
@@ -1821,9 +1809,6 @@ export default function Gamme({
                         onChange={(e) => {
                           const nextHours = Math.max(0, Number(e.target.value));
                           const nextPresenceTime = nextHours * 60;
-                          // #region agent log
-                          fetch('http://127.0.0.1:7458/ingest/b30750ed-ac12-45c3-b821-28526e2a963d',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'057e48'},body:JSON.stringify({sessionId:'057e48',runId:'pre-fix',hypothesisId:'H2',location:'components/Gamme.tsx:heures-onChange',message:'Heures input changed',data:{prevPresenceTime:presenceTime,nextPresenceTime,numWorkers,tempsArticle,pH100,pHDerivedNoPresence},timestamp:Date.now()})}).catch(()=>{});
-                          // #endregion
                           setPresenceTime(nextPresenceTime);
                         }} 
                         className="w-10 text-center bg-transparent font-black text-slate-700 outline-none text-sm p-0" 
@@ -1875,9 +1860,6 @@ export default function Gamme({
                         value={efficiency} 
                         onChange={(e) => {
                           const nextEfficiency = Math.max(1, Math.min(100, Number(e.target.value)));
-                          // #region agent log
-                          fetch('http://127.0.0.1:7458/ingest/b30750ed-ac12-45c3-b821-28526e2a963d',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'057e48'},body:JSON.stringify({sessionId:'057e48',runId:'pre-fix',hypothesisId:'H4',location:'components/Gamme.tsx:rendu-onChange',message:'Rendu input changed',data:{prevEfficiency:efficiency,nextEfficiency,pH100,pHReal},timestamp:Date.now()})}).catch(()=>{});
-                          // #endregion
                           setEfficiency(nextEfficiency);
                         }} 
                         className="w-8 text-center bg-transparent font-black text-indigo-600 outline-none text-sm border-b border-indigo-200 p-0" 
@@ -2094,7 +2076,7 @@ export default function Gamme({
               <tr className="bg-white text-slate-500 border-b border-slate-100">
                 {/* CHECKBOX COLUMN - VISIBLE ONLY IN SELECTION MODE */}
                 {isSelectionMode && (
-                    <th className="py-4 px-2 w-8 text-center font-bold text-[11px] text-slate-400 sticky left-0 bg-white z-20 border-r border-slate-100">
+                    <th className="py-4 px-2 w-8 text-center font-bold text-[11px] text-slate-400 sticky left-0 top-0 bg-white z-30 border-r border-slate-100 border-b border-slate-200">
                         <button 
                             onClick={handleSelectAll} 
                             className="hover:text-indigo-600 transition-colors focus:outline-none"
@@ -2111,23 +2093,23 @@ export default function Gamme({
                     </th>
                 )}
                 
-                <th className={`py-4 px-4 w-12 text-center font-bold text-[11px] uppercase tracking-wider text-slate-400 sticky ${isSelectionMode ? 'left-8' : 'left-0'} bg-white z-20 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]`}>N°</th>
+                <th className={`py-4 px-4 w-12 text-center font-bold text-[11px] uppercase tracking-wider text-slate-400 sticky ${isSelectionMode ? 'left-8' : 'left-0'} top-0 bg-white z-30 border-b border-slate-100 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]`}>N°</th>
                 
                 {/* SIDE COLUMN HEADER - COMPACT & ALWAYS VISIBLE */}
-                <th className={`py-4 px-1 w-10 text-center font-bold text-[11px] uppercase tracking-wider text-slate-400 sticky ${isSelectionMode ? 'left-20' : 'left-12'} bg-white z-20 border-r border-slate-50`} title="Côté (G/D)">C</th>
+                <th className={`py-4 px-1 w-10 text-center font-bold text-[11px] uppercase tracking-wider text-slate-400 sticky ${isSelectionMode ? 'left-20' : 'left-12'} top-0 bg-white z-30 border-r border-slate-50 border-b border-slate-100`} title="Côté (G/D)">C</th>
                 {sectionSplitEnabled && (
-                  <th className="py-4 px-1 w-10 text-center font-bold text-[11px] uppercase tracking-wider text-slate-400 border-r border-slate-50" title="Section (Préparation / Montage / Global)">S</th>
+                  <th className="py-4 px-1 w-10 text-center font-bold text-[11px] uppercase tracking-wider text-slate-400 border-r border-slate-50 sticky top-0 bg-white z-30 border-b border-slate-100" title="Section (Préparation / Montage / Global)">S</th>
                 )}
                 
-                <th className="py-4 px-4 font-bold text-[11px] uppercase tracking-wider text-slate-400 min-w-[200px]">Description de l'opération</th>
-                <th className="py-4 px-4 w-40 font-bold text-[11px] uppercase tracking-wider text-slate-400">Machine</th>
-                <th className="py-4 px-4 w-24 text-center font-bold text-[11px] uppercase tracking-wider text-slate-400">F. Guide</th>
+                <th className="py-4 px-4 font-bold text-[11px] uppercase tracking-wider text-slate-400 min-w-[200px] sticky top-0 bg-white z-30 border-b border-slate-100">Description de l'opération</th>
+                <th className="py-4 px-4 w-40 font-bold text-[11px] uppercase tracking-wider text-slate-400 sticky top-0 bg-white z-30 border-b border-slate-100">Machine</th>
+                <th className="py-4 px-4 w-24 text-center font-bold text-[11px] uppercase tracking-wider text-slate-400 sticky top-0 bg-white z-30 border-b border-slate-100">F. Guide</th>
                 {showLength && (
-                  <th className="py-4 px-4 w-20 text-center font-bold text-[11px] uppercase tracking-wider text-indigo-600">L / Qté</th>
+                  <th className="py-4 px-4 w-20 text-center font-bold text-[11px] uppercase tracking-wider text-indigo-600 sticky top-0 bg-white z-30 border-b border-slate-100">L / Qté</th>
                 )}
-                <th className="py-4 px-4 w-24 text-center font-bold text-[11px] uppercase tracking-wider text-orange-600">Guide</th>
-                <th className="py-4 px-4 w-24 text-center font-bold text-[11px] uppercase tracking-wider text-emerald-600">CHRONO</th>
-                <th className="py-4 px-4 w-10"></th>
+                <th className="py-4 px-4 w-24 text-center font-bold text-[11px] uppercase tracking-wider text-orange-600 sticky top-0 bg-white z-30 border-b border-slate-100">Guide</th>
+                <th className="py-4 px-4 w-24 text-center font-bold text-[11px] uppercase tracking-wider text-emerald-600 sticky top-0 bg-white z-30 border-b border-slate-100">CHRONO</th>
+                <th className="py-4 px-4 w-10 sticky top-0 bg-white z-30 border-b border-slate-100"></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
@@ -2211,13 +2193,20 @@ export default function Gamme({
                     onDragOver={handleDragOver}
                     onDrop={(e) => handleDrop(e, index)}
                     onDragEnd={handleDragEnd}
-                    className={`group transition-colors ${linkModeClasses} ${draggedIndex === index ? 'bg-emerald-50 opacity-50' : ''} ${isSelected && !isLinkingMode ? 'bg-indigo-100 hover:bg-indigo-200' : (!isLinkingMode ? 'hover:bg-slate-50' : '')} ${primaryPosteColor ? '' : groupClasses}`}
+                    className={`group transition-colors ${linkModeClasses} ${draggedIndex === index ? 'bg-emerald-50 opacity-50' : ''} ${isSelected && !isLinkingMode ? 'bg-indigo-100 hover:bg-indigo-200' : (!isLinkingMode ? 'hover:bg-slate-50' : '')} ${groupClasses}`}
                   >
                     {/* CHECKBOX CELL - VISIBLE ONLY IN SELECTION MODE */}
                     {isSelectionMode && (
                         <td 
                             onClick={(e) => { e.stopPropagation(); toggleSelection(op.id); }}
-                            className={`py-3 px-2 text-center sticky left-0 z-20 border-r border-slate-100 cursor-pointer transition-colors ${checkboxBorderLeft} ${isSelected ? 'bg-indigo-100' : (hasGroup && groupStyle ? groupStyle.bg : 'bg-white hover:bg-slate-100')}`}
+                            className={`py-3 px-2 text-center sticky left-0 z-20 border-r border-slate-100 cursor-pointer transition-colors ${checkboxBorderLeft} ${
+                                isSelected 
+                                    ? 'bg-indigo-100 hover:bg-indigo-200' 
+                                    : (hasGroup && groupStyle 
+                                        ? `${groupStyle.bg} hover:${groupStyle.bg.replace('50', '100')}` 
+                                        : 'bg-white hover:bg-slate-100'
+                                    )
+                            }`}
                         >
                             <div className={`w-4 h-4 border rounded mx-auto flex items-center justify-center transition-colors ${isSelected ? 'bg-indigo-600 border-indigo-600' : 'border-slate-300 bg-white'}`}>
                                 {isSelected && <Check className="w-3 h-3 text-white" />}
@@ -2226,7 +2215,14 @@ export default function Gamme({
                     )}
 
                     <td
-                        className={`py-3 px-2 text-center cursor-move sticky ${isSelectionMode ? 'left-8' : 'left-0'} bg-white group-hover:bg-slate-50 z-20 border-r border-transparent group-hover:border-slate-100 transition-colors ${isSelected ? 'bg-indigo-100' : (hasGroup && !primaryPosteColor && groupStyle ? groupStyle.bg : '')}`}
+                        className={`py-3 px-2 text-center cursor-move sticky ${isSelectionMode ? 'left-8' : 'left-0'} z-20 border-r border-transparent group-hover:border-slate-100 transition-colors ${
+                            isSelected 
+                                ? 'bg-indigo-100 hover:bg-indigo-200' 
+                                : (hasGroup && groupStyle 
+                                    ? `${groupStyle.bg} hover:${groupStyle.bg.replace('50', '100')}` 
+                                    : 'bg-white group-hover:bg-slate-50'
+                                )
+                        } ${!isSelectionMode ? groupBorderLeft : ''}`}
                     >
                         <div className="flex items-center justify-center gap-1.5 mx-auto">
                             {/* PHOTO (1:1) à gauche si présente — clic = aperçu */}
@@ -2277,7 +2273,14 @@ export default function Gamme({
                     </td>
                     
                     {/* SIDE COLUMN - COMPACT */}
-                    <td className={`py-3 px-1 text-center sticky ${isSelectionMode ? 'left-20' : 'left-12'} bg-white z-20 border-r border-slate-50 group-hover:bg-slate-50 transition-colors`}>
+                    <td className={`py-3 px-1 text-center sticky ${isSelectionMode ? 'left-20' : 'left-12'} z-20 border-r border-slate-50 transition-colors ${
+                        isSelected 
+                            ? 'bg-indigo-100 hover:bg-indigo-200' 
+                            : (hasGroup && groupStyle 
+                                ? `${groupStyle.bg} hover:${groupStyle.bg.replace('50', '100')}` 
+                                : 'bg-white group-hover:bg-slate-50'
+                            )
+                    }`}>
                         <button
                             onClick={(e) => { e.stopPropagation(); toggleSide(op.id); }}
                             className={`w-7 h-7 rounded-lg border flex items-center justify-center text-[10px] transition-all mx-auto select-none shadow-sm ${sideBadgeClass}`}
@@ -2842,7 +2845,7 @@ export default function Gamme({
             <div className="px-3 pb-2 pt-0.5 border-b border-slate-100">
                 <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">Actions Rapides</p>
             </div>
-            <div className="overflow-y-auto custom-scrollbar flex-1 py-1">
+            <div className="overflow-y-auto overflow-x-hidden custom-scrollbar flex-1 py-1">
             {/* LINKING ACTION: Only show if items are selected AND clicking on a different row */}
             {isSelectionMode && selectedOpIds.length > 0 && !selectedOpIds.includes(contextMenu.opId!) && (
                 <>

@@ -42,6 +42,7 @@ interface Props {
         sizeColorDistribution?: Record<string, Record<string, number>>;
         subcontractDeadline?: string;
         subcontractQuantity?: number;
+        isLocked?: boolean;
     }) => void;
     checkDraft?: (draft: {
         modelId: string; chaineId: string; startDate: string; quantity: number; strictDeadline_DDS?: string;
@@ -76,6 +77,7 @@ export default function EventEditor({ open, mode, initial, models, chains, plann
     // Pididos (couleurs de la fiche) sélectionnés pour cet ordre.
     const [selectedPididos, setSelectedPididos] = useState<Set<string>>(new Set());
     const [selectedLotId, setSelectedLotId] = useState('');
+    const [isLocked, setIsLocked] = useState(false);
 
     const selectedModel = models.find(m => m.id === modelId);
 
@@ -102,6 +104,7 @@ export default function EventEditor({ open, mode, initial, models, chains, plann
                 setModelId(initial.modelId);
                 setChaineId(initial.chaineId);
                 setStartDate(evStartYmd(initial) || todayYmd());
+                setIsLocked(!!initial.isLocked);
                 setQuantity(initial.isSubcontracted ? 0 : evQty(initial));
                 setClientName(evClientName(initial, models));
                 setStrictDeadline((initial.strictDeadline_DDS || '').split('T')[0]);
@@ -145,6 +148,7 @@ export default function EventEditor({ open, mode, initial, models, chains, plann
                 setModelId('');
                 setChaineId(chains[0]?.id || 'CHAINE 1');
                 setStartDate(todayYmd());
+                setIsLocked(false);
                 setQuantity(0);
                 setClientName('');
                 setStrictDeadline('');
@@ -356,6 +360,7 @@ export default function EventEditor({ open, mode, initial, models, chains, plann
             sizeColorDistribution: localDist,
             subcontractDeadline: isSubcontracted ? subcontractDeadline : undefined,
             subcontractQuantity: isSubcontracted ? finalSubcontractQty : undefined,
+            isLocked,
         });
     };
 
@@ -710,6 +715,19 @@ export default function EventEditor({ open, mode, initial, models, chains, plann
                         value={startDate}
                         onChange={(e) => setStartDate(e.target.value)}
                     />
+                    <div className="flex items-center gap-1.5 pt-0.5 pb-2">
+                        <label className="flex items-center gap-1.5 cursor-pointer">
+                            <input
+                                type="checkbox"
+                                checked={isLocked}
+                                onChange={(e) => setIsLocked(e.target.checked)}
+                                className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 h-3.5 w-3.5"
+                            />
+                            <span className="text-[11px] font-semibold text-slate-500 select-none">
+                                Figer la date (ne pas décaler automatiquement)
+                            </span>
+                        </label>
+                    </div>
                     <Input
                         label="DDS (deadline)"
                         type="date"

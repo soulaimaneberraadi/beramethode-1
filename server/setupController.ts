@@ -31,13 +31,24 @@ export const getSetupStatus = (_req: Request, res: Response) => {
  * - Retourne JWT cookie + user (même pattern que login/register)
  */
 export const initSetup = async (req: Request, res: Response) => {
-  const { companyName, specialty, adminEmail, adminPassword, adminName } = req.body;
+  const { companyName, specialty, adminEmail, adminPassword, adminName, accountType, profileMeta, logo } = req.body;
 
   if (!companyName || !adminEmail || !adminPassword) {
     return res.status(400).json({
       message: 'companyName, adminEmail et adminPassword sont requis',
     });
   }
+
+  // Type de compte : 'societe' (défaut) | 'client' | 'personnel'.
+  const normalizedType =
+    accountType === 'client' || accountType === 'personnel' ? accountType : 'societe';
+  // Méta spécifique au type (région client, spécialisation personnel) → JSON.
+  let profileMetaJson: string | null = null;
+  if (profileMeta && typeof profileMeta === 'object') {
+    try { profileMetaJson = JSON.stringify(profileMeta); } catch { profileMetaJson = null; }
+  }
+  // Logo (base64 data URL) optionnel — stocké tel quel dans company_settings.logo.
+  const logoValue = typeof logo === 'string' && logo.startsWith('data:image/') ? logo : null;
 
   // Guard : setup déjà effectué
   const existing = db
@@ -73,13 +84,16 @@ export const initSetup = async (req: Request, res: Response) => {
 
       // Créer / mettre à jour company_settings (singleton id=1)
       db.prepare(
-        `INSERT INTO company_settings (id, name, specialty, setup_complete)
-         VALUES (1, ?, ?, 1)
+        `INSERT INTO company_settings (id, name, specialty, logo, account_type, profile_meta, setup_complete)
+         VALUES (1, ?, ?, ?, ?, ?, 1)
          ON CONFLICT(id) DO UPDATE SET
            name = excluded.name,
            specialty = excluded.specialty,
+           logo = excluded.logo,
+           account_type = excluded.account_type,
+           profile_meta = excluded.profile_meta,
            setup_complete = 1`
-      ).run(companyName, specialty || null);
+      ).run(companyName, specialty || null, logoValue, normalizedType, profileMetaJson);
 
       // Seed du rôle système « Patron » (level 0) + adhésion du patron à sa
       // propre société. Débloque le flux multi-membres : addMember exige un

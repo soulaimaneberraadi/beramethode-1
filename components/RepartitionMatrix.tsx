@@ -3,11 +3,13 @@ import { Grid3X3, Plus, X, Trash2, Palette } from 'lucide-react';
 import { FicheData } from '../types';
 import { TEXTILE_COLORS } from '../data/textileData';
 import ExcelInput from './ExcelInput';
+import { tx, pickT } from '../lib/i18n';
+import type { Lang } from '../app/constants';
 
 interface RepartitionMatrixProps {
     data: FicheData;
     setData: React.Dispatch<React.SetStateAction<FicheData>>;
-    lang?: 'fr' | 'ar';
+    lang?: Lang;
     /** Quand true, met à jour data.quantity avec le total de la grille (Pedido le gère déjà de son côté). */
     syncQuantity?: boolean;
 }
@@ -190,14 +192,14 @@ export default function RepartitionMatrix({ data, setData, lang = 'fr', syncQuan
             <div className="bg-slate-50/50 px-6 py-4 border-b border-slate-150 flex flex-wrap items-end justify-between gap-3">
                 <label className="text-xs font-bold text-slate-500 uppercase flex items-center gap-2">
                     <Grid3X3 className="w-3.5 h-3.5 text-indigo-500" />
-                    {lang === 'ar' ? 'توزيع المقاسات والألوان' : 'Répartition (Tailles / Couleurs)'}
+                    {tx(lang, { fr: 'Répartition (Tailles / Couleurs)', ar: 'توزيع المقاسات والألوان', en: 'Distribution (Sizes / Colors)', es: 'Distribución (Tallas / Colores)', pt: 'Distribuição (Tamanhos / Cores)', tr: 'Dağılım (Bedenler / Renkler)' })}
                 </label>
 
                 {/* ADD SIZE INPUT */}
                 <div className="flex items-center bg-slate-100 rounded-lg p-1 border border-slate-200 font-sans">
                     <input
                         type="text"
-                        placeholder={lang === 'ar' ? 'أضف مقاسات (مثال: 36 38)' : 'Ajouter Tailles (ex: 36 38 40)'}
+                        placeholder={tx(lang, { fr: 'Ajouter Tailles (ex: 36 38 40)', ar: 'أضف مقاسات (مثال: 36 38)', en: 'Add Sizes (e.g. 36 38 40)', es: 'Añadir Tallas (ej: 36 38 40)', pt: 'Adicionar Tamanhos (ex: 36 38 40)', tr: 'Beden Ekle (örn: 36 38 40)' })}
                         className="bg-transparent text-xs px-2 outline-none w-48 text-slate-700 placeholder:text-slate-400 font-semibold"
                         value={newSizeInput}
                         onChange={(e) => setNewSizeInput(e.target.value)}
@@ -249,7 +251,7 @@ export default function RepartitionMatrix({ data, setData, lang = 'fr', syncQuan
                             }}
                             className="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 transition-colors z-20 h-7"
                         >
-                            <Plus className="w-3 h-3" /> {lang === 'ar' ? 'إضافة' : 'Ajouter'}
+                            <Plus className="w-3 h-3" /> {tx(lang, { fr: 'Ajouter', ar: 'إضافة', en: 'Add', es: 'Añadir', pt: 'Adicionar', tr: 'Ekle' })}
                         </button>
                     </div>
 
@@ -283,7 +285,7 @@ export default function RepartitionMatrix({ data, setData, lang = 'fr', syncQuan
                                 {colors.length === 0 && (
                                     <tr>
                                         <td colSpan={sizes.length + (sizes.length === 0 ? 3 : 2)} className="py-8 text-center text-slate-400 italic font-sans">
-                                            {lang === 'ar' ? 'أضف ألوانًا للبدء في تقسيم الكميات.' : 'Ajoutez des couleurs pour commencer la répartition.'}
+                                            {tx(lang, { fr: 'Ajoutez des couleurs pour commencer la répartition.', ar: 'أضف ألوانًا للبدء في تقسيم الكميات.', en: 'Add colors to start the distribution.', es: 'Añada colores para comenzar la distribución.', pt: 'Adicione cores para iniciar a distribuição.', tr: 'Dağılıma başlamak için renk ekleyin.' })}
                                         </td>
                                     </tr>
                                 )}

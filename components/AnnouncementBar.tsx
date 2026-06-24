@@ -20,6 +20,10 @@ const LEVEL_STYLE: Record<string, string> = {
   maintenance: 'bg-rose-600',
 };
 
+// جدول announcements قد لا يكون موجوداً على مشروع Supabase الحالي (الجسر المؤقّت).
+// نتجنّب الطلب — وبالتالي أخطاء 404 في الـ console — إلا إذا فُعّل صراحةً.
+const ANNOUNCEMENTS_ENABLED = import.meta.env.VITE_ANNOUNCEMENTS_ENABLED === 'true';
+
 const AnnouncementBar: React.FC = () => {
   const [items, setItems] = useState<Announcement[]>([]);
   const [dismissed, setDismissed] = useState<Set<string>>(() => {
@@ -28,6 +32,7 @@ const AnnouncementBar: React.FC = () => {
   });
 
   useEffect(() => {
+    if (!ANNOUNCEMENTS_ENABLED) return;
     let mounted = true;
     const load = async () => {
       try {

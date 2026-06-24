@@ -12,11 +12,13 @@ import {
   type PointageTranchesConfig,
   type PointageTrancheSlot,
 } from '../lib/pointageGrille';
+import { tx, pickT } from '../lib/i18n';
+import type { Lang } from '../app/constants';
 
 interface ConfigurationProps {
     settings: AppSettings;
     setSettings: React.Dispatch<React.SetStateAction<AppSettings>>;
-    lang: 'fr' | 'ar';
+    lang: Lang;
     /** Parc machines — affectation par chaîne pour le planning (couverture gamme). */
     machines: Machine[];
     navConfig?: {
@@ -27,6 +29,9 @@ interface ConfigurationProps {
         categories: { id: string; name: string; views: string[] }[];
     };
     setNavConfig?: (cfg: any) => void;
+    /** Langue active (code réel) + changement instantané de la langue de l'interface. */
+    currentLang?: string;
+    onSetLang?: (l: string) => void;
 }
 
 const TRANSLATIONS = {
@@ -159,6 +164,266 @@ const TRANSLATIONS = {
         machineAlertsHint: 'عند الإيقاف يختفي أي تنبيه آلات: تغطية الآلات (التخطيط والجدولة)، الكفاءات الناقصة (التتبع)، بطاقات وصحة الحظيرة (النظرة العامة)، وتظليل العطل/الصيانة (Gantt). تبقى صفحة الآلات متاحة.',
         machineHideLabel: 'إخفاء صفحة الآلات من القائمة',
         machineHideHint: 'عند التفعيل تختفي صفحات الآلات (التتبع والكتالوج) كلياً من التنقل، وكأن الوحدة غير موجودة.',
+    },
+    en: {
+        title: 'Global Configuration',
+        desc: 'Manage the general settings of the company and production.',
+        general: 'General Settings',
+        production: 'Working Hours & Days',
+        structure: 'Structure & Management',
+        save: 'Save',
+        saved: 'Saved!',
+        currency: 'Default currency',
+        timeFormat: 'Time display format',
+        workingHoursStart: 'Start time (Workshop)',
+        workingHoursEnd: 'End time (Workshop)',
+        chainsCount: 'Number of active chains',
+        workingDays: 'Working days',
+        costMinute: 'Cost per Minute',
+        pauses: 'Breaks & Interruptions',
+        addPause: 'Add a break',
+        pauseName: 'Name',
+        pauseStart: 'Start',
+        pauseEnd: 'End',
+        pauseDuration: 'Duration (min)',
+        days: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+        generalManagers: 'General Management & Supervision',
+        chainStaff: 'Staff per Chain',
+        rhComptaTitle: 'HR — Attendance & accounting',
+        rhAutoOvertime: 'Auto recalculation of hours (normal / overtime) from check-in, check-out and break',
+        rhAutoOvertimeHint: 'If disabled, you can manually enter normal and overtime hours (Attendance tab of the file or daily grid).',
+        rhComptaRef: 'Time reference for accounting / valuation (indicative)',
+        rhComptaRefPointees: 'Clocked hours (worked)',
+        rhComptaRefNormales: 'Normal "payroll" hours only',
+        rhComptaRefHint: 'Documentary option: payroll exports already use the attendance lines; this setting serves to align with invoicing or internal accounting.',
+        rhSageServerTitle: '"SAGE / payroll" hour rules (server)',
+        rhSageServerHint: 'Saving pushes `hr_sage_rounding` and `hr_sage_workday_start` to the database (priority: environment variables if set on the server). Displayed hours (clock) stay raw.',
+        rhSageRounding: 'Rounding (minutes, 1–60)',
+        rhSageWorkday: 'Day-entry anchor — e.g. 06:00',
+        rhSageApply: 'Apply for the calculation of normal / overtime hours / exports',
+        rhSageSave: 'Save SAGE rules (server)',
+        rhTranchesTitle: 'Time slots — attendance grid',
+        rhTranchesDesc: 'Columns of the Attendance table. If nothing is saved on the server side, the grid follows the workshop hours + breaks above. The button below regenerates the slots from this same range.',
+        rhTranchesPause: '"break" column (— row) after slot no.',
+        rhTranchesNone: 'None',
+        rhTranchesLabel: 'Label',
+        rhTranchesStart: 'Start',
+        rhTranchesEnd: 'End',
+        rhTranchesAdd: 'Add a slot',
+        rhTranchesDel: 'Delete',
+        rhTranchesReset: 'Generate from workshop hours',
+        rhTranchesSave: 'Save the slots',
+        apsTitle: 'APS Engine Configuration (Advanced Planning)',
+        apsDesc: 'Optimization of planning, critical rates and delay resolution.',
+        apsCapacityMode: 'Capacity calculation mode',
+        apsModeStatic: 'Static (fixed capacity in pieces/day)',
+        apsModeDynamic: 'Dynamic (Operators × Hours × Efficiency × Q × Lc / SAM)',
+        apsOvertimeCost: 'Overtime hourly cost (MAD/h)',
+        apsSubcontractCost: 'Default subcontracting cost per piece (MAD/pc)',
+        apsChainConfig: 'APS parameters per chain',
+        apsOperators: 'Operators',
+        apsActivityRate: 'Q rate (Activity)',
+        machineModuleTitle: 'Machines Module',
+        machineAlertsTitle: 'Machine Alerts',
+        machineAlertsLabel: 'Enable machine-related alerts',
+        machineAlertsHint: 'If disabled, no more machine alerts: machine coverage (Planning + auto-scheduling), missing skills (Tracking), parc cards & health (Overview) and breakdown/maintenance highlighting (Gantt). The Machines page stays accessible.',
+        machineHideLabel: 'Hide the Machines page from the menu',
+        machineHideHint: 'If enabled, the Machines pages (Tracking & Catalog) disappear completely from the navigation, as if the module did not exist.',
+    },
+    es: {
+        title: 'Configuración Global',
+        desc: 'Gestione los parámetros generales de la empresa y de la producción.',
+        general: 'Parámetros Generales',
+        production: 'Horarios y Días de Trabajo',
+        structure: 'Estructura y Supervisión',
+        save: 'Guardar',
+        saved: '¡Guardado!',
+        currency: 'Moneda por defecto',
+        timeFormat: 'Formato de visualización de la hora',
+        workingHoursStart: 'Hora de inicio (Taller)',
+        workingHoursEnd: 'Hora de fin (Taller)',
+        chainsCount: 'Número de cadenas activas',
+        workingDays: 'Días laborables',
+        costMinute: 'Coste por Minuto',
+        pauses: 'Pausas e Interrupciones',
+        addPause: 'Añadir una pausa',
+        pauseName: 'Nombre',
+        pauseStart: 'Inicio',
+        pauseEnd: 'Fin',
+        pauseDuration: 'Duración (min)',
+        days: ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'],
+        generalManagers: 'Dirección y Supervisión General',
+        chainStaff: 'Personal por Cadena',
+        rhComptaTitle: 'RRHH — Fichaje y contabilidad',
+        rhAutoOvertime: 'Recálculo automático de las horas (normales / extra) a partir de entrada, salida y pausa',
+        rhAutoOvertimeHint: 'Si está desactivado, puede introducir manualmente las horas normales y extras (pestaña Fichaje del expediente o cuadrícula diaria).',
+        rhComptaRef: 'Referencia de tiempo para contabilidad / valoración (indicativo)',
+        rhComptaRefPointees: 'Horas fichadas (trabajadas)',
+        rhComptaRefNormales: 'Solo horas normales "de nómina"',
+        rhComptaRefHint: 'Opción documental: las exportaciones de nómina ya usan las líneas de fichaje; este ajuste sirve de alineación con la facturación o la contabilidad interna.',
+        rhSageServerTitle: 'Reglas de horas "SAGE / nómina" (servidor)',
+        rhSageServerHint: 'El guardado envía `hr_sage_rounding` y `hr_sage_workday_start` a la base de datos (prioridad: variables de entorno si están definidas en el servidor). Las horas mostradas (reloj) permanecen sin tratar.',
+        rhSageRounding: 'Redondeo (minutos, 1–60)',
+        rhSageWorkday: 'Anclaje de entrada (jornada) — p. ej. 06:00',
+        rhSageApply: 'Aplicar para el cálculo de horas normales / extra / exportaciones',
+        rhSageSave: 'Guardar las reglas SAGE (servidor)',
+        rhTranchesTitle: 'Tramos (franjas) — cuadrícula de fichaje',
+        rhTranchesDesc: 'Columnas de la tabla de Fichaje. Si no se guarda nada en el servidor, la cuadrícula sigue los horarios del taller + pausas anteriores. El botón de abajo regenera los tramos a partir de ese mismo rango.',
+        rhTranchesPause: 'Columna "pausa" (fila —) después del tramo n.º',
+        rhTranchesNone: 'Ninguna',
+        rhTranchesLabel: 'Etiqueta',
+        rhTranchesStart: 'Inicio',
+        rhTranchesEnd: 'Fin',
+        rhTranchesAdd: 'Añadir un tramo',
+        rhTranchesDel: 'Eliminar',
+        rhTranchesReset: 'Generar desde horarios del taller',
+        rhTranchesSave: 'Guardar los tramos',
+        apsTitle: 'Configuración del Motor APS (Advanced Planning)',
+        apsDesc: 'Optimización de la planificación, de las tasas críticas y de la resolución de retrasos.',
+        apsCapacityMode: 'Modo de cálculo de la capacidad',
+        apsModeStatic: 'Estático (capacidad fija en piezas/día)',
+        apsModeDynamic: 'Dinámico (Operarios × Horarios × Eficiencia × Q × Lc / SAM)',
+        apsOvertimeCost: 'Coste horario de horas extra (MAD/h)',
+        apsSubcontractCost: 'Coste de subcontratación por pieza por defecto (MAD/pc)',
+        apsChainConfig: 'Parámetros APS por cadena',
+        apsOperators: 'Operarios',
+        apsActivityRate: 'Tasa Q (Actividad)',
+        machineModuleTitle: 'Módulo Máquinas',
+        machineAlertsTitle: 'Alertas de Máquinas',
+        machineAlertsLabel: 'Activar las alertas relacionadas con las máquinas',
+        machineAlertsHint: 'Si está desactivado, ya no hay alertas de máquinas: cobertura de máquinas (Planificación + auto-planificación), competencias faltantes (Seguimiento), tarjetas y salud del parque (Vista General) y resaltado de avería/mantenimiento (Gantt). La página Máquinas sigue accesible.',
+        machineHideLabel: 'Ocultar la página Máquinas del menú',
+        machineHideHint: 'Si está activado, las páginas Máquinas (Seguimiento y Catálogo) desaparecen por completo de la navegación, como si el módulo no existiera.',
+    },
+    pt: {
+        title: 'Configuração Global',
+        desc: 'Faça a gestão dos parâmetros gerais da empresa e da produção.',
+        general: 'Parâmetros Gerais',
+        production: 'Horários e Dias de Trabalho',
+        structure: 'Estrutura e Supervisão',
+        save: 'Guardar',
+        saved: 'Guardado!',
+        currency: 'Moeda por defeito',
+        timeFormat: 'Formato de exibição da hora',
+        workingHoursStart: 'Hora de início (Oficina)',
+        workingHoursEnd: 'Hora de fim (Oficina)',
+        chainsCount: 'Número de cadeias ativas',
+        workingDays: 'Dias úteis',
+        costMinute: 'Custo por Minuto',
+        pauses: 'Pausas e Interrupções',
+        addPause: 'Adicionar uma pausa',
+        pauseName: 'Nome',
+        pauseStart: 'Início',
+        pauseEnd: 'Fim',
+        pauseDuration: 'Duração (min)',
+        days: ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'],
+        generalManagers: 'Direção e Supervisão Geral',
+        chainStaff: 'Pessoal por Cadeia',
+        rhComptaTitle: 'RH — Ponto e contabilidade',
+        rhAutoOvertime: 'Recálculo automático das horas (normais / extra) a partir de entrada, saída e pausa',
+        rhAutoOvertimeHint: 'Se desativado, pode introduzir manualmente as horas normais e extra (separador Ponto do processo ou grelha diária).',
+        rhComptaRef: 'Referência de tempo para contabilidade / valorização (indicativo)',
+        rhComptaRefPointees: 'Horas registadas (trabalhadas)',
+        rhComptaRefNormales: 'Apenas horas normais "de salário"',
+        rhComptaRefHint: 'Opção documental: as exportações de salário já usam as linhas de ponto; este ajuste serve para alinhamento com a faturação ou a contabilidade interna.',
+        rhSageServerTitle: 'Regras de horas "SAGE / salário" (servidor)',
+        rhSageServerHint: 'A gravação envia `hr_sage_rounding` e `hr_sage_workday_start` para a base de dados (prioridade: variáveis de ambiente se definidas no servidor). As horas exibidas (relógio de ponto) permanecem brutas.',
+        rhSageRounding: 'Arredondamento (minutos, 1–60)',
+        rhSageWorkday: 'Âncora de entrada (jornada) — ex. 06:00',
+        rhSageApply: 'Aplicar para o cálculo de horas normais / extra / exportações',
+        rhSageSave: 'Guardar as regras SAGE (servidor)',
+        rhTranchesTitle: 'Intervalos (faixas) — grelha de ponto',
+        rhTranchesDesc: 'Colunas da tabela de Ponto. Se nada for guardado no servidor, a grelha segue os horários da oficina + pausas acima. O botão abaixo regenera os intervalos a partir do mesmo período.',
+        rhTranchesPause: 'Coluna "pausa" (linha —) após o intervalo n.º',
+        rhTranchesNone: 'Nenhum',
+        rhTranchesLabel: 'Rótulo',
+        rhTranchesStart: 'Início',
+        rhTranchesEnd: 'Fim',
+        rhTranchesAdd: 'Adicionar um intervalo',
+        rhTranchesDel: 'Eliminar',
+        rhTranchesReset: 'Gerar a partir dos horários da oficina',
+        rhTranchesSave: 'Guardar os intervalos',
+        apsTitle: 'Configuração do Motor APS (Advanced Planning)',
+        apsDesc: 'Otimização do planeamento, das taxas críticas e da resolução de atrasos.',
+        apsCapacityMode: 'Modo de cálculo da capacidade',
+        apsModeStatic: 'Estático (capacidade fixa em peças/dia)',
+        apsModeDynamic: 'Dinâmico (Operadores × Horários × Eficiência × Q × Lc / SAM)',
+        apsOvertimeCost: 'Custo horário de horas extra (MAD/h)',
+        apsSubcontractCost: 'Custo de subcontratação por peça por defeito (MAD/pc)',
+        apsChainConfig: 'Parâmetros APS por cadeia',
+        apsOperators: 'Operadores',
+        apsActivityRate: 'Taxa Q (Atividade)',
+        machineModuleTitle: 'Módulo Máquinas',
+        machineAlertsTitle: 'Alertas de Máquinas',
+        machineAlertsLabel: 'Ativar os alertas relacionados com as máquinas',
+        machineAlertsHint: 'Se desativado, deixa de haver alertas de máquinas: cobertura de máquinas (Planeamento + auto-planeamento), competências em falta (Acompanhamento), cartões e saúde do parque (Visão Geral) e realce de avaria/manutenção (Gantt). A página Máquinas permanece acessível.',
+        machineHideLabel: 'Ocultar a página Máquinas do menu',
+        machineHideHint: 'Se ativado, as páginas Máquinas (Acompanhamento e Catálogo) desaparecem completamente da navegação, como se o módulo não existisse.',
+    },
+    tr: {
+        title: 'Genel Yapılandırma',
+        desc: 'Şirketin ve üretimin genel parametrelerini yönetin.',
+        general: 'Genel Ayarlar',
+        production: 'Çalışma Saatleri ve Günleri',
+        structure: 'Yapı ve Yönetim',
+        save: 'Kaydet',
+        saved: 'Kaydedildi!',
+        currency: 'Varsayılan para birimi',
+        timeFormat: 'Saat görüntüleme biçimi',
+        workingHoursStart: 'Başlangıç saati (Atölye)',
+        workingHoursEnd: 'Bitiş saati (Atölye)',
+        chainsCount: 'Aktif hat sayısı',
+        workingDays: 'Çalışma günleri',
+        costMinute: 'Dakika Maliyeti',
+        pauses: 'Molalar ve Kesintiler',
+        addPause: 'Mola ekle',
+        pauseName: 'Ad',
+        pauseStart: 'Başlangıç',
+        pauseEnd: 'Bitiş',
+        pauseDuration: 'Süre (dk)',
+        days: ['Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt', 'Paz'],
+        generalManagers: 'Genel Yönetim ve Denetim',
+        chainStaff: 'Hat Başına Personel',
+        rhComptaTitle: 'İK — Mesai takibi ve muhasebe',
+        rhAutoOvertime: 'Giriş, çıkış ve moladan saatlerin (normal / fazla mesai) otomatik yeniden hesaplanması',
+        rhAutoOvertimeHint: 'Devre dışı bırakılırsa, normal ve fazla mesai saatlerini elle girebilirsiniz (dosyanın Mesai sekmesi veya günlük ızgara).',
+        rhComptaRef: 'Muhasebe / değerleme için zaman referansı (bilgilendirici)',
+        rhComptaRefPointees: 'Kaydedilen saatler (çalışılan)',
+        rhComptaRefNormales: 'Yalnızca "bordro" normal saatleri',
+        rhComptaRefHint: 'Belgesel seçenek: bordro dışa aktarımları zaten mesai satırlarını kullanır; bu ayar faturalama veya iç muhasebe ile hizalama içindir.',
+        rhSageServerTitle: '"SAGE / bordro" saat kuralları (sunucu)',
+        rhSageServerHint: 'Kaydetme `hr_sage_rounding` ve `hr_sage_workday_start` değerlerini veritabanına gönderir (öncelik: sunucuda tanımlıysa ortam değişkenleri). Görüntülenen saatler (mesai saati) ham kalır.',
+        rhSageRounding: 'Yuvarlama (dakika, 1–60)',
+        rhSageWorkday: 'Giriş çıpası (gün) — örn. 06:00',
+        rhSageApply: 'Normal / fazla mesai saatleri / dışa aktarımların hesabı için uygula',
+        rhSageSave: 'SAGE kurallarını kaydet (sunucu)',
+        rhTranchesTitle: 'Zaman dilimleri — mesai ızgarası',
+        rhTranchesDesc: 'Mesai tablosunun sütunları. Sunucu tarafında hiçbir şey kaydedilmezse, ızgara yukarıdaki atölye saatleri + molaları izler. Aşağıdaki düğme dilimleri aynı aralıktan yeniden oluşturur.',
+        rhTranchesPause: 'Dilim numarasından sonra "mola" sütunu (— satırı)',
+        rhTranchesNone: 'Yok',
+        rhTranchesLabel: 'Etiket',
+        rhTranchesStart: 'Başlangıç',
+        rhTranchesEnd: 'Bitiş',
+        rhTranchesAdd: 'Dilim ekle',
+        rhTranchesDel: 'Sil',
+        rhTranchesReset: 'Atölye saatlerinden oluştur',
+        rhTranchesSave: 'Dilimleri kaydet',
+        apsTitle: 'APS Motoru Yapılandırması (Advanced Planning)',
+        apsDesc: 'Planlamanın, kritik oranların ve gecikme çözümünün optimizasyonu.',
+        apsCapacityMode: 'Kapasite hesaplama modu',
+        apsModeStatic: 'Statik (parça/gün cinsinden sabit kapasite)',
+        apsModeDynamic: 'Dinamik (Operatörler × Saatler × Verimlilik × Q × Lc / SAM)',
+        apsOvertimeCost: 'Fazla mesai saatlik maliyeti (MAD/sa)',
+        apsSubcontractCost: 'Varsayılan parça başına fason maliyeti (MAD/pc)',
+        apsChainConfig: 'Hat başına APS parametreleri',
+        apsOperators: 'Operatörler',
+        apsActivityRate: 'Q oranı (Aktivite)',
+        machineModuleTitle: 'Makineler Modülü',
+        machineAlertsTitle: 'Makine Uyarıları',
+        machineAlertsLabel: 'Makineyle ilgili uyarıları etkinleştir',
+        machineAlertsHint: 'Devre dışı bırakılırsa, makine uyarısı kalmaz: makine kapsamı (Planlama + otomatik planlama), eksik yetkinlikler (Takip), park kartları ve sağlığı (Genel Bakış) ve arıza/bakım vurgulaması (Gantt). Makineler sayfası erişilebilir kalır.',
+        machineHideLabel: 'Makineler sayfasını menüden gizle',
+        machineHideHint: 'Etkinleştirilirse, Makineler sayfaları (Takip ve Katalog) gezinmeden tamamen kaybolur, sanki modül hiç yokmuş gibi.',
     }
 };
 
@@ -180,32 +445,32 @@ const CURRENCIES = [
     { code: 'ZAR', label: 'ZAR - Rand Sud-Africain' },
 ];
 
-const VIEW_LABELS: Record<string, { fr: string; ar: string }> = {
-    dashboard: { fr: 'Tableau de bord', ar: 'لوحة التحكم' },
-    planning: { fr: 'Planning', ar: 'التخطيط' },
-    suivi: { fr: 'Suivi Production', ar: 'تتبع الإنتاج' },
-    rendement: { fr: 'Rendement', ar: 'المردودية' },
-    ingenierie: { fr: 'Ingénierie', ar: 'الهندسة' },
-    atelier: { fr: 'Atelier Méthodes', ar: 'ورشة الأساليب' },
-    atelierProd: { fr: 'Atelier P°', ar: 'ورشة الإنتاج' },
-    coupe: { fr: 'La Coupe', ar: 'القص' },
-    sousTraitance: { fr: 'Sous-traitance', ar: 'التعاقد الفرعي' },
-    effectifs: { fr: 'Effectifs', ar: 'الموارد البشرية' },
-    gestionRh: { fr: 'Gestion RH', ar: 'إدارة الموارد البشرية' },
-    magasin: { fr: 'Magasin', ar: 'المخزن' },
-    export: { fr: 'Stock Fini', ar: 'تصدير المخزون' },
-    facturation: { fr: 'Facturation', ar: 'الفوترة' },
-    library: { fr: 'Bibliothèque', ar: 'المكتبة' },
-    pageMachine: { fr: 'Suivi des Machines', ar: 'تتبع الآلات' },
-    machin: { fr: 'Catalogue & Paramètres', ar: 'كتالوج و إعدادات' },
-    objectifs: { fr: 'Objectifs', ar: 'الأهداف' },
-    config: { fr: 'Configuration', ar: 'الإعدادات العامة' },
-    paramitre: { fr: 'Paramètres', ar: 'الإعدادات' },
-    admin: { fr: 'Admin', ar: 'المشرف' },
+const VIEW_LABELS: Record<string, Partial<Record<Lang, string>> & { fr: string }> = {
+    dashboard: { fr: 'Tableau de bord', ar: 'لوحة التحكم', en: 'Dashboard', es: 'Panel de control', pt: 'Painel de controlo', tr: 'Gösterge paneli' },
+    planning: { fr: 'Planning', ar: 'التخطيط', en: 'Planning', es: 'Planificación', pt: 'Planeamento', tr: 'Planlama' },
+    suivi: { fr: 'Suivi Production', ar: 'تتبع الإنتاج', en: 'Production Tracking', es: 'Seguimiento de Producción', pt: 'Acompanhamento de Produção', tr: 'Üretim Takibi' },
+    rendement: { fr: 'Rendement', ar: 'المردودية', en: 'Yield', es: 'Rendimiento', pt: 'Rendimento', tr: 'Verim' },
+    ingenierie: { fr: 'Ingénierie', ar: 'الهندسة', en: 'Engineering', es: 'Ingeniería', pt: 'Engenharia', tr: 'Mühendislik' },
+    atelier: { fr: 'Atelier Méthodes', ar: 'ورشة الأساليب', en: 'Methods Workshop', es: 'Taller de Métodos', pt: 'Oficina de Métodos', tr: 'Metot Atölyesi' },
+    atelierProd: { fr: 'Atelier P°', ar: 'ورشة الإنتاج', en: 'Prod. Workshop', es: 'Taller de Prod.', pt: 'Oficina de Prod.', tr: 'Üretim Atölyesi' },
+    coupe: { fr: 'La Coupe', ar: 'القص', en: 'Cutting', es: 'El Corte', pt: 'O Corte', tr: 'Kesim' },
+    sousTraitance: { fr: 'Sous-traitance', ar: 'التعاقد الفرعي', en: 'Subcontracting', es: 'Subcontratación', pt: 'Subcontratação', tr: 'Fason' },
+    effectifs: { fr: 'Effectifs', ar: 'الموارد البشرية', en: 'Workforce', es: 'Plantilla', pt: 'Efetivos', tr: 'İş Gücü' },
+    gestionRh: { fr: 'Gestion RH', ar: 'إدارة الموارد البشرية', en: 'HR Management', es: 'Gestión de RRHH', pt: 'Gestão de RH', tr: 'İK Yönetimi' },
+    magasin: { fr: 'Magasin', ar: 'المخزن', en: 'Warehouse', es: 'Almacén', pt: 'Armazém', tr: 'Depo' },
+    export: { fr: 'Stock Fini', ar: 'تصدير المخزون', en: 'Finished Stock', es: 'Stock Terminado', pt: 'Stock Acabado', tr: 'Bitmiş Stok' },
+    facturation: { fr: 'Facturation', ar: 'الفوترة', en: 'Invoicing', es: 'Facturación', pt: 'Faturação', tr: 'Faturalama' },
+    library: { fr: 'Bibliothèque', ar: 'المكتبة', en: 'Library', es: 'Biblioteca', pt: 'Biblioteca', tr: 'Kütüphane' },
+    pageMachine: { fr: 'Suivi des Machines', ar: 'تتبع الآلات', en: 'Machine Tracking', es: 'Seguimiento de Máquinas', pt: 'Acompanhamento de Máquinas', tr: 'Makine Takibi' },
+    machin: { fr: 'Catalogue & Paramètres', ar: 'كتالوج و إعدادات', en: 'Catalog & Settings', es: 'Catálogo y Parámetros', pt: 'Catálogo e Parâmetros', tr: 'Katalog ve Ayarlar' },
+    objectifs: { fr: 'Objectifs', ar: 'الأهداف', en: 'Objectives', es: 'Objetivos', pt: 'Objetivos', tr: 'Hedefler' },
+    config: { fr: 'Configuration', ar: 'الإعدادات العامة', en: 'Configuration', es: 'Configuración', pt: 'Configuração', tr: 'Yapılandırma' },
+    paramitre: { fr: 'Paramètres', ar: 'الإعدادات', en: 'Settings', es: 'Parámetros', pt: 'Parâmetros', tr: 'Ayarlar' },
+    admin: { fr: 'Admin', ar: 'المشرف', en: 'Admin', es: 'Admin', pt: 'Admin', tr: 'Yönetici' },
 };
 
-export default function Configuration({ settings, setSettings, lang, machines, navConfig, setNavConfig }: ConfigurationProps) {
-    const t = TRANSLATIONS[lang];
+export default function Configuration({ settings, setSettings, lang, machines, navConfig, setNavConfig, currentLang, onSetLang }: ConfigurationProps) {
+    const t = pickT(TRANSLATIONS, lang);
     const [showSaveToast, setShowSaveToast] = useState(false);
     const [showAgenda, setShowAgenda] = useState(false);
 
@@ -530,13 +795,12 @@ export default function Configuration({ settings, setSettings, lang, machines, n
                                 {/* Thème (Light / Dark / System) */}
                                 {(() => {
                                     const { theme: currentTheme, setTheme } = useTheme();
-                                    const isAr = lang === 'ar';
                                     return (
                                         <div className="flex flex-col gap-2 bg-slate-50 border border-slate-200 rounded-xl p-3 mt-3">
                                             <div>
-                                                <span className="font-bold text-slate-800 text-sm block text-start">{isAr ? 'مظهر التطبيق' : "Thème de l'application"}</span>
+                                                <span className="font-bold text-slate-800 text-sm block text-start">{tx(lang, { fr: "Thème de l'application", ar: 'مظهر التطبيق', en: 'Application theme', es: 'Tema de la aplicación', pt: 'Tema da aplicação', tr: 'Uygulama teması' })}</span>
                                                 <span className="text-[11px] text-slate-400 block mt-1 leading-relaxed text-start">
-                                                    {isAr ? 'اختر مظهر التطبيق المفضل لديك (فاتح، داكن، أو متوافق مع النظام)' : "Choisissez le style visuel de l'application (Clair, Sombre, ou calqué sur le Système)."}
+                                                    {tx(lang, { fr: "Choisissez le style visuel de l'application (Clair, Sombre, ou calqué sur le Système).", ar: 'اختر مظهر التطبيق المفضل لديك (فاتح، داكن، أو متوافق مع النظام)', en: 'Choose the visual style of the application (Light, Dark, or matched to the System).', es: 'Elija el estilo visual de la aplicación (Claro, Oscuro o ajustado al Sistema).', pt: 'Escolha o estilo visual da aplicação (Claro, Escuro ou conforme o Sistema).', tr: 'Uygulamanın görsel stilini seçin (Açık, Koyu veya Sisteme uyumlu).' })}
                                                 </span>
                                             </div>
                                             <div className="flex gap-2 mt-2">
@@ -551,7 +815,47 @@ export default function Configuration({ settings, setSettings, lang, machines, n
                                                                 : 'bg-white border-slate-200 text-slate-650 hover:bg-slate-50'
                                                         }`}
                                                     >
-                                                        {mode === 'light' ? (isAr ? 'فاتح ☀️' : 'Clair ☀️') : mode === 'dark' ? (isAr ? 'داكن 🌙' : 'Sombre 🌙') : (isAr ? 'النظام 🖥️' : 'Système 🖥️')}
+                                                        {mode === 'light' ? tx(lang, { fr: 'Clair ☀️', ar: 'فاتح ☀️', en: 'Light ☀️', es: 'Claro ☀️', pt: 'Claro ☀️', tr: 'Açık ☀️' }) : mode === 'dark' ? tx(lang, { fr: 'Sombre 🌙', ar: 'داكن 🌙', en: 'Dark 🌙', es: 'Oscuro 🌙', pt: 'Escuro 🌙', tr: 'Koyu 🌙' }) : tx(lang, { fr: 'Système 🖥️', ar: 'النظام 🖥️', en: 'System 🖥️', es: 'Sistema 🖥️', pt: 'Sistema 🖥️', tr: 'Sistem 🖥️' })}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    );
+                                })()}
+
+                                {/* Langue de l'interface (changement instantané) */}
+                                {(() => {
+                                    const isAr = lang === 'ar';
+                                    const active = currentLang || lang;
+                                    const LANGS: { code: string; label: string }[] = [
+                                        { code: 'fr', label: 'Français' },
+                                        { code: 'ar', label: 'العربية' },
+                                        { code: 'en', label: 'English' },
+                                        { code: 'es', label: 'Español' },
+                                        { code: 'pt', label: 'Português' },
+                                        { code: 'tr', label: 'Türkçe' },
+                                    ];
+                                    return (
+                                        <div className="flex flex-col gap-2 bg-slate-50 border border-slate-200 rounded-xl p-3 mt-3">
+                                            <div>
+                                                <span className="font-bold text-slate-800 text-sm block text-start">{isAr ? 'لغة الواجهة' : "Langue de l'interface"}</span>
+                                                <span className="text-[11px] text-slate-400 block mt-1 leading-relaxed text-start">
+                                                    {isAr ? 'يتبدّل العرض فوراً. الترجمة الكاملة للصفحات تتوسّع تدريجياً.' : "Le changement est instantané. La traduction complète des pages s'étend progressivement."}
+                                                </span>
+                                            </div>
+                                            <div className="flex gap-2 flex-wrap mt-2">
+                                                {LANGS.map(l => (
+                                                    <button
+                                                        key={l.code}
+                                                        type="button"
+                                                        onClick={() => { try { localStorage.setItem('bera_lang', l.code); } catch {} onSetLang?.(l.code); }}
+                                                        className={`py-2 px-3 rounded-lg text-[11px] font-bold transition-all border ${
+                                                            active === l.code
+                                                                ? 'bg-slate-900 border-slate-900 text-white shadow-xs'
+                                                                : 'bg-white border-slate-200 text-slate-650 hover:bg-slate-50'
+                                                        }`}
+                                                    >
+                                                        {l.label}
                                                     </button>
                                                 ))}
                                             </div>
@@ -864,7 +1168,7 @@ export default function Configuration({ settings, setSettings, lang, machines, n
                 <div onClick={() => toggleSec('tailles')} className={`px-5 py-4 bg-slate-50 flex items-center justify-between cursor-pointer select-none ${openSec['tailles'] ? 'border-b border-slate-100' : ''}`}>
                     <div className="flex items-center gap-2">
                         <ListTodo className="w-5 h-5 text-slate-500" />
-                        <h2 className="font-bold text-slate-800">{lang === 'ar' ? 'أنظمة المقاسات' : 'Systèmes de tailles'}</h2>
+                        <h2 className="font-bold text-slate-800">{tx(lang, { fr: 'Systèmes de tailles', ar: 'أنظمة المقاسات', en: 'Size systems', es: 'Sistemas de tallas', pt: 'Sistemas de tamanhos', tr: 'Beden sistemleri' })}</h2>
                         <span className="text-[10px] font-black uppercase tracking-wider bg-amber-100 text-amber-700 border border-amber-200 px-1.5 py-0.5 rounded">Beta</span>
                     </div>
                     <ChevronDown className={`w-5 h-5 text-slate-400 shrink-0 transition-transform ${openSec['tailles'] ? 'rotate-180' : ''}`} />
@@ -874,7 +1178,7 @@ export default function Configuration({ settings, setSettings, lang, machines, n
                     <div className="flex items-center justify-between gap-3 bg-amber-50/50 border border-amber-100 rounded-xl p-3">
                         <div className="flex items-center gap-2">
                             <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0" />
-                            <span className="text-sm font-bold text-slate-700">{lang === 'ar' ? 'تفعيل ميزة أنظمة المقاسات (تجريبية)' : 'Activer la fonctionnalité (Beta)'}</span>
+                            <span className="text-sm font-bold text-slate-700">{tx(lang, { fr: 'Activer la fonctionnalité (Beta)', ar: 'تفعيل ميزة أنظمة المقاسات (تجريبية)', en: 'Enable the feature (Beta)', es: 'Activar la funcionalidad (Beta)', pt: 'Ativar a funcionalidade (Beta)', tr: 'Özelliği etkinleştir (Beta)' })}</span>
                         </div>
                         <button
                             onClick={() => setSettings(prev => ({ ...prev, tailleSystemsEnabled: prev.tailleSystemsEnabled === false ? true : false }))}
@@ -887,7 +1191,7 @@ export default function Configuration({ settings, setSettings, lang, machines, n
 
                     {settings.tailleSystemsEnabled === false ? (
                         <p className="text-sm text-slate-400 italic text-center py-6 bg-slate-50 rounded-lg border border-dashed border-slate-200">
-                            {lang === 'ar' ? 'الميزة موقوفة. فعّلها للتعريف بأنظمة المقاسات.' : 'Fonctionnalité désactivée. Activez-la pour définir des systèmes de tailles.'}
+                            {tx(lang, { fr: 'Fonctionnalité désactivée. Activez-la pour définir des systèmes de tailles.', ar: 'الميزة موقوفة. فعّلها للتعريف بأنظمة المقاسات.', en: 'Feature disabled. Enable it to define size systems.', es: 'Funcionalidad desactivada. Actívela para definir sistemas de tallas.', pt: 'Funcionalidade desativada. Ative-a para definir sistemas de tamanhos.', tr: 'Özellik devre dışı. Beden sistemlerini tanımlamak için etkinleştirin.' })}
                         </p>
                     ) : (
                     <>
@@ -1119,12 +1423,17 @@ export default function Configuration({ settings, setSettings, lang, machines, n
                             </div>
                             <div>
                                 <h3 className="text-base font-black text-slate-800 tracking-tight">
-                                    {lang === 'fr' ? 'Machines par chaîne (planning)' : 'الماكينات حسب الخط (التخطيط)'}
+                                    {tx(lang, { fr: 'Machines par chaîne (planning)', ar: 'الماكينات حسب الخط (التخطيط)', en: 'Machines per chain (planning)', es: 'Máquinas por cadena (planificación)', pt: 'Máquinas por cadeia (planeamento)', tr: 'Hat başına makineler (planlama)' })}
                                 </h3>
                                 <p className="text-xs text-slate-500 mt-0.5 font-medium max-w-3xl">
-                                    {lang === 'fr'
-                                        ? 'Cochez les machines réellement sur chaque ligne. Par défaut (aucune sélection enregistrée), le planning utilise tout le parc actif hors panne / maintenance. Réduire la liste force la vérification « gamme vs machines » sur ce sous-ensemble.'
-                                        : 'اختر الماكينات الفعلية لكل خط. بدون اختيار محفوظ يستخدم التخطيط كامل الماكينات النشطة الصالحة.'}
+                                    {tx(lang, {
+                                        fr: 'Cochez les machines réellement sur chaque ligne. Par défaut (aucune sélection enregistrée), le planning utilise tout le parc actif hors panne / maintenance. Réduire la liste force la vérification « gamme vs machines » sur ce sous-ensemble.',
+                                        ar: 'اختر الماكينات الفعلية لكل خط. بدون اختيار محفوظ يستخدم التخطيط كامل الماكينات النشطة الصالحة.',
+                                        en: 'Check the machines actually present on each line. By default (no selection saved), planning uses the entire active parc excluding breakdown / maintenance. Reducing the list forces the "operation range vs machines" check on this subset.',
+                                        es: 'Marque las máquinas realmente presentes en cada línea. Por defecto (sin selección guardada), la planificación usa todo el parque activo excepto avería / mantenimiento. Reducir la lista fuerza la verificación «gama vs máquinas» sobre este subconjunto.',
+                                        pt: 'Marque as máquinas realmente presentes em cada linha. Por defeito (sem seleção guardada), o planeamento usa todo o parque ativo exceto avaria / manutenção. Reduzir a lista força a verificação «gama vs máquinas» sobre este subconjunto.',
+                                        tr: 'Her hatta gerçekten bulunan makineleri işaretleyin. Varsayılan olarak (kayıtlı seçim yoksa), planlama arıza / bakım hariç tüm aktif parkı kullanır. Listeyi daraltmak bu alt kümede "operasyon dizisi vs makineler" kontrolünü zorunlu kılar.',
+                                    })}
                                 </p>
                             </div>
                         </div>
@@ -1155,7 +1464,7 @@ export default function Configuration({ settings, setSettings, lang, machines, n
                                                 }
                                                 className="text-[10px] font-bold uppercase text-indigo-600 hover:text-indigo-800 px-2 py-1 rounded-lg hover:bg-indigo-50"
                                             >
-                                                {lang === 'fr' ? 'Tout le parc' : 'الكل'}
+                                                {tx(lang, { fr: 'Tout le parc', ar: 'الكل', en: 'Whole parc', es: 'Todo el parque', pt: 'Todo o parque', tr: 'Tüm park' })}
                                             </button>
                                         </div>
                                         <div className="flex flex-wrap gap-2 max-h-40 overflow-y-auto custom-scrollbar">
@@ -1314,7 +1623,7 @@ export default function Configuration({ settings, setSettings, lang, machines, n
                             <table className="w-full text-left border-collapse">
                                 <thead>
                                     <tr className="bg-slate-50 border-b border-slate-200 text-xs font-bold uppercase text-slate-500 tracking-wider">
-                                        <th className="px-6 py-3">{lang === 'fr' ? 'Chaîne' : 'الخط'}</th>
+                                        <th className="px-6 py-3">{tx(lang, { fr: 'Chaîne', ar: 'الخط', en: 'Chain', es: 'Cadena', pt: 'Cadeia', tr: 'Hat' })}</th>
                                         <th className="px-6 py-3">{t.apsOperators}</th>
                                         <th className="px-6 py-3">{t.apsActivityRate}</th>
                                     </tr>
@@ -1384,14 +1693,14 @@ export default function Configuration({ settings, setSettings, lang, machines, n
                         <div className="flex items-center gap-2">
                             <ListTodo className="w-5 h-5 text-indigo-500" />
                             <h2 className="font-bold text-slate-800">
-                                {lang === 'fr' ? 'Configuration de la barre de navigation' : 'إعدادات شريط التنقل'}
+                                {tx(lang, { fr: 'Configuration de la barre de navigation', ar: 'إعدادات شريط التنقل', en: 'Navigation bar configuration', es: 'Configuración de la barra de navegación', pt: 'Configuração da barra de navegação', tr: 'Gezinme çubuğu yapılandırması' })}
                             </h2>
                             <ChevronDown className={`w-5 h-5 text-slate-400 shrink-0 transition-transform ${openSec['nav'] ? 'rotate-180' : ''}`} />
                         </div>
                         <button
                             onClick={(e) => {
                                 e.stopPropagation();
-                                if (confirm(lang === 'fr' ? 'Voulez-vous vraiment réinitialiser la navigation ?' : 'هل تريد حقًا إعادة تعيين القائمة؟')) {
+                                if (confirm(tx(lang, { fr: 'Voulez-vous vraiment réinitialiser la navigation ?', ar: 'هل تريد حقًا إعادة تعيين القائمة؟', en: 'Do you really want to reset the navigation?', es: '¿Realmente desea restablecer la navegación?', pt: 'Deseja mesmo repor a navegação?', tr: 'Gezinmeyi gerçekten sıfırlamak istiyor musunuz?' }))) {
                                     const defaultCategories = [
                                         { id: 'principal', name: 'Principal', views: ['dashboard', 'library', 'suivi', 'planning'] },
                                         { id: 'production', name: 'Production', views: ['effectifs', 'coupe', 'sousTraitance'] },
@@ -1411,26 +1720,31 @@ export default function Configuration({ settings, setSettings, lang, machines, n
                             }}
                             className="text-xs font-bold text-red-600 hover:text-red-700 bg-red-50 hover:bg-red-100 px-3 py-1.5 rounded-lg border border-red-100 transition-colors"
                         >
-                            {lang === 'fr' ? 'Réinitialiser' : 'إعادة تعيين'}
+                            {tx(lang, { fr: 'Réinitialiser', ar: 'إعادة تعيين', en: 'Reset', es: 'Restablecer', pt: 'Repor', tr: 'Sıfırla' })}
                         </button>
                     </div>
                     <div className={`p-6 md:p-8 space-y-6 ${openSec['nav'] ? '' : 'hidden'}`}>
                         <p className="text-sm text-slate-500 font-medium">
-                            {lang === 'fr'
-                                ? 'Configurez le type d\'affichage des menus (dropdowns ou ruban plat), modifiez les titres des catégories ou déplacez librement les pages.'
-                                : 'تخصيص نمط القائمة (منسدلة أو مسطحة)، تعديل أسماء الفئات، أو نقل الصفحات بحرية.'}
+                            {tx(lang, {
+                                fr: 'Configurez le type d\'affichage des menus (dropdowns ou ruban plat), modifiez les titres des catégories ou déplacez librement les pages.',
+                                ar: 'تخصيص نمط القائمة (منسدلة أو مسطحة)، تعديل أسماء الفئات، أو نقل الصفحات بحرية.',
+                                en: 'Configure the menu display type (dropdowns or flat ribbon), edit the category titles or move the pages freely.',
+                                es: 'Configure el tipo de visualización de los menús (desplegables o cinta plana), edite los títulos de las categorías o mueva las páginas libremente.',
+                                pt: 'Configure o tipo de exibição dos menus (suspensos ou faixa plana), edite os títulos das categorias ou mova as páginas livremente.',
+                                tr: 'Menü görüntüleme türünü (açılır menüler veya düz şerit) yapılandırın, kategori başlıklarını düzenleyin veya sayfaları serbestçe taşıyın.',
+                            })}
                         </p>
 
                         {/* Layout Style Selector */}
                         <div className="space-y-3">
                             <label className="block text-xs font-bold uppercase text-slate-500 tracking-wider">
-                                {lang === 'fr' ? 'Type d\'affichage' : 'نمط العرض'}
+                                {tx(lang, { fr: "Type d'affichage", ar: 'نمط العرض', en: 'Display type', es: 'Tipo de visualización', pt: 'Tipo de exibição', tr: 'Görüntüleme türü' })}
                             </label>
                             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                                 {[
-                                    { key: 'dropdown', labelFr: 'Menus Déroulants Groupés', labelAr: 'قوائم منسدلة مجموعة' },
-                                    { key: 'flat', labelFr: 'Ruban Plat Horizontal', labelAr: 'شريط أفقي مسطح' },
-                                    { key: 'mobile-only', labelFr: 'Hamburger / Menu Latéral Uniquement', labelAr: 'زر القائمة الجانبية فقط' }
+                                    { key: 'dropdown', label: { fr: 'Menus Déroulants Groupés', ar: 'قوائم منسدلة مجموعة', en: 'Grouped Dropdown Menus', es: 'Menús Desplegables Agrupados', pt: 'Menus Suspensos Agrupados', tr: 'Gruplandırılmış Açılır Menüler' } },
+                                    { key: 'flat', label: { fr: 'Ruban Plat Horizontal', ar: 'شريط أفقي مسطح', en: 'Horizontal Flat Ribbon', es: 'Cinta Plana Horizontal', pt: 'Faixa Plana Horizontal', tr: 'Yatay Düz Şerit' } },
+                                    { key: 'mobile-only', label: { fr: 'Hamburger / Menu Latéral Uniquement', ar: 'زر القائمة الجانبية فقط', en: 'Hamburger / Side Menu Only', es: 'Hamburguesa / Solo Menú Lateral', pt: 'Hambúrguer / Apenas Menu Lateral', tr: 'Hamburger / Yalnızca Yan Menü' } }
                                 ].map((item) => (
                                     <button
                                         key={item.key}
@@ -1441,11 +1755,11 @@ export default function Configuration({ settings, setSettings, lang, machines, n
                                                 : 'bg-white border-slate-200 text-slate-600'
                                         }`}
                                     >
-                                        <span>{lang === 'fr' ? item.labelFr : item.labelAr}</span>
+                                        <span>{tx(lang, item.label)}</span>
                                         <span className="text-[10px] font-normal text-slate-400">
-                                            {item.key === 'dropdown' && (lang === 'fr' ? 'Regroupe les 20 modules dans 5 menus compacts' : 'تجميع 20 موديول في 5 قوائم مدمجة')}
-                                            {item.key === 'flat' && (lang === 'fr' ? 'Affiche tous les boutons l\'un après l\'autre' : 'عرض جميع الأزرار متتالية')}
-                                            {item.key === 'mobile-only' && (lang === 'fr' ? 'Idéal pour maximiser l\'espace de travail' : 'مثالي لزيادة مساحة العمل')}
+                                            {item.key === 'dropdown' && tx(lang, { fr: 'Regroupe les 20 modules dans 5 menus compacts', ar: 'تجميع 20 موديول في 5 قوائم مدمجة', en: 'Groups the 20 modules into 5 compact menus', es: 'Agrupa los 20 módulos en 5 menús compactos', pt: 'Agrupa os 20 módulos em 5 menus compactos', tr: '20 modülü 5 kompakt menüde gruplar' })}
+                                            {item.key === 'flat' && tx(lang, { fr: "Affiche tous les boutons l'un après l'autre", ar: 'عرض جميع الأزرار متتالية', en: 'Displays all the buttons one after another', es: 'Muestra todos los botones uno tras otro', pt: 'Mostra todos os botões um após o outro', tr: 'Tüm düğmeleri art arda gösterir' })}
+                                            {item.key === 'mobile-only' && tx(lang, { fr: "Idéal pour maximiser l'espace de travail", ar: 'مثالي لزيادة مساحة العمل', en: 'Ideal for maximizing the workspace', es: 'Ideal para maximizar el espacio de trabajo', pt: 'Ideal para maximizar o espaço de trabalho', tr: 'Çalışma alanını en üst düzeye çıkarmak için ideal' })}
                                         </span>
                                     </button>
                                 ))}
@@ -1457,10 +1771,10 @@ export default function Configuration({ settings, setSettings, lang, machines, n
                             <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-100">
                                 <div>
                                     <span className="text-sm font-bold text-slate-700">
-                                        {lang === 'fr' ? 'Bouton Hamburger (☰)' : 'زر القائمة الجانبية (☰)'}
+                                        {tx(lang, { fr: 'Bouton Hamburger (☰)', ar: 'زر القائمة الجانبية (☰)', en: 'Hamburger Button (☰)', es: 'Botón Hamburguesa (☰)', pt: 'Botão Hambúrguer (☰)', tr: 'Hamburger Düğmesi (☰)' })}
                                     </span>
                                     <p className="text-[11px] text-slate-400">
-                                        {lang === 'fr' ? 'Afficher également le menu hamburger rapide à gauche' : 'عرض زر القائمة السريعة الجانبية على اليسار أيضاً'}
+                                        {tx(lang, { fr: 'Afficher également le menu hamburger rapide à gauche', ar: 'عرض زر القائمة السريعة الجانبية على اليسار أيضاً', en: 'Also show the quick hamburger menu on the left', es: 'Mostrar también el menú hamburguesa rápido a la izquierda', pt: 'Mostrar também o menu hambúrguer rápido à esquerda', tr: 'Hızlı hamburger menüyü solda da göster' })}
                                     </p>
                                 </div>
                                 <button 
@@ -1476,7 +1790,7 @@ export default function Configuration({ settings, setSettings, lang, machines, n
                         {navConfig.style === 'dropdown' && (
                             <div className="space-y-4 pt-4 border-t border-slate-100">
                                 <label className="block text-xs font-bold uppercase text-slate-500 tracking-wider">
-                                    {lang === 'fr' ? 'Renommer et organiser les catégories' : 'تعديل أسماء وتنظيم الفئات'}
+                                    {tx(lang, { fr: 'Renommer et organiser les catégories', ar: 'تعديل أسماء وتنظيم الفئات', en: 'Rename and organize the categories', es: 'Renombrar y organizar las categorías', pt: 'Renomear e organizar as categorias', tr: 'Kategorileri yeniden adlandır ve düzenle' })}
                                 </label>
                                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                                     {navConfig.categories?.map((category, catIdx) => (
@@ -1491,10 +1805,10 @@ export default function Configuration({ settings, setSettings, lang, machines, n
                                                         setNavConfig({ ...navConfig, categories: updated });
                                                     }}
                                                     className="bg-white border border-slate-200 hover:border-indigo-300 focus:border-indigo-500 outline-none rounded-xl px-3 py-2 text-sm font-bold text-slate-800 flex-1 shadow-sm transition-all"
-                                                    placeholder={lang === 'fr' ? 'Nom de la catégorie' : 'اسم الفئة'}
+                                                    placeholder={tx(lang, { fr: 'Nom de la catégorie', ar: 'اسم الفئة', en: 'Category name', es: 'Nombre de la categoría', pt: 'Nome da categoria', tr: 'Kategori adı' })}
                                                 />
                                                 <span className="text-[10px] font-black uppercase bg-indigo-50 text-indigo-700 px-2 py-1 rounded border border-indigo-100">
-                                                    {category.views.length} {lang === 'fr' ? 'Pages' : 'صفحات'}
+                                                    {category.views.length} {tx(lang, { fr: 'Pages', ar: 'صفحات', en: 'Pages', es: 'Páginas', pt: 'Páginas', tr: 'Sayfa' })}
                                                 </span>
                                             </div>
                                             <div className="space-y-1 max-h-48 overflow-y-auto pr-1">
@@ -1541,7 +1855,7 @@ export default function Configuration({ settings, setSettings, lang, machines, n
                                                                             : 'bg-emerald-50 border-emerald-200 text-emerald-600'
                                                                     }`}
                                                                 >
-                                                                    {isHidden ? (lang === 'fr' ? 'Masqué' : 'مخفي') : (lang === 'fr' ? 'Visible' : 'مرئي')}
+                                                                    {isHidden ? tx(lang, { fr: 'Masqué', ar: 'مخفي', en: 'Hidden', es: 'Oculto', pt: 'Oculto', tr: 'Gizli' }) : tx(lang, { fr: 'Visible', ar: 'مرئي', en: 'Visible', es: 'Visible', pt: 'Visível', tr: 'Görünür' })}
                                                                 </button>
                                                             </div>
                                                         </div>
@@ -1558,7 +1872,7 @@ export default function Configuration({ settings, setSettings, lang, machines, n
                         {navConfig.style === 'flat' && (
                             <div className="space-y-3 pt-4 border-t border-slate-100">
                                 <label className="block text-xs font-bold uppercase text-slate-500 tracking-wider">
-                                    {lang === 'fr' ? 'Ordre et visibilité des modules' : 'ترتيب وظهور الوحدات'}
+                                    {tx(lang, { fr: 'Ordre et visibilité des modules', ar: 'ترتيب وظهور الوحدات', en: 'Order and visibility of modules', es: 'Orden y visibilidad de los módulos', pt: 'Ordem e visibilidade dos módulos', tr: 'Modüllerin sırası ve görünürlüğü' })}
                                 </label>
                                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2">
                                     {navConfig.order.map((view, idx) => {
@@ -1606,7 +1920,7 @@ export default function Configuration({ settings, setSettings, lang, machines, n
                                                             : 'bg-emerald-50 border-emerald-200 text-emerald-600'
                                                     }`}
                                                 >
-                                                    {isHidden ? (lang === 'fr' ? 'Masqué' : 'مخفي') : (lang === 'fr' ? 'Visible' : 'مرئي')}
+                                                    {isHidden ? tx(lang, { fr: 'Masqué', ar: 'مخفي', en: 'Hidden', es: 'Oculto', pt: 'Oculto', tr: 'Gizli' }) : tx(lang, { fr: 'Visible', ar: 'مرئي', en: 'Visible', es: 'Visible', pt: 'Visível', tr: 'Görünür' })}
                                                 </button>
                                             </div>
                                         );
@@ -1741,7 +2055,7 @@ export default function Configuration({ settings, setSettings, lang, machines, n
 
             {/* Licence / Abonnement — activation par clé (n'impacte pas le démarrage de l'app) */}
             <div className="mt-6">
-                <LicenseActivation lang={lang} />
+                <LicenseActivation lang={lang === 'ar' ? 'ar' : 'fr'} />
             </div>
 
             <AgendaModal isOpen={showAgenda} onClose={() => setShowAgenda(false)} settings={settings} setSettings={setSettings} lang={lang} />

@@ -20,6 +20,8 @@ import {
     Target,
     Truck,
     ChevronDown,
+    ChevronLeft,
+    ChevronRight,
     Clock,
 } from 'lucide-react';
 import type { Lang } from './constants';
@@ -157,6 +159,17 @@ export default function AppHeader({
     logout,
 }: AppHeaderProps) {
     const t = TRANSLATIONS[lang];
+    const navRef = useRef<HTMLElement>(null);
+
+    const scrollNav = (direction: 'left' | 'right') => {
+        if (navRef.current) {
+            const offset = 200;
+            navRef.current.scrollBy({
+                left: direction === 'left' ? -offset : offset,
+                behavior: 'smooth'
+            });
+        }
+    };
 
     return (
         <header className="bg-white border-b border-gray-100 shadow-[0_1px_2px_0_rgba(0,0,0,0.02)] z-[100] shrink-0 h-12 sticky top-0 print:hidden">
@@ -209,83 +222,108 @@ export default function AppHeader({
 
                 {/* Main Navigation - Hidden on mobile, shown on md+ based on style selection */}
                 {navConfig.style !== 'mobile-only' && (
-                    <nav className={`hidden md:flex items-center gap-1 mx-4 overflow-x-auto hide-scrollbar ${
+                    <div className={`hidden md:flex items-center relative group/nav overflow-hidden py-1 mx-4 ${
                         navConfig.style === 'flat' ? 'max-w-[60vw]' : 'max-w-[72vw]'
                     }`}>
-                        {/* Style 1: Dynamic Dropdowns Grouped by Category */}
-                        {navConfig.style === 'dropdown' && navConfig.categories?.map((category) => {
-                            const visibleViews = category.views.filter(view => {
-                                if (navConfig.hidden.includes(view)) return false;
-                                if (view === 'admin' && user?.role !== 'admin') return false;
-                                return VIEW_DEFS[view] !== undefined;
-                            });
+                        {/* Left Scroll Button */}
+                        <button
+                            onClick={() => scrollNav('left')}
+                            type="button"
+                            className="absolute left-0 top-0 bottom-0 z-10 w-8 bg-white/40 hover:bg-white/60 backdrop-blur-md border-r border-slate-200/50 text-slate-600 hover:text-indigo-600 transition-all duration-200 active:bg-white/80 opacity-0 group-hover/nav:opacity-100 flex items-center justify-center cursor-pointer"
+                            title={t.prev}
+                        >
+                            <ChevronLeft className="w-3.5 h-3.5" />
+                        </button>
 
-                            if (visibleViews.length === 0) return null;
+                        <nav 
+                            ref={navRef}
+                            className="flex items-center gap-1 overflow-x-auto hide-scrollbar px-8 scroll-smooth w-full h-full"
+                        >
+                            {/* Style 1: Dynamic Dropdowns Grouped by Category */}
+                            {navConfig.style === 'dropdown' && navConfig.categories?.map((category) => {
+                                const visibleViews = category.views.filter(view => {
+                                    if (navConfig.hidden.includes(view)) return false;
+                                    if (view === 'admin' && user?.role !== 'admin') return false;
+                                    return VIEW_DEFS[view] !== undefined;
+                                });
 
-                            const isActive = visibleViews.includes(currentView);
-                            const activeClass = VIEW_DEFS[visibleViews[0]]?.activeClass || 'bg-indigo-50 border-indigo-100 text-indigo-700';
+                                if (visibleViews.length === 0) return null;
 
-                            return (
-                                <NavDropdown
-                                    key={category.id}
-                                    label={category.name}
-                                    views={visibleViews}
-                                    currentView={currentView}
-                                    activeClass={activeClass}
-                                    align={category.id === 'config' || category.id === 'logistique' ? 'right' : 'left'}
-                                >
-                                    {visibleViews.map(view => {
-                                        const def = VIEW_DEFS[view];
-                                        if (!def) return null;
-                                        const label = typeof def.label === 'function' ? def.label(t) : def.label;
-                                        return (
-                                            <DropdownItem
-                                                key={view}
-                                                view={view as any}
-                                                currentView={currentView}
-                                                onClick={handleNavigation}
-                                                activeClass={def.activeClass}
-                                                icon={def.icon}
-                                                label={label}
-                                            />
-                                        );
-                                    })}
-                                </NavDropdown>
-                            );
-                        })}
+                                const isActive = visibleViews.includes(currentView);
+                                const activeClass = VIEW_DEFS[visibleViews[0]]?.activeClass || 'bg-indigo-50 border-indigo-100 text-indigo-700';
 
-                        {/* Admin Button (Dropdown Style only) */}
-                        {navConfig.style === 'dropdown' && user?.role === 'admin' && (
-                            <NavButton
-                                view="admin"
-                                currentView={currentView}
-                                onClick={handleNavigation}
-                                activeClass="bg-purple-50 border-purple-100 text-purple-700"
-                                icon={<Shield className="w-3.5 h-3.5" />}
-                                label={t.admin}
-                            />
-                        )}
+                                return (
+                                    <NavDropdown
+                                        key={category.id}
+                                        label={category.name}
+                                        views={visibleViews}
+                                        currentView={currentView}
+                                        activeClass={activeClass}
+                                        align={category.id === 'config' || category.id === 'logistique' ? 'right' : 'left'}
+                                    >
+                                        {visibleViews.map(view => {
+                                            const def = VIEW_DEFS[view];
+                                            if (!def) return null;
+                                            const label = typeof def.label === 'function' ? def.label(t) : def.label;
+                                            return (
+                                                <DropdownItem
+                                                    key={view}
+                                                    view={view as any}
+                                                    currentView={currentView}
+                                                    onClick={handleNavigation}
+                                                    activeClass={def.activeClass}
+                                                    icon={def.icon}
+                                                    label={label}
+                                                />
+                                            );
+                                        })}
+                                    </NavDropdown>
+                                );
+                            })}
 
-                        {/* Style 2: Flat List of All Modules */}
-                        {navConfig.style === 'flat' && navConfig.order.map(view => {
-                            if (navConfig.hidden.includes(view)) return null;
-                            if (view === 'admin' && user?.role !== 'admin') return null;
-                            const def = VIEW_DEFS[view];
-                            if (!def) return null;
-                            const label = typeof def.label === 'function' ? def.label(t) : def.label;
-                            return (
+                            {/* Admin Button (Dropdown Style only) */}
+                            {navConfig.style === 'dropdown' && user?.role === 'admin' && (
                                 <NavButton
-                                    key={view}
-                                    view={view as any}
+                                    view="admin"
                                     currentView={currentView}
                                     onClick={handleNavigation}
-                                    activeClass={def.activeClass}
-                                    icon={def.icon}
-                                    label={label}
+                                    activeClass="bg-purple-50 border-purple-100 text-purple-700"
+                                    icon={<Shield className="w-3.5 h-3.5" />}
+                                    label={t.admin}
                                 />
-                            );
-                        })}
-                    </nav>
+                            )}
+
+                            {/* Style 2: Flat List of All Modules */}
+                            {navConfig.style === 'flat' && navConfig.order.map(view => {
+                                if (navConfig.hidden.includes(view)) return null;
+                                if (view === 'admin' && user?.role !== 'admin') return null;
+                                const def = VIEW_DEFS[view];
+                                if (!def) return null;
+                                const label = typeof def.label === 'function' ? def.label(t) : def.label;
+                                return (
+                                    <NavButton
+                                        key={view}
+                                        view={view as any}
+                                        currentView={currentView}
+                                        onClick={handleNavigation}
+                                        activeClass={def.activeClass}
+                                        icon={def.icon}
+                                        label={label}
+                                    />
+                                );
+                            })}
+                        </nav>
+
+                        {/* Right Scroll Button */}
+                        <button
+                            onClick={() => scrollNav('right')}
+                            type="button"
+                            className="absolute right-0 top-0 bottom-0 z-10 w-8 bg-white/40 hover:bg-white/60 backdrop-blur-md border-l border-slate-200/50 text-slate-600 hover:text-indigo-600 transition-all duration-200 active:bg-white/80 opacity-0 group-hover/nav:opacity-100 flex items-center justify-center cursor-pointer"
+                            title={t.next}
+                        >
+                            <ChevronRight className="w-3.5 h-3.5" />
+                        </button>
+                    </div>
                 )}
 
                 {/* Right Side Tools */}

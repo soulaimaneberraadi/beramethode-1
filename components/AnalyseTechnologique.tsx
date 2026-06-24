@@ -15,6 +15,8 @@ import {
   Percent
 } from 'lucide-react';
 import { Machine, Operation, ComplexityFactor, StandardTime, Poste } from '../types';
+import { tx } from '../lib/i18n';
+import { useLang } from '../src/context/LanguageContext';
 
 interface FabricSettings {
   enabled: boolean;
@@ -101,6 +103,7 @@ export default function AnalyseTechnologique({
   assignments = {},
   postes = []
 }: AnalyseProps) {
+  const { lang } = useLang();
   const posteColorById = new Map(
     postes.map((poste, index) => {
       const fallback = POSTE_COLORS[index % POSTE_COLORS.length];
@@ -303,8 +306,8 @@ export default function AnalyseTechnologique({
             {/* OUVRIERS / HEURES */}
             <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-50 rounded-lg border border-slate-100 shrink-0">
                 <div className="flex flex-col items-center border-r border-slate-200 pr-3 mr-3">
-                    <span className="text-[9px] font-bold text-slate-400 uppercase">Ouvriers</span>
-                    <input 
+                    <span className="text-[9px] font-bold text-slate-400 uppercase">{tx(lang, { fr: 'Ouvriers', ar: 'العمال', en: 'Workers', es: 'Obreros', pt: 'Trabalhadores', tr: 'İşçiler' })}</span>
+                    <input
                         type="number" 
                         min="1" 
                         value={Math.round(numWorkers)} 
@@ -313,8 +316,8 @@ export default function AnalyseTechnologique({
                     />
                 </div>
                 <div className="flex flex-col items-center">
-                    <span className="text-[9px] font-bold text-slate-400 uppercase">Heures</span>
-                    <input 
+                    <span className="text-[9px] font-bold text-slate-400 uppercase">{tx(lang, { fr: 'Heures', ar: 'الساعات', en: 'Hours', es: 'Horas', pt: 'Horas', tr: 'Saat' })}</span>
+                    <input
                         type="number" 
                         min="0" 
                         step="0.5" 
@@ -332,20 +335,20 @@ export default function AnalyseTechnologique({
                     <span className="font-black text-emerald-700 text-sm">{(bf * 60).toFixed(1)}</span>
                 </div>
                 <div className="flex flex-col items-center">
-                    <span className="text-[9px] font-bold text-emerald-600 uppercase">Min Tot.</span>
+                    <span className="text-[9px] font-bold text-emerald-600 uppercase">{tx(lang, { fr: 'Min Tot.', ar: 'إجمالي الدقائق', en: 'Total Min.', es: 'Min Tot.', pt: 'Min Tot.', tr: 'Toplam Dk.' })}</span>
                     <span className="font-black text-emerald-700 text-sm">{presenceTime}</span>
                 </div>
             </div>
 
             {/* P/H 100% */}
             <div className="flex flex-col items-center px-3 py-1.5 bg-orange-50/50 rounded-lg border border-orange-100 shrink-0">
-                <span className="text-[9px] font-bold text-orange-400 uppercase">P/H (100%)</span>
+                <span className="text-[9px] font-bold text-orange-400 uppercase">{tx(lang, { fr: 'P/H (100%)', ar: 'قطعة/ساعة (100%)', en: 'P/H (100%)', es: 'P/H (100%)', pt: 'P/H (100%)', tr: 'P/S (100%)' })}</span>
                 <span className="font-black text-orange-500 text-sm leading-none mt-1">{Math.round(prodHour100)}</span>
             </div>
 
             {/* RENDU */}
             <div className="flex flex-col items-center px-3 py-1.5 bg-indigo-50/50 rounded-lg border border-indigo-100 shrink-0">
-                <span className="text-[9px] font-bold text-indigo-400 uppercase">% Rendu</span>
+                <span className="text-[9px] font-bold text-indigo-400 uppercase">{tx(lang, { fr: '% Rendu', ar: 'الإنتاجية %', en: 'Efficiency %', es: '% Rendimiento', pt: '% Rendimento', tr: 'Verim %' })}</span>
                 <div className="flex items-baseline gap-0.5">
                     <input 
                         type="number" 
@@ -372,7 +375,7 @@ export default function AnalyseTechnologique({
 
             {/* T. ARTICLE (Right aligned or flexed) */}
             <div className="ml-auto px-4 py-1.5 bg-purple-100 rounded-lg border border-purple-200 flex flex-col items-end shrink-0">
-                <span className="text-[9px] font-bold text-purple-500 uppercase flex items-center gap-1"><Timer className="w-3 h-3" /> T. Article</span>
+                <span className="text-[9px] font-bold text-purple-500 uppercase flex items-center gap-1"><Timer className="w-3 h-3" /> {tx(lang, { fr: 'T. Article', ar: 'وقت القطعة', en: 'Article Time', es: 'T. Artículo', pt: 'T. Artigo', tr: 'Ürün Süresi' })}</span>
                 <span className="font-black text-purple-700 text-xl leading-none">{tempsArticle.toFixed(2)}</span>
             </div>
        </div>
@@ -384,18 +387,18 @@ export default function AnalyseTechnologique({
           <div className="flex items-center gap-4">
               <h3 className="font-bold text-slate-700 text-sm flex items-center gap-2">
                  <Activity className="w-4 h-4 text-emerald-500" />
-                 Détail des Calculs
+                 {tx(lang, { fr: 'Détail des Calculs', ar: 'تفاصيل الحسابات', en: 'Calculation Details', es: 'Detalle de Cálculos', pt: 'Detalhe dos Cálculos', tr: 'Hesaplama Detayları' })}
               </h3>
               <div className="flex items-center gap-2 px-3 border-l-2 border-slate-100 ml-2">
-                 <label className="text-[10px] font-bold text-slate-400 uppercase whitespace-nowrap">L.Pt (mm) Global:</label>
+                 <label className="text-[10px] font-bold text-slate-400 uppercase whitespace-nowrap">{tx(lang, { fr: 'L.Pt (mm) Global:', ar: 'طول الغرزة (mm) شامل:', en: 'Stitch L. (mm) Global:', es: 'L.Pt (mm) Global:', pt: 'L.Pt (mm) Global:', tr: 'Dikiş U. (mm) Genel:' })}</label>
                  <div className="flex items-center gap-1">
                    <input type="number" step="0.5" min="1" value={globalStitch} onChange={(e) => setGlobalStitch(Number(e.target.value))} className="w-12 px-1 py-0.5 text-xs font-bold border border-slate-200 rounded focus:border-emerald-500 outline-none text-center bg-slate-50" />
-                   <button onClick={applyGlobalStitchCount} className="flex items-center gap-1 bg-slate-100 hover:bg-emerald-50 hover:text-emerald-700 text-slate-600 px-2 py-0.5 rounded text-[10px] font-bold transition-colors border border-slate-200"><ArrowDownToLine className="w-3 h-3" /> Appliquer</button>
+                   <button onClick={applyGlobalStitchCount} className="flex items-center gap-1 bg-slate-100 hover:bg-emerald-50 hover:text-emerald-700 text-slate-600 px-2 py-0.5 rounded text-[10px] font-bold transition-colors border border-slate-200"><ArrowDownToLine className="w-3 h-3" /> {tx(lang, { fr: 'Appliquer', ar: 'تطبيق', en: 'Apply', es: 'Aplicar', pt: 'Aplicar', tr: 'Uygula' })}</button>
                  </div>
               </div>
           </div>
           <div className="flex gap-2 self-end sm:self-auto">
-            <button onClick={() => window.print()} className="flex items-center gap-2 px-3 py-1.5 bg-slate-800 text-white rounded-lg hover:bg-slate-900 transition-colors text-xs font-bold shadow-sm"><Printer className="w-3.5 h-3.5" /><span>Imprimer</span></button>
+            <button onClick={() => window.print()} className="flex items-center gap-2 px-3 py-1.5 bg-slate-800 text-white rounded-lg hover:bg-slate-900 transition-colors text-xs font-bold shadow-sm"><Printer className="w-3.5 h-3.5" /><span>{tx(lang, { fr: 'Imprimer', ar: 'طباعة', en: 'Print', es: 'Imprimir', pt: 'Imprimir', tr: 'Yazdır' })}</span></button>
           </div>
         </div>
 
@@ -405,22 +408,20 @@ export default function AnalyseTechnologique({
             <thead className="sticky top-0 z-20 shadow-sm bg-slate-50">
               <tr>
                 <th className={`${headerClass} text-center w-12 pl-2 border-r border-slate-200`}>N°</th>
-                <th className={`${headerClass} text-left pl-4 min-w-[200px]`}>Opérations</th>
-                <th className={`${headerClass} text-center w-24`}>Machine</th>
-                <th className={`${headerClass} text-center w-20 text-emerald-600`}>Longueur<br/>/ Qté</th>
-                <th className={`${headerClass} text-center w-20 text-emerald-600`}>L. Point<br/>(mm)</th>
-                <th className={`${headerClass} text-center w-20`}>Vitesse<br/>(rpm)</th>
-                <th className={`${headerClass} text-center w-20`}>Facteur<br/>Machine</th>
-                <th className={`${headerClass} text-center w-20`}>Facteur<br/>Guide</th>
-                <th className={`${headerClass} text-center w-20`}>Précision<br/>Fin</th>
-                <th className={`${headerClass} text-center w-20`}>Constante<br/>Arrêt</th>
-                <th className={`${headerClass} text-center w-20 bg-slate-100 border-l border-slate-200 text-slate-600`}>Temps<br/>Machine</th>
-                <th className={`${headerClass} text-center w-20 bg-slate-100 text-slate-600`}>Temps<br/>Manuel</th>
-                <th className={`${headerClass} text-center w-16 bg-yellow-50 text-yellow-700`}>Majoration</th>
-                <th className={`${headerClass} text-center w-20 bg-emerald-50 text-emerald-700 border-l border-emerald-100`}>Temps Total<br/>(min)</th>
-                <th className={`${headerClass} text-center w-16 bg-emerald-50 text-emerald-700`}>Secondes</th>
-                <th className={`${headerClass} text-center w-20 text-indigo-500 border-l border-slate-200`}>Prod.<br/>Max</th>
-                <th className={`${headerClass} text-center w-20 text-indigo-400`}>Prod.<br/>Min</th>
+                <th className={`${headerClass} text-left pl-4 min-w-[200px]`}>{tx(lang, { fr: 'Opérations', ar: 'العمليات', en: 'Operations', es: 'Operaciones', pt: 'Operações', tr: 'Operasyonlar' })}</th>
+                <th className={`${headerClass} text-center w-24`}>{tx(lang, { fr: 'Machine', ar: 'الآلة', en: 'Machine', es: 'Máquina', pt: 'Máquina', tr: 'Makine' })}</th>
+                <th className={`${headerClass} text-center w-20 text-emerald-600`}>{tx(lang, { fr: 'Longueur', ar: 'الطول', en: 'Length', es: 'Longitud', pt: 'Comprimento', tr: 'Uzunluk' })}<br/>/ {tx(lang, { fr: 'Qté', ar: 'الكمية', en: 'Qty', es: 'Cant.', pt: 'Qtd', tr: 'Adet' })}</th>
+                <th className={`${headerClass} text-center w-20 text-emerald-600`}>{tx(lang, { fr: 'L. Point', ar: 'طول الغرزة', en: 'Stitch L.', es: 'L. Punto', pt: 'L. Ponto', tr: 'Dikiş U.' })}<br/>(mm)</th>
+                <th className={`${headerClass} text-center w-20`}>{tx(lang, { fr: 'Vitesse', ar: 'السرعة', en: 'Speed', es: 'Velocidad', pt: 'Velocidade', tr: 'Hız' })}<br/>(rpm)</th>
+                <th className={`${headerClass} text-center w-20`}>{tx(lang, { fr: 'Facteur', ar: 'عامل', en: 'Factor', es: 'Factor', pt: 'Fator', tr: 'Faktör' })}<br/>{tx(lang, { fr: 'Machine', ar: 'الآلة', en: 'Machine', es: 'Máquina', pt: 'Máquina', tr: 'Makine' })}</th>
+                <th className={`${headerClass} text-center w-20`}>{tx(lang, { fr: 'Facteur', ar: 'عامل', en: 'Factor', es: 'Factor', pt: 'Fator', tr: 'Faktör' })}<br/>{tx(lang, { fr: 'Guide', ar: 'الدليل', en: 'Guide', es: 'Guía', pt: 'Guia', tr: 'Kılavuz' })}</th>
+                <th className={`${headerClass} text-center w-20`}>{tx(lang, { fr: 'Précision', ar: 'الدقة', en: 'Precision', es: 'Precisión', pt: 'Precisão', tr: 'Hassasiyet' })}<br/>{tx(lang, { fr: 'Fin', ar: 'النهاية', en: 'End', es: 'Fin', pt: 'Fim', tr: 'Bitiş' })}</th>
+                <th className={`${headerClass} text-center w-20`}>{tx(lang, { fr: 'Constante', ar: 'ثابت', en: 'Constant', es: 'Constante', pt: 'Constante', tr: 'Sabit' })}<br/>{tx(lang, { fr: 'Arrêt', ar: 'التوقف', en: 'Stop', es: 'Parada', pt: 'Parada', tr: 'Durdurma' })}</th>
+                <th className={`${headerClass} text-center w-20 bg-slate-100 border-l border-slate-200 text-slate-600`}>{tx(lang, { fr: 'Temps', ar: 'الوقت', en: 'Time', es: 'Tiempo', pt: 'Tempo', tr: 'Süre' })}<br/>{tx(lang, { fr: 'Machine', ar: 'الآلة', en: 'Machine', es: 'Máquina', pt: 'Máquina', tr: 'Makine' })}</th>
+                <th className={`${headerClass} text-center w-20 bg-slate-100 text-slate-600`}>{tx(lang, { fr: 'Temps', ar: 'الوقت', en: 'Time', es: 'Tiempo', pt: 'Tempo', tr: 'Süre' })}<br/>{tx(lang, { fr: 'Manuel', ar: 'اليدوي', en: 'Manual', es: 'Manual', pt: 'Manual', tr: 'Manuel' })}</th>
+                <th className={`${headerClass} text-center w-16 bg-yellow-50 text-yellow-700`}>{tx(lang, { fr: 'Majoration', ar: 'الزيادة', en: 'Markup', es: 'Recargo', pt: 'Acréscimo', tr: 'Artış' })}</th>
+                <th className={`${headerClass} text-center w-20 bg-emerald-50 text-emerald-700 border-l border-emerald-100`}>{tx(lang, { fr: 'Temps Total', ar: 'الوقت الإجمالي', en: 'Total Time', es: 'Tiempo Total', pt: 'Tempo Total', tr: 'Toplam Süre' })}<br/>(min)</th>
+                <th className={`${headerClass} text-center w-16 bg-emerald-50 text-emerald-700`}>{tx(lang, { fr: 'Secondes', ar: 'الثواني', en: 'Seconds', es: 'Segundos', pt: 'Segundos', tr: 'Saniye' })}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
@@ -490,8 +491,6 @@ export default function AnalyseTechnologique({
                 const isForced = op.forcedTime !== undefined && op.forcedTime !== null;
                 const tTotalMin = isForced ? op.forcedTime! : ((tMachineCalc + tManuelCalc) * maj) + fabricPenalty;
                 const tTotalSec = tTotalMin * 60;
-                const pMax = tTotalMin > 0 ? Math.floor(60 / tTotalMin) : 0;
-                const pMin = pMax > 0 ? Math.floor(pMax * (efficiency / 100)) : 0;
                 
                 const disabledIfForced = isForced;
                 const assignedPostes = assignments[op.id] || [];
@@ -507,9 +506,13 @@ export default function AnalyseTechnologique({
                 }
 
                 return (
-                  <tr key={op.id} className={`transition-colors group ${primaryPosteColor ? 'hover:bg-slate-50/80' : `hover:bg-slate-50/80 ${groupClasses}`}`}>
+                  <tr key={op.id} className={`transition-colors group hover:bg-slate-50/80 ${groupClasses}`}>
                     <td
-                        className={`py-1.5 px-2 text-center sticky left-0 z-20 border-r border-slate-200 border-b border-slate-100 bg-white group-hover:bg-slate-50 ${primaryPosteColor ? '' : groupBorderLeft}`}
+                        className={`py-1.5 px-2 text-center sticky left-0 z-20 border-r border-slate-200 border-b border-slate-100 transition-colors ${
+                            groupStyle 
+                                ? `${groupStyle.bg} group-hover:${groupStyle.bg.replace('50', '100')}` 
+                                : 'bg-white group-hover:bg-slate-50'
+                        } ${groupBorderLeft}`}
                     >
                         <div className="flex items-center justify-center min-w-[2.5rem]">
                             {primaryPosteColor ? (
@@ -542,7 +545,7 @@ export default function AnalyseTechnologique({
                             onChange={(e) => updateOperation(op.id, 'length', Math.floor(Number(e.target.value)))} 
                             onFocus={(e) => e.target.select()} 
                             className={`${inputClass} font-bold ${isCounterMachine ? 'text-amber-600 bg-amber-50/50' : ''}`} 
-                            placeholder={isCounterMachine ? 'Qté' : '-'}
+                            placeholder={isCounterMachine ? tx(lang, { fr: 'Qté', ar: 'الكمية', en: 'Qty', es: 'Cant.', pt: 'Qtd', tr: 'Adet' }) : '-'}
                         />
                     </td>
                     <td className="py-1.5 px-1 text-center"><input type="number" step="0.1" value={stitchLengthMm} onChange={(e) => updateOperation(op.id, 'stitchCount', e.target.value)} onFocus={(e) => e.target.select()} className={inputClass + " text-emerald-600 font-bold"} disabled={disabledIfForced}/></td>
@@ -552,15 +555,12 @@ export default function AnalyseTechnologique({
                     <td className="py-1.5 px-1 text-center"><input type="number" step="0.01" value={endPrecision} onChange={(e) => updateOperation(op.id, 'endPrecision', e.target.value)} onFocus={(e) => e.target.select()} className={inputClass + " text-slate-400"} disabled={isMan || disabledIfForced}/></td>
                     <td className="py-1.5 px-1 text-center"><input type="number" step="0.01" value={stop} onChange={(e) => updateOperation(op.id, 'startStop', e.target.value)} onFocus={(e) => e.target.select()} className={inputClass + " text-slate-400"} disabled={isMan || disabledIfForced}/></td>
                     <td className="py-1.5 px-1 text-center bg-slate-50/50 border-l border-slate-100 font-mono text-[10px] text-slate-500">{tMachineCalc.toFixed(2)}</td>
-                    <td className="py-1.5 px-1 text-center bg-slate-50/50"><input type="number" step="0.01" value={tManuelCalc === 0 ? '' : tManuelCalc} onChange={(e) => updateOperation(op.id, 'manualTime', e.target.value)} onFocus={(e) => e.target.select()} className={inputClass + " text-slate-600"} placeholder="Auto" disabled={disabledIfForced}/></td>
+                    <td className="py-1.5 px-1 text-center bg-slate-50/50"><input type="number" step="0.01" value={tManuelCalc === 0 ? '' : tManuelCalc} onChange={(e) => updateOperation(op.id, 'manualTime', e.target.value)} onFocus={(e) => e.target.select()} className={inputClass + " text-slate-600"} placeholder={tx(lang, { fr: 'Auto', ar: 'تلقائي', en: 'Auto', es: 'Auto', pt: 'Auto', tr: 'Otomatik' })} disabled={disabledIfForced}/></td>
                     <td className="py-1.5 px-1 text-center bg-yellow-50/30"><input type="number" step="0.01" value={maj} onChange={(e) => updateOperation(op.id, 'majoration', e.target.value)} onFocus={(e) => e.target.select()} className={inputClass + " font-bold text-yellow-700"} disabled={disabledIfForced}/></td>
                     
                     {/* RESULTATS */}
                     <td className="py-1.5 px-1 text-center bg-emerald-50/30 border-l border-emerald-100 font-black text-emerald-700 text-xs">{tTotalMin.toFixed(2)}</td>
                     <td className="py-1.5 px-1 text-center bg-emerald-50/30 text-emerald-600 text-[10px] font-bold">{tTotalSec.toFixed(1)}</td>
-                    
-                    <td className="py-1.5 px-1 text-center border-l border-slate-100 text-indigo-600 font-bold text-[10px]">{pMax}</td>
-                    <td className="py-1.5 px-1 text-center text-indigo-400 font-medium text-[10px]">{pMin}</td>
                   </tr>
                 );
               })}

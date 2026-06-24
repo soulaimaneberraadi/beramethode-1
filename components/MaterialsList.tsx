@@ -556,14 +556,30 @@ const MaterialRow: React.FC<MaterialRowProps> = ({
         <tr className={`group ${darkMode ? 'hover:bg-gray-700/50' : 'hover:bg-slate-50'} transition-colors`}>
             {/* MATIERE */}
             <td className="px-3 py-1.5 align-top relative">
-                <div className="relative">
-                    <input type="text" value={item.name}
-                        onChange={(e) => updateMaterial(item.id, 'name', e.target.value)}
-                        onFocus={() => setFocusedRow(item.id)}
-                        onBlur={() => setTimeout(() => setFocusedRow(null), 250)}
-                        className={`${inputCls} font-medium pr-6`}
-                        placeholder="Rechercher matière..." />
-                    <Search className="w-3 h-3 text-slate-400 absolute right-2 top-2 pointer-events-none" />
+                <div className="flex items-center gap-1.5">
+                    {/* Bouton Affecter — toujours visible devant le nom */}
+                    {canAssign && (
+                        <button
+                            onClick={() => setExpandedScope(prev => prev === item.id ? null : item.id)}
+                            title="Affecter couleurs / tailles"
+                            className={`shrink-0 p-1.5 rounded-lg transition-colors ${
+                                expandedScope === item.id || item.scope
+                                    ? 'text-[#2149C1] bg-indigo-100'
+                                    : 'text-slate-400 hover:text-[#2149C1] hover:bg-indigo-50'
+                            }`}
+                        >
+                            <Palette className="w-3.5 h-3.5" />
+                        </button>
+                    )}
+                    <div className="relative flex-1">
+                        <input type="text" value={item.name}
+                            onChange={(e) => updateMaterial(item.id, 'name', e.target.value)}
+                            onFocus={() => setFocusedRow(item.id)}
+                            onBlur={() => setTimeout(() => setFocusedRow(null), 250)}
+                            className={`${inputCls} font-medium pr-6`}
+                            placeholder="Rechercher matière..." />
+                        <Search className="w-3 h-3 text-slate-400 absolute right-2 top-2 pointer-events-none" />
+                    </div>
                 </div>
                 {/* Autocomplete Desktop */}
                 {focusedRow === item.id && (filteredMagasin.length > 0 || (item.name && filteredMagasin.length === 0)) && (
@@ -603,6 +619,34 @@ const MaterialRow: React.FC<MaterialRowProps> = ({
                         </span>
                     </div>
                 )}
+                {/* Scope tags — colors & sizes assigned via Affecter */}
+                {(item.scope?.colors?.length || item.scope?.sizes?.length) ? (
+                    <div className="mt-1.5 flex flex-wrap items-center gap-1">
+                        {item.scope?.colors?.length ? (
+                            item.scope.colors.map(cid => {
+                                const col = scopeColors.find(c => c.id === cid);
+                                if (!col) return null;
+                                const hex = col.id?.startsWith('#') ? col.id : null;
+                                return (
+                                    <span key={cid} className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-indigo-50 text-indigo-700 text-[9px] font-semibold border border-indigo-100">
+                                        {hex && <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: hex }} />}
+                                        {col.name}
+                                    </span>
+                                );
+                            })
+                        ) : null}
+                        {item.scope?.colors?.length && item.scope?.sizes?.length ? (
+                            <span className="w-px h-3 bg-slate-200 mx-0.5 shrink-0" />
+                        ) : null}
+                        {item.scope?.sizes?.length ? (
+                            item.scope.sizes.map(si => (
+                                <span key={si} className="inline-flex items-center px-1.5 py-0.5 rounded-full bg-amber-50 text-amber-700 text-[9px] font-semibold border border-amber-100">
+                                    {scopeSizes[si] ?? si}
+                                </span>
+                            ))
+                        ) : null}
+                    </div>
+                ) : null}
             </td>
 
             {/* PRIX */}
@@ -686,13 +730,6 @@ const MaterialRow: React.FC<MaterialRowProps> = ({
             {/* ACTIONS */}
             <td className="px-3 py-1.5 align-middle text-center">
                 <div className="flex items-center justify-center gap-0.5">
-                    {canAssign && (
-                        <button onClick={() => setExpandedScope(prev => prev === item.id ? null : item.id)}
-                            title="Affecter"
-                            className={`p-1 rounded transition-colors ${expandedScope === item.id || item.scope ? 'text-[#2149C1] bg-slate-100' : 'text-slate-400 hover:text-[#2149C1] hover:bg-slate-100'}`}>
-                            <Palette className="w-3.5 h-3.5" />
-                        </button>
-                    )}
                     <button onClick={() => deleteMaterial(item.id)} title="Supprimer"
                         className="p-1 rounded text-slate-400 hover:text-rose-500 hover:bg-rose-50 transition-colors">
                         <Trash2 className="w-3.5 h-3.5" />

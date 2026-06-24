@@ -4,6 +4,8 @@ import App from './App';
 import { AuthProvider } from './src/context/AuthContext';
 import { LicenseProvider } from './src/context/LicenseContext';
 import { PermissionsProvider } from './src/context/PermissionsContext';
+import { ThemeProvider } from './src/context/ThemeContext';
+import { LanguageProvider } from './src/context/LanguageContext';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { ClickToComponent } from 'click-to-react-component';
 import { installApiShim } from './src/lib/apiShim';
@@ -32,8 +34,12 @@ root.render(
     <AuthProvider>
       <LicenseProvider>
         <PermissionsProvider>
-          <App />
-          <ClickToComponent />
+          <ThemeProvider>
+            <LanguageProvider>
+              <App />
+              <ClickToComponent />
+            </LanguageProvider>
+          </ThemeProvider>
         </PermissionsProvider>
       </LicenseProvider>
     </AuthProvider>

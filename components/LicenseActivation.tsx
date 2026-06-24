@@ -7,9 +7,11 @@
 import React, { useState } from 'react';
 import { KeyRound, ShieldCheck, ShieldAlert, Loader2, CheckCircle2, XCircle } from 'lucide-react';
 import { useLicense } from '../src/context/LicenseContext';
+import { pickT } from '../lib/i18n';
+import type { Lang } from '../app/constants';
 
 interface LicenseActivationProps {
-    lang: 'fr' | 'ar';
+    lang: Lang;
 }
 
 const T = {
@@ -43,6 +45,66 @@ const T = {
         noKey: 'أدخل مفتاحاً بصيغة BERA-XXXX-XXXX-XXXX.',
         currentlyActive: 'يوجد ترخيص مُفعّل بالفعل.',
     },
+    en: {
+        title: 'License / Subscription',
+        desc: 'Activate BERAMETHODE with your license key.',
+        placeholder: 'BERA-XXXX-XXXX-XXXX',
+        activate: 'Activate',
+        activating: 'Activating…',
+        success: 'License active',
+        invalid: 'Invalid key or activation failed. Check the key and try again.',
+        status: 'Status',
+        expires: 'Expires on',
+        modulesCount: 'Allowed modules',
+        daysLeft: 'Days left',
+        noKey: 'Enter a key in the format BERA-XXXX-XXXX-XXXX.',
+        currentlyActive: 'A license is already active.',
+    },
+    es: {
+        title: 'Licencia / Suscripción',
+        desc: 'Active BERAMETHODE con su clave de licencia.',
+        placeholder: 'BERA-XXXX-XXXX-XXXX',
+        activate: 'Activar',
+        activating: 'Activando…',
+        success: 'Licencia activa',
+        invalid: 'Clave no válida o activación fallida. Verifique la clave e inténtelo de nuevo.',
+        status: 'Estado',
+        expires: 'Expira el',
+        modulesCount: 'Módulos autorizados',
+        daysLeft: 'Días restantes',
+        noKey: 'Introduzca una clave con el formato BERA-XXXX-XXXX-XXXX.',
+        currentlyActive: 'Ya hay una licencia activa.',
+    },
+    pt: {
+        title: 'Licença / Subscrição',
+        desc: 'Ative o BERAMETHODE com a sua chave de licença.',
+        placeholder: 'BERA-XXXX-XXXX-XXXX',
+        activate: 'Ativar',
+        activating: 'A ativar…',
+        success: 'Licença ativa',
+        invalid: 'Chave inválida ou ativação falhou. Verifique a chave e tente novamente.',
+        status: 'Estado',
+        expires: 'Expira em',
+        modulesCount: 'Módulos autorizados',
+        daysLeft: 'Dias restantes',
+        noKey: 'Introduza uma chave no formato BERA-XXXX-XXXX-XXXX.',
+        currentlyActive: 'Já existe uma licença ativa.',
+    },
+    tr: {
+        title: 'Lisans / Abonelik',
+        desc: 'BERAMETHODE\'u lisans anahtarınızla etkinleştirin.',
+        placeholder: 'BERA-XXXX-XXXX-XXXX',
+        activate: 'Etkinleştir',
+        activating: 'Etkinleştiriliyor…',
+        success: 'Lisans etkin',
+        invalid: 'Geçersiz anahtar veya etkinleştirme başarısız. Anahtarı kontrol edip tekrar deneyin.',
+        status: 'Durum',
+        expires: 'Bitiş tarihi',
+        modulesCount: 'İzin verilen modüller',
+        daysLeft: 'Kalan gün',
+        noKey: 'BERA-XXXX-XXXX-XXXX biçiminde bir anahtar girin.',
+        currentlyActive: 'Zaten etkin bir lisans var.',
+    },
 };
 
 /** يُنسّق الإدخال إلى BERA-XXXX-XXXX-XXXX (حروف/أرقام، حد أقصى 12 خانة بعد BERA). */
@@ -56,7 +118,7 @@ function formatKey(raw: string): string {
 }
 
 export default function LicenseActivation({ lang }: LicenseActivationProps) {
-    const t = T[lang];
+    const t = pickT(T, lang);
     const isAr = lang === 'ar';
     const { license, activate } = useLicense();
     const [keyCode, setKeyCode] = useState('');

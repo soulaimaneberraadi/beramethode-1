@@ -1566,6 +1566,11 @@ db.exec(`
   )
 `);
 
+// Migrations company_settings : type de compte choisi à l'onboarding + méta JSON
+// (région client, spécialisation personnel). DEFAULT 'societe' => compat ascendante.
+try { db.exec("ALTER TABLE company_settings ADD COLUMN account_type TEXT DEFAULT 'societe'"); } catch { /* colonne déjà présente */ }
+try { db.exec('ALTER TABLE company_settings ADD COLUMN profile_meta TEXT'); } catch { /* colonne déjà présente */ }
+
 // Rapports de crash envoyés par le frontend (Error Boundary ou window.onerror)
 db.exec(`
   CREATE TABLE IF NOT EXISTS crash_reports (

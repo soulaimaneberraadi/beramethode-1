@@ -1,6 +1,8 @@
 import React, { useMemo, useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useIsMobile } from './planning/shared/useIsMobile';
+import { useLang } from '../src/context/LanguageContext';
+import { tx } from '../lib/i18n';
 import type { ModelData, AppSettings, ChronoData, Operation } from '../types';
 import {
     Search, X, Layers, Boxes, Cpu, Gauge, TrendingUp,
@@ -150,7 +152,14 @@ const normMachine = (m: string): string => {
 };
 
 const SIM_THRESHOLD = 0.7;
-const sectionLabel: Record<string, string> = { PREPARATION: 'Préparation', MONTAGE: 'Montage', GLOBAL: 'Global' };
+function sectionLabelFor(lang: import('../app/constants').Lang | string | null | undefined, key: string): string {
+    const map: Record<string, ReturnType<typeof tx>> = {
+        PREPARATION: tx(lang, { fr: 'Préparation', ar: 'تحضير', en: 'Preparation', es: 'Preparación', pt: 'Preparação', tr: 'Hazırlık' }),
+        MONTAGE: tx(lang, { fr: 'Montage', ar: 'تركيب', en: 'Assembly', es: 'Montaje', pt: 'Montagem', tr: 'Montaj' }),
+        GLOBAL: tx(lang, { fr: 'Global', ar: 'عام', en: 'Global', es: 'Global', pt: 'Global', tr: 'Genel' }),
+    };
+    return map[key] || key;
+}
 
 // ── Extraction du temps réel mesuré (minutes), indépendant de l'unité ──────────
 function measuredTimeMin(cd: ChronoData | undefined): number | null {
@@ -171,6 +180,7 @@ function chronoForOp(chronoData: Record<string, ChronoData> | undefined, opId: s
 }
 
 export default function CatalogueTemps({ models, onOpenWorker }: CatalogueTempsProps) {
+    const { lang } = useLang();
     const [query, setQuery] = useState('');
     const [machineFilter, setMachineFilter] = useState<string | null>(null);
     const [matiereFilter, setMatiereFilter] = useState<string | null>(null);
@@ -381,9 +391,9 @@ export default function CatalogueTemps({ models, onOpenWorker }: CatalogueTempsP
     const unitSuffix = unit === 'sec' ? 's' : 'min';
 
     const reliability = (count: number) =>
-        count >= 3 ? { label: 'Fiable', cls: 'text-emerald-600 bg-emerald-50 ring-emerald-100', dot: 'bg-emerald-500' }
-        : count === 2 ? { label: 'Moyen', cls: 'text-blue-600 bg-blue-50 ring-blue-100', dot: 'bg-blue-500' }
-        : { label: '1 mesure', cls: 'text-amber-600 bg-amber-50 ring-amber-100', dot: 'bg-amber-500' };
+        count >= 3 ? { label: tx(lang, { fr: 'Fiable', ar: 'موثوق', en: 'Reliable', es: 'Confiable', pt: 'Confiável', tr: 'Güvenilir' }), cls: 'text-emerald-600 bg-emerald-50 ring-emerald-100', dot: 'bg-emerald-500' }
+        : count === 2 ? { label: tx(lang, { fr: 'Moyen', ar: 'متوسط', en: 'Medium', es: 'Medio', pt: 'Médio', tr: 'Orta' }), cls: 'text-blue-600 bg-blue-50 ring-blue-100', dot: 'bg-blue-500' }
+        : { label: tx(lang, { fr: '1 mesure', ar: 'قياس واحد', en: '1 measurement', es: '1 medición', pt: '1 medição', tr: '1 ölçüm' }), cls: 'text-amber-600 bg-amber-50 ring-amber-100', dot: 'bg-amber-500' };
 
     const totalObs = measures.length;
     const hasActiveFilters = !!(machineFilter || matiereFilter || categoryFilter || clientFilter || operatorFilter || sectionFilter);
@@ -398,14 +408,14 @@ export default function CatalogueTemps({ models, onOpenWorker }: CatalogueTempsP
             <header className="shrink-0 sticky top-0 z-20 bg-white/65 backdrop-blur-xl border-b border-white/60 shadow-[0_1px_0_rgba(255,255,255,0.6)_inset,0_8px_30px_-18px_rgba(15,23,42,0.25)]">
                 <div className="px-3 sm:px-6 h-12 sm:h-14 flex items-center gap-2 sm:gap-4">
                     <div className="flex items-baseline gap-2 shrink-0">
-                        <h1 className="text-[14px] sm:text-[15px] font-semibold text-slate-900 tracking-tight whitespace-nowrap">Catalogue de Temps</h1>
-                        <span className="hidden sm:inline text-[12px] text-slate-400">Temps réels · Chrono</span>
+                        <h1 className="text-[14px] sm:text-[15px] font-semibold text-slate-900 tracking-tight whitespace-nowrap">{tx(lang, { fr: "Catalogue de Temps", ar: "كتالوج الأوقات", en: "Time Catalogue", es: "Catálogo de Tiempos", pt: "Catálogo de Tempos", tr: "Süre Kataloğu" })}</h1>
+                        <span className="hidden sm:inline text-[12px] text-slate-400">{tx(lang, { fr: "Temps réels · Chrono", ar: "أوقات حقيقية · Chrono", en: "Real times · Chrono", es: "Tiempos reales · Chrono", pt: "Tempos reais · Chrono", tr: "Gerçek süreler · Chrono" })}</span>
                     </div>
 
                     <div className="hidden md:flex items-center gap-4 ml-1">
-                        <Stat icon={Boxes} label="Opérations" value={entries.length} />
-                        <Stat icon={Database} label="Mesures" value={totalObs} />
-                        <Stat icon={Layers} label="Modèles" value={modelCount} />
+                        <Stat icon={Boxes} label={tx(lang, { fr: "Opérations", ar: "العمليات", en: "Operations", es: "Operaciones", pt: "Operações", tr: "Operasyonlar" })} value={entries.length} />
+                        <Stat icon={Database} label={tx(lang, { fr: "Mesures", ar: "القياسات", en: "Measurements", es: "Mediciones", pt: "Medições", tr: "Ölçümler" })} value={totalObs} />
+                        <Stat icon={Layers} label={tx(lang, { fr: "Modèles", ar: "النماذج", en: "Models", es: "Modelos", pt: "Modelos", tr: "Modeller" })} value={modelCount} />
                     </div>
 
                     <div className="flex-1 min-w-0 max-w-md mx-auto relative">
@@ -414,7 +424,14 @@ export default function CatalogueTemps({ models, onOpenWorker }: CatalogueTempsP
                             type="text"
                             value={query}
                             onChange={(e) => setQuery(e.target.value)}
-                            placeholder="Rechercher une opération, machine, opérateur…"
+                            placeholder={tx(lang, {
+                                fr: "Rechercher une opération, machine, opérateur…",
+                                ar: "البحث عن عملية، آلة، عامل…",
+                                en: "Search an operation, machine, operator…",
+                                es: "Buscar una operación, máquina, operador…",
+                                pt: "Pesquisar uma operação, máquina, operador…",
+                                tr: "Bir operasyon, makine, operatör ara…",
+                            })}
                             className="w-full h-9 pl-9 pr-9 text-[12px] text-slate-700 placeholder:text-slate-400 bg-white/70 hover:bg-white/90 focus:bg-white border border-white/70 focus:border-indigo-200 focus:ring-2 focus:ring-indigo-100 rounded-xl outline-none transition-all shadow-[0_1px_2px_rgba(15,23,42,0.04)]"
                         />
                         {query && (
@@ -429,11 +446,11 @@ export default function CatalogueTemps({ models, onOpenWorker }: CatalogueTempsP
 
                 {/* ── Filtres : listes déroulantes compactes ── */}
                 <div className="px-3 sm:px-6 py-1.5 sm:py-2 flex items-center gap-1.5 sm:gap-2 overflow-x-auto sm:flex-wrap sm:overflow-visible border-t border-white/50 [&::-webkit-scrollbar]:hidden [scrollbar-width:none]">
-                    <FilterSelect icon={Cpu} label="Machine" allLabel="Toutes machines"
+                    <FilterSelect icon={Cpu} label={tx(lang, { fr: "Machine", ar: "الآلة", en: "Machine", es: "Máquina", pt: "Máquina", tr: "Makine" })} allLabel={tx(lang, { fr: "Toutes machines", ar: "جميع الآلات", en: "All machines", es: "Todas las máquinas", pt: "Todas as máquinas", tr: "Tüm makineler" })}
                         value={machineFilter} options={facets.machines} onChange={setMachineFilter} />
-                    <FilterSelect icon={Shirt} label="Matière" allLabel="Toutes matières"
+                    <FilterSelect icon={Shirt} label={tx(lang, { fr: "Matière", ar: "المادة", en: "Material", es: "Material", pt: "Material", tr: "Malzeme" })} allLabel={tx(lang, { fr: "Toutes matières", ar: "جميع المواد", en: "All materials", es: "Todos los materiales", pt: "Todos os materiais", tr: "Tüm malzemeler" })}
                         value={matiereFilter} options={facets.matieres} onChange={setMatiereFilter} />
-                    <FilterSelect icon={Boxes} label="Type modèle" allLabel="Tous types"
+                    <FilterSelect icon={Boxes} label={tx(lang, { fr: "Type modèle", ar: "نوع النموذج", en: "Model type", es: "Tipo de modelo", pt: "Tipo de modelo", tr: "Model türü" })} allLabel={tx(lang, { fr: "Tous types", ar: "جميع الأنواع", en: "All types", es: "Todos los tipos", pt: "Todos os tipos", tr: "Tüm türler" })}
                         value={categoryFilter}
                         options={[
                             ...facets.categories,
@@ -441,15 +458,22 @@ export default function CatalogueTemps({ models, onOpenWorker }: CatalogueTempsP
                         ]}
                         onChange={setCategoryFilter}
                         onAdd={addCustomCategory}
-                        addPlaceholder="Nouvelle catégorie (ex: Pyjama)…" />
-                    <FilterSelect icon={Boxes} label="Client" allLabel="Tous clients"
+                        addPlaceholder={tx(lang, {
+                            fr: "Nouvelle catégorie (ex: Pyjama)…",
+                            ar: "فئة جديدة (مثال: Pyjama)…",
+                            en: "New category (e.g. Pyjama)…",
+                            es: "Nueva categoría (ej: Pyjama)…",
+                            pt: "Nova categoria (ex: Pyjama)…",
+                            tr: "Yeni kategori (örn: Pyjama)…",
+                        })} />
+                    <FilterSelect icon={Boxes} label={tx(lang, { fr: "Client", ar: "العميل", en: "Client", es: "Cliente", pt: "Cliente", tr: "Müşteri" })} allLabel={tx(lang, { fr: "Tous clients", ar: "جميع العملاء", en: "All clients", es: "Todos los clientes", pt: "Todos os clientes", tr: "Tüm müşteriler" })}
                         value={clientFilter} options={facets.clients} onChange={setClientFilter} />
-                    <FilterSelect icon={User} label="Opérateur" allLabel="Tous opérateurs"
+                    <FilterSelect icon={User} label={tx(lang, { fr: "Opérateur", ar: "العامل", en: "Operator", es: "Operador", pt: "Operador", tr: "Operatör" })} allLabel={tx(lang, { fr: "Tous opérateurs", ar: "جميع العمال", en: "All operators", es: "Todos los operadores", pt: "Todos os operadores", tr: "Tüm operatörler" })}
                         value={operatorFilter} options={facets.operators} onChange={setOperatorFilter} />
-                    <FilterSelect icon={Layers} label="Poste" allLabel="Tous postes"
+                    <FilterSelect icon={Layers} label={tx(lang, { fr: "Poste", ar: "المحطة", en: "Station", es: "Puesto", pt: "Posto", tr: "İstasyon" })} allLabel={tx(lang, { fr: "Tous postes", ar: "جميع المحطات", en: "All stations", es: "Todos los puestos", pt: "Todos os postos", tr: "Tüm istasyonlar" })}
                         value={sectionFilter}
                         options={facets.sections}
-                        display={(v) => sectionLabel[v] || v}
+                        display={(v) => sectionLabelFor(lang, v)}
                         onChange={setSectionFilter} />
 
                     <div className="hidden sm:block sm:flex-1" />
@@ -457,13 +481,15 @@ export default function CatalogueTemps({ models, onOpenWorker }: CatalogueTempsP
                     {hasActiveFilters && (
                         <button type="button" onClick={resetFilters}
                             className="shrink-0 inline-flex items-center gap-1 h-8 px-2.5 rounded-lg text-[11px] font-medium text-rose-600 bg-rose-50/70 hover:bg-rose-100 transition-colors">
-                            <X className="w-3 h-3" /> Réinitialiser
+                            <X className="w-3 h-3" /> {tx(lang, { fr: "Réinitialiser", ar: "إعادة تعيين", en: "Reset", es: "Restablecer", pt: "Redefinir", tr: "Sıfırla" })}
                         </button>
                     )}
                     <button type="button" onClick={() => setSortBy(s => s === 'count' ? 'time' : s === 'time' ? 'alpha' : 'count')}
                         className="shrink-0 inline-flex items-center gap-1.5 h-8 px-2.5 rounded-lg text-[11px] font-medium text-slate-600 bg-white/60 hover:bg-white/90 border border-white/70 transition-colors">
                         <ArrowUpDown className="w-3 h-3" strokeWidth={2} />
-                        {sortBy === 'count' ? 'Fréquence' : sortBy === 'time' ? 'Temps' : 'A → Z'}
+                        {sortBy === 'count' ? tx(lang, { fr: 'Fréquence', ar: 'التكرار', en: 'Frequency', es: 'Frecuencia', pt: 'Frequência', tr: 'Sıklık' })
+                            : sortBy === 'time' ? tx(lang, { fr: 'Temps', ar: 'الوقت', en: 'Time', es: 'Tiempo', pt: 'Tempo', tr: 'Süre' })
+                            : 'A → Z'}
                     </button>
                 </div>
             </header>
@@ -494,8 +520,8 @@ export default function CatalogueTemps({ models, onOpenWorker }: CatalogueTempsP
 
                                         <div className="mt-2 flex items-center gap-1.5 flex-wrap">
                                             <Tag icon={Cpu}>{e.machine}</Tag>
-                                            {e.section && <Tag>{sectionLabel[e.section] || e.section}</Tag>}
-                                            {e.variants.length > 1 && <Tag>≈ {e.variants.length} variantes</Tag>}
+                                            {e.section && <Tag>{sectionLabelFor(lang, e.section)}</Tag>}
+                                            {e.variants.length > 1 && <Tag>≈ {e.variants.length} {tx(lang, { fr: "variantes", ar: "نسخ", en: "variants", es: "variantes", pt: "variantes", tr: "varyant" })}</Tag>}
                                         </div>
 
                                         <div className="mt-3 flex items-end justify-between">
@@ -505,12 +531,26 @@ export default function CatalogueTemps({ models, onOpenWorker }: CatalogueTempsP
                                                     <span className="text-[11px] font-medium text-slate-400">{unitSuffix}</span>
                                                 </div>
                                                 <span className="text-[10px] text-slate-400">
-                                                    {e.measuredCount > 0 ? `temps moyen · ${e.measuredCount}/${e.count} mesuré` : 'TS gamme (estimé)'}
+                                                    {e.measuredCount > 0 ? tx(lang, {
+                                                        fr: `temps moyen · ${e.measuredCount}/${e.count} mesuré`,
+                                                        ar: `الوقت المتوسط · ${e.measuredCount}/${e.count} مقاس`,
+                                                        en: `average time · ${e.measuredCount}/${e.count} measured`,
+                                                        es: `tiempo medio · ${e.measuredCount}/${e.count} medido`,
+                                                        pt: `tempo médio · ${e.measuredCount}/${e.count} medido`,
+                                                        tr: `ortalama süre · ${e.measuredCount}/${e.count} ölçüldü`,
+                                                    }) : tx(lang, {
+                                                        fr: 'TS gamme (estimé)',
+                                                        ar: 'TS الغامة (تقديري)',
+                                                        en: 'TS routing (estimated)',
+                                                        es: 'TS de gama (estimado)',
+                                                        pt: 'TS da gama (estimado)',
+                                                        tr: 'TS rotası (tahmini)',
+                                                    })}
                                                 </span>
                                             </div>
                                             <div className="text-right text-[10px] text-slate-500 tabular-nums">
-                                                <div>min <span className="font-semibold text-slate-700">{fmtTime(e.min)}</span></div>
-                                                <div>max <span className="font-semibold text-slate-700">{fmtTime(e.max)}</span></div>
+                                                <div>{tx(lang, { fr: "min", ar: "أدنى", en: "min", es: "mín", pt: "mín", tr: "min" })} <span className="font-semibold text-slate-700">{fmtTime(e.min)}</span></div>
+                                                <div>{tx(lang, { fr: "max", ar: "أعلى", en: "max", es: "máx", pt: "máx", tr: "maks" })} <span className="font-semibold text-slate-700">{fmtTime(e.max)}</span></div>
                                             </div>
                                         </div>
 
@@ -538,6 +578,7 @@ function DetailPanel({ entry, fmt, unitSuffix, reliability, onClose, onOpenWorke
     reliability: { label: string; cls: string; dot: string }; onClose: () => void;
     onOpenWorker?: (name: string) => void;
 }) {
+    const { lang } = useLang();
     const isMobile = useIsMobile();
     const sorted = [...entry.sources].sort((a, b) => b.timeMin - a.timeMin);
 
@@ -546,7 +587,7 @@ function DetailPanel({ entry, fmt, unitSuffix, reliability, onClose, onOpenWorke
             <p className="text-[13px] font-semibold text-slate-900 leading-snug">{entry.description}</p>
             <div className="mt-1.5 flex items-center gap-1.5 flex-wrap">
                 <Tag icon={Cpu}>{entry.machine}</Tag>
-                {entry.section && <Tag>{sectionLabel[entry.section] || entry.section}</Tag>}
+                {entry.section && <Tag>{sectionLabelFor(lang, entry.section)}</Tag>}
             </div>
         </div>
     );
@@ -554,34 +595,48 @@ function DetailPanel({ entry, fmt, unitSuffix, reliability, onClose, onOpenWorke
     const body = (
         <div className="p-4 space-y-3">
             <div className="grid grid-cols-3 gap-2">
-                <KpiCard icon={Gauge} label="Moyen" value={fmt(entry.avg)} suffix={unitSuffix} accent="from-indigo-500 to-violet-500" />
-                <KpiCard icon={TrendingUp} label="Min" value={fmt(entry.min)} suffix={unitSuffix} accent="from-emerald-500 to-teal-500" />
-                <KpiCard icon={TrendingUp} label="Max" value={fmt(entry.max)} suffix={unitSuffix} accent="from-rose-500 to-orange-500" />
+                <KpiCard icon={Gauge} label={tx(lang, { fr: "Moyen", ar: "متوسط", en: "Average", es: "Media", pt: "Médio", tr: "Ortalama" })} value={fmt(entry.avg)} suffix={unitSuffix} accent="from-indigo-500 to-violet-500" />
+                <KpiCard icon={TrendingUp} label={tx(lang, { fr: "Min", ar: "أدنى", en: "Min", es: "Mín", pt: "Mín", tr: "Min" })} value={fmt(entry.min)} suffix={unitSuffix} accent="from-emerald-500 to-teal-500" />
+                <KpiCard icon={TrendingUp} label={tx(lang, { fr: "Max", ar: "أعلى", en: "Max", es: "Máx", pt: "Máx", tr: "Maks" })} value={fmt(entry.max)} suffix={unitSuffix} accent="from-rose-500 to-orange-500" />
             </div>
 
             <div className={`flex items-center gap-2 px-3 py-2 rounded-xl ring-1 ${reliability.cls}`}>
                 {entry.count >= 3 ? <ShieldCheck className="w-4 h-4" /> : <CircleAlert className="w-4 h-4" />}
                 <span className="text-[12px] font-semibold">{reliability.label}</span>
-                <span className="text-[11px] opacity-70">· {entry.count} mesure{entry.count > 1 ? 's' : ''} réelle{entry.count > 1 ? 's' : ''}</span>
+                <span className="text-[11px] opacity-70">· {entry.count} {tx(lang, {
+                    fr: `mesure${entry.count > 1 ? 's' : ''} réelle${entry.count > 1 ? 's' : ''}`,
+                    ar: 'قياس حقيقي',
+                    en: `real measurement${entry.count > 1 ? 's' : ''}`,
+                    es: `medición${entry.count > 1 ? 'es' : ''} real${entry.count > 1 ? 'es' : ''}`,
+                    pt: `medição${entry.count > 1 ? 'ões' : ''} real${entry.count > 1 ? 'is' : ''}`,
+                    tr: 'gerçek ölçüm',
+                })}</span>
             </div>
 
             {entry.variants.length > 1 && (
-                <Section title="Libellés fusionnés (≈)">
+                <Section title={tx(lang, { fr: "Libellés fusionnés (≈)", ar: "تسميات مدمجة (≈)", en: "Merged labels (≈)", es: "Etiquetas combinadas (≈)", pt: "Rótulos combinados (≈)", tr: "Birleştirilmiş etiketler (≈)" })}>
                     <div className="flex items-center gap-1.5 flex-wrap">{entry.variants.map(v => <Tag key={v}>{v}</Tag>)}</div>
                 </Section>
             )}
             {entry.matieres.length > 0 && (
-                <Section title="Matières"><div className="flex items-center gap-1.5 flex-wrap">{entry.matieres.map(c => <Tag key={c} icon={Shirt}>{c}</Tag>)}</div></Section>
+                <Section title={tx(lang, { fr: "Matières", ar: "المواد", en: "Materials", es: "Materiales", pt: "Materiais", tr: "Malzemeler" })}><div className="flex items-center gap-1.5 flex-wrap">{entry.matieres.map(c => <Tag key={c} icon={Shirt}>{c}</Tag>)}</div></Section>
             )}
             {entry.categories.length > 0 && (
-                <Section title="Types de modèle"><div className="flex items-center gap-1.5 flex-wrap">{entry.categories.map(c => <Tag key={c}>{c}</Tag>)}</div></Section>
+                <Section title={tx(lang, { fr: "Types de modèle", ar: "أنواع النموذج", en: "Model types", es: "Tipos de modelo", pt: "Tipos de modelo", tr: "Model türleri" })}><div className="flex items-center gap-1.5 flex-wrap">{entry.categories.map(c => <Tag key={c}>{c}</Tag>)}</div></Section>
             )}
             {entry.operators.length > 0 && (
-                <Section title="Opérateurs / l'5dam">
+                <Section title={tx(lang, { fr: "Opérateurs", ar: "العمال", en: "Operators", es: "Operadores", pt: "Operadores", tr: "Operatörler" })}>
                     <div className="flex items-center gap-1.5 flex-wrap">
                         {entry.operators.map(c => onOpenWorker ? (
                             <button key={c} type="button" onClick={() => onOpenWorker(c)}
-                                title={`Voir le profil de ${c} dans Gestion RH`}
+                                title={tx(lang, {
+                                    fr: `Voir le profil de ${c} dans Gestion RH`,
+                                    ar: `عرض ملف ${c} في إدارة الموارد البشرية`,
+                                    en: `View ${c}'s profile in HR Management`,
+                                    es: `Ver el perfil de ${c} en Gestión de RH`,
+                                    pt: `Ver o perfil de ${c} em Gestão de RH`,
+                                    tr: `${c} profilini İK Yönetiminde görüntüle`,
+                                })}
                                 className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-sky-50 text-sky-700 hover:bg-sky-100 ring-1 ring-sky-100 text-[11px] font-medium transition-colors">
                                 <User className="w-2.5 h-2.5" />{c}<ArrowUpRight className="w-2.5 h-2.5 opacity-60" />
                             </button>
@@ -590,10 +645,10 @@ function DetailPanel({ entry, fmt, unitSuffix, reliability, onClose, onOpenWorke
                 </Section>
             )}
             {entry.clients.length > 0 && (
-                <Section title="Clients"><div className="flex items-center gap-1.5 flex-wrap">{entry.clients.map(c => <Tag key={c}>{c}</Tag>)}</div></Section>
+                <Section title={tx(lang, { fr: "Clients", ar: "العملاء", en: "Clients", es: "Clientes", pt: "Clientes", tr: "Müşteriler" })}><div className="flex items-center gap-1.5 flex-wrap">{entry.clients.map(c => <Tag key={c}>{c}</Tag>)}</div></Section>
             )}
 
-            <Section title="Mesures par modèle">
+            <Section title={tx(lang, { fr: "Mesures par modèle", ar: "القياسات حسب النموذج", en: "Measurements by model", es: "Mediciones por modelo", pt: "Medições por modelo", tr: "Modele göre ölçümler" })}>
                 <div className="space-y-1">
                     {sorted.map((s, i) => {
                         const pct = entry.max > 0 ? (s.timeMin / entry.max) * 100 : 0;
@@ -618,7 +673,21 @@ function DetailPanel({ entry, fmt, unitSuffix, reliability, onClose, onOpenWorke
                                         </p>
                                     </div>
                                     <span className="shrink-0 inline-flex items-center gap-1 text-[12px] font-bold text-slate-900 tabular-nums">
-                                        <span className={`w-1.5 h-1.5 rounded-full ${s.measured ? 'bg-emerald-500' : 'bg-slate-300'}`} title={s.measured ? 'Relevé chrono réel' : 'TS gamme (estimé)'} />
+                                        <span className={`w-1.5 h-1.5 rounded-full ${s.measured ? 'bg-emerald-500' : 'bg-slate-300'}`} title={s.measured ? tx(lang, {
+                                            fr: "Relevé chrono réel",
+                                            ar: "قياس حقيقي بالكرونومتر",
+                                            en: "Real chrono reading",
+                                            es: "Lectura real de cronómetro",
+                                            pt: "Leitura real do cronômetro",
+                                            tr: "Gerçek kronometre okuması",
+                                        }) : tx(lang, {
+                                            fr: "TS gamme (estimé)",
+                                            ar: "TS الغامة (تقديري)",
+                                            en: "TS routing (estimated)",
+                                            es: "TS de gama (estimado)",
+                                            pt: "TS da gama (estimado)",
+                                            tr: "TS rotası (tahmini)",
+                                        })} />
                                         {fmt(s.timeMin)}<span className="text-[9px] font-normal text-slate-400 ml-0.5">{unitSuffix}</span>
                                     </span>
                                 </div>
@@ -641,7 +710,7 @@ function DetailPanel({ entry, fmt, unitSuffix, reliability, onClose, onOpenWorke
                     </div>
                     <header className="px-4 pt-1 pb-3 flex items-start justify-between gap-3 shrink-0 border-b border-slate-100">
                         {titleBlock}
-                        <button type="button" onClick={onClose} className="shrink-0 p-1.5 rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors" aria-label="Fermer">
+                        <button type="button" onClick={onClose} className="shrink-0 p-1.5 rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors" aria-label={tx(lang, { fr: "Fermer", ar: "إغلاق", en: "Close", es: "Cerrar", pt: "Fechar", tr: "Kapat" })}>
                             <X className="w-4 h-4" />
                         </button>
                     </header>
@@ -799,18 +868,47 @@ function KpiCard({ icon: Icon, label, value, suffix, accent }: { icon: any; labe
 }
 
 function EmptyState({ hasData }: { hasData: boolean }) {
+    const { lang } = useLang();
     return (
         <div className="h-full min-h-[300px] flex flex-col items-center justify-center text-center px-6">
             <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-500 flex items-center justify-center shadow-[0_12px_30px_-10px_rgba(99,102,241,0.6)] ring-1 ring-white/40 mb-4">
                 <Sparkles className="w-6 h-6 text-white" />
             </div>
             <h3 className="text-[15px] font-semibold text-slate-900">
-                {hasData ? 'Aucune opération ne correspond' : 'Aucune mesure de chrono trouvée'}
+                {hasData ? tx(lang, {
+                    fr: 'Aucune opération ne correspond',
+                    ar: 'لا توجد عملية مطابقة',
+                    en: 'No matching operation',
+                    es: 'Ninguna operación coincide',
+                    pt: 'Nenhuma operação corresponde',
+                    tr: 'Eşleşen operasyon yok',
+                }) : tx(lang, {
+                    fr: 'Aucune mesure de chrono trouvée',
+                    ar: 'لم يتم العثور على أي قياس بالكرونومتر',
+                    en: 'No chrono measurement found',
+                    es: 'No se encontró ninguna medición de cronómetro',
+                    pt: 'Nenhuma medição de cronômetro encontrada',
+                    tr: 'Kronometre ölçümü bulunamadı',
+                })}
             </h3>
             <p className="text-[12px] text-slate-500 mt-1 max-w-sm">
                 {hasData
-                    ? 'Essayez un autre terme de recherche ou ajustez les filtres.'
-                    : 'Le catalogue se construit uniquement à partir des temps réellement mesurés au Chronométrage. Saisissez des relevés (TR) pour l’alimenter.'}
+                    ? tx(lang, {
+                        fr: 'Essayez un autre terme de recherche ou ajustez les filtres.',
+                        ar: 'جرّب كلمة بحث أخرى أو عدّل الفلاتر.',
+                        en: 'Try a different search term or adjust the filters.',
+                        es: 'Intente con otro término de búsqueda o ajuste los filtros.',
+                        pt: 'Tente outro termo de pesquisa ou ajuste os filtros.',
+                        tr: 'Başka bir arama terimi deneyin veya filtreleri ayarlayın.',
+                    })
+                    : tx(lang, {
+                        fr: 'Le catalogue se construit uniquement à partir des temps réellement mesurés au Chronométrage. Saisissez des relevés (TR) pour l’alimenter.',
+                        ar: 'يُبنى الكتالوج فقط من الأوقات المقاسة فعلياً في Chronométrage. أدخل قياسات (TR) لتغذيته.',
+                        en: 'The catalogue is built only from times actually measured in Chronométrage. Enter readings (TR) to populate it.',
+                        es: 'El catálogo se construye únicamente a partir de los tiempos realmente medidos en Chronométrage. Introduzca lecturas (TR) para alimentarlo.',
+                        pt: 'O catálogo é construído apenas a partir dos tempos realmente medidos no Chronométrage. Insira leituras (TR) para alimentá-lo.',
+                        tr: 'Katalog yalnızca Chronométrage\'da gerçekten ölçülen sürelerden oluşturulur. Beslemek için ölçüm (TR) girin.',
+                    })}
             </p>
         </div>
     );

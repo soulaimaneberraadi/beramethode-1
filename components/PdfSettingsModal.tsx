@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState } from 'react';
-import { FileDown, X, Palette, Minus, Plus, Layout, ZoomIn, FileText, Printer, Check, FileSpreadsheet, ArrowLeft, Maximize2, Minimize2 } from 'lucide-react';
+import { FileDown, X, Palette, Minus, Plus, Layout, ZoomIn, FileText, Printer, Check, FileSpreadsheet, ArrowLeft, Maximize2, Minimize2, ChevronLeft, ChevronRight } from 'lucide-react';
 import { PdfSettings } from '../types';
 
 interface PdfSettingsModalProps {
@@ -23,6 +23,7 @@ interface PdfSettingsModalProps {
     /** Dimensions du ticket en millimètres (mode 'ticket'). */
     ticketSize?: { width: number; height: number };
     setTicketSize?: React.Dispatch<React.SetStateAction<{ width: number; height: number }>>;
+    totalPages?: number;
     children: React.ReactNode;
 }
 
@@ -31,6 +32,7 @@ const PdfSettingsModal: React.FC<PdfSettingsModalProps> = ({
     isGeneratingPdf, isLibLoaded, pdfSettings, setPdfSettings, generatePDF,
     onPrint, onExcel, pdfSections, setPdfSections,
     mode = 'a4', ticketSize = { width: 80, height: 150 }, setTicketSize,
+    totalPages = 1,
     children
 }) => {
     const isTicket = mode === 'ticket';
@@ -49,10 +51,18 @@ const PdfSettingsModal: React.FC<PdfSettingsModalProps> = ({
     // Zoom de l'aperçu (lecture du texte au téléphone) : 1 = ajusté, jusqu'à 4×.
     // Indépendant de « Échelle » (qui, elle, change la sortie PDF).
     const [previewZoom, setPreviewZoom] = useState(1);
+    const [activePage, setActivePage] = useState(1);
     const clampZoom = (z: number) => Math.min(4, Math.max(1, Math.round(z * 100) / 100));
     const lastTapRef = useRef(0);
     // Pincer à 2 doigts pour zoomer (style image sur mobile).
     const pinchRef = useRef<{ dist: number; zoom: number } | null>(null);
+    const swipeStartRef = useRef<{ x: number; y: number } | null>(null);
+
+    useEffect(() => {
+        if (showPdfModal) {
+            setActivePage(1);
+        }
+    }, [showPdfModal]);
 
     // Courbe d'animation « feuille iOS » : départ vif, fin douce (ressort).
     const SHEET_EASE = 'transform 0.34s cubic-bezier(0.32, 0.72, 0, 1)';
@@ -86,6 +96,12 @@ const PdfSettingsModal: React.FC<PdfSettingsModalProps> = ({
             const dy = e.touches[0].clientY - e.touches[1].clientY;
             pinchRef.current = { dist: Math.hypot(dx, dy) || 1, zoom: previewZoom };
         } else if (e.touches.length === 1) {
+            // Track touch start coordinates for swipe gestures
+            swipeStartRef.current = {
+                x: e.touches[0].clientX,
+                y: e.touches[0].clientY
+            };
+
             const now = Date.now();
             if (now - lastTapRef.current < 300) {
                 setPreviewZoom(z => (z > 1 ? 1 : 2)); // double-tap
@@ -105,6 +121,21 @@ const PdfSettingsModal: React.FC<PdfSettingsModalProps> = ({
     };
     const onCanvasTouchEnd = (e: React.TouchEvent) => {
         if (e.touches.length < 2) pinchRef.current = null;
+
+        // Handle swipe left/right to switch pages when preview zoom is 1
+        if (swipeStartRef.current && e.changedTouches.length === 1 && previewZoom === 1) {
+            const deltaX = e.changedTouches[0].clientX - swipeStartRef.current.x;
+            const deltaY = e.changedTouches[0].clientY - swipeStartRef.current.y;
+
+            if (Math.abs(deltaX) > 50 && Math.abs(deltaY) < 40) {
+                if (deltaX < 0) {
+                    setActivePage(p => Math.min(totalPages, p + 1));
+                } else {
+                    setActivePage(p => Math.max(1, p - 1));
+                }
+            }
+        }
+        swipeStartRef.current = null;
     };
 
     // Glisser-déplacer (souris) pour parcourir l'aperçu en douceur, gauche/droite
@@ -571,7 +602,7 @@ const PdfSettingsModal: React.FC<PdfSettingsModalProps> = ({
                                         transformOrigin: 'top left',
                                         boxShadow: '0 20px 40px -10px rgba(0, 0, 0, 0.2)'
                                     }}
-                                    className={`bg-white overflow-hidden ${pdfSettings.colorMode === 'grayscale' ? 'grayscale' : ''}`}
+                                    className={`bg-white overflow-hidden ${pdfSettings.colorMode === 'grayscale' ? 'grayscale' : ''} active-page-${activePage}`}
                                 >
                                     <div className="w-full h-full pointer-events-none select-none">
                                         {children}
@@ -580,6 +611,29 @@ const PdfSettingsModal: React.FC<PdfSettingsModalProps> = ({
                             </div>
                         </div>
                     </div>
+                    {totalPages && totalPages > 1 && (
+                        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 flex items-center gap-3 px-3 py-1.5 rounded-full shadow-lg border bg-slate-900/90 text-white border-slate-700 backdrop-blur-sm transition-all animate-in fade-in slide-in-from-bottom-2 duration-300">
+                            <button
+                                onClick={() => setActivePage(p => Math.max(1, p - 1))}
+                                disabled={activePage === 1}
+                                className="p-1 rounded-full hover:bg-slate-800 disabled:opacity-30 transition-all active:scale-90"
+                                title="Page précédente"
+                            >
+                                <ChevronLeft className="w-5 h-5" />
+                            </button>
+                            <span className="text-xs font-black tracking-wider font-mono select-none px-1">
+                                Page {activePage} / {totalPages}
+                            </span>
+                            <button
+                                onClick={() => setActivePage(p => Math.min(totalPages, p + 1))}
+                                disabled={activePage === totalPages}
+                                className="p-1 rounded-full hover:bg-slate-800 disabled:opacity-30 transition-all active:scale-90"
+                                title="Page suivante"
+                            >
+                                <ChevronRight className="w-5 h-5" />
+                            </button>
+                        </div>
+                    )}
                 </div>
                 </div>
             </div>

@@ -520,6 +520,7 @@ export type PlanningStatus =
 
 export type PlanningEvent = {
   id: string;
+  isLocked?: boolean;
   modelId: string;
   chaineId: string;         // الشين فين غيتخيط
   dateLancement: string;    // وقتاش غيبدا

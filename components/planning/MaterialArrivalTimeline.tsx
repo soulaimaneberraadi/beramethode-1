@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { Package, Truck, Sparkles, ClipboardList, CheckCircle2, AlertCircle, Ban, RefreshCw, Trash2 } from 'lucide-react';
+import { Package, Truck, Sparkles, ClipboardList, CheckCircle2, AlertCircle, AlertTriangle, Ban, RefreshCw, Trash2 } from 'lucide-react';
 import type { AppSettings, ModelData, PlanningEvent, PlanningPurchaseDraft } from '../../types';
 import { aggregateMaterialNeeds, allocateFIFO, maxPiecesFromStock } from '../../utils/materialNeeds';
 import { computeMaterialArrivalPlan, materialReadyDate, type CatalogProductForEta } from '../../utils/supplierLeadtime';
@@ -200,6 +200,20 @@ export default function MaterialArrivalTimeline({
         }));
         onAppendDraftPurchaseOrders(drafts);
     };
+
+    if (!model) {
+        return (
+            <div className={`p-4 rounded-xl bg-amber-500/10 border border-amber-500/20 text-slate-700 space-y-2 ${className}`}>
+                <div className="flex items-center gap-2 text-[12px] font-bold text-amber-800">
+                    <AlertTriangle className="h-4 w-4 shrink-0 text-amber-600" />
+                    Modèle introuvable dans la bibliothèque
+                </div>
+                <p className="text-[11px] leading-normal text-amber-700 font-medium">
+                    Ce modèle a été supprimé ou n'existe pas. Les besoins en matières ne peuvent pas être évalués.
+                </p>
+            </div>
+        );
+    }
 
     if (lines.length === 0) {
         return (
