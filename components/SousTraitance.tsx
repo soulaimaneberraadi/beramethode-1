@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { ModelData, SubcontractOrder, PlanningEvent } from '../types';
+import { tx } from '../lib/i18n';
+import { useLang } from '../src/context/LanguageContext';
 import { 
   Truck, Plus, Search, Trash2, Edit2, X, Check, 
   AlertCircle, Calendar, DollarSign, Package, 
@@ -111,6 +113,7 @@ export default function SousTraitance({ models, settings }: SousTraitanceProps) 
   const [groupFormName, setGroupFormName] = useState('');
   const [groupFormSubs, setGroupFormSubs] = useState<string[]>([]);
   const [isEditingGroup, setIsEditingGroup] = useState(false);
+  const { lang } = useLang();
 
   // Fetch all initial data
   const fetchData = async () => {
@@ -119,24 +122,24 @@ export default function SousTraitance({ models, settings }: SousTraitanceProps) 
     try {
       // Fetch Subcontract Orders
       const resOrders = await fetch('/api/subcontract', { credentials: 'include' });
-      if (!resOrders.ok) throw new Error('Echec du chargement des commandes de sous-traitance');
+      if (!resOrders.ok) throw new Error(tx(lang,{fr:'Echec du chargement des commandes de sous-traitance',ar:'فشل تحميل طلبيات المقاولة من الباطن',en:'Failed to load subcontract orders',es:'Error al cargar pedidos de subcontratación',pt:'Falha ao carregar encomendas de subcontratação',tr:'Taşeron siparişleri yüklenemedi'}));
       const ordersData = await resOrders.json();
       setOrders(ordersData);
 
       // Fetch Subcontractor Groups
       const resGroups = await fetch('/api/subcontract/groups', { credentials: 'include' });
-      if (!resGroups.ok) throw new Error('Echec du chargement des groupes de sous-traitants');
+      if (!resGroups.ok) throw new Error(tx(lang,{fr:'Echec du chargement des groupes de sous-traitants',ar:'فشل تحميل مجموعات المقاولين من الباطن',en:'Failed to load subcontractor groups',es:'Error al cargar grupos de subcontratistas',pt:'Falha ao carregar grupos de subcontratados',tr:'Taşeron grupları yüklenemedi'}));
       const groupsData = await resGroups.json();
       setGroups(groupsData);
 
       // Fetch Sales Invoices
       const resInvoices = await fetch('/api/facturation/factures?type=VENTE', { credentials: 'include' });
-      if (!resInvoices.ok) throw new Error('Echec du chargement des factures');
+      if (!resInvoices.ok) throw new Error(tx(lang,{fr:'Echec du chargement des factures',ar:'فشل تحميل الفواتير',en:'Failed to load invoices',es:'Error al cargar facturas',pt:'Falha ao carregar faturas',tr:'Faturalar yüklenemedi'}));
       const invoicesData = await resInvoices.json();
       setInvoices(invoicesData);
     } catch (err: any) {
       console.error(err);
-      setError(err.message || 'Une erreur est survenue lors de la récupération des données.');
+      setError(err.message || tx(lang,{fr:'Une erreur est survenue lors de la récupération des données.',ar:'حدث خطأ أثناء استرجاع البيانات.',en:'An error occurred while fetching data.',es:'Ocurrió un error al recuperar los datos.',pt:'Ocorreu um erro ao recuperar os dados.',tr:'Veriler alınırken bir hata oluştu.'}));
     } finally {
       setLoading(false);
     }
@@ -241,7 +244,7 @@ export default function SousTraitance({ models, settings }: SousTraitanceProps) 
       if (!map[sub]) {
         map[sub] = {
           name: sub,
-          phone: o.subcontractorPhone || 'Non spécifié',
+          phone: o.subcontractorPhone || tx(lang,{fr:'Non spécifié',ar:'غير محدد',en:'Not specified',es:'No especificado',pt:'Não especificado',tr:'Belirtilmemiş'}),
           orderCount: 0,
           totalQty: 0,
           deliveredQty: 0,
@@ -282,7 +285,7 @@ export default function SousTraitance({ models, settings }: SousTraitanceProps) 
       // 1. Calculate produced/delivered quantity from subcontract orders
       let produced = 0;
       let oldestDate = '';
-      let activeStatus = 'Inactif';
+      let activeStatus = 'INACTIVE';
 
       orders.forEach(o => {
         if (o.modelId === model.id) {
@@ -291,9 +294,9 @@ export default function SousTraitance({ models, settings }: SousTraitanceProps) 
             oldestDate = o.created_at || '';
           }
           if (o.status !== 'COMPLETED') {
-            activeStatus = 'En production';
-          } else if (activeStatus !== 'En production') {
-            activeStatus = 'Terminé';
+            activeStatus = 'IN_PRODUCTION';
+          } else if (activeStatus !== 'IN_PRODUCTION') {
+            activeStatus = 'FINISHED';
           }
         }
       });
@@ -323,7 +326,7 @@ export default function SousTraitance({ models, settings }: SousTraitanceProps) 
         soldQty: sold,
         remainingStock: remaining,
         price: Math.round(price) || 100,
-        startDate: oldestDate ? new Date(oldestDate).toLocaleDateString('fr-FR') : 'Non commencée',
+        startDate: oldestDate ? new Date(oldestDate).toLocaleDateString('fr-FR') : tx(lang,{fr:'Non commencée',ar:'لم تبدأ',en:'Not started',es:'No iniciado',pt:'Não iniciado',tr:'Başlamadı'}),
         status: activeStatus
       });
     });
@@ -444,7 +447,7 @@ export default function SousTraitance({ models, settings }: SousTraitanceProps) 
     setError(null);
 
     if (!formSubcontractorName.trim()) {
-      setError('Veuillez specifier le nom du sous-traitant.');
+      setError(tx(lang,{fr:'Veuillez specifier le nom du sous-traitant.',ar:'يرجى تحديد اسم المقاول من الباطن.',en:'Please specify the subcontractor name.',es:'Por favor, especifique el nombre del subcontratista.',pt:'Por favor, especifique o nome do subcontratado.',tr:'Lütfen taşeron adını belirtin.'}));
       setActionLoading(false);
       return;
     }
@@ -512,14 +515,14 @@ export default function SousTraitance({ models, settings }: SousTraitanceProps) 
 
       if (!res.ok) {
         const errData = await res.json();
-        throw new Error(errData.message || 'Erreur lors de la creation du lot.');
+        throw new Error(errData.message || tx(lang,{fr:'Erreur lors de la creation du lot.',ar:'خطأ أثناء إنشاء الدفعة.',en:'Error creating the batch.',es:'Error al crear el lote.',pt:'Erro ao criar o lote.',tr:'Parti oluşturulurken hata.'}));
       }
 
       setIsAddModalOpen(false);
       fetchData();
     } catch (err: any) {
       console.error(err);
-      setError(err.message || 'Une erreur est survenue.');
+      setError(err.message || tx(lang,{fr:'Une erreur est survenue.',ar:'حدث خطأ.',en:'An error occurred.',es:'Ocurrió un error.',pt:'Ocorreu um erro.',tr:'Bir hata oluştu.'}));
     } finally {
       setActionLoading(false);
     }
@@ -658,14 +661,14 @@ export default function SousTraitance({ models, settings }: SousTraitanceProps) 
 
       if (!res.ok) {
         const errData = await res.json();
-        throw new Error(errData.message || 'Erreur lors de la mise a jour.');
+        throw new Error(errData.message || tx(lang,{fr:'Erreur lors de la mise a jour.',ar:'خطأ أثناء التحديث.',en:'Error during update.',es:'Error durante la actualización.',pt:'Erro durante a atualização.',tr:'Güncelleme sırasında hata.'}));
       }
 
       setIsEditModalOpen(false);
       fetchData();
     } catch (err: any) {
       console.error(err);
-      setError(err.message || 'Une erreur est survenue.');
+      setError(err.message || tx(lang,{fr:'Une erreur est survenue.',ar:'حدث خطأ.',en:'An error occurred.',es:'Ocurrió un error.',pt:'Ocorreu um erro.',tr:'Bir hata oluştu.'}));
     } finally {
       setActionLoading(false);
     }
@@ -680,25 +683,25 @@ export default function SousTraitance({ models, settings }: SousTraitanceProps) 
         credentials: 'include',
         body: JSON.stringify({ status: newStatus })
       });
-      if (!res.ok) throw new Error('Echec de la modification du statut');
+      if (!res.ok) throw new Error(tx(lang,{fr:'Echec de la modification du statut',ar:'فشل تعديل الحالة',en:'Failed to update status',es:'Error al modificar el estado',pt:'Falha ao modificar o estado',tr:'Durum güncellenemedi'}));
       fetchData();
     } catch (err: any) {
-      alert(err.message || 'Erreur de communication');
+      alert(err.message || tx(lang,{fr:'Erreur de communication',ar:'خطأ في الاتصال',en:'Communication error',es:'Error de comunicación',pt:'Erro de comunicação',tr:'İletişim hatası'}));
     }
   };
 
   // Delete subcontract order
   const handleDeleteOrder = async (orderId: string) => {
-    if (!window.confirm('Voulez-vous vraiment supprimer cette commande ?')) return;
+    if (!window.confirm(tx(lang,{fr:'Voulez-vous vraiment supprimer cette commande ?',ar:'هل تريد بالتأكيد حذف هذه الطلبية؟',en:'Are you sure you want to delete this order?',es:'¿Está seguro de eliminar este pedido?',pt:'Tem certeza de que deseja eliminar esta encomenda?',tr:'Bu siparişi silmek istediğinize emin misiniz?'}))) return;
     try {
       const res = await fetch(`/api/subcontract/${orderId}`, {
         method: 'DELETE',
         credentials: 'include'
       });
-      if (!res.ok) throw new Error('Echec de la suppression');
+      if (!res.ok) throw new Error(tx(lang,{fr:'Echec de la suppression',ar:'فشل الحذف',en:'Deletion failed',es:'Error al eliminar',pt:'Falha ao eliminar',tr:'Silme başarısız'}));
       fetchData();
     } catch (err: any) {
-      alert(err.message || 'Une erreur est survenue.');
+      alert(err.message || tx(lang,{fr:'Une erreur est survenue.',ar:'حدث خطأ.',en:'An error occurred.',es:'Ocurrió un error.',pt:'Ocorreu um erro.',tr:'Bir hata oluştu.'}));
     }
   };
 
@@ -718,7 +721,7 @@ export default function SousTraitance({ models, settings }: SousTraitanceProps) 
     setSaleQuantity(item.remainingStock);
     setSalePrice(item.price);
     setSaleTvaRate(20);
-    setSaleNotes(`Sortie de stock sous-traitance pour le modele ${item.model.meta_data.nom_modele}`);
+    setSaleNotes(tx(lang,{fr:'Sortie de stock sous-traitance pour le modele',ar:'إخراج من مخزون المقاولة من الباطن للموديل',en:'Subcontract stock exit for model',es:'Salida de stock de subcontratación para el modelo',pt:'Saída de stock de subcontratação para o modelo',tr:'Taşeron stok çıkışı model için'}) + ` ${item.model.meta_data.nom_modele}`);
     setSaleStatus('BROUILLON');
     setSaleInvoiceNumber(num);
     setIsSaleModalOpen(true);
@@ -731,7 +734,7 @@ export default function SousTraitance({ models, settings }: SousTraitanceProps) 
     setActionLoading(true);
 
     if (saleQuantity <= 0) {
-      alert('La quantite vendue doit etre superieure a 0.');
+      alert(tx(lang,{fr:'La quantite vendue doit etre superieure a 0.',ar:'الكمية المباعة يجب أن تكون أكبر من 0.',en:'The sold quantity must be greater than 0.',es:'La cantidad vendida debe ser mayor que 0.',pt:'A quantidade vendida deve ser superior a 0.',tr:'Satılan miktar 0\'dan büyük olmalıdır.'}));
       setActionLoading(false);
       return;
     }
@@ -780,13 +783,13 @@ export default function SousTraitance({ models, settings }: SousTraitanceProps) 
 
       if (!res.ok) {
         const errData = await res.json();
-        throw new Error(errData.error || 'Erreur lors de la validation de la facture.');
+        throw new Error(errData.error || tx(lang,{fr:'Erreur lors de la validation de la facture.',ar:'خطأ أثناء التحقق من صحة الفاتورة.',en:'Error validating the invoice.',es:'Error al validar la factura.',pt:'Erro ao validar a fatura.',tr:'Fatura doğrulanırken hata.'}));
       }
 
       setIsSaleModalOpen(false);
       await fetchData();
     } catch (err: any) {
-      alert(err.message || 'Une erreur est survenue lors de la facturation.');
+      alert(err.message || tx(lang,{fr:'Une erreur est survenue lors de la facturation.',ar:'حدث خطأ أثناء إصدار الفاتورة.',en:'An error occurred during invoicing.',es:'Ocurrió un error durante la facturación.',pt:'Ocorreu um erro durante a faturação.',tr:'Faturalama sırasında bir hata oluştu.'}));
     } finally {
       setActionLoading(false);
     }
@@ -805,7 +808,7 @@ export default function SousTraitance({ models, settings }: SousTraitanceProps) 
     printWindow.document.write(`
       <html>
         <head>
-          <title>Facture de Vente - ${saleInvoiceNumber}</title>
+          <title>${tx(lang,{fr:'Facture de Vente',ar:'فاتورة بيع',en:'Sale Invoice',es:'Factura de Venta',pt:'Fatura de Venda',tr:'Satış Faturası'})} - ${saleInvoiceNumber}</title>
           <style>
             @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
             body { font-family: 'Inter', sans-serif; color: #1e293b; padding: 40px; line-height: 1.5; font-size: 13px; }
@@ -836,19 +839,19 @@ export default function SousTraitance({ models, settings }: SousTraitanceProps) 
                 <div style="color: #64748b; font-weight: 500; font-size: 11px;">ERP Textile & Confection</div>
               </div>
               <div style="text-align: right;">
-                <div style="font-size: 18px; font-weight: 800; color: #1e1b4b;">FACTURE DE VENTE</div>
+                <div style="font-size: 18px; font-weight: 800; color: #1e1b4b;">${tx(lang,{fr:'FACTURE DE VENTE',ar:'فاتورة بيع',en:'SALE INVOICE',es:'FACTURA DE VENTA',pt:'FATURA DE VENDA',tr:'SATIŞ FATURASI'})}</div>
                 <div style="font-size: 12px; font-weight: 600; color: #4f46e5; margin-top: 4px;">N° ${saleInvoiceNumber}</div>
               </div>
             </div>
 
             <div class="meta-section">
               <div class="box">
-                <div class="title">Émetteur</div>
+                <div class="title">${tx(lang,{fr:'Émetteur',ar:'المصدر',en:'Issuer',es:'Emisor',pt:'Emitente',tr:'Düzenleyen'})}</div>
                 <div class="val">BeraMéthode Confection</div>
-                <div style="color: #64748b; font-size: 11px; margin-top: 4px;">Atelier principal de production</div>
+                <div style="color: #64748b; font-size: 11px; margin-top: 4px;">${tx(lang,{fr:'Atelier principal de production',ar:'ورشة الإنتاج الرئيسية',en:'Main production workshop',es:'Taller principal de producción',pt:'Oficina principal de produção',tr:'Ana üretim atölyesi'})}</div>
               </div>
               <div class="box">
-                <div class="title">Facturé à (Client)</div>
+                <div class="title">${tx(lang,{fr:'Facturé à (Client)',ar:'تمت الفاتورة لـ (العميل)',en:'Invoiced to (Client)',es:'Facturado a (Cliente)',pt:'Faturado a (Cliente)',tr:'Faturalanan (Müşteri)'})}</div>
                 <div class="val">${saleClient}</div>
                 ${saleClientAdresse ? `<div style="font-size: 12px; color: #475569; margin-top: 4px;">${saleClientAdresse}</div>` : ''}
                 ${saleClientIce ? `<div style="font-size: 11px; color: #64748b;">ICE: ${saleClientIce}</div>` : ''}
@@ -858,10 +861,10 @@ export default function SousTraitance({ models, settings }: SousTraitanceProps) 
             <table>
               <thead>
                 <tr>
-                  <th>Désignation de l'article</th>
-                  <th style="text-align: right;">Quantité</th>
-                  <th style="text-align: right;">Prix Unitaire</th>
-                  <th style="text-align: right;">Total HT</th>
+                  <th>${tx(lang,{fr:"Désignation de l'article",ar:'بيان الصنف',en:'Item Description',es:'Designación del artículo',pt:'Designação do artigo',tr:'Ürün Açıklaması'})}</th>
+                  <th style="text-align: right;">${tx(lang,{fr:'Quantité',ar:'الكمية',en:'Quantity',es:'Cantidad',pt:'Quantidade',tr:'Miktar'})}</th>
+                  <th style="text-align: right;">${tx(lang,{fr:'Prix Unitaire',ar:'السعر الوحدة',en:'Unit Price',es:'Precio Unitario',pt:'Preço Unitário',tr:'Birim Fiyat'})}</th>
+                  <th style="text-align: right;">${tx(lang,{fr:'Total HT',ar:'الإجمالي HT',en:'Total HT',es:'Total HT',pt:'Total HT',tr:'Toplam HT'})}</th>
                 </tr>
               </thead>
               <tbody>
@@ -894,14 +897,14 @@ export default function SousTraitance({ models, settings }: SousTraitanceProps) 
 
             ${saleNotes ? `
               <div style="background: #f8fafc; border-left: 3px solid #cbd5e1; padding: 12px; margin-top: 40px; border-radius: 4px;">
-                <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase;">Observations / Notes</div>
+                <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase;">${tx(lang,{fr:'Observations / Notes',ar:'ملاحظات',en:'Remarks / Notes',es:'Observaciones / Notas',pt:'Observações / Notas',tr:'Gözlemler / Notlar'})}</div>
                 <div style="margin-top: 4px; font-style: italic; color: #334155;">${saleNotes}</div>
               </div>
             ` : ''}
 
             <div class="footer">
-              BeraMéthode - Solution de gestion ERP pour l'industrie de confection.<br/>
-              Document généré électroniquement et valable sans signature.
+              BeraMéthode - ${tx(lang,{fr:'Solution de gestion ERP pour l\'industrie de confection.',ar:'حل ERP لإدارة صناعة الخياطة.',en:'ERP management solution for the garment industry.',es:'Solución de gestión ERP para la industria de la confección.',pt:'Solução de gestão ERP para a indústria de confeção.',tr:'Konfeksiyon endüstrisi için ERP yönetim çözümü.'})}<br/>
+              ${tx(lang,{fr:'Document généré électroniquement et valable sans signature.',ar:'مستند تم إنشاؤه إلكترونياً وصالح بدون توقيع.',en:'Electronically generated document valid without signature.',es:'Documento generado electrónicamente y válido sin firma.',pt:'Documento gerado eletronicamente e válido sem assinatura.',tr:'Elektronik olarak oluşturulmuş, imzasız geçerli belge.'})}
             </div>
           </div>
         </body>
@@ -934,7 +937,7 @@ export default function SousTraitance({ models, settings }: SousTraitanceProps) 
   const handleSaveGroup = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!groupFormName.trim()) {
-      alert('Veuillez specifier un nom de groupe.');
+      alert(tx(lang,{fr:'Veuillez specifier un nom de groupe.',ar:'يرجى تحديد اسم المجموعة.',en:'Please specify a group name.',es:'Por favor, especifique un nombre de grupo.',pt:'Por favor, especifique um nome de grupo.',tr:'Lütfen bir grup adı belirtin.'}));
       return;
     }
     setActionLoading(true);
@@ -953,33 +956,33 @@ export default function SousTraitance({ models, settings }: SousTraitanceProps) 
         body: JSON.stringify(body)
       });
 
-      if (!res.ok) throw new Error('Echec de la sauvegarde du groupe');
+      if (!res.ok) throw new Error(tx(lang,{fr:'Echec de la sauvegarde du groupe',ar:'فشل حفظ المجموعة',en:'Failed to save group',es:'Error al guardar el grupo',pt:'Falha ao guardar o grupo',tr:'Grup kaydedilemedi'}));
       
       setIsEditingGroup(false);
       setSelectedGroup(null);
       await fetchData();
     } catch (err: any) {
-      alert(err.message || 'Une erreur est survenue.');
+      alert(err.message || tx(lang,{fr:'Une erreur est survenue.',ar:'حدث خطأ.',en:'An error occurred.',es:'Ocurrió un error.',pt:'Ocorreu um erro.',tr:'Bir hata oluştu.'}));
     } finally {
       setActionLoading(false);
     }
   };
 
   const handleDeleteGroup = async (groupId: string) => {
-    if (!window.confirm('Voulez-vous supprimer ce groupe ?')) return;
+    if (!window.confirm(tx(lang,{fr:'Voulez-vous supprimer ce groupe ?',ar:'هل تريد حذف هذه المجموعة؟',en:'Do you want to delete this group?',es:'¿Quiere eliminar este grupo?',pt:'Deseja eliminar este grupo?',tr:'Bu grubu silmek istiyor musunuz?'}))) return;
     setActionLoading(true);
     try {
       const res = await fetch(`/api/subcontract/groups/${groupId}`, {
         method: 'DELETE',
         credentials: 'include'
       });
-      if (!res.ok) throw new Error('Echec de la suppression');
+      if (!res.ok) throw new Error(tx(lang,{fr:'Echec de la suppression',ar:'فشل الحذف',en:'Deletion failed',es:'Error al eliminar',pt:'Falha ao eliminar',tr:'Silme başarısız'}));
       
       setIsEditingGroup(false);
       setSelectedGroup(null);
       await fetchData();
     } catch (err: any) {
-      alert(err.message || 'Une erreur est survenue.');
+      alert(err.message || tx(lang,{fr:'Une erreur est survenue.',ar:'حدث خطأ.',en:'An error occurred.',es:'Ocurrió un error.',pt:'Ocorreu um erro.',tr:'Bir hata oluştu.'}));
     } finally {
       setActionLoading(false);
     }
@@ -995,7 +998,7 @@ export default function SousTraitance({ models, settings }: SousTraitanceProps) 
     printWindow.document.write(`
       <html>
         <head>
-          <title>Bon d'Envoi en Sous-traitance - ${order.modelName}</title>
+          <title>${tx(lang,{fr:"Bon d'Envoi en Sous-traitance",ar:'مذكرة إرسال للمقاولة من الباطن',en:'Subcontract Delivery Note',es:'Nota de Envío de Subcontratación',pt:'Nota de Remessa de Subcontratação',tr:'Taşeron Sevk İrsaliyesi'})} - ${order.modelName}</title>
           <style>
             body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #334155; padding: 40px; line-height: 1.5; }
             .header { display: flex; justify-content: space-between; border-bottom: 3px solid #6366f1; padding-bottom: 20px; margin-bottom: 30px; }
@@ -1019,40 +1022,40 @@ export default function SousTraitance({ models, settings }: SousTraitanceProps) 
           <div class="header">
             <div>
               <div class="title">BeraMéthode</div>
-              <div style="font-size: 12px; color: #64748b; font-weight: 600;">ERP de Production & Confection Textile</div>
+              <div style="font-size: 12px; color: #64748b; font-weight: 600;">${tx(lang,{fr:'ERP de Production & Confection Textile',ar:'ERP للإنتاج وصناعة الخياطة النسيجية',en:'ERP for Textile Production & Garment Manufacturing',es:'ERP de Producción y Confección Textil',pt:'ERP de Produção e Confecção Têxtil',tr:'Tekstil Üretimi ve Konfeksiyon için ERP'})}</div>
             </div>
             <div style="text-align: right;">
-              <div style="font-size: 18px; font-weight: 900; color: #4f46e5;">BON D'ENVOI DE SOUS-TRAITANCE</div>
+              <div style="font-size: 18px; font-weight: 900; color: #4f46e5;">${tx(lang,{fr:"BON D'ENVOI DE SOUS-TRAITANCE",ar:'مذكرة إرسال المقاولة من الباطن',en:'SUBCONTRACT DELIVERY NOTE',es:'NOTA DE ENVÍO DE SUBCONTRATACIÓN',pt:'NOTA DE REMESSA DE SUBCONTRATAÇÃO',tr:'TAŞERON SEVK İRSALİYESİ'})}</div>
               <div style="font-size: 11px; font-weight: 700; color: #64748b; margin-top: 4px;">REF: BS-${order.id.slice(0, 8).toUpperCase()}</div>
             </div>
           </div>
 
           <div class="meta">
             <div class="meta-box">
-              <div class="meta-title">Atelier de Sous-traitance</div>
+              <div class="meta-title">${tx(lang,{fr:'Atelier de Sous-traitance',ar:'ورشة المقاولة من الباطن',en:'Subcontract Workshop',es:'Taller de Subcontratación',pt:'Oficina de Subcontratação',tr:'Taşeron Atölyesi'})}</div>
               <div class="meta-val">${order.subcontractorName}</div>
             </div>
             <div class="meta-box">
-              <div class="meta-title">Client / Donneur d'Ordre</div>
+              <div class="meta-title">${tx(lang,{fr:"Client / Donneur d'Ordre",ar:'العميل / صاحب الطلب',en:'Client / Ordering Party',es:'Cliente / Ordenante',pt:'Cliente / Mandante',tr:'Müşteri / Sipariş Veren'})}</div>
               <div class="meta-val">${order.clientName || 'N/A'}</div>
             </div>
             <div class="meta-box">
-              <div class="meta-title">Modèle & Réf</div>
+              <div class="meta-title">${tx(lang,{fr:'Modèle & Réf',ar:'الموديل والمرجع',en:'Model & Ref',es:'Modelo y Ref',pt:'Modelo e Ref',tr:'Model ve Referans'})}</div>
               <div class="meta-val">${order.modelName}</div>
             </div>
             <div class="meta-box">
-              <div class="meta-title">Date de Livraison Prévue</div>
+              <div class="meta-title">${tx(lang,{fr:'Date de Livraison Prévue',ar:'تاريخ التسليم المتوقع',en:'Expected Delivery Date',es:'Fecha de Entrega Prevista',pt:'Data de Entrega Prevista',tr:'Beklenen Teslimat Tarihi'})}</div>
               <div class="meta-val">${order.deliveryDate}</div>
             </div>
           </div>
 
-          <h3 style="font-size: 15px; margin-bottom: 10px; color: #1e1b4b; border-bottom: 2px solid #e2e8f0; padding-bottom: 6px; font-weight: 800;">DETAILS DES PIECES</h3>
+          <h3 style="font-size: 15px; margin-bottom: 10px; color: #1e1b4b; border-bottom: 2px solid #e2e8f0; padding-bottom: 6px; font-weight: 800;">${tx(lang,{fr:'DETAILS DES PIECES',ar:'تفاصيل القطع',en:'PIECE DETAILS',es:'DETALLES DE LAS PIEZAS',pt:'DETALHES DAS PEÇAS',tr:'PARÇA DETAYLARI'})}</h3>
           <table>
             <thead>
               <tr>
-                <th>Couleur</th>
-                <th>Détail des Tailles</th>
-                <th style="text-align: right;">Quantité</th>
+                <th>${tx(lang,{fr:'Couleur',ar:'اللون',en:'Color',es:'Color',pt:'Cor',tr:'Renk'})}</th>
+                <th>${tx(lang,{fr:'Détail des Tailles',ar:'تفصيل المقاسات',en:'Size Details',es:'Detalle de Tallas',pt:'Detalhe dos Tamanhos',tr:'Beden Detayları'})}</th>
+                <th style="text-align: right;">${tx(lang,{fr:'Quantité',ar:'الكمية',en:'Quantity',es:'Cantidad',pt:'Quantidade',tr:'Miktar'})}</th>
               </tr>
             </thead>
             <tbody>
@@ -1074,7 +1077,7 @@ export default function SousTraitance({ models, settings }: SousTraitanceProps) 
                 </tr>
               `}
               <tr style="background: #f8fafc; font-weight: 900; font-size: 14px; border-top: 2px solid #cbd5e1;">
-                <td colspan="2">QUANTITÉ TOTALE ENVOYÉE</td>
+                <td colspan="2">${tx(lang,{fr:'QUANTITÉ TOTALE ENVOYÉE',ar:'الكمية الإجمالية المرسلة',en:'TOTAL QUANTITY SENT',es:'CANTIDAD TOTAL ENVIADA',pt:'QUANTIDADE TOTAL ENVIADA',tr:'GÖNDERİLEN TOPLAM MİKTAR'})}</td>
                 <td style="text-align: right; font-weight: 900; color: #4f46e5; font-size: 16px;">${order.totalQuantity.toLocaleString()} pcs</td>
               </tr>
             </tbody>
@@ -1082,15 +1085,15 @@ export default function SousTraitance({ models, settings }: SousTraitanceProps) 
 
           ${order.notes ? `
             <div style="background: #faf5ff; border: 1px solid #f3e8ff; border-radius: 12px; padding: 15px; margin-bottom: 30px;">
-              <div style="font-size: 10px; font-weight: 800; color: #a21caf; text-transform: uppercase;">Notes</div>
+              <div style="font-size: 10px; font-weight: 800; color: #a21caf; text-transform: uppercase;">${tx(lang,{fr:'Notes',ar:'ملاحظات',en:'Notes',es:'Notas',pt:'Notas',tr:'Notlar'})}</div>
               <div style="font-size: 13px; margin-top: 6px; font-style: italic; color: #581c87; font-weight: 600;">${order.notes}</div>
             </div>
           ` : ''}
 
           <div class="signatures">
-            <div class="sig-box">Livreur / Transporteur</div>
-            <div class="sig-box">Réception Sous-traitant</div>
-            <div class="sig-box">Contrôle Production</div>
+            <div class="sig-box">${tx(lang,{fr:'Livreur / Transporteur',ar:'المسلم / الناقل',en:'Delivery Person / Carrier',es:'Repartidor / Transportista',pt:'Entregador / Transportador',tr:'Teslim Eden / Nakliyeci'})}</div>
+            <div class="sig-box">${tx(lang,{fr:'Réception Sous-traitant',ar:'استلام المقاول من الباطن',en:'Subcontractor Receipt',es:'Recepción Subcontratista',pt:'Recepção Subcontratado',tr:'Taşeron Teslim Alma'})}</div>
+            <div class="sig-box">${tx(lang,{fr:'Contrôle Production',ar:'مراقبة الإنتاج',en:'Production Control',es:'Control de Producción',pt:'Controlo de Produção',tr:'Üretim Kontrolü'})}</div>
           </div>
         </body>
       </html>
@@ -1105,12 +1108,12 @@ export default function SousTraitance({ models, settings }: SousTraitanceProps) 
       <div className="relative overflow-hidden rounded-3xl bg-white border border-slate-200/60 p-5 md:p-6 shadow-sm text-slate-800">
         <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="space-y-1">
-            <span className="text-xs font-black text-indigo-600 uppercase tracking-widest block">Plateforme Industrielle</span>
+            <span className="text-xs font-black text-indigo-600 uppercase tracking-widest block">{tx(lang,{fr:'Plateforme Industrielle',ar:'المنصة الصناعية',en:'Industrial Platform',es:'Plataforma Industrial',pt:'Plataforma Industrial',tr:'Endüstriyel Platform'})}</span>
             <h1 className="text-xl md:text-2xl font-black tracking-tight text-slate-900">
-              Sous-traitance & Monawla
+              {tx(lang,{fr:'Sous-traitance & Monawla',ar:'المقاولة من الباطن ومناولة',en:'Subcontracting & Monawla',es:'Subcontratación & Monawla',pt:'Subcontratação & Monawla',tr:'Taşeronluk & Monawla'})}
             </h1>
             <p className="text-slate-500 max-w-2xl text-xs md:text-sm leading-relaxed">
-              Supervision unifiée des ateliers externes de confection. Suivi logistique des expéditions de matières premières, contrôle qualité à la réception des pièces, et facturation directe des ventes de produits finis.
+              {tx(lang,{fr:'Supervision unifiée des ateliers externes de confection. Suivi logistique des expéditions de matières premières, contrôle qualité à la réception des pièces, et facturation directe des ventes de produits finis.',ar:'إشراف موحد على ورشات الخياطة الخارجية. متابعة لوجستية لشحنات المواد الأولية، مراقبة الجودة عند استلام القطع، والفوترة المباشرة لمبيعات المنتجات النهائية.',en:'Unified supervision of external sewing workshops. Logistics tracking of raw material shipments, quality control upon reception of pieces, and direct invoicing of finished product sales.',es:'Supervisión unificada de talleres externos de confección. Seguimiento logístico de envíos de materias primas, control de calidad en la recepción de piezas y facturación directa de ventas de productos terminados.',pt:'Supervisão unificada de oficinas externas de confecção. Acompanhamento logístico de remessas de matérias-primas, controle de qualidade na recepção das peças e faturamento direto das vendas de produtos acabados.',tr:'Harici dikim atölyelerinin birleşik denetimi. Hammadde sevkiyatlarının lojistik takibi, parçaların teslim alınmasında kalite kontrolü ve bitmiş ürün satışlarının doğrudan faturalandırılması.'})}
             </p>
           </div>
           {activeTab === 'orders' && (
@@ -1119,7 +1122,7 @@ export default function SousTraitance({ models, settings }: SousTraitanceProps) 
               className="bg-indigo-600 hover:bg-indigo-700 hover:scale-[1.01] active:scale-[0.99] text-white px-5 py-2.5 rounded-xl transition-all shadow-sm flex items-center justify-center gap-2 font-bold w-full md:w-auto text-xs md:text-sm shrink-0 border border-indigo-600"
             >
               <Plus className="w-4 h-4 text-white" />
-              <span>Nouvelle Commande</span>
+              <span>{tx(lang,{fr:'Nouvelle Commande',ar:'أمر شراء جديد',en:'New Order',es:'Nuevo Pedido',pt:'Nova Encomenda',tr:'Yeni Sipariş'})}</span>
             </button>
           )}
         </div>
@@ -1132,28 +1135,28 @@ export default function SousTraitance({ models, settings }: SousTraitanceProps) 
           className={`px-5 py-2.5 rounded-xl font-bold text-xs md:text-sm transition-all flex items-center gap-2 whitespace-nowrap ${activeTab === 'orders' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50'}`}
         >
           <Package className="w-4 h-4" />
-          <span>Commandes</span>
+          <span>{tx(lang,{fr:'Commandes',ar:'الطلبيات',en:'Orders',es:'Pedidos',pt:'Encomendas',tr:'Siparişler'})}</span>
         </button>
         <button
           onClick={() => setActiveTab('subcontractors')}
           className={`px-5 py-2.5 rounded-xl font-bold text-xs md:text-sm transition-all flex items-center gap-2 whitespace-nowrap ${activeTab === 'subcontractors' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50'}`}
         >
           <Users className="w-4 h-4" />
-          <span>Suivi Fournisseurs</span>
+          <span>{tx(lang,{fr:'Suivi Fournisseurs',ar:'متابعة الموردين',en:'Supplier Tracking',es:'Seguimiento de Proveedores',pt:'Acompanhamento de Fornecedores',tr:'Tedarikçi Takibi'})}</span>
         </button>
         <button
           onClick={() => setActiveTab('stock')}
           className={`px-5 py-2.5 rounded-xl font-bold text-xs md:text-sm transition-all flex items-center gap-2 whitespace-nowrap ${activeTab === 'stock' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50'}`}
         >
           <Coins className="w-4 h-4" />
-          <span>Stock & Ventes</span>
+          <span>{tx(lang,{fr:'Stock & Ventes',ar:'المخزون والمبيعات',en:'Stock & Sales',es:'Stock & Ventas',pt:'Stock & Vendas',tr:'Stok & Satışlar'})}</span>
         </button>
         <button
           onClick={() => setActiveTab('groups')}
           className={`px-5 py-2.5 rounded-xl font-bold text-xs md:text-sm transition-all flex items-center gap-2 whitespace-nowrap ${activeTab === 'groups' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50'}`}
         >
           <Layers className="w-4 h-4" />
-          <span>Groupements</span>
+          <span>{tx(lang,{fr:'Groupements',ar:'المجموعات',en:'Groups',es:'Grupos',pt:'Grupos',tr:'Gruplar'})}</span>
         </button>
       </div>
 
@@ -1168,7 +1171,7 @@ export default function SousTraitance({ models, settings }: SousTraitanceProps) 
       {loading ? (
         <div className="h-64 flex flex-col items-center justify-center bg-white rounded-3xl border border-slate-200/60 shadow-sm gap-3">
           <Loader2 className="w-8 h-8 text-indigo-500 animate-spin" />
-          <p className="text-xs text-slate-500 font-medium">Chargement des données de sous-traitance...</p>
+          <p className="text-xs text-slate-500 font-medium">{tx(lang,{fr:'Chargement des données de sous-traitance...',ar:'جاري تحميل بيانات المقاولة من الباطن...',en:'Loading subcontracting data...',es:'Cargando datos de subcontratación...',pt:'A carregar dados de subcontratação...',tr:'Taşeronluk verileri yükleniyor...'})}</p>
         </div>
       ) : (
         <>
@@ -1180,19 +1183,19 @@ export default function SousTraitance({ models, settings }: SousTraitanceProps) 
               {/* Clean Minimalist Stats Widgets */}
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                 <div className="bg-white border border-slate-200/60 p-5 rounded-3xl shadow-sm flex flex-col justify-between hover:shadow-md transition-all">
-                  <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Commandes Actives</span>
+                  <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{tx(lang,{fr:'Commandes Actives',ar:'الطلبيات النشطة',en:'Active Orders',es:'Pedidos Activos',pt:'Encomendas Ativas',tr:'Aktif Siparişler'})}</span>
                   <span className="text-2xl md:text-3xl font-black text-slate-800 mt-2 tracking-tight">{stats.activeOrdersCount}</span>
                 </div>
                 <div className="bg-white border border-slate-200/60 p-5 rounded-3xl shadow-sm flex flex-col justify-between hover:shadow-md transition-all">
-                  <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Total Commandé</span>
+                  <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{tx(lang,{fr:'Total Commandé',ar:'إجمالي المطلوب',en:'Total Ordered',es:'Total Pedido',pt:'Total Encomendado',tr:'Toplam Sipariş Edilen'})}</span>
                   <span className="text-2xl md:text-3xl font-black text-indigo-600 mt-2 tracking-tight">{stats.totalQty.toLocaleString()} <span className="text-xs font-bold text-slate-450">pcs</span></span>
                 </div>
                 <div className="bg-white border border-slate-200/60 p-5 rounded-3xl shadow-sm flex flex-col justify-between hover:shadow-md transition-all">
-                  <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Total Livré</span>
+                  <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{tx(lang,{fr:'Total Livré',ar:'إجمالي المسلَّم',en:'Total Delivered',es:'Total Entregado',pt:'Total Entregue',tr:'Toplam Teslim Edilen'})}</span>
                   <span className="text-2xl md:text-3xl font-black text-emerald-600 mt-2 tracking-tight">{stats.totalDelivered.toLocaleString()} <span className="text-xs font-bold text-slate-450">pcs</span></span>
                 </div>
                 <div className="bg-white border border-slate-200/60 p-5 rounded-3xl shadow-sm flex flex-col justify-between hover:shadow-md transition-all">
-                  <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Reste à Livrer</span>
+                  <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{tx(lang,{fr:'Reste à Livrer',ar:'المتبقي للتسليم',en:'Remaining to Deliver',es:'Pendiente de Entrega',pt:'Restante para Entregar',tr:'Teslim Edilecek Kalan'})}</span>
                   <span className="text-2xl md:text-3xl font-black text-amber-600 mt-2 tracking-tight">{stats.remainingQty.toLocaleString()} <span className="text-xs font-bold text-slate-450">pcs</span></span>
                 </div>
               </div>
@@ -1203,7 +1206,7 @@ export default function SousTraitance({ models, settings }: SousTraitanceProps) 
                   <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
                   <input
                     type="text"
-                    placeholder="Rechercher sous-traitant, modèle..."
+                    placeholder={tx(lang,{fr:'Rechercher sous-traitant, modèle...',ar:'بحث عن مقاول من الباطن، موديل...',en:'Search subcontractor, model...',es:'Buscar subcontratista, modelo...',pt:'Pesquisar subcontratado, modelo...',tr:'Taşeron, model ara...'})}
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     className="pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 w-full bg-slate-50/50 text-slate-800 placeholder:text-slate-400"
@@ -1217,7 +1220,7 @@ export default function SousTraitance({ models, settings }: SousTraitanceProps) 
                     onChange={(e) => setGroupFilter(e.target.value)}
                     className="text-xs font-bold text-slate-700 bg-slate-50 border border-slate-200 rounded-xl p-2.5 outline-none focus:border-indigo-500 hover:bg-slate-100"
                   >
-                    <option value="ALL">Tous les groupements</option>
+                    <option value="ALL">{tx(lang,{fr:'Tous les groupements',ar:'جميع المجموعات',en:'All Groups',es:'Todos los Grupos',pt:'Todos os Grupos',tr:'Tüm Gruplar'})}</option>
                     {groups.map(g => (
                       <option key={g.id} value={g.id}>{g.group_name}</option>
                     ))}
@@ -1229,13 +1232,13 @@ export default function SousTraitance({ models, settings }: SousTraitanceProps) 
                     onChange={(e) => setStatusFilter(e.target.value)}
                     className="text-xs font-bold text-slate-700 bg-slate-50 border border-slate-200 rounded-xl p-2.5 outline-none focus:border-indigo-500 hover:bg-slate-100"
                   >
-                    <option value="ALL">Tous les statuts</option>
-                    <option value="PENDING">En attente</option>
-                    <option value="IN_COUPE">En Coupe</option>
-                    <option value="IN_COUTURE">En Couture</option>
-                    <option value="IN_FINITION">En Finition</option>
-                    <option value="LIVRE_PARTIEL">Livraison Partielle</option>
-                    <option value="COMPLETED">Complété</option>
+                    <option value="ALL">{tx(lang,{fr:'Tous les statuts',ar:'جميع الحالات',en:'All Statuses',es:'Todos los Estados',pt:'Todos os Estados',tr:'Tüm Durumlar'})}</option>
+                    <option value="PENDING">{tx(lang,{fr:'En attente',ar:'قيد الانتظار',en:'Pending',es:'Pendiente',pt:'Pendente',tr:'Beklemede'})}</option>
+                    <option value="IN_COUPE">{tx(lang,{fr:'En Coupe',ar:'في القص',en:'In Cutting',es:'En Corte',pt:'Em Corte',tr:'Kesimde'})}</option>
+                    <option value="IN_COUTURE">{tx(lang,{fr:'En Couture',ar:'في الخياطة',en:'In Sewing',es:'En Costura',pt:'Em Costura',tr:'Dikişte'})}</option>
+                    <option value="IN_FINITION">{tx(lang,{fr:'En Finition',ar:'في التشطيب',en:'In Finishing',es:'En Acabado',pt:'Em Acabamento',tr:'Bitimde'})}</option>
+                    <option value="LIVRE_PARTIEL">{tx(lang,{fr:'Livraison Partielle',ar:'تسليم جزئي',en:'Partial Delivery',es:'Entrega Parcial',pt:'Entrega Parcial',tr:'Kısmi Teslimat'})}</option>
+                    <option value="COMPLETED">{tx(lang,{fr:'Complété',ar:'مكتمل',en:'Completed',es:'Completado',pt:'Concluído',tr:'Tamamlandı'})}</option>
                   </select>
 
                   {/* View Mode Toggle */}
@@ -1260,7 +1263,7 @@ export default function SousTraitance({ models, settings }: SousTraitanceProps) 
               {filteredOrders.length === 0 ? (
                 <div className="bg-white rounded-3xl border border-slate-200/60 p-16 text-center text-slate-400 shadow-sm">
                   <Package className="w-12 h-12 mx-auto mb-3 opacity-25 text-slate-350" />
-                  <p className="text-xs font-semibold">Aucune commande trouvée</p>
+                  <p className="text-xs font-semibold">{tx(lang,{fr:'Aucune commande trouvée',ar:'لم يتم العثور على أي طلبية',en:'No orders found',es:'No se encontraron pedidos',pt:'Nenhuma encomenda encontrada',tr:'Sipariş bulunamadı'})}</p>
                 </div>
               ) : viewMode === 'card' ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -1280,7 +1283,7 @@ export default function SousTraitance({ models, settings }: SousTraitanceProps) 
                         <div className="p-5 space-y-4">
                           <div className="flex justify-between items-start">
                             <div>
-                              <span className="text-[9px] font-black text-indigo-655 uppercase tracking-widest block">Client: {order.clientName || 'N/A'}</span>
+                              <span className="text-[9px] font-black text-indigo-655 uppercase tracking-widest block">{tx(lang,{fr:'Client:',ar:'العميل:',en:'Client:',es:'Cliente:',pt:'Cliente:',tr:'Müşteri:'})} {order.clientName || 'N/A'}</span>
                               <h3 className="font-bold text-slate-800 text-base mt-1 line-clamp-1">{order.modelName}</h3>
                             </div>
                             <span className={`text-[9px] font-bold px-2.5 py-1 rounded-full uppercase ${
@@ -1290,11 +1293,11 @@ export default function SousTraitance({ models, settings }: SousTraitanceProps) 
                               order.status === 'IN_COUPE' ? 'bg-blue-100 text-blue-700 border border-blue-200' :
                               'bg-slate-100 text-slate-700 border border-slate-200'
                             }`}>
-                              {order.status === 'PENDING' ? 'En attente' :
-                               order.status === 'IN_COUPE' ? 'Coupe' :
-                               order.status === 'IN_COUTURE' ? 'Couture' :
-                               order.status === 'IN_FINITION' ? 'Finition' :
-                               order.status === 'LIVRE_PARTIEL' ? 'Partiel' : 'Complété'}
+                              {order.status === 'PENDING' ? tx(lang,{fr:'En attente',ar:'قيد الانتظار',en:'Pending',es:'Pendiente',pt:'Pendente',tr:'Beklemede'}) :
+                               order.status === 'IN_COUPE' ? tx(lang,{fr:'Coupe',ar:'قص',en:'Cutting',es:'Corte',pt:'Corte',tr:'Kesim'}) :
+                               order.status === 'IN_COUTURE' ? tx(lang,{fr:'Couture',ar:'خياطة',en:'Sewing',es:'Costura',pt:'Costura',tr:'Dikiş'}) :
+                               order.status === 'IN_FINITION' ? tx(lang,{fr:'Finition',ar:'تشطيب',en:'Finishing',es:'Acabado',pt:'Acabamento',tr:'Bitim'}) :
+                               order.status === 'LIVRE_PARTIEL' ? tx(lang,{fr:'Partiel',ar:'جزئي',en:'Partial',es:'Parcial',pt:'Parcial',tr:'Kısmi'}) : tx(lang,{fr:'Complété',ar:'مكتمل',en:'Completed',es:'Completado',pt:'Concluído',tr:'Tamamlandı'})}
                             </span>
                           </div>
 
@@ -1307,18 +1310,18 @@ export default function SousTraitance({ models, settings }: SousTraitanceProps) 
                               )}
                             </div>
                             <div className="space-y-1 text-xs">
-                              <p className="font-semibold text-slate-750">Atelier: {order.subcontractorName}</p>
+                              <p className="font-semibold text-slate-750">{tx(lang,{fr:'Atelier:',ar:'الورشة:',en:'Workshop:',es:'Taller:',pt:'Oficina:',tr:'Atölye:'})} {order.subcontractorName}</p>
                               {order.subcontractorPhone && (
-                                <p className="text-slate-500">Tél: {order.subcontractorPhone}</p>
+                                <p className="text-slate-500">{tx(lang,{fr:'Tél:',ar:'الهاتف:',en:'Tel:',es:'Tel:',pt:'Tel:',tr:'Tel:'})} {order.subcontractorPhone}</p>
                               )}
-                              <p className="text-slate-550">Date: {new Date(order.deliveryDate).toLocaleDateString('fr-FR')}</p>
+                              <p className="text-slate-550">{tx(lang,{fr:'Date:',ar:'التاريخ:',en:'Date:',es:'Fecha:',pt:'Data:',tr:'Tarih:'})} {new Date(order.deliveryDate).toLocaleDateString('fr-FR')}</p>
                             </div>
                           </div>
 
                           {/* Progress bar */}
                           <div className="space-y-1">
                             <div className="flex justify-between text-[11px] font-semibold">
-                              <span className="text-slate-500">Progression : {progress}%</span>
+                              <span className="text-slate-500">{tx(lang,{fr:'Progression :',ar:'التقدم:',en:'Progress:',es:'Progresión:',pt:'Progresso:',tr:'İlerleme:'})} {progress}%</span>
                               <span className="text-indigo-600">{(order.qtyAccepted || 0).toLocaleString()} / {order.totalQuantity.toLocaleString()} pcs</span>
                             </div>
                             <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
@@ -1334,7 +1337,7 @@ export default function SousTraitance({ models, settings }: SousTraitanceProps) 
                             className="text-slate-500 hover:text-indigo-650 transition-colors flex items-center gap-1.5"
                           >
                             <Eye className="w-4 h-4 text-slate-450" />
-                            <span>Consulter</span>
+                            <span>{tx(lang,{fr:'Consulter',ar:'عرض',en:'View',es:'Consultar',pt:'Consultar',tr:'Görüntüle'})}</span>
                           </button>
                           <div className="flex items-center gap-3">
                             <button 
@@ -1342,7 +1345,7 @@ export default function SousTraitance({ models, settings }: SousTraitanceProps) 
                               className="text-indigo-600 hover:text-indigo-700 transition-colors flex items-center gap-1"
                             >
                               <Edit2 className="w-3.5 h-3.5" />
-                              <span>Modifier</span>
+                              <span>{tx(lang,{fr:'Modifier',ar:'تعديل',en:'Edit',es:'Editar',pt:'Editar',tr:'Düzenle'})}</span>
                             </button>
                             <button 
                               onClick={() => handleDeleteOrder(order.id)}
@@ -1362,12 +1365,12 @@ export default function SousTraitance({ models, settings }: SousTraitanceProps) 
                     <table className="w-full text-sm text-left">
                       <thead className="bg-slate-50 border-b border-slate-100 text-slate-500 font-semibold text-xs uppercase">
                         <tr>
-                          <th className="px-6 py-4">Client / Modèle</th>
-                          <th className="px-6 py-4">Sous-traitant</th>
-                          <th className="px-6 py-4">Quantité</th>
-                          <th className="px-6 py-4">Livraison</th>
-                          <th className="px-6 py-4">Statut</th>
-                          <th className="px-6 py-4 text-right">Actions</th>
+                          <th className="px-6 py-4">{tx(lang,{fr:'Client / Modèle',ar:'العميل / الموديل',en:'Client / Model',es:'Cliente / Modelo',pt:'Cliente / Modelo',tr:'Müşteri / Model'})}</th>
+                          <th className="px-6 py-4">{tx(lang,{fr:'Sous-traitant',ar:'المقاول من الباطن',en:'Subcontractor',es:'Subcontratista',pt:'Subcontratado',tr:'Taşeron'})}</th>
+                          <th className="px-6 py-4">{tx(lang,{fr:'Quantité',ar:'الكمية',en:'Quantity',es:'Cantidad',pt:'Quantidade',tr:'Miktar'})}</th>
+                          <th className="px-6 py-4">{tx(lang,{fr:'Livraison',ar:'التسليم',en:'Delivery',es:'Entrega',pt:'Entrega',tr:'Teslimat'})}</th>
+                          <th className="px-6 py-4">{tx(lang,{fr:'Statut',ar:'الحالة',en:'Status',es:'Estado',pt:'Estado',tr:'Durum'})}</th>
+                          <th className="px-6 py-4 text-right">{tx(lang,{fr:'Actions',ar:'الإجراءات',en:'Actions',es:'Acciones',pt:'Ações',tr:'İşlemler'})}</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100 text-slate-700 bg-white">
@@ -1379,7 +1382,7 @@ export default function SousTraitance({ models, settings }: SousTraitanceProps) 
                             </td>
                             <td className="px-6 py-4">
                               <span className="font-semibold block text-slate-800">{order.subcontractorName}</span>
-                              <span className="text-xs text-slate-500">{order.subcontractorPhone || 'Pas de numéro'}</span>
+                              <span className="text-xs text-slate-500">{order.subcontractorPhone || tx(lang,{fr:'Pas de numéro',ar:'لا يوجد رقم',en:'No phone',es:'Sin número',pt:'Sem número',tr:'Numara yok'})}</span>
                             </td>
                             <td className="px-6 py-4 font-medium text-slate-800">
                               {(order.qtyAccepted || 0).toLocaleString()} / {order.totalQuantity.toLocaleString()} pcs
@@ -1393,12 +1396,12 @@ export default function SousTraitance({ models, settings }: SousTraitanceProps) 
                                 onChange={(e) => handleStatusChange(order.id, e.target.value)}
                                 className="text-xs font-bold text-slate-700 bg-slate-50 border border-slate-200 rounded-lg p-1.5 focus:border-indigo-500 outline-none hover:bg-slate-100"
                               >
-                                <option value="PENDING">En attente</option>
-                                <option value="IN_COUPE">En Coupe</option>
-                                <option value="IN_COUTURE">En Couture</option>
-                                <option value="IN_FINITION">En Finition</option>
-                                <option value="LIVRE_PARTIEL">Partiel</option>
-                                <option value="COMPLETED">Complété</option>
+                                <option value="PENDING">{tx(lang,{fr:'En attente',ar:'قيد الانتظار',en:'Pending',es:'Pendiente',pt:'Pendente',tr:'Beklemede'})}</option>
+                                <option value="IN_COUPE">{tx(lang,{fr:'En Coupe',ar:'في القص',en:'In Cutting',es:'En Corte',pt:'Em Corte',tr:'Kesimde'})}</option>
+                                <option value="IN_COUTURE">{tx(lang,{fr:'En Couture',ar:'في الخياطة',en:'In Sewing',es:'En Costura',pt:'Em Costura',tr:'Dikişte'})}</option>
+                                <option value="IN_FINITION">{tx(lang,{fr:'En Finition',ar:'في التشطيب',en:'In Finishing',es:'En Acabado',pt:'Em Acabamento',tr:'Bitimde'})}</option>
+                                <option value="LIVRE_PARTIEL">{tx(lang,{fr:'Partiel',ar:'جزئي',en:'Partial',es:'Parcial',pt:'Parcial',tr:'Kısmi'})}</option>
+                                <option value="COMPLETED">{tx(lang,{fr:'Complété',ar:'مكتمل',en:'Completed',es:'Completado',pt:'Concluído',tr:'Tamamlandı'})}</option>
                               </select>
                             </td>
                             <td className="px-6 py-4 text-right">
@@ -1406,7 +1409,7 @@ export default function SousTraitance({ models, settings }: SousTraitanceProps) 
                                 <button onClick={() => { setDetailOrder(order); setIsDetailModalOpen(true); }} className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg">
                                   <Eye className="w-4 h-4" />
                                 </button>
-                                <button onClick={() => handlePrintDeliveryNote(order)} className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-slate-100 rounded-lg" title="Bon d'envoi">
+                                <button onClick={() => handlePrintDeliveryNote(order)} className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-slate-100 rounded-lg" title={tx(lang,{fr:"Bon d'envoi",ar:'مذكرة إرسال',en:'Delivery Note',es:'Nota de Envío',pt:'Nota de Remessa',tr:'Sevk İrsaliyesi'})}>
                                   <Printer className="w-4 h-4" />
                                 </button>
                                 <button onClick={() => openEditModal(order)} className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-slate-100 rounded-lg">
@@ -1434,13 +1437,13 @@ export default function SousTraitance({ models, settings }: SousTraitanceProps) 
             <div className="space-y-6">
               {/* Group filter selection */}
               <div className="bg-white rounded-3xl p-4 border border-slate-200/60 shadow-sm flex flex-col md:flex-row gap-4 items-center justify-between">
-                <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Filtrer par groupement d'entreprises :</p>
+                <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">{tx(lang,{fr:'Filtrer par groupement d\'entreprises :',ar:'تصفية حسب مجموعة الشركات:',en:'Filter by company group:',es:'Filtrar por grupo de empresas:',pt:'Filtrar por grupo de empresas:',tr:'Şirket grubuna göre filtrele:'})}</p>
                 <select
                   value={groupFilter}
                   onChange={(e) => setGroupFilter(e.target.value)}
                   className="text-xs font-bold text-slate-700 bg-slate-50 border border-slate-200 rounded-xl p-2.5 w-full md:w-64 outline-none focus:border-indigo-500 hover:bg-slate-100"
                 >
-                  <option value="ALL">Tous les groupements</option>
+                  <option value="ALL">{tx(lang,{fr:'Tous les groupements',ar:'جميع المجموعات',en:'All Groups',es:'Todos los Grupos',pt:'Todos os Grupos',tr:'Tüm Gruplar'})}</option>
                   {groups.map(g => (
                     <option key={g.id} value={g.id}>{g.group_name}</option>
                   ))}
@@ -1450,7 +1453,7 @@ export default function SousTraitance({ models, settings }: SousTraitanceProps) 
               {subcontractorStats.length === 0 ? (
                 <div className="bg-white rounded-3xl border border-slate-200/60 p-16 text-center text-slate-400 shadow-sm">
                   <Users className="w-12 h-12 mx-auto mb-3 opacity-25 text-slate-350" />
-                  <p className="text-xs font-semibold">Aucun sous-traitant actif trouvé</p>
+                  <p className="text-xs font-semibold">{tx(lang,{fr:'Aucun sous-traitant actif trouvé',ar:'لم يتم العثور على أي مقاول من الباطن نشط',en:'No active subcontractor found',es:'No se encontró ningún subcontratista activo',pt:'Nenhum subcontratado ativo encontrado',tr:'Aktif taşeron bulunamadı'})}</p>
                 </div>
               ) : (
                 <div className="bg-white rounded-3xl border border-slate-200/60 shadow-sm overflow-hidden">
@@ -1458,13 +1461,13 @@ export default function SousTraitance({ models, settings }: SousTraitanceProps) 
                     <table className="w-full text-sm text-left">
                       <thead className="bg-slate-50 border-b border-slate-100 text-slate-500 font-semibold text-xs uppercase">
                         <tr>
-                          <th className="px-6 py-4">Nom de l'Atelier / Tél</th>
-                          <th className="px-6 py-4">Commandes</th>
-                          <th className="px-6 py-4">Modèles Actifs</th>
-                          <th className="px-6 py-4">Quantité Commandée</th>
-                          <th className="px-6 py-4">Livrée (fourni)</th>
-                          <th className="px-6 py-4">Restante (reste)</th>
-                          <th className="px-6 py-4">Progression</th>
+                          <th className="px-6 py-4">{tx(lang,{fr:"Nom de l'Atelier / Tél",ar:'اسم الورشة / الهاتف',en:'Workshop Name / Phone',es:'Nombre del Taller / Teléfono',pt:'Nome da Oficina / Telefone',tr:'Atölye Adı / Telefon'})}</th>
+                          <th className="px-6 py-4">{tx(lang,{fr:'Commandes',ar:'الطلبيات',en:'Orders',es:'Pedidos',pt:'Encomendas',tr:'Siparişler'})}</th>
+                          <th className="px-6 py-4">{tx(lang,{fr:'Modèles Actifs',ar:'الموديلات النشطة',en:'Active Models',es:'Modelos Activos',pt:'Modelos Ativos',tr:'Aktif Modeller'})}</th>
+                          <th className="px-6 py-4">{tx(lang,{fr:'Quantité Commandée',ar:'الكمية المطلوبة',en:'Ordered Quantity',es:'Cantidad Pedida',pt:'Quantidade Encomendada',tr:'Sipariş Edilen Miktar'})}</th>
+                          <th className="px-6 py-4">{tx(lang,{fr:'Livrée (fourni)',ar:'المسلَّم',en:'Delivered',es:'Entregado',pt:'Entregue',tr:'Teslim Edilen'})}</th>
+                          <th className="px-6 py-4">{tx(lang,{fr:'Restante (reste)',ar:'المتبقي',en:'Remaining',es:'Restante',pt:'Restante',tr:'Kalan'})}</th>
+                          <th className="px-6 py-4">{tx(lang,{fr:'Progression',ar:'التقدم',en:'Progress',es:'Progreso',pt:'Progresso',tr:'İlerleme'})}</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100 text-slate-700 bg-white">
@@ -1523,14 +1526,14 @@ export default function SousTraitance({ models, settings }: SousTraitanceProps) 
                   <table className="w-full text-sm text-left">
                     <thead className="bg-slate-50 border-b border-slate-100 text-slate-500 font-semibold text-xs uppercase">
                       <tr>
-                        <th className="px-6 py-4">Modèle</th>
-                        <th className="px-6 py-4">Date Lancement</th>
-                        <th className="px-6 py-4">État de production</th>
-                        <th className="px-6 py-4">Produit (réalisé)</th>
-                        <th className="px-6 py-4">Vendu (sorti)</th>
-                        <th className="px-6 py-4">Stock Restant</th>
-                        <th className="px-6 py-4">Prix Estimé</th>
-                        <th className="px-6 py-4 text-right">Actions</th>
+                        <th className="px-6 py-4">{tx(lang,{fr:'Modèle',ar:'الموديل',en:'Model',es:'Modelo',pt:'Modelo',tr:'Model'})}</th>
+                        <th className="px-6 py-4">{tx(lang,{fr:'Date Lancement',ar:'تاريخ الإطلاق',en:'Launch Date',es:'Fecha de Inicio',pt:'Data de Lançamento',tr:'Başlangıç Tarihi'})}</th>
+                        <th className="px-6 py-4">{tx(lang,{fr:'État de production',ar:'حالة الإنتاج',en:'Production Status',es:'Estado de Producción',pt:'Estado de Produção',tr:'Üretim Durumu'})}</th>
+                        <th className="px-6 py-4">{tx(lang,{fr:'Produit (réalisé)',ar:'المنتج (المنجز)',en:'Produced',es:'Producido',pt:'Produzido',tr:'Üretilen'})}</th>
+                        <th className="px-6 py-4">{tx(lang,{fr:'Vendu (sorti)',ar:'المباع (المخرج)',en:'Sold',es:'Vendido',pt:'Vendido',tr:'Satılan'})}</th>
+                        <th className="px-6 py-4">{tx(lang,{fr:'Stock Restant',ar:'المخزون المتبقي',en:'Remaining Stock',es:'Stock Restante',pt:'Stock Restante',tr:'Kalan Stok'})}</th>
+                        <th className="px-6 py-4">{tx(lang,{fr:'Prix Estimé',ar:'السعر التقديري',en:'Estimated Price',es:'Precio Estimado',pt:'Preço Estimado',tr:'Tahmini Fiyat'})}</th>
+                        <th className="px-6 py-4 text-right">{tx(lang,{fr:'Actions',ar:'الإجراءات',en:'Actions',es:'Acciones',pt:'Ações',tr:'İşlemler'})}</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 text-slate-700 bg-white">
@@ -1547,7 +1550,7 @@ export default function SousTraitance({ models, settings }: SousTraitanceProps) 
                               </div>
                               <div>
                                 <span className="font-semibold block text-slate-800">{item.model.meta_data.nom_modele}</span>
-                                <span className="text-[9px] text-indigo-600 block font-normal uppercase">Client: {item.model.ficheData?.client || 'N/A'}</span>
+                                <span className="text-[9px] text-indigo-600 block font-normal uppercase">{tx(lang,{fr:'Client:',ar:'العميل:',en:'Client:',es:'Cliente:',pt:'Cliente:',tr:'Müşteri:'})} {item.model.ficheData?.client || 'N/A'}</span>
                               </div>
                             </div>
                           </td>
@@ -1556,11 +1559,13 @@ export default function SousTraitance({ models, settings }: SousTraitanceProps) 
                           </td>
                           <td className="px-6 py-4">
                             <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full uppercase ${
-                              item.status === 'Terminé' ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' :
-                              item.status === 'En production' ? 'bg-purple-100 text-purple-700 border border-purple-200' :
+                              item.status === 'FINISHED' ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' :
+                              item.status === 'IN_PRODUCTION' ? 'bg-purple-100 text-purple-700 border border-purple-200' :
                               'bg-slate-100 text-slate-600 border border-slate-200'
                             }`}>
-                              {item.status}
+                              {item.status === 'FINISHED' ? tx(lang,{fr:'Terminé',ar:'منتهٍ',en:'Finished',es:'Terminado',pt:'Terminado',tr:'Bitti'}) :
+                               item.status === 'IN_PRODUCTION' ? tx(lang,{fr:'En production',ar:'قيد الإنتاج',en:'In production',es:'En producción',pt:'Em produção',tr:'Üretimde'}) :
+                               tx(lang,{fr:'Inactif',ar:'غير نشط',en:'Inactive',es:'Inactivo',pt:'Inativo',tr:'Pasif'})}
                             </span>
                           </td>
                           <td className="px-6 py-4 font-semibold text-slate-800">
@@ -1585,7 +1590,7 @@ export default function SousTraitance({ models, settings }: SousTraitanceProps) 
                                   : 'bg-slate-100 text-slate-400 cursor-not-allowed border border-slate-200'
                               }`}
                             >
-                              Sortie Facture
+                              {tx(lang,{fr:'Sortie Facture',ar:'إخراج فاتورة',en:'Issue Invoice',es:'Emitir Factura',pt:'Emitir Fatura',tr:'Fatura Kes'})}
                             </button>
                           </td>
                         </tr>
@@ -1605,18 +1610,18 @@ export default function SousTraitance({ models, settings }: SousTraitanceProps) 
               {/* Groups List */}
               <div className="lg:col-span-1 bg-white border border-slate-200/60 rounded-3xl p-5 shadow-sm space-y-4">
                 <div className="flex justify-between items-center">
-                  <h3 className="font-bold text-slate-800 text-xs md:text-sm uppercase tracking-wider">Groupements enregistrés</h3>
+                  <h3 className="font-bold text-slate-800 text-xs md:text-sm uppercase tracking-wider">{tx(lang,{fr:'Groupements enregistrés',ar:'المجموعات المسجلة',en:'Registered Groups',es:'Grupos Registrados',pt:'Grupos Registados',tr:'Kayıtlı Gruplar'})}</h3>
                   <button 
                     onClick={handleAddNewGroupMode}
                     className="p-1.5 text-indigo-650 hover:bg-indigo-50 hover:text-indigo-700 rounded-lg transition-colors text-xs font-bold flex items-center gap-1 border border-indigo-200 bg-white"
                   >
                     <Plus className="w-3.5 h-3.5" />
-                    <span>Nouveau</span>
+                    <span>{tx(lang,{fr:'Nouveau',ar:'جديد',en:'New',es:'Nuevo',pt:'Novo',tr:'Yeni'})}</span>
                   </button>
                 </div>
                 
                 {groups.length === 0 ? (
-                  <p className="text-xs text-slate-400 text-center py-6">Aucun groupement de sociétés défini</p>
+                  <p className="text-xs text-slate-400 text-center py-6">{tx(lang,{fr:'Aucun groupement de sociétés défini',ar:'لم يتم تعريف أي مجموعة شركات',en:'No company group defined',es:'Ningún grupo de empresas definido',pt:'Nenhum grupo de empresas definido',tr:'Hiçbir şirket grubu tanımlanmamış'})}</p>
                 ) : (
                   <div className="space-y-2 max-h-96 overflow-y-auto pr-1">
                     {groups.map(grp => (
@@ -1631,7 +1636,7 @@ export default function SousTraitance({ models, settings }: SousTraitanceProps) 
                       >
                         <div>
                           <p className={`font-semibold text-xs ${selectedGroup?.id === grp.id ? 'text-indigo-900 font-bold' : 'text-slate-800'}`}>{grp.group_name}</p>
-                          <p className="text-[10px] text-slate-400 mt-1">{grp.subcontractor_names?.length || 0} sous-traitants liés</p>
+                          <p className="text-[10px] text-slate-400 mt-1">{grp.subcontractor_names?.length || 0} {tx(lang,{fr:'sous-traitants liés',ar:'مقاولي باطن مرتبطين',en:'linked subcontractors',es:'subcontratistas vinculados',pt:'subcontratados vinculados',tr:'bağlı taşeron'})}</p>
                         </div>
                         <ChevronRight className="w-4 h-4 text-slate-400" />
                       </div>
@@ -1646,7 +1651,7 @@ export default function SousTraitance({ models, settings }: SousTraitanceProps) 
                   <form onSubmit={handleSaveGroup} className="bg-white border border-slate-200/60 rounded-3xl p-5 shadow-sm space-y-6">
                     <div className="flex justify-between items-center border-b border-slate-100 pb-3">
                       <h3 className="font-bold text-slate-800 text-xs md:text-sm uppercase tracking-wider">
-                        {selectedGroup ? 'Modifier le groupement' : 'Créer un nouveau groupement'}
+                        {selectedGroup ? tx(lang,{fr:'Modifier le groupement',ar:'تعديل المجموعة',en:'Edit Group',es:'Editar Grupo',pt:'Editar Grupo',tr:'Grubu Düzenle'}) : tx(lang,{fr:'Créer un nouveau groupement',ar:'إنشاء مجموعة جديدة',en:'Create New Group',es:'Crear Nuevo Grupo',pt:'Criar Novo Grupo',tr:'Yeni Grup Oluştur'})}
                       </h3>
                       <button 
                         type="button" 
@@ -1658,10 +1663,10 @@ export default function SousTraitance({ models, settings }: SousTraitanceProps) 
                     </div>
 
                     <div className="space-y-2">
-                      <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest">Nom du Groupement *</label>
+                      <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest">{tx(lang,{fr:'Nom du Groupement *',ar:'اسم المجموعة *',en:'Group Name *',es:'Nombre del Grupo *',pt:'Nome do Grupo *',tr:'Grup Adı *'})}</label>
                       <input 
                         type="text"
-                        placeholder="Ex: Groupement Maille, Confection Sud..."
+                        placeholder={tx(lang,{fr:'Ex: Groupement Maille, Confection Sud...',ar:'مثال: مجموعة التريكو، الخياطة الجنوبية...',en:'E.g.: Knit Group, Southern Confection...',es:'Ej: Grupo de Punto, Confección Sur...',pt:'Ex: Grupo Malha, Confecção Sul...',tr:'Örn: Örme Grubu, Güney Konfeksiyon...'})}
                         value={groupFormName}
                         onChange={(e) => setGroupFormName(e.target.value)}
                         className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-xs outline-none focus:border-indigo-500 text-slate-800 focus:bg-white"
@@ -1671,10 +1676,10 @@ export default function SousTraitance({ models, settings }: SousTraitanceProps) 
 
                     <div className="space-y-3">
                       <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                        Sous-traitants associés ({groupFormSubs.length})
+                        {tx(lang,{fr:'Sous-traitants associés',ar:'المقاولون من الباطن المرتبطون',en:'Associated Subcontractors',es:'Subcontratistas Asociados',pt:'Subcontratados Associados',tr:'İlişkili Taşeronlar'})} ({groupFormSubs.length})
                       </label>
                       {subcontractorNames.length === 0 ? (
-                        <p className="text-xs text-slate-400 italic">Aucun sous-traitant disponible dans le système (créez d'abord des commandes)</p>
+                        <p className="text-xs text-slate-400 italic">{tx(lang,{fr:'Aucun sous-traitant disponible dans le système (créez d\'abord des commandes)',ar:'لا يوجد مقاول من الباطن متاح في النظام (أنشئ طلبيات أولاً)',en:'No subcontractor available in the system (create orders first)',es:'Ningún subcontratista disponible en el sistema (cree pedidos primero)',pt:'Nenhum subcontratado disponível no sistema (crie encomendas primeiro)',tr:'Sistemde taşeron yok (önce sipariş oluşturun)'})}</p>
                       ) : (
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-60 overflow-y-auto p-1 border border-slate-100 rounded-xl bg-slate-50/50">
                           {subcontractorNames.map(subName => {
@@ -1710,7 +1715,7 @@ export default function SousTraitance({ models, settings }: SousTraitanceProps) 
                           onClick={() => handleDeleteGroup(selectedGroup.id)}
                           className="px-4 py-2 text-rose-600 hover:bg-rose-50 rounded-xl text-xs font-bold transition-all border border-transparent hover:border-rose-200"
                         >
-                          Supprimer le groupe
+                          {tx(lang,{fr:'Supprimer le groupe',ar:'حذف المجموعة',en:'Delete Group',es:'Eliminar Grupo',pt:'Eliminar Grupo',tr:'Grubu Sil'})}
                         </button>
                       )}
                       <div className="flex gap-3 ml-auto">
@@ -1719,7 +1724,7 @@ export default function SousTraitance({ models, settings }: SousTraitanceProps) 
                           onClick={() => setIsEditingGroup(false)}
                           className="px-4 py-2 border border-slate-200 hover:bg-slate-50 text-slate-500 rounded-xl text-xs font-bold transition-all"
                         >
-                          Annuler
+                          {tx(lang,{fr:'Annuler',ar:'إلغاء',en:'Cancel',es:'Cancelar',pt:'Cancelar',tr:'İptal'})}
                         </button>
                         <button 
                           type="submit"
@@ -1727,7 +1732,7 @@ export default function SousTraitance({ models, settings }: SousTraitanceProps) 
                           className="bg-indigo-600 hover:bg-indigo-500 text-white px-5 py-2.5 rounded-xl text-xs font-bold transition-all shadow-md flex items-center gap-2 border border-indigo-500/50"
                         >
                           {actionLoading && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-                          <span>Enregistrer</span>
+                          <span>{tx(lang,{fr:'Enregistrer',ar:'حفظ',en:'Save',es:'Guardar',pt:'Guardar',tr:'Kaydet'})}</span>
                         </button>
                       </div>
                     </div>
@@ -1735,7 +1740,7 @@ export default function SousTraitance({ models, settings }: SousTraitanceProps) 
                 ) : (
                   <div className="bg-white border border-slate-200/60 rounded-3xl p-16 text-center text-slate-400 h-full flex flex-col justify-center items-center shadow-sm">
                     <Layers className="w-12 h-12 mb-3 opacity-20 text-slate-400" />
-                    <p className="text-xs font-semibold">Sélectionnez un groupe pour le modifier ou créez-en un nouveau.</p>
+                    <p className="text-xs font-semibold">{tx(lang,{fr:'Sélectionnez un groupe pour le modifier ou créez-en un nouveau.',ar:'اختر مجموعة لتعديلها أو أنشئ مجموعة جديدة.',en:'Select a group to edit or create a new one.',es:'Seleccione un grupo para editarlo o cree uno nuevo.',pt:'Selecione um grupo para editar ou crie um novo.',tr:'Düzenlemek için bir grup seçin veya yeni bir tane oluşturun.'})}</p>
                   </div>
                 )}
               </div>
@@ -1751,7 +1756,7 @@ export default function SousTraitance({ models, settings }: SousTraitanceProps) 
             <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/50">
               <h2 className="font-bold text-slate-800 text-base flex items-center gap-2">
                 <Truck className="w-5 h-5 text-indigo-600" />
-                <span>Nouvelle Commande de Sous-traitance</span>
+                <span>{tx(lang,{fr:'Nouvelle Commande de Sous-traitance',ar:'أمر مقاولة من الباطن جديد',en:'New Subcontract Order',es:'Nuevo Pedido de Subcontratación',pt:'Nova Encomenda de Subcontratação',tr:'Yeni Taşeron Siparişi'})}</span>
               </h2>
               <button onClick={() => setIsAddModalOpen(false)} className="p-1.5 hover:bg-slate-100 rounded-full transition-colors text-slate-400 hover:text-slate-650">
                 <X className="w-5 h-5" />
@@ -1765,21 +1770,21 @@ export default function SousTraitance({ models, settings }: SousTraitanceProps) 
                 onClick={() => setModalFormTab('general')}
                 className={`py-3 border-b-2 ${modalFormTab === 'general' ? 'text-indigo-600 border-indigo-600' : 'text-slate-500 border-transparent'}`}
               >
-                Général & Quantités
+                {tx(lang,{fr:'Général & Quantités',ar:'عام والكميات',en:'General & Quantities',es:'General y Cantidades',pt:'Geral e Quantidades',tr:'Genel ve Miktarlar'})}
               </button>
               <button 
                 type="button"
                 onClick={() => setModalFormTab('logistics')}
                 className={`py-3 border-b-2 ${modalFormTab === 'logistics' ? 'text-indigo-600 border-indigo-600' : 'text-slate-500 border-transparent'}`}
               >
-                Logistique & Suivi
+                {tx(lang,{fr:'Logistique & Suivi',ar:'اللوجستيك والمتابعة',en:'Logistics & Tracking',es:'Logística y Seguimiento',pt:'Logística e Acompanhamento',tr:'Lojistik ve Takip'})}
               </button>
               <button 
                 type="button"
                 onClick={() => setModalFormTab('technical')}
                 className={`py-3 border-b-2 ${modalFormTab === 'technical' ? 'text-indigo-600 border-indigo-600' : 'text-slate-500 border-transparent'}`}
               >
-                Spécifications Techniques
+                {tx(lang,{fr:'Spécifications Techniques',ar:'المواصفات التقنية',en:'Technical Specifications',es:'Especificaciones Técnicas',pt:'Especificações Técnicas',tr:'Teknik Şartname'})}
               </button>
             </div>
 
@@ -1788,46 +1793,46 @@ export default function SousTraitance({ models, settings }: SousTraitanceProps) 
                 <div className="space-y-5">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-1.5">
-                      <label className="block font-bold text-slate-400 uppercase tracking-widest text-[10px]">Modèle *</label>
+                      <label className="block font-bold text-slate-400 uppercase tracking-widest text-[10px]">{tx(lang,{fr:'Modèle *',ar:'الموديل *',en:'Model *',es:'Modelo *',pt:'Modelo *',tr:'Model *'})}</label>
                       <select 
                         value={formModelId} 
                         onChange={(e) => handleModelChange(e.target.value)}
                         className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-800 outline-none focus:border-indigo-500 focus:bg-white"
                       >
                         {models.map(m => (
-                          <option key={m.id} value={m.id}>{m.meta_data.nom_modele} ({m.meta_data.reference || 'Aucune ref'})</option>
+                          <option key={m.id} value={m.id}>{m.meta_data.nom_modele} ({m.meta_data.reference || tx(lang,{fr:'Aucune ref',ar:'لا يوجد مرجع',en:'No ref',es:'Sin ref',pt:'Sem ref',tr:'Referans yok'})})</option>
                         ))}
-                        <option value="MANUAL">Saisie Manuelle (Sans modèle existant)</option>
+                        <option value="MANUAL">{tx(lang,{fr:'Saisie Manuelle (Sans modèle existant)',ar:'إدخال يدوي (بدون موديل موجود)',en:'Manual Entry (No existing model)',es:'Entrada Manual (Sin modelo existente)',pt:'Inserção Manual (Sem modelo existente)',tr:'Manuel Giriş (Mevcut model yok)'})}</option>
                       </select>
                     </div>
 
                     <div className="space-y-1.5">
-                      <label className="block font-bold text-slate-400 uppercase tracking-widest text-[10px]">Nom du Client</label>
+                      <label className="block font-bold text-slate-400 uppercase tracking-widest text-[10px]">{tx(lang,{fr:'Nom du Client',ar:'اسم العميل',en:'Client Name',es:'Nombre del Cliente',pt:'Nome do Cliente',tr:'Müşteri Adı'})}</label>
                       <input 
                         type="text" 
                         value={formClientName} 
                         onChange={(e) => setFormClientName(e.target.value)}
                         className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-800 outline-none focus:border-indigo-500 focus:bg-white"
-                        placeholder="Nom du client donneur d'ordre"
+                        placeholder={tx(lang,{fr:"Nom du client donneur d'ordre",ar:'اسم العميل صاحب الطلب',en:'Ordering client name',es:'Nombre del cliente ordenante',pt:'Nome do cliente mandante',tr:'Sipariş veren müşteri adı'})}
                       />
                     </div>
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div className="space-y-1.5">
-                      <label className="block font-bold text-slate-400 uppercase tracking-widest text-[10px]">Nom du Sous-traitant *</label>
+                      <label className="block font-bold text-slate-400 uppercase tracking-widest text-[10px]">{tx(lang,{fr:'Nom du Sous-traitant *',ar:'اسم المقاول من الباطن *',en:'Subcontractor Name *',es:'Nombre del Subcontratista *',pt:'Nome do Subcontratado *',tr:'Taşeron Adı *'})}</label>
                       <input 
                         type="text" 
                         value={formSubcontractorName} 
                         onChange={(e) => setFormSubcontractorName(e.target.value)}
                         className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-800 outline-none focus:border-indigo-500 focus:bg-white"
-                        placeholder="Atelier externe"
+                        placeholder={tx(lang,{fr:'Atelier externe',ar:'ورشة خارجية',en:'External workshop',es:'Taller externo',pt:'Oficina externa',tr:'Harici atölye'})}
                         required
                       />
                     </div>
 
                     <div className="space-y-1.5">
-                      <label className="block font-bold text-slate-400 uppercase tracking-widest text-[10px]">Téléphone</label>
+                      <label className="block font-bold text-slate-400 uppercase tracking-widest text-[10px]">{tx(lang,{fr:'Téléphone',ar:'الهاتف',en:'Phone',es:'Teléfono',pt:'Telefone',tr:'Telefon'})}</label>
                       <input 
                         type="text" 
                         value={formSubcontractorPhone} 
@@ -1838,7 +1843,7 @@ export default function SousTraitance({ models, settings }: SousTraitanceProps) 
                     </div>
 
                     <div className="space-y-1.5">
-                      <label className="block font-bold text-slate-400 uppercase tracking-widest text-[10px]">Date livraison prévue *</label>
+                      <label className="block font-bold text-slate-400 uppercase tracking-widest text-[10px]">{tx(lang,{fr:'Date livraison prévue *',ar:'تاريخ التسليم المتوقع *',en:'Expected delivery date *',es:'Fecha de entrega prevista *',pt:'Data de entrega prevista *',tr:'Beklenen teslimat tarihi *'})}</label>
                       <input 
                         type="date" 
                         value={batches[0].deliveryDate} 
@@ -1855,7 +1860,7 @@ export default function SousTraitance({ models, settings }: SousTraitanceProps) 
 
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                     <div className="space-y-1.5">
-                      <label className="block font-bold text-slate-400 uppercase tracking-widest text-[10px]">Quantité Totale *</label>
+                      <label className="block font-bold text-slate-400 uppercase tracking-widest text-[10px]">{tx(lang,{fr:'Quantité Totale *',ar:'الكمية الإجمالية *',en:'Total Quantity *',es:'Cantidad Total *',pt:'Quantidade Total *',tr:'Toplam Miktar *'})}</label>
                       <input 
                         type="number" 
                         value={formTotalQuantity || ''} 
@@ -1866,7 +1871,7 @@ export default function SousTraitance({ models, settings }: SousTraitanceProps) 
                     </div>
 
                     <div className="space-y-1.5">
-                      <label className="block font-bold text-slate-400 uppercase tracking-widest text-[10px]">Tarif par pièce (MAD)</label>
+                      <label className="block font-bold text-slate-400 uppercase tracking-widest text-[10px]">{tx(lang,{fr:'Tarif par pièce (MAD)',ar:'سعر القطعة (MAD)',en:'Price per piece (MAD)',es:'Precio por pieza (MAD)',pt:'Preço por peça (MAD)',tr:'Birim fiyat (MAD)'})}</label>
                       <input 
                         type="number" 
                         step="0.01" 
@@ -1877,13 +1882,13 @@ export default function SousTraitance({ models, settings }: SousTraitanceProps) 
                     </div>
 
                     <div className="space-y-1.5 col-span-2 md:col-span-1">
-                      <label className="block font-bold text-slate-400 uppercase tracking-widest text-[10px]">Note / Instruction</label>
+                      <label className="block font-bold text-slate-400 uppercase tracking-widest text-[10px]">{tx(lang,{fr:'Note / Instruction',ar:'ملاحظة / تعليمات',en:'Note / Instruction',es:'Nota / Instrucción',pt:'Nota / Instrução',tr:'Not / Talimat'})}</label>
                       <input 
                         type="text" 
                         value={formNotes} 
                         onChange={(e) => setFormNotes(e.target.value)}
                         className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-800 outline-none focus:border-indigo-500 focus:bg-white"
-                        placeholder="Détails logistiques..."
+                        placeholder={tx(lang,{fr:'Détails logistiques...',ar:'تفاصيل لوجستية...',en:'Logistics details...',es:'Detalles logísticos...',pt:'Detalhes logísticos...',tr:'Lojistik detaylar...'})}
                       />
                     </div>
                   </div>
@@ -1891,11 +1896,11 @@ export default function SousTraitance({ models, settings }: SousTraitanceProps) 
                   {/* Grid matrix colors & sizes */}
                   <div className="border border-slate-200 rounded-2xl p-4 bg-slate-50/50 space-y-4">
                     <div className="flex justify-between items-center flex-wrap gap-2">
-                      <span className="font-bold text-slate-800">Matrice Couleur - Taille (Facultatif)</span>
+                      <span className="font-bold text-slate-800">{tx(lang,{fr:'Matrice Couleur - Taille (Facultatif)',ar:'مصفوفة اللون - المقاس (اختياري)',en:'Color - Size Matrix (Optional)',es:'Matriz Color - Talla (Opcional)',pt:'Matriz Cor - Tamanho (Opcional)',tr:'Renk - Beden Matrisi (İsteğe Bağlı)'})}</span>
                       <div className="flex items-center gap-2">
                         <input 
                           type="text" 
-                          placeholder="Ajouter couleur" 
+                          placeholder={tx(lang,{fr:'Ajouter couleur',ar:'إضافة لون',en:'Add color',es:'Añadir color',pt:'Adicionar cor',tr:'Renk ekle'})} 
                           value={newColorInput} 
                           onChange={(e) => setNewColorInput(e.target.value)}
                           className="bg-white border border-slate-200 rounded-lg px-2.5 py-1 text-[11px] outline-none text-slate-800 focus:border-indigo-500"
@@ -1905,21 +1910,21 @@ export default function SousTraitance({ models, settings }: SousTraitanceProps) 
                           onClick={handleAddColor}
                           className="bg-indigo-600 text-white px-3 py-1 rounded-lg hover:bg-indigo-500 font-bold transition-all text-[11px]"
                         >
-                          Ajouter
+                          {tx(lang,{fr:'Ajouter',ar:'إضافة',en:'Add',es:'Añadir',pt:'Adicionar',tr:'Ekle'})}
                         </button>
                       </div>
                     </div>
 
                     {Object.keys(batches[0].grid).length === 0 ? (
-                      <p className="text-[11px] text-slate-500 italic">Aucune couleur configurée. Le lot sera traité de manière globale.</p>
+                      <p className="text-[11px] text-slate-500 italic">{tx(lang,{fr:'Aucune couleur configurée. Le lot sera traité de manière globale.',ar:'لم يتم تكوين أي لون. سيتم معالجة الدفعة بشكل إجمالي.',en:'No color configured. The batch will be processed globally.',es:'Ningún color configurado. El lote se procesará de forma global.',pt:'Nenhuma cor configurada. O lote será processado globalmente.',tr:'Hiçbir renk yapılandırılmadı. Parti genel olarak işlenecek.'})}</p>
                     ) : (
                       <div className="overflow-x-auto">
                         <table className="w-full text-left">
                           <thead>
                             <tr className="border-b border-slate-200 text-slate-500 font-bold">
-                              <th className="py-2 pr-4">Couleur</th>
+                              <th className="py-2 pr-4">{tx(lang,{fr:'Couleur',ar:'اللون',en:'Color',es:'Color',pt:'Cor',tr:'Renk'})}</th>
                               {COMMON_SIZES.map(sz => <th key={sz} className="py-2 px-1 text-center">{sz}</th>)}
-                              <th className="py-2 text-right">Action</th>
+                              <th className="py-2 text-right">{tx(lang,{fr:'Action',ar:'إجراء',en:'Action',es:'Acción',pt:'Ação',tr:'İşlem'})}</th>
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-slate-100">
@@ -1954,29 +1959,29 @@ export default function SousTraitance({ models, settings }: SousTraitanceProps) 
               {modalFormTab === 'logistics' && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-4">
-                    <h4 className="font-bold text-slate-800 border-b border-slate-150 pb-2">Expédition des Matières Premières</h4>
+                    <h4 className="font-bold text-slate-800 border-b border-slate-150 pb-2">{tx(lang,{fr:'Expédition des Matières Premières',ar:'شحن المواد الأولية',en:'Raw Materials Shipment',es:'Expedición de Materias Primas',pt:'Expedição de Matérias-Primas',tr:'Hammadde Sevkiyatı'})}</h4>
                     
                     <div className="space-y-1.5">
-                      <label className="block font-bold text-slate-400 uppercase tracking-widest text-[10px]">Statut Tissu</label>
+                      <label className="block font-bold text-slate-400 uppercase tracking-widest text-[10px]">{tx(lang,{fr:'Statut Tissu',ar:'حالة القماش',en:'Fabric Status',es:'Estado de la Tela',pt:'Estado do Tecido',tr:'Kumaş Durumu'})}</label>
                       <select 
                         value={formTissuStatus} 
                         onChange={(e: any) => setFormTissuStatus(e.target.value)}
                         className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-800 outline-none focus:bg-white"
                       >
-                        <option value="PENDING">En attente d'expédition</option>
-                        <option value="SENT">Tissu envoyé</option>
+                        <option value="PENDING">{tx(lang,{fr:'En attente d\'expédition',ar:'قيد انتظار الشحن',en:'Awaiting shipment',es:'Pendiente de envío',pt:'A aguardar expedição',tr:'Sevkiyat bekleniyor'})}</option>
+                        <option value="SENT">{tx(lang,{fr:'Tissu envoyé',ar:'تم إرسال القماش',en:'Fabric sent',es:'Tela enviada',pt:'Tecido enviado',tr:'Kumaş gönderildi'})}</option>
                       </select>
                     </div>
 
                     <div className="space-y-1.5">
-                      <label className="block font-bold text-slate-400 uppercase tracking-widest text-[10px]">Statut Fournitures / Accessoires</label>
+                      <label className="block font-bold text-slate-400 uppercase tracking-widest text-[10px]">{tx(lang,{fr:'Statut Fournitures / Accessoires',ar:'حالة اللوازم / الإكسسوارات',en:'Supplies / Accessories Status',es:'Estado de Suministros / Accesorios',pt:'Estado dos Fornecimentos / Acessórios',tr:'Malzeme / Aksesuar Durumu'})}</label>
                       <select 
                         value={formFournituresStatus} 
                         onChange={(e: any) => setFormFournituresStatus(e.target.value)}
                         className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-800 outline-none focus:bg-white"
                       >
-                        <option value="PENDING">En attente de livraison</option>
-                        <option value="DELIVERED">Livrées au sous-traitant</option>
+                        <option value="PENDING">{tx(lang,{fr:'En attente de livraison',ar:'قيد انتظار التسليم',en:'Awaiting delivery',es:'Pendiente de entrega',pt:'A aguardar entrega',tr:'Teslimat bekleniyor'})}</option>
+                        <option value="DELIVERED">{tx(lang,{fr:'Livrées au sous-traitant',ar:'تم التسليم للمقاول من الباطن',en:'Delivered to subcontractor',es:'Entregado al subcontratista',pt:'Entregue ao subcontratado',tr:'Taşerona teslim edildi'})}</option>
                       </select>
                     </div>
 
@@ -1988,15 +1993,15 @@ export default function SousTraitance({ models, settings }: SousTraitanceProps) 
                         className="rounded bg-white text-indigo-600 w-4 h-4 border-slate-300"
                         id="checkFT"
                       />
-                      <label htmlFor="checkFT" className="font-semibold text-slate-700 cursor-pointer">Fiche Technique validée et envoyée</label>
+                      <label htmlFor="checkFT" className="font-semibold text-slate-700 cursor-pointer">{tx(lang,{fr:'Fiche Technique validée et envoyée',ar:'الورقة التقنية معتمدة ومرسلة',en:'Technical sheet validated and sent',es:'Ficha técnica validada y enviada',pt:'Ficha técnica validada e enviada',tr:'Teknik fiş onaylandı ve gönderildi'})}</label>
                     </div>
                   </div>
 
                   <div className="space-y-4">
-                    <h4 className="font-bold text-slate-800 border-b border-slate-150 pb-2">Profil Sous-traitant</h4>
+                    <h4 className="font-bold text-slate-800 border-b border-slate-150 pb-2">{tx(lang,{fr:'Profil Sous-traitant',ar:'ملف المقاول من الباطن',en:'Subcontractor Profile',es:'Perfil del Subcontratista',pt:'Perfil do Subcontratado',tr:'Taşeron Profili'})}</h4>
                     
                     <div className="space-y-1.5">
-                      <label className="block font-bold text-slate-400 uppercase tracking-widest text-[10px]">Disponibilité de l'atelier</label>
+                      <label className="block font-bold text-slate-400 uppercase tracking-widest text-[10px]">{tx(lang,{fr:'Disponibilité de l\'atelier',ar:'توفر الورشة',en:'Workshop availability',es:'Disponibilidad del taller',pt:'Disponibilidade da oficina',tr:'Atölye müsaitliği'})}</label>
                       <input 
                         type="date"
                         value={formSubcontractorAvailabilityDate}
@@ -2006,16 +2011,16 @@ export default function SousTraitance({ models, settings }: SousTraitanceProps) 
                     </div>
 
                     <div className="space-y-1.5">
-                      <label className="block font-bold text-slate-400 uppercase tracking-widest text-[10px]">Évaluation (Note sur 5)</label>
+                      <label className="block font-bold text-slate-400 uppercase tracking-widest text-[10px]">{tx(lang,{fr:'Évaluation (Note sur 5)',ar:'التقييم (درجة من 5)',en:'Rating (Score out of 5)',es:'Evaluación (Puntuación sobre 5)',pt:'Avaliação (Nota de 0 a 5)',tr:'Değerlendirme (5 üzerinden puan)'})}</label>
                       <select 
                         value={formSubcontractorRating} 
                         onChange={(e) => setFormSubcontractorRating(parseFloat(e.target.value))}
                         className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-800 outline-none focus:bg-white"
                       >
-                        <option value="5">★★★★★ - Excellent</option>
-                        <option value="4">★★★★☆ - Très Bon</option>
-                        <option value="3">★★★☆☆ - Moyen</option>
-                        <option value="2">★★☆☆☆ - Faible</option>
+                        <option value="5">{tx(lang,{fr:'★★★★★ - Excellent',ar:'★★★★★ - ممتاز',en:'★★★★★ - Excellent',es:'★★★★★ - Excelente',pt:'★★★★★ - Excelente',tr:'★★★★★ - Mükemmel'})}</option>
+                        <option value="4">{tx(lang,{fr:'★★★★☆ - Très Bon',ar:'★★★★☆ - جيد جداً',en:'★★★★☆ - Very Good',es:'★★★★☆ - Muy Bueno',pt:'★★★★☆ - Muito Bom',tr:'★★★★☆ - Çok İyi'})}</option>
+                        <option value="3">{tx(lang,{fr:'★★★☆☆ - Moyen',ar:'★★★☆☆ - متوسط',en:'★★★☆☆ - Average',es:'★★★☆☆ - Regular',pt:'★★★☆☆ - Médio',tr:'★★★☆☆ - Orta'})}</option>
+                        <option value="2">{tx(lang,{fr:'★★☆☆☆ - Faible',ar:'★★☆☆☆ - ضعيف',en:'★★☆☆☆ - Weak',es:'★★☆☆☆ - Bajo',pt:'★★☆☆☆ - Fraco',tr:'★★☆☆☆ - Zayıf'})}</option>
                       </select>
                     </div>
                   </div>
@@ -2025,94 +2030,94 @@ export default function SousTraitance({ models, settings }: SousTraitanceProps) 
               {modalFormTab === 'technical' && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-4">
-                    <h4 className="font-bold text-slate-800 border-b border-slate-150 pb-2">Cahier des charges</h4>
+                    <h4 className="font-bold text-slate-800 border-b border-slate-150 pb-2">{tx(lang,{fr:'Cahier des charges',ar:'دفتر الشروط',en:'Specifications',es:'Pliego de condiciones',pt:'Caderno de encargos',tr:'Şartname'})}</h4>
 
                     <div className="space-y-1.5">
-                      <label className="block font-bold text-slate-400 uppercase tracking-widest text-[10px]">Type de prestation</label>
+                      <label className="block font-bold text-slate-400 uppercase tracking-widest text-[10px]">{tx(lang,{fr:'Type de prestation',ar:'نوع الخدمة',en:'Service Type',es:'Tipo de Prestación',pt:'Tipo de Prestação',tr:'Hizmet Türü'})}</label>
                       <select 
                         value={formPrestationType} 
                         onChange={(e: any) => setFormPrestationType(e.target.value)}
                         className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-800 outline-none focus:bg-white"
                       >
-                        <option value="CMT">CMT (Coupe, Couture, Finition)</option>
-                        <option value="FACON_PURE">Façon Pure (Couture seule)</option>
+                        <option value="CMT">CMT ({tx(lang,{fr:'Coupe, Couture, Finition',ar:'قص، خياطة، تشطيب',en:'Cutting, Sewing, Finishing',es:'Corte, Costura, Acabado',pt:'Corte, Costura, Acabamento',tr:'Kesim, Dikiş, Bitim'})})</option>
+                        <option value="FACON_PURE">{tx(lang,{fr:'Façon Pure (Couture seule)',ar:'تصنيع خالص (خياطة فقط)',en:'Pure Manufacturing (Sewing only)',es:'Fabricación Pura (Solo costura)',pt:'Confecção Pura (Apenas costura)',tr:'Saf İmalat (Sadece dikiş)'})}</option>
                       </select>
                     </div>
 
                     <div className="space-y-1.5">
-                      <label className="block font-bold text-slate-400 uppercase tracking-widest text-[10px]">Provenance du Tissu</label>
+                      <label className="block font-bold text-slate-400 uppercase tracking-widest text-[10px]">{tx(lang,{fr:'Provenance du Tissu',ar:'مصدر القماش',en:'Fabric Origin',es:'Procedencia de la Tela',pt:'Proveniência do Tecido',tr:'Kumaşın Menşei'})}</label>
                       <select 
                         value={formTissuFournisseur} 
                         onChange={(e: any) => setFormTissuFournisseur(e.target.value)}
                         className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-800 outline-none focus:bg-white"
                       >
-                        <option value="CLIENT">Fourni par le donneur d'ordre (Client)</option>
-                        <option value="SUBCONTRACTOR">Fourni par le sous-traitant</option>
+                        <option value="CLIENT">{tx(lang,{fr:'Fourni par le donneur d\'ordre (Client)',ar:'مقدم من صاحب الطلب (العميل)',en:'Provided by the client',es:'Proporcionado por el cliente',pt:'Fornecido pelo cliente',tr:'Müşteri tarafından sağlanır'})}</option>
+                        <option value="SUBCONTRACTOR">{tx(lang,{fr:'Fourni par le sous-traitant',ar:'مقدم من المقاول من الباطن',en:'Provided by the subcontractor',es:'Proporcionado por el subcontratista',pt:'Fornecido pelo subcontratado',tr:'Taşeron tarafından sağlanır'})}</option>
                       </select>
                     </div>
 
                     <div className="space-y-1.5">
-                      <label className="block font-bold text-slate-400 uppercase tracking-widest text-[10px]">Provenance des Fournitures</label>
+                      <label className="block font-bold text-slate-400 uppercase tracking-widest text-[10px]">{tx(lang,{fr:'Provenance des Fournitures',ar:'مصدر اللوازم',en:'Supplies Origin',es:'Procedencia de los Suministros',pt:'Proveniência dos Fornecimentos',tr:'Malzeme Menşei'})}</label>
                       <select 
                         value={formFournituresFournisseur} 
                         onChange={(e: any) => setFormFournituresFournisseur(e.target.value)}
                         className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-800 outline-none focus:bg-white"
                       >
-                        <option value="CLIENT">Fourni par le donneur d'ordre (Client)</option>
-                        <option value="SUBCONTRACTOR">Acheté par le sous-traitant</option>
+                        <option value="CLIENT">{tx(lang,{fr:'Fourni par le donneur d\'ordre (Client)',ar:'مقدم من صاحب الطلب (العميل)',en:'Provided by the client',es:'Proporcionado por el cliente',pt:'Fornecido pelo cliente',tr:'Müşteri tarafından sağlanır'})}</option>
+                        <option value="SUBCONTRACTOR">{tx(lang,{fr:'Acheté par le sous-traitant',ar:'يشتريه المقاول من الباطن',en:'Purchased by the subcontractor',es:'Comprado por el subcontratista',pt:'Comprado pelo subcontratado',tr:'Taşeron tarafından satın alınır'})}</option>
                       </select>
                     </div>
                   </div>
 
                   <div className="space-y-4">
-                    <h4 className="font-bold text-slate-800 border-b border-slate-150 pb-2">Contrôle qualité & Administratif</h4>
+                    <h4 className="font-bold text-slate-800 border-b border-slate-150 pb-2">{tx(lang,{fr:'Contrôle qualité & Administratif',ar:'مراقبة الجودة والإداري',en:'Quality Control & Administrative',es:'Control de Calidad y Administrativo',pt:'Controlo de Qualidade e Administrativo',tr:'Kalite Kontrol ve İdari'})}</h4>
 
                     <div className="grid grid-cols-2 gap-3">
                       <div className="space-y-1.5">
-                        <label className="block font-bold text-slate-400 uppercase tracking-widest text-[10px]">Prototype Requis</label>
-                        <select 
-                          value={formProtoRequired} 
-                          onChange={(e) => setFormProtoRequired(parseInt(e.target.value))}
-                          className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-800 outline-none focus:bg-white"
-                        >
-                          <option value="1">Oui, obligatoire</option>
-                          <option value="0">Non requis</option>
+                      <label className="block font-bold text-slate-400 uppercase tracking-widest text-[10px]">{tx(lang,{fr:'Prototype Requis',ar:'النموذج الأولي مطلوب',en:'Prototype Required',es:'Prototipo Requerido',pt:'Protótipo Necessário',tr:'Prototip Gerekli'})}</label>
+                      <select 
+                        value={formProtoRequired} 
+                        onChange={(e) => setFormProtoRequired(parseInt(e.target.value))}
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-800 outline-none focus:bg-white"
+                      >
+                        <option value="1">{tx(lang,{fr:'Oui, obligatoire',ar:'نعم، إلزامي',en:'Yes, mandatory',es:'Sí, obligatorio',pt:'Sim, obrigatório',tr:'Evet, zorunlu'})}</option>
+                        <option value="0">{tx(lang,{fr:'Non requis',ar:'غير مطلوب',en:'Not required',es:'No requerido',pt:'Não necessário',tr:'Gerekli değil'})}</option>
                         </select>
                       </div>
 
                       <div className="space-y-1.5">
-                        <label className="block font-bold text-slate-400 uppercase tracking-widest text-[10px]">Statut du Prototype</label>
-                        <select 
-                          value={formProtoStatus} 
-                          onChange={(e: any) => setFormProtoStatus(e.target.value)}
-                          className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-800 outline-none focus:bg-white"
-                        >
-                          <option value="PENDING">En attente d'approbation</option>
-                          <option value="APPROVED">Validé / BPA signé</option>
+                      <label className="block font-bold text-slate-400 uppercase tracking-widest text-[10px]">{tx(lang,{fr:'Statut du Prototype',ar:'حالة النموذج الأولي',en:'Prototype Status',es:'Estado del Prototipo',pt:'Estado do Protótipo',tr:'Prototip Durumu'})}</label>
+                      <select 
+                        value={formProtoStatus} 
+                        onChange={(e: any) => setFormProtoStatus(e.target.value)}
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-800 outline-none focus:bg-white"
+                      >
+                        <option value="PENDING">{tx(lang,{fr:'En attente d\'approbation',ar:'قيد انتظار الموافقة',en:'Awaiting approval',es:'Pendiente de aprobación',pt:'A aguardar aprovação',tr:'Onay bekleniyor'})}</option>
+                        <option value="APPROVED">{tx(lang,{fr:'Validé / BPA signé',ar:'معتمد / تم توقيع BPA',en:'Approved / BPA signed',es:'Validado / BPA firmado',pt:'Validado / BPA assinado',tr:'Onaylandı / BPA imzalandı'})}</option>
                         </select>
                       </div>
                     </div>
 
                     <div className="space-y-1.5">
-                      <label className="block font-bold text-slate-400 uppercase tracking-widest text-[10px]">Conditions de règlement</label>
+                      <label className="block font-bold text-slate-400 uppercase tracking-widest text-[10px]">{tx(lang,{fr:'Conditions de règlement',ar:'شروط الدفع',en:'Payment Terms',es:'Condiciones de Pago',pt:'Condições de Pagamento',tr:'Ödeme Koşulları'})}</label>
                       <select 
                         value={formPaymentTerms} 
                         onChange={(e: any) => setFormPaymentTerms(e.target.value)}
                         className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-800 outline-none focus:bg-white"
                       >
-                        <option value="AVANCE_RECEPTION">Acompte à la commande + solde à la livraison</option>
-                        <option value="APRES_LIVRAISON">Paiement après réception de facture</option>
-                        <option value="ECHEANCES">Paiement échelonné</option>
+                        <option value="AVANCE_RECEPTION">{tx(lang,{fr:'Acompte à la commande + solde à la livraison',ar:'دفعة مقدمة عند الطلب + الباقي عند التسليم',en:'Deposit on order + balance on delivery',es:'Anticipo al pedido + saldo a la entrega',pt:'Sinal na encomenda + saldo na entrega',tr:'Siparişte avans + teslimatta bakiye'})}</option>
+                        <option value="APRES_LIVRAISON">{tx(lang,{fr:'Paiement après réception de facture',ar:'الدفع بعد استلام الفاتورة',en:'Payment after receipt of invoice',es:'Pago después de recibir la factura',pt:'Pagamento após receção da fatura',tr:'Fatura alındıktan sonra ödeme'})}</option>
+                        <option value="ECHEANCES">{tx(lang,{fr:'Paiement échelonné',ar:'دفع مقسط',en:'Installment payment',es:'Pago fraccionado',pt:'Pagamento parcelado',tr:'Taksitli ödeme'})}</option>
                       </select>
                     </div>
 
                     <div className="space-y-1.5">
-                      <label className="block font-bold text-slate-400 uppercase tracking-widest text-[10px]">Consignes de Couture</label>
+                      <label className="block font-bold text-slate-400 uppercase tracking-widest text-[10px]">{tx(lang,{fr:'Consignes de Couture',ar:'تعليمات الخياطة',en:'Sewing Instructions',es:'Instrucciones de Costura',pt:'Instruções de Costura',tr:'Dikiş Talimatları'})}</label>
                       <textarea 
                         value={formStitchingDetails}
                         onChange={(e) => setFormStitchingDetails(e.target.value)}
                         className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 outline-none h-16 text-slate-800 focus:border-indigo-500 focus:bg-white"
-                        placeholder="Instructions spécifiques d'assemblage..."
+                        placeholder={tx(lang,{fr:'Instructions spécifiques d\'assemblage...',ar:'تعليمات تجميع محددة...',en:'Specific assembly instructions...',es:'Instrucciones específicas de ensamblaje...',pt:'Instruções específicas de montagem...',tr:'Özel montaj talimatları...'})}
                       />
                     </div>
                   </div>
@@ -2125,7 +2130,7 @@ export default function SousTraitance({ models, settings }: SousTraitanceProps) 
                   onClick={() => setIsAddModalOpen(false)}
                   className="px-5 py-2.5 border border-slate-200 hover:bg-slate-50 text-slate-500 rounded-xl font-bold transition-all"
                 >
-                  Annuler
+                  {tx(lang,{fr:'Annuler',ar:'إلغاء',en:'Cancel',es:'Cancelar',pt:'Cancelar',tr:'İptal'})}
                 </button>
                 <button 
                   type="submit"
@@ -2133,7 +2138,7 @@ export default function SousTraitance({ models, settings }: SousTraitanceProps) 
                   className="bg-indigo-600 hover:bg-indigo-500 text-white px-6 py-2.5 rounded-xl font-bold transition-all shadow-md flex items-center gap-2 border border-indigo-500/50"
                 >
                   {actionLoading && <Loader2 className="w-4 h-4 animate-spin" />}
-                  <span>Créer la Commande</span>
+                  <span>{tx(lang,{fr:'Créer la Commande',ar:'إنشاء الطلبية',en:'Create Order',es:'Crear Pedido',pt:'Criar Encomenda',tr:'Sipariş Oluştur'})}</span>
                 </button>
               </div>
             </form>
@@ -2150,7 +2155,7 @@ export default function SousTraitance({ models, settings }: SousTraitanceProps) 
             <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/50">
               <h2 className="font-bold text-slate-800 text-base flex items-center gap-2">
                 <Edit2 className="w-5 h-5 text-indigo-600" />
-                <span>Modifier la Commande de Sous-traitance</span>
+                <span>{tx(lang,{fr:'Modifier la Commande de Sous-traitance',ar:'تعديل أمر المقاولة من الباطن',en:'Edit Subcontract Order',es:'Editar Pedido de Subcontratación',pt:'Editar Encomenda de Subcontratação',tr:'Taşeron Siparişini Düzenle'})}</span>
               </h2>
               <button onClick={() => setIsEditModalOpen(false)} className="p-1.5 hover:bg-slate-100 rounded-full transition-colors text-slate-400 hover:text-slate-650">
                 <X className="w-5 h-5" />
@@ -2164,21 +2169,21 @@ export default function SousTraitance({ models, settings }: SousTraitanceProps) 
                 onClick={() => setModalFormTab('general')}
                 className={`py-3 border-b-2 ${modalFormTab === 'general' ? 'text-indigo-600 border-indigo-600' : 'text-slate-500 border-transparent'}`}
               >
-                Général & Quantités
+                {tx(lang,{fr:'Général & Quantités',ar:'عام والكميات',en:'General & Quantities',es:'General y Cantidades',pt:'Geral e Quantidades',tr:'Genel ve Miktarlar'})}
               </button>
               <button 
                 type="button"
                 onClick={() => setModalFormTab('logistics')}
                 className={`py-3 border-b-2 ${modalFormTab === 'logistics' ? 'text-indigo-600 border-indigo-600' : 'text-slate-500 border-transparent'}`}
               >
-                Logistique & Suivi
+                {tx(lang,{fr:'Logistique & Suivi',ar:'اللوجستيك والمتابعة',en:'Logistics & Tracking',es:'Logística y Seguimiento',pt:'Logística e Acompanhamento',tr:'Lojistik ve Takip'})}
               </button>
               <button 
                 type="button"
                 onClick={() => setModalFormTab('technical')}
                 className={`py-3 border-b-2 ${modalFormTab === 'technical' ? 'text-indigo-600 border-indigo-600' : 'text-slate-500 border-transparent'}`}
               >
-                Spécifications Techniques
+                {tx(lang,{fr:'Spécifications Techniques',ar:'المواصفات التقنية',en:'Technical Specifications',es:'Especificaciones Técnicas',pt:'Especificações Técnicas',tr:'Teknik Şartname'})}
               </button>
             </div>
 
@@ -2187,46 +2192,46 @@ export default function SousTraitance({ models, settings }: SousTraitanceProps) 
                 <div className="space-y-5">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-1.5">
-                      <label className="block font-bold text-slate-400 uppercase tracking-widest text-[10px]">Modèle *</label>
+                      <label className="block font-bold text-slate-400 uppercase tracking-widest text-[10px]">{tx(lang,{fr:'Modèle *',ar:'الموديل *',en:'Model *',es:'Modelo *',pt:'Modelo *',tr:'Model *'})}</label>
                       <select 
                         value={formModelId} 
                         onChange={(e) => handleModelChange(e.target.value)}
                         className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-800 outline-none focus:border-indigo-500 focus:bg-white"
                       >
                         {models.map(m => (
-                          <option key={m.id} value={m.id}>{m.meta_data.nom_modele} ({m.meta_data.reference || 'Aucune ref'})</option>
+                          <option key={m.id} value={m.id}>{m.meta_data.nom_modele} ({m.meta_data.reference || tx(lang,{fr:'Aucune ref',ar:'لا يوجد مرجع',en:'No ref',es:'Sin ref',pt:'Sem ref',tr:'Referans yok'})})</option>
                         ))}
-                        <option value="MANUAL">Saisie Manuelle (Sans modèle existant)</option>
+                        <option value="MANUAL">{tx(lang,{fr:'Saisie Manuelle (Sans modèle existant)',ar:'إدخال يدوي (بدون موديل موجود)',en:'Manual Entry (No existing model)',es:'Entrada Manual (Sin modelo existente)',pt:'Inserção Manual (Sem modelo existente)',tr:'Manuel Giriş (Mevcut model yok)'})}</option>
                       </select>
                     </div>
 
                     <div className="space-y-1.5">
-                      <label className="block font-bold text-slate-400 uppercase tracking-widest text-[10px]">Nom du Client</label>
+                      <label className="block font-bold text-slate-400 uppercase tracking-widest text-[10px]">{tx(lang,{fr:'Nom du Client',ar:'اسم العميل',en:'Client Name',es:'Nombre del Cliente',pt:'Nome do Cliente',tr:'Müşteri Adı'})}</label>
                       <input 
                         type="text" 
                         value={formClientName} 
                         onChange={(e) => setFormClientName(e.target.value)}
                         className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-800 outline-none focus:border-indigo-500 focus:bg-white"
-                        placeholder="Nom du client donneur d'ordre"
+                        placeholder={tx(lang,{fr:"Nom du client donneur d'ordre",ar:'اسم العميل صاحب الطلب',en:'Ordering client name',es:'Nombre del cliente ordenante',pt:'Nome do cliente mandante',tr:'Sipariş veren müşteri adı'})}
                       />
                     </div>
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div className="space-y-1.5">
-                      <label className="block font-bold text-slate-400 uppercase tracking-widest text-[10px]">Nom du Sous-traitant *</label>
+                      <label className="block font-bold text-slate-400 uppercase tracking-widest text-[10px]">{tx(lang,{fr:'Nom du Sous-traitant *',ar:'اسم المقاول من الباطن *',en:'Subcontractor Name *',es:'Nombre del Subcontratista *',pt:'Nome do Subcontratado *',tr:'Taşeron Adı *'})}</label>
                       <input 
                         type="text" 
                         value={formSubcontractorName} 
                         onChange={(e) => setFormSubcontractorName(e.target.value)}
                         className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-800 outline-none focus:border-indigo-500 focus:bg-white"
-                        placeholder="Atelier externe"
+                        placeholder={tx(lang,{fr:'Atelier externe',ar:'ورشة خارجية',en:'External workshop',es:'Taller externo',pt:'Oficina externa',tr:'Harici atölye'})}
                         required
                       />
                     </div>
 
                     <div className="space-y-1.5">
-                      <label className="block font-bold text-slate-400 uppercase tracking-widest text-[10px]">Téléphone</label>
+                      <label className="block font-bold text-slate-400 uppercase tracking-widest text-[10px]">{tx(lang,{fr:'Téléphone',ar:'الهاتف',en:'Phone',es:'Teléfono',pt:'Telefone',tr:'Telefon'})}</label>
                       <input 
                         type="text" 
                         value={formSubcontractorPhone} 
@@ -2237,7 +2242,7 @@ export default function SousTraitance({ models, settings }: SousTraitanceProps) 
                     </div>
 
                     <div className="space-y-1.5">
-                      <label className="block font-bold text-slate-400 uppercase tracking-widest text-[10px]">Date livraison prévue *</label>
+                      <label className="block font-bold text-slate-400 uppercase tracking-widest text-[10px]">{tx(lang,{fr:'Date livraison prévue *',ar:'تاريخ التسليم المتوقع *',en:'Expected delivery date *',es:'Fecha de entrega prevista *',pt:'Data de entrega prevista *',tr:'Beklenen teslimat tarihi *'})}</label>
                       <input 
                         type="date" 
                         value={batches[0].deliveryDate} 
@@ -2254,7 +2259,7 @@ export default function SousTraitance({ models, settings }: SousTraitanceProps) 
 
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                     <div className="space-y-1.5">
-                      <label className="block font-bold text-slate-400 uppercase tracking-widest text-[10px]">Quantité Totale *</label>
+                      <label className="block font-bold text-slate-400 uppercase tracking-widest text-[10px]">{tx(lang,{fr:'Quantité Totale *',ar:'الكمية الإجمالية *',en:'Total Quantity *',es:'Cantidad Total *',pt:'Quantidade Total *',tr:'Toplam Miktar *'})}</label>
                       <input 
                         type="number" 
                         value={formTotalQuantity || ''} 
@@ -2265,7 +2270,7 @@ export default function SousTraitance({ models, settings }: SousTraitanceProps) 
                     </div>
 
                     <div className="space-y-1.5">
-                      <label className="block font-bold text-slate-400 uppercase tracking-widest text-[10px]">Tarif par pièce (MAD)</label>
+                      <label className="block font-bold text-slate-400 uppercase tracking-widest text-[10px]">{tx(lang,{fr:'Tarif par pièce (MAD)',ar:'سعر القطعة (MAD)',en:'Price per piece (MAD)',es:'Precio por pieza (MAD)',pt:'Preço por peça (MAD)',tr:'Birim fiyat (MAD)'})}</label>
                       <input 
                         type="number" 
                         step="0.01" 
@@ -2276,13 +2281,13 @@ export default function SousTraitance({ models, settings }: SousTraitanceProps) 
                     </div>
 
                     <div className="space-y-1.5 col-span-2 md:col-span-1">
-                      <label className="block font-bold text-slate-400 uppercase tracking-widest text-[10px]">Note / Instruction</label>
+                      <label className="block font-bold text-slate-400 uppercase tracking-widest text-[10px]">{tx(lang,{fr:'Note / Instruction',ar:'ملاحظة / تعليمات',en:'Note / Instruction',es:'Nota / Instrucción',pt:'Nota / Instrução',tr:'Not / Talimat'})}</label>
                       <input 
                         type="text" 
                         value={formNotes} 
                         onChange={(e) => setFormNotes(e.target.value)}
                         className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-800 outline-none focus:border-indigo-500 focus:bg-white"
-                        placeholder="Détails logistiques..."
+                        placeholder={tx(lang,{fr:'Détails logistiques...',ar:'تفاصيل لوجستية...',en:'Logistics details...',es:'Detalles logísticos...',pt:'Detalhes logísticos...',tr:'Lojistik detaylar...'})}
                       />
                     </div>
                   </div>
@@ -2290,11 +2295,11 @@ export default function SousTraitance({ models, settings }: SousTraitanceProps) 
                   {/* Grid matrix colors & sizes */}
                   <div className="border border-slate-200 rounded-2xl p-4 bg-slate-50/50 space-y-4">
                     <div className="flex justify-between items-center flex-wrap gap-2">
-                      <span className="font-bold text-slate-800">Matrice Couleur - Taille (Facultatif)</span>
+                      <span className="font-bold text-slate-800">{tx(lang,{fr:'Matrice Couleur - Taille (Facultatif)',ar:'مصفوفة اللون - المقاس (اختياري)',en:'Color - Size Matrix (Optional)',es:'Matriz Color - Talla (Opcional)',pt:'Matriz Cor - Tamanho (Opcional)',tr:'Renk - Beden Matrisi (İsteğe Bağlı)'})}</span>
                       <div className="flex items-center gap-2">
                         <input 
                           type="text" 
-                          placeholder="Ajouter couleur" 
+                          placeholder={tx(lang,{fr:'Ajouter couleur',ar:'إضافة لون',en:'Add color',es:'Añadir color',pt:'Adicionar cor',tr:'Renk ekle'})} 
                           value={newColorInput} 
                           onChange={(e) => setNewColorInput(e.target.value)}
                           className="bg-white border border-slate-200 rounded-lg px-2.5 py-1 text-[11px] outline-none text-slate-800 focus:border-indigo-500"
@@ -2304,21 +2309,21 @@ export default function SousTraitance({ models, settings }: SousTraitanceProps) 
                           onClick={handleAddColor}
                           className="bg-indigo-600 text-white px-3 py-1 rounded-lg hover:bg-indigo-500 font-bold transition-all text-[11px]"
                         >
-                          Ajouter
+                          {tx(lang,{fr:'Ajouter',ar:'إضافة',en:'Add',es:'Añadir',pt:'Adicionar',tr:'Ekle'})}
                         </button>
                       </div>
                     </div>
 
                     {Object.keys(batches[0].grid).length === 0 ? (
-                      <p className="text-[11px] text-slate-500 italic">Aucune couleur configurée. Le lot sera traité de manière globale.</p>
+                      <p className="text-[11px] text-slate-500 italic">{tx(lang,{fr:'Aucune couleur configurée. Le lot sera traité de manière globale.',ar:'لم يتم تكوين أي لون. سيتم معالجة الدفعة بشكل إجمالي.',en:'No color configured. The batch will be processed globally.',es:'Ningún color configurado. El lote se procesará de forma global.',pt:'Nenhuma cor configurada. O lote será processado globalmente.',tr:'Hiçbir renk yapılandırılmadı. Parti genel olarak işlenecek.'})}</p>
                     ) : (
                       <div className="overflow-x-auto">
                         <table className="w-full text-left">
                           <thead>
                             <tr className="border-b border-slate-200 text-slate-500 font-bold">
-                              <th className="py-2 pr-4">Couleur</th>
+                              <th className="py-2 pr-4">{tx(lang,{fr:'Couleur',ar:'اللون',en:'Color',es:'Color',pt:'Cor',tr:'Renk'})}</th>
                               {COMMON_SIZES.map(sz => <th key={sz} className="py-2 px-1 text-center">{sz}</th>)}
-                              <th className="py-2 text-right">Action</th>
+                              <th className="py-2 text-right">{tx(lang,{fr:'Action',ar:'إجراء',en:'Action',es:'Acción',pt:'Ação',tr:'İşlem'})}</th>
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-slate-100">
@@ -2353,29 +2358,29 @@ export default function SousTraitance({ models, settings }: SousTraitanceProps) 
               {modalFormTab === 'logistics' && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-4">
-                    <h4 className="font-bold text-slate-800 border-b border-slate-150 pb-2">Expédition des Matières Premières</h4>
+                    <h4 className="font-bold text-slate-800 border-b border-slate-150 pb-2">{tx(lang,{fr:'Expédition des Matières Premières',ar:'شحن المواد الأولية',en:'Raw Materials Shipment',es:'Expedición de Materias Primas',pt:'Expedição de Matérias-Primas',tr:'Hammadde Sevkiyatı'})}</h4>
                     
                     <div className="space-y-1.5">
-                      <label className="block font-bold text-slate-400 uppercase tracking-widest text-[10px]">Statut Tissu</label>
+                      <label className="block font-bold text-slate-400 uppercase tracking-widest text-[10px]">{tx(lang,{fr:'Statut Tissu',ar:'حالة القماش',en:'Fabric Status',es:'Estado de la Tela',pt:'Estado do Tecido',tr:'Kumaş Durumu'})}</label>
                       <select 
                         value={formTissuStatus} 
                         onChange={(e: any) => setFormTissuStatus(e.target.value)}
                         className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-800 outline-none focus:bg-white"
                       >
-                        <option value="PENDING">En attente d'expédition</option>
-                        <option value="SENT">Tissu envoyé</option>
+                        <option value="PENDING">{tx(lang,{fr:'En attente d\'expédition',ar:'قيد انتظار الشحن',en:'Awaiting shipment',es:'Pendiente de envío',pt:'A aguardar expedição',tr:'Sevkiyat bekleniyor'})}</option>
+                        <option value="SENT">{tx(lang,{fr:'Tissu envoyé',ar:'تم إرسال القماش',en:'Fabric sent',es:'Tela enviada',pt:'Tecido enviado',tr:'Kumaş gönderildi'})}</option>
                       </select>
                     </div>
 
                     <div className="space-y-1.5">
-                      <label className="block font-bold text-slate-400 uppercase tracking-widest text-[10px]">Statut Fournitures / Accessoires</label>
+                      <label className="block font-bold text-slate-400 uppercase tracking-widest text-[10px]">{tx(lang,{fr:'Statut Fournitures / Accessoires',ar:'حالة اللوازم / الإكسسوارات',en:'Supplies / Accessories Status',es:'Estado de Suministros / Accesorios',pt:'Estado dos Fornecimentos / Acessórios',tr:'Malzeme / Aksesuar Durumu'})}</label>
                       <select 
                         value={formFournituresStatus} 
                         onChange={(e: any) => setFormFournituresStatus(e.target.value)}
                         className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-800 outline-none focus:bg-white"
                       >
-                        <option value="PENDING">En attente de livraison</option>
-                        <option value="DELIVERED">Livrées au sous-traitant</option>
+                        <option value="PENDING">{tx(lang,{fr:'En attente de livraison',ar:'قيد انتظار التسليم',en:'Awaiting delivery',es:'Pendiente de entrega',pt:'A aguardar entrega',tr:'Teslimat bekleniyor'})}</option>
+                        <option value="DELIVERED">{tx(lang,{fr:'Livrées au sous-traitant',ar:'تم التسليم للمقاول من الباطن',en:'Delivered to subcontractor',es:'Entregado al subcontratista',pt:'Entregue ao subcontratado',tr:'Taşerona teslim edildi'})}</option>
                       </select>
                     </div>
 
@@ -2387,15 +2392,15 @@ export default function SousTraitance({ models, settings }: SousTraitanceProps) 
                         className="rounded bg-white text-indigo-600 w-4 h-4 border-slate-300"
                         id="checkFT"
                       />
-                      <label htmlFor="checkFT" className="font-semibold text-slate-700 cursor-pointer">Fiche Technique validée et envoyée</label>
+                      <label htmlFor="checkFT" className="font-semibold text-slate-700 cursor-pointer">{tx(lang,{fr:'Fiche Technique validée et envoyée',ar:'الورقة التقنية معتمدة ومرسلة',en:'Technical sheet validated and sent',es:'Ficha técnica validada y enviada',pt:'Ficha técnica validada e enviada',tr:'Teknik fiş onaylandı ve gönderildi'})}</label>
                     </div>
                   </div>
 
                   <div className="space-y-4">
-                    <h4 className="font-bold text-slate-800 border-b border-slate-150 pb-2">Profil Sous-traitant</h4>
+                    <h4 className="font-bold text-slate-800 border-b border-slate-150 pb-2">{tx(lang,{fr:'Profil Sous-traitant',ar:'ملف المقاول من الباطن',en:'Subcontractor Profile',es:'Perfil del Subcontratista',pt:'Perfil do Subcontratado',tr:'Taşeron Profili'})}</h4>
                     
                     <div className="space-y-1.5">
-                      <label className="block font-bold text-slate-400 uppercase tracking-widest text-[10px]">Disponibilité de l'atelier</label>
+                      <label className="block font-bold text-slate-400 uppercase tracking-widest text-[10px]">{tx(lang,{fr:'Disponibilité de l\'atelier',ar:'توفر الورشة',en:'Workshop availability',es:'Disponibilidad del taller',pt:'Disponibilidade da oficina',tr:'Atölye müsaitliği'})}</label>
                       <input 
                         type="date"
                         value={formSubcontractorAvailabilityDate}
@@ -2405,16 +2410,16 @@ export default function SousTraitance({ models, settings }: SousTraitanceProps) 
                     </div>
 
                     <div className="space-y-1.5">
-                      <label className="block font-bold text-slate-400 uppercase tracking-widest text-[10px]">Évaluation (Note sur 5)</label>
+                      <label className="block font-bold text-slate-400 uppercase tracking-widest text-[10px]">{tx(lang,{fr:'Évaluation (Note sur 5)',ar:'التقييم (درجة من 5)',en:'Rating (Score out of 5)',es:'Evaluación (Puntuación sobre 5)',pt:'Avaliação (Nota de 0 a 5)',tr:'Değerlendirme (5 üzerinden puan)'})}</label>
                       <select 
                         value={formSubcontractorRating} 
                         onChange={(e) => setFormSubcontractorRating(parseFloat(e.target.value))}
                         className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-800 outline-none focus:bg-white"
                       >
-                        <option value="5">★★★★★ - Excellent</option>
-                        <option value="4">★★★★☆ - Très Bon</option>
-                        <option value="3">★★★☆☆ - Moyen</option>
-                        <option value="2">★★☆☆☆ - Faible</option>
+                        <option value="5">{tx(lang,{fr:'★★★★★ - Excellent',ar:'★★★★★ - ممتاز',en:'★★★★★ - Excellent',es:'★★★★★ - Excelente',pt:'★★★★★ - Excelente',tr:'★★★★★ - Mükemmel'})}</option>
+                        <option value="4">{tx(lang,{fr:'★★★★☆ - Très Bon',ar:'★★★★☆ - جيد جداً',en:'★★★★☆ - Very Good',es:'★★★★☆ - Muy Bueno',pt:'★★★★☆ - Muito Bom',tr:'★★★★☆ - Çok İyi'})}</option>
+                        <option value="3">{tx(lang,{fr:'★★★☆☆ - Moyen',ar:'★★★☆☆ - متوسط',en:'★★★☆☆ - Average',es:'★★★☆☆ - Regular',pt:'★★★☆☆ - Médio',tr:'★★★☆☆ - Orta'})}</option>
+                        <option value="2">{tx(lang,{fr:'★★☆☆☆ - Faible',ar:'★★☆☆☆ - ضعيف',en:'★★☆☆☆ - Weak',es:'★★☆☆☆ - Bajo',pt:'★★☆☆☆ - Fraco',tr:'★★☆☆☆ - Zayıf'})}</option>
                       </select>
                     </div>
                   </div>
@@ -2424,94 +2429,94 @@ export default function SousTraitance({ models, settings }: SousTraitanceProps) 
               {modalFormTab === 'technical' && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-4">
-                    <h4 className="font-bold text-slate-800 border-b border-slate-150 pb-2">Cahier des charges</h4>
+                    <h4 className="font-bold text-slate-800 border-b border-slate-150 pb-2">{tx(lang,{fr:'Cahier des charges',ar:'دفتر الشروط',en:'Specifications',es:'Pliego de condiciones',pt:'Caderno de encargos',tr:'Şartname'})}</h4>
 
                     <div className="space-y-1.5">
-                      <label className="block font-bold text-slate-400 uppercase tracking-widest text-[10px]">Type de prestation</label>
+                      <label className="block font-bold text-slate-400 uppercase tracking-widest text-[10px]">{tx(lang,{fr:'Type de prestation',ar:'نوع الخدمة',en:'Service Type',es:'Tipo de Prestación',pt:'Tipo de Prestação',tr:'Hizmet Türü'})}</label>
                       <select 
                         value={formPrestationType} 
                         onChange={(e: any) => setFormPrestationType(e.target.value)}
                         className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-800 outline-none focus:bg-white"
                       >
-                        <option value="CMT">CMT (Coupe, Couture, Finition)</option>
-                        <option value="FACON_PURE">Façon Pure (Couture seule)</option>
+                        <option value="CMT">CMT ({tx(lang,{fr:'Coupe, Couture, Finition',ar:'قص، خياطة، تشطيب',en:'Cutting, Sewing, Finishing',es:'Corte, Costura, Acabado',pt:'Corte, Costura, Acabamento',tr:'Kesim, Dikiş, Bitim'})})</option>
+                        <option value="FACON_PURE">{tx(lang,{fr:'Façon Pure (Couture seule)',ar:'تصنيع خالص (خياطة فقط)',en:'Pure Manufacturing (Sewing only)',es:'Fabricación Pura (Solo costura)',pt:'Confecção Pura (Apenas costura)',tr:'Saf İmalat (Sadece dikiş)'})}</option>
                       </select>
                     </div>
 
                     <div className="space-y-1.5">
-                      <label className="block font-bold text-slate-400 uppercase tracking-widest text-[10px]">Provenance du Tissu</label>
+                      <label className="block font-bold text-slate-400 uppercase tracking-widest text-[10px]">{tx(lang,{fr:'Provenance du Tissu',ar:'مصدر القماش',en:'Fabric Origin',es:'Procedencia de la Tela',pt:'Proveniência do Tecido',tr:'Kumaşın Menşei'})}</label>
                       <select 
                         value={formTissuFournisseur} 
                         onChange={(e: any) => setFormTissuFournisseur(e.target.value)}
                         className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-800 outline-none focus:bg-white"
                       >
-                        <option value="CLIENT">Fourni par le donneur d'ordre (Client)</option>
-                        <option value="SUBCONTRACTOR">Fourni par le sous-traitant</option>
+                        <option value="CLIENT">{tx(lang,{fr:'Fourni par le donneur d\'ordre (Client)',ar:'مقدم من صاحب الطلب (العميل)',en:'Provided by the client',es:'Proporcionado por el cliente',pt:'Fornecido pelo cliente',tr:'Müşteri tarafından sağlanır'})}</option>
+                        <option value="SUBCONTRACTOR">{tx(lang,{fr:'Fourni par le sous-traitant',ar:'مقدم من المقاول من الباطن',en:'Provided by the subcontractor',es:'Proporcionado por el subcontratista',pt:'Fornecido pelo subcontratado',tr:'Taşeron tarafından sağlanır'})}</option>
                       </select>
                     </div>
 
                     <div className="space-y-1.5">
-                      <label className="block font-bold text-slate-400 uppercase tracking-widest text-[10px]">Provenance des Fournitures</label>
+                      <label className="block font-bold text-slate-400 uppercase tracking-widest text-[10px]">{tx(lang,{fr:'Provenance des Fournitures',ar:'مصدر اللوازم',en:'Supplies Origin',es:'Procedencia de los Suministros',pt:'Proveniência dos Fornecimentos',tr:'Malzeme Menşei'})}</label>
                       <select 
                         value={formFournituresFournisseur} 
                         onChange={(e: any) => setFormFournituresFournisseur(e.target.value)}
                         className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-800 outline-none focus:bg-white"
                       >
-                        <option value="CLIENT">Fourni par le donneur d'ordre (Client)</option>
-                        <option value="SUBCONTRACTOR">Acheté par le sous-traitant</option>
+                        <option value="CLIENT">{tx(lang,{fr:'Fourni par le donneur d\'ordre (Client)',ar:'مقدم من صاحب الطلب (العميل)',en:'Provided by the client',es:'Proporcionado por el cliente',pt:'Fornecido pelo cliente',tr:'Müşteri tarafından sağlanır'})}</option>
+                        <option value="SUBCONTRACTOR">{tx(lang,{fr:'Acheté par le sous-traitant',ar:'يشتريه المقاول من الباطن',en:'Purchased by the subcontractor',es:'Comprado por el subcontratista',pt:'Comprado pelo subcontratado',tr:'Taşeron tarafından satın alınır'})}</option>
                       </select>
                     </div>
                   </div>
 
                   <div className="space-y-4">
-                    <h4 className="font-bold text-slate-800 border-b border-slate-150 pb-2">Contrôle qualité & Administratif</h4>
+                    <h4 className="font-bold text-slate-800 border-b border-slate-150 pb-2">{tx(lang,{fr:'Contrôle qualité & Administratif',ar:'مراقبة الجودة والإداري',en:'Quality Control & Administrative',es:'Control de Calidad y Administrativo',pt:'Controlo de Qualidade e Administrativo',tr:'Kalite Kontrol ve İdari'})}</h4>
 
                     <div className="grid grid-cols-2 gap-3">
                       <div className="space-y-1.5">
-                        <label className="block font-bold text-slate-400 uppercase tracking-widest text-[10px]">Prototype Requis</label>
-                        <select 
-                          value={formProtoRequired} 
-                          onChange={(e) => setFormProtoRequired(parseInt(e.target.value))}
-                          className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-800 outline-none focus:bg-white"
-                        >
-                          <option value="1">Oui, obligatoire</option>
-                          <option value="0">Non requis</option>
+                      <label className="block font-bold text-slate-400 uppercase tracking-widest text-[10px]">{tx(lang,{fr:'Prototype Requis',ar:'النموذج الأولي مطلوب',en:'Prototype Required',es:'Prototipo Requerido',pt:'Protótipo Necessário',tr:'Prototip Gerekli'})}</label>
+                      <select 
+                        value={formProtoRequired} 
+                        onChange={(e) => setFormProtoRequired(parseInt(e.target.value))}
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-800 outline-none focus:bg-white"
+                      >
+                        <option value="1">{tx(lang,{fr:'Oui, obligatoire',ar:'نعم، إلزامي',en:'Yes, mandatory',es:'Sí, obligatorio',pt:'Sim, obrigatório',tr:'Evet, zorunlu'})}</option>
+                        <option value="0">{tx(lang,{fr:'Non requis',ar:'غير مطلوب',en:'Not required',es:'No requerido',pt:'Não necessário',tr:'Gerekli değil'})}</option>
                         </select>
                       </div>
 
                       <div className="space-y-1.5">
-                        <label className="block font-bold text-slate-400 uppercase tracking-widest text-[10px]">Statut du Prototype</label>
-                        <select 
-                          value={formProtoStatus} 
-                          onChange={(e: any) => setFormProtoStatus(e.target.value)}
-                          className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-800 outline-none focus:bg-white"
-                        >
-                          <option value="PENDING">En attente d'approbation</option>
-                          <option value="APPROVED">Validé / BPA signé</option>
+                      <label className="block font-bold text-slate-400 uppercase tracking-widest text-[10px]">{tx(lang,{fr:'Statut du Prototype',ar:'حالة النموذج الأولي',en:'Prototype Status',es:'Estado del Prototipo',pt:'Estado do Protótipo',tr:'Prototip Durumu'})}</label>
+                      <select 
+                        value={formProtoStatus} 
+                        onChange={(e: any) => setFormProtoStatus(e.target.value)}
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-800 outline-none focus:bg-white"
+                      >
+                        <option value="PENDING">{tx(lang,{fr:'En attente d\'approbation',ar:'قيد انتظار الموافقة',en:'Awaiting approval',es:'Pendiente de aprobación',pt:'A aguardar aprovação',tr:'Onay bekleniyor'})}</option>
+                        <option value="APPROVED">{tx(lang,{fr:'Validé / BPA signé',ar:'معتمد / تم توقيع BPA',en:'Approved / BPA signed',es:'Validado / BPA firmado',pt:'Validado / BPA assinado',tr:'Onaylandı / BPA imzalandı'})}</option>
                         </select>
                       </div>
                     </div>
 
                     <div className="space-y-1.5">
-                      <label className="block font-bold text-slate-400 uppercase tracking-widest text-[10px]">Conditions de règlement</label>
+                      <label className="block font-bold text-slate-400 uppercase tracking-widest text-[10px]">{tx(lang,{fr:'Conditions de règlement',ar:'شروط الدفع',en:'Payment Terms',es:'Condiciones de Pago',pt:'Condições de Pagamento',tr:'Ödeme Koşulları'})}</label>
                       <select 
                         value={formPaymentTerms} 
                         onChange={(e: any) => setFormPaymentTerms(e.target.value)}
                         className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-800 outline-none focus:bg-white"
                       >
-                        <option value="AVANCE_RECEPTION">Acompte à la commande + solde à la livraison</option>
-                        <option value="APRES_LIVRAISON">Paiement après réception de facture</option>
-                        <option value="ECHEANCES">Paiement échelonné</option>
+                        <option value="AVANCE_RECEPTION">{tx(lang,{fr:'Acompte à la commande + solde à la livraison',ar:'دفعة مقدمة عند الطلب + الباقي عند التسليم',en:'Deposit on order + balance on delivery',es:'Anticipo al pedido + saldo a la entrega',pt:'Sinal na encomenda + saldo na entrega',tr:'Siparişte avans + teslimatta bakiye'})}</option>
+                        <option value="APRES_LIVRAISON">{tx(lang,{fr:'Paiement après réception de facture',ar:'الدفع بعد استلام الفاتورة',en:'Payment after receipt of invoice',es:'Pago después de recibir la factura',pt:'Pagamento após receção da fatura',tr:'Fatura alındıktan sonra ödeme'})}</option>
+                        <option value="ECHEANCES">{tx(lang,{fr:'Paiement échelonné',ar:'دفع مقسط',en:'Installment payment',es:'Pago fraccionado',pt:'Pagamento parcelado',tr:'Taksitli ödeme'})}</option>
                       </select>
                     </div>
 
                     <div className="space-y-1.5">
-                      <label className="block font-bold text-slate-400 uppercase tracking-widest text-[10px]">Consignes de Couture</label>
+                      <label className="block font-bold text-slate-400 uppercase tracking-widest text-[10px]">{tx(lang,{fr:'Consignes de Couture',ar:'تعليمات الخياطة',en:'Sewing Instructions',es:'Instrucciones de Costura',pt:'Instruções de Costura',tr:'Dikiş Talimatları'})}</label>
                       <textarea 
                         value={formStitchingDetails}
                         onChange={(e) => setFormStitchingDetails(e.target.value)}
                         className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 outline-none h-16 text-slate-800 focus:border-indigo-500 focus:bg-white"
-                        placeholder="Instructions spécifiques d'assemblage..."
+                        placeholder={tx(lang,{fr:'Instructions spécifiques d\'assemblage...',ar:'تعليمات تجميع محددة...',en:'Specific assembly instructions...',es:'Instrucciones específicas de ensamblaje...',pt:'Instruções específicas de montagem...',tr:'Özel montaj talimatları...'})}
                       />
                     </div>
                   </div>
@@ -2524,7 +2529,7 @@ export default function SousTraitance({ models, settings }: SousTraitanceProps) 
                   onClick={() => setIsEditModalOpen(false)}
                   className="px-5 py-2.5 border border-slate-200 hover:bg-slate-50 text-slate-500 rounded-xl font-bold transition-all"
                 >
-                  Annuler
+                  {tx(lang,{fr:'Annuler',ar:'إلغاء',en:'Cancel',es:'Cancelar',pt:'Cancelar',tr:'İptal'})}
                 </button>
                 <button 
                   type="submit"
@@ -2532,7 +2537,7 @@ export default function SousTraitance({ models, settings }: SousTraitanceProps) 
                   className="bg-indigo-600 hover:bg-indigo-500 text-white px-6 py-2.5 rounded-xl font-bold transition-all shadow-md flex items-center gap-2 border border-indigo-500/50"
                 >
                   {actionLoading && <Loader2 className="w-4 h-4 animate-spin" />}
-                  <span>Enregistrer</span>
+                  <span>{tx(lang,{fr:'Enregistrer',ar:'حفظ',en:'Save',es:'Guardar',pt:'Guardar',tr:'Kaydet'})}</span>
                 </button>
               </div>
             </form>
@@ -2547,7 +2552,7 @@ export default function SousTraitance({ models, settings }: SousTraitanceProps) 
         <div className="fixed inset-0 bg-slate-900/55 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-white border border-slate-200 rounded-3xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[85vh] text-slate-750">
             <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/55">
-              <h2 className="font-bold text-slate-800 text-base">Fiche de Commande Sous-traitance</h2>
+              <h2 className="font-bold text-slate-800 text-base">{tx(lang,{fr:'Fiche de Commande Sous-traitance',ar:'بطاقة أمر المقاولة من الباطن',en:'Subcontract Order Sheet',es:'Ficha de Pedido de Subcontratación',pt:'Ficha de Encomenda de Subcontratação',tr:'Taşeron Sipariş Kartı'})}</h2>
               <button onClick={() => setIsDetailModalOpen(false)} className="p-1.5 hover:bg-slate-100 rounded-full transition-colors text-slate-400 hover:text-slate-600">
                 <X className="w-5 h-5" />
               </button>
@@ -2556,31 +2561,31 @@ export default function SousTraitance({ models, settings }: SousTraitanceProps) 
             <div className="flex-1 overflow-y-auto p-6 space-y-6 text-xs">
               <div className="grid grid-cols-2 gap-4">
                 <div className="bg-slate-50/75 p-4 rounded-xl border border-slate-150">
-                  <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest block">Sous-traitant</span>
+                  <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest block">{tx(lang,{fr:'Sous-traitant',ar:'المقاول من الباطن',en:'Subcontractor',es:'Subcontratista',pt:'Subcontratado',tr:'Taşeron'})}</span>
                   <span className="text-sm font-bold text-slate-800 mt-1 block">{detailOrder.subcontractorName}</span>
-                  {detailOrder.subcontractorPhone && <span className="text-slate-500 block mt-1">Tél: {detailOrder.subcontractorPhone}</span>}
+                  {detailOrder.subcontractorPhone && <span className="text-slate-500 block mt-1">{tx(lang,{fr:'Tél:',ar:'الهاتف:',en:'Tel:',es:'Tel:',pt:'Tel:',tr:'Tel:'})} {detailOrder.subcontractorPhone}</span>}
                 </div>
                 <div className="bg-slate-50/75 p-4 rounded-xl border border-slate-150">
-                  <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest block">Client Donneur d'Ordre</span>
+                  <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest block">{tx(lang,{fr:'Client Donneur d\'Ordre',ar:'العميل صاحب الطلب',en:'Ordering Client',es:'Cliente Ordenante',pt:'Cliente Mandante',tr:'Sipariş Veren Müşteri'})}</span>
                   <span className="text-sm font-bold text-slate-800 mt-1 block">{detailOrder.clientName || 'N/A'}</span>
                 </div>
               </div>
 
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 bg-slate-50/75 p-4 rounded-xl border border-slate-150">
                 <div>
-                  <span className="text-slate-500 font-semibold block uppercase text-[10px]">Modèle</span>
+                  <span className="text-slate-500 font-semibold block uppercase text-[10px]">{tx(lang,{fr:'Modèle',ar:'الموديل',en:'Model',es:'Modelo',pt:'Modelo',tr:'Model'})}</span>
                   <span className="font-bold text-slate-800">{detailOrder.modelName}</span>
                 </div>
                 <div>
-                  <span className="text-slate-500 font-semibold block uppercase text-[10px]">Quantité totale</span>
+                  <span className="text-slate-500 font-semibold block uppercase text-[10px]">{tx(lang,{fr:'Quantité totale',ar:'الكمية الإجمالية',en:'Total quantity',es:'Cantidad total',pt:'Quantidade total',tr:'Toplam miktar'})}</span>
                   <span className="font-bold text-slate-800">{detailOrder.totalQuantity.toLocaleString()} pcs</span>
                 </div>
                 <div>
-                  <span className="text-slate-500 font-semibold block uppercase text-[10px]">Tarif unitaire</span>
+                  <span className="text-slate-500 font-semibold block uppercase text-[10px]">{tx(lang,{fr:'Tarif unitaire',ar:'السعر الوحدة',en:'Unit price',es:'Precio unitario',pt:'Preço unitário',tr:'Birim fiyat'})}</span>
                   <span className="font-bold text-slate-800">{detailOrder.pricePerPiece || 0} MAD</span>
                 </div>
                 <div>
-                  <span className="text-slate-500 font-semibold block uppercase text-[10px]">Date livraison</span>
+                  <span className="text-slate-500 font-semibold block uppercase text-[10px]">{tx(lang,{fr:'Date livraison',ar:'تاريخ التسليم',en:'Delivery date',es:'Fecha de entrega',pt:'Data de entrega',tr:'Teslimat tarihi'})}</span>
                   <span className="font-bold text-slate-800">{new Date(detailOrder.deliveryDate).toLocaleDateString('fr-FR')}</span>
                 </div>
               </div>
@@ -2588,39 +2593,39 @@ export default function SousTraitance({ models, settings }: SousTraitanceProps) 
               {/* Status details */}
               <div className="bg-slate-50/75 border border-slate-150 rounded-xl p-4 grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div>
-                  <span className="text-slate-500 font-semibold block uppercase text-[10px]">Matière (Tissu)</span>
+                  <span className="text-slate-500 font-semibold block uppercase text-[10px]">{tx(lang,{fr:'Matière (Tissu)',ar:'المادة (القماش)',en:'Material (Fabric)',es:'Material (Tela)',pt:'Material (Tecido)',tr:'Malzeme (Kumaş)'})}</span>
                   <span className={`font-bold text-xs ${detailOrder.tissuStatus === 'SENT' ? 'text-emerald-600' : 'text-amber-600'}`}>
-                    {detailOrder.tissuStatus === 'SENT' ? 'Expédié' : 'En attente'}
+                    {detailOrder.tissuStatus === 'SENT' ? tx(lang,{fr:'Expédié',ar:'تم الشحن',en:'Shipped',es:'Enviado',pt:'Expedido',tr:'Sevk Edildi'}) : tx(lang,{fr:'En attente',ar:'قيد الانتظار',en:'Pending',es:'Pendiente',pt:'Pendente',tr:'Beklemede'})}
                   </span>
                 </div>
                 <div>
-                  <span className="text-slate-500 font-semibold block uppercase text-[10px]">Fournitures</span>
+                  <span className="text-slate-500 font-semibold block uppercase text-[10px]">{tx(lang,{fr:'Fournitures',ar:'اللوازم',en:'Supplies',es:'Suministros',pt:'Fornecimentos',tr:'Malzemeler'})}</span>
                   <span className={`font-bold text-xs ${detailOrder.fournituresStatus === 'DELIVERED' ? 'text-emerald-600' : 'text-amber-600'}`}>
-                    {detailOrder.fournituresStatus === 'DELIVERED' ? 'Livrées' : 'En attente'}
+                    {detailOrder.fournituresStatus === 'DELIVERED' ? tx(lang,{fr:'Livrées',ar:'تم التسليم',en:'Delivered',es:'Entregado',pt:'Entregue',tr:'Teslim Edildi'}) : tx(lang,{fr:'En attente',ar:'قيد الانتظار',en:'Pending',es:'Pendiente',pt:'Pendente',tr:'Beklemede'})}
                   </span>
                 </div>
                 <div>
-                  <span className="text-slate-500 font-semibold block uppercase text-[10px]">Statut Prototype</span>
+                  <span className="text-slate-500 font-semibold block uppercase text-[10px]">{tx(lang,{fr:'Statut Prototype',ar:'حالة النموذج الأولي',en:'Prototype Status',es:'Estado del Prototipo',pt:'Estado do Protótipo',tr:'Prototip Durumu'})}</span>
                   <span className={`font-bold text-xs ${detailOrder.protoStatus === 'APPROVED' ? 'text-emerald-600' : 'text-amber-600'}`}>
-                    {detailOrder.protoStatus === 'APPROVED' ? 'Validé' : 'En attente'}
+                    {detailOrder.protoStatus === 'APPROVED' ? tx(lang,{fr:'Validé',ar:'معتمد',en:'Approved',es:'Validado',pt:'Validado',tr:'Onaylandı'}) : tx(lang,{fr:'En attente',ar:'قيد الانتظار',en:'Pending',es:'Pendiente',pt:'Pendente',tr:'Beklemede'})}
                   </span>
                 </div>
               </div>
 
               {/* Quantity analysis details */}
               <div className="border border-slate-200 rounded-2xl p-4 space-y-3 bg-slate-50/50">
-                <h4 className="font-bold text-slate-700 uppercase tracking-wide">État des pièces livrées</h4>
+                <h4 className="font-bold text-slate-700 uppercase tracking-wide">{tx(lang,{fr:'État des pièces livrées',ar:'حالة القطع المسلَّمة',en:'Status of delivered pieces',es:'Estado de las piezas entregadas',pt:'Estado das peças entregues',tr:'Teslim edilen parçaların durumu'})}</h4>
                 <div className="grid grid-cols-3 gap-4 text-center">
                   <div className="bg-emerald-50 p-2.5 rounded-xl border border-emerald-100">
-                    <span className="text-emerald-800 font-bold block text-[9px] uppercase tracking-wide">Acceptées</span>
+                    <span className="text-emerald-800 font-bold block text-[9px] uppercase tracking-wide">{tx(lang,{fr:'Acceptées',ar:'مقبولة',en:'Accepted',es:'Aceptadas',pt:'Aceites',tr:'Kabul Edilen'})}</span>
                     <span className="text-base font-extrabold text-emerald-600 mt-1 block">{(detailOrder.qtyAccepted || 0).toLocaleString()} pcs</span>
                   </div>
                   <div className="bg-amber-50 p-2.5 rounded-xl border border-amber-100">
-                    <span className="text-amber-800 font-bold block text-[9px] uppercase tracking-wide">À retoucher</span>
+                    <span className="text-amber-800 font-bold block text-[9px] uppercase tracking-wide">{tx(lang,{fr:'À retoucher',ar:'قيد التعديل',en:'To rework',es:'Por retocar',pt:'Por retocar',tr:'Rötus yapılacak'})}</span>
                     <span className="text-base font-extrabold text-amber-600 mt-1 block">{(detailOrder.qtyToRepair || 0).toLocaleString()} pcs</span>
                   </div>
                   <div className="bg-rose-50 p-2.5 rounded-xl border border-rose-100">
-                    <span className="text-rose-800 font-bold block text-[9px] uppercase tracking-wide">Rejetées</span>
+                    <span className="text-rose-800 font-bold block text-[9px] uppercase tracking-wide">{tx(lang,{fr:'Rejetées',ar:'مرفوضة',en:'Rejected',es:'Rechazadas',pt:'Rejeitadas',tr:'Reddedilen'})}</span>
                     <span className="text-base font-extrabold text-rose-650 mt-1 block">{(detailOrder.qtyRejected || 0).toLocaleString()} pcs</span>
                   </div>
                 </div>
@@ -2628,7 +2633,7 @@ export default function SousTraitance({ models, settings }: SousTraitanceProps) 
 
               {detailOrder.notes && (
                 <div className="bg-indigo-50/70 p-3.5 border border-indigo-100 rounded-xl">
-                  <span className="text-[10px] font-bold text-indigo-700 block uppercase tracking-wide">Instructions</span>
+                  <span className="text-[10px] font-bold text-indigo-700 block uppercase tracking-wide">{tx(lang,{fr:'Instructions',ar:'تعليمات',en:'Instructions',es:'Instrucciones',pt:'Instruções',tr:'Talimatlar'})}</span>
                   <p className="mt-1 font-semibold text-indigo-950 italic">{detailOrder.notes}</p>
                 </div>
               )}
@@ -2640,13 +2645,13 @@ export default function SousTraitance({ models, settings }: SousTraitanceProps) 
                 className="bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 px-4 py-2 rounded-xl flex items-center gap-1.5 shadow-sm transition-all"
               >
                 <Printer className="w-4 h-4" />
-                <span>Imprimer Bon d'Envoi</span>
+                <span>{tx(lang,{fr:"Imprimer Bon d'Envoi",ar:'طباعة مذكرة الإرسال',en:'Print Delivery Note',es:'Imprimir Nota de Envío',pt:'Imprimir Nota de Remessa',tr:'Sevk İrsaliyesi Yazdır'})}</span>
               </button>
               <button 
                 onClick={() => setIsDetailModalOpen(false)}
                 className="bg-indigo-600 hover:bg-indigo-550 text-white px-5 py-2.5 rounded-xl shadow transition-all border border-indigo-600"
               >
-                Fermer
+                {tx(lang,{fr:'Fermer',ar:'إغلاق',en:'Close',es:'Cerrar',pt:'Fechar',tr:'Kapat'})}
               </button>
             </div>
           </div>
@@ -2662,7 +2667,7 @@ export default function SousTraitance({ models, settings }: SousTraitanceProps) 
             <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/55">
               <h2 className="font-bold text-slate-850 text-base flex items-center gap-2">
                 <FileText className="w-5 h-5 text-indigo-600" />
-                <span>Générer une facture de sortie de stock (Vente)</span>
+                <span>{tx(lang,{fr:'Générer une facture de sortie de stock (Vente)',ar:'إنشاء فاتورة إخراج من المخزون (بيع)',en:'Generate stock exit invoice (Sale)',es:'Generar factura de salida de stock (Venta)',pt:'Gerar fatura de saída de stock (Venda)',tr:'Stok çıkış faturası oluştur (Satış)'})}</span>
               </h2>
               <button onClick={() => setIsSaleModalOpen(false)} className="p-1.5 hover:bg-slate-100 rounded-full transition-colors text-slate-400 hover:text-slate-600">
                 <X className="w-5 h-5" />
@@ -2672,10 +2677,10 @@ export default function SousTraitance({ models, settings }: SousTraitanceProps) 
             <form onSubmit={handleSaveSaleInvoice} className="flex-1 overflow-y-auto p-6 space-y-6 text-xs text-slate-700">
               {/* Invoice structured details */}
               <div className="bg-slate-50/75 rounded-2xl p-4 border border-slate-150 space-y-4">
-                <h3 className="font-bold text-slate-500 uppercase tracking-wider text-[9px]">Informations Facture</h3>
+                <h3 className="font-bold text-slate-500 uppercase tracking-wider text-[9px]">{tx(lang,{fr:'Informations Facture',ar:'معلومات الفاتورة',en:'Invoice Information',es:'Información de Factura',pt:'Informações da Fatura',tr:'Fatura Bilgileri'})}</h3>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="space-y-1">
-                    <label className="block font-bold text-slate-500 uppercase">N° Facture</label>
+                    <label className="block font-bold text-slate-500 uppercase">{tx(lang,{fr:'N° Facture',ar:'رقم الفاتورة',en:'Invoice N°',es:'N° Factura',pt:'N° Fatura',tr:'Fatura No'})}</label>
                     <input 
                       type="text"
                       value={saleInvoiceNumber}
@@ -2685,18 +2690,18 @@ export default function SousTraitance({ models, settings }: SousTraitanceProps) 
                     />
                   </div>
                   <div className="space-y-1">
-                    <label className="block font-bold text-slate-500 uppercase">Nom du client *</label>
+                    <label className="block font-bold text-slate-500 uppercase">{tx(lang,{fr:'Nom du client *',ar:'اسم العميل *',en:'Client Name *',es:'Nombre del Cliente *',pt:'Nome do Cliente *',tr:'Müşteri Adı *'})}</label>
                     <input 
                       type="text"
                       value={saleClient}
                       onChange={(e) => setSaleClient(e.target.value)}
                       className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2.5 text-slate-800 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
-                      placeholder="Nom de l'acheteur"
+                      placeholder={tx(lang,{fr:"Nom de l'acheteur",ar:'اسم المشتري',en:'Buyer name',es:'Nombre del comprador',pt:'Nome do comprador',tr:'Alıcı adı'})}
                       required
                     />
                   </div>
                   <div className="space-y-1">
-                    <label className="block font-bold text-slate-500 uppercase">ICE Client</label>
+                    <label className="block font-bold text-slate-500 uppercase">ICE {tx(lang,{fr:'Client',ar:'العميل',en:'Client',es:'Cliente',pt:'Cliente',tr:'Müşteri'})}</label>
                     <input 
                       type="text"
                       value={saleClientIce}
@@ -2709,7 +2714,7 @@ export default function SousTraitance({ models, settings }: SousTraitanceProps) 
 
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                   <div className="space-y-1">
-                    <label className="block font-bold text-slate-500 uppercase">RC Client</label>
+                    <label className="block font-bold text-slate-500 uppercase">RC {tx(lang,{fr:'Client',ar:'العميل',en:'Client',es:'Cliente',pt:'Cliente',tr:'Müşteri'})}</label>
                     <input 
                       type="text"
                       value={saleClientRc}
@@ -2719,7 +2724,7 @@ export default function SousTraitance({ models, settings }: SousTraitanceProps) 
                     />
                   </div>
                   <div className="space-y-1">
-                    <label className="block font-bold text-slate-500 uppercase">Téléphone</label>
+                    <label className="block font-bold text-slate-500 uppercase">{tx(lang,{fr:'Téléphone',ar:'الهاتف',en:'Phone',es:'Teléfono',pt:'Telefone',tr:'Telefon'})}</label>
                     <input 
                       type="text"
                       value={saleClientTel}
@@ -2728,13 +2733,13 @@ export default function SousTraitance({ models, settings }: SousTraitanceProps) 
                     />
                   </div>
                   <div className="space-y-1 col-span-2">
-                    <label className="block font-bold text-slate-500 uppercase">Adresse de livraison</label>
+                    <label className="block font-bold text-slate-500 uppercase">{tx(lang,{fr:'Adresse de livraison',ar:'عنوان التسليم',en:'Delivery address',es:'Dirección de entrega',pt:'Morada de entrega',tr:'Teslimat adresi'})}</label>
                     <input 
                       type="text"
                       value={saleClientAdresse}
                       onChange={(e) => setSaleClientAdresse(e.target.value)}
                       className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2.5 text-slate-800 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
-                      placeholder="Adresse"
+                      placeholder={tx(lang,{fr:'Adresse',ar:'العنوان',en:'Address',es:'Dirección',pt:'Morada',tr:'Adres'})}
                     />
                   </div>
                 </div>
@@ -2742,22 +2747,22 @@ export default function SousTraitance({ models, settings }: SousTraitanceProps) 
 
               {/* Items Grid */}
               <div className="space-y-3">
-                <h3 className="font-bold text-slate-500 uppercase tracking-wider text-[9px]">Lignes de facturation</h3>
+                <h3 className="font-bold text-slate-500 uppercase tracking-wider text-[9px]">{tx(lang,{fr:'Lignes de facturation',ar:'بنود الفاتورة',en:'Invoice Lines',es:'Líneas de Facturación',pt:'Linhas de Faturação',tr:'Fatura Kalemleri'})}</h3>
                 <div className="border border-slate-200 rounded-2xl overflow-hidden bg-slate-50/30">
                   <table className="w-full text-left">
                     <thead className="bg-slate-50 border-b border-slate-150 text-slate-600 font-bold">
                       <tr>
-                        <th className="px-4 py-3">Désignation</th>
-                        <th className="px-4 py-3 text-center w-28">Quantité</th>
-                        <th className="px-4 py-3 text-center w-36">Prix Unitaire (MAD)</th>
-                        <th className="px-4 py-3 text-right w-40">Total HT</th>
+                        <th className="px-4 py-3">{tx(lang,{fr:'Désignation',ar:'البيان',en:'Description',es:'Designación',pt:'Designação',tr:'Açıklama'})}</th>
+                        <th className="px-4 py-3 text-center w-28">{tx(lang,{fr:'Quantité',ar:'الكمية',en:'Quantity',es:'Cantidad',pt:'Quantidade',tr:'Miktar'})}</th>
+                        <th className="px-4 py-3 text-center w-36">{tx(lang,{fr:'Prix Unitaire (MAD)',ar:'السعر الوحدة (MAD)',en:'Unit Price (MAD)',es:'Precio Unitario (MAD)',pt:'Preço Unitário (MAD)',tr:'Birim Fiyat (MAD)'})}</th>
+                        <th className="px-4 py-3 text-right w-40">{tx(lang,{fr:'Total HT',ar:'الإجمالي HT',en:'Total HT',es:'Total HT',pt:'Total HT',tr:'Toplam HT'})}</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-150 text-slate-700 bg-white">
                       <tr>
                         <td className="px-4 py-3 font-semibold text-slate-800">
-                          Modèle: {selectedModelForSale.meta_data.nom_modele}
-                          <span className="text-[10px] text-slate-500 block font-normal mt-0.5">Réf: {selectedModelForSale.meta_data.reference || 'Aucune'}</span>
+                          {tx(lang,{fr:'Modèle:',ar:'الموديل:',en:'Model:',es:'Modelo:',pt:'Modelo:',tr:'Model:'})} {selectedModelForSale.meta_data.nom_modele}
+                          <span className="text-[10px] text-slate-500 block font-normal mt-0.5">{tx(lang,{fr:'Réf:',ar:'المرجع:',en:'Ref:',es:'Ref:',pt:'Ref:',tr:'Ref:'})} {selectedModelForSale.meta_data.reference || tx(lang,{fr:'Aucune',ar:'لا يوجد',en:'None',es:'Ninguna',pt:'Nenhuma',tr:'Yok'})}</span>
                         </td>
                         <td className="px-4 py-3">
                           <input 
@@ -2790,35 +2795,35 @@ export default function SousTraitance({ models, settings }: SousTraitanceProps) 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
                 <div className="space-y-3">
                   <div className="space-y-1">
-                    <label className="block font-bold text-slate-500 uppercase">Taux TVA (%)</label>
+                    <label className="block font-bold text-slate-500 uppercase">{tx(lang,{fr:'Taux TVA (%)',ar:'نسبة TVA',en:'VAT Rate (%)',es:'Tipo de IVA (%)',pt:'Taxa de IVA (%)',tr:'KDV Oranı (%)'})}</label>
                     <select 
                       value={saleTvaRate} 
                       onChange={(e) => setSaleTvaRate(parseInt(e.target.value))}
                       className="w-full border border-slate-200 rounded-xl px-3 py-2 bg-white text-slate-800 outline-none focus:border-indigo-500"
                     >
-                      <option value="20">20% (Standard)</option>
+                      <option value="20">{tx(lang,{fr:'20% (Standard)',ar:'20% (قياسي)',en:'20% (Standard)',es:'20% (Estándar)',pt:'20% (Padrão)',tr:'%20 (Standart)'})}</option>
                       <option value="14">14%</option>
                       <option value="10">10%</option>
                       <option value="7">7%</option>
-                      <option value="0">0% (Exonéré)</option>
+                      <option value="0">{tx(lang,{fr:'0% (Exonéré)',ar:'0% (معفى)',en:'0% (Exempt)',es:'0% (Exento)',pt:'0% (Isento)',tr:'%0 (Muaf)'})}</option>
                     </select>
                   </div>
 
                   <div className="space-y-1">
-                    <label className="block font-bold text-slate-500 uppercase">Statut de la facture</label>
+                    <label className="block font-bold text-slate-500 uppercase">{tx(lang,{fr:'Statut de la facture',ar:'حالة الفاتورة',en:'Invoice Status',es:'Estado de la Factura',pt:'Estado da Fatura',tr:'Fatura Durumu'})}</label>
                     <select 
                       value={saleStatus} 
                       onChange={(e: any) => setSaleStatus(e.target.value)}
                       className="w-full border border-slate-200 rounded-xl px-3 py-2 bg-white text-slate-800 outline-none focus:border-indigo-500"
                     >
-                      <option value="BROUILLON">Brouillon</option>
-                      <option value="ENVOYEE">Envoyée au client</option>
-                      <option value="PAYEE">Payée / Encaissée</option>
+                      <option value="BROUILLON">{tx(lang,{fr:'Brouillon',ar:'مسودة',en:'Draft',es:'Borrador',pt:'Rascunho',tr:'Taslak'})}</option>
+                      <option value="ENVOYEE">{tx(lang,{fr:'Envoyée au client',ar:'أرسلت للعميل',en:'Sent to client',es:'Enviada al cliente',pt:'Enviada ao cliente',tr:'Müşteriye gönderildi'})}</option>
+                      <option value="PAYEE">{tx(lang,{fr:'Payée / Encaissée',ar:'مدفوعة / مقبوضة',en:'Paid / Received',es:'Pagada / Cobrada',pt:'Paga / Recebida',tr:'Ödendi / Tahsil Edildi'})}</option>
                     </select>
                   </div>
 
                   <div className="space-y-1">
-                    <label className="block font-bold text-slate-500 uppercase">Note interne / Observation</label>
+                    <label className="block font-bold text-slate-500 uppercase">{tx(lang,{fr:'Note interne / Observation',ar:'ملاحظة داخلية',en:'Internal Note / Remark',es:'Nota interna / Observación',pt:'Nota interna / Observação',tr:'Dahili Not / Gözlem'})}</label>
                     <textarea 
                       value={saleNotes}
                       onChange={(e) => setSaleNotes(e.target.value)}
@@ -2829,17 +2834,17 @@ export default function SousTraitance({ models, settings }: SousTraitanceProps) 
 
                 {/* Calculations preview box */}
                 <div className="bg-slate-50/75 rounded-2xl p-5 border border-slate-150 space-y-3 ml-auto w-full md:w-80">
-                  <h4 className="font-bold text-slate-700 uppercase tracking-wider text-[10px] border-b border-slate-150 pb-2">Récapitulatif</h4>
+                  <h4 className="font-bold text-slate-700 uppercase tracking-wider text-[10px] border-b border-slate-150 pb-2">{tx(lang,{fr:'Récapitulatif',ar:'الملخص',en:'Summary',es:'Resumen',pt:'Resumo',tr:'Özet'})}</h4>
                   <div className="flex justify-between text-xs font-semibold">
-                    <span className="text-slate-500">Montant HT</span>
+                    <span className="text-slate-500">{tx(lang,{fr:'Montant HT',ar:'المبلغ HT',en:'HT Amount',es:'Importe HT',pt:'Valor HT',tr:'HT Tutarı'})}</span>
                     <span className="text-slate-800">{(saleQuantity * salePrice).toLocaleString()} MAD</span>
                   </div>
                   <div className="flex justify-between text-xs font-semibold">
-                    <span className="text-slate-500">TVA ({saleTvaRate}%)</span>
+                    <span className="text-slate-500">{tx(lang,{fr:'TVA',ar:'TVA',en:'VAT',es:'IVA',pt:'IVA',tr:'KDV'})} ({saleTvaRate}%)</span>
                     <span className="text-slate-800">{((saleQuantity * salePrice * saleTvaRate) / 100).toLocaleString()} MAD</span>
                   </div>
                   <div className="flex justify-between text-sm font-bold border-t border-slate-150 pt-2 text-indigo-600">
-                    <span>Total TTC</span>
+                    <span>{tx(lang,{fr:'Total TTC',ar:'الإجمالي TTC',en:'Total TTC',es:'Total TTC',pt:'Total TTC',tr:'Toplam TTC'})}</span>
                     <span>{((saleQuantity * salePrice) * (1 + saleTvaRate / 100)).toLocaleString()} MAD</span>
                   </div>
                 </div>
@@ -2852,14 +2857,14 @@ export default function SousTraitance({ models, settings }: SousTraitanceProps) 
                   className="px-4 py-2 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-xl font-bold flex items-center gap-2 shadow-sm transition-all"
                 >
                   <Printer className="w-4 h-4" />
-                  <span>Imprimer la Facture</span>
+                  <span>{tx(lang,{fr:'Imprimer la Facture',ar:'طباعة الفاتورة',en:'Print Invoice',es:'Imprimir Factura',pt:'Imprimir Fatura',tr:'Fatura Yazdır'})}</span>
                 </button>
                 <button 
                   type="button" 
                   onClick={() => setIsSaleModalOpen(false)}
                   className="px-4 py-2 border border-slate-200 hover:bg-slate-50 text-slate-500 rounded-xl font-bold transition-all"
                 >
-                  Annuler
+                  {tx(lang,{fr:'Annuler',ar:'إلغاء',en:'Cancel',es:'Cancelar',pt:'Cancelar',tr:'İptal'})}
                 </button>
                 <button 
                   type="submit"
@@ -2867,7 +2872,7 @@ export default function SousTraitance({ models, settings }: SousTraitanceProps) 
                   className="bg-indigo-600 hover:bg-indigo-550 text-white px-5 py-2.5 rounded-xl font-bold transition-all shadow-md flex items-center gap-2 border border-indigo-600"
                 >
                   {actionLoading && <Loader2 className="w-4 h-4 animate-spin" />}
-                  <span>Enregistrer la Sortie</span>
+                  <span>{tx(lang,{fr:'Enregistrer la Sortie',ar:'حفظ الإخراج',en:'Save Exit',es:'Guardar Salida',pt:'Guardar Saída',tr:'Çıkışı Kaydet'})}</span>
                 </button>
               </div>
             </form>

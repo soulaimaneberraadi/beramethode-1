@@ -11,6 +11,8 @@ import {
 } from 'lucide-react';
 import DateTimePicker from './ui/DateTimePicker';
 import { DEFAULT_CALENDAR_APP_SETTINGS } from '../lib/defaultCalendarSettings';
+import { tx } from '../lib/i18n';
+import { useLang } from '../src/context/LanguageContext';
 
 interface Props {
     models: ModelData[];
@@ -28,109 +30,65 @@ interface Props {
     setGlobalDate?: (date: string) => void;
 }
 
-const DR_LABELS = {
-    title: 'تتبع الإنتاج',
-    subtitle: 'تسجيل الإنتاج بالساعة والعمال مباشرة على الجدول',
-    activeModel: 'الموديل لي خدامين فيه',
-    chain: 'السلسلة',
-    week: 'أسبوع',
-    supervisor: 'الشاف ديال الشين',
-    activeModels: 'الموديلات الخدامين',
-    yieldAvg: 'معدل المردودية',
-    date: 'التاريخ',
-    day: 'اليوم',
-    pJournaliere: 'الإنتاج اليومي',
-    totalHours: 'مجموع الساعات',
-    effectif: 'الخدّامة',
-    yieldDay: 'المردودية اليومية',
-    yieldHour: 'مردودية الساعة',
-    trs: 'TRS معدل الفعالية الكاملة',
-    dispo: 'الواجدية (Dispo)',
-    perf: 'الإنتاجية (Perf)',
-    quality: 'الجودة (Qualité)',
-    timeline: 'الخط الزمني لليوم',
-    wip: 'الخدمة لي باقة فالوسط (WIP)',
-    size: 'العبر (Taille)',
-    inputs: 'الدخول (Entrées)',
-    outputs: 'الخروج (Sorties)',
-    bottleneck: 'عائق (Goulot)',
-    fluid: 'مسرح (Fluide)',
-    gamme: 'سلسلة التجميع ومطابقة الكفاءات',
-    requiredSkills: 'الماكينات المطلوبة والخدّامة المقيدين فـ RH',
-    save: 'حفظ',
-    saving: 'جاري الحفظ...',
-    saved: 'تم الحفظ',
-    error: 'خطأ فالمزامنة',
-    downtimes: 'أوقات التوقف',
-    overrideMode: 'وضع التعديل',
-    doubleClick: 'اضغط مرتين للتفاصيل',
-    cellModalTitle: 'تفاصيل ساعة العمل',
-    quantity: 'الكمية المنتجة',
-    defects: 'العيوب (Défauts)',
-    defectType: 'نوع العيب',
-    close: 'إغلاق',
-    none: 'بدون',
-    lunch: 'غداء (L)',
-    pause: 'استراحة (P)',
-    breakdown: 'عطل ماكينة (M)',
-    rupture: 'قطع السلعة (S)',
-    sewing: 'Couture (خياطة)',
-    fabric: 'Tissu (توب)',
-    cut: 'Coupe (فصالة)',
-    other: 'Autre (أخرى)'
+const SUIVI_LABELS = {
+    title: { fr: 'Suivi de Production', ar: 'تتبع الإنتاج', en: 'Production Tracking', es: 'Seguimiento de Producción', pt: 'Acompanhamento da Produção', tr: 'Üretim Takibi' },
+    subtitle: { fr: 'Relevés horaires et effectifs saisissables directement sur la grille', ar: 'تسجيل الإنتاج بالساعة والموارد البشرية مباشرة على الجدول', en: 'Hourly production and workforce entries directly on the grid', es: 'Registros horarios y personal editables directamente en la tabla', pt: 'Registos horários e efetivos editáveis diretamente na grelha', tr: 'Saatlik üretim ve personel kayıtları doğrudan tabloda' },
+    activeModel: { fr: 'Modèle Actif', ar: 'النموذج النشط', en: 'Active Model', es: 'Modelo activo', pt: 'Modelo ativo', tr: 'Aktif model' },
+    chain: { fr: 'Séquence', ar: 'السلسلة', en: 'Line', es: 'Línea', pt: 'Linha', tr: 'Hat' },
+    week: { fr: 'Semaine', ar: 'الأسبوع', en: 'Week', es: 'Semana', pt: 'Semana', tr: 'Hafta' },
+    supervisor: { fr: 'Responsable ligne', ar: 'مسؤول الخط', en: 'Line supervisor', es: 'Responsable de línea', pt: 'Responsável da linha', tr: 'Hat sorumlusu' },
+    activeModels: { fr: 'Modèles Actifs', ar: 'النماذج النشطة', en: 'Active Models', es: 'Modelos activos', pt: 'Modelos ativos', tr: 'Aktif modeller' },
+    yieldAvg: { fr: 'M.R Moyen Hebdomadaire', ar: 'متوسط M.R الأسبوعي', en: 'Weekly average M.R', es: 'M.R medio semanal', pt: 'M.R médio semanal', tr: 'Haftalık ortalama M.R' },
+    date: { fr: 'Date', ar: 'التاريخ', en: 'Date', es: 'Fecha', pt: 'Data', tr: 'Tarih' },
+    day: { fr: 'Jour', ar: 'اليوم', en: 'Day', es: 'Día', pt: 'Dia', tr: 'Gün' },
+    pJournaliere: { fr: 'P. Journ.', ar: 'الإنتاج اليومي', en: 'Daily output', es: 'Prod. diaria', pt: 'Prod. diária', tr: 'Günlük üretim' },
+    totalHours: { fr: 'Total H', ar: 'إجمالي الساعات', en: 'Total H', es: 'Total H', pt: 'Total H', tr: 'Toplam saat' },
+    effectif: { fr: 'Effectif', ar: 'العمالة', en: 'Workforce', es: 'Efectivo', pt: 'Efetivo', tr: 'Personel' },
+    yieldDay: { fr: 'R. TOTAL DAY', ar: 'المردودية اليومية الإجمالية', en: 'Total daily efficiency', es: 'Rendimiento diario total', pt: 'Rendimento diário total', tr: 'Toplam günlük verim' },
+    yieldHour: { fr: 'Rendement Horaire', ar: 'المردودية بالساعة', en: 'Hourly efficiency', es: 'Rendimiento horario', pt: 'Rendimento horário', tr: 'Saatlik verim' },
+    trs: { fr: 'Taux TRS Synthétique', ar: 'مؤشر TRS التركيبي', en: 'Synthetic TRS rate', es: 'Tasa TRS sintética', pt: 'Taxa TRS sintética', tr: 'Sentetik TRS oranı' },
+    dispo: { fr: 'Dispo.', ar: 'التوفر', en: 'Availability', es: 'Disponibilidad', pt: 'Disponibilidade', tr: 'Kullanılabilirlik' },
+    perf: { fr: 'Perf.', ar: 'الأداء', en: 'Performance', es: 'Rendimiento', pt: 'Desempenho', tr: 'Performans' },
+    quality: { fr: 'Qualité', ar: 'الجودة', en: 'Quality', es: 'Calidad', pt: 'Qualidade', tr: 'Kalite' },
+    timeline: { fr: 'Chronologie de la journée', ar: 'التسلسل الزمني لليوم', en: 'Daily timeline', es: 'Cronología del día', pt: 'Cronologia do dia', tr: 'Gün zaman çizelgesi' },
+    wip: { fr: 'Suivi des Tailles & Encours (WIP)', ar: 'تتبع المقاسات والمنتجات قيد الإنجاز (WIP)', en: 'Sizes & WIP tracking', es: 'Seguimiento de tallas y WIP', pt: 'Acompanhamento de tamanhos e WIP', tr: 'Beden ve WIP takibi' },
+    size: { fr: 'Taille', ar: 'المقاس', en: 'Size', es: 'Talla', pt: 'Tamanho', tr: 'Beden' },
+    inputs: { fr: 'Total Entrées', ar: 'إجمالي الإدخالات', en: 'Total inputs', es: 'Total entradas', pt: 'Total entradas', tr: 'Toplam giriş' },
+    outputs: { fr: 'Total Sorties', ar: 'إجمالي المخرجات', en: 'Total outputs', es: 'Total salidas', pt: 'Total saídas', tr: 'Toplam çıkış' },
+    bottleneck: { fr: "Goulot d'étranglement", ar: 'عنق الزجاجة', en: 'Bottleneck', es: 'Cuello de botella', pt: 'Gargalo', tr: 'Darboğaz' },
+    fluid: { fr: 'Fluide', ar: 'سلس', en: 'Smooth', es: 'Fluido', pt: 'Fluido', tr: 'Akıcı' },
+    gamme: { fr: 'Gamme de Montage & Adéquation RH', ar: 'غامة التركيب وملاءمة الموارد البشرية', en: 'Assembly routing & HR matching', es: 'Gama de montaje y adecuación RH', pt: 'Gama de montagem e adequação RH', tr: 'Montaj rotası ve İK uyumu' },
+    requiredSkills: { fr: 'Machines requises vs qualifications RH', ar: 'الآلات المطلوبة مقابل مؤهلات الموارد البشرية', en: 'Required machines vs HR qualifications', es: 'Máquinas requeridas vs cualificaciones RH', pt: 'Máquinas exigidas vs qualificações RH', tr: 'Gerekli makineler ve İK nitelikleri' },
+    save: { fr: 'Enregistrer', ar: 'حفظ', en: 'Save', es: 'Guardar', pt: 'Guardar', tr: 'Kaydet' },
+    saving: { fr: 'Sauvegarde...', ar: 'جار الحفظ...', en: 'Saving...', es: 'Guardando...', pt: 'A guardar...', tr: 'Kaydediliyor...' },
+    saved: { fr: 'Enregistré', ar: 'تم الحفظ', en: 'Saved', es: 'Guardado', pt: 'Guardado', tr: 'Kaydedildi' },
+    error: { fr: 'Erreur', ar: 'خطأ', en: 'Error', es: 'Error', pt: 'Erro', tr: 'Hata' },
+    downtimes: { fr: 'Légende downtimes', ar: 'دليل أوقات التوقف', en: 'Downtime legend', es: 'Leyenda de paradas', pt: 'Legenda de paragens', tr: 'Duruş açıklamaları' },
+    overrideMode: { fr: 'Mode Modification', ar: 'وضع التعديل', en: 'Edit mode', es: 'Modo edición', pt: 'Modo edição', tr: 'Düzenleme modu' },
+    doubleClick: { fr: 'Double-cliquez pour plus de détails', ar: 'انقر مرتين لعرض التفاصيل', en: 'Double-click for details', es: 'Doble clic para ver detalles', pt: 'Duplo clique para ver detalhes', tr: 'Ayrıntılar için çift tıklayın' },
+    cellModalTitle: { fr: "Détails de l'heure de travail", ar: 'تفاصيل ساعة العمل', en: 'Work hour details', es: 'Detalles de la hora de trabajo', pt: 'Detalhes da hora de trabalho', tr: 'Çalışma saati ayrıntıları' },
+    quantity: { fr: 'Quantité produite', ar: 'الكمية المنتجة', en: 'Produced quantity', es: 'Cantidad producida', pt: 'Quantidade produzida', tr: 'Üretilen miktar' },
+    defects: { fr: 'Nombre de défauts', ar: 'عدد العيوب', en: 'Defect count', es: 'Número de defectos', pt: 'Número de defeitos', tr: 'Hata sayısı' },
+    defectType: { fr: 'Type de défaut', ar: 'نوع العيب', en: 'Defect type', es: 'Tipo de defecto', pt: 'Tipo de defeito', tr: 'Hata türü' },
+    close: { fr: 'Fermer', ar: 'إغلاق', en: 'Close', es: 'Cerrar', pt: 'Fechar', tr: 'Kapat' },
+    none: { fr: 'Aucun', ar: 'لا يوجد', en: 'None', es: 'Ninguno', pt: 'Nenhum', tr: 'Yok' },
+    lunch: { fr: 'Déjeuner (L)', ar: 'غداء (L)', en: 'Lunch (L)', es: 'Almuerzo (L)', pt: 'Almoço (L)', tr: 'Öğle yemeği (L)' },
+    pause: { fr: 'Pause (P)', ar: 'استراحة (P)', en: 'Break (P)', es: 'Pausa (P)', pt: 'Pausa (P)', tr: 'Mola (P)' },
+    breakdown: { fr: 'Panne Machine (M)', ar: 'عطل آلة (M)', en: 'Machine breakdown (M)', es: 'Avería de máquina (M)', pt: 'Avaria de máquina (M)', tr: 'Makine arızası (M)' },
+    rupture: { fr: 'Rupture Appro (S)', ar: 'نقص في التزويد (S)', en: 'Supply shortage (S)', es: 'Ruptura de suministro (S)', pt: 'Rutura de abastecimento (S)', tr: 'Tedarik kesintisi (S)' },
+    sewing: { fr: 'Couture', ar: 'الخياطة', en: 'Sewing', es: 'Costura', pt: 'Costura', tr: 'Dikiş' },
+    fabric: { fr: 'Tissu', ar: 'القماش', en: 'Fabric', es: 'Tejido', pt: 'Tecido', tr: 'Kumaş' },
+    cut: { fr: 'Coupe', ar: 'القص', en: 'Cutting', es: 'Corte', pt: 'Corte', tr: 'Kesim' },
+    other: { fr: 'Autre', ar: 'أخرى', en: 'Other', es: 'Otro', pt: 'Outro', tr: 'Diğer' },
 };
 
-const FR_LABELS = {
-    title: 'Suivi de Production',
-    subtitle: 'Relevés horaires et effectifs saisissables directement sur la grille',
-    activeModel: 'Modèle Actif',
-    chain: 'Séquence',
-    week: 'Semaine',
-    supervisor: 'Responsable ligne',
-    activeModels: 'Modèles Actifs',
-    yieldAvg: 'M.R Moyen Hebdomadaire',
-    date: 'Date',
-    day: 'Jour',
-    pJournaliere: 'P. Journ.',
-    totalHours: 'Total H',
-    effectif: 'Effectif',
-    yieldDay: 'R. TOTAL DAY',
-    yieldHour: 'Rendement Horaire',
-    trs: 'Taux TRS (OEE) Synthétique',
-    dispo: 'Dispo.',
-    perf: 'Perf.',
-    quality: 'Qualité',
-    timeline: 'Chronologie de la journée',
-    wip: 'Suivi des Tailles & Encours (WIP)',
-    size: 'Taille',
-    inputs: 'Total Entrées',
-    outputs: 'Total Sorties',
-    bottleneck: "Goulot d'étranglement",
-    fluid: 'Fluide',
-    gamme: 'Gamme de Montage & Adéquation RH',
-    requiredSkills: 'Machines requises vs qualifications RH',
-    save: 'Enregistrer',
-    saving: 'Sauvegarde...',
-    saved: 'Enregistré',
-    error: 'Erreur',
-    downtimes: 'Légende downtimes',
-    overrideMode: 'Mode Modification',
-    doubleClick: 'Double-cliquez pour plus de détails',
-    cellModalTitle: "Détails de l'heure de travail",
-    quantity: 'Quantité produite',
-    defects: 'Nombre de défauts',
-    defectType: 'Type de défaut',
-    close: 'Fermer',
-    none: 'Aucun',
-    lunch: 'Déjeuner (L)',
-    pause: 'Pause (P)',
-    breakdown: 'Panne Machine (M)',
-    rupture: 'Rupture Appro (S)',
-    sewing: 'Couture',
-    fabric: 'Tissu',
-    cut: 'Coupe',
-    other: 'Autre'
-};
+type SuiviLabels = Record<keyof typeof SUIVI_LABELS, string>;
+
+function buildSuiviLabels(lang: string): SuiviLabels {
+    return Object.fromEntries(
+        Object.entries(SUIVI_LABELS).map(([key, value]) => [key, tx(lang, value)])
+    ) as SuiviLabels;
+}
 
 export default function SuiviProduction({
     models, suivis = [], setSuivis, planningEvents = [], setPlanningEvents, settings,
@@ -141,6 +99,7 @@ export default function SuiviProduction({
     setGlobalDate,
 }: Props) {
     // 1. Core States
+    const { lang } = useLang();
     const isMobile = useIsMobile();
     const [localSelectedChaineId, localSetSelectedChaineId] = useState<string>('CHAINE 1');
     const selectedChaineId = propSelectedChaineId !== undefined ? propSelectedChaineId : localSelectedChaineId;
@@ -173,7 +132,6 @@ export default function SuiviProduction({
     // Édition toujours active + sauvegarde automatique (plus de bouton "Mode Modification").
     const [isOverrideMode] = useState<boolean>(true);
     const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
-    const [showDarija, setShowDarija] = useState<boolean>(false);
     const [selectedActiveModelId, setSelectedActiveModelId] = useState<string>('');
     const [activeCellModal, setActiveCellModal] = useState<{ dateStr: string; hourKey: string; hourLabel: string; } | null>(null);
 
@@ -217,7 +175,7 @@ export default function SuiviProduction({
         setActiveCellModal({ dateStr, hourKey, hourLabel });
 
     // Active translation dictionary
-    const l = showDarija ? DR_LABELS : FR_LABELS;
+    const l = useMemo(() => buildSuiviLabels(lang), [lang]);
 
     // Redirection effect for direct model tracking
     useEffect(() => {
@@ -1065,7 +1023,7 @@ export default function SuiviProduction({
                     </div>
                     <div>
                         <h1 className="text-[15px] sm:text-lg font-black tracking-tight flex items-center gap-2">
-                            {l.title} <span className="hidden sm:inline text-xs bg-indigo-50 border border-indigo-100 text-indigo-700 px-2 py-0.5 rounded-lg font-bold">{showDarija ? 'الجدول المباشر' : 'Grille Directe'}</span>
+                            {l.title} <span className="hidden sm:inline text-xs bg-indigo-50 border border-indigo-100 text-indigo-700 px-2 py-0.5 rounded-lg font-bold">{tx(lang, { fr: 'Grille Directe', ar: 'الجدول المباشر', en: 'Live Grid', es: 'Tabla directa', pt: 'Grelha direta', tr: 'Canlı tablo' })}</span>
                         </h1>
                         <p className="hidden sm:block text-xs text-slate-400 font-medium">{l.subtitle}</p>
                     </div>
@@ -1083,7 +1041,7 @@ export default function SuiviProduction({
                             <button
                                 type="button"
                                 onClick={() => setColorPickerOpen(o => !o)}
-                                title={showDarija ? 'بدّل لون الموديل' : 'Changer la couleur du modèle'}
+                                title={tx(lang, { fr: 'Changer la couleur du modèle', ar: 'تغيير لون النموذج', en: 'Change model color', es: 'Cambiar color del modelo', pt: 'Alterar cor do modelo', tr: 'Model rengini değiştir' })}
                                 className="w-4 h-4 rounded-md border shrink-0 shadow-sm transition-transform hover:scale-110"
                                 style={{ backgroundColor: activeModel?.style.base, borderColor: activeModel?.style.border }}
                             />
@@ -1147,7 +1105,7 @@ export default function SuiviProduction({
                                                                 setEditingStatusEvent(ev);
                                                             }}
                                                             className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
-                                                            title={showDarija ? 'تغيير الحالة' : 'Modifier le statut'}
+                                                            title={tx(lang, { fr: 'Modifier le statut', ar: 'تعديل الحالة', en: 'Change status', es: 'Modificar estado', pt: 'Alterar estado', tr: 'Durumu değiştir' })}
                                                         >
                                                             <MoreVertical className="w-4 h-4" />
                                                         </button>
@@ -1164,7 +1122,7 @@ export default function SuiviProduction({
                                 <div className="absolute top-full left-0 mt-2 z-50 bg-white border border-slate-200 rounded-2xl shadow-xl p-3 w-56 animate-in fade-in zoom-in-95 duration-150">
                                     <div className="flex items-center justify-between mb-2">
                                         <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
-                                            {showDarija ? 'لون الموديل' : 'Couleur du modèle'}
+                                            {tx(lang, { fr: 'Couleur du modèle', ar: 'لون النموذج', en: 'Model color', es: 'Color del modelo', pt: 'Cor do modelo', tr: 'Model rengi' })}
                                         </span>
                                         <button onClick={() => setColorPickerOpen(false)} className="text-slate-300 hover:text-slate-500">
                                             <X className="w-3.5 h-3.5" />
@@ -1190,14 +1148,14 @@ export default function SuiviProduction({
                                                 onChange={(e) => setOfColorOverrides(prev => ({ ...prev, [activeModel.id]: e.target.value }))}
                                                 className="w-5 h-5 rounded cursor-pointer border-0 bg-transparent p-0"
                                             />
-                                            {showDarija ? 'مخصّص' : 'Personnalisé'}
+                                            {tx(lang, { fr: 'Personnalisé', ar: 'مخصص', en: 'Custom', es: 'Personalizado', pt: 'Personalizado', tr: 'Özel' })}
                                         </label>
                                         {ofColorOverrides[activeModel.id] && (
                                             <button
                                                 onClick={() => { setOfColorOverrides(prev => { const n = { ...prev }; delete n[activeModel.id]; return n; }); setColorPickerOpen(false); }}
                                                 className="text-[10px] font-bold text-rose-500 hover:text-rose-700"
                                             >
-                                                {showDarija ? 'إرجاع الأوتوماتيكي' : 'Réinitialiser'}
+                                                {tx(lang, { fr: 'Réinitialiser', ar: 'إعادة التعيين', en: 'Reset', es: 'Restablecer', pt: 'Repor', tr: 'Sıfırla' })}
                                             </button>
                                         )}
                                     </div>
@@ -1210,7 +1168,7 @@ export default function SuiviProduction({
                                 <ImageIcon className="w-3.5 h-3.5" />
                             </span>
                             <span className="text-xs font-bold text-slate-500">
-                                {showDarija ? 'لا يوجد أي موديل مخطط' : 'Aucun modèle planifié'}
+                                {tx(lang, { fr: 'Aucun modèle planifié', ar: 'لا يوجد أي نموذج مخطط', en: 'No planned model', es: 'Ningún modelo planificado', pt: 'Nenhum modelo planeado', tr: 'Planlanmış model yok' })}
                             </span>
                         </div>
                     )}
@@ -1251,8 +1209,8 @@ export default function SuiviProduction({
                             inputClassName="min-h-0 w-full border-0 bg-transparent text-center text-[11px] sm:text-xs font-bold text-slate-700 shadow-none outline-none hover:bg-slate-50 px-2 py-0.5 rounded-lg transition-colors cursor-pointer select-none"
                             displayValue={
                                 <span className="text-[11px] sm:text-xs font-bold text-slate-700 tabular-nums select-none">
-                                    <span className="hidden sm:inline">{showDarija ? 'أسبوع من' : 'Semaine du'} </span>
-                                    {weekDays[0]?.displayDate.substring(0, 5)} <span className="hidden sm:inline">{showDarija ? 'إلى' : 'au'} {weekDays[5]?.displayDate}</span><span className="sm:hidden">–{weekDays[5]?.displayDate.substring(0, 5)}</span>
+                                    <span className="hidden sm:inline">{tx(lang, { fr: 'Semaine du', ar: 'أسبوع من', en: 'Week from', es: 'Semana del', pt: 'Semana de', tr: 'Hafta başlangıcı' })} </span>
+                                    {weekDays[0]?.displayDate.substring(0, 5)} <span className="hidden sm:inline">{tx(lang, { fr: 'au', ar: 'إلى', en: 'to', es: 'al', pt: 'a', tr: 'ile' })} {weekDays[5]?.displayDate}</span><span className="sm:hidden">–{weekDays[5]?.displayDate.substring(0, 5)}</span>
                                 </span>
                             }
                         />
@@ -1306,7 +1264,7 @@ export default function SuiviProduction({
                     {/* Stats Toggle Button */}
                     <button
                         onClick={() => setShowStatsHeader(!showStatsHeader)}
-                        title={showDarija ? 'المؤشرات' : 'Stats'}
+                        title={tx(lang, { fr: 'Stats', ar: 'المؤشرات', en: 'Stats', es: 'Estadísticas', pt: 'Estatísticas', tr: 'İstatistikler' })}
                         className={`flex items-center gap-1.5 px-2 sm:px-3 py-1.5 border rounded-xl text-xs font-bold transition-all shadow-sm ${
                             showStatsHeader
                                 ? 'bg-indigo-50 text-indigo-800 border-indigo-200 ring-2 ring-indigo-500/10'
@@ -1314,13 +1272,13 @@ export default function SuiviProduction({
                         }`}
                     >
                         <BarChart2 className="w-4 h-4 text-indigo-600" />
-                        <span className="hidden sm:inline">{showDarija ? 'المؤشرات' : 'Stats'}</span>
+                        <span className="hidden sm:inline">{tx(lang, { fr: 'Stats', ar: 'المؤشرات', en: 'Stats', es: 'Estadísticas', pt: 'Estatísticas', tr: 'İstatistikler' })}</span>
                     </button>
 
                     {/* Save State Indicator */}
-                    {saveStatus === 'saving' && <span className="text-xs text-indigo-600 font-semibold animate-pulse">{showDarija ? 'جاري الحفظ...' : 'Sauvegarde...'}</span>}
-                    {saveStatus === 'saved' && <span className="text-xs text-emerald-600 font-semibold flex items-center gap-1"><CheckCircle className="w-4 h-4" /> {showDarija ? 'تم الحفظ' : 'Enregistré'}</span>}
-                    {saveStatus === 'error' && <span className="text-xs text-rose-600 font-semibold">{showDarija ? 'خطأ المزامنة' : 'Erreur de sync'}</span>}
+                    {saveStatus === 'saving' && <span className="text-xs text-indigo-600 font-semibold animate-pulse">{l.saving}</span>}
+                    {saveStatus === 'saved' && <span className="text-xs text-emerald-600 font-semibold flex items-center gap-1"><CheckCircle className="w-4 h-4" /> {l.saved}</span>}
+                    {saveStatus === 'error' && <span className="text-xs text-rose-600 font-semibold">{l.error}</span>}
                 </div>
             </div>
 
@@ -1337,8 +1295,7 @@ export default function SuiviProduction({
                             <div className="flex items-center justify-between">
                                 <div className="text-xs font-black uppercase tracking-widest text-slate-400 flex items-center gap-1.5">
                                     <User className="w-3.5 h-3.5 text-indigo-500" /> 
-                                    <span>Responsable ligne</span>
-                                    {showDarija && <span className="text-[9px] text-indigo-600 font-bold bg-indigo-50 px-1 rounded">الشاف ديال الشين</span>}
+                                    <span>{l.supervisor}</span>
                                 </div>
                                 <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
                             </div>
@@ -1348,20 +1305,19 @@ export default function SuiviProduction({
                                     value={supervisors[selectedChaineId] || ''}
                                     onChange={(e) => setSupervisors({ ...supervisors, [selectedChaineId]: e.target.value.toUpperCase() })}
                                     className="text-2xl font-black text-slate-800 uppercase tracking-tight bg-slate-50 border border-slate-100 hover:border-slate-200 focus:border-indigo-500 focus:bg-white rounded-2xl px-4 py-2 w-full transition-all outline-none"
-                                    placeholder="Entrer responsable"
+                                    placeholder={tx(lang, { fr: 'Entrer responsable', ar: 'إدخال مسؤول الخط', en: 'Enter supervisor', es: 'Introducir responsable', pt: 'Inserir responsável', tr: 'Sorumlu girin' })}
                                 />
                             </div>
-                            <p className="text-[10px] text-slate-400 font-medium mt-3">Chef d'équipe affecté pour le contrôle hebdomadaire</p>
+                            <p className="text-[10px] text-slate-400 font-medium mt-3">{tx(lang, { fr: "Chef d'équipe affecté pour le contrôle hebdomadaire", ar: 'مسؤول الفريق المكلف بالمراقبة الأسبوعية', en: 'Team lead assigned for weekly control', es: 'Jefe de equipo asignado al control semanal', pt: 'Chefe de equipa atribuído ao controlo semanal', tr: 'Haftalık kontrol için atanmış ekip lideri' })}</p>
                         </div>
 
                         {/* Active Models List Strip */}
                         <div className="xl:col-span-2 bg-white border border-slate-100 rounded-3xl p-5 shadow-sm flex flex-col justify-between">
                             <div className="flex items-center justify-between border-b border-slate-50 pb-2">
                                 <span className="text-xs font-black uppercase tracking-widest text-slate-400 flex items-center gap-1.5">
-                                    <span>Modèles Actifs</span>
-                                    {showDarija && <span className="text-[9px] text-indigo-600 font-bold bg-indigo-50 px-1 rounded">الموديلات الخدامين</span>}
+                                    <span>{l.activeModels}</span>
                                 </span>
-                                <span className="text-[10px] bg-slate-100 text-slate-600 px-2.5 py-0.5 rounded-full font-bold">Semaine en cours</span>
+                                <span className="text-[10px] bg-slate-100 text-slate-600 px-2.5 py-0.5 rounded-full font-bold">{tx(lang, { fr: 'Semaine en cours', ar: 'الأسبوع الجاري', en: 'Current week', es: 'Semana actual', pt: 'Semana atual', tr: 'Geçerli hafta' })}</span>
                             </div>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3 flex-1 overflow-y-auto max-h-28 pr-1 no-scrollbar">
                                 {activeModels.map(m => (
@@ -1387,8 +1343,7 @@ export default function SuiviProduction({
                             <div className="absolute right-0 top-0 w-32 h-32 bg-gradient-to-bl from-indigo-500/10 to-transparent rounded-full blur-2xl pointer-events-none"></div>
                             <div className="flex items-center justify-between">
                                 <span className="text-xs font-black uppercase tracking-widest text-slate-400 flex items-center gap-1.5">
-                                    <span>M.R Moyen Hebdomadaire</span>
-                                    {showDarija && <span className="text-[9px] text-indigo-600 font-bold bg-indigo-50 px-1 rounded">معدل المردودية</span>}
+                                    <span>{l.yieldAvg}</span>
                                 </span>
                                 <Info className="w-4 h-4 text-slate-300" />
                             </div>
@@ -1398,7 +1353,7 @@ export default function SuiviProduction({
                                 }`}>
                                     {weeklyAverageYield > 0 ? `${weeklyAverageYield}%` : '—'}
                                 </span>
-                                <span className="text-xs font-bold text-slate-400">d'efficience</span>
+                                <span className="text-xs font-bold text-slate-400">{tx(lang, { fr: "d'efficience", ar: 'من الكفاءة', en: 'efficiency', es: 'de eficiencia', pt: 'de eficiência', tr: 'verimlilik' })}</span>
                             </div>
                             <div className="mt-3">
                                 <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
@@ -1422,8 +1377,8 @@ export default function SuiviProduction({
                         <table className="w-full text-left border-collapse min-w-[1300px] sm:min-w-[1700px]">
                             <thead>
                                 <tr className="border-b border-slate-100 bg-slate-50/50">
-                                    <th className="py-4 px-4 text-[10px] font-black uppercase tracking-widest text-slate-400 w-28 sticky left-0 bg-slate-50 z-20 border-r border-slate-100/50 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]">{showDarija ? 'التاريخ' : 'Date'}</th>
-                                    <th className="py-4 px-4 text-[10px] font-black uppercase tracking-widest text-slate-400 w-24 sticky left-[112px] bg-slate-50 z-20 border-r border-slate-100/50 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]">{showDarija ? 'اليوم' : 'Jour'}</th>
+                                    <th className="py-4 px-4 text-[10px] font-black uppercase tracking-widest text-slate-400 w-28 sticky left-0 bg-slate-50 z-20 border-r border-slate-100/50 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]">{l.date}</th>
+                                    <th className="py-4 px-4 text-[10px] font-black uppercase tracking-widest text-slate-400 w-24 sticky left-[112px] bg-slate-50 z-20 border-r border-slate-100/50 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]">{l.day}</th>
                                     
                                     {/* Hour Headers (Dynamic Shift hours) */}
                                     {hourBlocks.map(h => (
@@ -1431,15 +1386,15 @@ export default function SuiviProduction({
                                             {h.label}
                                         </th>
                                     ))}
-                                    <th className="py-4 px-3 text-[10px] font-black uppercase tracking-widest text-slate-400 text-center w-24">{showDarija ? 'الإنتاج' : 'P. Journ.'}</th>
-                                    <th className="py-4 px-3 text-[10px] font-black uppercase tracking-widest text-slate-400 text-center w-20">{showDarija ? 'ساعات العمل' : 'Total H'}</th>
+                                    <th className="py-4 px-3 text-[10px] font-black uppercase tracking-widest text-slate-400 text-center w-24">{l.pJournaliere}</th>
+                                    <th className="py-4 px-3 text-[10px] font-black uppercase tracking-widest text-slate-400 text-center w-20">{l.totalHours}</th>
                                     
                                     <th className="py-4 px-3 text-[10px] font-black uppercase tracking-widest text-indigo-500/80 text-center w-24 border-l border-slate-100">
-                                        {showDarija ? 'الخدّامة' : 'Effectif'}
+                                        {l.effectif}
                                     </th>
  
-                                    <th className="py-4 px-3 text-[10px] font-black uppercase tracking-widest text-slate-400 text-center w-32 border-l border-slate-100">{showDarija ? 'المردودية حسب الموديل' : 'R1 / R2 %'}</th>
-                                    <th className="py-4 px-3 text-[10px] font-black uppercase tracking-widest text-slate-400 text-center w-28">{showDarija ? 'المردودية الإجمالية' : 'R. TOTAL DAY'}</th>
+                                    <th className="py-4 px-3 text-[10px] font-black uppercase tracking-widest text-slate-400 text-center w-32 border-l border-slate-100">{tx(lang, { fr: 'R1 / R2 %', ar: 'مردودية R1 / R2 %', en: 'R1 / R2 %', es: 'R1 / R2 %', pt: 'R1 / R2 %', tr: 'R1 / R2 %' })}</th>
+                                    <th className="py-4 px-3 text-[10px] font-black uppercase tracking-widest text-slate-400 text-center w-28">{l.yieldDay}</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-50">
@@ -1516,7 +1471,7 @@ export default function SuiviProduction({
                                                                         : 'bg-white border-slate-200 hover:border-indigo-400 focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600'
                                                             } ${cell?.downtime === 'M' ? 'animate-pulse' : ''}`}
                                                             placeholder="—"
-                                                            title={!isCellLocked ? (showDarija ? 'ضغط مرتين للتفاصيل' : 'Double-cliquez pour plus de détails') : undefined}
+                                                            title={!isCellLocked ? l.doubleClick : undefined}
                                                         />
                                                         {cell?.defectsQty !== undefined && cell.defectsQty > 0 && (
                                                             <span className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-rose-500 animate-ping" title={`Défauts: ${cell.defectsQty}`} />
@@ -1540,7 +1495,7 @@ export default function SuiviProduction({
                                             <td className="p-1 text-center border-l border-slate-100 w-24">
                                                 <div
                                                     className="w-full text-center font-black text-xs bg-slate-50 border border-slate-100 rounded-lg py-1.5 tabular-nums text-slate-700"
-                                                    title={showDarija ? 'العدد كيتعمّر فصفحة Effectifs' : 'Saisir dans la page Effectifs'}
+                                                    title={tx(lang, { fr: 'Saisir dans la page Effectifs', ar: 'يتم إدخاله في صفحة Effectifs', en: 'Enter on the Effectifs page', es: 'Introducir en la página Effectifs', pt: 'Inserir na página Effectifs', tr: 'Effectifs sayfasında girilir' })}
                                                 >
                                                     {metrics.totalM || 0}
                                                 </div>
@@ -1621,9 +1576,9 @@ export default function SuiviProduction({
                                         {/* Résumé jour compact */}
                                         <div className="grid grid-cols-4 gap-1.5">
                                             {[
-                                                { lbl: showDarija ? 'الإنتاج' : 'P.Jour', val: dm.totalPiece, accent: 'text-slate-800' },
-                                                { lbl: showDarija ? 'ساعات' : 'Tot.H', val: dm.totalHeur, accent: 'text-slate-800' },
-                                                { lbl: showDarija ? 'خدّامة' : 'Effectif', val: dm.totalM, accent: 'text-slate-800' },
+                                                { lbl: l.pJournaliere, val: dm.totalPiece, accent: 'text-slate-800' },
+                                                { lbl: l.totalHours, val: dm.totalHeur, accent: 'text-slate-800' },
+                                                { lbl: l.effectif, val: dm.totalM, accent: 'text-slate-800' },
                                                 { lbl: 'R.Day', val: dm.rTotalDay > 0 ? `${dm.rTotalDay}%` : '—', accent: dm.rTotalDay >= 90 ? 'text-emerald-600' : dm.rTotalDay >= 80 ? 'text-orange-500' : 'text-rose-600' },
                                             ].map((c, i) => (
                                                 <div key={i} className="bg-slate-50 border border-slate-100 rounded-xl px-2 py-1.5 text-center">
@@ -1679,7 +1634,7 @@ export default function SuiviProduction({
                                                             onClick={() => !isCellLocked && ofId && handleOpenCellModal(selectedChartDate, h.key, h.label)}
                                                             disabled={isCellLocked || !ofId}
                                                             className="w-8 h-9 shrink-0 flex items-center justify-center rounded-lg text-slate-400 hover:bg-slate-50 disabled:opacity-30"
-                                                            title={showDarija ? 'تفاصيل' : 'Détails'}
+                                                            title={tx(lang, { fr: 'Détails', ar: 'التفاصيل', en: 'Details', es: 'Detalles', pt: 'Detalhes', tr: 'Ayrıntılar' })}
                                                         >
                                                             <Sliders className="w-3.5 h-3.5" />
                                                         </button>
@@ -1696,11 +1651,11 @@ export default function SuiviProduction({
                     {/* ═══ Ligne TOTAL : production par modèle (OF) + total général ═══ */}
                     <div className="border-t border-slate-100 bg-slate-50/60 px-4 py-3 flex flex-wrap items-center gap-2">
                         <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 mr-1">
-                            {showDarija ? 'مجموع الإنتاج' : 'Total production'} :
+                            {tx(lang, { fr: 'Total production', ar: 'إجمالي الإنتاج', en: 'Total production', es: 'Producción total', pt: 'Produção total', tr: 'Toplam üretim' })} :
                         </span>
                         {activeModels.filter(m => m.produced > 0).length === 0 ? (
                             <span className="text-[11px] text-slate-400 font-medium">
-                                {showDarija ? 'ما كاين حتى إنتاج مسجّل هاد الأسبوع' : 'Aucune production enregistrée cette semaine'}
+                                {tx(lang, { fr: 'Aucune production enregistrée cette semaine', ar: 'لا يوجد أي إنتاج مسجل هذا الأسبوع', en: 'No production recorded this week', es: 'No hay producción registrada esta semana', pt: 'Nenhuma produção registada esta semana', tr: 'Bu hafta kayıtlı üretim yok' })}
                             </span>
                         ) : (
                             <>
@@ -1713,11 +1668,11 @@ export default function SuiviProduction({
                                     >
                                         <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: m.style.base }} />
                                         <span className="truncate max-w-[140px]">{m.reference}{m.ofTag ? ` · ${m.ofTag}` : ''}</span>
-                                        <span className="font-black">{m.produced} {showDarija ? 'بياسة' : 'pcs'}</span>
+                                        <span className="font-black">{m.produced} pcs</span>
                                     </span>
                                 ))}
                                 <span className="ml-auto inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 text-white px-2.5 py-0.5 text-[11px] font-black tabular-nums shadow-sm">
-                                    {showDarija ? 'الإجمالي' : 'TOTAL'} : {activeModels.reduce((acc, m) => acc + m.produced, 0)} {showDarija ? 'بياسة' : 'pcs'}
+                                    {tx(lang, { fr: 'TOTAL', ar: 'الإجمالي', en: 'TOTAL', es: 'TOTAL', pt: 'TOTAL', tr: 'TOPLAM' })} : {activeModels.reduce((acc, m) => acc + m.produced, 0)} pcs
                                 </span>
                             </>
                         )}
@@ -1726,7 +1681,7 @@ export default function SuiviProduction({
 
                 {/* SVG Live sparkline chart & OEE/TRS KPI dashboard */}
                 {selectedChartDate && activeChartMetrics && (
-                  <Section isMobile={isMobile} title={showDarija ? 'الرسم البياني و TRS' : 'Rendement & TRS'} icon={<BarChart2 className="w-4 h-4 text-indigo-600 shrink-0" />}>
+                  <Section isMobile={isMobile} title={tx(lang, { fr: 'Rendement & TRS', ar: 'المردودية و TRS', en: 'Efficiency & TRS', es: 'Rendimiento y TRS', pt: 'Rendimento e TRS', tr: 'Verimlilik ve TRS' })} icon={<BarChart2 className="w-4 h-4 text-indigo-600 shrink-0" />}>
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 sm:gap-6 animate-in fade-in duration-300">
                         
                         {/* Sparkline chart */}
@@ -1735,12 +1690,12 @@ export default function SuiviProduction({
                                 <div className="flex items-center gap-2">
                                     <BarChart2 className="w-5 h-5 text-indigo-600" />
                                     <div>
-                                        <h3 className="text-sm font-black text-slate-800">Rendement Horaire — {weekDays.find(d => d.dateStr === selectedChartDate)?.label}</h3>
-                                        <p className="text-[10px] text-slate-400 font-medium">Visualisation de la production par heure de travail</p>
+                                        <h3 className="text-sm font-black text-slate-800">{l.yieldHour} — {weekDays.find(d => d.dateStr === selectedChartDate)?.label}</h3>
+                                        <p className="text-[10px] text-slate-400 font-medium">{tx(lang, { fr: 'Visualisation de la production par heure de travail', ar: 'عرض الإنتاج حسب كل ساعة عمل', en: 'Production view by work hour', es: 'Visualización de la producción por hora de trabajo', pt: 'Visualização da produção por hora de trabalho', tr: 'Çalışma saatine göre üretim görünümü' })}</p>
                                     </div>
                                 </div>
                                 <span className="text-xs bg-indigo-50 border border-indigo-100 text-indigo-700 px-2.5 py-0.5 rounded-xl font-black">
-                                    {activeChartMetrics.totalPiece} pièces produites
+                                    {activeChartMetrics.totalPiece} {tx(lang, { fr: 'pièces produites', ar: 'قطعة منتجة', en: 'pieces produced', es: 'piezas producidas', pt: 'peças produzidas', tr: 'adet üretildi' })}
                                 </span>
                             </div>
 
@@ -1770,7 +1725,7 @@ export default function SuiviProduction({
                                         />
                                     </svg>
                                 ) : (
-                                    <div className="w-full h-full flex items-center justify-center text-xs text-slate-400">Aucune production enregistrée pour ce jour.</div>
+                                    <div className="w-full h-full flex items-center justify-center text-xs text-slate-400">{tx(lang, { fr: 'Aucune production enregistrée pour ce jour.', ar: 'لا يوجد إنتاج مسجل لهذا اليوم.', en: 'No production recorded for this day.', es: 'No hay producción registrada para este día.', pt: 'Nenhuma produção registada para este dia.', tr: 'Bu gün için kayıtlı üretim yok.' })}</div>
                                 )}
                             </div>
                             
@@ -1784,37 +1739,36 @@ export default function SuiviProduction({
                         <div className="bg-white border border-slate-100 rounded-3xl p-5 shadow-sm flex flex-col justify-between">
                             <div className="border-b border-slate-50 pb-3 mb-4">
                                 <h3 className="text-sm font-black text-slate-800 flex items-center gap-1.5">
-                                    <span>Taux TRS (OEE) Synthétique</span>
-                                    {showDarija && <span className="text-[10px] text-indigo-600 font-bold bg-indigo-50 px-1.5 py-0.5 rounded">معدل الفعالية الكاملة (TRS)</span>}
+                                    <span>{l.trs}</span>
                                 </h3>
-                                <p className="text-[10px] text-slate-400 font-medium">Disponibilité × Performance × Qualité</p>
+                                <p className="text-[10px] text-slate-400 font-medium">{tx(lang, { fr: 'Disponibilité × Performance × Qualité', ar: 'التوفر × الأداء × الجودة', en: 'Availability × Performance × Quality', es: 'Disponibilidad × Rendimiento × Calidad', pt: 'Disponibilidade × Desempenho × Qualidade', tr: 'Kullanılabilirlik × Performans × Kalite' })}</p>
                             </div>
                             
                             <div className="grid grid-cols-3 gap-2">
                                 <div className="p-3 bg-slate-50 border border-slate-100 rounded-2xl text-center">
-                                    <span className="text-[9px] font-black text-slate-400 uppercase block">{showDarija ? 'الواجدية (Dispo)' : 'Dispo.'}</span>
+                                    <span className="text-[9px] font-black text-slate-400 uppercase block">{l.dispo}</span>
                                     <span className="text-lg font-black text-slate-700 block mt-1 tabular-nums">{activeChartMetrics.availability}%</span>
                                 </div>
                                 <div className="p-3 bg-slate-50 border border-slate-100 rounded-2xl text-center">
-                                    <span className="text-[9px] font-black text-slate-400 uppercase block">{showDarija ? 'الإنتاجية (Perf)' : 'Perf.'}</span>
+                                    <span className="text-[9px] font-black text-slate-400 uppercase block">{l.perf}</span>
                                     <span className="text-lg font-black text-slate-700 block mt-1 tabular-nums">{activeChartMetrics.rTotalDay}%</span>
                                 </div>
                                 <div className="p-3 bg-slate-50 border border-slate-100 rounded-2xl text-center">
-                                    <span className="text-[9px] font-black text-slate-400 uppercase block">{showDarija ? 'الجودة (Qualité)' : 'Qualité'}</span>
+                                    <span className="text-[9px] font-black text-slate-400 uppercase block">{l.quality}</span>
                                     <span className="text-lg font-black text-slate-700 block mt-1 tabular-nums">{activeChartMetrics.quality}%</span>
                                 </div>
                             </div>
 
                             <div className="mt-4 flex items-center justify-between bg-indigo-50/50 border border-indigo-100 rounded-2xl p-4">
                                 <div>
-                                    <span className="text-[9px] font-black text-indigo-700 uppercase tracking-widest block">{showDarija ? 'الفعالية TRS' : 'TRS Score'}</span>
+                                    <span className="text-[9px] font-black text-indigo-700 uppercase tracking-widest block">TRS Score</span>
                                     <span className="text-3xl font-black text-indigo-800 block mt-1 tabular-nums">{activeChartMetrics.oee}%</span>
                                 </div>
                                 <div className="text-right">
                                     <span className={`inline-block px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase ${
                                         activeChartMetrics.oee >= 85 ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
                                     }`}>
-                                        {activeChartMetrics.oee >= 85 ? (showDarija ? 'ممتاز' : 'Excellent') : (showDarija ? 'للتحسين' : 'A optimiser')}
+                                        {activeChartMetrics.oee >= 85 ? tx(lang, { fr: 'Excellent', ar: 'ممتاز', en: 'Excellent', es: 'Excelente', pt: 'Excelente', tr: 'Mükemmel' }) : tx(lang, { fr: 'A optimiser', ar: 'قابل للتحسين', en: 'To optimize', es: 'A optimizar', pt: 'A otimizar', tr: 'İyileştirilmeli' })}
                                     </span>
                                     <p className="text-[9px] text-slate-400 font-bold mt-1">Norme mondiale: 85%</p>
                                 </div>
@@ -1823,7 +1777,7 @@ export default function SuiviProduction({
                             {/* Chronologie Visuelle de la Journée */}
                             <div className="mt-4 border-t border-slate-100 pt-4">
                                 <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-2">
-                                    {showDarija ? 'الخط الزمني لليوم' : 'Chronologie de la journée'} ({weekDays.find(d => d.dateStr === selectedChartDate)?.label})
+                                    {l.timeline} ({weekDays.find(d => d.dateStr === selectedChartDate)?.label})
                                 </span>
                                 <div className="flex items-stretch gap-1 h-8 w-full bg-slate-50 border border-slate-100 rounded-xl p-1 overflow-hidden">
                                     {hourBlocks.map(h => {
@@ -1881,7 +1835,7 @@ export default function SuiviProduction({
                 )}
 
                 {/* Expandable Sidebar Grid: Sizes & WIP Matrix & Skills Check */}
-                <Section isMobile={isMobile} title={showDarija ? 'العبر و WIP والكفاءات' : 'Tailles, WIP & Compétences'} icon={<Layers className="w-4 h-4 text-indigo-600 shrink-0" />}>
+                <Section isMobile={isMobile} title={tx(lang, { fr: 'Tailles, WIP & Compétences', ar: 'المقاسات و WIP والكفاءات', en: 'Sizes, WIP & Skills', es: 'Tallas, WIP y competencias', pt: 'Tamanhos, WIP e competências', tr: 'Bedenler, WIP ve yetkinlikler' })} icon={<Layers className="w-4 h-4 text-indigo-600 shrink-0" />}>
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 sm:gap-6">
 
                     {/* WIP & Sizing Control Box */}
@@ -1891,10 +1845,9 @@ export default function SuiviProduction({
                                 <Layers className="w-5 h-5 text-indigo-600" />
                                 <div>
                                     <h3 className="text-sm font-black text-slate-800 flex items-center gap-1.5">
-                                        <span>Suivi des Tailles & Encours (WIP)</span>
-                                        {showDarija && <span className="text-[10px] text-indigo-600 font-bold bg-indigo-50 px-1.5 py-0.5 rounded">الخدمة لي باقة فالوسط</span>}
+                                        <span>{l.wip}</span>
                                     </h3>
-                                    <p className="text-[10px] text-slate-400 font-medium">Contrôle des flux d'entrées/sorties par taille S, M, L, XL</p>
+                                    <p className="text-[10px] text-slate-400 font-medium">{tx(lang, { fr: "Contrôle des flux d'entrées/sorties par taille S, M, L, XL", ar: 'مراقبة تدفقات الإدخال والإخراج حسب المقاسات S و M و L و XL', en: 'Input/output flow control by size S, M, L, XL', es: 'Control de flujos de entrada/salida por talla S, M, L, XL', pt: 'Controlo dos fluxos de entrada/saída por tamanho S, M, L, XL', tr: 'S, M, L, XL bedenlerine göre giriş/çıkış akış kontrolü' })}</p>
                                 </div>
                             </div>
                         </div>
@@ -1904,9 +1857,9 @@ export default function SuiviProduction({
                             <table className="w-full text-left border-collapse">
                                 <thead>
                                     <tr className="bg-slate-50/50 text-[10px] font-black uppercase tracking-widest text-slate-400 border-b border-slate-100">
-                                        <th className="py-2.5 px-3">Taille</th>
-                                        <th className="py-2.5 px-3 text-center">Total Entrées</th>
-                                        <th className="py-2.5 px-3 text-center">Total Sorties</th>
+                                        <th className="py-2.5 px-3">{l.size}</th>
+                                        <th className="py-2.5 px-3 text-center">{l.inputs}</th>
+                                        <th className="py-2.5 px-3 text-center">{l.outputs}</th>
                                         <th className="py-2.5 px-3 text-center">L'encours (WIP)</th>
                                         <th className="py-2.5 px-3 text-right">Alerte Goulot</th>
                                     </tr>
@@ -1970,10 +1923,9 @@ export default function SuiviProduction({
                                 <ShieldAlert className="w-5 h-5 text-indigo-600" />
                                 <div>
                                     <h3 className="text-sm font-black text-slate-800 flex items-center gap-1.5">
-                                        <span>Compétences & Gamme</span>
-                                        {showDarija && <span className="text-[10px] text-indigo-600 font-bold bg-indigo-50 px-1.5 py-0.5 rounded">الماكينات المطلوبة</span>}
+                                        <span>{tx(lang, { fr: 'Compétences & Gamme', ar: 'الكفاءات و Gamme', en: 'Skills & Routing', es: 'Competencias y gama', pt: 'Competências e gama', tr: 'Yetkinlikler ve rota' })}</span>
                                     </h3>
-                                    <p className="text-[10px] text-slate-400 font-medium">Contrôle de certification d'opératrices par machine</p>
+                                    <p className="text-[10px] text-slate-400 font-medium">{tx(lang, { fr: "Contrôle de certification d'opératrices par machine", ar: 'مراقبة تأهيل العاملات حسب الآلة', en: 'Operator certification control by machine', es: 'Control de certificación de operarias por máquina', pt: 'Controlo de certificação de operadoras por máquina', tr: 'Makineye göre operatör sertifika kontrolü' })}</p>
                                 </div>
                             </div>
 
@@ -1982,8 +1934,8 @@ export default function SuiviProduction({
                                 <div className="rounded-2xl bg-emerald-50 border border-emerald-100 p-4 text-emerald-800 flex items-start gap-3">
                                     <CheckCircle className="w-5 h-5 shrink-0 text-emerald-600" />
                                     <div>
-                                        <p className="text-xs font-black uppercase tracking-wider">{showDarija ? 'الخط مغطي كامل ✅' : 'Couverture Complète ✅'}</p>
-                                        <p className="text-[10px] text-emerald-700/80 font-medium mt-1">L'effectif actuel possède toutes les qualifications machine requises dans la gamme opératoire du modèle.</p>
+                                        <p className="text-xs font-black uppercase tracking-wider">{tx(lang, { fr: 'Couverture Complète', ar: 'تغطية كاملة', en: 'Complete coverage', es: 'Cobertura completa', pt: 'Cobertura completa', tr: 'Tam kapsama' })}</p>
+                                        <p className="text-[10px] text-emerald-700/80 font-medium mt-1">{tx(lang, { fr: "L'effectif actuel possède toutes les qualifications machine requises dans la gamme opératoire du modèle.", ar: 'يمتلك الفريق الحالي جميع مؤهلات الآلات المطلوبة في غامة عمليات النموذج.', en: 'The current workforce has all machine qualifications required by the model routing.', es: 'El efectivo actual posee todas las cualificaciones de máquina requeridas por la gama del modelo.', pt: 'O efetivo atual possui todas as qualificações de máquina exigidas pela gama do modelo.', tr: 'Mevcut personel, model rotasında gereken tüm makine niteliklerine sahiptir.' })}</p>
                                     </div>
                                 </div>
                             ) : (
@@ -1991,16 +1943,16 @@ export default function SuiviProduction({
                                     <div className="rounded-2xl bg-amber-50 border border-amber-100 p-4 text-amber-900 flex items-start gap-3">
                                         <AlertCircle className="w-5 h-5 shrink-0 text-amber-600" />
                                         <div>
-                                            <p className="text-xs font-black uppercase tracking-wider">{showDarija ? 'خاص كفاءات ⚠️' : 'Compétences Manquantes ⚠️'}</p>
-                                            <p className="text-[10px] text-amber-800/80 font-medium mt-1">Certaines machines requises par la gamme opératoire n'ont pas d'opérateurs certifiés affectés sur la ligne.</p>
+                                            <p className="text-xs font-black uppercase tracking-wider">{tx(lang, { fr: 'Compétences Manquantes', ar: 'كفاءات ناقصة', en: 'Missing skills', es: 'Competencias faltantes', pt: 'Competências em falta', tr: 'Eksik yetkinlikler' })}</p>
+                                            <p className="text-[10px] text-amber-800/80 font-medium mt-1">{tx(lang, { fr: "Certaines machines requises par la gamme opératoire n'ont pas d'opérateurs certifiés affectés sur la ligne.", ar: 'بعض الآلات المطلوبة في غامة العمليات لا تملك عاملين مؤهلين مخصصين على الخط.', en: 'Some machines required by the routing do not have certified operators assigned to the line.', es: 'Algunas máquinas requeridas por la gama no tienen operarios certificados asignados a la línea.', pt: 'Algumas máquinas exigidas pela gama não têm operadores certificados atribuídos à linha.', tr: 'Rotada gereken bazı makineler için hatta atanmış sertifikalı operatör yok.' })}</p>
                                         </div>
                                     </div>
                                     <div className="space-y-1.5 mt-2">
-                                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">{showDarija ? 'المكينات لي خاصهم الخدامة :' : 'Postes non couverts :'}</p>
+                                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">{tx(lang, { fr: 'Postes non couverts :', ar: 'المراكز غير المغطاة:', en: 'Uncovered stations:', es: 'Puestos no cubiertos:', pt: 'Postos não cobertos:', tr: 'Kapsanmayan istasyonlar:' })}</p>
                                         {skillCheckResults.errors.map((machine, idx) => (
                                             <div key={idx} className="flex items-center justify-between text-xs font-bold text-slate-700 bg-slate-50 border border-slate-100 px-3 py-1.5 rounded-xl">
                                                 <span>Machine: <strong className="text-indigo-600">{machine}</strong></span>
-                                                <span className="text-[9px] bg-rose-50 text-rose-500 px-2 py-0.5 rounded font-black uppercase">{showDarija ? 'مطلب' : 'Requis'}</span>
+                                                <span className="text-[9px] bg-rose-50 text-rose-500 px-2 py-0.5 rounded font-black uppercase">{tx(lang, { fr: 'Requis', ar: 'مطلوب', en: 'Required', es: 'Requerido', pt: 'Exigido', tr: 'Gerekli' })}</span>
                                             </div>
                                         ))}
                                     </div>
@@ -2010,7 +1962,7 @@ export default function SuiviProduction({
                             {/* Horizontal Operations Flow */}
                             <div className="mt-4 pt-3 border-t border-slate-100">
                                 <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-2">
-                                    {showDarija ? 'تسلسل عملية الإنتاج (Gamme)' : 'Flux de Gamme Opératoire'}
+                                    {tx(lang, { fr: 'Flux de Gamme Opératoire', ar: 'تدفق غامة العمليات', en: 'Operating routing flow', es: 'Flujo de gama operativa', pt: 'Fluxo da gama operacional', tr: 'Operasyon rotası akışı' })}
                                 </span>
                                 <div className="flex gap-2 items-center overflow-x-auto pb-3 pt-1 scrollbar-thin scrollbar-thumb-slate-200 scrollbar-track-transparent">
                                     {activeModel && activeModel.gamme && activeModel.gamme.length > 0 ? (
@@ -2087,7 +2039,7 @@ export default function SuiviProduction({
                                 </div>
                                 <div>
                                     <h3 className="text-base font-black text-slate-800 flex items-center gap-2">
-                                        {showDarija ? '⚠️ تنبيه الاستهلاك الزائد' : '⚠️ Alerte Surconsommation'}
+                                        {tx(lang, { fr: 'Alerte Surconsommation', ar: 'تنبيه الاستهلاك الزائد', en: 'Overconsumption alert', es: 'Alerta de sobreconsumo', pt: 'Alerta de sobreconsumo', tr: 'Fazla tüketim uyarısı' })}
                                         <span className={`text-[10px] px-2 py-0.5 rounded-full font-black uppercase tracking-wider ${
                                             consumptionAlerts.some(a => a.severity === 'critical')
                                                 ? 'bg-rose-100 text-rose-700 border border-rose-200 animate-pulse'
@@ -2097,9 +2049,7 @@ export default function SuiviProduction({
                                         </span>
                                     </h3>
                                     <p className="text-xs text-slate-500 font-medium">
-                                        {showDarija
-                                            ? 'المخزون ديال هاد اللوازم ماغاديش يكفي باش تسالي الكوماند!'
-                                            : 'Le stock restant ne suffira pas à terminer la commande !'}
+                                        {tx(lang, { fr: 'Le stock restant ne suffira pas à terminer la commande !', ar: 'المخزون المتبقي غير كاف لإتمام الطلبية.', en: 'Remaining stock will not be enough to complete the order.', es: 'El stock restante no bastará para terminar el pedido.', pt: 'O stock restante não será suficiente para concluir a encomenda.', tr: 'Kalan stok siparişi tamamlamak için yeterli olmayacak.' })}
                                     </p>
                                 </div>
                             </div>
@@ -2127,8 +2077,8 @@ export default function SuiviProduction({
                                                     : 'bg-amber-100 text-amber-700'
                                             }`}>
                                                 {alert.severity === 'critical'
-                                                    ? (showDarija ? 'خطير 🔴' : 'Critique 🔴')
-                                                    : (showDarija ? 'تنبيه 🟡' : 'Attention 🟡')}
+                                                    ? tx(lang, { fr: 'Critique', ar: 'حرج', en: 'Critical', es: 'Crítico', pt: 'Crítico', tr: 'Kritik' })
+                                                    : tx(lang, { fr: 'Attention', ar: 'تنبيه', en: 'Warning', es: 'Atención', pt: 'Atenção', tr: 'Uyarı' })}
                                             </span>
                                         </div>
 
@@ -2141,19 +2091,19 @@ export default function SuiviProduction({
                                         {/* KPI Grid */}
                                         <div className="grid grid-cols-2 gap-2 text-[10px]">
                                             <div className="bg-slate-50 rounded-xl p-2 text-center">
-                                                <span className="block text-slate-400 font-bold uppercase">{showDarija ? 'خرج للمعمل' : 'Sorti Magasin'}</span>
+                                                <span className="block text-slate-400 font-bold uppercase">{tx(lang, { fr: 'Sorti Magasin', ar: 'خارج من المخزن', en: 'Issued from stock', es: 'Salida de almacén', pt: 'Saído do armazém', tr: 'Depodan çıkan' })}</span>
                                                 <span className="block text-sm font-black text-slate-700 tabular-nums">{alert.totalReceived.toLocaleString()} {alert.unit}</span>
                                             </div>
                                             <div className="bg-slate-50 rounded-xl p-2 text-center">
-                                                <span className="block text-slate-400 font-bold uppercase">{showDarija ? 'مستهلك نظري' : 'Cons. Théor.'}</span>
+                                                <span className="block text-slate-400 font-bold uppercase">{tx(lang, { fr: 'Cons. Théor.', ar: 'الاستهلاك النظري', en: 'Theoretical cons.', es: 'Cons. teórica', pt: 'Cons. teórica', tr: 'Teorik tüketim' })}</span>
                                                 <span className="block text-sm font-black text-slate-700 tabular-nums">{alert.consumed.toLocaleString()} {alert.unit}</span>
                                             </div>
                                             <div className={`rounded-xl p-2 text-center ${alert.remainingStock <= 0 ? 'bg-rose-50' : 'bg-emerald-50'}`}>
-                                                <span className="block text-slate-400 font-bold uppercase">{showDarija ? 'باقي فالسلسلة' : 'Sur la chaîne'}</span>
+                                                <span className="block text-slate-400 font-bold uppercase">{tx(lang, { fr: 'Sur la chaîne', ar: 'على الخط', en: 'On the line', es: 'En la línea', pt: 'Na linha', tr: 'Hatta' })}</span>
                                                 <span className={`block text-sm font-black tabular-nums ${alert.remainingStock <= 0 ? 'text-rose-600' : 'text-emerald-600'}`}>{alert.remainingStock.toLocaleString()} {alert.unit}</span>
                                             </div>
                                             <div className="bg-indigo-50 rounded-xl p-2 text-center">
-                                                <span className="block text-slate-400 font-bold uppercase">{showDarija ? 'خاصك باش تسالي' : 'Besoin Rest.'}</span>
+                                                <span className="block text-slate-400 font-bold uppercase">{tx(lang, { fr: 'Besoin Rest.', ar: 'الاحتياج المتبقي', en: 'Remaining need', es: 'Necesidad restante', pt: 'Necessidade restante', tr: 'Kalan ihtiyaç' })}</span>
                                                 <span className="block text-sm font-black text-indigo-600 tabular-nums">{alert.remainingNeed.toLocaleString()} {alert.unit}</span>
                                             </div>
                                         </div>
@@ -2163,7 +2113,7 @@ export default function SuiviProduction({
                                             <div className="flex items-center justify-between">
                                                 <span className="text-[10px] font-black text-slate-400 uppercase flex items-center gap-1">
                                                     <TrendingDown className="w-3 h-3" />
-                                                    {showDarija ? 'الاستهلاك الزائد (الهدر)' : 'Surconsommation (Perte)'}
+                                                    {tx(lang, { fr: 'Surconsommation (Perte)', ar: 'الاستهلاك الزائد (الهدر)', en: 'Overconsumption (loss)', es: 'Sobreconsumo (pérdida)', pt: 'Sobreconsumo (perda)', tr: 'Fazla tüketim (kayıp)' })}
                                                 </span>
                                                 <span className="text-sm font-black tabular-nums text-rose-600">
                                                     +{alert.ecart.toLocaleString()} {alert.unit}
@@ -2179,8 +2129,8 @@ export default function SuiviProduction({
                                             </div>
                                             <p className="text-[9px] text-slate-400 font-medium mt-1">
                                                 {alert.severity === 'critical'
-                                                    ? (showDarija ? `ضياع السلعة فالسلسلة! تفوق 20%` : `Gaspillage critique constaté sur la chaîne ! (>20%)`)
-                                                    : (showDarija ? 'هناك زيادة طفيفة فالاستهلاك (تفوق 10%)' : 'Légère surconsommation constatée (>10%)')}
+                                                    ? tx(lang, { fr: 'Gaspillage critique constaté sur la chaîne ! (>20%)', ar: 'تم رصد هدر حرج على الخط (>20%).', en: 'Critical waste detected on the line! (>20%)', es: 'Desperdicio crítico detectado en la línea (>20%).', pt: 'Desperdício crítico detetado na linha (>20%).', tr: 'Hatta kritik fire tespit edildi! (>20%)' })
+                                                    : tx(lang, { fr: 'Légère surconsommation constatée (>10%)', ar: 'تم رصد استهلاك زائد طفيف (>10%).', en: 'Slight overconsumption detected (>10%)', es: 'Sobreconsumo ligero detectado (>10%)', pt: 'Sobreconsumo ligeiro detetado (>10%)', tr: 'Hafif fazla tüketim tespit edildi (>10%)' })}
                                             </p>
                                         </div>
                                     </div>
@@ -2191,16 +2141,16 @@ export default function SuiviProduction({
                 )}
 
                 {/* Legend & Instructions footer */}
-                <Section isMobile={isMobile} title={showDarija ? 'رموز التوقفات' : 'Légende downtimes'} icon={<Info className="w-4 h-4 text-indigo-600 shrink-0" />}>
+                <Section isMobile={isMobile} title={l.downtimes} icon={<Info className="w-4 h-4 text-indigo-600 shrink-0" />}>
                 <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 bg-white border border-slate-200/60 rounded-2xl p-3 sm:p-5 shadow-sm text-xs font-semibold text-slate-500">
                     <div className="flex flex-wrap items-center gap-4">
-                        <span className="font-bold">{showDarija ? 'رموز التوقفات :' : 'Légende downtimes :'}</span>
-                        <span className="flex items-center gap-1.5"><span className="w-6 py-0.5 rounded text-[10px] font-black bg-slate-500 text-white text-center">L</span> {showDarija ? 'غداء (60د)' : 'Déjeuner (60m)'}</span>
-                        <span className="flex items-center gap-1.5"><span className="w-6 py-0.5 rounded text-[10px] font-black bg-blue-500 text-white text-center">P</span> {showDarija ? 'استراحة (15د)' : 'Pause (15m)'}</span>
-                        <span className="flex items-center gap-1.5"><span className="w-6 py-0.5 rounded text-[10px] font-black bg-rose-500 text-white text-center">M</span> {showDarija ? 'عطل (30د)' : 'Panne Maqu. (30m)'}</span>
-                        <span className="flex items-center gap-1.5"><span className="w-6 py-0.5 rounded text-[10px] font-black bg-amber-500 text-white text-center">S</span> {showDarija ? 'قطع السلعة (45د)' : 'Rupture Stock (45m)'}</span>
+                        <span className="font-bold">{l.downtimes} :</span>
+                        <span className="flex items-center gap-1.5"><span className="w-6 py-0.5 rounded text-[10px] font-black bg-slate-500 text-white text-center">L</span> {l.lunch}</span>
+                        <span className="flex items-center gap-1.5"><span className="w-6 py-0.5 rounded text-[10px] font-black bg-blue-500 text-white text-center">P</span> {l.pause}</span>
+                        <span className="flex items-center gap-1.5"><span className="w-6 py-0.5 rounded text-[10px] font-black bg-rose-500 text-white text-center">M</span> {l.breakdown}</span>
+                        <span className="flex items-center gap-1.5"><span className="w-6 py-0.5 rounded text-[10px] font-black bg-amber-500 text-white text-center">S</span> {l.rupture}</span>
                     </div>
-                    <p className="text-slate-400 font-medium">{showDarija ? 'التوقفات والأعطال كتقص تلقائياً من ساعات العمل الحقيقية باش نحسبو المردودية بدقة.' : 'Les pannes et pauses réduisent automatiquement le temps de travail effectif utilisé pour calculer le rendement (R%).'}</p>
+                    <p className="text-slate-400 font-medium">{tx(lang, { fr: 'Les pannes et pauses réduisent automatiquement le temps de travail effectif utilisé pour calculer le rendement (R%).', ar: 'تُخصم الأعطال والاستراحات تلقائياً من وقت العمل الفعلي لحساب المردودية (R%) بدقة.', en: 'Breakdowns and breaks automatically reduce effective work time used to calculate efficiency (R%).', es: 'Las averías y pausas reducen automáticamente el tiempo efectivo usado para calcular el rendimiento (R%).', pt: 'Avarias e pausas reduzem automaticamente o tempo efetivo usado para calcular o rendimento (R%).', tr: 'Arızalar ve molalar, verimlilik (R%) hesabında kullanılan etkin çalışma süresini otomatik olarak azaltır.' })}</p>
                 </div>
                 </Section>
 
@@ -2216,7 +2166,7 @@ export default function SuiviProduction({
                     cellData={getCellMeta(activeCellModal.dateStr, activeCellModal.hourKey)}
                     activeModels={activeModels}
                     selectedActiveModelId={selectedActiveModelId || activeModels[0]?.id}
-                    showDarija={showDarija}
+                    lang={lang}
                     onClose={() => setActiveCellModal(null)}
                     onSave={(qty, modelId, downtime, defectsQty, defectType) => {
                         handleSaveCell(activeCellModal.dateStr, activeCellModal.hourKey, qty, modelId, downtime, defectsQty, defectType);
@@ -2230,7 +2180,7 @@ export default function SuiviProduction({
                 <StatusChangeModal
                     isOpen={true}
                     event={editingStatusEvent}
-                    showDarija={showDarija}
+                    lang={lang}
                     onClose={() => setEditingStatusEvent(null)}
                     onSave={(newStatus) => {
                         if (setPlanningEvents) {
@@ -2255,15 +2205,15 @@ interface CellDetailsModalProps {
     cellData: any;
     activeModels: any[];
     selectedActiveModelId: string;
-    showDarija: boolean;
+    lang: string;
     onClose: () => void;
     onSave: (quantity: number, modelId: string, downtime: string | null, defectsQty: number, defectType: string) => void;
 }
 
 function CellDetailsModal({
-    isOpen, dateStr, hourKey, hourLabel, cellData, activeModels, selectedActiveModelId, showDarija, onClose, onSave
+    isOpen, dateStr, hourKey, hourLabel, cellData, activeModels, selectedActiveModelId, lang, onClose, onSave
 }: CellDetailsModalProps) {
-    const l = showDarija ? DR_LABELS : FR_LABELS;
+    const l = useMemo(() => buildSuiviLabels(lang), [lang]);
     
     // Draft states
     const [modelId, setModelId] = useState(cellData?.model?.id || selectedActiveModelId);
@@ -2456,29 +2406,29 @@ function Section({ title, isMobile, children, defaultOpen = false, icon, badge }
 interface StatusChangeModalProps {
     isOpen: boolean;
     event: PlanningEvent;
-    showDarija: boolean;
+    lang: string;
     onClose: () => void;
     onSave: (newStatus: PlanningStatus) => void;
 }
 
 function StatusChangeModal({
-    isOpen, event, showDarija, onClose, onSave
+    isOpen, event, lang, onClose, onSave
 }: StatusChangeModalProps) {
     const [selectedStatus, setSelectedStatus] = useState<PlanningStatus>(event.status as PlanningStatus);
 
     if (!isOpen) return null;
 
-    const statusesList: { key: PlanningStatus; labelFr: string; labelDr: string; color: string }[] = [
-        { key: 'READY', labelFr: 'Prêt', labelDr: 'جاهز (Prêt)', color: '#10B981' },
-        { key: 'IN_PROGRESS', labelFr: 'En cours', labelDr: 'في الخدمة (En cours)', color: '#3B82F6' },
-        { key: 'BLOCKED_STOCK', labelFr: 'Bloqué stock', labelDr: 'موقوف السلعة (Bloqué)', color: '#EF4444' },
-        { key: 'EXTERNAL_PROCESS', labelFr: 'Proc. Externe', labelDr: 'معالجة خارجية (Externe)', color: '#F59E0B' },
-        { key: 'DONE', labelFr: 'Terminé', labelDr: 'منتهي (Terminé)', color: '#6B7280' },
+    const statusesList: { key: PlanningStatus; label: string; color: string }[] = [
+        { key: 'READY', label: tx(lang, { fr: 'Prêt', ar: 'جاهز', en: 'Ready', es: 'Listo', pt: 'Pronto', tr: 'Hazır' }), color: '#10B981' },
+        { key: 'IN_PROGRESS', label: tx(lang, { fr: 'En cours', ar: 'قيد التنفيذ', en: 'In progress', es: 'En curso', pt: 'Em curso', tr: 'Devam ediyor' }), color: '#3B82F6' },
+        { key: 'BLOCKED_STOCK', label: tx(lang, { fr: 'Bloqué stock', ar: 'متوقف بسبب المخزون', en: 'Stock blocked', es: 'Bloqueado por stock', pt: 'Bloqueado por stock', tr: 'Stok nedeniyle bloke' }), color: '#EF4444' },
+        { key: 'EXTERNAL_PROCESS', label: tx(lang, { fr: 'Proc. Externe', ar: 'معالجة خارجية', en: 'External process', es: 'Proceso externo', pt: 'Processo externo', tr: 'Harici süreç' }), color: '#F59E0B' },
+        { key: 'DONE', label: tx(lang, { fr: 'Terminé', ar: 'منتهٍ', en: 'Done', es: 'Terminado', pt: 'Concluído', tr: 'Tamamlandı' }), color: '#6B7280' },
     ];
 
-    const title = showDarija ? 'تغيير الحالة' : 'CHANGER LE STATUT';
-    const confirmLabel = showDarija ? 'تأكيد' : 'Confirmer';
-    const cancelLabel = showDarija ? 'إلغاء' : 'Annuler';
+    const title = tx(lang, { fr: 'CHANGER LE STATUT', ar: 'تغيير الحالة', en: 'CHANGE STATUS', es: 'CAMBIAR ESTADO', pt: 'ALTERAR ESTADO', tr: 'DURUMU DEĞİŞTİR' });
+    const confirmLabel = tx(lang, { fr: 'Confirmer', ar: 'تأكيد', en: 'Confirm', es: 'Confirmar', pt: 'Confirmar', tr: 'Onayla' });
+    const cancelLabel = tx(lang, { fr: 'Annuler', ar: 'إلغاء', en: 'Cancel', es: 'Cancelar', pt: 'Cancelar', tr: 'İptal' });
 
     return (
         <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
@@ -2518,7 +2468,7 @@ function StatusChangeModal({
                                     }`}
                                 >
                                     <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: isSelected ? '#E2E8F0' : s.color }} />
-                                    <span>{showDarija ? s.labelDr : s.labelFr}</span>
+                                    <span>{s.label}</span>
                                 </button>
                             );
                         })}

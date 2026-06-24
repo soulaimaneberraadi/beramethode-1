@@ -29,8 +29,8 @@ RAPPORTER : par fichier, nb de chaînes traduites + chaînes financières douteu
 - **Vague 0** (fondation) ✅
 - **Vague 1** ✅ — 7 fichiers à ternaires `lang === …` inline : Pedido, Configuration, Magasin, ModelWorkflow, RepartitionMatrix, AgendaModal, LicenseActivation. (type-check ✅)
 - **Vague 2** ✅ (~272 chaînes, type-check global clean) : Profil(12), RendementBoard(24), VueGenerale(28), Atelier(45), AnalyseTechnologique(30), Dashboard(38), Library(45), CatalogueTemps(50).
-  → **1re action du nouveau chat** : `npm run type-check` (doit être clean), puis lancer la **vague 3** (fichiers de la section 5).
-  → À ARBITRER (vague 2) : Dashboard a traduit « T.R.S → OEE » et « SKIP » et les initiales de jours (L,M,M…) — confirmer si on garde TRS/SKIP figés. CatalogueTemps a gardé « Opérateurs / l'5dam » (darija) tel quel.
+- **Correctifs post-vague 2** ✅ : Dashboard garde `TRS` (pas `OEE`) ; CatalogueTemps ne contient plus `l'5dam`.
+- **Vague 3** ✅ (commits 15cd66d + suivant) : agents Sonnet sur SousTraitance(318 tx) et SuiviProduction(59 tx). Les deux fichiers sont i18n à 100% (toutes chaînes FR → 6 langues).
 
 ## 5. À FAIRE — fichiers FR restants (par taille décroissante, lancer par vagues)
 | Fichier | Lignes | Note |
@@ -39,8 +39,8 @@ RAPPORTER : par fichier, nb de chaînes traduites + chaînes financières douteu
 | Implantation.tsx | 4263 | géant → vague dédiée |
 | GESTION-RH.tsx | 3129 | ⚠️ FINANCIER (salaires, Art. 385) — prudence max |
 | Gamme.tsx | 3120 | géant |
-| SousTraitance.tsx | 2879 | |
-| SuiviProduction.tsx | 2548 | |
+| ~~SousTraitance.tsx~~ | 2879 | ✅ i18n complète (318 tx) |
+| ~~SuiviProduction.tsx~~ | 2548 | ✅ i18n complète (59 tx) |
 | LaCoupe.tsx | 2524 | |
 | Effectifs.tsx | 1885 | |
 | Balancing.tsx | 1830 | |
