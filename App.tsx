@@ -38,6 +38,7 @@ import { sumPiecesFromSuiviForPlanning } from './utils/produced';
 import { rollPlanningEvents } from './utils/planning';
 import { computeChainEfficiency } from './utils/efficiency';
 import { DEFAULT_CALENDAR_APP_SETTINGS } from './lib/defaultCalendarSettings';
+import { navigate, getCurrentRoute, parseHash, onRouteChange } from './lib/router';
 
 const Login = lazy(() => import('./src/components/Login'));
 const Signup = lazy(() => import('./src/components/Signup'));
@@ -62,12 +63,14 @@ const PageMachine = lazy(() => import('./components/PageMachine'));
 const Atelier = lazy(() => import('./components/Atelier'));
 const SousTraitance = lazy(() => import('./components/SousTraitance'));
 const CatalogueTemps = lazy(() => import('./components/CatalogueTemps'));
+const VueGenerale = lazy(() => import('./components/VueGenerale'));
 
 // ── Extracted modules ──
+import { tx } from './lib/i18n';
 import { TRANSLATIONS, Lang, DEFAULT_MACHINES, DEFAULT_GUIDES, AUTO_SAVE_KEY, LIBRARY_KEY, MANUAL_LINKS_BY_MODEL_KEY, MACHINES_STORAGE_KEY, MACHINE_INSTANCES_KEY, MACHINE_FLEET_HISTORY_KEY, MAX_MACHINE_FLEET_HISTORY, defaultNavOrder } from './app/constants';
 import { useLang } from './src/context/LanguageContext';
 import { isLegacyBundledMachineFleet, looksLikeGeneratedDemoFleet, isDemoMachineName, mergeServerFleetWithPendingLocal, loadMachinesFromStorage, loadMachineFleetHistoryFromStorage, normalizeLoadedLayout, loadManualLinksByModel, saveManualLinksByModel, deleteManualLinksByModel } from './app/machineUtils';
-import AppHeader from './app/AppHeader';
+import AppHeader, { VIEW_DEFS } from './app/AppHeader';
 import NavConfirmModal from './app/NavConfirmModal';
 import { useAppModelManager } from './app/useAppModelManager';
 
@@ -126,7 +129,7 @@ export default function App() {
         isActive: !IS_STATIC,
         progress: 0,
         text: 'BERAMETHODE V2',
-        subText: 'Initialisation des modules...',
+        subText: tx(lang, {fr:'Initialisation des modules...',ar:'جاري تهيئة الوحدات...',en:'Initializing modules...',es:'Inicializando módulos...',pt:'A inicializar módulos...',tr:'Modüller başlatılıyor...'}),
         error: null,
     }));
     const [bootAttempt, setBootAttempt] = useState(0);
@@ -138,7 +141,7 @@ export default function App() {
             return;
         }
         if (authLoading) {
-            setAppLoading({ isActive: true, progress: 5, text: 'BERAMETHODE V2', subText: 'Vérification de la session...', error: null });
+            setAppLoading({ isActive: true, progress: 5, text: 'BERAMETHODE V2', subText: tx(lang, {fr:'Vérification de la session...',ar:'التحقق من الجلسة...',en:'Checking session...',es:'Verificando sesión...',pt:'A verificar sessão...',tr:'Oturum kontrol ediliyor...'}), error: null });
             return;
         }
         if (!user) {
@@ -153,8 +156,8 @@ export default function App() {
         const myRun = ++bootRunIdRef.current;
         const controller = new AbortController();
         let isCancelled = false;
-        setAppLoading(prev => ({ ...prev, isActive: true, progress: Math.max(prev.progress, 5), text: 'BERAMETHODE V2', subText: 'Initialisation des modules...', error: null }));
-        runBootSequence((p) => {
+        setAppLoading(prev => ({ ...prev, isActive: true, progress: Math.max(prev.progress, 5), text: 'BERAMETHODE V2', subText: tx(lang, {fr:'Initialisation des modules...',ar:'جاري تهيئة الوحدات...',en:'Initializing modules...',es:'Inicializando módulos...',pt:'A inicializar módulos...',tr:'Modüller başlatılıyor...'}), error: null }));
+        runBootSequence(lang, (p) => {
             if (isCancelled) return;
             if (myRun !== bootRunIdRef.current) return;
             setAppLoading(prev => ({ ...prev, progress: Math.max(prev.progress, p.progress), subText: p.currentLabel, error: null }));
@@ -162,7 +165,7 @@ export default function App() {
             if (isCancelled) return;
             if (myRun !== bootRunIdRef.current) return;
             if (!result.ok && result.error) {
-                setAppLoading(prev => ({ ...prev, isActive: true, error: `Étape « ${result.error!.stepId} » : ${result.error!.message}`, subText: 'Connexion impossible' }));
+                setAppLoading(prev => ({ ...prev, isActive: true, error: tx(lang, {fr:`Étape « ${result.error!.stepId} » : ${result.error!.message}`,ar:`الخطوة « ${result.error!.stepId} » : ${result.error!.message}`,en:`Step « ${result.error!.stepId} » : ${result.error!.message}`,es:`Paso « ${result.error!.stepId} » : ${result.error!.message}`,pt:`Etapa « ${result.error!.stepId} » : ${result.error!.message}`,tr:`Adım « ${result.error!.stepId} » : ${result.error!.message}`}), subText: tx(lang, {fr:'Connexion impossible',ar:'تعذر الاتصال',en:'Connection failed',es:'Conexión fallida',pt:'Falha de conexão',tr:'Bağlantı başarısız'}) }));
                 return;
             }
             setTimeout(() => {
@@ -213,7 +216,7 @@ export default function App() {
         setAuthView('login');
     };
 
-    const [currentView, setCurrentView] = useState<'dashboard' | 'ingenierie' | 'library' | 'coupe' | 'effectifs' | 'gestionRh' | 'planning' | 'suivi' | 'magasin' | 'export' | 'config' | 'profil' | 'admin' | 'rendement' | 'pageMachine' | 'machin' | 'facturation' | 'atelierProd' | 'sousTraitance' | 'catalogTemps'>('dashboard');
+    const [currentView, setCurrentView] = useState<'vuegenerale' | 'dashboard' | 'ingenierie' | 'library' | 'coupe' | 'effectifs' | 'gestionRh' | 'planning' | 'suivi' | 'magasin' | 'export' | 'config' | 'profil' | 'admin' | 'rendement' | 'pageMachine' | 'machin' | 'facturation' | 'atelierProd' | 'sousTraitance' | 'catalogTemps'>('dashboard');
     const [directSuiviModelId, setDirectSuiviModelId] = useState<string | null>(null);
     const [globalChaineId, setGlobalChaineId] = useState<string>('CHAINE 2');
     const [globalDate, setGlobalDate] = useState<string>(() => new Date().toISOString().split('T')[0]);
@@ -310,15 +313,31 @@ export default function App() {
         : navConfig;
 
 
+    const [routeTokens, setRouteTokens] = useState<string[]>([]);
+    const [routeNotFound, setRouteNotFound] = useState(false);
+
     useEffect(() => {
-        const ALLOW = new Set(['dashboard', 'ingenierie', 'library', 'coupe', 'effectifs', 'gestionRh', 'planning', 'suivi', 'magasin', 'export', 'config', 'profil', 'admin', 'rendement', 'pageMachine', 'machin', 'facturation', 'atelierProd', 'sousTraitance', 'catalogTemps']);
-        const applyHash = () => {
-            const h = window.location.hash.replace(/^#\/?/, '').toLowerCase();
-            if (h && ALLOW.has(h)) setCurrentView(h as typeof currentView);
+        const ALLOW = new Set(['vuegenerale', 'dashboard', 'ingenierie', 'library', 'coupe', 'effectifs', 'gestionRh', 'planning', 'suivi', 'magasin', 'export', 'config', 'profil', 'admin', 'rendement', 'pageMachine', 'machin', 'facturation', 'atelierProd', 'sousTraitance', 'catalogTemps']);
+        const syncHashToView = () => {
+            const route = getCurrentRoute();
+            if (!route.view && !route.isNotFound) {
+                setCurrentView('dashboard');
+                setRouteTokens([]);
+                setRouteNotFound(false);
+            } else if (route.view && ALLOW.has(route.view)) {
+                setCurrentView(route.view as typeof currentView);
+                setRouteTokens(route.tokens);
+                setRouteNotFound(false);
+            } else if (route.isNotFound) {
+                setRouteNotFound(true);
+                setRouteTokens([]);
+            }
         };
-        applyHash();
-        window.addEventListener('hashchange', applyHash);
-        return () => window.removeEventListener('hashchange', applyHash);
+        syncHashToView();
+        window.addEventListener('hashchange', syncHashToView);
+        return () => {
+            window.removeEventListener('hashchange', syncHashToView);
+        };
     }, []);
 
     const [navigationContext, setNavigationContext] = useState<'coupe' | 'planning' | null>(null);
@@ -1241,6 +1260,8 @@ export default function App() {
         }
 
         setCurrentView(targetView);
+        setRouteTokens([]);
+        navigate(targetView);
     };
 
     const handleModalConfirm = async (action: 'yes' | 'no' | 'cancel') => {
@@ -1264,6 +1285,7 @@ export default function App() {
                     }
                 }
                 setCurrentView(targetView);
+                navigate(targetView);
             }
             return;
         }
@@ -1271,12 +1293,15 @@ export default function App() {
         if (type === 'save') {
             if (action === 'yes') saveCurrentModel(false, true); // true = silent, no alert
             setCurrentView(targetView);
+            navigate(targetView);
         } else if (type === 'new') {
             if (action === 'yes') {
                 createNewProject();
                 setCurrentView('ingenierie');
+                navigate('ingenierie');
             } else {
                 setCurrentView(targetView);
+                navigate(targetView);
             }
         }
     };
@@ -1315,34 +1340,30 @@ export default function App() {
                             {/* Menu Items */}
                             <div className="flex-1 overflow-y-auto py-3 px-3 space-y-1">
                                 {(() => {
-                                    const allItems: Record<string, { label: string; icon: React.ReactNode; active: string }> = {
-                                        dashboard: { label: 'Tableau de bord', icon: <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect width="7" height="9" x="3" y="3" rx="1" /><rect width="7" height="5" x="14" y="3" rx="1" /><rect width="7" height="9" x="14" y="12" rx="1" /><rect width="7" height="5" x="3" y="16" rx="1" /></svg>, active: 'bg-indigo-50 border-indigo-100 text-indigo-700' },
-                                        planning: { label: 'Planning', icon: <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M19 4H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2Z" /><path d="M16 2v4" /><path d="M8 2v4" /><path d="M3 10h18" /></svg>, active: 'bg-blue-50 border-blue-100 text-blue-700' },
-                                        suivi: { label: 'Suivi Production', icon: <Activity className="w-4 h-4" />, active: 'bg-indigo-50 border-indigo-100 text-indigo-700' },
-                                        rendement: { label: 'Rendement', icon: <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18" /><polyline points="17 6 23 6 23 12" /></svg>, active: 'bg-violet-50 border-violet-100 text-violet-700' },
-                                        ingenierie: { label: t.ingenierie, icon: <Factory className="w-4 h-4" />, active: 'bg-emerald-50 border-emerald-100 text-emerald-700' },
-                                        atelierProd: { label: 'Atelier Production', icon: <Factory className="w-4 h-4" />, active: 'bg-orange-50 border-orange-100 text-orange-700' },
-                                        coupe: { label: 'La Coupe', icon: <Scissors className="w-4 h-4" />, active: 'bg-rose-50 border-rose-100 text-rose-700' },
-                                        effectifs: { label: t.effectifs, icon: <Users className="w-4 h-4" />, active: 'bg-orange-50 border-orange-100 text-orange-700' },
-                                        gestionRh: { label: 'Gestion RH', icon: <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>, active: 'bg-sky-50 border-sky-100 text-sky-700' },
-                                        magasin: { label: 'Magasin', icon: <Package className="w-4 h-4" />, active: 'bg-emerald-50 border-emerald-100 text-emerald-700' },
-                                        export: { label: 'Stock Fini', icon: <PackageCheck className="w-4 h-4" />, active: 'bg-cyan-50 border-cyan-100 text-cyan-700' },
-                                        facturation: { label: 'Facturation', icon: <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>, active: 'bg-blue-50 border-blue-100 text-blue-700' },
-                                        library: { label: t.library, icon: <FolderOpen className="w-4 h-4" />, active: 'bg-indigo-50 border-indigo-100 text-indigo-700' },
-                                        pageMachine: { label: 'Suivi Machines', icon: <Activity className="w-4 h-4" />, active: 'bg-fuchsia-50 border-fuchsia-100 text-fuchsia-700' },
-                                        machin: { label: 'Catalogue Machines', icon: <Layers className="w-4 h-4" />, active: 'bg-indigo-50 border-indigo-100 text-indigo-700' },
-                                        catalogTemps: { label: 'Catalogue de Temps', icon: <Clock className="w-4 h-4" />, active: 'bg-violet-50 border-violet-100 text-violet-700' },
-                                        config: { label: t.configuration, icon: <SettingsIcon className="w-4 h-4" />, active: 'bg-amber-50 border-amber-100 text-amber-700' },
-                                        sousTraitance: { label: 'Sous-traitance', icon: <Truck className="w-4 h-4" />, active: 'bg-indigo-50 border-indigo-100 text-indigo-700' },
-                                        admin: { label: t.admin, icon: <Shield className="w-4 h-4" />, active: 'bg-purple-50 border-purple-100 text-purple-700' },
-                                    };
+                                    const allItems = Object.fromEntries(
+                                        Object.entries(VIEW_DEFS).map(([key, def]) => [
+                                            key,
+                                            {
+                                                label: typeof def.label === 'function' ? def.label(lang) : def.label,
+                                                icon: def.icon,
+                                                active: def.activeClass,
+                                            }
+                                        ])
+                                    );
 
+                                    const CATEGORY_TRANSLATIONS: Record<string, {fr:string,ar:string,en:string,es:string,pt:string,tr:string}> = {
+                                        principal: {fr:'Principal',ar:'الرئيسية',en:'Main',es:'Principal',pt:'Principal',tr:'Ana'},
+                                        production: {fr:'Production',ar:'الإنتاج',en:'Production',es:'Producción',pt:'Produção',tr:'Üretim'},
+                                        rh: {fr:'RH',ar:'الموارد البشرية',en:'HR',es:'RRHH',pt:'RH',tr:'İK'},
+                                        logistique: {fr:'Logistique',ar:'اللوجستيك',en:'Logistics',es:'Logística',pt:'Logística',tr:'Lojistik'},
+                                        config: {fr:'Config',ar:'الإعدادات',en:'Config',es:'Config',pt:'Config',tr:'Yapılandırma'},
+                                    };
                                     const sections = [
                                         ...(navConfig.categories || []).map(c => ({
-                                            title: c.name,
+                                            title: CATEGORY_TRANSLATIONS[c.id] ? tx(lang, CATEGORY_TRANSLATIONS[c.id]) : c.name,
                                             items: c.views
                                         })),
-                                        ...(user?.role === 'admin' ? [{ title: 'Administration', items: ['admin'] }] : []),
+                                        ...(user?.role === 'admin' ? [{ title: tx(lang, {fr:'Administration',ar:'الإدارة',en:'Administration',es:'Administración',pt:'Administração',tr:'Yönetim'}), items: ['admin'] }] : []),
                                     ];
 
                                     const visibleItems = new Set(
@@ -1382,12 +1403,12 @@ export default function App() {
                                     <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-gray-700 to-gray-600 flex items-center justify-center text-[10px] font-bold text-white">
                                         {user?.name ? user.name.substring(0, 2).toUpperCase() : 'SB'}
                                     </div>
-                                    Profil
+                                    {tx(lang, {fr:'Profil',ar:'الملف الشخصي',en:'Profile',es:'Perfil',pt:'Perfil',tr:'Profil'})}
                                 </button>
                                 <button onClick={() => { logout(); setMobileMenuOpen(false); }}
                                     className="flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-[12px] font-bold text-red-500 hover:text-red-700 hover:bg-red-50 transition-all mt-0.5">
                                     <LogOut className="w-4 h-4" />
-                                    Déconnexion
+                                    {tx(lang, {fr:'Déconnexion',ar:'تسجيل الخروج',en:'Logout',es:'Cerrar sesión',pt:'Sair',tr:'Çıkış'})}
                                 </button>
                             </div>
                         </nav>
@@ -1401,6 +1422,25 @@ export default function App() {
                       garde-fou automatiquement à chaque changement de page. */}
                     <ErrorBoundary inline view={currentView} key={currentView} onReport={createTicketFromReport}>
 
+                    {routeNotFound ? (
+                        <div className="flex-1 flex flex-col items-center justify-center p-8 min-h-0">
+                            <div className="text-center max-w-md">
+                                <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-red-50 border border-red-100 flex items-center justify-center">
+                                    <AlertTriangle className="w-7 h-7 text-red-400" />
+                                </div>
+                                <h2 className="text-lg font-bold text-gray-800 mb-2">الصفحة غير موجودة</h2>
+                                <p className="text-sm text-gray-500 mb-6">الرابط الذي أدخلته غير معروف في النظام</p>
+                                <button
+                                    onClick={() => handleNavigation('dashboard')}
+                                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700 transition-colors"
+                                >
+                                    العودة إلى لوحة التحكم
+                                </button>
+                            </div>
+                        </div>
+                    ) : (<></>)}
+
+                    {!routeNotFound && (<>
                     {currentView === 'dashboard' && (
                         <Dashboard
                             models={models}
@@ -1409,14 +1449,23 @@ export default function App() {
                             settings={globalSettings}
                             setSettings={setGlobalSettings}
                             onOpenAgenda={() => {
-                                setCurrentView('config');
-                                // We need to signal Configuration to open Agenda. We can use a custom event or a temporary state.
-                                // The simplest way without refactoring too much is dispatching a custom event.
+                                handleNavigation('config');
                                 setTimeout(() => {
                                     window.dispatchEvent(new CustomEvent('open-agenda-modal'));
                                 }, 100);
                             }}
                             onNavigateModule={handleNavigation}
+                        />
+                    )}
+
+                    {currentView === 'vuegenerale' && (
+                        <VueGenerale
+                            models={models}
+                            planningEvents={planningEvents}
+                            settings={globalSettings}
+                            machines={machines}
+                            machineInstances={machineInstances}
+                            onNavigate={handleNavigation}
                         />
                     )}
 
@@ -1538,6 +1587,7 @@ export default function App() {
                                 setGlobalChaineId(chaineId);
                                 setGlobalDate(existing ? (existing.startDate || existing.dateLancement || today) : today);
                                 setCurrentView('suivi');
+                                navigate('suivi');
                             }}
                         />
                     )}
@@ -1555,7 +1605,7 @@ export default function App() {
                     {currentView === 'effectifs' && (
                         <div className="flex-1 min-h-0 flex flex-col overflow-hidden w-full">
                             <Effectifs 
-                                onOpenGestionRH={() => setCurrentView('gestionRh')} 
+                                onOpenGestionRH={() => handleNavigation('gestionRh')} 
                                 suivis={suivis} 
                                 setSuivis={setSuivis} 
                                 planningEvents={planningEvents} 
@@ -1574,7 +1624,7 @@ export default function App() {
                                 suivis={suivis}
                                 planningEvents={planningEvents}
                                 settings={globalSettings}
-                                onBack={() => setCurrentView('dashboard')}
+                                onBack={() => handleNavigation('dashboard')}
                                 initialWorkerName={hrInitialWorker?.name}
                                 initialWorkerNonce={hrInitialWorker?.ts}
                                 selectedDate={globalDate}
@@ -1594,10 +1644,10 @@ export default function App() {
                             setPlanningEvents={setPlanningEvents}
                             setModels={setModels}
                             setSuivis={setSuivis}
-                            setCurrentView={setCurrentView}
+                            setCurrentView={(v) => { setCurrentView(v); navigate(v); }}
                             onOpenInIngenierie={(modelId) => {
                                 const m = models.find(x => x.id === modelId);
-                                if (m) { loadModel(m, 'planning'); setCurrentView('ingenierie'); }
+                                if (m) { loadModel(m, 'planning'); setCurrentView('ingenierie'); navigate('ingenierie'); }
                             }}
                             onOpenSuivi={(planningEventId) => {
                                 const ev = planningEvents.find(e => e.id === planningEventId);
@@ -1607,6 +1657,7 @@ export default function App() {
                                     if (ev.startDate) setGlobalDate(ev.startDate);
                                 }
                                 setCurrentView('suivi');
+                                navigate('suivi');
                             }}
                             settings={globalSettings}
                             machines={machines}
@@ -1749,7 +1800,7 @@ export default function App() {
                     {currentView === 'sousTraitance' && (
                         <div className="flex-1 min-h-0 flex flex-col overflow-hidden w-full">
                             <Suspense fallback={<div className="p-8 text-center text-gray-500">Chargement...</div>}>
-                                <SousTraitance models={models} settings={globalSettings} onNavigate={(v) => setCurrentView(v as any)} planningEvents={planningEvents} setPlanningEvents={setPlanningEvents} />
+                                <SousTraitance models={models} settings={globalSettings} onNavigate={(v) => handleNavigation(v as any)} planningEvents={planningEvents} setPlanningEvents={setPlanningEvents} />
                             </Suspense>
                         </div>
                     )}
@@ -1760,19 +1811,20 @@ export default function App() {
                                 <CatalogueTemps
                                     models={models}
                                     settings={globalSettings}
-                                    onOpenWorker={(name) => { setHrInitialWorker({ name, ts: Date.now() }); setCurrentView('gestionRh'); }}
+                                    onOpenWorker={(name) => { setHrInitialWorker({ name, ts: Date.now() }); handleNavigation('gestionRh'); }}
                                 />
                             </Suspense>
                         </div>
                     )}
+                    </>)}
 
                     {/* --- FLOATING RETURN BUTTON --- */}
                     {navigationContext && (currentView === 'library' || currentView === 'ingenierie') && (
                         <div className="absolute bottom-4 right-4 z-[100] animate-in fade-in slide-in-from-bottom-4 duration-300">
                             <button
                                 onClick={() => {
-                                    setCurrentView(navigationContext);
-                                    setNavigationContext(null); // Clear context after returning
+                                    handleNavigation(navigationContext as any);
+                                    setNavigationContext(null);
                                 }}
                                 title={`Retourner au ${navigationContext === 'coupe' ? 'La Coupe' : 'Planning'}`}
                                 className="group flex items-center gap-2 bg-slate-900 border border-slate-700 text-white rounded-full pl-2.5 pr-3.5 py-1.5 shadow-lg hover:bg-slate-800 hover:-translate-y-0.5 transition-all"

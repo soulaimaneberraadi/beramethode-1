@@ -13,7 +13,7 @@ import { calculateRollingEndDate } from '../../../utils/planning';
 import { tx } from '../../../lib/i18n';
 import { useLang } from '../../../src/context/LanguageContext';
 
-const getExtendedStatusMeta = (status: string | undefined) => {
+const getExtendedStatusMeta = (status: string | undefined, lang: string) => {
     if (status === 'EXTERNAL_PROCESS') {
         return {
             label: 'Proc. Externe',
@@ -26,7 +26,7 @@ const getExtendedStatusMeta = (status: string | undefined) => {
     }
     if (status === 'BLOCKED_STOCK') {
         return {
-            label: 'Bloqué stock',
+            label: tx(lang, {fr:'Bloqué stock',ar:'مخزون محجوب',en:'Blocked stock',es:'Stock bloqueado',pt:'Stock bloqueado',tr:'Bloke stok'}),
             dot: 'bg-red-500',
             text: 'text-red-700',
             bg: 'bg-red-50',
@@ -138,7 +138,7 @@ export default function EventDetailPanel({
         rollingEndYmd = calculateRollingEndDate(event, sam, eff, settings).split('T')[0];
     }
     const ddsYmd = evDeadlineYmd(event);
-    const wsMeta = getExtendedStatusMeta(event.status);
+    const wsMeta = getExtendedStatusMeta(event.status, lang);
     const delay = delayOf(event);
     const delayMeta = DELAY_META[delay];
     const daysToDDS = ddsYmd ? daysBetween(todayYmd(), ddsYmd) : null;
@@ -220,8 +220,8 @@ export default function EventDetailPanel({
         }
 
         const getPriority = (label: string) => {
-            if (label.startsWith("Création")) return 1;
-            if (label.startsWith("Réception")) return 2;
+            if (label.startsWith(tx(lang, {fr:'Création',ar:'إنشاء',en:'Creation',es:'Creación',pt:'Criação',tr:'Oluşturma'}))) return 1;
+            if (label.startsWith(tx(lang, {fr:'Réception',ar:'استلام',en:'Reception',es:'Recepción',pt:'Receção',tr:'Teslim'}))) return 2;
             if (label.includes("produites")) return 3;
             if (label.startsWith("Fin")) return 4;
             if (label.startsWith("DDS")) return 5;
@@ -556,7 +556,7 @@ export default function EventDetailPanel({
                     <div className="grid grid-cols-2 gap-1.5">
                         {(['READY', 'IN_PROGRESS', 'BLOCKED_STOCK', 'EXTERNAL_PROCESS', 'DONE'] as const).map(s => {
                             const isActive = event.status === s;
-                            const meta = getExtendedStatusMeta(s);
+                            const meta = getExtendedStatusMeta(s, lang);
                             return (
                                 <button
                                     key={s}

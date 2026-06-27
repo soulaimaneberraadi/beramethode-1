@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { tx } from '../../../lib/i18n';
 import type { AppSettings, Machine, ModelData, PlanningEvent, MaterialReceipt } from '../../../types';
 import { getChainDailyCapacity, maxDayLoadRatioInSpan, getEffectiveCapacity } from '../../../utils/capacity';
 import { getChainMachineIds, validateMachineCoverage } from '../../../utils/machineMatch';
@@ -36,6 +37,7 @@ export interface MaterialAvailabilityResult {
 
 /** Compute material availability status for a planning event based on BR receipts. */
 export function getMaterialAvailability(
+    lang: string,
     modelId: string,
     models: ModelData[],
     totalQty: number,
@@ -49,11 +51,11 @@ export function getMaterialAvailability(
 
     const model = models.find(m => m.id === modelId);
     if (!model) {
-        return { color: 'none', emoji: '⚪', label: 'Modèle introuvable', details: [] };
+        return { color: 'none', emoji: '⚪', label: tx(lang, { fr: 'Modèle introuvable', ar: 'النموذج غير موجود', en: 'Model not found' }), details: [] };
     }
     const materials = model.ficheData?.materials || [];
     if (materials.length === 0 || receipts.length === 0) {
-        return { color: 'none', emoji: '⚪', label: 'Pas de BOM/BR', details: [] };
+        return { color: 'none', emoji: '⚪', label: tx(lang, { fr: 'Pas de BOM/BR', ar: 'لا توجد BOM/BR', en: 'No BOM/BR' }), details: [] };
     }
 
     const details: MaterialAvailabilityResult['details'] = [];
@@ -83,12 +85,13 @@ export function getMaterialAvailability(
         });
     });
 
-    if (allCovered) return { color: 'green', emoji: '🟢', label: 'Stock complet', details };
-    if (lotCovered) return { color: 'yellow', emoji: '🟡', label: 'Lot couvert', details };
-    return { color: 'red', emoji: '🔴', label: 'Rupture stock', details };
+    if (allCovered) return { color: 'green', emoji: '🟢', label: tx(lang, { fr: 'Stock complet', ar: 'المخزون كامل', en: 'Full stock' }), details };
+    if (lotCovered) return { color: 'yellow', emoji: '🟡', label: tx(lang, { fr: 'Lot couvert', ar: 'الدفعة مغطاة', en: 'Lot covered' }), details };
+    return { color: 'red', emoji: '🔴', label: tx(lang, { fr: 'Rupture stock', ar: 'نفاد المخزون', en: 'Stockout' }), details };
 }
 
 interface Args {
+    lang: string;
     planningEvents: PlanningEvent[];
     models: ModelData[];
     machines: Machine[];
@@ -96,7 +99,7 @@ interface Args {
     chains?: PlanningChain[];
 }
 
-export function usePlanningValidation({ planningEvents, models, machines, settings, chains }: Args): Issue[] {
+export function usePlanningValidation({ lang, planningEvents, models, machines, settings, chains }: Args): Issue[] {
     return useMemo(() => {
         const issues: Issue[] = [];
         const chainEffMap = new Map(chains?.map(c => [c.id, c.efficiency]) ?? []);
@@ -139,9 +142,9 @@ export function usePlanningValidation({ planningEvents, models, machines, settin
                     eventId: ev.id,
                     severity: 'error',
                     type: 'machines',
-                    title: 'Modèle introuvable',
-                    detail: "Le modèle spécifié pour cet ordre de fabrication n'existe pas dans la bibliothèque.",
-                    suggestion: "Vérifier si le modèle a été supprimé ou recréer le modèle.",
+                    title: tx(lang, { fr: 'Modèle introuvable', ar: 'النموذج غير موجود', en: 'Model not found' }),
+                    detail: tx(lang, { fr: "Le modèle spécifié pour cet ordre de fabrication n'existe pas dans la bibliothèque.", ar: 'النموذج المحدد لأمر التصنيع هذا غير موجود في المكتبة.', en: "The model specified for this manufacturing order does not exist in the library." }),
+                    suggestion: tx(lang, { fr: 'Vérifier si le modèle a été supprimé ou recréer le modèle.', ar: 'تحقق مما إذا كان النموذج قد تم حذفه أو أعد إنشاء النموذج.', en: 'Check if the model was deleted or recreate the model.' }),
                 });
                 continue;
             }
@@ -155,9 +158,9 @@ export function usePlanningValidation({ planningEvents, models, machines, settin
                     eventId: ev.id,
                     severity: 'error',
                     type: 'stock',
-                    title: 'Stock insuffisant',
-                    detail: missing || ev.blockedReason || 'Matières manquantes',
-                    suggestion: 'Vérifier le magasin ou créer un bon de commande',
+                    title: tx(lang, { fr: 'Stock insuffisant', ar: 'مخزون غير كافٍ', en: 'Insufficient stock' }),
+                    detail: missing || ev.blockedReason || tx(lang, { fr: 'Matières manquantes', ar: 'مواد ناقصة', en: 'Missing materials' }),
+                    suggestion: tx(lang, { fr: 'Vérifier le magasin ou créer un bon de commande', ar: 'تحقق من المخزون أو أنشئ أمر شراء', en: 'Check the store or create a purchase order' }),
                 });
             }
 
@@ -177,9 +180,9 @@ export function usePlanningValidation({ planningEvents, models, machines, settin
                         eventId: ev.id,
                         severity: 'warning',
                         type: 'machines',
-                        title: 'Couverture machines incomplète',
-                        detail: `Classes manquantes sur ${ev.chaineId} : ${mc.missingClasses.join(', ')}`,
-                        suggestion: 'Affecter les machines à la ligne ou changer de chaîne',
+                        title: tx(lang, { fr: 'Couverture machines incomplète', ar: 'تغطية الآلات غير مكتملة', en: 'Incomplete machine coverage' }),
+                        detail: tx(lang, { fr: `Classes manquantes sur ${ev.chaineId} : ${mc.missingClasses.join(', ')}`, ar: `الفئات المفقودة في ${ev.chaineId} : ${mc.missingClasses.join(', ')}`, en: `Missing classes on ${ev.chaineId} : ${mc.missingClasses.join(', ')}` }),
+                        suggestion: tx(lang, { fr: 'Affecter les machines à la ligne ou changer de chaîne', ar: 'تعيين الآلات للخط أو تغيير السلسلة', en: 'Assign machines to the line or change the chain' }),
                     });
                 }
             }
@@ -213,9 +216,9 @@ export function usePlanningValidation({ planningEvents, models, machines, settin
                             eventId: ev.id,
                             severity: 'warning',
                             type: 'capacity',
-                            title: 'Capacité dépassée',
-                            detail: `Pic ~${Math.round(maxR * 100)} % (${cap} pcs/j) — ${overCount} jour(s) en surcharge`,
-                            suggestion: 'Réduire la quantité, fractionner, ou changer de chaîne',
+                            title: tx(lang, { fr: 'Capacité dépassée', ar: 'السعة تجاوزت الحد', en: 'Capacity exceeded' }),
+                            detail: tx(lang, { fr: `Pic ~${Math.round(maxR * 100)} % (${cap} pcs/j) — ${overCount} jour(s) en surcharge`, ar: `الذروة ~${Math.round(maxR * 100)} % (${cap} قطعة/يوم) — ${overCount} يوم في التحميل الزائد`, en: `Peak ~${Math.round(maxR * 100)} % (${cap} pcs/d) — ${overCount} day(s) overloaded` }),
+                            suggestion: tx(lang, { fr: 'Réduire la quantité, fractionner, ou changer de chaîne', ar: 'قلل الكمية، قسّم، أو غيّر السلسلة', en: 'Reduce quantity, split, or change the chain' }),
                         });
                     }
                 }
@@ -229,9 +232,9 @@ export function usePlanningValidation({ planningEvents, models, machines, settin
                     eventId: ev.id,
                     severity: 'error',
                     type: 'deadline',
-                    title: 'Hors délai',
-                    detail: 'La fin estimée dépasse le DDS',
-                    suggestion: 'Avancer la date, accélérer ou prévenir le client',
+                    title: tx(lang, { fr: 'Hors délai', ar: 'متجاوز الموعد النهائي', en: 'Past deadline' }),
+                    detail: tx(lang, { fr: 'La fin estimée dépasse le DDS', ar: 'النهاية المقدرة تتجاوز DDS', en: 'Estimated end exceeds DDS' }),
+                    suggestion: tx(lang, { fr: 'Avancer la date, accélérer ou prévenir le client', ar: 'قدم التاريخ، سرّع، أو أبلغ العميل', en: 'Advance the date, speed up, or notify the client' }),
                 });
             } else if (delay === 'AT_RISK') {
                 issues.push({
@@ -239,14 +242,15 @@ export function usePlanningValidation({ planningEvents, models, machines, settin
                     eventId: ev.id,
                     severity: 'warning',
                     type: 'deadline',
-                    title: 'Délai serré',
-                    detail: 'La fin est très proche du DDS',
+                    title: tx(lang, { fr: 'Délai serré', ar: 'موعد ضيق', en: 'Tight deadline' }),
+                    detail: tx(lang, { fr: 'La fin est très proche du DDS', ar: 'النهاية قريبة جداً من DDS', en: 'The end is very close to DDS' }),
                 });
             }
 
             // 5. Material Receipt Availability (BR-based 🟢🟡🔴)
             if (model?.ficheData?.materials?.length) {
                 const availability = getMaterialAvailability(
+                    lang,
                     ev.modelId,
                     models,
                     evQty(ev),
@@ -263,9 +267,9 @@ export function usePlanningValidation({ planningEvents, models, machines, settin
                         eventId: ev.id,
                         severity: 'error',
                         type: 'stock',
-                        title: '🔴 Rupture fournitures (BR)',
-                        detail: `Réceptions insuffisantes : ${uncovered}`,
-                        suggestion: 'Relancer le fournisseur ou le client Export — [PAUSE / BLOCKED - FURNITURE]',
+                        title: tx(lang, { fr: '🔴 Rupture fournitures (BR)', ar: '🔴 نقص التجهيزات (BR)', en: '🔴 Supply shortage (BR)' }),
+                        detail: tx(lang, { fr: `Réceptions insuffisantes : ${uncovered}`, ar: `استلام غير كافٍ : ${uncovered}`, en: `Insufficient receipts : ${uncovered}` }),
+                        suggestion: tx(lang, { fr: 'Relancer le fournisseur ou le client Export — [PAUSE / BLOCKED - FURNITURE]', ar: 'تواصل مع المورد أو عميل Export — [PAUSE / BLOCKED - FURNITURE]', en: 'Contact the supplier or Export client — [PAUSE / BLOCKED - FURNITURE]' }),
                     });
                 } else if (availability.color === 'yellow') {
                     const partial = availability.details
@@ -277,9 +281,9 @@ export function usePlanningValidation({ planningEvents, models, machines, settin
                         eventId: ev.id,
                         severity: 'warning',
                         type: 'stock',
-                        title: '🟡 Stock partiel (Lot couvert)',
-                        detail: `Seul le lot actif est couvert. Manque pour total : ${partial}`,
-                        suggestion: 'Planifier la réception suivante avant fin du lot actuel',
+                        title: tx(lang, { fr: '🟡 Stock partiel (Lot couvert)', ar: '🟡 مخزون جزئي (الدفعة مغطاة)', en: '🟡 Partial stock (Lot covered)' }),
+                        detail: tx(lang, { fr: `Seul le lot actif est couvert. Manque pour total : ${partial}`, ar: `فقط الدفعة النشطة مغطاة. النقص للكل : ${partial}`, en: `Only the active lot is covered. Missing for total : ${partial}` }),
+                        suggestion: tx(lang, { fr: 'Planifier la réception suivante avant fin du lot actuel', ar: 'خطط للاستلام التالي قبل نهاية الدفعة الحالية', en: 'Plan the next receipt before the end of the current lot' }),
                     });
                 }
             }
@@ -294,6 +298,7 @@ export function usePlanningValidation({ planningEvents, models, machines, settin
 
 /** Vérifie un OF avant insertion/modif (utile au modal de création). */
 export function checkEventDraft(
+    lang: string,
     draft: { modelId: string; chaineId: string; startDate: string; quantity: number; strictDeadline_DDS?: string },
     context: { planningEvents: PlanningEvent[]; models: ModelData[]; machines: Machine[]; settings: AppSettings; computeEndDate: (modelId: string, chaineId: string, start: string, qty: number) => string }
 ): Issue[] {
@@ -316,8 +321,8 @@ export function checkEventDraft(
                 eventId: 'draft',
                 severity: 'warning',
                 type: 'machines',
-                title: 'Couverture machines incomplète',
-                detail: `Classes manquantes sur ${draft.chaineId} : ${mc.missingClasses.join(', ')}`,
+                title: tx(lang, { fr: 'Couverture machines incomplète', ar: 'تغطية الآلات غير مكتملة', en: 'Incomplete machine coverage' }),
+                detail: tx(lang, { fr: `Classes manquantes sur ${draft.chaineId} : ${mc.missingClasses.join(', ')}`, ar: `الفئات المفقودة في ${draft.chaineId} : ${mc.missingClasses.join(', ')}`, en: `Missing classes on ${draft.chaineId} : ${mc.missingClasses.join(', ')}` }),
             });
         }
     }
@@ -344,8 +349,8 @@ export function checkEventDraft(
             eventId: 'draft',
             severity: 'warning',
             type: 'capacity',
-            title: 'Capacité dépassée',
-            detail: `Pic ~${Math.round(maxR * 100)} % (${cap} pcs/j)`,
+            title: tx(lang, { fr: 'Capacité dépassée', ar: 'السعة تجاوزت الحد', en: 'Capacity exceeded' }),
+            detail: tx(lang, { fr: `Pic ~${Math.round(maxR * 100)} % (${cap} pcs/j)`, ar: `الذروة ~${Math.round(maxR * 100)} % (${cap} قطعة/يوم)`, en: `Peak ~${Math.round(maxR * 100)} % (${cap} pcs/d)` }),
         });
     }
 
@@ -370,8 +375,8 @@ export function checkEventDraft(
                 eventId: 'draft',
                 severity: 'error',
                 type: 'deadline',
-                title: 'Hors délai',
-                detail: `Fin estimée ${endYmd} > DDS ${dds}${model?.ficheData?.typeMarche === 'Export' ? ' (Ajusté Export -3j)' : ''}`,
+                title: tx(lang, { fr: 'Hors délai', ar: 'متجاوز الموعد النهائي', en: 'Past deadline' }),
+                detail: tx(lang, { fr: `Fin estimée ${endYmd} > DDS ${dds}${model?.ficheData?.typeMarche === 'Export' ? ' (Ajusté Export -3j)' : ''}`, ar: `النهاية المقدرة ${endYmd} > DDS ${dds}${model?.ficheData?.typeMarche === 'Export' ? ' (تعديل Export -3j)' : ''}`, en: `Estimated end ${endYmd} > DDS ${dds}${model?.ficheData?.typeMarche === 'Export' ? ' (Export adjusted -3d)' : ''}` }),
             });
         }
     }

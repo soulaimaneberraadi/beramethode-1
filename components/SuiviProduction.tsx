@@ -188,16 +188,19 @@ export default function SuiviProduction({
                 if (plan.chaineId) targetChaineId = plan.chaineId;
                 if (plan.startDate) targetDate = new Date(plan.startDate);
                 else if (plan.dateLancement) targetDate = new Date(plan.dateLancement);
+                setSelectedActiveModelId(plan.id);
             } else {
                 const suivi = suivis.find(s => s.modelId === directModelId);
                 if (suivi) {
                     if (suivi.chaineId) targetChaineId = suivi.chaineId;
                     if (suivi.date) targetDate = new Date(suivi.date);
+                    setSelectedActiveModelId(entryOFKey(suivi));
+                } else {
+                    setSelectedActiveModelId(directModelId);
                 }
             }
 
             setSelectedChaineId(targetChaineId);
-            setSelectedActiveModelId(directModelId);
 
             if (targetDate && !isNaN(targetDate.getTime())) {
                 const ymd = targetDate.toISOString().split('T')[0];
@@ -361,6 +364,7 @@ export default function SuiviProduction({
             id: string; name: string; reference: string; sam: number; target: number;
             produced: number; remaining: number; restPerHour: string; style: OFStyle;
             planningId: string; modelId: string; ofTag?: string; image?: string | null; gamme: any[];
+            producedThisWeek: number;
         }>();
 
         const addEntry = (ofKey: string, modelId: string | undefined, planningId: string, ev?: PlanningEvent) => {
@@ -380,6 +384,7 @@ export default function SuiviProduction({
                 sam,
                 target,
                 produced: 0,
+                producedThisWeek: 0,
                 remaining: target,
                 restPerHour: '0.00',
                 style,
@@ -391,8 +396,21 @@ export default function SuiviProduction({
             });
         };
 
-        // a) Tous les OF planifiés sur cette chaîne.
-        planningEvents.filter(p => p.chaineId === selectedChaineId).forEach(ev => {
+        // a) Tous les OF planifiés sur cette chaîne et qui chevauchent la semaine sélectionnée.
+        const weekStartStr = weekDates[0];
+        const weekEndStr = weekDates[weekDates.length - 1];
+
+        planningEvents.filter(p => {
+            if (p.chaineId !== selectedChaineId) return false;
+            
+            const evStart = p.startDate || p.dateLancement || '';
+            const evEnd = p.estimatedEndDate || p.dateExport || p.dateFin || evStart;
+            
+            const startYmd = evStart.split('T')[0];
+            const endYmd = evEnd.split('T')[0];
+            
+            return startYmd <= weekEndStr && endYmd >= weekStartStr;
+        }).forEach(ev => {
             addEntry(ev.id, ev.modelId, ev.id, ev);
         });
 
@@ -416,14 +434,20 @@ export default function SuiviProduction({
             }
         });
 
-        // Production cumulée par OF.
+        // Production cumulée par OF (globale et cette semaine).
         list.forEach(am => {
-            const prodQty = weekSuivis
+            const globalProd = suivis
                 .filter(s => entryOFKey(s) === am.id)
                 .reduce((acc, curr) => acc + (curr.totalHeure || 0), 0);
-            am.produced = prodQty;
-            am.remaining = am.target - prodQty;
-            am.restPerHour = (am.target - prodQty) > 0 ? ((am.target - prodQty) / 48).toFixed(2) : '0.00';
+            
+            const weekProd = weekSuivis
+                .filter(s => entryOFKey(s) === am.id)
+                .reduce((acc, curr) => acc + (curr.totalHeure || 0), 0);
+
+            am.produced = globalProd;
+            am.producedThisWeek = weekProd;
+            am.remaining = am.target - globalProd;
+            am.restPerHour = (am.target - globalProd) > 0 ? ((am.target - globalProd) / 48).toFixed(2) : '0.00';
         });
 
         return list;
@@ -1653,13 +1677,13 @@ export default function SuiviProduction({
                         <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 mr-1">
                             {tx(lang, { fr: 'Total production', ar: 'إجمالي الإنتاج', en: 'Total production', es: 'Producción total', pt: 'Produção total', tr: 'Toplam üretim' })} :
                         </span>
-                        {activeModels.filter(m => m.produced > 0).length === 0 ? (
+                        {activeModels.filter(m => m.producedThisWeek > 0).length === 0 ? (
                             <span className="text-[11px] text-slate-400 font-medium">
                                 {tx(lang, { fr: 'Aucune production enregistrée cette semaine', ar: 'لا يوجد أي إنتاج مسجل هذا الأسبوع', en: 'No production recorded this week', es: 'No hay producción registrada esta semana', pt: 'Nenhuma produção registada esta semana', tr: 'Bu hafta kayıtlı üretim yok' })}
                             </span>
                         ) : (
                             <>
-                                {activeModels.filter(m => m.produced > 0).map(m => (
+                                {activeModels.filter(m => m.producedThisWeek > 0).map(m => (
                                     <span
                                         key={m.id}
                                         className="inline-flex items-center gap-1.5 rounded-lg border px-2 py-0.5 text-[11px] font-bold tabular-nums"
@@ -1668,11 +1692,11 @@ export default function SuiviProduction({
                                     >
                                         <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: m.style.base }} />
                                         <span className="truncate max-w-[140px]">{m.reference}{m.ofTag ? ` · ${m.ofTag}` : ''}</span>
-                                        <span className="font-black">{m.produced} pcs</span>
+                                        <span className="font-black">{m.producedThisWeek} pcs</span>
                                     </span>
                                 ))}
                                 <span className="ml-auto inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 text-white px-2.5 py-0.5 text-[11px] font-black tabular-nums shadow-sm">
-                                    {tx(lang, { fr: 'TOTAL', ar: 'الإجمالي', en: 'TOTAL', es: 'TOTAL', pt: 'TOTAL', tr: 'TOPLAM' })} : {activeModels.reduce((acc, m) => acc + m.produced, 0)} pcs
+                                    {tx(lang, { fr: 'TOTAL', ar: 'الإجمالي', en: 'TOTAL', es: 'TOTAL', pt: 'TOTAL', tr: 'TOPLAM' })} : {activeModels.reduce((acc, m) => acc + m.producedThisWeek, 0)} pcs
                                 </span>
                             </>
                         )}

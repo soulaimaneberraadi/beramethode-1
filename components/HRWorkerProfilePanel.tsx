@@ -27,7 +27,7 @@ const API = (path: string, opts?: RequestInit) =>
   fetch(path, { credentials: 'include', headers: { 'Content-Type': 'application/json' }, ...opts });
 
 /** Évite le message brut « Unexpected token '<' » quand on reçoit du HTML (SPA, proxy, vieux serveur sans la route dossier). */
-function parseApiJsonBody(raw: string): unknown {
+function parseApiJsonBody(raw: string, lang: string): unknown {
   const lead = raw.trimStart();
   if (lead.startsWith('<!') || lead.toLowerCase().startsWith('<html')) {
     const page = typeof window !== 'undefined' ? window.location.origin : '';
@@ -41,7 +41,7 @@ function parseApiJsonBody(raw: string): unknown {
   try {
     return JSON.parse(raw);
   } catch {
-    throw new Error('Réponse du serveur illisible (JSON attendu).');
+    throw new Error(tx(lang, {fr:'Réponse du serveur illisible (JSON attendu).',ar:'استجابة الخادم غير قابلة للقراءة (JSON متوقع).',en:'Unreadable server response (JSON expected).',es:'Respuesta del servidor ilegible (JSON esperado).',pt:'Resposta do servidor ilegível (JSON esperado).',tr:'Okunamayan sunucu yanıtı (JSON bekleniyor).'}));
   }
 }
 
@@ -177,7 +177,7 @@ export function HRWorkerProfilePanel({ workerId, onClose, onEdit, settings }: Pr
       u.set('pointage_mois', mois);
       const r = await API(`/api/hr/workers/${encodeURIComponent(workerId)}/dossier?${u.toString()}`);
       const raw = await r.text();
-      const body = parseApiJsonBody(raw) as Record<string, unknown> | null;
+      const body = parseApiJsonBody(raw, lang) as Record<string, unknown> | null;
       const apiMsg = typeof body?.message === 'string' ? body.message : null;
       if (r.status === 404) {
         setErr(apiMsg || 'Fiche introuvable ou accès refusé.');
@@ -306,7 +306,7 @@ export function HRWorkerProfilePanel({ workerId, onClose, onEdit, settings }: Pr
       if (!r.ok) {
         let msg = `Erreur ${r.status}`;
         try {
-          const b = parseApiJsonBody(raw) as { message?: string };
+          const b = parseApiJsonBody(raw, lang) as { message?: string };
           if (b && typeof b === 'object' && typeof b.message === 'string') msg = b.message;
         } catch {
           /* ignore */
@@ -368,7 +368,7 @@ export function HRWorkerProfilePanel({ workerId, onClose, onEdit, settings }: Pr
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <Calendar size={14} color="#64748B" />
-            <input type="month" value={mois} onChange={e => setMois(e.target.value)} style={{ ...inputStyle, width: 150 }} title="Période pointage / production" />
+            <input type="month" value={mois} onChange={e => setMois(e.target.value)} style={{ ...inputStyle, width: 150 }} title={tx(lang, {fr:'Période pointage / production',ar:'فترة الحضور / الإنتاج',en:'Attendance / Production period',es:'Período de asistencia / producción',pt:'Período de ponto / produção',tr:'Devam / Üretim dönemi'})} />
           </div>
           <button type="button" onClick={() => onEdit(w)} style={btnPrimary}>
             <Edit3 size={15} style={{ marginRight: 6 }} /> {_({fr:'Modifier la fiche',ar:'تعديل الملف',en:'Edit file',es:'Editar ficha',pt:'Editar ficha',tr:'Dosyayı düzenle'})}

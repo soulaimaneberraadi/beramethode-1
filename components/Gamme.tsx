@@ -328,7 +328,7 @@ export default function Gamme({
       const compressed = await compressImage(file);
       setOperationPhoto(opId, compressed);
     } catch (err) {
-      console.error('Photo opération: compression échouée', err);
+      console.error(tx(lang, {fr:'Photo opération: compression échouée',ar:'صورة العملية: فشل الضغط',en:'Operation photo: compression failed',es:'Foto de operación: compresión fallida',pt:'Foto da operação: compressão falhou',tr:'İşlem fotoğrafı: sıkıştırma başarısız'}), err);
       alert(tx(lang,{fr:"Erreur lors du traitement de l'image.",ar:'خطأ أثناء معالجة الصورة.',en:'Error processing the image.',es:'Error al procesar la imagen.',pt:'Erro ao processar a imagem.',tr:'Görüntü işlenirken hata oluştu.'}));
     } finally {
       setPhotoProcessingOpId(null);

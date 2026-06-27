@@ -3,11 +3,14 @@ import React from 'react';
 import { Package, Plus, Trash2, Info, TrendingUp, Percent, ShoppingCart, Banknote, Clock, Settings, Coins } from 'lucide-react';
 import { Material, AppSettings, PurchasingData } from '../types';
 import { fmt } from '../constants';
+import { useLang } from '../src/context/LanguageContext';
+import { tx } from '../lib/i18n';
 
 // --- MATERIALS LIST COMPONENT ---
 export const MaterialsList = ({ 
   t, currency, materials, addMaterial, updateMaterial, deleteMaterial, totalMaterials 
 }: any) => {
+  const { lang } = useLang();
   return (
     <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
       <div className="px-4 py-3 border-b border-slate-100 flex justify-between items-center bg-slate-50">
@@ -34,7 +37,7 @@ export const MaterialsList = ({
             {materials.map((item: Material) => (
               <tr key={item.id} className="hover:bg-slate-50 transition-colors group">
                 <td className="p-2">
-                  <input type="text" value={item.name} onChange={(e) => updateMaterial(item.id, 'name', e.target.value)} className="w-full rounded border border-slate-200 px-2 py-1 outline-none focus:border-blue-500" placeholder="Nom..." />
+                  <input type="text" value={item.name} onChange={(e) => updateMaterial(item.id, 'name', e.target.value)} className="w-full rounded border border-slate-200 px-2 py-1 outline-none focus:border-blue-500" placeholder={tx(lang, {fr:'Nom…',ar:'الاسم…',en:'Name…',es:'Nombre…',pt:'Nome…',tr:'Ad…'})} />
                 </td>
                 <td className="p-2">
                   <input type="number" min="0" value={item.unitPrice} onChange={(e) => updateMaterial(item.id, 'unitPrice', e.target.value)} className="w-full rounded border border-slate-200 px-2 py-1 text-center outline-none focus:border-blue-500" />

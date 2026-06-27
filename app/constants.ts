@@ -266,3 +266,11 @@ export const MAX_MACHINE_FLEET_HISTORY = 500;
 
 export const defaultNavOrder = ['vuegenerale', 'dashboard', 'library', 'coupe', 'effectifs', 'gestionRh', 'planning', 'suivi', 'rendement', 'magasin', 'export', 'facturation', 'config', 'pageMachine', 'machin', 'catalogTemps', 'admin', 'sousTraitance'];
 
+export const CATEGORY_TRANSLATIONS: Record<string, {fr:string,ar:string,en:string,es:string,pt:string,tr:string}> = {
+  principal: {fr:'Principal',ar:'الرئيسية',en:'Main',es:'Principal',pt:'Principal',tr:'Ana'},
+  production: {fr:'Production',ar:'الإنتاج',en:'Production',es:'Producción',pt:'Produção',tr:'Üretim'},
+  rh: {fr:'RH',ar:'الموارد البشرية',en:'HR',es:'RRHH',pt:'RH',tr:'İK'},
+  logistique: {fr:'Logistique',ar:'اللوجستيك',en:'Logistics',es:'Logística',pt:'Logística',tr:'Lojistik'},
+  config: {fr:'Config',ar:'الإعدادات',en:'Config',es:'Config',pt:'Config',tr:'Yapılandırma'},
+};
+

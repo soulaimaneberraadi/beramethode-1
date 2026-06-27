@@ -743,12 +743,12 @@ export default function MachineEditorModal({
               <div className="flex flex-wrap gap-3">
                 <label className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 cursor-pointer hover:bg-slate-100 text-sm font-bold text-slate-700">
                   <ImageIcon className="w-4 h-4 text-indigo-500" />
-                  Ajouter une photo
+                  {tx(lang, {fr:'Ajouter une photo',ar:'إضافة صورة',en:'Add a photo',es:'Añadir una foto',pt:'Adicionar foto',tr:'Fotoğraf ekle'})}
                   <input type="file" accept="image/*" className="hidden" onChange={onPickPhoto} />
                 </label>
                 <label className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 cursor-pointer hover:bg-slate-100 text-sm font-bold text-slate-700">
                   <FileText className="w-4 h-4 text-indigo-500" />
-                  Ajouter un PDF
+                  {tx(lang, {fr:'Ajouter un PDF',ar:'إضافة PDF',en:'Add a PDF',es:'Añadir un PDF',pt:'Adicionar PDF',tr:'PDF ekle'})}
                   <input type="file" accept="application/pdf" className="hidden" onChange={onPickManual} />
                 </label>
               </div>
@@ -794,7 +794,7 @@ export default function MachineEditorModal({
                               downloadFromDataUrl(src, `photo-machine-${i + 1}.${extensionFromDataUrl(src, 'png')}`)
                             }
                             className="rounded-md border border-slate-200 bg-white p-1 text-slate-600 hover:bg-slate-50"
-                            title="Télécharger"
+                            title={tx(lang, {fr:'Télécharger',ar:'تحميل',en:'Download',es:'Descargar',pt:'Descarregar',tr:'İndir'})}
                           >
                             <Download className="h-3.5 w-3.5" aria-hidden />
                           </button>
@@ -803,7 +803,7 @@ export default function MachineEditorModal({
                               type="button"
                               onClick={() => setPhotoAsThumbnail(i)}
                               className="rounded-md border border-slate-200 bg-white p-1 text-amber-600 hover:bg-amber-50"
-                              title="Définir comme vignette"
+                              title={tx(lang, {fr:'Définir comme vignette',ar:'تعيين كصورة مصغرة',en:'Set as thumbnail',es:'Establecer como miniatura',pt:'Definir como miniatura',tr:'Küçük resim olarak ayarla'})}
                             >
                               <Star className="h-3.5 w-3.5" aria-hidden />
                             </button>
@@ -832,10 +832,10 @@ export default function MachineEditorModal({
                           type="button"
                           onClick={() => downloadFromDataUrl(doc.dataUrl, doc.name.endsWith('.pdf') ? doc.name : `${doc.name}.pdf`)}
                           className="flex shrink-0 items-center gap-1 rounded-lg border border-slate-200 bg-white px-2 py-1 text-[11px] font-bold text-slate-700 hover:bg-slate-100"
-                          title="Télécharger le PDF"
+                          title={tx(lang, {fr:'Télécharger le PDF',ar:'تحميل PDF',en:'Download PDF',es:'Descargar PDF',pt:'Descarregar PDF',tr:'PDF İndir'})}
                         >
                           <Download className="h-3.5 w-3.5 text-indigo-500" aria-hidden />
-                          Télécharger
+                          {tx(lang, {fr:'Télécharger',ar:'تحميل',en:'Download',es:'Descargar',pt:'Descarregar',tr:'İndir'})}
                         </button>
                         <button
                           type="button"
@@ -858,7 +858,7 @@ export default function MachineEditorModal({
               </p>
             )}
             <button type="submit" className="w-full py-2.5 rounded-xl bg-emerald-600 text-white font-medium hover:bg-emerald-700 shadow-lg shadow-emerald-200 transition-all">
-              Enregistrer
+              {tx(lang, {fr:'Enregistrer',ar:'حفظ',en:'Save',es:'Guardar',pt:'Salvar',tr:'Kaydet'})}
             </button>
           </form>
         </div>
@@ -916,7 +916,7 @@ export default function MachineEditorModal({
       <div
         role="dialog"
         aria-modal="true"
-        aria-label="Aperçu photo"
+        aria-label={tx(lang, {fr:'Aperçu photo',ar:'معاينة الصورة',en:'Photo preview',es:'Vista previa de foto',pt:'Pré-visualização da foto',tr:'Foto önizleme'})}
         className="fixed inset-0 z-[1200] flex items-center justify-center bg-black/85 p-4"
         onClick={() => setPhotoLightboxIndex(null)}
       >
@@ -939,7 +939,7 @@ export default function MachineEditorModal({
             }}
           >
             <Download className="h-4 w-4 text-indigo-600" aria-hidden />
-            Télécharger
+            {tx(lang, {fr:'Télécharger',ar:'تحميل',en:'Download',es:'Descargar',pt:'Descarregar',tr:'İndir'})}
           </button>
           <button
             type="button"
@@ -948,7 +948,7 @@ export default function MachineEditorModal({
               e.stopPropagation();
               setPhotoLightboxIndex(null);
             }}
-            aria-label="Fermer la galerie"
+            aria-label={tx(lang, {fr:'Fermer la galerie',ar:'إغلاق المعرض',en:'Close gallery',es:'Cerrar galería',pt:'Fechar galeria',tr:'Galeriyi kapat'})}
           >
             <X className="h-6 w-6" />
           </button>
@@ -958,7 +958,7 @@ export default function MachineEditorModal({
             <button
               type="button"
               className="absolute left-1 top-1/2 z-10 -translate-y-1/2 rounded-full bg-white/15 p-2 text-white hover:bg-white/25 md:left-4"
-              aria-label="Photo précédente"
+              aria-label={tx(lang, {fr:'Photo précédente',ar:'الصورة السابقة',en:'Previous photo',es:'Foto anterior',pt:'Foto anterior',tr:'Önceki fotoğraf'})}
               onClick={e => {
                 e.stopPropagation();
                 const n = galleryPhotos.length;

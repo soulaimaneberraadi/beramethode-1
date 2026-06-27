@@ -1067,6 +1067,12 @@ db.exec(`
   END;
 `);
 
+// Colonnes pour l'audit applicatif (authController, middleware, etc.)
+// Ajoutées via ALTER pour compatibilité avec la base existante.
+try { db.exec("ALTER TABLE system_audit_logs ADD COLUMN user_id INTEGER REFERENCES users(id)"); } catch { /* colonne déjà présente */ }
+try { db.exec("ALTER TABLE system_audit_logs ADD COLUMN detail TEXT"); } catch { /* colonne déjà présente */ }
+try { db.exec("ALTER TABLE system_audit_logs ADD COLUMN ip TEXT"); } catch { /* colonne déjà présente */ }
+
 // ============================================================================
 // PHASE: FACTURATION (Achat, Vente, Devis, BL)
 // ============================================================================
@@ -1592,6 +1598,9 @@ db.exec(`
   );
   CREATE INDEX IF NOT EXISTS idx_workspaces_account ON workspaces(account_user_id);
 `);
+// account_type par workspace (société/client/personnel) → gating des modules par
+// workspace actif, au lieu du singleton company_settings(id=1) global.
+try { db.exec("ALTER TABLE workspaces ADD COLUMN account_type TEXT DEFAULT 'societe'"); } catch { /* colonne déjà présente */ }
 // Workspace actif par compte (NULL => fallback historique : 1ʳᵉ adhésion = comportement inchangé).
 try { db.exec('ALTER TABLE users ADD COLUMN active_owner_id INTEGER'); } catch { /* colonne déjà présente */ }
 // Ancre non-connectable : marque les lignes `users` créées comme support d'un workspace.
@@ -1600,17 +1609,22 @@ try { db.exec('ALTER TABLE users ADD COLUMN is_workspace_anchor INTEGER DEFAULT 
 // Backfill idempotent : chaque société existante (patron = membre de sa propre
 // société, owner_id === user_id) devient un workspace nommé d'après company_settings.
 try {
-  const primaryName = (db.prepare('SELECT name FROM company_settings WHERE id = 1').get() as { name?: string } | undefined)?.name || 'Workspace 1';
+  const primaryRow = db.prepare('SELECT name, account_type FROM company_settings WHERE id = 1').get() as { name?: string; account_type?: string } | undefined;
+  const primaryName = primaryRow?.name || 'Workspace 1';
+  const primaryAccountType = primaryRow?.account_type || 'societe';
   const patrons = db
     .prepare(`SELECT owner_id, user_id FROM company_members WHERE owner_id = user_id AND status = 'active'`)
     .all() as { owner_id: number; user_id: number }[];
   const insWs = db.prepare(
-    `INSERT OR IGNORE INTO workspaces (owner_id, account_user_id, name) VALUES (?, ?, ?)`
+    `INSERT OR IGNORE INTO workspaces (owner_id, account_user_id, name, account_type) VALUES (?, ?, ?, ?)`
   );
   const setActive = db.prepare('UPDATE users SET active_owner_id = ? WHERE id = ? AND active_owner_id IS NULL');
+  // Aligne l'account_type du workspace primaire sur le singleton (idempotent).
+  const syncType = db.prepare("UPDATE workspaces SET account_type = ? WHERE owner_id = ? AND (account_type IS NULL OR account_type = 'societe')");
   for (const p of patrons) {
-    insWs.run(p.owner_id, p.user_id, primaryName);
+    insWs.run(p.owner_id, p.user_id, primaryName, primaryAccountType);
     setActive.run(p.owner_id, p.user_id);
+    syncType.run(primaryAccountType, p.owner_id);
   }
 } catch (e) { console.error('[db] workspaces backfill error:', e); }
 

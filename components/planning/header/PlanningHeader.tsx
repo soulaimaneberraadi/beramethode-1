@@ -137,6 +137,7 @@ export default function PlanningHeader({
                         <input
                             type="text"
                             autoFocus
+                            data-search-input
                             value={searchText}
                             onChange={(e) => onSearch(e.target.value)}
                             placeholder={tx(lang,{fr:"Rechercher un OF, un client…",ar:"البحث عن أمر تصنيع، عميل…",en:"Search for a WO, a client…",es:"Buscar OF, cliente…",pt:"Procurar OF, cliente…",tr:"İş emri, müşteri ara…"})}
@@ -238,6 +239,7 @@ export default function PlanningHeader({
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" strokeWidth={2} />
                     <input
                         type="text"
+                        data-search-input
                         value={searchText}
                         onChange={(e) => onSearch(e.target.value)}
                         placeholder={tx(lang,{fr:"Rechercher un OF, un client…",ar:"البحث عن أمر تصنيع، عميل…",en:"Search for a WO, a client…",es:"Buscar OF, cliente…",pt:"Procurar OF, cliente…",tr:"İş emri, müşteri ara…"})}

@@ -181,7 +181,7 @@ export default function Planning({
     const chains = usePlanningChains({ settings, suivis, planningEvents, models });
     const history = usePlanningHistory({ planningEvents, setPlanningEvents });
     const eventsApi = usePlanningEvents({ planningEvents, setPlanningEvents: history.setWithHistory, models, chains, settings, stock: stock.stock });
-    const issues = usePlanningValidation({ planningEvents, models, machines, settings, chains });
+    const issues = usePlanningValidation({ lang, planningEvents, models, machines, settings, chains });
     const { eventsWithCR, crisisEvents } = useCriticalRatio({ planningEvents, models, settings, chains });
     const filtersApi = usePlanningFilters(eventsWithCR, models, crisisEvents);
     const { suggest } = useAutoSchedule({ chains, planningEvents, models, machines, settings });
@@ -241,7 +241,7 @@ export default function Planning({
                 history.redo();
             }
             if (e.key === '/' && !e.ctrlKey && !e.metaKey) {
-                const input = document.querySelector('input[placeholder*="Rechercher"]') as HTMLInputElement | null;
+                const input = document.querySelector('[data-search-input]') as HTMLInputElement | null;
                 if (input) {
                     e.preventDefault();
                     input.focus();
@@ -1119,7 +1119,7 @@ export default function Planning({
                 onClose={() => setEditorOpen(false)}
                 onSubmit={handleSubmit}
                 onOpenInIngenierie={onOpenInIngenierie}
-                checkDraft={(d) => checkEventDraft(d, {
+                checkDraft={(d) => checkEventDraft(lang, d, {
                     planningEvents,
                     models,
                     machines,

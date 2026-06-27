@@ -136,11 +136,12 @@ function deductLots(lots: LotStock[], productId: string, qty: number, method: 'F
 
 const Lbl = ({ t }: { t: string }) => <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1 flex items-center gap-1">{t}</label>;
 
-const StockBadge = ({ stock, seuil }: { stock: number; seuil: number }) => {
-    if (stock === 0) return <span className="px-2 py-0.5 rounded-md bg-red-100 text-red-700 text-[10px] font-black uppercase">Rupture</span>;
-    if (stock <= seuil) return <span className="px-2 py-0.5 rounded-md bg-amber-100 text-amber-700 text-[10px] font-black uppercase">Faible</span>;
-    return <span className="px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-700 text-[10px] font-black uppercase">En Stock</span>;
-};
+function StockBadge({ stock, seuil }: { stock: number; seuil: number }) {
+    const { lang } = useLang();
+    if (stock === 0) return <span className="px-2 py-0.5 rounded-md bg-red-100 text-red-700 text-[10px] font-black uppercase">{tx(lang,{fr:'Rupture',ar:'نفاد',en:'Out of Stock',es:'Agotado',pt:'Esgotado',tr:'Stok Yok'})}</span>;
+    if (stock <= seuil) return <span className="px-2 py-0.5 rounded-md bg-amber-100 text-amber-700 text-[10px] font-black uppercase">{tx(lang,{fr:'Faible',ar:'منخفض',en:'Low',es:'Bajo',pt:'Baixo',tr:'Düşük'})}</span>;
+    return <span className="px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-700 text-[10px] font-black uppercase">{tx(lang,{fr:'En Stock',ar:'متوفر',en:'In Stock',es:'En Stock',pt:'Em Estoque',tr:'Stokta'})}</span>;
+}
 
 // ══════════════════════════════════════════════════════════════════════════════
 //  PRODUCT MODAL
@@ -162,66 +163,66 @@ function ProductModal({ item, onSave, onClose }: { item?: MagasinProduct; onSave
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl overflow-hidden">
                 <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/50">
-                    <h2 className="font-black text-slate-800 text-lg flex items-center gap-2">{item ? <Edit2 className="w-5 h-5 text-indigo-500" /> : <Plus className="w-5 h-5 text-emerald-500" />}{item ? 'Modifier Article' : 'Nouvel Article'}</h2>
+                    <h2 className="font-black text-slate-800 text-lg flex items-center gap-2">{item ? <Edit2 className="w-5 h-5 text-indigo-500" /> : <Plus className="w-5 h-5 text-emerald-500" />}{item ? tx(lang,{fr:'Modifier Article',ar:'تعديل المادة',en:'Edit Item',es:'Editar Artículo',pt:'Editar Item',tr:'Ürünü Düzenle'}) : tx(lang,{fr:'Nouvel Article',ar:'مادة جديدة',en:'New Item',es:'Nuevo Artículo',pt:'Novo Item',tr:'Yeni Ürün'})}</h2>
                     <button onClick={onClose} className="p-2 hover:bg-rose-50 rounded-full transition-colors text-slate-400 hover:text-rose-500"><X className="w-5 h-5" /></button>
                 </div>
 
                 <div className="p-6 space-y-6 max-h-[75vh] overflow-y-auto">
                     <div className="flex gap-5">
                         <div onClick={() => fileRef.current?.click()} className="w-24 h-24 rounded-2xl border-2 border-dashed border-slate-200 hover:border-indigo-400 bg-slate-50 flex items-center justify-center cursor-pointer overflow-hidden shrink-0">
-                            {f.photo ? <img src={f.photo} className="w-full h-full object-cover" alt="" /> : <span className="text-xs font-bold text-slate-400">Photo</span>}
+                            {f.photo ? <img src={f.photo} className="w-full h-full object-cover" alt="" /> : <span className="text-xs font-bold text-slate-400">{tx(lang,{fr:'Photo',ar:'الصورة',en:'Photo',es:'Foto',pt:'Foto',tr:'Fotoğraf'})}</span>}
                         </div>
                         <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={e => {
                             const file = e.target.files?.[0]; if (!file) return;
                             const r = new FileReader(); r.onload = ev => set('photo', ev.target?.result as string); r.readAsDataURL(file);
                         }} />
                         <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <div><Lbl t="Référence (Code-barres)" /><input className={inp} value={f.reference} onChange={e => set('reference', e.target.value)} /></div>
-                            <div><Lbl t="Désignation *" /><input className={inp} placeholder="Ex: Fil Coton Noir..." value={f.designation} onChange={e => set('designation', e.target.value)} autoFocus /></div>
-                            <div><Lbl t="Catégorie" /><select className={inp} value={f.categorie} onChange={e => set('categorie', e.target.value)}>{CATS.map(c => <option key={c} value={c} className="capitalize">{c}</option>)}</select></div>
-                            <div><Lbl t="Unité" /><select className={inp} value={f.unite} onChange={e => set('unite', e.target.value)}>{UNITS.map(u => <option key={u} value={u}>{u}</option>)}</select></div>
+                            <div><Lbl t={tx(lang,{fr:'Référence (Code-barres)',ar:'المرجع (الباركود)',en:'Reference (Barcode)',es:'Referencia (Código de barras)',pt:'Referência (Código de barras)',tr:'Referans (Barkod)'})} /><input className={inp} value={f.reference} onChange={e => set('reference', e.target.value)} /></div>
+                            <div><Lbl t={tx(lang,{fr:'Désignation *',ar:'التسمية *',en:'Designation *',es:'Designación *',pt:'Designação *',tr:'Tanım *'})} /><input className={inp} placeholder={tx(lang,{fr:'Ex: Fil Coton Noir...',ar:'مثال: خيط قطني أسود...',en:'E.g.: Black Cotton Thread...',es:'Ej: Hilo de Algodón Negro...',pt:'Ex: Linha de Algodão Preto...',tr:'Örn: Siyah Pamuk İpliği...'})} value={f.designation} onChange={e => set('designation', e.target.value)} autoFocus /></div>
+                            <div><Lbl t={tx(lang,{fr:'Catégorie',ar:'الفئة',en:'Category',es:'Categoría',pt:'Categoria',tr:'Kategori'})} /><select className={inp} value={f.categorie} onChange={e => set('categorie', e.target.value)}>{CATS.map(c => <option key={c} value={c} className="capitalize">{c}</option>)}</select></div>
+                            <div><Lbl t={tx(lang,{fr:'Unité',ar:'الوحدة',en:'Unit',es:'Unidad',pt:'Unidade',tr:'Birim'})} /><select className={inp} value={f.unite} onChange={e => set('unite', e.target.value)}>{UNITS.map(u => <option key={u} value={u}>{u}</option>)}</select></div>
                         </div>
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                        <div><Lbl t="Prix u. par défaut" /><input className={inp} type="number" min="0" step="0.01" value={f.prixUnitaire || ''} onChange={e => set('prixUnitaire', Math.max(0, +e.target.value.replace(/-/g, '') || 0))} /></div>
+                        <div><Lbl t={tx(lang,{fr:'Prix u. par défaut',ar:'السعر الافتراضي للوحدة',en:'Default unit price',es:'Precio unitario por defecto',pt:'Preço unitário padrão',tr:'Varsayılan birim fiyatı'})} /><input className={inp} type="number" min="0" step="0.01" value={f.prixUnitaire || ''} onChange={e => set('prixUnitaire', Math.max(0, +e.target.value.replace(/-/g, '') || 0))} /></div>
                         <div>
                             <div className="flex items-center gap-2 mb-1 cursor-pointer" onClick={() => { setHasAlerte(!hasAlerte); if (hasAlerte) set('stockAlerte', 0); }}>
                                 <input type="checkbox" className="w-4 h-4 text-indigo-600 rounded cursor-pointer" checked={hasAlerte} readOnly />
-                                <label className="text-xs font-bold text-slate-500 uppercase tracking-wide cursor-pointer">Seuil de réappro.</label>
+                                <label className="text-xs font-bold text-slate-500 uppercase tracking-wide cursor-pointer">{tx(lang,{fr:'Seuil de réappro.',ar:'حد إعادة التموين',en:'Reorder threshold',es:'Umbral de reaprovisionamiento',pt:'Limite de reabastecimento',tr:'Yeniden sipariş eşiği'})}</label>
                             </div>
                             <input className={`${inp} ${!hasAlerte ? 'opacity-50 cursor-not-allowed bg-slate-100' : ''}`} type="number" min="0" disabled={!hasAlerte} value={f.stockAlerte || ''} onChange={e => set('stockAlerte', Math.max(0, +e.target.value.replace(/-/g, '') || 0))} />
                         </div>
-                        <div><Lbl t="Emplacement physique" /><input className={inp} placeholder="Rayon A, Étagère 3..." value={f.emplacement || ''} onChange={e => set('emplacement', e.target.value)} /></div>
+                        <div><Lbl t={tx(lang,{fr:'Emplacement physique',ar:'الموقع الفعلي',en:'Physical location',es:'Ubicación física',pt:'Localização física',tr:'Fiziksel konum'})} /><input className={inp} placeholder={tx(lang,{fr:'Rayon A, Étagère 3...',ar:'جناح A، رف 3...',en:'Aisle A, Shelf 3...',es:'Pasillo A, Estante 3...',pt:'Corredor A, Prateleira 3...',tr:'A Koridoru, Raf 3...'})} value={f.emplacement || ''} onChange={e => set('emplacement', e.target.value)} /></div>
                     </div>
 
                     <div className="border border-slate-100 bg-slate-50 rounded-2xl p-4 space-y-4">
                         <div className="grid grid-cols-2 gap-4">
-                            <div><Lbl t="Fournisseur Privilégié" /><input className={inp} placeholder="Entreprise..." value={f.fournisseurNom || ''} onChange={e => set('fournisseurNom', e.target.value)} /></div>
-                            <div><Lbl t="Téléphone Frs." /><input className={inp} placeholder="+212..." value={f.fournisseurTel || ''} onChange={e => set('fournisseurTel', e.target.value)} /></div>
+                            <div><Lbl t={tx(lang,{fr:'Fournisseur Privilégié',ar:'المورد المفضل',en:'Preferred Supplier',es:'Proveedor Preferido',pt:'Fornecedor Preferido',tr:'Tercih Edilen Tedarikçi'})} /><input className={inp} placeholder={tx(lang,{fr:'Entreprise...',ar:'شركة...',en:'Company...',es:'Empresa...',pt:'Empresa...',tr:'Şirket...'})} value={f.fournisseurNom || ''} onChange={e => set('fournisseurNom', e.target.value)} /></div>
+                            <div><Lbl t={tx(lang,{fr:'Téléphone Frs.',ar:'هاتف المورد',en:'Supplier Phone',es:'Teléfono Prov.',pt:'Telefone Forn.',tr:'Tedarikçi Telefon'})} /><input className={inp} placeholder="+212..." value={f.fournisseurTel || ''} onChange={e => set('fournisseurTel', e.target.value)} /></div>
                         </div>
                         <button
                             type="button"
                             onClick={() => setShowFrsExtra(v => !v)}
                             className="w-full flex items-center justify-between gap-2 py-2 px-3 rounded-xl border border-slate-200 bg-white text-left text-sm font-bold text-slate-700 hover:bg-slate-50 transition-colors"
                         >
-                            <span>Informations fournisseur (optionnel)</span>
+                            <span>{tx(lang,{fr:'Informations fournisseur (optionnel)',ar:'معلومات المورد (اختياري)',en:'Supplier Information (optional)',es:'Información del proveedor (opcional)',pt:'Informações do fornecedor (opcional)',tr:'Tedarikçi Bilgileri (isteğe bağlı)'})}</span>
                             <ChevronDown className={`w-4 h-4 shrink-0 transition-transform ${showFrsExtra ? 'rotate-180' : ''}`} />
                         </button>
                         {showFrsExtra && (
                             <div className="space-y-4 pt-1 border-t border-slate-200">
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                    <div><Lbl t="E-mail Frs." /><input className={inp} type="email" placeholder="contact@..." value={f.fournisseurEmail || ''} onChange={e => set('fournisseurEmail', e.target.value)} /></div>
-                                    <div><Lbl t="Contact (personne)" /><input className={inp} placeholder="Nom du contact" value={f.fournisseurContact || ''} onChange={e => set('fournisseurContact', e.target.value)} /></div>
+                                    <div><Lbl t={tx(lang,{fr:'E-mail Frs.',ar:'البريد الإلكتروني للمورد',en:'Supplier Email',es:'Correo Prov.',pt:'E-mail Forn.',tr:'Tedarikçi E-posta'})} /><input className={inp} type="email" placeholder="contact@..." value={f.fournisseurEmail || ''} onChange={e => set('fournisseurEmail', e.target.value)} /></div>
+                                    <div><Lbl t={tx(lang,{fr:'Contact (personne)',ar:'جهة الاتصال (شخص)',en:'Contact (person)',es:'Contacto (persona)',pt:'Contato (pessoa)',tr:'İletişim (kişi)'})} /><input className={inp} placeholder={tx(lang,{fr:'Nom du contact',ar:'اسم جهة الاتصال',en:'Contact name',es:'Nombre del contacto',pt:'Nome do contato',tr:'İletişim adı'})} value={f.fournisseurContact || ''} onChange={e => set('fournisseurContact', e.target.value)} /></div>
                                 </div>
-                                <div><Lbl t="Adresse" /><input className={inp} placeholder="Ville, rue, n°..." value={f.fournisseurAdresse || ''} onChange={e => set('fournisseurAdresse', e.target.value)} /></div>
+                                <div><Lbl t={tx(lang,{fr:'Adresse',ar:'العنوان',en:'Address',es:'Dirección',pt:'Endereço',tr:'Adres'})} /><input className={inp} placeholder={tx(lang,{fr:'Ville, rue, n°...',ar:'المدينة، الشارع، رقم...',en:'City, street, no...',es:'Ciudad, calle, n°...',pt:'Cidade, rua, n°...',tr:'Şehir, cadde, no...'})} value={f.fournisseurAdresse || ''} onChange={e => set('fournisseurAdresse', e.target.value)} /></div>
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                    <div><Lbl t="ICE" /><input className={inp} placeholder="..." value={f.fournisseurIce || ''} onChange={e => set('fournisseurIce', e.target.value)} /></div>
-                                    <div><Lbl t="RC" /><input className={inp} placeholder="..." value={f.fournisseurRc || ''} onChange={e => set('fournisseurRc', e.target.value)} /></div>
+                                    <div><Lbl t={tx(lang,{fr:'ICE',ar:'الرقم الضريبي',en:'Tax ID',es:'ICE',pt:'NIF',tr:'Vergi No'})} /><input className={inp} placeholder="..." value={f.fournisseurIce || ''} onChange={e => set('fournisseurIce', e.target.value)} /></div>
+                                    <div><Lbl t={tx(lang,{fr:'RC',ar:'السجل التجاري',en:'Commercial Register',es:'RC',pt:'RC',tr:'Ticaret Sicil'})} /><input className={inp} placeholder="..." value={f.fournisseurRc || ''} onChange={e => set('fournisseurRc', e.target.value)} /></div>
                                 </div>
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                    <div><Lbl t="Conditions de paiement" /><input className={inp} placeholder="Ex: 30j fin de mois" value={f.fournisseurConditionsPaiement || ''} onChange={e => set('fournisseurConditionsPaiement', e.target.value)} /></div>
-                                    <div><Lbl t="Devise achat" />
+                                    <div><Lbl t={tx(lang,{fr:'Conditions de paiement',ar:'شروط الدفع',en:'Payment Terms',es:'Condiciones de pago',pt:'Condições de pagamento',tr:'Ödeme Koşulları'})} /><input className={inp} placeholder="Ex: 30j fin de mois" value={f.fournisseurConditionsPaiement || ''} onChange={e => set('fournisseurConditionsPaiement', e.target.value)} /></div>
+                                    <div><Lbl t={tx(lang,{fr:'Devise achat',ar:'عملة الشراء',en:'Purchase Currency',es:'Moneda de compra',pt:'Moeda de compra',tr:'Satın Alma Para Birimi'})} />
                                         <select className={inp} value={f.fournisseurDevise ?? ''} onChange={e => set('fournisseurDevise', e.target.value || undefined)}>
                                             <option value="">—</option>
                                             <option value="MAD">MAD</option>
@@ -231,18 +232,18 @@ function ProductModal({ item, onSave, onClose }: { item?: MagasinProduct; onSave
                                     </div>
                                 </div>
                                 <div className="grid grid-cols-2 gap-4">
-                                    <div><Lbl t="Délai livraison (jours)" /><input className={inp} type="number" min="0" step="1" placeholder="—" value={f.fournisseurDelaiLivraisonJours ?? ''} onChange={e => set('fournisseurDelaiLivraisonJours', e.target.value === '' ? undefined : +e.target.value)} /></div>
-                                    <div><Lbl t="MOQ (min. commande)" /><input className={inp} type="number" min="0" step="0.01" placeholder="—" value={f.fournisseurMoq ?? ''} onChange={e => set('fournisseurMoq', e.target.value === '' ? undefined : +e.target.value)} /></div>
+                                    <div><Lbl t={tx(lang,{fr:'Délai livraison (jours)',ar:'مهلة التسليم (أيام)',en:'Delivery Time (days)',es:'Plazo de entrega (días)',pt:'Prazo de entrega (dias)',tr:'Teslimat Süresi (gün)'})} /><input className={inp} type="number" min="0" step="1" placeholder="—" value={f.fournisseurDelaiLivraisonJours ?? ''} onChange={e => set('fournisseurDelaiLivraisonJours', e.target.value === '' ? undefined : +e.target.value)} /></div>
+                                    <div><Lbl t={tx(lang,{fr:'MOQ (min. commande)',ar:'الحد الأدنى للطلب',en:'MOQ (min. order)',es:'MOQ (pedido mín.)',pt:'MOQ (pedido mín.)',tr:'MOQ (min. sipariş)'})} /><input className={inp} type="number" min="0" step="0.01" placeholder="—" value={f.fournisseurMoq ?? ''} onChange={e => set('fournisseurMoq', e.target.value === '' ? undefined : +e.target.value)} /></div>
                                 </div>
-                                <div><Lbl t="Notes fournisseur" /><textarea className={`${inp} min-h-[72px] resize-y`} placeholder="Qualité, horaires, remarques..." value={f.fournisseurNotes || ''} onChange={e => set('fournisseurNotes', e.target.value)} /></div>
-                                <div><Lbl t="Logo fournisseur" /><div onClick={() => { const el = document.createElement('input'); el.type = 'file'; el.accept = 'image/*'; el.onchange = (e: any) => { const file = e.target.files?.[0]; if (file) { const r = new FileReader(); r.onload = ev => set('fournisseurLogo', ev.target?.result as string); r.readAsDataURL(file); } }; el.click(); }} className="w-full border-2 border-dashed border-slate-200 hover:border-indigo-400 bg-slate-50 rounded-2xl p-4 cursor-pointer flex items-center justify-center">{f.fournisseurLogo ? <img src={f.fournisseurLogo} alt="Logo" className="w-24 h-24 object-contain" /> : <span className="text-xs font-bold text-slate-400">Cliquez pour ajouter logo</span>}</div></div>
+                                <div><Lbl t={tx(lang,{fr:'Notes fournisseur',ar:'ملاحظات المورد',en:'Supplier Notes',es:'Notas del proveedor',pt:'Notas do fornecedor',tr:'Tedarikçi Notları'})} /><textarea className={`${inp} min-h-[72px] resize-y`} placeholder={tx(lang,{fr:'Qualité, horaires, remarques...',ar:'الجودة، المواعيد، ملاحظات...',en:'Quality, schedules, remarks...',es:'Calidad, horarios, observaciones...',pt:'Qualidade, horários, observações...',tr:'Kalite, program, notlar...'})} value={f.fournisseurNotes || ''} onChange={e => set('fournisseurNotes', e.target.value)} /></div>
+                                <div><Lbl t={tx(lang,{fr:'Logo fournisseur',ar:'شعار المورد',en:'Supplier Logo',es:'Logotipo del proveedor',pt:'Logotipo do fornecedor',tr:'Tedarikçi Logosu'})} /><div onClick={() => { const el = document.createElement('input'); el.type = 'file'; el.accept = 'image/*'; el.onchange = (e: any) => { const file = e.target.files?.[0]; if (file) { const r = new FileReader(); r.onload = ev => set('fournisseurLogo', ev.target?.result as string); r.readAsDataURL(file); } }; el.click(); }} className="w-full border-2 border-dashed border-slate-200 hover:border-indigo-400 bg-slate-50 rounded-2xl p-4 cursor-pointer flex items-center justify-center">{f.fournisseurLogo ? <img src={f.fournisseurLogo} alt="Logo" className="w-24 h-24 object-contain" /> : <span className="text-xs font-bold text-slate-400">{tx(lang,{fr:'Cliquez pour ajouter logo',ar:'انقر لإضافة شعار',en:'Click to add logo',es:'Haga clic para agregar logotipo',pt:'Clique para adicionar logotipo',tr:'Logo eklemek için tıklayın'})}</span>}</div></div>
                             </div>
                         )}
                     </div>
                 </div>
 
                 <div className="flex justify-end gap-3 px-6 py-4 border-t border-slate-100 bg-slate-50">
-                    <button onClick={onClose} className="px-5 py-2 text-sm font-bold text-slate-600 hover:bg-slate-200 rounded-xl transition-colors">Annuler</button>
+                    <button onClick={onClose} className="px-5 py-2 text-sm font-bold text-slate-600 hover:bg-slate-200 rounded-xl transition-colors">{tx(lang,{fr:'Annuler',ar:'إلغاء',en:'Cancel',es:'Cancelar',pt:'Cancelar',tr:'İptal'})}</button>
                     <button onClick={() => { if (!f.designation.trim()) { alert(tx(lang, {fr: 'Désignation obligatoire', ar: 'الاسم إجباري', en: 'Designation required', es: 'Designación obligatoria', pt: 'Designação obrigatória', tr: 'Tanım zorunlu'})); return; } onSave(f); }} className="px-6 py-2 text-sm font-black bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 flex items-center gap-2"><Save className="w-4 h-4" /> {tx(lang, {fr: 'Enregistrer', ar: 'حفظ', en: 'Save', es: 'Guardar', pt: 'Salvar', tr: 'Kaydet'})}</button>
                 </div>
             </div>
@@ -291,15 +292,15 @@ function BonCommandeModal({
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-3xl shadow-2xl w-full max-w-4xl overflow-hidden flex flex-col max-h-[90vh]">
                 <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/50 shrink-0">
-                    <h2 className="font-black text-slate-800 text-lg flex items-center gap-2"><FileText className="w-5 h-5 text-indigo-500" /> Éditer Bon de Commande - {bc.numero}</h2>
+                    <h2 className="font-black text-slate-800 text-lg flex items-center gap-2"><FileText className="w-5 h-5 text-indigo-500" /> {tx(lang,{fr:'Éditer Bon de Commande',ar:'تحرير أمر الشراء',en:'Edit Purchase Order',es:'Editar Orden de Compra',pt:'Editar Pedido de Compra',tr:'Satın Alma Siparişini Düzenle'})} - {bc.numero}</h2>
                     <button onClick={onClose} className="p-2 hover:bg-rose-50 rounded-full transition-colors text-slate-400 hover:text-rose-500"><X className="w-5 h-5" /></button>
                 </div>
 
                 <div className="p-6 overflow-y-auto flex-1 space-y-6 bg-slate-50/50">
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-white p-4 border rounded-2xl shadow-sm">
-                        <div><Lbl t="Fournisseur" /><input className={inp} value={bc.fournisseurNom} onChange={e => setBc({ ...bc, fournisseurNom: e.target.value })} /></div>
+                        <div><Lbl t={tx(lang,{fr:'Fournisseur',ar:'المورد',en:'Supplier',es:'Proveedor',pt:'Fornecedor',tr:'Tedarikçi'})} /><input className={inp} value={bc.fournisseurNom} onChange={e => setBc({ ...bc, fournisseurNom: e.target.value })} /></div>
                         <div>
-                            <Lbl t="Date Prévue" />
+                            <Lbl t={tx(lang,{fr:'Date Prévue',ar:'التاريخ المتوقع',en:'Expected Date',es:'Fecha Prevista',pt:'Data Prevista',tr:'Beklenen Tarih'})} />
                             <DateTimePicker
                                 value={bc.dateLivraisonPrevue || ''}
                                 onChange={(iso) => setBc({ ...bc, dateLivraisonPrevue: iso.split('T')[0] })}
@@ -308,21 +309,21 @@ function BonCommandeModal({
                                 inputClassName={inp}
                             />
                         </div>
-                        <div><Lbl t="Statut" /><select className={inp} value={bc.statut} onChange={e => setBc({ ...bc, statut: e.target.value as any })}><option value="brouillon">Brouillon</option><option value="envoye">Envoyé</option><option value="valide">Validé/Approuvé</option><option value="livre">Livré totalement</option></select></div>
+                        <div><Lbl t={tx(lang,{fr:'Statut',ar:'الحالة',en:'Status',es:'Estado',pt:'Status',tr:'Durum'})} /><select className={inp} value={bc.statut} onChange={e => setBc({ ...bc, statut: e.target.value as any })}><option value="brouillon">{tx(lang,{fr:'Brouillon',ar:'مسودة',en:'Draft',es:'Borrador',pt:'Rascunho',tr:'Taslak'})}</option><option value="envoye">{tx(lang,{fr:'Envoyé',ar:'مرسل',en:'Sent',es:'Enviado',pt:'Enviado',tr:'Gönderildi'})}</option><option value="valide">{tx(lang,{fr:'Validé/Approuvé',ar:'مُعتمد',en:'Approved',es:'Aprobado',pt:'Aprovado',tr:'Onaylandı'})}</option><option value="livre">{tx(lang,{fr:'Livré totalement',ar:'تم التسليم كلياً',en:'Fully Delivered',es:'Entregado totalmente',pt:'Totalmente Entregue',tr:'Tam Teslim Edildi'})}</option></select></div>
                     </div>
 
                     <div className="bg-white border rounded-2xl shadow-sm overflow-hidden flex flex-col">
                         <div className="p-4 bg-slate-50 border-b flex flex-wrap gap-4 items-end">
-                            <div className="flex-1 min-w-[200px]"><Lbl t="Ajouter un Produit" /><select className={inp} value={addPid} onChange={e => setAddPid(e.target.value)}><option value="">{tx(lang, {fr: '-- Sélectionner --', ar: '-- اختر --', en: '-- Select --', es: '-- Seleccionar --', pt: '-- Selecionar --', tr: '-- Seçin --'})}</option>{products.map(p => <option key={p.id} value={p.id}>{p.reference} - {p.designation} (Frs: {p.fournisseurNom || '?'})</option>)}</select></div>
-                            <div className="w-32"><Lbl t="Quantité" /><input type="number" min="0" className={inp} value={addQty} onChange={e => setAddQty(e.target.value.replace(/-/g, ''))} /></div>
+                            <div className="flex-1 min-w-[200px]"><Lbl t={tx(lang,{fr:'Ajouter un Produit',ar:'إضافة منتج',en:'Add a Product',es:'Agregar un Producto',pt:'Adicionar um Produto',tr:'Ürün Ekle'})} /><select className={inp} value={addPid} onChange={e => setAddPid(e.target.value)}><option value="">{tx(lang, {fr: '-- Sélectionner --', ar: '-- اختر --', en: '-- Select --', es: '-- Seleccionar --', pt: '-- Selecionar --', tr: '-- Seçin --'})}</option>{products.map(p => <option key={p.id} value={p.id}>{p.reference} - {p.designation} (Frs: {p.fournisseurNom || '?'})</option>)}</select></div>
+                            <div className="w-32"><Lbl t={tx(lang,{fr:'Quantité',ar:'الكمية',en:'Quantity',es:'Cantidad',pt:'Quantidade',tr:'Miktar'})} /><input type="number" min="0" className={inp} value={addQty} onChange={e => setAddQty(e.target.value.replace(/-/g, ''))} /></div>
                             <button onClick={handleAdd} className="bg-indigo-600 text-white px-4 py-2 h-[38px] rounded-xl font-bold text-sm hover:bg-indigo-700">{tx(lang, {fr: 'Ajouter', ar: 'إضافة', en: 'Add', es: 'Agregar', pt: 'Adicionar', tr: 'Ekle'})}</button>
                         </div>
 
                         <div className="p-0 overflow-x-auto max-h-[300px]">
                             <table className="w-full text-left text-sm whitespace-nowrap">
-                                <thead className="bg-slate-50 sticky top-0 border-b"><tr className="text-slate-500"><th className="p-3 font-bold">Produit</th><th className="p-3 font-bold text-right">Qté</th><th className="p-3 font-bold text-right">Prix Unitaire</th><th className="p-3 font-bold text-right">Sous-total</th><th className="p-3 pr-4"></th></tr></thead>
+                                <thead className="bg-slate-50 sticky top-0 border-b"><tr className="text-slate-500"><th className="p-3 font-bold">{tx(lang,{fr:'Produit',ar:'المنتج',en:'Product',es:'Producto',pt:'Produto',tr:'Ürün'})}</th><th className="p-3 font-bold text-right">{tx(lang,{fr:'Qté',ar:'الكمية',en:'Qty',es:'Cant.',pt:'Qtd',tr:'Miktar'})}</th><th className="p-3 font-bold text-right">{tx(lang,{fr:'Prix Unitaire',ar:'السعر للوحدة',en:'Unit Price',es:'Precio Unitario',pt:'Preço Unitário',tr:'Birim Fiyat'})}</th><th className="p-3 font-bold text-right">{tx(lang,{fr:'Sous-total',ar:'المجموع الجزئي',en:'Subtotal',es:'Subtotal',pt:'Subtotal',tr:'Ara Toplam'})}</th><th className="p-3 pr-4"></th></tr></thead>
                                 <tbody>
-                                    {bc.lignes.length === 0 ? <tr><td colSpan={5} className="p-8 text-center text-slate-400 font-bold bg-white">Aucun produit dans cette commande.</td></tr> : bc.lignes.map(l => (
+                                    {bc.lignes.length === 0 ? <tr><td colSpan={5} className="p-8 text-center text-slate-400 font-bold bg-white">{tx(lang,{fr:'Aucun produit dans cette commande.',ar:'لا توجد منتجات في هذا الأمر.',en:'No products in this order.',es:'No hay productos en esta orden.',pt:'Nenhum produto neste pedido.',tr:'Bu siparişte ürün yok.'})}</td></tr> : bc.lignes.map(l => (
                                         <tr key={l.id} className="border-b border-slate-50 hover:bg-slate-50 bg-white">
                                             <td className="p-3 font-bold text-slate-700">{l.productNom}</td>
                                             <td className="p-3 text-right"><input type="number" min="0" className="w-20 border rounded px-2 py-1 text-right text-sm font-bold bg-slate-50" value={l.quantite} onChange={e => { const val = parseFloat(e.target.value.replace(/-/g, '')) || 0; const mathMaxVal = Math.max(0, val); const nl = bc.lignes.map(x => x.id === l.id ? { ...x, quantite: mathMaxVal } : x); setBc({ ...bc, lignes: nl, total: calcTotal(nl) }); }} /></td>
@@ -335,14 +336,14 @@ function BonCommandeModal({
                             </table>
                         </div>
                         <div className="p-4 bg-slate-100 border-t flex justify-end items-center gap-4">
-                            <span className="text-sm font-bold text-slate-500 uppercase">Total Estimé HT</span>
+                            <span className="text-sm font-bold text-slate-500 uppercase">{tx(lang,{fr:'Total Estimé HT',ar:'الإجمالي التقديري غير شامل الضريبة',en:'Estimated Total (excl. tax)',es:'Total Estimado (sin IVA)',pt:'Total Estimado (s/ imposto)',tr:'Tahmini Toplam (vergisiz)'})}</span>
                             <span className="text-2xl font-black text-slate-800">{(bc.total || 0).toLocaleString()} <span className="text-sm">DH</span></span>
                         </div>
                     </div>
                 </div>
 
                 <div className="flex justify-between items-center px-6 py-4 border-t border-slate-100 bg-white shrink-0">
-                    <div className="text-xs text-slate-400 font-bold"><Activity className="w-3 h-3 inline mr-1" /> Sauvegarde automatique locale</div>
+                    <div className="text-xs text-slate-400 font-bold"><Activity className="w-3 h-3 inline mr-1" /> {tx(lang,{fr:'Sauvegarde automatique locale',ar:'حفظ تلقائي محلي',en:'Local auto-save',es:'Guardado automático local',pt:'Salvamento automático local',tr:'Otomatik yerel kaydetme'})}</div>
                     <div className="flex gap-3">
                         <button onClick={onClose} className="px-5 py-2.5 text-sm font-bold text-slate-600 hover:bg-slate-100 rounded-xl transition-colors">{tx(lang, {fr: 'Fermer', ar: 'إغلاق', en: 'Close', es: 'Cerrar', pt: 'Fechar', tr: 'Kapat'})}</button>
                         <button onClick={() => onSave(bc)} className="px-8 py-2.5 text-sm font-black bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 flex items-center gap-2"><CheckCircle className="w-4 h-4" /> {tx(lang, {fr: 'Enregistrer BC', ar: 'حفظ أمر الشراء', en: 'Save PO', es: 'Guardar BC', pt: 'Salvar BC', tr: 'BC Kaydet'})}</button>
@@ -430,6 +431,7 @@ const INV_SETTINGS_TABS: { id: InvTabId; label: string; icon: React.FC<any> }[] 
 ];
 
 function InvoiceSettingsModal({ template, onSave, onClose }: { template: InvoiceTemplate; onSave: (t: InvoiceTemplate) => void; onClose: () => void }) {
+    const { lang } = useLang();
     const [s, setS] = useState<InvoiceTemplate>({ ...template });
     const [activeTab, setActiveTab] = useState<InvTabId>('identity');
     const [isClosing, setIsClosing] = useState(false);
@@ -600,8 +602,8 @@ function InvoiceSettingsModal({ template, onSave, onClose }: { template: Invoice
                                     <FileText className="w-5 h-5 text-amber-400" />
                                 </div>
                                 <div>
-                                    <h2 className="font-black text-white text-lg tracking-tight">Paramètres Documents</h2>
-                                    <p className="text-amber-200/50 text-xs font-semibold mt-0.5 tracking-wide">Personnalisez vos Factures & Bons de Livraison</p>
+                                    <h2 className="font-black text-white text-lg tracking-tight">{tx(lang,{fr:'Paramètres Documents',ar:'إعدادات المستندات',en:'Document Settings',es:'Configuración de Documentos',pt:'Configuração de Documentos',tr:'Belge Ayarları'})}</h2>
+                                    <p className="text-amber-200/50 text-xs font-semibold mt-0.5 tracking-wide">{tx(lang,{fr:'Personnalisez vos Factures & Bons de Livraison',ar:'تخصيص فواتيركم وإيصالات التسليم',en:'Customize your Invoices & Delivery Notes',es:'Personalice sus Facturas y Albaranes',pt:'Personalize suas Faturas e Guias de Remessa',tr:'Faturalarınızı ve Teslimat Notlarınızı Özelleştirin'})}</p>
                                 </div>
                             </div>
                             <button onClick={handleClose} className="w-9 h-9 flex items-center justify-center rounded-xl bg-white/10 hover:bg-white/20 text-white/60 hover:text-white transition-all duration-200 border border-white/5">
@@ -647,8 +649,8 @@ function InvoiceSettingsModal({ template, onSave, onClose }: { template: Invoice
                                     {activeTab === 'identity' && (
                                         <div className="space-y-5">
                                             <div>
-                                                <h3 className="font-black text-slate-800 text-base flex items-center gap-2"><Image className="w-5 h-5 text-amber-500" /> Logo & Identité</h3>
-                                                <p className="text-xs text-slate-400 font-medium mt-0.5">Votre logo apparaîtra sur tous les documents</p>
+                                                <h3 className="font-black text-slate-800 text-base flex items-center gap-2"><Image className="w-5 h-5 text-amber-500" /> {tx(lang,{fr:'Logo & Identité',ar:'الشعار والهوية',en:'Logo & Identity',es:'Logo e Identidad',pt:'Logotipo e Identidade',tr:'Logo ve Kimlik'})}</h3>
+                                                <p className="text-xs text-slate-400 font-medium mt-0.5">{tx(lang,{fr:'Votre logo apparaîtra sur tous les documents',ar:'سيظهر شعاركم على جميع المستندات',en:'Your logo will appear on all documents',es:'Su logo aparecerá en todos los documentos',pt:'Seu logotipo aparecerá em todos os documentos',tr:'Logonuz tüm belgelerde görünecek'})}</p>
                                             </div>
 
                                             {/* Logo upload */}
@@ -660,11 +662,11 @@ function InvoiceSettingsModal({ template, onSave, onClose }: { template: Invoice
                                                         </div>
                                                         <div className="flex items-center justify-center gap-2">
                                                             <label className="cursor-pointer px-3 py-1.5 bg-amber-50 text-amber-600 rounded-lg text-xs font-bold hover:bg-amber-100 transition-colors">
-                                                                Changer
+                                                                {tx(lang,{fr:'Changer',ar:'تغيير',en:'Change',es:'Cambiar',pt:'Alterar',tr:'Değiştir'})}
                                                                 <input type="file" accept="image/*" onChange={handleLogo} className="hidden" />
                                                             </label>
                                                             <button onClick={() => setS(p => ({ ...p, logo: '' }))} className="px-3 py-1.5 text-rose-500 hover:bg-rose-50 rounded-lg text-xs font-bold transition-colors">
-                                                                Supprimer
+                                                                {tx(lang,{fr:'Supprimer',ar:'حذف',en:'Delete',es:'Eliminar',pt:'Excluir',tr:'Sil'})}
                                                             </button>
                                                         </div>
                                                     </div>
@@ -673,14 +675,14 @@ function InvoiceSettingsModal({ template, onSave, onClose }: { template: Invoice
                                                         <div className="w-16 h-16 mx-auto rounded-2xl bg-slate-100 group-hover:bg-amber-50 flex items-center justify-center transition-colors">
                                                             <Image className="w-7 h-7 text-slate-300 group-hover:text-amber-400 transition-colors" />
                                                         </div>
-                                                        <p className="text-sm font-bold text-slate-500">Glissez ou <span className="text-amber-600 underline">parcourir</span></p>
-                                                        <p className="text-[10px] text-slate-300">PNG, JPG, SVG • Max 2 Mo</p>
+                                                        <p className="text-sm font-bold text-slate-500">{tx(lang,{fr:'Glissez ou ',ar:'اسحب أو ',en:'Drag or ',es:'Arrastre o ',pt:'Arraste ou ',tr:'Sürükleyin veya '})}<span className="text-amber-600 underline">{tx(lang,{fr:'parcourir',ar:'تصفح',en:'browse',es:'explorar',pt:'procurar',tr:'gözat'})}</span></p>
+                                                        <p className="text-[10px] text-slate-300">{tx(lang,{fr:'PNG, JPG, SVG - Max 2 Mo',ar:'PNG, JPG, SVG - 2 ميغابايت كحد أقصى',en:'PNG, JPG, SVG - Max 2 MB',es:'PNG, JPG, SVG - Máx 2 MB',pt:'PNG, JPG, SVG - Máx 2 MB',tr:'PNG, JPG, SVG - Maks 2 MB'})}</p>
                                                         <input type="file" accept="image/*" onChange={handleLogo} className="hidden" />
                                                     </label>
                                                 )}
                                             </div>
 
-                                            <Toggle k="showLogo" label="Afficher le logo sur les documents" icon={Eye} />
+                                            <Toggle k="showLogo" label={tx(lang,{fr:'Afficher le logo sur les documents',ar:'إظهار الشعار على المستندات',en:'Show logo on documents',es:'Mostrar logotipo en documentos',pt:'Mostrar logotipo nos documentos',tr:'Belgelerde logoyu göster'})} icon={Eye} />
                                         </div>
                                     )}
 
@@ -688,34 +690,34 @@ function InvoiceSettingsModal({ template, onSave, onClose }: { template: Invoice
                                     {activeTab === 'company' && (
                                         <div className="space-y-5">
                                             <div>
-                                                <h3 className="font-black text-slate-800 text-base flex items-center gap-2"><Building2 className="w-5 h-5 text-emerald-500" /> Informations Société</h3>
-                                                <p className="text-xs text-slate-400 font-medium mt-0.5">En-tête de vos documents</p>
+                                                <h3 className="font-black text-slate-800 text-base flex items-center gap-2"><Building2 className="w-5 h-5 text-emerald-500" /> {tx(lang,{fr:'Informations Société',ar:'معلومات الشركة',en:'Company Information',es:'Información de la Empresa',pt:'Informações da Empresa',tr:'Şirket Bilgileri'})}</h3>
+                                                <p className="text-xs text-slate-400 font-medium mt-0.5">{tx(lang,{fr:'En-tête de vos documents',ar:'رأس مستنداتكم',en:'Your document header',es:'Encabezado de sus documentos',pt:'Cabeçalho dos seus documentos',tr:'Belge başlığınız'})}</p>
                                             </div>
                                             <div className="space-y-3">
                                                  <div>
-                                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1"><Briefcase className="w-3 h-3" /> Raison Sociale <span className="text-rose-400">*</span></label>
+                                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1"><Briefcase className="w-3 h-3" /> {tx(lang,{fr:'Raison Sociale',ar:'الاسم التجاري',en:'Company Name',es:'Razón Social',pt:'Razão Social',tr:'Şirket Adı'})} <span className="text-rose-400">*</span></label>
                                                     <input className={invInp} value={s.raisonSociale} onChange={e => setS(p => ({ ...p, raisonSociale: e.target.value }))} placeholder="Ex: BERAMETHODE SARL" />
                                                 </div>
                                                 <div>
-                                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1"><MapPin className="w-3 h-3" /> Adresse</label>
+                                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1"><MapPin className="w-3 h-3" /> {tx(lang,{fr:'Adresse',ar:'العنوان',en:'Address',es:'Dirección',pt:'Endereço',tr:'Adres'})}</label>
                                                     <input className={invInp} value={s.adresse} onChange={e => setS(p => ({ ...p, adresse: e.target.value }))} placeholder="123 Rue du Commerce, Casablanca" />
                                                 </div>
                                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                                     <div>
-                                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1"><Phone className="w-3 h-3" /> Téléphone</label>
+                                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1"><Phone className="w-3 h-3" /> {tx(lang,{fr:'Téléphone',ar:'الهاتف',en:'Phone',es:'Teléfono',pt:'Telefone',tr:'Telefon'})}</label>
                                                         <input className={invInp} value={s.telephone} onChange={e => setS(p => ({ ...p, telephone: e.target.value }))} placeholder="+212 5XX-XXXXXX" />
                                                     </div>
                                                     <div>
-                                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1"><Mail className="w-3 h-3" /> Email</label>
+                                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1"><Mail className="w-3 h-3" /> {tx(lang,{fr:'Email',ar:'البريد الإلكتروني',en:'Email',es:'Correo',pt:'E-mail',tr:'E-posta'})}</label>
                                                         <input className={invInp} value={s.email} onChange={e => setS(p => ({ ...p, email: e.target.value }))} placeholder="contact@entreprise.ma" />
                                                     </div>
                                                 </div>
                                             </div>
                                             <div className="pt-4 border-t border-slate-100 space-y-1.5">
-                                                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Visibilité</p>
-                                                <Toggle k="showAdresse" label="Adresse" icon={MapPin} />
-                                                <Toggle k="showTelephone" label="Téléphone" icon={Phone} />
-                                                <Toggle k="showEmail" label="Email" icon={Mail} />
+                                                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">{tx(lang,{fr:'Visibilité',ar:'الظهور',en:'Visibility',es:'Visibilidad',pt:'Visibilidade',tr:'Görünürlük'})}</p>
+                                                <Toggle k="showAdresse" label={tx(lang,{fr:'Adresse',ar:'العنوان',en:'Address',es:'Dirección',pt:'Endereço',tr:'Adres'})} icon={MapPin} />
+                                                <Toggle k="showTelephone" label={tx(lang,{fr:'Téléphone',ar:'الهاتف',en:'Phone',es:'Teléfono',pt:'Telefone',tr:'Telefon'})} icon={Phone} />
+                                                <Toggle k="showEmail" label={tx(lang,{fr:'Email',ar:'البريد الإلكتروني',en:'Email',es:'Correo',pt:'E-mail',tr:'E-posta'})} icon={Mail} />
                                             </div>
                                         </div>
                                     )}
@@ -724,8 +726,8 @@ function InvoiceSettingsModal({ template, onSave, onClose }: { template: Invoice
                                     {activeTab === 'legal' && (
                                         <div className="space-y-5">
                                             <div>
-                                                <h3 className="font-black text-slate-800 text-base flex items-center gap-2"><Stamp className="w-5 h-5 text-amber-500" /> Identifiants Légaux</h3>
-                                                <p className="text-xs text-slate-400 font-medium mt-0.5">Identifiants fiscaux obligatoires</p>
+                                                <h3 className="font-black text-slate-800 text-base flex items-center gap-2"><Stamp className="w-5 h-5 text-amber-500" /> {tx(lang,{fr:'Identifiants Légaux',ar:'المعرفات القانونية',en:'Legal Identifiers',es:'Identificadores Legales',pt:'Identificadores Legais',tr:'Yasal Kimlikler'})}</h3>
+                                                <p className="text-xs text-slate-400 font-medium mt-0.5">{tx(lang,{fr:'Identifiants fiscaux obligatoires',ar:'المعرفات الضريبية الإجبارية',en:'Required tax identifiers',es:'Identificadores fiscales obligatorios',pt:'Identificadores fiscais obrigatórios',tr:'Zorunlu vergi kimlikleri'})}</p>
                                             </div>
                                             <div className="space-y-3">
                                                 {[
@@ -740,7 +742,7 @@ function InvoiceSettingsModal({ template, onSave, onClose }: { template: Invoice
                                                 ))}
                                             </div>
                                             <div className="pt-4 border-t border-slate-100 space-y-1.5">
-                                                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Visibilité</p>
+                                                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">{tx(lang,{fr:'Visibilité',ar:'الظهور',en:'Visibility',es:'Visibilidad',pt:'Visibilidade',tr:'Görünürlük'})}</p>
                                                 <Toggle k="showICE" label="ICE" icon={Eye} />
                                                 <Toggle k="showRC" label="RC" icon={Eye} />
                                                 <Toggle k="showIF" label="IF" icon={Eye} />
@@ -752,8 +754,8 @@ function InvoiceSettingsModal({ template, onSave, onClose }: { template: Invoice
                                     {activeTab === 'footer' && (
                                         <div className="space-y-5">
                                             <div>
-                                                <h3 className="font-black text-slate-800 text-base flex items-center gap-2"><AlignLeft className="w-5 h-5 text-purple-500" /> Pied de Page</h3>
-                                                <p className="text-xs text-slate-400 font-medium mt-0.5">Mentions en bas de chaque document</p>
+                                                <h3 className="font-black text-slate-800 text-base flex items-center gap-2"><AlignLeft className="w-5 h-5 text-purple-500" /> {tx(lang,{fr:'Pied de Page',ar:'تذييل الصفحة',en:'Footer',es:'Pie de Página',pt:'Rodapé',tr:'Alt Bilgi'})}</h3>
+                                                <p className="text-xs text-slate-400 font-medium mt-0.5">{tx(lang,{fr:'Mentions en bas de chaque document',ar:'البنود السفلية لكل مستند',en:'Footer notes at the bottom of each document',es:'Menciones al pie de cada documento',pt:'Notas no rodapé de cada documento',tr:'Her belgenin altındaki notlar'})}</p>
                                             </div>
                                             <div className="relative">
                                                 <textarea
@@ -761,11 +763,11 @@ function InvoiceSettingsModal({ template, onSave, onClose }: { template: Invoice
                                                     rows={4}
                                                     value={s.piedDePage}
                                                     onChange={e => setS(p => ({ ...p, piedDePage: e.target.value }))}
-                                                    placeholder={"Ex: Banque Populaire • Compte N° 0000-0000\nConditions: Paiement à 30 jours"}
+                                                    placeholder={tx(lang,{fr:"Ex: Banque Populaire • Compte N° 0000-0000\nConditions: Paiement à 30 jours",ar:"مثال: البنك الشعبي • الحساب رقم 0000-0000\nالشروط: الدفع خلال 30 يوماً",en:"E.g.: Banque Populaire • Account N° 0000-0000\nTerms: Payment within 30 days",es:"Ej: Banque Populaire • Cuenta N° 0000-0000\nCondiciones: Pago a 30 días",pt:"Ex: Banque Populaire • Conta N° 0000-0000\nCondições: Pagamento em 30 dias",tr:"Örn: Banque Populaire • Hesap No 0000-0000\nKoşullar: 30 gün içinde ödeme"})}
                                                 />
                                                 <div className="absolute bottom-2.5 right-3 text-[9px] font-bold text-slate-300">{(s.piedDePage || '').length}/200</div>
                                             </div>
-                                            <Toggle k="showPiedDePage" label="Afficher le pied de page" icon={Eye} />
+                                            <Toggle k="showPiedDePage" label={tx(lang,{fr:'Afficher le pied de page',ar:'إظهار تذييل الصفحة',en:'Show footer',es:'Mostrar pie de página',pt:'Mostrar rodapé',tr:'Alt bilgiyi göster'})} icon={Eye} />
                                         </div>
                                     )}
 
@@ -773,39 +775,39 @@ function InvoiceSettingsModal({ template, onSave, onClose }: { template: Invoice
                                     {activeTab === 'visibility' && (
                                         <div className="space-y-5">
                                             <div>
-                                                <h3 className="font-black text-slate-800 text-base flex items-center gap-2"><Eye className="w-5 h-5 text-rose-500" /> Contenu Document</h3>
-                                                <p className="text-xs text-slate-400 font-medium mt-0.5">Éléments visibles à l'impression</p>
+                                                <h3 className="font-black text-slate-800 text-base flex items-center gap-2"><Eye className="w-5 h-5 text-rose-500" /> {tx(lang,{fr:'Contenu Document',ar:'محتوى المستند',en:'Document Content',es:'Contenido del Documento',pt:'Conteúdo do Documento',tr:'Belge İçeriği'})}</h3>
+                                                <p className="text-xs text-slate-400 font-medium mt-0.5">{tx(lang,{fr:'Éléments visibles à l\'impression',ar:'العناصر المرئية عند الطباعة',en:'Elements visible when printing',es:'Elementos visibles al imprimir',pt:'Elementos visíveis na impressão',tr:'Yazdırmada görünen öğeler'})}</p>
                                             </div>
 
                                             {/* Document block */}
                                             <div className="bg-violet-50/30 rounded-xl p-3.5 border border-violet-100/40">
-                                                <h4 className="text-[10px] font-black text-violet-500 uppercase tracking-widest mb-2.5 flex items-center gap-1.5"><FileText className="w-3.5 h-3.5" /> Bloc Document</h4>
+                                                <h4 className="text-[10px] font-black text-violet-500 uppercase tracking-widest mb-2.5 flex items-center gap-1.5"><FileText className="w-3.5 h-3.5" /> {tx(lang,{fr:'Bloc Document',ar:'كتلة المستند',en:'Document Block',es:'Bloque Documento',pt:'Bloco Documento',tr:'Belge Bloğu'})}</h4>
                                                 <div className="space-y-1.5">
-                                                    <Toggle k="showDocumentNumber" label="N° de Document" icon={Hash} />
-                                                    <Toggle k="showDateDocument" label="Date" icon={FileText} />
-                                                    <Toggle k="showTypeOperation" label="Type d'Opération" icon={Type} />
+                                                    <Toggle k="showDocumentNumber" label={tx(lang,{fr:'N° de Document',ar:'رقم المستند',en:'Document No.',es:'N° de Documento',pt:'N° do Documento',tr:'Belge No'})} icon={Hash} />
+                                                    <Toggle k="showDateDocument" label={tx(lang,{fr:'Date',ar:'التاريخ',en:'Date',es:'Fecha',pt:'Data',tr:'Tarih'})} icon={FileText} />
+                                                    <Toggle k="showTypeOperation" label={tx(lang,{fr:"Type d'Opération",ar:'نوع العملية',en:'Operation Type',es:'Tipo de Operación',pt:'Tipo de Operação',tr:'İşlem Türü'})} icon={Type} />
                                                 </div>
                                             </div>
 
                                             {/* Table columns */}
                                             <div className="bg-emerald-50/30 rounded-xl p-3.5 border border-emerald-100/40">
-                                                <h4 className="text-[10px] font-black text-emerald-500 uppercase tracking-widest mb-2.5 flex items-center gap-1.5"><Table className="w-3.5 h-3.5" /> Tableau</h4>
+                                                <h4 className="text-[10px] font-black text-emerald-500 uppercase tracking-widest mb-2.5 flex items-center gap-1.5"><Table className="w-3.5 h-3.5" /> {tx(lang,{fr:'Tableau',ar:'الجدول',en:'Table',es:'Tabla',pt:'Tabela',tr:'Tablo'})}</h4>
                                                 <div className="space-y-1.5">
-                                                    <Toggle k="showReferenceColumn" label="Colonne Référence" icon={Hash} />
-                                                    <Toggle k="showPrixColumn" label="Prix Unitaire" icon={FileText} />
-                                                    <Toggle k="showTotalColumn" label="Total HT" icon={FileText} />
-                                                    <Toggle k="showFillerRows" label="Lignes vides" icon={AlignLeft} />
+                                                    <Toggle k="showReferenceColumn" label={tx(lang,{fr:'Colonne Référence',ar:'عمود المرجع',en:'Reference Column',es:'Columna Referencia',pt:'Coluna Referência',tr:'Referans Sütunu'})} icon={Hash} />
+                                                    <Toggle k="showPrixColumn" label={tx(lang,{fr:'Prix Unitaire',ar:'السعر للوحدة',en:'Unit Price',es:'Precio Unitario',pt:'Preço Unitário',tr:'Birim Fiyat'})} icon={FileText} />
+                                                    <Toggle k="showTotalColumn" label={tx(lang,{fr:'Total HT',ar:'المجموع غير شامل الضريبة',en:'Total (excl. tax)',es:'Total sin IVA',pt:'Total s/ imposto',tr:'Vergisiz Toplam'})} icon={FileText} />
+                                                    <Toggle k="showFillerRows" label={tx(lang,{fr:'Lignes vides',ar:'أسطر فارغة',en:'Empty rows',es:'Filas vacías',pt:'Linhas vazias',tr:'Boş satırlar'})} icon={AlignLeft} />
                                                 </div>
                                             </div>
 
                                             {/* General sections */}
                                             <div className="bg-amber-50/30 rounded-xl p-3.5 border border-amber-100/40">
-                                                <h4 className="text-[10px] font-black text-amber-500 uppercase tracking-widest mb-2.5 flex items-center gap-1.5"><LayoutGrid className="w-3.5 h-3.5" /> Sections</h4>
+                                                <h4 className="text-[10px] font-black text-amber-500 uppercase tracking-widest mb-2.5 flex items-center gap-1.5"><LayoutGrid className="w-3.5 h-3.5" /> {tx(lang,{fr:'Sections',ar:'الأقسام',en:'Sections',es:'Secciones',pt:'Seções',tr:'Bölümler'})}</h4>
                                                 <div className="space-y-1.5">
-                                                    <Toggle k="showPartiesSection" label="Émetteur / Destinataire" icon={Building2} />
-                                                    <Toggle k="showNotesSection" label="Notes / Observations" icon={AlignLeft} />
-                                                    <Toggle k="showSignatureZone" label="Signatures" icon={FileSignature} />
-                                                    <Toggle k="showPiedDePage" label="Pied de Page" icon={AlignLeft} />
+                                                    <Toggle k="showPartiesSection" label={tx(lang,{fr:'Émetteur / Destinataire',ar:'المرسل / المستلم',en:'Sender / Recipient',es:'Emisor / Destinatario',pt:'Remetente / Destinatário',tr:'Gönderen / Alıcı'})} icon={Building2} />
+                                                    <Toggle k="showNotesSection" label={tx(lang,{fr:'Notes / Observations',ar:'ملاحظات',en:'Notes / Remarks',es:'Notas / Observaciones',pt:'Notas / Observações',tr:'Notlar'})} icon={AlignLeft} />
+                                                    <Toggle k="showSignatureZone" label={tx(lang,{fr:'Signatures',ar:'التوقيعات',en:'Signatures',es:'Firmas',pt:'Assinaturas',tr:'İmzalar'})} icon={FileSignature} />
+                                                    <Toggle k="showPiedDePage" label={tx(lang,{fr:'Pied de Page',ar:'تذييل الصفحة',en:'Footer',es:'Pie de Página',pt:'Rodapé',tr:'Alt Bilgi'})} icon={AlignLeft} />
                                                 </div>
                                             </div>
                                         </div>
@@ -817,8 +819,8 @@ function InvoiceSettingsModal({ template, onSave, onClose }: { template: Invoice
                         {/* ══ RIGHT SIDE: Live Preview (always visible) ══ */}
                         <div className="w-[340px] shrink-0 bg-gradient-to-b from-slate-100/80 to-slate-50 border-l border-slate-200/60 p-4 flex flex-col">
                             <div className="flex items-center justify-between mb-3">
-                                <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Prototype</span>
-                                <span className="text-[9px] font-bold text-slate-300 bg-white px-2 py-0.5 rounded-full border border-slate-100">En direct ✨</span>
+                                <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{tx(lang,{fr:'Prototype',ar:'نموذج أولي',en:'Prototype',es:'Prototipo',pt:'Protótipo',tr:'Prototip'})}</span>
+                                <span className="text-[9px] font-bold text-slate-300 bg-white px-2 py-0.5 rounded-full border border-slate-100">{tx(lang,{fr:'En direct',ar:'مباشر',en:'Live',es:'En vivo',pt:'Ao vivo',tr:'Canlı'})} ✨</span>
                             </div>
                             <div className="flex-1 relative">
                                 <div className="absolute inset-0 bg-gradient-to-b from-slate-200/50 to-slate-300/30 rounded-xl blur-lg scale-95" />
@@ -833,20 +835,20 @@ function InvoiceSettingsModal({ template, onSave, onClose }: { template: Invoice
                     <div className="px-7 py-3.5 bg-gradient-to-t from-slate-50/90 to-white/80 border-t border-slate-100/80 flex items-center justify-between shrink-0">
                         <div className="text-xs text-slate-400 font-medium">
                             {!s.raisonSociale ? (
-                                <span className="flex items-center gap-1.5 text-amber-500"><AlertTriangle className="w-3.5 h-3.5" /> Raison sociale requise</span>
+                                <span className="flex items-center gap-1.5 text-amber-500"><AlertTriangle className="w-3.5 h-3.5" /> {tx(lang,{fr:'Raison sociale requise',ar:'الاسم التجاري مطلوب',en:'Company name required',es:'Razón social requerida',pt:'Razão social obrigatória',tr:'Şirket adı gerekli'})}</span>
                             ) : (
-                                <span className="flex items-center gap-1.5 text-emerald-500"><CheckCircle className="w-3.5 h-3.5" /> Modèle prêt</span>
+                                <span className="flex items-center gap-1.5 text-emerald-500"><CheckCircle className="w-3.5 h-3.5" /> {tx(lang,{fr:'Modèle prêt',ar:'النموذج جاهز',en:'Template ready',es:'Plantilla lista',pt:'Modelo pronto',tr:'Şablon hazır'})}</span>
                             )}
                         </div>
                         <div className="flex items-center gap-3">
                             <button onClick={handleClose} className="px-5 py-2 font-bold text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-xl text-sm transition-all duration-200">
-                                Annuler
+                                {tx(lang,{fr:'Annuler',ar:'إلغاء',en:'Cancel',es:'Cancelar',pt:'Cancelar',tr:'İptal'})}
                             </button>
                             <button
                                 onClick={handleSave}
                                 className={`px-6 py-2 font-black text-white bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 hover:from-amber-600 hover:via-orange-600 hover:to-amber-700 rounded-xl text-sm flex gap-2 items-center shadow-lg shadow-amber-200/40 transition-all duration-200 hover:scale-[1.02] active:scale-95 ${saveFlash ? 'inv-save-flash' : ''}`}
                             >
-                                <Save className="w-4 h-4" /> Sauvegarder
+                                <Save className="w-4 h-4" /> {tx(lang,{fr:'Sauvegarder',ar:'حفظ',en:'Save',es:'Guardar',pt:'Salvar',tr:'Kaydet'})}
                             </button>
                         </div>
                     </div>
@@ -889,7 +891,7 @@ function InvoicePrinter({ mvt, product, template, onClose, t, lang }: { mvt: Mou
                 <div className="max-w-4xl mx-auto px-6 py-3 flex items-center justify-between">
                     <div className="flex items-center gap-4">
                         <button onClick={onClose} className="flex items-center gap-2 px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-xl font-bold text-sm transition-colors">
-                            <ArrowLeft className="w-4 h-4" /> Retour
+                            <ArrowLeft className="w-4 h-4" /> {tx(lang,{fr:'Retour',ar:'رجوع',en:'Back',es:'Volver',pt:'Voltar',tr:'Geri'})}
                         </button>
                         <div className="h-6 w-px bg-slate-200" />
                         <div>
@@ -901,7 +903,7 @@ function InvoicePrinter({ mvt, product, template, onClose, t, lang }: { mvt: Mou
                         onClick={() => window.print()}
                         className="flex items-center gap-2 px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-black rounded-xl text-sm shadow-lg shadow-indigo-200 transition-all active:scale-95"
                     >
-                        <Printer className="w-4 h-4" /> Imprimer
+                        <Printer className="w-4 h-4" /> {tx(lang,{fr:'Imprimer',ar:'طباعة',en:'Print',es:'Imprimir',pt:'Imprimir',tr:'Yazdır'})}
                     </button>
                 </div>
             </div>
@@ -1050,7 +1052,7 @@ function InvoicePrinter({ mvt, product, template, onClose, t, lang }: { mvt: Mou
                         {/* === NOTES === */}
                         {template.showNotesSection && mvt.notes && (
                             <div className="mb-8 p-4 bg-amber-50 border border-amber-200 rounded-xl">
-                                <p className="text-xs font-black text-amber-600 uppercase tracking-wide mb-1">Notes / Observations</p>
+                                <p className="text-xs font-black text-amber-600 uppercase tracking-wide mb-1">{tx(lang,{fr:'Notes / Observations',ar:'ملاحظات',en:'Notes / Remarks',es:'Notas / Observaciones',pt:'Notas / Observações',tr:'Notlar'})}</p>
                                 <p className="text-sm text-amber-800 italic">{mvt.notes}</p>
                             </div>
                         )}
@@ -1059,12 +1061,12 @@ function InvoicePrinter({ mvt, product, template, onClose, t, lang }: { mvt: Mou
                         {template.showSignatureZone && (
                             <div className="grid grid-cols-2 gap-10 mt-12">
                                 <div className="border-2 border-dashed border-slate-200 rounded-2xl p-6 h-36 relative bg-slate-50/50">
-                                    <span className="absolute -top-3 left-6 bg-white px-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">Signature &amp; Cachet Magasin</span>
-                                    <div className="text-center text-slate-300 text-xs mt-6 font-bold">Nom &amp; Signature :</div>
+                                    <span className="absolute -top-3 left-6 bg-white px-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">{tx(lang,{fr:'Signature & Cachet Magasin',ar:'التوقيع وختم المستودع',en:'Signature & Warehouse Stamp',es:'Firma y Sello Almacén',pt:'Assinatura e Carimbo do Armazém',tr:'İmza ve Depo Mührü'})}</span>
+                                    <div className="text-center text-slate-300 text-xs mt-6 font-bold">{tx(lang,{fr:'Nom & Signature :',ar:'الاسم والتوقيع :',en:'Name & Signature :',es:'Nombre y Firma :',pt:'Nome e Assinatura :',tr:'Ad ve İmza :'})}</div>
                                 </div>
                                 <div className="border-2 border-dashed border-slate-200 rounded-2xl p-6 h-36 relative bg-slate-50/50">
-                                    <span className="absolute -top-3 left-6 bg-white px-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">Signature {isSortie ? 'Réceptionnaire' : 'Livreur'}</span>
-                                    <div className="text-center text-slate-300 text-xs mt-6 font-bold">Nom &amp; Signature :</div>
+                                    <span className="absolute -top-3 left-6 bg-white px-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">{tx(lang,{fr:'Signature',ar:'التوقيع',en:'Signature',es:'Firma',pt:'Assinatura',tr:'İmza'})} {tx(lang,isSortie ? {fr:'Réceptionnaire',ar:'المستلم',en:'Receiver',es:'Receptor',pt:'Recebedor',tr:'Alıcı'} : {fr:'Livreur',ar:'المسلم',en:'Deliverer',es:'Repartidor',pt:'Entregador',tr:'Teslim Eden'})}</span>
+                                    <div className="text-center text-slate-300 text-xs mt-6 font-bold">{tx(lang,{fr:'Nom & Signature :',ar:'الاسم والتوقيع :',en:'Name & Signature :',es:'Nombre y Firma :',pt:'Nome e Assinatura :',tr:'Ad ve İmza :'})}</div>
                                 </div>
                             </div>
                         )}
@@ -1073,7 +1075,7 @@ function InvoicePrinter({ mvt, product, template, onClose, t, lang }: { mvt: Mou
                         {template.showPiedDePage && (
                             <div className="mt-10 pt-6 border-t border-slate-200 text-center">
                                 <p className="text-xs text-slate-400 font-medium leading-relaxed">{template.piedDePage}</p>
-                                <p className="text-[9px] text-slate-300 mt-2 font-mono">Généré le {new Date().toLocaleString('fr-MA')} · BERAMETHODE Magasin</p>
+                                <p className="text-[9px] text-slate-300 mt-2 font-mono">{tx(lang,{fr:'Généré le',ar:'تم الإنشاء في',en:'Generated on',es:'Generado el',pt:'Gerado em',tr:'Oluşturulma'})} {new Date().toLocaleString('fr-MA')} · BERAMETHODE {tx(lang,{fr:'Magasin',ar:'المستودع',en:'Warehouse',es:'Almacén',pt:'Armazém',tr:'Depo'})}</p>
                             </div>
                         )}
 
@@ -1738,7 +1740,7 @@ export default function Magasin({ models = [], planningEvents = [], settings }: 
             setMvts(prev => prev.filter(m => m.id !== id));
             setSelectedMovement(null);
             setMovementEditDraft(null);
-            alert('Mouvement supprimé');
+            alert(tx(lang, {fr: 'Mouvement supprimé', ar: 'تم حذف الحركة', en: 'Movement deleted', es: 'Movimiento eliminado', pt: 'Movimento excluído', tr: 'Hareket silindi'}));
         } catch (error: any) {
             console.error(error);
             alert('Impossible de supprimer l\'activité : ' + (error.message || 'Erreur'));
@@ -1756,7 +1758,7 @@ export default function Magasin({ models = [], planningEvents = [], settings }: 
 
     const submitAction = async () => {
         const qty = parseFloat(bQty);
-        if (!bPid || isNaN(qty) || qty <= 0) return alert('Sélection / Quantité invalide');
+        if (!bPid || isNaN(qty) || qty <= 0) return alert(tx(lang, {fr: 'Sélection / Quantité invalide', ar: 'تحديد / كمية غير صالح', en: 'Invalid selection / quantity', es: 'Selección / Cantidad no válida', pt: 'Seleção / Quantidade inválida', tr: 'Geçersiz seçim / miktar'}));
         const st = stockQty(lots, bPid);
         const avail = availableQty(lots, bPid);
 
@@ -1780,7 +1782,7 @@ export default function Magasin({ models = [], planningEvents = [], settings }: 
 
         if (bMode === 'regularisation') {
             diff = qty - st;
-            if (diff === 0) return alert('Le stock scanné est identique au stock actuel');
+            if (diff === 0) return alert(tx(lang, {fr: 'Le stock scanné est identique au stock actuel', ar: 'المخزون الممسوح ضوئياً مطابق للمخزون الحالي', en: 'Scanned stock is identical to current stock', es: 'El stock escaneado es idéntico al stock actual', pt: 'O stock escaneado é idêntico ao stock atual', tr: 'Taranan stok mevcut stokla aynı'}));
             newMvt = {
                 id: uid(), productId: bPid, type: 'regularisation', quantite: Math.abs(diff),
                 prixUnitaire: bureauProduct!.cump || bureauProduct!.prixUnitaire, date: new Date().toISOString(), notes: `Ajustement inventaire (Théorique: ${st}, Réel: ${qty})`,
@@ -2058,7 +2060,7 @@ export default function Magasin({ models = [], planningEvents = [], settings }: 
                                 {upcomingEvents.length === 0 ? (
                                     <div className="flex-1 flex flex-col items-center justify-center text-slate-400">
                                         <Layers className="w-10 h-10 mb-3 opacity-20" />
-                                        <p className="font-bold text-sm">Aucune production imminente planifiée.</p>
+                                        <p className="font-bold text-sm">{tx(lang, {fr: 'Aucune production imminente planifiée.', ar: 'لا يوجد إنتاج وشيك مخطط له.', en: 'No upcoming production planned.', es: 'No hay producción inminente planificada.', pt: 'Nenhuma produção iminente planejada.', tr: 'Planlanmış yakın üretim yok.'})}</p>
                                     </div>
                                 ) : (
                                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 flex-1">
@@ -2307,7 +2309,7 @@ export default function Magasin({ models = [], planningEvents = [], settings }: 
                                                              {p.fournisseurNom}
                                                          </span>
                                                      )}
-                                                     {frsExtra && <span className="text-[10px] font-bold bg-slate-100 text-slate-600 px-2 py-0.5 rounded-md" title="Infos fournisseur détaillées">+ détails</span>}
+                                                     {frsExtra && <span className="text-[10px] font-bold bg-slate-100 text-slate-600 px-2 py-0.5 rounded-md" title={tx(lang, {fr: 'Infos fournisseur détaillées', ar: 'معلومات المورد التفصيلية', en: 'Detailed supplier info', es: 'Información detallada del proveedor', pt: 'Informações detalhadas do fornecedor', tr: 'Detaylı tedarikçi bilgisi'})}>+ détails</span>}
                                                  </div>
                                              </div>
                                          </div>
@@ -3502,13 +3504,13 @@ export default function Magasin({ models = [], planningEvents = [], settings }: 
 
                     const handleAddReceipt = async () => {
                         if (!brNum || !brSelectedEventId || !brSelectedMaterial || !brQty) {
-                            alert("Veuillez remplir tous les champs obligatoires (N° BR, Commande, Fourniture, Quantité).");
+                            alert(tx(lang, {fr: "Veuillez remplir tous les champs obligatoires (N° BR, Commande, Fourniture, Quantité).", ar: "يرجى ملء جميع الحقول الإلزامية (رقم BR، الطلبية، التوريد، الكمية).", en: "Please fill all required fields (BR No., Order, Material, Quantity).", es: "Por favor complete todos los campos obligatorios (N° BR, Pedido, Suministro, Cantidad).", pt: "Preencha todos os campos obrigatórios (N° BR, Pedido, Fornecimento, Quantidade).", tr: "Lütfen tüm zorunlu alanları doldurun (BR No., Sipariş, Malzeme, Miktar)."}));
                             return;
                         }
 
                         const qty = parseFloat(brQty);
                         if (isNaN(qty) || qty <= 0) {
-                            alert("La quantité doit être supérieure à 0.");
+                            alert(tx(lang, {fr: "La quantité doit être supérieure à 0.", ar: "يجب أن تكون الكمية أكبر من 0.", en: "Quantity must be greater than 0.", es: "La cantidad debe ser superior a 0.", pt: "A quantidade deve ser superior a 0.", tr: "Miktar 0'dan büyük olmalıdır."}));
                             return;
                         }
 
@@ -3584,19 +3586,19 @@ export default function Magasin({ models = [], planningEvents = [], settings }: 
                                     if (res.ok) {
                                         setLots(prev => [...prev, newLot]);
                                         setMvts(prev => [newMvt, ...prev]);
-                                        alert(`Bon de Réception ${brNum} enregistré et stock mis à jour pour "${brSelectedMaterial}" !`);
+                                        alert(tx(lang, {fr: `Bon de Réception ${brNum} enregistré et stock mis à jour pour "${brSelectedMaterial}" !`, ar: `تم تسجيل إيصال الاستلام ${brNum} وتحديث المخزون لـ "${brSelectedMaterial}"!`, en: `Goods Receipt ${brNum} recorded and stock updated for "${brSelectedMaterial}"!`, es: `¡Recibo de mercancía ${brNum} registrado y stock actualizado para "${brSelectedMaterial}"!`, pt: `Recibo de mercadoria ${brNum} registrado e stock atualizado para "${brSelectedMaterial}"!`, tr: `${brNum} Mal Tesellim Fişi kaydedildi ve "${brSelectedMaterial}" için stok güncellendi!`}));
                                     } else {
-                                        alert(`BR enregistré, mais échec de la mise à jour automatique du stock sur le serveur.`);
+                                        alert(tx(lang, {fr: `BR enregistré, mais échec de la mise à jour automatique du stock sur le serveur.`, ar: `تم تسجيل BR، لكن فشل التحديث التلقائي للمخزون على الخادم.`, en: `BR recorded, but automatic stock update on server failed.`, es: `BR registrado, pero falló la actualización automática del stock en el servidor.`, pt: `BR registrado, mas a atualização automática do stock no servidor falhou.`, tr: `BR kaydedildi, ancak sunucuda otomatik stok güncellemesi başarısız oldu.`}));
                                     }
                                 } catch (err) {
                                     console.error(err);
-                                    alert(`BR enregistré, mais échec de connexion pour la mise à jour du stock.`);
+                                    alert(tx(lang, {fr: `BR enregistré, mais échec de connexion pour la mise à jour du stock.`, ar: `تم تسجيل BR، لكن فشل الاتصال لتحديث المخزون.`, en: `BR recorded, but connection failed for stock update.`, es: `BR registrado, pero falló la conexión para la actualización del stock.`, pt: `BR registrado, mas a conexão falhou para atualização do stock.`, tr: `BR kaydedildi, ancak stok güncellemesi için bağlantı başarısız oldu.`}));
                                 }
                             } else {
-                                alert(`BR enregistré. Note : Aucun article nommé "${brSelectedMaterial}" trouvé dans le stock général. Le stock n'a pas été incrémenté.`);
+                                alert(tx(lang, {fr: `BR enregistré. Note : Aucun article nommé "${brSelectedMaterial}" trouvé dans le stock général. Le stock n'a pas été incrémenté.`, ar: `تم تسجيل BR. ملاحظة: لم يتم العثور على صنف باسم "${brSelectedMaterial}" في المخزون العام. لم يتم زيادة المخزون.`, en: `BR recorded. Note: No item named "${brSelectedMaterial}" found in general stock. Stock was not incremented.`, es: `BR registrado. Nota: No se encontró ningún artículo llamado "${brSelectedMaterial}" en el stock general. El stock no se incrementó.`, pt: `BR registrado. Nota: Nenhum artigo denominado "${brSelectedMaterial}" encontrado no stock geral. O stock não foi incrementado.`, tr: `BR kaydedildi. Not: Genel stokta "${brSelectedMaterial}" adında bir ürün bulunamadı. Stok artırılmadı.`}));
                             }
                         } else {
-                            alert(`Bon de Réception ${brNum} enregistré (historique d'approvisionnement uniquement).`);
+                            alert(tx(lang, {fr: `Bon de Réception ${brNum} enregistré (historique d'approvisionnement uniquement).`, ar: `تم تسجيل إيصال الاستلام ${brNum} (سجل التوريد فقط).`, en: `Goods Receipt ${brNum} recorded (supply history only).`, es: `Recibo de mercancía ${brNum} registrado (solo historial de suministro).`, pt: `Recibo de mercadoria ${brNum} registrado (apenas histórico de fornecimento).`, tr: `${brNum} Mal Tesellim Fişi kaydedildi (yalnızca tedarik geçmişi).`}));
                         }
 
                         // Reset inputs
@@ -3619,12 +3621,12 @@ export default function Magasin({ models = [], planningEvents = [], settings }: 
                                     <h3 className="font-black text-slate-800 text-lg border-b pb-2">{t('Nouvelle Réception')}</h3>
                                     
                                     <div>
-                                        <Lbl t="N° Bon de Réception *" />
+                                        <Lbl t={tx(lang,{fr:'N° Bon de Réception *',ar:'رقم إيصال الاستلام *',en:'Receipt Note No. *',es:'N° de Recibo de Recepción *',pt:'N° do Recibo de Receção *',tr:'Teslim Alma Belgesi No *'})} />
                                         <input className={inp} value={brNum} onChange={e => setBrNum(e.target.value)} />
                                     </div>
 
                                     <div>
-                                        <Lbl t="Ordre de Fabrication (Pedido) *" />
+                                        <Lbl t={tx(lang,{fr:'Ordre de Fabrication (Pedido) *',ar:'أمر التصنيع *',en:'Production Order (Pedido) *',es:'Orden de Fabricación (Pedido) *',pt:'Ordem de Fabricação (Pedido) *',tr:'Üretim Emri (Pedido) *'})} />
                                         <select className={inp} value={brSelectedEventId} onChange={e => {
                                             const val = e.target.value;
                                             setBrSelectedEventId(val);
@@ -3634,58 +3636,58 @@ export default function Magasin({ models = [], planningEvents = [], settings }: 
                                                 setBrOwner(ev.typeMarche === 'Export' ? 'client' : 'atelier');
                                             }
                                         }}>
-                                            <option value="">-- Choisir OF --</option>
+                                             <option value="">{tx(lang,{fr:'-- Choisir OF --',ar:'-- اختر أمر التصنيع --',en:'-- Select PO --',es:'-- Seleccionar OF --',pt:'-- Selecionar OF --',tr:'-- Üretim Emri Seçin --'})}</option>
                                             {activeEvents.map(ev => (
-                                                <option key={ev.id} value={ev.id}>{ev.clientName} - {ev.modelName} (Qté: {ev.qteTotal})</option>
+                                                <option key={ev.id} value={ev.id}>{ev.clientName} - {ev.modelName} ({tx(lang,{fr:'Qté:',ar:'كمية:',en:'Qty:',es:'Cant:',pt:'Qtd:',tr:'Miktar:'})} {ev.qteTotal})</option>
                                             ))}
                                         </select>
                                     </div>
 
                                     <div>
-                                        <Lbl t="Ligne de la BOM / Fourniture *" />
+                                        <Lbl t={tx(lang,{fr:'Ligne de la BOM / Fourniture *',ar:'بند قائمة المواد / التموين *',en:'BOM Line / Supply Item *',es:'Línea de BOM / Suministro *',pt:'Linha da BOM / Fornecimento *',tr:'Ürün Ağacı Satırı / Tedarik *'})} />
                                         <select className={inp} value={brSelectedMaterial} onChange={e => setBrSelectedMaterial(e.target.value)} disabled={!brSelectedEventId}>
-                                            <option value="">-- Choisir Trim/Matière --</option>
+                                             <option value="">{tx(lang,{fr:'-- Choisir Trim/Matière --',ar:'-- اختر المادة/القصاصة --',en:'-- Select Trim/Material --',es:'-- Seleccionar Recorte/Material --',pt:'-- Selecionar Aparar/Material --',tr:'-- Kesim/Malzeme Seçin --'})}</option>
                                             {bomMaterials.map((m, idx) => (
-                                                <option key={idx} value={m.name}>{m.name} ({m.qty} {m.unit} / pc)</option>
+                                                <option key={idx} value={m.name}>{m.name} ({m.qty} {m.unit} / {tx(lang,{fr:'pc',ar:'قطعة',en:'pc',es:'pz',pt:'pc',tr:'adet'})})</option>
                                             ))}
                                             {brSelectedEventId && bomMaterials.length === 0 && (
-                                                <option value="">Aucune fourniture définie dans la Fiche Technique</option>
+                                                 <option value="">{tx(lang,{fr:'Aucune fourniture définie dans la Fiche Technique',ar:'لا توجد مواد محددة في بطاقة التقنية',en:'No supplies defined in the Technical Sheet',es:'Ningún suministro definido en la Ficha Técnica',pt:'Nenhum fornecimento definido na Ficha Técnica',tr:'Teknik Fişte tanımlı malzeme yok'})}</option>
                                             )}
                                         </select>
                                     </div>
 
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                         <div>
-                                            <Lbl t="Quantité Reçue *" />
+                                            <Lbl t={tx(lang,{fr:'Quantité Reçue *',ar:'الكمية المستلمة *',en:'Received Quantity *',es:'Cantidad Recibida *',pt:'Quantidade Recebida *',tr:'Alınan Miktar *'})} />
                                             <input className={inp} type="number" min="0.01" step="any" placeholder="Ex: 5000" value={brQty} onChange={e => setBrQty(e.target.value)} />
                                         </div>
                                         <div>
-                                            <Lbl t="Date de Réception" />
+                                            <Lbl t={tx(lang,{fr:'Date de Réception',ar:'تاريخ الاستلام',en:'Receipt Date',es:'Fecha de Recepción',pt:'Data de Receção',tr:'Teslim Alma Tarihi'})} />
                                             <input className={inp} type="date" value={brDate} onChange={e => setBrDate(e.target.value)} />
                                         </div>
                                     </div>
 
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                         <div>
-                                            <Lbl t="Propriétaire (الملكية)" />
+                                            <Lbl t={tx(lang,{fr:'Propriétaire (الملكية)',ar:'المالك',en:'Owner',es:'Propietario',pt:'Proprietário',tr:'Sahip'})} />
                                             <select className={inp} value={brOwner} onChange={e => setBrOwner(e.target.value as any)}>
-                                                <option value="client">Client (Temykou)</option>
-                                                <option value="atelier">Atelier (Factory Owned)</option>
+                                                <option value="client">{tx(lang,{fr:'Client (Temykou)',ar:'العميل (Temykou)',en:'Client (Temykou)',es:'Cliente (Temykou)',pt:'Cliente (Temykou)',tr:'Müşteri (Temykou)'})}</option>
+                                                <option value="atelier">{tx(lang,{fr:'Atelier (Factory Owned)',ar:'الورشة (ملك المصنع)',en:'Workshop (Factory Owned)',es:'Taller (Propio de la fábrica)',pt:'Oficina (Propriedade da Fábrica)',tr:'Atölye (Fabrikaya Ait)'})}</option>
                                             </select>
                                         </div>
                                         <div>
-                                            <Lbl t="Provenance / Fournisseur" />
-                                            <input className={inp} placeholder="Nom du Client" value={brSupplier} onChange={e => setBrSupplier(e.target.value)} />
+                                            <Lbl t={tx(lang,{fr:'Provenance / Fournisseur',ar:'المنشأ / المورد',en:'Origin / Supplier',es:'Origen / Proveedor',pt:'Origem / Fornecedor',tr:'Menşe / Tedarikçi'})} />
+                                            <input className={inp} placeholder={tx(lang,{fr:'Nom du Client',ar:'اسم العميل',en:'Client Name',es:'Nombre del Cliente',pt:'Nome do Cliente',tr:'Müşteri Adı'})} value={brSupplier} onChange={e => setBrSupplier(e.target.value)} />
                                         </div>
                                     </div>
 
                                     <div className="flex items-center gap-2 pt-2 border-t">
                                         <input type="checkbox" id="autoAddStock" checked={brAutoAddStock} onChange={e => setBrAutoAddStock(e.target.checked)} className="w-4 h-4 text-indigo-600 rounded cursor-pointer" />
-                                        <label htmlFor="autoAddStock" className="text-xs font-bold text-slate-600 cursor-pointer">Incrémenter automatiquement le stock WMS</label>
+                                        <label htmlFor="autoAddStock" className="text-xs font-bold text-slate-600 cursor-pointer">{tx(lang,{fr:'Incrémenter automatiquement le stock WMS',ar:'زيادة المخزون تلقائياً في WMS',en:'Auto-increment WMS stock',es:'Incrementar automáticamente el stock WMS',pt:'Incrementar automaticamente o stock WMS',tr:'WMS stokunu otomatik artır'})}</label>
                                     </div>
 
                                     <button onClick={handleAddReceipt} className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-black py-3 rounded-2xl shadow-md transition active:scale-95 flex items-center justify-center gap-2">
-                                        <Plus className="w-4 h-4" /> Enregistrer la réception
+                                        <Plus className="w-4 h-4" /> {tx(lang,{fr:'Enregistrer la réception',ar:'تسجيل الاستلام',en:'Record Receipt',es:'Registrar recepción',pt:'Registar receção',tr:'Teslim Alma Kaydet'})}
                                     </button>
                                 </div>
 
@@ -3696,19 +3698,19 @@ export default function Magasin({ models = [], planningEvents = [], settings }: 
                                         <table className="w-full text-left text-sm whitespace-nowrap">
                                             <thead className="bg-slate-50 text-slate-500 font-bold uppercase text-xs">
                                                 <tr>
-                                                    <th className="p-3">Bon de Réf (BR)</th>
-                                                    <th className="p-3">Date</th>
-                                                    <th className="p-3">OF / Modèle</th>
-                                                    <th className="p-3">Matière / Trim</th>
-                                                    <th className="p-3 text-right">Qté Reçue</th>
-                                                    <th className="p-3 text-center">Type</th>
-                                                    <th className="p-3 text-right">Actions</th>
+                                                    <th className="p-3">{tx(lang,{fr:'Bon de Réf (BR)',ar:'إيصال الاستلام (BR)',en:'Receipt Note (BR)',es:'Recibo de Recepción (BR)',pt:'Recibo de Receção (BR)',tr:'Teslim Belgesi (BR)'})}</th>
+                                                    <th className="p-3">{tx(lang,{fr:'Date',ar:'التاريخ',en:'Date',es:'Fecha',pt:'Data',tr:'Tarih'})}</th>
+                                                    <th className="p-3">{tx(lang,{fr:'OF / Modèle',ar:'أمر التصنيع / النموذج',en:'PO / Model',es:'OF / Modelo',pt:'OF / Modelo',tr:'Üretim Emri / Model'})}</th>
+                                                    <th className="p-3">{tx(lang,{fr:'Matière / Trim',ar:'المادة / القصاصة',en:'Material / Trim',es:'Material / Recorte',pt:'Material / Aparar',tr:'Malzeme / Kesim'})}</th>
+                                                    <th className="p-3 text-right">{tx(lang,{fr:'Qté Reçue',ar:'الكمية المستلمة',en:'Qty Received',es:'Cant. Recibida',pt:'Qtd Recebida',tr:'Alınan Miktar'})}</th>
+                                                    <th className="p-3 text-center">{tx(lang,{fr:'Type',ar:'النوع',en:'Type',es:'Tipo',pt:'Tipo',tr:'Tür'})}</th>
+                                                    <th className="p-3 text-right">{tx(lang,{fr:'Actions',ar:'الإجراءات',en:'Actions',es:'Acciones',pt:'Ações',tr:'İşlemler'})}</th>
                                                 </tr>
                                             </thead>
                                             <tbody className="divide-y text-xs">
                                                 {receptions.length === 0 ? (
                                                     <tr>
-                                                        <td colSpan={7} className="p-8 text-center text-slate-400 font-bold">Aucune réception enregistrée.</td>
+                                                        <td colSpan={7} className="p-8 text-center text-slate-400 font-bold">{tx(lang,{fr:'Aucune réception enregistrée.',ar:'لم يتم تسجيل أي استلام.',en:'No receipts recorded.',es:'Ninguna recepción registrada.',pt:'Nenhuma receção registada.',tr:'Kayıtlı teslim alma yok.'})}</td>
                                                     </tr>
                                                 ) : (
                                                     receptions.map((r, idx) => {
@@ -3718,19 +3720,19 @@ export default function Magasin({ models = [], planningEvents = [], settings }: 
                                                                 <td className="p-3 font-bold text-slate-700">{r.id}</td>
                                                                 <td className="p-3 text-slate-500">{r.dateReceived}</td>
                                                                 <td className="p-3">
-                                                                    <div className="font-bold text-slate-800">{ev?.modelName || 'OF inconnu'}</div>
-                                                                    <div className="text-[10px] text-slate-400">Client: {ev?.clientName || '—'}</div>
+                                                                    <div className="font-bold text-slate-800">{ev?.modelName || tx(lang,{fr:'OF inconnu',ar:'أمر تصنيع غير معروف',en:'Unknown PO',es:'OF desconocido',pt:'OF desconhecido',tr:'Bilinmeyen Üretim Emri'})}</div>
+                                                                    <div className="text-[10px] text-slate-400">{tx(lang,{fr:'Client:',ar:'العميل:',en:'Client:',es:'Cliente:',pt:'Cliente:',tr:'Müşteri:'})} {ev?.clientName || '—'}</div>
                                                                 </td>
                                                                 <td className="p-3 font-bold text-indigo-700">{r.materialName}</td>
                                                                 <td className="p-3 text-right font-black text-slate-800">{r.qtyReceived.toLocaleString()}</td>
                                                                 <td className="p-3 text-center">
                                                                     <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase ${r.owner === 'client' ? 'bg-amber-100 text-amber-800' : 'bg-blue-100 text-blue-800'}`}>
-                                                                        {r.owner === 'client' ? 'Consigné (Temykou)' : 'Acheté'}
+                                                                        {r.owner === 'client' ? tx(lang,{fr:'Consigné (Temykou)',ar:'مُودع (Temykou)',en:'Consigned (Temykou)',es:'Consignado (Temykou)',pt:'Consignado (Temykou)',tr:'Konsinye (Temykou)'}) : tx(lang,{fr:'Acheté',ar:'مُشترى',en:'Purchased',es:'Comprado',pt:'Comprado',tr:'Satın Alındı'})}
                                                                     </span>
                                                                 </td>
                                                                 <td className="p-3 text-right">
                                                                     <button onClick={() => {
-                                                                        if (confirm("Voulez-vous vraiment supprimer ce bon de réception ?")) {
+                                                                        if (confirm(tx(lang,{fr:'Voulez-vous vraiment supprimer ce bon de réception ?',ar:'هل تريد حقاً حذف إيصال الاستلام هذا؟',en:'Are you sure you want to delete this receipt note?',es:'¿Está seguro de eliminar este recibo de recepción?',pt:'Tem a certeza que deseja excluir este recibo de receção?',tr:'Bu teslim alma belgesini silmek istediğinize emin misiniz?'}))) {
                                                                             const target = receptions[idx];
                                                                             const updated = receptions.filter((_, i) => i !== idx);
                                                                             setReceptions(updated);
@@ -3765,7 +3767,7 @@ export default function Magasin({ models = [], planningEvents = [], settings }: 
                     
                     const handleTransferSurplus = (r: MaterialReceipt, targetEvId: string) => {
                         const targetEv = planningEvents.find(x => x.id === targetEvId);
-                        if (!targetEv) return alert("Ordre cible non trouvé.");
+                        if (!targetEv) return alert(tx(lang, {fr: "Ordre cible non trouvé.", ar: "الأمر المستهدف غير موجود.", en: "Target order not found.", es: "Orden objetivo no encontrada.", pt: "Ordem alvo não encontrada.", tr: "Hedef sipariş bulunamadı."}));
                         
                         let updatedReceipt: MaterialReceipt | null = null;
                         const updated = receptions.map(item => {
@@ -3785,7 +3787,7 @@ export default function Magasin({ models = [], planningEvents = [], settings }: 
                                 body: JSON.stringify(updatedReceipt)
                             }).catch(e => console.error("Error updating receipt:", e));
                         }
-                        alert(`Surplus transféré avec succès vers l'OF ${targetEv.modelName} !`);
+                        alert(tx(lang, {fr: `Surplus transféré avec succès vers l'OF ${targetEv.modelName} !`, ar: `تم تحويل الفائض بنجاح إلى الأمر التصنيعي ${targetEv.modelName}!`, en: `Surplus successfully transferred to OF ${targetEv.modelName}!`, es: `¡Excedente transferido con éxito a la OF ${targetEv.modelName}!`, pt: `Excedente transferido com sucesso para a OF ${targetEv.modelName}!`, tr: `Fazlalık başarıyla ${targetEv.modelName} OF'sine aktarıldı!`}));
                         setSurplusModal(null);
                     };
 
@@ -3861,7 +3863,7 @@ export default function Magasin({ models = [], planningEvents = [], settings }: 
                                     }).catch(e => console.error("Error updating receipt:", e));
                                 }
                                 
-                                alert(`Les surplus ont été intégrés au stock atelier avec une valeur de ${valuation} DH/pièce !`);
+                                alert(tx(lang, {fr: `Les surplus ont été intégrés au stock atelier avec une valeur de ${valuation} DH/pièce !`, ar: `تم دمج الفوائض في مخزون الورشة بقيمة ${valuation} درهم/قطعة!`, en: `Surplus has been integrated into workshop stock at a value of ${valuation} MAD/unit!`, es: `¡Los excedentes se han integrado al stock del taller con un valor de ${valuation} MAD/unidad!`, pt: `Os excedentes foram integrados no stock da oficina com um valor de ${valuation} MAD/peça!`, tr: `Fazlalıklar, ${valuation} MAD/birim değeriyle atölye stokuna eklendi!`}));
                                 setSurplusModal(null);
                             } else {
                                 alert("Erreur lors de l'intégration au stock serveur.");
@@ -3989,20 +3991,20 @@ export default function Magasin({ models = [], planningEvents = [], settings }: 
                                         </div>
                                         <div className="text-sm font-bold text-slate-600 mb-4 bg-slate-50 p-3 rounded-xl border">
                                             <div className="flex justify-between"><span>Fourniture :</span> <span className="text-indigo-600">{surplusModal.materialName}</span></div>
-                                            <div className="flex justify-between mt-1"><span>Quantité surplus :</span> <span className="text-emerald-600">{surplusModal.surplusQty?.toLocaleString()}</span></div>
+                                            <div className="flex justify-between mt-1"><span>{tx(lang,{fr:'Quantité surplus :',ar:'كمية الفائض :',en:'Surplus quantity :',es:'Cantidad sobrante :',pt:'Quantidade excedente :',tr:'Fazla miktar :'})}</span> <span className="text-emerald-600">{surplusModal.surplusQty?.toLocaleString()}</span></div>
                                         </div>
 
                                         <div className="space-y-4">
                                             <div className="flex bg-slate-100 rounded-lg p-1">
-                                                <button onClick={() => setSurplusActionType('transfer')} className={`flex-1 py-1.5 text-xs font-bold rounded-md transition-all ${surplusActionType === 'transfer' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500'}`}>Transférer</button>
-                                                <button onClick={() => setSurplusActionType('absorb')} className={`flex-1 py-1.5 text-xs font-bold rounded-md transition-all ${surplusActionType === 'absorb' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500'}`}>Absorber</button>
+                                                <button onClick={() => setSurplusActionType('transfer')} className={`flex-1 py-1.5 text-xs font-bold rounded-md transition-all ${surplusActionType === 'transfer' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500'}`}>{tx(lang,{fr:'Transférer',ar:'تحويل',en:'Transfer',es:'Transferir',pt:'Transferir',tr:'Aktar'})}</button>
+                                                <button onClick={() => setSurplusActionType('absorb')} className={`flex-1 py-1.5 text-xs font-bold rounded-md transition-all ${surplusActionType === 'absorb' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500'}`}>{tx(lang,{fr:'Absorber',ar:'استيعاب',en:'Absorb',es:'Absorber',pt:'Absorver',tr:'Em'})}</button>
                                             </div>
 
                                             {surplusActionType === 'transfer' && (
                                                 <div className="space-y-2 animate-in fade-in zoom-in-95 duration-200">
-                                                    <Lbl t="Sélectionner le Modèle cible (même client)" />
+                                                    <Lbl t={tx(lang,{fr:'Sélectionner le Modèle cible (même client)',ar:'اختر النموذج الهدف (نفس العميل)',en:'Select target Model (same client)',es:'Seleccionar Modelo objetivo (mismo cliente)',pt:'Selecionar Modelo alvo (mesmo cliente)',tr:'Hedef Modeli Seçin (aynı müşteri)'})} />
                                                     <select className={inp} value={surplusTargetEventId} onChange={e => setSurplusTargetEventId(e.target.value)}>
-                                                        <option value="">-- Choisir OF cible --</option>
+                                                        <option value="">{tx(lang,{fr:'-- Choisir OF cible --',ar:'-- اختر أمر التصنيع الهدف --',en:'-- Select target PO --',es:'-- Seleccionar OF objetivo --',pt:'-- Selecionar OF alvo --',tr:'-- Hedef Üretim Emri Seçin --'})}</option>
                                                         {planningEvents.filter(ev => ev.status !== 'DONE' && ev.clientName === planningEvents.find(x => x.id === surplusModal.eventId)?.clientName).map(ev => (
                                                             <option key={ev.id} value={ev.id}>{ev.modelName} (DDS: {ev.strictDeadline_DDS || '—'})</option>
                                                         ))}
@@ -4011,22 +4013,22 @@ export default function Magasin({ models = [], planningEvents = [], settings }: 
                                                         const r = receptions.find(x => x.pedidoId === surplusModal.eventId && x.materialName === surplusModal.materialName);
                                                         if (r) handleTransferSurplus(r, surplusTargetEventId);
                                                     }} className="w-full bg-indigo-600 text-white font-black py-2.5 rounded-xl text-sm">
-                                                        Valider le transfert
+                                                        {tx(lang,{fr:'Valider le transfert',ar:'تأكيد التحويل',en:'Confirm Transfer',es:'Confirmar transferencia',pt:'Confirmar transferência',tr:'Aktarımı Onayla'})}
                                                     </button>
                                                 </div>
                                             )}
 
                                             {surplusActionType === 'absorb' && (
                                                 <div className="space-y-2 animate-in fade-in zoom-in-95 duration-200">
-                                                    <Lbl t="Valorisation Unitaire (DH / pièce) *" />
+                                                    <Lbl t={tx(lang,{fr:'Valorisation Unitaire (DH / pièce) *',ar:'تقييم الوحدة (درهم / قطعة) *',en:'Unit Valuation (MAD / piece) *',es:'Valoración Unitaria (MAD / pieza) *',pt:'Valorização Unitária (MAD / peça) *',tr:'Birim Değerleme (MAD / adet) *'})} />
                                                     <input className={inp} type="number" min="0" placeholder="Ex: 12.50" value={surplusAbsorbValuation} onChange={e => setSurplusAbsorbValuation(e.target.value)} />
                                                     <button onClick={() => {
                                                         const r = receptions.find(x => x.pedidoId === surplusModal.eventId && x.materialName === surplusModal.materialName);
                                                         const val = parseFloat(surplusAbsorbValuation);
                                                         if (r && !isNaN(val) && val >= 0) handleAbsorbSurplus(r, val);
-                                                        else alert("Entrez une valeur correcte.");
+                                                        else alert(tx(lang,{fr:'Entrez une valeur correcte.',ar:'أدخل قيمة صحيحة.',en:'Enter a correct value.',es:'Ingrese un valor correcto.',pt:'Insira um valor correto.',tr:'Doğru bir değer girin.'}));
                                                     }} className="w-full bg-emerald-600 text-white font-black py-2.5 rounded-xl text-sm">
-                                                        Valider l'absorption au stock
+                                                        {tx(lang,{fr:"Valider l'absorption au stock",ar:'تأكيد الاستيعاب في المخزون',en:'Confirm absorption to stock',es:'Confirmar absorción al stock',pt:'Confirmar absorção ao stock',tr:'Stoka emilimi onayla'})}
                                                     </button>
                                                 </div>
                                             )}
@@ -4087,7 +4089,7 @@ export default function Magasin({ models = [], planningEvents = [], settings }: 
                             }
                         } catch (e) {
                             console.error(e);
-                            alert('Erreur: Vérifiez votre connexion au serveur.');
+                            alert(tx(lang, {fr: 'Erreur: Vérifiez votre connexion au serveur.', ar: 'خطأ: تحقق من اتصالك بالخادم.', en: 'Error: Check your server connection.', es: 'Error: Verifique su conexión al servidor.', pt: 'Erro: Verifique sua conexão ao servidor.', tr: 'Hata: Sunucu bağlantınızı kontrol edin.'}));
                         }
                     }}
                     lang={lang as 'fr' | 'ar' | 'en'}

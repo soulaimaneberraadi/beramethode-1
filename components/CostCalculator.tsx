@@ -243,7 +243,7 @@ export default function CostCalculator({
                         setConfirmDialog({
                             isOpen: true,
                             title: tx(lang, {fr: "Attention", ar: "تنبيه", en: "Warning", es: "Atención", pt: "Atenção", tr: "Uyarı"}),
-                            message: "Aucune matière correspondante trouvée dans le magasin pour la déduction.",
+                            message: tx(lang, {fr: "Aucune matière correspondante trouvée dans le magasin pour la déduction.", ar: "لم يتم العثور على مادة مطابقة في المستودع للخصم.", en: "No matching material found in the store for deduction.", es: "No se encontró material correspondiente en el almacén para la deducción.", pt: "Nenhum material correspondente encontrado no armazém para a dedução.", tr: "İndirim için mağazada eşleşen malzeme bulunamadı."}),
                             type: 'warning',
                             hideCancel: true,
                             onConfirm: () => setConfirmDialog(prev => ({ ...prev, isOpen: false })),
@@ -779,7 +779,7 @@ export default function CostCalculator({
                 } catch (e) {
                     console.error(e);
                     setConfirmDialog({
-                        isOpen: true, title: "Erreur",
+                        isOpen: true, title: tx(lang, {fr: "Erreur", ar: "خطأ", en: "Error", es: "Error", pt: "Erro", tr: "Hata"}),
                         message: "\u00C9chec de la cr\u00E9ation du devis. V\u00E9rifiez que le serveur est d\u00E9marr\u00E9.",
                         type: 'danger', hideCancel: true,
                         onConfirm: () => setConfirmDialog(prev => ({ ...prev, isOpen: false })),
@@ -934,7 +934,7 @@ export default function CostCalculator({
             URL.revokeObjectURL(url);
         } catch (e) {
             console.error('Excel export error:', e);
-            alert("Erreur lors de la g\u00E9n\u00E9ration du fichier Excel.");
+            alert(tx(lang, {fr: "Erreur lors de la génération du fichier Excel.", ar: "خطأ أثناء إنشاء ملف Excel.", en: "Error while generating the Excel file.", es: "Error al generar el archivo Excel.", pt: "Erro ao gerar o ficheiro Excel.", tr: "Excel dosyası oluşturulurken hata oluştu."}));
         }
     };
 
@@ -1119,7 +1119,7 @@ export default function CostCalculator({
                             <button
                                 onClick={() => setShowSousTraitance(true)}
                                 className={`inline-flex items-center gap-1.5 h-8 px-3 rounded-md border text-[12px] font-medium transition-colors ${stActive ? 'border-slate-900 bg-slate-900 text-white hover:bg-slate-800' : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-700'}`}
-                                title="Confier ce modèle à un sous-traitant à prix fixe / pièce"
+                                title={tx(lang, {fr: "Confier ce modèle à un sous-traitant à prix fixe / pièce", ar: "تكليف هذا الموديل لمقاول من الباطن بسعر ثابت / للقطعة", en: "Assign this model to a subcontractor at a fixed price / per piece", es: "Confiar este modelo a un subcontratista a precio fijo / por pieza", pt: "Confiar este modelo a um subcontratante a preço fixo / por peça", tr: "Bu modeli bir taşerona sabit fiyat / parça başına devret"})}
                             >
                                 <Factory className="w-3.5 h-3.5" strokeWidth={1.75} />
                                 {tx(lang,{fr:'Sous-traitance',ar:'المقاولة من الباطن',en:'Subcontracting',es:'Subcontratación',pt:'Subcontratação',tr:'Taşeronluk'})}
@@ -1165,7 +1165,7 @@ export default function CostCalculator({
                                     <button
                                         onClick={() => setShowMaterialAssign(true)}
                                         className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-[12px] font-medium transition-colors"
-                                        title="Affecter les matières à des couleurs / tailles précises"
+                                        title={tx(lang, {fr: "Affecter les matières à des couleurs / tailles précises", ar: "تخصيص المواد لألوان/مقاسات محددة", en: "Assign materials to specific colors / sizes", es: "Asignar materiales a colores / tallas específicas", pt: "Atribuir materiais a cores / tamanhos específicos", tr: "Malzemeleri belirli renklere/boylara ata"})}
                                     >
                                         <SlidersHorizontal className="w-3.5 h-3.5" strokeWidth={1.75} />
                                         Affectation Matières
@@ -1308,7 +1308,7 @@ export default function CostCalculator({
                                                          onClick={() => setMainActivePage(p => Math.max(1, p - 1))}
                                                          disabled={mainActivePage === 1}
                                                          className="p-1 rounded-full hover:bg-slate-800 disabled:opacity-30 transition-all active:scale-90"
-                                                         title="Page précédente"
+                                                         title={tx(lang, {fr: "Page précédente", ar: "الصفحة السابقة", en: "Previous page", es: "Página anterior", pt: "Página anterior", tr: "Önceki sayfa"})}
                                                      >
                                                          <ChevronLeft className="w-3.5 h-3.5" />
                                                      </button>
@@ -1391,7 +1391,7 @@ export default function CostCalculator({
                                     onClick={() => setConfirmDialog(prev => ({ ...prev, isOpen: false }))}
                                     className="px-4 py-2.5 font-bold text-slate-600 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors w-full sm:w-auto"
                                 >
-                                    Annuler
+                                    {tx(lang, {fr: "Annuler", ar: "إلغاء", en: "Cancel", es: "Cancelar", pt: "Cancelar", tr: "İptal"})}
                                 </button>
                             )}
                             <button
@@ -1402,7 +1402,7 @@ export default function CostCalculator({
                                     'bg-amber-500 hover:bg-amber-600'
                                 }`}
                             >
-                                {confirmDialog.confirmText || 'Confirmer'}
+                                {confirmDialog.confirmText || tx(lang, {fr:"Confirmer",ar:"تأكيد",en:"Confirm",es:"Confirmar",pt:"Confirmar",tr:"Onayla"})}
                             </button>
                         </div>
                     </div>
@@ -1420,6 +1420,8 @@ export default function CostCalculator({
                     modelCategory={ficheData.category}
                     onApply={applyThreadMaterials}
                     onClose={() => setShowThreadCalc(false)}
+                    threadCalcState={ficheData.threadCalcState}
+                    onSaveState={(state) => setFicheData(prev => ({ ...prev, threadCalcState: state }))}
                 />
             )}
 

@@ -29,7 +29,7 @@ const Ctx = createContext<LicenseCtx | undefined>(undefined);
 const ALL_MODULES = [
   'dashboard', 'ingenierie', 'atelierProd', 'library', 'coupe',
   'effectifs', 'gestionRh', 'planning', 'suivi', 'rendement', 'magasin', 'export',
-  'facturation', 'config', 'pageMachine', 'machin', 'objectifs', 'sousTraitance',
+  'facturation', 'config', 'pageMachine', 'machin', 'catalogTemps', 'objectifs', 'sousTraitance',
   'admin', 'profil', 'atelier',
 ];
 

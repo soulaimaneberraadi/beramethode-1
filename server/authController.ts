@@ -5,6 +5,7 @@ import { randomInt } from 'crypto';
 import { JWT_SECRET, isCookieSecure } from './jwtConfig';
 import db from './db';
 import nodemailer from 'nodemailer';
+import { logAudit } from './auditLogger';
 
 /** Avoid login/register failures from autofill spaces or Gmail-style case differences. */
 function normalizeEmail(raw: string): string {
@@ -41,10 +42,10 @@ export const register = async (req: Request, res: Response) => {
     const token = jwt.sign({ id: info.lastInsertRowid, email, role }, JWT_SECRET, { expiresIn: '24h' });
 
     res.cookie('token', token, {
-      httpOnly: true,
-      secure: isCookieSecure(),
-      sameSite: 'strict',
-      maxAge: 24 * 60 * 60 * 1000 // 24 hours
+      httpOnly: true,               // not accessible via JS (XSS protection)
+      secure: isCookieSecure(),     // HTTPS only in production
+      sameSite: 'strict',           // CSRF protection
+      maxAge: 24 * 60 * 60 * 1000, // 24 hour expiry
     });
 
     res.status(201).json({ user: { id: info.lastInsertRowid, email, name, role } });
@@ -70,16 +71,18 @@ export const login = async (req: Request, res: Response) => {
     const user = stmt.get(email) as any;
 
     if (!user || !(await bcrypt.compare(password, user.password))) {
+      logAudit({ action: 'LOGIN_FAILED', detail: email, ip: req.ip });
       return res.status(401).json({ message: 'E-mail ou mot de passe incorrect.' });
     }
 
+    logAudit({ userId: user.id, action: 'LOGIN', ip: req.ip });
     const token = jwt.sign({ id: user.id, email: user.email, role: user.role }, JWT_SECRET, { expiresIn: '24h' });
 
     res.cookie('token', token, {
-      httpOnly: true,
-      secure: isCookieSecure(),
-      sameSite: 'strict',
-      maxAge: 24 * 60 * 60 * 1000 // 24 hours
+      httpOnly: true,               // not accessible via JS (XSS protection)
+      secure: isCookieSecure(),     // HTTPS only in production
+      sameSite: 'strict',           // CSRF protection
+      maxAge: 24 * 60 * 60 * 1000, // 24 hour expiry
     });
 
     res.json({ user: { id: user.id, email: user.email, name: user.name, role: user.role } });
@@ -90,11 +93,12 @@ export const login = async (req: Request, res: Response) => {
 };
 
 export const logout = (req: Request, res: Response) => {
+  logAudit({ userId: (req as any).user?.id, action: 'LOGOUT' });
   res.clearCookie('token', {
     path: '/',
-    httpOnly: true,
-    sameSite: 'strict',
-    secure: isCookieSecure(),
+    httpOnly: true,           // not accessible via JS (XSS protection)
+    sameSite: 'strict',       // CSRF protection
+    secure: isCookieSecure(), // HTTPS only in production
   });
   res.json({ message: 'Logged out successfully' });
 };
@@ -229,6 +233,8 @@ export const resetPassword = async (req: Request, res: Response) => {
     });
     transaction();
 
+    const user = db.prepare('SELECT id FROM users WHERE LOWER(TRIM(email)) = ?').get(email) as { id: number } | undefined;
+    logAudit({ userId: user?.id, action: 'PASSWORD_RESET', detail: email });
     res.json({ message: 'Password reset successfully' });
   } catch (error) {
     console.error('Password reset error:', error);

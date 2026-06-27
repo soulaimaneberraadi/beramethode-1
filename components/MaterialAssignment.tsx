@@ -2,6 +2,8 @@ import React, { useState, useMemo } from 'react';
 import { X, Search, RotateCcw, Package, Palette, Ruler, Layers, Check } from 'lucide-react';
 import { Material, FicheData } from '../types';
 import { fmt } from '../constants';
+import { useLang } from '../src/context/LanguageContext';
+import { tx } from '../lib/i18n';
 
 interface MaterialAssignmentProps {
     materials: Material[];
@@ -14,6 +16,7 @@ interface MaterialAssignmentProps {
 const MaterialAssignment: React.FC<MaterialAssignmentProps> = ({
     materials, setMaterialScope, ficheData, currency, onClose,
 }) => {
+    const { lang } = useLang();
     const colors = ficheData.colors || [];
     const sizes = ficheData.sizes || [];
     const gq = ficheData.gridQuantities || {};
@@ -117,7 +120,7 @@ const MaterialAssignment: React.FC<MaterialAssignmentProps> = ({
                         <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                         <input
                             value={query} onChange={e => setQuery(e.target.value)}
-                            placeholder="Rechercher une matière..."
+                            placeholder={tx(lang, {fr:'Rechercher une matière…',ar:'بحث عن مادة…',en:'Search for a material…',es:'Buscar un material…',pt:'Procurar um material…',tr:'Malzeme ara…'})}
                             className="w-full h-9 pl-9 pr-3 text-[12px] bg-slate-50 border border-slate-200 rounded-lg outline-none focus:bg-white focus:ring-2 focus:ring-indigo-100 focus:border-indigo-300 transition-all placeholder:text-slate-400"
                         />
                     </div>
@@ -136,7 +139,7 @@ const MaterialAssignment: React.FC<MaterialAssignmentProps> = ({
                     {hasFilters && (
                         <button onClick={resetFilters}
                             className="inline-flex items-center gap-1 h-9 px-3 text-[11px] font-medium text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors">
-                            <RotateCcw className="w-3 h-3" /> Réinitialiser
+                            <RotateCcw className="w-3 h-3" /> {tx(lang, {fr:'Réinitialiser',ar:'إعادة تعيين',en:'Reset',es:'Restablecer',pt:'Repor',tr:'Sıfırla'})}
                         </button>
                     )}
                 </div>
@@ -177,7 +180,7 @@ const MaterialAssignment: React.FC<MaterialAssignmentProps> = ({
                                     {isAssigned && (
                                         <button onClick={() => resetMaterial(m)}
                                             className="text-[10px] font-medium text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 px-2 py-1 rounded-md transition-colors shrink-0">
-                                            Réinitialiser
+                                            {tx(lang, {fr:'Réinitialiser',ar:'إعادة تعيين',en:'Reset',es:'Restablecer',pt:'Repor',tr:'Sıfırla'})}
                                         </button>
                                     )}
                                 </div>

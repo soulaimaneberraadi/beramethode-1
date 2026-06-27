@@ -384,7 +384,7 @@ export default function EventEditor({ open, mode, initial, models, chains, plann
     const lotMaterialAvailability = useMemo(() => {
         if (!modelId || !selectedModel) return null;
         const activeQty = activeLot ? evQty(activeLot) : totalQuantity;
-        return getMaterialAvailability(modelId, models, totalQuantity, activeQty);
+        return getMaterialAvailability(lang, modelId, models, totalQuantity, activeQty);
     }, [modelId, selectedModel, models, totalQuantity, activeLot]);
 
     const toggleLot = (lotId: string) => {
@@ -535,7 +535,7 @@ export default function EventEditor({ open, mode, initial, models, chains, plann
                                     const qty = evQty(lot);
                                     
                                     // Fetch material status for this lot
-                                    const matAv = getMaterialAvailability(selectedModel.id, models, qty, qty);
+                                    const matAv = getMaterialAvailability(lang, selectedModel.id, models, qty, qty);
                                     
                                     return (
                                         <button

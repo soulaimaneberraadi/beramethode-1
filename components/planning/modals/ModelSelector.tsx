@@ -154,7 +154,7 @@ function formatTime(seconds: number): string {
 }
 
 export default function ModelSelector({
-    models, value, onChange, label = 'Modèle',
+    models, value, onChange, label = '',
     planningEvents = [], chainEfficiency = 0.85,
     quantity = 0, strictDeadline, startDate,
     workingHoursPerDay = 8, onOpenInIngenierie,
@@ -266,7 +266,7 @@ export default function ModelSelector({
 
     return (
         <div ref={containerRef} className="relative">
-            <label className="block text-[11px] font-medium text-slate-600 mb-1.5">{label}</label>
+            <label className="block text-[11px] font-medium text-slate-600 mb-1.5">{label || tx(lang, {fr:'Modèle',ar:'نموذج',en:'Model',es:'Modelo',pt:'Modelo',tr:'Model'})}</label>
 
             {/* Trigger */}
             <button
@@ -328,7 +328,7 @@ export default function ModelSelector({
                                 type="button"
                                 onClick={() => setShowSortMenu(v => !v)}
                                 className="px-2.5 py-1.5 h-8 flex items-center gap-1.5 bg-white border border-slate-200 rounded-md hover:border-slate-300 focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 outline-none transition-all text-[11px] font-medium text-slate-600 whitespace-nowrap shrink-0"
-                                title="Trier les modèles"
+                                title={tx(lang, {fr:'Trier les modèles',ar:'ترتيب النماذج',en:'Sort models',es:'Ordenar modelos',pt:'Ordenar modelos',tr:'Modelleri sırala'})}
                             >
                                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
@@ -458,7 +458,7 @@ export default function ModelSelector({
                                         {onOpenInIngenierie && (
                                             <div
                                                 role="button"
-                                                title="Ouvrir dans Ingénierie"
+                                                title={tx(lang, {fr:'Ouvrir dans Ingénierie',ar:'فتح في الهندسة',en:'Open in Engineering',es:'Abrir en Ingeniería',pt:'Abrir na Engenharia',tr:'Mühendislikte aç'})}
                                                 onClick={(e) => { e.stopPropagation(); onOpenInIngenierie(m.id); }}
                                                 className="w-6 h-6 flex items-center justify-center rounded text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors shrink-0"
                                             >
@@ -534,12 +534,13 @@ function StatCell({
 function PredictionRow({
     prediction, quantity, pcsPerDay,
 }: { prediction: Prediction; quantity: number; pcsPerDay: number }) {
+    const { lang } = useLang();
     const { daysNeeded, finishDate, status, diffDays } = prediction;
     const config = {
-        on_time: { cls: 'bg-emerald-50/60 text-emerald-700 border-emerald-200', icon: CheckCircle2, label: 'Dans les délais' },
+        on_time: { cls: 'bg-emerald-50/60 text-emerald-700 border-emerald-200', icon: CheckCircle2, label: tx(lang, {fr:'Dans les délais',ar:'في الموعد',en:'On time',es:'A tiempo',pt:'No prazo',tr:'Zamanında'}) },
         at_risk: { cls: 'bg-amber-50/60 text-amber-700 border-amber-200', icon: AlertCircle, label: 'Risque de retard' },
         late: { cls: 'bg-red-50/60 text-red-700 border-red-200', icon: AlertTriangle, label: 'En retard' },
-        unknown: { cls: 'bg-slate-50 text-slate-700 border-slate-200', icon: Calendar, label: 'Prévision' },
+        unknown: { cls: 'bg-slate-50 text-slate-700 border-slate-200', icon: Calendar, label: tx(lang, {fr:'Prévision',ar:'توقع',en:'Forecast',es:'Previsión',pt:'Previsão',tr:'Tahmin'}) },
     }[status];
     const Icon = config.icon;
     return (

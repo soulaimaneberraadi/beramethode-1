@@ -16,14 +16,16 @@ interface GlobalLoaderProps {
 export default function GlobalLoader({
     isActive,
     progress,
-    text = "Initialisation",
-    subText = "Préparation du système",
+    text,
+    subText,
     isFullScreen = true,
     error = null,
     onRetry,
     onContinueOffline,
 }: GlobalLoaderProps) {
     const { lang } = useLang();
+    const resolvedText = text ?? tx(lang, {fr:"Initialisation",ar:"جاري التهيئة",en:"Initializing",es:"Inicializando",pt:"Inicializando",tr:"Başlatılıyor"});
+    const resolvedSubText = subText ?? tx(lang, {fr:"Préparation du système",ar:"تحضير النظام",en:"Preparing system",es:"Preparando el sistema",pt:"A preparar o sistema",tr:"Sistem hazırlanıyor"});
     const [displayedProgress, setDisplayedProgress] = useState(0);
 
     // Smooth progress interpolation (easeOutExpo)
@@ -94,10 +96,10 @@ export default function GlobalLoader({
                 <div className="text-center space-y-3 mb-8 w-full">
                     {/* Header text with animation on key change */}
                     <h2 
-                        key={`text-${text}`} 
+                        key={`text-${resolvedText}`} 
                         className="text-base font-bold text-slate-800 tracking-tight leading-snug animate-[fade-slide-up_0.35s_ease-out]"
                     >
-                        {text}
+                        {resolvedText}
                     </h2>
 
                     {/* Status Pill */}
@@ -113,7 +115,7 @@ export default function GlobalLoader({
                         </div>
                     ) : (
                         <div 
-                            key={`subText-${subText}`}
+                            key={`subText-${resolvedSubText}`}
                             className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-50 border border-slate-100 animate-[fade-slide-up_0.4s_ease-out]"
                         >
                             <div className="relative flex w-2 h-2">
@@ -121,7 +123,7 @@ export default function GlobalLoader({
                                 <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
                             </div>
                             <span className="text-xs font-semibold text-slate-500 tracking-wide">
-                                {subText}
+                                {resolvedSubText}
                             </span>
                         </div>
                     )}

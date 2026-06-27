@@ -18,6 +18,8 @@ interface ThreadCalculatorProps {
     modelCategory?: string;
     onApply: (threadMaterials: Material[]) => void;
     onClose: () => void;
+    threadCalcState?: any;
+    onSaveState?: (state: any) => void;
 }
 
 interface OperationThreadData {
@@ -378,12 +380,26 @@ export default function ThreadCalculator({
     gridQuantities = {},
     modelCategory,
     onApply,
-    onClose
+    onClose,
+    threadCalcState,
+    onSaveState
 }: ThreadCalculatorProps) {
     const { lang } = useLang();
     const _ = useCallback((m: TxMap) => tx(lang, m), [lang]);
-    const [wastePercent, setWastePercent] = useState(10);
-    const [selectedBobbinSize, setSelectedBobbinSize] = useState(5000);
+    const [wastePercent, setWastePercent] = useState(() => {
+        if (threadCalcState?.wastePercent !== undefined) return threadCalcState.wastePercent;
+        try {
+            const saved = localStorage.getItem('beramethode_thread_waste');
+            return saved ? parseInt(saved, 10) : 10;
+        } catch { return 10; }
+    });
+    const [selectedBobbinSize, setSelectedBobbinSize] = useState(() => {
+        if (threadCalcState?.selectedBobbinSize !== undefined) return threadCalcState.selectedBobbinSize;
+        try {
+            const saved = localStorage.getItem('beramethode_thread_bobbinsize');
+            return saved ? parseInt(saved, 10) : 5000;
+        } catch { return 5000; }
+    });
     const [isExpanded, setIsExpanded] = useState(false);
 
     // Clé unique pour le cache localStorage basée sur les IDs des opérations.
@@ -400,6 +416,18 @@ export default function ThreadCalculator({
     });
     const saveThreadTypes = (list: string[]) => {
         try { localStorage.setItem('beramethode_thread_types', JSON.stringify(list)); } catch { /* noop */ }
+    };
+    const [threadPrices, setThreadPrices] = useState<Record<string, number>>(() => {
+        if (threadCalcState?.threadPrices) return threadCalcState.threadPrices;
+        try {
+            const saved = localStorage.getItem('beramethode_thread_prices');
+            return saved ? JSON.parse(saved) : {};
+        } catch { return {}; }
+    });
+    const updateThreadPrice = (type: string, price: number) => {
+        const next = { ...threadPrices, [type]: price };
+        setThreadPrices(next);
+        try { localStorage.setItem('beramethode_thread_prices', JSON.stringify(next)); } catch { /* noop */ }
     };
 
     // Ajoute un type de fil à la liste (ignoré si vide ou déjà présent).
@@ -418,6 +446,16 @@ export default function ThreadCalculator({
         const next = Array.from(new Set(availableThreadTypes.map(t => (t === oldValue ? v : t))));
         setAvailableThreadTypes(next);
         saveThreadTypes(next);
+
+        // Update price mapping
+        const nextPrices = { ...threadPrices };
+        if (nextPrices[oldValue] !== undefined) {
+            nextPrices[v] = nextPrices[oldValue];
+            delete nextPrices[oldValue];
+        }
+        setThreadPrices(nextPrices);
+        try { localStorage.setItem('beramethode_thread_prices', JSON.stringify(nextPrices)); } catch { /* noop */ }
+
         setOpsData(prev => prev.map(item => {
             const colorThreads = { ...item.colorThreads };
             Object.keys(colorThreads).forEach(cid => {
@@ -437,6 +475,13 @@ export default function ThreadCalculator({
         const next = availableThreadTypes.filter(t => t !== value);
         setAvailableThreadTypes(next);
         saveThreadTypes(next);
+
+        // Update price mapping
+        const nextPrices = { ...threadPrices };
+        delete nextPrices[value];
+        setThreadPrices(nextPrices);
+        try { localStorage.setItem('beramethode_thread_prices', JSON.stringify(nextPrices)); } catch { /* noop */ }
+
         setOpsData(prev => prev.map(item => {
             const colorThreads = { ...item.colorThreads };
             Object.keys(colorThreads).forEach(cid => {
@@ -517,11 +562,11 @@ export default function ThreadCalculator({
     }, [operations, effectiveColors]);
 
     const [opsData, setOpsData] = useState<OperationThreadData[]>(() => {
-        // Restaurer depuis le cache si disponible
+        // Restaurer depuis le prop ou cache si disponible
         try {
-            const raw = localStorage.getItem(cacheKey);
+            const raw = threadCalcState || (localStorage.getItem(cacheKey) ? JSON.parse(localStorage.getItem(cacheKey)) : null);
             if (raw) {
-                const cache = JSON.parse(raw) as {
+                const cache = raw as {
                     opsEdits: Record<string, {
                         selected: boolean;
                         threadType: string;
@@ -563,6 +608,7 @@ export default function ThreadCalculator({
     const autoGarment = useMemo(() => findGarmentIndice(modelCategory), [modelCategory]);
     const [calcMode, setCalcMode] = useState<'poste' | 'indice'>(() => {
         try {
+            if (threadCalcState?.calcMode) return threadCalcState.calcMode;
             const raw = localStorage.getItem(cacheKey);
             if (raw) return (JSON.parse(raw)?.calcMode || 'poste') as 'poste' | 'indice';
         } catch { /* ignore */ }
@@ -586,14 +632,17 @@ export default function ThreadCalculator({
                     lengthCm: op.lengthCm,
                 };
             });
-            localStorage.setItem(cacheKey, JSON.stringify({
+            const state = {
                 opsEdits,
                 wastePercent,
                 selectedBobbinSize,
                 calcMode,
-            }));
+                threadPrices,
+            };
+            localStorage.setItem(cacheKey, JSON.stringify(state));
+            onSaveState?.(state);
         } catch { /* ignore */ }
-    }, [opsData, wastePercent, selectedBobbinSize, calcMode, cacheKey]);
+    }, [opsData, wastePercent, selectedBobbinSize, calcMode, cacheKey, threadPrices, onSaveState]);
 
     // Une seule bascule automatique vers "indice" si la gamme n'a aucune donnee.
     React.useEffect(() => {
@@ -1005,10 +1054,11 @@ export default function ThreadCalculator({
                 const perPieceQty = selectedBobbinSize > 0
                     ? Math.round((perPiece / selectedBobbinSize) * 100000) / 100000
                     : 0;
+                const price = threadPrices[color.threadType || ''] || 0;
                 materials.push({
                     id: id++,
                     name: isStandard ? `Fil ${color.threadType} (standard)` : `Fil ${color.colorName}${typeSuffix}`,
-                    unitPrice: 0,
+                    unitPrice: price,
                     qty: perPieceQty,
                     unit: 'bobine',
                     threadMeters: perPiece,
@@ -1031,10 +1081,12 @@ export default function ThreadCalculator({
                 const perPieceQty = selectedBobbinSize > 0
                     ? Math.round((perPiece / selectedBobbinSize) * 100000) / 100000
                     : 0;
+                const firstType = threadTypes[0] || '';
+                const price = threadPrices[firstType] || 0;
                 materials.push({
                     id: id++,
                     name: `Fil ${machine.machineLabel} (${machine.machineCode})`,
-                    unitPrice: 0,
+                    unitPrice: price,
                     qty: perPieceQty,
                     unit: 'bobine',
                     threadMeters: perPiece,
@@ -1150,9 +1202,11 @@ export default function ThreadCalculator({
                         <label className="text-xs font-bold text-slate-500">{_({ fr: 'TYPE FIL:', ar: 'نوع الخيط:', en: 'THREAD TYPE:', es: 'TIPO HILO:', pt: 'TIPO FIO:', tr: 'İPLİK TÜRÜ:' })}</label>
                         <ThreadTypesManager
                             availableThreadTypes={availableThreadTypes}
+                            threadPrices={threadPrices}
                             onAdd={addThreadTypeValue}
                             onRename={renameThreadTypeValue}
                             onDelete={deleteThreadTypeValue}
+                            onUpdatePrice={updateThreadPrice}
                         />
                     </div>
                 </div>
@@ -2059,16 +2113,18 @@ export default function ThreadCalculator({
 
 interface ThreadTypesManagerProps {
     availableThreadTypes: string[];
+    threadPrices: Record<string, number>;
     onAdd: (value: string) => void;
     onRename: (oldValue: string, newValue: string) => void;
     onDelete: (value: string) => void;
+    onUpdatePrice: (type: string, price: number) => void;
 }
 
 /**
  * Gestionnaire des types de fil : bouton « Ajouter » ouvrant un panneau permettant
  * d'ajouter, renommer et supprimer les types de la liste.
  */
-function ThreadTypesManager({ availableThreadTypes, onAdd, onRename, onDelete }: ThreadTypesManagerProps) {
+function ThreadTypesManager({ availableThreadTypes, threadPrices, onAdd, onRename, onDelete, onUpdatePrice }: ThreadTypesManagerProps) {
     const { lang } = useLang();
     const _ = useCallback((m: TxMap) => tx(lang, m), [lang]);
     const [open, setOpen] = useState(false);
@@ -2144,6 +2200,21 @@ function ThreadTypesManager({ availableThreadTypes, onAdd, onRename, onDelete }:
                                     ) : (
                                         <>
                                             <span className="flex-1 min-w-0 truncate font-mono text-xs text-slate-700">{tt}</span>
+                                            
+                                            {/* Price Input */}
+                                            <div className="flex items-center gap-0.5 shrink-0 bg-slate-100/80 rounded-md px-1 py-0.5 mr-1 max-w-[80px]">
+                                                <input
+                                                    type="number"
+                                                    step="0.01"
+                                                    min="0"
+                                                    value={threadPrices[tt] !== undefined ? threadPrices[tt] : ''}
+                                                    onChange={(e) => onUpdatePrice(tt, parseFloat(e.target.value) || 0)}
+                                                    placeholder="0.00"
+                                                    className="w-10 bg-transparent text-right text-[10px] font-bold text-slate-700 outline-none select-all"
+                                                    title={_({ fr: 'Prix unitaire par bobine', ar: 'ثمن بوبينة واحدة', en: 'Unit price per bobbin' })}
+                                                />
+                                                <span className="text-[8px] font-bold text-slate-400">DH</span>
+                                            </div>
                                             <button type="button" onClick={() => startEdit(tt)} className="p-1 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded shrink-0" title={_({ fr: 'Modifier', ar: 'تعديل', en: 'Edit', es: 'Editar', pt: 'Editar', tr: 'Düzenle' })} aria-label={`${_({ fr: 'Modifier', ar: 'تعديل', en: 'Edit', es: 'Editar', pt: 'Editar', tr: 'Düzenle' })} ${tt}`}><Pencil className="w-3.5 h-3.5" /></button>
                                             <button type="button" onClick={() => onDelete(tt)} className="p-1 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded shrink-0" title={_({ fr: 'Supprimer', ar: 'حذف', en: 'Delete', es: 'Eliminar', pt: 'Excluir', tr: 'Sil' })} aria-label={`${_({ fr: 'Supprimer', ar: 'حذف', en: 'Delete', es: 'Eliminar', pt: 'Excluir', tr: 'Sil' })} ${tt}`}><Trash2 className="w-3.5 h-3.5" /></button>
                                         </>

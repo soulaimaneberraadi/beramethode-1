@@ -1,3 +1,4 @@
+import { tx } from '../../../lib/i18n';
 import type { PlanningStatus } from '../../../types';
 
 /** Statut de travail simplifié — 4 valeurs. */
@@ -57,6 +58,25 @@ export const DELAY_META: Record<DelayState, {
     AT_RISK: { label: 'À risque', dot: 'bg-amber-500', text: 'text-amber-700' },
     LATE: { label: 'En retard', dot: 'bg-red-500', text: 'text-red-700' },
 };
+
+export function getStatusLabel(lang: string, status: WorkStatus): string {
+  const map: Record<WorkStatus, { fr: string; ar: string; en: string }> = {
+    READY: { fr: 'Prêt', ar: 'جاهز', en: 'Ready' },
+    BLOCKED: { fr: 'Bloqué', ar: 'محظور', en: 'Blocked' },
+    IN_PROGRESS: { fr: 'En cours', ar: 'قيد التنفيذ', en: 'In Progress' },
+    DONE: { fr: 'Terminé', ar: 'منتهي', en: 'Completed' },
+  };
+  return tx(lang, map[status]);
+}
+
+export function getDelayLabel(lang: string, state: DelayState): string {
+  const map: Record<DelayState, { fr: string; ar: string; en: string }> = {
+    ON_TIME: { fr: 'À temps', ar: 'في الوقت المحدد', en: 'On Time' },
+    AT_RISK: { fr: 'À risque', ar: 'في خطر', en: 'At Risk' },
+    LATE: { fr: 'En retard', ar: 'متأخر', en: 'Late' },
+  };
+  return tx(lang, map[state]);
+}
 
 /** Normalise un statut legacy (8 valeurs) vers WorkStatus (4 valeurs). */
 export function toWorkStatus(status: PlanningStatus | string | undefined): WorkStatus {

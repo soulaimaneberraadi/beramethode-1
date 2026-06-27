@@ -188,7 +188,7 @@ export const getDashboardKPIs = (req: Request, res: Response) => {
         res.json(computeDashboardKPIs(ownerId));
     } catch (e) {
         console.error('getDashboardKPIs:', e);
-        res.status(500).json({ message: 'Erreur serveur' });
+        res.status(500).json({ message: 'Server error' });
     }
 };
 

@@ -65,7 +65,7 @@ export const getHRInvitations = (req: Request, res: Response) => {
     res.json(rows);
   } catch (e) {
     console.error('getHRInvitations', e);
-    res.status(500).json({ message: 'Erreur' });
+    res.status(500).json({ message: 'Error' });
   }
 };
 
@@ -172,7 +172,7 @@ export const postHRInvitation = async (req: Request, res: Response) => {
     });
   } catch (e) {
     console.error('postHRInvitation', e);
-    res.status(500).json({ message: 'Erreur' });
+    res.status(500).json({ message: 'Error' });
   }
 };
 
@@ -256,7 +256,7 @@ export const postHRInvitationRespond = (req: Request, res: Response) => {
     res.json({ ok: true, status: 'ACCEPTED', workerId });
   } catch (e) {
     console.error('postHRInvitationRespond', e);
-    res.status(500).json({ message: 'Erreur' });
+    res.status(500).json({ message: 'Error' });
   }
 };
 
@@ -275,6 +275,6 @@ export const getHRInvitationByToken = (req: Request, res: Response) => {
     }
     res.json(inv);
   } catch (e) {
-    res.status(500).json({ message: 'Erreur' });
+    res.status(500).json({ message: 'Error' });
   }
 };

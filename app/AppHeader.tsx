@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import {
+    BarChart3,
     FolderOpen,
     Settings as SettingsIcon,
     CheckCircle2,
@@ -25,13 +26,13 @@ import {
     Clock,
 } from 'lucide-react';
 import type { Lang } from './constants';
-import { TRANSLATIONS } from './constants';
+import { TRANSLATIONS, CATEGORY_TRANSLATIONS } from './constants';
 import { tx } from '../lib/i18n';
 import SupportWidget from '../components/SupportWidget';
 import SyncIndicator from '../components/SyncIndicator';
 import { clearLocalAppData } from '../src/lib/cloudSync';
 
-type ViewType = 'dashboard' | 'ingenierie' | 'library' | 'coupe' | 'effectifs' | 'gestionRh' | 'planning' | 'suivi' | 'magasin' | 'export' | 'config' | 'profil' | 'admin' | 'rendement' | 'pageMachine' | 'machin' | 'facturation' | 'atelierProd' | 'sousTraitance' | 'catalogTemps';
+type ViewType = 'vuegenerale' | 'dashboard' | 'ingenierie' | 'library' | 'coupe' | 'effectifs' | 'gestionRh' | 'planning' | 'suivi' | 'magasin' | 'export' | 'config' | 'profil' | 'admin' | 'rendement' | 'pageMachine' | 'machin' | 'facturation' | 'atelierProd' | 'sousTraitance' | 'catalogTemps';
 
 interface AppHeaderProps {
     currentView: ViewType;
@@ -51,8 +52,13 @@ interface AppHeaderProps {
     logout: () => void;
 }
 
-type ViewLabelFn = (lang: Lang) => string;
-const VIEW_DEFS: Record<string, { label: string | ViewLabelFn; icon: React.ReactNode; activeClass: string }> = {
+export type ViewLabelFn = (lang: Lang) => string;
+export const VIEW_DEFS: Record<string, { label: string | ViewLabelFn; icon: React.ReactNode; activeClass: string }> = {
+    vuegenerale: {
+        label: (l: any) => tx(l, { fr: 'Vue Générale', ar: 'نظرة عامة', en: 'Overview', es: 'Vista General', pt: 'Visão Geral', tr: 'Genel Bakış' }),
+        icon: <BarChart3 className="w-3.5 h-3.5" />,
+        activeClass: 'bg-indigo-50 border-indigo-100 text-indigo-700'
+    },
     dashboard: {
         label: (l: any) => tx(l, { fr: 'Tableau de bord', ar: 'لوحة التحكم', en: 'Dashboard', es: 'Panel', pt: 'Painel', tr: 'Gösterge Paneli' }),
         icon: <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect width="7" height="9" x="3" y="3" rx="1" /><rect width="7" height="5" x="14" y="3" rx="1" /><rect width="7" height="9" x="14" y="12" rx="1" /><rect width="7" height="5" x="3" y="16" rx="1" /></svg>,
@@ -261,7 +267,7 @@ export default function AppHeader({
                                 return (
                                     <NavDropdown
                                         key={category.id}
-                                        label={category.name}
+                                        label={CATEGORY_TRANSLATIONS[category.id] ? tx(lang, CATEGORY_TRANSLATIONS[category.id]) : category.name}
                                         views={visibleViews}
                                         currentView={currentView}
                                         activeClass={activeClass}
@@ -344,7 +350,7 @@ export default function AppHeader({
                                 a.click();
                             }}
                             className="hidden md:flex items-center justify-center w-8 h-8 rounded-full bg-white border border-gray-100 text-gray-400 hover:text-blue-600 hover:border-blue-100 transition-colors cursor-pointer"
-                            title="Télécharger la base de données (Sauvegarde DB) / تحميل قاعدة البيانات (نسخة احتياطية)"
+                            title={tx(lang, {fr:"Télécharger la base de données (Sauvegarde DB)",ar:"تحميل قاعدة البيانات (نسخة احتياطية)",en:"Download database (DB backup)",es:"Descargar base de datos (Respaldo DB)",pt:"Baixar banco de dados (Backup DB)",tr:"Veritabanını indir (DB yedekleme)"})}
                         >
                             <Database className="w-3.5 h-3.5" />
                         </button>

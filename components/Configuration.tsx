@@ -465,7 +465,7 @@ const VIEW_LABELS: Record<string, Partial<Record<Lang, string>> & { fr: string }
     machin: { fr: 'Catalogue & Paramètres', ar: 'كتالوج و إعدادات', en: 'Catalog & Settings', es: 'Catálogo y Parámetros', pt: 'Catálogo e Parâmetros', tr: 'Katalog ve Ayarlar' },
     objectifs: { fr: 'Objectifs', ar: 'الأهداف', en: 'Objectives', es: 'Objetivos', pt: 'Objetivos', tr: 'Hedefler' },
     config: { fr: 'Configuration', ar: 'الإعدادات العامة', en: 'Configuration', es: 'Configuración', pt: 'Configuração', tr: 'Yapılandırma' },
-    paramitre: { fr: 'Paramètres', ar: 'الإعدادات', en: 'Settings', es: 'Parámetros', pt: 'Parâmetros', tr: 'Ayarlar' },
+    paramètres: { fr: 'Paramètres', ar: 'الإعدادات', en: 'Settings', es: 'Parámetros', pt: 'Parâmetros', tr: 'Ayarlar' },
     admin: { fr: 'Admin', ar: 'المشرف', en: 'Admin', es: 'Admin', pt: 'Admin', tr: 'Yönetici' },
 };
 

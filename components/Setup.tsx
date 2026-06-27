@@ -312,18 +312,18 @@ export default function Setup({ onComplete }: Props) {
     // Réinitialise pour autoriser la re-sélection du même fichier après un échec.
     e.target.value = '';
     if (!file) return;
-    if (!file.type.startsWith('image/')) { setError('Veuillez choisir un fichier image.'); return; }
+    if (!file.type.startsWith('image/')) { setError(tx(lang,{fr:'Veuillez choisir un fichier image.',ar:'الرجاء اختيار ملف صورة.',en:'Please choose an image file.',es:'Por favor, elija un archivo de imagen.',pt:'Por favor, escolha um ficheiro de imagem.',tr:'Lütfen bir resim dosyası seçin.'})); return; }
     // On accepte n'importe quelle taille raisonnable : l'image est ensuite
     // redimensionnée et compressée côté client (logo léger pour documents & sync).
-    if (file.size > 15 * 1024 * 1024) { setError('Image trop volumineuse (max 15 Mo).'); return; }
+    if (file.size > 15 * 1024 * 1024) { setError(tx(lang,{fr:'Image trop volumineuse (max 15 Mo).',ar:'الصورة كبيرة جدًا (الحد الأقصى 15 ميغا).',en:'Image too large (max 15 MB).',es:'Imagen demasiado grande (máx. 15 MB).',pt:'Imagem demasiado grande (máx. 15 MB).',tr:'Resim çok büyük (maks. 15 MB).'})); return; }
     setError(null);
     const reader = new FileReader();
-    reader.onerror = () => setError('Erreur lors de la lecture du fichier.');
+    reader.onerror = () => setError(tx(lang,{fr:'Erreur lors de la lecture du fichier.',ar:'خطأ أثناء قراءة الملف.',en:'Error reading file.',es:'Error al leer el archivo.',pt:'Erro ao ler o ficheiro.',tr:'Dosya okunurken hata.'}));
     reader.onload = () => {
       const src = typeof reader.result === 'string' ? reader.result : '';
-      if (!src) { setError("Impossible de lire l'image."); return; }
+      if (!src) { setError(tx(lang,{fr:"Impossible de lire l'image.",ar:"تعذر قراءة الصورة.",en:"Could not read the image.",es:"No se pudo leer la imagen.",pt:"Não foi possível ler a imagem.",tr:"Resim okunamadı."})); return; }
       const img = new Image();
-      img.onerror = () => setError("Impossible de lire l'image choisie.");
+      img.onerror = () => setError(tx(lang,{fr:"Impossible de lire l'image choisie.",ar:"تعذر قراءة الصورة المختارة.",en:"Could not read the selected image.",es:"No se pudo leer la imagen seleccionada.",pt:"Não foi possível ler a imagem selecionada.",tr:"Seçilen resim okunamadı."}));
       img.onload = () => {
         const MAX = 512; // dimension max du logo
         let { width, height } = img;
@@ -839,7 +839,7 @@ export default function Setup({ onComplete }: Props) {
                   label={tx(lang,{fr:'Nom complet',ar:'\u0627\u0644\u0627\u0633\u0645 \u0627\u0644\u0643\u0627\u0645\u0644',en:'Full name',es:'Nombre completo',pt:'Nome completo',tr:'Ad Soyad'})}
                   value={adminName}
                   onChange={setAdminName}
-                  placeholder="Ex. : Soulaimane Berraadi"
+                  placeholder={tx(lang,{fr:'Ex. : Soulaimane Berraadi',ar:'مثال: Soulaimane Berraadi',en:'E.g.: Soulaimane Berraadi',es:'Ej.: Soulaimane Berraadi',pt:'Ex.: Soulaimane Berraadi',tr:'Örn: Soulaimane Berraadi'})}
                   autoComplete="name"
                 />
                 <Field

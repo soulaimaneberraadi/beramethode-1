@@ -293,7 +293,7 @@ export const exportPointageMensuel = async (req: Request, res: Response) => {
         res.end();
     } catch (error) {
         console.error('Export pointage error:', error);
-        res.status(500).json({ message: 'Erreur export Excel' });
+        res.status(500).json({ message: 'Error exporting Excel' });
     }
 };
 

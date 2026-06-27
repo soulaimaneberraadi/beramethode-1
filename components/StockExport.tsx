@@ -236,7 +236,7 @@ export default function StockExport({ models, suivis, planningEvents = [], setMo
                 body: JSON.stringify({ suivis: newSuivis })
             });
         } catch (e) {
-            console.error("Failed to save défauts to database", e);
+            console.error(tx(lang, {fr:'Échec de l\'enregistrement des défauts dans la base de données',ar:'فشل حفظ العيوب في قاعدة البيانات',en:'Failed to save défauts to database',es:'Error al guardar défauts en la base de datos',pt:'Falha ao salvar défauts no banco de dados',tr:'Defauts veritabanına kaydedilemedi'}), e);
         }
     };
 

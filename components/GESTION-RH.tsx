@@ -335,7 +335,7 @@ function WorkerModal({ worker, onClose, onSave, transportLignes }: { worker: Par
                 </div>
               </div>
               <Field label={tx(lang, { fr: 'Matricule', ar: 'الرقم المهني', en: 'Registration No.', es: 'Matrícula', pt: 'Matrícula', tr: 'Kayıt No' })} value={form.matricule} onChange={v => set('matricule', v)} placeholder="MAT-001" required />
-              <Field label={tx(lang, { fr: 'Nom Complet', ar: 'الاسم الكامل', en: 'Full Name', es: 'Nombre Completo', pt: 'Nome Completo', tr: 'Tam Ad' })} value={form.full_name} onChange={v => set('full_name', v)} placeholder="Prénom Nom" required />
+              <Field label={tx(lang, { fr: 'Nom Complet', ar: 'الاسم الكامل', en: 'Full Name', es: 'Nombre Completo', pt: 'Nome Completo', tr: 'Tam Ad' })} value={form.full_name} onChange={v => set('full_name', v)} placeholder={tx(lang, { fr: 'Prénom Nom', ar: 'الاسم الأول والنسب', en: 'First Last', es: 'Nombre Apellido', pt: 'Nome Sobrenome', tr: 'Ad Soyad' })} required />
               <Field label={tx(lang, { fr: 'CIN', ar: 'رقم البطاقة الوطنية', en: 'ID No.', es: 'Cédula', pt: 'CIN', tr: 'Kimlik No' })} value={form.cin ?? ''} onChange={v => set('cin', v)} placeholder="AB123456" />
               <Field label={tx(lang, { fr: 'CNSS', ar: 'رقم CNSS', en: 'CNSS No.', es: 'CNSS', pt: 'CNSS', tr: 'CNSS No' })} value={form.cnss ?? ''} onChange={v => set('cnss', v)} placeholder={tx(lang, { fr: 'Numéro CNSS', ar: 'رقم CNSS', en: 'CNSS Number', es: 'Número CNSS', pt: 'Número CNSS', tr: 'CNSS Numarası' })} />
               {form.id && (
@@ -359,7 +359,7 @@ function WorkerModal({ worker, onClose, onSave, transportLignes }: { worker: Par
                 <div style={{ gridColumn: '1/-1', borderTop: '1px solid #E2E8F0', paddingTop: 16, marginTop: 4 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
                     <Key size={16} color="#2149C1" />
-                    <span style={{ fontWeight: 700, fontSize: 13, color: '#0F172A' }}>PIN BERAOUVIER (CIN + PIN)</span>
+                    <span style={{ fontWeight: 700, fontSize: 13, color: '#0F172A' }}>{tx(lang, { fr: 'PIN BERAOUVIER (CIN + PIN)', ar: 'PIN BERAOUVIER (CIN + PIN)', en: 'PIN BERAOUVIER (CIN + PIN)', es: 'PIN BERAOUVIER (CIN + PIN)', pt: 'PIN BERAOUVIER (CIN + PIN)', tr: 'PIN BERAOUVIER (CIN + PIN)' })}</span>
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                     <Field label={tx(lang, { fr: 'Nouveau PIN', ar: 'PIN جديد', en: 'New PIN', es: 'Nuevo PIN', pt: 'Novo PIN', tr: 'Yeni PIN' })} value={pin1} onChange={setPin1} type="password" placeholder={tx(lang, { fr: '4–8 chiffres', ar: '4–8 أرقام', en: '4–8 digits', es: '4–8 dígitos', pt: '4–8 dígitos', tr: '4–8 hane' })} />
@@ -1734,7 +1734,7 @@ export default function GestionRH({
           <WorkerModal
             worker={editWorker}
             onClose={() => { setShowWorkerModal(false); setEditWorker(null); }}
-            onSave={() => { fetchWorkers(); showToast('Ouvrier sauvegardé'); }}
+            onSave={() => { fetchWorkers(); showToast(tx(lang, { fr: 'Ouvrier sauvegardé', ar: 'تم حفظ العامل', en: 'Worker saved', es: 'Operario guardado', pt: 'Operário salvo', tr: 'İşçi kaydedildi' })); }}
             transportLignes={transportLignes}
           />
         )}
@@ -1823,8 +1823,7 @@ export default function GestionRH({
         {!loading && !loadError && claimPreview?.canClaim && (
           <div style={{ marginBottom: 16, padding: '14px 18px', borderRadius: 12, background: 'linear-gradient(90deg, #FFFBEB 0%, #FEF3C7 100%)', border: '1px solid #FCD34D', display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
             <div style={{ fontSize: 13, color: '#78350F', lineHeight: 1.4 }}>
-              <strong>{claimPreview.guestCount} ouvrier{claimPreview.guestCount !== 1 ? 's' : ''}</strong> enregistré{claimPreview.guestCount !== 1 ? 's' : ''} sur l’ancien compte invité (fiches locales).
-              Votre compte n’en a pas encore : vous pouvez tout rattacher pour que le comptage soit <strong>réel</strong> ici.
+              {(() => { const msg = tx(lang, { fr: `<strong>${claimPreview.guestCount} ouvrier${claimPreview.guestCount !== 1 ? 's' : ''}</strong> enregistré${claimPreview.guestCount !== 1 ? 's' : ''} sur l’ancien compte invité (fiches locales). Votre compte n’en a pas encore : vous pouvez tout rattacher pour que le comptage soit <strong>réel</strong> ici.`, ar: `<strong>${claimPreview.guestCount} عامل</strong> مسجل على حساب الزائر القديم (ملفات محلية). حسابك لا يملك أي عامل بعد: يمكنك ربط الكل ليكون العدد <strong>حقيقياً</strong> هنا.`, en: `<strong>${claimPreview.guestCount} worker${claimPreview.guestCount !== 1 ? 's' : ''}</strong> recorded on the old guest account (local records). Your account doesn't have any yet: you can attach them all so the count is <strong>real</strong> here.`, es: `<strong>${claimPreview.guestCount} operario${claimPreview.guestCount !== 1 ? 's' : ''}</strong> registrado${claimPreview.guestCount !== 1 ? 's' : ''} en la cuenta de invitado anterior (fichas locales). Su cuenta aún no tiene ninguno: puede vincularlos todos para que el recuento sea <strong>real</strong> aquí.`, pt: `<strong>${claimPreview.guestCount} operário${claimPreview.guestCount !== 1 ? 's' : ''}</strong> registrado${claimPreview.guestCount !== 1 ? 's' : ''} na conta de convidado antiga (registros locais). Sua conta ainda não tem nenhum: você pode vincular todos para que a contagem seja <strong>real</strong> aqui.`, tr: `Eski misafir hesabında kayıtlı <strong>${claimPreview.guestCount} işçi</strong> (yerel kayıtlar). Hesabınızda henüz yok: sayının <strong>gerçek</strong> olması için hepsini bağlayabilirsiniz.` }); return <span dangerouslySetInnerHTML={{ __html: msg }} />; })()}
             </div>
             <button
               type="button"
@@ -2048,12 +2047,12 @@ export default function GestionRH({
                       <div style={{ gridColumn: '1/-1', textAlign: 'center', padding: 60, color: '#94A3B8' }}>
                         <Users size={48} style={{ marginBottom: 12, opacity: 0.3 }} />
                         <div style={{ fontWeight: 600 }}>
-                          {workers.length > 0 ? 'Aucun ouvrier ne correspond aux filtres' : 'Aucun ouvrier enregistré pour ce compte'}
+                          {workers.length > 0 ? tx(lang, { fr: 'Aucun ouvrier ne correspond aux filtres', ar: 'لا يوجد عامل يطابق معايير البحث', en: 'No worker matches the filters', es: 'Ningún trabajador coincide con los filtros', pt: 'Nenhum trabalhador corresponde aos filtros', tr: 'Filtrelere uygun işçi yok' }) : tx(lang, { fr: 'Aucun ouvrier enregistré pour ce compte', ar: 'لا يوجد عامل مسجل لهذا الحساب', en: 'No worker registered for this account', es: 'Ningún trabajador registrado para esta cuenta', pt: 'Nenhum trabalhador registrado para esta conta', tr: 'Bu hesap için kayıtlı işçi yok' })}
                         </div>
                         <div style={{ fontSize: 12, marginTop: 4, maxWidth: 420, marginLeft: 'auto', marginRight: 'auto', lineHeight: 1.5 }}>
                           {workers.length > 0
-                            ? 'Modifiez la recherche ou le filtre « Tous les rôles ».'
-                            : "Les fiches sont liées à l'utilisateur connecté. Connectez-vous avec le compte qui a créé les données, ou cliquez sur « Ajouter Ouvrier »."}
+                            ? tx(lang, { fr: 'Modifiez la recherche ou le filtre « Tous les rôles ».', ar: 'عدّل البحث أو الفلتر "جميع الأدوار".', en: 'Modify the search or the "All roles" filter.', es: 'Modifique la búsqueda o el filtro "Todos los roles".', pt: 'Modifique a pesquisa ou o filtro "Todos os cargos".', tr: 'Aramayı veya "Tüm Roller" filtresini değiştirin.' })
+                            : tx(lang, { fr: 'Les fiches sont liées à l\'utilisateur connecté. Connectez-vous avec le compte qui a créé les données, ou cliquez sur « Ajouter Ouvrier ».', ar: 'الملفات مرتبطة بالمستخدم الحالي. سجّل الدخول بالحساب الذي أنشأ البيانات، أو انقر على "إضافة عامل".', en: 'Records are linked to the logged-in user. Log in with the account that created the data, or click "Add Worker".', es: 'Los registros están vinculados al usuario conectado. Inicie sesión con la cuenta que creó los datos, o haga clic en "Agregar Operario".', pt: 'Os registros estão vinculados ao usuário conectado. Faça login com a conta que criou os dados ou clique em "Adicionar Operário".', tr: 'Kayıtlar, oturum açmış kullanıcıya bağlıdır. Verileri oluşturan hesapla oturum açın veya "İşçi Ekle"ye tıklayın.' })}
                         </div>
                       </div>
                     )}
@@ -2068,7 +2067,7 @@ export default function GestionRH({
                 {/* 1. KPI — largeur 100 % (plus de min 508px → plus de bande vide sur téléphone) */}
                 <div style={{ overflowX: 'auto', overflowY: 'hidden', width: '100%', maxWidth: '100%', WebkitOverflowScrolling: 'touch', flexShrink: 0, marginBottom: 2 }}>
                   <div className="pointage-kpi-grid">
-                    <div title="Journée de pointage" style={{ background: '#fff', padding: '4px 8px', borderRadius: '8px', border: '1px solid #f1f5f9', boxShadow: '0 1px 2px rgba(0,0,0,0.04)', display: 'flex', alignItems: 'center', gap: '6px', minHeight: 32 }}>
+                    <div title={tx(lang, { fr: 'Journée de pointage', ar: 'يوم التسجيل', en: 'Attendance day', es: 'Día de registro', pt: 'Dia de registo', tr: 'Yoklama günü' })} style={{ background: '#fff', padding: '4px 8px', borderRadius: '8px', border: '1px solid #f1f5f9', boxShadow: '0 1px 2px rgba(0,0,0,0.04)', display: 'flex', alignItems: 'center', gap: '6px', minHeight: 32 }}>
                       <Calendar size={14} color="#4f46e5" style={{ flexShrink: 0 }} />
                       <input type="date" value={selectedDate} onChange={e => setSelectedDate(e.target.value)}
                         style={{ border: 'none', padding: 0, fontSize: '12px', fontWeight: 800, color: '#1e293b', width: '100%', minWidth: 0, cursor: 'pointer', outline: 'none' }} />
@@ -2079,7 +2078,7 @@ export default function GestionRH({
 
                     <div
                       className="kpi-card"
-                      title={`Présents : ${pointageFilterStats.presents} sur ${pointageTableWorkers.length} ouvriers`}
+                      title={tx(lang, { fr: `Présents : ${pointageFilterStats.presents} sur ${pointageTableWorkers.length} ouvriers`, ar: `الحاضرون: ${pointageFilterStats.presents} من ${pointageTableWorkers.length} عامل`, en: `Present: ${pointageFilterStats.presents} out of ${pointageTableWorkers.length} workers`, es: `Presentes: ${pointageFilterStats.presents} de ${pointageTableWorkers.length} operarios`, pt: `Presentes: ${pointageFilterStats.presents} de ${pointageTableWorkers.length} operários`, tr: `Mevcut: ${pointageFilterStats.presents}/${pointageTableWorkers.length} işçi` })}
                       style={{ background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)', padding: '4px 8px', borderRadius: '8px', boxShadow: '0 2px 8px -2px rgba(16,185,129,0.35)', color: '#fff', display: 'flex', alignItems: 'center', gap: '6px', minHeight: 32 }}
                     >
                       <CheckCircle size={15} style={{ flexShrink: 0, opacity: 0.95 }} />
@@ -2090,7 +2089,7 @@ export default function GestionRH({
 
                     <div
                       className="kpi-card"
-                      title={`Absents : ${pointageFilterStats.absents} sur ${pointageTableWorkers.length} ouvriers`}
+                      title={tx(lang, { fr: `Absents : ${pointageFilterStats.absents} sur ${pointageTableWorkers.length} ouvriers`, ar: `الغائبون: ${pointageFilterStats.absents} من ${pointageTableWorkers.length} عامل`, en: `Absent: ${pointageFilterStats.absents} out of ${pointageTableWorkers.length} workers`, es: `Ausentes: ${pointageFilterStats.absents} de ${pointageTableWorkers.length} operarios`, pt: `Ausentes: ${pointageFilterStats.absents} de ${pointageTableWorkers.length} operários`, tr: `Yok: ${pointageFilterStats.absents}/${pointageTableWorkers.length} işçi` })}
                       style={{ background: 'linear-gradient(135deg, #f43f5e 0%, #e11d48 100%)', padding: '4px 8px', borderRadius: '8px', boxShadow: '0 2px 8px -2px rgba(244,63,94,0.35)', color: '#fff', display: 'flex', alignItems: 'center', gap: '6px', minHeight: 32 }}
                     >
                       <X size={15} style={{ flexShrink: 0, opacity: 0.95 }} />
@@ -2101,7 +2100,7 @@ export default function GestionRH({
 
                     <div
                       className="kpi-card"
-                      title={`Retards : ${pointageFilterStats.retards} parmi ${pointageFilterStats.presents} présents`}
+                      title={tx(lang, { fr: `Retards : ${pointageFilterStats.retards} parmi ${pointageFilterStats.presents} présents`, ar: `المتأخرون: ${pointageFilterStats.retards} من ${pointageFilterStats.presents} حاضر`, en: `Late: ${pointageFilterStats.retards} among ${pointageFilterStats.presents} present`, es: `Tardanzas: ${pointageFilterStats.retards} entre ${pointageFilterStats.presents} presentes`, pt: `Atrasados: ${pointageFilterStats.retards} entre ${pointageFilterStats.presents} presentes`, tr: `Geç: ${pointageFilterStats.retards} mevcut ${pointageFilterStats.presents} arasında` })}
                       style={{ background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)', padding: '4px 8px', borderRadius: '8px', boxShadow: '0 2px 8px -2px rgba(245,158,11,0.35)', color: '#fff', display: 'flex', alignItems: 'center', gap: '6px', minHeight: 32 }}
                     >
                       <AlertTriangle size={15} style={{ flexShrink: 0, opacity: 0.95 }} />
@@ -2131,7 +2130,7 @@ export default function GestionRH({
                       onChange={e => setPointageChaine(e.target.value)}
                       style={{ ...inputStyle, width: 'min(148px, 42vw)', maxWidth: '100%', height: '30px', borderRadius: '6px', background: '#f8fafc', fontSize: '11px' }}
                     >
-                      <option value="">Toutes les chaînes</option>
+                      <option value="">{tx(lang, { fr: 'Toutes les chaînes', ar: 'جميع الخطوط', en: 'All lines', es: 'Todas las líneas', pt: 'Todas as linhas', tr: 'Tüm hatlar' })}</option>
                       {pointageChaineOptions.map(c => (
                         <option key={c} value={c}>{c}</option>
                       ))}
@@ -2194,7 +2193,7 @@ export default function GestionRH({
                       type="button"
                       aria-pressed={!showTranches}
                       onClick={() => setShowTranches(false)}
-                      title="Vue simplifiée : Entrée / Sortie uniquement (masquer les tranches)"
+                      title={tx(lang, { fr: 'Vue simplifiée : Entrée / Sortie uniquement (masquer les tranches)', ar: 'عرض مبسط: دخول/خروج فقط (إخفاء الفترات)', en: 'Simplified view: Entry / Exit only (hide time slots)', es: 'Vista simplificada: Entrada / Salida solamente (ocultar franjas)', pt: 'Vista simplificada: Entrada / Saída apenas (ocultar segmentos)', tr: 'Basitleştirilmiş görünüm: Yalnızca Giriş/Çıkış (dilimleri gizle)' })}
                       style={{
                         display: 'inline-flex',
                         alignItems: 'center',
@@ -2226,7 +2225,7 @@ export default function GestionRH({
                     </button>
                   </div>
 
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0, marginLeft: 'auto' }} title="Entrée/Sortie même jour · tranches SAGE">
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0, marginLeft: 'auto' }} title={tx(lang, { fr: 'Entrée/Sortie même jour · tranches SAGE', ar: 'دخول/خروج نفس اليوم · فترات SAGE', en: 'Same day Entry/Exit · SAGE time slots', es: 'Entrada/Salida mismo día · franjas SAGE', pt: 'Entrada/Saída mesmo dia · segmentos SAGE', tr: 'Aynı gün Giriş/Çıkış · SAGE dilimleri' })}>
                     <div style={{ width: '5px', height: '5px', borderRadius: '50%', background: '#10b981', animation: 'pulse 2s infinite' }} />
                     <span style={{ fontSize: '10px', fontWeight: 700, color: '#64748b' }}>:00</span>
                   </div>
@@ -2234,7 +2233,7 @@ export default function GestionRH({
 
                 <div
                   lang="fr-FR"
-                  title="Entrée/Sortie le même jour. Tranches synchronisées avec le moteur SAGE."
+                  title={tx(lang, { fr: 'Entrée/Sortie le même jour. Tranches synchronisées avec le moteur SAGE.', ar: 'دخول/خروج في نفس اليوم. الفترات متزامنة مع محرك SAGE.', en: 'Same day Entry/Exit. Time slots synchronized with the SAGE engine.', es: 'Entrada/Salida el mismo día. Franjas sincronizadas con el motor SAGE.', pt: 'Entrada/Saída no mesmo dia. Segmentos sincronizados com o motor SAGE.', tr: 'Aynı gün Giriş/Çıkış. Dilimler SAGE motoru ile senkronize edilmiştir.' })}
                   style={{
                     background: '#fff',
                     borderRadius: '8px',
@@ -2266,16 +2265,16 @@ export default function GestionRH({
                       <thead style={{ position: 'sticky', top: 0, zIndex: 40, background: '#fff' }}>
                         <tr style={{ background: '#f8fafc' }}>
                           {/* Sans 2e ligne d’en-tête (tranches masquées), rowSpan doit être 1 sinon le tableau HTML est invalide / affichage cassé */}
-                          <th rowSpan={showTranches ? 2 : 1} style={{ padding: '4px 6px', textAlign: 'left', fontSize: '9px', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em', borderBottom: '1px solid #e2e8f0', position: 'sticky', left: 0, zIndex: 50, background: '#f8fafc', boxShadow: '2px 0 4px -2px rgba(0,0,0,0.06)', minWidth: '168px' }}>Ouvrier</th>
+                          <th rowSpan={showTranches ? 2 : 1} style={{ padding: '4px 6px', textAlign: 'left', fontSize: '9px', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em', borderBottom: '1px solid #e2e8f0', position: 'sticky', left: 0, zIndex: 50, background: '#f8fafc', boxShadow: '2px 0 4px -2px rgba(0,0,0,0.06)', minWidth: '168px' }}>{tx(lang, { fr: 'Ouvrier', ar: 'العامل', en: 'Worker', es: 'Operario', pt: 'Operário', tr: 'İşçi' })}</th>
                           {showTranches && (
-                            <th colSpan={pointageTrancheColCount} style={{ padding: '3px 4px', textAlign: 'center', fontSize: '8px', fontWeight: 800, color: '#4f46e5', textTransform: 'uppercase', letterSpacing: '0.04em', borderBottom: '1px solid #e2e8f0', background: '#f5f3ff' }}>Tranches</th>
+                            <th colSpan={pointageTrancheColCount} style={{ padding: '3px 4px', textAlign: 'center', fontSize: '8px', fontWeight: 800, color: '#4f46e5', textTransform: 'uppercase', letterSpacing: '0.04em', borderBottom: '1px solid #e2e8f0', background: '#f5f3ff' }}>{tx(lang, { fr: 'Tranches', ar: 'الفترات', en: 'Slots', es: 'Franjas', pt: 'Intervalos', tr: 'Dilimler' })}</th>
                           )}
-                          <th rowSpan={showTranches ? 2 : 1} style={{ padding: '4px 6px', textAlign: 'left', fontSize: '9px', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em', borderBottom: '1px solid #e2e8f0', width: '92px' }}>Entrée</th>
-                          <th rowSpan={showTranches ? 2 : 1} style={{ padding: '4px 6px', textAlign: 'left', fontSize: '9px', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em', borderBottom: '1px solid #e2e8f0', width: '92px' }}>Sortie</th>
+                          <th rowSpan={showTranches ? 2 : 1} style={{ padding: '4px 6px', textAlign: 'left', fontSize: '9px', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em', borderBottom: '1px solid #e2e8f0', width: '92px' }}>{tx(lang, { fr: 'Entrée', ar: 'الدخول', en: 'Entry', es: 'Entrada', pt: 'Entrada', tr: 'Giriş' })}</th>
+                          <th rowSpan={showTranches ? 2 : 1} style={{ padding: '4px 6px', textAlign: 'left', fontSize: '9px', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em', borderBottom: '1px solid #e2e8f0', width: '92px' }}>{tx(lang, { fr: 'Sortie', ar: 'الخروج', en: 'Exit', es: 'Salida', pt: 'Saída', tr: 'Çıkış' })}</th>
                           <th rowSpan={showTranches ? 2 : 1} style={{ padding: '4px 4px', textAlign: 'center', fontSize: '9px', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em', borderBottom: '1px solid #e2e8f0', width: '62px' }}>H.N.</th>
                           <th rowSpan={showTranches ? 2 : 1} style={{ padding: '4px 4px', textAlign: 'center', fontSize: '9px', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em', borderBottom: '1px solid #e2e8f0', width: '62px' }}>25%</th>
                           <th rowSpan={showTranches ? 2 : 1} style={{ padding: '4px 4px', textAlign: 'center', fontSize: '9px', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em', borderBottom: '1px solid #e2e8f0', width: '62px' }}>50%</th>
-                          <th rowSpan={showTranches ? 2 : 1} style={{ padding: '4px 6px', textAlign: 'right', fontSize: '9px', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em', borderBottom: '1px solid #e2e8f0', width: '108px' }}>Statut</th>
+                          <th rowSpan={showTranches ? 2 : 1} style={{ padding: '4px 6px', textAlign: 'right', fontSize: '9px', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em', borderBottom: '1px solid #e2e8f0', width: '108px' }}>{tx(lang, { fr: 'Statut', ar: 'الحالة', en: 'Status', es: 'Estado', pt: 'Status', tr: 'Durum' })}</th>
                         </tr>
                         {showTranches && (
                           <tr style={{ background: '#f8fafc' }}>
@@ -2452,11 +2451,11 @@ export default function GestionRH({
                                       textAlignLast: 'center'
                                     }}
                                   >
-                                    <optgroup label="Présence">
-                                      <option value="PRESENT">Présent</option>
-                                      <option value="RETARD">Retard</option>
+                                    <optgroup label={tx(lang, { fr: 'Présence', ar: 'حضور', en: 'Presence', es: 'Presencia', pt: 'Presença', tr: 'Mevcut' })}>
+                                      <option value="PRESENT">{tx(lang, { fr: 'Présent', ar: 'حاضر', en: 'Present', es: 'Presente', pt: 'Presente', tr: 'Mevcut' })}</option>
+                                      <option value="RETARD">{tx(lang, { fr: 'Retard', ar: 'متأخر', en: 'Late', es: 'Tarde', pt: 'Atrasado', tr: 'Geç' })}</option>
                                     </optgroup>
-                                    <optgroup label="Absence / Autre">
+                                    <optgroup label={tx(lang, { fr: 'Absence / Autre', ar: 'غياب / آخر', en: 'Absence / Other', es: 'Ausencia / Otro', pt: 'Ausência / Outro', tr: 'Devamsızlık / Diğer' })}>
                                       {['ABSENT', 'CONGE', 'MALADIE', 'MISSION', 'FERIE'].map(k => (
                                         <option key={k} value={k}>{tx(lang, STATUS_CONFIG[k as HRPointageStatus]?.label) || k}</option>
                                       ))}
@@ -2488,8 +2487,8 @@ export default function GestionRH({
                       </div>
                     </div>
                     <div style={{ textAlign: 'right' }}>
-                      <div style={{ fontSize: '12px', fontWeight: 700, color: '#64748b' }}>{pointageTableWorkers.length} ouvriers affichés</div>
-                      <div style={{ fontSize: '10px', color: '#94a3b8', fontWeight: 500 }}>Basé sur les filtres actifs</div>
+                      <div style={{ fontSize: '12px', fontWeight: 700, color: '#64748b' }}>{pointageTableWorkers.length} {tx(lang, { fr: 'ouvriers affichés', ar: 'عامل معروض', en: 'workers displayed', es: 'trabajadores mostrados', pt: 'trabalhadores exibidos', tr: 'işçi görüntüleniyor' })}</div>
+                      <div style={{ fontSize: '10px', color: '#94a3b8', fontWeight: 500 }}>{tx(lang, { fr: 'Basé sur les filtres actifs', ar: 'بناءً على الفلاتر النشطة', en: 'Based on active filters', es: 'Basado en filtros activos', pt: 'Com base nos filtros ativos', tr: 'Aktif filtrelere göre' })}</div>
                     </div>
                   </div>
 
@@ -2499,7 +2498,7 @@ export default function GestionRH({
                         <Search size={24} color="#94a3b8" />
                       </div>
                       <div style={{ fontSize: '15px', fontWeight: 700, color: '#334155', marginBottom: '8px' }}>{tx(lang, { fr: 'Aucun résultat', ar: 'لا توجد نتائج', en: 'No results', es: 'Sin resultados', pt: 'Nenhum resultado', tr: 'Sonuç yok' })}</div>
-                      <div style={{ fontSize: '13px', color: '#94a3b8', fontWeight: 500 }}>Ajustez la recherche ou le filtre chaîne pour afficher des ouvriers</div>
+                      <div style={{ fontSize: '13px', color: '#94a3b8', fontWeight: 500 }}>{tx(lang, { fr: 'Ajustez la recherche ou le filtre chaîne pour afficher des ouvriers', ar: 'عدّل البحث أو فلتر الخط لعرض العمال', en: 'Adjust the search or line filter to display workers', es: 'Ajuste la búsqueda o el filtro de línea para mostrar operarios', pt: 'Ajuste a pesquisa ou o filtro de linha para exibir trabalhadores', tr: 'İşçileri görüntülemek için aramayı veya hat filtresini ayarlayın' })}</div>
                     </div>
                   )}
                   {workers.length === 0 && (
@@ -2508,7 +2507,7 @@ export default function GestionRH({
                         <Users size={24} color="#94a3b8" />
                       </div>
                       <div style={{ fontSize: '15px', fontWeight: 700, color: '#334155', marginBottom: '8px' }}>{tx(lang, { fr: 'Aucun ouvrier enregistré', ar: 'لا يوجد عمال مسجلون', en: 'No registered workers', es: 'Ningún trabajador registrado', pt: 'Nenhum trabalhador registrado', tr: 'Kayıtlı işçi yok' })}</div>
-                      <div style={{ fontSize: '13px', color: '#94a3b8', fontWeight: 500 }}>Ajoutez des ouvriers dans l'onglet Annuaire pour commencer le pointage</div>
+                      <div style={{ fontSize: '13px', color: '#94a3b8', fontWeight: 500 }}>{tx(lang, { fr: 'Ajoutez des ouvriers dans l\'onglet Annuaire pour commencer le pointage', ar: 'أضف عمالاً في علامة التبويب "الدليل" لبدء تسجيل الحضور', en: 'Add workers in the Directory tab to start time tracking', es: 'Agregue operarios en la pestaña Directorio para comenzar el registro', pt: 'Adicione trabalhadores na guia Diretório para iniciar o ponto', tr: 'Puanta j Kaydına başlamak için Rehber sekmesine işçi ekleyin' })}</div>
                     </div>
                   )}
                 </div>
@@ -2533,11 +2532,11 @@ export default function GestionRH({
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
                   <input type="date" value={selectedDate} onChange={e => setSelectedDate(e.target.value)} style={{ ...inputStyle, width: 160 }} />
-                  <button onClick={fetchProduction} style={btnSecondary}><RefreshCw size={14} style={{ marginRight: 6 }} />Actualiser</button>
+                  <button onClick={fetchProduction} style={btnSecondary}><RefreshCw size={14} style={{ marginRight: 6 }} />{tx(lang, { fr: 'Actualiser', ar: 'تحديث', en: 'Refresh', es: 'Actualizar', pt: 'Atualizar', tr: 'Yenile' })}</button>
                   {productions.length > 0 && (
                     <div style={{ marginLeft: 'auto', display: 'flex', gap: 20, fontSize: 13 }}>
-                      <span>Total pièces: <strong style={{ color: '#10B981' }}>{productions.reduce((a:number, p:any) => a + (p.pieces_produites || 0), 0)}</strong></span>
-                      <span style={{ color: '#EF4444' }}>Défauts: <strong>{productions.reduce((a:number, p:any) => a + (p.pieces_defaut || 0), 0)}</strong></span>
+                      <span>{tx(lang, { fr: 'Total pièces', ar: 'إجمالي القطع', en: 'Total pieces', es: 'Total piezas', pt: 'Total peças', tr: 'Toplam parça' })}: <strong style={{ color: '#10B981' }}>{productions.reduce((a:number, p:any) => a + (p.pieces_produites || 0), 0)}</strong></span>
+                      <span style={{ color: '#EF4444' }}>{tx(lang, { fr: 'Défauts', ar: 'العيوب', en: 'Defects', es: 'Defectos', pt: 'Defeitos', tr: 'Kusurlar' })}: <strong>{productions.reduce((a:number, p:any) => a + (p.pieces_defaut || 0), 0)}</strong></span>
                     </div>
                   )}
                 </div>
@@ -2594,14 +2593,14 @@ export default function GestionRH({
               <div>
                 <div style={{ background: '#FEF3C7', borderRadius: 12, padding: '12px 16px', marginBottom: 16, fontSize: 13, color: '#92400E', display: 'flex', alignItems: 'center', gap: 10 }}>
                   <AlertTriangle size={16} />
-                  <span><strong>Article 385 — Code du Travail Marocain :</strong> La déduction mensuelle ne peut excéder 1/10ème du salaire net. Plafond appliqué automatiquement.</span>
+                  <span>{tx(lang, { fr: '<strong>Article 385 — Code du Travail Marocain :</strong> La déduction mensuelle ne peut excéder 1/10ème du salaire net. Plafond appliqué automatiquement.', ar: '<strong>المادة 385 — مدونة الشغل المغربية:</strong> لا يمكن أن يتجاوز الخصم الشهري 1/10 من الراتب الصافي. تم تطبيق الحد الأقصى تلقائياً.', en: '<strong>Article 385 — Moroccan Labor Code:</strong> Monthly deduction cannot exceed 1/10 of net salary. Cap applied automatically.', es: '<strong>Artículo 385 — Código del Trabajo Marroquí:</strong> La deducción mensual no puede exceder 1/10 del salario neto. Límite aplicado automáticamente.', pt: '<strong>Artigo 385 — Código do Trabalho Marroquino:</strong> A dedução mensal não pode exceder 1/10 do salário líquido. Limite aplicado automaticamente.', tr: '<strong>Madde 385 — Fas Çalışma Kanunu:</strong> Aylık kesinti net maaşın 1/10\'unu aşamaz. Sınır otomatik olarak uygulandı.' })}</span>
                 </div>
                 <div style={{ background: '#fff', borderRadius: 14, boxShadow: '0 2px 8px rgba(0,0,0,0.07)', overflow: 'hidden' }}>
                   <div style={{ overflowX: 'auto' }}>
                     <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                       <thead>
                         <tr style={{ background: '#F8FAFC' }}>
-                          {['Ouvrier', 'Date', 'Montant', 'Solde Restant', 'Statut', 'Actions'].map(h => (
+                          {[tx(lang, { fr: 'Ouvrier', ar: 'العامل', en: 'Worker', es: 'Operario', pt: 'Operário', tr: 'İşçi' }), tx(lang, { fr: 'Date', ar: 'التاريخ', en: 'Date', es: 'Fecha', pt: 'Data', tr: 'Tarih' }), tx(lang, { fr: 'Montant', ar: 'المبلغ', en: 'Amount', es: 'Monto', pt: 'Valor', tr: 'Tutar' }), tx(lang, { fr: 'Solde Restant', ar: 'الرصيد المتبقي', en: 'Remaining Balance', es: 'Saldo Restante', pt: 'Saldo Restante', tr: 'Kalan Bakiye' }), tx(lang, { fr: 'Statut', ar: 'الحالة', en: 'Status', es: 'Estado', pt: 'Status', tr: 'Durum' }), tx(lang, { fr: 'Actions', ar: 'الإجراءات', en: 'Actions', es: 'Acciones', pt: 'Ações', tr: 'İşlemler' })].map(h => (
                             <th key={h} style={{ padding: '10px 14px', textAlign: 'left', fontWeight: 600, color: '#64748B', fontSize: 12, borderBottom: '2px solid #E2E8F0' }}>{h}</th>
                           ))}
                         </tr>
@@ -2613,7 +2612,7 @@ export default function GestionRH({
                             <tr key={a.id} style={{ borderBottom: '1px solid #F1F5F9' }}>
                               <td style={{ padding: '10px 14px' }}>
                                 <div style={{ fontWeight: 600 }}>{a.full_name}</div>
-                                <div style={{ fontSize: 11, color: '#94A3B8' }}>Salaire: {a.salaire_base?.toLocaleString()} MAD</div>
+                                <div style={{ fontSize: 11, color: '#94A3B8' }}>{tx(lang, { fr: 'Salaire', ar: 'الراتب', en: 'Salary', es: 'Salario', pt: 'Salário', tr: 'Maaş' })}: {a.salaire_base?.toLocaleString()} MAD</div>
                               </td>
                               <td style={{ padding: '10px 14px', color: '#64748B' }}>{a.date_demande}</td>
                               <td style={{ padding: '10px 14px', fontWeight: 700, color: '#0F172A' }}>
@@ -2648,7 +2647,7 @@ export default function GestionRH({
                     {avances.length === 0 && (
                       <div style={{ textAlign: 'center', padding: 40, color: '#94A3B8' }}>
                         <DollarSign size={40} style={{ marginBottom: 10, opacity: 0.3 }} />
-                        <div>Aucune avance enregistrée</div>
+                        <div>{tx(lang, { fr: 'Aucune avance enregistrée', ar: 'لا توجد سلفات مسجلة', en: 'No advances recorded', es: 'Ningún anticipo registrado', pt: 'Nenhum adiantamento registrado', tr: 'Kayıtlı avans yok' })}</div>
                       </div>
                     )}
                   </div>
@@ -2686,17 +2685,17 @@ export default function GestionRH({
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, alignItems: 'start' }} className="recensement-grid-compact">
                     {/* Left Panel: Selection by Chaine & Quick Add */}
                     <div style={{ background: '#fff', borderRadius: 16, padding: 20, border: '1px solid #E2E8F0', boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}>
-                      <h3 style={{ margin: '0 0 16px', fontSize: 15, fontWeight: 700, color: '#0F172A' }}>Sélection des Passagers HS</h3>
+                      <h3 style={{ margin: '0 0 16px', fontSize: 15, fontWeight: 700, color: '#0F172A' }}>{tx(lang, { fr: 'Sélection des Passagers HS', ar: 'اختيار الركاب للساعات الإضافية', en: 'OT Passenger Selection', es: 'Selección de Pasajeros HS', pt: 'Seleção de Passageiros HE', tr: 'Fazla Mesai Yolcu Seçimi' })}</h3>
                       
                       {/* Date Filter */}
                       <div style={{ marginBottom: 16 }}>
-                        <label style={labelStyle}>Date de recensement</label>
+                        <label style={labelStyle}>{tx(lang, { fr: 'Date de recensement', ar: 'تاريخ الحصر', en: 'Census Date', es: 'Fecha de censo', pt: 'Data do recenseamento', tr: 'Sayım Tarihi' })}</label>
                         <input type="date" value={filterTransportDate} onChange={e => setFilterTransportDate(e.target.value)} style={inputStyle} />
                       </div>
 
                       {/* Quick Add Search */}
                       <div style={{ marginBottom: 20, position: 'relative' }}>
-                        <label style={labelStyle}>Recherche & Ajout Rapide</label>
+                        <label style={labelStyle}>{tx(lang, { fr: 'Recherche & Ajout Rapide', ar: 'بحث وإضافة سريعة', en: 'Quick Search & Add', es: 'Búsqueda y Agregado Rápido', pt: 'Pesquisa e Adição Rápida', tr: 'Hızlı Ara ve Ekle' })}</label>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                           <input type="text" placeholder={tx(lang, { fr: 'Rechercher par nom...', ar: 'بحث بالاسم...', en: 'Search by name...', es: 'Buscar por nombre...', pt: 'Pesquisar por nome...', tr: 'İsimle ara...' })} value={recensementSearch} onChange={e => setRecensementSearch(e.target.value)} style={inputStyle} />
                           {recensementSearch && (
@@ -2714,7 +2713,7 @@ export default function GestionRH({
                                 onMouseEnter={e => e.currentTarget.style.backgroundColor = '#F8FAFC'}
                                 onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}>
                                 <span style={{ fontWeight: 600 }}>{w.full_name}</span>
-                                <span style={{ fontSize: 11, color: '#64748B' }}>{w.equipe || 'Sans Équipe'} • {w.chaine_id || '—'}</span>
+                                <span style={{ fontSize: 11, color: '#64748B' }}>{w.equipe || tx(lang, { fr: 'Sans Équipe', ar: 'بدون فريق', en: 'No Team', es: 'Sin Equipo', pt: 'Sem Equipe', tr: 'Takım Yok' })} • {w.chaine_id || '—'}</span>
                               </div>
                             ))}
                             {workers.filter(w => w.is_active && !recensementWorkers.includes(w.id) && w.full_name.toLowerCase().includes(recensementSearch.toLowerCase())).length === 0 && (
@@ -2726,9 +2725,9 @@ export default function GestionRH({
 
                       {/* Select by Chaine */}
                       <div style={{ borderTop: '1px solid #F1F5F9', paddingTop: 16 }}>
-                        <label style={labelStyle}>Sélection par Chaîne de Production</label>
+                        <label style={labelStyle}>{tx(lang, { fr: 'Sélection par Chaîne de Production', ar: 'اختيار حسب خط الإنتاج', en: 'Selection by Production Line', es: 'Selección por Línea de Producción', pt: 'Seleção por Linha de Produção', tr: 'Üretim Hattına Göre Seçim' })}</label>
                         <select value={recensementChaine} onChange={e => setRecensementChaine(e.target.value)} style={{ ...inputStyle, marginBottom: 12 }}>
-                          <option value="">-- Sélectionner une chaîne --</option>
+                          <option value="">{tx(lang, { fr: '-- Sélectionner une chaîne --', ar: '-- اختر خطاً --', en: '-- Select a line --', es: '-- Seleccionar una línea --', pt: '-- Selecionar uma linha --', tr: '-- Bir hat seçin --' })}</option>
                           {pointageChaineOptions.map(ch => <option key={ch} value={ch}>{ch}</option>)}
                         </select>
 
@@ -2741,14 +2740,14 @@ export default function GestionRH({
                                   const chainIds = workers.filter(w => w.is_active && String(w.chaine_id || '') === recensementChaine).map(w => w.id);
                                   setRecensementWorkers(prev => [...new Set([...prev, ...chainIds])]);
                                 }}>
-                                Tout cocher
+                                {tx(lang, { fr: 'Tout cocher', ar: 'تحديد الكل', en: 'Select All', es: 'Seleccionar todo', pt: 'Selecionar tudo', tr: 'Tümünü Seç' })}
                               </button>
                               <button type="button" style={{ ...btnSecondary, padding: '5px 10px', fontSize: 11, color: '#EF4444', borderColor: '#FCA5A5' }}
                                 onClick={() => {
                                   const chainIds = workers.filter(w => w.is_active && String(w.chaine_id || '') === recensementChaine).map(w => w.id);
                                   setRecensementWorkers(prev => prev.filter(id => !chainIds.includes(id)));
                                 }}>
-                                Tout décocher
+                                {tx(lang, { fr: 'Tout décocher', ar: 'إلغاء تحديد الكل', en: 'Deselect All', es: 'Deseleccionar todo', pt: 'Desmarcar tudo', tr: 'Tümünü Kaldır' })}
                               </button>
                             </div>
 
@@ -2777,7 +2776,7 @@ export default function GestionRH({
                       {/* Summary Table Card */}
                       <div style={{ background: '#fff', borderRadius: 16, padding: 20, border: '1px solid #E2E8F0', boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-                          <h3 style={{ margin: 0, fontSize: 15, fontWeight: 700, color: '#0F172A' }}>Fiche Récapitulative</h3>
+                          <h3 style={{ margin: 0, fontSize: 15, fontWeight: 700, color: '#0F172A' }}>{tx(lang, { fr: 'Fiche Récapitulative', ar: 'بطاقة ملخصة', en: 'Summary Sheet', es: 'Ficha Resumen', pt: 'Ficha Resumo', tr: 'Özet Kartı' })}</h3>
                           <button onClick={handleCopyRecensementWhatsApp} disabled={recensementWorkers.length === 0} style={btnPrimary}>
                             <Copy size={14} style={{ marginRight: 6 }} /> {tx(lang, { fr: 'Copier WhatsApp', ar: 'نسخ واتساب', en: 'Copy WhatsApp', es: 'Copiar WhatsApp', pt: 'Copiar WhatsApp', tr: 'WhatsApp\'ı Kopyala' })}
                           </button>
@@ -2788,18 +2787,18 @@ export default function GestionRH({
                           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
                             <thead>
                               <tr style={{ background: '#F8FAFC', borderBottom: '1px solid #E2E8F0' }}>
-                                <th style={{ padding: '8px 12px', textAlign: 'left', fontWeight: 600, color: '#475569' }}>Équipe (Parda)</th>
-                                <th style={{ padding: '8px 12px', textAlign: 'center', fontWeight: 600, color: '#475569' }}>Nombre</th>
-                                <th style={{ padding: '8px 12px', textAlign: 'left', fontWeight: 600, color: '#475569' }}>Lignes / Quartiers</th>
+                                <th style={{ padding: '8px 12px', textAlign: 'left', fontWeight: 600, color: '#475569' }}>{tx(lang, { fr: 'Équipe (Parda)', ar: 'الفريق (الوردية)', en: 'Team (Parda)', es: 'Equipo (Parda)', pt: 'Equipe (Parda)', tr: 'Takım (Parda)' })}</th>
+                                <th style={{ padding: '8px 12px', textAlign: 'center', fontWeight: 600, color: '#475569' }}>{tx(lang, { fr: 'Nombre', ar: 'العدد', en: 'Count', es: 'Cantidad', pt: 'Quantidade', tr: 'Sayı' })}</th>
+                                <th style={{ padding: '8px 12px', textAlign: 'left', fontWeight: 600, color: '#475569' }}>{tx(lang, { fr: 'Lignes / Quartiers', ar: 'الخطوط / الأحياء', en: 'Lines / Districts', es: 'Líneas / Barrios', pt: 'Linhas / Bairros', tr: 'Hatlar / Mahalleler' })}</th>
                               </tr>
                             </thead>
                             <tbody>
                               {Object.entries(
                                 workers.filter(w => recensementWorkers.includes(w.id)).reduce((acc, w) => {
-                                  const eq = w.equipe || 'Sans Équipe';
+                                  const eq = w.equipe || tx(lang, { fr: 'Sans Équipe', ar: 'بدون فريق', en: 'No Team', es: 'Sin Equipo', pt: 'Sem Equipe', tr: 'Takım Yok' });
                                   if (!acc[eq]) acc[eq] = { count: 0, lines: new Set<string>() };
                                   acc[eq].count += 1;
-                                  acc[eq].lines.add(w.transport_ligne_quartier || w.transport_ligne_nom || 'Sans Transport');
+                                  acc[eq].lines.add(w.transport_ligne_quartier || w.transport_ligne_nom || tx(lang, { fr: 'Sans Transport', ar: 'بدون نقل', en: 'No Transport', es: 'Sin Transporte', pt: 'Sem Transporte', tr: 'Ulaşım Yok' }));
                                   return acc;
                                 }, {} as Record<string, { count: number; lines: Set<string> }>)
                               ).map(([parda, info]) => (
@@ -2810,9 +2809,9 @@ export default function GestionRH({
                                 </tr>
                               ))}
                               <tr style={{ background: '#F8FAFC', fontWeight: 700, borderTop: '2px solid #E2E8F0' }}>
-                                <td style={{ padding: '10px 12px' }}>Total passagers</td>
+                                <td style={{ padding: '10px 12px' }}>{tx(lang, { fr: 'Total passagers', ar: 'إجمالي الركاب', en: 'Total passengers', es: 'Total pasajeros', pt: 'Total passageiros', tr: 'Toplam yolcu' })}</td>
                                 <td style={{ padding: '10px 12px', textAlign: 'center', fontSize: 14, color: '#2149C1' }}>{recensementWorkers.length}</td>
-                                <td style={{ padding: '10px 12px', color: '#94A3B8', fontSize: 11 }}>Toutes équipes confondues</td>
+                                <td style={{ padding: '10px 12px', color: '#94A3B8', fontSize: 11 }}>{tx(lang, { fr: 'Toutes équipes confondues', ar: 'جميع الفرق مجتمعة', en: 'All teams combined', es: 'Todos los equipos combinados', pt: 'Todas as equipes combinadas', tr: 'Tüm takımlar dahil' })}</td>
                               </tr>
                             </tbody>
                           </table>
@@ -2823,7 +2822,7 @@ export default function GestionRH({
 
                         {/* List of checked passengers with quick remove */}
                         <div>
-                          <div style={{ fontSize: 12, fontWeight: 700, color: '#475569', marginBottom: 8 }}>Liste des passagers ({recensementWorkers.length}) :</div>
+                          <div style={{ fontSize: 12, fontWeight: 700, color: '#475569', marginBottom: 8 }}>{tx(lang, { fr: 'Liste des passagers', ar: 'قائمة الركاب', en: 'Passenger List', es: 'Lista de pasajeros', pt: 'Lista de passageiros', tr: 'Yolcu Listesi' })} ({recensementWorkers.length}) :</div>
                           <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 6, maxHeight: 220, overflowY: 'auto' }}>
                             {workers.filter(w => recensementWorkers.includes(w.id)).map(w => (
                               <div key={w.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 10px', borderRadius: 8, border: '1px solid #F1F5F9', background: '#F8FAFC', fontSize: 12 }}>
@@ -2850,17 +2849,17 @@ export default function GestionRH({
                     {/* Filters */}
                     <div style={{ display: 'flex', gap: 12, marginBottom: 20, alignItems: 'center', flexWrap: 'wrap' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <span style={{ fontSize: 13, fontWeight: 600, color: '#475569' }}>Date :</span>
+                        <span style={{ fontSize: 13, fontWeight: 600, color: '#475569' }}>{tx(lang, { fr: 'Date', ar: 'التاريخ', en: 'Date', es: 'Fecha', pt: 'Data', tr: 'Tarih' })} :</span>
                         <input type="date" value={filterTransportDate} onChange={e => setFilterTransportDate(e.target.value)}
                           style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid #CBD5E1', fontSize: 13, outline: 'none' }} />
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <span style={{ fontSize: 13, fontWeight: 600, color: '#475569' }}>Équipe (Parda) :</span>
+                        <span style={{ fontSize: 13, fontWeight: 600, color: '#475569' }}>{tx(lang, { fr: 'Équipe (Parda)', ar: 'الفريق (الوردية)', en: 'Team (Parda)', es: 'Equipo (Parda)', pt: 'Equipe (Parda)', tr: 'Takım (Parda)' })} :</span>
                         <input type="text" placeholder="ex: Équipe A" value={filterTransportParda} onChange={e => setFilterTransportParda(e.target.value)}
                           style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid #CBD5E1', fontSize: 13, outline: 'none' }} />
                       </div>
                       <button onClick={() => { fetchTransportLignes(); fetchPointage(); }} style={{ ...btnSecondary, padding: '8px 12px' }}>
-                        <RefreshCw size={14} style={{ marginRight: 6 }} />Actualiser
+                        <RefreshCw size={14} style={{ marginRight: 6 }} />{tx(lang, { fr: 'Actualiser', ar: 'تحديث', en: 'Refresh', es: 'Actualizar', pt: 'Atualizar', tr: 'Yenile' })}
                       </button>
                     </div>
 
@@ -2886,13 +2885,13 @@ export default function GestionRH({
                             return `${idx + 1}. ${w.full_name}${eq}${tel}`;
                           }).join('\n');
 
-                          const driverText = l.chauffeur_nom ? `Chauffeur: ${l.chauffeur_nom} (${l.chauffeur_tel ?? '—'})` : 'Chauffeur: Non défini';
-                          const vehiculeText = l.matricule_vehicule ? `Plate/Véhicule: ${l.matricule_vehicule}` : '';
+                          const driverText = l.chauffeur_nom ? `${tx(lang, { fr: 'Chauffeur', ar: 'السائق', en: 'Driver', es: 'Conductor', pt: 'Motorista', tr: 'Şoför' })}: ${l.chauffeur_nom} (${l.chauffeur_tel ?? '—'})` : tx(lang, { fr: 'Chauffeur: Non défini', ar: 'السائق: غير محدد', en: 'Driver: Not set', es: 'Conductor: No definido', pt: 'Motorista: Não definido', tr: 'Şoför: Belirtilmemiş' });
+                          const vehiculeText = l.matricule_vehicule ? `${tx(lang, { fr: 'Plate/Véhicule', ar: 'لوحة/مركبة', en: 'Plate/Vehicle', es: 'Placa/Vehículo', pt: 'Placa/Veículo', tr: 'Plaka/Araç' })}: ${l.matricule_vehicule}` : '';
                           const codeText = l.code_ligne ? `[${l.code_ligne}] ` : '';
-                          const text = `*Ligne Transport: ${codeText}${l.nom}*\n${driverText}\n${vehiculeText}\nDate: ${dateStr}\n\n*Passagers Présents (${presentWorkers.length}):*\n${workerListText || 'Aucun passager présent.'}`;
+                          const text = `*${tx(lang, { fr: 'Ligne Transport', ar: 'خط النقل', en: 'Transport Line', es: 'Línea de Transporte', pt: 'Linha de Transporte', tr: 'Ulaşım Hattı' })}: ${codeText}${l.nom}*\n${driverText}\n${vehiculeText}\n${tx(lang, { fr: 'Date', ar: 'التاريخ', en: 'Date', es: 'Fecha', pt: 'Data', tr: 'Tarih' })}: ${dateStr}\n\n*${tx(lang, { fr: 'Passagers Présents', ar: 'الركاب الحاضرون', en: 'Present Passengers', es: 'Pasajeros Presentes', pt: 'Passageiros Presentes', tr: 'Mevcut Yolcular' })} (${presentWorkers.length}):*\n${workerListText || tx(lang, { fr: 'Aucun passager présent.', ar: 'لا يوجد ركاب حاضرون.', en: 'No passengers present.', es: 'Ningún pasajero presente.', pt: 'Nenhum passageiro presente.', tr: 'Mevcut yolcu yok.' })}`;
 
                           navigator.clipboard.writeText(text);
-                          showToast('Liste copiée pour WhatsApp !');
+                          showToast(tx(lang, { fr: 'Liste copiée pour WhatsApp !', ar: 'تم نسخ القائمة لواتساب!', en: 'List copied for WhatsApp!', es: '¡Lista copiada para WhatsApp!', pt: 'Lista copiada para WhatsApp!', tr: 'WhatsApp için liste kopyalandı!' }));
                         };
 
                         return (
@@ -2901,12 +2900,12 @@ export default function GestionRH({
                               <div>
                                 <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: '#1E293B', display: 'flex', alignItems: 'center', gap: 8 }}>
                                   <Navigation size={18} color="#2149C1" /> {l.code_ligne ? `[${l.code_ligne}] ` : ''}{l.nom}
-                                  {l.quartier && <span style={{ fontSize: 12, fontWeight: 500, color: '#64748B', background: '#F1F5F9', padding: '2px 8px', borderRadius: 6 }}>Quartier: {l.quartier}</span>}
+                                  {l.quartier && <span style={{ fontSize: 12, fontWeight: 500, color: '#64748B', background: '#F1F5F9', padding: '2px 8px', borderRadius: 6 }}>{tx(lang, { fr: 'Quartier', ar: 'الحي', en: 'District', es: 'Barrio', pt: 'Bairro', tr: 'Mahalle' })}: {l.quartier}</span>}
                                 </h3>
                                 <div style={{ display: 'flex', gap: 16, marginTop: 6, flexWrap: 'wrap', fontSize: 12, color: '#64748B' }}>
                                   {l.chauffeur_nom && (
                                     <span>
-                                      Chauffeur: <strong>{l.chauffeur_nom}</strong>
+                                      {tx(lang, { fr: 'Chauffeur', ar: 'السائق', en: 'Driver', es: 'Conductor', pt: 'Motorista', tr: 'Şoför' })}: <strong>{l.chauffeur_nom}</strong>
                                       {l.chauffeur_tel && (
                                         <a href={`tel:${l.chauffeur_tel}`} style={{ marginLeft: 6, color: '#2149C1', fontWeight: 600 }}>
                                           📞 {l.chauffeur_tel}
@@ -2914,12 +2913,12 @@ export default function GestionRH({
                                       )}
                                     </span>
                                   )}
-                                  {l.matricule_vehicule && <span>Véhicule: <strong>{l.matricule_vehicule}</strong></span>}
+                                  {l.matricule_vehicule && <span>{tx(lang, { fr: 'Véhicule', ar: 'المركبة', en: 'Vehicle', es: 'Vehículo', pt: 'Veículo', tr: 'Araç' })}: <strong>{l.matricule_vehicule}</strong></span>}
                                 </div>
                               </div>
                               <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                                 <span style={{ background: '#EEF2FF', color: '#2149C1', fontSize: 11, fontWeight: 700, padding: '4px 10px', borderRadius: 12 }}>
-                                  Présents: {presentWorkers.length} / {assignedWorkers.length} (Capacité: {l.capacite || '—'})
+                                  {tx(lang, { fr: 'Présents', ar: 'الحاضرون', en: 'Present', es: 'Presentes', pt: 'Presentes', tr: 'Mevcut' })}: {presentWorkers.length} / {assignedWorkers.length} ({tx(lang, { fr: 'Capacité', ar: 'السعة', en: 'Capacity', es: 'Capacidad', pt: 'Capacidade', tr: 'Kapasite' })}: {l.capacite || '—'})
                                 </span>
                                 <button onClick={handleCopyWhatsApp} style={{ ...btnSecondary, fontSize: 11, padding: '4px 10px' }}>
                                   <Copy size={12} style={{ marginRight: 4 }} /> {tx(lang, { fr: 'Copier WhatsApp', ar: 'نسخ واتساب', en: 'Copy WhatsApp', es: 'Copiar WhatsApp', pt: 'Copiar WhatsApp', tr: 'WhatsApp\'ı Kopyala' })}
@@ -2928,7 +2927,7 @@ export default function GestionRH({
                             </div>
 
                             <div>
-                              <div style={{ fontSize: 12, fontWeight: 700, color: '#475569', marginBottom: 10 }}>Liste des passagers présents aujourd'hui :</div>
+                              <div style={{ fontSize: 12, fontWeight: 700, color: '#475569', marginBottom: 10 }}>{tx(lang, { fr: 'Liste des passagers présents aujourd\'hui', ar: 'قائمة الركاب الحاضرين اليوم', en: 'List of passengers present today', es: 'Lista de pasajeros presentes hoy', pt: 'Lista de passageiros presentes hoje', tr: 'Bugün mevcut yolcu listesi' })} :</div>
                               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 10 }}>
                                 {presentWorkers.map(w => (
                                   <div key={w.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', borderRadius: 10, border: '1px solid #E2E8F0', background: '#F8FAFC' }}>
@@ -2957,7 +2956,7 @@ export default function GestionRH({
                       })}
                       {transportLignes.length === 0 && (
                         <div style={{ textAlign: 'center', padding: 40, background: '#fff', borderRadius: 14, border: '1px dashed #CBD5E1', color: '#64748B' }}>
-                          Aucune ligne de transport enregistrée. Rendez-vous sur l'onglet "Gestion des Lignes" pour en ajouter une.
+                          {tx(lang, { fr: 'Aucune ligne de transport enregistrée. Rendez-vous sur l\'onglet "Gestion des Lignes" pour en ajouter une.', ar: 'لا يوجد خط نقل مسجل. انتقل إلى علامة التبويب "إدارة الخطوط" لإضافة واحد.', en: 'No transport line registered. Go to the "Line Management" tab to add one.', es: 'Ninguna línea de transporte registrada. Vaya a la pestaña "Gestión de Líneas" para agregar una.', pt: 'Nenhuma linha de transporte registrada. Vá para a guia "Gerenciamento de Linhas" para adicionar uma.', tr: 'Kayıtlı ulaşım hattı yok. Eklemek için "Hat Yönetimi" sekmesine gidin.' })}
                         </div>
                       )}
                     </div>
@@ -3009,7 +3008,7 @@ export default function GestionRH({
                       ))}
                       {transportLignes.length === 0 && (
                         <div style={{ gridColumn: '1/-1', textAlign: 'center', padding: 40, color: '#94A3B8' }}>
-                          Aucune ligne de transport enregistrée.
+                          {tx(lang, { fr: 'Aucune ligne de transport enregistrée.', ar: 'لا يوجد خط نقل مسجل.', en: 'No transport line registered.', es: 'Ninguna línea de transporte registrada.', pt: 'Nenhuma linha de transporte registrada.', tr: 'Kayıtlı ulaşım hattı yok.' })}
                         </div>
                       )}
                     </div>
@@ -3029,45 +3028,45 @@ export default function GestionRH({
                       <div style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 14 }}>
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 10 }}>
                           <div>
-                            <label style={labelStyle}>Code Ligne *</label>
+                            <label style={labelStyle}>{tx(lang, { fr: 'Code Ligne *', ar: 'رمز الخط *', en: 'Line Code *', es: 'Código de Línea *', pt: 'Código da Linha *', tr: 'Hat Kodu *' })}</label>
                             <input type="text" value={selectedLigne?.code_ligne ?? ''} onChange={e => setSelectedLigne(prev => prev ? ({ ...prev, code_ligne: e.target.value }) : null)}
                               placeholder="ex: L1" style={inputStyle} />
                           </div>
                           <div>
-                            <label style={labelStyle}>Nom de la ligne *</label>
+                            <label style={labelStyle}>{tx(lang, { fr: 'Nom de la ligne *', ar: 'اسم الخط *', en: 'Line Name *', es: 'Nombre de la línea *', pt: 'Nome da linha *', tr: 'Hat Adı *' })}</label>
                             <input type="text" value={selectedLigne?.nom ?? ''} onChange={e => setSelectedLigne(prev => prev ? ({ ...prev, nom: e.target.value }) : null)}
                               placeholder="ex: Ligne 1" style={inputStyle} />
                           </div>
                         </div>
                         <div>
-                          <label style={labelStyle}>Quartier / Destination (Hay)</label>
+                          <label style={labelStyle}>{tx(lang, { fr: 'Quartier / Destination (Hay)', ar: 'الحي / الوجهة', en: 'District / Destination', es: 'Barrio / Destino', pt: 'Bairro / Destino', tr: 'Mahalle / Varış Noktası' })}</label>
                           <input type="text" value={selectedLigne?.quartier ?? ''} onChange={e => setSelectedLigne(prev => prev ? ({ ...prev, quartier: e.target.value }) : null)}
                             placeholder="ex: Hay Mohammadi" style={inputStyle} />
                         </div>
                         <div>
-                          <label style={labelStyle}>Nom du Chauffeur</label>
+                          <label style={labelStyle}>{tx(lang, { fr: 'Nom du Chauffeur', ar: 'اسم السائق', en: 'Driver Name', es: 'Nombre del Conductor', pt: 'Nome do Motorista', tr: 'Şoför Adı' })}</label>
                           <input type="text" value={selectedLigne?.chauffeur_nom ?? ''} onChange={e => setSelectedLigne(prev => prev ? ({ ...prev, chauffeur_nom: e.target.value }) : null)}
                             placeholder="ex: Mohamed" style={inputStyle} />
                         </div>
                         <div>
-                          <label style={labelStyle}>Téléphone du Chauffeur</label>
+                          <label style={labelStyle}>{tx(lang, { fr: 'Téléphone du Chauffeur', ar: 'هاتف السائق', en: 'Driver Phone', es: 'Teléfono del Conductor', pt: 'Telefone do Motorista', tr: 'Şoför Telefonu' })}</label>
                           <input type="text" value={selectedLigne?.chauffeur_tel ?? ''} onChange={e => setSelectedLigne(prev => prev ? ({ ...prev, chauffeur_tel: e.target.value }) : null)}
                             placeholder="ex: 0612345678" style={inputStyle} />
                         </div>
                         <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 10 }}>
                           <div>
-                            <label style={labelStyle}>Matricule du véhicule</label>
+                            <label style={labelStyle}>{tx(lang, { fr: 'Matricule du véhicule', ar: 'رقم المركبة', en: 'Vehicle Registration', es: 'Matrícula del vehículo', pt: 'Matrícula do veículo', tr: 'Araç Plakası' })}</label>
                             <input type="text" value={selectedLigne?.matricule_vehicule ?? ''} onChange={e => setSelectedLigne(prev => prev ? ({ ...prev, matricule_vehicule: e.target.value }) : null)}
                               placeholder="ex: 12345-A-6" style={inputStyle} />
                           </div>
                           <div>
-                            <label style={labelStyle}>Capacité</label>
+                            <label style={labelStyle}>{tx(lang, { fr: 'Capacité', ar: 'السعة', en: 'Capacity', es: 'Capacidad', pt: 'Capacidade', tr: 'Kapasite' })}</label>
                             <input type="number" value={selectedLigne?.capacite ?? 0} onChange={e => setSelectedLigne(prev => prev ? ({ ...prev, capacite: parseInt(e.target.value) || 0 }) : null)}
                               placeholder="ex: 15" style={inputStyle} />
                           </div>
                         </div>
                         <div>
-                          <label style={labelStyle}>Notes</label>
+                          <label style={labelStyle}>{tx(lang, { fr: 'Notes', ar: 'ملاحظات', en: 'Notes', es: 'Notas', pt: 'Notas', tr: 'Notlar' })}</label>
                           <textarea value={selectedLigne?.notes ?? ''} onChange={e => setSelectedLigne(prev => prev ? ({ ...prev, notes: e.target.value }) : null)}
                             placeholder={tx(lang, { fr: 'Notes additionnelles...', ar: 'ملاحظات إضافية...', en: 'Additional notes...', es: 'Notas adicionales...', pt: 'Notas adicionais...', tr: 'Ek notlar...' })} rows={3} style={{ ...inputStyle, resize: 'vertical' }} />
                         </div>
@@ -3087,20 +3086,20 @@ export default function GestionRH({
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
                 {/* Générateur */}
                 <div style={{ background: '#fff', borderRadius: 14, padding: 24, boxShadow: '0 2px 8px rgba(0,0,0,0.07)' }}>
-                  <h3 style={{ margin: '0 0 16px', fontSize: 16, fontWeight: 700, color: '#0F172A' }}>Générer Export Paie</h3>
+                  <h3 style={{ margin: '0 0 16px', fontSize: 16, fontWeight: 700, color: '#0F172A' }}>{tx(lang, { fr: 'Générer Export Paie', ar: 'توليد تصدير الرواتب', en: 'Generate Payroll Export', es: 'Generar Exportación de Nómina', pt: 'Gerar Exportação de Folha', tr: 'Maaş Bordrosu Dışa Aktar' })}</h3>
                   <div style={{ marginBottom: 16 }}>
-                    <label style={labelStyle}>Période</label>
+                    <label style={labelStyle}>{tx(lang, { fr: 'Période', ar: 'الفترة', en: 'Period', es: 'Período', pt: 'Período', tr: 'Dönem' })}</label>
                     <input type="month" value={selectedMois} onChange={e => setSelectedMois(e.target.value)}
                       style={{ ...inputStyle }} />
                   </div>
 
                   {sagePreview && sagePreview.rows && (
                     <div style={{ background: '#F8FAFC', borderRadius: 10, padding: 14, marginBottom: 16 }}>
-                      <div style={{ fontWeight: 600, fontSize: 13, color: '#374151', marginBottom: 8 }}>Aperçu {selectedMois}</div>
+                      <div style={{ fontWeight: 600, fontSize: 13, color: '#374151', marginBottom: 8 }}>{tx(lang, { fr: 'Aperçu', ar: 'معاينة', en: 'Preview', es: 'Vista previa', pt: 'Visualização', tr: 'Önizleme' })} {selectedMois}</div>
                       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
                         {[
-                          { label: 'Salariés', value: sagePreview.rows.length },
-                          { label: 'Masse brute', value: sagePreview.rows.reduce((s: number, r: any) => s + (r.total_brut || 0), 0).toLocaleString() + ' MAD' },
+                          { label: tx(lang, { fr: 'Salariés', ar: 'الموظفون', en: 'Employees', es: 'Empleados', pt: 'Funcionários', tr: 'Çalışanlar' }), value: sagePreview.rows.length },
+                          { label: tx(lang, { fr: 'Masse brute', ar: 'الكتلة الإجمالية', en: 'Gross mass', es: 'Masa bruta', pt: 'Massa bruta', tr: 'Brüt kütle' }), value: sagePreview.rows.reduce((s: number, r: any) => s + (r.total_brut || 0), 0).toLocaleString() + ' MAD' },
                         ].map(k => (
                           <div key={k.label} style={{ background: '#fff', borderRadius: 8, padding: '8px 12px', border: '1px solid #E2E8F0' }}>
                             <div style={{ fontSize: 11, color: '#94A3B8' }}>{k.label}</div>
@@ -3112,7 +3111,7 @@ export default function GestionRH({
                   )}
 
                   <div style={{ background: '#FEF3C7', borderRadius: 8, padding: 10, fontSize: 12, color: '#92400E', marginBottom: 16 }}>
-                    ⚖️ Conforme Art. 385 — Déduction avances plafonnée automatiquement à 1/10ème du salaire net
+                    {tx(lang, { fr: '⚖️ Conforme Art. 385 — Déduction avances plafonnée automatiquement à 1/10ème du salaire net', ar: '⚖️ وفقاً للمادة 385 — خصم السلفات محدود تلقائياً بـ 1/10 من الراتب الصافي', en: '⚖️ Under Art. 385 — Advance deductions automatically capped at 1/10 of net salary', es: '⚖️ Conforme Art. 385 — Deducción de anticipos limitada automáticamente a 1/10 del salario neto', pt: '⚖️ Conforme Art. 385 — Dedução de adiantamentos limitada automaticamente a 1/10 do salário líquido', tr: '⚖️ Madde 385 uyarınca — Avans kesintileri otomatik olarak net maaşın 1/10\'u ile sınırlıdır' })}
                   </div>
 
                   <button onClick={handleGenerateSage} disabled={generatingSage}
@@ -3121,25 +3120,25 @@ export default function GestionRH({
                     {generatingSage ? tx(lang, { fr: 'Génération...', ar: 'جارٍ التوليد...', en: 'Generating...', es: 'Generando...', pt: 'Gerando...', tr: 'Oluşturuluyor...' }) : tx(lang, { fr: `Télécharger CSV Sage — ${selectedMois}`, ar: `تنزيل CSV Sage — ${selectedMois}`, en: `Download CSV Sage — ${selectedMois}`, es: `Descargar CSV Sage — ${selectedMois}`, pt: `Baixar CSV Sage — ${selectedMois}`, tr: `CSV Sage İndir — ${selectedMois}` })}
                   </button>
                   <div style={{ fontSize: 11, color: '#94A3B8', textAlign: 'center', marginBottom: 16 }}>
-                    Format: UTF-8 BOM • Séparateur: point-virgule • Compatible Excel & Sage
+                    {tx(lang, { fr: 'Format: UTF-8 BOM • Séparateur: point-virgule • Compatible Excel & Sage', ar: 'التنسيق: UTF-8 BOM • الفاصل: فاصلة منقوطة • متوافق مع Excel & Sage', en: 'Format: UTF-8 BOM • Separator: semicolon • Compatible with Excel & Sage', es: 'Formato: UTF-8 BOM • Separador: punto y coma • Compatible con Excel & Sage', pt: 'Formato: UTF-8 BOM • Separador: ponto e vírgula • Compatível com Excel & Sage', tr: 'Biçim: UTF-8 BOM • Ayırıcı: noktalı virgül • Excel & Sage ile uyumlu' })}
                   </div>
 
                   <div style={{ borderTop: '1px solid #E2E8F0', paddingTop: 16 }}>
-                    <div style={{ fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 8 }}>Rapport RH Mensuel Excel</div>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 8 }}>{tx(lang, { fr: 'Rapport RH Mensuel Excel', ar: 'تقرير الموارد البشرية الشهري Excel', en: 'Monthly HR Report Excel', es: 'Informe RH Mensual Excel', pt: 'Relatório RH Mensal Excel', tr: 'Aylık İK Raporu Excel' })}</div>
                     <button onClick={handleExportExcelRH}
                       style={{ ...btnSecondary, width: '100%', justifyContent: 'center', borderColor: '#10B981', color: '#065F46' }}>
                       <Download size={15} style={{ marginRight: 8 }} />
                       {tx(lang, { fr: `Exporter Excel — ${selectedMois}`, ar: `تصدير Excel — ${selectedMois}`, en: `Export Excel — ${selectedMois}`, es: `Exportar Excel — ${selectedMois}`, pt: `Exportar Excel — ${selectedMois}`, tr: `Excel Dışa Aktar — ${selectedMois}` })}
                     </button>
                     <div style={{ marginTop: 6, fontSize: 11, color: '#94A3B8' }}>
-                      3 feuilles: Rapport Mensuel • Avances • Résumé
+                      {tx(lang, { fr: '3 feuilles: Rapport Mensuel • Avances • Résumé', ar: '3 أوراق: التقرير الشهري • السلفات • الملخص', en: '3 sheets: Monthly Report • Advances • Summary', es: '3 hojas: Informe Mensual • Anticipos • Resumen', pt: '3 folhas: Relatório Mensal • Adiantamentos • Resumo', tr: '3 sayfa: Aylık Rapor • Avanslar • Özet' })}
                     </div>
                   </div>
                 </div>
 
                 {/* Historique */}
                 <div style={{ background: '#fff', borderRadius: 14, padding: 24, boxShadow: '0 2px 8px rgba(0,0,0,0.07)' }}>
-                  <h3 style={{ margin: '0 0 16px', fontSize: 16, fontWeight: 700, color: '#0F172A' }}>Historique des Exports</h3>
+                  <h3 style={{ margin: '0 0 16px', fontSize: 16, fontWeight: 700, color: '#0F172A' }}>{tx(lang, { fr: 'Historique des Exports', ar: 'سجل التصدير', en: 'Export History', es: 'Historial de Exportaciones', pt: 'Histórico de Exportações', tr: 'Dışa Aktarım Geçmişi' })}</h3>
                   {sageExports.length === 0 ? (
                     <div style={{ textAlign: 'center', padding: 30, color: '#94A3B8' }}>
                       <FileText size={36} style={{ marginBottom: 8, opacity: 0.3 }} />

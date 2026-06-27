@@ -9,7 +9,7 @@ export const getSageExports = (req: Request, res: Response) => {
         const exports = db.prepare('SELECT * FROM hr_sage_exports WHERE owner_id = ? ORDER BY mois DESC').all(companyId);
         res.json(exports);
     } catch (e) {
-        res.status(500).json({ message: 'Erreur' });
+        res.status(500).json({ message: 'Error' });
     }
 };
 
@@ -28,7 +28,7 @@ export const previewSageExport = (req: Request, res: Response) => {
         }
         res.json({ mois: data.mois, rows: data.rows });
     } catch (error) {
-        res.status(500).json({ message: 'Erreur' });
+        res.status(500).json({ message: 'Error' });
     }
 };
 
@@ -52,6 +52,6 @@ export const generateSageExport = (req: Request, res: Response) => {
         res.setHeader('Content-Disposition', `attachment; filename="SAGE_PAIE_BERAMETHODE_${mois}.csv"`);
         res.status(200).send(Buffer.from(body, 'utf8'));
     } catch (e) {
-        res.status(500).json({ message: 'Erreur' });
+        res.status(500).json({ message: 'Error' });
     }
 };

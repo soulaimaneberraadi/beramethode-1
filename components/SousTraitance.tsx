@@ -16,6 +16,7 @@ interface SousTraitanceProps {
   onNavigate?: (view: string) => void;
   planningEvents?: PlanningEvent[];
   setPlanningEvents?: React.Dispatch<React.SetStateAction<PlanningEvent[]>>;
+  onLoadModel?: (model: ModelData) => void;
 }
 
 interface SubcontractorGroup {
@@ -33,7 +34,7 @@ interface BatchInput {
 
 const COMMON_SIZES = ['XS', 'S', 'M', 'L', 'XL', 'XXL', '3XL'];
 
-export default function SousTraitance({ models, settings }: SousTraitanceProps) {
+export default function SousTraitance({ models, settings, onLoadModel }: SousTraitanceProps) {
   // Navigation Tabs
   const [activeTab, setActiveTab] = useState<'orders' | 'subcontractors' | 'stock' | 'groups'>('orders');
 
@@ -50,7 +51,8 @@ export default function SousTraitance({ models, settings }: SousTraitanceProps) 
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [subcontractorFilter, setSubcontractorFilter] = useState<string>('ALL');
   const [groupFilter, setGroupFilter] = useState<string>('ALL');
-  const [viewMode, setViewMode] = useState<'card' | 'table'>('card');
+    const [viewMode, setViewMode] = useState<'card' | 'table'>('card');
+    const [showMobileFilters, setShowMobileFilters] = useState(false);
 
   // Modal States
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -175,36 +177,45 @@ export default function SousTraitance({ models, settings }: SousTraitanceProps) 
     return grp ? grp.subcontractor_names : [];
   }, [groupFilter, groups]);
 
-  // Statistics for Dashboard (Tab 1)
-  const stats = useMemo(() => {
-    let totalQty = 0;
-    let totalDelivered = 0;
-    let activeOrdersCount = 0;
-    let pendingFabricCount = 0;
-    let pendingSuppliesCount = 0;
+    // Statistics for Dashboard (Tab 1)
+    const stats = useMemo(() => {
+      let totalQty = 0;
+      let totalDelivered = 0;
+      let totalToRepair = 0;
+      let totalRejected = 0;
+      let activeOrdersCount = 0;
+      let pendingFabricCount = 0;
+      let pendingSuppliesCount = 0;
 
-    orders.forEach(o => {
-      totalQty += o.totalQuantity;
-      totalDelivered += o.qtyAccepted || 0;
-      if (o.status !== 'COMPLETED') {
-        activeOrdersCount++;
-      }
-      if (o.tissuStatus === 'PENDING') pendingFabricCount++;
-      if (o.fournituresStatus === 'PENDING') pendingSuppliesCount++;
-    });
+      orders.forEach(o => {
+        totalQty += o.totalQuantity;
+        totalDelivered += o.qtyAccepted || 0;
+        totalToRepair += o.qtyToRepair || 0;
+        totalRejected += o.qtyRejected || 0;
+        if (o.status !== 'COMPLETED') {
+          activeOrdersCount++;
+        }
+        if (o.tissuStatus === 'PENDING') pendingFabricCount++;
+        if (o.fournituresStatus === 'PENDING') pendingSuppliesCount++;
+      });
 
-    const remainingQty = Math.max(0, totalQty - totalDelivered);
+      const remainingQty = Math.max(0, totalQty - totalDelivered);
+      const totalQualityCount = totalDelivered + totalToRepair + totalRejected;
+      const avgQualityRate = totalQualityCount > 0 
+        ? Math.round((totalDelivered / totalQualityCount) * 100)
+        : 100;
 
-    return { 
-      totalQty, 
-      totalDelivered, 
-      remainingQty, 
-      activeOrdersCount, 
-      pendingFabricCount, 
-      pendingSuppliesCount,
-      totalOrdersCount: orders.length 
-    };
-  }, [orders]);
+      return { 
+        totalQty, 
+        totalDelivered, 
+        remainingQty, 
+        activeOrdersCount, 
+        pendingFabricCount, 
+        pendingSuppliesCount,
+        avgQualityRate,
+        totalOrdersCount: orders.length 
+      };
+    }, [orders]);
 
   // Filtered orders (Tab 1)
   const filteredOrders = useMemo(() => {
@@ -1102,76 +1113,73 @@ export default function SousTraitance({ models, settings }: SousTraitanceProps) 
   };
 
   return (
-    <div className="space-y-6 p-4 md:p-8 bg-slate-50 min-h-screen text-slate-800 relative font-sans">
+    <div className="flex-1 overflow-y-auto space-y-3.5 lg:space-y-6 p-3 lg:p-6 bg-slate-50 text-slate-800 relative font-sans animate-fade-in w-full h-full">
       
-      {/* Header Banner - Compact and White (No blue) */}
-      <div className="relative overflow-hidden rounded-3xl bg-white border border-slate-200/60 p-5 md:p-6 shadow-sm text-slate-800">
-        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
-          <div className="space-y-1">
-            <span className="text-xs font-black text-indigo-600 uppercase tracking-widest block">{tx(lang,{fr:'Plateforme Industrielle',ar:'المنصة الصناعية',en:'Industrial Platform',es:'Plataforma Industrial',pt:'Plataforma Industrial',tr:'Endüstriyel Platform'})}</span>
-            <h1 className="text-xl md:text-2xl font-black tracking-tight text-slate-900">
+      {/* Header Banner - Compact and White - Hidden on Mobile/Tablet */}
+      <div className="hidden lg:block relative overflow-hidden rounded-2xl bg-white border border-slate-200/60 p-3.5 lg:p-4 shadow-sm text-slate-800">
+        <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="space-y-0.5">
+            <span className="text-[10px] font-black text-indigo-600 uppercase tracking-widest block">{tx(lang,{fr:'Plateforme Industrielle',ar:'المنصة الصناعية',en:'Industrial Platform',es:'Plataforma Industrial',pt:'Plataforma Industrial',tr:'Endüstriyel Platform'})}</span>
+            <h1 className="text-lg lg:text-xl font-black tracking-tight text-slate-900">
               {tx(lang,{fr:'Sous-traitance & Monawla',ar:'المقاولة من الباطن ومناولة',en:'Subcontracting & Monawla',es:'Subcontratación & Monawla',pt:'Subcontratação & Monawla',tr:'Taşeronluk & Monawla'})}
             </h1>
-            <p className="text-slate-500 max-w-2xl text-xs md:text-sm leading-relaxed">
-              {tx(lang,{fr:'Supervision unifiée des ateliers externes de confection. Suivi logistique des expéditions de matières premières, contrôle qualité à la réception des pièces, et facturation directe des ventes de produits finis.',ar:'إشراف موحد على ورشات الخياطة الخارجية. متابعة لوجستية لشحنات المواد الأولية، مراقبة الجودة عند استلام القطع، والفوترة المباشرة لمبيعات المنتجات النهائية.',en:'Unified supervision of external sewing workshops. Logistics tracking of raw material shipments, quality control upon reception of pieces, and direct invoicing of finished product sales.',es:'Supervisión unificada de talleres externos de confección. Seguimiento logístico de envíos de materias primas, control de calidad en la recepción de piezas y facturación directa de ventas de productos terminados.',pt:'Supervisão unificada de oficinas externas de confecção. Acompanhamento logístico de remessas de matérias-primas, controle de qualidade na recepção das peças e faturamento direto das vendas de produtos acabados.',tr:'Harici dikim atölyelerinin birleşik denetimi. Hammadde sevkiyatlarının lojistik takibi, parçaların teslim alınmasında kalite kontrolü ve bitmiş ürün satışlarının doğrudan faturalandırılması.'})}
-            </p>
           </div>
           {activeTab === 'orders' && (
             <button 
               onClick={openAddModal}
-              className="bg-indigo-600 hover:bg-indigo-700 hover:scale-[1.01] active:scale-[0.99] text-white px-5 py-2.5 rounded-xl transition-all shadow-sm flex items-center justify-center gap-2 font-bold w-full md:w-auto text-xs md:text-sm shrink-0 border border-indigo-600"
+              className="bg-indigo-600 hover:bg-indigo-700 hover:scale-[1.01] active:scale-[0.99] text-white px-4 py-2 rounded-xl transition-all shadow-sm flex items-center justify-center gap-2 font-bold w-full sm:w-auto text-xs shrink-0 border border-indigo-600"
             >
-              <Plus className="w-4 h-4 text-white" />
+              <Plus className="w-3.5 h-3.5 text-white" />
               <span>{tx(lang,{fr:'Nouvelle Commande',ar:'أمر شراء جديد',en:'New Order',es:'Nuevo Pedido',pt:'Nova Encomenda',tr:'Yeni Sipariş'})}</span>
             </button>
           )}
         </div>
       </div>
 
-      {/* Modern Pill-Style Tabs Bar */}
-      <div className="flex bg-white p-1 rounded-2xl border border-slate-200/60 overflow-x-auto gap-1 shadow-sm max-w-max">
+      {/* Modern Pill-Style Tabs Bar - Compact */}
+      <div className="flex bg-white p-0.5 rounded-xl border border-slate-200/60 overflow-x-auto gap-0.5 shadow-sm max-w-max scrollbar-none shrink-0">
         <button
           onClick={() => setActiveTab('orders')}
-          className={`px-5 py-2.5 rounded-xl font-bold text-xs md:text-sm transition-all flex items-center gap-2 whitespace-nowrap ${activeTab === 'orders' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50'}`}
+          className={`px-2.5 lg:px-3 py-1.5 rounded-lg font-bold text-[10px] lg:text-xs transition-all flex items-center gap-1 lg:gap-1.5 whitespace-nowrap ${activeTab === 'orders' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50'}`}
         >
-          <Package className="w-4 h-4" />
+          <Package className="w-3 h-3 lg:w-3.5 lg:h-3.5" />
           <span>{tx(lang,{fr:'Commandes',ar:'الطلبيات',en:'Orders',es:'Pedidos',pt:'Encomendas',tr:'Siparişler'})}</span>
         </button>
         <button
           onClick={() => setActiveTab('subcontractors')}
-          className={`px-5 py-2.5 rounded-xl font-bold text-xs md:text-sm transition-all flex items-center gap-2 whitespace-nowrap ${activeTab === 'subcontractors' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50'}`}
+          className={`px-2.5 lg:px-3 py-1.5 rounded-lg font-bold text-[10px] lg:text-xs transition-all flex items-center gap-1 lg:gap-1.5 whitespace-nowrap ${activeTab === 'subcontractors' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50'}`}
         >
-          <Users className="w-4 h-4" />
+          <Users className="w-3 h-3 lg:w-3.5 lg:h-3.5" />
           <span>{tx(lang,{fr:'Suivi Fournisseurs',ar:'متابعة الموردين',en:'Supplier Tracking',es:'Seguimiento de Proveedores',pt:'Acompanhamento de Fornecedores',tr:'Tedarikçi Takibi'})}</span>
         </button>
         <button
           onClick={() => setActiveTab('stock')}
-          className={`px-5 py-2.5 rounded-xl font-bold text-xs md:text-sm transition-all flex items-center gap-2 whitespace-nowrap ${activeTab === 'stock' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50'}`}
+          className={`px-2.5 lg:px-3 py-1.5 rounded-lg font-bold text-[10px] lg:text-xs transition-all flex items-center gap-1 lg:gap-1.5 whitespace-nowrap ${activeTab === 'stock' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50'}`}
         >
-          <Coins className="w-4 h-4" />
+          <Coins className="w-3 h-3 lg:w-3.5 lg:h-3.5" />
           <span>{tx(lang,{fr:'Stock & Ventes',ar:'المخزون والمبيعات',en:'Stock & Sales',es:'Stock & Ventas',pt:'Stock & Vendas',tr:'Stok & Satışlar'})}</span>
         </button>
         <button
           onClick={() => setActiveTab('groups')}
-          className={`px-5 py-2.5 rounded-xl font-bold text-xs md:text-sm transition-all flex items-center gap-2 whitespace-nowrap ${activeTab === 'groups' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50'}`}
+          className={`px-2.5 lg:px-3 py-1.5 rounded-lg font-bold text-[10px] lg:text-xs transition-all flex items-center gap-1 lg:gap-1.5 whitespace-nowrap ${activeTab === 'groups' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50'}`}
         >
-          <Layers className="w-4 h-4" />
+          <Layers className="w-3 h-3 lg:w-3.5 lg:h-3.5" />
           <span>{tx(lang,{fr:'Groupements',ar:'المجموعات',en:'Groups',es:'Grupos',pt:'Grupos',tr:'Gruplar'})}</span>
         </button>
       </div>
 
       {/* ERROR BANNER */}
       {error && (
-        <div className="bg-rose-50 border border-rose-200 text-rose-850 p-4 rounded-2xl flex items-center gap-3">
-          <AlertCircle className="w-5 h-5 text-rose-600 shrink-0" />
-          <span className="text-sm font-medium">{error}</span>
+        <div className="bg-rose-50 border border-rose-200 text-rose-850 p-3 lg:p-4 rounded-xl flex items-center gap-3">
+          <AlertCircle className="w-4 h-4 lg:w-5 lg:h-5 text-rose-600 shrink-0" />
+          <span className="text-xs lg:text-sm font-medium">{error}</span>
         </div>
       )}
 
       {loading ? (
-        <div className="h-64 flex flex-col items-center justify-center bg-white rounded-3xl border border-slate-200/60 shadow-sm gap-3">
-          <Loader2 className="w-8 h-8 text-indigo-500 animate-spin" />
-          <p className="text-xs text-slate-500 font-medium">{tx(lang,{fr:'Chargement des données de sous-traitance...',ar:'جاري تحميل بيانات المقاولة من الباطن...',en:'Loading subcontracting data...',es:'Cargando datos de subcontratación...',pt:'A carregar dados de subcontratação...',tr:'Taşeronluk verileri yükleniyor...'})}</p>
+        <div className="h-64 flex flex-col items-center justify-center bg-white rounded-2xl border border-slate-200/60 shadow-sm gap-3">
+          <Loader2 className="w-6 h-6 lg:w-8 lg:h-8 text-indigo-500 animate-spin" />
+          <p className="text-[11px] lg:text-xs text-slate-500 font-medium">{tx(lang,{fr:'Chargement des données de sous-traitance...',ar:'جاري تحميل بيانات المقاولة من الباطن...',en:'Loading subcontracting data...',es:'Cargando datos de subcontratación...',pt:'A carregar dados de subcontratação...',tr:'Taşeronluk verileri yükleniyor...'})}</p>
         </div>
       ) : (
         <>
@@ -1179,46 +1187,78 @@ export default function SousTraitance({ models, settings }: SousTraitanceProps) 
           {/* TAB 1: COMMANDES (ORDERS) */}
           {/* ======================================= */}
           {activeTab === 'orders' && (
-            <div className="space-y-6">
-              {/* Clean Minimalist Stats Widgets */}
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                <div className="bg-white border border-slate-200/60 p-5 rounded-3xl shadow-sm flex flex-col justify-between hover:shadow-md transition-all">
-                  <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{tx(lang,{fr:'Commandes Actives',ar:'الطلبيات النشطة',en:'Active Orders',es:'Pedidos Activos',pt:'Encomendas Ativas',tr:'Aktif Siparişler'})}</span>
-                  <span className="text-2xl md:text-3xl font-black text-slate-800 mt-2 tracking-tight">{stats.activeOrdersCount}</span>
+            <div className="space-y-3 lg:space-y-4">
+              {/* Clean Minimalist Stats Widgets - Horizontally scrollable on mobile/tablet */}
+              <div className="flex flex-row flex-nowrap overflow-x-auto lg:grid lg:grid-cols-4 gap-2 lg:gap-3 pb-1.5 lg:pb-0 scrollbar-none w-full shrink-0">
+                <div className="flex-1 min-w-[110px] lg:min-w-0 bg-white border border-slate-200/50 p-2 lg:p-2.5 rounded-lg lg:rounded-xl shadow-sm flex items-center gap-2 lg:gap-2.5 hover:shadow-md transition-all shrink-0">
+                  <div className="p-1.5 lg:p-2 bg-indigo-50 text-indigo-600 rounded-md lg:rounded-lg shrink-0">
+                    <Truck className="w-3.5 h-3.5 lg:w-4 lg:h-4" />
+                  </div>
+                  <div>
+                    <span className="text-[8px] lg:text-[9px] font-bold text-slate-400 uppercase tracking-wider block">{tx(lang,{fr:'Commandes Actives',ar:'الطلبيات النشطة',en:'Active Orders',es:'Pedidos Activos',pt:'Encomendas Ativas',tr:'Aktif Siparişler'})}</span>
+                    <span className="text-xs lg:text-sm font-extrabold text-slate-800 tracking-tight block leading-none mt-0.5">{stats.activeOrdersCount}</span>
+                  </div>
                 </div>
-                <div className="bg-white border border-slate-200/60 p-5 rounded-3xl shadow-sm flex flex-col justify-between hover:shadow-md transition-all">
-                  <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{tx(lang,{fr:'Total Commandé',ar:'إجمالي المطلوب',en:'Total Ordered',es:'Total Pedido',pt:'Total Encomendado',tr:'Toplam Sipariş Edilen'})}</span>
-                  <span className="text-2xl md:text-3xl font-black text-indigo-600 mt-2 tracking-tight">{stats.totalQty.toLocaleString()} <span className="text-xs font-bold text-slate-450">pcs</span></span>
+                <div className="flex-1 min-w-[110px] lg:min-w-0 bg-white border border-slate-200/50 p-2 lg:p-2.5 rounded-lg lg:rounded-xl shadow-sm flex items-center gap-2 lg:gap-2.5 hover:shadow-md transition-all shrink-0">
+                  <div className="p-1.5 lg:p-2 bg-indigo-50 text-indigo-600 rounded-md lg:rounded-lg shrink-0">
+                    <Package className="w-3.5 h-3.5 lg:w-4 lg:h-4" />
+                  </div>
+                  <div>
+                    <span className="text-[8px] lg:text-[9px] font-bold text-slate-400 uppercase tracking-wider block">{tx(lang,{fr:'Total Commandé',ar:'إجمالي المطلوب',en:'Total Ordered',es:'Total Pedido',pt:'Total Encomendado',tr:'Toplam Sipariş Edilen'})}</span>
+                    <span className="text-xs lg:text-sm font-extrabold text-indigo-600 tracking-tight block leading-none mt-0.5" dir="ltr">{stats.totalQty.toLocaleString()} <span className="text-[9px] lg:text-[10px] font-semibold text-slate-400">pcs</span></span>
+                  </div>
                 </div>
-                <div className="bg-white border border-slate-200/60 p-5 rounded-3xl shadow-sm flex flex-col justify-between hover:shadow-md transition-all">
-                  <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{tx(lang,{fr:'Total Livré',ar:'إجمالي المسلَّم',en:'Total Delivered',es:'Total Entregado',pt:'Total Entregue',tr:'Toplam Teslim Edilen'})}</span>
-                  <span className="text-2xl md:text-3xl font-black text-emerald-600 mt-2 tracking-tight">{stats.totalDelivered.toLocaleString()} <span className="text-xs font-bold text-slate-450">pcs</span></span>
+                <div className="flex-1 min-w-[110px] lg:min-w-0 bg-white border border-slate-200/50 p-2 lg:p-2.5 rounded-lg lg:rounded-xl shadow-sm flex items-center gap-2 lg:gap-2.5 hover:shadow-md transition-all shrink-0">
+                  <div className="p-1.5 lg:p-2 bg-emerald-50 text-emerald-600 rounded-md lg:rounded-lg shrink-0">
+                    <ShieldCheck className="w-3.5 h-3.5 lg:w-4 lg:h-4" />
+                  </div>
+                  <div>
+                    <span className="text-[8px] lg:text-[9px] font-bold text-slate-400 uppercase tracking-wider block">{tx(lang,{fr:'Qualité Moyenne',ar:'متوسط الجودة',en:'Average Quality',es:'Calidad Promedio',pt:'Qualidade Média',tr:'Ortalama Kalite'})}</span>
+                    <span className="text-xs lg:text-sm font-extrabold text-emerald-600 tracking-tight block leading-none mt-0.5">{stats.avgQualityRate}%</span>
+                  </div>
                 </div>
-                <div className="bg-white border border-slate-200/60 p-5 rounded-3xl shadow-sm flex flex-col justify-between hover:shadow-md transition-all">
-                  <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{tx(lang,{fr:'Reste à Livrer',ar:'المتبقي للتسليم',en:'Remaining to Deliver',es:'Pendiente de Entrega',pt:'Restante para Entregar',tr:'Teslim Edilecek Kalan'})}</span>
-                  <span className="text-2xl md:text-3xl font-black text-amber-600 mt-2 tracking-tight">{stats.remainingQty.toLocaleString()} <span className="text-xs font-bold text-slate-450">pcs</span></span>
+                <div className="flex-1 min-w-[110px] lg:min-w-0 bg-white border border-slate-200/50 p-2 lg:p-2.5 rounded-lg lg:rounded-xl shadow-sm flex items-center gap-2 lg:gap-2.5 hover:shadow-md transition-all shrink-0">
+                  <div className="p-1.5 lg:p-2 bg-amber-50 text-amber-600 rounded-md lg:rounded-lg shrink-0">
+                    <Clock className="w-3.5 h-3.5 lg:w-4 lg:h-4" />
+                  </div>
+                  <div>
+                    <span className="text-[8px] lg:text-[9px] font-bold text-slate-400 uppercase tracking-wider block">{tx(lang,{fr:'Reste à Livrer',ar:'المتبقي للتسليم',en:'Remaining to Deliver',es:'Pendiente de Entrega',pt:'Restante para Entregar',tr:'Teslim Edilecek Kalan'})}</span>
+                    <span className="text-xs lg:text-sm font-extrabold text-amber-600 tracking-tight block leading-none mt-0.5" dir="ltr">{stats.remainingQty.toLocaleString()} <span className="text-[9px] lg:text-[10px] font-semibold text-slate-400">pcs</span></span>
+                  </div>
                 </div>
               </div>
 
               {/* Clean Filters Toolbar */}
-              <div className="bg-white rounded-3xl p-4 border border-slate-200/60 shadow-sm flex flex-col md:flex-row gap-4 items-center justify-between">
-                <div className="relative w-full md:w-80">
-                  <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-                  <input
-                    type="text"
-                    placeholder={tx(lang,{fr:'Rechercher sous-traitant, modèle...',ar:'بحث عن مقاول من الباطن، موديل...',en:'Search subcontractor, model...',es:'Buscar subcontratista, modelo...',pt:'Pesquisar subcontratado, modelo...',tr:'Taşeron, model ara...'})}
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 w-full bg-slate-50/50 text-slate-800 placeholder:text-slate-400"
-                  />
+              <div className="bg-white rounded-xl p-2 lg:p-3 border border-slate-200/60 shadow-sm flex flex-col gap-2.5 w-full shrink-0">
+                {/* Search input + Mobile filter toggle */}
+                <div className="flex gap-2 w-full">
+                  <div className="relative flex-1">
+                    <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="text"
+                      placeholder={tx(lang,{fr:'Rechercher sous-traitant, modèle...',ar:'بحث عن مقاول من الباطن، موديل...',en:'Search subcontractor, model...',es:'Buscar subcontratista, modelo...',pt:'Pesquisar subcontratado, modelo...',tr:'Taşeron, model ara...'})}
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="pl-8 pr-3 py-1.5 border border-slate-200 rounded-xl text-[11px] lg:text-xs focus:outline-none focus:border-indigo-500 w-full bg-slate-50/50 text-slate-800 placeholder:text-slate-400"
+                    />
+                  </div>
+                  <button 
+                    type="button"
+                    onClick={() => setShowMobileFilters(!showMobileFilters)}
+                    className="lg:hidden flex items-center justify-center gap-1.5 px-2.5 py-1.5 border border-slate-200 rounded-xl text-[11px] font-bold text-slate-600 bg-slate-50 hover:bg-slate-100"
+                  >
+                    <span>{tx(lang,{fr:'Filtres',ar:'تصفية',en:'Filters',es:'Filtros',pt:'Filtros',tr:'Filtreler'})}</span>
+                    {showMobileFilters ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                  </button>
                 </div>
 
-                <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
+                {/* Dropdowns + View Toggle (Always visible on desktop, toggleable on mobile/tablet) */}
+                <div className={`${showMobileFilters ? 'flex' : 'hidden'} lg:flex flex-wrap items-center gap-2 w-full lg:justify-end border-t border-slate-150 pt-2 lg:border-t-0 lg:pt-0`}>
                   {/* Group Filter */}
                   <select
                     value={groupFilter}
                     onChange={(e) => setGroupFilter(e.target.value)}
-                    className="text-xs font-bold text-slate-700 bg-slate-50 border border-slate-200 rounded-xl p-2.5 outline-none focus:border-indigo-500 hover:bg-slate-100"
+                    className="text-[11px] lg:text-xs font-bold text-slate-700 bg-slate-50 border border-slate-200 rounded-lg p-1.5 outline-none focus:border-indigo-500 hover:bg-slate-100 flex-1 sm:flex-initial"
                   >
                     <option value="ALL">{tx(lang,{fr:'Tous les groupements',ar:'جميع المجموعات',en:'All Groups',es:'Todos los Grupos',pt:'Todos os Grupos',tr:'Tüm Gruplar'})}</option>
                     {groups.map(g => (
@@ -1230,30 +1270,30 @@ export default function SousTraitance({ models, settings }: SousTraitanceProps) 
                   <select
                     value={statusFilter}
                     onChange={(e) => setStatusFilter(e.target.value)}
-                    className="text-xs font-bold text-slate-700 bg-slate-50 border border-slate-200 rounded-xl p-2.5 outline-none focus:border-indigo-500 hover:bg-slate-100"
+                    className="text-[11px] lg:text-xs font-bold text-slate-700 bg-slate-50 border border-slate-200 rounded-lg p-1.5 outline-none focus:border-indigo-500 hover:bg-slate-100 flex-1 sm:flex-initial"
                   >
                     <option value="ALL">{tx(lang,{fr:'Tous les statuts',ar:'جميع الحالات',en:'All Statuses',es:'Todos los Estados',pt:'Todos os Estados',tr:'Tüm Durumlar'})}</option>
                     <option value="PENDING">{tx(lang,{fr:'En attente',ar:'قيد الانتظار',en:'Pending',es:'Pendiente',pt:'Pendente',tr:'Beklemede'})}</option>
                     <option value="IN_COUPE">{tx(lang,{fr:'En Coupe',ar:'في القص',en:'In Cutting',es:'En Corte',pt:'Em Corte',tr:'Kesimde'})}</option>
                     <option value="IN_COUTURE">{tx(lang,{fr:'En Couture',ar:'في الخياطة',en:'In Sewing',es:'En Costura',pt:'Em Costura',tr:'Dikişte'})}</option>
                     <option value="IN_FINITION">{tx(lang,{fr:'En Finition',ar:'في التشطيب',en:'In Finishing',es:'En Acabado',pt:'Em Acabamento',tr:'Bitimde'})}</option>
-                    <option value="LIVRE_PARTIEL">{tx(lang,{fr:'Livraison Partielle',ar:'تسليم جزئي',en:'Partial Delivery',es:'Entrega Parcial',pt:'Entrega Parcial',tr:'Kısmi Teslimat'})}</option>
+                    <option value="LIVRE_PARTIEL">{tx(lang,{fr:'Partiel',ar:'جزئي',en:'Partial',es:'Parcial',pt:'Parcial',tr:'Kısmi'})}</option>
                     <option value="COMPLETED">{tx(lang,{fr:'Complété',ar:'مكتمل',en:'Completed',es:'Completado',pt:'Concluído',tr:'Tamamlandı'})}</option>
                   </select>
 
                   {/* View Mode Toggle */}
-                  <div className="flex items-center border border-slate-200 rounded-xl overflow-hidden bg-slate-50">
+                  <div className="flex items-center border border-slate-200 rounded-lg overflow-hidden bg-slate-50 shrink-0">
                     <button 
                       onClick={() => setViewMode('card')}
-                      className={`p-2.5 transition-all ${viewMode === 'card' ? 'bg-indigo-600 text-white shadow-inner' : 'text-slate-400 hover:text-slate-700'}`}
+                      className="p-2 transition-all"
                     >
-                      <LayoutGrid className="w-4 h-4" />
+                      <LayoutGrid className="w-3.5 h-3.5" />
                     </button>
                     <button 
                       onClick={() => setViewMode('table')}
-                      className={`p-2.5 transition-all ${viewMode === 'table' ? 'bg-indigo-600 text-white shadow-inner' : 'text-slate-400 hover:text-slate-700'}`}
+                      className="p-2 transition-all"
                     >
-                      <FileText className="w-4 h-4" />
+                      <FileText className="w-3.5 h-3.5" />
                     </button>
                   </div>
                 </div>
@@ -1261,16 +1301,20 @@ export default function SousTraitance({ models, settings }: SousTraitanceProps) 
 
               {/* View Rendering */}
               {filteredOrders.length === 0 ? (
-                <div className="bg-white rounded-3xl border border-slate-200/60 p-16 text-center text-slate-400 shadow-sm">
-                  <Package className="w-12 h-12 mx-auto mb-3 opacity-25 text-slate-350" />
+                <div className="bg-white rounded-2xl border border-slate-200/60 p-12 lg:p-16 text-center text-slate-400 shadow-sm">
+                  <Package className="w-10 h-10 lg:w-12 lg:h-12 mx-auto mb-3 opacity-25 text-slate-350" />
                   <p className="text-xs font-semibold">{tx(lang,{fr:'Aucune commande trouvée',ar:'لم يتم العثور على أي طلبية',en:'No orders found',es:'No se encontraron pedidos',pt:'Nenhuma encomenda encontrada',tr:'Sipariş bulunamadı'})}</p>
                 </div>
               ) : viewMode === 'card' ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {filteredOrders.map(order => {
-                    const progress = order.totalQuantity > 0 
-                      ? Math.min(100, Math.round(((order.qtyAccepted || 0) / order.totalQuantity) * 100))
-                      : 0;
+                    const qtyAcc = order.qtyAccepted || 0;
+                    const qtyRep = order.qtyToRepair || 0;
+                    const qtyRej = order.qtyRejected || 0;
+                    const accPct = order.totalQuantity > 0 ? Math.round((qtyAcc / order.totalQuantity) * 100) : 0;
+                    const repPct = order.totalQuantity > 0 ? Math.round((qtyRep / order.totalQuantity) * 100) : 0;
+                    const rejPct = order.totalQuantity > 0 ? Math.round((qtyRej / order.totalQuantity) * 100) : 0;
+                    const progress = Math.min(100, accPct + repPct + rejPct);
 
                     const matchedModel = models.find(m => m.id === order.modelId);
                     const photo = matchedModel?.image || null;
@@ -1278,15 +1322,21 @@ export default function SousTraitance({ models, settings }: SousTraitanceProps) 
                     return (
                       <div 
                         key={order.id}
-                        className="bg-white rounded-3xl border border-slate-200/60 shadow-sm hover:shadow-md hover:border-slate-300 transition-all overflow-hidden flex flex-col justify-between group"
+                        className="bg-white rounded-3xl border border-slate-200/60 shadow-sm hover:shadow-md hover:border-slate-350 transition-all overflow-hidden flex flex-col justify-between group"
                       >
-                        <div className="p-5 space-y-4">
+                        <div className="p-4 lg:p-5 space-y-3.5">
                           <div className="flex justify-between items-start">
                             <div>
-                              <span className="text-[9px] font-black text-indigo-655 uppercase tracking-widest block">{tx(lang,{fr:'Client:',ar:'العميل:',en:'Client:',es:'Cliente:',pt:'Cliente:',tr:'Müşteri:'})} {order.clientName || 'N/A'}</span>
-                              <h3 className="font-bold text-slate-800 text-base mt-1 line-clamp-1">{order.modelName}</h3>
+                              <span className="text-[9px] font-black text-indigo-600 uppercase tracking-widest block">{tx(lang,{fr:'Client:',ar:'العميل:',en:'Client:',es:'Cliente:',pt:'Cliente:',tr:'Müşteri:'})} {order.clientName || 'N/A'}</span>
+                              <h3 
+                                onClick={() => { if (onLoadModel && matchedModel) onLoadModel(matchedModel); }}
+                                className={`font-bold text-slate-800 text-sm mt-0.5 line-clamp-1 ${matchedModel ? 'hover:text-indigo-650 hover:underline cursor-pointer' : ''}`}
+                                title={matchedModel ? tx(lang,{fr:"Ouvrir dans l'ingénierie",ar:"فتح في الهندسة الفنية"}) : undefined}
+                              >
+                                {order.modelName}
+                              </h3>
                             </div>
-                            <span className={`text-[9px] font-bold px-2.5 py-1 rounded-full uppercase ${
+                            <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full uppercase ${
                               order.status === 'COMPLETED' ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' :
                               order.status === 'LIVRE_PARTIEL' ? 'bg-amber-100 text-amber-700 border border-amber-200' :
                               order.status === 'IN_COUTURE' ? 'bg-purple-100 text-purple-700 border border-purple-200' :
@@ -1301,36 +1351,85 @@ export default function SousTraitance({ models, settings }: SousTraitanceProps) 
                             </span>
                           </div>
 
-                          <div className="flex gap-4 items-center">
-                            <div className="w-14 h-14 bg-slate-50 border border-slate-200 rounded-xl overflow-hidden shrink-0 flex items-center justify-center">
+                          <div className="flex gap-3 items-center">
+                            <div 
+                              onClick={() => { if (onLoadModel && matchedModel) onLoadModel(matchedModel); }}
+                              className={`w-12 h-12 bg-slate-50 border border-slate-200 rounded-xl overflow-hidden shrink-0 flex items-center justify-center ${matchedModel ? 'cursor-pointer hover:border-indigo-400 hover:shadow-sm transition-all' : ''}`}
+                              title={matchedModel ? tx(lang,{fr:"Ouvrir dans l'ingénierie",ar:"فتح في الهندسة الفنية"}) : undefined}
+                            >
                               {photo ? (
                                 <img src={photo} alt="" className="w-full h-full object-cover" />
                               ) : (
-                                <Building2 className="w-6 h-6 text-slate-400" />
+                                <Building2 className="w-5 h-5 text-slate-400" />
                               )}
                             </div>
-                            <div className="space-y-1 text-xs">
-                              <p className="font-semibold text-slate-750">{tx(lang,{fr:'Atelier:',ar:'الورشة:',en:'Workshop:',es:'Taller:',pt:'Oficina:',tr:'Atölye:'})} {order.subcontractorName}</p>
-                              {order.subcontractorPhone && (
-                                <p className="text-slate-500">{tx(lang,{fr:'Tél:',ar:'الهاتف:',en:'Tel:',es:'Tel:',pt:'Tel:',tr:'Tel:'})} {order.subcontractorPhone}</p>
-                              )}
-                              <p className="text-slate-550">{tx(lang,{fr:'Date:',ar:'التاريخ:',en:'Date:',es:'Fecha:',pt:'Data:',tr:'Tarih:'})} {new Date(order.deliveryDate).toLocaleDateString('fr-FR')}</p>
+                            <div className="space-y-0.5 text-[11px] flex-1">
+                              <p className="font-bold text-slate-800 leading-none">{tx(lang,{fr:'Atelier:',ar:'الورشة:',en:'Workshop:',es:'Taller:',pt:'Oficina:',tr:'Atölye:'})} {order.subcontractorName}</p>
+                              {/* Rating display */}
+                              <div className="flex items-center gap-1 mt-0.5">
+                                <div className="flex text-amber-400 text-[10px]">
+                                  {Array.from({ length: Math.round(order.subcontractorRating || 5) }).map((_, i) => (
+                                    <span key={i}>★</span>
+                                  ))}
+                                  {Array.from({ length: 5 - Math.round(order.subcontractorRating || 5) }).map((_, i) => (
+                                    <span key={i} className="text-slate-200">★</span>
+                                  ))}
+                                </div>
+                                <span className="text-[9px] text-slate-400 font-semibold">({order.subcontractorRating || 5}/5)</span>
+                              </div>
+                              <p className="text-slate-400 text-[10px] mt-0.5">{tx(lang,{fr:'Livraison:',ar:'التسليم:',en:'Delivery:',es:'Entrega:',pt:'Entrega:',tr:'Teslimat:'})} {new Date(order.deliveryDate).toLocaleDateString('fr-FR')}</p>
                             </div>
                           </div>
 
-                          {/* Progress bar */}
-                          <div className="space-y-1">
-                            <div className="flex justify-between text-[11px] font-semibold">
+                          {/* Multi-segment Progress bar */}
+                          <div className="space-y-1.5">
+                            <div className="flex justify-between text-[10px] font-bold">
                               <span className="text-slate-500">{tx(lang,{fr:'Progression :',ar:'التقدم:',en:'Progress:',es:'Progresión:',pt:'Progresso:',tr:'İlerleme:'})} {progress}%</span>
-                              <span className="text-indigo-600">{(order.qtyAccepted || 0).toLocaleString()} / {order.totalQuantity.toLocaleString()} pcs</span>
+                              <span className="text-indigo-650" dir="ltr">{(qtyAcc + qtyRep + qtyRej).toLocaleString()} / {order.totalQuantity.toLocaleString()} pcs</span>
                             </div>
-                            <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
-                              <div className="bg-indigo-600 h-full transition-all duration-300" style={{ width: `${progress}%` }}></div>
+                            <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden flex">
+                              <div className="bg-emerald-500 h-full transition-all duration-300" style={{ width: `${accPct}%` }} title={`Accepté: ${qtyAcc}`} />
+                              <div className="bg-amber-400 h-full transition-all duration-300" style={{ width: `${repPct}%` }} title={`À retoucher: ${qtyRep}`} />
+                              <div className="bg-rose-500 h-full transition-all duration-300" style={{ width: `${rejPct}%` }} title={`Rejeté: ${qtyRej}`} />
                             </div>
+                            {/* Detailed Quality Legend */}
+                            <div className="flex items-center gap-3 text-[9px] font-semibold text-slate-500 justify-between">
+                              <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> {qtyAcc} ok</span>
+                              <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-amber-400" /> {qtyRep} retouche</span>
+                              <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-rose-500" /> {qtyRej} rebut</span>
+                            </div>
+                          </div>
+
+                          {/* Logistics Status Tags */}
+                          <div className="flex flex-wrap gap-1 pt-1.5 border-t border-slate-100">
+                            <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded border flex items-center gap-0.5 ${
+                              order.tissuStatus === 'SENT' ? 'bg-emerald-50 text-emerald-700 border-emerald-150' : 'bg-slate-50 text-slate-400 border-slate-150'
+                            }`}>
+                              <Layers className="w-2.5 h-2.5" />
+                              {tx(lang,{fr:'Tissu',ar:'قماش',en:'Fabric',es:'Tejido',pt:'Tecido',tr:'Kumaş'})}
+                            </span>
+                            <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded border flex items-center gap-0.5 ${
+                              order.fournituresStatus === 'DELIVERED' ? 'bg-emerald-50 text-emerald-700 border-emerald-150' : 'bg-slate-50 text-slate-400 border-slate-150'
+                            }`}>
+                              <Settings className="w-2.5 h-2.5" />
+                              {tx(lang,{fr:'Fournitures',ar:'لوازم',en:'Supplies',es:'Fornituras',pt:'Acessórios',tr:'Malzemeler'})}
+                            </span>
+                            <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded border flex items-center gap-0.5 ${
+                              order.ficheTechniqueSent === 1 ? 'bg-blue-50 text-blue-700 border-blue-150' : 'bg-slate-50 text-slate-400 border-slate-150'
+                            }`}>
+                              <FileText className="w-2.5 h-2.5" />
+                              {tx(lang,{fr:'FT',ar:'بطاقة فنية',en:'TS',es:'FT',pt:'FT',tr:'FT'})}
+                            </span>
+                            <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded border flex items-center gap-0.5 ${
+                              order.protoStatus === 'APPROVED' ? 'bg-purple-50 text-purple-700 border-purple-150' : 'bg-slate-50 text-slate-400 border-slate-150'
+                            }`}>
+                              <ShieldCheck className="w-2.5 h-2.5" />
+                              {tx(lang,{fr:'Proto',ar:'عينة',en:'Proto',es:'Proto',pt:'Proto',tr:'Proto'})}
+                            </span>
                           </div>
                         </div>
 
-                        {/* Card Actions Footer */}
+                      {/* Card Actions Footer */}
                         <div className="px-5 py-3.5 bg-slate-50/50 border-t border-slate-100 flex items-center justify-between gap-3 text-xs font-bold">
                           <button 
                             onClick={() => { setDetailOrder(order); setIsDetailModalOpen(true); }}
@@ -1426,12 +1525,21 @@ export default function SousTraitance({ models, settings }: SousTraitanceProps) 
                     </table>
                   </div>
                 </div>
-              )}
-            </div>
-          )}
+                            )}
 
-          {/* ======================================= */}
-          {/* TAB 2: SUIVI FOURNISSEURS (TRACKING) */}
+                            {/* Floating Action Button (FAB) for Mobile/Tablet */}
+                            <button
+                              onClick={openAddModal}
+                              className="lg:hidden fixed bottom-6 right-6 w-12 h-12 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white rounded-full shadow-lg flex items-center justify-center transition-all z-50 hover:shadow-xl border border-indigo-500"
+                              title={tx(lang,{fr:'Nouvelle Commande',ar:'أمر شراء جديد'})}
+                            >
+                              <Plus className="w-6 h-6 text-white" />
+                            </button>
+                          </div>
+                        )}
+
+                        {/* ======================================= */}
+                        {/* TAB 2: SUIVI FOURNISSEURS (TRACKING) */}
           {/* ======================================= */}
           {activeTab === 'subcontractors' && (
             <div className="space-y-6">
@@ -2574,7 +2682,19 @@ export default function SousTraitance({ models, settings }: SousTraitanceProps) 
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 bg-slate-50/75 p-4 rounded-xl border border-slate-150">
                 <div>
                   <span className="text-slate-500 font-semibold block uppercase text-[10px]">{tx(lang,{fr:'Modèle',ar:'الموديل',en:'Model',es:'Modelo',pt:'Modelo',tr:'Model'})}</span>
-                  <span className="font-bold text-slate-800">{detailOrder.modelName}</span>
+                  <span 
+                    onClick={() => {
+                      const matched = models.find(m => m.id === detailOrder.modelId);
+                      if (onLoadModel && matched) {
+                        onLoadModel(matched);
+                        setIsDetailModalOpen(false);
+                      }
+                    }}
+                    className={`font-bold text-slate-800 block mt-0.5 ${models.find(m => m.id === detailOrder.modelId) ? 'hover:text-indigo-650 hover:underline cursor-pointer' : ''}`}
+                    title={models.find(m => m.id === detailOrder.modelId) ? tx(lang,{fr:"Ouvrir dans l'ingénierie",ar:"فتح في الهندسة الفنية"}) : undefined}
+                  >
+                    {detailOrder.modelName}
+                  </span>
                 </div>
                 <div>
                   <span className="text-slate-500 font-semibold block uppercase text-[10px]">{tx(lang,{fr:'Quantité totale',ar:'الكمية الإجمالية',en:'Total quantity',es:'Cantidad total',pt:'Quantidade total',tr:'Toplam miktar'})}</span>

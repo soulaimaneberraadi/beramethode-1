@@ -48,7 +48,7 @@ export const getHRWorkers = (req: Request, res: Response) => {
         res.json(rows.map(sanitizeHrWorkerRow));
     } catch (error) {
         console.error('[getHRWorkers] Error:', error);
-        res.status(500).json({ message: 'Erreur' });
+        res.status(500).json({ message: 'Error' });
     }
 };
 
@@ -66,7 +66,7 @@ export const getHRWorkerById = (req: Request, res: Response) => {
             .get(req.params.id, companyId) as Record<string, unknown> | undefined;
         res.json(worker ? sanitizeHrWorkerRow(worker) : null);
     } catch(e) {
-        res.status(500).json({message: 'Erreur'});
+        res.status(500).json({message: 'Error'});
     }
 };
 
@@ -163,7 +163,7 @@ export const saveHRWorker = (req: Request, res: Response) => {
             });
         }
         console.error('saveHRWorker', e);
-        res.status(500).json({ message: 'Erreur' });
+        res.status(500).json({ message: 'Error' });
     }
 };
 
@@ -191,7 +191,7 @@ export const postHRWorkerPin = (req: Request, res: Response) => {
         res.json({ message: 'PIN enregistré' });
     } catch (e) {
         console.error('postHRWorkerPin', e);
-        res.status(500).json({ message: 'Erreur' });
+        res.status(500).json({ message: 'Error' });
     }
 };
 
@@ -220,7 +220,7 @@ export const postWorkerPinVerify = (req: Request, res: Response) => {
         const token = jwt.sign({ cin, role: 'worker' }, JWT_SECRET, { expiresIn: '24h' });
         res.json({ ok: true, token, person_id: row.person_id || null });
     } catch (e) {
-        res.status(500).json({ message: 'Erreur' });
+        res.status(500).json({ message: 'Error' });
     }
 };
 
@@ -230,7 +230,7 @@ export const deleteHRWorker = (req: Request, res: Response) => {
         db.prepare('DELETE FROM hr_workers WHERE id = ? AND owner_id = ?').run(req.params.id, companyId);
         res.json({ message: 'Supprimé' });
     } catch (e) {
-        res.status(500).json({ message: 'Erreur' });
+        res.status(500).json({ message: 'Error' });
     }
 };
 
@@ -397,7 +397,7 @@ export const getHRWorkerDossier = (req: Request, res: Response) => {
         });
     } catch (e) {
         console.error('getHRWorkerDossier', e);
-        res.status(500).json({ message: 'Erreur' });
+        res.status(500).json({ message: 'Error' });
     }
 };
 
@@ -414,7 +414,7 @@ export const getHRPointage = (req: Request, res: Response) => {
             WHERE w.owner_id = ? ${req.query.date ? 'AND p.date = ?' : ''}
         `).all(req.query.date ? [companyId, req.query.date] : [companyId]);
         res.json(records);
-    } catch (e) { res.status(500).json({message: 'Erreur'}); }
+    } catch (e) { res.status(500).json({message: 'Error'}); }
 };
 
 export { calculerHeures };
@@ -534,7 +534,7 @@ export const saveHRPointage = (req: Request, res: Response) => {
         res.json({message: 'Sauvegardé'});
     } catch (e) { 
         console.error('saveHRPointage Error:', e);
-        res.status(500).json({message: 'Erreur'}); 
+        res.status(500).json({message: 'Error'}); 
     }
 };
 
@@ -543,7 +543,7 @@ export const validateHRPointage = (req: Request, res: Response) => {
     try {
         db.prepare(`UPDATE hr_pointage SET is_validated = 1 WHERE worker_id IN (SELECT id FROM hr_workers WHERE owner_id = ?) AND date = ?`).run(companyId, req.body.date);
         res.json({message: 'Validé'});
-    } catch(e) { res.status(500).json({message: 'Erreur'}); }
+    } catch(e) { res.status(500).json({message: 'Error'}); }
 };
 
 // ==========================================
@@ -559,7 +559,7 @@ export const getHRProduction = (req: Request, res: Response) => {
         } else {
             res.json(db.prepare(`SELECT prod.*, w.full_name FROM hr_production prod JOIN hr_workers w ON prod.worker_id = w.id WHERE w.owner_id=?`).all(companyId));
         }
-    } catch(e) { res.status(500).json({message:'Erreur'}); }
+    } catch(e) { res.status(500).json({message:'Error'}); }
 };
 
 export const saveHRProduction = (req: Request, res: Response) => {
@@ -604,7 +604,7 @@ export const saveHRAvance = (req: Request, res: Response) => {
         ).run(a.id || uuidv4(), a.worker_id, a.date_demande, a.montant, a.montant, 'DEMANDE');
         res.json({ message: 'Avance enregistrée (Soumise à validation)' });
     } catch (e) {
-        res.status(500).json({ message: 'Erreur' });
+        res.status(500).json({ message: 'Error' });
     }
 };
 export const updateHRAvanceStatut = (req: Request, res: Response) => {
@@ -620,7 +620,7 @@ export const updateHRAvanceStatut = (req: Request, res: Response) => {
         }
         res.json({ message: 'Updated' });
     } catch (e) {
-        res.status(500).json({ message: 'Erreur' });
+        res.status(500).json({ message: 'Error' });
     }
 };
 
@@ -644,7 +644,7 @@ export const getHRClaimPreview = (req: Request, res: Response) => {
             companyId !== LEGACY_GUEST_OWNER_ID && my.c === 0 && guest.c > 0;
         res.json({ myCount: my.c, guestCount: companyId === LEGACY_GUEST_OWNER_ID ? 0 : guest.c, canClaim });
     } catch (e) {
-        res.status(500).json({ message: 'Erreur' });
+        res.status(500).json({ message: 'Error' });
     }
 };
 
@@ -672,7 +672,7 @@ export const postHRClaimFromGuest = (req: Request, res: Response) => {
         const r = db.prepare('UPDATE hr_workers SET owner_id = ?, updated_by = ?, updated_at = datetime("now") WHERE owner_id = ?').run(companyId, userId, LEGACY_GUEST_OWNER_ID);
         res.json({ ok: true, migrated: r.changes });
     } catch (e) {
-        res.status(500).json({ message: 'Erreur' });
+        res.status(500).json({ message: 'Error' });
     }
 };
 
@@ -758,7 +758,7 @@ export const getWorkerPointageToday = (req: Request, res: Response) => {
                 .get(cin) || null
         );
     } catch (e) {
-        res.status(500).json({ message: 'Erreur' });
+        res.status(500).json({ message: 'Error' });
     }
 };
 
@@ -790,7 +790,7 @@ export const getWorkerProductionToday = (req: Request, res: Response) => {
         }
         res.json(db.prepare('SELECT sum(pieces_produites) as total FROM hr_production WHERE worker_id = (SELECT id FROM hr_workers WHERE cin = ?) AND date = date("now")').get(cin) || null);
     } catch (e) {
-        res.status(500).json({ message: 'Erreur' });
+        res.status(500).json({ message: 'Error' });
     }
 };
 
@@ -805,7 +805,7 @@ export const getHRTransportLignes = (req: Request, res: Response) => {
         res.json(rows);
     } catch (error) {
         console.error('[getHRTransportLignes] Error:', error);
-        res.status(500).json({ message: 'Erreur' });
+        res.status(500).json({ message: 'Error' });
     }
 };
 
@@ -842,7 +842,7 @@ export const saveHRTransportLigne = (req: Request, res: Response) => {
         res.json({ message: 'Enregistré', id });
     } catch (error) {
         console.error('[saveHRTransportLigne] Error:', error);
-        res.status(500).json({ message: 'Erreur' });
+        res.status(500).json({ message: 'Error' });
     }
 };
 
@@ -856,6 +856,6 @@ export const deleteHRTransportLigne = (req: Request, res: Response) => {
         res.json({ message: 'Supprimé' });
     } catch (error) {
         console.error('[deleteHRTransportLigne] Error:', error);
-        res.status(500).json({ message: 'Erreur' });
+        res.status(500).json({ message: 'Error' });
     }
 };

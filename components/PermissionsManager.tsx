@@ -73,7 +73,7 @@ export default function PermissionsManager() {
   };
 
   const saveRolePerms = () => {
-    setConfirmText('Enregistrer les permissions de ce rôle ?');
+    setConfirmText(tx(lang, {fr:'Enregistrer les permissions de ce rôle ?',ar:'حفظ صلاحيات هذا الدور؟',en:'Save permissions for this role?',es:'¿Guardar los permisos de este rol?',pt:'Salvar permissões desta função?',tr:'Bu rolün izinlerini kaydet?'}));
     setConfirm(() => async () => {
       const list = Object.values(perms).filter(p => p.can_view || p.can_edit);
       await api(`/api/permissions/roles/${openRole}/perms`, { method: 'PUT', body: JSON.stringify({ perms: list }) });
@@ -88,7 +88,7 @@ export default function PermissionsManager() {
   };
 
   const delRole = (id: string) => {
-    setConfirmText('Supprimer ce rôle ?');
+    setConfirmText(tx(lang, {fr:'Supprimer ce rôle ?',ar:'حذف هذا الدور؟',en:'Delete this role?',es:'¿Eliminar este rol?',pt:'Excluir esta função?',tr:'Bu rolü sil?'}));
     setConfirm(() => async () => { await api(`/api/permissions/roles/${id}`, { method: 'DELETE' }); setConfirm(null); void reload(); });
   };
 
@@ -130,7 +130,7 @@ export default function PermissionsManager() {
       <div className="bg-white rounded-lg border border-slate-200 p-4">
         <h3 className="text-[13px] font-semibold text-slate-900 mb-3">{tx(lang, {fr:"Rôles",ar:"الأدوار",en:"Roles",es:"Roles",pt:"Funções",tr:"Roller"})}</h3>
         <div className="flex flex-wrap gap-2 mb-4">
-          <input value={newRole.name} onChange={e => setNewRole(s => ({ ...s, name: e.target.value }))} placeholder="Nom du rôle" className={`flex-1 min-w-[140px] ${inputCls}`} />
+          <input value={newRole.name} onChange={e => setNewRole(s => ({ ...s, name: e.target.value }))} placeholder={tx(lang, {fr:'Nom du rôle',ar:'اسم الدور',en:'Role name',es:'Nombre del rol',pt:'Nome da função',tr:'Rol adı'})} className={`flex-1 min-w-[140px] ${inputCls}`} />
           <select value={newRole.preset} onChange={e => setNewRole(s => ({ ...s, preset: e.target.value as RolePresetKey }))} className={`${inputCls} bg-white`}>
             <option value="">{tx(lang, {fr:"Sans preset",ar:"بدون قالب",en:"No preset",es:"Sin plantilla",pt:"Sem predefinição",tr:"Ön ayar yok"})}</option>
             {Object.keys(ROLE_PRESETS).map(k => <option key={k} value={k}>{ROLE_PRESETS[k as RolePresetKey].name}</option>)}
@@ -138,7 +138,7 @@ export default function PermissionsManager() {
           <button onClick={createRole} className="h-8 px-3 rounded-md bg-slate-900 text-white text-[13px] font-medium inline-flex items-center gap-1 hover:bg-slate-800"><Plus size={14} strokeWidth={1.75} /> {tx(lang, {fr:"Ajouter",ar:"إضافة",en:"Add",es:"Añadir",pt:"Adicionar",tr:"Ekle"})}</button>
         </div>
 
-        {roles.length === 0 && <p className="text-[13px] text-slate-400 py-3 text-center">Aucun rôle. Créez-en un (avec preset pour démarrer vite).</p>}
+        {roles.length === 0 && <p className="text-[13px] text-slate-400 py-3 text-center">{tx(lang, {fr:'Aucun rôle. Créez-en un (avec preset pour démarrer vite).',ar:'لا توجد أدوار. أنشئ واحداً (باستخدام قالب للبدء بسرعة).',en:'No roles. Create one (with a preset to start quickly).',es:'Sin roles. Cree uno (con una plantilla para empezar rápido).',pt:'Nenhuma função. Crie uma (com uma predefinição para começar rapidamente).',tr:'Rol yok. Hızlı başlamak için bir ön ayar ile oluşturun.'})}</p>}
 
         {roles.map(role => (
           <div key={role.id} className="border border-slate-100 rounded-md mb-1.5 overflow-hidden">
@@ -195,14 +195,14 @@ export default function PermissionsManager() {
       <div className="bg-white rounded-lg border border-slate-200 p-4">
         <h3 className="text-[13px] font-semibold text-slate-900 mb-3 flex items-center gap-1.5"><Users size={14} strokeWidth={1.75} className="text-slate-400" /> {tx(lang, {fr:"Membres",ar:"الأعضاء",en:"Members",es:"Miembros",pt:"Membros",tr:"Üyeler"})}</h3>
         <div className="flex flex-wrap gap-2 mb-3">
-          <input value={newMember.email} onChange={e => setNewMember(s => ({ ...s, email: e.target.value }))} placeholder="E-mail du membre" className={`flex-1 min-w-[160px] ${inputCls}`} />
+          <input value={newMember.email} onChange={e => setNewMember(s => ({ ...s, email: e.target.value }))} placeholder={tx(lang, {fr:'E-mail du membre',ar:'البريد الإلكتروني للعضو',en:'Member email',es:'Correo del miembro',pt:'E-mail do membro',tr:'Üye e-posta'})} className={`flex-1 min-w-[160px] ${inputCls}`} />
           <select value={newMember.role_id} onChange={e => setNewMember(s => ({ ...s, role_id: e.target.value }))} className={`${inputCls} bg-white`}>
             <option value="">Rôle…</option>
             {roles.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
           </select>
           <button onClick={addMember} className="h-8 px-3 rounded-md bg-slate-900 text-white text-[13px] font-medium inline-flex items-center gap-1 hover:bg-slate-800"><UserPlus size={14} strokeWidth={1.75} /> {tx(lang, {fr:"Inviter",ar:"دعوة",en:"Invite",es:"Invitar",pt:"Convidar",tr:"Davet et"})}</button>
         </div>
-        {members.length === 0 && <p className="text-[13px] text-slate-400 py-2 text-center">Aucun membre.</p>}
+        {members.length === 0 && <p className="text-[13px] text-slate-400 py-2 text-center">{tx(lang, {fr:'Aucun membre.',ar:'لا يوجد أعضاء.',en:'No members.',es:'Sin miembros.',pt:'Nenhum membro.',tr:'Üye yok.'})}</p>}
         {members.map(m => (
           <div key={m.id} className="flex items-center justify-between py-2 border-b border-slate-50 last:border-0">
             <div>
