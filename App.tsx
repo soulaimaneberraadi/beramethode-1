@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect, useCallback, useRef, Suspense, lazy } from 'react';
 import { preloadAllChunks } from './lib/preloader';
+import './src/context/ThemeContext';
 import GlobalLoader from './components/GlobalLoader';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { createTicketFromReport } from './src/lib/support';

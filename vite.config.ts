@@ -82,6 +82,13 @@ export default defineConfig(({ mode }) => {
       chunkSizeWarningLimit: 600,
       sourcemap: false,
       minify: 'esbuild',
+      rollupOptions: {
+        output: {
+          manualChunks(id) {
+            if (id.includes('/context/') || id.includes('\\context\\')) return 'context';
+          },
+        },
+      },
     }
   };
 });
