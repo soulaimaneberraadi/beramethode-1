@@ -77,3 +77,6 @@ temp_cout_minute/
 dist-server/
 electron/main.js
 electron/preload.js
+
+.vercel
+.env*

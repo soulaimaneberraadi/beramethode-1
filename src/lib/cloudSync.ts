@@ -107,10 +107,10 @@ const IMAGE_ARRAY_FIELDS = new Set(['images', 'machinePhotos']);
 const imgUrlCache = new Map<string, string>();
 
 // Max dimension and quality for compressed thumbnails stored inline in user_data
-const IMG_MAX_DIM = 700;
-const IMG_QUALITY = 0.72;
-// ~100KB in base64 (133 chars ≈ 100 bytes); images above this are stripped
-const IMG_MAX_INLINE_B64 = 140_000;
+const IMG_MAX_DIM = 600;
+const IMG_QUALITY = 0.5;
+// ~450KB in base64 (133 chars ≈ 100 bytes); images above this are stripped
+const IMG_MAX_INLINE_B64 = 600_000;
 
 /**
  * Compress a base64 image using Canvas.
@@ -133,6 +133,8 @@ const compressImage = (dataUrl: string): Promise<string | null> =>
         canvas.height = h;
         const ctx = canvas.getContext('2d');
         if (!ctx) { resolve(null); return; }
+        ctx.fillStyle = 'white';
+        ctx.fillRect(0, 0, w, h);
         ctx.drawImage(img, 0, 0, w, h);
         const out = canvas.toDataURL('image/jpeg', IMG_QUALITY);
         resolve(out.length <= IMG_MAX_INLINE_B64 ? out : null);
@@ -253,7 +255,32 @@ const applySnapshotToLocal = (snapshot: Record<string, unknown> | null) => {
   try {
     for (const k of SYNC_KEYS) {
       if (k in snapshot) {
-        try { localStorage.setItem(k, JSON.stringify(snapshot[k])); } catch {}
+        try {
+          // Preserve local images when cloud snapshot has models without images
+          if (k === 'beramethode_library') {
+            const localRaw = localStorage.getItem('beramethode_library');
+            if (localRaw) {
+              try {
+                const localModels = JSON.parse(localRaw);
+                const cloudModels = snapshot[k] as any[];
+                if (Array.isArray(cloudModels) && Array.isArray(localModels)) {
+                  const merged = cloudModels.map((cm: any) => {
+                    if (cm && !cm.image && !cm.images) {
+                      const lm = localModels.find((m: any) => m.id === cm.id);
+                      if (lm && (lm.image || lm.images)) {
+                        return { ...cm, image: lm.image || null, images: lm.images || null };
+                      }
+                    }
+                    return cm;
+                  });
+                  localStorage.setItem(k, JSON.stringify(merged));
+                  continue;
+                }
+              } catch { /* fall through to default overwrite */ }
+            }
+          }
+          localStorage.setItem(k, JSON.stringify(snapshot[k]));
+        } catch {}
       }
     }
     if ('__sqlite_export__' in snapshot) {

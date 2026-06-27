@@ -581,13 +581,25 @@ function NavDropdown({ label, views, currentView, activeClass, align = 'left', c
     const btnRef = useRef<HTMLButtonElement>(null);
     const [open, setOpen] = useState(false);
     const [pos, setPos] = useState<{ top: number; left: number; right: number }>({ top: 0, left: 0, right: 0 });
+    const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    const clearHideTimer = () => {
+        if (hideTimerRef.current) {
+            clearTimeout(hideTimerRef.current);
+            hideTimerRef.current = null;
+        }
+    };
 
     const updatePos = () => {
         const r = btnRef.current?.getBoundingClientRect();
-        if (r) setPos({ top: r.bottom + 4, left: r.left, right: window.innerWidth - r.right });
+        if (r) setPos({ top: r.bottom, left: r.left, right: window.innerWidth - r.right });
     };
-    const show = () => { updatePos(); setOpen(true); };
-    const hide = () => setOpen(false);
+    const show = () => { clearHideTimer(); updatePos(); setOpen(true); };
+    const hide = () => { clearHideTimer(); setOpen(false); };
+    const hideDelayed = () => {
+        clearHideTimer();
+        hideTimerRef.current = setTimeout(() => setOpen(false), 200);
+    };
 
     // Le menu est rendu en Portal (position fixed) : jamais coupé par le scroll horizontal de la nav.
     // On le referme si la page défile, la fenêtre change de taille.
@@ -603,7 +615,7 @@ function NavDropdown({ label, views, currentView, activeClass, align = 'left', c
     }, [open]);
 
     return (
-        <div className="relative shrink-0" onMouseEnter={show} onMouseLeave={hide}>
+        <div className="relative shrink-0" onMouseEnter={show} onMouseLeave={hideDelayed}>
             <button
                 ref={btnRef}
                 onClick={() => (open ? hide() : show())}
@@ -618,8 +630,8 @@ function NavDropdown({ label, views, currentView, activeClass, align = 'left', c
             </button>
             {open && createPortal(
                 <div
-                    onMouseEnter={() => setOpen(true)}
-                    onMouseLeave={hide}
+                    onMouseEnter={clearHideTimer}
+                    onMouseLeave={hideDelayed}
                     onClick={() => setOpen(false)}
                     style={{
                         position: 'fixed',

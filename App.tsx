@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect, useCallback, useRef, Suspense, lazy } from 'react';
+import { preloadAllChunks } from './lib/preloader';
 import GlobalLoader from './components/GlobalLoader';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { createTicketFromReport } from './src/lib/support';
@@ -417,6 +418,13 @@ export default function App() {
             window.addEventListener('beramethode:cloud-sync-applied', onCloudApplied);
             return () => window.removeEventListener('beramethode:cloud-sync-applied', onCloudApplied);
         }
+    }, [user]);
+
+    // Preload all lazy component chunks in background after initial render
+    useEffect(() => {
+        if (!user) return;
+        const timer = setTimeout(() => { preloadAllChunks(); }, 2000);
+        return () => clearTimeout(timer);
     }, [user]);
 
     useEffect(() => {
