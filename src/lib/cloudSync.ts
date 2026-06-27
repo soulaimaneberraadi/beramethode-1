@@ -1,5 +1,6 @@
 import { supabase } from './supabaseClient';
 import { SCHEMA_VERSION, migrateSnapshot } from './dataVersion';
+import { pkey, lsGet, lsSet, isSyncKey, getCurrentEmail } from '../../lib/storageKeys';
 
 const SYNC_KEYS = [
   'beramethode_autosave_v1',
@@ -46,9 +47,9 @@ const LAST_PULLED_AT_KEY = 'beramethode_last_pulled_at';
  */
 export const clearLocalAppData = () => {
   for (const k of SYNC_KEYS) {
-    try { localStorage.removeItem(k); } catch { /* ignore */ }
+    try { localStorage.removeItem(pkey(k)); } catch { /* ignore */ }
   }
-  try { localStorage.removeItem('__bera_sqlite_export__'); } catch { /* ignore */ }
+  try { localStorage.removeItem(pkey('__bera_sqlite_export__')); } catch { /* ignore */ }
   try { localStorage.removeItem(LAST_PULLED_AT_KEY); } catch { /* ignore */ }
   try {
     sessionStorage.removeItem('beramethode_pulled_once');
@@ -61,11 +62,54 @@ export const clearLocalAppData = () => {
  * dernier compte synchronisé sur ce navigateur, on purge les données locales
  * pour que le pull reparte d'une base propre (aucune donnée de l'ancien compte).
  */
+/**
+ * Save all sync keys from their unprefixed location to a user-prefixed backup.
+ * Used before switching users so the old user's data is never lost.
+ */
+const savePrefixedBackup = (email: string) => {
+  for (const k of SYNC_KEYS) {
+    try {
+      const v = localStorage.getItem(k);
+      if (v != null) localStorage.setItem(pkey(k), v);
+    } catch { /* ignore */ }
+  }
+  try {
+    const exp = localStorage.getItem('__bera_sqlite_export__');
+    if (exp) localStorage.setItem(pkey('__bera_sqlite_export__'), exp);
+  } catch { /* ignore */ }
+};
+
+/**
+ * Restore sync keys from a user-prefixed backup into unprefixed localStorage.
+ * Returns true if backup was found and restored.
+ */
+const restorePrefixedBackup = (email: string): boolean => {
+  let found = false;
+  for (const k of SYNC_KEYS) {
+    try {
+      const v = localStorage.getItem(pkey(k));
+      if (v != null) { localStorage.setItem(k, v); found = true; }
+    } catch { /* ignore */ }
+  }
+  try {
+    const exp = localStorage.getItem(pkey('__bera_sqlite_export__'));
+    if (exp) { localStorage.setItem('__bera_sqlite_export__', exp); found = true; }
+  } catch { /* ignore */ }
+  return found;
+};
+
 export const ensureLocalDataOwner = (userId: string) => {
   if (!userId) return;
   try {
     const prev = localStorage.getItem(LAST_SYNC_USER_KEY);
-    if (prev && prev !== userId) clearLocalAppData();
+    if (prev && prev !== userId) {
+      // 1. Save current user's data under their prefixed keys
+      savePrefixedBackup(prev);
+      // 2. Clear current unprefixed localStorage
+      clearLocalAppData();
+      // 3. Try restoring the new user's prefixed backup (data survives cloud failure)
+      restorePrefixedBackup(userId);
+    }
     localStorage.setItem(LAST_SYNC_USER_KEY, userId);
   } catch { /* ignore */ }
 };
@@ -235,15 +279,15 @@ const collectLocalSnapshot = (): Record<string, unknown> => {
   const out: Record<string, unknown> = {};
   for (const k of SYNC_KEYS) {
     try {
-      const v = localStorage.getItem(k);
+      const v = lsGet(k);
       if (v != null) out[k] = JSON.parse(v);
     } catch {
-      const raw = localStorage.getItem(k);
+      const raw = lsGet(k);
       if (raw != null) out[k] = raw;
     }
   }
   try {
-    const exp = localStorage.getItem('__bera_sqlite_export__');
+    const exp = lsGet('__bera_sqlite_export__');
     if (exp) out.__sqlite_export__ = JSON.parse(exp);
   } catch {}
   return out;
@@ -256,9 +300,8 @@ const applySnapshotToLocal = (snapshot: Record<string, unknown> | null) => {
     for (const k of SYNC_KEYS) {
       if (k in snapshot) {
         try {
-          // Preserve local images when cloud snapshot has models without images
           if (k === 'beramethode_library') {
-            const localRaw = localStorage.getItem('beramethode_library');
+            const localRaw = lsGet('beramethode_library');
             if (localRaw) {
               try {
                 const localModels = JSON.parse(localRaw);
@@ -273,18 +316,18 @@ const applySnapshotToLocal = (snapshot: Record<string, unknown> | null) => {
                     }
                     return cm;
                   });
-                  localStorage.setItem(k, JSON.stringify(merged));
+                  lsSet(k, JSON.stringify(merged));
                   continue;
                 }
-              } catch { /* fall through to default overwrite */ }
+              } catch { /* fall through */ }
             }
           }
-          localStorage.setItem(k, JSON.stringify(snapshot[k]));
+          lsSet(k, JSON.stringify(snapshot[k]));
         } catch {}
       }
     }
     if ('__sqlite_export__' in snapshot) {
-      try { localStorage.setItem('__bera_sqlite_export__', JSON.stringify(snapshot.__sqlite_export__)); } catch {}
+      try { lsSet('__bera_sqlite_export__', JSON.stringify(snapshot.__sqlite_export__)); } catch {}
     }
   } finally {
     isApplyingRemote = false;
@@ -439,7 +482,7 @@ export const startCloudSync = (userId: string) => {
   const originalSetItem = Storage.prototype.setItem;
   Storage.prototype.setItem = function (key: string, value: string) {
     originalSetItem.call(this, key, value);
-    if (this === localStorage && SYNC_KEYS.includes(key) && !isApplyingRemote) {
+    if (this === localStorage && isSyncKey(key, SYNC_KEYS) && !isApplyingRemote) {
       if (syncTimer) clearTimeout(syncTimer);
       syncTimer = setTimeout(() => pushSnapshotToCloud(userId), PUSH_DEBOUNCE_MS);
     }

@@ -11,16 +11,20 @@
  * par un mécanisme de tombstones (recovery 1h).
  */
 
+import { pkey } from '../../lib/storageKeys';
+
 const TOMBSTONES_KEY = 'beramethode_tombstones';
 const SQLITE_EXPORT_KEY = '__bera_sqlite_export__';
 const TOMBSTONE_TTL_MS = 60 * 60 * 1000; // 1h
 
+const p = (key: string) => pkey(key);
+
 const readJson = (key: string): any => {
-  try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : null; } catch { return null; }
+  try { const v = localStorage.getItem(p(key)); return v ? JSON.parse(v) : null; } catch { return null; }
 };
 
 const writeJson = (key: string, value: any) => {
-  try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) { console.warn(`writeJson ${key}`, e); }
+  try { localStorage.setItem(p(key), JSON.stringify(value)); } catch (e) { console.warn(`writeJson ${key}`, e); }
 };
 
 // ─── Entity store registry ───────────────────────────────────────────────────
