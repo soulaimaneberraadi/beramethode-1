@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Package, Plus, Trash2, Info, Building2, Search, Palette, Ruler, Check, ChevronDown, ChevronUp } from 'lucide-react';
 import { Material, FicheData } from '../types';
+import { useLang } from '../src/context/LanguageContext';
+import { tx } from '../lib/i18n';
 import { fmt } from '../constants';
 
 interface MaterialsListProps {
@@ -44,6 +46,7 @@ const MaterialsList: React.FC<MaterialsListProps> = ({
     bgCard, bgCardHeader, textPrimary, textSecondary, tableHeader, tableRowHover,
     totalMaterials, ficheData, setMaterialScope
 }) => {
+    const { lang } = useLang();
     const optionStyle = darkMode ? { backgroundColor: '#1f2937', color: 'white' } : {};
     const inputCls = `w-full rounded px-1.5 py-1 text-[12px] outline-none transition-all focus:ring-1 focus:ring-slate-100 ${darkMode ? 'bg-gray-700 text-white border-gray-600 focus:bg-gray-600' : 'bg-slate-50 border-slate-200 text-slate-900 focus:bg-white focus:border-slate-300'} border`;
 
@@ -152,7 +155,7 @@ const MaterialsList: React.FC<MaterialsListProps> = ({
                     <div className="bg-white rounded-lg border border-slate-200 shadow-sm w-full max-w-md p-5 animate-in zoom-in-95 duration-200">
                         <div className="flex items-center justify-between mb-4">
                             <h3 className="font-semibold text-slate-800 text-base flex items-center gap-2">
-                                <Plus className="w-4 h-4 text-slate-400" /> Ajouter au Magasin
+                                <Plus className="w-4 h-4 text-slate-400" /> {tx(lang, {fr:'Ajouter au Magasin',ar:'إضافة إلى المخزن',en:'Add to Store',es:'Añadir al Almacén',pt:'Adicionar ao Armazém',tr:'Depoya Ekle'})}
                             </h3>
                             <button onClick={() => setShowQuickAddModal(false)} className="p-1.5 text-slate-400 hover:bg-slate-100 rounded-full transition-colors">
                                 <Trash2 className="w-3.5 h-3.5" />
@@ -160,32 +163,32 @@ const MaterialsList: React.FC<MaterialsListProps> = ({
                         </div>
                         <div className="space-y-3 max-h-[60vh] overflow-y-auto p-1">
                             <div className="flex flex-col items-center justify-center mb-3">
-                                <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1.5 w-full">Photo du produit</label>
+                                <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1.5 w-full">{tx(lang, {fr:'Photo du produit',ar:'صورة المنتج',en:'Product photo',es:'Foto del producto',pt:'Foto do produto',tr:'Ürün fotoğrafı'})}</label>
                                 <div className="w-20 h-20 rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 flex items-center justify-center overflow-hidden relative cursor-pointer hover:bg-slate-100 transition-colors">
                                     {quickAddForm.image ? (
                                         <img src={quickAddForm.image} className="w-full h-full object-cover" alt="preview" />
                                     ) : (
                                         <div className="flex flex-col items-center text-slate-400">
                                             <Package className="w-5 h-5 mb-0.5 opacity-50" />
-                                            <span className="text-[8px] font-bold uppercase">Ajouter</span>
+                                            <span className="text-[8px] font-bold uppercase">{tx(lang, {fr:'Ajouter',ar:'إضافة',en:'Add',es:'Añadir',pt:'Adicionar',tr:'Ekle'})}</span>
                                         </div>
                                     )}
                                     <input type="file" accept="image/*" onChange={handleImageUpload} className="absolute inset-0 opacity-0 cursor-pointer" />
                                 </div>
                             </div>
                             <div>
-                                <label className="block text-[10px] font-bold text-slate-500 uppercase mb-0.5">Désignation / Nom *</label>
-                                <input type="text" value={quickAddForm.nom || ''} onChange={(e) => setQuickAddForm({ ...quickAddForm, nom: e.target.value })} className={`${inputCls} font-bold`} placeholder="Ex: Tissu Denim 12oz" />
+                                <label className="block text-[10px] font-bold text-slate-500 uppercase mb-0.5">{tx(lang, {fr:'Désignation / Nom *',ar:'التسمية / الاسم *',en:'Designation / Name *',es:'Designación / Nombre *',pt:'Designação / Nome *',tr:'Tanım / Ad *'})}</label>
+                                <input type="text" value={quickAddForm.nom || ''} onChange={(e) => setQuickAddForm({ ...quickAddForm, nom: e.target.value })} className={`${inputCls} font-bold`} placeholder={tx(lang, {fr:"Ex: Tissu Denim 12oz",ar:"مثال: قماش Denim 12oz",en:"E.g.: Denim Fabric 12oz",es:"Ej: Tela Denim 12oz",pt:"Ex: Tecido Denim 12oz",tr:"Örn: Denim Kumaş 12oz"})} />
                             </div>
                             <div className="flex gap-3">
                                 <div className="flex-1">
-                                    <label className="block text-[10px] font-bold text-slate-500 uppercase mb-0.5">Catégorie</label>
+                                    <label className="block text-[10px] font-bold text-slate-500 uppercase mb-0.5">{tx(lang, {fr:'Catégorie',ar:'الفئة',en:'Category',es:'Categoría',pt:'Categoria',tr:'Kategori'})}</label>
                                     <select value={quickAddForm.categorie || 'tissu'} onChange={(e) => setQuickAddForm({ ...quickAddForm, categorie: e.target.value })} className={inputCls}>
                                         {['tissu', 'fil', 'bouton', 'fermeture', 'etiquette', 'emballage', 'autre'].map(c => <option key={c} value={c}>{c}</option>)}
                                     </select>
                                 </div>
                                 <div className="w-1/3">
-                                    <label className="block text-[10px] font-bold text-slate-500 uppercase mb-0.5">Unité</label>
+                                    <label className="block text-[10px] font-bold text-slate-500 uppercase mb-0.5">{tx(lang, {fr:'Unité',ar:'الوحدة',en:'Unit',es:'Unidad',pt:'Unidade',tr:'Birim'})}</label>
                                     <select value={quickAddForm.unite || 'm'} onChange={(e) => setQuickAddForm({ ...quickAddForm, unite: e.target.value })} className={inputCls}>
                                         {['m', 'kg', 'piece', 'cone', 'boite'].map(c => <option key={c} value={c}>{c}</option>)}
                                     </select>
@@ -193,26 +196,26 @@ const MaterialsList: React.FC<MaterialsListProps> = ({
                             </div>
                             <div className="flex gap-3">
                                 <div className="flex-1">
-                                    <label className="block text-[10px] font-bold text-slate-500 uppercase mb-0.5">Prix U. ({currency})</label>
+                                    <label className="block text-[10px] font-bold text-slate-500 uppercase mb-0.5">{tx(lang, {fr:'Prix U.',ar:'سعر الوحدة',en:'Unit price',es:'Precio U.',pt:'Preço U.',tr:'Birim fiyat'})} ({currency})</label>
                                     <input type="number" min="0" step="0.01" value={quickAddForm.prixUnitaire || ''} onChange={(e) => setQuickAddForm({ ...quickAddForm, prixUnitaire: Number(e.target.value) })} className={`${inputCls} text-[#2149C1] font-semibold`} />
                                 </div>
                                 <div className="flex-1">
-                                    <label className="block text-[10px] font-bold text-slate-500 uppercase mb-0.5">Stock Initial</label>
+                                    <label className="block text-[10px] font-bold text-slate-500 uppercase mb-0.5">{tx(lang, {fr:'Stock Initial',ar:'المخزون الابتدائي',en:'Initial Stock',es:'Stock Inicial',pt:'Stock Inicial',tr:'Başlangıç Stoğu'})}</label>
                                     <input type="number" min="0" value={quickAddForm.stockActuel || ''} onChange={(e) => setQuickAddForm({ ...quickAddForm, stockActuel: Number(e.target.value) })} className={inputCls} />
                                 </div>
                             </div>
                             <div className="pt-2 border-t border-slate-100">
-                                <label className="block text-[10px] font-bold text-slate-500 uppercase mb-0.5">Fournisseur</label>
-                                <input type="text" value={quickAddForm.fournisseurNom || ''} onChange={(e) => setQuickAddForm({ ...quickAddForm, fournisseurNom: e.target.value })} className={inputCls} placeholder="Nom du fournisseur" />
+                                <label className="block text-[10px] font-bold text-slate-500 uppercase mb-0.5">{tx(lang, {fr:'Fournisseur',ar:'المورّد',en:'Supplier',es:'Proveedor',pt:'Fornecedor',tr:'Tedarikçi'})}</label>
+                                <input type="text" value={quickAddForm.fournisseurNom || ''} onChange={(e) => setQuickAddForm({ ...quickAddForm, fournisseurNom: e.target.value })} className={inputCls} placeholder={tx(lang, {fr:"Nom du fournisseur",ar:"اسم المورّد",en:"Supplier name",es:"Nombre del proveedor",pt:"Nome do fornecedor",tr:"Tedarikçi adı"})} />
                             </div>
                             <div>
-                                <label className="block text-[10px] font-bold text-slate-500 uppercase mb-0.5">Délai Livraison (Jours)</label>
-                                <input type="number" min="0" value={quickAddForm.fournisseurDelaiLivraisonJours || ''} onChange={(e) => setQuickAddForm({ ...quickAddForm, fournisseurDelaiLivraisonJours: Number(e.target.value) })} className={inputCls} placeholder="Ex: 14" />
+                                <label className="block text-[10px] font-bold text-slate-500 uppercase mb-0.5">{tx(lang, {fr:'Délai Livraison (Jours)',ar:'مهلة التسليم (أيام)',en:'Delivery Time (Days)',es:'Plazo de Entrega (Días)',pt:'Prazo de Entrega (Dias)',tr:'Teslim Süresi (Gün)'})}</label>
+                                <input type="number" min="0" value={quickAddForm.fournisseurDelaiLivraisonJours || ''} onChange={(e) => setQuickAddForm({ ...quickAddForm, fournisseurDelaiLivraisonJours: Number(e.target.value) })} className={inputCls} placeholder={tx(lang, {fr:"Ex: 14",ar:"مثال: 14",en:"E.g.: 14",es:"Ej: 14",pt:"Ex: 14",tr:"Örn: 14"})} />
                             </div>
                         </div>
                         <div className="mt-4 pt-3 border-t border-slate-100 flex justify-end gap-2">
-                            <button onClick={() => setShowQuickAddModal(false)} className="px-3 py-1.5 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-lg transition-colors">Annuler</button>
-                            <button onClick={handleQuickAdd} className="px-5 py-1.5 bg-slate-900 text-white text-xs font-medium rounded-md hover:bg-slate-800 transition-colors">Enregistrer</button>
+                            <button onClick={() => setShowQuickAddModal(false)} className="px-3 py-1.5 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-lg transition-colors">{tx(lang, {fr:'Annuler',ar:'إلغاء',en:'Cancel',es:'Cancelar',pt:'Cancelar',tr:'İptal'})}</button>
+                            <button onClick={handleQuickAdd} className="px-5 py-1.5 bg-slate-900 text-white text-xs font-medium rounded-md hover:bg-slate-800 transition-colors">{tx(lang, {fr:'Enregistrer',ar:'حفظ',en:'Save',es:'Guardar',pt:'Guardar',tr:'Kaydet'})}</button>
                         </div>
                     </div>
                 </div>
@@ -225,7 +228,7 @@ const MaterialsList: React.FC<MaterialsListProps> = ({
                         <Package className="w-3.5 h-3.5 text-slate-400" strokeWidth={1.75} />
                         <h2 className="text-[11px] sm:text-[12px] font-semibold text-slate-900 tracking-tight">{t.materials}</h2>
                         <span className="text-[9px] text-slate-400 hidden sm:inline">·</span>
-                        <p className="text-[9px] sm:text-[10px] text-slate-400 hidden sm:inline">Ajoutez ou sélectionnez depuis le magasin</p>
+                        <p className="text-[9px] sm:text-[10px] text-slate-400 hidden sm:inline">{tx(lang, {fr:'Ajoutez ou sélectionnez depuis le magasin',ar:'أضف أو اختر من المخزن',en:'Add or select from the store',es:'Añada o seleccione desde el almacén',pt:'Adicione ou selecione do armazém',tr:'Depodan ekleyin veya seçin'})}</p>
                     </div>
                     <button onClick={addMaterial} className="inline-flex items-center gap-1 h-6 sm:h-7 px-2 sm:px-2.5 rounded-md bg-slate-900 hover:bg-slate-800 text-white text-[10px] sm:text-[11px] font-medium transition-colors">
                         <Plus className="w-3 h-3" strokeWidth={2} /> {t.addMat}
@@ -261,14 +264,14 @@ const MaterialsList: React.FC<MaterialsListProps> = ({
                                 <tr><td colSpan={5} className="px-3 py-10 text-center text-slate-400 text-xs">
                                     <div className="flex flex-col items-center gap-2">
                                         <Package className="w-10 h-10 opacity-20" />
-                                        Aucune matière ajoutée. Cliquez sur <span className="text-[#2149C1] font-bold">{t.addMat}</span>
+                                        {tx(lang, {fr:'Aucune matière ajoutée. Cliquez sur ',ar:'لم تتم إضافة أي مادة. انقر على ',en:'No materials added. Click ',es:'Ningún material añadido. Haga clic en ',pt:'Nenhum material adicionado. Clique em ',tr:'Malzeme eklenmedi. Tıklayın: '})}<span className="text-[#2149C1] font-bold">{t.addMat}</span>
                                     </div>
                                 </td></tr>
                             )}
                         </tbody>
                         <tfoot className={`${darkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-slate-50/80 border-slate-100 text-slate-800'} border-t`}>
                             <tr>
-                                <td colSpan={3} className="px-3 py-1.5 text-[10px] font-medium uppercase tracking-wide text-slate-500 text-right">{t.totalMat || "Total Matière"}</td>
+                                <td colSpan={3} className="px-3 py-1.5 text-[10px] font-medium uppercase tracking-wide text-slate-500 text-right">{t.totalMat || tx(lang, {fr:'Total Matière',ar:'إجمالي المواد',en:'Total Material',es:'Total Material',pt:'Total Material',tr:'Toplam Malzeme'})}</td>
                                 <td className="px-3 py-1.5 text-right">
                                     <span className="text-[13px] font-semibold tabular-nums text-slate-900">{fmt(totalMaterials)} <span className="text-[9px] font-normal text-slate-400">{currency}</span></span>
                                 </td>
@@ -296,13 +299,13 @@ const MaterialsList: React.FC<MaterialsListProps> = ({
                         <div className="px-3 py-10 text-center text-slate-400 text-xs">
                             <div className="flex flex-col items-center gap-2">
                                 <Package className="w-10 h-10 opacity-20" />
-                                Aucune matière ajoutée. Cliquez sur <span className="text-[#2149C1] font-bold">{t.addMat}</span>
+                                {tx(lang, {fr:'Aucune matière ajoutée. Cliquez sur ',ar:'لم تتم إضافة أي مادة. انقر على ',en:'No materials added. Click ',es:'Ningún material añadido. Haga clic en ',pt:'Nenhum material adicionado. Clique em ',tr:'Malzeme eklenmedi. Tıklayın: '})}<span className="text-[#2149C1] font-bold">{t.addMat}</span>
                             </div>
                         </div>
                     )}
                     {/* Mobile Total */}
                     <div className={`px-3 py-2 border-t ${darkMode ? 'border-gray-700 bg-gray-800' : 'border-slate-100 bg-slate-50/80'} flex items-center justify-between`}>
-                        <span className="text-[10px] font-medium uppercase tracking-wide text-slate-500">{t.totalMat || "Total Matière"}</span>
+                        <span className="text-[10px] font-medium uppercase tracking-wide text-slate-500">{t.totalMat || tx(lang, {fr:'Total Matière',ar:'إجمالي المواد',en:'Total Material',es:'Total Material',pt:'Total Material',tr:'Toplam Malzeme'})}</span>
                         <span className="text-[13px] font-semibold tabular-nums text-slate-900">{fmt(totalMaterials)} <span className="text-[9px] font-normal text-slate-400">{currency}</span></span>
                     </div>
                 </div>
@@ -345,6 +348,7 @@ const MaterialRow: React.FC<MaterialRowProps> = ({
     setQuickAddForm, setQuickAddTargetRow, setShowQuickAddModal,
     expandedBobine, setExpandedBobine, view, setMaterialScope
 }) => {
+    const { lang } = useLang();
     const filteredMagasin = focusedRow === item.id
         ? magasinData.filter(m => {
             const q = (item.name || '').toLowerCase();
@@ -373,7 +377,7 @@ const MaterialRow: React.FC<MaterialRowProps> = ({
                                 onFocus={() => setFocusedRow(item.id)}
                                 onBlur={() => setTimeout(() => setFocusedRow(null), 250)}
                                 className={`${inputCls} font-medium text-[13px]`}
-                                placeholder="Rechercher matière..." />
+                                placeholder={tx(lang, {fr:"Rechercher matière...",ar:"بحث عن مادة...",en:"Search material...",es:"Buscar material...",pt:"Pesquisar material...",tr:"Malzeme ara..."})} />
                             <Search className="w-3 h-3 text-slate-400 absolute right-2 top-2 pointer-events-none" />
                             {/* Autocomplete Mobile */}
                             {focusedRow === item.id && (filteredMagasin.length > 0 || (item.name && filteredMagasin.length === 0)) && (
@@ -388,16 +392,16 @@ const MaterialRow: React.FC<MaterialRowProps> = ({
                                             </div>
                                             <div className="flex justify-between items-center mt-0.5">
                                                 <span className="text-[9px] text-slate-400">{m.reference || '—'}</span>
-                                                <span className={`text-[9px] font-bold ${(m.stockActuel || 0) === 0 ? 'text-red-500' : 'text-emerald-600'}`}>Stock: {m.stockActuel || 0}</span>
+                                                <span className={`text-[9px] font-bold ${(m.stockActuel || 0) === 0 ? 'text-red-500' : 'text-emerald-600'}`}>{tx(lang, {fr:'Stock: ',ar:'المخزون: ',en:'Stock: ',es:'Stock: ',pt:'Stock: ',tr:'Stok: '})}{m.stockActuel || 0}</span>
                                             </div>
                                         </div>
                                     )) : (
                                         <div className="p-2.5 text-center">
-                                            <span className="text-[10px] text-slate-400 italic">Aucune matière trouvée</span>
+                                            <span className="text-[10px] text-slate-400 italic">{tx(lang, {fr:'Aucune matière trouvée',ar:'لم يتم العثور على مادة',en:'No material found',es:'No se encontró material',pt:'Nenhum material encontrado',tr:'Malzeme bulunamadı'})}</span>
                                             {item.name && item.name.length > 1 && (
                                                 <button onMouseDown={(e) => { e.preventDefault(); setQuickAddTargetRow(item.id); setQuickAddForm({ nom: item.name }); setShowQuickAddModal(true); setFocusedRow(null); }}
                                                     className="w-full mt-2 py-1.5 bg-slate-50 border border-slate-200 text-slate-700 font-medium text-[10px] rounded-lg hover:bg-slate-100 transition-colors flex items-center justify-center gap-1">
-                                                    <Plus className="w-3 h-3" /> Ajouter "{item.name}"
+                                                    <Plus className="w-3 h-3" /> {tx(lang, {fr:'Ajouter ',ar:'إضافة ',en:'Add ',es:'Añadir ',pt:'Adicionar ',tr:'Ekle '})}"{item.name}"
                                                 </button>
                                             )}
                                         </div>
@@ -430,13 +434,13 @@ const MaterialRow: React.FC<MaterialRowProps> = ({
                     {/* Row 2: Price + Qty + Unit */}
                     <div className="flex items-center gap-2 mb-1.5">
                         <div className="flex-1">
-                            <label className="text-[9px] text-slate-400 uppercase mb-0.5 block">Prix</label>
+                            <label className="text-[9px] text-slate-400 uppercase mb-0.5 block">{tx(lang, {fr:'Prix',ar:'السعر',en:'Price',es:'Precio',pt:'Preço',tr:'Fiyat'})}</label>
                             <input type="number" min="0" value={item.unitPrice}
                                 onChange={(e) => updateMaterial(item.id, 'unitPrice', e.target.value)}
                                 className={`${inputCls} text-center font-mono text-[13px]`} />
                         </div>
                         <div className="flex-1">
-                            <label className="text-[9px] text-slate-400 uppercase mb-0.5 block">Qté</label>
+                            <label className="text-[9px] text-slate-400 uppercase mb-0.5 block">{tx(lang, {fr:'Qté',ar:'الكمية',en:'Qty',es:'Cant.',pt:'Qtd',tr:'Miktar'})}</label>
                             {isBobine ? (
                                 <div className={`${inputCls} text-center font-mono text-[13px] flex items-center justify-between`}>
                                     <span>{fmt(item.qty)}</span>
@@ -451,7 +455,7 @@ const MaterialRow: React.FC<MaterialRowProps> = ({
                             )}
                         </div>
                         <div className="w-16">
-                            <label className="text-[9px] text-slate-400 uppercase mb-0.5 block">Unité</label>
+                            <label className="text-[9px] text-slate-400 uppercase mb-0.5 block">{tx(lang, {fr:'Unité',ar:'الوحدة',en:'Unit',es:'Unidad',pt:'Unidade',tr:'Birim'})}</label>
                             <select value={item.unit} onChange={(e) => updateMaterial(item.id, 'unit', e.target.value)}
                                 className={`${inputCls} text-[11px] font-bold cursor-pointer`}>
                                 {['m','pc','kg','g','bobine','cm','cone','l'].map(u => <option key={u} value={u} style={optionStyle}>{u}</option>)}
@@ -463,12 +467,12 @@ const MaterialRow: React.FC<MaterialRowProps> = ({
                     {isBobine && bobineOpen && (
                         <div className={`p-2 rounded-lg border mt-1.5 animate-in fade-in duration-150 ${darkMode ? 'bg-blue-900/20 border-blue-800' : 'bg-blue-50 border-blue-100'}`}>
                             <div className="flex items-center gap-1.5">
-                                <span className="text-[9px] text-blue-600 font-bold shrink-0">Fil(m):</span>
-                                <input type="number" min="0" placeholder="Métrage" value={item.threadMeters || ''}
+                                <span className="text-[9px] text-blue-600 font-bold shrink-0">{tx(lang, {fr:'Fil(m):',ar:'الخيط (م):',en:'Thread(m):',es:'Hilo(m):',pt:'Fio(m):',tr:'İplik(m):'})}</span>
+                                <input type="number" min="0" placeholder={tx(lang, {fr:"Métrage",ar:"الطول بالأمتار",en:"Length (m)",es:"Metraje",pt:"Metragem",tr:"Uzunluk (m)"})} value={item.threadMeters || ''}
                                     onChange={(e) => updateMaterial(item.id, 'threadMeters', e.target.value)}
                                     className={`flex-1 text-[11px] font-mono border rounded px-1 outline-none text-center h-6 ${darkMode ? 'bg-gray-800 border-gray-600 text-white' : 'bg-white border-blue-200 text-slate-700'}`} />
                                 <span className="text-slate-400 text-[10px] font-bold">/</span>
-                                <input type="number" min="0" placeholder="Capacité" value={item.threadCapacity || ''}
+                                <input type="number" min="0" placeholder={tx(lang, {fr:"Capacité",ar:"السعة",en:"Capacity",es:"Capacidad",pt:"Capacidade",tr:"Kapasite"})} value={item.threadCapacity || ''}
                                     onChange={(e) => updateMaterial(item.id, 'threadCapacity', e.target.value)}
                                     className={`flex-1 text-[11px] font-mono border rounded px-1 outline-none text-center h-6 ${darkMode ? 'bg-gray-800 border-gray-600 text-white' : 'bg-white border-blue-200 text-slate-700'}`} />
                             </div>
@@ -476,7 +480,7 @@ const MaterialRow: React.FC<MaterialRowProps> = ({
                                 <div className="mt-1.5 relative">
                                     <div className={`flex items-center gap-1.5 px-1.5 py-1 rounded border w-full ${darkMode ? 'bg-slate-800/50 border-slate-700' : 'bg-white border-slate-200'}`}>
                                         {item.threadColor && <span className="text-[9px] px-1 py-0.5 rounded bg-slate-100 text-slate-600 font-medium">{item.threadColor}</span>}
-                                        <input type="text" placeholder="Réf (NM50, TEX...)" value={String(item.threadReference || '')}
+                                        <input type="text" placeholder={tx(lang, {fr:"Réf (NM50, TEX...)",ar:"المرجع (NM50, TEX...)",en:"Ref (NM50, TEX...)",es:"Ref (NM50, TEX...)",pt:"Ref (NM50, TEX...)",tr:"Ref (NM50, TEX...)"})} value={String(item.threadReference || '')}
                                             onChange={(e) => updateMaterial(item.id, 'threadReference', e.target.value)}
                                             onFocus={() => setFocusedRefRow(item.id)}
                                             onBlur={() => setTimeout(() => setFocusedRefRow(null), 250)}
@@ -497,7 +501,7 @@ const MaterialRow: React.FC<MaterialRowProps> = ({
                                             {magasinData.filter(m => {
                                                 const q = String(item.threadReference || '').toLowerCase();
                                                 return ((m.reference || '').toLowerCase().includes(q) || (m.nom || m.designation || '').toLowerCase().includes(q)) && (m.categorie === 'fil' || !m.categorie);
-                                            }).length === 0 && <div className="px-2 py-1.5 text-[10px] text-slate-400 text-center">Aucun fil trouvé</div>}
+                                            }).length === 0 && <div className="px-2 py-1.5 text-[10px] text-slate-400 text-center">{tx(lang, {fr:'Aucun fil trouvé',ar:'لم يتم العثور على خيط',en:'No thread found',es:'No se encontró hilo',pt:'Nenhum fio encontrado',tr:'İplik bulunamadı'})}</div>}
                                         </div>
                                     )}
                                 </div>
@@ -510,12 +514,12 @@ const MaterialRow: React.FC<MaterialRowProps> = ({
                         {canAssign && (
                             <button onClick={() => setExpandedScope(prev => prev === item.id ? null : item.id)}
                                 className={`inline-flex items-center gap-0.5 px-2 py-1 rounded-md text-[10px] font-medium transition-colors ${expandedScope === item.id || item.scope ? 'text-[#2149C1] bg-slate-100' : 'text-slate-400 hover:text-[#2149C1] hover:bg-slate-100'}`}>
-                                <Palette className="w-3 h-3" /> Affecter
+                                <Palette className="w-3 h-3" /> {tx(lang, {fr:'Affecter',ar:'تعيين',en:'Assign',es:'Asignar',pt:'Atribuir',tr:'Ata'})}
                             </button>
                         )}
                         <button onClick={() => deleteMaterial(item.id)}
                             className="inline-flex items-center gap-0.5 px-2 py-1 rounded-md text-[10px] font-medium text-slate-400 hover:text-rose-500 hover:bg-rose-50 transition-colors">
-                            <Trash2 className="w-3 h-3" /> Supprimer
+                            <Trash2 className="w-3 h-3" /> {tx(lang, {fr:'Supprimer',ar:'حذف',en:'Delete',es:'Eliminar',pt:'Eliminar',tr:'Sil'})}
                         </button>
                     </div>
 
@@ -526,7 +530,7 @@ const MaterialRow: React.FC<MaterialRowProps> = ({
                                 {scopeColors.length > 0 && (
                                     <>
                                         <Palette className="w-3 h-3 text-slate-400 shrink-0" />
-                                        <ScopeChip active={!item.scope?.colors?.length} onClick={() => setMaterialScope?.(item.id, { ...item.scope, colors: [] })}>Toutes</ScopeChip>
+                                        <ScopeChip active={!item.scope?.colors?.length} onClick={() => setMaterialScope?.(item.id, { ...item.scope, colors: [] })}>{tx(lang, {fr:'Toutes',ar:'الكل',en:'All',es:'Todas',pt:'Todas',tr:'Tümü'})}</ScopeChip>
                                         {scopeColors.map(c => (
                                             <ScopeChip key={c.id} active={!!item.scope?.colors?.length && item.scope.colors.includes(c.id)} onClick={() => toggleScopeColor(item, c.id)} hex={colorHex(c.id)}>{c.name}</ScopeChip>
                                         ))}
@@ -536,7 +540,7 @@ const MaterialRow: React.FC<MaterialRowProps> = ({
                                 {scopeSizes.length > 0 && (
                                     <>
                                         <Ruler className="w-3 h-3 text-slate-400 shrink-0" />
-                                        <ScopeChip active={!item.scope?.sizes?.length} onClick={() => setMaterialScope?.(item.id, { ...item.scope, sizes: [] })}>Toutes</ScopeChip>
+                                        <ScopeChip active={!item.scope?.sizes?.length} onClick={() => setMaterialScope?.(item.id, { ...item.scope, sizes: [] })}>{tx(lang, {fr:'Toutes',ar:'الكل',en:'All',es:'Todas',pt:'Todas',tr:'Tümü'})}</ScopeChip>
                                         {scopeSizes.map((s, i) => (
                                             <ScopeChip key={i} active={!!item.scope?.sizes?.length && item.scope.sizes.includes(i)} onClick={() => toggleScopeSize(item, i)}>{s}</ScopeChip>
                                         ))}
@@ -561,7 +565,7 @@ const MaterialRow: React.FC<MaterialRowProps> = ({
                     {canAssign && (
                         <button
                             onClick={() => setExpandedScope(prev => prev === item.id ? null : item.id)}
-                            title="Affecter couleurs / tailles"
+                            title={tx(lang, {fr:'Affecter couleurs / tailles',ar:'تعيين الألوان / المقاسات',en:'Assign colors / sizes',es:'Asignar colores / tallas',pt:'Atribuir cores / tamanhos',tr:'Renk / beden ata'})}
                             className={`shrink-0 p-1.5 rounded-lg transition-colors ${
                                 expandedScope === item.id || item.scope
                                     ? 'text-[#2149C1] bg-indigo-100'
@@ -577,7 +581,7 @@ const MaterialRow: React.FC<MaterialRowProps> = ({
                             onFocus={() => setFocusedRow(item.id)}
                             onBlur={() => setTimeout(() => setFocusedRow(null), 250)}
                             className={`${inputCls} font-medium pr-6`}
-                            placeholder="Rechercher matière..." />
+                            placeholder={tx(lang, {fr:'Rechercher matière...',ar:'بحث عن مادة...',en:'Search material...',es:'Buscar material...',pt:'Pesquisar material...',tr:'Malzeme ara...'})} />
                         <Search className="w-3 h-3 text-slate-400 absolute right-2 top-2 pointer-events-none" />
                     </div>
                 </div>
@@ -599,11 +603,11 @@ const MaterialRow: React.FC<MaterialRowProps> = ({
                             </div>
                         )) : (
                             <div className="p-2 text-center">
-                                <span className="text-[10px] text-slate-400 italic">Aucune matière trouvée</span>
+                                <span className="text-[10px] text-slate-400 italic">{tx(lang, {fr:'Aucune matière trouvée',ar:'لم يتم العثور على مادة',en:'No material found',es:'No se encontró material',pt:'Nenhum material encontrado',tr:'Malzeme bulunamadı'})}</span>
                                 {item.name && item.name.length > 1 && (
                                     <button onMouseDown={(e) => { e.preventDefault(); setQuickAddTargetRow(item.id); setQuickAddForm({ nom: item.name }); setShowQuickAddModal(true); setFocusedRow(null); }}
                                         className="w-full mt-1.5 py-1.5 bg-slate-50 border border-slate-200 text-slate-700 font-medium text-[10px] rounded-lg hover:bg-slate-100 transition-colors flex items-center justify-center gap-1">
-                                        <Plus className="w-3 h-3" /> Ajouter "{item.name}"
+                                        <Plus className="w-3 h-3" /> {tx(lang, {fr:'Ajouter ',ar:'إضافة ',en:'Add ',es:'Añadir ',pt:'Adicionar ',tr:'Ekle '})}"{item.name}"
                                     </button>
                                 )}
                             </div>
@@ -680,12 +684,12 @@ const MaterialRow: React.FC<MaterialRowProps> = ({
                 {isBobine && bobineOpen && (
                     <div className={`mt-1.5 p-2 rounded border animate-in fade-in duration-150 ${darkMode ? 'bg-blue-900/20 border-blue-800' : 'bg-blue-50 border-blue-100'}`}>
                         <div className="flex items-center gap-1.5">
-                            <span className="text-[9px] text-blue-600 font-bold shrink-0">Fil(m):</span>
-                            <input type="number" min="0" placeholder="Métrage" value={item.threadMeters || ''}
+                            <span className="text-[9px] text-blue-600 font-bold shrink-0">{tx(lang, {fr:'Fil(m):',ar:'الخيط (م):',en:'Thread(m):',es:'Hilo(m):',pt:'Fio(m):',tr:'İplik(m):'})}</span>
+                            <input type="number" min="0" placeholder={tx(lang, {fr:'Métrage',ar:'الطول بالأمتار',en:'Length (m)',es:'Metraje',pt:'Metragem',tr:'Uzunluk (m)'})} value={item.threadMeters || ''}
                                 onChange={(e) => updateMaterial(item.id, 'threadMeters', e.target.value)}
                                 className={`flex-1 text-[10px] font-mono border rounded px-1 outline-none text-center h-5 ${darkMode ? 'bg-gray-800 border-gray-600 text-white' : 'bg-white border-blue-200 text-slate-700'}`} />
                             <span className="text-slate-400 text-[10px] font-bold">/</span>
-                            <input type="number" min="0" placeholder="Capacité" value={item.threadCapacity || ''}
+                            <input type="number" min="0" placeholder={tx(lang, {fr:'Capacité',ar:'السعة',en:'Capacity',es:'Capacidad',pt:'Capacidade',tr:'Kapasite'})} value={item.threadCapacity || ''}
                                 onChange={(e) => updateMaterial(item.id, 'threadCapacity', e.target.value)}
                                 className={`flex-1 text-[10px] font-mono border rounded px-1 outline-none text-center h-5 ${darkMode ? 'bg-gray-800 border-gray-600 text-white' : 'bg-white border-blue-200 text-slate-700'}`} />
                         </div>
@@ -693,7 +697,7 @@ const MaterialRow: React.FC<MaterialRowProps> = ({
                             <div className="mt-1 relative">
                                 <div className={`flex items-center gap-1 px-1.5 py-0.5 rounded border w-full ${darkMode ? 'bg-slate-800/50 border-slate-700' : 'bg-white border-slate-200'}`}>
                                     {item.threadColor && <span className="text-[9px] px-1 py-0.5 rounded bg-slate-100 text-slate-600 font-medium">{item.threadColor}</span>}
-                                    <input type="text" placeholder="Réf (NM50, TEX...)" value={String(item.threadReference || '')}
+                                    <input type="text" placeholder={tx(lang, {fr:'Réf (NM50, TEX...)',ar:'المرجع (NM50, TEX...)',en:'Ref (NM50, TEX...)',es:'Ref (NM50, TEX...)',pt:'Ref (NM50, TEX...)',tr:'Ref (NM50, TEX...)'})} value={String(item.threadReference || '')}
                                         onChange={(e) => updateMaterial(item.id, 'threadReference', e.target.value)}
                                         onFocus={() => setFocusedRefRow(item.id)}
                                         onBlur={() => setTimeout(() => setFocusedRefRow(null), 250)}
@@ -730,7 +734,7 @@ const MaterialRow: React.FC<MaterialRowProps> = ({
             {/* ACTIONS */}
             <td className="px-3 py-1.5 align-middle text-center">
                 <div className="flex items-center justify-center gap-0.5">
-                    <button onClick={() => deleteMaterial(item.id)} title="Supprimer"
+                    <button onClick={() => deleteMaterial(item.id)} title={tx(lang, {fr:"Supprimer",ar:"حذف",en:"Delete",es:"Eliminar",pt:"Excluir",tr:"Sil"})}
                         className="p-1 rounded text-slate-400 hover:text-rose-500 hover:bg-rose-50 transition-colors">
                         <Trash2 className="w-3.5 h-3.5" />
                     </button>
@@ -746,7 +750,7 @@ const MaterialRow: React.FC<MaterialRowProps> = ({
                         {scopeColors.length > 0 && (
                             <>
                                 <Palette className="w-3 h-3 text-slate-400 shrink-0" />
-                                <ScopeChip active={!item.scope?.colors?.length} onClick={() => setMaterialScope?.(item.id, { ...item.scope, colors: [] })}>Toutes</ScopeChip>
+                                <ScopeChip active={!item.scope?.colors?.length} onClick={() => setMaterialScope?.(item.id, { ...item.scope, colors: [] })}>{tx(lang, {fr:'Toutes',ar:'الكل',en:'All',es:'Todas',pt:'Todas',tr:'Tümü'})}</ScopeChip>
                                 {scopeColors.map(c => (
                                     <ScopeChip key={c.id} active={!!item.scope?.colors?.length && item.scope.colors.includes(c.id)} onClick={() => toggleScopeColor(item, c.id)} hex={colorHex(c.id)}>{c.name}</ScopeChip>
                                 ))}
@@ -756,7 +760,7 @@ const MaterialRow: React.FC<MaterialRowProps> = ({
                         {scopeSizes.length > 0 && (
                             <>
                                 <Ruler className="w-3 h-3 text-slate-400 shrink-0" />
-                                <ScopeChip active={!item.scope?.sizes?.length} onClick={() => setMaterialScope?.(item.id, { ...item.scope, sizes: [] })}>Toutes</ScopeChip>
+                                <ScopeChip active={!item.scope?.sizes?.length} onClick={() => setMaterialScope?.(item.id, { ...item.scope, sizes: [] })}>{tx(lang, {fr:'Toutes',ar:'الكل',en:'All',es:'Todas',pt:'Todas',tr:'Tümü'})}</ScopeChip>
                                 {scopeSizes.map((s, i) => (
                                     <ScopeChip key={i} active={!!item.scope?.sizes?.length && item.scope.sizes.includes(i)} onClick={() => toggleScopeSize(item, i)}>{s}</ScopeChip>
                                 ))}

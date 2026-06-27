@@ -6,6 +6,8 @@ const launchDateTimeIso = (date: string, launchTime?: string) => {
     return `${date}T${t}:00`;
 };
 import { AUTO_SAVE_KEY } from './constants';
+import { tx } from '../lib/i18n';
+import { useLang } from '../src/context/LanguageContext';
 
 interface UseAppModelManagerProps {
     user: any;
@@ -65,6 +67,8 @@ export function useAppModelManager({
     setHistory, setHistoryIndex, chronoData, setChronoData,
     chronoCustomStations, setChronoCustomStations, chronoLayoutSide, setChronoLayoutSide
 }: UseAppModelManagerProps) {
+
+    const { lang } = useLang();
 
     const saveCurrentModel = useCallback((navigateNext: boolean = true, silent: boolean = false) => {
         // 1. PREPARE DATA
@@ -144,17 +148,17 @@ export function useAppModelManager({
                 .then(() => {
                     setModels(prev => currentModelId ? prev.map(m => m.id === currentModelId ? modelToSave : m) : [modelToSave, ...prev]);
                     setCurrentModelId(modelToSave.id);
-                    if (!silent) showToast("Modèle sauvegardé avec succès (Cloud) !");
+                    if (!silent) showToast(tx(lang, {fr:"Modèle sauvegardé avec succès (Cloud) !",ar:"تم حفظ النموذج بنجاح (سحابة)!",en:"Model saved successfully (Cloud)!",es:"Modelo guardado con éxito (Nube)!",pt:"Modelo salvo com sucesso (Nuvem)!",tr:"Model başarıyla kaydedildi (Bulut)!"}));
                     if (navigateNext) setCurrentView('library');
                 })
                 .catch(err => {
                     console.error(err);
-                    showToast("Erreur lors de la sauvegarde sur le serveur.", "error");
+                    showToast(tx(lang, {fr:"Erreur lors de la sauvegarde sur le serveur.",ar:"خطأ أثناء الحفظ على الخادم.",en:"Error saving to server.",es:"Error al guardar en el servidor.",pt:"Erro ao salvar no servidor.",tr:"Sunucuya kaydedilirken hata oluştu."}), "error");
                 });
         } else {
             setModels(prev => currentModelId ? prev.map(m => m.id === currentModelId ? modelToSave : m) : [modelToSave, ...prev]);
             setCurrentModelId(modelToSave.id);
-            if (!silent) showToast("Modèle sauvegardé avec succès (Local) !");
+            if (!silent) showToast(tx(lang, {fr:"Modèle sauvegardé avec succès (Local) !",ar:"تم حفظ النموذج بنجاح (محلي)!",en:"Model saved successfully (Local)!",es:"Modelo guardado con éxito (Local)!",pt:"Modelo salvo com sucesso (Local)!",tr:"Model başarıyla kaydedildi (Yerel)!"}));
             if (navigateNext) setCurrentView('library');
         }
     }, [activeLayout, articleName, assignments, currentModelId, ficheData, ficheImages, globalStats.tempsArticle, layoutMemory, manualLinks, models, numWorkers, operations, postes, setCurrentModelId, setCurrentView, setLayoutMemory, setModels, setPlanningEvents, showToast, user, efficiency, chronoData, chronoCustomStations, chronoLayoutSide]);

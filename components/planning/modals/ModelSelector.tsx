@@ -2,6 +2,8 @@ import React, { useState, useRef, useEffect, useMemo } from 'react';
 import type { ModelData, PlanningEvent, AppSettings } from '../../../types';
 import { getClientColor } from '../shared/clientColors';
 import { ChevronDown, Package, Zap, CheckCircle2, AlertCircle, AlertTriangle, Clock, Calendar, Search, X, ExternalLink } from 'lucide-react';
+import { tx } from '../../../lib/i18n';
+import { useLang } from '../../../src/context/LanguageContext';
 import { addWorkingDaysFromLaunchIso, planningLocalDateKey } from '../../../utils/planning';
 
 function getModelThumb(m: ModelData): string | null {
@@ -158,6 +160,7 @@ export default function ModelSelector({
     workingHoursPerDay = 8, onOpenInIngenierie,
     settings, chainId,
 }: Props) {
+    const { lang } = useLang();
     const [open, setOpen] = useState(false);
     const [search, setSearch] = useState('');
     const [sortBy, setSortBy] = useState<'default' | 'name-asc' | 'name-desc' | 'sam-asc' | 'sam-desc' | 'client' | 'pcs-desc'>('default');

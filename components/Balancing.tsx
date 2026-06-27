@@ -2,6 +2,8 @@
 import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { Operation, Poste, Machine, FicheData } from '../types';
+import { tx } from '../lib/i18n';
+import { useLang } from '../src/context/LanguageContext';
 import { 
   Users, 
   Clock, 
@@ -302,6 +304,8 @@ export default function Balancing({
   ficheData,
   setFicheData
 }: BalancingProps) {
+
+  const { lang } = useLang();
 
   const tolerance = ficheData?.toleranceSaturation ?? 115;
   const toleranceRatio = tolerance / 100;
@@ -854,7 +858,7 @@ export default function Balancing({
               const refPoste = newPostes[idx];
               setInsertData({
                   machine: refPoste.machine || 'MAN',
-                  description: 'Nouvelle Opération',
+                    description: tx(lang, {fr:'Nouvelle Opération',ar:'عملية جديدة',en:'New Operation',es:'Nueva Operación',pt:'Nova Operação',tr:'Yeni Operasyon'}),
                   length: 0,
                   notes: ''
               });
@@ -1071,7 +1075,7 @@ export default function Balancing({
           const newOp: Operation = {
               id: newOpId,
               order: operations.length + 1,
-              description: insertData.description || 'Opération (Insérée)',
+              description: insertData.description || tx(lang,{fr:'Opération (Insérée)',ar:'عملية (مدرجة)',en:'Operation (Inserted)',es:'Operación (Insertada)',pt:'Operação (Inserida)',tr:'Operasyon (Eklendi)'}),
               machineId: machineObj ? machineObj.id : '',
               machineName: insertData.machine,
               length: insertData.length,
@@ -1247,7 +1251,7 @@ export default function Balancing({
             {/* OUVRIERS / HEURES */}
             <div className="flex items-center gap-2 px-2 py-1 sm:px-3 sm:py-1.5 bg-slate-50 rounded-lg border border-slate-100 shrink-0">
                 <div className="flex flex-col items-center border-r border-slate-200 pr-3 mr-3">
-                    <span className="text-[9px] font-bold text-slate-400 uppercase">Ouvriers</span>
+                    <span className="text-[9px] font-bold text-slate-400 uppercase">{tx(lang,{fr:'Ouvriers',ar:'العمال',en:'Workers',es:'Obreros',pt:'Trabalhadores',tr:'İşçiler'})}</span>
                     <input 
                         type="number" 
                         min="1" 
@@ -1257,7 +1261,7 @@ export default function Balancing({
                     />
                 </div>
                 <div className="flex flex-col items-center">
-                    <span className="text-[9px] font-bold text-slate-400 uppercase">Heures</span>
+                    <span className="text-[9px] font-bold text-slate-400 uppercase">{tx(lang,{fr:'Heures',ar:'ساعات',en:'Hours',es:'Horas',pt:'Horas',tr:'Saatler'})}</span>
                     <input 
                         type="number" 
                         min="0" 
@@ -1276,14 +1280,14 @@ export default function Balancing({
                     <span className="font-black text-emerald-700 text-sm">{(bf * 60).toFixed(1)}</span>
                 </div>
                 <div className="flex flex-col items-center">
-                    <span className="text-[9px] font-bold text-emerald-600 uppercase">Min Tot.</span>
+                    <span className="text-[9px] font-bold text-emerald-600 uppercase">{tx(lang,{fr:'Min Tot.',ar:'إجمالي الدقائق',en:'Tot Min',es:'Min Tot',pt:'Min Total',tr:'Top Dak'})}</span>
                     <span className="font-black text-emerald-700 text-sm">{presenceTime}</span>
                 </div>
             </div>
 
             {/* P/H 100% */}
             <div className="flex flex-col items-center px-3 py-1.5 bg-orange-50/50 rounded-lg border border-orange-100 shrink-0">
-                <span className="text-[9px] font-bold text-orange-400 uppercase">P/H (100%)</span>
+                <span className="text-[9px] font-bold text-orange-400 uppercase">{tx(lang,{fr:'P/H (100%)',ar:'ق/س (100%)',en:'P/H (100%)',es:'P/H (100%)',pt:'P/H (100%)',tr:'A/S (100%)'})}</span>
                 <span className="font-black text-orange-500 text-sm leading-none mt-1">
                     {tempsArticle > 0 ? Math.round((presenceTime * numWorkers) / tempsArticle / (presenceTime / 60)) : 0}
                 </span>
@@ -1292,13 +1296,13 @@ export default function Balancing({
             {/* TARGETS */}
             <div className="flex items-center gap-3 px-3 py-1.5 bg-slate-50/50 rounded-lg border border-slate-100 shrink-0">
                 <div className="flex flex-col items-center border-r border-slate-200 pr-3 mr-1">
-                    <span className="text-[9px] font-bold text-slate-400 uppercase">P/J</span>
+                    <span className="text-[9px] font-bold text-slate-400 uppercase">{tx(lang,{fr:'P/J',ar:'ق/ي',en:'P/D',es:'P/D',pt:'P/D',tr:'A/G'})}</span>
                     <span className="font-black text-slate-700 text-sm leading-none mt-1">
                         {tempsArticle > 0 ? Math.round(((presenceTime * numWorkers) / tempsArticle) * (efficiency / 100)) : 0}
                     </span>
                 </div>
                 <div className="flex flex-col items-center">
-                    <span className="text-[9px] font-bold text-slate-400 uppercase">P/H</span>
+                    <span className="text-[9px] font-bold text-slate-400 uppercase">{tx(lang,{fr:'P/H',ar:'ق/س',en:'P/H',es:'P/H',pt:'P/H',tr:'A/S'})}</span>
                     <span className="font-black text-slate-700 text-sm leading-none mt-1">
                         {tempsArticle > 0 ? Math.round(((presenceTime * numWorkers) / tempsArticle / (presenceTime / 60)) * (efficiency / 100)) : 0}
                     </span>
@@ -1307,7 +1311,7 @@ export default function Balancing({
 
             {/* RENDU */}
             <div className="flex flex-col items-center px-2 py-1 sm:px-3 sm:py-1.5 bg-indigo-50/50 rounded-lg border border-indigo-100 shrink-0">
-                <span className="text-[9px] font-bold text-indigo-400 uppercase">% Rendu</span>
+                <span className="text-[9px] font-bold text-indigo-400 uppercase">{tx(lang,{fr:'% Rendu',ar:'% الإنتاجية',en:'% Yield',es:'% Rendimiento',pt:'% Rendimento',tr:'% Verim'})}</span>
                 <div className="flex items-baseline gap-0.5">
                     <input 
                         type="number" 
@@ -1322,7 +1326,7 @@ export default function Balancing({
 
             {/* TOLÉRANCE SATURATION */}
             <div className="flex flex-col items-center px-2 py-1 sm:px-3 sm:py-1.5 bg-rose-50/50 rounded-lg border border-rose-100 shrink-0">
-                <span className="text-[9px] font-bold text-rose-400 uppercase">Tolérance</span>
+                <span className="text-[9px] font-bold text-rose-400 uppercase">{tx(lang,{fr:'Tolérance',ar:'التسامح',en:'Tolerance',es:'Tolerancia',pt:'Tolerância',tr:'Tolerans'})}</span>
                 <div className="flex items-baseline gap-0.5">
                     <input 
                         type="number" 
@@ -1350,25 +1354,25 @@ export default function Balancing({
 
             {/* T. ARTICLE (Right aligned or flexed) */}
             <div className="ml-auto px-4 py-1.5 bg-purple-100 rounded-lg border border-purple-200 flex flex-col items-end shrink-0">
-                <span className="text-[9px] font-bold text-purple-500 uppercase flex items-center gap-1"><Timer className="w-3 h-3" /> T. Article</span>
+                <span className="text-[9px] font-bold text-purple-500 uppercase flex items-center gap-1"><Timer className="w-3 h-3" /> {tx(lang,{fr:'T. Article',ar:'وقت القطعة',en:'Art. Time',es:'T. Prenda',pt:'T. Peça',tr:'Parça Süresi'})}</span>
                 <span className="font-black text-purple-700 text-xl leading-none">{tempsArticle.toFixed(2)}</span>
             </div>
        </div>
       
       {sectionStats.has && (
         <div className="flex flex-wrap items-center gap-3 px-3 py-2 mx-2 bg-gradient-to-r from-blue-50 to-emerald-50 rounded-xl border border-slate-200">
-          <span className="text-[10px] font-bold uppercase text-slate-500">Sections</span>
+          <span className="text-[10px] font-bold uppercase text-slate-500">{tx(lang,{fr:'Sections',ar:'الأقسام',en:'Sections',es:'Secciones',pt:'Seções',tr:'Bölümler'})}</span>
           <div className="flex items-center gap-2 px-3 py-1 bg-blue-100 text-blue-800 rounded-lg">
-            <span className="text-[10px] font-bold uppercase">Préparation</span>
+            <span className="text-[10px] font-bold uppercase">{tx(lang,{fr:'Préparation',ar:'تحضير',en:'Preparation',es:'Preparación',pt:'Preparação',tr:'Hazırlık'})}</span>
             <span className="text-xs font-black">SAM {sectionStats.prepSAM.toFixed(2)} min</span>
             <span className="text-xs font-black">P/H {sectionStats.prepPH}</span>
           </div>
           <div className="flex items-center gap-2 px-3 py-1 bg-emerald-100 text-emerald-800 rounded-lg">
-            <span className="text-[10px] font-bold uppercase">Montage</span>
+            <span className="text-[10px] font-bold uppercase">{tx(lang,{fr:'Montage',ar:'تجميع',en:'Assembly',es:'Montaje',pt:'Montagem',tr:'Montaj'})}</span>
             <span className="text-xs font-black">SAM {sectionStats.montageSAM.toFixed(2)} min</span>
             <span className="text-xs font-black">P/H {sectionStats.montagePH}</span>
           </div>
-          <span className="text-[10px] text-slate-500 italic">Bilan informatif — équilibrage actuel sur opérations sélectionnées</span>
+          <span className="text-[10px] text-slate-500 italic">{tx(lang,{fr:'Bilan informatif — équilibrage actuel sur opérations sélectionnées',ar:'موجز إعلامي — التوازن الحالي على العمليات المحددة',en:'Informative summary — current balancing on selected operations',es:'Resumen informativo — equilibrio actual sobre operaciones seleccionadas',pt:'Resumo informativo — balanceamento atual nas operações selecionadas',tr:'Bilgilendirici özet — seçilen operasyonlarda mevcut dengeleme'})}</span>
         </div>
       )}
 
@@ -1376,10 +1380,10 @@ export default function Balancing({
       <div className="flex flex-col sm:flex-row justify-between items-end gap-3 px-2">
          <div className="flex bg-slate-100/80 p-1 rounded-xl shadow-inner border border-slate-200">
              <button onClick={() => setViewMode('grouped')} className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all ${viewMode === 'grouped' ? 'bg-white text-slate-700 shadow-sm ring-1 ring-slate-100' : 'text-slate-400 hover:text-slate-600'}`}>
-                <LayoutList className="w-4 h-4" /> Vue Par Poste
+                <LayoutList className="w-4 h-4" /> {tx(lang,{fr:'Vue Par Poste',ar:'عرض حسب المحطة',en:'View By Station',es:'Vista Por Puesto',pt:'Vista Por Posto',tr:'İstasyon Görünümü'})}
              </button>
              <button onClick={() => setViewMode('matrix')} className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all ${viewMode === 'matrix' ? 'bg-white text-slate-700 shadow-sm ring-1 ring-slate-100' : 'text-slate-400 hover:text-slate-600'}`}>
-                <TableProperties className="w-4 h-4" /> Matrice
+                <TableProperties className="w-4 h-4" /> {tx(lang,{fr:'Matrice',ar:'مصفوفة',en:'Matrix',es:'Matriz',pt:'Matriz',tr:'Matris'})}
              </button>
          </div>
 
@@ -1387,18 +1391,18 @@ export default function Balancing({
             <button
                 onClick={() => setIsHeaderSticky(!isHeaderSticky)}
                 className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold transition-all border shadow-sm ${isHeaderSticky ? 'bg-indigo-50 border-indigo-200 text-indigo-700 ring-1 ring-indigo-100' : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50'}`}
-                title={isHeaderSticky ? "En-tête figé" : "Figer l'en-tête"}
+                title={isHeaderSticky ? tx(lang,{fr:"En-tête figé",ar:'رأس ثابت',en:'Header Frozen',es:'Cabecera fijada',pt:'Cabeçalho fixo',tr:'Başlık Sabitlendi'}) : tx(lang,{fr:"Figer l'en-tête",ar:'تثبيت الرأس',en:'Freeze Header',es:'Fijar cabecera',pt:'Fixar cabeçalho',tr:'Başlığı Sabitle'})}
             >
                 <PanelTop className="w-4 h-4" />
             </button>
             <button 
                 onClick={() => setShowGroupColors(!showGroupColors)} 
                 className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold transition-all border shadow-sm ${showGroupColors ? 'bg-indigo-50 border-indigo-200 text-indigo-700 ring-1 ring-indigo-100' : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50'}`} 
-                title={showGroupColors ? "Masquer couleurs groupes" : "Afficher couleurs groupes"}
+                title={showGroupColors ? tx(lang,{fr:"Masquer couleurs groupes",ar:'إخفاء ألوان المجموعات',en:'Hide Group Colors',es:'Ocultar colores grupos',pt:'Ocultar cores grupos',tr:'Grup Renklerini Gizle'}) : tx(lang,{fr:"Afficher couleurs groupes",ar:'إظهار ألوان المجموعات',en:'Show Group Colors',es:'Mostrar colores grupos',pt:'Mostrar cores grupos',tr:'Grup Renklerini Göster'})}
             >
                 <Link className="w-4 h-4" />
             </button>
-            <button onClick={() => setShowColors(!showColors)} className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold transition-all border shadow-sm ${showColors ? 'bg-purple-50 border-purple-200 text-purple-700 ring-1 ring-purple-100' : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50'}`} title={showColors ? "Désactiver les couleurs" : "Activer les couleurs"}>
+            <button onClick={() => setShowColors(!showColors)} className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold transition-all border shadow-sm ${showColors ? 'bg-purple-50 border-purple-200 text-purple-700 ring-1 ring-purple-100' : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50'}`} title={showColors ? tx(lang,{fr:"Désactiver les couleurs",ar:'تعطيل الألوان',en:'Disable Colors',es:'Desactivar colores',pt:'Desativar cores',tr:'Renkleri Devre Dışı Bırak'}) : tx(lang,{fr:"Activer les couleurs",ar:'تفعيل الألوان',en:'Enable Colors',es:'Activar colores',pt:'Ativar cores',tr:'Renkleri Etkinleştir'})}>
                 <Palette className="w-4 h-4" />
             </button>
             <button 
@@ -1412,9 +1416,9 @@ export default function Balancing({
                 className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all border shadow-sm ${isManual ? 'bg-amber-50 border-amber-200 text-amber-700 ring-2 ring-amber-100' : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50'}`}
             >
                 {isManual ? <MousePointer2 className="w-3.5 h-3.5" /> : <ArrowRightLeft className="w-3.5 h-3.5" />}
-                {isManual ? 'Mode Manuel Actif' : 'Mode Automatique'}
+                {isManual ? tx(lang,{fr:'Mode Manuel Actif',ar:'الوضع اليدوي نشط',en:'Manual Mode Active',es:'Modo Manual Activo',pt:'Modo Manual Ativo',tr:'Manuel Mod Aktif'}) : tx(lang,{fr:'Mode Automatique',ar:'الوضع التلقائي',en:'Automatic Mode',es:'Modo Automático',pt:'Modo Automático',tr:'Otomatik Mod'})}
             </button>
-            <button onClick={() => runAutoBalancing(true)} className="px-4 py-2 bg-white border border-slate-200 text-slate-400 rounded-xl hover:text-emerald-600 hover:border-emerald-200 hover:bg-emerald-50 transition-all shadow-sm flex items-center gap-2 text-xs font-bold" title="Recalculer">
+            <button onClick={() => runAutoBalancing(true)} className="px-4 py-2 bg-white border border-slate-200 text-slate-400 rounded-xl hover:text-emerald-600 hover:border-emerald-200 hover:bg-emerald-50 transition-all shadow-sm flex items-center gap-2 text-xs font-bold" title={tx(lang,{fr:'Recalculer',ar:'إعادة حساب',en:'Recalculate',es:'Recalcular',pt:'Recalcular',tr:'Yeniden Hesapla'})}>
                 <RefreshCw className="w-3.5 h-3.5" />
             </button>
          </div>
@@ -1430,8 +1434,8 @@ export default function Balancing({
                                 <tr className="bg-slate-50">
                                     <th className={`py-2 px-2 border-b-2 border-slate-300 border-r border-slate-300 min-w-[130px] sm:min-w-[200px] ${isSticky ? 'sticky left-0 z-50 bg-slate-50 shadow-[4px_0_12px_-4px_rgba(0,0,0,0.1)]' : 'z-40'}`}>
                                         <div className="flex items-center justify-between">
-                                            <span className="text-[10px] font-black text-slate-600 uppercase tracking-widest truncate">Séquence Opératoire</span>
-                                            <button onClick={() => setIsSticky(!isSticky)} className={`p-1 rounded-md transition-colors ${isSticky ? 'bg-indigo-100 text-indigo-600' : 'text-slate-400 hover:bg-slate-200'}`} title={isSticky ? "Détacher la colonne" : "Figer la colonne"}>
+                                            <span className="text-[10px] font-black text-slate-600 uppercase tracking-widest truncate">{tx(lang,{fr:'Séquence Opératoire',ar:'التسلسل التشغيلي',en:'Operating Sequence',es:'Secuencia Operativa',pt:'Sequência Operatória',tr:'Operasyon Sırası'})}</span>
+                                            <button onClick={() => setIsSticky(!isSticky)} className={`p-1 rounded-md transition-colors ${isSticky ? 'bg-indigo-100 text-indigo-600' : 'text-slate-400 hover:bg-slate-200'}`} title={isSticky ? tx(lang,{fr:"Détacher la colonne",ar:'فصل العمود',en:'Detach Column',es:'Despegar columna',pt:'Desanexar coluna',tr:'Sütunu Ayır'}) : tx(lang,{fr:"Figer la colonne",ar:'تثبيت العمود',en:'Freeze Column',es:'Fijar columna',pt:'Fixar coluna',tr:'Sütunu Sabitle'})}>
                                             {isSticky ? <Pin className="w-3 h-3" /> : <PinOff className="w-3 h-3" />}
                                             </button>
                                         </div>
@@ -1446,8 +1450,8 @@ export default function Balancing({
                                                 onContextMenu={(e) => handleContextMenu(e, p.id)}
                                                 className={`py-2 px-1 text-center min-w-[70px] ${color.bg} border-b-2 ${color.border} border-r border-slate-300 relative cursor-context-menu`}
                                             >
-                                                {hasOverride && <div className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-purple-500" title="Temps Forcé"></div>}
-                                                {isMixed && <div className="absolute top-1 left-1 text-amber-500" title="Poste multi-machines — clic droit → Séparer par machine"><AlertCircle className="w-3 h-3" /></div>}
+                                                {hasOverride && <div className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-purple-500" title={tx(lang,{fr:'Temps Forcé',ar:'وقت إجباري',en:'Forced Time',es:'Tiempo Forzado',pt:'Tempo Forçado',tr:'Zorunlu Süre'})}></div>}
+                                                {isMixed && <div className="absolute top-1 left-1 text-amber-500" title={tx(lang,{fr:'Poste multi-machines — clic droit → Séparer par machine',ar:'محطة متعددة الآلات — زر أيمن → فصل حسب الآلة',en:'Multi-machine station — right click → Separate by machine',es:'Puesto multi-máquinas — clic derecho → Separar por máquina',pt:'Posto multi-máquinas — clique direito → Separar por máquina',tr:'Çoklu makine istasyonu — sağ tık → Makineye göre ayır'})}><AlertCircle className="w-3 h-3" /></div>}
                                                 <div className="flex flex-col items-center justify-center gap-1 pointer-events-none">
                                                     <span className={`inline-block px-1.5 py-0.5 rounded-[4px] text-[9px] font-bold bg-white border ${color.border} ${color.text} uppercase truncate max-w-[65px]`}>{p.machine}</span>
                                                     <div className={`flex items-center justify-center w-6 h-6 rounded-full font-bold text-xs shadow-sm bg-white border ${color.border} ${color.text}`}>{p.name.replace('P','')}</div>
@@ -1455,7 +1459,7 @@ export default function Balancing({
                                             </th>
                                         );
                                     })}
-                                    <th className={`py-2 px-2 bg-slate-50 border-b-2 border-slate-300 border-l border-slate-200 min-w-[70px] text-center ${isHeaderSticky ? 'sticky top-0 z-40' : ''}`}><span className="text-[10px] font-black text-slate-600 uppercase tracking-widest">TOTAL</span></th>
+                                    <th className={`py-2 px-2 bg-slate-50 border-b-2 border-slate-300 border-l border-slate-200 min-w-[70px] text-center ${isHeaderSticky ? 'sticky top-0 z-40' : ''}`}><span className="text-[10px] font-black text-slate-600 uppercase tracking-widest">{tx(lang,{fr:'TOTAL',ar:'المجموع',en:'TOTAL',es:'TOTAL',pt:'TOTAL',tr:'TOPLAM'})}</span></th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-200">
@@ -1521,7 +1525,7 @@ export default function Balancing({
                             <tfoot className={`bg-slate-50 border-t-2 border-slate-300 shadow-[0_-4px_12px_-4px_rgba(0,0,0,0.05)] ${isHeaderSticky ? 'sticky bottom-0 z-30' : ''}`}>
                                 <tr>
                                     <td className={`p-2 border-r border-b border-slate-200 bg-white/95 backdrop-blur ${isSticky ? 'sticky left-0 z-40' : ''}`}>
-                                        <div className="flex flex-col items-start"><span className="text-[10px] font-black text-slate-700 uppercase tracking-widest flex items-center gap-2"><Activity className="w-3.5 h-3.5 text-indigo-500" /> Saturation %</span></div>
+                                        <div className="flex flex-col items-start"><span className="text-[10px] font-black text-slate-700 uppercase tracking-widest flex items-center gap-2"><Activity className="w-3.5 h-3.5 text-indigo-500" /> {tx(lang,{fr:'Saturation %',ar:'% التشبع',en:'Saturation %',es:'Saturación %',pt:'Saturação %',tr:'Doygunluk %'})}</span></div>
                                     </td>
                                     {postes.map(p => {
                                         const stat = posteStats[p.id];
@@ -1539,7 +1543,7 @@ export default function Balancing({
                                 </tr>
                                 <tr>
                                     <td className={`p-2 border-r border-slate-200 bg-slate-50/95 backdrop-blur ${isSticky ? 'sticky left-0 z-40' : ''}`}>
-                                        <div className="flex flex-col items-start"><span className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2"><Users className="w-3.5 h-3.5 text-slate-400" /> Effectif Requis</span></div>
+                                        <div className="flex flex-col items-start"><span className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2"><Users className="w-3.5 h-3.5 text-slate-400" /> {tx(lang,{fr:'Effectif Requis',ar:'العدد المطلوب',en:'Required Staff',es:'Personal Requerido',pt:'Efetivo Necessário',tr:'Gerekli Personel'})}</span></div>
                                     </td>
                                     {postes.map(p => {
                                         const nReq = postRequirements[p.id] || 0;
@@ -1556,7 +1560,7 @@ export default function Balancing({
                 <div className="flex flex-wrap items-center gap-3 mt-2 mb-2">
                     <div className="flex items-center gap-3 px-4 py-2.5 bg-white rounded-xl border border-slate-200 shadow-sm w-fit">
                         <span className="text-xs font-black text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
-                            <Activity className="w-3.5 h-3.5 text-indigo-500" /> Tolérance Saturation :
+                            <Activity className="w-3.5 h-3.5 text-indigo-500" /> {tx(lang,{fr:'Tolérance Saturation :',ar:'تسامح التشبع :',en:'Saturation Tolerance :',es:'Tolerancia de Saturación :',pt:'Tolerância de Saturação :',tr:'Doygunluk Toleransı :'})}
                         </span>
                         <div className="flex items-center gap-1.5 text-xs bg-rose-50 text-rose-700 px-2 py-0.5 rounded-lg border border-rose-200 shadow-sm">
                             <input 
@@ -1582,8 +1586,8 @@ export default function Balancing({
                             <span className="font-bold">%</span>
                         </div>
                         {tolerance > AUTO_BALANCE_TARGET_CEIL * 100 && (
-                            <span className="text-[10px] font-bold text-amber-600 flex items-center gap-1" title={`L'équilibrage automatique ne remplit jamais un poste au-delà de ${AUTO_BALANCE_TARGET_CEIL * 100}% (règle anti-goulot). La Tolérance ne sert qu'à l'affichage des couleurs.`}>
-                                <AlertCircle className="w-3 h-3" /> Équilibrage plafonné à {Math.round(AUTO_BALANCE_TARGET_CEIL * 100)}% (anti-goulot)
+                            <span className="text-[10px] font-bold text-amber-600 flex items-center gap-1" title={tx(lang,{fr:`L'équilibrage automatique ne remplit jamais un poste au-delà de ${AUTO_BALANCE_TARGET_CEIL * 100}% (règle anti-goulot). La Tolérance ne sert qu'à l'affichage des couleurs.`,ar:`التوازن التلقائي لا يملأ محطة أبدًا بأكثر من ${AUTO_BALANCE_TARGET_CEIL * 100}% (قاعدة منع الاختناق). التسامح يستخدم فقط لعرض الألوان.`,en:`Auto-balancing never fills a station beyond ${AUTO_BALANCE_TARGET_CEIL * 100}% (anti-bottleneck rule). Tolerance only affects color display.`,es:`El equilibrio automático nunca llena un puesto más allá del ${AUTO_BALANCE_TARGET_CEIL * 100}% (regla anti-cuello de botella). La tolerancia solo afecta la visualización de colores.`,pt:`O balanceamento automático nunca preenche um posto além de ${AUTO_BALANCE_TARGET_CEIL * 100}% (regra anti-gargalo). A tolerância só afeta a exibição de cores.`,tr:`Otomatik dengeleme bir istasyonu asla ${AUTO_BALANCE_TARGET_CEIL * 100}%'nin ötesine doldurmaz (darboğaz önleme kuralı). Tolerans yalnızca renk görüntülemesini etkiler.`})}>
+                                <AlertCircle className="w-3 h-3" /> {tx(lang,{fr:`Équilibrage plafonné à ${Math.round(AUTO_BALANCE_TARGET_CEIL * 100)}% (anti-goulot)`,ar:`التوازن محدود بـ ${Math.round(AUTO_BALANCE_TARGET_CEIL * 100)}% (منع الاختناق)`,en:`Balancing capped at ${Math.round(AUTO_BALANCE_TARGET_CEIL * 100)}% (anti-bottleneck)`,es:`Equilibrio limitado al ${Math.round(AUTO_BALANCE_TARGET_CEIL * 100)}% (anti-cuello de botella)`,pt:`Balanceamento limitado a ${Math.round(AUTO_BALANCE_TARGET_CEIL * 100)}% (anti-gargalo)`,tr:`Dengeleme ${Math.round(AUTO_BALANCE_TARGET_CEIL * 100)}% ile sınırlı (darboğaz önleme)`})}
                             </span>
                         )}
                     </div>
@@ -1591,12 +1595,12 @@ export default function Balancing({
                     {numWorkers < totalMinReq && (
                         <div className="flex items-center gap-2 px-4 py-2.5 bg-rose-50 border border-rose-200 rounded-xl shadow-sm text-xs text-rose-700 font-bold animate-in fade-in slide-in-from-left-2 duration-300">
                             <AlertCircle className="w-4 h-4 text-rose-500 animate-pulse" />
-                            <span>Effectif insuffisant pour respecter la tolérance (Requis : {totalMinReq} ouvriers)</span>
+                            <span>{tx(lang,{fr:`Effectif insuffisant pour respecter la tolérance (Requis : ${totalMinReq} ouvriers)`,ar:`عدد غير كافٍ لاحترام التسامح (المطلوب: ${totalMinReq} عمال)`,en:`Insufficient staff to meet tolerance (Required: ${totalMinReq} workers)`,es:`Personal insuficiente para cumplir tolerancia (Requerido: ${totalMinReq} obreros)`,pt:`Efetivo insuficiente para respeitar a tolerância (Necessário: ${totalMinReq} trabalhadores)`,tr:`Toleransı karşılamak için yetersiz personel (Gerekli: ${totalMinReq} işçi)`})}</span>
                             <button 
                                 onClick={() => setNumWorkers(totalMinReq)}
                                 className="ml-2 bg-rose-600 hover:bg-rose-700 text-white px-2.5 py-1 rounded-lg text-[10px] font-black transition-all hover:scale-105 active:scale-95 shadow-sm animate-bounce"
                             >
-                                Ajuster à {totalMinReq}
+                                {tx(lang,{fr:`Ajuster à ${totalMinReq}`,ar:`ضبط إلى ${totalMinReq}`,en:`Adjust to ${totalMinReq}`,es:`Ajustar a ${totalMinReq}`,pt:`Ajustar para ${totalMinReq}`,tr:`${totalMinReq} olarak ayarla`})}
                             </button>
                         </div>
                     )}
@@ -1606,12 +1610,12 @@ export default function Balancing({
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-6">
                     {/* Charts Section */}
                     <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-3 sm:p-4 h-80 sm:h-96">
-                        <h3 className="text-sm font-bold text-slate-700 mb-4 flex items-center gap-2"><BarChart3 className="w-4 h-4" /> Équilibrage & Saturation</h3>
+                        <h3 className="text-sm font-bold text-slate-700 mb-4 flex items-center gap-2"><BarChart3 className="w-4 h-4" /> {tx(lang,{fr:'Équilibrage & Saturation',ar:'التوازن والتشبع',en:'Balancing & Saturation',es:'Equilibrio y Saturación',pt:'Balanceamento e Saturação',tr:'Dengeleme ve Doygunluk'})}</h3>
                         <ResponsiveChart>
                             <ComposedChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 60 }}>
                                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                                 <XAxis dataKey="name" tick={{ fontSize: 8, fill: '#64748b' }} axisLine={false} tickLine={false} interval={0} angle={-45} textAnchor="end" height={45} />
-                                <YAxis yAxisId="left" orientation="left" stroke="#64748b" tick={{ fontSize: 10 }} axisLine={false} tickLine={false} label={{ value: 'Temps (s)', angle: -90, position: 'insideLeft', fontSize: 10, fill: '#94a3b8' }} />
+                                <YAxis yAxisId="left" orientation="left" stroke="#64748b" tick={{ fontSize: 10 }} axisLine={false} tickLine={false} label={{ value: tx(lang,{fr:'Temps (s)',ar:'الوقت (ث)',en:'Time (s)',es:'Tiempo (s)',pt:'Tempo (s)',tr:'Süre (s)'}), angle: -90, position: 'insideLeft', fontSize: 10, fill: '#94a3b8' }} />
                                 <YAxis yAxisId="right" orientation="right" stroke="#94a3b8" tick={{ fontSize: 10 }} axisLine={false} tickLine={false} unit="%" />
                                 <Tooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} cursor={{ fill: '#f8fafc' }} />
                                 <ReferenceLine yAxisId="left" y={bfSeconds} stroke="#ef4444" strokeDasharray="3 3" label={{ value: 'BF', position: 'right', fill: '#ef4444', fontSize: 10 }} />
@@ -1630,17 +1634,17 @@ export default function Balancing({
                     {/* Machine Requirements Table */}
                     <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden h-80 sm:h-96 flex flex-col">
                         <div className="px-4 py-3 sm:px-6 sm:py-4 border-b border-slate-100 flex items-center justify-between shrink-0">
-                            <h3 className="font-bold text-slate-700 flex items-center gap-2"><Cpu className="w-4 h-4 text-emerald-500" /> Besoin Matériel</h3>
+                            <h3 className="font-bold text-slate-700 flex items-center gap-2"><Cpu className="w-4 h-4 text-emerald-500" /> {tx(lang,{fr:'Besoin Matériel',ar:'الاحتياج من المعدات',en:'Equipment Need',es:'Necesidad de Equipo',pt:'Necessidade de Equipamento',tr:'Ekipman İhtiyacı'})}</h3>
                         </div>
                         <div className="overflow-auto flex-1 custom-scrollbar">
                             <table className="w-full text-left">
                                 <thead className="bg-slate-50 text-[10px] uppercase font-bold text-slate-500 sticky top-0 z-10">
                                     <tr>
-                                        <th className="py-2 sm:py-3 px-2 sm:px-6">Machine</th>
-                                        <th className="py-2 sm:py-3 px-2 sm:px-6 text-center">Opérations</th>
-                                        <th className="py-2 sm:py-3 px-2 sm:px-6 text-center">Temps Total</th>
-                                        <th className="py-2 sm:py-3 px-2 sm:px-6 text-center">N. Théorique</th>
-                                        <th className="py-2 sm:py-3 px-2 sm:px-6 text-center">N. Requis</th>
+                                        <th className="py-2 sm:py-3 px-2 sm:px-6">{tx(lang,{fr:'Machine',ar:'آلة',en:'Machine',es:'Máquina',pt:'Máquina',tr:'Makine'})}</th>
+                                        <th className="py-2 sm:py-3 px-2 sm:px-6 text-center">{tx(lang,{fr:'Opérations',ar:'العمليات',en:'Operations',es:'Operaciones',pt:'Operações',tr:'Operasyonlar'})}</th>
+                                        <th className="py-2 sm:py-3 px-2 sm:px-6 text-center">{tx(lang,{fr:'Temps Total',ar:'الوقت الإجمالي',en:'Total Time',es:'Tiempo Total',pt:'Tempo Total',tr:'Toplam Süre'})}</th>
+                                        <th className="py-2 sm:py-3 px-2 sm:px-6 text-center">{tx(lang,{fr:'N. Théorique',ar:'العدد النظري',en:'Theoretical N.',es:'N. Teórico',pt:'N. Teórico',tr:'Teorik S.'})}</th>
+                                        <th className="py-2 sm:py-3 px-2 sm:px-6 text-center">{tx(lang,{fr:'N. Requis',ar:'العدد المطلوب',en:'Required N.',es:'N. Requerido',pt:'N. Necessário',tr:'Gerekli S.'})}</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-100 text-xs">
@@ -1677,7 +1681,7 @@ export default function Balancing({
                                 <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${color.badge} ${color.badgeText}`}>{p.name.replace('P','')}</span>
                                 <span className="text-[10px] font-bold text-slate-500 uppercase">{p.machine}</span>
                               </div>
-                              {p.timeOverride !== undefined && <div className="w-2 h-2 rounded-full bg-purple-500" title="Temps Forcé" />}
+                              {p.timeOverride !== undefined && <div className="w-2 h-2 rounded-full bg-purple-500" title={tx(lang,{fr:'Temps Forcé',ar:'وقت إجباري',en:'Forced Time',es:'Tiempo Forzado',pt:'Tempo Forçado',tr:'Zorunlu Süre'})} />}
                            </div>
                            
                            <div className="space-y-1 mb-3 min-h-[60px]">
@@ -1688,18 +1692,18 @@ export default function Balancing({
                                   </div>
                                 ))
                               ) : (
-                                <div className="text-[10px] text-slate-300 italic">Aucune opération</div>
+                                <div className="text-[10px] text-slate-300 italic">{tx(lang,{fr:'Aucune opération',ar:'لا توجد عملية',en:'No operation',es:'Sin operación',pt:'Nenhuma operação',tr:'Operasyon yok'})}</div>
                               )}
-                              {ops.length > 3 && <div className="text-[9px] text-slate-400 italic">... +{ops.length - 3} autres</div>}
+                              {ops.length > 3 && <div className="text-[9px] text-slate-400 italic">{tx(lang,{fr:`... +${ops.length - 3} autres`,ar:`... +${ops.length - 3} أخرى`,en:`... +${ops.length - 3} more`,es:`... +${ops.length - 3} más`,pt:`... +${ops.length - 3} mais`,tr:`... +${ops.length - 3} daha`})}</div>}
                            </div>
 
                            <div className="flex items-end justify-between pt-2 border-t border-slate-100">
                               <div className="flex flex-col">
-                                <span className="text-[9px] text-slate-400 font-bold uppercase">Temps</span>
+                                <span className="text-[9px] text-slate-400 font-bold uppercase">{tx(lang,{fr:'Temps',ar:'الوقت',en:'Time',es:'Tiempo',pt:'Tempo',tr:'Süre'})}</span>
                                 <span className={`text-sm font-bold ${color.text}`}>{Math.round(stat.time * 60)}s</span>
                               </div>
                               <div className="flex flex-col items-end">
-                                <span className="text-[9px] text-slate-400 font-bold uppercase">Sat.</span>
+                                <span className="text-[9px] text-slate-400 font-bold uppercase">{tx(lang,{fr:'Sat.',ar:'تشبع',en:'Sat.',es:'Sat.',pt:'Sat.',tr:'Doy.'})}</span>
                                 <span className={`text-xs font-black ${saturation > tolerance ? 'text-rose-500' : 'text-emerald-500'}`}>{saturation}%</span>
                               </div>
                            </div>
@@ -1722,24 +1726,24 @@ export default function Balancing({
                     <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-white">
                         <h3 className="font-bold text-slate-800 flex items-center gap-2">
                             <ListPlus className="w-5 h-5 text-indigo-500" />
-                            Insérer un Poste
+                            {tx(lang,{fr:'Insérer un Poste',ar:'إضافة محطة',en:'Insert Station',es:'Insertar Puesto',pt:'Inserir Posto',tr:'İstasyon Ekle'})}
                         </h3>
                         <button onClick={() => setShowInsertModal(false)} className="text-slate-400 hover:text-slate-600 transition-colors"><X className="w-5 h-5" /></button>
                     </div>
                     
                     <form onSubmit={handleInsertSubmit} className="p-6 space-y-4">
                         <div className="space-y-1">
-                            <label className="text-xs font-bold text-slate-500 uppercase">Machine</label>
+                            <label className="text-xs font-bold text-slate-500 uppercase">{tx(lang,{fr:'Machine',ar:'آلة',en:'Machine',es:'Máquina',pt:'Máquina',tr:'Makine'})}</label>
                             <div className="relative">
                                 <select 
                                     value={insertData.machine}
                                     onChange={(e) => setInsertData({...insertData, machine: e.target.value})}
                                     className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm font-medium text-slate-700 outline-none focus:border-indigo-500 appearance-none"
                                 >
-                                    <option value="MAN">MANUEL (MAN)</option>
-                                    <option value="CONTROLE">CONTROLE</option>
-                                    <option value="FINITION">FINITION</option>
-                                    <option value="FER">REPASSAGE (FER)</option>
+                                    <option value="MAN">{tx(lang,{fr:'MANUEL (MAN)',ar:'يدوي (MAN)',en:'MANUAL (MAN)',es:'MANUAL (MAN)',pt:'MANUAL (MAN)',tr:'MANUEL (MAN)'})}</option>
+                                    <option value="CONTROLE">{tx(lang,{fr:'CONTRÔLE',ar:'مراقبة',en:'INSPECTION',es:'INSPECCIÓN',pt:'INSPEÇÃO',tr:'KONTROL'})}</option>
+                                    <option value="FINITION">{tx(lang,{fr:'FINITION',ar:'تشطيب',en:'FINISHING',es:'ACABADO',pt:'ACABAMENTO',tr:'BİTİŞ'})}</option>
+                                    <option value="FER">{tx(lang,{fr:'REPASSAGE (FER)',ar:'كي (FER)',en:'IRONING (FER)',es:'PLANCHADO (FER)',pt:'ENGOMAR (FER)',tr:'ÜTÜLEME (FER)'})}</option>
                                     {machines.map(m => <option key={m.id} value={m.name}>{m.name}</option>)}
                                 </select>
                                 <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">▼</div>
@@ -1747,11 +1751,11 @@ export default function Balancing({
                         </div>
 
                         <div className="space-y-1">
-                            <label className="text-xs font-bold text-slate-500 uppercase">Opération / Description</label>
+                            <label className="text-xs font-bold text-slate-500 uppercase">{tx(lang,{fr:'Opération / Description',ar:'العملية / الوصف',en:'Operation / Description',es:'Operación / Descripción',pt:'Operação / Descrição',tr:'Operasyon / Tanım'})}</label>
                             <input 
                                 type="text"
                                 required
-                                placeholder="Ex: Assemblage côtés..."
+                                placeholder={tx(lang,{fr:'Ex: Assemblage côtés...',ar:'مثال: تجميع الجوانب...',en:'Ex: Side assembly...',es:'Ej: Ensamblaje laterales...',pt:'Ex: Montagem laterais...',tr:'Örn: Yan montaj...'})}
                                 value={insertData.description}
                                 onChange={(e) => setInsertData({...insertData, description: e.target.value})}
                                 className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm font-medium text-slate-700 outline-none focus:border-indigo-500 placeholder:text-slate-300"
@@ -1760,7 +1764,7 @@ export default function Balancing({
 
                         <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-1">
-                                <label className="text-xs font-bold text-slate-500 uppercase">Longueur (cm)</label>
+                                <label className="text-xs font-bold text-slate-500 uppercase">{tx(lang,{fr:'Longueur (cm)',ar:'الطول (سم)',en:'Length (cm)',es:'Longitud (cm)',pt:'Comprimento (cm)',tr:'Uzunluk (cm)'})}</label>
                                 <input 
                                     type="number"
                                     min="0"
@@ -1773,13 +1777,13 @@ export default function Balancing({
                             <div className="flex items-end pb-1">
                                 <div className="text-[10px] text-slate-400 leading-tight">
                                     <Calculator className="w-3 h-3 inline mr-1" />
-                                    Le temps sera calculé automatiquement basé sur la machine.
+                                    {tx(lang,{fr:'Le temps sera calculé automatiquement basé sur la machine.',ar:'سيتم حساب الوقت تلقائيًا بناءً على الآلة.',en:'Time will be calculated automatically based on the machine.',es:'El tiempo se calculará automáticamente según la máquina.',pt:'O tempo será calculado automaticamente com base na máquina.',tr:'Süre, makineye göre otomatik olarak hesaplanacaktır.'})}
                                 </div>
                             </div>
                         </div>
 
                         <button type="submit" className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold text-sm shadow-lg shadow-indigo-200 transition-all active:scale-[0.98] mt-2">
-                            Insérer et Calculer
+                            {tx(lang,{fr:'Insérer et Calculer',ar:'إدراج وحساب',en:'Insert & Calculate',es:'Insertar y Calcular',pt:'Inserir e Calcular',tr:'Ekle ve Hesapla'})}
                         </button>
                     </form>
                 </div>
@@ -1797,7 +1801,7 @@ export default function Balancing({
                {/* Manual Toggle */}
                <button onClick={() => handleContextAction('toggleManual')} className="w-full text-left px-4 py-3 hover:bg-slate-50 flex items-center gap-2 font-bold text-indigo-600 border-b border-slate-100">
                    {isManual ? <Hand className="w-3.5 h-3.5" /> : <ArrowRightLeft className="w-3.5 h-3.5" />}
-                   {isManual ? 'Désactiver Mode Manuel' : 'Activer Mode Manuel'}
+                    {isManual ? tx(lang,{fr:'Désactiver Mode Manuel',ar:'تعطيل الوضع اليدوي',en:'Disable Manual Mode',es:'Desactivar Modo Manual',pt:'Desativar Modo Manual',tr:'Manuel Modu Devre Dışı Bırak'}) : tx(lang,{fr:'Activer Mode Manuel',ar:'تفعيل الوضع اليدوي',en:'Enable Manual Mode',es:'Activar Modo Manual',pt:'Ativar Modo Manual',tr:'Manuel Modu Etkinleştir'})}
                </button>
 
                {(() => {
@@ -1807,21 +1811,21 @@ export default function Balancing({
                    const canMerge = postes.length > 1;
                    return (
                        <>
-                           <button onClick={() => canSeparate && handleContextAction('separate')} disabled={!canSeparate} title={canSeparate ? `Séparer en ${ctxDistinctMachines.length} postes (${ctxDistinctMachines.join(', ')})` : "Poste à une seule machine — rien à séparer"} className={`w-full text-left px-4 py-2 flex items-center gap-2 font-semibold ${canSeparate ? 'hover:bg-emerald-50 text-emerald-700' : 'opacity-40 cursor-not-allowed text-slate-400'}`}><Split className="w-3.5 h-3.5" /> Séparer par machine{canSeparate ? ` (${ctxDistinctMachines.length})` : ''}</button>
-                           <button onClick={() => canMerge && handleContextAction('merge')} disabled={!canMerge} title={canMerge ? "Fusionner avec le poste voisin" : "Un seul poste — rien à fusionner"} className={`w-full text-left px-4 py-2 flex items-center gap-2 font-semibold ${canMerge ? 'hover:bg-emerald-50 text-emerald-700' : 'opacity-40 cursor-not-allowed text-slate-400'}`}><Combine className="w-3.5 h-3.5" /> Fusionner (voisin)</button>
+                            <button onClick={() => canSeparate && handleContextAction('separate')} disabled={!canSeparate} title={canSeparate ? tx(lang,{fr:`Séparer en ${ctxDistinctMachines.length} postes (${ctxDistinctMachines.join(', ')})`,ar:`الفصل إلى ${ctxDistinctMachines.length} محطات (${ctxDistinctMachines.join(', ')})`,en:`Split into ${ctxDistinctMachines.length} stations (${ctxDistinctMachines.join(', ')})`,es:`Separar en ${ctxDistinctMachines.length} puestos (${ctxDistinctMachines.join(', ')})`,pt:`Separar em ${ctxDistinctMachines.length} postos (${ctxDistinctMachines.join(', ')})`,tr:`${ctxDistinctMachines.length} istasyona ayır (${ctxDistinctMachines.join(', ')})`}) : tx(lang,{fr:'Poste à une seule machine — rien à séparer',ar:'محطة بآلة واحدة — لا شيء للفصل',en:'Single-machine station — nothing to separate',es:'Puesto de una sola máquina — nada que separar',pt:'Posto de máquina única — nada a separar',tr:'Tek makine istasyonu — ayrılacak bir şey yok'})} className={`w-full text-left px-4 py-2 flex items-center gap-2 font-semibold ${canSeparate ? 'hover:bg-emerald-50 text-emerald-700' : 'opacity-40 cursor-not-allowed text-slate-400'}`}><Split className="w-3.5 h-3.5" /> {tx(lang,{fr:'Séparer par machine',ar:'فصل حسب الآلة',en:'Separate by machine',es:'Separar por máquina',pt:'Separar por máquina',tr:'Makineye göre ayır'})}{canSeparate ? ` (${ctxDistinctMachines.length})` : ''}</button>
+                            <button onClick={() => canMerge && handleContextAction('merge')} disabled={!canMerge} title={canMerge ? tx(lang,{fr:'Fusionner avec le poste voisin',ar:'دمج مع المحطة المجاورة',en:'Merge with neighboring station',es:'Fusionar con el puesto vecino',pt:'Fundir com o posto vizinho',tr:'Komşu istasyonla birleştir'}) : tx(lang,{fr:'Un seul poste — rien à fusionner',ar:'محطة واحدة — لا شيء للدمج',en:'Single station — nothing to merge',es:'Un solo puesto — nada que fusionar',pt:'Posto único — nada a fundir',tr:'Tek istasyon — birleştirilecek bir şey yok'})} className={`w-full text-left px-4 py-2 flex items-center gap-2 font-semibold ${canMerge ? 'hover:bg-emerald-50 text-emerald-700' : 'opacity-40 cursor-not-allowed text-slate-400'}`}><Combine className="w-3.5 h-3.5" /> {tx(lang,{fr:'Fusionner (voisin)',ar:'دمج (مجاور)',en:'Merge (neighbor)',es:'Fusionar (vecino)',pt:'Fundir (vizinho)',tr:'Birleştir (komşu)'})}</button>
                        </>
                    );
                })()}
                <div className="h-px bg-slate-100 my-1"></div>
 
-               <button onClick={() => handleContextAction('insert')} className="w-full text-left px-4 py-2 hover:bg-slate-50 flex items-center gap-2"><Plus className="w-3.5 h-3.5" /> Insérer Poste</button>
-               <button onClick={() => handleContextAction('duplicate')} className="w-full text-left px-4 py-2 hover:bg-slate-50 flex items-center gap-2"><CopyPlus className="w-3.5 h-3.5" /> Dupliquer</button>
-               <button onClick={() => handleContextAction('copy')} className="w-full text-left px-4 py-2 hover:bg-slate-50 flex items-center gap-2"><Copy className="w-3.5 h-3.5" /> Copier</button>
-               <button onClick={() => handleContextAction('cut')} className="w-full text-left px-4 py-2 hover:bg-slate-50 flex items-center gap-2"><Scissors className="w-3.5 h-3.5" /> Couper</button>
-               <button onClick={() => handleContextAction('paste')} disabled={!clipboard} className={`w-full text-left px-4 py-2 hover:bg-slate-50 flex items-center gap-2 ${!clipboard ? 'opacity-50 cursor-not-allowed' : ''}`}><Clipboard className="w-3.5 h-3.5" /> Coller</button>
-               <div className="h-px bg-slate-100 my-1"></div>
-               <button onClick={() => handleContextAction('clear')} className="w-full text-left px-4 py-2 hover:bg-amber-50 text-amber-600 flex items-center gap-2"><Eraser className="w-3.5 h-3.5" /> Vider</button>
-               <button onClick={() => handleContextAction('delete')} className="w-full text-left px-4 py-2 hover:bg-rose-50 text-rose-600 flex items-center gap-2"><Trash2 className="w-3.5 h-3.5" /> Supprimer</button>
+                <button onClick={() => handleContextAction('insert')} className="w-full text-left px-4 py-2 hover:bg-slate-50 flex items-center gap-2"><Plus className="w-3.5 h-3.5" /> {tx(lang,{fr:'Insérer Poste',ar:'إدراج محطة',en:'Insert Station',es:'Insertar Puesto',pt:'Inserir Posto',tr:'İstasyon Ekle'})}</button>
+                <button onClick={() => handleContextAction('duplicate')} className="w-full text-left px-4 py-2 hover:bg-slate-50 flex items-center gap-2"><CopyPlus className="w-3.5 h-3.5" /> {tx(lang,{fr:'Dupliquer',ar:'نسخ مكرر',en:'Duplicate',es:'Duplicar',pt:'Duplicar',tr:'Çoğalt'})}</button>
+                <button onClick={() => handleContextAction('copy')} className="w-full text-left px-4 py-2 hover:bg-slate-50 flex items-center gap-2"><Copy className="w-3.5 h-3.5" /> {tx(lang,{fr:'Copier',ar:'نسخ',en:'Copy',es:'Copiar',pt:'Copiar',tr:'Kopyala'})}</button>
+                <button onClick={() => handleContextAction('cut')} className="w-full text-left px-4 py-2 hover:bg-slate-50 flex items-center gap-2"><Scissors className="w-3.5 h-3.5" /> {tx(lang,{fr:'Couper',ar:'قص',en:'Cut',es:'Cortar',pt:'Cortar',tr:'Kes'})}</button>
+                <button onClick={() => handleContextAction('paste')} disabled={!clipboard} className={`w-full text-left px-4 py-2 hover:bg-slate-50 flex items-center gap-2 ${!clipboard ? 'opacity-50 cursor-not-allowed' : ''}`}><Clipboard className="w-3.5 h-3.5" /> {tx(lang,{fr:'Coller',ar:'لصق',en:'Paste',es:'Pegar',pt:'Colar',tr:'Yapıştır'})}</button>
+                <div className="h-px bg-slate-100 my-1"></div>
+                <button onClick={() => handleContextAction('clear')} className="w-full text-left px-4 py-2 hover:bg-amber-50 text-amber-600 flex items-center gap-2"><Eraser className="w-3.5 h-3.5" /> {tx(lang,{fr:'Vider',ar:'إفراغ',en:'Clear',es:'Vaciar',pt:'Limpar',tr:'Temizle'})}</button>
+                <button onClick={() => handleContextAction('delete')} className="w-full text-left px-4 py-2 hover:bg-rose-50 text-rose-600 flex items-center gap-2"><Trash2 className="w-3.5 h-3.5" /> {tx(lang,{fr:'Supprimer',ar:'حذف',en:'Delete',es:'Eliminar',pt:'Eliminar',tr:'Sil'})}</button>
            </div>,
            document.body
        )}

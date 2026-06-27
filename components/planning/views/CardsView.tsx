@@ -9,6 +9,8 @@ import { DELAY_META } from '../shared/statusConfig';
 import { Package, Calendar, Clock, Layers } from 'lucide-react';
 import { fmtShort, daysBetween, todayYmd } from '../shared/dateFmt';
 import { evDeadlineYmd } from '../shared/eventAccessors';
+import { tx } from '../../../lib/i18n';
+import { useLang } from '../../../src/context/LanguageContext';
 
 /** "CHAINE 1" -> "CH1" ; sinon renvoie tel quel (tronqué). */
 function shortChain(chaineId?: string): string | null {
@@ -24,14 +26,15 @@ interface Props {
     onEditEvent: (id: string) => void;
 }
 
-const COLUMNS: { status: WorkStatus; label: string }[] = [
-    { status: 'READY', label: 'Prêts à lancer' },
-    { status: 'IN_PROGRESS', label: 'En cours' },
-    { status: 'BLOCKED', label: 'Bloqués' },
-    { status: 'DONE', label: 'Terminés' },
-];
-
 export default function CardsView({ events, models, onSelectEvent, onEditEvent }: Props) {
+    const { lang } = useLang();
+
+    const COLUMNS: { status: WorkStatus; label: string }[] = [
+        { status: 'READY', label: tx(lang, { fr: 'Prêts à lancer', ar: 'جاهزة للانطلاق', en: 'Ready to launch', es: 'Listos para lanzar', pt: 'Prontos para lançar', tr: 'Başlatılmaya hazır' }) },
+        { status: 'IN_PROGRESS', label: tx(lang, { fr: 'En cours', ar: 'قيد التنفيذ', en: 'In progress', es: 'En curso', pt: 'Em andamento', tr: 'Devam ediyor' }) },
+        { status: 'BLOCKED', label: tx(lang, { fr: 'Bloqués', ar: 'محظورة', en: 'Blocked', es: 'Bloqueados', pt: 'Bloqueados', tr: 'Engellendi' }) },
+        { status: 'DONE', label: tx(lang, { fr: 'Terminés', ar: 'منتهية', en: 'Completed', es: 'Terminados', pt: 'Concluídos', tr: 'Tamamlandı' }) },
+    ];
     const grouped = useMemo(() => {
         const map: Record<WorkStatus, PlanningEvent[]> = {
             READY: [], IN_PROGRESS: [], BLOCKED: [], DONE: [],
@@ -49,10 +52,9 @@ export default function CardsView({ events, models, onSelectEvent, onEditEvent }
                 <div className="w-14 h-14 rounded-2xl bg-white border border-slate-150 flex items-center justify-center mb-4 shadow-sm">
                     <Layers className="w-6 h-6 text-slate-300" strokeWidth={1.75} />
                 </div>
-                <p className="text-[14px] font-semibold text-slate-700">Aucun ordre à afficher</p>
+                <p className="text-[14px] font-semibold text-slate-700">{tx(lang, { fr: 'Aucun ordre à afficher', ar: 'لا يوجد أمر للعرض', en: 'No orders to display', es: 'Sin órdenes para mostrar', pt: 'Nenhum pedido para exibir', tr: 'Gösterilecek sipariş yok' })}</p>
                 <p className="text-[12px] text-slate-400 mt-1 max-w-[260px]">
-                    Aucun OF ne correspond. Cliquez sur « Planifier » pour en créer un, ou ajustez vos filtres.
-                </p>
+                    {tx(lang, { fr: 'Aucun OF ne correspond. Cliquez sur « Planifier » pour en créer un, ou ajustez vos filtres.', ar: 'لا يوجد أمر تصنيع مطابق. انقر على «تخطيط» لإنشاء واحد، أو اضبط عوامل التصفية.', en: 'No matching manufacturing order. Click "Plan" to create one, or adjust your filters.', es: 'Ninguna OF coincide. Haga clic en « Planificar » para crear una, o ajuste sus filtros.', pt: 'Nenhuma OF corresponde. Clique em « Planejar » para criar uma, ou ajuste seus filtros.', tr: 'Eşleşen üretim emri yok. Oluşturmak için « Planla »ya tıklayın veya filtrelerinizi ayarlayın.' })}</p>
             </div>
         );
     }
@@ -78,7 +80,7 @@ export default function CardsView({ events, models, onSelectEvent, onEditEvent }
                             <div className="p-2 space-y-2 flex-1">
                                 {items.length === 0 && (
                                     <div className="text-center text-[11px] text-slate-400 py-8">
-                                        Aucun ordre
+                                        {tx(lang, { fr: 'Aucun ordre', ar: 'لا يوجد أمر', en: 'No orders', es: 'Sin órdenes', pt: 'Nenhum pedido', tr: 'Sipariş yok' })}
                                     </div>
                                 )}
                                 {items.map(ev => (
@@ -102,6 +104,7 @@ export default function CardsView({ events, models, onSelectEvent, onEditEvent }
 function EventCard({
     event, models, onClick, onDoubleClick,
 }: { event: PlanningEvent; models: ModelData[]; onClick: () => void; onDoubleClick: () => void }) {
+    const { lang } = useLang();
     const client = evClientName(event, models);
     const modelName = evModelName(event, models);
     const thumb = evModelThumb(event, models);
@@ -157,7 +160,7 @@ function EventCard({
                     <div className="text-[12px] font-semibold text-slate-900 truncate">{modelName}</div>
                     {isSub && event.subcontractorName && (
                         <div className="text-[9px] text-indigo-600 font-medium truncate mt-0.5">
-                            S-T: {event.subcontractorName}
+                            {tx(lang, { fr: 'S-T:', ar: 'م ب:', en: 'Sub:', es: 'Sub:', pt: 'Sub:', tr: 'Taş:' })} {event.subcontractorName}
                         </div>
                     )}
                 </div>

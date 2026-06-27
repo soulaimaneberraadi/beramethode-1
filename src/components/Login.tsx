@@ -129,7 +129,7 @@ export default function Login({ onSwitch, onGuest }: { onSwitch: () => void, onG
     const raw = d.message ?? d.error;
     const s = typeof raw === 'string' ? raw.trim() : '';
     if (!s) return fallback;
-    if (s === 'Invalid credentials') return 'E-mail ou mot de passe incorrect.';
+    if (s === 'Invalid credentials') return tx(lang, {fr:'E-mail ou mot de passe incorrect.',ar:'البريد الإلكتروني أو كلمة السر غير صحيحة.',en:'Incorrect email or password.',es:'Correo o contraseña incorrectos.',pt:'E-mail ou palavra-passe incorretos.',tr:'E-posta veya şifre hatalı.'});
     return s;
   };
 
@@ -137,7 +137,7 @@ export default function Login({ onSwitch, onGuest }: { onSwitch: () => void, onG
     // Timeout (notre withTimeout) ou requête abandonnée (AbortController) : message clair.
     const name = err && typeof err === 'object' && 'name' in err ? (err as { name?: string }).name : '';
     if (name === 'TimeoutError' || name === 'AbortError') {
-      return 'La connexion a expiré (délai dépassé). Vérifiez votre connexion Internet et réessayez.';
+      return tx(lang, {fr:'La connexion a expiré (délai dépassé). Vérifiez votre connexion Internet et réessayez.',ar:'انتهت مهلة الاتصال. تحقّق من اتصالك بالإنترنت وحاول مجدّداً.',en:'The connection timed out. Check your Internet connection and try again.',es:'La conexión expiró. Verifique su conexión a Internet e inténtelo de nuevo.',pt:'A ligação expirou. Verifique a sua ligação à Internet e tente novamente.',tr:'Bağlantı zaman aşımına uğradı. İnternet bağlantınızı kontrol edip tekrar deneyin.'});
     }
     let msg = err instanceof Error ? err.message : String(err);
     msg = (msg || '').trim();
@@ -155,15 +155,23 @@ export default function Login({ onSwitch, onGuest }: { onSwitch: () => void, onG
       // En mode statique (Supabase), aucun backend local n'est requis : un échec
       // réseau signifie que le service d'authentification Supabase est injoignable.
       if (staticLogin) {
-        return (
-          'Impossible de joindre le serveur d\'authentification. ' +
-          'Vérifiez votre connexion Internet et réessayez dans quelques instants.'
-        );
+        return tx(lang, {
+          fr: 'Impossible de joindre le serveur d\'authentification. Vérifiez votre connexion Internet et réessayez dans quelques instants.',
+          ar: 'تعذّر الوصول إلى خادم المصادقة. تحقّق من اتصالك بالإنترنت وحاول مجدّداً بعد لحظات.',
+          en: 'Unable to reach the authentication server. Check your Internet connection and try again shortly.',
+          es: 'No se pudo conectar con el servidor de autenticación. Verifique su conexión a Internet e inténtelo de nuevo en unos instantes.',
+          pt: 'Não foi possível contactar o servidor de autenticação. Verifique a sua ligação à Internet e tente novamente dentro de momentos.',
+          tr: 'Kimlik doğrulama sunucusuna ulaşılamadı. İnternet bağlantınızı kontrol edip birazdan tekrar deneyin.'
+        });
       }
-      return (
-        'Impossible de joindre le serveur. Lancez « npm run dev » puis ouvrez http://localhost:8000. ' +
-        'Si vous utilisez uniquement « npm run dev:ui » (port 5173), le backend doit tourner sur le port 8000.'
-      );
+      return tx(lang, {
+        fr: 'Impossible de joindre le serveur. Lancez « npm run dev » puis ouvrez http://localhost:8000. Si vous utilisez uniquement « npm run dev:ui » (port 5173), le backend doit tourner sur le port 8000.',
+        ar: 'تعذّر الوصول إلى الخادم. شغّل « npm run dev » ثم افتح http://localhost:8000. إذا كنت تستعمل « npm run dev:ui » فقط (المنفذ 5173)، فيجب أن يعمل الخادم الخلفي على المنفذ 8000.',
+        en: 'Unable to reach the server. Run "npm run dev" then open http://localhost:8000. If you only use "npm run dev:ui" (port 5173), the backend must run on port 8000.',
+        es: 'No se pudo conectar con el servidor. Ejecute «npm run dev» y luego abra http://localhost:8000. Si solo usa «npm run dev:ui» (puerto 5173), el backend debe ejecutarse en el puerto 8000.',
+        pt: 'Não foi possível contactar o servidor. Execute «npm run dev» e abra http://localhost:8000. Se utilizar apenas «npm run dev:ui» (porta 5173), o backend tem de correr na porta 8000.',
+        tr: 'Sunucuya ulaşılamadı. "npm run dev" çalıştırın ve http://localhost:8000 adresini açın. Yalnızca "npm run dev:ui" (port 5173) kullanıyorsanız, arka uç 8000 portunda çalışmalıdır.'
+      });
     }
     return msg;
   };
@@ -222,7 +230,7 @@ export default function Login({ onSwitch, onGuest }: { onSwitch: () => void, onG
       const result = await withTimeout(signInWithGoogle(), LOGIN_TIMEOUT_MS);
       if (!result.ok) {
         // En cas de succès le navigateur redirige vers Google : pas de reset ici.
-        setError(result.message || 'Échec de la connexion avec Google.');
+        setError(result.message || tx(lang, {fr:'Échec de la connexion avec Google.',ar:'فشل تسجيل الدخول عبر Google.',en:'Google sign-in failed.',es:'Error al iniciar sesión con Google.',pt:'Falha ao iniciar sessão com o Google.',tr:'Google ile giriş başarısız oldu.'}));
         setIsLoading(false);
       }
     } catch (err: unknown) {

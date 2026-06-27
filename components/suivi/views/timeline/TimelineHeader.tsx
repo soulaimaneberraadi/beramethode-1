@@ -1,4 +1,6 @@
 import React from 'react';
+import { useLang } from '../../../../src/context/LanguageContext';
+import { tx } from '../../../../lib/i18n';
 
 interface Props {
     hours: string[];
@@ -11,6 +13,7 @@ const SIDEBAR_W = 192;
 const HOUR_W = 72;
 
 export function TimelineHeader({ hours, hourKeys, currentHourKey, hourTotals }: Props) {
+    const { lang } = useLang();
     return (
         <div className="flex sticky top-0 z-30 bg-white border-b border-slate-100">
             <div className="shrink-0 sticky left-0 z-20 bg-white border-r border-slate-100" style={{ width: SIDEBAR_W }}>
@@ -41,7 +44,7 @@ export function TimelineHeader({ hours, hourKeys, currentHourKey, hourTotals }: 
                             {isCurrent && (
                                 <span className="mt-1 inline-flex items-center gap-1 text-[8px] font-bold uppercase tracking-wider text-red-600">
                                     <span className="w-1 h-1 rounded-full bg-red-500 animate-pulse" />
-                                    Maintenant
+                                    {tx(lang, {fr:"Maintenant",ar:"الآن",en:"Now",es:"Ahora",pt:"Agora",tr:"Şimdi"})}
                                 </span>
                             )}
                         </div>

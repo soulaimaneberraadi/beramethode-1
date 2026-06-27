@@ -8,6 +8,8 @@ import { delayOf } from '../../hooks/useDelayIndicator';
 import { fmtShort } from '../../shared/dateFmt';
 import { AlertCircle } from 'lucide-react';
 import { getWorkMinutesPerDay } from '../../../../utils/planning';
+import { tx } from '../../../../lib/i18n';
+import { useLang } from '../../../../src/context/LanguageContext';
 
 interface Props {
     event: PlanningEvent;
@@ -40,6 +42,7 @@ export default function EventBar({
     event, models, style, selected, dimmed, compact, showCRColors,
     onClick, onDoubleClick, onContextMenu, onDragStart, onDragEnd, settings,
 }: Props) {
+    const { lang } = useLang();
     const h = compact ? 32 : 56;
     const client = evClientName(event, models);
     const modelName = evModelName(event, models);
@@ -108,9 +111,9 @@ export default function EventBar({
         `${qty} pcs · ${progress}%`,
         event.crValue !== undefined ? `Critical Ratio: ${event.crValue.toFixed(2)} (${event.crStatus || ''})` : '',
         event.strictDeadline_DDS ? `DDS: ${fmtShort(event.strictDeadline_DDS)}` : '',
-        event.blockedReason ? `Bloqué: ${event.blockedReason}` : '',
-        event.isSubcontracted ? `Sous-traitance: ${event.subcontractorName || 'Externe'} (${event.subcontractStatus || 'PENDING'})` : '',
-        bufferLancement > 0 ? `Préparation (Lancement): ${bufferLancement} min` : '',
+        event.blockedReason ? `${tx(lang, { fr: 'Bloqué:', ar: 'محظور:', en: 'Blocked:', es: 'Bloqueado:', pt: 'Bloqueado:', tr: 'Engellendi:' })} ${event.blockedReason}` : '',
+        event.isSubcontracted ? `${tx(lang, { fr: 'Sous-traitance:', ar: 'مقاولة من الباطن:', en: 'Subcontract:', es: 'Subcontratación:', pt: 'Subcontratação:', tr: 'Taşeron:' })} ${event.subcontractorName || tx(lang, { fr: 'Externe', ar: 'خارجي', en: 'External', es: 'Externo', pt: 'Externo', tr: 'Harici' })} (${event.subcontractStatus || 'PENDING'})` : '',
+        bufferLancement > 0 ? `${tx(lang, { fr: 'Préparation (Lancement):', ar: 'تحضير (انطلاق):', en: 'Setup (Launch):', es: 'Preparación (Lanzamiento):', pt: 'Preparação (Lançamento):', tr: 'Hazırlık (Başlatma):' })} ${bufferLancement} min` : '',
     ].filter(Boolean).join('\n');
 
     return (
@@ -203,22 +206,22 @@ export default function EventBar({
                                 event.subcontractStatus === 'SENT' ? 'bg-blue-50 text-blue-700 border border-blue-200' :
                                 'bg-slate-50 text-slate-600 border border-slate-200'
                             }`} title={event.subcontractorName}>
-                                {event.subcontractorName ? `Sous-trait: ${event.subcontractorName}` : 'Sous-traitance'}
+                                {event.subcontractorName ? `${tx(lang, { fr: 'Sous-trait:', ar: 'م ب:', en: 'Subcon:', es: 'Subcon:', pt: 'Subcon:', tr: 'Taş:' })} ${event.subcontractorName}` : tx(lang, { fr: 'Sous-traitance', ar: 'مقاولة من الباطن', en: 'Subcontract', es: 'Subcontratación', pt: 'Subcontratação', tr: 'Taşeron' })}
                             </span>
                         )}
                         {event.status === 'BLOCKED_STOCK' && (
                             <span className="flex items-center gap-1 text-[9px] font-extrabold text-amber-800 bg-amber-100 border border-amber-200 px-1.5 py-0.5 rounded shrink-0 shadow-sm">
-                                ⏸ EN PAUSE
+                                ⏸ {tx(lang, { fr: 'EN PAUSE', ar: 'متوقف', en: 'PAUSED', es: 'EN PAUSA', pt: 'EM PAUSA', tr: 'DURAKLATILDI' })}
                             </span>
                         )}
                         {delay === 'LATE' && !event.isSubcontracted && (
                             <span className="flex items-center gap-1 text-[9px] font-bold text-red-600 bg-red-55 border border-red-200 px-1 py-0.5 rounded shrink-0 animate-pulse shadow-sm">
                                 <AlertCircle className="w-3 h-3 text-red-500" />
-                                RETARD
+                                {tx(lang, { fr: 'RETARD', ar: 'متأخر', en: 'LATE', es: 'RETRASO', pt: 'ATRASO', tr: 'GEÇİKME' })}
                             </span>
                         )}
                         {delay === 'AT_RISK' && !event.isSubcontracted && (
-                            <span className="text-[9px] font-semibold text-amber-600 shrink-0">RISQUE</span>
+                            <span className="text-[9px] font-semibold text-amber-600 shrink-0">{tx(lang, { fr: 'RISQUE', ar: 'خطر', en: 'RISK', es: 'RIESGO', pt: 'RISCO', tr: 'RİSK' })}</span>
                         )}
                     </div>
 

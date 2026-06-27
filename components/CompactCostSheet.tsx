@@ -3,6 +3,8 @@ import { Building2, Package, Scissors, Tag, ArrowDown, FileText } from 'lucide-r
 import { Material, PurchasingData, AppSettings } from '../types';
 import { fmt } from '../constants';
 import SensitiveValue from './ui/SensitiveValue';
+import { tx, type TxMap } from '../lib/i18n';
+import { useLang } from '../src/context/LanguageContext';
 
 interface CompactCostSheetProps {
     t: any;
@@ -45,6 +47,8 @@ const CompactCostSheet = forwardRef<HTMLDivElement, CompactCostSheetProps>(({
     productImage, soustraitanceActive = false, stPrix = 0, stMode,
     colors = [], gridQuantities = {}, sizes = []
 }, ref) => {
+    const { lang } = useLang();
+    const _ = (m: TxMap) => tx(lang, m);
 
     const totalMaterials = materials.reduce((acc, m) => acc + m.unitPrice * m.qty, 0);
 
@@ -100,15 +104,15 @@ const CompactCostSheet = forwardRef<HTMLDivElement, CompactCostSheetProps>(({
             </div>
             <div className="text-right">
                 <div className="inline-block bg-slate-900 text-white px-4 py-1.5 rounded-lg mb-1.5">
-                    <h2 className="text-xs font-black tracking-wider uppercase">Fiche de Coût</h2>
+                    <h2 className="text-xs font-black tracking-wider uppercase">{_({fr:'Fiche de Coût',ar:'بطاقة التكلفة',en:'Cost Sheet',es:'Hoja de Costo',pt:'Ficha de Custo',tr:'Maliyet Tablosu'})}</h2>
                 </div>
                 <div className="space-y-1">
                     <div className="flex justify-end gap-2.5 items-center">
-                        <span className="text-[9px] text-slate-400 font-bold uppercase">Date</span>
+                        <span className="text-[9px] text-slate-400 font-bold uppercase">{_({fr:'Date',ar:'التاريخ',en:'Date',es:'Fecha',pt:'Data',tr:'Tarih'})}</span>
                         <span className="font-bold text-slate-700 text-[10px] bg-slate-100 px-1.5 py-0.5 rounded">{displayDate}</span>
                     </div>
                     <div className="flex justify-end gap-2.5 items-center">
-                        <span className="text-[9px] text-slate-400 font-bold uppercase">Réf</span>
+                        <span className="text-[9px] text-slate-400 font-bold uppercase">{_({fr:'Réf',ar:'المرجع',en:'Ref',es:'Ref',pt:'Ref',tr:'Ref'})}</span>
                         <span className="font-mono font-bold text-slate-800 text-[10px] bg-slate-100 px-1.5 py-0.5 rounded">{docRef}</span>
                     </div>
                 </div>
@@ -119,20 +123,20 @@ const CompactCostSheet = forwardRef<HTMLDivElement, CompactCostSheetProps>(({
     const renderProductInfo = () => (
         <div className="flex gap-4 mb-4">
             <div className="flex-1 border border-slate-200 rounded-xl p-3 bg-slate-50 relative">
-                <span className="absolute -top-2.5 left-3 bg-slate-50 px-2 text-[8px] font-black text-slate-400 uppercase tracking-widest">Désignation</span>
-                <p className="font-black text-slate-900 text-xs">{productName || 'Article Non Défini'}</p>
+                <span className="absolute -top-2.5 left-3 bg-slate-50 px-2 text-[8px] font-black text-slate-400 uppercase tracking-widest">{_({fr:'Désignation',ar:'التسمية',en:'Designation',es:'Designación',pt:'Designação',tr:'Tanım'})}</span>
+                <p className="font-black text-slate-900 text-xs">{productName || _({fr:'Article Non Défini',ar:'صنف غير محدد',en:'Undefined Item',es:'Artículo No Definido',pt:'Artigo Não Definido',tr:'Tanımsız Ürün'})}</p>
                 <div className="flex gap-3 mt-1.5">
                     <div className="bg-white border border-slate-200 rounded-lg px-2.5 py-1 shadow-sm">
-                        <span className="text-[7px] font-bold text-slate-400 uppercase block">Temps Total</span>
+                        <span className="text-[7px] font-bold text-slate-400 uppercase block">{_({fr:'Temps Total',ar:'الوقت الإجمالي',en:'Total Time',es:'Tiempo Total',pt:'Tempo Total',tr:'Toplam Süre'})}</span>
                         <span className="text-[10px] font-black text-slate-800">{fmt(totalTime)} min</span>
                     </div>
                     <div className="bg-white border border-slate-200 rounded-lg px-2.5 py-1 shadow-sm">
-                        <span className="text-[7px] font-bold text-slate-400 uppercase block">{soustraitanceActive ? 'Façon/pc' : 'Coût/Min'}</span>
+                        <span className="text-[7px] font-bold text-slate-400 uppercase block">{soustraitanceActive ? _({fr:'Façon/pc',ar:'الصنعة/قطعة',en:'Facon/pc',es:'Maquila/pz',pt:'Fação/peça',tr:'İşçilik/adet'}) : _({fr:'Coût/Min',ar:'التكلفة/دقيقة',en:'Cost/Min',es:'Costo/Min',pt:'Custo/Min',tr:'Maliyet/Dk'})}</span>
                         <span className="text-[10px] font-black text-slate-800">{soustraitanceActive ? fmt(stPrix) : fmt(settings.costMinute)} {currency}</span>
                     </div>
                     {orderQty > 0 && (
                         <div className="bg-white border border-slate-200 rounded-lg px-2.5 py-1 shadow-sm">
-                            <span className="text-[7px] font-bold text-slate-400 uppercase block">Ordre</span>
+                            <span className="text-[7px] font-bold text-slate-400 uppercase block">{_({fr:'Ordre',ar:'الأمر',en:'Order',es:'Pedido',pt:'Ordem',tr:'Sipariş'})}</span>
                             <span className="text-[10px] font-black text-slate-800">{orderQty} pcs</span>
                         </div>
                     )}
@@ -140,7 +144,7 @@ const CompactCostSheet = forwardRef<HTMLDivElement, CompactCostSheetProps>(({
             </div>
             {productImage && (
                 <div className="w-16 h-16 shrink-0 border border-slate-200 rounded-xl p-1 bg-white flex items-center justify-center">
-                    <img src={productImage} alt="Modèle" className="w-full h-full object-contain rounded" />
+                    <img src={productImage} alt={_({fr:'Modèle',ar:'موديل',en:'Model',es:'Modelo',pt:'Modelo',tr:'Model'})} className="w-full h-full object-contain rounded" />
                 </div>
             )}
         </div>
@@ -149,16 +153,16 @@ const CompactCostSheet = forwardRef<HTMLDivElement, CompactCostSheetProps>(({
     const renderNomenclature = () => (
         <div className="mb-4">
             <h3 className="text-[9px] font-black uppercase tracking-widest text-slate-900 mb-1.5 flex items-center gap-1.5">
-                <Package className="w-3 h-3 text-slate-400" /> Nomenclature
+                <Package className="w-3 h-3 text-slate-400" /> {_({fr:'Nomenclature',ar:'قائمة المواد',en:'Nomenclature',es:'Nomenclatura',pt:'Nomenclatura',tr:'Malzeme Listesi'})}
             </h3>
             <table className="w-full border-collapse" style={{ borderSpacing: 0 }}>
                 <thead>
                     <tr className="bg-slate-900 text-white">
-                        <th className="p-2 text-left font-black text-[8px] uppercase tracking-wider rounded-tl-lg">Composant</th>
-                        <th className="p-2 text-center font-black text-[8px] uppercase tracking-wider">Fournisseur</th>
-                        <th className="p-2 text-center font-black text-[8px] uppercase tracking-wider">Prix U.</th>
-                        <th className="p-2 text-center font-black text-[8px] uppercase tracking-wider">Qté</th>
-                        <th className="p-2 text-right font-black text-[8px] uppercase tracking-wider rounded-tr-lg">Montant</th>
+                        <th className="p-2 text-left font-black text-[8px] uppercase tracking-wider rounded-tl-lg">{_({fr:'Composant',ar:'المكون',en:'Component',es:'Componente',pt:'Componente',tr:'Bileşen'})}</th>
+                        <th className="p-2 text-center font-black text-[8px] uppercase tracking-wider">{_({fr:'Fournisseur',ar:'المورد',en:'Supplier',es:'Proveedor',pt:'Fornecedor',tr:'Tedarikçi'})}</th>
+                        <th className="p-2 text-center font-black text-[8px] uppercase tracking-wider">{_({fr:'Prix U.',ar:'سعر الو.',en:'Unit Price',es:'Precio U.',pt:'Preço Unit.',tr:'Birim F.'})}</th>
+                        <th className="p-2 text-center font-black text-[8px] uppercase tracking-wider">{_({fr:'Qté',ar:'الكمية',en:'Qty',es:'Cant',pt:'Qtde',tr:'Miktar'})}</th>
+                        <th className="p-2 text-right font-black text-[8px] uppercase tracking-wider rounded-tr-lg">{_({fr:'Montant',ar:'المبلغ',en:'Amount',es:'Monto',pt:'Valor',tr:'Tutar'})}</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -166,7 +170,7 @@ const CompactCostSheet = forwardRef<HTMLDivElement, CompactCostSheetProps>(({
                         <>
                             <tr className="bg-slate-100">
                                 <td colSpan={5} className="px-2 py-0.5 text-[8px] font-bold text-slate-500 uppercase tracking-widest">
-                                    Matières Premières
+                                    {_({fr:'Matières Premières',ar:'المواد الأولية',en:'Raw Materials',es:'Materias Primas',pt:'Matérias-Primas',tr:'Hammaddeler'})}
                                 </td>
                             </tr>
                             {otherMats.map((m, i) => (
@@ -185,7 +189,7 @@ const CompactCostSheet = forwardRef<HTMLDivElement, CompactCostSheetProps>(({
                         <>
                             <tr className="bg-slate-100">
                                 <td colSpan={5} className="px-2 py-0.5 text-[8px] font-bold text-slate-500 uppercase tracking-widest">
-                                    Fils
+                                    {_({fr:'Fils',ar:'الخيوط',en:'Threads',es:'Hilos',pt:'Fios',tr:'İplikler'})}
                                 </td>
                             </tr>
                             {threadMats.map((m, i) => (
@@ -207,7 +211,7 @@ const CompactCostSheet = forwardRef<HTMLDivElement, CompactCostSheetProps>(({
                         <td className="p-2 font-bold text-blue-800" colSpan={3}>
                             <div className="flex items-center gap-1">
                                 <Scissors className="w-3 h-3" />
-                                <span>{soustraitanceActive ? `Sous-traitance (${stMode === 'complet' ? 'Tout compris' : 'Façon'})` : `Main d'Œuvre (${fmt(totalTime)} × ${settings.costMinute})`}</span>
+                                <span>{soustraitanceActive ? `${_({fr:'Sous-traitance',ar:'المقاولة من الباطن',en:'Subcontracting',es:'Subcontratación',pt:'Subcontratação',tr:'Taşeron'})} (${stMode === 'complet' ? _({fr:'Tout compris',ar:'كل شيء شامل',en:'All inclusive',es:'Todo incluido',pt:'Tudo incluído',tr:'Her şey dahil'}) : _({fr:'Façon',ar:'صنعة',en:'Facon',es:'Maquila',pt:'Fação',tr:'İşçilik'})})` : `${_({fr:"Main d'Œuvre",ar:'الأيدي العاملة',en:'Labor',es:'Mano de Obra',pt:'Mão de Obra',tr:'İşçilik'})} (${fmt(totalTime)} × ${settings.costMinute})`}</span>
                             </div>
                         </td>
                         <td className="p-2 text-center text-[9px] text-blue-600">
@@ -219,7 +223,7 @@ const CompactCostSheet = forwardRef<HTMLDivElement, CompactCostSheetProps>(({
                     </tr>
 
                     <tr className="bg-slate-900 text-white">
-                        <td className="p-2 font-black text-[9px] uppercase tracking-wider rounded-bl-lg" colSpan={4}>Total Nomenclature</td>
+                        <td className="p-2 font-black text-[9px] uppercase tracking-wider rounded-bl-lg" colSpan={4}>{_({fr:'Total Nomenclature',ar:'إجمالي قائمة المواد',en:'Total Nomenclature',es:'Total Nomenclatura',pt:'Total Nomenclatura',tr:'Toplam Malzeme Listesi'})}</td>
                         <td className="p-2 text-right font-black text-xs rounded-br-lg">{fmt(totalMaterials + laborCost)} {currency}</td>
                     </tr>
                 </tbody>
@@ -231,31 +235,31 @@ const CompactCostSheet = forwardRef<HTMLDivElement, CompactCostSheetProps>(({
         <div className="flex gap-4 mb-4">
             <div className="flex-1 border-2 border-slate-900 rounded-xl overflow-hidden">
                 <div className="bg-slate-900 text-white px-3.5 py-2 flex justify-between items-center">
-                    <span className="font-black uppercase tracking-widest text-[8px] text-slate-400">Coût de Revient</span>
+                    <span className="font-black uppercase tracking-widest text-[8px] text-slate-400">{_({fr:'Coût de Revient',ar:'تكلفة الإنتاج',en:'Cost Price',es:'Costo de Producción',pt:'Custo de Produção',tr:'Maliyet Fiyatı'})}</span>
                     <span className="text-sm font-black tabular-nums"><SensitiveValue field="model.prix_revient">{fmt(costPrice)} <span className="text-[8px] opacity-50">{currency}</span></SensitiveValue></span>
                 </div>
                 <div className="bg-white px-3.5 py-2.5 space-y-1.5">
                     <div className="flex justify-between items-center pb-1.5 border-b border-slate-100">
-                        <span className="text-[9px] font-bold uppercase text-slate-600">Prix Vente HT <span className="text-slate-400">+{settings.marginAtelier}%</span></span>
+                        <span className="text-[9px] font-bold uppercase text-slate-600">{_({fr:'Prix Vente HT',ar:'سعر البيع بدون الضريبة',en:'Selling Price HT',es:'Precio Venta HT',pt:'Preço Venda HT',tr:'KDV Hariç Satış Fiyatı'})} <span className="text-slate-400">+{settings.marginAtelier}%</span></span>
                         <span className="font-bold text-xs text-slate-800">{fmt(sellPriceHT)} {currency}</span>
                     </div>
                     <div className="flex justify-between items-center pb-1.5 border-b border-slate-100">
-                        <span className="text-[9px] font-bold uppercase text-slate-600">Prix Vente TTC <span className="text-slate-400">+{settings.tva}%</span></span>
+                        <span className="text-[9px] font-bold uppercase text-slate-600">{_({fr:'Prix Vente TTC',ar:'سعر البيع شامل الضريبة',en:'Selling Price TTC',es:'Precio Venta TTC',pt:'Preço Venda TTC',tr:'KDV Dahil Satış Fiyatı'})} <span className="text-slate-400">+{settings.tva}%</span></span>
                         <span className="font-bold text-xs text-slate-900">{fmt(sellPriceTTC)} {currency}</span>
                     </div>
                     <div className="flex justify-between items-center">
-                        <span className="text-[8px] font-bold uppercase text-slate-400">Prix Boutique <span className="text-slate-300">+{settings.marginBoutique}%</span></span>
+                        <span className="text-[8px] font-bold uppercase text-slate-400">{_({fr:'Prix Boutique',ar:'سعر المتجر',en:'Boutique Price',es:'Precio Tienda',pt:'Preço Loja',tr:'Mağaza Fiyatı'})} <span className="text-slate-300">+{settings.marginBoutique}%</span></span>
                         <span className="font-black text-xs text-slate-400">{fmt(boutiquePrice)} {currency}</span>
                     </div>
                 </div>
             </div>
 
             <div className="w-44 border border-slate-200 rounded-xl p-3 bg-slate-50">
-                <h4 className="text-[8px] font-black uppercase tracking-widest text-slate-500 mb-2 text-center">Répartition PR</h4>
+                <h4 className="text-[8px] font-black uppercase tracking-widest text-slate-500 mb-2 text-center">{_({fr:'Répartition PR',ar:'توزيع التكلفة',en:'Cost Breakdown',es:'Desglose de Costo',pt:'Repartição de Custo',tr:'Maliyet Dağılımı'})}</h4>
                 <div className="space-y-1.5">
                     <div>
                         <div className="flex justify-between text-[9px] mb-0.5">
-                            <span className="text-slate-600 font-medium">Matières</span>
+                            <span className="text-slate-600 font-medium">{_({fr:'Matières',ar:'المواد',en:'Materials',es:'Materiales',pt:'Materiais',tr:'Malzemeler'})}</span>
                             <span className="font-bold text-slate-800">{fmt(totalMaterials)}</span>
                         </div>
                         <div className="w-full h-1 bg-slate-200 rounded-full overflow-hidden">
@@ -264,7 +268,7 @@ const CompactCostSheet = forwardRef<HTMLDivElement, CompactCostSheetProps>(({
                     </div>
                     <div>
                         <div className="flex justify-between text-[9px] mb-0.5">
-                            <span className="text-slate-600 font-medium">{soustraitanceActive ? 'Façon' : 'Main d\'œuvre'}</span>
+                            <span className="text-slate-600 font-medium">{soustraitanceActive ? _({fr:'Façon',ar:'صنعة',en:'Facon',es:'Maquila',pt:'Fação',tr:'İşçilik'}) : _({fr:"Main d'œuvre",ar:'الأيدي العاملة',en:'Labor',es:'Mano de obra',pt:'Mão de obra',tr:'İşçilik'})}</span>
                             <span className="font-bold text-slate-800">{fmt(laborCost)}</span>
                         </div>
                         <div className="w-full h-1 bg-slate-200 rounded-full overflow-hidden">
@@ -280,12 +284,12 @@ const CompactCostSheet = forwardRef<HTMLDivElement, CompactCostSheetProps>(({
         <div className="mt-5 pt-3 border-t border-slate-200 flex justify-between">
             <div className="w-[35%] text-center">
                 <div className="border-t border-slate-300 pt-1.5">
-                    <span className="text-[8px] font-bold uppercase text-slate-400">Responsable</span>
+                    <span className="text-[8px] font-bold uppercase text-slate-400">{_({fr:'Responsable',ar:'المسؤول',en:'Manager',es:'Responsable',pt:'Responsável',tr:'Sorumlu'})}</span>
                 </div>
             </div>
             <div className="w-[35%] text-center">
                 <div className="border-t border-slate-300 pt-1.5">
-                    <span className="text-[8px] font-bold uppercase text-slate-400">Direction</span>
+                    <span className="text-[8px] font-bold uppercase text-slate-400">{_({fr:'Direction',ar:'الإدارة',en:'Management',es:'Dirección',pt:'Direção',tr:'Yönetim'})}</span>
                 </div>
             </div>
         </div>
@@ -308,7 +312,7 @@ const CompactCostSheet = forwardRef<HTMLDivElement, CompactCostSheetProps>(({
                 .compact-cost-sheet-page {
                     box-sizing: border-box;
                     width: 100%;
-                    min-height: 1123px; /* Standard A4 height */
+                    min-height: 1123px;
                     padding: 40px 50px;
                     position: relative;
                     background-color: white;
@@ -321,7 +325,6 @@ const CompactCostSheet = forwardRef<HTMLDivElement, CompactCostSheetProps>(({
                     break-before: page !important;
                 }
                 @media screen {
-                    /* Only display the active page when in the preview modal */
                     .active-page-1 .compact-cost-sheet-page.sheet-page-2 {
                         display: none !important;
                     }
@@ -344,7 +347,6 @@ const CompactCostSheet = forwardRef<HTMLDivElement, CompactCostSheetProps>(({
             `}</style>
 
             {!isMultiPage ? (
-                /* ── SINGLE PAGE LAYOUT (1/1) ── */
                 <div className="compact-cost-sheet-page sheet-page-1">
                     <div>
                         {renderHeader()}
@@ -353,12 +355,10 @@ const CompactCostSheet = forwardRef<HTMLDivElement, CompactCostSheetProps>(({
                         {renderPricingSummary()}
                         {renderSignatures()}
                     </div>
-                    {renderPageFooter('Page 1/1')}
+                    {renderPageFooter(_({fr:'Page 1/1',ar:'صفحة 1/1',en:'Page 1/1',es:'Página 1/1',pt:'Página 1/1',tr:'Sayfa 1/1'}))}
                 </div>
             ) : (
-                /* ── MULTI PAGE LAYOUT (1/2 & 2/2) ── */
                 <>
-                    {/* PAGE 1/2 */}
                     <div className="compact-cost-sheet-page sheet-page-1">
                         <div>
                             {renderHeader()}
@@ -366,42 +366,39 @@ const CompactCostSheet = forwardRef<HTMLDivElement, CompactCostSheetProps>(({
                             {renderNomenclature()}
                             {renderPricingSummary()}
                         </div>
-                        {renderPageFooter('Page 1/2')}
+                        {renderPageFooter(_({fr:'Page 1/2',ar:'صفحة 1/2',en:'Page 1/2',es:'Página 1/2',pt:'Página 1/2',tr:'Sayfa 1/2'}))}
                     </div>
 
-                    {/* PAGE 2/2 */}
                     <div className="compact-cost-sheet-page sheet-page-2 page-break">
                         <div>
-                            {/* Simple Page 2 Header */}
                             <div className="flex justify-between items-center pb-2 mb-4 border-b border-slate-200">
                                 <div className="flex items-center gap-1">
                                     <Building2 className="w-3 h-3 text-slate-400" />
                                     <span className="font-black text-[8px] uppercase tracking-wider text-slate-400">{companyName || 'BERAMETHODE SARL'}</span>
                                 </div>
-                                <span className="font-bold text-slate-700 text-[9px] uppercase">Fiche de Coût — Détails d'Achat ({docRef})</span>
+                                <span className="font-bold text-slate-700 text-[9px] uppercase">{_({fr:'Fiche de Coût — Détails d\'Achat',ar:'بطاقة التكلفة — تفاصيل الشراء',en:'Cost Sheet — Purchase Details',es:'Hoja de Costo — Detalles de Compra',pt:'Ficha de Custo — Detalhes de Compra',tr:'Maliyet Tablosu — Satın Alma Detayları'})} ({docRef})</span>
                                 <span className="font-mono text-slate-500 text-[8px]">{displayDate}</span>
                             </div>
 
-                            {/* PRÉVISIONS ACHAT */}
                             {purchasingData.length > 0 && (
                                 <div className="mb-4">
                                     <h3 className="text-[9px] font-black uppercase tracking-widest text-slate-900 mb-1.5 flex items-center justify-between">
                                         <span className="flex items-center gap-1.5">
-                                            <Package className="w-3 h-3 text-slate-400" /> Prévisions Achat
+                                            <Package className="w-3 h-3 text-slate-400" /> {_({fr:'Prévisions Achat',ar:'تقديرات الشراء',en:'Purchase Forecast',es:'Previsiones de Compra',pt:'Previsões de Compra',tr:'Satın Alma Tahminleri'})}
                                         </span>
                                         <div className="flex gap-2 font-semibold text-[8px] tracking-normal">
-                                            <span className="bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded">Ordre: {orderQty}</span>
-                                            <span className="bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded">Déchet: {wasteRate}%</span>
+                                            <span className="bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded">{_({fr:'Ordre:',ar:'الأمر:',en:'Order:',es:'Pedido:',pt:'Ordem:',tr:'Sipariş:'})} {orderQty}</span>
+                                            <span className="bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded">{_({fr:'Déchet:',ar:'الفاقد:',en:'Waste:',es:'Desperdicio:',pt:'Desperdício:',tr:'Fire:'})} {wasteRate}%</span>
                                         </div>
                                     </h3>
                                     <table className="w-full border-collapse" style={{ borderSpacing: 0 }}>
                                         <thead>
                                             <tr className="bg-slate-200">
-                                                <th className="p-1.5 text-left font-black text-[8px] uppercase tracking-wider text-slate-600 rounded-tl-lg">Matière</th>
-                                                <th className="p-1.5 text-center font-black text-[8px] uppercase tracking-wider text-slate-600">Unité</th>
-                                                <th className="p-1.5 text-center font-black text-[8px] uppercase tracking-wider text-slate-600">Qté/Pièce</th>
-                                                <th className="p-1.5 text-center font-black text-[8px] uppercase tracking-wider text-slate-600">Qté À Acheter</th>
-                                                <th className="p-1.5 text-right font-black text-[8px] uppercase tracking-wider text-slate-600 rounded-tr-lg">Budget</th>
+                                                <th className="p-1.5 text-left font-black text-[8px] uppercase tracking-wider text-slate-600 rounded-tl-lg">{_({fr:'Matière',ar:'المادة',en:'Material',es:'Material',pt:'Material',tr:'Malzeme'})}</th>
+                                                <th className="p-1.5 text-center font-black text-[8px] uppercase tracking-wider text-slate-600">{_({fr:'Unité',ar:'الوحدة',en:'Unit',es:'Unidad',pt:'Unidade',tr:'Birim'})}</th>
+                                                <th className="p-1.5 text-center font-black text-[8px] uppercase tracking-wider text-slate-600">{_({fr:'Qté/Pièce',ar:'الكمية/قطعة',en:'Qty/Piece',es:'Cant./Pieza',pt:'Qtde/Peça',tr:'Adet Başı'})}</th>
+                                                <th className="p-1.5 text-center font-black text-[8px] uppercase tracking-wider text-slate-600">{_({fr:'Qté À Acheter',ar:'الكمية المطلوب شراؤها',en:'Qty To Buy',es:'Cant. A Comprar',pt:'Qtde A Comprar',tr:'Alınacak Miktar'})}</th>
+                                                <th className="p-1.5 text-right font-black text-[8px] uppercase tracking-wider text-slate-600 rounded-tr-lg">{_({fr:'Budget',ar:'الميزانية',en:'Budget',es:'Presupuesto',pt:'Orçamento',tr:'Bütçe'})}</th>
                                             </tr>
                                         </thead>
                                         <tbody>
@@ -415,7 +412,7 @@ const CompactCostSheet = forwardRef<HTMLDivElement, CompactCostSheetProps>(({
                                                 </tr>
                                             ))}
                                             <tr className="bg-slate-900 text-white">
-                                                <td colSpan={4} className="p-1.5 text-right font-black text-[8px] uppercase tracking-wider rounded-bl-lg">Budget Total:</td>
+                                                <td colSpan={4} className="p-1.5 text-right font-black text-[8px] uppercase tracking-wider rounded-bl-lg">{_({fr:'Budget Total:',ar:'إجمالي الميزانية:',en:'Total Budget:',es:'Presupuesto Total:',pt:'Orçamento Total:',tr:'Toplam Bütçe:'})}</td>
                                                 <td className="p-1.5 text-right font-black text-xs rounded-br-lg">{fmt(totalPurchasingMatCost)} {currency}</td>
                                             </tr>
                                         </tbody>
@@ -423,14 +420,13 @@ const CompactCostSheet = forwardRef<HTMLDivElement, CompactCostSheetProps>(({
                                 </div>
                             )}
 
-                            {/* ACHATS PAR PIDIDO */}
                             {pididoBreakdown.length > 0 && (
                                 <div className="mb-4">
                                     <h3 className="text-[9px] font-black uppercase tracking-widest text-slate-900 mb-1.5 flex items-center justify-between">
                                         <span className="flex items-center gap-1.5">
-                                            <Tag className="w-3 h-3 text-slate-400" /> Achats par PIDIDO
+                                            <Tag className="w-3 h-3 text-slate-400" /> {_({fr:'Achats par PIDIDO',ar:'المشتريات حسب PIDIDO',en:'Purchases by PIDIDO',es:'Compras por PIDIDO',pt:'Compras por PIDIDO',tr:'PIDIDO\'ya Göre Alımlar'})}
                                         </span>
-                                        <span className="bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-semibold text-[8px] tracking-normal">{pididoBreakdown.length} couleurs</span>
+                                        <span className="bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-semibold text-[8px] tracking-normal">{pididoBreakdown.length} {_({fr:'couleurs',ar:'لون',en:'colors',es:'colores',pt:'cores',tr:'renk'})}</span>
                                     </h3>
 
                                     <div className="grid grid-cols-1 gap-2">
@@ -463,7 +459,7 @@ const CompactCostSheet = forwardRef<HTMLDivElement, CompactCostSheetProps>(({
                                         })}
 
                                         <div className="flex justify-between items-center bg-slate-900 text-white px-2.5 py-1.5 rounded-lg" style={{ breakInside: 'avoid', pageBreakInside: 'avoid' }}>
-                                            <span className="font-black text-[8px] uppercase tracking-wider">Budget total (par PIDIDO)</span>
+                                            <span className="font-black text-[8px] uppercase tracking-wider">{_({fr:'Budget total (par PIDIDO)',ar:'إجمالي الميزانية (حسب PIDIDO)',en:'Total budget (by PIDIDO)',es:'Presupuesto total (por PIDIDO)',pt:'Orçamento total (por PIDIDO)',tr:'Toplam bütçe (PIDIDO\'ya göre)'})}</span>
                                             <span className="font-black text-xs tabular-nums">{fmt(pididoGrandTotal)} {currency}</span>
                                         </div>
                                     </div>
@@ -472,7 +468,7 @@ const CompactCostSheet = forwardRef<HTMLDivElement, CompactCostSheetProps>(({
 
                             {renderSignatures()}
                         </div>
-                        {renderPageFooter('Page 2/2')}
+                        {renderPageFooter(_({fr:'Page 2/2',ar:'صفحة 2/2',en:'Page 2/2',es:'Página 2/2',pt:'Página 2/2',tr:'Sayfa 2/2'}))}
                     </div>
                 </>
             )}

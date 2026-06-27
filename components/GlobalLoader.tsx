@@ -1,4 +1,6 @@
 import React, { useEffect, useState } from 'react';
+import { useLang } from '../src/context/LanguageContext';
+import { tx } from '../lib/i18n';
 
 interface GlobalLoaderProps {
     isActive: boolean;
@@ -21,6 +23,7 @@ export default function GlobalLoader({
     onRetry,
     onContinueOffline,
 }: GlobalLoaderProps) {
+    const { lang } = useLang();
     const [displayedProgress, setDisplayedProgress] = useState(0);
 
     // Smooth progress interpolation (easeOutExpo)
@@ -83,7 +86,7 @@ export default function GlobalLoader({
                 {/* Brand Identity Text */}
                 <div className="text-center mb-6">
                     <h1 className="select-none text-xl font-extrabold tracking-[0.15em] uppercase text-slate-900">
-                        BERA<span className="text-emerald-600">METHODE</span>
+                        {tx(lang, {fr:"BERA",ar:"BERA",en:"BERA",es:"BERA",pt:"BERA",tr:"BERA"})}<span className="text-emerald-600">{tx(lang, {fr:"METHODE",ar:"METHODE",en:"METHODE",es:"METHODE",pt:"METHODE",tr:"METHODE"})}</span>
                     </h1>
                 </div>
 
@@ -105,7 +108,7 @@ export default function GlobalLoader({
                         >
                             <span className="relative inline-flex rounded-full h-2 w-2 bg-rose-500"></span>
                             <span className="text-xs font-bold text-rose-700 tracking-wide uppercase">
-                                Erreur de connexion
+                                {tx(lang, {fr:"Erreur de connexion",ar:"خطأ في الاتصال",en:"Connection error",es:"Error de conexión",pt:"Erro de conexão",tr:"Bağlantı hatası"})}
                             </span>
                         </div>
                     ) : (
@@ -137,7 +140,7 @@ export default function GlobalLoader({
                                     onClick={onRetry}
                                     className="flex-1 py-3 px-5 rounded-2xl text-xs font-bold uppercase tracking-wider bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg shadow-emerald-600/10 hover:shadow-emerald-600/20 active:scale-[0.98] transition-all duration-200"
                                 >
-                                    Réessayer
+                                    {tx(lang, {fr:"Réessayer",ar:"إعادة المحاولة",en:"Retry",es:"Reintentar",pt:"Tentar novamente",tr:"Tekrar dene"})}
                                 </button>
                             )}
                             {onContinueOffline && (
@@ -146,7 +149,7 @@ export default function GlobalLoader({
                                     onClick={onContinueOffline}
                                     className="flex-1 py-3 px-5 rounded-2xl text-xs font-bold uppercase tracking-wider bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-slate-800 active:scale-[0.98] transition-all duration-200"
                                 >
-                                    Hors-ligne
+                                    {tx(lang, {fr:"Hors-ligne",ar:"غير متصل",en:"Offline",es:"Fuera de línea",pt:"Offline",tr:"Çevrimdışı"})}
                                 </button>
                             )}
                         </div>
@@ -156,7 +159,7 @@ export default function GlobalLoader({
                         {/* Progress label & value */}
                         <div className="flex justify-between items-baseline px-1">
                             <span className="text-xs font-bold uppercase tracking-widest text-slate-400">
-                                Chargement
+                                {tx(lang, {fr:"Chargement",ar:"جار التحميل",en:"Loading",es:"Cargando",pt:"Carregando",tr:"Yükleniyor"})}
                             </span>
                             <span className="text-slate-900 font-black text-2xl tracking-tight tabular-nums">
                                 {formattedProgress}%

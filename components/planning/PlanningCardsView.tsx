@@ -1,6 +1,8 @@
 import React from 'react';
 import { PlanningEvent, ModelData, AppSettings } from '../../types';
 import { AlertTriangle, Calendar, Check, Clock, Edit2, Layers, MoreVertical } from 'lucide-react';
+import { useLang } from '../../src/context/LanguageContext';
+import { tx } from '../../lib/i18n';
 
 interface PlanningCardsViewProps {
     planningEvents: PlanningEvent[];
@@ -19,7 +21,8 @@ export default function PlanningCardsView({
     onSelectedEvent,
     onEditEvent
 }: PlanningCardsViewProps) {
-    
+    const { lang } = useLang();
+
     const getProgress = (ev: PlanningEvent) => {
         const qty  = ev.totalQuantity  || ev.qteTotal || 1;
         const prod = ev.producedQuantity || ev.qteProduite || 0;
@@ -37,8 +40,8 @@ export default function PlanningCardsView({
         return (
             <div className="flex-1 flex flex-col items-center justify-center p-8 text-center text-gray-500">
                 <Layers className="w-12 h-12 mb-4 opacity-20" />
-                <p>Aucun ordre planifié pour l'instant.</p>
-                <p className="text-sm mt-2">Glissez un modèle depuis la bibliothèque ou cliquez sur Planifier.</p>
+                <p>{tx(lang,{fr:"Aucun ordre planifié pour l'instant.",ar:"لا توجد أوامر مخططة حالياً",en:"No orders planned yet.",es:"Ninguna orden planificada aún.",pt:"Nenhuma ordem planejada ainda.",tr:"Henüz planlanmış emir yok."})}</p>
+                <p className="text-sm mt-2">{tx(lang,{fr:"Glissez un modèle depuis la bibliothèque ou cliquez sur Planifier.",ar:"اسحب نموذجاً من المكتبة أو انقر على تخطيط.",en:"Drag a model from the library or click Schedule.",es:"Arrastre un modelo desde la biblioteca o haga clic en Planificar.",pt:"Arraste um modelo da biblioteca ou clique em Planejar.",tr:"Kütüphaneden bir model sürükleyin veya Planla'ya tıklayın."})}</p>
             </div>
         );
     }
@@ -78,18 +81,18 @@ export default function PlanningCardsView({
 
                             <div className="space-y-2 mb-4 text-sm text-gray-400">
                                 <div className="flex justify-between">
-                                    <span className="flex items-center gap-1.5"><Layers className="w-3.5 h-3.5" /> Ligne</span>
+                                    <span className="flex items-center gap-1.5"><Layers className="w-3.5 h-3.5" /> {tx(lang, {fr:"Ligne",ar:"خط",en:"Line",es:"Línea",pt:"Linha",tr:"Hat"})}</span>
                                     <span className="font-semibold text-gray-200">{chaine?.name || ev.chaineId}</span>
                                 </div>
                                 <div className="flex justify-between">
-                                    <span className="flex items-center gap-1.5"><Calendar className="w-3.5 h-3.5" /> Fin est.</span>
+                                    <span className="flex items-center gap-1.5"><Calendar className="w-3.5 h-3.5" /> {tx(lang, {fr:"Fin est.",ar:"نهاية تقديرية",en:"Est. end",es:"Fin est.",pt:"Término est.",tr:"Tah. bitiş"})}</span>
                                     <span className={`font-semibold ${risk ? 'text-red-400' : 'text-gray-200'}`}>
                                         {(ev.estimatedEndDate || ev.dateExport || '').split('T')[0]}
                                     </span>
                                 </div>
                                 {ev.strictDeadline_DDS && (
                                     <div className="flex justify-between border-t border-gray-800/50 pt-2 mt-2">
-                                        <span className="flex items-center gap-1.5 text-xs"><Clock className="w-3 h-3" /> DDS</span>
+                                        <span className="flex items-center gap-1.5 text-xs"><Clock className="w-3 h-3" /> {tx(lang, {fr:"DDS",ar:"DDS",en:"DDS",es:"DDS",pt:"DDS",tr:"DDS"})}</span>
                                         <span className="text-xs font-bold text-amber-500">{ev.strictDeadline_DDS}</span>
                                     </div>
                                 )}

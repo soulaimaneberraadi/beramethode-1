@@ -1,9 +1,12 @@
-import React, { useState, useMemo, useRef, useEffect } from 'react';
+import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { Scissors, Check, X, Calculator, Package, ChevronDown, ChevronUp, Maximize2, ArrowLeft, Printer, Plus, Copy, Pencil, Trash2 } from 'lucide-react';
 import { Operation, Material } from '../types';
 import { STITCH_TYPES, MACHINE_THREAD_CONFIG, BOBBIN_SIZES, GARMENT_INDICES, findGarmentIndice, type StitchType, type GarmentIndice } from '../data/threadConsumption';
 import { suggestClasseFromFamilyInput } from '../lib/machineCategoryClasseLink';
+import { tx } from '../lib/i18n';
+import { useLang } from '../src/context/LanguageContext';
+import type { TxMap } from '../lib/i18n';
 
 interface ThreadCalculatorProps {
     operations: Operation[];
@@ -76,19 +79,20 @@ function formatNumberFr(num: number, minimumFractionDigits = 0, maximumFractionD
               .replace(/[\u202f\u00a0]/g, ' ');
 }
 
-/** Selecteur entre le calcul precis (par poste / gamme) et l'estimation (par indice). */
 function CalcModeToggle({ calcMode, onChange }: { calcMode: 'poste' | 'indice'; onChange: (m: 'poste' | 'indice') => void }) {
+    const { lang } = useLang();
+    const _ = useCallback((m: TxMap) => tx(lang, m), [lang]);
     const tab = (active: boolean) =>
         `px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${active ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`;
     return (
         <div className="flex flex-wrap items-center justify-between gap-2">
-            <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Methode de calcul</span>
+            <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">{_({ fr: 'Méthode de calcul', ar: 'طريقة الحساب', en: 'Calculation method', es: 'Método de cálculo', pt: 'Método de cálculo', tr: 'Hesaplama yöntemi' })}</span>
             <div className="inline-flex rounded-lg border border-slate-200 bg-slate-100 p-0.5">
                 <button type="button" onClick={() => onChange('poste')} className={tab(calcMode === 'poste')} aria-pressed={calcMode === 'poste'}>
-                    Par poste (precis)
+                    {_({ fr: 'Par poste (précis)', ar: 'حسب المحطة (دقيق)', en: 'By station (precise)', es: 'Por puesto (preciso)', pt: 'Por posto (preciso)', tr: 'İstasyon bazında (hassas)' })}
                 </button>
                 <button type="button" onClick={() => onChange('indice')} className={tab(calcMode === 'indice')} aria-pressed={calcMode === 'indice'}>
-                    Par indice (estimation)
+                    {_({ fr: 'Par indice (estimation)', ar: 'حسب المؤشر (تقديري)', en: 'By index (estimate)', es: 'Por índice (estimación)', pt: 'Por índice (estimativa)', tr: 'Endekse göre (tahmini)' })}
                 </button>
             </div>
         </div>
@@ -105,6 +109,8 @@ function GarmentSelect({ value, onChange, sectors }: {
     onChange: (key: string) => void;
     sectors: { sec: GarmentIndice['sector']; items: GarmentIndice[] }[];
 }) {
+    const { lang } = useLang();
+    const _ = useCallback((m: TxMap) => tx(lang, m), [lang]);
     const [open, setOpen] = useState(false);
     const ref = useRef<HTMLDivElement>(null);
 
@@ -125,6 +131,16 @@ function GarmentSelect({ value, onChange, sectors }: {
         return () => document.removeEventListener('mousedown', onDown);
     }, [open]);
 
+    const sectorLabel = (sec: string) => {
+        const labels: Record<string, TxMap> = {
+            Homme: { fr: 'Homme', ar: 'رجالي', en: 'Men', es: 'Hombre', pt: 'Masculino', tr: 'Erkek' },
+            Femme: { fr: 'Femme', ar: 'نسائي', en: 'Women', es: 'Mujer', pt: 'Feminino', tr: 'Kadın' },
+            Lingerie: { fr: 'Lingerie', ar: 'ملابس داخلية', en: 'Lingerie', es: 'Lencería', pt: 'Lingerie', tr: 'İç giyim' },
+            Chaussures: { fr: 'Chaussures', ar: 'أحذية', en: 'Shoes', es: 'Zapatos', pt: 'Calçados', tr: 'Ayakkabı' },
+        };
+        return labels[sec]?.[lang as keyof TxMap] || sec;
+    };
+
     return (
         <div className="relative" ref={ref}>
             <button
@@ -133,10 +149,10 @@ function GarmentSelect({ value, onChange, sectors }: {
                 className="w-full flex items-center justify-between gap-2 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-slate-400 transition-colors"
                 aria-haspopup="listbox"
                 aria-expanded={open}
-                aria-label="Type de modele pour l'estimation par indice"
+                aria-label={_({ fr: 'Type de modèle pour l\'estimation par indice', ar: 'نوع النموذج للتقدير حسب المؤشر', en: 'Model type for index estimation', es: 'Tipo de modelo para estimación por índice', pt: 'Tipo de modelo para estimativa por índice', tr: 'Endeks tahmini için model türü' })}
             >
                 <span className={selectedName ? 'text-slate-700 truncate' : 'text-slate-400'}>
-                    {selectedName || '— Choisir un modele —'}
+                    {selectedName || _({ fr: '— Choisir un modèle —', ar: '— اختر نموذجًا —', en: '— Choose a model —', es: '— Elegir un modelo —', pt: '— Escolher um modelo —', tr: '— Bir model seçin —' })}
                 </span>
                 <ChevronDown className={`w-4 h-4 text-slate-400 shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} strokeWidth={2} />
             </button>
@@ -150,11 +166,11 @@ function GarmentSelect({ value, onChange, sectors }: {
                         onClick={() => { onChange(''); setOpen(false); }}
                         className="w-full text-left px-3 py-2 text-sm text-slate-400 hover:bg-slate-50 transition-colors"
                     >
-                        — Choisir un modele —
+                        {_({ fr: '— Choisir un modèle —', ar: '— اختر نموذجًا —', en: '— Choose a model —', es: '— Elegir un modelo —', pt: '— Escolher um modelo —', tr: '— Bir model seçin —' })}
                     </button>
                     {sectors.map(({ sec, items }) => (
                         <div key={sec}>
-                            <div className="sticky top-0 px-3 pt-2 pb-1 text-[10px] font-semibold uppercase tracking-wide text-slate-400 bg-slate-50">{sec}</div>
+                            <div className="sticky top-0 px-3 pt-2 pb-1 text-[10px] font-semibold uppercase tracking-wide text-slate-400 bg-slate-50">{sectorLabel(sec)}</div>
                             {items.map(g => {
                                 const active = g.key === value;
                                 return (
@@ -221,6 +237,8 @@ function IndiceEstimatePanel({
     onIndiceChange,
     onResetIndice,
 }: IndiceEstimatePanelProps) {
+    const { lang } = useLang();
+    const _ = useCallback((m: TxMap) => tx(lang, m), [lang]);
     const sectors = useMemo(() => {
         const order: GarmentIndice['sector'][] = ['Homme', 'Femme', 'Lingerie', 'Chaussures'];
         return order.map(sec => ({ sec, items: GARMENT_INDICES.filter(g => g.sector === sec) }));
@@ -230,33 +248,30 @@ function IndiceEstimatePanel({
 
     return (
         <div className="rounded-lg border border-slate-200 bg-white">
-            {/* En-tete calme */}
             <div className="flex items-center gap-2 border-b border-slate-100 px-4 py-2.5">
                 <Calculator className="h-4 w-4 text-slate-400" strokeWidth={1.75} />
-                <span className="text-sm font-semibold text-slate-700">Estimation par indice</span>
-                <span className="text-[11px] text-slate-400">approximatif</span>
+                <span className="text-sm font-semibold text-slate-700">{_({ fr: 'Estimation par indice', ar: 'تقدير حسب المؤشر', en: 'Index estimation', es: 'Estimación por índice', pt: 'Estimativa por índice', tr: 'Endeks tahmini' })}</span>
+                <span className="text-[11px] text-slate-400">{_({ fr: 'approximatif', ar: 'تقريبي', en: 'approximate', es: 'aproximado', pt: 'aproximado', tr: 'yaklaşık' })}</span>
             </div>
 
             <div className="space-y-3 p-4">
-                {/* Information */}
                 <p className="text-xs text-slate-500 leading-relaxed">
-                    Estimation basee sur le <span className="font-semibold text-slate-700">type de modele</span>.
+                    {_({ fr: 'Estimation basée sur le', ar: 'تقدير يعتمد على', en: 'Estimation based on', es: 'Estimación basada en el', pt: 'Estimativa baseada no', tr: 'Tahmin şuna dayanır' })} <span className="font-semibold text-slate-700">{_({ fr: 'type de modèle', ar: 'نوع النموذج', en: 'model type', es: 'tipo de modelo', pt: 'tipo de modelo', tr: 'model türü' })}</span>.
                     {autoMatchName
-                        ? <> Type : <span className="font-semibold text-slate-700">{autoMatchName}</span>.</>
-                        : <> Aucun type detecte — choisissez-le ci-dessous.</>}
+                        ? <> {_({ fr: 'Type :', ar: 'النوع :', en: 'Type:', es: 'Tipo:', pt: 'Tipo:', tr: 'Tür:' })} <span className="font-semibold text-slate-700">{autoMatchName}</span>.</>
+                        : <> {_({ fr: 'Aucun type détecté — choisissez-le ci-dessous.', ar: 'لم يتم اكتشاف نوع — اختره أدناه.', en: 'No type detected — choose one below.', es: 'Ningún tipo detectado — elíjalo abajo.', pt: 'Nenhum tipo detectado — escolha abaixo.', tr: 'Hiçbir tür algılanmadı — aşağıdan seçin.' })}</>}
                 </p>
 
-                {/* Selection + Indice */}
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                     <div>
-                        <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-slate-400">Type de modele</label>
+                        <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-slate-400">{_({ fr: 'Type de modèle', ar: 'نوع النموذج', en: 'Model type', es: 'Tipo de modelo', pt: 'Tipo de modelo', tr: 'Model türü' })}</label>
                         <GarmentSelect value={garmentKey} onChange={onSelectKey} sectors={sectors} />
                     </div>
 
                     {garment && (
                         <div>
                             <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-slate-400">
-                                Indice : <span className="text-slate-700 normal-case">{indiceValue} m</span>
+                                {_({ fr: 'Indice :', ar: 'المؤشر :', en: 'Index:', es: 'Índice:', pt: 'Índice:', tr: 'Endeks:' })} <span className="text-slate-700 normal-case">{indiceValue} m</span>
                                 <span className="font-normal text-slate-400 normal-case"> ({garment.plageMin}–{garment.plageMax})</span>
                             </label>
                             <input
@@ -267,7 +282,7 @@ function IndiceEstimatePanel({
                                 value={indiceValue}
                                 onChange={(e) => onIndiceChange(Number(e.target.value))}
                                 className="w-full accent-slate-600"
-                                aria-label="Ajuster l'indice dans la plage"
+                                aria-label={_({ fr: 'Ajuster l\'indice dans la plage', ar: 'ضبط المؤشر في النطاق', en: 'Adjust the index within range', es: 'Ajustar el índice en el rango', pt: 'Ajustar o índice no intervalo', tr: 'Endeksi aralıkta ayarlayın' })}
                             />
                             <div className="mt-0.5 flex justify-between text-[10px] text-slate-400">
                                 <span>{garment.plageMin}</span>
@@ -276,7 +291,7 @@ function IndiceEstimatePanel({
                                     onClick={onResetIndice}
                                     className="font-semibold text-slate-500 hover:text-slate-700 transition-colors"
                                 >
-                                    defaut ({garment.indice})
+                                    {_({ fr: 'défaut', ar: 'افتراضي', en: 'default', es: 'defecto', pt: 'padrão', tr: 'varsayılan' })} ({garment.indice})
                                 </button>
                                 <span>{garment.plageMax}</span>
                             </div>
@@ -286,12 +301,11 @@ function IndiceEstimatePanel({
 
                 {garment ? (
                     <>
-                        {/* Repartition indicative */}
                         <div className="grid grid-cols-3 gap-2">
                             {[
-                                { label: 'Surfilage', value: surfilage != null ? `${surfilage} m` : '—' },
-                                { label: 'Assemblage', value: assemblage != null ? `${assemblage} m` : '—' },
-                                { label: 'Indice total', value: `${indiceValue} m` },
+                                { label: _({ fr: 'Surfilage', ar: 'تغطية', en: 'Overlock', es: 'Sobrecostura', pt: 'Overloque', tr: 'Overlok' }), value: surfilage != null ? `${surfilage} m` : '—' },
+                                { label: _({ fr: 'Assemblage', ar: 'تجميع', en: 'Assembly', es: 'Ensamblaje', pt: 'Montagem', tr: 'Montaj' }), value: assemblage != null ? `${assemblage} m` : '—' },
+                                { label: _({ fr: 'Indice total', ar: 'المؤشر الإجمالي', en: 'Total index', es: 'Índice total', pt: 'Índice total', tr: 'Toplam endeks' }), value: `${indiceValue} m` },
                             ].map((c) => (
                                 <div key={c.label} className="rounded-md border border-slate-200 bg-slate-50 px-2 py-1.5 text-center">
                                     <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">{c.label}</p>
@@ -300,39 +314,37 @@ function IndiceEstimatePanel({
                             ))}
                         </div>
 
-                        {/* Totaux — style unifie, pas de boite sombre */}
                         <div className="grid grid-cols-3 gap-2">
                             <div className="rounded-md border border-slate-200 bg-white px-3 py-2 text-center">
-                                <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Fil/Unite</p>
+                                <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">{_({ fr: 'Fil/Unité', ar: 'خيط/وحدة', en: 'Thread/Unit', es: 'Hilo/Unidad', pt: 'Fio/Unidade', tr: 'İplik/Birim' })}</p>
                                 <p className="font-semibold text-slate-800 tabular-nums text-base sm:text-lg">{indiceValue}</p>
-                                <p className="text-[10px] text-slate-400">metres</p>
+                                <p className="text-[10px] text-slate-400">{_({ fr: 'mètres', ar: 'أمتار', en: 'meters', es: 'metros', pt: 'metros', tr: 'metre' })}</p>
                             </div>
                             <div className="rounded-md border border-slate-200 bg-white px-3 py-2 text-center">
-                                <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Total +{wastePercent}%</p>
+                                <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">{_({ fr: 'Total +', ar: 'الإجمالي +', en: 'Total +', es: 'Total +', pt: 'Total +', tr: 'Toplam +' })}{wastePercent}%</p>
                                 <p className="font-semibold text-slate-800 tabular-nums text-base sm:text-lg">{formatNumberFr(Math.ceil(totalWithWaste))}</p>
-                                <p className="text-[10px] text-slate-400">metres</p>
+                                <p className="text-[10px] text-slate-400">{_({ fr: 'mètres', ar: 'أمتار', en: 'meters', es: 'metros', pt: 'metros', tr: 'metre' })}</p>
                             </div>
                             <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-center">
-                                <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Bobines</p>
+                                <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">{_({ fr: 'Bobines', ar: 'بكرات', en: 'Bobbins', es: 'Bobinas', pt: 'Bobinas', tr: 'Bobinler' })}</p>
                                 <p className="font-semibold text-slate-800 tabular-nums text-base sm:text-lg">{formatNumberFr(totalBobbins)}</p>
-                                <p className="text-[10px] text-slate-400">{bobbinSize}m · {formatNumberFr(qty)} pcs</p>
+                                <p className="text-[10px] text-slate-400">{bobbinSize}m · {formatNumberFr(qty)} {_({ fr: 'pcs', ar: 'قطعة', en: 'pcs', es: 'pzas', pt: 'pç', tr: 'adet' })}</p>
                             </div>
                         </div>
 
-                        {/* Detail par couleur */}
                         {colorBreakdown.length > 0 && (
                             <div className="overflow-hidden rounded-md border border-slate-200">
                                 <div className="border-b border-slate-100 px-3 py-2">
-                                    <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Detail par couleur</span>
+                                    <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">{_({ fr: 'Détail par couleur', ar: 'تفصيل حسب اللون', en: 'Detail by color', es: 'Detalle por color', pt: 'Detalhe por cor', tr: 'Renklere göre detay' })}</span>
                                 </div>
                                 <div className="overflow-x-auto">
                                     <table className="w-full text-xs sm:text-sm">
                                         <thead className="bg-slate-50 text-[10px] uppercase tracking-wide text-slate-400">
                                             <tr>
-                                                <th className="px-2 sm:px-3 py-1.5 text-left font-semibold">Couleur</th>
-                                                <th className="px-2 sm:px-3 py-1.5 text-right font-semibold">Quantite</th>
-                                                <th className="px-2 sm:px-3 py-1.5 text-right font-semibold">Fil Total</th>
-                                                <th className="px-2 sm:px-3 py-1.5 text-right font-semibold">Bob.</th>
+                                                <th className="px-2 sm:px-3 py-1.5 text-left font-semibold">{_({ fr: 'Couleur', ar: 'اللون', en: 'Color', es: 'Color', pt: 'Cor', tr: 'Renk' })}</th>
+                                                <th className="px-2 sm:px-3 py-1.5 text-right font-semibold">{_({ fr: 'Quantité', ar: 'الكمية', en: 'Quantity', es: 'Cantidad', pt: 'Quantidade', tr: 'Miktar' })}</th>
+                                                <th className="px-2 sm:px-3 py-1.5 text-right font-semibold">{_({ fr: 'Fil Total', ar: 'إجمالي الخيط', en: 'Total Thread', es: 'Hilo Total', pt: 'Fio Total', tr: 'Toplam İplik' })}</th>
+                                                <th className="px-2 sm:px-3 py-1.5 text-right font-semibold">{_({ fr: 'Bob.', ar: 'بكرة', en: 'Bob.', es: 'Bob.', pt: 'Bob.', tr: 'Bob.' })}</th>
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-slate-100">
@@ -351,7 +363,7 @@ function IndiceEstimatePanel({
                         )}
                     </>
                 ) : (
-                    <p className="py-3 text-center text-xs text-slate-400">Choisissez un type de modele pour estimer la consommation.</p>
+                    <p className="py-3 text-center text-xs text-slate-400">{_({ fr: 'Choisissez un type de modèle pour estimer la consommation.', ar: 'اختر نوع نموذج لتقدير الاستهلاك.', en: 'Choose a model type to estimate consumption.', es: 'Elija un tipo de modelo para estimar el consumo.', pt: 'Escolha um tipo de modelo para estimar o consumo.', tr: 'Tüketimi tahmin etmek için bir model türü seçin.' })}</p>
                 )}
             </div>
         </div>
@@ -368,6 +380,8 @@ export default function ThreadCalculator({
     onApply,
     onClose
 }: ThreadCalculatorProps) {
+    const { lang } = useLang();
+    const _ = useCallback((m: TxMap) => tx(lang, m), [lang]);
     const [wastePercent, setWastePercent] = useState(10);
     const [selectedBobbinSize, setSelectedBobbinSize] = useState(5000);
     const [isExpanded, setIsExpanded] = useState(false);
@@ -1046,41 +1060,39 @@ export default function ThreadCalculator({
                             <span className="w-10 h-1 rounded-full bg-slate-300" />
                         </div>
 
-                        {/* En-tête calme (mobile) — style Planning */}
                         <div className="md:hidden px-5 pt-1 pb-3 flex items-start justify-between gap-3 shrink-0">
                             <div className="min-w-0">
-                                <h2 className="text-[15px] font-semibold text-slate-900 tracking-tight">Calcul Fil</h2>
-                                <p className="text-[12px] text-slate-500 mt-0.5 truncate">Consommation de fil automatique</p>
+                                <h2 className="text-[15px] font-semibold text-slate-900 tracking-tight">{_({ fr: 'Calcul Fil', ar: 'حساب الخيط', en: 'Thread Calculation', es: 'Cálculo de Hilo', pt: 'Cálculo de Fio', tr: 'İplik Hesaplama' })}</h2>
+                                <p className="text-[12px] text-slate-500 mt-0.5 truncate">{_({ fr: 'Consommation de fil automatique', ar: 'استهلاك الخيط التلقائي', en: 'Automatic thread consumption', es: 'Consumo de hilo automático', pt: 'Consumo de fio automático', tr: 'Otomatik iplik tüketimi' })}</p>
                             </div>
                             <div className="flex items-center gap-1 shrink-0">
-                                <button onClick={() => window.print()} className="p-1.5 rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors" title="Imprimer le rapport de fil" aria-label="Imprimer">
+                                <button onClick={() => window.print()} className="p-1.5 rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors" title={_({ fr: 'Imprimer le rapport de fil', ar: 'طباعة تقرير الخيط', en: 'Print thread report', es: 'Imprimir informe de hilo', pt: 'Imprimir relatório de fio', tr: 'İplik raporunu yazdır' })} aria-label={_({ fr: 'Imprimer', ar: 'طباعة', en: 'Print', es: 'Imprimir', pt: 'Imprimir', tr: 'Yazdır' })}>
                                     <Printer className="w-4 h-4" />
                                 </button>
-                                <button onClick={() => setIsExpanded(true)} className="p-1.5 rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors" title="Agrandir (page complète)" aria-label="Agrandir">
+                                <button onClick={() => setIsExpanded(true)} className="p-1.5 rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors" title={_({ fr: 'Agrandir (page complète)', ar: 'تكبير (صفحة كاملة)', en: 'Expand (full page)', es: 'Ampliar (página completa)', pt: 'Ampliar (página completa)', tr: 'Büyüt (tam sayfa)' })} aria-label={_({ fr: 'Agrandir', ar: 'تكبير', en: 'Expand', es: 'Ampliar', pt: 'Ampliar', tr: 'Büyüt' })}>
                                     <Maximize2 className="w-4 h-4" />
                                 </button>
-                                <button onClick={onClose} className="p-1.5 rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors" aria-label="Fermer">
+                                <button onClick={onClose} className="p-1.5 rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors" aria-label={_({ fr: 'Fermer', ar: 'إغلاق', en: 'Close', es: 'Cerrar', pt: 'Fechar', tr: 'Kapat' })}>
                                     <X className="w-4 h-4" />
                                 </button>
                             </div>
                         </div>
 
-                        {/* En-tête (desktop) */}
                         <div className="hidden md:flex bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-5 items-center justify-between">
                             <div className="flex items-center gap-3">
                                 <div className="bg-white/20 p-2 rounded-xl">
                                     <Scissors className="w-6 h-6" />
                                 </div>
                                 <div>
-                                    <h2 className="text-xl font-black">Calcul Fil</h2>
-                                    <p className="text-sm text-blue-100">Calcul automatique de la consommation de fil</p>
+                                    <h2 className="text-xl font-black">{_({ fr: 'Calcul Fil', ar: 'حساب الخيط', en: 'Thread Calculation', es: 'Cálculo de Hilo', pt: 'Cálculo de Fio', tr: 'İplik Hesaplama' })}</h2>
+                                    <p className="text-sm text-blue-100">{_({ fr: 'Calcul automatique de la consommation de fil', ar: 'حساب تلقائي لاستهلاك الخيط', en: 'Automatic thread consumption calculation', es: 'Cálculo automático del consumo de hilo', pt: 'Cálculo automático do consumo de fio', tr: 'Otomatik iplik tüketimi hesaplaması' })}</p>
                                 </div>
                             </div>
                             <div className="flex items-center gap-2">
-                                <button onClick={() => window.print()} className="p-2 hover:bg-white/20 rounded-lg transition-colors" title="Imprimer le rapport de fil">
+                                <button onClick={() => window.print()} className="p-2 hover:bg-white/20 rounded-lg transition-colors" title={_({ fr: 'Imprimer le rapport de fil', ar: 'طباعة تقرير الخيط', en: 'Print thread report', es: 'Imprimir informe de hilo', pt: 'Imprimir relatório de fio', tr: 'İplik raporunu yazdır' })}>
                                     <Printer className="w-5 h-5" />
                                 </button>
-                                <button onClick={() => setIsExpanded(true)} className="p-2 hover:bg-white/20 rounded-lg transition-colors" title="Agrandir (page complète)">
+                                <button onClick={() => setIsExpanded(true)} className="p-2 hover:bg-white/20 rounded-lg transition-colors" title={_({ fr: 'Agrandir (page complète)', ar: 'تكبير (صفحة كاملة)', en: 'Expand (full page)', es: 'Ampliar (página completa)', pt: 'Ampliar (página completa)', tr: 'Büyüt (tam sayfa)' })}>
                                     <Maximize2 className="w-5 h-5" />
                                 </button>
                                 <button onClick={onClose} className="p-2 hover:bg-white/20 rounded-lg transition-colors">
@@ -1089,17 +1101,16 @@ export default function ThreadCalculator({
                             </div>
                         </div>
 
-                {/* Settings Bar */}
                 <div className="bg-slate-50/60 md:bg-slate-50 border-b border-slate-100 px-5 py-3 md:p-4 flex flex-wrap items-center gap-3 md:gap-4 shrink-0">
                     <div className="flex items-center gap-2">
-                        <label className="text-xs font-bold text-slate-500">QUANTITÉ:</label>
+                        <label className="text-xs font-bold text-slate-500">{_({ fr: 'QUANTITÉ:', ar: 'الكمية:', en: 'QUANTITY:', es: 'CANTIDAD:', pt: 'QUANTIDADE:', tr: 'MİKTAR:' })}</label>
                         <span className="bg-blue-100 text-blue-700 px-3 py-1 rounded-lg font-black text-sm">
-                            {formatNumberFr(effectiveQty)} pcs
+                            {formatNumberFr(effectiveQty)} {_({ fr: 'pcs', ar: 'قطعة', en: 'pcs', es: 'pzas', pt: 'pç', tr: 'adet' })}
                         </span>
                     </div>
 
                     <div className="flex items-center gap-2">
-                        <label className="text-xs font-bold text-slate-500">HUMIDITÉ/USURE:</label>
+                        <label className="text-xs font-bold text-slate-500">{_({ fr: 'HUMIDITÉ/USURE:', ar: 'الرطوبة/التآكل:', en: 'HUMIDITY/WASTE:', es: 'HUMEDAD/DESPERDICIO:', pt: 'UMIDADE/DESPERDÍCIO:', tr: 'NEM/ATIK:' })}</label>
                         <div className="flex items-center gap-1">
                             <input
                                 type="number"
@@ -1113,19 +1124,19 @@ export default function ThreadCalculator({
                                     }
                                 }}
                                 className="w-16 px-2 py-1 text-sm border border-slate-300 rounded-lg text-center font-bold"
-                                aria-label="Pourcentage d'humidité ou d'usure"
+                                aria-label={_({ fr: 'Pourcentage d\'humidité ou d\'usure', ar: 'نسبة الرطوبة أو التآكل', en: 'Humidity or waste percentage', es: 'Porcentaje de humedad o desperdicio', pt: 'Percentual de umidade ou desperdício', tr: 'Nem veya atık yüzdesi' })}
                             />
                             <span className="text-sm text-slate-500">%</span>
                         </div>
                     </div>
 
                     <div className="flex items-center gap-2">
-                        <label className="text-xs font-bold text-slate-500">TAILLE BOBINE:</label>
+                        <label className="text-xs font-bold text-slate-500">{_({ fr: 'TAILLE BOBINE:', ar: 'حجم البكرة:', en: 'BOBBIN SIZE:', es: 'TAMAÑO BOBINA:', pt: 'TAMANHO BOBINA:', tr: 'BOBİN BOYUTU:' })}</label>
                         <select
                             value={selectedBobbinSize}
                             onChange={(e) => setSelectedBobbinSize(Number(e.target.value))}
                             className="px-3 py-1 text-sm border border-slate-300 rounded-lg font-bold bg-white"
-                            aria-label="Taille de la bobine"
+                            aria-label={_({ fr: 'Taille de la bobine', ar: 'حجم البكرة', en: 'Bobbin size', es: 'Tamaño de bobina', pt: 'Tamanho da bobina', tr: 'Bobin boyutu' })}
                         >
                             {BOBBIN_SIZES.map(size => (
                                 <option key={size.capacityMeters} value={size.capacityMeters}>
@@ -1136,7 +1147,7 @@ export default function ThreadCalculator({
                     </div>
 
                     <div className="flex items-center gap-2">
-                        <label className="text-xs font-bold text-slate-500">TYPE FIL:</label>
+                        <label className="text-xs font-bold text-slate-500">{_({ fr: 'TYPE FIL:', ar: 'نوع الخيط:', en: 'THREAD TYPE:', es: 'TIPO HILO:', pt: 'TIPO FIO:', tr: 'İPLİK TÜRÜ:' })}</label>
                         <ThreadTypesManager
                             availableThreadTypes={availableThreadTypes}
                             onAdd={addThreadTypeValue}
@@ -1172,49 +1183,47 @@ export default function ThreadCalculator({
                     )}
 
                     {calcMode === 'poste' && (<>
-                    {/* Operations Table */}
                     <div className="border border-slate-200 rounded-xl overflow-hidden">
                         <div className="w-full bg-slate-50 p-3 flex items-center justify-between">
                             <div className="flex items-center gap-2">
                                 <Calculator className="w-4 h-4 text-blue-500" />
                                 <span className="font-black text-sm text-slate-700">
-                                    OPÉRATIONS ({opsData.filter(op => op.selected).length}/{opsData.length})
+                                    {_({ fr: 'OPÉRATIONS', ar: 'العمليات', en: 'OPERATIONS', es: 'OPERACIONES', pt: 'OPERAÇÕES', tr: 'İŞLEMLER' })} ({opsData.filter(op => op.selected).length}/{opsData.length})
                                 </span>
                             </div>
                             <div className="flex items-center gap-2">
                                 <button
                                     onClick={selectAll}
                                     className="text-xs text-blue-600 hover:text-blue-800 font-bold underline"
-                                    aria-label="Sélectionner toutes les opérations"
+                                    aria-label={_({ fr: 'Sélectionner toutes les opérations', ar: 'تحديد كل العمليات', en: 'Select all operations', es: 'Seleccionar todas las operaciones', pt: 'Selecionar todas as operações', tr: 'Tüm işlemleri seç' })}
                                 >
-                                    Tout
+                                    {_({ fr: 'Tout', ar: 'الكل', en: 'All', es: 'Todo', pt: 'Tudo', tr: 'Tümü' })}
                                 </button>
                                 <span className="text-slate-300">|</span>
                                 <button
                                     onClick={deselectAll}
                                     className="text-xs text-red-500 hover:text-red-700 font-bold underline"
-                                    aria-label="Désélectionner toutes les opérations"
+                                    aria-label={_({ fr: 'Désélectionner toutes les opérations', ar: 'إلغاء تحديد كل العمليات', en: 'Deselect all operations', es: 'Deseleccionar todas las operaciones', pt: 'Desmarcar todas as operações', tr: 'Tüm işlemlerin seçimini kaldır' })}
                                 >
-                                    Aucun
+                                    {_({ fr: 'Aucun', ar: 'لا شيء', en: 'None', es: 'Ninguno', pt: 'Nenhum', tr: 'Hiçbiri' })}
                                 </button>
                             </div>
                         </div>
 
-                        {/* Desktop View Table */}
                         <div className="hidden md:block overflow-x-auto">
                             <table className="w-full text-sm">
                                 <thead className="bg-slate-100 text-slate-600 text-xs uppercase">
                                     <tr>
                                         <th className="p-3 text-left w-10"></th>
                                         <th className="p-3 text-left">N°</th>
-                                        <th className="p-3 text-left min-w-[180px]">Description de l'opération</th>
-                                        <th className="p-3 text-left">Machine</th>
-                                        <th className="p-3 text-left">Type Point</th>
-                                        <th className="p-3 text-center text-indigo-600" title="cm pour couture, pièces pour boutonnière/bouton/bride">L / Qté (cm/pc)</th>
-                                        <th className="p-3 text-right" title="Mètres de fil par mètre de couture (ou par pièce pour boutonnières)">Conso/M</th>
-                                        <th className="p-3 text-right">Fil/Unité</th>
-                                        <th className="p-3 text-right text-emerald-600" title={`Bobines par unité (Fil/Unité ÷ ${selectedBobbinSize} m)`}>Bobine</th>
-                                        <th className="p-3 text-left text-amber-600" title="Type de fil utilisé (ex: Polyester Tex 27, Coton NM 50)">Type Fil</th>
+                                        <th className="p-3 text-left min-w-[180px]">{_({ fr: 'Description de l\'opération', ar: 'وصف العملية', en: 'Operation description', es: 'Descripción de la operación', pt: 'Descrição da operação', tr: 'İşlem açıklaması' })}</th>
+                                        <th className="p-3 text-left">{_({ fr: 'Machine', ar: 'آلة', en: 'Machine', es: 'Máquina', pt: 'Máquina', tr: 'Makine' })}</th>
+                                        <th className="p-3 text-left">{_({ fr: 'Type Point', ar: 'نوع الغرزة', en: 'Stitch Type', es: 'Tipo de Puntada', pt: 'Tipo de Ponto', tr: 'Dikiş Türü' })}</th>
+                                        <th className="p-3 text-center text-indigo-600" title={_({ fr: 'cm pour couture, pièces pour boutonnière/bouton/bride', ar: 'سم للخياطة، قطع للعروة/الزر/الرباط', en: 'cm for sewing, pieces for buttonhole/button/tie', es: 'cm para costura, piezas para ojal/botón/atadura', pt: 'cm para costura, peças para casa/botão/amarra', tr: 'dikiş için cm, ilik/düğme/bağ için adet' })}>{_({ fr: 'L / Qté (cm/pc)', ar: 'الطول / الكمية (سم/قطعة)', en: 'L / Qty (cm/pc)', es: 'L / Cant (cm/pz)', pt: 'Comp / Qtde (cm/pç)', tr: 'Uzunluk / Miktar (cm/adet)' })}</th>
+                                        <th className="p-3 text-right" title={_({ fr: 'Mètres de fil par mètre de couture (ou par pièce pour boutonnières)', ar: 'أمتار الخيط لكل متر خياطة (أو لكل قطعة للعروات)', en: 'Thread meters per meter of seam (or per piece for buttonholes)', es: 'Metros de hilo por metro de costura (o por pieza para ojales)', pt: 'Metros de fio por metro de costura (ou por peça para casas)', tr: 'Metre dikiş başına iplik metresi (ilikler için adet başına)' })}>{_({ fr: 'Conso/M', ar: 'استهلاك/م', en: 'Cons./M', es: 'Cons./M', pt: 'Cons./M', tr: 'Tük./M' })}</th>
+                                        <th className="p-3 text-right">{_({ fr: 'Fil/Unité', ar: 'خيط/وحدة', en: 'Thread/Unit', es: 'Hilo/Unidad', pt: 'Fio/Unidade', tr: 'İplik/Birim' })}</th>
+                                        <th className="p-3 text-right text-emerald-600" title={`${_({ fr: 'Bobines par unité', ar: 'بكرات لكل وحدة', en: 'Bobbins per unit', es: 'Bobinas por unidad', pt: 'Bobinas por unidade', tr: 'Birim başına bobin' })} (${_({ fr: 'Fil/Unité', ar: 'خيط/وحدة', en: 'Thread/Unit', es: 'Hilo/Unidad', pt: 'Fio/Unidade', tr: 'İplik/Birim' })} ÷ ${selectedBobbinSize} m)`}>{_({ fr: 'Bobine', ar: 'بكرة', en: 'Bobbin', es: 'Bobina', pt: 'Bobina', tr: 'Bobin' })}</th>
+                                        <th className="p-3 text-left text-amber-600" title={_({ fr: 'Type de fil utilisé (ex: Polyester Tex 27, Coton NM 50)', ar: 'نوع الخيط المستخدم (مثال: بوليستر Tex 27، قطن NM 50)', en: 'Thread type used (ex: Polyester Tex 27, Cotton NM 50)', es: 'Tipo de hilo usado (ej: Polyester Tex 27, Algodón NM 50)', pt: 'Tipo de fio usado (ex: Poliéster Tex 27, Algodão NM 50)', tr: 'Kullanılan iplik türü (ör: Polyester Tex 27, Pamuk NM 50)' })}>{_({ fr: 'Type Fil', ar: 'نوع الخيط', en: 'Thread Type', es: 'Tipo Hilo', pt: 'Tipo Fio', tr: 'İplik Türü' })}</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-100">
@@ -1231,7 +1240,7 @@ export default function ThreadCalculator({
                                                             ? 'bg-blue-500 border-blue-500 text-white'
                                                             : 'border-slate-300 hover:border-blue-400'
                                                     }`}
-                                                    aria-label={op.selected ? `Désélectionner opération ${op.operation.order}` : `Sélectionner opération ${op.operation.order}`}
+                                                    aria-label={op.selected ? `${_({ fr: 'Désélectionner opération', ar: 'إلغاء تحديد العملية', en: 'Deselect operation', es: 'Deseleccionar operación', pt: 'Desmarcar operação', tr: 'İşlemin seçimini kaldır' })} ${op.operation.order}` : `${_({ fr: 'Sélectionner opération', ar: 'تحديد العملية', en: 'Select operation', es: 'Seleccionar operación', pt: 'Selecionar operação', tr: 'İşlemi seç' })} ${op.operation.order}`}
                                                     aria-pressed={op.selected}
                                                 >
                                                     {op.selected && <Check className="w-3 h-3" />}
@@ -1253,7 +1262,7 @@ export default function ThreadCalculator({
                                                     </span>
                                                 ) : (
                                                     <span className="bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full text-xs">
-                                                        Non défini
+                                                        {_({ fr: 'Non défini', ar: 'غير محدد', en: 'Undefined', es: 'No definido', pt: 'Não definido', tr: 'Tanımsız' })}
                                                     </span>
                                                 )}
                                             </td>
@@ -1269,10 +1278,10 @@ export default function ThreadCalculator({
                                                         onKeyDown={(e) => ['-', 'e', 'E', '+', '.', ','].includes(e.key) && e.preventDefault()}
                                                         placeholder="-"
                                                         className="w-16 px-1 py-1 text-center text-xs font-mono font-bold bg-indigo-50/30 text-indigo-700 border border-indigo-100 rounded-lg outline-none focus:border-indigo-500 transition-colors"
-                                                        title={op.isPerPiece ? 'Nombre de pièces (boutonnière / bouton / bride)' : 'Longueur de couture en cm'}
-                                                        aria-label={op.isPerPiece ? `Nombre de pièces pour opération ${op.operation.order}` : `Longueur de couture en cm pour opération ${op.operation.order}`}
+                                                        title={op.isPerPiece ? _({ fr: 'Nombre de pièces (boutonnière / bouton / bride)', ar: 'عدد القطع (عروة / زر / رباط)', en: 'Number of pieces (buttonhole / button / tie)', es: 'Número de piezas (ojal / botón / atadura)', pt: 'Número de peças (casa / botão / amarra)', tr: 'Parça sayısı (ilik / düğme / bağ)' }) : _({ fr: 'Longueur de couture en cm', ar: 'طول الخياطة بالسنتيمتر', en: 'Seam length in cm', es: 'Longitud de costura en cm', pt: 'Comprimento da costura em cm', tr: 'Dikiş uzunluğu (cm)' })}
+                                                        aria-label={op.isPerPiece ? `${_({ fr: 'Nombre de pièces pour opération', ar: 'عدد القطع للعملية', en: 'Number of pieces for operation', es: 'Número de piezas para operación', pt: 'Número de peças para operação', tr: 'İşlem için parça sayısı' })} ${op.operation.order}` : `${_({ fr: 'Longueur de couture en cm pour opération', ar: 'طول الخياطة بالسنتيمتر للعملية', en: 'Seam length in cm for operation', es: 'Longitud de costura en cm para operación', pt: 'Comprimento da costura em cm para operação', tr: 'İşlem için dikiş uzunluğu (cm)' })} ${op.operation.order}`}
                                                     />
-                                                    <span className="text-[10px] text-slate-400">{op.isPerPiece ? 'pc' : 'cm'}</span>
+                                                    <span className="text-[10px] text-slate-400">{op.isPerPiece ? _({ fr: 'pc', ar: 'قطعة', en: 'pc', es: 'pz', pt: 'pç', tr: 'ad' }) : 'cm'}</span>
                                                 </div>
                                             </td>
                                             <td className="p-3 text-right font-mono text-slate-600">
@@ -1295,10 +1304,10 @@ export default function ThreadCalculator({
                                                         onKeyDown={(e) => ['-', 'e', 'E', '+', '.'].includes(e.key) && e.preventDefault()}
                                                         placeholder="0.00"
                                                         className="w-16 px-1 py-1 text-center text-xs font-mono font-bold bg-emerald-50/30 text-emerald-700 border border-emerald-100 rounded-lg outline-none focus:border-emerald-500 transition-colors placeholder:text-emerald-300 placeholder:font-normal"
-                                                        title={`${op.threadMetersPerUnit.toFixed(2)} m ÷ ${selectedBobbinSize} m/bobine`}
-                                                        aria-label={`Bobines par unité pour opération ${op.operation.order}`}
+                                                        title={`${op.threadMetersPerUnit.toFixed(2)} m ÷ ${selectedBobbinSize} ${_({ fr: 'm/bobine', ar: 'م/بكرة', en: 'm/bobbin', es: 'm/bobina', pt: 'm/bobina', tr: 'm/bobin' })}`}
+                                                        aria-label={`${_({ fr: 'Bobines par unité pour opération', ar: 'بكرات لكل وحدة للعملية', en: 'Bobbins per unit for operation', es: 'Bobinas por unidad para operación', pt: 'Bobinas por unidade para operação', tr: 'İşlem için birim başına bobin' })} ${op.operation.order}`}
                                                     />
-                                                    <span className="text-[10px] text-slate-400">bob</span>
+                                                    <span className="text-[10px] text-slate-400">{_({ fr: 'bob', ar: 'بكرة', en: 'bob', es: 'bob', pt: 'bob', tr: 'bob' })}</span>
                                                 </div>
                                             </td>
                                             <td className="p-3">
@@ -1321,7 +1330,6 @@ export default function ThreadCalculator({
                             </table>
                         </div>
 
-                        {/* Mobile View Cards */}
                         <div className="block md:hidden divide-y divide-slate-100 bg-white">
                             {opsData.map((op, index) => (
                                 <div key={op.operation.id} className={`p-4 transition-colors ${op.selected ? 'bg-blue-50/20' : 'bg-white'}`}>
@@ -1333,7 +1341,7 @@ export default function ThreadCalculator({
                                                     ? 'bg-blue-500 border-blue-500 text-white'
                                                     : 'border-slate-300'
                                             }`}
-                                            aria-label={op.selected ? `Désélectionner opération ${op.operation.order}` : `Sélectionner opération ${op.operation.order}`}
+                                            aria-label={op.selected ? `${_({ fr: 'Désélectionner opération', ar: 'إلغاء تحديد العملية', en: 'Deselect operation', es: 'Deseleccionar operación', pt: 'Desmarcar operação', tr: 'İşlemin seçimini kaldır' })} ${op.operation.order}` : `${_({ fr: 'Sélectionner opération', ar: 'تحديد العملية', en: 'Select operation', es: 'Seleccionar operación', pt: 'Selecionar operação', tr: 'İşlemi seç' })} ${op.operation.order}`}
                                             aria-pressed={op.selected}
                                         >
                                             {op.selected && <Check className="w-3.5 h-3.5" />}
@@ -1350,7 +1358,7 @@ export default function ThreadCalculator({
                                                     </span>
                                                 ) : (
                                                     <span className="bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded-full text-[10px]">
-                                                        Non défini
+                                                        {_({ fr: 'Non défini', ar: 'غير محدد', en: 'Undefined', es: 'No definido', pt: 'Não definido', tr: 'Tanımsız' })}
                                                     </span>
                                                 )}
                                             </div>
@@ -1358,10 +1366,9 @@ export default function ThreadCalculator({
                                         </div>
                                     </div>
 
-                                    {/* Inputs row */}
                                     <div className="mt-3 pl-8 grid grid-cols-2 gap-3">
                                         <div>
-                                            <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">L / Qté</label>
+                                            <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">{_({ fr: 'L / Qté', ar: 'الطول / الكمية', en: 'L / Qty', es: 'L / Cant', pt: 'Comp / Qtde', tr: 'Uzun / Miktar' })}</label>
                                             <div className="flex items-center gap-1">
                                                 <input
                                                     type="number"
@@ -1374,12 +1381,12 @@ export default function ThreadCalculator({
                                                     placeholder="-"
                                                     className="w-full px-2 py-1 text-center text-xs font-mono font-bold bg-indigo-50/30 text-indigo-700 border border-indigo-100 rounded-lg outline-none focus:border-indigo-500"
                                                 />
-                                                <span className="text-[10px] text-slate-400 font-bold">{op.isPerPiece ? 'pc' : 'cm'}</span>
+                                                <span className="text-[10px] text-slate-400 font-bold">{op.isPerPiece ? _({ fr: 'pc', ar: 'قطعة', en: 'pc', es: 'pz', pt: 'pç', tr: 'ad' }) : 'cm'}</span>
                                             </div>
                                         </div>
 
                                         <div>
-                                            <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Bobine</label>
+                                            <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">{_({ fr: 'Bobine', ar: 'بكرة', en: 'Bobbin', es: 'Bobina', pt: 'Bobina', tr: 'Bobin' })}</label>
                                             <div className="flex items-center gap-1">
                                                 <input
                                                     type="number"
@@ -1392,13 +1399,13 @@ export default function ThreadCalculator({
                                                     placeholder="0.00"
                                                     className="w-full px-2 py-1 text-center text-xs font-mono font-bold bg-emerald-50/30 text-emerald-700 border border-emerald-100 rounded-lg outline-none focus:border-emerald-500"
                                                 />
-                                                <span className="text-[10px] text-slate-400 font-bold">bob</span>
+                                                <span className="text-[10px] text-slate-400 font-bold">{_({ fr: 'bob', ar: 'بكرة', en: 'bob', es: 'bob', pt: 'bob', tr: 'bob' })}</span>
                                             </div>
                                         </div>
 
                                         <div className="col-span-2 flex justify-between items-center bg-slate-50 p-2 rounded-lg text-xs">
                                             <div>
-                                                <span className="text-slate-400">Conso/M: </span>
+                                                <span className="text-slate-400">{_({ fr: 'Conso/M:', ar: 'استهلاك/م:', en: 'Cons./M:', es: 'Cons./M:', pt: 'Cons./M:', tr: 'Tük./M:' })} </span>
                                                 <span className="font-bold text-slate-700">
                                                     {op.consumptionFactor > 0
                                                         ? `${op.consumptionFactor % 1 === 0 ? op.consumptionFactor.toFixed(0) : op.consumptionFactor.toFixed(2)}${op.isPerPiece ? '/pc' : ''}`
@@ -1406,7 +1413,7 @@ export default function ThreadCalculator({
                                                 </span>
                                             </div>
                                             <div>
-                                                <span className="text-slate-400">Fil/Unité: </span>
+                                                <span className="text-slate-400">{_({ fr: 'Fil/Unité:', ar: 'خيط/وحدة:', en: 'Thread/Unit:', es: 'Hilo/Unidad:', pt: 'Fio/Unidade:', tr: 'İplik/Birim:' })} </span>
                                                 <span className="font-bold text-blue-600">
                                                     {op.threadMetersPerUnit > 0 ? `${op.threadMetersPerUnit.toFixed(2)} m` : '-'}
                                                 </span>
@@ -1415,7 +1422,7 @@ export default function ThreadCalculator({
 
                                         {op.selected && (
                                             <div className="col-span-2 border-t border-slate-100 pt-2">
-                                                <span className="block text-[10px] font-bold text-slate-400 uppercase mb-1.5">Type Fil</span>
+                                                <span className="block text-[10px] font-bold text-slate-400 uppercase mb-1.5">{_({ fr: 'Type Fil', ar: 'نوع الخيط', en: 'Thread Type', es: 'Tipo Hilo', pt: 'Tipo Fio', tr: 'İplik Türü' })}</span>
                                                 <ColorThreadCell
                                                     op={op}
                                                     index={index}
@@ -1436,15 +1443,14 @@ export default function ThreadCalculator({
                         </div>
                     </div>
 
-                    {/* Results by Machine */}
                     <div className="border border-slate-200 rounded-xl overflow-hidden">
                         <div className="bg-gradient-to-r from-green-50 to-emerald-50 p-3 flex items-center gap-2">
                             <Package className="w-4 h-4 text-green-600" />
-                            <span className="font-black text-sm text-green-700">RÉSULTATS PAR MACHINE</span>
+                            <span className="font-black text-sm text-green-700">{_({ fr: 'RÉSULTATS PAR MACHINE', ar: 'النتائج حسب الآلة', en: 'RESULTS BY MACHINE', es: 'RESULTADOS POR MÁQUINA', pt: 'RESULTADOS POR MÁQUINA', tr: 'MAKİNE BAZINDA SONUÇLAR' })}</span>
                         </div>
                         <div className="p-4">
                             {machineSummary.length === 0 ? (
-                                <p className="text-center text-slate-400 py-4">Aucune opération sélectionnée</p>
+                                <p className="text-center text-slate-400 py-4">{_({ fr: 'Aucune opération sélectionnée', ar: 'لم يتم تحديد أي عملية', en: 'No operation selected', es: 'Ninguna operación seleccionada', pt: 'Nenhuma operação selecionada', tr: 'Hiçbir işlem seçilmedi' })}</p>
                             ) : (
                                 <div className="space-y-3">
                                     {machineSummary.map((machine, idx) => (
@@ -1454,25 +1460,25 @@ export default function ThreadCalculator({
                                                     <span className="font-black text-slate-700">{machine.machineLabel}</span>
                                                     <span className="ml-2 text-xs text-slate-400">({machine.machineCode})</span>
                                                     <span className="ml-2 bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full text-xs font-bold">
-                                                        ISO {machine.threadCount} fils
+                                                        ISO {machine.threadCount} {_({ fr: 'fils', ar: 'خيوط', en: 'threads', es: 'hilos', pt: 'fios', tr: 'iplik' })}
                                                     </span>
                                                 </div>
                                                 <div className="text-right">
                                                     <span className="text-2xl font-black text-green-600">{formatNumberFr(machine.totalBobbins)}</span>
-                                                    <span className="text-sm text-slate-500 ml-1">bobines</span>
+                                                    <span className="text-sm text-slate-500 ml-1">{_({ fr: 'bobines', ar: 'بكرات', en: 'bobbins', es: 'bobinas', pt: 'bobinas', tr: 'bobin' })}</span>
                                                 </div>
                                             </div>
                                             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-4 text-xs sm:text-sm">
                                                 <div className="flex justify-between sm:block">
-                                                    <span className="text-slate-500">Fil par unité:</span>
+                                                    <span className="text-slate-500">{_({ fr: 'Fil par unité:', ar: 'خيط لكل وحدة:', en: 'Thread per unit:', es: 'Hilo por unidad:', pt: 'Fio por unidade:', tr: 'Birim başına iplik:' })}</span>
                                                     <span className="sm:ml-2 font-bold text-slate-700">{machine.threadMetersPerUnit.toFixed(2)} m</span>
                                                 </div>
                                                 <div className="flex justify-between sm:block">
-                                                    <span className="text-slate-500">Total:</span>
+                                                    <span className="text-slate-500">{_({ fr: 'Total:', ar: 'الإجمالي:', en: 'Total:', es: 'Total:', pt: 'Total:', tr: 'Toplam:' })}</span>
                                                     <span className="sm:ml-2 font-bold text-blue-600">{formatNumberFr(machine.totalMeters)} m</span>
                                                 </div>
                                                 <div className="flex justify-between sm:block">
-                                                    <span className="text-slate-500">+ {wastePercent}% usure:</span>
+                                                    <span className="text-slate-500">+ {wastePercent}% {_({ fr: 'usure:', ar: 'تآكل:', en: 'waste:', es: 'desperdicio:', pt: 'desperdício:', tr: 'atık:' })}</span>
                                                     <span className="sm:ml-2 font-bold text-orange-600">
                                                         {formatNumberFr(Math.ceil(machine.totalMeters * (1 + wastePercent / 100)))} m
                                                     </span>
@@ -1480,7 +1486,7 @@ export default function ThreadCalculator({
                                             </div>
                                             {machine.operations.length > 0 && (
                                                 <div className="mt-2 pt-2 border-t border-slate-200">
-                                                    <span className="text-xs text-slate-400">Opérations:</span>
+                                                    <span className="text-xs text-slate-400">{_({ fr: 'Opérations:', ar: 'العمليات:', en: 'Operations:', es: 'Operaciones:', pt: 'Operações:', tr: 'İşlemler:' })}</span>
                                                     <div className="flex flex-wrap gap-1 mt-1">
                                                         {machine.operations.map((opName, i) => (
                                                             <span key={i} className="bg-white border border-slate-200 px-2 py-0.5 rounded text-xs text-slate-600">
@@ -1497,43 +1503,41 @@ export default function ThreadCalculator({
                         </div>
                     </div>
 
-                    {/* Grand Total */}
                     <div className="bg-gradient-to-r from-blue-500 to-indigo-500 rounded-xl p-4 sm:p-5 text-white">
                         <div className="grid grid-cols-3 gap-2 sm:gap-6 text-center">
                             <div>
-                                <p className="text-blue-100 text-[10px] sm:text-sm font-bold uppercase">Total Fil/Unité</p>
+                                <p className="text-blue-100 text-[10px] sm:text-sm font-bold uppercase">{_({ fr: 'Total Fil/Unité', ar: 'إجمالي الخيط/وحدة', en: 'Total Thread/Unit', es: 'Total Hilo/Unidad', pt: 'Total Fio/Unidade', tr: 'Toplam İplik/Birim' })}</p>
                                 <p className="text-lg sm:text-3xl font-black mt-1">{grandTotal.totalMetersPerUnit.toFixed(2)}</p>
-                                <p className="text-blue-200 text-[10px] sm:text-xs">mètres</p>
+                                <p className="text-blue-200 text-[10px] sm:text-xs">{_({ fr: 'mètres', ar: 'أمتار', en: 'meters', es: 'metros', pt: 'metros', tr: 'metre' })}</p>
                             </div>
                             <div>
-                                <p className="text-blue-100 text-[10px] sm:text-sm font-bold uppercase">Total Général</p>
+                                <p className="text-blue-100 text-[10px] sm:text-sm font-bold uppercase">{_({ fr: 'Total Général', ar: 'المجموع الكلي', en: 'Grand Total', es: 'Gran Total', pt: 'Total Geral', tr: 'Genel Toplam' })}</p>
                                 <p className="text-lg sm:text-3xl font-black mt-1">{formatNumberFr(grandTotal.totalMeters)}</p>
-                                <p className="text-blue-200 text-[10px] sm:text-xs">mètres</p>
+                                <p className="text-blue-200 text-[10px] sm:text-xs">{_({ fr: 'mètres', ar: 'أمتار', en: 'meters', es: 'metros', pt: 'metros', tr: 'metre' })}</p>
                             </div>
                             <div>
-                                <p className="text-blue-100 text-[10px] sm:text-sm font-bold uppercase">Bobines Totales</p>
+                                <p className="text-blue-100 text-[10px] sm:text-sm font-bold uppercase">{_({ fr: 'Bobines Totales', ar: 'إجمالي البكرات', en: 'Total Bobbins', es: 'Bobinas Totales', pt: 'Bobinas Totais', tr: 'Toplam Bobin' })}</p>
                                 <p className="text-lg sm:text-3xl font-black mt-1">{formatNumberFr(grandTotal.totalBobbins)}</p>
-                                <p className="text-blue-200 text-[10px] sm:text-xs">bobines {selectedBobbinSize}m</p>
+                                <p className="text-blue-200 text-[10px] sm:text-xs">{_({ fr: 'bobines', ar: 'بكرات', en: 'bobbins', es: 'bobinas', pt: 'bobinas', tr: 'bobin' })} {selectedBobbinSize}m</p>
                             </div>
                         </div>
                     </div>
 
-                    {/* Color Breakdown (if available) */}
                     {colorBreakdown.length > 0 && (
                         <div className="border border-slate-200 rounded-xl overflow-hidden">
                             <div className="bg-purple-50 p-3 flex items-center gap-2">
-                                <span className="font-black text-sm text-purple-700">DÉTAIL PAR COULEUR</span>
+                                <span className="font-black text-sm text-purple-700">{_({ fr: 'DÉTAIL PAR COULEUR', ar: 'تفصيل حسب اللون', en: 'DETAIL BY COLOR', es: 'DETALLE POR COLOR', pt: 'DETALHE POR COR', tr: 'RENKLERE GÖRE DETAY' })}</span>
                             </div>
                             <div className="p-4">
                                 <div className="overflow-x-auto">
                                     <table className="w-full text-xs sm:text-sm">
                                         <thead className="bg-slate-100 text-slate-600 text-[10px] sm:text-xs uppercase">
                                             <tr>
-                                                <th className="px-1.5 py-1.5 sm:p-2 text-left">Couleur</th>
-                                                <th className="px-1.5 py-1.5 sm:p-2 text-left">Type</th>
-                                                <th className="px-1.5 py-1.5 sm:p-2 text-right">Qté</th>
-                                                <th className="px-1.5 py-1.5 sm:p-2 text-right">Fil Total</th>
-                                                <th className="px-1.5 py-1.5 sm:p-2 text-right">Bob.</th>
+                                                <th className="px-1.5 py-1.5 sm:p-2 text-left">{_({ fr: 'Couleur', ar: 'اللون', en: 'Color', es: 'Color', pt: 'Cor', tr: 'Renk' })}</th>
+                                                <th className="px-1.5 py-1.5 sm:p-2 text-left">{_({ fr: 'Type', ar: 'النوع', en: 'Type', es: 'Tipo', pt: 'Tipo', tr: 'Tür' })}</th>
+                                                <th className="px-1.5 py-1.5 sm:p-2 text-right">{_({ fr: 'Qté', ar: 'الكمية', en: 'Qty', es: 'Cant', pt: 'Qtde', tr: 'Miktar' })}</th>
+                                                <th className="px-1.5 py-1.5 sm:p-2 text-right">{_({ fr: 'Fil Total', ar: 'إجمالي الخيط', en: 'Total Thread', es: 'Hilo Total', pt: 'Fio Total', tr: 'Toplam İplik' })}</th>
+                                                <th className="px-1.5 py-1.5 sm:p-2 text-right">{_({ fr: 'Bob.', ar: 'بكرة', en: 'Bob.', es: 'Bob.', pt: 'Bob.', tr: 'Bob.' })}</th>
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-slate-100">
@@ -1555,23 +1559,22 @@ export default function ThreadCalculator({
                     </>)}
                 </div>
 
-                {/* Footer */}
                 <div className="bg-slate-50/60 md:bg-slate-50 border-t border-slate-100 p-4 flex items-center justify-between gap-3 shrink-0">
                     <button
                         onClick={onClose}
                         className="px-4 sm:px-6 py-2 sm:py-2.5 text-sm sm:text-base text-slate-600 font-medium md:font-bold rounded-xl hover:bg-slate-200/70 transition-colors"
-                        aria-label="Annuler et fermer"
+                        aria-label={_({ fr: 'Annuler et fermer', ar: 'إلغاء وإغلاق', en: 'Cancel and close', es: 'Cancelar y cerrar', pt: 'Cancelar e fechar', tr: 'İptal et ve kapat' })}
                     >
-                        Annuler
+                        {_({ fr: 'Annuler', ar: 'إلغاء', en: 'Cancel', es: 'Cancelar', pt: 'Cancelar', tr: 'İptal' })}
                     </button>
                     <button
                         onClick={handleApply}
                         disabled={calcMode === 'poste' ? machineSummary.length === 0 : (!indiceGarment || indiceBobbinsTotal <= 0)}
                         className="px-4 sm:px-6 py-2 sm:py-2.5 text-sm sm:text-base bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-                        aria-label={`Appliquer ${calcMode === 'poste' ? grandTotal.totalBobbins : indiceBobbinsTotal} bobines`}
+                        aria-label={`${_({ fr: 'Appliquer', ar: 'تطبيق', en: 'Apply', es: 'Aplicar', pt: 'Aplicar', tr: 'Uygula' })} ${calcMode === 'poste' ? grandTotal.totalBobbins : indiceBobbinsTotal} ${_({ fr: 'bobines', ar: 'بكرات', en: 'bobbins', es: 'bobinas', pt: 'bobinas', tr: 'bobin' })}`}
                     >
                         <Check className="w-4 h-4" />
-                        Appliquer ({calcMode === 'poste' ? grandTotal.totalBobbins : indiceBobbinsTotal} bobines)
+                        {_({ fr: 'Appliquer', ar: 'تطبيق', en: 'Apply', es: 'Aplicar', pt: 'Aplicar', tr: 'Uygula' })} ({calcMode === 'poste' ? grandTotal.totalBobbins : indiceBobbinsTotal} {_({ fr: 'bobines', ar: 'بكرات', en: 'bobbins', es: 'bobinas', pt: 'bobinas', tr: 'bobin' })})
                     </button>
                 </div>
             </div>
@@ -1597,23 +1600,22 @@ export default function ThreadCalculator({
     return (
         <>
             <div className="fixed inset-0 z-[100] bg-white flex flex-col">
-                {/* Header */}
                 <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-5 flex items-center justify-between shrink-0">
                     <div className="flex items-center gap-3">
                         <div className="bg-white/20 p-2 rounded-xl">
                             <Scissors className="w-6 h-6" />
                         </div>
                         <div>
-                            <h2 className="text-xl font-black">Calcul Fil</h2>
-                            <p className="text-sm text-blue-100">Calcul automatique de la consommation de fil</p>
+                            <h2 className="text-xl font-black">{_({ fr: 'Calcul Fil', ar: 'حساب الخيط', en: 'Thread Calculation', es: 'Cálculo de Hilo', pt: 'Cálculo de Fio', tr: 'İplik Hesaplama' })}</h2>
+                            <p className="text-sm text-blue-100">{_({ fr: 'Calcul automatique de la consommation de fil', ar: 'حساب تلقائي لاستهلاك الخيط', en: 'Automatic thread consumption calculation', es: 'Cálculo automático del consumo de hilo', pt: 'Cálculo automático do consumo de fio', tr: 'Otomatik iplik tüketimi hesaplaması' })}</p>
                         </div>
                     </div>
                     <div className="flex items-center gap-2">
                         <button onClick={() => window.print()} className="flex items-center gap-2 px-3 py-1.5 sm:px-4 sm:py-2 bg-indigo-500 hover:bg-indigo-400 rounded-lg transition-colors text-xs sm:text-sm font-bold shadow-md">
-                            <Printer className="w-4 h-4" /> <span className="hidden sm:inline">Imprimer</span>
+                            <Printer className="w-4 h-4" /> <span className="hidden sm:inline">{_({ fr: 'Imprimer', ar: 'طباعة', en: 'Print', es: 'Imprimir', pt: 'Imprimir', tr: 'Yazdır' })}</span>
                         </button>
                         <button onClick={() => setIsExpanded(false)} className="flex items-center gap-2 px-3 py-1.5 sm:px-4 sm:py-2 bg-white/20 hover:bg-white/30 rounded-lg transition-colors text-xs sm:text-sm font-bold">
-                            <ArrowLeft className="w-4 h-4" /> <span className="hidden sm:inline">Retour</span>
+                            <ArrowLeft className="w-4 h-4" /> <span className="hidden sm:inline">{_({ fr: 'Retour', ar: 'رجوع', en: 'Back', es: 'Volver', pt: 'Voltar', tr: 'Geri' })}</span>
                         </button>
                         <button onClick={onClose} className="p-2 hover:bg-white/20 rounded-lg transition-colors">
                             <X className="w-5 h-5" />
@@ -1621,17 +1623,16 @@ export default function ThreadCalculator({
                     </div>
                 </div>
 
-            {/* Settings Bar */}
             <div className="bg-slate-50 border-b p-4 flex flex-wrap items-center gap-4 shrink-0">
                 <div className="flex items-center gap-2">
-                    <label className="text-xs font-bold text-slate-500">QUANTITÉ:</label>
+                    <label className="text-xs font-bold text-slate-500">{_({ fr: 'QUANTITÉ:', ar: 'الكمية:', en: 'QUANTITY:', es: 'CANTIDAD:', pt: 'QUANTIDADE:', tr: 'MİKTAR:' })}</label>
                     <span className="bg-blue-100 text-blue-700 px-3 py-1 rounded-lg font-black text-sm">
-                        {formatNumberFr(effectiveQty)} pcs
+                        {formatNumberFr(effectiveQty)} {_({ fr: 'pcs', ar: 'قطعة', en: 'pcs', es: 'pzas', pt: 'pç', tr: 'adet' })}
                     </span>
                 </div>
 
                 <div className="flex items-center gap-2">
-                    <label className="text-xs font-bold text-slate-500">HUMIDITÉ/USURE:</label>
+                    <label className="text-xs font-bold text-slate-500">{_({ fr: 'HUMIDITÉ/USURE:', ar: 'الرطوبة/التآكل:', en: 'HUMIDITY/WASTE:', es: 'HUMEDAD/DESPERDICIO:', pt: 'UMIDADE/DESPERDÍCIO:', tr: 'NEM/ATIK:' })}</label>
                     <div className="flex items-center gap-1">
                         <input
                             type="number"
@@ -1645,19 +1646,19 @@ export default function ThreadCalculator({
                                 }
                             }}
                             className="w-16 px-2 py-1 text-sm border border-slate-300 rounded-lg text-center font-bold bg-white"
-                            aria-label="Pourcentage d'humidité ou d'usure"
+                            aria-label={_({ fr: 'Pourcentage d\'humidité ou d\'usure', ar: 'نسبة الرطوبة أو التآكل', en: 'Humidity or waste percentage', es: 'Porcentaje de humedad o desperdicio', pt: 'Percentual de umidade ou desperdício', tr: 'Nem veya atık yüzdesi' })}
                         />
                         <span className="text-sm text-slate-500">%</span>
                     </div>
                 </div>
 
                 <div className="flex items-center gap-2">
-                    <label className="text-xs font-bold text-slate-500">TAILLE BOBINE:</label>
+                    <label className="text-xs font-bold text-slate-500">{_({ fr: 'TAILLE BOBINE:', ar: 'حجم البكرة:', en: 'BOBBIN SIZE:', es: 'TAMAÑO BOBINA:', pt: 'TAMANHO BOBINA:', tr: 'BOBİN BOYUTU:' })}</label>
                     <select
                         value={selectedBobbinSize}
                         onChange={(e) => setSelectedBobbinSize(Number(e.target.value))}
                         className="px-3 py-1 text-sm border border-slate-300 rounded-lg font-bold bg-white"
-                        aria-label="Taille de la bobine"
+                        aria-label={_({ fr: 'Taille de la bobine', ar: 'حجم البكرة', en: 'Bobbin size', es: 'Tamaño de bobina', pt: 'Tamanho da bobina', tr: 'Bobin boyutu' })}
                     >
                         {BOBBIN_SIZES.map(size => (
                             <option key={size.capacityMeters} value={size.capacityMeters}>
@@ -1668,7 +1669,7 @@ export default function ThreadCalculator({
                 </div>
 
                 <div className="flex items-center gap-2">
-                    <label className="text-xs font-bold text-slate-500">TYPE FIL:</label>
+                    <label className="text-xs font-bold text-slate-500">{_({ fr: 'TYPE FIL:', ar: 'نوع الخيط:', en: 'THREAD TYPE:', es: 'TIPO HILO:', pt: 'TIPO FIO:', tr: 'İPLİK TÜRÜ:' })}</label>
                     <ThreadTypesManager
                         availableThreadTypes={availableThreadTypes}
                         onAdd={addThreadTypeValue}
@@ -1704,44 +1705,42 @@ export default function ThreadCalculator({
                 )}
 
                 {calcMode === 'poste' && (<>
-                {/* Operations Table */}
                 <div className="border border-slate-200 rounded-xl overflow-hidden">
                     <div className="w-full bg-slate-50 p-3 flex items-center justify-between">
                         <div className="flex items-center gap-2">
                             <Calculator className="w-4 h-4 text-blue-500" />
                             <span className="font-black text-sm text-slate-700">
-                                OPÉRATIONS ({opsData.filter(op => op.selected).length}/{opsData.length})
+                                {_({ fr: 'OPÉRATIONS', ar: 'العمليات', en: 'OPERATIONS', es: 'OPERACIONES', pt: 'OPERAÇÕES', tr: 'İŞLEMLER' })} ({opsData.filter(op => op.selected).length}/{opsData.length})
                             </span>
                         </div>
                         <div className="flex items-center gap-2">
-                            <button onClick={selectAll} className="text-xs text-blue-600 hover:text-blue-800 font-bold underline" aria-label="Sélectionner toutes les opérations">Tout</button>
+                            <button onClick={selectAll} className="text-xs text-blue-600 hover:text-blue-800 font-bold underline" aria-label={_({ fr: 'Sélectionner toutes les opérations', ar: 'تحديد كل العمليات', en: 'Select all operations', es: 'Seleccionar todas las operaciones', pt: 'Selecionar todas as operações', tr: 'Tüm işlemleri seç' })}>{_({ fr: 'Tout', ar: 'الكل', en: 'All', es: 'Todo', pt: 'Tudo', tr: 'Tümü' })}</button>
                             <span className="text-slate-300">|</span>
-                            <button onClick={deselectAll} className="text-xs text-red-500 hover:text-red-700 font-bold underline" aria-label="Désélectionner toutes les opérations">Aucun</button>
+                            <button onClick={deselectAll} className="text-xs text-red-500 hover:text-red-700 font-bold underline" aria-label={_({ fr: 'Désélectionner toutes les opérations', ar: 'إلغاء تحديد كل العمليات', en: 'Deselect all operations', es: 'Deseleccionar todas las operaciones', pt: 'Desmarcar todas as operações', tr: 'Tüm işlemlerin seçimini kaldır' })}>{_({ fr: 'Aucun', ar: 'لا شيء', en: 'None', es: 'Ninguno', pt: 'Nenhum', tr: 'Hiçbiri' })}</button>
                         </div>
                     </div>
 
-                        {/* Desktop View Table */}
                         <div className="hidden md:block overflow-x-auto">
                             <table className="w-full text-sm">
                                 <thead className="bg-slate-100 text-slate-600 text-xs uppercase">
                                     <tr>
                                         <th className="p-3 text-left w-10"></th>
                                         <th className="p-3 text-left">N°</th>
-                                        <th className="p-3 text-left min-w-[180px]">Description de l'opération</th>
-                                        <th className="p-3 text-left">Machine</th>
-                                        <th className="p-3 text-left">Type Point</th>
-                                        <th className="p-3 text-center text-indigo-600" title="cm pour couture, pièces pour boutonnière/bouton/bride">L / Qté (cm/pc)</th>
-                                        <th className="p-3 text-right" title="Mètres de fil par mètre de couture (ou par pièce pour boutonnières)">Conso/M</th>
-                                        <th className="p-3 text-right">Fil/Unité</th>
-                                        <th className="p-3 text-right text-emerald-600" title={`Bobines par unité (Fil/Unité ÷ ${selectedBobbinSize} m)`}>Bobine</th>
-                                        <th className="p-3 text-left text-amber-600" title="Type de fil utilisé (ex: Polyester Tex 27, Coton NM 50)">Type Fil</th>
+                                        <th className="p-3 text-left min-w-[180px]">{_({ fr: 'Description de l\'opération', ar: 'وصف العملية', en: 'Operation description', es: 'Descripción de la operación', pt: 'Descrição da operação', tr: 'İşlem açıklaması' })}</th>
+                                        <th className="p-3 text-left">{_({ fr: 'Machine', ar: 'آلة', en: 'Machine', es: 'Máquina', pt: 'Máquina', tr: 'Makine' })}</th>
+                                        <th className="p-3 text-left">{_({ fr: 'Type Point', ar: 'نوع الغرزة', en: 'Stitch Type', es: 'Tipo de Puntada', pt: 'Tipo de Ponto', tr: 'Dikiş Türü' })}</th>
+                                        <th className="p-3 text-center text-indigo-600" title={_({ fr: 'cm pour couture, pièces pour boutonnière/bouton/bride', ar: 'سم للخياطة، قطع للعروة/الزر/الرباط', en: 'cm for sewing, pieces for buttonhole/button/tie', es: 'cm para costura, piezas para ojal/botón/atadura', pt: 'cm para costura, peças para casa/botão/amarra', tr: 'dikiş için cm, ilik/düğme/bağ için adet' })}>{_({ fr: 'L / Qté (cm/pc)', ar: 'الطول / الكمية (سم/قطعة)', en: 'L / Qty (cm/pc)', es: 'L / Cant (cm/pz)', pt: 'Comp / Qtde (cm/pç)', tr: 'Uzunluk / Miktar (cm/adet)' })}</th>
+                                        <th className="p-3 text-right" title={_({ fr: 'Mètres de fil par mètre de couture (ou par pièce pour boutonnières)', ar: 'أمتار الخيط لكل متر خياطة (أو لكل قطعة للعروات)', en: 'Thread meters per meter of seam (or per piece for buttonholes)', es: 'Metros de hilo por metro de costura (o por pieza para ojales)', pt: 'Metros de fio por metro de costura (ou por peça para casas)', tr: 'Metre dikiş başına iplik metresi (ilikler için adet başına)' })}>{_({ fr: 'Conso/M', ar: 'استهلاك/م', en: 'Cons./M', es: 'Cons./M', pt: 'Cons./M', tr: 'Tük./M' })}</th>
+                                        <th className="p-3 text-right">{_({ fr: 'Fil/Unité', ar: 'خيط/وحدة', en: 'Thread/Unit', es: 'Hilo/Unidad', pt: 'Fio/Unidade', tr: 'İplik/Birim' })}</th>
+                                        <th className="p-3 text-right text-emerald-600" title={`${_({ fr: 'Bobines par unité', ar: 'بكرات لكل وحدة', en: 'Bobbins per unit', es: 'Bobinas por unidad', pt: 'Bobinas por unidade', tr: 'Birim başına bobin' })} (${_({ fr: 'Fil/Unité', ar: 'خيط/وحدة', en: 'Thread/Unit', es: 'Hilo/Unidad', pt: 'Fio/Unidade', tr: 'İplik/Birim' })} ÷ ${selectedBobbinSize} m)`}>{_({ fr: 'Bobine', ar: 'بكرة', en: 'Bobbin', es: 'Bobina', pt: 'Bobina', tr: 'Bobin' })}</th>
+                                        <th className="p-3 text-left text-amber-600" title={_({ fr: 'Type de fil utilisé (ex: Polyester Tex 27, Coton NM 50)', ar: 'نوع الخيط المستخدم (مثال: بوليستر Tex 27، قطن NM 50)', en: 'Thread type used (ex: Polyester Tex 27, Cotton NM 50)', es: 'Tipo de hilo usado (ej: Polyester Tex 27, Algodón NM 50)', pt: 'Tipo de fio usado (ex: Poliéster Tex 27, Algodão NM 50)', tr: 'Kullanılan iplik türü (ör: Polyester Tex 27, Pamuk NM 50)' })}>{_({ fr: 'Type Fil', ar: 'نوع الخيط', en: 'Thread Type', es: 'Tipo Hilo', pt: 'Tipo Fio', tr: 'İplik Türü' })}</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-100">
                                     {opsData.map((op, index) => (
                                         <tr key={op.operation.id} className={`${op.selected ? 'bg-blue-50/50' : 'bg-white'} hover:bg-blue-50 transition-colors`}>
                                             <td className="p-3">
-                                                <button onClick={() => toggleOperation(index)} className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${op.selected ? 'bg-blue-500 border-blue-500 text-white' : 'border-slate-300 hover:border-blue-400'}`} aria-label={op.selected ? `Désélectionner opération ${op.operation.order}` : `Sélectionner opération ${op.operation.order}`} aria-pressed={op.selected}>
+                                                <button onClick={() => toggleOperation(index)} className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${op.selected ? 'bg-blue-500 border-blue-500 text-white' : 'border-slate-300 hover:border-blue-400'}`} aria-label={op.selected ? `${_({ fr: 'Désélectionner opération', ar: 'إلغاء تحديد العملية', en: 'Deselect operation', es: 'Deseleccionar operación', pt: 'Desmarcar operação', tr: 'İşlemin seçimini kaldır' })} ${op.operation.order}` : `${_({ fr: 'Sélectionner opération', ar: 'تحديد العملية', en: 'Select operation', es: 'Seleccionar operación', pt: 'Selecionar operação', tr: 'İşlemi seç' })} ${op.operation.order}`} aria-pressed={op.selected}>
                                                     {op.selected && <Check className="w-3 h-3" />}
                                                 </button>
                                             </td>
@@ -1756,13 +1755,13 @@ export default function ThreadCalculator({
                                                 {op.stitchType ? (
                                                     <span className="bg-green-100 text-green-700 px-2 py-0.5 rounded-full text-xs font-bold">{op.stitchType.name}</span>
                                                 ) : (
-                                                    <span className="bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full text-xs">Non défini</span>
+                                                    <span className="bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full text-xs">{_({ fr: 'Non défini', ar: 'غير محدد', en: 'Undefined', es: 'No definido', pt: 'Não definido', tr: 'Tanımsız' })}</span>
                                                 )}
                                             </td>
                                             <td className="p-3 text-center">
                                                 <div className="flex items-center justify-center gap-1">
-                                                    <input type="number" min="0" step="1" value={op.lengthCm === 0 ? '' : op.lengthCm} onChange={(e) => updateLength(index, Number(e.target.value))} onFocus={(e) => e.target.select()} onKeyDown={(e) => ['-', 'e', 'E', '+', '.', ','].includes(e.key) && e.preventDefault()} placeholder="-" className="w-16 px-1 py-1 text-center text-xs font-mono font-bold bg-indigo-50/30 text-indigo-700 border border-indigo-100 rounded-lg outline-none focus:border-indigo-500 transition-colors" title={op.isPerPiece ? 'Nombre de pièces (boutonnière / bouton / bride)' : 'Longueur de couture en cm'} aria-label={op.isPerPiece ? `Nombre de pièces pour opération ${op.operation.order}` : `Longueur de couture en cm pour opération ${op.operation.order}`} />
-                                                    <span className="text-[10px] text-slate-400">{op.isPerPiece ? 'pc' : 'cm'}</span>
+                                                    <input type="number" min="0" step="1" value={op.lengthCm === 0 ? '' : op.lengthCm} onChange={(e) => updateLength(index, Number(e.target.value))} onFocus={(e) => e.target.select()} onKeyDown={(e) => ['-', 'e', 'E', '+', '.', ','].includes(e.key) && e.preventDefault()} placeholder="-" className="w-16 px-1 py-1 text-center text-xs font-mono font-bold bg-indigo-50/30 text-indigo-700 border border-indigo-100 rounded-lg outline-none focus:border-indigo-500 transition-colors" title={op.isPerPiece ? _({ fr: 'Nombre de pièces (boutonnière / bouton / bride)', ar: 'عدد القطع (عروة / زر / رباط)', en: 'Number of pieces (buttonhole / button / tie)', es: 'Número de piezas (ojal / botón / atadura)', pt: 'Número de peças (casa / botão / amarra)', tr: 'Parça sayısı (ilik / düğme / bağ)' }) : _({ fr: 'Longueur de couture en cm', ar: 'طول الخياطة بالسنتيمتر', en: 'Seam length in cm', es: 'Longitud de costura en cm', pt: 'Comprimento da costura em cm', tr: 'Dikiş uzunluğu (cm)' })} aria-label={op.isPerPiece ? `${_({ fr: 'Nombre de pièces pour opération', ar: 'عدد القطع للعملية', en: 'Number of pieces for operation', es: 'Número de piezas para operación', pt: 'Número de peças para operação', tr: 'İşlem için parça sayısı' })} ${op.operation.order}` : `${_({ fr: 'Longueur de couture en cm pour opération', ar: 'طول الخياطة بالسنتيمتر للعملية', en: 'Seam length in cm for operation', es: 'Longitud de costura en cm para operación', pt: 'Comprimento da costura em cm para operação', tr: 'İşlem için dikiş uzunluğu (cm)' })} ${op.operation.order}`} />
+                                                    <span className="text-[10px] text-slate-400">{op.isPerPiece ? _({ fr: 'pc', ar: 'قطعة', en: 'pc', es: 'pz', pt: 'pç', tr: 'ad' }) : 'cm'}</span>
                                                 </div>
                                             </td>
                                             <td className="p-3 text-right font-mono text-slate-600">
@@ -1783,10 +1782,10 @@ export default function ThreadCalculator({
                                                         onKeyDown={(e) => ['-', 'e', 'E', '+', '.'].includes(e.key) && e.preventDefault()}
                                                         placeholder="0.00"
                                                         className="w-16 px-1 py-1 text-center text-xs font-mono font-bold bg-emerald-50/30 text-emerald-700 border border-emerald-100 rounded-lg outline-none focus:border-emerald-500 transition-colors placeholder:text-emerald-300 placeholder:font-normal"
-                                                        title={`${op.threadMetersPerUnit.toFixed(2)} m ÷ ${selectedBobbinSize} m/bobine`}
-                                                        aria-label={`Bobines par unité pour opération ${op.operation.order}`}
+                                                        title={`${op.threadMetersPerUnit.toFixed(2)} m ÷ ${selectedBobbinSize} ${_({ fr: 'm/bobine', ar: 'م/بكرة', en: 'm/bobbin', es: 'm/bobina', pt: 'm/bobina', tr: 'm/bobin' })}`}
+                                                        aria-label={`${_({ fr: 'Bobines par unité pour opération', ar: 'بكرات لكل وحدة للعملية', en: 'Bobbins per unit for operation', es: 'Bobinas por unidad para operación', pt: 'Bobinas por unidade para operação', tr: 'İşlem için birim başına bobin' })} ${op.operation.order}`}
                                                     />
-                                                    <span className="text-[10px] text-slate-400">bob</span>
+                                                    <span className="text-[10px] text-slate-400">{_({ fr: 'bob', ar: 'بكرة', en: 'bob', es: 'bob', pt: 'bob', tr: 'bob' })}</span>
                                                 </div>
                                             </td>
                                             <td className="p-3">
@@ -1809,7 +1808,6 @@ export default function ThreadCalculator({
                             </table>
                         </div>
 
-                        {/* Mobile View Cards */}
                         <div className="block md:hidden divide-y divide-slate-100 bg-white">
                             {opsData.map((op, index) => (
                                 <div key={op.operation.id} className={`p-4 transition-colors ${op.selected ? 'bg-blue-50/20' : 'bg-white'}`}>
@@ -1821,7 +1819,7 @@ export default function ThreadCalculator({
                                                     ? 'bg-blue-500 border-blue-500 text-white'
                                                     : 'border-slate-300'
                                             }`}
-                                            aria-label={op.selected ? `Désélectionner opération ${op.operation.order}` : `Sélectionner opération ${op.operation.order}`}
+                                            aria-label={op.selected ? `${_({ fr: 'Désélectionner opération', ar: 'إلغاء تحديد العملية', en: 'Deselect operation', es: 'Deseleccionar operación', pt: 'Desmarcar operação', tr: 'İşlemin seçimini kaldır' })} ${op.operation.order}` : `${_({ fr: 'Sélectionner opération', ar: 'تحديد العملية', en: 'Select operation', es: 'Seleccionar operación', pt: 'Selecionar operação', tr: 'İşlemi seç' })} ${op.operation.order}`}
                                             aria-pressed={op.selected}
                                         >
                                             {op.selected && <Check className="w-3.5 h-3.5" />}
@@ -1838,7 +1836,7 @@ export default function ThreadCalculator({
                                                     </span>
                                                 ) : (
                                                     <span className="bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded-full text-[10px]">
-                                                        Non défini
+                                                        {_({ fr: 'Non défini', ar: 'غير محدد', en: 'Undefined', es: 'No definido', pt: 'Não definido', tr: 'Tanımsız' })}
                                                     </span>
                                                 )}
                                             </div>
@@ -1846,10 +1844,9 @@ export default function ThreadCalculator({
                                         </div>
                                     </div>
 
-                                    {/* Inputs row */}
                                     <div className="mt-3 pl-8 grid grid-cols-2 gap-3">
                                         <div>
-                                            <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">L / Qté</label>
+                                            <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">{_({ fr: 'L / Qté', ar: 'الطول / الكمية', en: 'L / Qty', es: 'L / Cant', pt: 'Comp / Qtde', tr: 'Uzun / Miktar' })}</label>
                                             <div className="flex items-center gap-1">
                                                 <input
                                                     type="number"
@@ -1862,12 +1859,12 @@ export default function ThreadCalculator({
                                                     placeholder="-"
                                                     className="w-full px-2 py-1 text-center text-xs font-mono font-bold bg-indigo-50/30 text-indigo-700 border border-indigo-100 rounded-lg outline-none focus:border-indigo-500"
                                                 />
-                                                <span className="text-[10px] text-slate-400 font-bold">{op.isPerPiece ? 'pc' : 'cm'}</span>
+                                                <span className="text-[10px] text-slate-400 font-bold">{op.isPerPiece ? _({ fr: 'pc', ar: 'قطعة', en: 'pc', es: 'pz', pt: 'pç', tr: 'ad' }) : 'cm'}</span>
                                             </div>
                                         </div>
 
                                         <div>
-                                            <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Bobine</label>
+                                            <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">{_({ fr: 'Bobine', ar: 'بكرة', en: 'Bobbin', es: 'Bobina', pt: 'Bobina', tr: 'Bobin' })}</label>
                                             <div className="flex items-center gap-1">
                                                 <input
                                                     type="number"
@@ -1880,19 +1877,19 @@ export default function ThreadCalculator({
                                                     placeholder="0.00"
                                                     className="w-full px-2 py-1 text-center text-xs font-mono font-bold bg-emerald-50/30 text-emerald-700 border border-emerald-100 rounded-lg outline-none focus:border-emerald-500"
                                                 />
-                                                <span className="text-[10px] text-slate-400 font-bold">bob</span>
+                                                <span className="text-[10px] text-slate-400 font-bold">{_({ fr: 'bob', ar: 'بكرة', en: 'bob', es: 'bob', pt: 'bob', tr: 'bob' })}</span>
                                             </div>
                                         </div>
 
                                         <div className="col-span-2 flex justify-between items-center bg-slate-50 p-2 rounded-lg text-xs">
                                             <div>
-                                                <span className="text-slate-400">Conso/M: </span>
+                                                <span className="text-slate-400">{_({ fr: 'Conso/M:', ar: 'استهلاك/م:', en: 'Cons./M:', es: 'Cons./M:', pt: 'Cons./M:', tr: 'Tük./M:' })} </span>
                                                 <span className="font-bold text-slate-700">
                                                     {op.consumptionFactor > 0 ? `${op.consumptionFactor % 1 === 0 ? op.consumptionFactor.toFixed(0) : op.consumptionFactor.toFixed(2)}${op.isPerPiece ? '/pc' : ''}` : '-'}
                                                 </span>
                                             </div>
                                             <div>
-                                                <span className="text-slate-400">Fil/Unité: </span>
+                                                <span className="text-slate-400">{_({ fr: 'Fil/Unité:', ar: 'خيط/وحدة:', en: 'Thread/Unit:', es: 'Hilo/Unidad:', pt: 'Fio/Unidade:', tr: 'İplik/Birim:' })} </span>
                                                 <span className="font-bold text-blue-600">
                                                     {op.threadMetersPerUnit > 0 ? `${op.threadMetersPerUnit.toFixed(2)} m` : '-'}
                                                 </span>
@@ -1901,7 +1898,7 @@ export default function ThreadCalculator({
 
                                         {op.selected && (
                                             <div className="col-span-2 border-t border-slate-100 pt-2">
-                                                <span className="block text-[10px] font-bold text-slate-400 uppercase mb-1.5">Type Fil</span>
+                                                <span className="block text-[10px] font-bold text-slate-400 uppercase mb-1.5">{_({ fr: 'Type Fil', ar: 'نوع الخيط', en: 'Thread Type', es: 'Tipo Hilo', pt: 'Tipo Fio', tr: 'İplik Türü' })}</span>
                                                 <ColorThreadCell
                                                     op={op}
                                                     index={index}
@@ -1922,15 +1919,14 @@ export default function ThreadCalculator({
                         </div>
                 </div>
 
-                {/* Results by Machine */}
                 <div className="border border-slate-200 rounded-xl overflow-hidden">
                     <div className="bg-gradient-to-r from-green-50 to-emerald-50 p-3 flex items-center gap-2">
                         <Package className="w-4 h-4 text-green-600" />
-                        <span className="font-black text-sm text-green-700">RÉSULTATS PAR MACHINE</span>
+                        <span className="font-black text-sm text-green-700">{_({ fr: 'RÉSULTATS PAR MACHINE', ar: 'النتائج حسب الآلة', en: 'RESULTS BY MACHINE', es: 'RESULTADOS POR MÁQUINA', pt: 'RESULTADOS POR MÁQUINA', tr: 'MAKİNE BAZINDA SONUÇLAR' })}</span>
                     </div>
                     <div className="p-4">
                         {machineSummary.length === 0 ? (
-                            <p className="text-center text-slate-400 py-4">Aucune opération sélectionnée</p>
+                            <p className="text-center text-slate-400 py-4">{_({ fr: 'Aucune opération sélectionnée', ar: 'لم يتم تحديد أي عملية', en: 'No operation selected', es: 'Ninguna operación seleccionada', pt: 'Nenhuma operação selecionada', tr: 'Hiçbir işlem seçilmedi' })}</p>
                         ) : (
                             <div className="space-y-3">
                                 {machineSummary.map((machine, idx) => (
@@ -1939,30 +1935,30 @@ export default function ThreadCalculator({
                                             <div>
                                                 <span className="font-black text-slate-700">{machine.machineLabel}</span>
                                                 <span className="ml-2 text-xs text-slate-400">({machine.machineCode})</span>
-                                                <span className="ml-2 bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full text-xs font-bold">ISO {machine.threadCount} fils</span>
+                                                <span className="ml-2 bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full text-xs font-bold">ISO {machine.threadCount} {_({ fr: 'fils', ar: 'خيوط', en: 'threads', es: 'hilos', pt: 'fios', tr: 'iplik' })}</span>
                                             </div>
                                             <div className="text-right">
                                                 <span className="text-2xl font-black text-green-600">{machine.totalBobbins}</span>
-                                                <span className="text-sm text-slate-500 ml-1">bobines</span>
+                                                <span className="text-sm text-slate-500 ml-1">{_({ fr: 'bobines', ar: 'بكرات', en: 'bobbins', es: 'bobinas', pt: 'bobinas', tr: 'bobin' })}</span>
                                             </div>
                                         </div>
                                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-4 text-xs sm:text-sm">
                                             <div className="flex justify-between sm:block">
-                                                <span className="text-slate-500">Fil par unité:</span>
+                                                <span className="text-slate-500">{_({ fr: 'Fil par unité:', ar: 'خيط لكل وحدة:', en: 'Thread per unit:', es: 'Hilo por unidad:', pt: 'Fio por unidade:', tr: 'Birim başına iplik:' })}</span>
                                                 <span className="sm:ml-2 font-bold text-slate-700">{machine.threadMetersPerUnit.toFixed(2)} m</span>
                                             </div>
                                             <div className="flex justify-between sm:block">
-                                                <span className="text-slate-500">Total:</span>
+                                                <span className="text-slate-500">{_({ fr: 'Total:', ar: 'الإجمالي:', en: 'Total:', es: 'Total:', pt: 'Total:', tr: 'Toplam:' })}</span>
                                                 <span className="sm:ml-2 font-bold text-blue-600">{formatNumberFr(machine.totalMeters)} m</span>
                                             </div>
                                             <div className="flex justify-between sm:block">
-                                                <span className="text-slate-500">+ {wastePercent}% usure:</span>
+                                                <span className="text-slate-500">+ {wastePercent}% {_({ fr: 'usure:', ar: 'تآكل:', en: 'waste:', es: 'desperdicio:', pt: 'desperdício:', tr: 'atık:' })}</span>
                                                 <span className="sm:ml-2 font-bold text-orange-600">{formatNumberFr(Math.ceil(machine.totalMeters * (1 + wastePercent / 100)))} m</span>
                                             </div>
                                         </div>
                                         {machine.operations.length > 0 && (
                                             <div className="mt-2 pt-2 border-t border-slate-200">
-                                                <span className="text-xs text-slate-400">Opérations:</span>
+                                                <span className="text-xs text-slate-400">{_({ fr: 'Opérations:', ar: 'العمليات:', en: 'Operations:', es: 'Operaciones:', pt: 'Operações:', tr: 'İşlemler:' })}</span>
                                                 <div className="flex flex-wrap gap-1 mt-1">
                                                     {machine.operations.map((opName, i) => (
                                                         <span key={i} className="bg-white border border-slate-200 px-2 py-0.5 rounded text-xs text-slate-600">{opName}</span>
@@ -1980,39 +1976,38 @@ export default function ThreadCalculator({
                 <div className="bg-gradient-to-r from-blue-500 to-indigo-500 rounded-xl p-4 sm:p-5 text-white">
                     <div className="grid grid-cols-3 gap-2 sm:gap-6 text-center">
                         <div>
-                            <p className="text-blue-100 text-[10px] sm:text-sm font-bold uppercase">Total Fil/Unité</p>
+                            <p className="text-blue-100 text-[10px] sm:text-sm font-bold uppercase">{_({ fr: 'Total Fil/Unité', ar: 'إجمالي الخيط/وحدة', en: 'Total Thread/Unit', es: 'Total Hilo/Unidad', pt: 'Total Fio/Unidade', tr: 'Toplam İplik/Birim' })}</p>
                             <p className="text-lg sm:text-3xl font-black mt-1">{grandTotal.totalMetersPerUnit.toFixed(2)}</p>
-                            <p className="text-blue-200 text-[10px] sm:text-xs">mètres</p>
+                            <p className="text-blue-200 text-[10px] sm:text-xs">{_({ fr: 'mètres', ar: 'أمتار', en: 'meters', es: 'metros', pt: 'metros', tr: 'metre' })}</p>
                         </div>
                         <div>
-                            <p className="text-blue-100 text-[10px] sm:text-sm font-bold uppercase">Total Général</p>
+                            <p className="text-blue-100 text-[10px] sm:text-sm font-bold uppercase">{_({ fr: 'Total Général', ar: 'المجموع الكلي', en: 'Grand Total', es: 'Gran Total', pt: 'Total Geral', tr: 'Genel Toplam' })}</p>
                             <p className="text-lg sm:text-3xl font-black mt-1">{formatNumberFr(grandTotal.totalMeters)}</p>
-                            <p className="text-blue-200 text-[10px] sm:text-xs">mètres</p>
+                            <p className="text-blue-200 text-[10px] sm:text-xs">{_({ fr: 'mètres', ar: 'أمتار', en: 'meters', es: 'metros', pt: 'metros', tr: 'metre' })}</p>
                         </div>
                         <div>
-                            <p className="text-blue-100 text-[10px] sm:text-sm font-bold uppercase">Bobines Totales</p>
+                            <p className="text-blue-100 text-[10px] sm:text-sm font-bold uppercase">{_({ fr: 'Bobines Totales', ar: 'إجمالي البكرات', en: 'Total Bobbins', es: 'Bobinas Totales', pt: 'Bobinas Totais', tr: 'Toplam Bobin' })}</p>
                             <p className="text-lg sm:text-3xl font-black mt-1">{formatNumberFr(grandTotal.totalBobbins)}</p>
-                            <p className="text-blue-200 text-[10px] sm:text-xs">bobines {selectedBobbinSize}m</p>
+                            <p className="text-blue-200 text-[10px] sm:text-xs">{_({ fr: 'bobines', ar: 'بكرات', en: 'bobbins', es: 'bobinas', pt: 'bobinas', tr: 'bobin' })} {selectedBobbinSize}m</p>
                         </div>
                     </div>
                 </div>
 
-                {/* Color Breakdown */}
                 {colorBreakdown.length > 0 && (
                     <div className="border border-slate-200 rounded-xl overflow-hidden">
                         <div className="bg-purple-50 p-3 flex items-center gap-2">
-                            <span className="font-black text-sm text-purple-700">DÉTAIL PAR COULEUR</span>
+                            <span className="font-black text-sm text-purple-700">{_({ fr: 'DÉTAIL PAR COULEUR', ar: 'تفصيل حسب اللون', en: 'DETAIL BY COLOR', es: 'DETALLE POR COLOR', pt: 'DETALHE POR COR', tr: 'RENKLERE GÖRE DETAY' })}</span>
                         </div>
                         <div className="p-4">
                             <div className="overflow-x-auto">
                                 <table className="w-full text-xs sm:text-sm">
                                     <thead className="bg-slate-100 text-slate-600 text-[10px] sm:text-xs uppercase">
                                         <tr>
-                                            <th className="px-1.5 py-1.5 sm:p-2 text-left">Couleur</th>
-                                            <th className="px-1.5 py-1.5 sm:p-2 text-left">Type</th>
-                                            <th className="px-1.5 py-1.5 sm:p-2 text-right">Qté</th>
-                                            <th className="px-1.5 py-1.5 sm:p-2 text-right">Fil Total</th>
-                                            <th className="px-1.5 py-1.5 sm:p-2 text-right">Bob.</th>
+                                            <th className="px-1.5 py-1.5 sm:p-2 text-left">{_({ fr: 'Couleur', ar: 'اللون', en: 'Color', es: 'Color', pt: 'Cor', tr: 'Renk' })}</th>
+                                            <th className="px-1.5 py-1.5 sm:p-2 text-left">{_({ fr: 'Type', ar: 'النوع', en: 'Type', es: 'Tipo', pt: 'Tipo', tr: 'Tür' })}</th>
+                                            <th className="px-1.5 py-1.5 sm:p-2 text-right">{_({ fr: 'Qté', ar: 'الكمية', en: 'Qty', es: 'Cant', pt: 'Qtde', tr: 'Miktar' })}</th>
+                                            <th className="px-1.5 py-1.5 sm:p-2 text-right">{_({ fr: 'Fil Total', ar: 'إجمالي الخيط', en: 'Total Thread', es: 'Hilo Total', pt: 'Fio Total', tr: 'Toplam İplik' })}</th>
+                                            <th className="px-1.5 py-1.5 sm:p-2 text-right">{_({ fr: 'Bob.', ar: 'بكرة', en: 'Bob.', es: 'Bob.', pt: 'Bob.', tr: 'Bob.' })}</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-slate-100">
@@ -2034,14 +2029,13 @@ export default function ThreadCalculator({
                 </>)}
             </div>
 
-            {/* Footer */}
             <div className="bg-slate-50 border-t p-4 flex items-center justify-between shrink-0">
-                <button onClick={onClose} className="px-4 sm:px-6 py-2 sm:py-2.5 text-sm sm:text-base text-slate-600 font-bold rounded-xl hover:bg-slate-200 transition-colors" aria-label="Annuler et fermer">
-                    Annuler
+                <button onClick={onClose} className="px-4 sm:px-6 py-2 sm:py-2.5 text-sm sm:text-base text-slate-600 font-bold rounded-xl hover:bg-slate-200 transition-colors" aria-label={_({ fr: 'Annuler et fermer', ar: 'إلغاء وإغلاق', en: 'Cancel and close', es: 'Cancelar y cerrar', pt: 'Cancelar e fechar', tr: 'İptal et ve kapat' })}>
+                    {_({ fr: 'Annuler', ar: 'إلغاء', en: 'Cancel', es: 'Cancelar', pt: 'Cancelar', tr: 'İptal' })}
                 </button>
-                <button onClick={handleApply} disabled={calcMode === 'poste' ? machineSummary.length === 0 : (!indiceGarment || indiceBobbinsTotal <= 0)} className="px-4 sm:px-6 py-2 sm:py-2.5 text-sm sm:text-base bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2" aria-label={`Appliquer ${calcMode === 'poste' ? grandTotal.totalBobbins : indiceBobbinsTotal} bobines`}>
+                <button onClick={handleApply} disabled={calcMode === 'poste' ? machineSummary.length === 0 : (!indiceGarment || indiceBobbinsTotal <= 0)} className="px-4 sm:px-6 py-2 sm:py-2.5 text-sm sm:text-base bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2" aria-label={`${_({ fr: 'Appliquer', ar: 'تطبيق', en: 'Apply', es: 'Aplicar', pt: 'Aplicar', tr: 'Uygula' })} ${calcMode === 'poste' ? grandTotal.totalBobbins : indiceBobbinsTotal} ${_({ fr: 'bobines', ar: 'بكرات', en: 'bobbins', es: 'bobinas', pt: 'bobinas', tr: 'bobin' })}`}>
                     <Check className="w-4 h-4" />
-                    Appliquer ({calcMode === 'poste' ? grandTotal.totalBobbins : indiceBobbinsTotal} bobines)
+                    {_({ fr: 'Appliquer', ar: 'تطبيق', en: 'Apply', es: 'Aplicar', pt: 'Aplicar', tr: 'Uygula' })} ({calcMode === 'poste' ? grandTotal.totalBobbins : indiceBobbinsTotal} {_({ fr: 'bobines', ar: 'بكرات', en: 'bobbins', es: 'bobinas', pt: 'bobinas', tr: 'bobin' })})
                 </button>
             </div>
         </div>
@@ -2075,6 +2069,8 @@ interface ThreadTypesManagerProps {
  * d'ajouter, renommer et supprimer les types de la liste.
  */
 function ThreadTypesManager({ availableThreadTypes, onAdd, onRename, onDelete }: ThreadTypesManagerProps) {
+    const { lang } = useLang();
+    const _ = useCallback((m: TxMap) => tx(lang, m), [lang]);
     const [open, setOpen] = useState(false);
     const [newInput, setNewInput] = useState('');
     const [editing, setEditing] = useState<string | null>(null);
@@ -2100,12 +2096,12 @@ function ThreadTypesManager({ availableThreadTypes, onAdd, onRename, onDelete }:
                 type="button"
                 onClick={() => setOpen(o => !o)}
                 className="flex items-center gap-1 px-3 py-1 text-sm border border-amber-300 rounded-lg font-bold bg-amber-50 text-amber-700 hover:bg-amber-100 transition-colors"
-                title="Gérer les types de fil (ajouter / modifier / supprimer)"
-                aria-label="Gérer les types de fil"
+                title={_({ fr: 'Gérer les types de fil (ajouter / modifier / supprimer)', ar: 'إدارة أنواع الخيط (إضافة / تعديل / حذف)', en: 'Manage thread types (add / edit / delete)', es: 'Gestionar tipos de hilo (añadir / modificar / eliminar)', pt: 'Gerenciar tipos de fio (adicionar / editar / excluir)', tr: 'İplik türlerini yönet (ekle / düzenle / sil)' })}
+                aria-label={_({ fr: 'Gérer les types de fil', ar: 'إدارة أنواع الخيط', en: 'Manage thread types', es: 'Gestionar tipos de hilo', pt: 'Gerenciar tipos de fio', tr: 'İplik türlerini yönet' })}
                 aria-expanded={open}
             >
                 <Plus className="w-3.5 h-3.5" />
-                Ajouter
+                {_({ fr: 'Ajouter', ar: 'إضافة', en: 'Add', es: 'Añadir', pt: 'Adicionar', tr: 'Ekle' })}
                 {availableThreadTypes.length > 0 && (
                     <span className="text-[10px] bg-amber-200 text-amber-800 px-1.5 py-0.5 rounded-full ml-1">{availableThreadTypes.length}</span>
                 )}
@@ -2120,15 +2116,15 @@ function ThreadTypesManager({ availableThreadTypes, onAdd, onRename, onDelete }:
                                 value={newInput}
                                 onChange={(e) => setNewInput(e.target.value)}
                                 onKeyDown={(e) => { if (e.key === 'Enter') handleAdd(); if (e.key === 'Escape') setOpen(false); }}
-                                placeholder="Nouveau type (ex: Polyester Tex 27)"
+                                placeholder={_({ fr: 'Nouveau type (ex: Polyester Tex 27)', ar: 'نوع جديد (مثال: بوليستر Tex 27)', en: 'New type (ex: Polyester Tex 27)', es: 'Nuevo tipo (ej: Polyester Tex 27)', pt: 'Novo tipo (ex: Poliéster Tex 27)', tr: 'Yeni tür (ör: Polyester Tex 27)' })}
                                 className="flex-1 min-w-0 px-2 py-1 text-xs border border-amber-200 rounded-lg font-mono bg-amber-50/50 outline-none focus:border-amber-500"
-                                aria-label="Nouveau type de fil"
+                                aria-label={_({ fr: 'Nouveau type de fil', ar: 'نوع خيط جديد', en: 'New thread type', es: 'Nuevo tipo de hilo', pt: 'Novo tipo de fio', tr: 'Yeni iplik türü' })}
                             />
-                            <button type="button" onClick={handleAdd} className="p-1.5 bg-amber-500 text-white rounded-lg hover:bg-amber-600 transition-colors shrink-0" aria-label="Ajouter ce type"><Plus className="w-4 h-4" /></button>
+                            <button type="button" onClick={handleAdd} className="p-1.5 bg-amber-500 text-white rounded-lg hover:bg-amber-600 transition-colors shrink-0" aria-label={_({ fr: 'Ajouter ce type', ar: 'إضافة هذا النوع', en: 'Add this type', es: 'Añadir este tipo', pt: 'Adicionar este tipo', tr: 'Bu türü ekle' })}><Plus className="w-4 h-4" /></button>
                         </div>
                         <div className="max-h-48 overflow-y-auto space-y-1 pt-1 border-t border-slate-100">
                             {availableThreadTypes.length === 0 ? (
-                                <p className="text-xs text-slate-400 text-center py-2">Aucun type de fil</p>
+                                <p className="text-xs text-slate-400 text-center py-2">{_({ fr: 'Aucun type de fil', ar: 'لا يوجد نوع خيط', en: 'No thread types', es: 'Ningún tipo de hilo', pt: 'Nenhum tipo de fio', tr: 'İplik türü yok' })}</p>
                             ) : availableThreadTypes.map(tt => (
                                 <div key={tt} className="flex items-center gap-1 p-1 rounded-lg hover:bg-slate-50">
                                     {editing === tt ? (
@@ -2140,16 +2136,16 @@ function ThreadTypesManager({ availableThreadTypes, onAdd, onRename, onDelete }:
                                                 onChange={(e) => setEditValue(e.target.value)}
                                                 onKeyDown={(e) => { if (e.key === 'Enter') commitEdit(); if (e.key === 'Escape') { setEditing(null); setEditValue(''); } }}
                                                 className="flex-1 min-w-0 px-2 py-1 text-xs border border-amber-300 rounded font-mono bg-amber-50 outline-none focus:border-amber-500"
-                                                aria-label={`Renommer ${tt}`}
+                                                aria-label={`${_({ fr: 'Renommer', ar: 'إعادة تسمية', en: 'Rename', es: 'Renombrar', pt: 'Renomear', tr: 'Yeniden adlandır' })} ${tt}`}
                                             />
-                                            <button type="button" onClick={commitEdit} className="p-1 text-emerald-600 hover:bg-emerald-50 rounded shrink-0" aria-label="Confirmer"><Check className="w-3.5 h-3.5" /></button>
-                                            <button type="button" onClick={() => { setEditing(null); setEditValue(''); }} className="p-1 text-slate-400 hover:bg-slate-100 rounded shrink-0" aria-label="Annuler"><X className="w-3.5 h-3.5" /></button>
+                                            <button type="button" onClick={commitEdit} className="p-1 text-emerald-600 hover:bg-emerald-50 rounded shrink-0" aria-label={_({ fr: 'Confirmer', ar: 'تأكيد', en: 'Confirm', es: 'Confirmar', pt: 'Confirmar', tr: 'Onayla' })}><Check className="w-3.5 h-3.5" /></button>
+                                            <button type="button" onClick={() => { setEditing(null); setEditValue(''); }} className="p-1 text-slate-400 hover:bg-slate-100 rounded shrink-0" aria-label={_({ fr: 'Annuler', ar: 'إلغاء', en: 'Cancel', es: 'Cancelar', pt: 'Cancelar', tr: 'İptal' })}><X className="w-3.5 h-3.5" /></button>
                                         </>
                                     ) : (
                                         <>
                                             <span className="flex-1 min-w-0 truncate font-mono text-xs text-slate-700">{tt}</span>
-                                            <button type="button" onClick={() => startEdit(tt)} className="p-1 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded shrink-0" title="Modifier" aria-label={`Modifier ${tt}`}><Pencil className="w-3.5 h-3.5" /></button>
-                                            <button type="button" onClick={() => onDelete(tt)} className="p-1 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded shrink-0" title="Supprimer" aria-label={`Supprimer ${tt}`}><Trash2 className="w-3.5 h-3.5" /></button>
+                                            <button type="button" onClick={() => startEdit(tt)} className="p-1 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded shrink-0" title={_({ fr: 'Modifier', ar: 'تعديل', en: 'Edit', es: 'Editar', pt: 'Editar', tr: 'Düzenle' })} aria-label={`${_({ fr: 'Modifier', ar: 'تعديل', en: 'Edit', es: 'Editar', pt: 'Editar', tr: 'Düzenle' })} ${tt}`}><Pencil className="w-3.5 h-3.5" /></button>
+                                            <button type="button" onClick={() => onDelete(tt)} className="p-1 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded shrink-0" title={_({ fr: 'Supprimer', ar: 'حذف', en: 'Delete', es: 'Eliminar', pt: 'Excluir', tr: 'Sil' })} aria-label={`${_({ fr: 'Supprimer', ar: 'حذف', en: 'Delete', es: 'Eliminar', pt: 'Excluir', tr: 'Sil' })} ${tt}`}><Trash2 className="w-3.5 h-3.5" /></button>
                                         </>
                                     )}
                                 </div>
@@ -2199,15 +2195,16 @@ function MultiThreadEditor({ op, index, effectiveColors, availableThreadTypes, o
     onSetThreadSlot: (index: number, slot: number, value: string) => void;
     onToggleColorActive: (index: number, colorId: string) => void;
 }) {
+    const { lang } = useLang();
+    const _ = useCallback((m: TxMap) => tx(lang, m), [lang]);
     const [brush, setBrush] = useState('');
     const perThread = op.threadSlots.length > 0 ? op.threadMetersPerUnit / op.threadSlots.length : 0;
 
-    // Résumé : « 2 × Couleur modèle · 1 × Noir Tex 27 »
     const summary = useMemo(() => {
         const counts: Record<string, number> = {};
-        op.threadSlots.forEach(s => { const k = s || 'Couleur modèle'; counts[k] = (counts[k] || 0) + 1; });
+        op.threadSlots.forEach(s => { const k = s || _({ fr: 'Couleur modèle', ar: 'لون النموذج', en: 'Model color', es: 'Color modelo', pt: 'Cor modelo', tr: 'Model rengi' }); counts[k] = (counts[k] || 0) + 1; });
         return Object.entries(counts).map(([k, n]) => `${n} × ${k}`).join(' · ');
-    }, [op.threadSlots]);
+    }, [op.threadSlots, lang]);
 
     const chip = (value: string, label: string) => {
         const active = brush === value;
@@ -2218,7 +2215,7 @@ function MultiThreadEditor({ op, index, effectiveColors, availableThreadTypes, o
                 type="button"
                 onClick={() => setBrush(value)}
                 className={`flex items-center gap-1 px-1.5 py-0.5 rounded-full border text-[10px] font-medium transition-colors ${active ? 'border-slate-700 bg-slate-100 text-slate-800' : 'border-slate-200 bg-white text-slate-500 hover:border-slate-400'}`}
-                title={value ? `Pinceau : ${label} (fil standard, toutes couleurs)` : 'Pinceau : fil couleur modèle (suit chaque couleur de la commande)'}
+                title={value ? `${_({ fr: 'Pinceau :', ar: 'فرشاة:', en: 'Brush:', es: 'Pincel:', pt: 'Pincel:', tr: 'Fırça:' })} ${label} (${_({ fr: 'fil standard, toutes couleurs', ar: 'خيط قياسي، كل الألوان', en: 'standard thread, all colors', es: 'hilo estándar, todos los colores', pt: 'fio padrão, todas as cores', tr: 'standart iplik, tüm renkler' })})` : `${_({ fr: 'Pinceau : fil couleur modèle (suit chaque couleur de la commande)', ar: 'فرشاة: خيط لون النموذج (يتبع كل لون من الطلبية)', en: 'Brush: model color thread (follows each order color)', es: 'Pincel: hilo color modelo (sigue cada color del pedido)', pt: 'Pincel: fio cor modelo (segue cada cor do pedido)', tr: 'Fırça: model rengi iplik (her sipariş rengini takip eder)' })}`}
                 aria-pressed={active}
             >
                 <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: color }} />
@@ -2229,13 +2226,11 @@ function MultiThreadEditor({ op, index, effectiveColors, availableThreadTypes, o
 
     return (
         <div className="space-y-1.5">
-            {/* Pinceaux : couleur modèle + types de fil standard */}
             <div className="flex flex-wrap gap-1">
-                {chip('', 'Couleur modèle')}
+                {chip('', _({ fr: 'Couleur modèle', ar: 'لون النموذج', en: 'Model color', es: 'Color modelo', pt: 'Cor modelo', tr: 'Model rengi' }))}
                 {availableThreadTypes.map(tt => chip(tt, tt))}
             </div>
 
-            {/* Cercles : un par fil du poste */}
             <div className="flex items-center gap-1.5 flex-wrap">
                 {op.threadSlots.map((s, i) => (
                     <button
@@ -2244,20 +2239,19 @@ function MultiThreadEditor({ op, index, effectiveColors, availableThreadTypes, o
                         onClick={() => onSetThreadSlot(index, i, brush)}
                         className="w-5 h-5 rounded-full border-2 border-white shadow ring-1 ring-slate-200 transition-transform hover:scale-110"
                         style={{ backgroundColor: slotColor(s, availableThreadTypes) }}
-                        title={`Fil ${i + 1} : ${s || 'Couleur modèle'}${perThread > 0 ? ` (≈ ${perThread.toFixed(2)} m/pc)` : ''} — cliquer pour affecter « ${brush || 'Couleur modèle'} »`}
-                        aria-label={`Fil ${i + 1} de l'opération ${op.operation.order} : ${s || 'couleur modèle'}`}
+                        title={`${_({ fr: 'Fil', ar: 'خيط', en: 'Thread', es: 'Hilo', pt: 'Fio', tr: 'İplik' })} ${i + 1} : ${s || _({ fr: 'Couleur modèle', ar: 'لون النموذج', en: 'Model color', es: 'Color modelo', pt: 'Cor modelo', tr: 'Model rengi' })}${perThread > 0 ? ` (≈ ${perThread.toFixed(2)} m/pc)` : ''} — ${_({ fr: 'cliquer pour affecter', ar: 'انقر لتعيين', en: 'click to assign', es: 'clic para asignar', pt: 'clique para atribuir', tr: 'atamak için tıklayın' })} « ${brush || _({ fr: 'Couleur modèle', ar: 'لون النموذج', en: 'Model color', es: 'Color modelo', pt: 'Cor modelo', tr: 'Model rengi' })} »`}
+                        aria-label={`${_({ fr: 'Fil', ar: 'خيط', en: 'Thread', es: 'Hilo', pt: 'Fio', tr: 'İplik' })} ${i + 1} ${_({ fr: 'de l\'opération', ar: 'من العملية', en: 'of operation', es: 'de la operación', pt: 'da operação', tr: 'işleminin' })} ${op.operation.order} : ${s || _({ fr: 'couleur modèle', ar: 'لون النموذج', en: 'model color', es: 'color modelo', pt: 'cor modelo', tr: 'model rengi' })}`}
                     />
                 ))}
-                <span className="text-[10px] text-slate-400 ml-0.5">{op.threadSlots.length} fils</span>
+                <span className="text-[10px] text-slate-400 ml-0.5">{op.threadSlots.length} {_({ fr: 'fils', ar: 'خيوط', en: 'threads', es: 'hilos', pt: 'fios', tr: 'iplik' })}</span>
             </div>
 
             <p className="text-[10px] text-slate-500 leading-tight">{summary}</p>
 
             {availableThreadTypes.length === 0 && (
-                <p className="text-[10px] text-amber-600">Ajoutez des types de fil (bouton « TYPE FIL » en haut) pour affecter les cercles.</p>
+                <p className="text-[10px] text-amber-600">{_({ fr: 'Ajoutez des types de fil (bouton « TYPE FIL » en haut) pour affecter les cercles.', ar: 'أضف أنواع الخيط (زر «نوع الخيط» بالأعلى) لتعيين الدوائر.', en: 'Add thread types (the "THREAD TYPE" button above) to assign the circles.', es: 'Añada tipos de hilo (botón "TIPO HILO" arriba) para asignar los círculos.', pt: 'Adicione tipos de fio (botão "TIPO FIO" acima) para atribuir os círculos.', tr: 'Daireleri atamak için iplik türleri ekleyin (yukarıdaki "İPLİK TÜRÜ" düğmesi).' })}</p>
             )}
 
-            {/* Couleurs de la commande actives pour cette opération */}
             {effectiveColors.length > 0 && (
                 <div className="flex flex-wrap gap-1 pt-0.5 border-t border-slate-100">
                     {effectiveColors.map(c => {
@@ -2268,7 +2262,7 @@ function MultiThreadEditor({ op, index, effectiveColors, availableThreadTypes, o
                                 type="button"
                                 onClick={() => onToggleColorActive(index, c.id)}
                                 className={`px-1.5 py-0.5 rounded-full border text-[10px] transition-colors ${ct.active ? 'border-emerald-300 bg-emerald-50 text-emerald-700' : 'border-slate-200 bg-white text-slate-400 line-through'}`}
-                                title={ct.active ? `${c.name} : utilisée dans cette opération` : `${c.name} : non utilisée ici`}
+                                title={ct.active ? `${c.name} : ${_({ fr: 'utilisée dans cette opération', ar: 'مستخدمة في هذه العملية', en: 'used in this operation', es: 'usada en esta operación', pt: 'usada nesta operação', tr: 'bu işlemde kullanılan' })}` : `${c.name} : ${_({ fr: 'non utilisée ici', ar: 'غير مستخدمة هنا', en: 'not used here', es: 'no usada aquí', pt: 'não usada aqui', tr: 'burada kullanılmıyor' })}`}
                                 aria-pressed={ct.active}
                             >
                                 {c.name}
@@ -2291,22 +2285,23 @@ function ColorThreadCell({
     onToggleColorActive, onSetColorThreadType, onApplyToAll, onUpdateThreadType,
     onToggleMultiThread, onSetThreadSlot,
 }: ColorThreadCellProps) {
-    // Bouton d'activation du mode multi-fils (cercles = fils du poste)
+    const { lang } = useLang();
+    const _ = useCallback((m: TxMap) => tx(lang, m), [lang]);
     const multiToggle = (
         <button
             type="button"
             onClick={() => onToggleMultiThread(index)}
             className={`self-start flex items-center gap-1 px-1.5 py-0.5 rounded-full border text-[10px] font-semibold transition-colors ${op.multiThread ? 'border-blue-300 bg-blue-50 text-blue-700' : 'border-slate-200 bg-white text-slate-400 hover:border-blue-300 hover:text-blue-600'}`}
-            title={`Mode multi-fils : répartir les ${op.threadSlots.length} fils du poste entre couleur modèle et types standard (consommation divisée à parts égales)`}
+            title={`${_({ fr: 'Mode multi-fils : répartir les', ar: 'وضع متعدد الخيوط: توزيع', en: 'Multi-thread mode: distribute the', es: 'Modo multi-hilo: repartir los', pt: 'Modo multi-fio: distribuir os', tr: 'Çok iplik modu: dağıt' })} ${op.threadSlots.length} ${_({ fr: 'fils du poste entre couleur modèle et types standard (consommation divisée à parts égales)', ar: 'خيط من المحطة بين لون النموذج والأنواع القياسية (استهلاك مقسم بالتساوي)', en: 'station threads between model color and standard types (consumption divided equally)', es: 'hilos del puesto entre color modelo y tipos estándar (consumo dividido a partes iguales)', pt: 'fios do posto entre cor modelo e tipos padrão (consumo dividido igualmente)', tr: 'poste ipliklerini model rengi ve standart türler arasında (tüketim eşit bölünür)' })}`}
             aria-pressed={op.multiThread}
-            aria-label={`Mode multi-fils pour opération ${op.operation.order}`}
+            aria-label={`${_({ fr: 'Mode multi-fils pour opération', ar: 'وضع متعدد الخيوط للعملية', en: 'Multi-thread mode for operation', es: 'Modo multi-hilo para operación', pt: 'Modo multi-fio para operação', tr: 'İşlem için çok iplik modu' })} ${op.operation.order}`}
         >
             <span className="flex items-center -space-x-0.5">
                 {op.threadSlots.slice(0, 4).map((s, i) => (
                     <span key={i} className="w-2 h-2 rounded-full border border-white" style={{ backgroundColor: op.multiThread ? slotColor(s, availableThreadTypes) : '#cbd5e1' }} />
                 ))}
             </span>
-            {op.threadSlots.length} fils
+            {op.threadSlots.length} {_({ fr: 'fils', ar: 'خيوط', en: 'threads', es: 'hilos', pt: 'fios', tr: 'iplik' })}
         </button>
     );
 
@@ -2334,10 +2329,10 @@ function ColorThreadCell({
                     value={op.threadType}
                     onChange={(e) => onUpdateThreadType(index, e.target.value)}
                     className="w-36 px-2 py-1 text-xs font-mono bg-amber-50/30 text-amber-700 border border-amber-100 rounded-lg outline-none focus:border-amber-500 transition-colors"
-                    title="Type de fil utilisé pour cette opération"
-                    aria-label={`Type de fil pour opération ${op.operation.order}`}
+                    title={_({ fr: 'Type de fil utilisé pour cette opération', ar: 'نوع الخيط المستخدم لهذه العملية', en: 'Thread type used for this operation', es: 'Tipo de hilo usado para esta operación', pt: 'Tipo de fio usado para esta operação', tr: 'Bu işlem için kullanılan iplik türü' })}
+                    aria-label={`${_({ fr: 'Type de fil pour opération', ar: 'نوع الخيط للعملية', en: 'Thread type for operation', es: 'Tipo de hilo para operación', pt: 'Tipo de fio para operação', tr: 'İşlem için iplik türü' })} ${op.operation.order}`}
                 >
-                    <option value="">— type fil —</option>
+                    <option value="">{_({ fr: '— type fil —', ar: '— نوع الخيط —', en: '— thread type —', es: '— tipo hilo —', pt: '— tipo fio —', tr: '— iplik türü —' })}</option>
                     {availableThreadTypes.map(tt => <option key={tt} value={tt}>{tt}</option>)}
                 </select>
             </div>
@@ -2355,9 +2350,9 @@ function ColorThreadCell({
                             type="button"
                             onClick={() => onToggleColorActive(index, c.id)}
                             className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors ${ct.active ? 'bg-emerald-500 border-emerald-500 text-white' : 'border-slate-300 hover:border-emerald-400'}`}
-                            title={ct.active ? `${c.name} : utilisée dans cette opération` : `${c.name} : non utilisée ici`}
+                            title={ct.active ? `${c.name} : ${_({ fr: 'utilisée dans cette opération', ar: 'مستخدمة في هذه العملية', en: 'used in this operation', es: 'usada en esta operación', pt: 'usada nesta operação', tr: 'bu işlemde kullanılan' })}` : `${c.name} : ${_({ fr: 'non utilisée ici', ar: 'غير مستخدمة هنا', en: 'not used here', es: 'no usada aquí', pt: 'não usada aqui', tr: 'burada kullanılmıyor' })}`}
                             aria-pressed={ct.active}
-                            aria-label={`Activer ${c.name} pour opération ${op.operation.order}`}
+                            aria-label={`${_({ fr: 'Activer', ar: 'تفعيل', en: 'Activate', es: 'Activar', pt: 'Ativar', tr: 'Etkinleştir' })} ${c.name} ${_({ fr: 'pour opération', ar: 'للعملية', en: 'for operation', es: 'para operación', pt: 'para operação', tr: 'işlemi için' })} ${op.operation.order}`}
                         >
                             {ct.active && <Check className="w-2.5 h-2.5" />}
                         </button>
@@ -2367,18 +2362,18 @@ function ColorThreadCell({
                             onChange={(e) => onSetColorThreadType(index, c.id, e.target.value)}
                             disabled={!ct.active}
                             className="flex-1 min-w-0 px-1 py-0.5 text-[11px] font-mono bg-amber-50/30 text-amber-700 border border-amber-100 rounded outline-none focus:border-amber-500 transition-colors disabled:opacity-40"
-                            title={`Type de fil pour ${c.name} (vide = même fil que l'opération)`}
-                            aria-label={`Type de fil ${c.name} opération ${op.operation.order}`}
+                            title={`${_({ fr: 'Type de fil pour', ar: 'نوع الخيط لـ', en: 'Thread type for', es: 'Tipo de hilo para', pt: 'Tipo de fio para', tr: 'İplik türü' })} ${c.name} (${_({ fr: 'vide = même fil que l\'opération', ar: 'فارغ = نفس خيط العملية', en: 'empty = same thread as operation', es: 'vacío = mismo hilo que la operación', pt: 'vazio = mesmo fio da operação', tr: 'boş = işlemle aynı iplik' })})`}
+                            aria-label={`${_({ fr: 'Type de fil', ar: 'نوع الخيط', en: 'Thread type', es: 'Tipo de hilo', pt: 'Tipo de fio', tr: 'İplik türü' })} ${c.name} ${_({ fr: 'opération', ar: 'عملية', en: 'operation', es: 'operación', pt: 'operação', tr: 'işlem' })} ${op.operation.order}`}
                         >
-                            <option value="">— fil —</option>
+                            <option value="">{_({ fr: '— fil —', ar: '— خيط —', en: '— thread —', es: '— hilo —', pt: '— fio —', tr: '— iplik —' })}</option>
                             {availableThreadTypes.map(tt => <option key={tt} value={tt}>{tt}</option>)}
                         </select>
                         <button
                             type="button"
                             onClick={() => onApplyToAll(index, c.id)}
                             className="p-0.5 text-slate-300 hover:text-amber-600 shrink-0 transition-colors"
-                            title={`Appliquer ${c.name} (on/off + fil) à toutes les opérations`}
-                            aria-label={`Appliquer ${c.name} à toutes les opérations`}
+                            title={`${_({ fr: 'Appliquer', ar: 'تطبيق', en: 'Apply', es: 'Aplicar', pt: 'Aplicar', tr: 'Uygula' })} ${c.name} (on/off + fil) ${_({ fr: 'à toutes les opérations', ar: 'لكل العمليات', en: 'to all operations', es: 'a todas las operaciones', pt: 'a todas as operações', tr: 'tüm işlemlere' })}`}
+                            aria-label={`${_({ fr: 'Appliquer', ar: 'تطبيق', en: 'Apply', es: 'Aplicar', pt: 'Aplicar', tr: 'Uygula' })} ${c.name} ${_({ fr: 'à toutes les opérations', ar: 'لكل العمليات', en: 'to all operations', es: 'a todas las operaciones', pt: 'a todas as operações', tr: 'tüm işlemlere' })}`}
                         >
                             <Copy className="w-3 h-3" />
                         </button>
@@ -2468,6 +2463,8 @@ function ThreadPrintView({
     opsData,
     grandTotal,
 }: ThreadPrintViewProps) {
+    const { lang } = useLang();
+    const _ = useCallback((m: TxMap) => tx(lang, m), [lang]);
     return (
         <div className="thread-print-root p-8">
             <style dangerouslySetInnerHTML={{ __html: `
@@ -2520,46 +2517,43 @@ function ThreadPrintView({
                 }
             ` }} />
 
-            {/* Print Header */}
             <div className="print-header flex justify-between items-start">
                 <div>
-                    <h1 className="text-2xl font-bold text-slate-900 tracking-tight">RAPPORT DE CONSOMMATION DE FIL</h1>
-                    <p className="text-sm text-slate-500 font-medium mt-1">Généré le {new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
+                    <h1 className="text-2xl font-bold text-slate-900 tracking-tight">{_({ fr: 'RAPPORT DE CONSOMMATION DE FIL', ar: 'تقرير استهلاك الخيط', en: 'THREAD CONSUMPTION REPORT', es: 'INFORME DE CONSUMO DE HILO', pt: 'RELATÓRIO DE CONSUMO DE FIO', tr: 'İPLİK TÜKETİM RAPORU' })}</h1>
+                    <p className="text-sm text-slate-500 font-medium mt-1">{_({ fr: 'Généré le', ar: 'تم الإنشاء في', en: 'Generated on', es: 'Generado el', pt: 'Gerado em', tr: 'Oluşturulma' })} {new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
                 </div>
                 <div className="text-right text-xs text-slate-500 space-y-1">
                     <p><span className="font-bold">BERAMETHODE</span></p>
-                    <p>Atelier Méthodes</p>
+                    <p>{_({ fr: 'Atelier Méthodes', ar: 'ورشة الطرق', en: 'Methods Workshop', es: 'Taller de Métodos', pt: 'Oficina de Métodos', tr: 'Metot Atölyesi' })}</p>
                 </div>
             </div>
 
-            {/* Fiche details */}
             <div className="grid grid-cols-3 gap-4 mb-6 border border-slate-200 rounded-lg p-4 bg-slate-50/50">
                 <div>
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Quantité Commande</p>
-                    <p className="text-sm font-bold text-slate-800">{formatNumberFr(effectiveQty)} pièces</p>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{_({ fr: 'Quantité Commande', ar: 'كمية الطلب', en: 'Order Quantity', es: 'Cantidad Pedido', pt: 'Quantidade Pedido', tr: 'Sipariş Miktarı' })}</p>
+                    <p className="text-sm font-bold text-slate-800">{formatNumberFr(effectiveQty)} {_({ fr: 'pièces', ar: 'قطعة', en: 'pieces', es: 'piezas', pt: 'peças', tr: 'adet' })}</p>
                 </div>
                 <div>
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Humidité / Usure</p>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{_({ fr: 'Humidité / Usure', ar: 'الرطوبة / التآكل', en: 'Humidity / Waste', es: 'Humedad / Desperdicio', pt: 'Umidade / Desperdício', tr: 'Nem / Atık' })}</p>
                     <p className="text-sm font-bold text-slate-800">+{wastePercent}%</p>
                 </div>
                 <div>
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Taille de Bobine</p>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{_({ fr: 'Taille de Bobine', ar: 'حجم البكرة', en: 'Bobbin Size', es: 'Tamaño Bobina', pt: 'Tamanho Bobina', tr: 'Bobin Boyutu' })}</p>
                     <p className="text-sm font-bold text-slate-800">{formatNumberFr(selectedBobbinSize)} m</p>
                 </div>
             </div>
 
-            {/* Machine Summary Table */}
-            <h2 className="text-base font-bold text-slate-800 mb-2 uppercase tracking-wide border-b pb-1">1. Récapitulatif par Machine</h2>
+            <h2 className="text-base font-bold text-slate-800 mb-2 uppercase tracking-wide border-b pb-1">{_({ fr: '1. Récapitulatif par Machine', ar: '1. ملخص حسب الآلة', en: '1. Summary by Machine', es: '1. Resumen por Máquina', pt: '1. Resumo por Máquina', tr: '1. Makineye Göre Özet' })}</h2>
             <table className="print-table">
                 <thead>
                     <tr>
-                        <th>Machine</th>
-                        <th>Code</th>
-                        <th>Fils</th>
-                        <th className="text-right">Mètres / Pièce</th>
-                        <th className="text-right">Mètres Totaux</th>
-                        <th className="text-right">Mètres (+ {wastePercent}%)</th>
-                        <th className="text-right">Bobines Requises</th>
+                        <th>{_({ fr: 'Machine', ar: 'آلة', en: 'Machine', es: 'Máquina', pt: 'Máquina', tr: 'Makine' })}</th>
+                        <th>{_({ fr: 'Code', ar: 'الكود', en: 'Code', es: 'Código', pt: 'Código', tr: 'Kod' })}</th>
+                        <th>{_({ fr: 'Fils', ar: 'خيوط', en: 'Threads', es: 'Hilos', pt: 'Fios', tr: 'İplik' })}</th>
+                        <th className="text-right">{_({ fr: 'Mètres / Pièce', ar: 'أمتار / قطعة', en: 'Meters / Piece', es: 'Metros / Pieza', pt: 'Metros / Peça', tr: 'Metre / Adet' })}</th>
+                        <th className="text-right">{_({ fr: 'Mètres Totaux', ar: 'إجمالي الأمتار', en: 'Total Meters', es: 'Metros Totales', pt: 'Metros Totais', tr: 'Toplam Metre' })}</th>
+                        <th className="text-right">{_({ fr: 'Mètres (+', ar: 'أمتار (+', en: 'Meters (+', es: 'Metros (+', pt: 'Metros (+', tr: 'Metre (+' })}{wastePercent}%)</th>
+                        <th className="text-right">{_({ fr: 'Bobines Requises', ar: 'البكرات المطلوبة', en: 'Required Bobbins', es: 'Bobinas Requeridas', pt: 'Bobinas Necessárias', tr: 'Gerekli Bobinler' })}</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -2567,28 +2561,27 @@ function ThreadPrintView({
                         <tr key={idx}>
                             <td className="font-bold">{m.machineLabel}</td>
                             <td className="font-mono text-slate-500">{m.machineCode}</td>
-                            <td>{m.threadCount} fils</td>
+                            <td>{m.threadCount} {_({ fr: 'fils', ar: 'خيوط', en: 'threads', es: 'hilos', pt: 'fios', tr: 'iplik' })}</td>
                             <td className="text-right font-mono">{m.threadMetersPerUnit.toFixed(2)} m</td>
                             <td className="text-right font-mono">{formatNumberFr(m.totalMeters, 2, 2)} m</td>
                             <td className="text-right font-mono font-bold text-amber-700">{formatNumberFr(Math.ceil(m.totalMeters * (1 + wastePercent / 100)))} m</td>
-                            <td className="text-right font-bold text-emerald-700">{formatNumberFr(m.totalBobbins)} bob</td>
+                            <td className="text-right font-bold text-emerald-700">{formatNumberFr(m.totalBobbins)} {_({ fr: 'bob', ar: 'بكرة', en: 'bob', es: 'bob', pt: 'bob', tr: 'bob' })}</td>
                         </tr>
                     ))}
                 </tbody>
             </table>
 
-            {/* Color Breakdown Table (if available) */}
             {colorBreakdown.length > 0 && (
                 <>
-                    <h2 className="text-base font-bold text-slate-800 mb-2 uppercase tracking-wide border-b pb-1">2. Détail par Couleur</h2>
+                    <h2 className="text-base font-bold text-slate-800 mb-2 uppercase tracking-wide border-b pb-1">{_({ fr: '2. Détail par Couleur', ar: '2. تفصيل حسب اللون', en: '2. Detail by Color', es: '2. Detalle por Color', pt: '2. Detalhe por Cor', tr: '2. Renklere Göre Detay' })}</h2>
                     <table className="print-table">
                         <thead>
                             <tr>
-                                <th>Couleur</th>
-                                <th>Type Fil</th>
-                                <th className="text-right">Quantité Pièces</th>
-                                <th className="text-right">Mètres Totaux</th>
-                                <th className="text-right">Bobines ({selectedBobbinSize}m)</th>
+                                <th>{_({ fr: 'Couleur', ar: 'اللون', en: 'Color', es: 'Color', pt: 'Cor', tr: 'Renk' })}</th>
+                                <th>{_({ fr: 'Type Fil', ar: 'نوع الخيط', en: 'Thread Type', es: 'Tipo Hilo', pt: 'Tipo Fio', tr: 'İplik Türü' })}</th>
+                                <th className="text-right">{_({ fr: 'Quantité Pièces', ar: 'عدد القطع', en: 'Piece Quantity', es: 'Cantidad Piezas', pt: 'Quantidade Peças', tr: 'Adet Miktarı' })}</th>
+                                <th className="text-right">{_({ fr: 'Mètres Totaux', ar: 'إجمالي الأمتار', en: 'Total Meters', es: 'Metros Totales', pt: 'Metros Totais', tr: 'Toplam Metre' })}</th>
+                                <th className="text-right">{_({ fr: 'Bobines', ar: 'بكرات', en: 'Bobbins', es: 'Bobinas', pt: 'Bobinas', tr: 'Bobinler' })} ({selectedBobbinSize}m)</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -2598,7 +2591,7 @@ function ThreadPrintView({
                                     <td>{color.threadType || '—'}</td>
                                     <td className="text-right">{formatNumberFr(color.quantity)}</td>
                                     <td className="text-right font-mono">{formatNumberFr(color.threadMeters, 2, 2)} m</td>
-                                    <td className="text-right font-bold text-emerald-700">{formatNumberFr(color.bobbins)} bob</td>
+                                    <td className="text-right font-bold text-emerald-700">{formatNumberFr(color.bobbins)} {_({ fr: 'bob', ar: 'بكرة', en: 'bob', es: 'bob', pt: 'bob', tr: 'bob' })}</td>
                                 </tr>
                             ))}
                         </tbody>
@@ -2606,38 +2599,36 @@ function ThreadPrintView({
                 </>
             )}
 
-            {/* Grand Totals */}
             <div className="print-totals-box">
                 <div className="grid grid-cols-3 gap-6 text-center font-bold">
                     <div>
-                        <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Total Mètres / Pièce</p>
+                        <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{_({ fr: 'Total Mètres / Pièce', ar: 'إجمالي الأمتار / قطعة', en: 'Total Meters / Piece', es: 'Total Metros / Pieza', pt: 'Total Metros / Peça', tr: 'Toplam Metre / Adet' })}</p>
                         <p className="text-2xl text-slate-800 mt-1">{grandTotal.totalMetersPerUnit.toFixed(2)} m</p>
                     </div>
                     <div>
-                        <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Total Mètres Global</p>
+                        <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{_({ fr: 'Total Mètres Global', ar: 'إجمالي الأمتار الكلي', en: 'Total Global Meters', es: 'Total Metros Global', pt: 'Total Metros Global', tr: 'Genel Toplam Metre' })}</p>
                         <p className="text-2xl text-blue-700 mt-1">{formatNumberFr(grandTotal.totalMeters, 2, 2)} m</p>
                     </div>
                     <div>
-                        <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Total Bobines Requises</p>
-                        <p className="text-2xl text-emerald-700 mt-1">{formatNumberFr(grandTotal.totalBobbins)} bobines</p>
+                        <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{_({ fr: 'Total Bobines Requises', ar: 'إجمالي البكرات المطلوبة', en: 'Total Required Bobbins', es: 'Total Bobinas Requeridas', pt: 'Total Bobinas Necessárias', tr: 'Toplam Gerekli Bobin' })}</p>
+                        <p className="text-2xl text-emerald-700 mt-1">{formatNumberFr(grandTotal.totalBobbins)} {_({ fr: 'bobines', ar: 'بكرات', en: 'bobbins', es: 'bobinas', pt: 'bobinas', tr: 'bobin' })}</p>
                     </div>
                 </div>
             </div>
 
-            {/* Operations Detail Table */}
             <h2 className="text-base font-bold text-slate-800 mb-2 uppercase tracking-wide border-b pb-1 mt-6">
-                {colorBreakdown.length > 0 ? '3.' : '2.'} Liste des Opérations Sélectionnées
+                {colorBreakdown.length > 0 ? '3.' : '2.'} {_({ fr: 'Liste des Opérations Sélectionnées', ar: 'قائمة العمليات المحددة', en: 'List of Selected Operations', es: 'Lista de Operaciones Seleccionadas', pt: 'Lista de Operações Selecionadas', tr: 'Seçilen İşlemlerin Listesi' })}
             </h2>
             <table className="print-table">
                 <thead>
                     <tr>
                         <th className="w-12">N°</th>
-                        <th>Description</th>
-                        <th>Machine</th>
-                        <th>Type Point</th>
-                        <th className="text-center">L / Qté (cm/pc)</th>
-                        <th className="text-right">Conso/M</th>
-                        <th className="text-right">Mètres/Unit</th>
+                        <th>{_({ fr: 'Description', ar: 'الوصف', en: 'Description', es: 'Descripción', pt: 'Descrição', tr: 'Açıklama' })}</th>
+                        <th>{_({ fr: 'Machine', ar: 'آلة', en: 'Machine', es: 'Máquina', pt: 'Máquina', tr: 'Makine' })}</th>
+                        <th>{_({ fr: 'Type Point', ar: 'نوع الغرزة', en: 'Stitch Type', es: 'Tipo Puntada', pt: 'Tipo Ponto', tr: 'Dikiş Türü' })}</th>
+                        <th className="text-center">{_({ fr: 'L / Qté (cm/pc)', ar: 'الطول / الكمية (سم/قطعة)', en: 'L / Qty (cm/pc)', es: 'L / Cant (cm/pz)', pt: 'Comp / Qtde (cm/pç)', tr: 'Uzunluk / Miktar (cm/adet)' })}</th>
+                        <th className="text-right">{_({ fr: 'Conso/M', ar: 'استهلاك/م', en: 'Cons./M', es: 'Cons./M', pt: 'Cons./M', tr: 'Tük./M' })}</th>
+                        <th className="text-right">{_({ fr: 'Mètres/Unit', ar: 'متر/وحدة', en: 'Meters/Unit', es: 'Metros/Unidad', pt: 'Metros/Unidade', tr: 'Metre/Birim' })}</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -2646,8 +2637,8 @@ function ThreadPrintView({
                             <td className="font-bold">{op.operation.order}</td>
                             <td>{op.operation.description || '—'}</td>
                             <td>{op.machineRaw || '—'}</td>
-                            <td className="text-xs text-slate-600">{op.stitchType?.name || 'Non défini'}</td>
-                            <td className="text-center font-mono">{op.lengthCm} {op.isPerPiece ? 'pc' : 'cm'}</td>
+                            <td className="text-xs text-slate-600">{op.stitchType?.name || _({ fr: 'Non défini', ar: 'غير محدد', en: 'Undefined', es: 'No definido', pt: 'Não definido', tr: 'Tanımsız' })}</td>
+                            <td className="text-center font-mono">{op.lengthCm} {op.isPerPiece ? _({ fr: 'pc', ar: 'قطعة', en: 'pc', es: 'pz', pt: 'pç', tr: 'ad' }) : 'cm'}</td>
                             <td className="text-right font-mono">{op.consumptionFactor.toFixed(2)}</td>
                             <td className="text-right font-mono font-bold text-blue-600">{op.threadMetersPerUnit.toFixed(2)} m</td>
                         </tr>
@@ -2655,14 +2646,13 @@ function ThreadPrintView({
                 </tbody>
             </table>
 
-            {/* Signatures */}
             <div className="grid grid-cols-2 gap-8 mt-12 pt-8 border-t border-dashed border-slate-300">
                 <div className="text-center">
-                    <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Visa Méthodes</p>
+                    <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">{_({ fr: 'Visa Méthodes', ar: 'توقيع الطرق', en: 'Methods Approval', es: 'Visto Métodos', pt: 'Visto Métodos', tr: 'Metot Onayı' })}</p>
                     <div className="h-20 border border-slate-200 rounded-lg mt-2 bg-slate-50/50"></div>
                 </div>
                 <div className="text-center">
-                    <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Visa Production / Appro</p>
+                    <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">{_({ fr: 'Visa Production / Appro', ar: 'توقيع الإنتاج / التموين', en: 'Production / Supply Approval', es: 'Visto Producción / Aprovisionamiento', pt: 'Visto Produção / Aprovisionamento', tr: 'Üretim / Tedarik Onayı' })}</p>
                     <div className="h-20 border border-slate-200 rounded-lg mt-2 bg-slate-50/50"></div>
                 </div>
             </div>

@@ -2,6 +2,8 @@ import React from 'react';
 import { CheckCircle2, XCircle } from 'lucide-react';
 import type { AppSettings, Machine, Operation } from '../../types';
 import { getChainMachineIds, machineCoverageRows } from '../../utils/machineMatch';
+import { tx } from '../../lib/i18n';
+import { useLang } from '../../src/context/LanguageContext';
 
 export interface MachineCoverageTableProps {
     operations: Operation[];
@@ -19,13 +21,14 @@ export default function MachineCoverageTable({
     settings,
     chainLabel,
 }: MachineCoverageTableProps) {
+    const { lang } = useLang();
     const ids = getChainMachineIds(chainId, settings, machines);
     const rows = machineCoverageRows(operations, machines, ids);
 
     if (rows.length === 0) {
         return (
             <p className="text-sm text-slate-500 py-2">
-                Aucune opération machine dans la gamme — rien à vérifier.
+                {tx(lang, { fr: 'Aucune opération machine dans la gamme — rien à vérifier.', ar: 'لا توجد عمليات آلية في النطاق — لا شيء للتحقق.', en: 'No machine operations in the routing — nothing to check.', es: 'Sin operaciones de máquina en la ruta — nada que verificar.', pt: 'Nenhuma operação de máquina na rota — nada a verificar.', tr: 'Rotada makine operasyonu yok — kontrol edilecek bir şey yok.' })}
             </p>
         );
     }

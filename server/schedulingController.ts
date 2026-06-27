@@ -11,7 +11,7 @@ import { randomUUID } from 'crypto';
 /** GET /api/scheduling/activity-rates */
 export function getActivityRates(req: Request, res: Response) {
     try {
-        const userId = (req as any).userId;
+        const userId = (req as any).companyId ?? (req as any).user?.id;
         const rows = db.prepare('SELECT * FROM chain_activity_rates WHERE owner_id = ?').all(userId);
         res.json(rows);
     } catch (e: any) {
@@ -22,7 +22,7 @@ export function getActivityRates(req: Request, res: Response) {
 /** POST /api/scheduling/activity-rates */
 export function saveActivityRate(req: Request, res: Response) {
     try {
-        const userId = (req as any).userId;
+        const userId = (req as any).companyId ?? (req as any).user?.id;
         const { chainId, rate, source, sampleDate, totalObservations, activeObservations } = req.body;
 
         if (!chainId || typeof rate !== 'number') {
@@ -52,7 +52,7 @@ export function saveActivityRate(req: Request, res: Response) {
 /** GET /api/scheduling/learning-curves */
 export function getLearningCurves(req: Request, res: Response) {
     try {
-        const userId = (req as any).userId;
+        const userId = (req as any).companyId ?? (req as any).user?.id;
         const rows = db.prepare('SELECT * FROM learning_curve_profiles WHERE owner_id = ?').all(userId);
         res.json(rows);
     } catch (e: any) {
@@ -63,7 +63,7 @@ export function getLearningCurves(req: Request, res: Response) {
 /** POST /api/scheduling/learning-curves */
 export function saveLearningCurve(req: Request, res: Response) {
     try {
-        const userId = (req as any).userId;
+        const userId = (req as any).companyId ?? (req as any).user?.id;
         const { id: existingId, name, day1, day2, day3, day4, day5Plus } = req.body;
 
         const id = existingId || `lc-${randomUUID()}`;
@@ -88,7 +88,9 @@ export function saveLearningCurve(req: Request, res: Response) {
 /** DELETE /api/scheduling/learning-curves/:id */
 export function deleteLearningCurve(req: Request, res: Response) {
     try {
-        db.prepare('DELETE FROM learning_curve_profiles WHERE id = ?').run(req.params.id);
+        // Cloisonnement : ne supprimer que dans la société/workspace active (anti-IDOR).
+        const userId = (req as any).companyId ?? (req as any).user?.id;
+        db.prepare('DELETE FROM learning_curve_profiles WHERE id = ? AND owner_id = ?').run(req.params.id, userId);
         res.json({ success: true });
     } catch (e: any) {
         res.status(500).json({ error: e.message });
@@ -100,7 +102,7 @@ export function deleteLearningCurve(req: Request, res: Response) {
 /** GET /api/scheduling/crisis-alerts */
 export function getCrisisAlerts(req: Request, res: Response) {
     try {
-        const userId = (req as any).userId;
+        const userId = (req as any).companyId ?? (req as any).user?.id;
         const status = req.query.status || 'PENDING';
         const rows = db.prepare(
             'SELECT * FROM crisis_alerts WHERE owner_id = ? AND status = ? ORDER BY created_at DESC'
@@ -121,7 +123,7 @@ export function getCrisisAlerts(req: Request, res: Response) {
 /** POST /api/scheduling/crisis-alerts */
 export function saveCrisisAlert(req: Request, res: Response) {
     try {
-        const userId = (req as any).userId;
+        const userId = (req as any).companyId ?? (req as any).user?.id;
         const { planningId, alertType, severity, crValue, deficitPieces, proposedAction } = req.body;
 
         if (!planningId || !alertType || !severity) {
@@ -150,9 +152,11 @@ export function updateCrisisAlert(req: Request, res: Response) {
             ? new Date().toISOString()
             : null;
 
+        // Cloisonnement : ne modifier que dans la société/workspace active (anti-IDOR).
+        const userId = (req as any).companyId ?? (req as any).user?.id;
         db.prepare(
-            'UPDATE crisis_alerts SET status = ?, resolved_at = ? WHERE id = ?'
-        ).run(status, resolvedAt, req.params.id);
+            'UPDATE crisis_alerts SET status = ?, resolved_at = ? WHERE id = ? AND owner_id = ?'
+        ).run(status, resolvedAt, req.params.id, userId);
 
         res.json({ success: true });
     } catch (e: any) {
@@ -165,7 +169,7 @@ export function updateCrisisAlert(req: Request, res: Response) {
 /** POST /api/scheduling/update-cr — Updates CR for all active planning events */
 export function updateAllCR(req: Request, res: Response) {
     try {
-        const userId = (req as any).userId;
+        const userId = (req as any).companyId ?? (req as any).user?.id;
 
         // Fetch all active events
         const events = db.prepare(
@@ -187,13 +191,15 @@ export function updateAllCR(req: Request, res: Response) {
             return res.status(400).json({ error: 'updates array required' });
         }
 
+        // owner_id dans le WHERE : un id forgé dans le body ne peut pas modifier
+        // l'OF d'une autre société/workspace (anti-IDOR).
         const updateStmt = db.prepare(
-            `UPDATE planning_events SET cr_value = ?, cr_status = ?, accumulated_deficit = ? WHERE id = ?`
+            `UPDATE planning_events SET cr_value = ?, cr_status = ?, accumulated_deficit = ? WHERE id = ? AND owner_id = ?`
         );
 
         const tx = db.transaction(() => {
             for (const u of updates) {
-                updateStmt.run(u.crValue, u.crStatus, u.accumulatedDeficit || 0, u.id);
+                updateStmt.run(u.crValue, u.crStatus, u.accumulatedDeficit || 0, u.id, userId);
             }
         });
         tx();

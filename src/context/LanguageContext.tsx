@@ -8,7 +8,7 @@ interface LanguageContextType {
   setLang: (l: Lang) => void;
 }
 
-const LanguageContext = createContext<LanguageContextType>({ lang: 'fr', setLang: () => {} });
+export const LanguageContext = createContext<LanguageContextType>({ lang: 'fr', setLang: () => {} });
 
 /**
  * Fournit la langue active à toute l'application (sans prop-drilling).

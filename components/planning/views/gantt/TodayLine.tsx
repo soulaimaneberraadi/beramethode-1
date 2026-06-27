@@ -1,4 +1,6 @@
 import React, { useEffect, useState } from 'react';
+import { tx } from '../../../../lib/i18n';
+import { useLang } from '../../../../src/context/LanguageContext';
 
 interface Props {
     offsetPx: number;
@@ -7,6 +9,7 @@ interface Props {
 }
 
 export default function TodayLine({ offsetPx, height, pulseKey }: Props) {
+    const { lang } = useLang();
     const [pulsing, setPulsing] = useState(false);
 
     useEffect(() => {
@@ -34,7 +37,7 @@ export default function TodayLine({ offsetPx, height, pulseKey }: Props) {
                     ? 'bg-red-500 text-white shadow-lg'
                     : 'bg-red-500 text-white'
             }`}>
-                Aujourd'hui
+{tx(lang, { fr: "Aujourd'hui", ar: 'اليوم', en: 'Today', es: 'Hoy', pt: 'Hoje', tr: 'Bugün' })}
             </div>
             
             {/* Top dot */}

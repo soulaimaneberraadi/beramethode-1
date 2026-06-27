@@ -7,6 +7,8 @@ import NumberInput from './ui/NumberInput';
 import { findMagasinItem, resolveStock } from '../lib/magasinMatch';
 import { confirmReceptionLocal } from '../lib/confirmReception';
 import FactureUploader from './FactureUploader';
+import { tx } from '../lib/i18n';
+import { useLang } from '../src/context/LanguageContext';
 
 interface OrderSimulationProps {
     t: any;
@@ -41,6 +43,7 @@ const OrderSimulation: React.FC<OrderSimulationProps> = ({
     modelId, modelName, onStockConfirmed,
 }) => {
     const activeQtyToSimulate = orderQty;
+    const { lang } = useLang();
     const totalProjectCost = isExport ? (laborCost * activeQtyToSimulate) : totalPurchasingMatCost + (laborCost * activeQtyToSimulate);
 
     const [magasinData, setMagasinData] = useState<any[]>([]);
@@ -182,26 +185,26 @@ const OrderSimulation: React.FC<OrderSimulationProps> = ({
                     <div className="bg-white rounded-lg border border-slate-200 shadow-sm w-full max-w-lg p-6 overflow-hidden flex flex-col max-h-[80vh]">
                         <div className="flex items-center justify-between mb-4">
                             <h3 className="font-semibold text-slate-800 text-lg flex items-center gap-2">
-                                <PlusCircle className="w-5 h-5 text-slate-400" /> Ajouter un substitut
+                                <PlusCircle className="w-5 h-5 text-slate-400" /> {tx(lang,{fr:'Ajouter un substitut',ar:'إضافة بديل',en:'Add substitute',es:'Añadir sustituto',pt:'Adicionar substituto',tr:'Yedek ekle'})}
                             </h3>
                             <button onClick={() => setSubModal({ open: false, matId: null, matName: null, manque: 0 })} className="p-2 hover:bg-slate-100 rounded-full">
                                 <X className="w-4 h-4" />
                             </button>
                         </div>
-                        <div className="mb-2 text-sm text-slate-600 font-bold px-1">
-                            Manque constaté pour <span className="text-[#2149C1]">{subModal.matName}</span> : {subModal.manque}
-                        </div>
+                            <div className="mb-2 text-sm text-slate-600 font-bold px-1">
+                                {tx(lang,{fr:'Manque constaté pour',ar:'النقص المسجل لـ',en:'Shortfall for',es:'Déficit para',pt:'Falta constatada para',tr:'Eksiklik tespit edilen'})} <span className="text-[#2149C1]">{subModal.matName}</span> : {subModal.manque}
+                            </div>
                         <div className="mb-4">
-                            <label className="text-xs font-bold text-slate-500 uppercase">Rechercher dans le Magasin</label>
+                            <label className="text-xs font-bold text-slate-500 uppercase">{tx(lang,{fr:'Rechercher dans le Magasin',ar:'البحث في المخزن',en:'Search in Store',es:'Buscar en Almacén',pt:'Pesquisar no Armazém',tr:'Mağazada Ara'})}</label>
                             <div className="relative mt-1">
                                 <Search className="w-4 h-4 absolute left-3 top-2.5 text-slate-400" />
-                                <input className="w-full pl-9 pr-3 py-2 bg-slate-50 border rounded-lg text-sm" placeholder="Nom ou référence..." value={subSearch} onChange={e => setSubSearch(e.target.value)} />
+                                <input className="w-full pl-9 pr-3 py-2 bg-slate-50 border rounded-lg text-sm" placeholder={tx(lang,{fr:'Nom ou référence...',ar:'الاسم أو المرجع...',en:'Name or reference...',es:'Nombre o referencia...',pt:'Nome ou referência...',tr:'Ad veya referans...'})} value={subSearch} onChange={e => setSubSearch(e.target.value)} />
                             </div>
                         </div>
                         <div className="flex-1 overflow-y-auto min-h-[200px] border rounded-lg divide-y bg-slate-50">
                             {(magasinData.length > 0 ? magasinData.filter(m => (m.nom || m.designation || '').toLowerCase().includes(subSearch.toLowerCase())) : []).map(mItem => (
                                 <div key={mItem.id} className="p-3 bg-white hover:bg-slate-50 flex justify-between items-center text-sm cursor-pointer transition-colors hover:shadow-sm" onClick={() => {
-                                    const qtyStr = prompt(`Quelle quantité prélever de "${mItem.nom || mItem.designation}" en stock (${mItem.stockActuel || 0}) ?\n(Nécessaire : ${subModal.manque})`, subModal.manque.toString());
+                                    const qtyStr = prompt(tx(lang,{fr:'Quelle quantité prélever de "',ar:'كمية السحب من "',en:'What quantity to take from "',es:'¿Qué cantidad tomar de "',pt:'Qual quantidade retirar de "',tr:'Ne kadar miktar alınsın "'}) + (mItem.nom || mItem.designation) + tx(lang,{fr:'" en stock (',ar:'" بالمخزون (',en:'" in stock (',es:'" en stock (',pt:'" em stock (',tr:'" stokta ('}) + (mItem.stockActuel || 0) + tx(lang,{fr:') ?\n(Nécessaire : ',ar:') ؟\n(المطلوب: ',en:') ?\n(Required: ',es:') ?\n(Necesario: ',pt:') ?\n(Necessário: ',tr:') ?\n(Gerekli: '}) + subModal.manque + tx(lang,{fr:')',ar:')',en:')',es:')',pt:')',tr:')'}), subModal.manque.toString());
                                     if (qtyStr) {
                                         const q = parseFloat(qtyStr.replace(/-/g, ''));
                                         if (!isNaN(q) && q > 0) {
@@ -216,30 +219,30 @@ const OrderSimulation: React.FC<OrderSimulationProps> = ({
                                     </div>
                                     <div className="text-right ml-3">
                                         <div className={`font-semibold ${(mItem.stockActuel || 0) > 0 ? 'text-[#2149C1]' : 'text-slate-300'}`}>{mItem.stockActuel || 0} <span className="text-xs font-medium">{mItem.unite || ''}</span></div>
-                                        <div className={`text-[10px] font-bold ${(mItem.stockActuel || 0) > 0 ? 'text-slate-400' : 'text-slate-300'}`}>{(mItem.stockActuel || 0) > 0 ? 'En stock' : 'Stock 0'}</div>
+                                        <div className={`text-[10px] font-bold ${(mItem.stockActuel || 0) > 0 ? 'text-slate-400' : 'text-slate-300'}`}>{(mItem.stockActuel || 0) > 0 ? tx(lang,{fr:'En stock',ar:'في المخزون',en:'In stock',es:'En stock',pt:'Em stock',tr:'Stokta var'}) : tx(lang,{fr:'Stock 0',ar:'المخزون 0',en:'Stock 0',es:'Stock 0',pt:'Stock 0',tr:'Stok 0'})}</div>
                                     </div>
                                 </div>
                             ))}
                             {magasinData.length === 0 && (
                                 <div className="p-6 text-center">
-                                    <div className="text-sm text-slate-400 font-bold mb-3">Aucun produit dans le magasin</div>
+                                    <div className="text-sm text-slate-400 font-bold mb-3">{tx(lang,{fr:'Aucun produit dans le magasin',ar:'لا توجد منتجات في المخزن',en:'No products in store',es:'Sin productos en el almacén',pt:'Sem produtos no armazém',tr:'Mağazada ürün yok'})}</div>
                                     <button onClick={() => setShowQuickAddModal(true)} className="px-4 py-2 bg-slate-900 text-white text-xs font-medium rounded-md hover:bg-slate-800 transition-colors inline-flex items-center gap-1.5">
-                                        <Plus className="w-3.5 h-3.5" /> Ajouter au Magasin
+                                        <Plus className="w-3.5 h-3.5" /> {tx(lang,{fr:'Ajouter au Magasin',ar:'إضافة إلى المخزن',en:'Add to Store',es:'Añadir al Almacén',pt:'Adicionar ao Armazém',tr:'Depoya Ekle'})}
                                     </button>
                                 </div>
                             )}
                             {magasinData.length > 0 && magasinData.filter(m => (m.nom || m.designation || '').toLowerCase().includes(subSearch.toLowerCase())).length === 0 && (
                                 <div className="p-6 text-center">
-                                    <div className="text-sm text-slate-400 font-bold mb-3">Aucun résultat pour "{subSearch}"</div>
+                                    <div className="text-sm text-slate-400 font-bold mb-3">{tx(lang,{fr:'Aucun résultat pour "',ar:'لا توجد نتائج لـ "',en:'No results for "',es:'Sin resultados para "',pt:'Sem resultados para "',tr:'Sonuç yok "'})}{subSearch}"</div>
                                     <button onClick={() => setShowQuickAddModal(true)} className="px-4 py-2 bg-slate-900 text-white text-xs font-medium rounded-md hover:bg-slate-800 transition-colors inline-flex items-center gap-1.5">
-                                        <Plus className="w-3.5 h-3.5" /> Ajouter au Magasin
+                                        <Plus className="w-3.5 h-3.5" /> {tx(lang,{fr:'Ajouter au Magasin',ar:'إضافة إلى المخزن',en:'Add to Store',es:'Añadir al Almacén',pt:'Adicionar ao Armazém',tr:'Depoya Ekle'})}
                                     </button>
                                 </div>
                             )}
                         </div>
                         <div className="mt-3 flex justify-center">
                             <button onClick={() => setShowQuickAddModal(true)} className="text-[11px] text-[#2149C1] font-bold hover:text-slate-700 transition-colors flex items-center gap-1">
-                                <Plus className="w-3.5 h-3.5" /> Ajouter un nouveau produit au magasin
+                                <Plus className="w-3.5 h-3.5" /> {tx(lang,{fr:'Ajouter un nouveau produit au magasin',ar:'إضافة منتج جديد إلى المخزن',en:'Add new product to store',es:'Añadir nuevo producto al almacén',pt:'Adicionar novo produto ao armazém',tr:'Depoya yeni ürün ekle'})}
                             </button>
                         </div>
                     </div>
@@ -253,13 +256,13 @@ const OrderSimulation: React.FC<OrderSimulationProps> = ({
                         <div className="px-5 h-12 border-b border-slate-100 flex items-center gap-2">
                             <CheckCircle className="w-4 h-4 text-emerald-600" strokeWidth={1.75} />
                             <div>
-                                <h3 className="text-[13px] font-semibold text-slate-900 tracking-tight">Confirmer réception</h3>
+                                <h3 className="text-[13px] font-semibold text-slate-900 tracking-tight">{tx(lang,{fr:'Confirmer réception',ar:'تأكيد الاستلام',en:'Confirm reception',es:'Confirmar recepción',pt:'Confirmar receção',tr:'Teslim almayı onayla'})}</h3>
                                 <p className="text-[11px] text-slate-400">{confirmModal.mat.name}</p>
                             </div>
                         </div>
                         <div className="p-5 space-y-3">
                             <div>
-                                <label className="block text-[11px] font-medium text-slate-500 mb-1.5">Quantité reçue ({confirmModal.mat.unit})</label>
+                                <label className="block text-[11px] font-medium text-slate-500 mb-1.5">{tx(lang,{fr:'Quantité reçue',ar:'الكمية المستلمة',en:'Quantity received',es:'Cantidad recibida',pt:'Quantidade recebida',tr:'Alınan miktar'})} ({confirmModal.mat.unit})</label>
                                 <input
                                     type="number" min="0" step="0.01" autoFocus
                                     value={confirmModal.qty}
@@ -267,14 +270,14 @@ const OrderSimulation: React.FC<OrderSimulationProps> = ({
                                     className="w-full h-9 px-3 bg-slate-50/60 hover:bg-slate-50 focus:bg-white border border-slate-200 focus:border-slate-300 rounded-md text-[13px] font-semibold text-slate-700 focus:ring-2 focus:ring-slate-100 outline-none transition-all tabular-nums"
                                 />
                                 <p className="text-[10.5px] text-slate-400 mt-1.5">
-                                    Besoin : {fmt(confirmModal.mat.buyQty)} {confirmModal.mat.unit}. La quantité confirmée s'ajoute au stock et lève « En attente » (BR pour le Planning).
+                                    {tx(lang,{fr:'Besoin',ar:'الاحتياج',en:'Need',es:'Necesidad',pt:'Necessidade',tr:'İhtiyaç'})} : {fmt(confirmModal.mat.buyQty)} {confirmModal.mat.unit}. {tx(lang,{fr:'La quantité confirmée s\'ajoute au stock et lève « En attente » (BR pour le Planning).',ar:'الكمية المؤكدة تضاف إلى المخزون وترفع "قيد الانتظار" (أمر الإنتاج للتخطيط).',en:'The confirmed quantity adds to stock and clears "Pending" (BR for Planning).',es:'La cantidad confirmada se añade al stock y levanta "Pendiente" (BR para Planificación).',pt:'A quantidade confirmada é adicionada ao stock e levanta "Pendente" (BR para o Planeamento).',tr:'Onaylanan miktar stoğa eklenir ve "Beklemede" durumunu kaldırır (Planlama için BR).'})}
                                 </p>
                             </div>
                         </div>
                         <div className="bg-slate-50 px-5 py-4 flex justify-end gap-2.5 border-t border-slate-100">
-                            <button onClick={() => setConfirmModal({ open: false, qty: '' })} className="px-4 h-9 text-[12px] font-medium text-slate-600 bg-white border border-slate-200 rounded-md hover:bg-slate-50 transition-colors">Annuler</button>
+                            <button onClick={() => setConfirmModal({ open: false, qty: '' })} className="px-4 h-9 text-[12px] font-medium text-slate-600 bg-white border border-slate-200 rounded-md hover:bg-slate-50 transition-colors">{tx(lang,{fr:'Annuler',ar:'إلغاء',en:'Cancel',es:'Cancelar',pt:'Cancelar',tr:'İptal'})}</button>
                             <button onClick={handleConfirmReception} className="inline-flex items-center gap-1.5 px-4 h-9 text-[12px] font-medium text-white bg-slate-900 hover:bg-slate-800 rounded-md transition-colors">
-                                <CheckCircle className="w-3.5 h-3.5" strokeWidth={2} /> Confirmer
+                                <CheckCircle className="w-3.5 h-3.5" strokeWidth={2} /> {tx(lang,{fr:'Confirmer',ar:'تأكيد',en:'Confirm',es:'Confirmar',pt:'Confirmar',tr:'Onayla'})}
                             </button>
                         </div>
                     </div>
@@ -287,7 +290,7 @@ const OrderSimulation: React.FC<OrderSimulationProps> = ({
                     <div className="bg-white rounded-lg border border-slate-200 shadow-sm w-full max-w-md p-5 animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
                         <div className="flex items-center justify-between mb-4">
                             <h3 className="font-semibold text-slate-800 text-base flex items-center gap-2">
-                                <Plus className="w-4 h-4 text-slate-400" /> Ajouter au Magasin
+                                <Plus className="w-4 h-4 text-slate-400" /> {tx(lang,{fr:'Ajouter au Magasin',ar:'إضافة إلى المخزن',en:'Add to Store',es:'Añadir al Almacén',pt:'Adicionar ao Armazém',tr:'Depoya Ekle'})}
                             </h3>
                             <button onClick={() => setShowQuickAddModal(false)} className="p-1.5 text-slate-400 hover:bg-slate-100 rounded-full transition-colors">
                                 <X className="w-3.5 h-3.5" />
@@ -295,36 +298,36 @@ const OrderSimulation: React.FC<OrderSimulationProps> = ({
                         </div>
                         <div className="space-y-3 max-h-[60vh] overflow-y-auto p-1">
                             <div className="flex flex-col items-center justify-center mb-3">
-                                <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1.5 w-full">Photo du produit</label>
+                                <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1.5 w-full">{tx(lang,{fr:'Photo du produit',ar:'صورة المنتج',en:'Product photo',es:'Foto del producto',pt:'Foto do produto',tr:'Ürün fotoğrafı'})}</label>
                                 <div className="w-20 h-20 rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 flex items-center justify-center overflow-hidden relative cursor-pointer hover:bg-slate-100 transition-colors">
                                     {quickAddForm.image ? (
                                         <img src={quickAddForm.image} className="w-full h-full object-cover" alt="preview" />
                                     ) : (
                                         <div className="flex flex-col items-center text-slate-400">
                                             <Package className="w-5 h-5 mb-0.5 opacity-50" />
-                                            <span className="text-[8px] font-bold uppercase">Ajouter</span>
+                                            <span className="text-[8px] font-bold uppercase">{tx(lang,{fr:'Ajouter',ar:'إضافة',en:'Add',es:'Añadir',pt:'Adicionar',tr:'Ekle'})}</span>
                                         </div>
                                     )}
                                     <input type="file" accept="image/*" onChange={handleImageUpload} className="absolute inset-0 opacity-0 cursor-pointer" />
                                 </div>
                             </div>
                             <div>
-                                <label className="block text-[10px] font-bold text-slate-500 uppercase mb-0.5">Désignation / Nom *</label>
-                                <input type="text" value={quickAddForm.nom || ''} onChange={(e) => setQuickAddForm({ ...quickAddForm, nom: e.target.value })} className="w-full rounded px-1.5 py-1 text-[12px] outline-none transition-all focus:ring-1 focus:ring-slate-100 bg-slate-50 border border-slate-200 text-slate-900 focus:bg-white focus:border-slate-300 font-bold" placeholder="Ex: Tissu Denim 12oz" />
+                                <label className="block text-[10px] font-bold text-slate-500 uppercase mb-0.5">{tx(lang,{fr:'Désignation / Nom *',ar:'التسمية / الاسم *',en:'Designation / Name *',es:'Designación / Nombre *',pt:'Designação / Nome *',tr:'Tanım / Ad *'})}</label>
+                                <input type="text" value={quickAddForm.nom || ''} onChange={(e) => setQuickAddForm({ ...quickAddForm, nom: e.target.value })} className="w-full rounded px-1.5 py-1 text-[12px] outline-none transition-all focus:ring-1 focus:ring-slate-100 bg-slate-50 border border-slate-200 text-slate-900 focus:bg-white focus:border-slate-300 font-bold" placeholder={tx(lang,{fr:'Ex: Tissu Denim 12oz',ar:'مثال: قماش دنيم 12oz',en:'Ex: Denim Fabric 12oz',es:'Ej: Tela Denim 12oz',pt:'Ex: Tecido Denim 12oz',tr:'Örn: Denim Kumaş 12oz'})} />
                             </div>
                             <div className="flex gap-3">
                                 <div className="flex-1">
-                                    <label className="block text-[10px] font-bold text-slate-500 uppercase mb-0.5">Référence</label>
-                                    <input type="text" value={quickAddForm.reference || ''} onChange={(e) => setQuickAddForm({ ...quickAddForm, reference: e.target.value })} className="w-full rounded px-1.5 py-1 text-[12px] outline-none transition-all focus:ring-1 focus:ring-slate-100 bg-slate-50 border border-slate-200 text-slate-900 focus:bg-white focus:border-slate-300" placeholder="Ex: REF-001" />
+                                    <label className="block text-[10px] font-bold text-slate-500 uppercase mb-0.5">{tx(lang,{fr:'Référence',ar:'المرجع',en:'Reference',es:'Referencia',pt:'Referência',tr:'Referans'})}</label>
+                                    <input type="text" value={quickAddForm.reference || ''} onChange={(e) => setQuickAddForm({ ...quickAddForm, reference: e.target.value })} className="w-full rounded px-1.5 py-1 text-[12px] outline-none transition-all focus:ring-1 focus:ring-slate-100 bg-slate-50 border border-slate-200 text-slate-900 focus:bg-white focus:border-slate-300" placeholder={tx(lang,{fr:'Ex: REF-001',ar:'مثال: REF-001',en:'Ex: REF-001',es:'Ej: REF-001',pt:'Ex: REF-001',tr:'Örn: REF-001'})} />
                                 </div>
                                 <div className="flex-1">
-                                    <label className="block text-[10px] font-bold text-slate-500 uppercase mb-0.5">Catégorie</label>
+                                    <label className="block text-[10px] font-bold text-slate-500 uppercase mb-0.5">{tx(lang,{fr:'Catégorie',ar:'الفئة',en:'Category',es:'Categoría',pt:'Categoria',tr:'Kategori'})}</label>
                                     <select value={quickAddForm.categorie || 'tissu'} onChange={(e) => setQuickAddForm({ ...quickAddForm, categorie: e.target.value })} className="w-full rounded px-1.5 py-1 text-[12px] outline-none transition-all focus:ring-1 focus:ring-slate-100 bg-slate-50 border border-slate-200 text-slate-900 focus:bg-white focus:border-slate-300">
                                         {['tissu', 'fil', 'bouton', 'fermeture', 'etiquette', 'emballage', 'autre'].map(c => <option key={c} value={c}>{c}</option>)}
                                     </select>
                                 </div>
                                 <div className="w-1/3">
-                                    <label className="block text-[10px] font-bold text-slate-500 uppercase mb-0.5">Unité</label>
+                                    <label className="block text-[10px] font-bold text-slate-500 uppercase mb-0.5">{tx(lang,{fr:'Unité',ar:'الوحدة',en:'Unit',es:'Unidad',pt:'Unidade',tr:'Birim'})}</label>
                                     <select value={quickAddForm.unite || 'm'} onChange={(e) => setQuickAddForm({ ...quickAddForm, unite: e.target.value })} className="w-full rounded px-1.5 py-1 text-[12px] outline-none transition-all focus:ring-1 focus:ring-slate-100 bg-slate-50 border border-slate-200 text-slate-900 focus:bg-white focus:border-slate-300">
                                         {['m', 'kg', 'piece', 'cone', 'boite'].map(c => <option key={c} value={c}>{c}</option>)}
                                     </select>
@@ -332,26 +335,26 @@ const OrderSimulation: React.FC<OrderSimulationProps> = ({
                             </div>
                             <div className="flex gap-3">
                                 <div className="flex-1">
-                                    <label className="block text-[10px] font-bold text-slate-500 uppercase mb-0.5">Prix U. (DH)</label>
+                                    <label className="block text-[10px] font-bold text-slate-500 uppercase mb-0.5">{tx(lang,{fr:'Prix U. (DH)',ar:'السعر (درهم)',en:'Unit price (MAD)',es:'Precio U. (MAD)',pt:'Preço U. (MAD)',tr:'Birim fiyat (MAD)'})}</label>
                                     <input type="number" min="0" step="0.01" value={quickAddForm.prixUnitaire || ''} onChange={(e) => setQuickAddForm({ ...quickAddForm, prixUnitaire: Number(e.target.value) })} className="w-full rounded px-1.5 py-1 text-[12px] outline-none transition-all focus:ring-1 focus:ring-slate-100 bg-slate-50 border border-slate-200 text-slate-900 focus:bg-white focus:border-slate-300 text-[#2149C1] font-semibold" />
                                 </div>
                                 <div className="flex-1">
-                                    <label className="block text-[10px] font-bold text-slate-500 uppercase mb-0.5">Stock Initial</label>
+                                    <label className="block text-[10px] font-bold text-slate-500 uppercase mb-0.5">{tx(lang,{fr:'Stock Initial',ar:'المخزون الأولي',en:'Initial stock',es:'Stock inicial',pt:'Stock inicial',tr:'Başlangıç stoğu'})}</label>
                                     <input type="number" min="0" value={quickAddForm.stockActuel || ''} onChange={(e) => setQuickAddForm({ ...quickAddForm, stockActuel: Number(e.target.value) })} className="w-full rounded px-1.5 py-1 text-[12px] outline-none transition-all focus:ring-1 focus:ring-slate-100 bg-slate-50 border border-slate-200 text-slate-900 focus:bg-white focus:border-slate-300" />
                                 </div>
                             </div>
                             <div className="pt-2 border-t border-slate-100">
-                                <label className="block text-[10px] font-bold text-slate-500 uppercase mb-0.5">Fournisseur</label>
-                                <input type="text" value={quickAddForm.fournisseurNom || ''} onChange={(e) => setQuickAddForm({ ...quickAddForm, fournisseurNom: e.target.value })} className="w-full rounded px-1.5 py-1 text-[12px] outline-none transition-all focus:ring-1 focus:ring-slate-100 bg-slate-50 border border-slate-200 text-slate-900 focus:bg-white focus:border-slate-300" placeholder="Nom du fournisseur" />
+                                <label className="block text-[10px] font-bold text-slate-500 uppercase mb-0.5">{tx(lang,{fr:'Fournisseur',ar:'المورد',en:'Supplier',es:'Proveedor',pt:'Fornecedor',tr:'Tedarikçi'})}</label>
+                                <input type="text" value={quickAddForm.fournisseurNom || ''} onChange={(e) => setQuickAddForm({ ...quickAddForm, fournisseurNom: e.target.value })} className="w-full rounded px-1.5 py-1 text-[12px] outline-none transition-all focus:ring-1 focus:ring-slate-100 bg-slate-50 border border-slate-200 text-slate-900 focus:bg-white focus:border-slate-300" placeholder={tx(lang,{fr:'Nom du fournisseur',ar:'اسم المورد',en:'Supplier name',es:'Nombre del proveedor',pt:'Nome do fornecedor',tr:'Tedarikçi adı'})} />
                             </div>
                             <div>
-                                <label className="block text-[10px] font-bold text-slate-500 uppercase mb-0.5">Délai Livraison (Jours)</label>
-                                <input type="number" min="0" value={quickAddForm.fournisseurDelaiLivraisonJours || ''} onChange={(e) => setQuickAddForm({ ...quickAddForm, fournisseurDelaiLivraisonJours: Number(e.target.value) })} className="w-full rounded px-1.5 py-1 text-[12px] outline-none transition-all focus:ring-1 focus:ring-slate-100 bg-slate-50 border border-slate-200 text-slate-900 focus:bg-white focus:border-slate-300" placeholder="Ex: 14" />
+                                <label className="block text-[10px] font-bold text-slate-500 uppercase mb-0.5">{tx(lang,{fr:'Délai Livraison (Jours)',ar:'مدة التسليم (أيام)',en:'Delivery time (Days)',es:'Plazo de entrega (días)',pt:'Prazo de entrega (dias)',tr:'Teslim süresi (Gün)'})}</label>
+                                <input type="number" min="0" value={quickAddForm.fournisseurDelaiLivraisonJours || ''} onChange={(e) => setQuickAddForm({ ...quickAddForm, fournisseurDelaiLivraisonJours: Number(e.target.value) })} className="w-full rounded px-1.5 py-1 text-[12px] outline-none transition-all focus:ring-1 focus:ring-slate-100 bg-slate-50 border border-slate-200 text-slate-900 focus:bg-white focus:border-slate-300" placeholder={tx(lang,{fr:'Ex: 14',ar:'مثال: 14',en:'Ex: 14',es:'Ej: 14',pt:'Ex: 14',tr:'Örn: 14'})} />
                             </div>
                         </div>
                         <div className="mt-4 pt-3 border-t border-slate-100 flex justify-end gap-2">
-                            <button onClick={() => setShowQuickAddModal(false)} className="px-3 py-1.5 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-lg transition-colors">Annuler</button>
-                            <button onClick={handleQuickAdd} className="px-5 py-1.5 bg-slate-900 text-white text-xs font-medium rounded-md hover:bg-slate-800 transition-colors">Enregistrer</button>
+                            <button onClick={() => setShowQuickAddModal(false)} className="px-3 py-1.5 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-lg transition-colors">{tx(lang,{fr:'Annuler',ar:'إلغاء',en:'Cancel',es:'Cancelar',pt:'Cancelar',tr:'İptal'})}</button>
+                            <button onClick={handleQuickAdd} className="px-5 py-1.5 bg-slate-900 text-white text-xs font-medium rounded-md hover:bg-slate-800 transition-colors">{tx(lang,{fr:'Enregistrer',ar:'حفظ',en:'Save',es:'Guardar',pt:'Guardar',tr:'Kaydet'})}</button>
                         </div>
                     </div>
                 </div>
@@ -363,7 +366,7 @@ const OrderSimulation: React.FC<OrderSimulationProps> = ({
                     <TrendingUp className="w-4 h-4 text-slate-400" strokeWidth={1.75} />
                     <div>
                         <h2 className={`text-[13px] font-semibold tracking-tight ${darkMode ? 'text-slate-200' : 'text-slate-900'}`}>{t.needs}</h2>
-                        <p className={`text-[11px] ${darkMode ? 'text-slate-500' : 'text-slate-400'}`}>Estimation des coûts globaux</p>
+                        <p className={`text-[11px] ${darkMode ? 'text-slate-500' : 'text-slate-400'}`}>{tx(lang,{fr:'Estimation des coûts globaux',ar:'تقدير التكاليف الإجمالية',en:'Global cost estimate',es:'Estimación de costos globales',pt:'Estimativa de custos globais',tr:'Genel maliyet tahmini'})}</p>
                     </div>
                 </div>
 
@@ -384,8 +387,8 @@ const OrderSimulation: React.FC<OrderSimulationProps> = ({
                     {/* Qté Totale = quantité RÉELLE de la commande (somme du tableau de
                         répartition). Verrouillée : on ne peut pas la modifier à la main
                         pour que le coût reste toujours basé sur la vraie commande. */}
-                    <div className={`flex items-center gap-2 h-8 rounded-md px-2.5 border ${darkMode ? 'bg-gray-900 border-gray-700' : 'bg-slate-50/60 border-slate-200'}`} title="Quantité de la commande (verrouillée — définie par le tableau de répartition)">
-                        <span className={`text-[11px] font-medium ${textSecondary}`}>Qté Totale</span>
+                    <div className={`flex items-center gap-2 h-8 rounded-md px-2.5 border ${darkMode ? 'bg-gray-900 border-gray-700' : 'bg-slate-50/60 border-slate-200'}`} title={tx(lang,{fr:'Quantité de la commande (verrouillée — définie par le tableau de répartition)',ar:'كمية الطلب (مقفلة — محددة بجدول التوزيع)',en:'Order quantity (locked — defined by the distribution table)',es:'Cantidad del pedido (bloqueada — definida por la tabla de distribución)',pt:'Quantidade da encomenda (bloqueada — definida pela tabela de distribuição)',tr:'Sipariş miktarı (kilitli — dağıtım tablosu tarafından belirlenir)'})}>
+                        <span className={`text-[11px] font-medium ${textSecondary}`}>{tx(lang,{fr:'Qté Totale',ar:'الكمية الإجمالية',en:'Total Qty',es:'Cant. Total',pt:'Qtd Total',tr:'Toplam Miktar'})}</span>
                         <div className="h-4 w-px bg-slate-200 dark:bg-gray-700"></div>
                         <span className={`w-14 text-center text-[13px] font-semibold tabular-nums ${darkMode ? 'text-slate-200' : 'text-slate-900'}`}>
                             {orderQty}
@@ -400,7 +403,7 @@ const OrderSimulation: React.FC<OrderSimulationProps> = ({
                 {/* Purchasing Table */}
                 <div className={`rounded-lg border overflow-hidden ${darkMode ? 'bg-gray-900 border-gray-700' : 'bg-white border-slate-200'}`}>
                     <div className={`px-4 h-9 flex items-center text-[11px] font-medium uppercase tracking-wide border-b ${darkMode ? 'bg-gray-800 text-slate-400 border-gray-700' : 'bg-slate-50/60 text-slate-500 border-slate-100'}`}>
-                        Détail des Achats (Matière Première)
+                        {tx(lang,{fr:'Détail des Achats (Matière Première)',ar:'تفاصيل المشتريات (المواد الخام)',en:'Purchase details (Raw materials)',es:'Detalle de compras (Materia prima)',pt:'Detalhe das compras (Matéria-prima)',tr:'Satın alma detayı (Hammadde)'})}
                     </div>
                     <div className="md:overflow-x-auto">
                     <table className="w-full block md:table text-[13px]">
@@ -408,10 +411,10 @@ const OrderSimulation: React.FC<OrderSimulationProps> = ({
                             <tr>
                                 <th className="px-4 py-2.5 text-left font-medium">{t.matName}</th>
                                 <th className="px-4 py-2.5 text-center font-medium">{t.price}</th>
-                                <th className="px-4 py-2.5 text-center font-medium">Besoin Total</th>
-                                <th className="px-4 py-2.5 text-center font-medium border-l border-slate-100 bg-slate-50/40">En Stock</th>
-                                <th className="px-4 py-2.5 text-center font-medium bg-slate-50/40">Manque</th>
-                                <th className="px-4 py-2.5 text-center font-medium bg-slate-50/40">Fournisseur / Délais</th>
+                                <th className="px-4 py-2.5 text-center font-medium">{tx(lang,{fr:'Besoin Total',ar:'الاحتياج الإجمالي',en:'Total need',es:'Necesidad total',pt:'Necessidade total',tr:'Toplam ihtiyaç'})}</th>
+                                <th className="px-4 py-2.5 text-center font-medium border-l border-slate-100 bg-slate-50/40">{tx(lang,{fr:'En Stock',ar:'في المخزون',en:'In Stock',es:'En Stock',pt:'Em Stock',tr:'Stokta'})}</th>
+                                <th className="px-4 py-2.5 text-center font-medium bg-slate-50/40">{tx(lang,{fr:'Manque',ar:'النقص',en:'Shortage',es:'Déficit',pt:'Falta',tr:'Eksiklik'})}</th>
+                                <th className="px-4 py-2.5 text-center font-medium bg-slate-50/40">{tx(lang,{fr:'Fournisseur / Délais',ar:'المورد / المهل',en:'Supplier / Lead times',es:'Proveedor / Plazos',pt:'Fornecedor / Prazos',tr:'Tedarikçi / Teslim süreleri'})}</th>
                                 <th className="px-4 py-2.5 text-right font-medium text-slate-700 border-l border-slate-100">{t.total}</th>
                             </tr>
                         </thead>
@@ -439,20 +442,20 @@ const OrderSimulation: React.FC<OrderSimulationProps> = ({
                                             </td>
                                             <td className={`flex md:table-cell items-center justify-between px-4 py-1.5 md:py-3 md:text-center ${textSecondary}`}>
                                                 <span className="md:hidden text-[10px] font-semibold uppercase tracking-wide text-slate-400">{t.price}</span>
-                                                <span>{isExport ? '0 (Fourni)' : `${m.unitPrice} ${currency}`}</span>
+                                                <span>{isExport ? tx(lang,{fr:'0 (Fourni)',ar:'0 (مورد)',en:'0 (Supplied)',es:'0 (Suministrado)',pt:'0 (Fornecido)',tr:'0 (Tedarik Edildi)'}) : `${m.unitPrice} ${currency}`}</span>
                                             </td>
                                             <td className={`flex md:table-cell items-center justify-between px-4 py-1.5 md:py-3 md:text-center ${textSecondary}`}>
-                                                <span className="md:hidden text-[10px] font-semibold uppercase tracking-wide text-slate-400">Besoin Total</span>
+                                                <span className="md:hidden text-[10px] font-semibold uppercase tracking-wide text-slate-400">{tx(lang,{fr:'Besoin Total',ar:'الاحتياج الإجمالي',en:'Total Need',es:'Necesidad Total',pt:'Necessidade Total',tr:'Toplam İhtiyaç'})}</span>
                                                 <span title={`(${m.qty} × ${orderQty}) + ${wasteRate}%`} className="font-bold">
                                                     {fmt(m.qtyToBuy)} {m.unit}
                                                 </span>
                                             </td>
                                             <td className={`flex md:table-cell items-center justify-between px-4 py-1.5 md:py-3 md:text-center md:border-l ${originalStockActuel > 0 ? 'text-emerald-600' : 'text-slate-400'} font-bold md:bg-slate-50/30`}>
-                                                <span className="md:hidden text-[10px] font-semibold uppercase tracking-wide text-slate-400">En Stock</span>
+                                                <span className="md:hidden text-[10px] font-semibold uppercase tracking-wide text-slate-400">{tx(lang,{fr:'En Stock',ar:'في المخزون',en:'In Stock',es:'En Stock',pt:'Em Stock',tr:'Stokta'})}</span>
                                                 <span>{fmt(originalStockActuel)} {m.unit}</span>
                                             </td>
                                             <td className={`flex md:table-cell items-center justify-between px-4 py-1.5 md:py-3 md:text-center font-bold md:bg-slate-50/30 ${hasAlert ? 'text-rose-600' : 'text-slate-300'}`}>
-                                                <span className="md:hidden text-[10px] font-semibold uppercase tracking-wide text-slate-400">Manque</span>
+                                                <span className="md:hidden text-[10px] font-semibold uppercase tracking-wide text-slate-400">{tx(lang,{fr:'Manque',ar:'النقص',en:'Shortage',es:'Déficit',pt:'Falta',tr:'Eksiklik'})}</span>
                                                 <div className="flex flex-row md:flex-col items-center justify-end md:justify-center gap-1">
                                                     <div className="flex items-center gap-1">
                                                         {hasAlert && <AlertTriangle className="w-3 h-3" />}
@@ -460,17 +463,17 @@ const OrderSimulation: React.FC<OrderSimulationProps> = ({
                                                     </div>
                                                     {hasAlert && (
                                                         <button onClick={() => setSubModal({ open: true, matId: m.id, matName: m.name, manque })} className="md:mt-0.5 text-[9px] px-1.5 py-0.5 bg-rose-100 text-rose-700 rounded hover:bg-rose-200 uppercase tracking-widest font-semibold transition-colors active:scale-95 shadow-sm">
-                                                            + Substitut
+                                                            + {tx(lang,{fr:'Substitut',ar:'بديل',en:'Substitute',es:'Sustituto',pt:'Substituto',tr:'Yedek'})}
                                                         </button>
                                                     )}
                                                 </div>
                                             </td>
                                             <td className={`flex md:table-cell items-center justify-between px-4 py-1.5 md:py-3 md:text-center md:bg-slate-50/30`}>
-                                                <span className="md:hidden text-[10px] font-semibold uppercase tracking-wide text-slate-400">Fournisseur</span>
+                                                <span className="md:hidden text-[10px] font-semibold uppercase tracking-wide text-slate-400">{tx(lang,{fr:'Fournisseur',ar:'المورد',en:'Supplier',es:'Proveedor',pt:'Fornecedor',tr:'Tedarikçi'})}</span>
                                                 {fournisseur ? (
                                                     <div className="flex flex-row md:flex-col items-center gap-1">
                                                         <span className="text-[10px] font-bold bg-slate-100 text-slate-600 px-2 py-0.5 rounded uppercase tracking-wider">{fournisseur}</span>
-                                                        {delai != null && <span className="text-[10px] text-slate-500 flex items-center gap-1 md:mt-1"><Truck className="w-3 h-3" /> {delai} jours</span>}
+                                                        {delai != null && <span className="text-[10px] text-slate-500 flex items-center gap-1 md:mt-1"><Truck className="w-3 h-3" /> {tx(lang,{fr:`${delai} jours`,ar:`${delai} يوم`,en:`${delai} days`,es:`${delai} días`,pt:`${delai} dias`,tr:`${delai} gün`})}</span>}
                                                     </div>
                                                 ) : (
                                                     <span className="text-[10px] text-slate-400">—</span>
@@ -478,7 +481,7 @@ const OrderSimulation: React.FC<OrderSimulationProps> = ({
                                             </td>
                                             <td className={`flex md:table-cell items-center justify-between px-4 py-1.5 md:py-3 mt-1 pt-2 md:mt-0 md:pt-3 border-t md:border-t-0 border-slate-100 md:text-right font-bold ${textPrimary} md:border-l`}>
                                                 <span className="md:hidden text-[10px] font-semibold uppercase tracking-wide text-slate-400">{t.total}</span>
-                                                <div className="flex items-center justify-end gap-1 cursor-help" title={isExport ? "Fourni par le client (0 DH)" : `${m.qtyToBuy} × ${m.unitPrice} = ${fmt(m.lineCost)}`}>
+                                                <div className="flex items-center justify-end gap-1 cursor-help" title={isExport ? tx(lang,{fr:'Fourni par le client (0 DH)',ar:'مقدم من العميل (0 درهم)',en:'Supplied by client (0 MAD)',es:'Suministrado por el cliente (0 MAD)',pt:'Fornecido pelo cliente (0 MZN)',tr:'Müşteri tarafından sağlandı (0 MAD)'}) : `${m.qtyToBuy} × ${m.unitPrice} = ${fmt(m.lineCost)}`}>
                                                     {isExport ? 0 : fmt(m.lineCost)} {currency}
                                                 </div>
                                             </td>
@@ -487,18 +490,18 @@ const OrderSimulation: React.FC<OrderSimulationProps> = ({
                                             <tr key={`${m.id}-sub-${idx}`} className="block md:table-row bg-amber-50/60 border border-dashed md:border-0 md:border-t border-amber-200 rounded-xl md:rounded-none mb-3 md:mb-0 p-2 md:p-0">
                                                 <td className="block md:table-cell px-4 py-2 text-[11px] text-amber-800 flex items-center gap-2 font-bold">
                                                     <div className="w-3 h-3 border-l-2 border-b-2 border-amber-400 md:ml-4 rounded-bl"></div>
-                                                    Substitut: {sub.subName}
+                                                    {tx(lang,{fr:'Substitut',ar:'بديل',en:'Substitute',es:'Sustituto',pt:'Substituto',tr:'Yedek'})}: {sub.subName}
                                                 </td>
                                                 <td className="hidden md:table-cell px-4 py-2 text-center text-amber-600/70">—</td>
                                                 <td className="flex md:table-cell items-center justify-between px-4 py-1.5 md:py-2 md:text-center font-bold text-amber-600">
-                                                    <span className="md:hidden text-[10px] font-semibold uppercase tracking-wide text-amber-700/60">Besoin Total</span>
+                                                    <span className="md:hidden text-[10px] font-semibold uppercase tracking-wide text-amber-700/60">{tx(lang,{fr:'Besoin Total',ar:'الاحتياج الإجمالي',en:'Total Need',es:'Necesidad Total',pt:'Necessidade Total',tr:'Toplam İhtiyaç'})}</span>
                                                     <span>+{fmt(sub.qty)} {m.unit}</span>
                                                 </td>
                                                 <td className="hidden md:table-cell px-4 py-2 border-l bg-slate-50/10"></td>
                                                 <td className="hidden md:table-cell px-4 py-2 bg-slate-50/10"></td>
                                                 <td className="hidden md:table-cell px-4 py-2 bg-slate-50/10"></td>
                                                 <td className="flex md:table-cell items-center justify-end px-4 py-1.5 md:py-2 md:border-l md:text-right">
-                                                    <button onClick={() => setSubstitutes(prev => prev.filter(x => x !== sub))} className="text-[10px] font-bold text-rose-500 hover:text-rose-700 px-2 py-0.5 bg-rose-50 hover:bg-rose-100 rounded transition-colors shadow-sm">Retirer</button>
+                                                    <button onClick={() => setSubstitutes(prev => prev.filter(x => x !== sub))} className="text-[10px] font-bold text-rose-500 hover:text-rose-700 px-2 py-0.5 bg-rose-50 hover:bg-rose-100 rounded transition-colors shadow-sm">{tx(lang,{fr:'Retirer',ar:'إزالة',en:'Remove',es:'Retirar',pt:'Remover',tr:'Kaldır'})}</button>
                                                 </td>
                                             </tr>
                                         ))}
@@ -519,7 +522,7 @@ const OrderSimulation: React.FC<OrderSimulationProps> = ({
                         >
                             <span className="flex items-center gap-2">
                                 <Palette className="w-3.5 h-3.5" strokeWidth={1.75} />
-                                Achats par PIDIDO
+                                {tx(lang,{fr:'Achats par PIDIDO',ar:'المشتريات حسب PIDIDO',en:'Purchases by PIDIDO',es:'Compras por PIDIDO',pt:'Compras por PIDIDO',tr:'PIDIDO\'ya göre satın almalar'})}
                                 <span className="text-[10px] font-normal lowercase normal-case text-slate-400">
                                     ({pididoBreakdown.length} couleurs)
                                 </span>
@@ -544,14 +547,14 @@ const OrderSimulation: React.FC<OrderSimulationProps> = ({
                                             <table className="w-full text-[12px] border-collapse">
                                                 <thead>
                                                     <tr className={`text-[10px] uppercase tracking-wider ${darkMode ? 'text-slate-500' : 'text-slate-400'}`}>
-                                                        <th className={`sticky left-0 z-20 border-r text-left px-2 py-1 font-medium ${darkMode ? 'bg-gray-900 border-gray-700' : 'bg-slate-50 border-slate-200'}`}>Matière</th>
-                                                        <th className="text-center px-2 py-1 font-medium">Qté/Pièce</th>
-                                                        <th className="text-center px-2 py-1 font-medium">Besoin ({pg.pieces}pcs)</th>
-                                                        <th className="text-center px-2 py-1 font-medium">Avec {wasteRate}%</th>
-                                                        <th className="text-center px-2 py-1 font-medium">Fournisseur</th>
-                                                        <th className="text-center px-2 py-1 font-medium">Statut</th>
-                                                        <th className="text-right px-2 py-1 font-medium">Coût HT</th>
-                                                        <th className="text-center px-2 py-1 font-medium">Actions</th>
+                                                        <th className={`sticky left-0 z-20 border-r text-left px-2 py-1 font-medium ${darkMode ? 'bg-gray-900 border-gray-700' : 'bg-slate-50 border-slate-200'}`}>{tx(lang,{fr:'Matière',ar:'المادة',en:'Material',es:'Material',pt:'Material',tr:'Malzeme'})}</th>
+                                                        <th className="text-center px-2 py-1 font-medium">{tx(lang,{fr:'Qté/Pièce',ar:'الكمية/قطعة',en:'Qty/Piece',es:'Cant./Prenda',pt:'Qtd/Peça',tr:'Miktar/Parça'})}</th>
+                                                        <th className="text-center px-2 py-1 font-medium">{tx(lang,{fr:`Besoin (${pg.pieces}pcs)`,ar:`الاحتياج (${pg.pieces} قطعة)`,en:`Need (${pg.pieces}pcs)`,es:`Necesidad (${pg.pieces}pcs)`,pt:`Necessidade (${pg.pieces}pcs)`,tr:`İhtiyaç (${pg.pieces} adet)`})}</th>
+                                                        <th className="text-center px-2 py-1 font-medium">{tx(lang,{fr:`Avec ${wasteRate}%`,ar:`مع ${wasteRate}%`,en:`With ${wasteRate}%`,es:`Con ${wasteRate}%`,pt:`Com ${wasteRate}%`,tr:`${wasteRate}% ile`})}</th>
+                                                        <th className="text-center px-2 py-1 font-medium">{tx(lang,{fr:'Fournisseur',ar:'المورد',en:'Supplier',es:'Proveedor',pt:'Fornecedor',tr:'Tedarikçi'})}</th>
+                                                        <th className="text-center px-2 py-1 font-medium">{tx(lang,{fr:'Statut',ar:'الحالة',en:'Status',es:'Estado',pt:'Estado',tr:'Durum'})}</th>
+                                                        <th className="text-right px-2 py-1 font-medium">{tx(lang,{fr:'Coût HT',ar:'التكلفة غير شامل',en:'Cost HT',es:'Coste HT',pt:'Custo HT',tr:'HT Maliyet'})}</th>
+                                                        <th className="text-center px-2 py-1 font-medium">{tx(lang,{fr:'Actions',ar:'الإجراءات',en:'Actions',es:'Acciones',pt:'Ações',tr:'İşlemler'})}</th>
                                                     </tr>
                                                 </thead>
                                                 <tbody className={`divide-y ${darkMode ? 'divide-gray-700' : 'divide-slate-100'}`}>
@@ -576,21 +579,21 @@ const OrderSimulation: React.FC<OrderSimulationProps> = ({
                                                             <td className="px-2 py-1.5 text-center">
                                                                 {m.isDelivered ? (
                                                                     <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">
-                                                                        <CheckCircle className="w-3 h-3" /> Stock OK
+                                                                        <CheckCircle className="w-3 h-3" /> {tx(lang,{fr:'Stock OK',ar:'المخزون كافٍ',en:'Stock OK',es:'Stock OK',pt:'Stock OK',tr:'Stok Tam'})}
                                                                     </span>
                                                                 ) : m.isPartial ? (
                                                                     <span className="inline-flex flex-col items-center gap-0.5">
                                                                         <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full">
-                                                                            <AlertTriangle className="w-3 h-3" /> Partiel
+                                                                            <AlertTriangle className="w-3 h-3" /> {tx(lang,{fr:'Partiel',ar:'جزئي',en:'Partial',es:'Parcial',pt:'Parcial',tr:'Kısmi'})}
                                                                         </span>
-                                                                        <span className="text-[9px] text-amber-600/80 font-medium">couvre {fmt(m.piecesCouvertes)} pcs · manque {fmt(m.manque)} {m.unit}</span>
+                                                                        <span className="text-[9px] text-amber-600/80 font-medium">{tx(lang,{fr:`couvre ${fmt(m.piecesCouvertes)} pcs · manque ${fmt(m.manque)} ${m.unit}`,ar:`يغطي ${fmt(m.piecesCouvertes)} قطعة · نقص ${fmt(m.manque)} ${m.unit}`,en:`covers ${fmt(m.piecesCouvertes)} pcs · shortage ${fmt(m.manque)} ${m.unit}`,es:`cubre ${fmt(m.piecesCouvertes)} pcs · déficit ${fmt(m.manque)} ${m.unit}`,pt:`cobre ${fmt(m.piecesCouvertes)} pcs · falta ${fmt(m.manque)} ${m.unit}`,tr:`${fmt(m.piecesCouvertes)} adet kapsar · eksiklik ${fmt(m.manque)} ${m.unit}`})}</span>
                                                                     </span>
                                                                 ) : (
                                                                     <span className="inline-flex flex-col items-center gap-0.5">
                                                                         <span className="inline-flex items-center gap-1 text-[10px] font-bold text-rose-600 bg-rose-50 px-2 py-0.5 rounded-full">
-                                                                            <Clock className="w-3 h-3" /> En attente
+                                                                            <Clock className="w-3 h-3" /> {tx(lang,{fr:'En attente',ar:'قيد الانتظار',en:'Pending',es:'Pendiente',pt:'Pendente',tr:'Beklemede'})}
                                                                         </span>
-                                                                        <span className="text-[9px] text-rose-500/80 font-medium">manque {fmt(m.manque)} {m.unit}</span>
+                                                                        <span className="text-[9px] text-rose-500/80 font-medium">{tx(lang,{fr:`manque ${fmt(m.manque)} ${m.unit}`,ar:`نقص ${fmt(m.manque)} ${m.unit}`,en:`shortage ${fmt(m.manque)} ${m.unit}`,es:`déficit ${fmt(m.manque)} ${m.unit}`,pt:`falta ${fmt(m.manque)} ${m.unit}`,tr:`eksiklik ${fmt(m.manque)} ${m.unit}`})}</span>
                                                                     </span>
                                                                 )}
                                                             </td>
@@ -601,9 +604,9 @@ const OrderSimulation: React.FC<OrderSimulationProps> = ({
                                                                         <button
                                                                             onClick={(e) => { e.stopPropagation(); setConfirmModal({ open: true, mat: m, qty: String(Math.round(m.buyQty)) }); }}
                                                                             className="inline-flex items-center gap-1 text-[10px] font-medium text-emerald-700 border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 h-6 px-2 rounded-md transition-colors whitespace-nowrap"
-                                                                            title="Confirmer la réception → ajoute au stock"
+                                                                            title={tx(lang,{fr:'Confirmer la réception → ajoute au stock',ar:'تأكيد الاستلام → يضاف إلى المخزون',en:'Confirm reception → adds to stock',es:'Confirmar recepción → añade al stock',pt:'Confirmar receção → adiciona ao stock',tr:'Teslim almayı onayla → stoğa ekler'})}
                                                                         >
-                                                                            <CheckCircle className="w-3 h-3" /> Reçu
+                                                                            <CheckCircle className="w-3 h-3" /> {tx(lang,{fr:'Reçu',ar:'تم الاستلام',en:'Received',es:'Recibido',pt:'Recebido',tr:'Teslim Alındı'})}
                                                                         </button>
                                                                     )}
                                                                     <FactureUploader modelId={modelId} materialName={m.name} />
@@ -639,8 +642,8 @@ const OrderSimulation: React.FC<OrderSimulationProps> = ({
                             <Banknote className="w-4 h-4 text-slate-400" strokeWidth={1.75} />
                         </div>
                         <div className={`mt-3 pt-3 border-t text-[11px] flex justify-between ${darkMode ? 'border-gray-700 text-gray-500' : 'border-slate-100 text-slate-400'}`}>
-                            <span>Articles : {purchasingData.length}</span>
-                            <span title="Formula: Sum(QtyToBuy * Price)">Achats réels</span>
+                            <span>{tx(lang,{fr:`Articles : ${purchasingData.length}`,ar:`المواد: ${purchasingData.length}`,en:`Items: ${purchasingData.length}`,es:`Artículos: ${purchasingData.length}`,pt:`Artigos: ${purchasingData.length}`,tr:`Ürünler: ${purchasingData.length}`})}</span>
+                            <span title={tx(lang,{fr:'Formule: Somme(QtéAchat * Prix)',ar:'الصيغة: مجموع(الكمية المشتراة * السعر)',en:'Formula: Sum(QtyToBuy * Price)',es:'Fórmula: Suma(CantCompra * Precio)',pt:'Fórmula: Soma(QtdCompra * Preço)',tr:'Formül: Toplam(AlınanMiktar * Fiyat)'})}>{tx(lang,{fr:'Achats réels',ar:'المشتريات الفعلية',en:'Actual purchases',es:'Compras reales',pt:'Compras reais',tr:'Gerçek alımlar'})}</span>
                         </div>
                     </div>
 
@@ -660,7 +663,7 @@ const OrderSimulation: React.FC<OrderSimulationProps> = ({
                         </div>
                         <div className={`mt-3 pt-3 border-t text-[11px] flex justify-between ${darkMode ? 'border-gray-700 text-gray-500' : 'border-slate-100 text-slate-400'}`}>
                             <span>{orderQty} pcs × {fmt(laborCost)}/pc</span>
-                            <span title={`Formula: ${laborCost} * ${orderQty}`}>Main d'œuvre</span>
+                            <span title={tx(lang,{fr:`Formule: ${laborCost} * ${orderQty}`,ar:`الصيغة: ${laborCost} * ${orderQty}`,en:`Formula: ${laborCost} * ${orderQty}`,es:`Fórmula: ${laborCost} * ${orderQty}`,pt:`Fórmula: ${laborCost} * ${orderQty}`,tr:`Formül: ${laborCost} * ${orderQty}`})}>{tx(lang,{fr:"Main d'œuvre",ar:'تكلفة اليد العاملة',en:'Labor cost',es:'Mano de obra',pt:'Mão de obra',tr:'İşçilik maliyeti'})}</span>
                         </div>
                     </div>
 

@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import {
     X, Package, TrendingUp, TrendingDown, History, Building2, MapPin,
     Phone, Mail, Edit2, Save, ChevronRight, Layers, Factory, Calendar,
@@ -7,8 +7,9 @@ import {
     FileText, Hash, Globe, CreditCard, Timer, ShoppingCart, StickyNote
 } from 'lucide-react';
 import { MouvementStock } from '../types';
+import { tx, type TxMap } from '../lib/i18n';
+import { useLang } from '../src/context/LanguageContext';
 
-// ─── Types ───────────────────────────────────────────────────────────────────
 export interface MagasinProduct {
     id: string;
     reference: string;
@@ -62,7 +63,6 @@ interface ProductDetailPanelProps {
     lang?: 'fr' | 'ar' | 'en';
 }
 
-// ─── Helper Functions ────────────────────────────────────────────────────────
 const stockQty = (lots: LotStock[], pid: string) => 
     lots.filter(l => l.productId === pid).reduce((s, l) => s + l.quantiteRestante, 0);
 
@@ -88,8 +88,10 @@ const MVT_ICONS: Record<string, { icon: React.ElementType; color: string; bg: st
     reservation: { icon: Clock, color: 'text-violet-600', bg: 'bg-violet-50' },
 };
 
-// ─── Main Component ──────────────────────────────────────────────────────────
-export default function ProductDetailPanel({ product, lots, mouvements, onClose, onSave, onEditMovement, initialTab, startEditing, lang = 'fr' }: ProductDetailPanelProps) {
+export default function ProductDetailPanel({ product, lots, mouvements, onClose, onSave, onEditMovement, initialTab, startEditing, lang: propLang = 'fr' }: ProductDetailPanelProps) {
+    const { lang: ctxLang } = useLang();
+    const lang = ctxLang || propLang;
+    const _ = useCallback((m: TxMap) => tx(lang, m), [lang]);
     const [activeTab, setActiveTab] = useState<'overview' | 'history' | 'supplier' | 'lots'>(initialTab || 'overview');
     const [isEditing, setIsEditing] = useState(!!startEditing);
     const [editData, setEditData] = useState<MagasinProduct>({ ...product });
@@ -103,7 +105,6 @@ export default function ProductDetailPanel({ product, lots, mouvements, onClose,
         setIsEditing(!!startEditing);
     }, [initialTab, startEditing]);
 
-    // ─── Computed Stats ──────────────────────────────────────────────────────
     const productLots = useMemo(() => lots.filter(l => l.productId === product.id), [lots, product.id]);
     const productMvts = useMemo(() => 
         mouvements.filter(m => m.productId === product.id).sort((a, b) => 
@@ -113,7 +114,6 @@ export default function ProductDetailPanel({ product, lots, mouvements, onClose,
     const currentStock = useMemo(() => stockQty(lots, product.id), [lots, product.id]);
     const stockValue = useMemo(() => currentStock * (product.cump || product.prixUnitaire), [currentStock, product]);
 
-    // Consumption stats (last 30 days)
     const consumptionStats = useMemo(() => {
         const thirtyDaysAgo = new Date();
         thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
@@ -124,9 +124,8 @@ export default function ProductDetailPanel({ product, lots, mouvements, onClose,
         );
         
         const totalConsumed = recentSorties.reduce((s, m) => s + m.quantite, 0);
-        const avgPerWeek = totalConsumed / 4.3; // ~4.3 weeks in 30 days
+        const avgPerWeek = totalConsumed / 4.3;
         
-        // Compare with previous 30 days
         const sixtyDaysAgo = new Date();
         sixtyDaysAgo.setDate(sixtyDaysAgo.getDate() - 60);
         const previousSorties = productMvts.filter(m => 
@@ -138,13 +137,11 @@ export default function ProductDetailPanel({ product, lots, mouvements, onClose,
         
         const trend = previousTotal > 0 ? ((totalConsumed - previousTotal) / previousTotal) * 100 : 0;
         
-        // Days until stockout
         const daysRemaining = avgPerWeek > 0 ? Math.floor((currentStock / avgPerWeek) * 7) : Infinity;
         
         return { totalConsumed, avgPerWeek, trend, daysRemaining };
     }, [productMvts, currentStock]);
 
-    // Chains that use this product
     const chainsUsage = useMemo(() => {
         const chains: Record<string, { qty: number; lastUse: string; ofs: string[] }> = {};
         productMvts.filter(m => m.type === 'sortie' && m.chaineId).forEach(m => {
@@ -161,13 +158,11 @@ export default function ProductDetailPanel({ product, lots, mouvements, onClose,
         return Object.entries(chains).map(([id, data]) => ({ id, ...data }));
     }, [productMvts]);
 
-    // Available bains
     const availableBains = useMemo(() => 
         productLots.filter(l => l.quantiteRestante > 0 && l.numBain)
             .map(l => ({ bain: l.numBain!, qty: l.quantiteRestante, date: l.dateEntree }))
     , [productLots]);
 
-    // ─── Handlers ────────────────────────────────────────────────────────────
     const handleSave = () => {
         onSave(editData);
         setIsEditing(false);
@@ -179,21 +174,16 @@ export default function ProductDetailPanel({ product, lots, mouvements, onClose,
 
     const catColor = CAT_COLORS[product.categorie] || CAT_COLORS.autre;
 
-    // ─── Render ──────────────────────────────────────────────────────────────
     return (
         <div className="fixed inset-0 z-[100] flex">
-            {/* Backdrop */}
             <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={onClose} />
             
-            {/* Panel - Slides from right */}
             <div className="relative ml-auto w-full max-w-2xl h-full bg-white shadow-2xl flex flex-col animate-in slide-in-from-right duration-300">
                 
-                {/* ═══ HEADER ═══ */}
                 <div className={`shrink-0 ${catColor.bg} border-b ${catColor.border}`}>
                     <div className="p-6">
                         <div className="flex items-start justify-between gap-4">
                             <div className="flex items-start gap-4 flex-1 min-w-0">
-                                {/* Product Image */}
                                 <div className="w-20 h-20 rounded-2xl bg-white border-2 border-white shadow-lg overflow-hidden shrink-0">
                                     {product.photo ? (
                                         <img src={product.photo} alt="" className="w-full h-full object-cover" />
@@ -227,14 +217,14 @@ export default function ProductDetailPanel({ product, lots, mouvements, onClose,
                                         onClick={() => setIsEditing(true)}
                                         className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white border border-slate-200 text-sm font-bold text-slate-700 hover:bg-slate-50 transition-all shadow-sm"
                                     >
-                                        <Edit2 className="w-4 h-4" /> Modifier
+                                        <Edit2 className="w-4 h-4" /> {_({fr:'Modifier',ar:'تعديل',en:'Edit',es:'Editar',pt:'Editar',tr:'Düzenle'})}
                                     </button>
                                 ) : (
                                     <button
                                         onClick={handleSave}
                                         className="flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-600 text-white text-sm font-bold hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-200"
                                     >
-                                        <Save className="w-4 h-4" /> Enregistrer
+                                        <Save className="w-4 h-4" /> {_({fr:'Enregistrer',ar:'حفظ',en:'Save',es:'Guardar',pt:'Salvar',tr:'Kaydet'})}
                                     </button>
                                 )}
                                 <button
@@ -247,13 +237,12 @@ export default function ProductDetailPanel({ product, lots, mouvements, onClose,
                         </div>
                     </div>
                     
-                    {/* Tabs */}
                     <div className="px-6 flex gap-1">
                         {[
-                            { id: 'overview', label: 'Aperçu', icon: BarChart3 },
-                            { id: 'history', label: 'Historique', icon: History },
-                            { id: 'supplier', label: 'Fournisseur', icon: Building2 },
-                            { id: 'lots', label: 'Lots/Bains', icon: Droplets },
+                            { id: 'overview', k: 'Aperçu', icon: BarChart3 },
+                            { id: 'history', k: 'Historique', icon: History },
+                            { id: 'supplier', k: 'Fournisseur', icon: Building2 },
+                            { id: 'lots', k: 'Lots/Bains', icon: Droplets },
                         ].map(tab => (
                             <button
                                 key={tab.id}
@@ -265,38 +254,36 @@ export default function ProductDetailPanel({ product, lots, mouvements, onClose,
                                 }`}
                             >
                                 <tab.icon className="w-4 h-4" />
-                                {tab.label}
+                                {_(tab.id === 'overview' ? {fr:'Aperçu',ar:'نظرة عامة',en:'Overview',es:'Resumen',pt:'Visão Geral',tr:'Genel Bakış'} :
+                                  tab.id === 'history' ? {fr:'Historique',ar:'السجل',en:'History',es:'Historial',pt:'Histórico',tr:'Geçmiş'} :
+                                  tab.id === 'supplier' ? {fr:'Fournisseur',ar:'المورد',en:'Supplier',es:'Proveedor',pt:'Fornecedor',tr:'Tedarikçi'} :
+                                  {fr:'Lots/Bains',ar:'الدفعات/الأحواض',en:'Lots/Baths',es:'Lotes/Baños',pt:'Lotes/Tingimentos',tr:'Partiler/Banyolar'})}
                             </button>
                         ))}
                     </div>
                 </div>
 
-                {/* ═══ CONTENT ═══ */}
                 <div className="flex-1 overflow-y-auto bg-slate-50">
                     
-                    {/* ─── OVERVIEW TAB ─── */}
                     {activeTab === 'overview' && (
                         <div className="p-6 space-y-6">
-                            {/* KPI Cards */}
                             <div className="grid grid-cols-3 gap-4">
-                                {/* Stock Actuel */}
                                 <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm">
                                     <div className="flex items-center justify-between mb-3">
                                         <Package className="w-5 h-5 text-indigo-600" />
                                         {currentStock <= product.stockAlerte ? (
-                                            <span className="px-2 py-0.5 rounded-full bg-red-100 text-red-700 text-[10px] font-black">ALERTE</span>
+                                            <span className="px-2 py-0.5 rounded-full bg-red-100 text-red-700 text-[10px] font-black">{_({fr:'ALERTE',ar:'تنبيه',en:'ALERT',es:'ALERTA',pt:'ALERTA',tr:'UYARI'})}</span>
                                         ) : (
-                                            <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 text-[10px] font-black">OK</span>
+                                            <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 text-[10px] font-black">{_({fr:'OK',ar:'موافق',en:'OK',es:'OK',pt:'OK',tr:'Tamam'})}</span>
                                         )}
                                     </div>
                                     <p className="text-3xl font-black text-slate-800">{currentStock.toFixed(1)}</p>
-                                    <p className="text-xs text-slate-500 font-bold mt-1">{product.unite} en stock</p>
+                                    <p className="text-xs text-slate-500 font-bold mt-1">{product.unite} {_({fr:'en stock',ar:'في المخزون',en:'in stock',es:'en stock',pt:'em stock',tr:'stokta'})}</p>
                                     <div className="mt-2 pt-2 border-t border-slate-100 text-[10px] text-slate-400">
-                                        Seuil: {product.stockAlerte} {product.unite}
+                                        {_({fr:'Seuil:',ar:'الحد الأدنى:',en:'Threshold:',es:'Umbral:',pt:'Limite:',tr:'Eşik:'})} {product.stockAlerte} {product.unite}
                                     </div>
                                 </div>
 
-                                {/* Consommation */}
                                 <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm">
                                     <div className="flex items-center justify-between mb-3">
                                         <Activity className="w-5 h-5 text-violet-600" />
@@ -311,27 +298,25 @@ export default function ProductDetailPanel({ product, lots, mouvements, onClose,
                                         ) : null}
                                     </div>
                                     <p className="text-3xl font-black text-slate-800">{consumptionStats.avgPerWeek.toFixed(1)}</p>
-                                    <p className="text-xs text-slate-500 font-bold mt-1">{product.unite}/semaine</p>
+                                    <p className="text-xs text-slate-500 font-bold mt-1">{product.unite}/{_({fr:'semaine',ar:'أسبوع',en:'week',es:'semana',pt:'semana',tr:'hafta'})}</p>
                                     <div className="mt-2 pt-2 border-t border-slate-100 text-[10px] text-slate-400">
                                         30j: {consumptionStats.totalConsumed.toFixed(1)} {product.unite}
                                     </div>
                                 </div>
 
-                                {/* Valeur */}
                                 <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm">
                                     <div className="flex items-center justify-between mb-3">
                                         <DollarSign className="w-5 h-5 text-emerald-600" />
                                         <span className="text-[10px] text-slate-400 font-bold">CUMP</span>
                                     </div>
                                     <p className="text-3xl font-black text-slate-800">{stockValue.toLocaleString()}</p>
-                                    <p className="text-xs text-slate-500 font-bold mt-1">DH valeur stock</p>
+                                    <p className="text-xs text-slate-500 font-bold mt-1">{_({fr:'DH valeur stock',ar:'درهم قيمة المخزون',en:'MAD stock value',es:'DH valor stock',pt:'DH valor stock',tr:'Stok değeri (MAD)'})}</p>
                                     <div className="mt-2 pt-2 border-t border-slate-100 text-[10px] text-slate-400">
                                         PU: {(product.cump || product.prixUnitaire).toFixed(2)} DH
                                     </div>
                                 </div>
                             </div>
 
-                            {/* Stock Alert Banner */}
                             {consumptionStats.daysRemaining < 14 && consumptionStats.daysRemaining !== Infinity && (
                                 <div className={`rounded-2xl p-4 flex items-center gap-4 ${
                                     consumptionStats.daysRemaining < 7 
@@ -349,26 +334,25 @@ export default function ProductDetailPanel({ product, lots, mouvements, onClose,
                                         <p className={`font-black ${
                                             consumptionStats.daysRemaining < 7 ? 'text-red-800' : 'text-amber-800'
                                         }`}>
-                                            {consumptionStats.daysRemaining < 7 ? 'Rupture imminente !' : 'Stock faible'}
+                                            {consumptionStats.daysRemaining < 7 ? _({fr:'Rupture imminente !',ar:'نفاد وشيك!',en:'Imminent stockout!',es:'¡Desabastecimiento inminente!',pt:'Rotura iminente!',tr:'Yakında tükeniyor!'}) : _({fr:'Stock faible',ar:'مخزون منخفض',en:'Low stock',es:'Stock bajo',pt:'Stock baixo',tr:'Düşük stok'})}
                                         </p>
                                         <p className={`text-sm ${
                                             consumptionStats.daysRemaining < 7 ? 'text-red-600' : 'text-amber-600'
                                         }`}>
-                                            ~{consumptionStats.daysRemaining} jours restants au rythme actuel
+                                            {_({fr:'~{0} jours restants au rythme actuel',ar:'~{0} يوم متبقي بالمعدل الحالي',en:'~{0} days left at current rate',es:'~{0} días restantes al ritmo actual',pt:'~{0} dias restantes ao ritmo atual',tr:'Mevcut hızda ~{0} gün kaldı'}).replace('{0}', String(consumptionStats.daysRemaining))}
                                         </p>
                                     </div>
                                 </div>
                             )}
 
-                            {/* Chains Usage */}
                             {chainsUsage.length > 0 && (
                                 <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
                                     <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
                                         <h3 className="font-black text-slate-800 flex items-center gap-2">
                                             <Factory className="w-4 h-4 text-slate-400" />
-                                            Chaînes Utilisatrices
+                                            {_({fr:'Chaînes Utilisatrices',ar:'الخطوط المستخدمة',en:'Using Lines',es:'Líneas Usuarias',pt:'Linhas Utilizadoras',tr:'Kullanan Hatlar'})}
                                         </h3>
-                                        <span className="text-xs text-slate-400 font-bold">{chainsUsage.length} chaîne(s)</span>
+                                        <span className="text-xs text-slate-400 font-bold">{chainsUsage.length} {_({fr:'chaîne(s)',ar:'خط(وط)',en:'line(s)',es:'línea(s)',pt:'linha(s)',tr:'hat'})}</span>
                                     </div>
                                     <div className="divide-y divide-slate-50">
                                         {chainsUsage.slice(0, 5).map(ch => (
@@ -379,7 +363,7 @@ export default function ProductDetailPanel({ product, lots, mouvements, onClose,
                                                     </div>
                                                     <div>
                                                         <p className="font-bold text-slate-800">{ch.id}</p>
-                                                        <p className="text-xs text-slate-400">Dernier: {formatDate(ch.lastUse)}</p>
+                                                        <p className="text-xs text-slate-400">{_({fr:'Dernier:',ar:'آخر:',en:'Last:',es:'Último:',pt:'Último:',tr:'Son:'})} {formatDate(ch.lastUse)}</p>
                                                     </div>
                                                 </div>
                                                 <div className="text-right">
@@ -394,18 +378,17 @@ export default function ProductDetailPanel({ product, lots, mouvements, onClose,
                                 </div>
                             )}
 
-                            {/* Recent Activity Mini */}
                             <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
                                 <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
                                     <h3 className="font-black text-slate-800 flex items-center gap-2">
                                         <History className="w-4 h-4 text-slate-400" />
-                                        Activité Récente
+                                        {_({fr:'Activité Récente',ar:'النشاط الأخير',en:'Recent Activity',es:'Actividad Reciente',pt:'Atividade Recente',tr:'Son Aktivite'})}
                                     </h3>
                                     <button 
                                         onClick={() => setActiveTab('history')}
                                         className="text-xs text-indigo-600 font-bold hover:text-indigo-700 flex items-center gap-1"
                                     >
-                                        Voir tout <ChevronRight className="w-3 h-3" />
+                                        {_({fr:'Voir tout',ar:'عرض الكل',en:'View all',es:'Ver todo',pt:'Ver tudo',tr:'Tümünü gör'})} <ChevronRight className="w-3 h-3" />
                                     </button>
                                 </div>
                                 <div className="divide-y divide-slate-50">
@@ -437,7 +420,7 @@ export default function ProductDetailPanel({ product, lots, mouvements, onClose,
                                     })}
                                     {productMvts.length === 0 && (
                                         <div className="px-5 py-8 text-center text-slate-400 text-sm">
-                                            Aucun mouvement enregistré
+                                            {_({fr:'Aucun mouvement enregistré',ar:'لا توجد حركات مسجلة',en:'No movements recorded',es:'Sin movimientos registrados',pt:'Nenhum movimento registado',tr:'Kayıtlı hareket yok'})}
                                         </div>
                                     )}
                                 </div>
@@ -445,13 +428,12 @@ export default function ProductDetailPanel({ product, lots, mouvements, onClose,
                         </div>
                     )}
 
-                    {/* ─── HISTORY TAB ─── */}
                     {activeTab === 'history' && (
                         <div className="p-6">
                             <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
                                 <div className="px-5 py-4 border-b border-slate-100">
-                                    <h3 className="font-black text-slate-800">Historique Complet</h3>
-                                    <p className="text-xs text-slate-400 mt-0.5">{productMvts.length} mouvement(s) enregistré(s)</p>
+                                    <h3 className="font-black text-slate-800">{_({fr:'Historique Complet',ar:'السجل الكامل',en:'Full History',es:'Historial Completo',pt:'Histórico Completo',tr:'Tam Geçmiş'})}</h3>
+                                    <p className="text-xs text-slate-400 mt-0.5">{productMvts.length} {_({fr:'mouvement(s) enregistré(s)',ar:'حركة (حركات) مسجلة',en:'movement(s) recorded',es:'movimiento(s) registrado(s)',pt:'movimento(s) registado(s)',tr:'kayıtlı hareket'})}</p>
                                 </div>
                                 <div className="max-h-[500px] overflow-y-auto">
                                     {productMvts.map((mvt, i) => {
@@ -498,7 +480,7 @@ export default function ProductDetailPanel({ product, lots, mouvements, onClose,
                                                         {mvt.bain && (
                                                             <span className="flex items-center gap-1 text-purple-600 font-bold">
                                                                 <Droplets className="w-3 h-3" />
-                                                                Bain: {mvt.bain}
+                                                                {_({fr:'Bain:',ar:'الحوض:',en:'Bath:',es:'Baño:',pt:'Tingimento:',tr:'Banyo:'})} {mvt.bain}
                                                             </span>
                                                         )}
                                                         {mvt.fournisseurId && (
@@ -526,7 +508,7 @@ export default function ProductDetailPanel({ product, lots, mouvements, onClose,
                                     {productMvts.length === 0 && (
                                         <div className="px-5 py-16 text-center">
                                             <History className="w-12 h-12 text-slate-200 mx-auto mb-3" />
-                                            <p className="text-slate-400 font-bold">Aucun mouvement</p>
+                                            <p className="text-slate-400 font-bold">{_({fr:'Aucun mouvement',ar:'لا توجد حركات',en:'No movements',es:'Sin movimientos',pt:'Nenhum movimento',tr:'Hareket yok'})}</p>
                                         </div>
                                     )}
                                 </div>
@@ -534,10 +516,8 @@ export default function ProductDetailPanel({ product, lots, mouvements, onClose,
                         </div>
                     )}
 
-                    {/* ─── SUPPLIER TAB ─── */}
                     {activeTab === 'supplier' && (
                         <div className="p-6 space-y-6">
-                            {/* Supplier Card */}
                             <div
                                 className={`bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden ${!isEditing ? 'cursor-pointer hover:shadow-md' : ''}`}
                                 onClick={() => {
@@ -560,13 +540,13 @@ export default function ProductDetailPanel({ product, lots, mouvements, onClose,
                                                         value={editData.fournisseurNom || ''}
                                                         onChange={e => setField('fournisseurNom', e.target.value)}
                                                         className="w-full px-3 py-1 rounded-lg border border-indigo-200 text-slate-800 font-black"
-                                                        placeholder="Nom du fournisseur"
+                                                        placeholder={_({fr:'Nom du fournisseur',ar:'اسم المورد',en:'Supplier name',es:'Nombre del proveedor',pt:'Nome do fornecedor',tr:'Tedarikçi adı'})}
                                                     />
                                                 ) : (
-                                                    product.fournisseurNom || 'Non défini'
+                                                    product.fournisseurNom || _({fr:'Non défini',ar:'غير محدد',en:'Not set',es:'No definido',pt:'Não definido',tr:'Tanımlanmamış'})
                                                 )}
                                             </h3>
-                                            <p className="text-xs text-slate-500">Fournisseur Principal</p>
+                                            <p className="text-xs text-slate-500">{_({fr:'Fournisseur Principal',ar:'المورد الرئيسي',en:'Main Supplier',es:'Proveedor Principal',pt:'Fornecedor Principal',tr:'Ana Tedarikçi'})}</p>
                                         </div>
                                         {!isEditing && (
                                             <button
@@ -577,18 +557,17 @@ export default function ProductDetailPanel({ product, lots, mouvements, onClose,
                                                 }}
                                                 className="rounded-full px-3 py-1 text-xs font-black text-indigo-700 bg-indigo-100 hover:bg-indigo-200"
                                             >
-                                                Modifier
+                                                {_({fr:'Modifier',ar:'تعديل',en:'Edit',es:'Editar',pt:'Editar',tr:'Düzenle'})}
                                             </button>
                                         )}
                                     </div>
                                 </div>
 
                                 <div className="p-5 space-y-4">
-                                    {/* Contact Info */}
                                     <div className="grid grid-cols-2 gap-4">
                                         <div className="space-y-1">
                                             <label className="text-[10px] font-black text-slate-400 uppercase flex items-center gap-1">
-                                                <Phone className="w-3 h-3" /> Téléphone
+                                                <Phone className="w-3 h-3" /> {_({fr:'Téléphone',ar:'الهاتف',en:'Phone',es:'Teléfono',pt:'Telefone',tr:'Telefon'})}
                                             </label>
                                             {isEditing ? (
                                                 <input
@@ -620,10 +599,9 @@ export default function ProductDetailPanel({ product, lots, mouvements, onClose,
                                         </div>
                                     </div>
 
-                                    {/* Address */}
                                     <div className="space-y-1">
                                         <label className="text-[10px] font-black text-slate-400 uppercase flex items-center gap-1">
-                                            <MapPin className="w-3 h-3" /> Adresse
+                                            <MapPin className="w-3 h-3" /> {_({fr:'Adresse',ar:'العنوان',en:'Address',es:'Dirección',pt:'Endereço',tr:'Adres'})}
                                         </label>
                                         {isEditing ? (
                                             <input
@@ -631,14 +609,13 @@ export default function ProductDetailPanel({ product, lots, mouvements, onClose,
                                                 value={editData.fournisseurAdresse || ''}
                                                 onChange={e => setField('fournisseurAdresse', e.target.value)}
                                                 className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm"
-                                                placeholder="Adresse complète"
+                                                placeholder={_({fr:'Adresse complète',ar:'العنوان الكامل',en:'Full address',es:'Dirección completa',pt:'Endereço completo',tr:'Tam adres'})}
                                             />
                                         ) : (
                                             <p className="text-sm font-bold text-slate-700">{product.fournisseurAdresse || '—'}</p>
                                         )}
                                     </div>
 
-                                    {/* Legal Info */}
                                     <div className="grid grid-cols-2 gap-4 pt-4 border-t border-slate-100">
                                         <div className="space-y-1">
                                             <label className="text-[10px] font-black text-slate-400 uppercase flex items-center gap-1">
@@ -672,11 +649,10 @@ export default function ProductDetailPanel({ product, lots, mouvements, onClose,
                                         </div>
                                     </div>
 
-                                    {/* Business Terms */}
                                     <div className="grid grid-cols-3 gap-4 pt-4 border-t border-slate-100">
                                         <div className="space-y-1">
                                             <label className="text-[10px] font-black text-slate-400 uppercase flex items-center gap-1">
-                                                <Timer className="w-3 h-3" /> Délai (jours)
+                                                <Timer className="w-3 h-3" /> {_({fr:'Délai (jours)',ar:'المهلة (أيام)',en:'Lead time (days)',es:'Plazo (días)',pt:'Prazo (dias)',tr:'Teslim süresi (gün)'})}
                                             </label>
                                             {isEditing ? (
                                                 <input
@@ -706,7 +682,7 @@ export default function ProductDetailPanel({ product, lots, mouvements, onClose,
                                         </div>
                                         <div className="space-y-1">
                                             <label className="text-[10px] font-black text-slate-400 uppercase flex items-center gap-1">
-                                                <Globe className="w-3 h-3" /> Devise
+                                                <Globe className="w-3 h-3" /> {_({fr:'Devise',ar:'العملة',en:'Currency',es:'Moneda',pt:'Moeda',tr:'Para Birimi'})}
                                             </label>
                                             {isEditing ? (
                                                 <select
@@ -725,10 +701,9 @@ export default function ProductDetailPanel({ product, lots, mouvements, onClose,
                                         </div>
                                     </div>
 
-                                    {/* Payment Terms */}
                                     <div className="space-y-1 pt-4 border-t border-slate-100">
                                         <label className="text-[10px] font-black text-slate-400 uppercase flex items-center gap-1">
-                                            <CreditCard className="w-3 h-3" /> Conditions de Paiement
+                                            <CreditCard className="w-3 h-3" /> {_({fr:'Conditions de Paiement',ar:'شروط الدفع',en:'Payment Terms',es:'Condiciones de Pago',pt:'Condições de Pagamento',tr:'Ödeme Koşulları'})}
                                         </label>
                                         {isEditing ? (
                                             <input
@@ -736,17 +711,16 @@ export default function ProductDetailPanel({ product, lots, mouvements, onClose,
                                                 value={editData.fournisseurConditionsPaiement || ''}
                                                 onChange={e => setField('fournisseurConditionsPaiement', e.target.value)}
                                                 className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm"
-                                                placeholder="Ex: 30j fin de mois"
+                                                placeholder={_({fr:'Ex: 30j fin de mois',ar:'مثال: 30 يوم نهاية الشهر',en:'E.g.: 30 days end of month',es:'Ej: 30 días fin de mes',pt:'Ex: 30 dias fim do mês',tr:'Örn: Ay sonu 30 gün'})}
                                             />
                                         ) : (
                                             <p className="text-sm font-bold text-slate-700">{product.fournisseurConditionsPaiement || '—'}</p>
                                         )}
                                     </div>
 
-                                    {/* Notes */}
                                     <div className="space-y-1 pt-4 border-t border-slate-100">
                                         <label className="text-[10px] font-black text-slate-400 uppercase flex items-center gap-1">
-                                            <StickyNote className="w-3 h-3" /> Notes
+                                            <StickyNote className="w-3 h-3" /> {_({fr:'Notes',ar:'ملاحظات',en:'Notes',es:'Notas',pt:'Notas',tr:'Notlar'})}
                                         </label>
                                         {isEditing ? (
                                             <textarea
@@ -754,10 +728,10 @@ export default function ProductDetailPanel({ product, lots, mouvements, onClose,
                                                 onChange={e => setField('fournisseurNotes', e.target.value)}
                                                 className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm resize-none"
                                                 rows={3}
-                                                placeholder="Notes sur le fournisseur..."
+                                                placeholder={_({fr:'Notes sur le fournisseur...',ar:'ملاحظات حول المورد...',en:'Notes about the supplier...',es:'Notas sobre el proveedor...',pt:'Notas sobre o fornecedor...',tr:'Tedarikçi hakkında notlar...'})}
                                             />
                                         ) : (
-                                            <p className="text-sm text-slate-600 italic">{product.fournisseurNotes || 'Aucune note'}</p>
+                                            <p className="text-sm text-slate-600 italic">{product.fournisseurNotes || _({fr:'Aucune note',ar:'لا توجد ملاحظات',en:'No notes',es:'Sin notas',pt:'Sem notas',tr:'Not yok'})}</p>
                                         )}
                                     </div>
                                 </div>
@@ -765,15 +739,13 @@ export default function ProductDetailPanel({ product, lots, mouvements, onClose,
                         </div>
                     )}
 
-                    {/* ─── LOTS TAB ─── */}
                     {activeTab === 'lots' && (
                         <div className="p-6 space-y-6">
-                            {/* Bains Summary */}
                             {availableBains.length > 0 && (
                                 <div className="bg-gradient-to-r from-purple-50 to-indigo-50 rounded-2xl p-5 border border-purple-100">
                                     <h3 className="font-black text-purple-800 flex items-center gap-2 mb-3">
                                         <Droplets className="w-5 h-5" />
-                                        Bains Disponibles
+                                        {_({fr:'Bains Disponibles',ar:'الأحواض المتاحة',en:'Available Baths',es:'Baños Disponibles',pt:'Tingimentos Disponíveis',tr:'Mevcut Banyolar'})}
                                     </h3>
                                     <div className="flex flex-wrap gap-2">
                                         {availableBains.map((b, i) => (
@@ -786,11 +758,10 @@ export default function ProductDetailPanel({ product, lots, mouvements, onClose,
                                 </div>
                             )}
 
-                            {/* All Lots */}
                             <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
                                 <div className="px-5 py-4 border-b border-slate-100">
-                                    <h3 className="font-black text-slate-800">Tous les Lots</h3>
-                                    <p className="text-xs text-slate-400 mt-0.5">{productLots.length} lot(s) enregistré(s)</p>
+                                    <h3 className="font-black text-slate-800">{_({fr:'Tous les Lots',ar:'جميع الدفعات',en:'All Lots',es:'Todos los Lotes',pt:'Todos os Lotes',tr:'Tüm Partiler'})}</h3>
+                                    <p className="text-xs text-slate-400 mt-0.5">{productLots.length} {_({fr:'lot(s) enregistré(s)',ar:'دفعة (دفعات) مسجلة',en:'lot(s) recorded',es:'lote(s) registrado(s)',pt:'lote(s) registado(s)',tr:'kayıtlı parti(ler)'})}</p>
                                 </div>
                                 <div className="max-h-[400px] overflow-y-auto">
                                     {productLots.map((lot, i) => (
@@ -806,18 +777,18 @@ export default function ProductDetailPanel({ product, lots, mouvements, onClose,
                                                 <div className="flex items-center gap-2 mb-1">
                                                     {lot.numBain && (
                                                         <span className="px-2 py-0.5 rounded bg-purple-100 text-purple-700 text-xs font-bold">
-                                                            Bain: {lot.numBain}
+                                                            {_({fr:'Bain:',ar:'الحوض:',en:'Bath:',es:'Baño:',pt:'Tingimento:',tr:'Banyo:'})} {lot.numBain}
                                                         </span>
                                                     )}
                                                     {lot.etat === 'quarantaine' && (
                                                         <span className="px-2 py-0.5 rounded bg-amber-100 text-amber-700 text-xs font-bold">
-                                                            Quarantaine
+                                                            {_({fr:'Quarantaine',ar:'الحجر الصحي',en:'Quarantine',es:'Cuarentena',pt:'Quarentena',tr:'Karantina'})}
                                                         </span>
                                                     )}
                                                 </div>
                                                 <div className="flex items-center gap-3 text-xs text-slate-500">
-                                                    <span>Entrée: {formatDate(lot.dateEntree)}</span>
-                                                    {lot.fournisseur && <span>Frs: {lot.fournisseur}</span>}
+                                                    <span>{_({fr:'Entrée:',ar:'دخول:',en:'Entry:',es:'Entrada:',pt:'Entrada:',tr:'Giriş:'})} {formatDate(lot.dateEntree)}</span>
+                                                    {lot.fournisseur && <span>{_({fr:'Frs:',ar:'المورد:',en:'Supp:',es:'Prov:',pt:'Forn:',tr:'Tedarikçi:'})} {lot.fournisseur}</span>}
                                                     <span>{lot.prixUnitaire.toFixed(2)} DH/{product.unite}</span>
                                                 </div>
                                             </div>
@@ -832,7 +803,7 @@ export default function ProductDetailPanel({ product, lots, mouvements, onClose,
                                     {productLots.length === 0 && (
                                         <div className="px-5 py-16 text-center">
                                             <Layers className="w-12 h-12 text-slate-200 mx-auto mb-3" />
-                                            <p className="text-slate-400 font-bold">Aucun lot enregistré</p>
+                                            <p className="text-slate-400 font-bold">{_({fr:'Aucun lot enregistré',ar:'لا توجد دفعات مسجلة',en:'No lots recorded',es:'Sin lotes registrados',pt:'Nenhum lote registado',tr:'Kayıtlı parti yok'})}</p>
                                         </div>
                                     )}
                                 </div>

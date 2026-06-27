@@ -4,6 +4,8 @@ import { Calendar, X } from 'lucide-react';
 import type { AppSettings } from '../../types';
 import MonthGrid from './MonthGrid';
 import { planningLocalDateKey } from '../../utils/planning';
+import { useLang } from '../../src/context/LanguageContext';
+import { tx } from '../../lib/i18n';
 
 export interface DateTimePickerProps {
     value: string;
@@ -57,6 +59,7 @@ export default function DateTimePicker({
     showIcon = true,
     displayValue,
 }: DateTimePickerProps) {
+    const { lang } = useLang();
     const uid = useId();
     const [open, setOpen] = useState(false);
     const anchorRef = useRef<HTMLButtonElement>(null);
@@ -138,9 +141,9 @@ export default function DateTimePicker({
             <div className="mb-3 flex items-center justify-between border-b border-slate-100 pb-2">
                 <div className="flex items-center gap-2 text-sm font-black text-slate-800">
                     <Calendar className="h-4 w-4 text-[#2149C1]" />
-                    Date
+                    {tx(lang, {fr:"Date",ar:"التاريخ",en:"Date",es:"Fecha",pt:"Data",tr:"Tarih"})}
                 </div>
-                <button type="button" className="rounded-lg p-1 text-slate-400 hover:bg-slate-100" onClick={() => setOpen(false)} aria-label="Fermer">
+                <button type="button" className="rounded-lg p-1 text-slate-400 hover:bg-slate-100" onClick={() => setOpen(false)} aria-label={tx(lang, {fr:"Fermer",ar:"إغلاق",en:"Close",es:"Cerrar",pt:"Fechar",tr:"Kapat"})}>
                     <X className="h-4 w-4" />
                 </button>
             </div>
@@ -160,7 +163,7 @@ export default function DateTimePicker({
                 </div>
                 {mode === 'datetime' && (
                     <div className="flex w-full shrink-0 flex-col border-t border-slate-100 pt-3 sm:w-36 sm:border-l sm:border-t-0 sm:pl-4 sm:pt-0">
-                        <p className="mb-2 text-[10px] font-black uppercase tracking-wider text-slate-500">Heure</p>
+                        <p className="mb-2 text-[10px] font-black uppercase tracking-wider text-slate-500">{tx(lang, {fr:"Heure",ar:"الوقت",en:"Time",es:"Hora",pt:"Hora",tr:"Saat"})}</p>
                         <div className="max-h-56 overflow-y-auto pr-1 [scrollbar-width:thin]">
                             {slots.map(({ h, m }) => {
                                 const active = timePart.h === h && timePart.m === m;
@@ -183,7 +186,7 @@ export default function DateTimePicker({
             </div>
             <div className="mt-4 flex justify-end gap-2 border-t border-slate-100 pt-3">
                 <button type="button" className="rounded-xl px-4 py-2 text-sm font-bold text-slate-600 hover:bg-slate-100" onClick={() => setOpen(false)}>
-                    Fermer
+                    {tx(lang, {fr:"Fermer",ar:"إغلاق",en:"Close",es:"Cerrar",pt:"Fechar",tr:"Kapat"})}
                 </button>
                 {mode === 'datetime' && (
                     <button

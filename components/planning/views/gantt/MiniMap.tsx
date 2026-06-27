@@ -5,6 +5,8 @@ import { getClientColor } from '../../shared/clientColors';
 import { getModelColor } from '../../shared/modelColors';
 import { parsePlanningDateAtNoon, planningLocalDateKey } from '../../../../utils/planning';
 import type { PlanningChain } from '../../hooks/usePlanningChains';
+import { tx } from '../../../../lib/i18n';
+import { useLang } from '../../../../src/context/LanguageContext';
 
 interface Props {
     chains: PlanningChain[];
@@ -23,6 +25,7 @@ export default function MiniMap({
     chains, events, models, timelineDates, dayWidth,
     scrollLeft, viewportWidth, contentWidth, onJumpTo,
 }: Props) {
+    const { lang } = useLang();
     const ref = useRef<HTMLDivElement>(null);
     const MAP_HEIGHT = 36;
 
@@ -54,17 +57,17 @@ export default function MiniMap({
     };
 
     return (
-        <div className="shrink-0 border-t border-slate-100 bg-white px-6 py-2">
+        <div className="shrink-0 border-t border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 px-6 py-2">
             <div className="flex items-center gap-3">
                 <span className="text-[10px] font-medium text-slate-400 uppercase tracking-wider shrink-0">
-                    Vue d'ensemble
+{tx(lang, { fr: "Vue d'ensemble", ar: 'نظرة عامة', en: 'Overview', es: 'Vista general', pt: 'Visão geral', tr: 'Genel bakış' })}
                 </span>
                 <div
                     ref={ref}
                     onClick={handleClick}
-                    className="relative flex-1 bg-slate-50 rounded-md cursor-pointer overflow-hidden"
+                    className="relative flex-1 bg-slate-50 dark:bg-slate-800 rounded-md cursor-pointer overflow-hidden"
                     style={{ height: MAP_HEIGHT }}
-                    title="Cliquez pour naviguer"
+                    title={tx(lang, { fr: 'Cliquez pour naviguer', ar: 'انقر للتنقل', en: 'Click to navigate', es: 'Haga clic para navegar', pt: 'Clique para navegar', tr: 'Gezinmek için tıklayın' })}
                 >
                     {/* Lignes de chaînes en arrière-plan */}
                     {chains.map((_, i) => (

@@ -11,12 +11,18 @@ import {
   isUnreadForUser,
 } from '../src/lib/support';
 import type { SupportTicket, SupportMessage } from '../src/lib/supportTypes';
+import { useLang } from '../src/context/LanguageContext';
+import { tx } from '../lib/i18n';
 
 interface Props {
   user?: { id?: string | number; email?: string } | null;
 }
 
-const STATUS_LABEL: Record<string, string> = { nouveau: 'Nouveau', en_cours: 'En cours', resolu: 'Résolu' };
+const STATUS_LABEL = (lang: string): Record<string, string> => ({
+  nouveau: tx(lang, {fr:"Nouveau",ar:"جديد",en:"New",es:"Nuevo",pt:"Novo",tr:"Yeni"}),
+  en_cours: tx(lang, {fr:"En cours",ar:"قيد المعالجة",en:"In progress",es:"En curso",pt:"Em andamento",tr:"Devam ediyor"}),
+  resolu: tx(lang, {fr:"Résolu",ar:"تم الحل",en:"Resolved",es:"Resuelto",pt:"Resolvido",tr:"Çözüldü"}),
+});
 const STATUS_CLS: Record<string, string> = {
   nouveau: 'bg-red-50 text-red-600',
   en_cours: 'bg-amber-50 text-amber-600',
@@ -30,6 +36,7 @@ const fmt = (iso?: string) => {
 };
 
 const SupportWidget: React.FC<Props> = ({ user }) => {
+  const { lang } = useLang();
   const [userId, setUserId] = useState<string | null>(user?.id ? String(user.id) : null);
   const [open, setOpen] = useState(false);
   const [tickets, setTickets] = useState<SupportTicket[]>([]);
@@ -111,10 +118,10 @@ const SupportWidget: React.FC<Props> = ({ user }) => {
             <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100 shrink-0">
               {active ? (
                 <button onClick={() => setActive(null)} className="flex items-center gap-1 text-sm font-semibold text-slate-600 hover:text-slate-900">
-                  <ChevronLeft className="w-4 h-4" /> Retour
+                  <ChevronLeft className="w-4 h-4" /> {tx(lang, {fr:"Retour",ar:"رجوع",en:"Back",es:"Volver",pt:"Voltar",tr:"Geri"})}
                 </button>
               ) : (
-                <span className="text-sm font-bold text-slate-800">Support</span>
+                <span className="text-sm font-bold text-slate-800">{tx(lang, {fr:"Support",ar:"الدعم الفني",en:"Support",es:"Soporte",pt:"Suporte",tr:"Destek"})}</span>
               )}
               <button onClick={() => { setOpen(false); setActive(null); }} className="text-slate-400 hover:text-slate-700">
                 <X className="w-4 h-4" />
@@ -125,7 +132,7 @@ const SupportWidget: React.FC<Props> = ({ user }) => {
             {!active && (
               <div className="overflow-auto">
                 {tickets.length === 0 ? (
-                  <div className="p-8 text-center text-sm text-slate-400">Aucun message pour le moment.</div>
+                  <div className="p-8 text-center text-sm text-slate-400">{tx(lang, {fr:"Aucun message pour le moment.",ar:"لا توجد رسائل حالياً.",en:"No messages yet.",es:"Ningún mensaje por ahora.",pt:"Nenhuma mensagem no momento.",tr:"Henüz mesaj yok."})}</div>
                 ) : tickets.map(t => (
                   <button
                     key={t.id}
@@ -135,7 +142,7 @@ const SupportWidget: React.FC<Props> = ({ user }) => {
                     <span className="text-base shrink-0">{t.kind === 'connexion' ? '📡' : t.kind === 'question' ? '💬' : '⚠️'}</span>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
-                        <span className={`text-[10px] font-bold uppercase px-1.5 py-0.5 rounded ${STATUS_CLS[t.status] || ''}`}>{STATUS_LABEL[t.status] || t.status}</span>
+                        <span className={`text-[10px] font-bold uppercase px-1.5 py-0.5 rounded ${STATUS_CLS[t.status] || ''}`}>{STATUS_LABEL(lang)[t.status] || t.status}</span>
                         {isUnreadForUser(t) && <span className="w-2 h-2 rounded-full bg-red-500" />}
                       </div>
                       <p className="text-sm text-slate-700 truncate mt-0.5">{t.message}</p>
@@ -169,7 +176,7 @@ const SupportWidget: React.FC<Props> = ({ user }) => {
                     value={text}
                     onChange={e => setText(e.target.value)}
                     onKeyDown={e => { if (e.key === 'Enter') handleSend(); }}
-                    placeholder="Écrire un message…"
+                    placeholder={tx(lang, {fr:"Écrire un message…",ar:"اكتب رسالة…",en:"Write a message…",es:"Escribir un mensaje…",pt:"Escrever uma mensagem…",tr:"Bir mesaj yazın…"})}
                     className="flex-1 px-3 py-2 text-sm rounded-lg border border-slate-200 focus:outline-none focus:border-emerald-300"
                   />
                   <button onClick={handleSend} disabled={sending || !text.trim()}

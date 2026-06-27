@@ -3,7 +3,7 @@ import db from './db';
 
 // PRODUCTS
 export const getMagasinProducts = (req: Request, res: Response) => {
-    const userId = (req as any).user.id;
+    const userId = (req as any).companyId ?? (req as any).user.id;
     try {
         const stmt = db.prepare('SELECT * FROM magasin_products WHERE owner_id = ? ORDER BY created_at DESC');
         const products = stmt.all(userId);
@@ -15,7 +15,7 @@ export const getMagasinProducts = (req: Request, res: Response) => {
 };
 
 export const saveMagasinProduct = (req: Request, res: Response) => {
-    const userId = (req as any).user.id;
+    const userId = (req as any).companyId ?? (req as any).user.id;
     const p = req.body;
 
     if (!p.id || !p.reference || !p.designation) {
@@ -55,7 +55,7 @@ export const saveMagasinProduct = (req: Request, res: Response) => {
 };
 
 export const deleteMagasinProduct = (req: Request, res: Response) => {
-    const userId = (req as any).user.id;
+    const userId = (req as any).companyId ?? (req as any).user.id;
     const { id } = req.params;
 
     try {
@@ -69,7 +69,7 @@ export const deleteMagasinProduct = (req: Request, res: Response) => {
 
 // LOTS
 export const getMagasinLots = (req: Request, res: Response) => {
-    const userId = (req as any).user.id;
+    const userId = (req as any).companyId ?? (req as any).user.id;
     try {
         const stmt = db.prepare(`
       SELECT l.* FROM magasin_lots l
@@ -85,7 +85,7 @@ export const getMagasinLots = (req: Request, res: Response) => {
 
 // MOUVEMENTS
 export const getMagasinMouvements = (req: Request, res: Response) => {
-    const userId = (req as any).user.id;
+    const userId = (req as any).companyId ?? (req as any).user.id;
     try {
         const stmt = db.prepare(`
       SELECT m.* FROM magasin_mouvements m
@@ -103,17 +103,24 @@ export const getMagasinMouvements = (req: Request, res: Response) => {
 // Since the frontend performs batched movements (adding a lot + calculating CUMP + recording movement), 
 // it's safest to provide an atomic strictly-bound transaction endpoint for "Register Movement".
 export const registerMouvement = (req: Request, res: Response) => {
-    const userId = (req as any).user.id;
+    const userId = (req as any).companyId ?? (req as any).user.id;
     const { mouvement, lotsUpdate, productUpdate } = req.body;
 
     try {
         const transaction = db.transaction(() => {
-            // 1. Verify product ownership
-            const checkId = productUpdate?.id || mouvement?.productId || (lotsUpdate && lotsUpdate.length > 0 ? lotsUpdate[0].productId : null);
-            if (!checkId) throw new Error("No product ID provided in transaction");
+            // 1. Verify product ownership — TOUS les productId du payload (anti-IDOR :
+            // un body forgé pourrait mêler un produit possédé pour le check et un
+            // produit d'un autre tenant dans l'insert/update).
+            const productIds = new Set<string>();
+            if (productUpdate?.id) productIds.add(productUpdate.id);
+            if (mouvement?.productId) productIds.add(mouvement.productId);
+            if (Array.isArray(lotsUpdate)) for (const l of lotsUpdate) { if (l?.productId) productIds.add(l.productId); }
+            if (productIds.size === 0) throw new Error("No product ID provided in transaction");
 
-            const prodCheck = db.prepare('SELECT id FROM magasin_products WHERE id = ? AND owner_id = ?').get(checkId, userId);
-            if (!prodCheck) throw new Error("Product not found or unauthorized.");
+            const ownsStmt = db.prepare('SELECT 1 FROM magasin_products WHERE id = ? AND owner_id = ?');
+            for (const pid of productIds) {
+                if (!ownsStmt.get(pid, userId)) throw new Error("Product not found or unauthorized.");
+            }
 
             // 2. Insert Movement
             if (mouvement) {
@@ -155,7 +162,7 @@ export const registerMouvement = (req: Request, res: Response) => {
 
             // 4. Update Product CUMP
             if (productUpdate && productUpdate.cump !== undefined) {
-                db.prepare('UPDATE magasin_products SET cump = ? WHERE id = ?').run(productUpdate.cump, productUpdate.id);
+                db.prepare('UPDATE magasin_products SET cump = ? WHERE id = ? AND owner_id = ?').run(productUpdate.cump, productUpdate.id, userId);
             }
         });
 
@@ -168,7 +175,7 @@ export const registerMouvement = (req: Request, res: Response) => {
 };
 
 export const updateMagasinMouvement = (req: Request, res: Response) => {
-    const userId = (req as any).user.id;
+    const userId = (req as any).companyId ?? (req as any).user.id;
     const { id } = req.params;
     const m = req.body;
 
@@ -203,7 +210,7 @@ export const updateMagasinMouvement = (req: Request, res: Response) => {
 };
 
 export const deleteMagasinMouvement = (req: Request, res: Response) => {
-    const userId = (req as any).user.id;
+    const userId = (req as any).companyId ?? (req as any).user.id;
     const { id } = req.params;
 
     try {
@@ -227,7 +234,7 @@ export const deleteMagasinMouvement = (req: Request, res: Response) => {
 
 // COMMANDES
 export const getMagasinCommandes = (req: Request, res: Response) => {
-    const userId = (req as any).user.id;
+    const userId = (req as any).companyId ?? (req as any).user.id;
     try {
         const stmt = db.prepare('SELECT * FROM magasin_commandes WHERE owner_id = ? ORDER BY dateCreation DESC');
         const commandes = stmt.all(userId).map((c: any) => ({...c, lignes: JSON.parse(c.lignes || '[]')}));
@@ -238,7 +245,7 @@ export const getMagasinCommandes = (req: Request, res: Response) => {
 };
 
 export const saveMagasinCommande = (req: Request, res: Response) => {
-    const userId = (req as any).user.id;
+    const userId = (req as any).companyId ?? (req as any).user.id;
     const c = req.body;
     try {
         const stmt = db.prepare(`
@@ -257,7 +264,7 @@ export const saveMagasinCommande = (req: Request, res: Response) => {
 };
 
 export const deleteMagasinCommande = (req: Request, res: Response) => {
-    const userId = (req as any).user.id;
+    const userId = (req as any).companyId ?? (req as any).user.id;
     try {
         db.prepare('DELETE FROM magasin_commandes WHERE id = ? AND owner_id = ?').run(req.params.id, userId);
         res.json({ message: 'Commande deleted successfully' });
@@ -268,7 +275,7 @@ export const deleteMagasinCommande = (req: Request, res: Response) => {
 
 // DEMANDES
 export const getMagasinDemandes = (req: Request, res: Response) => {
-    const userId = (req as any).user.id;
+    const userId = (req as any).companyId ?? (req as any).user.id;
     try {
         const stmt = db.prepare('SELECT * FROM magasin_demandes WHERE owner_id = ? ORDER BY dateDemande DESC');
         const demandes = stmt.all(userId);
@@ -279,7 +286,7 @@ export const getMagasinDemandes = (req: Request, res: Response) => {
 };
 
 export const saveMagasinDemande = (req: Request, res: Response) => {
-    const userId = (req as any).user.id;
+    const userId = (req as any).companyId ?? (req as any).user.id;
     const d = req.body;
     try {
         const stmt = db.prepare(`
@@ -298,7 +305,7 @@ export const saveMagasinDemande = (req: Request, res: Response) => {
 };
 
 export const deleteMagasinDemande = (req: Request, res: Response) => {
-    const userId = (req as any).user.id;
+    const userId = (req as any).companyId ?? (req as any).user.id;
     try {
         db.prepare('DELETE FROM magasin_demandes WHERE id = ? AND owner_id = ?').run(req.params.id, userId);
         res.json({ message: 'Demande deleted successfully' });
@@ -309,7 +316,7 @@ export const deleteMagasinDemande = (req: Request, res: Response) => {
 
 // DECHETS
 export const getMagasinDechets = (req: Request, res: Response) => {
-    const userId = (req as any).user.id;
+    const userId = (req as any).companyId ?? (req as any).user.id;
     try {
         const stmt = db.prepare('SELECT * FROM magasin_dechets WHERE owner_id = ? ORDER BY date_declaration DESC');
         const dechets = stmt.all(userId);
@@ -320,7 +327,7 @@ export const getMagasinDechets = (req: Request, res: Response) => {
 };
 
 export const saveMagasinDechet = (req: Request, res: Response) => {
-    const userId = (req as any).user.id;
+    const userId = (req as any).companyId ?? (req as any).user.id;
     const d = req.body;
     try {
         const stmt = db.prepare(`
@@ -339,7 +346,7 @@ export const saveMagasinDechet = (req: Request, res: Response) => {
 };
 
 export const deleteMagasinDechet = (req: Request, res: Response) => {
-    const userId = (req as any).user.id;
+    const userId = (req as any).companyId ?? (req as any).user.id;
     try {
         db.prepare('DELETE FROM magasin_dechets WHERE id = ? AND owner_id = ?').run(req.params.id, userId);
         res.json({ message: 'Dechet deleted successfully' });
@@ -350,7 +357,7 @@ export const deleteMagasinDechet = (req: Request, res: Response) => {
 
 // MATERIAL RECEIPTS (Bons de Réception)
 export const getMaterialReceipts = (req: Request, res: Response) => {
-    const userId = (req as any).user.id;
+    const userId = (req as any).companyId ?? (req as any).user.id;
     try {
         const stmt = db.prepare('SELECT * FROM material_receipts WHERE owner_id = ? ORDER BY dateReceived DESC, created_at DESC');
         const receipts = stmt.all(userId);
@@ -362,7 +369,7 @@ export const getMaterialReceipts = (req: Request, res: Response) => {
 };
 
 export const saveMaterialReceipt = (req: Request, res: Response) => {
-    const userId = (req as any).user.id;
+    const userId = (req as any).companyId ?? (req as any).user.id;
     const r = req.body;
     if (!r.id || !r.pedidoId || !r.materialName) {
         return res.status(400).json({ message: 'ID, pedidoId, and materialName are required' });
@@ -384,7 +391,7 @@ export const saveMaterialReceipt = (req: Request, res: Response) => {
 };
 
 export const deleteMaterialReceipt = (req: Request, res: Response) => {
-    const userId = (req as any).user.id;
+    const userId = (req as any).companyId ?? (req as any).user.id;
     try {
         db.prepare('DELETE FROM material_receipts WHERE id = ? AND owner_id = ?').run(req.params.id, userId);
         res.json({ message: 'Material receipt deleted successfully' });
@@ -395,7 +402,7 @@ export const deleteMaterialReceipt = (req: Request, res: Response) => {
 
 // INVENTORY MOVEMENTS (Bons de Sortie / Entrée simplifiés)
 export const getInventoryMovements = (req: Request, res: Response) => {
-    const userId = (req as any).user.id;
+    const userId = (req as any).companyId ?? (req as any).user.id;
     try {
         const stmt = db.prepare('SELECT * FROM inventory_movements WHERE owner_id = ? ORDER BY date DESC, created_at DESC');
         const movements = stmt.all(userId);
@@ -407,7 +414,7 @@ export const getInventoryMovements = (req: Request, res: Response) => {
 };
 
 export const saveInventoryMovement = (req: Request, res: Response) => {
-    const userId = (req as any).user.id;
+    const userId = (req as any).companyId ?? (req as any).user.id;
     const m = req.body;
     if (!m.id || !m.materialName || !m.type) {
         return res.status(400).json({ message: 'ID, materialName, and type are required' });
@@ -429,7 +436,7 @@ export const saveInventoryMovement = (req: Request, res: Response) => {
 };
 
 export const deleteInventoryMovement = (req: Request, res: Response) => {
-    const userId = (req as any).user.id;
+    const userId = (req as any).companyId ?? (req as any).user.id;
     try {
         db.prepare('DELETE FROM inventory_movements WHERE id = ? AND owner_id = ?').run(req.params.id, userId);
         res.json({ message: 'Inventory movement deleted successfully' });
@@ -445,7 +452,7 @@ export const deleteInventoryMovement = (req: Request, res: Response) => {
 // ════════════════════════════════════════════════════════════════════════════
 
 export const saveMaterialInvoice = (req: Request, res: Response) => {
-    const userId = (req as any).user.id;
+    const userId = (req as any).companyId ?? (req as any).user.id;
     const f = req.body;
     if (!f.id || !f.modelId || !f.materialName || !f.fileName || !f.mimeType || !f.data) {
         return res.status(400).json({ message: 'id, modelId, materialName, fileName, mimeType and data are required' });
@@ -467,7 +474,7 @@ export const saveMaterialInvoice = (req: Request, res: Response) => {
 
 // Liste les métadonnées (sans le binaire) pour la galerie. Filtre optionnel par modèle / matière.
 export const getMaterialInvoices = (req: Request, res: Response) => {
-    const userId = (req as any).user.id;
+    const userId = (req as any).companyId ?? (req as any).user.id;
     const { modelId, materialName } = req.query as { modelId?: string; materialName?: string };
     try {
         let sql = 'SELECT id, modelId, materialName, fileName, mimeType, created_at FROM material_invoices WHERE owner_id = ?';
@@ -485,7 +492,7 @@ export const getMaterialInvoices = (req: Request, res: Response) => {
 
 // Sert le fichier (image/PDF) avec son type MIME pour affichage / téléchargement.
 export const serveMaterialInvoice = (req: Request, res: Response) => {
-    const userId = (req as any).user.id;
+    const userId = (req as any).companyId ?? (req as any).user.id;
     try {
         const row = db.prepare('SELECT fileName, mimeType, data FROM material_invoices WHERE id = ? AND owner_id = ?').get(req.params.id, userId) as any;
         if (!row) return res.status(404).json({ message: 'Invoice not found' });
@@ -501,7 +508,7 @@ export const serveMaterialInvoice = (req: Request, res: Response) => {
 };
 
 export const deleteMaterialInvoice = (req: Request, res: Response) => {
-    const userId = (req as any).user.id;
+    const userId = (req as any).companyId ?? (req as any).user.id;
     try {
         db.prepare('DELETE FROM material_invoices WHERE id = ? AND owner_id = ?').run(req.params.id, userId);
         res.json({ message: 'Material invoice deleted successfully' });

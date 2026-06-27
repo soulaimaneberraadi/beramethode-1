@@ -3,6 +3,8 @@ import React, { useMemo, useState, useEffect, useRef, useCallback, useLayoutEffe
 import { createPortal } from 'react-dom';
 import { Operation, Poste, Machine, ComplexityFactor, StandardTime, SavedLayout, ManualLink, FicheData } from '../types';
 import ExcelInput from './ExcelInput';
+import { tx } from '../lib/i18n';
+import { useLang } from '../src/context/LanguageContext';
 import {
     Zap,
     Briefcase,
@@ -572,6 +574,7 @@ export default function Implantation({
     ficheData,
     setFicheData
 }: ImplantationProps) {
+    const { lang } = useLang();
 
     const tolerance = ficheData?.toleranceSaturation ?? 115;
     const toleranceRatio = tolerance / 100;
@@ -1085,13 +1088,13 @@ export default function Implantation({
                                 BERAMETHODE
                             </div>
                             <div>
-                                <h1 style="margin: 0; color: #334155; font-family: sans-serif; font-size: 28px;">Plan d'Implantation</h1>
-                                <p style="margin: 5px 0 0 0; color: #64748b; font-family: sans-serif;">Modèle: <strong>${articleName || 'Générique'}</strong></p>
+                                <h1 style="margin: 0; color: #334155; font-family: sans-serif; font-size: 28px;">${tx(lang,{fr:"Plan d'Implantation",ar:'خطة التخطيط',en:'Layout Plan',es:'Plano de Implantación',pt:'Plano de Implantação',tr:'Düzen Planı'})}</h1>
+                                <p style="margin: 5px 0 0 0; color: #64748b; font-family: sans-serif;">${tx(lang,{fr:'Modèle',ar:'النموذج',en:'Model',es:'Modelo',pt:'Modelo',tr:'Model'})}: <strong>${articleName || tx(lang,{fr:'Générique',ar:'عام',en:'Generic',es:'Genérico',pt:'Genérico',tr:'Genel'})}</strong></p>
                             </div>
                         </div>
                         <div style="text-align: right; color: #64748b; font-family: sans-serif; font-size: 14px;">
-                            <p style="margin: 0;">Date: ${new Date().toLocaleDateString('fr-FR')}</p>
-                            <p style="margin: 5px 0 0 0;">Configuration: ${layoutType.toUpperCase()}</p>
+                            <p style="margin: 0;">${tx(lang,{fr:'Date',ar:'التاريخ',en:'Date',es:'Fecha',pt:'Data',tr:'Tarih'})}: ${new Date().toLocaleDateString('fr-FR')}</p>
+                            <p style="margin: 5px 0 0 0;">${tx(lang,{fr:'Configuration',ar:'التكوين',en:'Configuration',es:'Configuración',pt:'Configuração',tr:'Yapılandırma'})}: ${layoutType.toUpperCase()}</p>
                         </div>
                     </div>
                 `;
@@ -1104,15 +1107,15 @@ export default function Implantation({
                 stats.innerHTML = `
                     <div style="display: flex; gap: 20px; margin-bottom: 30px; font-family: sans-serif;">
                         <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; padding: 15px; border-radius: 8px; flex: 1;">
-                            <div style="font-size: 12px; color: #64748b; text-transform: uppercase;">Ouvriers</div>
+                            <div style="font-size: 12px; color: #64748b; text-transform: uppercase;">${tx(lang,{fr:'Ouvriers',ar:'العمال',en:'Workers',es:'Trabajadores',pt:'Trabalhadores',tr:'İşçiler'})}</div>
                             <div style="font-size: 20px; font-weight: bold; color: #334155;">${numWorkers}</div>
                         </div>
                         <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; padding: 15px; border-radius: 8px; flex: 1;">
-                            <div style="font-size: 12px; color: #64748b; text-transform: uppercase;">Heures</div>
+                            <div style="font-size: 12px; color: #64748b; text-transform: uppercase;">${tx(lang,{fr:'Heures',ar:'ساعات',en:'Hours',es:'Horas',pt:'Horas',tr:'Saatler'})}</div>
                             <div style="font-size: 20px; font-weight: bold; color: #334155;">${hours.toFixed(1)}</div>
                         </div>
                         <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; padding: 15px; border-radius: 8px; flex: 1;">
-                            <div style="font-size: 12px; color: #64748b; text-transform: uppercase;">Min Totales</div>
+                            <div style="font-size: 12px; color: #64748b; text-transform: uppercase;">${tx(lang,{fr:'Min Totales',ar:'إجمالي الدقائق',en:'Total Min',es:'Min Totales',pt:'Min Totais',tr:'Toplam Dak'})}</div>
                             <div style="font-size: 20px; font-weight: bold; color: #334155;">${presenceTime}</div>
                         </div>
                         <div style="background-color: #ecfdf5; border: 1px solid #a7f3d0; padding: 15px; border-radius: 8px; flex: 1;">
@@ -1149,7 +1152,7 @@ export default function Implantation({
                 const machDiv = document.createElement('div');
                 machDiv.innerHTML = `
                     <div style="margin-top: 40px; page-break-inside: avoid; font-family: sans-serif; max-width: 400px; background: white; border: 1px solid #cbd5e1; border-radius: 12px; padding: 20px;">
-                        <h3 style="margin-top: 0; color: #334155; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px;">Résumé Matériel (Total: ${machinesSummary.total})</h3>
+                        <h3 style="margin-top: 0; color: #334155; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px;">${tx(lang,{fr:'Résumé Matériel',ar:'ملخص المعدات',en:'Equipment Summary',es:'Resumen de Equipo',pt:'Resumo de Equipamento',tr:'Ekipman Özeti'})} (${tx(lang,{fr:'Total',ar:'الإجمالي',en:'Total',es:'Total',pt:'Total',tr:'Toplam'})}: ${machinesSummary.total})</h3>
                         <div style="margin-top: 15px;">
                             ${mCountsHtml}
                         </div>
@@ -1197,7 +1200,7 @@ export default function Implantation({
 
         } catch (error) {
             console.error("Export failed:", error);
-            alert("Erreur lors de l'exportation du plan.");
+            alert(tx(lang,{fr:"Erreur lors de l'exportation du plan.",ar:'خطأ أثناء تصدير الخطة.',en:'Error exporting the plan.',es:'Error al exportar el plano.',pt:'Erro ao exportar o plano.',tr:'Plan dışa aktarılırken hata oluştu.'}));
         } finally {
             setIsExporting(false);
         }
@@ -1382,36 +1385,36 @@ export default function Implantation({
                 <div style="page-break-inside:auto;margin-top:18px;">
                     <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
                         <span style="background:${secColor(section.theme)};color:#fff;font-weight:800;font-size:12px;letter-spacing:1px;text-transform:uppercase;padding:5px 14px;border-radius:8px;">${esc(section.name)}</span>
-                        ${section.hourly ? `<span style="color:#64748b;font-size:11px;font-weight:600;">Objectif : ${section.hourly} p/h</span>` : ''}
-                        <span style="color:#94a3b8;font-size:11px;">${section.stations.length} postes</span>
+                        ${section.hourly ? `<span style="color:#64748b;font-size:11px;font-weight:600;">${tx(lang,{fr:'Objectif',ar:'الهدف',en:'Target',es:'Objetivo',pt:'Meta',tr:'Hedef'})} : ${section.hourly} p/h</span>` : ''}
+                        <span style="color:#94a3b8;font-size:11px;">${section.stations.length} ${tx(lang,{fr:'postes',ar:'محطات',en:'stations',es:'puestos',pt:'postos',tr:'istasyon'})}</span>
                     </div>
                     <table style="width:100%;">
                         <thead>
                             <tr>
-                                <th colspan="8" style="background:#f1f5f9; text-align:center; font-weight:800; color:#475569; border-bottom:2px solid #cbd5e1; font-size:11px; padding:6px 0;">CÔTÉ GAUCHE (POSTES IMPAIRS)</th>
+                                <th colspan="8" style="background:#f1f5f9; text-align:center; font-weight:800; color:#475569; border-bottom:2px solid #cbd5e1; font-size:11px; padding:6px 0;">${tx(lang,{fr:'CÔTÉ GAUCHE (POSTES IMPAIRS)',ar:'الجانب الأيسر (محطات فردية)',en:'LEFT SIDE (ODD STATIONS)',es:'LADO IZQUIERDO (PUESTOS IMPARES)',pt:'LADO ESQUERDO (POSTOS ÍMPARES)',tr:'SOL TARAF (TEK İSTASYONLAR)'})}</th>
                                 <th style="background:#f8fafc; border:none; width:16px; padding:0;"></th>
-                                <th colspan="8" style="background:#f1f5f9; text-align:center; font-weight:800; color:#475569; border-bottom:2px solid #cbd5e1; font-size:11px; padding:6px 0;">CÔTÉ DROIT (POSTES PAIRS)</th>
+                                <th colspan="8" style="background:#f1f5f9; text-align:center; font-weight:800; color:#475569; border-bottom:2px solid #cbd5e1; font-size:11px; padding:6px 0;">${tx(lang,{fr:'CÔTÉ DROIT (POSTES PAIRS)',ar:'الجانب الأيمن (محطات زوجية)',en:'RIGHT SIDE (EVEN STATIONS)',es:'LADO DERECHO (PUESTOS PARES)',pt:'LADO DIREITO (POSTOS PARES)',tr:'SAĞ TARAF (ÇİFT İSTASYONLAR)'})}</th>
                             </tr>
                             <tr>
                                 <th style="width:24px;text-align:center;">✔</th>
-                                <th style="width:100px;">Photos</th>
+                                <th style="width:100px;">${tx(lang,{fr:'Photos',ar:'صور',en:'Photos',es:'Fotos',pt:'Fotos',tr:'Fotoğraflar'})}</th>
                                 <th style="width:40px;">N°</th>
-                                <th style="width:70px;">Machine</th>
-                                <th>Opérations</th>
-                                <th style="width:50px;">Temps</th>
+                                <th style="width:70px;">${tx(lang,{fr:'Machine',ar:'الآلة',en:'Machine',es:'Máquina',pt:'Máquina',tr:'Makine'})}</th>
+                                <th>${tx(lang,{fr:'Opérations',ar:'العمليات',en:'Operations',es:'Operaciones',pt:'Operações',tr:'Operasyonlar'})}</th>
+                                <th style="width:50px;">${tx(lang,{fr:'Temps',ar:'الوقت',en:'Time',es:'Tiempo',pt:'Tempo',tr:'Süre'})}</th>
                                 <th style="width:50px;">Sat.</th>
-                                <th style="width:80px;">Opérateur</th>
+                                <th style="width:80px;">${tx(lang,{fr:'Opérateur',ar:'المشغل',en:'Operator',es:'Operador',pt:'Operador',tr:'Operatör'})}</th>
                                 
                                 <th style="background:#f8fafc; border:none; width:16px; padding:0;"></th>
                                 
                                 <th style="width:24px;text-align:center;">✔</th>
-                                <th style="width:100px;">Photos</th>
+                                <th style="width:100px;">${tx(lang,{fr:'Photos',ar:'صور',en:'Photos',es:'Fotos',pt:'Fotos',tr:'Fotoğraflar'})}</th>
                                 <th style="width:40px;">N°</th>
-                                <th style="width:70px;">Machine</th>
-                                <th>Opérations</th>
-                                <th style="width:50px;">Temps</th>
+                                <th style="width:70px;">${tx(lang,{fr:'Machine',ar:'الآلة',en:'Machine',es:'Máquina',pt:'Máquina',tr:'Makine'})}</th>
+                                <th>${tx(lang,{fr:'Opérations',ar:'العمليات',en:'Operations',es:'Operaciones',pt:'Operações',tr:'Operasyonlar'})}</th>
+                                <th style="width:50px;">${tx(lang,{fr:'Temps',ar:'الوقت',en:'Time',es:'Tiempo',pt:'Tempo',tr:'Süre'})}</th>
                                 <th style="width:50px;">Sat.</th>
-                                <th style="width:80px;">Opérateur</th>
+                                <th style="width:80px;">${tx(lang,{fr:'Opérateur',ar:'المشغل',en:'Operator',es:'Operador',pt:'Operador',tr:'Operatör'})}</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -1424,20 +1427,20 @@ export default function Implantation({
                 <div style="page-break-inside:auto;margin-top:18px;">
                     <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">
                         <span style="background:${secColor(section.theme)};color:#fff;font-weight:800;font-size:12px;letter-spacing:1px;text-transform:uppercase;padding:5px 14px;border-radius:8px;">${esc(section.name)}</span>
-                        ${section.hourly ? `<span style="color:#64748b;font-size:11px;font-weight:600;">Objectif : ${section.hourly} p/h</span>` : ''}
-                        <span style="color:#94a3b8;font-size:11px;">${section.stations.length} postes</span>
+                        ${section.hourly ? `<span style="color:#64748b;font-size:11px;font-weight:600;">${tx(lang,{fr:'Objectif',ar:'الهدف',en:'Target',es:'Objetivo',pt:'Meta',tr:'Hedef'})} : ${section.hourly} p/h</span>` : ''}
+                        <span style="color:#94a3b8;font-size:11px;">${section.stations.length} ${tx(lang,{fr:'postes',ar:'محطات',en:'stations',es:'puestos',pt:'postos',tr:'istasyon'})}</span>
                     </div>
                     <table>
                         <thead>
                             <tr>
                                 <th style="width:24px;text-align:center;">✔</th>
-                                <th style="width:120px;">Photos</th>
+                                <th style="width:120px;">${tx(lang,{fr:'Photos',ar:'صور',en:'Photos',es:'Fotos',pt:'Fotos',tr:'Fotoğraflar'})}</th>
                                 <th style="width:48px;">N°</th>
-                                <th style="width:70px;">Machine</th>
-                                <th>Opérations</th>
-                                <th style="width:60px;">Temps</th>
+                                <th style="width:70px;">${tx(lang,{fr:'Machine',ar:'الآلة',en:'Machine',es:'Máquina',pt:'Máquina',tr:'Makine'})}</th>
+                                <th>${tx(lang,{fr:'Opérations',ar:'العمليات',en:'Operations',es:'Operaciones',pt:'Operações',tr:'Operasyonlar'})}</th>
+                                <th style="width:60px;">${tx(lang,{fr:'Temps',ar:'الوقت',en:'Time',es:'Tiempo',pt:'Tempo',tr:'Süre'})}</th>
                                 <th style="width:64px;">Sat.</th>
-                                <th style="width:90px;">Opérateur</th>
+                                <th style="width:90px;">${tx(lang,{fr:'Opérateur',ar:'المشغل',en:'Operator',es:'Operador',pt:'Operador',tr:'Operatör'})}</th>
                             </tr>
                         </thead>
                         <tbody>${rowsForSectionSingle(section.stations)}</tbody>
@@ -1463,7 +1466,7 @@ export default function Implantation({
 
         const html = `<!DOCTYPE html>
 <html lang="fr"><head><meta charset="utf-8" />
-<title>Plan d'Implantation — ${esc(articleName || 'Modèle')}</title>
+<title>${tx(lang,{fr:"Plan d'Implantation",ar:'خطة التخطيط',en:'Layout Plan',es:'Plano de Implantación',pt:'Plano de Implantação',tr:'Düzen Planı'})} — ${esc(articleName || tx(lang,{fr:'Modèle',ar:'النموذج',en:'Model',es:'Modelo',pt:'Modelo',tr:'Model'}))}</title>
 <style>
     @page { size: A4 ${printOrientation}; margin: 8mm; }
     * { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
@@ -1486,22 +1489,22 @@ export default function Implantation({
         <div style="display:flex;align-items:center;gap:14px;">
             <span class="badge">BERAMETHODE</span>
             <div>
-                <h1>Plan d'Implantation</h1>
-                <div style="color:#64748b;margin-top:3px;">Modèle : <b style="color:#334155;">${esc(articleName || 'Générique')}</b></div>
+                <h1>${tx(lang,{fr:"Plan d'Implantation",ar:'خطة التخطيط',en:'Layout Plan',es:'Plano de Implantación',pt:'Plano de Implantação',tr:'Düzen Planı'})}</h1>
+                <div style="color:#64748b;margin-top:3px;">${tx(lang,{fr:'Modèle',ar:'النموذج',en:'Model',es:'Modelo',pt:'Modelo',tr:'Model'})} : <b style="color:#334155;">${esc(articleName || tx(lang,{fr:'Générique',ar:'عام',en:'Generic',es:'Genérico',pt:'Genérico',tr:'Genel'}))}</b></div>
             </div>
         </div>
         <div style="text-align:right;color:#64748b;font-size:11px;">
             <div>${new Date().toLocaleDateString('fr-FR')} ${new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</div>
-            <div style="margin-top:3px;">${structureSections.reduce((n, s) => n + s.stations.length, 0)} postes au total</div>
+            <div style="margin-top:3px;">${structureSections.reduce((n, s) => n + s.stations.length, 0)} ${tx(lang,{fr:'postes au total',ar:'إجمالي المحطات',en:'total stations',es:'puestos totales',pt:'postos no total',tr:'toplam istasyon'})}</div>
         </div>
     </div>
 
     ${modelPhotos.length > 0 ? `<div style="display:flex;gap:10px;margin-top:12px;">${modelPhotos.map(p => `<img src="${p}" style="height:120px;border-radius:8px;border:1px solid #e2e8f0;object-fit:contain;" />`).join('')}</div>` : ''}
 
     <div style="display:flex;gap:12px;margin-top:14px;">
-        <div class="stat"><span style="color:#64748b;font-size:10px;text-transform:uppercase;">Ouvriers</span><b>${numWorkers}</b></div>
-        <div class="stat"><span style="color:#64748b;font-size:10px;text-transform:uppercase;">Heures</span><b>${hours.toFixed(1)}</b></div>
-        <div class="stat"><span style="color:#64748b;font-size:10px;text-transform:uppercase;">Min. présence</span><b>${presenceTime}</b></div>
+        <div class="stat"><span style="color:#64748b;font-size:10px;text-transform:uppercase;">${tx(lang,{fr:'Ouvriers',ar:'العمال',en:'Workers',es:'Trabajadores',pt:'Trabalhadores',tr:'İşçiler'})}</span><b>${numWorkers}</b></div>
+        <div class="stat"><span style="color:#64748b;font-size:10px;text-transform:uppercase;">${tx(lang,{fr:'Heures',ar:'ساعات',en:'Hours',es:'Horas',pt:'Horas',tr:'Saatler'})}</span><b>${hours.toFixed(1)}</b></div>
+        <div class="stat"><span style="color:#64748b;font-size:10px;text-transform:uppercase;">${tx(lang,{fr:'Min. présence',ar:'دقيقة حضور',en:'Min. Presence',es:'Min. Presencia',pt:'Min. Presença',tr:'Min. Mevcudiyet'})}</span><b>${presenceTime}</b></div>
         <div class="stat" style="background:#ecfdf5;border-color:#a7f3d0;"><span style="color:#059669;font-size:10px;text-transform:uppercase;">BF (s)</span><b style="color:#047857;">${(bf * 60).toFixed(1)}</b></div>
         <div class="stat" style="background:#fff7ed;border-color:#fed7aa;"><span style="color:#ea580c;font-size:10px;text-transform:uppercase;">Prod / H</span><b style="color:#c2410c;">${Math.round(prodHour100)}</b></div>
     </div>
@@ -1509,7 +1512,7 @@ export default function Implantation({
     ${sectionsHtml}
 
     <div style="margin-top:22px;page-break-inside:avoid;max-width:320px;">
-        <div style="background:#1e293b;color:#fff;font-weight:800;font-size:12px;letter-spacing:1px;text-transform:uppercase;padding:5px 14px;border-radius:8px;display:inline-block;margin-bottom:6px;">Résumé Matériel — ${machinesSummary.total} postes</div>
+        <div style="background:#1e293b;color:#fff;font-weight:800;font-size:12px;letter-spacing:1px;text-transform:uppercase;padding:5px 14px;border-radius:8px;display:inline-block;margin-bottom:6px;">${tx(lang,{fr:'Résumé Matériel',ar:'ملخص المعدات',en:'Equipment Summary',es:'Resumen de Equipo',pt:'Resumo de Equipamento',tr:'Ekipman Özeti'})} — ${machinesSummary.total} ${tx(lang,{fr:'postes',ar:'محطات',en:'stations',es:'puestos',pt:'postos',tr:'istasyon'})}</div>
         <table><tbody>${machinesHtml}</tbody></table>
     </div>
 
@@ -1545,7 +1548,7 @@ export default function Implantation({
 
         const win = iframe.contentWindow;
         if (!win) {
-            alert("Erreur lors de la préparation de l'impression.");
+            alert(tx(lang,{fr:"Erreur lors de la préparation de l'impression.",ar:'خطأ أثناء تحضير الطباعة.',en:'Error preparing the print.',es:'Error al preparar la impresión.',pt:'Erro ao preparar a impressão.',tr:'Yazdırma hazırlanırken hata oluştu.'}));
             return;
         }
         win.document.open();
@@ -1883,7 +1886,7 @@ export default function Implantation({
 
     const handleEditLinkLabel = (linkId: string, currentLabel?: string) => {
         if (setManualLinks) {
-            const newLabel = window.prompt("Ajouter un commentaire (Flux):", currentLabel || "");
+            const newLabel = window.prompt(tx(lang,{fr:'Ajouter un commentaire (Flux):',ar:'إضافة تعليق (التدفق):',en:'Add a comment (Flow):',es:'Añadir un comentario (Flujo):',pt:'Adicionar um comentário (Fluxo):',tr:'Yorum ekle (Akış):'}), currentLabel || "");
             if (newLabel !== null) {
                 setManualLinks(prev => prev.map(l => l.id === linkId ? { ...l, label: newLabel } : l));
             }
@@ -2346,21 +2349,21 @@ export default function Implantation({
         const sections = [];
         if (prep.length > 0) sections.push({ 
             id: 'PREPARATION', 
-            name: 'PRÉPARATION', 
+            name: tx(lang,{fr:'PRÉPARATION',ar:'تحضير',en:'PREPARATION',es:'PREPARACIÓN',pt:'PREPARAÇÃO',tr:'HAZIRLIK'}), 
             stations: prep, 
             theme: 'amber', 
             hourly: preparationMetrics?.hourly || null 
         });
         if (montage.length > 0) sections.push({ 
             id: 'MONTAGE', 
-            name: 'MONTAGE', 
+            name: tx(lang,{fr:'MONTAGE',ar:'تجميع',en:'ASSEMBLY',es:'MONTAJE',pt:'MONTAGEM',tr:'MONTAJ'}), 
             stations: montage, 
             theme: 'sky', 
             hourly: montageMetrics?.hourly || null 
         });
         if (global.length > 0) sections.push({ 
             id: 'GLOBAL', 
-            name: (prep.length || montage.length) ? 'ZONE COMMUNE' : 'PRODUCTION GLOBALE', 
+            name: (prep.length || montage.length) ? tx(lang,{fr:'ZONE COMMUNE',ar:'منطقة مشتركة',en:'COMMON ZONE',es:'ZONA COMÚN',pt:'ZONA COMUM',tr:'ORTAK BÖLGE'}) : tx(lang,{fr:'PRODUCTION GLOBALE',ar:'إنتاج عام',en:'GLOBAL PRODUCTION',es:'PRODUCCIÓN GLOBAL',pt:'PRODUÇÃO GLOBAL',tr:'GENEL ÜRETİM'}), 
             stations: global, 
             theme: 'indigo', 
             hourly: Math.round(prodHour100) 
@@ -2370,7 +2373,7 @@ export default function Implantation({
         if (prep.length === 0 && montage.length === 0 && global.length === 0 && validStations.length > 0) {
              sections.push({
                 id: 'GLOBAL',
-                name: 'Flux de Production',
+                name: tx(lang,{fr:'Flux de Production',ar:'تدفق الإنتاج',en:'Production Flow',es:'Flujo de Producción',pt:'Fluxo de Produção',tr:'Üretim Akışı'}),
                 stations: validStations,
                 theme: 'indigo',
                 hourly: Math.round(prodHour100)
@@ -2398,9 +2401,9 @@ export default function Implantation({
     const machinesSummary = useMemo(() => { const summary: Record<string, number> = {}; let total = 0; workstations.forEach(st => { const mName = st.machine.toUpperCase().includes('MAN') ? 'MAN' : st.machine; if (!summary[mName]) summary[mName] = 0; summary[mName] += 1; total += 1; }); return { counts: Object.entries(summary), total }; }, [workstations]);
 
     const SECTION_LABELS: Record<'PREPARATION' | 'MONTAGE' | 'GLOBAL', string> = {
-        PREPARATION: 'Préparation',
-        MONTAGE: 'Montage',
-        GLOBAL: 'Zone Commune / Manager'
+        PREPARATION: tx(lang,{fr:'Préparation',ar:'تحضير',en:'Preparation',es:'Preparación',pt:'Preparação',tr:'Hazırlık'}),
+        MONTAGE: tx(lang,{fr:'Montage',ar:'تجميع',en:'Assembly',es:'Montaje',pt:'Montagem',tr:'Montaj'}),
+        GLOBAL: tx(lang,{fr:'Zone Commune / Manager',ar:'منطقة مشتركة / مدير',en:'Common Zone / Manager',es:'Zona Común / Gerente',pt:'Zona Comum / Gerente',tr:'Ortak Bölge / Yönetici'})
     };
     const isSectionSplitEnabled = useMemo(
         () => operations.some(op => (op.section || 'GLOBAL') !== 'GLOBAL'),
@@ -2644,7 +2647,7 @@ export default function Implantation({
                     style={opacityStyle}
                     className={`relative rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 flex flex-col items-center justify-center gap-2 group z-10 transition-all ${(canEdit && isManualMode && !swapSourceId && !isLinking && !isSpacePressed && layoutType !== 'free') ? 'cursor-move' : ''} ${cardWidthClass} ${cardHeightClass} ${isManualMode && !isSpacePressed ? 'hover:bg-indigo-50 hover:border-indigo-300' : ''} ${layoutType === 'free' ? 'cursor-move hover:shadow-lg' : ''} ${hoverTraceClass}`}
                 >
-                    <div className="text-[10px] font-bold text-slate-400 uppercase pointer-events-none">Emplacement Vide</div>
+                    <div className="text-[10px] font-bold text-slate-400 uppercase pointer-events-none">{tx(lang,{fr:'Emplacement Vide',ar:'مكان فارغ',en:'Empty Slot',es:'Espacio Vacío',pt:'Espaço Vazio',tr:'Boş Yuva'})}</div>
                     {layoutType === 'free' && (
                         <button
                             onMouseDown={(e) => e.stopPropagation()}
@@ -2682,7 +2685,7 @@ export default function Implantation({
             >
                 <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${isActive ? 'bg-emerald-500' : (isBroken ? 'bg-rose-500' : color.fill)}`}></div>
                 <div className={`px-2 pl-3 py-1.5 flex justify-between items-center ${isActive ? 'bg-emerald-500/90 ' : (isPassed ? 'bg-emerald-50/90 ' : (isMini ? color.bg : color.bg + '/90 '))} border-b ${isActive ? 'border-emerald-600' : color.border} transition-colors duration-500 relative`}>
-                    {isOverridden && <div className="absolute top-1 right-1 w-2 h-2 rounded-full bg-purple-500 ring-1 ring-white animate-pulse" title="Temps Forcé"></div>}
+                    {isOverridden && <div className="absolute top-1 right-1 w-2 h-2 rounded-full bg-purple-500 ring-1 ring-white animate-pulse" title={tx(lang,{fr:'Temps Forcé',ar:'وقت إجباري',en:'Forced Time',es:'Tiempo Forzado',pt:'Tempo Forçado',tr:'Zorunlu Süre'})}></div>}
                     {isBroken && <div className="absolute top-1 right-3 w-3 h-3 text-rose-600 animate-pulse"><AlertTriangle className="w-3 h-3 fill-current" /></div>}
                     <div className="flex items-center gap-1.5">
                         {!isMini && (
@@ -2714,7 +2717,7 @@ export default function Implantation({
                                 if (linkToDelete) handleRemoveLink(linkToDelete.id);
                             }}
                             className="p-1 rounded-full bg-rose-500 text-white shadow-md hover:bg-rose-600 transition-colors z-30"
-                            title="Supprimer la liaison"
+                            title={tx(lang,{fr:'Supprimer la liaison',ar:'حذف الرابط',en:'Delete Link',es:'Eliminar Enlace',pt:'Excluir Ligação',tr:'Bağlantıyı Sil'})}
                         >
                             <Unlink2 className="w-2.5 h-2.5" />
                         </button>
@@ -2727,7 +2730,7 @@ export default function Implantation({
                                     onMouseDown={(e) => e.stopPropagation()}
                                     onClick={(e) => { e.stopPropagation(); handleRemoveFromCanvas(station.id); }}
                                     className="p-1 rounded-md bg-white/20 hover:bg-rose-100 hover:text-rose-600 text-current transition-colors opacity-0 group-hover:opacity-100 z-50"
-                                    title="Retirer du plan"
+                                    title={tx(lang,{fr:'Retirer du plan',ar:'إزالة من الخطة',en:'Remove from Plan',es:'Quitar del Plan',pt:'Remover do Plano',tr:'Plandan Kaldır'})}
                                 >
                                     <X className="w-3 h-3" />
                                 </button>
@@ -2735,9 +2738,9 @@ export default function Implantation({
                         </div>
                     )}
 
-                    {!isMini && (<div className="flex items-center gap-0.5"> {isFeeder && <div title={`Alimente: ${station.targetStationName || 'Poste Suivant'}`}><GitMerge className={`w-3 h-3 ${isActive ? 'text-white' : 'text-blue-500'}`} /></div>} {hasOperator && <div title={station.operatorName}><User className={`w-3 h-3 ${isActive ? 'text-white' : 'text-slate-400'}`} /></div>} {hasNotes && <div title="Notes"><FileText className={`w-3 h-3 ${isActive ? 'text-yellow-300' : 'text-amber-400'}`} /></div>} </div>)}
+                    {!isMini && (<div className="flex items-center gap-0.5"> {isFeeder && <div title={`${tx(lang,{fr:'Alimente',ar:'تغذية',en:'Feeds',es:'Alimenta',pt:'Alimenta',tr:'Besler'})}: ${station.targetStationName || tx(lang,{fr:'Poste Suivant',ar:'المحطة التالية',en:'Next Station',es:'Siguiente Puesto',pt:'Próximo Posto',tr:'Sonraki İstasyon'})}`}><GitMerge className={`w-3 h-3 ${isActive ? 'text-white' : 'text-blue-500'}`} /></div>} {hasOperator && <div title={station.operatorName}><User className={`w-3 h-3 ${isActive ? 'text-white' : 'text-slate-400'}`} /></div>} {hasNotes && <div title={tx(lang,{fr:'Notes',ar:'ملاحظات',en:'Notes',es:'Notas',pt:'Notas',tr:'Notlar'})}><FileText className={`w-3 h-3 ${isActive ? 'text-yellow-300' : 'text-amber-400'}`} /></div>} </div>)}
                 </div>
-                <div className={`p-2 pl-3 flex-1 flex flex-col justify-between gap-1 ${isMini ? 'bg-transparent' : bodyBgClass}`}> {station.groups && station.groups.length > 0 && !isMini && (<div className="flex flex-wrap gap-1 mb-1"> {station.groups.slice(0, 2).map(grp => (<span key={grp} className="text-[7px] font-black uppercase text-indigo-600 bg-indigo-100 px-1 py-0.5 rounded border border-indigo-200 truncate max-w-full"> {grp} </span>))} {station.groups.length > 2 && <span className="text-[7px] text-slate-400">+{station.groups.length - 2}</span>} </div>)} <div className="space-y-1"> {station.operations.length > 0 ? (<> {station.operations.slice(0, isMini ? 100 : 3).map((op, i) => { const groupStyle = op.groupId ? getGroupStyle(op.groupId) : null; return (<div key={i} className={`flex justify-between items-center gap-1.5 py-0.5 ${groupStyle && isMini ? groupStyle.bg + ' px-1.5 rounded-md -mx-1.5 my-0.5 border border-transparent hover:border-indigo-200' : ''}`}> <span className={`font-mono text-[9px] font-bold px-1 rounded border shrink-0 ${groupStyle && isMini ? 'bg-transparent border-transparent ' + groupStyle.text : 'bg-transparent text-slate-400 border-slate-200'}`}> {op.order} </span> <div className={`text-[9px] font-bold leading-tight line-clamp-2 flex-1 ${groupStyle && isMini ? groupStyle.text : 'text-slate-600'}`} title={op.description}> {op.description} </div> {groupStyle && isMini && <LinkIcon className={`w-2.5 h-2.5 shrink-0 ${groupStyle.text}`} />} </div>) })} {station.operations.length > (isMini ? 100 : 3) && <div className="text-[8px] text-slate-400 italic font-medium">... +{station.operations.length - (isMini ? 100 : 3)}</div>} </>) : (<div className={`text-[9px] italic flex items-center justify-center ${isMini ? 'h-8' : 'h-12'} ${isOverridden ? 'text-purple-500 font-bold' : (isSpecial ? 'text-slate-400/70' : 'text-slate-300')}`}> {isOverridden ? 'Temps Forcé' : 'Vide'} </div>)} </div> <div className="flex items-center justify-between mt-auto pt-1.5 border-t border-slate-100"> <div className="flex flex-col"> <span className="text-[7px] font-bold text-slate-400 uppercase tracking-wider">Total</span> <span className={`text-sm font-bold ${isActive ? 'text-emerald-600' : (isOverridden ? 'text-purple-600' : color.text)}`}>{timeInSeconds}s</span> </div> <div className="flex flex-col items-end"> <span className="text-[7px] font-bold text-slate-400 uppercase tracking-wider">Sat.</span> <div className="flex items-center gap-1"> {station.operators > 1 && <span className={`text-[9px] font-black px-1 rounded bg-amber-100 text-amber-700`}>x{station.operators}</span>} <span className={`text-[9px] font-black ${satBadgeClass}`}>{Math.round(station.saturation)}%</span> </div> </div> </div> </div> <div className="absolute bottom-0 left-0 h-1 bg-slate-200 w-full"> <div className={`h-full ${!satProgressClass.startsWith('#') ? satProgressClass : ''}`} style={{ width: `${Math.min(station.saturation, 100)}%`, backgroundColor: satProgressClass.startsWith('#') ? satProgressClass : undefined }}></div> </div> </div>
+                <div className={`p-2 pl-3 flex-1 flex flex-col justify-between gap-1 ${isMini ? 'bg-transparent' : bodyBgClass}`}> {station.groups && station.groups.length > 0 && !isMini && (<div className="flex flex-wrap gap-1 mb-1"> {station.groups.slice(0, 2).map(grp => (<span key={grp} className="text-[7px] font-black uppercase text-indigo-600 bg-indigo-100 px-1 py-0.5 rounded border border-indigo-200 truncate max-w-full"> {grp} </span>))} {station.groups.length > 2 && <span className="text-[7px] text-slate-400">+{station.groups.length - 2}</span>} </div>)} <div className="space-y-1"> {station.operations.length > 0 ? (<> {station.operations.slice(0, isMini ? 100 : 3).map((op, i) => { const groupStyle = op.groupId ? getGroupStyle(op.groupId) : null; return (<div key={i} className={`flex justify-between items-center gap-1.5 py-0.5 ${groupStyle && isMini ? groupStyle.bg + ' px-1.5 rounded-md -mx-1.5 my-0.5 border border-transparent hover:border-indigo-200' : ''}`}> <span className={`font-mono text-[9px] font-bold px-1 rounded border shrink-0 ${groupStyle && isMini ? 'bg-transparent border-transparent ' + groupStyle.text : 'bg-transparent text-slate-400 border-slate-200'}`}> {op.order} </span> <div className={`text-[9px] font-bold leading-tight line-clamp-2 flex-1 ${groupStyle && isMini ? groupStyle.text : 'text-slate-600'}`} title={op.description}> {op.description} </div> {groupStyle && isMini && <LinkIcon className={`w-2.5 h-2.5 shrink-0 ${groupStyle.text}`} />} </div>) })} {station.operations.length > (isMini ? 100 : 3) && <div className="text-[8px] text-slate-400 italic font-medium">... +{station.operations.length - (isMini ? 100 : 3)}</div>} </>) : (<div className={`text-[9px] italic flex items-center justify-center ${isMini ? 'h-8' : 'h-12'} ${isOverridden ? 'text-purple-500 font-bold' : (isSpecial ? 'text-slate-400/70' : 'text-slate-300')}`}> {isOverridden ? tx(lang,{fr:'Temps Forcé',ar:'وقت إجباري',en:'Forced Time',es:'Tiempo Forzado',pt:'Tempo Forçado',tr:'Zorunlu Süre'}) : tx(lang,{fr:'Vide',ar:'فارغ',en:'Empty',es:'Vacío',pt:'Vazio',tr:'Boş'})} </div>)} </div> <div className="flex items-center justify-between mt-auto pt-1.5 border-t border-slate-100"> <div className="flex flex-col"> <span className="text-[7px] font-bold text-slate-400 uppercase tracking-wider">{tx(lang,{fr:'Total',ar:'الإجمالي',en:'Total',es:'Total',pt:'Total',tr:'Toplam'})}</span> <span className={`text-sm font-bold ${isActive ? 'text-emerald-600' : (isOverridden ? 'text-purple-600' : color.text)}`}>{timeInSeconds}s</span> </div> <div className="flex flex-col items-end"> <span className="text-[7px] font-bold text-slate-400 uppercase tracking-wider">Sat.</span> <div className="flex items-center gap-1"> {station.operators > 1 && <span className={`text-[9px] font-black px-1 rounded bg-amber-100 text-amber-700`}>x{station.operators}</span>} <span className={`text-[9px] font-black ${satBadgeClass}`}>{Math.round(station.saturation)}%</span> </div> </div> </div> </div> <div className="absolute bottom-0 left-0 h-1 bg-slate-200 w-full"> <div className={`h-full ${!satProgressClass.startsWith('#') ? satProgressClass : ''}`} style={{ width: `${Math.min(station.saturation, 100)}%`, backgroundColor: satProgressClass.startsWith('#') ? satProgressClass : undefined }}></div> </div> </div>
         );
     };
 
@@ -2748,7 +2751,7 @@ export default function Implantation({
                 {/* OUVRIERS / HEURES */}
                 <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-50 rounded-lg border border-slate-100 shrink-0">
                     <div className="flex flex-col items-center border-r border-slate-200 pr-3 mr-3">
-                        <span className="text-[9px] font-bold text-slate-400 uppercase">Ouvriers</span>
+                        <span className="text-[9px] font-bold text-slate-400 uppercase">{tx(lang,{fr:'Ouvriers',ar:'العمال',en:'Workers',es:'Trabajadores',pt:'Trabalhadores',tr:'İşçiler'})}</span>
                         <input
                             type="number"
                             min="1"
@@ -2758,7 +2761,7 @@ export default function Implantation({
                         />
                     </div>
                     <div className="flex flex-col items-center">
-                        <span className="text-[9px] font-bold text-slate-400 uppercase">Heures</span>
+                        <span className="text-[9px] font-bold text-slate-400 uppercase">{tx(lang,{fr:'Heures',ar:'ساعات',en:'Hours',es:'Horas',pt:'Horas',tr:'Saatler'})}</span>
                         <input
                             type="number"
                             min="0"
@@ -2777,7 +2780,7 @@ export default function Implantation({
                         <span className="font-black text-emerald-700 text-sm">{(bf * 60).toFixed(1)}</span>
                     </div>
                     <div className="flex flex-col items-center">
-                        <span className="text-[9px] font-bold text-emerald-600 uppercase">Min Tot.</span>
+                        <span className="text-[9px] font-bold text-emerald-600 uppercase">{tx(lang,{fr:'Min Tot.',ar:'إجمالي الدقائق',en:'Min Total',es:'Min Total',pt:'Min Total',tr:'Toplam Dak'})}</span>
                         <span className="font-black text-emerald-700 text-sm">{presenceTime}</span>
                     </div>
                 </div>
@@ -2806,7 +2809,7 @@ export default function Implantation({
 
                 {/* RENDU */}
                 <div className="flex flex-col items-center px-3 py-1.5 bg-indigo-50/50 rounded-lg border border-indigo-100 shrink-0">
-                    <span className="text-[9px] font-bold text-indigo-400 uppercase">% Rendu</span>
+                    <span className="text-[9px] font-bold text-indigo-400 uppercase">{tx(lang,{fr:'% Rendu',ar:'% الإنتاجية',en:'% Yield',es:'% Rendimiento',pt:'% Rendimento',tr:'% Verim'})}</span>
                     <div className="flex items-baseline gap-0.5">
                         <input
                             type="number"
@@ -2822,7 +2825,7 @@ export default function Implantation({
                 {/* TOLÉRANCE SATURATION */}
                 {setFicheData && (
                     <div className="flex flex-col items-center px-3 py-1.5 bg-rose-50/50 rounded-lg border border-rose-100 shrink-0">
-                        <span className="text-[9px] font-bold text-rose-400 uppercase">Tolérance</span>
+                        <span className="text-[9px] font-bold text-rose-400 uppercase">{tx(lang,{fr:'Tolérance',ar:'التسامح',en:'Tolerance',es:'Tolerancia',pt:'Tolerância',tr:'Tolerans'})}</span>
                         <div className="flex items-baseline gap-0.5">
                             <input
                                 type="number"
@@ -2845,7 +2848,7 @@ export default function Implantation({
                             <>
                                 {prepMin > 0 && (
                                     <div className="px-3 py-1.5 bg-amber-50 rounded-lg border border-amber-200 flex flex-col items-end">
-                                        <span className="text-[9px] font-bold text-amber-600 uppercase">Préparation</span>
+                                        <span className="text-[9px] font-bold text-amber-600 uppercase">{tx(lang,{fr:'Préparation',ar:'تحضير',en:'Preparation',es:'Preparación',pt:'Preparação',tr:'Hazırlık'})}</span>
                                         <div className="flex items-center gap-2">
                                             <span className="font-black text-amber-700 text-lg leading-none">{prepMin.toFixed(2)}</span>
                                             {preparationMetrics?.hourly && <span className="text-[10px] bg-amber-200/50 px-1 rounded text-amber-800 font-bold">Obj: {preparationMetrics.hourly}/h</span>}
@@ -2854,7 +2857,7 @@ export default function Implantation({
                                 )}
                                 {montMin > 0 && (
                                     <div className="px-3 py-1.5 bg-sky-50 rounded-lg border border-sky-200 flex flex-col items-end">
-                                        <span className="text-[9px] font-bold text-sky-600 uppercase">Montage</span>
+                                        <span className="text-[9px] font-bold text-sky-600 uppercase">{tx(lang,{fr:'Montage',ar:'تجميع',en:'Assembly',es:'Montaje',pt:'Montagem',tr:'Montaj'})}</span>
                                         <div className="flex items-center gap-2">
                                             <span className="font-black text-sky-700 text-lg leading-none">{montMin.toFixed(2)}</span>
                                             {montageMetrics?.hourly && <span className="text-[10px] bg-sky-200/50 px-1 rounded text-sky-800 font-bold">Obj: {montageMetrics.hourly}/h</span>}
@@ -2884,10 +2887,10 @@ export default function Implantation({
                                 {/* Mode Toggle */}
                                 <div className="flex bg-slate-100 p-0.5 rounded-lg border border-slate-200">
                                     <button onClick={activateAutoMode} className={`flex items-center justify-center px-3 py-1.5 rounded-md font-bold transition-all text-xs ${!isManualMode ? 'bg-emerald-500 text-white shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}>
-                                        Auto
+                                        {tx(lang,{fr:'Auto',ar:'تلقائي',en:'Auto',es:'Auto',pt:'Auto',tr:'Otomatik'})}
                                     </button>
                                     <button onClick={activateManualMode} className={`flex items-center justify-center px-3 py-1.5 rounded-md font-bold transition-all text-xs ${isManualMode ? 'bg-amber-500 text-white shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}>
-                                        Manuel
+                                        {tx(lang,{fr:'Manuel',ar:'يدوي',en:'Manual',es:'Manual',pt:'Manual',tr:'Manuel'})}
                                     </button>
                                 </div>
 
@@ -2896,9 +2899,9 @@ export default function Implantation({
                                 {/* Layout Picker */}
                                 <div className="flex items-center gap-0.5 bg-slate-50 p-0.5 rounded-lg border border-slate-200">
                                     {[
-                                        { id: 'line', label: '2 Lignes', icon: Columns },
+                                        { id: 'line', label: tx(lang,{fr:'2 Lignes',ar:'خطين',en:'2 Lines',es:'2 Líneas',pt:'2 Linhas',tr:'2 Hat'}), icon: Columns },
                                         { id: 'double-zigzag', label: 'Zigzag', icon: ArrowLeftRight },
-                                        ...(isManualMode ? [{ id: 'free', label: 'Libre', icon: Move }] : []),
+                                        ...(isManualMode ? [{ id: 'free', label: tx(lang,{fr:'Libre',ar:'حر',en:'Free',es:'Libre',pt:'Livre',tr:'Serbest'}), icon: Move }] : []),
                                     ].map((item) => (
                                         <button key={item.id} onClick={() => handleLayoutChange(item.id as any)} className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-bold transition-all whitespace-nowrap ${layoutType === item.id ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-500 hover:bg-slate-100 hover:text-indigo-600'}`}>
                                             <item.icon className="w-3.5 h-3.5" />
@@ -2911,9 +2914,9 @@ export default function Implantation({
 
                                 {/* Zoom Controls */}
                                 <div className="flex items-center gap-0.5 bg-slate-50 p-0.5 rounded-lg border border-slate-200">
-                                    <button onClick={() => setZoom(z => Math.max(0.3, z - 0.1))} className="p-1.5 text-slate-500 hover:text-indigo-600 rounded-md hover:bg-slate-100 transition-colors" title="Zoom -"><ZoomOut className="w-3.5 h-3.5" /></button>
-                                    <button onClick={() => setZoom(1)} className="px-2 py-1 text-[10px] font-black text-slate-600 hover:text-indigo-600 rounded-md hover:bg-slate-100 transition-colors min-w-[40px] text-center" title="Réinitialiser Zoom">{Math.round(zoom * 100)}%</button>
-                                    <button onClick={() => setZoom(z => Math.min(2, z + 0.1))} className="p-1.5 text-slate-500 hover:text-indigo-600 rounded-md hover:bg-slate-100 transition-colors" title="Zoom +"><ZoomIn className="w-3.5 h-3.5" /></button>
+                                    <button onClick={() => setZoom(z => Math.max(0.3, z - 0.1))} className="p-1.5 text-slate-500 hover:text-indigo-600 rounded-md hover:bg-slate-100 transition-colors" title={tx(lang,{fr:'Zoom -',ar:'تصغير',en:'Zoom Out',es:'Alejar',pt:'Reduzir',tr:'Küçült'})}><ZoomOut className="w-3.5 h-3.5" /></button>
+                                    <button onClick={() => setZoom(1)} className="px-2 py-1 text-[10px] font-black text-slate-600 hover:text-indigo-600 rounded-md hover:bg-slate-100 transition-colors min-w-[40px] text-center" title={tx(lang,{fr:'Réinitialiser Zoom',ar:'إعادة تعيين التكبير',en:'Reset Zoom',es:'Restablecer Zoom',pt:'Redefinir Zoom',tr:'Yakınlaştırmayı Sıfırla'})}>{Math.round(zoom * 100)}%</button>
+                                    <button onClick={() => setZoom(z => Math.min(2, z + 0.1))} className="p-1.5 text-slate-500 hover:text-indigo-600 rounded-md hover:bg-slate-100 transition-colors" title={tx(lang,{fr:'Zoom +',ar:'تكبير',en:'Zoom In',es:'Acercar',pt:'Ampliar',tr:'Büyült'})}><ZoomIn className="w-3.5 h-3.5" /></button>
                                 </div>
 
                                 <div className="w-px h-7 bg-slate-200" />
@@ -2923,16 +2926,16 @@ export default function Implantation({
                                     <button 
                                         onClick={() => setOrientation('landscape')} 
                                         className={`px-2.5 py-1.5 rounded-md font-bold transition-all text-xs ${orientation === 'landscape' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-500 hover:text-indigo-600 hover:bg-slate-100'}`}
-                                        title="Implantation Horizontale"
+                                        title={tx(lang,{fr:'Implantation Horizontale',ar:'تخطيط أفقي',en:'Horizontal Layout',es:'Disposición Horizontal',pt:'Disposição Horizontal',tr:'Yatay Düzen'})}
                                     >
-                                        Paysage
+                                        {tx(lang,{fr:'Paysage',ar:'أفقي',en:'Landscape',es:'Horizontal',pt:'Paisagem',tr:'Yatay'})}
                                     </button>
                                     <button 
                                         onClick={() => setOrientation('portrait')} 
                                         className={`px-2.5 py-1.5 rounded-md font-bold transition-all text-xs ${orientation === 'portrait' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-500 hover:text-indigo-600 hover:bg-slate-100'}`}
-                                        title="Implantation Verticale"
+                                        title={tx(lang,{fr:'Implantation Verticale',ar:'تخطيط عمودي',en:'Vertical Layout',es:'Disposición Vertical',pt:'Disposição Vertical',tr:'Dikey Düzen'})}
                                     >
-                                        Portrait
+                                        {tx(lang,{fr:'Portrait',ar:'عمودي',en:'Portrait',es:'Vertical',pt:'Retrato',tr:'Dikey'})}
                                     </button>
                                 </div>
 
@@ -2941,10 +2944,10 @@ export default function Implantation({
                                     <>
                                         <div className="w-px h-7 bg-slate-200" />
                                         <div className="flex items-center gap-0.5 bg-violet-50 p-0.5 rounded-lg border border-violet-200">
-                                            <button onClick={() => applyLayoutPattern('U')} className="p-1.5 rounded-md text-violet-600 hover:bg-slate-100 transition-colors" title="Disposition U"><Columns className="w-3.5 h-3.5" /></button>
-                                            <button onClick={() => applyLayoutPattern('GRID')} className="p-1.5 rounded-md text-violet-600 hover:bg-slate-100 transition-colors" title="Grille"><LayoutGrid className="w-3.5 h-3.5" /></button>
-                                            <button onClick={() => applyLayoutPattern('CIRCLE')} className="p-1.5 rounded-md text-violet-600 hover:bg-slate-100 transition-colors" title="Cercle"><CircleDashed className="w-3.5 h-3.5" /></button>
-                                            <button onClick={() => applyLayoutPattern('LINE')} className="p-1.5 rounded-md text-violet-600 hover:bg-slate-100 transition-colors" title="Ligne droite"><ArrowRight className="w-3.5 h-3.5" /></button>
+                                            <button onClick={() => applyLayoutPattern('U')} className="p-1.5 rounded-md text-violet-600 hover:bg-slate-100 transition-colors" title={tx(lang,{fr:'Disposition U',ar:'ترتيب U',en:'U-Shape',es:'Disposición U',pt:'Disposição U',tr:'U Düzeni'})}><Columns className="w-3.5 h-3.5" /></button>
+                                            <button onClick={() => applyLayoutPattern('GRID')} className="p-1.5 rounded-md text-violet-600 hover:bg-slate-100 transition-colors" title={tx(lang,{fr:'Grille',ar:'شبكة',en:'Grid',es:'Cuadrícula',pt:'Grade',tr:'Izgara'})}><LayoutGrid className="w-3.5 h-3.5" /></button>
+                                            <button onClick={() => applyLayoutPattern('CIRCLE')} className="p-1.5 rounded-md text-violet-600 hover:bg-slate-100 transition-colors" title={tx(lang,{fr:'Cercle',ar:'دائرة',en:'Circle',es:'Círculo',pt:'Círculo',tr:'Daire'})}><CircleDashed className="w-3.5 h-3.5" /></button>
+                                            <button onClick={() => applyLayoutPattern('LINE')} className="p-1.5 rounded-md text-violet-600 hover:bg-slate-100 transition-colors" title={tx(lang,{fr:'Ligne droite',ar:'خط مستقيم',en:'Straight Line',es:'Línea Recta',pt:'Linha Reta',tr:'Düz Çizgi'})}><ArrowRight className="w-3.5 h-3.5" /></button>
                                         </div>
                                     </>
                                 )}
@@ -2954,9 +2957,9 @@ export default function Implantation({
                                 <div className="flex items-center gap-1.5 px-2.5 py-1 bg-slate-50 rounded-lg border border-slate-200 text-[10px] font-black text-slate-500 uppercase tracking-wide">
                                     <Layers className="w-3.5 h-3.5" />
                                     <span className="text-indigo-600">{workstations.filter(s => s.machine !== 'VIDE').length}</span>
-                                    <span>postes</span>
+                                    <span>{tx(lang,{fr:'postes',ar:'محطات',en:'stations',es:'puestos',pt:'postos',tr:'istasyon'})}</span>
                                     {isManualMode && waitingStations.length > 0 && (
-                                        <span className="text-amber-500 ml-0.5">({waitingStations.length} en attente)</span>
+                                        <span className="text-amber-500 ml-0.5">({waitingStations.length} {tx(lang,{fr:'en attente',ar:'بالانتظار',en:'waiting',es:'en espera',pt:'à espera',tr:'bekleyen'})})</span>
                                     )}
                                 </div>
 
@@ -2965,30 +2968,30 @@ export default function Implantation({
 
                                 {/* Right Actions */}
                                 <div className="flex items-center gap-1.5">
-                                    <button onClick={handleClearPlan} className="p-1.5 rounded-lg bg-slate-50 text-rose-400 border border-slate-200 hover:bg-rose-50 hover:text-rose-600 hover:border-rose-200 transition-colors flex items-center gap-1" title="Vider tout le plan (basculer en mode libre)">
+                                    <button onClick={handleClearPlan} className="p-1.5 rounded-lg bg-slate-50 text-rose-400 border border-slate-200 hover:bg-rose-50 hover:text-rose-600 hover:border-rose-200 transition-colors flex items-center gap-1" title={tx(lang,{fr:'Vider tout le plan (basculer en mode libre)',ar:'تفريغ الخطة (التبديل إلى الوضع الحر)',en:'Clear entire plan (switch to free mode)',es:'Vaciar todo el plan (cambiar a modo libre)',pt:'Limpar todo o plano (mudar para modo livre)',tr:'Tüm planı temizle (serbest moda geç)'})}>
                                         <Trash2 className="w-4 h-4" />
-                                        <span className="text-[10px] uppercase font-black tracking-wider hidden xl:inline">Vider</span>
+                                        <span className="text-[10px] uppercase font-black tracking-wider hidden xl:inline">{tx(lang,{fr:'Vider',ar:'تفريغ',en:'Clear',es:'Vaciar',pt:'Limpar',tr:'Temizle'})}</span>
                                     </button>
                                     {isManualMode && (
-                                        <button onClick={renumberStations} className="p-1.5 rounded-lg bg-slate-50 text-slate-400 border border-slate-200 hover:text-indigo-600 hover:border-indigo-200 transition-colors" title="Renuméroter P1, P2, P3...">
+                                        <button onClick={renumberStations} className="p-1.5 rounded-lg bg-slate-50 text-slate-400 border border-slate-200 hover:text-indigo-600 hover:border-indigo-200 transition-colors" title={tx(lang,{fr:'Renuméroter P1, P2, P3...',ar:'إعادة ترقيم P1, P2, P3...',en:'Renumber P1, P2, P3...',es:'Renumerar P1, P2, P3...',pt:'Renumerar P1, P2, P3...',tr:'Yeniden numaralandır P1, P2, P3...'})}>
                                             <ListOrdered className="w-4 h-4" />
                                         </button>
                                     )}
                                     {isManualMode && (
-                                        <button onClick={restoreGammeOrder} className="p-1.5 rounded-lg bg-slate-50 text-slate-400 border border-slate-200 hover:text-indigo-600 hover:border-indigo-200 transition-colors" title="Remettre les postes selon l'ordre de la gamme">
+                                        <button onClick={restoreGammeOrder} className="p-1.5 rounded-lg bg-slate-50 text-slate-400 border border-slate-200 hover:text-indigo-600 hover:border-indigo-200 transition-colors" title={tx(lang,{fr:'Remettre les postes selon l\'ordre de la gamme',ar:'إعادة ترتيب المحطات حسب تسلسل العملية',en:'Reorder stations by gamme order',es:'Reordenar puestos según orden de gama',pt:'Reordenar postos conforme ordem da gama',tr:'İstasyonları işlem sırasına göre yeniden sırala'})}>
                                             <ArrowDownToLine className="w-4 h-4" />
                                         </button>
                                     )}
-                                    <button onClick={() => setShowMaterialsPanel(!showMaterialsPanel)} className={`p-1.5 rounded-lg transition-colors ${showMaterialsPanel ? 'bg-indigo-600 text-white' : 'bg-slate-50 text-slate-400 border border-slate-200 hover:text-indigo-600'}`} title="Compteur Machines">
+                                    <button onClick={() => setShowMaterialsPanel(!showMaterialsPanel)} className={`p-1.5 rounded-lg transition-colors ${showMaterialsPanel ? 'bg-indigo-600 text-white' : 'bg-slate-50 text-slate-400 border border-slate-200 hover:text-indigo-600'}`} title={tx(lang,{fr:'Compteur Machines',ar:'عداد الآلات',en:'Machine Counter',es:'Contador de Máquinas',pt:'Contador de Máquinas',tr:'Makine Sayacı'})}>
                                         <Calculator className="w-4 h-4" />
                                     </button>
-                                    <button onClick={() => setShowLoadTemplateModal(true)} className="p-1.5 rounded-lg bg-slate-50 text-slate-400 border border-slate-200 hover:text-indigo-600 transition-colors" title="Charger un plan">
+                                    <button onClick={() => setShowLoadTemplateModal(true)} className="p-1.5 rounded-lg bg-slate-50 text-slate-400 border border-slate-200 hover:text-indigo-600 transition-colors" title={tx(lang,{fr:'Charger un plan',ar:'تحميل خطة',en:'Load a Plan',es:'Cargar un Plan',pt:'Carregar um Plano',tr:'Plan Yükle'})}>
                                         <FolderOpen className="w-4 h-4" />
                                     </button>
-                                    <button onClick={() => setShowSaveTemplateModal(true)} className="p-1.5 rounded-lg bg-slate-50 text-slate-400 border border-slate-200 hover:text-emerald-600 transition-colors" title="Sauvegarder le plan">
+                                    <button onClick={() => setShowSaveTemplateModal(true)} className="p-1.5 rounded-lg bg-slate-50 text-slate-400 border border-slate-200 hover:text-emerald-600 transition-colors" title={tx(lang,{fr:'Sauvegarder le plan',ar:'حفظ الخطة',en:'Save the Plan',es:'Guardar el Plan',pt:'Salvar o Plano',tr:'Planı Kaydet'})}>
                                         <Save className="w-4 h-4" />
                                     </button>
-                                    <button onClick={toggleFullScreen} className="p-1.5 rounded-lg bg-slate-50 text-slate-400 border border-slate-200 hover:text-indigo-600 transition-colors" title={isFullScreen ? "Quitter plein écran (Esc/F)" : "Plein écran (F)"}>
+                                    <button onClick={toggleFullScreen} className="p-1.5 rounded-lg bg-slate-50 text-slate-400 border border-slate-200 hover:text-indigo-600 transition-colors" title={isFullScreen ? tx(lang,{fr:'Quitter plein écran (Esc/F)',ar:'إنهاء وضع ملء الشاشة (Esc/F)',en:'Exit Fullscreen (Esc/F)',es:'Salir de pantalla completa (Esc/F)',pt:'Sair de tela cheia (Esc/F)',tr:'Tam ekrandan çık (Esc/F)'}) : tx(lang,{fr:'Plein écran (F)',ar:'ملء الشاشة (F)',en:'Fullscreen (F)',es:'Pantalla completa (F)',pt:'Tela cheia (F)',tr:'Tam ekran (F)'})}>
                                         {isFullScreen ? <Minimize className="w-4 h-4" /> : <Maximize className="w-4 h-4" />}
                                     </button>
 
@@ -2996,11 +2999,11 @@ export default function Implantation({
 
                                     {/* Impression / PDF : document TABLEAU (fenêtre d'impression du navigateur). */}
                                     <button onClick={() => setPrintOrientationModal(true)} className="px-3 py-1.5 bg-slate-50 rounded-lg flex items-center gap-1.5 hover:text-indigo-600 hover:bg-indigo-50 border border-slate-200 transition-colors text-slate-600 text-xs font-bold whitespace-nowrap">
-                                        <Printer className="w-3.5 h-3.5" /> Imprimer
+                                        <Printer className="w-3.5 h-3.5" /> {tx(lang,{fr:'Imprimer',ar:'طباعة',en:'Print',es:'Imprimir',pt:'Imprimir',tr:'Yazdır'})}
                                     </button>
                                     {onSave && (
                                         <button onClick={() => { onSave(); setSaveSuccess(true); setTimeout(() => setSaveSuccess(false), 2500); }} className="px-3 py-1.5 bg-slate-800 text-white rounded-lg flex items-center gap-1.5 border border-slate-700 hover:bg-emerald-600 hover:border-emerald-600 transition-colors text-xs font-bold whitespace-nowrap active:scale-95">
-                                            {saveSuccess ? <Check className="w-3.5 h-3.5" /> : <Save className="w-3.5 h-3.5" />} {saveSuccess ? 'Sauvé !' : 'Sauver'}
+                                            {saveSuccess ? <Check className="w-3.5 h-3.5" /> : <Save className="w-3.5 h-3.5" />} {saveSuccess ? tx(lang,{fr:'Sauvé !',ar:'تم الحفظ !',en:'Saved!',es:'¡Guardado!',pt:'Salvo!',tr:'Kaydedildi!'}) : tx(lang,{fr:'Sauver',ar:'حفظ',en:'Save',es:'Guardar',pt:'Salvar',tr:'Kaydet'})}
                                         </button>
                                     )}
                                 </div>
@@ -3011,13 +3014,13 @@ export default function Implantation({
                                 <div className="bg-indigo-600 text-white px-4 py-2 text-xs font-bold flex items-center justify-between shadow-md mb-2 rounded-lg animate-in slide-in-from-top-2 z-20">
                                     <div className="flex items-center gap-2">
                                         <MousePointerClick className="w-4 h-4 text-indigo-200" />
-                                        <span>Mode Liaison : {linkSource ? "Sélectionnez la destination..." : "Sélectionnez le poste de départ"}</span>
+                                        <span>{tx(lang,{fr:'Mode Liaison',ar:'وضع الربط',en:'Link Mode',es:'Modo Enlace',pt:'Modo Ligação',tr:'Bağlantı Modu'})} : {linkSource ? tx(lang,{fr:'Sélectionnez la destination...',ar:'اختر الوجهة...',en:'Select destination...',es:'Seleccione el destino...',pt:'Selecione o destino...',tr:'Hedefi seçin...'}) : tx(lang,{fr:'Sélectionnez le poste de départ',ar:'اختر محطة البداية',en:'Select the starting station',es:'Seleccione el puesto de inicio',pt:'Selecione o posto de partida',tr:'Başlangıç istasyonunu seçin'})}</span>
                                     </div>
                                     <button
                                         onClick={() => { setIsLinking(false); setLinkSource(null); }}
                                         className="bg-white/20 hover:bg-white/30 text-white px-3 py-1 rounded-md text-[10px] transition-colors"
                                     >
-                                        Terminer
+                                        {tx(lang,{fr:'Terminer',ar:'إنهاء',en:'Finish',es:'Terminar',pt:'Terminar',tr:'Bitir'})}
                                     </button>
                                 </div>
                             )}
@@ -3027,36 +3030,36 @@ export default function Implantation({
                                 <div className="bg-orange-500 text-white px-4 py-2 text-xs font-bold flex items-center justify-between shadow-md mb-2 rounded-lg animate-in slide-in-from-top-2 z-20">
                                     <div className="flex items-center gap-2">
                                         <SwapIcon className="w-4 h-4" />
-                                        <span>Mode Échange Actif : Sélectionnez le poste cible pour échanger.</span>
+                                        <span>{tx(lang,{fr:'Mode Échange Actif : Sélectionnez le poste cible pour échanger.',ar:'وضع التبادل النشط: اختر المحطة المستهدفة للتبادل.',en:'Swap Mode Active: Select the target station to swap.',es:'Modo Intercambio Activo: Seleccione el puesto objetivo.',pt:'Modo Troca Ativo: Selecione o posto alvo.',tr:'Takas Modu Aktif: Hedef istasyonu seçin.'})}</span>
                                     </div>
                                     <button
                                         onClick={() => setSwapSourceId(null)}
                                         className="bg-white/20 hover:bg-white/30 text-white px-3 py-1 rounded-md text-[10px] transition-colors"
                                     >
-                                        Annuler
+                                        {tx(lang,{fr:'Annuler',ar:'إلغاء',en:'Cancel',es:'Cancelar',pt:'Cancelar',tr:'İptal'})}
                                     </button>
                                 </div>
                             )}
 
                             {/* 2. ZONES INDICATOR */}
                             <div className="bg-slate-50 border border-slate-200 rounded-xl p-1.5 flex items-center gap-1 overflow-x-auto text-[10px] font-bold uppercase text-slate-400 shadow-inner shrink-0 mb-1">
-                                <div className="flex items-center gap-2 px-2 py-0.5 bg-slate-50 rounded-lg border border-slate-200 opacity-60 shrink-0"><Package className="w-3 h-3 text-slate-400" /> Stock Tissu</div><ArrowRight className="w-3 h-3 text-slate-300 shrink-0" /><div className="flex items-center gap-2 px-2 py-0.5 bg-slate-50 rounded-lg border border-slate-200 opacity-60 shrink-0"><Scissors className="w-3 h-3 text-slate-400" /> Coupe & Prep</div><ArrowRight className="w-3 h-3 text-emerald-400 shrink-0" /><div className="flex items-center gap-2 px-2 py-0.5 bg-emerald-50 rounded-lg border border-emerald-200 text-emerald-700 shadow-sm shrink-0"><Layers className="w-3 h-3" /> Montage (Atelier)</div><ArrowRight className="w-3 h-3 text-emerald-400 shrink-0" />
+                                <div className="flex items-center gap-2 px-2 py-0.5 bg-slate-50 rounded-lg border border-slate-200 opacity-60 shrink-0"><Package className="w-3 h-3 text-slate-400" /> {tx(lang,{fr:'Stock Tissu',ar:'مخزون القماش',en:'Fabric Stock',es:'Stock de Tela',pt:'Estoque de Tecido',tr:'Kumaş Stoku'})}</div><ArrowRight className="w-3 h-3 text-slate-300 shrink-0" /><div className="flex items-center gap-2 px-2 py-0.5 bg-slate-50 rounded-lg border border-slate-200 opacity-60 shrink-0"><Scissors className="w-3 h-3 text-slate-400" /> {tx(lang,{fr:'Coupe & Prep',ar:'قص وتحضير',en:'Cutting & Prep',es:'Corte y Prep',pt:'Corte e Prep',tr:'Kesim ve Hazırlık'})}</div><ArrowRight className="w-3 h-3 text-emerald-400 shrink-0" /><div className="flex items-center gap-2 px-2 py-0.5 bg-emerald-50 rounded-lg border border-emerald-200 text-emerald-700 shadow-sm shrink-0"><Layers className="w-3 h-3" /> {tx(lang,{fr:'Montage (Atelier)',ar:'تجميع (ورشة)',en:'Assembly (Workshop)',es:'Montaje (Taller)',pt:'Montagem (Oficina)',tr:'Montaj (Atölye)'})}</div><ArrowRight className="w-3 h-3 text-emerald-400 shrink-0" />
                                 <div className="flex items-center gap-3">
                                     {swapControlFinition ? (
                                         <>
-                                            <SpecialZoneControl label="Contrôle" type="CONTROLE" icon={Eye} color={{ bg: 'bg-orange-50', border: 'border-orange-200', text: 'text-orange-700', hoverBg: 'hover:bg-orange-100' }} currentCount={postes?.filter(p => p.machine.toUpperCase().includes('CONTROLE')).length || 0} onAdd={handleAddSpecial} onRemove={handleRemoveSpecial} />
-                                            <button onClick={handleSwapZones} className="p-1 hover:bg-slate-200 rounded-full transition-colors shrink-0 transform active:rotate-180 duration-300" title="Inverser ordre"><ArrowRightLeft className="w-3 h-3 text-slate-400" /></button>
-                                            <SpecialZoneControl label="Finition" type="FINITION" icon={Sparkles} color={{ bg: 'bg-purple-50', border: 'border-purple-200', text: 'text-purple-700', hoverBg: 'hover:bg-purple-100' }} currentCount={postes?.filter(p => p.machine.toUpperCase().includes('FINITION')).length || 0} onAdd={handleAddSpecial} onRemove={handleRemoveSpecial} />
+                                            <SpecialZoneControl label={tx(lang,{fr:'Contrôle',ar:'مراقبة',en:'Inspection',es:'Control',pt:'Controle',tr:'Kontrol'})} type="CONTROLE" icon={Eye} color={{ bg: 'bg-orange-50', border: 'border-orange-200', text: 'text-orange-700', hoverBg: 'hover:bg-orange-100' }} currentCount={postes?.filter(p => p.machine.toUpperCase().includes('CONTROLE')).length || 0} onAdd={handleAddSpecial} onRemove={handleRemoveSpecial} />
+                                            <button onClick={handleSwapZones} className="p-1 hover:bg-slate-200 rounded-full transition-colors shrink-0 transform active:rotate-180 duration-300" title={tx(lang,{fr:'Inverser ordre',ar:'عكس الترتيب',en:'Reverse Order',es:'Invertir Orden',pt:'Inverter Ordem',tr:'Sırayı Ters Çevir'})}><ArrowRightLeft className="w-3 h-3 text-slate-400" /></button>
+                                            <SpecialZoneControl label={tx(lang,{fr:'Finition',ar:'تشطيب',en:'Finishing',es:'Acabado',pt:'Acabamento',tr:'Bitirme'})} type="FINITION" icon={Sparkles} color={{ bg: 'bg-purple-50', border: 'border-purple-200', text: 'text-purple-700', hoverBg: 'hover:bg-purple-100' }} currentCount={postes?.filter(p => p.machine.toUpperCase().includes('FINITION')).length || 0} onAdd={handleAddSpecial} onRemove={handleRemoveSpecial} />
                                         </>
                                     ) : (
                                         <>
-                                            <SpecialZoneControl label="Finition" type="FINITION" icon={Sparkles} color={{ bg: 'bg-purple-50', border: 'border-purple-200', text: 'text-purple-700', hoverBg: 'hover:bg-purple-100' }} currentCount={postes?.filter(p => p.machine.toUpperCase().includes('FINITION')).length || 0} onAdd={handleAddSpecial} onRemove={handleRemoveSpecial} />
-                                            <button onClick={handleSwapZones} className="p-1 hover:bg-slate-200 rounded-full transition-colors shrink-0 transform active:rotate-180 duration-300" title="Inverser ordre"><ArrowRightLeft className="w-3 h-3 text-slate-400" /></button>
-                                            <SpecialZoneControl label="Contrôle" type="CONTROLE" icon={Eye} color={{ bg: 'bg-orange-50', border: 'border-orange-200', text: 'text-orange-700', hoverBg: 'hover:bg-orange-100' }} currentCount={postes?.filter(p => p.machine.toUpperCase().includes('CONTROLE')).length || 0} onAdd={handleAddSpecial} onRemove={handleRemoveSpecial} />
+                                            <SpecialZoneControl label={tx(lang,{fr:'Finition',ar:'تشطيب',en:'Finishing',es:'Acabado',pt:'Acabamento',tr:'Bitirme'})} type="FINITION" icon={Sparkles} color={{ bg: 'bg-purple-50', border: 'border-purple-200', text: 'text-purple-700', hoverBg: 'hover:bg-purple-100' }} currentCount={postes?.filter(p => p.machine.toUpperCase().includes('FINITION')).length || 0} onAdd={handleAddSpecial} onRemove={handleRemoveSpecial} />
+                                            <button onClick={handleSwapZones} className="p-1 hover:bg-slate-200 rounded-full transition-colors shrink-0 transform active:rotate-180 duration-300" title={tx(lang,{fr:'Inverser ordre',ar:'عكس الترتيب',en:'Reverse Order',es:'Invertir Orden',pt:'Inverter Ordem',tr:'Sırayı Ters Çevir'})}><ArrowRightLeft className="w-3 h-3 text-slate-400" /></button>
+                                            <SpecialZoneControl label={tx(lang,{fr:'Contrôle',ar:'مراقبة',en:'Inspection',es:'Control',pt:'Controle',tr:'Kontrol'})} type="CONTROLE" icon={Eye} color={{ bg: 'bg-orange-50', border: 'border-orange-200', text: 'text-orange-700', hoverBg: 'hover:bg-orange-100' }} currentCount={postes?.filter(p => p.machine.toUpperCase().includes('CONTROLE')).length || 0} onAdd={handleAddSpecial} onRemove={handleRemoveSpecial} />
                                         </>
                                     )}
                                 </div>
-                                <ArrowRight className="w-3 h-3 text-slate-300 shrink-0" /><div className="flex items-center gap-2 px-2 py-0.5 bg-slate-50 rounded-lg border border-slate-200 opacity-60 shrink-0"><Truck className="w-3 h-3 text-slate-400" /> Expédition</div>
+                                <ArrowRight className="w-3 h-3 text-slate-300 shrink-0" /><div className="flex items-center gap-2 px-2 py-0.5 bg-slate-50 rounded-lg border border-slate-200 opacity-60 shrink-0"><Truck className="w-3 h-3 text-slate-400" /> {tx(lang,{fr:'Expédition',ar:'شحن',en:'Shipping',es:'Expedición',pt:'Expedição',tr:'Sevkiyat'})}</div>
                             </div>
                         </>
                     )}
@@ -3097,7 +3100,7 @@ export default function Implantation({
                                         <div className="p-3 border-b border-slate-200 bg-slate-50">
                                             <div className="flex justify-between items-center mb-2">
                                                 <h3 className="font-bold text-xs uppercase text-slate-500 flex items-center gap-2">
-                                                    <Inbox className="w-4 h-4" /> File d'attente
+                                                    <Inbox className="w-4 h-4" /> {tx(lang,{fr:'File d\'attente',ar:'قائمة الانتظار',en:'Queue',es:'Cola de espera',pt:'Fila de espera',tr:'Bekleme Sırası'})}
                                                 </h3>
                                                 <span className="text-[10px] font-black bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">{waitingStations.length}</span>
                                             </div>
@@ -3106,7 +3109,7 @@ export default function Implantation({
                                                     onClick={placeAllOnCanvas}
                                                     className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-indigo-600 text-white rounded-lg text-xs font-bold hover:bg-indigo-700 transition-colors active:scale-[0.98] shadow-sm"
                                                 >
-                                                    <Layers className="w-3.5 h-3.5" /> Tout placer sur le plan
+                                                    <Layers className="w-3.5 h-3.5" /> {tx(lang,{fr:'Tout placer sur le plan',ar:'وضع الكل على الخطة',en:'Place All on Plan',es:'Colocar todo en el plano',pt:'Colocar tudo no plano',tr:'Tümünü Planda Yerleştir'})}
                                                 </button>
                                             )}
                                         </div>
@@ -3124,7 +3127,7 @@ export default function Implantation({
                                             {waitingStations.length === 0 && (
                                                 <div className="flex flex-col items-center justify-center py-10 gap-3 text-slate-300">
                                                     <Check className="w-8 h-8" />
-                                                    <span className="text-xs font-bold">Tous les postes sont placés</span>
+                                                    <span className="text-xs font-bold">{tx(lang,{fr:'Tous les postes sont placés',ar:'جميع المحطات موضوعة',en:'All stations are placed',es:'Todos los puestos están colocados',pt:'Todos os postos estão colocados',tr:'Tüm istasyonlar yerleştirildi'})}</span>
                                                 </div>
                                             )}
                                         </div>
@@ -3136,7 +3139,7 @@ export default function Implantation({
                                             <Inbox className="w-5 h-5 text-indigo-500" />
                                             <div className="h-full w-full flex justify-center">
                                                 <span className="text-[10px] font-bold uppercase text-slate-400 tracking-widest whitespace-nowrap" style={{ writingMode: 'vertical-rl', textOrientation: 'mixed', transform: 'rotate(180deg)' }}>
-                                                    Gamme d'attente ({waitingStations.length})
+                                                    {tx(lang,{fr:'Gamme d\'attente',ar:'قائمة انتظار العمليات',en:'Waiting Queue',es:'Cola de espera',pt:'Fila de espera',tr:'Bekleme Sırası'})} ({waitingStations.length})
                                                 </span>
                                             </div>
                                         </div>
@@ -3250,7 +3253,7 @@ export default function Implantation({
                                     {layoutType === 'free' && (
                                         <div className={`flex flex-col gap-6 p-6 w-full min-w-max pb-32 ${orientation === 'portrait' ? 'rotate-90 origin-center scale-75 mt-40' : ''}`}>
                                             <div className="relative mt-4 flex flex-col">
-                                                <div className="absolute -top-4 left-6 bg-indigo-600/80 backdrop-blur-md text-white px-5 py-1.5 rounded-xl text-xs font-black shadow-lg uppercase tracking-widest border border-white/20 z-20">Plan Libre</div>
+                                                <div className="absolute -top-4 left-6 bg-indigo-600/80 backdrop-blur-md text-white px-5 py-1.5 rounded-xl text-xs font-black shadow-lg uppercase tracking-widest border border-white/20 z-20">{tx(lang,{fr:'Plan Libre',ar:'تخطيط حر',en:'Free Plan',es:'Plano Libre',pt:'Plano Livre',tr:'Serbest Plan'})}</div>
 
                                                 <div className="relative w-[3000px] h-[2000px] mt-4 overflow-hidden">
                                                     {workstations
@@ -3295,7 +3298,7 @@ export default function Implantation({
                                                                         </div>
                                                                     ) : shape === 'zone' ? (
                                                                         <div className="w-48 h-32 border-2 border-dashed border-indigo-300 bg-indigo-50/30 rounded-xl flex items-center justify-center pointer-events-none">
-                                                                            <span className="text-xs font-bold text-indigo-400 uppercase tracking-widest">Zone {st.name}</span>
+                                                                            <span className="text-xs font-bold text-indigo-400 uppercase tracking-widest">{tx(lang,{fr:'Zone',ar:'منطقة',en:'Zone',es:'Zona',pt:'Zona',tr:'Bölge'})} {st.name}</span>
                                                                         </div>
                                                                     ) : (
                                                                         renderStationCard(st)
@@ -3376,7 +3379,7 @@ export default function Implantation({
                                                                 <div className="flex justify-end w-full pr-12">
                                                                     <div className="flex flex-col items-center opacity-60">
                                                                         <div className="w-1.5 h-8 rounded bg-slate-300"></div>
-                                                                        <div className="bg-slate-500 text-white text-[8px] font-black px-2 py-1 rounded shadow">U-TURN</div>
+                                                                        <div className="bg-slate-500 text-white text-[8px] font-black px-2 py-1 rounded shadow">{tx(lang,{fr:'U-TURN',ar:'دوران',en:'U-TURN',es:'GIRO',pt:'RETORNO',tr:'U-DÖNÜŞÜ'})}</div>
                                                                         <div className="w-1.5 h-8 rounded bg-slate-300"></div>
                                                                     </div>
                                                                 </div>
@@ -3434,7 +3437,7 @@ export default function Implantation({
                                             <div className="flex justify-start w-full pl-8 mt-4">
                                                 <div className="flex items-center gap-4 bg-slate-800 text-white px-8 py-4 rounded-2xl shadow-2xl border-4 border-slate-700 hover:scale-105 transition-transform">
                                                     <div className="w-10 h-10 bg-emerald-500 rounded-xl flex items-center justify-center shadow-lg"><Truck className="w-6 h-6 animate-pulse" /></div>
-                                                    <div className="flex flex-col"><span className="text-[10px] uppercase font-black tracking-widest text-slate-400">Terminé</span><span className="text-sm font-black uppercase tracking-widest">EXPÉDITION</span></div>
+                                                    <div className="flex flex-col"><span className="text-[10px] uppercase font-black tracking-widest text-slate-400">{tx(lang,{fr:'Terminé',ar:'منتهي',en:'Finished',es:'Terminado',pt:'Terminado',tr:'Bitti'})}</span><span className="text-sm font-black uppercase tracking-widest">{tx(lang,{fr:'EXPÉDITION',ar:'شحن',en:'SHIPPING',es:'EXPEDICIÓN',pt:'EXPEDIÇÃO',tr:'SEVKİYAT'})}</span></div>
                                                 </div>
                                             </div>
                                         </div>
@@ -3555,7 +3558,7 @@ export default function Implantation({
                                             <div className="flex justify-end w-full mt-8 pr-4">
                                                 <div className="flex items-center gap-4 bg-slate-800 text-white px-8 py-4 rounded-2xl shadow-2xl border border-white/20 hover:scale-105 transition-transform">
                                                     <div className="w-10 h-10 bg-emerald-500 rounded-xl flex items-center justify-center shadow-lg"><Truck className="w-6 h-6 animate-pulse" /></div>
-                                                    <div className="flex flex-col"><span className="text-[10px] uppercase font-black tracking-widest text-slate-400">Terminé</span><span className="text-sm font-black uppercase tracking-widest">EXPÉDITION</span></div>
+                                                    <div className="flex flex-col"><span className="text-[10px] uppercase font-black tracking-widest text-slate-400">{tx(lang,{fr:'Terminé',ar:'منتهي',en:'Finished',es:'Terminado',pt:'Terminado',tr:'Bitti'})}</span><span className="text-sm font-black uppercase tracking-widest">{tx(lang,{fr:'EXPÉDITION',ar:'شحن',en:'SHIPPING',es:'EXPEDICIÓN',pt:'EXPEDIÇÃO',tr:'SEVKİYAT'})}</span></div>
                                                 </div>
                                             </div>
                                         </div>
@@ -3689,7 +3692,7 @@ export default function Implantation({
                                             <div className="flex justify-end w-full mt-8 pr-4">
                                                 <div className="flex items-center gap-4 bg-slate-800 text-white px-8 py-4 rounded-2xl shadow-2xl border border-white/20 hover:scale-105 transition-transform">
                                                     <div className="w-10 h-10 bg-emerald-500 rounded-xl flex items-center justify-center shadow-lg"><Truck className="w-6 h-6 animate-pulse" /></div>
-                                                    <div className="flex flex-col"><span className="text-[10px] uppercase font-black tracking-widest text-slate-400">Terminé</span><span className="text-sm font-black uppercase tracking-widest">EXPÉDITION</span></div>
+                                                    <div className="flex flex-col"><span className="text-[10px] uppercase font-black tracking-widest text-slate-400">{tx(lang,{fr:'Terminé',ar:'منتهي',en:'Finished',es:'Terminado',pt:'Terminado',tr:'Bitti'})}</span><span className="text-sm font-black uppercase tracking-widest">{tx(lang,{fr:'EXPÉDITION',ar:'شحن',en:'SHIPPING',es:'EXPEDICIÓN',pt:'EXPEDIÇÃO',tr:'SEVKİYAT'})}</span></div>
                                                 </div>
                                             </div>
                                         </div>
@@ -3703,13 +3706,13 @@ export default function Implantation({
                         {showMaterialsPanel && (
                             <div className="fixed z-[5010] bg-slate-50 rounded-2xl border border-slate-200 shadow-xl overflow-hidden flex flex-col" style={{ left: matPanel.x, top: matPanel.y, width: matPanel.w, height: matPanel.h }}>
                                 <div onMouseDown={startDragMat} className="p-4 bg-slate-50 border-b border-slate-100 cursor-move select-none flex justify-between items-center">
-                                    <h3 className="font-bold text-slate-700 flex items-center gap-2 text-sm pointer-events-none"><Calculator className="w-4 h-4 text-indigo-500" /> Total Matériel</h3>
+                                    <h3 className="font-bold text-slate-700 flex items-center gap-2 text-sm pointer-events-none"><Calculator className="w-4 h-4 text-indigo-500" /> {tx(lang,{fr:'Total Matériel',ar:'إجمالي المعدات',en:'Total Equipment',es:'Total Equipo',pt:'Total Equipamento',tr:'Toplam Ekipman'})}</h3>
                                     <button onClick={() => setShowMaterialsPanel(false)} onMouseDown={(e) => e.stopPropagation()} className="text-slate-400 hover:text-slate-600"><X className="w-4 h-4" /></button>
                                 </div>
                                 <div className="flex-1 overflow-y-auto p-2 custom-scrollbar">
                                     <table className="w-full text-left border-collapse"><tbody>{machinesSummary.counts.map(([name, count]) => (<tr key={name} className="border-b border-slate-50 hover:bg-slate-50"><td className="py-2 px-3 text-xs font-medium text-slate-600">{name}</td><td className="py-2 px-3 text-right"><span className="inline-flex items-center justify-center bg-slate-100 text-slate-700 font-bold text-[10px] px-2 py-0.5 rounded-full min-w-[24px]">{count}</span></td></tr>))}</tbody></table>
                                 </div>
-                                <div className="p-4 bg-slate-50 border-t border-slate-100 relative"><div className="flex justify-between items-center"><span className="text-xs font-bold text-slate-500 uppercase">Total Postes</span><span className="text-lg font-black text-indigo-600">{machinesSummary.total}</span></div><div onMouseDown={startResizeMat} className="absolute bottom-0 right-0 w-6 h-6 cursor-nwse-resize flex items-center justify-center opacity-50 hover:opacity-100"><Scaling className="w-4 h-4 text-slate-400 rotate-90" /></div></div>
+                                <div className="p-4 bg-slate-50 border-t border-slate-100 relative"><div className="flex justify-between items-center"><span className="text-xs font-bold text-slate-500 uppercase">{tx(lang,{fr:'Total Postes',ar:'إجمالي المحطات',en:'Total Stations',es:'Total Puestos',pt:'Total Postos',tr:'Toplam İstasyon'})}</span><span className="text-lg font-black text-indigo-600">{machinesSummary.total}</span></div><div onMouseDown={startResizeMat} className="absolute bottom-0 right-0 w-6 h-6 cursor-nwse-resize flex items-center justify-center opacity-50 hover:opacity-100"><Scaling className="w-4 h-4 text-slate-400 rotate-90" /></div></div>
                             </div>
                         )}
                     </div>
@@ -3720,7 +3723,7 @@ export default function Implantation({
                     <button
                         onClick={toggleFullScreen}
                         className="absolute top-6 right-6 z-50 p-3 bg-white/60 backdrop-blur-xl rounded-full shadow-lg border border-slate-200/50 text-slate-500 hover:text-rose-600 hover:bg-white hover:scale-110 active:scale-95 transition-all duration-300 animate-in slide-in-from-top-8 fade-in"
-                        title="Quitter plein écran (Esc)"
+                        title={tx(lang,{fr:'Quitter plein écran (Esc)',ar:'إنهاء ملء الشاشة (Esc)',en:'Exit Fullscreen (Esc)',es:'Salir de pantalla completa (Esc)',pt:'Sair de tela cheia (Esc)',tr:'Tam ekrandan çık (Esc)'})}
                     >
                         <X className="w-5 h-5" />
                     </button>
@@ -3735,23 +3738,23 @@ export default function Implantation({
                     />
                     <div className="relative bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-150">
                         <div className="px-5 py-4 border-b border-slate-100 bg-slate-50">
-                            <h3 className="text-sm font-black text-slate-800 uppercase tracking-wide">Changement de catégorie poste</h3>
+                            <h3 className="text-sm font-black text-slate-800 uppercase tracking-wide">{tx(lang,{fr:'Changement de catégorie poste',ar:'تغيير فئة المحطة',en:'Station Category Change',es:'Cambio de categoría de puesto',pt:'Mudança de categoria de posto',tr:'İstasyon Kategori Değişikliği'})}</h3>
                             <p className="text-xs text-slate-500 mt-1">
-                                Poste <span className="font-bold text-slate-700">{sectionTransferDialog.posteName}</span> :
-                                <span className="font-bold"> {SECTION_LABELS[sectionTransferDialog.source]}</span> vers
-                                <span className="font-bold"> {SECTION_LABELS[sectionTransferDialog.target]}</span>.
+{tx(lang,{fr:'Poste',ar:'المحطة',en:'Station',es:'Puesto',pt:'Posto',tr:'İstasyon'})} <span className="font-bold text-slate-700">{sectionTransferDialog.posteName}</span> :
+                                                <span className="font-bold"> {SECTION_LABELS[sectionTransferDialog.source]}</span> {tx(lang,{fr:'vers',ar:'إلى',en:'to',es:'a',pt:'para',tr:'→'})}
+                                                <span className="font-bold"> {SECTION_LABELS[sectionTransferDialog.target]}</span>.
                             </p>
                         </div>
 
                         <div className="px-5 py-4 space-y-3">
                             {sectionTransferDialog.mode === 'confirm-transfer' ? (
                                 <p className="text-sm text-slate-600">
-                                    Voulez-vous déplacer ce poste et reclasser ses opérations en
+                                    {tx(lang,{fr:'Voulez-vous déplacer ce poste et reclasser ses opérations en',ar:'هل تريد نقل هذه المحطة وإعادة تصنيف عملياتها إلى',en:'Do you want to move this station and reclassify its operations to',es:'¿Desea mover este puesto y reclasificar sus operaciones a',pt:'Deseja mover este posto e reclassificar suas operações para',tr:'Bu istasyonu taşımak ve işlemlerini şuraya yeniden sınıflandırmak istiyor musunuz'})}
                                     <span className="font-bold"> {SECTION_LABELS[sectionTransferDialog.target]}</span> ?
                                 </p>
                             ) : (
                                 <p className="text-sm text-slate-600">
-                                    Ce poste touche une zone commune. Choisissez comment il doit etre comptabilise.
+                                    {tx(lang,{fr:'Ce poste touche une zone commune. Choisissez comment il doit être comptabilisé.',ar:'هذه المحطة تمس منطقة مشتركة. اختر كيف يجب أن يتم احتسابها.',en:'This station touches a common zone. Choose how it should be accounted.',es:'Este puesto toca una zona común. Elija cómo debe contabilizarse.',pt:'Este posto toca uma zona comum. Escolha como deve ser contabilizado.',tr:'Bu istasyon ortak bir bölgeye dokunuyor. Nasıl muhasebeleştirileceğini seçin.'})}
                                 </p>
                             )}
                         </div>
@@ -3761,7 +3764,7 @@ export default function Implantation({
                                 onClick={() => resolveSectionTransferDialog('cancel')}
                                 className="px-3 py-2 rounded-lg text-xs font-bold border border-slate-200 text-slate-600 bg-white hover:bg-slate-100"
                             >
-                                Annuler
+                                {tx(lang,{fr:'Annuler',ar:'إلغاء',en:'Cancel',es:'Cancelar',pt:'Cancelar',tr:'İptal'})}
                             </button>
 
                             {sectionTransferDialog.mode === 'global-choice' ? (
@@ -3770,19 +3773,19 @@ export default function Implantation({
                                         onClick={() => resolveSectionTransferDialog('keep-global')}
                                         className="px-3 py-2 rounded-lg text-xs font-bold border border-slate-200 text-slate-700 bg-white hover:bg-slate-100"
                                     >
-                                        Garder Zone Commune
+                                        {tx(lang,{fr:'Garder Zone Commune',ar:'الإبقاء على المنطقة المشتركة',en:'Keep Common Zone',es:'Mantener Zona Común',pt:'Manter Zona Comum',tr:'Ortak Bölgeyi Koru'})}
                                     </button>
                                     <button
                                         onClick={() => resolveSectionTransferDialog('set-prep')}
                                         className="px-3 py-2 rounded-lg text-xs font-bold border border-amber-200 text-amber-700 bg-amber-50 hover:bg-amber-100"
                                     >
-                                        Classer Prepa
+                                        {tx(lang,{fr:'Classer Prépa',ar:'تصنيف كتحضير',en:'Classify as Prep',es:'Clasificar como Prep',pt:'Classificar como Prep',tr:'Hazırlık Olarak Sınıflandır'})}
                                     </button>
                                     <button
                                         onClick={() => resolveSectionTransferDialog('set-montage')}
                                         className="px-3 py-2 rounded-lg text-xs font-bold border border-sky-200 text-sky-700 bg-sky-50 hover:bg-sky-100"
                                     >
-                                        Classer Montage
+                                        {tx(lang,{fr:'Classer Montage',ar:'تصنيف كتجميع',en:'Classify as Assembly',es:'Clasificar como Montaje',pt:'Classificar como Montagem',tr:'Montaj Olarak Sınıflandır'})}
                                     </button>
                                 </>
                             ) : (
@@ -3790,7 +3793,7 @@ export default function Implantation({
                                     onClick={() => resolveSectionTransferDialog('confirm-target')}
                                     className="px-3 py-2 rounded-lg text-xs font-bold border border-indigo-200 text-indigo-700 bg-indigo-50 hover:bg-indigo-100"
                                 >
-                                    OK deplacer
+                                    {tx(lang,{fr:'OK déplacer',ar:'موافق نقل',en:'OK Move',es:'OK mover',pt:'OK mover',tr:'Tamam Taşı'})}
                                 </button>
                             )}
                         </div>
@@ -3814,11 +3817,11 @@ export default function Implantation({
                                     <PenTool className={`w-5 h-5 ${editModal.color.text}`} />
                                 </div>
                                 <div>
-                                    <h3 className={`font-bold text-lg leading-tight ${editModal.color.text}`}>Modifier Poste {editModal.data.name}</h3>
+                                    <h3 className={`font-bold text-lg leading-tight ${editModal.color.text}`}>{tx(lang,{fr:'Modifier Poste',ar:'تعديل المحطة',en:'Edit Station',es:'Modificar Puesto',pt:'Modificar Posto',tr:'İstasyonu Düzenle'})} {editModal.data.name}</h3>
                                     <p className="text-[10px] uppercase font-bold text-slate-500 opacity-80 flex items-center gap-2">
                                         {editModal.data.machine}
                                         <span className="w-px h-3 bg-slate-300"></span>
-                                        {modalOps.length} Opérations
+                                        {modalOps.length} {tx(lang,{fr:'Opérations',ar:'العمليات',en:'Operations',es:'Operaciones',pt:'Operações',tr:'Operasyonlar'})}
                                     </p>
                                 </div>
                             </div>
@@ -3827,7 +3830,7 @@ export default function Implantation({
                                     <User className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
                                     <input
                                         type="text"
-                                        placeholder="Opérateur..."
+                                        placeholder={tx(lang,{fr:'Opérateur...',ar:'المشغل...',en:'Operator...',es:'Operador...',pt:'Operador...',tr:'Operatör...'})}
                                         value={editModal.data.operatorName || ''}
                                         onChange={(e) => saveStationMetadata({ operatorName: e.target.value })}
                                         className="pl-7 pr-2 py-1.5 text-xs font-bold rounded-lg border border-slate-200 bg-white/80 focus:bg-white focus:border-indigo-400 outline-none w-32"
@@ -3837,11 +3840,11 @@ export default function Implantation({
                                     <Clock className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
                                     <input
                                         type="number"
-                                        placeholder="T. Forcé"
+                                        placeholder={tx(lang,{fr:'T. Forcé',ar:'وقت إجباري',en:'Forced Time',es:'T. Forzado',pt:'T. Forçado',tr:'Zorunlu Süre'})}
                                         value={editModal.data.timeOverride !== undefined ? Math.round(editModal.data.timeOverride * 60) : ''}
                                         onChange={(e) => { const val = e.target.value === '' ? undefined : Number(e.target.value); saveStationMetadata({ timeOverride: val !== undefined ? val / 60 : undefined }); }}
                                         className="pl-7 pr-2 py-1.5 text-xs font-bold rounded-lg border border-slate-200 bg-white/80 focus:bg-white focus:border-purple-400 outline-none w-24 text-purple-600 placeholder:text-slate-400"
-                                        title="Forcer temps poste (sec)"
+                                        title={tx(lang,{fr:'Forcer temps poste (sec)',ar:'فرض وقت المحطة (ثانية)',en:'Force station time (sec)',es:'Forzar tiempo de puesto (seg)',pt:'Forçar tempo de posto (seg)',tr:'İstasyon süresini zorla (sn)'})}
                                     />
                                 </div>
                             </div>
@@ -3852,12 +3855,12 @@ export default function Implantation({
                             <table className="w-full text-left border-collapse bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
                                 <thead className="bg-slate-100 text-xs font-bold text-slate-500 uppercase sticky top-0 z-10 shadow-sm">
                                     <tr>
-                                        <th className="py-3 px-4 w-12 text-center border-b border-slate-200">N°</th>
-                                        <th className="py-3 px-4 border-b border-slate-200">Description</th>
-                                        <th className="py-3 px-4 w-40 border-b border-slate-200">Machine</th>
-                                        <th className="py-3 px-4 w-20 text-center border-b border-slate-200">L / Qté</th>
+                                        <th className="py-3 px-4 w-12 text-center border-b border-slate-200">{tx(lang,{fr:'N°',ar:'رقم',en:'No.',es:'N°',pt:'N°',tr:'No'})}</th>
+                                        <th className="py-3 px-4 border-b border-slate-200">{tx(lang,{fr:'Description',ar:'الوصف',en:'Description',es:'Descripción',pt:'Descrição',tr:'Açıklama'})}</th>
+                                        <th className="py-3 px-4 w-40 border-b border-slate-200">{tx(lang,{fr:'Machine',ar:'آلة',en:'Machine',es:'Máquina',pt:'Máquina',tr:'Makine'})}</th>
+                                        <th className="py-3 px-4 w-20 text-center border-b border-slate-200">{tx(lang,{fr:'L / Qté',ar:'الطول / الكمية',en:'L / Qty',es:'L / Cant',pt:'L / Qtd',tr:'U / Mkt'})}</th>
                                         <th className="py-3 px-4 w-20 text-center border-b border-slate-200">F.Guide</th>
-                                        <th className="py-3 px-4 w-24 text-center border-b border-slate-200 text-emerald-600">Temps</th>
+                                        <th className="py-3 px-4 w-24 text-center border-b border-slate-200 text-emerald-600">{tx(lang,{fr:'Temps',ar:'الوقت',en:'Time',es:'Tiempo',pt:'Tempo',tr:'Süre'})}</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-100 text-sm">
@@ -3872,7 +3875,7 @@ export default function Implantation({
                                                         value={op.description}
                                                         onChange={(e) => handleUpdateOperation(op.id, 'description', e.target.value)}
                                                         className="w-full bg-transparent outline-none font-medium text-slate-700 placeholder:text-slate-300 focus:bg-white focus:shadow-sm rounded px-2 py-1 transition-all"
-                                                        placeholder="Description..."
+                                                        placeholder={tx(lang,{fr:'Description...',ar:'الوصف...',en:'Description...',es:'Descripción...',pt:'Descrição...',tr:'Açıklama...'})}
                                                     />
                                                 </td>
                                                 <td className="py-2 px-2">
@@ -3923,14 +3926,14 @@ export default function Implantation({
                                     {modalOps.length === 0 && (
                                         <tr>
                                             <td colSpan={6} className="py-8 text-center text-slate-400 italic bg-white">
-                                                Aucune opération assignée. Utilisez le mode Manuel pour ajouter des opérations.
+                                                {tx(lang,{fr:'Aucune opération assignée. Utilisez le mode Manuel pour ajouter des opérations.',ar:'لا توجد عمليات معينة. استخدم الوضع اليدوي لإضافة عمليات.',en:'No operations assigned. Use Manual mode to add operations.',es:'Ninguna operación asignada. Use el modo Manual para añadir operaciones.',pt:'Nenhuma operação atribuída. Use o modo Manual para adicionar operações.',tr:'Hiçbir operasyon atanmadı. Operasyon eklemek için Manuel modu kullanın.'})}
                                             </td>
                                         </tr>
                                     )}
                                 </tbody>
                                 <tfoot className="bg-slate-50 border-t border-slate-200">
                                     <tr>
-                                        <td colSpan={5} className="py-3 px-4 text-right font-bold text-xs uppercase text-slate-500">Total Poste:</td>
+                                        <td colSpan={5} className="py-3 px-4 text-right font-bold text-xs uppercase text-slate-500">{tx(lang,{fr:'Total Poste:',ar:'إجمالي المحطة:',en:'Station Total:',es:'Total Puesto:',pt:'Total Posto:',tr:'İstasyon Toplamı:'})}</td>
                                         <td className="py-3 px-4 text-center font-black text-emerald-700 bg-emerald-50 border-l border-emerald-100">
                                             {Math.round(modalOps.reduce((sum, op) => sum + (op.time || 0), 0) * 60)}s
                                         </td>
@@ -3944,20 +3947,20 @@ export default function Implantation({
                                 <div className="flex items-center justify-between w-full bg-rose-50 p-2 rounded-lg border border-rose-100 animate-in fade-in slide-in-from-bottom-2">
                                     <div className="flex items-center gap-2 text-rose-700 font-bold text-xs px-2">
                                         <AlertTriangle className="w-4 h-4" />
-                                        <span>Êtes-vous sûr de vouloir supprimer ce poste ?</span>
+                                        <span>{tx(lang,{fr:'Êtes-vous sûr de vouloir supprimer ce poste ?',ar:'هل أنت متأكد من حذف هذه المحطة؟',en:'Are you sure you want to delete this station?',es:'¿Está seguro de eliminar este puesto?',pt:'Tem certeza que deseja excluir este posto?',tr:'Bu istasyonu silmek istediğinize emin misiniz?'})}</span>
                                     </div>
                                     <div className="flex gap-2">
                                         <button
                                             onClick={() => setShowDeleteConfirm(false)}
                                             className="px-3 py-1.5 bg-white text-slate-600 border border-slate-200 rounded-lg text-xs font-bold hover:bg-slate-50 transition-colors"
                                         >
-                                            Annuler
+                                            {tx(lang,{fr:'Annuler',ar:'إلغاء',en:'Cancel',es:'Cancelar',pt:'Cancelar',tr:'İptal'})}
                                         </button>
                                         <button
                                             onClick={() => deleteFromModal()}
                                             className="px-3 py-1.5 bg-rose-600 text-white rounded-lg text-xs font-bold hover:bg-rose-700 shadow-sm transition-colors"
                                         >
-                                            Confirmer
+                                            {tx(lang,{fr:'Confirmer',ar:'تأكيد',en:'Confirm',es:'Confirmar',pt:'Confirmar',tr:'Onayla'})}
                                         </button>
                                     </div>
                                 </div>
@@ -3965,20 +3968,20 @@ export default function Implantation({
                                 <>
                                     <button onClick={() => setShowDeleteConfirm(true)} className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 hover:bg-rose-50 hover:border-rose-200 hover:text-rose-600 rounded-xl text-xs font-bold transition-all shadow-sm text-slate-500">
                                         <Trash2 className="w-4 h-4" />
-                                        <span>Supprimer</span>
+                                        <span>{tx(lang,{fr:'Supprimer',ar:'حذف',en:'Delete',es:'Eliminar',pt:'Excluir',tr:'Sil'})}</span>
                                     </button>
                                     <div className="flex gap-2">
                                         <button
                                             onClick={() => closeEditModal()}
                                             className="px-4 py-2.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-600 rounded-xl text-xs font-bold transition-colors"
                                         >
-                                            Fermer
+                                            {tx(lang,{fr:'Fermer',ar:'إغلاق',en:'Close',es:'Cerrar',pt:'Fechar',tr:'Kapat'})}
                                         </button>
                                         <button
                                             onClick={() => closeEditModal()}
                                             className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-md shadow-emerald-100 transition-colors"
                                         >
-                                            Enregistrer
+                                            {tx(lang,{fr:'Enregistrer',ar:'حفظ',en:'Save',es:'Guardar',pt:'Salvar',tr:'Kaydet'})}
                                         </button>
                                     </div>
                                 </>
@@ -3996,27 +3999,27 @@ export default function Implantation({
                     style={{ top: contextMenu.y, left: contextMenu.x }}
                     onClick={(e) => e.stopPropagation()}
                 >
-                    <button onClick={() => handleContextAction('modify')} className="w-full text-left px-4 py-2.5 hover:bg-slate-50 flex items-center gap-2 transition-colors"><PenTool className="w-3.5 h-3.5 text-indigo-500" /> Modifier Poste</button>
-                    <button onClick={() => handleContextAction('swap')} className="w-full text-left px-4 py-2.5 hover:bg-slate-50 flex items-center gap-2 transition-colors"><ArrowRightLeft className="w-3.5 h-3.5 text-orange-500" /> Échanger (Swap)</button>
+                    <button onClick={() => handleContextAction('modify')} className="w-full text-left px-4 py-2.5 hover:bg-slate-50 flex items-center gap-2 transition-colors"><PenTool className="w-3.5 h-3.5 text-indigo-500" /> {tx(lang,{fr:'Modifier Poste',ar:'تعديل المحطة',en:'Edit Station',es:'Modificar Puesto',pt:'Modificar Posto',tr:'İstasyonu Düzenle'})}</button>
+                    <button onClick={() => handleContextAction('swap')} className="w-full text-left px-4 py-2.5 hover:bg-slate-50 flex items-center gap-2 transition-colors"><ArrowRightLeft className="w-3.5 h-3.5 text-orange-500" /> {tx(lang,{fr:'Échanger (Swap)',ar:'تبديل',en:'Swap',es:'Intercambiar',pt:'Trocar',tr:'Takas'})}</button>
                     {layoutType === 'free' && (
                         <>
                             <div className="h-px bg-slate-100 my-1"></div>
-                            <button onClick={() => handleContextAction('rotate')} className="w-full text-left px-4 py-2.5 hover:bg-slate-50 flex items-center gap-2 transition-colors"><RotateCw className="w-3.5 h-3.5 text-blue-500" /> Rotation (+45°)</button>
-                            <div className="px-4 py-1 text-[9px] font-bold text-slate-400 uppercase mt-1">Forme</div>
-                            <button onClick={() => handleContextAction('shape_rect')} className="w-full text-left px-4 py-2.5 hover:bg-slate-50 flex items-center gap-2 transition-colors"><Square className="w-3.5 h-3.5 text-slate-500" /> Rectangle</button>
-                            <button onClick={() => handleContextAction('shape_circle')} className="w-full text-left px-4 py-2.5 hover:bg-slate-50 flex items-center gap-2 transition-colors"><Circle className="w-3.5 h-3.5 text-slate-500" /> Cercle / Rond</button>
+                            <button onClick={() => handleContextAction('rotate')} className="w-full text-left px-4 py-2.5 hover:bg-slate-50 flex items-center gap-2 transition-colors"><RotateCw className="w-3.5 h-3.5 text-blue-500" /> {tx(lang,{fr:'Rotation (+45°)',ar:'تدوير (+45°)',en:'Rotate (+45°)',es:'Rotación (+45°)',pt:'Rotação (+45°)',tr:'Döndür (+45°)'})}</button>
+                            <div className="px-4 py-1 text-[9px] font-bold text-slate-400 uppercase mt-1">{tx(lang,{fr:'Forme',ar:'الشكل',en:'Shape',es:'Forma',pt:'Forma',tr:'Şekil'})}</div>
+                            <button onClick={() => handleContextAction('shape_rect')} className="w-full text-left px-4 py-2.5 hover:bg-slate-50 flex items-center gap-2 transition-colors"><Square className="w-3.5 h-3.5 text-slate-500" /> {tx(lang,{fr:'Rectangle',ar:'مستطيل',en:'Rectangle',es:'Rectángulo',pt:'Retângulo',tr:'Dikdörtgen'})}</button>
+                            <button onClick={() => handleContextAction('shape_circle')} className="w-full text-left px-4 py-2.5 hover:bg-slate-50 flex items-center gap-2 transition-colors"><Circle className="w-3.5 h-3.5 text-slate-500" /> {tx(lang,{fr:'Cercle / Rond',ar:'دائرة',en:'Circle / Round',es:'Círculo / Redondo',pt:'Círculo / Redondo',tr:'Daire / Yuvarlak'})}</button>
                         </>
                     )}
                     <div className="h-px bg-slate-100 my-1"></div>
-                    <button onClick={() => handleContextAction('insert')} className="w-full text-left px-4 py-2.5 hover:bg-slate-50 flex items-center gap-2 transition-colors"><Plus className="w-3.5 h-3.5 text-emerald-500" /> Insérer Vide</button>
+                    <button onClick={() => handleContextAction('insert')} className="w-full text-left px-4 py-2.5 hover:bg-slate-50 flex items-center gap-2 transition-colors"><Plus className="w-3.5 h-3.5 text-emerald-500" /> {tx(lang,{fr:'Insérer Vide',ar:'إدراج فارغ',en:'Insert Empty',es:'Insertar Vacío',pt:'Inserir Vazio',tr:'Boş Ekle'})}</button>
 
                     {isManualMode ? (
                         <button onClick={() => handleContextAction('delete')} className="w-full text-left px-4 py-2.5 hover:bg-amber-50 text-amber-600 flex items-center gap-2 transition-colors font-bold">
-                            <LogOut className="w-3.5 h-3.5" /> Retirer du plan
+                            <LogOut className="w-3.5 h-3.5" /> {tx(lang,{fr:'Retirer du plan',ar:'إزالة من الخطة',en:'Remove from Plan',es:'Quitar del Plan',pt:'Remover do Plano',tr:'Plandan Kaldır'})}
                         </button>
                     ) : (
                         <button onClick={() => handleContextAction('delete')} className="w-full text-left px-4 py-2.5 hover:bg-rose-50 text-rose-600 flex items-center gap-2 transition-colors">
-                            <Trash2 className="w-3.5 h-3.5" /> Supprimer
+                            <Trash2 className="w-3.5 h-3.5" /> {tx(lang,{fr:'Supprimer',ar:'حذف',en:'Delete',es:'Eliminar',pt:'Excluir',tr:'Sil'})}
                         </button>
                     )}
                 </div>,
@@ -4030,11 +4033,11 @@ export default function Implantation({
                     style={{ top: freeContextMenu.y, left: freeContextMenu.x }}
                     onClick={(e) => e.stopPropagation()}
                 >
-                    <div className="px-4 py-2 bg-slate-50 border-b border-slate-100 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Ajouter Élément</div>
-                    <button onClick={() => handleAddFreeItem('poste')} className="w-full text-left px-4 py-3 hover:bg-indigo-50 flex items-center gap-3 transition-colors text-indigo-700 font-bold"><Plus className="w-4 h-4" /> Nouveau Poste</button>
+                    <div className="px-4 py-2 bg-slate-50 border-b border-slate-100 text-[10px] font-bold text-slate-400 uppercase tracking-wider">{tx(lang,{fr:'Ajouter Élément',ar:'إضافة عنصر',en:'Add Element',es:'Añadir Elemento',pt:'Adicionar Elemento',tr:'Öğe Ekle'})}</div>
+                    <button onClick={() => handleAddFreeItem('poste')} className="w-full text-left px-4 py-3 hover:bg-indigo-50 flex items-center gap-3 transition-colors text-indigo-700 font-bold"><Plus className="w-4 h-4" /> {tx(lang,{fr:'Nouveau Poste',ar:'محطة جديدة',en:'New Station',es:'Nuevo Puesto',pt:'Novo Posto',tr:'Yeni İstasyon'})}</button>
                     <div className="h-px bg-slate-100 my-1"></div>
-                    <button onClick={() => handleAddFreeItem('circle')} className="w-full text-left px-4 py-2.5 hover:bg-slate-50 flex items-center gap-2 transition-colors"><Circle className="w-3.5 h-3.5 text-slate-500" /> Zone Circulaire</button>
-                    <button onClick={() => handleAddFreeItem('rect')} className="w-full text-left px-4 py-2.5 hover:bg-slate-50 flex items-center gap-2 transition-colors"><BoxSelect className="w-3.5 h-3.5 text-slate-500" /> Zone Rectangulaire</button>
+                    <button onClick={() => handleAddFreeItem('circle')} className="w-full text-left px-4 py-2.5 hover:bg-slate-50 flex items-center gap-2 transition-colors"><Circle className="w-3.5 h-3.5 text-slate-500" /> {tx(lang,{fr:'Zone Circulaire',ar:'منطقة دائرية',en:'Circular Zone',es:'Zona Circular',pt:'Zona Circular',tr:'Dairesel Bölge'})}</button>
+                    <button onClick={() => handleAddFreeItem('rect')} className="w-full text-left px-4 py-2.5 hover:bg-slate-50 flex items-center gap-2 transition-colors"><BoxSelect className="w-3.5 h-3.5 text-slate-500" /> {tx(lang,{fr:'Zone Rectangulaire',ar:'منطقة مستطيلة',en:'Rectangular Zone',es:'Zona Rectangular',pt:'Zona Retangular',tr:'Dikdörtgen Bölge'})}</button>
                 </div>,
                 document.body
             )}
@@ -4044,18 +4047,18 @@ export default function Implantation({
                 <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
                     <div className="absolute inset-0 bg-slate-900/60 " onClick={() => setShowSaveTemplateModal(false)} />
                     <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm relative overflow-hidden animate-in fade-in zoom-in-95 duration-200 p-6">
-                        <h3 className="font-bold text-slate-800 text-lg mb-4">Sauvegarder le Gabarit</h3>
+                        <h3 className="font-bold text-slate-800 text-lg mb-4">{tx(lang,{fr:'Sauvegarder le Gabarit',ar:'حفظ القالب',en:'Save Template',es:'Guardar Plantilla',pt:'Salvar Modelo',tr:'Şablonu Kaydet'})}</h3>
                         <input
                             type="text"
                             autoFocus
-                            placeholder="Nom du gabarit (ex: Standard T-Shirt)"
+                            placeholder={tx(lang,{fr:'Nom du gabarit (ex: Standard T-Shirt)',ar:'اسم القالب (مثال: تيشيرت قياسي)',en:'Template name (e.g.: Standard T-Shirt)',es:'Nombre de plantilla (ej: Camiseta Estándar)',pt:'Nome do modelo (ex: Camiseta Padrão)',tr:'Şablon adı (ör: Standart Tişört)'})}
                             value={templateName}
                             onChange={(e) => setTemplateName(e.target.value)}
                             className="w-full border border-slate-300 rounded-xl px-4 py-3 mb-6 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all text-sm font-medium"
                         />
                         <div className="flex gap-3">
-                            <button onClick={() => setShowSaveTemplateModal(false)} className="flex-1 py-2.5 rounded-xl border border-slate-200 font-bold text-slate-600 hover:bg-slate-50 transition-colors text-xs">Annuler</button>
-                            <button onClick={handleSaveTemplate} className="flex-1 py-2.5 rounded-xl bg-indigo-600 text-white font-bold hover:bg-indigo-700 shadow-md shadow-indigo-200 transition-colors text-xs">Enregistrer</button>
+                            <button onClick={() => setShowSaveTemplateModal(false)} className="flex-1 py-2.5 rounded-xl border border-slate-200 font-bold text-slate-600 hover:bg-slate-50 transition-colors text-xs">{tx(lang,{fr:'Annuler',ar:'إلغاء',en:'Cancel',es:'Cancelar',pt:'Cancelar',tr:'İptal'})}</button>
+                            <button onClick={handleSaveTemplate} className="flex-1 py-2.5 rounded-xl bg-indigo-600 text-white font-bold hover:bg-indigo-700 shadow-md shadow-indigo-200 transition-colors text-xs">{tx(lang,{fr:'Enregistrer',ar:'حفظ',en:'Save',es:'Guardar',pt:'Salvar',tr:'Kaydet'})}</button>
                         </div>
                     </div>
                 </div>
@@ -4065,9 +4068,9 @@ export default function Implantation({
                 <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 animate-in fade-in duration-200">
                     <div className="absolute inset-0 bg-slate-900/60 " onClick={() => setPrintOrientationModal(false)} />
                     <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm relative overflow-hidden animate-in fade-in zoom-in-95 duration-200 p-6 z-[1001]">
-                        <h3 className="font-bold text-slate-800 text-lg mb-2">Orientation de l'Impression</h3>
+                        <h3 className="font-bold text-slate-800 text-lg mb-2">{tx(lang,{fr:"Orientation de l'Impression",ar:'اتجاه الطباعة',en:'Print Orientation',es:'Orientación de Impresión',pt:'Orientação de Impressão',tr:'Yazdırma Yönü'})}</h3>
                         <p className="text-xs text-slate-500 mb-6 leading-relaxed">
-                            Choisissez le format d'orientation pour l'exportation du plan d'implantation en PDF / Impression A4 :
+                            {tx(lang,{fr:"Choisissez le format d'orientation pour l'exportation du plan d'implantation en PDF / Impression A4 :",ar:'اختر اتجاه التخطيط لتصدير خطة التخطيط إلى PDF / طباعة A4:',en:'Choose the orientation format for exporting the layout plan to PDF / A4 Print:',es:'Elija el formato de orientación para exportar el plano de implantación a PDF / Impresión A4:',pt:'Escolha o formato de orientação para exportar o plano de implantação para PDF / Impressão A4:',tr:'Düzen planını PDF / A4 Yazdırmaya aktarmak için yönlendirme biçimini seçin:'})}
                         </p>
                         <div className="flex flex-col gap-3">
                             <button 
@@ -4078,8 +4081,8 @@ export default function Implantation({
                                 className="w-full py-3 px-4 rounded-xl border-2 border-indigo-100 bg-indigo-50/50 text-indigo-700 font-bold hover:bg-indigo-50 hover:border-indigo-200 transition-colors text-xs flex items-center justify-between"
                             >
                                 <span className="flex flex-col items-start text-left">
-                                    <span className="font-black text-sm">Paysage (Horizontal)</span>
-                                    <span className="text-[10px] text-indigo-500 font-normal mt-0.5">Idéal pour les tables de montage face-à-face (côté-à-côté)</span>
+                                    <span className="font-black text-sm">{tx(lang,{fr:'Paysage (Horizontal)',ar:'أفقي',en:'Landscape (Horizontal)',es:'Horizontal (Paisaje)',pt:'Paisagem (Horizontal)',tr:'Yatay'})}</span>
+                                    <span className="text-[10px] text-indigo-500 font-normal mt-0.5">{tx(lang,{fr:'Idéal pour les tables de montage face-à-face (côté-à-côté)',ar:'مثالي لجداول التجميع وجهًا لوجه (جنبًا إلى جنب)',en:'Ideal for face-to-face assembly tables (side-by-side)',es:'Ideal para mesas de montaje cara a cara (lado a lado)',pt:'Ideal para mesas de montagem frente a frente (lado a lado)',tr:'Yüz yüze montaj masaları için ideal (yan yana)'})}</span>
                                 </span>
                                 <Printer className="w-4 h-4 opacity-70 shrink-0" />
                             </button>
@@ -4091,8 +4094,8 @@ export default function Implantation({
                                 className="w-full py-3 px-4 rounded-xl border-2 border-slate-100 bg-slate-50/50 text-slate-700 font-bold hover:bg-slate-50 hover:border-slate-200 transition-colors text-xs flex items-center justify-between"
                             >
                                 <span className="flex flex-col items-start text-left">
-                                    <span className="font-black text-sm">Portrait (Vertical)</span>
-                                    <span className="text-[10px] text-slate-500 font-normal mt-0.5">Idéal pour une liste de postes linéaire simple</span>
+                                    <span className="font-black text-sm">{tx(lang,{fr:'Portrait (Vertical)',ar:'عمودي',en:'Portrait (Vertical)',es:'Vertical (Retrato)',pt:'Retrato (Vertical)',tr:'Dikey'})}</span>
+                                    <span className="text-[10px] text-slate-500 font-normal mt-0.5">{tx(lang,{fr:'Idéal pour une liste de postes linéaire simple',ar:'مثالي لقائمة محطات خطية بسيطة',en:'Ideal for a simple linear station list',es:'Ideal para una lista lineal simple de puestos',pt:'Ideal para uma lista linear simples de postos',tr:'Basit bir doğrusal istasyon listesi için ideal'})}</span>
                                 </span>
                                 <Printer className="w-4 h-4 opacity-70 shrink-0" />
                             </button>
@@ -4100,7 +4103,7 @@ export default function Implantation({
                                 onClick={() => setPrintOrientationModal(false)} 
                                 className="w-full py-2.5 rounded-xl border border-slate-200 font-bold text-slate-600 hover:bg-slate-50 transition-colors text-xs mt-2"
                             >
-                                Annuler
+                                {tx(lang,{fr:'Annuler',ar:'إلغاء',en:'Cancel',es:'Cancelar',pt:'Cancelar',tr:'İptal'})}
                             </button>
                         </div>
                     </div>
@@ -4112,21 +4115,21 @@ export default function Implantation({
                     <div className="absolute inset-0 bg-slate-900/60 " onClick={() => setShowLoadTemplateModal(false)} />
                     <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md relative overflow-hidden animate-in fade-in zoom-in-95 duration-200 flex flex-col max-h-[80vh]">
                         <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
-                            <h3 className="font-bold text-slate-700">Mes Gabarits</h3>
+                            <h3 className="font-bold text-slate-700">{tx(lang,{fr:'Mes Gabarits',ar:'قوالبي',en:'My Templates',es:'Mis Plantillas',pt:'Meus Modelos',tr:'Şablonlarım'})}</h3>
                             <button onClick={() => setShowLoadTemplateModal(false)}><X className="w-5 h-5 text-slate-400 hover:text-slate-600" /></button>
                         </div>
                         <div className="p-2 overflow-y-auto custom-scrollbar flex-1">
                             {savedLayouts.length === 0 ? (
-                                <div className="text-center py-10 text-slate-400 text-sm">Aucun gabarit enregistré.</div>
+                                <div className="text-center py-10 text-slate-400 text-sm">{tx(lang,{fr:'Aucun gabarit enregistré.',ar:'لا توجد قوالب محفوظة.',en:'No saved templates.',es:'Ninguna plantilla guardada.',pt:'Nenhum modelo salvo.',tr:'Kayıtlı şablon yok.'})}</div>
                             ) : (
                                 savedLayouts.map(layout => (
                                     <div key={layout.id} className="flex items-center justify-between p-3 hover:bg-slate-50 rounded-lg border-b border-slate-50 group">
                                         <div>
                                             <div className="font-bold text-slate-700 text-sm">{layout.name}</div>
-                                            <div className="text-[10px] text-slate-400">{new Date(layout.date).toLocaleDateString()} • {layout.postes.length} éléments</div>
+                                            <div className="text-[10px] text-slate-400">{new Date(layout.date).toLocaleDateString()} • {layout.postes.length} {tx(lang,{fr:'éléments',ar:'عناصر',en:'items',es:'elementos',pt:'elementos',tr:'öğeler'})}</div>
                                         </div>
                                         <div className="flex items-center gap-2">
-                                            <button onClick={() => handleLoadTemplate(layout)} className="px-3 py-1.5 bg-indigo-50 text-indigo-600 rounded-lg text-xs font-bold hover:bg-indigo-100 transition-colors">Charger</button>
+                                            <button onClick={() => handleLoadTemplate(layout)} className="px-3 py-1.5 bg-indigo-50 text-indigo-600 rounded-lg text-xs font-bold hover:bg-indigo-100 transition-colors">{tx(lang,{fr:'Charger',ar:'تحميل',en:'Load',es:'Cargar',pt:'Carregar',tr:'Yükle'})}</button>
                                             <button onClick={() => handleDeleteTemplate(layout.id)} className="p-1.5 text-slate-300 hover:text-rose-500 rounded transition-colors"><Trash2 className="w-4 h-4" /></button>
                                         </div>
                                     </div>
@@ -4144,7 +4147,7 @@ export default function Implantation({
                         <div className="flex justify-between items-center mb-5 pb-3 border-b border-slate-100">
                             <h3 className="font-bold text-slate-800 text-lg flex items-center gap-2">
                                 <Printer className="w-5 h-5 text-indigo-600" />
-                                Options d'export PDF
+                                {tx(lang,{fr:"Options d'export PDF",ar:'خيارات تصدير PDF',en:'PDF Export Options',es:'Opciones de exportación PDF',pt:'Opções de exportação PDF',tr:'PDF Dışa Aktarma Seçenekleri'})}
                             </h3>
                             <button onClick={() => setShowExportOptions(false)} className="text-slate-400 hover:text-slate-600 transition-colors">
                                 <X className="w-5 h-5" />
@@ -4154,7 +4157,7 @@ export default function Implantation({
                         <div className="space-y-6">
                             {/* Format de page */}
                             <div>
-                                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-wider mb-2.5">Format de page</label>
+                                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-wider mb-2.5">{tx(lang,{fr:'Format de page',ar:'تنسيق الصفحة',en:'Page Format',es:'Formato de página',pt:'Formato de página',tr:'Sayfa Biçimi'})}</label>
                                 <div className="grid grid-cols-2 gap-3">
                                     <button
                                         type="button"
@@ -4165,8 +4168,8 @@ export default function Implantation({
                                                 : 'border-slate-200 hover:border-slate-300 text-slate-500 hover:text-slate-700'
                                         }`}
                                     >
-                                        <span className="text-xs font-bold">Plan Continu</span>
-                                        <span className="text-[10px] text-slate-400 font-medium leading-tight">Page unique ajustée au plan</span>
+                                        <span className="text-xs font-bold">{tx(lang,{fr:'Plan Continu',ar:'تخطيط مستمر',en:'Continuous Plan',es:'Plano Continuo',pt:'Plano Contínuo',tr:'Sürekli Plan'})}</span>
+                                        <span className="text-[10px] text-slate-400 font-medium leading-tight">{tx(lang,{fr:'Page unique ajustée au plan',ar:'صفحة واحدة ملائمة للخطة',en:'Single page fitted to plan',es:'Página única ajustada al plano',pt:'Página única ajustada ao plano',tr:'Plana göre ayarlanmış tek sayfa'})}</span>
                                     </button>
                                     <button
                                         type="button"
@@ -4177,15 +4180,15 @@ export default function Implantation({
                                                 : 'border-slate-200 hover:border-slate-300 text-slate-500 hover:text-slate-700'
                                         }`}
                                     >
-                                        <span className="text-xs font-bold">Format A4</span>
-                                        <span className="text-[10px] text-slate-400 font-medium leading-tight">Mise en page découpée A4</span>
+                                        <span className="text-xs font-bold">{tx(lang,{fr:'Format A4',ar:'تنسيق A4',en:'A4 Format',es:'Formato A4',pt:'Formato A4',tr:'A4 Biçimi'})}</span>
+                                        <span className="text-[10px] text-slate-400 font-medium leading-tight">{tx(lang,{fr:'Mise en page découpée A4',ar:'تخطيط مقسم A4',en:'A4 divided layout',es:'Diseño dividido A4',pt:'Layout dividido A4',tr:'A4 bölünmüş düzen'})}</span>
                                     </button>
                                 </div>
                             </div>
 
                             {/* Contenu à inclure */}
                             <div className="space-y-4">
-                                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-wider">Contenu à inclure</label>
+                                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-wider">{tx(lang,{fr:'Contenu à inclure',ar:'المحتوى المراد تضمينه',en:'Content to Include',es:'Contenido a incluir',pt:'Conteúdo a incluir',tr:'Dahil Edilecek İçerik'})}</label>
                                 
                                 <label className="flex items-start gap-3 cursor-pointer select-none">
                                     <input
@@ -4195,8 +4198,8 @@ export default function Implantation({
                                         className="mt-0.5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
                                     />
                                     <div className="flex flex-col">
-                                        <span className="text-xs font-bold text-slate-700">En-tête de document</span>
-                                        <span className="text-[10px] text-slate-400">Nom du modèle, logo et date de génération</span>
+                                        <span className="text-xs font-bold text-slate-700">{tx(lang,{fr:'En-tête de document',ar:'رأس المستند',en:'Document Header',es:'Encabezado de documento',pt:'Cabeçalho do documento',tr:'Belge Başlığı'})}</span>
+                                        <span className="text-[10px] text-slate-400">{tx(lang,{fr:'Nom du modèle, logo et date de génération',ar:'اسم النموذج والشعار وتاريخ الإنشاء',en:'Model name, logo and generation date',es:'Nombre del modelo, logo y fecha de generación',pt:'Nome do modelo, logotipo e data de geração',tr:'Model adı, logo ve oluşturma tarihi'})}</span>
                                     </div>
                                 </label>
 
@@ -4208,8 +4211,8 @@ export default function Implantation({
                                         className="mt-0.5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
                                     />
                                     <div className="flex flex-col">
-                                        <span className="text-xs font-bold text-slate-700">Statistiques globales</span>
-                                        <span className="text-[10px] text-slate-400">Nombre d'opérateurs, temps de cycle, et rendement cible</span>
+                                        <span className="text-xs font-bold text-slate-700">{tx(lang,{fr:'Statistiques globales',ar:'إحصائيات عامة',en:'Global Statistics',es:'Estadísticas globales',pt:'Estatísticas globais',tr:'Genel İstatistikler'})}</span>
+                                        <span className="text-[10px] text-slate-400">{tx(lang,{fr:"Nombre d'opérateurs, temps de cycle, et rendement cible",ar:'عدد المشغلين، وقت الدورة، والإنتاجية المستهدفة',en:'Number of operators, cycle time, and target yield',es:'Número de operadores, tiempo de ciclo y rendimiento objetivo',pt:'Número de operadores, tempo de ciclo e rendimento alvo',tr:'Operatör sayısı, çevrim süresi ve hedef verim'})}</span>
                                     </div>
                                 </label>
 
@@ -4221,8 +4224,8 @@ export default function Implantation({
                                         className="mt-0.5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
                                     />
                                     <div className="flex flex-col">
-                                        <span className="text-xs font-bold text-slate-700">Résumé matériel / machines</span>
-                                        <span className="text-[10px] text-slate-400">Liste récapitulative de toutes les machines requises</span>
+                                        <span className="text-xs font-bold text-slate-700">{tx(lang,{fr:'Résumé matériel / machines',ar:'ملخص المعدات / الآلات',en:'Equipment / Machine Summary',es:'Resumen de equipo / máquinas',pt:'Resumo de equipamento / máquinas',tr:'Ekipman / Makine Özeti'})}</span>
+                                        <span className="text-[10px] text-slate-400">{tx(lang,{fr:'Liste récapitulative de toutes les machines requises',ar:'قائمة ملخصة لجميع الآلات المطلوبة',en:'Summary list of all required machines',es:'Lista resumen de todas las máquinas requeridas',pt:'Lista resumo de todas as máquinas necessárias',tr:'Gerekli tüm makinelerin özet listesi'})}</span>
                                     </div>
                                 </label>
                             </div>
@@ -4234,7 +4237,7 @@ export default function Implantation({
                                 onClick={() => setShowExportOptions(false)}
                                 className="flex-1 py-2.5 rounded-xl border border-slate-200 font-bold text-slate-600 hover:bg-slate-50 transition-colors text-xs"
                             >
-                                Annuler
+                                {tx(lang,{fr:'Annuler',ar:'إلغاء',en:'Cancel',es:'Cancelar',pt:'Cancelar',tr:'İptal'})}
                             </button>
                             <button
                                 type="button"
@@ -4245,12 +4248,12 @@ export default function Implantation({
                                 {isExporting ? (
                                     <>
                                         <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                                        Génération...
+                                        {tx(lang,{fr:'Génération...',ar:'جارٍ التوليد...',en:'Generating...',es:'Generando...',pt:'Gerando...',tr:'Oluşturuluyor...'})}
                                     </>
                                 ) : (
                                     <>
                                         <Printer className="w-3.5 h-3.5" />
-                                        Exporter le PDF
+                                        {tx(lang,{fr:'Exporter le PDF',ar:'تصدير PDF',en:'Export PDF',es:'Exportar PDF',pt:'Exportar PDF',tr:'PDF Dışa Aktar'})}
                                     </>
                                 )}
                             </button>

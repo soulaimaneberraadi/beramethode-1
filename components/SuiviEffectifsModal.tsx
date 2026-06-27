@@ -1,6 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import type { EffectifRoleTagKey, SuiviData } from '../types';
 import { X } from 'lucide-react';
+import { useLang } from '../src/context/LanguageContext';
+import { tx } from '../lib/i18n';
 
 const ROLE_KEYS: EffectifRoleTagKey[] = ['chaf', 'recta', 'sujet', 'transp', 'man', 'sp', 'stager'];
 
@@ -26,6 +28,7 @@ export type SuiviEffectifsModalProps = {
 };
 
 export default function SuiviEffectifsModal({ open, suivi, onClose, onConfirm }: SuiviEffectifsModalProps) {
+    const { lang } = useLang();
     const [draft, setDraft] = useState<SuiviData | null>(null);
     const firstFieldRef = useRef<HTMLInputElement>(null);
 
@@ -121,22 +124,22 @@ export default function SuiviEffectifsModal({ open, suivi, onClose, onConfirm }:
             >
                 <div className="flex items-center justify-between gap-3 border-b border-slate-100 px-4 py-3">
                     <h2 id="suivi-effectifs-title" className="text-sm font-black text-slate-800 tracking-tight">
-                        Effectifs (AJANIF)
+                        {tx(lang, {fr:"Effectifs (AJANIF)",ar:"الموارد (AJANIF)",en:"Staff (AJANIF)",es:"Efectivos (AJANIF)",pt:"Efetivos (AJANIF)",tr:"Personel (AJANIF)"})}
                     </h2>
                     <button
                         type="button"
                         onClick={onClose}
                         className="p-2 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100"
-                        aria-label="Fermer"
+                        aria-label={tx(lang, {fr:"Fermer",ar:"إغلاق",en:"Close",es:"Cerrar",pt:"Fechar",tr:"Kapat"})}
                     >
                         <X className="w-5 h-5" />
                     </button>
                 </div>
                 <div className="px-4 py-3 space-y-3 text-xs">
                     <p className="text-slate-500 font-medium">
-                        Date <span className="font-mono font-bold text-slate-700">{draft.date}</span>
+                        {tx(lang, {fr:"Date",ar:"التاريخ",en:"Date",es:"Fecha",pt:"Data",tr:"Tarih"})} <span className="font-mono font-bold text-slate-700">{draft.date}</span>
                         {' · '}
-                        <span className="text-slate-400">Tot M (aperçu) :</span>{' '}
+                        <span className="text-slate-400">{tx(lang, {fr:"Tot M (aperçu) :",ar:"المجموع (نظرة عامة):",en:"Tot M (preview):",es:"Total M (vista previa):",pt:"Total M (prévia):",tr:"Top M (ön izleme):"})}</span>{' '}
                         <span className="font-black text-emerald-700">{totalPreview}</span>
                     </p>
                     <div className="space-y-2">
@@ -168,7 +171,7 @@ export default function SuiviEffectifsModal({ open, suivi, onClose, onConfirm }:
                                         className="text-[10px] font-bold text-rose-600 hover:underline shrink-0"
                                         onClick={() => resetRole(key)}
                                     >
-                                        Effacer
+                                        {tx(lang, {fr:"Effacer",ar:"مسح",en:"Clear",es:"Limpiar",pt:"Limpar",tr:"Temizle"})}
                                     </button>
                                 </div>
                             </div>
@@ -181,14 +184,14 @@ export default function SuiviEffectifsModal({ open, suivi, onClose, onConfirm }:
                         onClick={onClose}
                         className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-200/80"
                     >
-                        Annuler
+                        {tx(lang, {fr:"Annuler",ar:"إلغاء",en:"Cancel",es:"Cancelar",pt:"Cancelar",tr:"İptal"})}
                     </button>
                     <button
                         type="button"
                         onClick={handleConfirm}
                         className="px-4 py-2 rounded-xl text-xs font-black bg-indigo-600 text-white hover:bg-indigo-700 shadow-sm"
                     >
-                        Confirmer
+                        {tx(lang, {fr:"Confirmer",ar:"تأكيد",en:"Confirm",es:"Confirmar",pt:"Confirmar",tr:"Onayla"})}
                     </button>
                 </div>
             </div>

@@ -1,6 +1,8 @@
 import React, { useState, useMemo } from 'react';
 import { PlanningEvent, ModelData } from '../../types';
 import { ChevronLeft, ChevronRight, AlertTriangle } from 'lucide-react';
+import { tx } from '../../lib/i18n';
+import { useLang } from '../../src/context/LanguageContext';
 
 interface PlanningCalendarViewProps {
     planningEvents: PlanningEvent[];
@@ -17,6 +19,7 @@ export default function PlanningCalendarView({
     statusConfig,
     onSelectedEvent,
 }: PlanningCalendarViewProps) {
+    const { lang } = useLang();
     const [currentMonth, setCurrentMonth] = useState(new Date());
 
     const daysInMonth = useMemo(() => {
@@ -73,7 +76,7 @@ export default function PlanningCalendarView({
                 </h2>
                 <div className="flex items-center gap-2">
                     <button onClick={today} className="px-3 py-1.5 bg-gray-900 border border-gray-700 text-gray-300 text-sm font-bold rounded hover:bg-gray-800">
-                        Aujourd'hui
+                        {tx(lang,{fr:"Aujourd'hui",ar:"اليوم",en:"Today",es:"Hoy",pt:"Hoje",tr:"Bugün"})}
                     </button>
                     <div className="flex rounded border border-gray-700 overflow-hidden">
                         <button onClick={prevMonth} className="p-1.5 bg-gray-900 hover:bg-gray-800 text-gray-400 hover:text-white border-r border-gray-700">
@@ -90,7 +93,7 @@ export default function PlanningCalendarView({
             <div className="flex-1 border border-gray-800 rounded-xl overflow-hidden flex flex-col bg-gray-900">
                 {/* Days header */}
                 <div className="grid grid-cols-7 border-b border-gray-800 bg-gray-950 shrink-0">
-                    {['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'].map(day => (
+                    {[tx(lang,{fr:"Lundi",ar:"الاثنين",en:"Monday",es:"Lunes",pt:"Segunda",tr:"Pazartesi"}),tx(lang,{fr:"Mardi",ar:"الثلاثاء",en:"Tuesday",es:"Martes",pt:"Terça",tr:"Salı"}),tx(lang,{fr:"Mercredi",ar:"الأربعاء",en:"Wednesday",es:"Miércoles",pt:"Quarta",tr:"Çarşamba"}),tx(lang,{fr:"Jeudi",ar:"الخميس",en:"Thursday",es:"Jueves",pt:"Quinta",tr:"Perşembe"}),tx(lang,{fr:"Vendredi",ar:"الجمعة",en:"Friday",es:"Viernes",pt:"Sexta",tr:"Cuma"}),tx(lang,{fr:"Samedi",ar:"السبت",en:"Saturday",es:"Sábado",pt:"Sábado",tr:"Cumartesi"}),tx(lang,{fr:"Dimanche",ar:"الأحد",en:"Sunday",es:"Domingo",pt:"Domingo",tr:"Pazar"})].map(day => (
                         <div key={day} className="py-2 text-center text-xs font-bold text-gray-500 uppercase tracking-widest border-r border-gray-800 last:border-0">
                             {day}
                         </div>
@@ -125,7 +128,7 @@ export default function PlanningCalendarView({
                                 <div className="flex-1 overflow-y-auto space-y-1 hide-scrollbar">
                                     {dayEvents.map(ev => {
                                         const cfg = statusConfig[ev.status] || statusConfig['ON_TRACK'];
-                                        const name = ev.modelName || models.find(m => m.id === ev.modelId)?.meta_data?.nom_modele || 'Ordre';
+                                        const name = ev.modelName || models.find(m => m.id === ev.modelId)?.meta_data?.nom_modele || tx(lang,{fr:"Ordre",ar:"أمر",en:"Order",es:"Orden",pt:"Ordem",tr:"Emir"});
                                         const chain = chaines.find(c => c.id === ev.chaineId)?.name || ev.chaineId;
                                         const risk = isAtRisk(ev);
                                         const isStart = (ev.startDate || ev.dateLancement)?.split('T')[0] === dateStr;

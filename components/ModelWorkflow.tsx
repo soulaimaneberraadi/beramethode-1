@@ -635,6 +635,7 @@ export default function ModelWorkflow({
                                 initialTotalTime={globalStats.tempsArticle}
                                 chronoTotalTime={calculatedChronoTotal}
                                 initialImage={ficheImages.front}
+                                onImageChange={(img) => setFicheImages(prev => ({ ...prev, front: img }))}
                                 initialDate={ficheData.date}
                                 initialCostMinute={ficheData.costMinute}
                                 settings={settings}

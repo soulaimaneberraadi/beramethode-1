@@ -1,6 +1,8 @@
 import React from 'react';
 import { Calendar, AlertTriangle } from 'lucide-react';
 import { fmtShort } from '../../shared/dateFmt';
+import { tx } from '../../../../lib/i18n';
+import { useLang } from '../../../../src/context/LanguageContext';
 
 interface Props {
     visible: boolean;
@@ -18,11 +20,12 @@ interface Props {
 export default function DragPreview({
     visible, x, y, startDate, endDate, chainName, overload, machinesMissing, stockShortage,
 }: Props) {
+    const { lang } = useLang();
     if (!visible) return null;
     const warnings = [];
-    if (overload && overload > 1) warnings.push(`Surcharge ${Math.round(overload * 100)}%`);
-    if (machinesMissing?.length) warnings.push(`Manque ${machinesMissing.length} classe(s)`);
-    if (stockShortage) warnings.push('Stock insuffisant');
+    if (overload && overload > 1) warnings.push(`${tx(lang, { fr: 'Surcharge', ar: 'حمل زائد', en: 'Overload', es: 'Sobrecarga', pt: 'Sobrecarga', tr: 'Aşırı yük' })} ${Math.round(overload * 100)}%`);
+    if (machinesMissing?.length) warnings.push(`${tx(lang, { fr: 'Manque', ar: 'نقص', en: 'Missing', es: 'Faltan', pt: 'Faltam', tr: 'Eksik' })} ${machinesMissing.length} ${tx(lang, { fr: 'classe(s)', ar: 'فئة/فئات', en: 'class(es)', es: 'clase(s)', pt: 'classe(s)', tr: 'sınıf(lar)' })}`);
+    if (stockShortage) warnings.push(tx(lang, { fr: 'Stock insuffisant', ar: 'مخزون غير كافٍ', en: 'Insufficient stock', es: 'Stock insuficiente', pt: 'Stock insuficiente', tr: 'Yetersiz stok' }));
 
     return (
         <div

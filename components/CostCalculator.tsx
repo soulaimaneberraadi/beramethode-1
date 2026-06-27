@@ -1,8 +1,10 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { Banknote, Receipt, LayoutTemplate, FileDown, Clock, FileText, PieChart as PieChartIcon, SlidersHorizontal, Scissors, Trash2, Check, AlertTriangle, Factory, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Material, AppSettings, PdfSettings, FicheData, PurchasingData } from '../types';
 import { translations, fmt } from '../constants';
 import { findMagasinItem } from '../lib/magasinMatch';
+import { tx } from '../lib/i18n';
+import { useLang } from '../src/context/LanguageContext';
 import { PieChart, Pie, Cell, Tooltip as RechartsTooltip, Legend } from 'recharts';
 import { ResponsiveChart } from './ui/ResponsiveChart';
 
@@ -27,6 +29,9 @@ interface CostCalculatorProps {
     initialTotalTime: number;
     chronoTotalTime?: number;
     initialImage: string | null;
+    /** Remonte la photo vers le parent (ficheImages.front) pour qu'elle soit
+     *  réellement sauvegardée dans le modèle (sinon model.image reste vide). */
+    onImageChange?: (img: string | null) => void;
     initialDate: string;
     initialCostMinute: number;
     settings: AppSettings;
@@ -42,6 +47,7 @@ export default function CostCalculator({
     initialTotalTime,
     chronoTotalTime,
     initialImage,
+    onImageChange,
     initialDate,
     initialCostMinute,
     settings: initialPropsSettings,
@@ -52,7 +58,7 @@ export default function CostCalculator({
     currentModelId
 }: CostCalculatorProps) {
     // --- UI State Fixed ---
-    const lang = 'fr'; // French is better for exact terms requested by user
+    const { lang } = useLang();
     const currency = initialPropsSettings?.currency || 'DH';
     const darkMode = false;
     const [viewMode, setViewMode] = useState<'ticket' | 'a4'>('a4'); // Default to A4 as requested
@@ -109,7 +115,7 @@ export default function CostCalculator({
         hideCancel?: boolean;
     }>({ isOpen: false, title: '', message: '', type: 'danger', onConfirm: () => {} });
 
-    const t = translations[lang];
+    const t = translations[lang] || translations['fr'];
 
     useEffect(() => {
         if (!docTitle) setDocTitle(t.docTitle);
@@ -151,7 +157,17 @@ export default function CostCalculator({
     const activeBaseTime = timeSource === 'gamme' ? initialTotalTime : (chronoTotalTime || initialTotalTime);
     const [baseTime, setBaseTime] = useState(activeBaseTime);
 
-    const [productImage, setProductImage] = useState<string | null>(initialImage);
+    const [productImage, setProductImageState] = useState<string | null>(initialImage);
+    // Toute modification de la photo est remontée au parent (ficheImages.front)
+    // afin que saveCurrentModel persiste bien model.image. Sans ça, la photo
+    // restait locale à CostCalculator et n'apparaissait pas dans la bibliothèque.
+    const setProductImage = useCallback((value: React.SetStateAction<string | null>) => {
+        setProductImageState(prev => {
+            const next = typeof value === 'function' ? (value as (p: string | null) => string | null)(prev) : value;
+            onImageChange?.(next);
+            return next;
+        });
+    }, [onImageChange]);
 
     // Update baseTime if source changes
     useEffect(() => {
@@ -182,7 +198,7 @@ export default function CostCalculator({
         if (abnormal) {
             setConfirmDialog({
                 isOpen: true,
-                title: "Quantités anormales",
+                title: tx(lang, {fr: "Quantités anormales", ar: "كميات غير طبيعية", en: "Abnormal quantities", es: "Cantidades anormales", pt: "Quantidades anormais", tr: "Anormal miktarlar"}),
                 message: `La quantité à acheter pour « ${abnormal.name} » (${fmt(abnormal.qtyToBuy)} ${abnormal.unit}) est anormalement élevée. Recalculez le fil (Calcul Fil → Appliquer) avant de déduire le stock.`,
                 type: 'warning',
                 hideCancel: true,
@@ -192,10 +208,10 @@ export default function CostCalculator({
         }
         setConfirmDialog({
             isOpen: true,
-            title: "Confirmer la déduction",
+            title: tx(lang, {fr: "Confirmer la déduction", ar: "تأكيد الخصم", en: "Confirm deduction", es: "Confirmar deducción", pt: "Confirmar dedução", tr: "Kesintiyi onayla"}),
             message: `Déduire du magasin les quantités d'achat de ${purchasingData.length} matière(s), pour un budget de ${fmt(totalPurchasingMatCost)} ${currency} ? Cette action est irréversible.`,
             type: 'danger',
-            confirmText: "Déduire",
+            confirmText: tx(lang, {fr: "Déduire", ar: "خصم", en: "Deduct", es: "Deducir", pt: "Deduzir", tr: "Kes"}),
             onConfirm: () => {
                 setConfirmDialog(prev => ({ ...prev, isOpen: false }));
                 try {
@@ -217,7 +233,7 @@ export default function CostCalculator({
                         localStorage.setItem('beramethode_magasin', JSON.stringify(magasinData));
                         setConfirmDialog({
                             isOpen: true,
-                            title: "Succès",
+                            title: tx(lang, {fr: "Succès", ar: "نجاح", en: "Success", es: "Éxito", pt: "Sucesso", tr: "Başarı"}),
                             message: "Stock déduit avec succès !",
                             type: 'success',
                             hideCancel: true,
@@ -226,7 +242,7 @@ export default function CostCalculator({
                     } else {
                         setConfirmDialog({
                             isOpen: true,
-                            title: "Attention",
+                            title: tx(lang, {fr: "Attention", ar: "تنبيه", en: "Warning", es: "Atención", pt: "Atenção", tr: "Uyarı"}),
                             message: "Aucune matière correspondante trouvée dans le magasin pour la déduction.",
                             type: 'warning',
                             hideCancel: true,
@@ -237,8 +253,8 @@ export default function CostCalculator({
                     console.error(e);
                     setConfirmDialog({
                         isOpen: true,
-                        title: "Erreur",
-                        message: "Erreur lors de la déduction du stock.",
+                        title: tx(lang, {fr: "Erreur", ar: "خطأ", en: "Error", es: "Error", pt: "Erro", tr: "Hata"}),
+                        message: tx(lang, {fr: "Erreur lors de la déduction du stock.", ar: "خطأ أثناء خصم المخزون.", en: "Error while deducting stock.", es: "Error al deducir el stock.", pt: "Erro ao deduzir o stock.", tr: "Stok düşülürken hata oluştu."}),
                         type: 'danger',
                         hideCancel: true,
                         onConfirm: () => setConfirmDialog(prev => ({ ...prev, isOpen: false })),
@@ -732,10 +748,10 @@ export default function CostCalculator({
 
         setConfirmDialog({
             isOpen: true,
-            title: "G\u00E9n\u00E9rer un devis",
-            message: `Cr\u00E9er un devis (brouillon) pour \u00AB ${ficheData.client || 'Client'} \u00BB : ${lignes.length} ligne(s) par couleur, total ${fmt(total_ht)} ${currency} HT / ${fmt(total_ttc)} TTC ? Vous pourrez le modifier dans Facturation.`,
+            title: tx(lang, {fr: "G\u00E9n\u00E9rer un devis", ar: "\u0625\u0646\u0634\u0627\u0621 \u0627\u0642\u062A\u0628\u0627\u0633", en: "Generate a quote", es: "Generar un presupuesto", pt: "Gerar um or\u00E7amento", tr: "Teklif olu\u015Ftur"}),
+            message: tx(lang, {fr: `Cr\u00E9er un devis (brouillon) pour \u00AB ${ficheData.client || 'Client'} \u00BB : ${lignes.length} ligne(s) par couleur, total ${fmt(total_ht)} ${currency} HT / ${fmt(total_ttc)} TTC ? Vous pourrez le modifier dans Facturation.`, ar: `\u0625\u0646\u0634\u0627\u0621 \u0627\u0642\u062A\u0628\u0627\u0633 (\u0645\u0633\u0648\u062F\u0629) \u0644\u0640 \u00AB ${ficheData.client || '\u0639\u0645\u064A\u0644'} \u00BB : ${lignes.length} \u0633\u0637\u0631 \u062D\u0633\u0628 \u0627\u0644\u0644\u0648\u0646\u060C \u0627\u0644\u0645\u062C\u0645\u0648\u0639 ${fmt(total_ht)} ${currency} HT / ${fmt(total_ttc)} TTC. \u064A\u0645\u0643\u0646\u0643 \u062A\u0639\u062F\u064A\u0644\u0647 \u0641\u064A \u0627\u0644\u0641\u0648\u062A\u0631\u0629.`, en: `Create a draft quote for \u00AB ${ficheData.client || 'Client'} \u00BB : ${lignes.length} line(s) by color, total ${fmt(total_ht)} ${currency} HT / ${fmt(total_ttc)} TTC. You can edit it in Invoicing.`, es: `Crear un presupuesto (borrador) para \u00AB ${ficheData.client || 'Cliente'} \u00BB : ${lignes.length} l\u00EDnea(s) por color, total ${fmt(total_ht)} ${currency} HT / ${fmt(total_ttc)} TTC. Podr\u00E1 modificarlo en Facturaci\u00F3n.`, pt: `Criar um or\u00E7amento (rascunho) para \u00AB ${ficheData.client || 'Cliente'} \u00BB : ${lignes.length} linha(s) por cor, total ${fmt(total_ht)} ${currency} HT / ${fmt(total_ttc)} TTC. Poder\u00E1 edit\u00E1-lo na Factura\u00E7\u00E3o.`, tr: `\u00AB ${ficheData.client || 'M\u00FC\u015Fteri'} \u00BB i\u00E7in bir teklif (taslak) olu\u015Ftur : ${lignes.length} renk baz\u0131nda sat\u0131r, toplam ${fmt(total_ht)} ${currency} HT / ${fmt(total_ttc)} TTC. Faturalama b\u00F6l\u00FCm\u00FCnde d\u00FCzenleyebilirsiniz.`}),
             type: 'success',
-            confirmText: "Cr\u00E9er le devis",
+            confirmText: tx(lang, {fr: "Cr\u00E9er le devis", ar: "\u0625\u0646\u0634\u0627\u0621 \u0627\u0644\u0627\u0642\u062A\u0628\u0627\u0633", en: "Create the quote", es: "Crear el presupuesto", pt: "Criar o or\u00E7amento", tr: "Teklifi olu\u015Ftur"}),
             onConfirm: async () => {
                 setConfirmDialog(prev => ({ ...prev, isOpen: false }));
                 try {
@@ -1040,8 +1056,8 @@ export default function CostCalculator({
             <div className={`w-full mx-auto mb-3 sm:mb-5 flex flex-col md:flex-row justify-between items-start sm:items-center bg-white px-3 sm:px-5 h-auto md:h-14 py-2.5 sm:py-3 md:py-0 rounded-lg border border-slate-200 gap-2 sm:gap-3 print:hidden`}>
                 <div className="flex items-center gap-2 sm:gap-3 self-start md:self-center">
                     <div className="flex items-baseline gap-1.5 sm:gap-2.5">
-                        <h1 className={`text-[13px] sm:text-[15px] font-semibold tracking-tight text-slate-900`}>Fiche de Coût</h1>
-                        <span className="text-[10px] sm:text-[12px] text-slate-400">Prix &amp; marges</span>
+                        <h1 className={`text-[13px] sm:text-[15px] font-semibold tracking-tight text-slate-900`}>{tx(lang,{fr:'Fiche de Coût',ar:'بطاقة التكلفة',en:'Cost Sheet',es:'Hoja de Costo',pt:'Ficha de Custo',tr:'Maliyet Fişi'})}</h1>
+                        <span className="text-[10px] sm:text-[12px] text-slate-400">{tx(lang,{fr:'Prix & marges',ar:'السعر والهوامش',en:'Price & margins',es:'Precio y márgenes',pt:'Preço e margens',tr:'Fiyat ve marjlar'})}</span>
                         {ficheData.typeMarche === 'Export' && (
                             <span className="inline-flex items-center gap-1 bg-amber-50 text-amber-700 border border-amber-200 text-[9px] sm:text-[10px] px-1.5 sm:px-2 py-0.5 rounded font-medium">
                                 Export · Main d'œuvre seule
@@ -1106,10 +1122,10 @@ export default function CostCalculator({
                                 title="Confier ce modèle à un sous-traitant à prix fixe / pièce"
                             >
                                 <Factory className="w-3.5 h-3.5" strokeWidth={1.75} />
-                                Sous-traitance
+                                {tx(lang,{fr:'Sous-traitance',ar:'المقاولة من الباطن',en:'Subcontracting',es:'Subcontratación',pt:'Subcontratação',tr:'Taşeronluk'})}
                                 {stActive && (
                                     <span className="bg-white/20 px-1.5 py-0.5 rounded text-[11px] font-medium">
-                                        {st?.mode === 'complet' ? 'Tout compris' : 'Façon'}
+                                        {st?.mode === 'complet' ? tx(lang,{fr:'Tout compris',ar:'كل شيء شامل',en:'All inclusive',es:'Todo incluido',pt:'Tudo incluído',tr:'Her şey dahil'}) : tx(lang,{fr:'Façon',ar:'التفصيل',en:'CMT only',es:'Solo confección',pt:'Apenas confeção',tr:'Sadece dikiş'})}
                                     </span>
                                 )}
                             </button>
@@ -1218,7 +1234,7 @@ export default function CostCalculator({
                                     </div>
 
                                     <div className="w-44 h-44 shrink-0 flex flex-col relative">
-                                        <h4 className="text-[11px] font-medium text-slate-500 text-center absolute -top-1 left-0 right-0 z-10">Répartition Coût (PR)</h4>
+                                        <h4 className="text-[11px] font-medium text-slate-500 text-center absolute -top-1 left-0 right-0 z-10">{tx(lang,{fr:'Répartition Coût (PR)',ar:'توزيع التكلفة (س ت)',en:'Cost Breakdown (CP)',es:'Desglose de Costo (PC)',pt:'Repartição de Custo (CP)',tr:'Maliyet Dağılımı (MF)'})}</h4>
                                         {totalMaterials > 0 || laborCost > 0 ? (
                                             <ResponsiveChart>
                                                 <PieChart>
@@ -1230,7 +1246,7 @@ export default function CostCalculator({
                                                 </PieChart>
                                             </ResponsiveChart>
                                         ) : (
-                                            <div className="w-full h-full flex items-center justify-center text-xs text-slate-400 font-medium">Aucune donnée</div>
+                                            <div className="w-full h-full flex items-center justify-center text-xs text-slate-400 font-medium">{tx(lang,{fr:'Aucune donnée',ar:'لا توجد بيانات',en:'No data',es:'Sin datos',pt:'Sem dados',tr:'Veri yok'})}</div>
                                         )}
                                     </div>
                                 </div>
@@ -1261,9 +1277,9 @@ export default function CostCalculator({
                             {viewMode === 'ticket' && (
                                 <>
                                     <div className={`px-5 h-12 border-b flex justify-between items-center bg-slate-50/60 border-slate-100 print:hidden`}>
-                                        <h2 className={`text-[13px] font-semibold text-slate-900`}>Ticket de Coût</h2>
+                                        <h2 className={`text-[13px] font-semibold text-slate-900`}>{tx(lang,{fr:'Ticket de Coût',ar:'تذكرة التكلفة',en:'Cost Ticket',es:'Ticket de Costo',pt:'Ticket de Custo',tr:'Maliyet Fişi'})}</h2>
                                         <div className="flex gap-1.5">
-                                            <button onClick={() => setShowPdfModal(true)} className="inline-flex items-center gap-1.5 h-8 px-3 text-[12px] font-medium rounded-md bg-slate-900 hover:bg-slate-800 text-white transition-colors" title="Exporter (PDF) ou imprimer le ticket"><FileDown className="w-3.5 h-3.5" strokeWidth={1.75} /> Exporter / Imprimer</button>
+                                            <button onClick={() => setShowPdfModal(true)} className="inline-flex items-center gap-1.5 h-8 px-3 text-[12px] font-medium rounded-md bg-slate-900 hover:bg-slate-800 text-white transition-colors" title={tx(lang,{fr:'Exporter (PDF) ou imprimer le ticket',ar:'تصدير (PDF) أو طباعة التذكرة',en:'Export (PDF) or print the ticket',es:'Exportar (PDF) o imprimir el ticket',pt:'Exportar (PDF) ou imprimir o ticket',tr:'Dışa aktar (PDF) veya fişi yazdır'})}><FileDown className="w-3.5 h-3.5" strokeWidth={1.75} /> {tx(lang,{fr:'Exporter / Imprimer',ar:'تصدير / طباعة',en:'Export / Print',es:'Exportar / Imprimir',pt:'Exportar / Imprimir',tr:'Dışa Aktar / Yazdır'})}</button>
                                         </div>
                                     </div>
                                     <TicketView
@@ -1309,7 +1325,7 @@ export default function CostCalculator({
                                                      </button>
                                                  </div>
                                              )}
-                                             <button onClick={() => setShowPdfModal(true)} className="inline-flex items-center gap-1.5 h-8 px-3 text-[12px] font-medium rounded-md bg-slate-900 hover:bg-slate-800 text-white transition-colors" title="Exporter (PDF / Excel) ou imprimer la fiche"><FileDown className="w-3.5 h-3.5" strokeWidth={1.75} /> Exporter / Imprimer</button>
+                                             <button onClick={() => setShowPdfModal(true)} className="inline-flex items-center gap-1.5 h-8 px-3 text-[12px] font-medium rounded-md bg-slate-900 hover:bg-slate-800 text-white transition-colors" title={tx(lang,{fr:'Exporter (PDF / Excel) ou imprimer la fiche',ar:'تصدير (PDF / Excel) أو طباعة البطاقة',en:'Export (PDF / Excel) or print the sheet',es:'Exportar (PDF / Excel) o imprimir la ficha',pt:'Exportar (PDF / Excel) ou imprimir a ficha',tr:'Dışa aktar (PDF / Excel) veya sayfayı yazdır'})}><FileDown className="w-3.5 h-3.5" strokeWidth={1.75} /> {tx(lang,{fr:'Exporter / Imprimer',ar:'تصدير / طباعة',en:'Export / Print',es:'Exportar / Imprimir',pt:'Exportar / Imprimir',tr:'Dışa Aktar / Yazdır'})}</button>
                                          </div>
                                      </div>
 
@@ -1323,7 +1339,7 @@ export default function CostCalculator({
                                         <CompactCostSheet
                                             ref={docRefA4}
                                             t={t} currency={currency}
-                                            productName={productName || 'Article...'} displayDate={displayDate}
+                                            productName={productName || tx(lang,{fr:'Article...',ar:'القطعة...',en:'Item...',es:'Artículo...',pt:'Artigo...',tr:'Parça...'})} displayDate={displayDate}
                                             docRef={docRef}
                                             companyName={companyName}
                                             companyAddress={companyAddress}

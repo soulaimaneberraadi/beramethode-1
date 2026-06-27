@@ -328,6 +328,13 @@ export default function App() {
     const [suivis, setSuivis] = useState<import('./types').SuiviData[]>([]);
     const [demandesAppro, setDemandesAppro] = useState<import('./types').DemandeAppro[]>([]);
 
+    // Garde-fou anti-écrasement : tant que le GET initial (serveur) n'a pas répondu,
+    // on NE POST PAS l'état (qui démarre à []). Sans ça, un GET lent (>1.2s) laissait
+    // partir un POST { events: [] } qui effaçait planning/suivi côté serveur, puis tout
+    // revenait à 0 au rechargement. Réinitialisé à chaque changement de compte.
+    const planningHydratedRef = useRef(false);
+    const suivisHydratedRef = useRef(false);
+
     /** Baseline des suivis à l’entrée sur Effectifs (une fois par visite) pour détecter les changements. */
     const effectifsSuivisSnapshotRef = useRef<string>('');
     const effectifsBaselineCapturedRef = useRef(false);
@@ -367,8 +374,18 @@ export default function App() {
             try { const s = localStorage.getItem('beramethode_demandesAppro'); setDemandesAppro(s ? JSON.parse(s) : []); } catch { setDemandesAppro([]); }
         };
         if (user && !IS_STATIC) {
-            fetch('/api/planning', { credentials: 'include' }).then(r => r.ok ? r.json() : []).then(data => setPlanningEvents(Array.isArray(data) ? data : [])).catch(() => setPlanningEvents([]));
-            fetch('/api/suivi', { credentials: 'include' }).then(r => r.ok ? r.json() : []).then(data => setSuivis(Array.isArray(data) ? data : [])).catch(() => setSuivis([]));
+            // Nouveau compte / rechargement : on bloque l'auto-save tant que le GET
+            // n'a pas confirmé l'état serveur (évite l'écrasement par un POST vide).
+            planningHydratedRef.current = false;
+            suivisHydratedRef.current = false;
+            fetch('/api/planning', { credentials: 'include' })
+                .then(r => r.ok ? r.json() : Promise.reject(new Error('planning GET failed')))
+                .then(data => { setPlanningEvents(Array.isArray(data) ? data : []); planningHydratedRef.current = true; })
+                .catch(() => { /* GET échoué : on NE marque PAS hydraté → pas de POST destructeur */ });
+            fetch('/api/suivi', { credentials: 'include' })
+                .then(r => r.ok ? r.json() : Promise.reject(new Error('suivi GET failed')))
+                .then(data => { setSuivis(Array.isArray(data) ? data : []); suivisHydratedRef.current = true; })
+                .catch(() => { /* idem */ });
             fetch('/api/demandes-appro', { credentials: 'include' }).then(r => r.ok ? r.json() : []).then(data => setDemandesAppro(Array.isArray(data) ? data : [])).catch(() => setDemandesAppro([]));
         } else {
             // Static mode (Vercel) or guest: localStorage is the source of truth.
@@ -393,6 +410,8 @@ export default function App() {
             }
             return;
         }
+        // Tant que le GET initial n'a pas répondu, on ne POST pas (état encore à []).
+        if (!planningHydratedRef.current) return;
         const timer = setTimeout(() => {
             fetch('/api/planning', { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ events: planningEvents }) }).catch(() => { });
         }, 1200);
@@ -405,6 +424,8 @@ export default function App() {
             localStorage.setItem('beramethode_suivis', JSON.stringify(suivis));
             return;
         }
+        // Tant que le GET initial n'a pas répondu, on ne POST pas (état encore à []).
+        if (!suivisHydratedRef.current) return;
         const timer = setTimeout(() => {
             fetch('/api/suivi', { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ suivis }) }).catch(() => { });
         }, 1200);

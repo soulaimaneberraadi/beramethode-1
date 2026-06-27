@@ -934,7 +934,7 @@ export default function Planning({
     }, [filtersOpen, soloChainId, filtersApi, planningEvents, models, print, showHeatMap, density, lang]);
 
     return (
-        <div className="h-full flex flex-col bg-gradient-to-tr from-slate-50 via-white to-indigo-50/20 font-sans select-none text-slate-800 antialiased relative">
+        <div className="h-full flex flex-col bg-gradient-to-tr from-slate-50 via-white to-indigo-50/20 dark:from-slate-900 dark:via-slate-900 dark:to-slate-900 font-sans select-none text-slate-800 dark:text-slate-200 antialiased relative">
             <PlanningAnimations />
             <PlanningHeader
                 active={stats.active}
@@ -1054,7 +1054,7 @@ export default function Planning({
                 )}
 
                 {view === 'simulation' && (
-                    <div className="absolute inset-0 overflow-auto bg-slate-50/30">
+                    <div className="absolute inset-0 overflow-auto bg-slate-50/30 dark:bg-slate-900/40">
                         <ProductionSimulation
                             models={models}
                             chains={chains}

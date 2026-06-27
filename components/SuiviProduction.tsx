@@ -1249,7 +1249,7 @@ export default function SuiviProduction({
                     {isMobile && (
                         <button
                             onClick={() => setMobileWeekView(v => !v)}
-                            title={mobileWeekView ? 'Vue jour' : 'Vue semaine'}
+                            title={mobileWeekView ? tx(lang, { fr: 'Vue jour', ar: 'عرض اليوم', en: 'Day view', es: 'Vista día', pt: 'Vista dia', tr: 'Gün görünümü' }) : tx(lang, { fr: 'Vue semaine', ar: 'عرض الأسبوع', en: 'Week view', es: 'Vista semana', pt: 'Vista semana', tr: 'Hafta görünümü' })}
                             className={`flex items-center gap-1.5 px-2 py-1.5 border rounded-xl text-xs font-bold transition-all shadow-sm ${
                                 mobileWeekView
                                     ? 'bg-indigo-50 text-indigo-800 border-indigo-200 ring-2 ring-indigo-500/10'
@@ -1257,7 +1257,7 @@ export default function SuiviProduction({
                             }`}
                         >
                             {mobileWeekView ? <CalendarDays className="w-4 h-4 text-indigo-600" /> : <CalendarRange className="w-4 h-4 text-indigo-600" />}
-                            <span>{mobileWeekView ? 'Jour' : 'Semaine'}</span>
+                            <span>{mobileWeekView ? tx(lang, { fr: 'Jour', ar: 'يوم', en: 'Day', es: 'Día', pt: 'Dia', tr: 'Gün' }) : tx(lang, { fr: 'Semaine', ar: 'أسبوع', en: 'Week', es: 'Semana', pt: 'Semana', tr: 'Hafta' })}</span>
                         </button>
                     )}
 
@@ -1799,11 +1799,11 @@ export default function SuiviProduction({
                                             tooltipText = `${h.label}: Pause (15m)`;
                                         } else if (dt === 'M') {
                                             bgClass = 'bg-rose-500/20 text-rose-700 border border-rose-300/30 animate-pulse';
-                                            label = 'Panne';
+                                            label = tx(lang, { fr: 'Panne', ar: 'عطل', en: 'Breakdown', es: 'Avería', pt: 'Avaria', tr: 'Arıza' });
                                             tooltipText = `${h.label}: Panne (30m)`;
                                         } else if (dt === 'S') {
                                             bgClass = 'bg-amber-500/20 text-amber-700 border border-amber-300/30';
-                                            label = 'Rupt.';
+                                            label = tx(lang, { fr: 'Rupt.', ar: 'انقطاع', en: 'Shortage', es: 'Rupt.', pt: 'Rupt.', tr: 'Kesinti' });
                                             tooltipText = `${h.label}: Rupture appro (45m)`;
                                         } else if (qty > 0) {
                                             bgClass = 'bg-indigo-600/10 text-indigo-700 border border-indigo-200/40 font-black';

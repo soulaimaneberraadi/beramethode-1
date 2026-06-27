@@ -3,7 +3,7 @@ import ExcelJS from 'exceljs';
 import db from './db';
 
 export const getPointage = (req: Request, res: Response) => {
-    const userId = (req as any).user.id;
+    const userId = (req as any).companyId ?? (req as any).user.id;
     const { from, to, workerId } = req.query as any;
     try {
         const clauses = ['owner_id = ?'];
@@ -21,7 +21,7 @@ export const getPointage = (req: Request, res: Response) => {
 };
 
 export const savePointage = (req: Request, res: Response) => {
-    const userId = (req as any).user.id;
+    const userId = (req as any).companyId ?? (req as any).user.id;
     const p = req.body;
 
     if (!p?.id || !p?.worker_id || !p?.date) {
@@ -56,7 +56,7 @@ export const savePointage = (req: Request, res: Response) => {
 };
 
 export const bulkSavePointage = (req: Request, res: Response) => {
-    const userId = (req as any).user.id;
+    const userId = (req as any).companyId ?? (req as any).user.id;
     const { entries } = req.body;
     if (!Array.isArray(entries)) {
         return res.status(400).json({ message: 'entries array required' });
@@ -96,7 +96,7 @@ export const bulkSavePointage = (req: Request, res: Response) => {
 };
 
 export const deletePointage = (req: Request, res: Response) => {
-    const userId = (req as any).user.id;
+    const userId = (req as any).companyId ?? (req as any).user.id;
     const { id } = req.params;
     try {
         db.prepare('DELETE FROM worker_pointage WHERE id = ? AND owner_id = ?').run(id, userId);
@@ -113,7 +113,7 @@ export const deletePointage = (req: Request, res: Response) => {
  *        &chaine=C1      (optionnel)
  */
 export const exportPointageMensuel = async (req: Request, res: Response) => {
-    const userId = (req as any).user.id;
+    const userId = (req as any).companyId ?? (req as any).user.id;
     const { mois, chaine } = req.query as { mois?: string; chaine?: string };
 
     if (!mois || !/^\d{4}-\d{2}$/.test(mois)) {
@@ -302,7 +302,7 @@ export const exportPointageMensuel = async (req: Request, res: Response) => {
  * Query: ?workerId=xxx&days=30
  */
 export const getWorkerActivity = (req: Request, res: Response) => {
-    const userId = (req as any).user.id;
+    const userId = (req as any).companyId ?? (req as any).user.id;
     const { workerId, days } = req.query as any;
     if (!workerId) return res.status(400).json({ message: 'workerId required' });
 

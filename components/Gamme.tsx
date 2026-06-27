@@ -60,6 +60,8 @@ import { analyzeTextileContext, suggestTextileVocabulary } from '../services/gem
 import { VOCABULARY } from '../data/vocabulary';
 import { compressImage } from '../utils';
 import ExcelInput from './ExcelInput';
+import { tx } from '../lib/i18n';
+import { useLang } from '../src/context/LanguageContext';
 
 // --- GROUP COLOR PALETTE (HIGH CONTRAST ALTERNATING) ---
 const GROUP_COLORS = [
@@ -230,6 +232,7 @@ export default function Gamme({
   assignments = {},
   postes = []
 }: GammeProps) {
+  const { lang } = useLang();
   const posteColorById = useMemo(
     () => new Map(postes.map((poste, index) => [poste.id, getPosteColor(poste, index)])),
     [postes]
@@ -326,7 +329,7 @@ export default function Gamme({
       setOperationPhoto(opId, compressed);
     } catch (err) {
       console.error('Photo opération: compression échouée', err);
-      alert("Erreur lors du traitement de l'image.");
+      alert(tx(lang,{fr:"Erreur lors du traitement de l'image.",ar:'خطأ أثناء معالجة الصورة.',en:'Error processing the image.',es:'Error al procesar la imagen.',pt:'Erro ao processar a imagem.',tr:'Görüntü işlenirken hata oluştu.'}));
     } finally {
       setPhotoProcessingOpId(null);
     }
@@ -796,7 +799,7 @@ export default function Gamme({
   // --- AUTO ASSIGN GUIDES (BATCH) ---
   const handleAutoAssignGuides = () => {
       if (guides.length === 0) {
-          setGuideFeedback({ tone: 'warning', message: "Aucun guide disponible. Ajoutez des guides d'abord dans Parametres > Guides & Accessoires." });
+          setGuideFeedback({ tone: 'warning', message: tx(lang,{fr:"Aucun guide disponible. Ajoutez des guides d'abord dans Parametres > Guides & Accessoires.",ar:'لا يوجد دليل متاح. أضف الأدلة أولاً في الإعدادات > الأدلة والملحقات.',en:'No guide available. Add guides first in Settings > Guides & Accessories.',es:'Ninguna guía disponible. Añada guías primero en Configuración > Guías y Accesorios.',pt:'Nenhum guia disponível. Adicione guias primeiro em Configurações > Guias e Acessórios.',tr:'Kılavuz mevcut değil. Önce Ayarlar > Kılavuzlar ve Aksesuarlar bölümünden kılavuz ekleyin.'}) });
           return;
       }
 
@@ -807,7 +810,7 @@ export default function Gamme({
       if (missingMachineIds.length > 0) {
           warnGuideRequirements(
             missingMachineIds,
-            `Machine manquante sur ${missingMachineIds.length} operation(s). Completez la colonne Machine (en rouge), puis relancez Auto-Guides.`
+            tx(lang,{fr:`Machine manquante sur ${missingMachineIds.length} operation(s). Completez la colonne Machine (en rouge), puis relancez Auto-Guides.`,ar:`آلة مفقودة في ${missingMachineIds.length} عملية. أكمل عمود الآلة (بالأحمر)، ثم أعد تشغيل Auto-Guides.`,en:`Missing machine on ${missingMachineIds.length} operation(s). Complete the Machine column (in red), then relaunch Auto-Guides.`,es:`Falta máquina en ${missingMachineIds.length} operación(es). Complete la columna Máquina (en rojo), luego relance Auto-Guías.`,pt:`Máquina ausente em ${missingMachineIds.length} operação(ões). Preencha a coluna Máquina (em vermelho) e reinicie o Auto-Guias.`,tr:`${missingMachineIds.length} işlemde makine eksik. Makine sütununu (kırmızı) doldurun, ardından Oto-Kılavuz\'u yeniden başlatın.`})
           );
           return;
       }
@@ -849,7 +852,7 @@ export default function Gamme({
       setMissingMachineOpIds([]);
       setGuideFeedback({
         tone: 'info',
-        message: `Auto-Guides termine: ${assignedCount} assignee(s), ${clearedCount} sans correspondance, dont ${learnedAssignedCount} via apprentissage.`
+        message: tx(lang,{fr:`Auto-Guides termine: ${assignedCount} assignee(s), ${clearedCount} sans correspondance, dont ${learnedAssignedCount} via apprentissage.`,ar:`Auto-Guides انتهى: ${assignedCount} معين، ${clearedCount} بدون تطابق، منها ${learnedAssignedCount} عبر التعلم.`,en:`Auto-Guides done: ${assignedCount} assigned, ${clearedCount} unmatched, ${learnedAssignedCount} via learning.`,es:`Auto-Guías terminado: ${assignedCount} asignada(s), ${clearedCount} sin coincidencia, ${learnedAssignedCount} mediante aprendizaje.`,pt:`Auto-Guias concluído: ${assignedCount} atribuída(s), ${clearedCount} sem correspondência, ${learnedAssignedCount} via aprendizado.`,tr:`Oto-Kılavuz tamamlandı: ${assignedCount} atandı, ${clearedCount} eşleşmedi, ${learnedAssignedCount} öğrenme yoluyla.`})
       });
   };
 
@@ -1513,7 +1516,7 @@ export default function Gamme({
           return { ...op, guideId: guide.id, guideName: guide.name };
       }));
       setShowGuideModal(null);
-      setGuideFeedback({ tone: 'info', message: `Guide "${guide.name}" applique et memorise pour les prochaines suggestions.` });
+      setGuideFeedback({ tone: 'info', message: tx(lang,{fr:`Guide "${guide.name}" applique et memorise pour les prochaines suggestions.`,ar:`تم تطبيق وحفظ الدليل "${guide.name}" للاقتراحات القادمة.`,en:`Guide "${guide.name}" applied and memorized for future suggestions.`,es:`Guía "${guide.name}" aplicada y memorizada para futuras sugerencias.`,pt:`Guia "${guide.name}" aplicado e memorizado para próximas sugestões.`,tr:`"${guide.name}" kılavuzu uygulandı ve sonraki öneriler için ezberlendi.`}) });
   };
 
   const handleCreateGuideFromModal = () => {
@@ -1677,9 +1680,9 @@ export default function Gamme({
     
     try {
       const analysisText = await analyzeTextileContext(operations, machines, userMsg);
-      setChatHistory(prev => [...prev, { role: 'ai', content: analysisText || "Je n'ai pas pu analyser la gamme." }]);
+      setChatHistory(prev => [...prev, { role: 'ai', content: analysisText || tx(lang,{fr:"Je n'ai pas pu analyser la gamme.",ar:'لم أتمكن من تحليل التسلسل.',en:"I couldn't analyze the routing.",es:'No pude analizar la gama.',pt:'Não consegui analisar a gama.',tr:'Rotayı analiz edemedim.'}) }]);
     } catch (error: any) {
-      setChatHistory(prev => [...prev, { role: 'ai', content: "Erreur de connexion avec l'IA." }]);
+      setChatHistory(prev => [...prev, { role: 'ai', content: tx(lang,{fr:"Erreur de connexion avec l'IA.",ar:'خطأ في الاتصال بالذكاء الاصطناعي.',en:'Connection error with the AI.',es:'Error de conexión con la IA.',pt:'Erro de conexão com a IA.',tr:'Yapay zeka ile bağlantı hatası.'}) }]);
     } finally {
       setIsAnalyzing(false);
     }
@@ -1787,7 +1790,7 @@ export default function Gamme({
             {/* ... (Header Stats - Identical to previous) ... */}
             <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-50 rounded-lg border border-slate-100 shrink-0">
                 <div className="flex flex-col items-center border-r border-slate-200 pr-3 mr-3">
-                    <span className="text-[9px] font-bold text-slate-400 uppercase">Ouvriers</span>
+                    <span className="text-[9px] font-bold text-slate-400 uppercase">{tx(lang,{fr:'Ouvriers',ar:'عمال',en:'Workers',es:'Obreros',pt:'Trabalhadores',tr:'İşçiler'})}</span>
                     <input 
                         type="number" 
                         min="1" 
@@ -1800,7 +1803,7 @@ export default function Gamme({
                     />
                 </div>
                 <div className="flex flex-col items-center">
-                    <span className="text-[9px] font-bold text-slate-400 uppercase">Heures</span>
+                    <span className="text-[9px] font-bold text-slate-400 uppercase">{tx(lang,{fr:'Heures',ar:'ساعات',en:'Hours',es:'Horas',pt:'Horas',tr:'Saatler'})}</span>
                     <input 
                         type="number" 
                         min="0" 
@@ -1818,18 +1821,18 @@ export default function Gamme({
 
             <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-50/50 rounded-lg border border-emerald-100 shrink-0">
                 <div className="flex flex-col items-center border-r border-emerald-100 pr-3 mr-3">
-                    <span className="text-[9px] font-bold text-emerald-600 uppercase flex items-center gap-1"><Zap className="w-3 h-3" /> BF (s)</span>
+                    <span className="text-[9px] font-bold text-emerald-600 uppercase flex items-center gap-1"><Zap className="w-3 h-3" />{tx(lang,{fr:'BF (s)',ar:'BF (ث)',en:'BF (s)',es:'BF (s)',pt:'BF (s)',tr:'BF (s)'})}</span>
                     <span className="font-black text-emerald-700 text-sm">{(bf * 60).toFixed(1)}</span>
                 </div>
                 <div className="flex flex-col items-center">
-                    <span className="text-[9px] font-bold text-emerald-600 uppercase">Min Tot.</span>
+                    <span className="text-[9px] font-bold text-emerald-600 uppercase">{tx(lang,{fr:'Min Tot.',ar:'مجموع د',en:'Total Min',es:'Min Tot.',pt:'Min Tot.',tr:'Toplam Dk'})}</span>
                     <span className="font-black text-emerald-700 text-sm">{presenceTime}</span>
                 </div>
             </div>
 
             {/* P/H 100% */}
             <div className="flex flex-col items-center px-3 py-1.5 bg-orange-50/50 rounded-lg border border-orange-100 shrink-0">
-                <span className="text-[9px] font-bold text-orange-400 uppercase">P/H (100%)</span>
+                <span className="text-[9px] font-bold text-orange-400 uppercase">{tx(lang,{fr:'P/H (100%)',ar:'P/H (100%)',en:'P/H (100%)',es:'P/H (100%)',pt:'P/H (100%)',tr:'P/H (100%)'})}</span>
                 <span className="font-black text-orange-500 text-sm leading-none mt-1">
                     {Math.round((tempsArticle > 0 && presenceTime > 0) ? ((presenceTime * numWorkers) / tempsArticle) / (presenceTime / 60) : 0)}
                 </span>
@@ -1838,13 +1841,13 @@ export default function Gamme({
             {/* TARGETS */}
             <div className="flex items-center gap-3 px-3 py-1.5 bg-slate-50/50 rounded-lg border border-slate-100 shrink-0">
                 <div className="flex flex-col items-center border-r border-slate-200 pr-3 mr-1">
-                    <span className="text-[9px] font-bold text-slate-400 uppercase">P/J</span>
+                    <span className="text-[9px] font-bold text-slate-400 uppercase">{tx(lang,{fr:'P/J',ar:'P/J',en:'P/D',es:'P/D',pt:'P/D',tr:'P/G'})}</span>
                     <span className="font-black text-slate-700 text-sm leading-none mt-1">
                         {Math.round(((tempsArticle > 0 && presenceTime > 0) ? (presenceTime * numWorkers) / tempsArticle : 0) * (efficiency / 100))}
                     </span>
                 </div>
                 <div className="flex flex-col items-center">
-                    <span className="text-[9px] font-bold text-slate-400 uppercase">P/H</span>
+                    <span className="text-[9px] font-bold text-slate-400 uppercase">{tx(lang,{fr:'P/H',ar:'P/H',en:'P/H',es:'P/H',pt:'P/H',tr:'P/H'})}</span>
                     <span className="font-black text-slate-700 text-sm leading-none mt-1">
                         {Math.round(((tempsArticle > 0 && presenceTime > 0) ? ((presenceTime * numWorkers) / tempsArticle) / (presenceTime / 60) : 0) * (efficiency / 100))}
                     </span>
@@ -1852,7 +1855,7 @@ export default function Gamme({
             </div>
 
             <div className="flex flex-col items-center px-3 py-1.5 bg-indigo-50/50 rounded-lg border border-indigo-100 shrink-0">
-                <span className="text-[9px] font-bold text-indigo-400 uppercase">% Rendu</span>
+                <span className="text-[9px] font-bold text-indigo-400 uppercase">{tx(lang,{fr:'% Rendu',ar:'% إنتاجية',en:'% Yield',es:'% Rendim.',pt:'% Rendim.',tr:'% Verim'})}</span>
                 <div className="flex items-baseline gap-0.5">
                     <input 
                         type="number" 
@@ -1864,17 +1867,17 @@ export default function Gamme({
                         }} 
                         className="w-8 text-center bg-transparent font-black text-indigo-600 outline-none text-sm border-b border-indigo-200 p-0" 
                     />
-                    <span className="text-[10px] font-bold text-indigo-400">%</span>
+                    <span className="text-[10px] font-bold text-indigo-400">{tx(lang,{fr:'%',ar:'%',en:'%',es:'%',pt:'%',tr:'%'})}</span>
                 </div>
             </div>
 
             <div className="ml-auto flex items-center gap-2 px-3 py-1.5 bg-purple-100 rounded-lg border border-purple-200 shrink-0">
                 <div className="flex flex-col items-center border-r border-purple-200 pr-3 mr-1">
-                    <span className="text-[9px] font-bold text-purple-500 uppercase flex items-center gap-1"><Timer className="w-3 h-3" /> T. Art (min)</span>
+                    <span className="text-[9px] font-bold text-purple-500 uppercase flex items-center gap-1"><Timer className="w-3 h-3" />{tx(lang,{fr:'T. Art (min)',ar:'و. قط (د)',en:'T. Art (min)',es:'T. Art (min)',pt:'T. Art (min)',tr:'P. Süre (dk)'})}</span>
                     <span className="font-black text-purple-700 text-xl leading-none">{tempsArticle.toFixed(2)}</span>
                 </div>
                 <div className="flex flex-col items-center">
-                    <span className="text-[9px] font-bold text-purple-500 uppercase">T. Art (s)</span>
+                    <span className="text-[9px] font-bold text-purple-500 uppercase">{tx(lang,{fr:'T. Art (s)',ar:'و. قط (ث)',en:'T. Art (s)',es:'T. Art (s)',pt:'T. Art (s)',tr:'P. Süre (sn)'})}</span>
                     <span className="font-black text-purple-700 text-xl leading-none">{(tempsArticle * 60).toFixed(1)}</span>
                 </div>
             </div>
@@ -1887,12 +1890,12 @@ export default function Gamme({
             <div className="fixed top-20 left-1/2 -translate-x-1/2 z-[9999] bg-indigo-600 text-white pl-4 pr-2 py-2 rounded-full shadow-xl flex items-center gap-3 animate-in slide-in-from-top-5 duration-300 pointer-events-none">
                 <div className="flex items-center gap-2 pointer-events-auto">
                     <MousePointerClick className="w-4 h-4 text-indigo-200" />
-                    <span className="text-xs font-bold">Mode Flux Actif</span>
+                    <span className="text-xs font-bold">{tx(lang,{fr:'Mode Flux Actif',ar:'وضع التدفق نشط',en:'Active Flow Mode',es:'Modo Flujo Activo',pt:'Modo Fluxo Ativo',tr:'Akış Modu Aktif'})}</span>
                 </div>
                 <button 
                     onClick={cancelFlux}
                     className="p-1 hover:bg-white/20 rounded-full transition-colors pointer-events-auto"
-                    title="Annuler"
+                    title={tx(lang,{fr:'Annuler',ar:'إلغاء',en:'Cancel',es:'Cancelar',pt:'Cancelar',tr:'İptal'})}
                 >
                     <X className="w-4 h-4" />
                 </button>
@@ -1908,7 +1911,7 @@ export default function Gamme({
                         <LinkIcon className="w-4 h-4" />
                     </div>
                     <div className="flex flex-col">
-                        <span className="text-[10px] font-black uppercase text-slate-400 tracking-wide">Lier & Regrouper vers</span>
+                        <span className="text-[10px] font-black uppercase text-slate-400 tracking-wide">{tx(lang,{fr:'Lier & Regrouper vers',ar:'ربط وتجميع إلى',en:'Link & Group to',es:'Enlazar y Agrupar a',pt:'Vincular e Agrupar para',tr:'Bağla ve Gruplandır'})}</span>
                         <span className="text-xs font-bold text-slate-800 max-w-[150px] truncate" title={targetOpInfo.description}>
                             {targetOpInfo.description}
                         </span>
@@ -1918,8 +1921,8 @@ export default function Gamme({
                 <div className="flex items-center gap-1 ml-auto">
                     <button 
                         onClick={cancelFlux}
-                        className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full transition-colors"
-                        title="Annuler"
+                    className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full transition-colors"
+                    title={tx(lang,{fr:'Annuler',ar:'إلغاء',en:'Cancel',es:'Cancelar',pt:'Cancelar',tr:'İptal'})}
                     >
                         <X className="w-4 h-4" />
                     </button>
@@ -1929,7 +1932,7 @@ export default function Gamme({
                         className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-full text-xs font-bold shadow-lg shadow-emerald-200 transition-all flex items-center gap-2 active:scale-95"
                     >
                         <CheckCircle className="w-3.5 h-3.5" />
-                        Confirmer
+                        {tx(lang,{fr:'Confirmer',ar:'تأكيد',en:'Confirm',es:'Confirmar',pt:'Confirmar',tr:'Onayla'})}
                     </button>
                 </div>
             </div>,
@@ -1957,20 +1960,20 @@ export default function Gamme({
                     <div className="p-1.5 bg-indigo-100 rounded-full text-indigo-600">
                         <CheckSquare className="w-4 h-4" />
                     </div>
-                    <span className="text-xs font-bold text-slate-700">Mode Sélection {selectedOpIds.length > 0 && `(${selectedOpIds.length})`}</span>
+                    <span className="text-xs font-bold text-slate-700">{tx(lang,{fr:'Mode Sélection',ar:'وضع التحديد',en:'Selection Mode',es:'Modo Selección',pt:'Modo Seleção',tr:'Seçim Modu'})} {selectedOpIds.length > 0 && `(${selectedOpIds.length})`}</span>
                 </div>
                 <div className="h-4 w-px bg-slate-200"></div>
                 
                 {selectedOpIds.length > 0 && (
                     <button onClick={() => handleContextAction('link')} className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-full text-xs font-bold transition-colors flex items-center gap-2">
-                        <LinkIcon className="w-3.5 h-3.5" /> Figer
+                        <LinkIcon className="w-3.5 h-3.5" /> {tx(lang,{fr:'Figer',ar:'تجميد',en:'Lock',es:'Fijar',pt:'Fixar',tr:'Kilitle'})}
                     </button>
                 )}
 
                 <button 
                     onClick={() => { setSelectedOpIds([]); setIsSelectionMode(false); }} 
                     className="p-1.5 hover:bg-rose-50 text-slate-400 hover:text-rose-500 rounded-full transition-colors" 
-                    title="Quitter Mode Sélection"
+                    title={tx(lang,{fr:'Quitter Mode Sélection',ar:'خروج من وضع التحديد',en:'Exit Selection Mode',es:'Salir Modo Selección',pt:'Sair Modo Seleção',tr:'Seçim Modundan Çık'})}
                 >
                     <X className="w-4 h-4" />
                 </button>
@@ -1984,7 +1987,7 @@ export default function Gamme({
             <span className="inline-flex w-8 h-8 items-center justify-center rounded-lg bg-slate-100 text-slate-500">
               <ClipboardList className="w-4.5 h-4.5" />
             </span>
-            Gamme de Montage
+            {tx(lang,{fr:'Gamme de Montage',ar:'تسلسل التركيب',en:'Assembly Routing',es:'Gama de Montaje',pt:'Gama de Montagem',tr:'Montaj Rotası'})}
           </h3>
 
           {/* ... Toolbar Content ... */}
@@ -1992,7 +1995,7 @@ export default function Gamme({
              
              {/* Guide Factors & Fabric */}
              <div className="flex items-center justify-between gap-1.5 px-2 py-1.5 bg-slate-50 rounded-lg border border-slate-200 w-full sm:w-auto">
-                 <label className="text-[10px] font-bold text-slate-400 uppercase whitespace-nowrap mr-1">F.Guide:</label>
+                  <label className="text-[10px] font-bold text-slate-400 uppercase whitespace-nowrap mr-1">{tx(lang,{fr:'F.Guide:',ar:'م.Guide:',en:'G.Factor:',es:'F.Guía:',pt:'F.Guia:',tr:'R.Faktör:'})}</label>
                  <div className="relative">
                       <select 
                         value={globalGuide}
@@ -2008,11 +2011,11 @@ export default function Gamme({
                  <button 
                     onClick={openFabricModal}
                     className={`p-1.5 rounded-md border transition-colors ml-1 ${fabricSettings.enabled ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : 'bg-white border-slate-200 text-slate-400 hover:bg-emerald-50 hover:text-emerald-700'}`}
-                    title="Choisir selon le tissu"
+                    title={tx(lang,{fr:'Choisir selon le tissu',ar:'اختيار حسب القماش',en:'Choose by fabric',es:'Elegir según tela',pt:'Escolher conforme tecido',tr:'Kumaşa göre seç'})}
                  >
                     <Shirt className="w-3.5 h-3.5" />
                  </button>
-                 <button onClick={applyGlobalGuide} title="Appliquer à toute la gamme" className="p-1.5 bg-white hover:bg-emerald-50 hover:text-emerald-700 text-slate-400 rounded-md border border-slate-200 transition-colors ml-1">
+                                   <button onClick={applyGlobalGuide} title={tx(lang,{fr:'Appliquer à toute la gamme',ar:'تطبيق على كل التسلسل',en:'Apply to all routing',es:'Aplicar a toda la gama',pt:'Aplicar a toda gama',tr:'Tüm rotaya uygula'})} className="p-1.5 bg-white hover:bg-emerald-50 hover:text-emerald-700 text-slate-400 rounded-md border border-slate-200 transition-colors ml-1">
                      <ArrowDownToLine className="w-3.5 h-3.5" />
                  </button>
              </div>
@@ -2028,10 +2031,10 @@ export default function Gamme({
                        ? 'bg-indigo-600 text-white border-indigo-600 shadow-md shadow-indigo-200' 
                        : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'
                    }`}
-                   title="Activer/Désactiver le mode sélection"
+                   title={tx(lang,{fr:'Activer/Désactiver le mode sélection',ar:'تفعيل/إلغاء وضع التحديد',en:'Toggle selection mode',es:'Activar/Desactivar selección',pt:'Ativar/Desativar seleção',tr:'Seçim modunu aç/kapat'})}
                  >
                    <CheckSquare className="w-4 h-4" />
-                   <span className="hidden sm:inline">Sélection</span>
+                    <span className="hidden sm:inline">{tx(lang,{fr:'Sélection',ar:'تحديد',en:'Select',es:'Selección',pt:'Seleção',tr:'Seç'})}</span>
                  </button>
 
                  <button 
@@ -2039,7 +2042,7 @@ export default function Gamme({
                    className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-xs font-bold bg-indigo-50 text-indigo-700 border border-indigo-100 hover:bg-indigo-100 transition-colors whitespace-nowrap"
                  >
                    <Ruler className="w-4 h-4" />
-                   <span className="hidden sm:inline">{showLength ? 'Masquer L' : 'Afficher L'}</span>
+                    <span className="hidden sm:inline">{showLength ? tx(lang,{fr:'Masquer L',ar:'إخفاء L',en:'Hide L',es:'Ocultar L',pt:'Ocultar L',tr:'L Gizle'}) : tx(lang,{fr:'Afficher L',ar:'إظهار L',en:'Show L',es:'Mostrar L',pt:'Mostrar L',tr:'L Göster'})}</span>
                    <span className="sm:hidden">L</span>
                  </button>
                  
@@ -2050,11 +2053,11 @@ export default function Gamme({
                       ? 'border-rose-300 bg-rose-50 text-rose-700 hover:bg-rose-100'
                       : 'border-amber-200 bg-amber-50 text-amber-900 hover:bg-amber-100 hover:border-amber-300'
                   }`}
-                   title="Attribuer automatiquement les guides"
+                   title={tx(lang,{fr:'Attribuer automatiquement les guides',ar:'تعيين الأدلة تلقائياً',en:'Auto-assign guides',es:'Asignar guías automáticamente',pt:'Atribuir guias automaticamente',tr:'Kılavuzları otomatik ata'})}
                  >
                    <Wand2 className="w-4 h-4 text-amber-700" />
-                   <span className="hidden sm:inline">Auto-Guides</span>
-                   <span className="sm:hidden">Auto</span>
+                    <span className="hidden sm:inline">{tx(lang,{fr:'Auto-Guides',ar:'تلقائي-أدلة',en:'Auto-Guides',es:'Auto-Guías',pt:'Auto-Guias',tr:'Oto-Kılavuz'})}</span>
+                    <span className="sm:hidden">{tx(lang,{fr:'Auto',ar:'تلقائي',en:'Auto',es:'Auto',pt:'Auto',tr:'Oto'})}</span>
                  </button>
 
                  <button 
@@ -2062,8 +2065,8 @@ export default function Gamme({
                    className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-2 rounded-lg font-bold shadow-sm transition-colors text-xs uppercase tracking-wide whitespace-nowrap"
                  >
                    <Plus className="w-4 h-4" />
-                   Ajouter
-                 </button>
+                    {tx(lang,{fr:'Ajouter',ar:'إضافة',en:'Add',es:'Añadir',pt:'Adicionar',tr:'Ekle'})}
+                  </button>
              </div>
           </div>
         </div>
@@ -2080,7 +2083,7 @@ export default function Gamme({
                         <button 
                             onClick={handleSelectAll} 
                             className="hover:text-indigo-600 transition-colors focus:outline-none"
-                            title="Tout sélectionner / Désélectionner"
+                            title={tx(lang,{fr:'Tout sélectionner / Désélectionner',ar:'تحديد الكل / إلغاء التحديد',en:'Select all / Deselect',es:'Seleccionar todo / Deseleccionar',pt:'Selecionar tudo / Desmarcar',tr:'Tümünü seç / Seçimi kaldır'})}
                         >
                             {selectedOpIds.length === operations.length && operations.length > 0 ? (
                                 <div className="w-4 h-4 border rounded bg-indigo-600 border-indigo-600 flex items-center justify-center text-white">
@@ -2093,22 +2096,22 @@ export default function Gamme({
                     </th>
                 )}
                 
-                <th className={`py-4 px-4 w-12 text-center font-bold text-[11px] uppercase tracking-wider text-slate-400 sticky ${isSelectionMode ? 'left-8' : 'left-0'} top-0 bg-white z-30 border-b border-slate-100 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]`}>N°</th>
+                <th className={`py-4 px-4 w-12 text-center font-bold text-[11px] uppercase tracking-wider text-slate-400 sticky ${isSelectionMode ? 'left-8' : 'left-0'} top-0 bg-white z-30 border-b border-slate-100 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]`}>{tx(lang,{fr:'N°',ar:'رقم',en:'No.',es:'N°',pt:'N°',tr:'No.'})}</th>
                 
                 {/* SIDE COLUMN HEADER - COMPACT & ALWAYS VISIBLE */}
-                <th className={`py-4 px-1 w-10 text-center font-bold text-[11px] uppercase tracking-wider text-slate-400 sticky ${isSelectionMode ? 'left-20' : 'left-12'} top-0 bg-white z-30 border-r border-slate-50 border-b border-slate-100`} title="Côté (G/D)">C</th>
+                <th className={`py-4 px-1 w-10 text-center font-bold text-[11px] uppercase tracking-wider text-slate-400 sticky ${isSelectionMode ? 'left-20' : 'left-12'} top-0 bg-white z-30 border-r border-slate-50 border-b border-slate-100`} title={tx(lang,{fr:'Côté (G/D)',ar:'جانب (ي/س)',en:'Side (L/R)',es:'Lado (I/D)',pt:'Lado (E/D)',tr:'Yön (S/Sağ)'})}>{tx(lang,{fr:'C',ar:'.ج',en:'S',es:'L',pt:'L',tr:'Y'})}</th>
                 {sectionSplitEnabled && (
-                  <th className="py-4 px-1 w-10 text-center font-bold text-[11px] uppercase tracking-wider text-slate-400 border-r border-slate-50 sticky top-0 bg-white z-30 border-b border-slate-100" title="Section (Préparation / Montage / Global)">S</th>
+                  <th className="py-4 px-1 w-10 text-center font-bold text-[11px] uppercase tracking-wider text-slate-400 border-r border-slate-50 sticky top-0 bg-white z-30 border-b border-slate-100" title={tx(lang,{fr:'Section (Préparation / Montage / Global)',ar:'قسم (تحضير / تركيب / عام)',en:'Section (Preparation / Assembly / Global)',es:'Sección (Preparación / Montaje / Global)',pt:'Seção (Preparação / Montagem / Global)',tr:'Bölüm (Hazırlık / Montaj / Genel)'})}>{tx(lang,{fr:'S',ar:'ق',en:'S',es:'S',pt:'S',tr:'B'})}</th>
                 )}
                 
-                <th className="py-4 px-4 font-bold text-[11px] uppercase tracking-wider text-slate-400 min-w-[200px] sticky top-0 bg-white z-30 border-b border-slate-100">Description de l'opération</th>
-                <th className="py-4 px-4 w-40 font-bold text-[11px] uppercase tracking-wider text-slate-400 sticky top-0 bg-white z-30 border-b border-slate-100">Machine</th>
-                <th className="py-4 px-4 w-24 text-center font-bold text-[11px] uppercase tracking-wider text-slate-400 sticky top-0 bg-white z-30 border-b border-slate-100">F. Guide</th>
+                <th className="py-4 px-4 font-bold text-[11px] uppercase tracking-wider text-slate-400 min-w-[200px] sticky top-0 bg-white z-30 border-b border-slate-100">{tx(lang,{fr:"Description de l'opération",ar:'وصف العملية',en:'Operation Description',es:'Descripción de la operación',pt:'Descrição da operação',tr:'İşlem Tanımı'})}</th>
+                <th className="py-4 px-4 w-40 font-bold text-[11px] uppercase tracking-wider text-slate-400 sticky top-0 bg-white z-30 border-b border-slate-100">{tx(lang,{fr:'Machine',ar:'آلة',en:'Machine',es:'Máquina',pt:'Máquina',tr:'Makine'})}</th>
+                <th className="py-4 px-4 w-24 text-center font-bold text-[11px] uppercase tracking-wider text-slate-400 sticky top-0 bg-white z-30 border-b border-slate-100">{tx(lang,{fr:'F. Guide',ar:'م. دليل',en:'G. Factor',es:'F. Guía',pt:'F. Guia',tr:'R. Faktör'})}</th>
                 {showLength && (
-                  <th className="py-4 px-4 w-20 text-center font-bold text-[11px] uppercase tracking-wider text-indigo-600 sticky top-0 bg-white z-30 border-b border-slate-100">L / Qté</th>
+                  <th className="py-4 px-4 w-20 text-center font-bold text-[11px] uppercase tracking-wider text-indigo-600 sticky top-0 bg-white z-30 border-b border-slate-100">{tx(lang,{fr:'L / Qté',ar:'L / كم',en:'L / Qty',es:'L / Cant',pt:'L / Qtd',tr:'L / Mikt'})}</th>
                 )}
-                <th className="py-4 px-4 w-24 text-center font-bold text-[11px] uppercase tracking-wider text-orange-600 sticky top-0 bg-white z-30 border-b border-slate-100">Guide</th>
-                <th className="py-4 px-4 w-24 text-center font-bold text-[11px] uppercase tracking-wider text-emerald-600 sticky top-0 bg-white z-30 border-b border-slate-100">CHRONO</th>
+                <th className="py-4 px-4 w-24 text-center font-bold text-[11px] uppercase tracking-wider text-orange-600 sticky top-0 bg-white z-30 border-b border-slate-100">{tx(lang,{fr:'Guide',ar:'دليل',en:'Guide',es:'Guía',pt:'Guia',tr:'Kılavuz'})}</th>
+                <th className="py-4 px-4 w-24 text-center font-bold text-[11px] uppercase tracking-wider text-emerald-600 sticky top-0 bg-white z-30 border-b border-slate-100">{tx(lang,{fr:'CHRONO',ar:'CHRONO',en:'CHRONO',es:'CHRONO',pt:'CHRONO',tr:'CHRONO'})}</th>
                 <th className="py-4 px-4 w-10 sticky top-0 bg-white z-30 border-b border-slate-100"></th>
               </tr>
             </thead>
@@ -2231,7 +2234,7 @@ export default function Gamme({
                                     type="button"
                                     onClick={(e) => { e.stopPropagation(); setPhotoPreview({ src: op.photo!, title: `Op. ${getDisplayIndex(op, index)} — ${op.description || ''}` }); }}
                                     className="relative w-9 h-9 shrink-0 rounded-lg overflow-hidden border border-slate-200 shadow-sm bg-slate-50 group/photo"
-                                    title="Voir la photo"
+                                    title={tx(lang,{fr:'Voir la photo',ar:'عرض الصورة',en:'View photo',es:'Ver foto',pt:'Ver foto',tr:'Fotoğrafı gör'})}
                                 >
                                     <img src={op.photo} alt="" className="w-full h-full object-cover" />
                                     <span className="absolute inset-0 flex items-center justify-center bg-black/0 group-hover/photo:bg-black/35 transition-colors">
@@ -2243,7 +2246,7 @@ export default function Gamme({
                             <button
                                 type="button"
                                 onClick={(e) => openPhotoMenu(e, op.id, !!op.photo)}
-                                title="Ajouter / changer la photo"
+                                title={tx(lang,{fr:'Ajouter / changer la photo',ar:'إضافة / تغيير الصورة',en:'Add / change photo',es:'Añadir / cambiar foto',pt:'Adicionar / alterar foto',tr:'Fotoğraf ekle / değiştir'})}
                                 className="relative shrink-0"
                             >
                                 {primaryPosteColor ? (
@@ -2284,7 +2287,7 @@ export default function Gamme({
                         <button
                             onClick={(e) => { e.stopPropagation(); toggleSide(op.id); }}
                             className={`w-7 h-7 rounded-lg border flex items-center justify-center text-[10px] transition-all mx-auto select-none shadow-sm ${sideBadgeClass}`}
-                            title="Changer Côté (G/D)"
+                            title={tx(lang,{fr:'Changer Côté (G/D)',ar:'تغيير الجانب (ي/س)',en:'Change Side (L/R)',es:'Cambiar Lado (I/D)',pt:'Alterar Lado (E/D)',tr:'Yön Değiştir (S/Sağ)'})}
                         >
                             {sideText}
                         </button>
@@ -2302,7 +2305,7 @@ export default function Gamme({
                                   <button
                                       onClick={(e) => { e.stopPropagation(); toggleSection(op.id); }}
                                       className={`w-7 h-7 rounded-lg border flex items-center justify-center text-[10px] font-bold transition-all mx-auto select-none shadow-sm ${cls}`}
-                                      title={`Section: ${sec} (cliquer pour changer)`}
+                                       title={tx(lang,{fr:`Section: ${sec} (cliquer pour changer)`,ar:`القسم: ${sec} (انقر للتغيير)`,en:`Section: ${sec} (click to change)`,es:`Sección: ${sec} (clic para cambiar)`,pt:`Seção: ${sec} (clique para alterar)`,tr:`Bölüm: ${sec} (değiştirmek için tıklayın)`})}
                                   >
                                       {text}
                                   </button>
@@ -2320,7 +2323,7 @@ export default function Gamme({
                                 value={op.description}
                                 onChange={(val) => handleDescriptionChange(val, op.id)}
                                 onBlur={(e) => handleDescriptionBlur(e.target.value)}
-                                placeholder="Saisir description..."
+                                placeholder={tx(lang,{fr:'Saisir description...',ar:'أدخل الوصف...',en:'Enter description...',es:'Ingrese descripción...',pt:'Insira descrição...',tr:'Açıklama girin...'})}
                                 className="relative z-10 w-full bg-transparent border-none outline-none font-medium text-slate-700 placeholder:text-slate-300 focus:placeholder:text-slate-400 text-sm disabled:cursor-not-allowed"
                                 containerClassName="w-full"
                                 disabled={isLinkingMode} // Disable text editing when linking
@@ -2331,8 +2334,8 @@ export default function Gamme({
                                   <div className="flex items-center gap-1 mt-1.5 group/flux">
                                       <div className="relative flex items-center">
                                           <ArrowLeftToLine className="w-3 h-3 text-emerald-500 -ml-0.5 mr-1" />
-                                          <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 border border-emerald-200 shadow-sm cursor-help" title={`Cette opération reçoit le flux de l'opération N°${incomingDisplayId}`}>
-                                              Provient de N° {incomingDisplayId}
+                                          <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 border border-emerald-200 shadow-sm cursor-help"                                           title={tx(lang,{fr:`Cette opération reçoit le flux de l'opération N°${incomingDisplayId}`,ar:`هذه العملية تستقبل تدفق العملية رقم ${incomingDisplayId}`,en:`This operation receives flow from operation No.${incomingDisplayId}`,es:`Esta operación recibe flujo de operación N°${incomingDisplayId}`,pt:`Esta operação recebe fluxo da operação N°${incomingDisplayId}`,tr:`Bu işlem, No.${incomingDisplayId} işleminden akış alır`})}>
+                                              {tx(lang,{fr:`Provient de N°`,ar:`من رقم`,en:`From No.`,es:`Proviene de N°`,pt:`Provém de N°`,tr:`No.'dan geliyor`})} {incomingDisplayId}
                                           </span>
                                       </div>
                                   </div>
@@ -2344,11 +2347,11 @@ export default function Gamme({
                                       <div className="relative flex items-center">
                                           <CornerDownRight className="w-3 h-3 text-blue-400 -ml-0.5 mr-1" />
                                           <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200 shadow-sm hover:bg-blue-100 transition-colors">
-                                              Vers N° {getOpDisplayId(op.targetOperationId)}
+                                              {tx(lang,{fr:'Vers N°',ar:'إلى رقم',en:'To No.',es:'Hacia N°',pt:'Para N°',tr:"No.'ya"})} {getOpDisplayId(op.targetOperationId)}
                                               <button 
                                                 onClick={(e) => { e.stopPropagation(); clearFlux(op.id); }}
                                                 className="ml-1 hover:text-red-500 text-blue-400 p-0.5 rounded-full hover:bg-white transition-all"
-                                                title="Supprimer le lien"
+                                                title={tx(lang,{fr:'Supprimer le lien',ar:'حذف الرابط',en:'Delete link',es:'Eliminar enlace',pt:'Excluir link',tr:'Bağlantıyı sil'})}
                                               >
                                                   <X className="w-2.5 h-2.5" />
                                               </button>
@@ -2367,7 +2370,7 @@ export default function Gamme({
                           value={machineValue}
                           onChange={(val) => handleMachineChange(op.id, val)}
                           className={`w-full bg-slate-100/50 border border-slate-200 rounded-lg px-2 py-2 text-xs outline-none focus:border-emerald-500 focus:bg-white transition-all placeholder:text-slate-400 ${shouldHighlightMachine ? 'text-rose-600 font-bold border-rose-300 bg-rose-50/70 ring-1 ring-rose-100' : 'text-slate-700'}`}
-                          placeholder="Mac"
+                          placeholder={tx(lang,{fr:'Mac',ar:'آلة',en:'Mach',es:'Máq',pt:'Máq',tr:'Mak'})}
                           containerClassName="w-full"
                           disabled={isLinkingMode}
                         />
@@ -2406,7 +2409,7 @@ export default function Gamme({
                                 ? 'bg-amber-50 text-amber-700 border-amber-200 focus:border-amber-400' 
                                 : 'bg-indigo-50/30 text-indigo-700 border-indigo-100 focus:border-indigo-500'
                             }`}
-                            placeholder={isCounterMachine ? "Qté" : "-"}
+                            placeholder={isCounterMachine ? tx(lang,{fr:'Qté',ar:'كم',en:'Qty',es:'Cant',pt:'Qtd',tr:'Mikt'}) : "-"}
                           />
                         </div>
                       </td>
@@ -2417,7 +2420,7 @@ export default function Gamme({
                                 type="text"
                                 value={assignedGuideName}
                                 onChange={(e) => updateGuideName(op.id, e.target.value)}
-                                placeholder="-"
+                                placeholder={tx(lang,{fr:'-',ar:'-',en:'-',es:'-',pt:'-',tr:'-'})}
                                 disabled={isLinkingMode}
                                 className={`w-full px-2 py-1.5 rounded-lg border text-xs font-bold outline-none transition-all pr-5 ${
                                     assignedGuideName 
@@ -2429,7 +2432,7 @@ export default function Gamme({
                                 <button 
                                     onClick={() => clearGuide(op.id)}
                                     className="absolute right-1 top-1/2 -translate-y-1/2 p-0.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors opacity-0 group-hover/guide-col:opacity-100"
-                                    title="Supprimer le guide"
+                                    title={tx(lang,{fr:'Supprimer le guide',ar:'حذف الدليل',en:'Delete guide',es:'Eliminar guía',pt:'Excluir guia',tr:'Kılavuzu sil'})}
                                 >
                                     <Minus className="w-3 h-3" />
                                 </button>
@@ -2441,14 +2444,14 @@ export default function Gamme({
                                         if (!machineValue.trim()) {
                                             warnGuideRequirements(
                                               [op.id],
-                                              "Impossible d'ajouter un guide sans machine. Renseignez d'abord la colonne Machine."
+                                              tx(lang,{fr:"Impossible d'ajouter un guide sans machine. Renseignez d'abord la colonne Machine.",ar:'لا يمكن إضافة دليل بدون آلة. املأ عمود الآلة أولاً.',en:'Cannot add a guide without a machine. Fill in the Machine column first.',es:'No se puede añadir una guía sin máquina. Rellene primero la columna Máquina.',pt:'Não é possível adicionar um guia sem máquina. Preencha a coluna Máquina primeiro.',tr:'Makine olmadan kılavuz eklenemez. Önce Makine sütununu doldurun.'})
                                             );
                                             return;
                                         }
                                         setShowGuideModal({ opId: op.id, machineName: machineValue });
                                     }}
                                     className="absolute right-1 top-1/2 -translate-y-1/2 p-1 text-slate-300 hover:text-orange-500 transition-colors opacity-0 group-hover/guide-col:opacity-100"
-                                    title="Choisir dans la liste"
+                                    title={tx(lang,{fr:'Choisir dans la liste',ar:'اختيار من القائمة',en:'Choose from list',es:'Elegir de la lista',pt:'Escolher da lista',tr:'Listeden seç'})}
                                 >
                                     <Plus className="w-3 h-3" />
                                 </button>
@@ -2471,8 +2474,8 @@ export default function Gamme({
                             }}
                             disabled={isLinkingMode}
                             className={`w-full border rounded-lg px-2 py-2 text-center text-xs font-mono outline-none transition-all placeholder:text-emerald-200 ${chronoInputClass}`}
-                            placeholder="0"
-                            title={isForced ? "Temps forcé manuellement" : "Temps calculé"}
+                            placeholder={tx(lang,{fr:'0',ar:'0',en:'0',es:'0',pt:'0',tr:'0'})}
+                            title={isForced ? tx(lang,{fr:'Temps forcé manuellement',ar:'وقت إجباري يدوي',en:'Manually forced time',es:'Tiempo forzado manualmente',pt:'Tempo forçado manualmente',tr:'Manuel zorlanmış süre'}) : tx(lang,{fr:'Temps calculé',ar:'وقت محسوب',en:'Calculated time',es:'Tiempo calculado',pt:'Tempo calculado',tr:'Hesaplanan süre'})}
                           />
                        </div>
                     </td>
@@ -2495,7 +2498,7 @@ export default function Gamme({
                   
                   {operations.length === 0 && (
                       <div className="flex flex-col items-center justify-center py-8 text-slate-400 border-2 border-dashed border-slate-200 rounded-xl mb-4 bg-slate-50/50">
-                          <p className="text-sm font-medium">La gamme est vide.</p>
+                          <p className="text-sm font-medium">{tx(lang,{fr:'La gamme est vide.',ar:'التسلسل فارغ.',en:'The routing is empty.',es:'La gama está vacía.',pt:'A gama está vazia.',tr:'Rota boş.'})}</p>
                       </div>
                   )}
 
@@ -2504,7 +2507,7 @@ export default function Gamme({
                     className="w-full py-3 border-2 border-dashed border-slate-200 rounded-xl text-slate-400 hover:text-emerald-600 hover:border-emerald-300 hover:bg-emerald-50 transition-all flex items-center justify-center gap-2 font-medium text-sm group"
                   >
                     <Plus className="w-4 h-4 group-hover:scale-110 transition-transform" />
-                    Ajouter une ligne
+                    {tx(lang,{fr:'Ajouter une ligne',ar:'إضافة سطر',en:'Add a row',es:'Añadir una línea',pt:'Adicionar uma linha',tr:'Satır ekle'})}
                   </button>
                 </td>
               </tr>
@@ -2530,12 +2533,12 @@ export default function Gamme({
                         <span className="inline-flex w-8 h-8 items-center justify-center rounded-xl bg-emerald-100 text-emerald-700 shadow-sm">
                             <Shirt className="w-4 h-4" />
                         </span>
-                        Difficulté Tissu
+                        {tx(lang,{fr:'Difficulté Tissu',ar:'صعوبة القماش',en:'Fabric Difficulty',es:'Dificultad Tela',pt:'Dificuldade Tecido',tr:'Kumaş Zorluğu'})}
                     </h3>
                     <button
                         onClick={() => handleFabricModalClose()}
                         className="w-9 h-9 rounded-xl border border-slate-200 bg-white text-slate-400 hover:text-slate-700 hover:border-slate-300 hover:bg-slate-50 transition-colors flex items-center justify-center"
-                        title="Fermer"
+                        title={tx(lang,{fr:'Fermer',ar:'إغلاق',en:'Close',es:'Cerrar',pt:'Fechar',tr:'Kapat'})}
                     >
                         <X className="w-5 h-5" />
                     </button>
@@ -2543,25 +2546,25 @@ export default function Gamme({
                 
                 <div className="p-4 sm:p-5 space-y-4 overflow-y-auto custom-scrollbar min-h-0">
                     <p className="text-xs leading-relaxed text-slate-600 bg-gradient-to-r from-slate-50 to-emerald-50/50 border border-slate-100 rounded-2xl px-3.5 py-3 animate-in fade-in duration-500">
-                        Ajustez la penalite selon le type de tissu pour affiner le temps de chaque operation machine.
+                        {tx(lang,{fr:'Ajustez la penalite selon le type de tissu pour affiner le temps de chaque operation machine.',ar:'اضبط الغرامة حسب نوع القماش لضبط وقت كل عملية آلة.',en:'Adjust the penalty by fabric type to refine each machine operation time.',es:'Ajuste la penalización según el tipo de tela para afinar cada tiempo de operación.',pt:'Ajuste a penalidade conforme o tipo de tecido para refinar cada tempo de operação.',tr:'Her makine işlem süresini hassaslaştırmak için kumaş türüne göre cezayı ayarlayın.'})}
                     </p>
                     
                     {/* Difficulty Selector */}
                     <div className="space-y-3">
-                        <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Niveau de difficulte</label>
+                        <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">{tx(lang,{fr:'Niveau de difficulte',ar:'مستوى الصعوبة',en:'Difficulty Level',es:'Nivel de dificultad',pt:'Nível de dificuldade',tr:'Zorluk Seviyesi'})}</label>
                         <div className="grid grid-cols-3 gap-2">
                             {(['easy', 'medium', 'hard'] as const).map(level => (
                                 <button
                                     key={level}
                                     onClick={() => selectFabricLevel(level)}
-                                    title={`Niveau ${FABRIC_LEVEL_LABELS[level]}`}
+                                    title={tx(lang,{fr:`Niveau ${FABRIC_LEVEL_LABELS[level]}`,ar:`مستوى ${FABRIC_LEVEL_LABELS[level] === 'Facile' ? 'سهل' : FABRIC_LEVEL_LABELS[level] === 'Moyen' ? 'متوسط' : 'صعب'}`,en:`${FABRIC_LEVEL_LABELS[level] === 'Facile' ? 'Easy' : FABRIC_LEVEL_LABELS[level] === 'Moyen' ? 'Medium' : 'Hard'} Level`,es:`Nivel ${FABRIC_LEVEL_LABELS[level] === 'Facile' ? 'Fácil' : FABRIC_LEVEL_LABELS[level] === 'Moyen' ? 'Medio' : 'Difícil'}`,pt:`Nível ${FABRIC_LEVEL_LABELS[level] === 'Facile' ? 'Fácil' : FABRIC_LEVEL_LABELS[level] === 'Moyen' ? 'Médio' : 'Difícil'}`,tr:`${FABRIC_LEVEL_LABELS[level] === 'Facile' ? 'Kolay' : FABRIC_LEVEL_LABELS[level] === 'Moyen' ? 'Orta' : 'Zor'} Seviye`})}
                                     className={`flex flex-col items-center justify-center py-3 px-1 rounded-2xl border-2 transition-all duration-200 active:scale-95 ${
                                         (fabricDraft || fabricSettings).selected === level
                                         ? (level === 'easy' ? 'bg-emerald-50 border-emerald-500 text-emerald-700 shadow-sm shadow-emerald-100' : level === 'medium' ? 'bg-orange-50 border-orange-500 text-orange-700 shadow-sm shadow-orange-100' : 'bg-rose-50 border-rose-500 text-rose-700 shadow-sm shadow-rose-100')
                                         : 'bg-white border-slate-100 text-slate-500 hover:border-slate-300 hover:bg-slate-50 hover:-translate-y-0.5'
                                     }`}
                                 >
-                                    <span className="text-xs font-bold capitalize">{FABRIC_LEVEL_LABELS[level]}</span>
+                                    <span className="text-xs font-bold capitalize">{tx(lang,{fr:FABRIC_LEVEL_LABELS[level],ar:level === 'easy' ? 'سهل' : level === 'medium' ? 'متوسط' : 'صعب',en:level === 'easy' ? 'Easy' : level === 'medium' ? 'Medium' : 'Hard',es:level === 'easy' ? 'Fácil' : level === 'medium' ? 'Medio' : 'Difícil',pt:level === 'easy' ? 'Fácil' : level === 'medium' ? 'Médio' : 'Difícil',tr:level === 'easy' ? 'Kolay' : level === 'medium' ? 'Orta' : 'Zor'})}</span>
                                 </button>
                             ))}
                         </div>
@@ -2572,14 +2575,14 @@ export default function Gamme({
                             (fabricDraft || fabricSettings).selected === 'medium' ? 'bg-orange-50 border-orange-100 text-orange-600' :
                             'bg-rose-50 border-rose-100 text-rose-600'
                         }`}>
-                            <span className="font-bold mr-1">Exemples:</span>
-                            {FABRIC_LEVEL_EXAMPLES[(fabricDraft || fabricSettings).selected]}
+                            <span className="font-bold mr-1">{tx(lang,{fr:'Exemples:',ar:'أمثلة:',en:'Examples:',es:'Ejemplos:',pt:'Exemplos:',tr:'Örnekler:'})}</span>
+                            {tx(lang,(() => { const lvl = (fabricDraft || fabricSettings).selected; return {fr: FABRIC_LEVEL_EXAMPLES[lvl], ar: lvl === 'easy' ? 'قطن، بوبلين، جيرسي ثابت' : lvl === 'medium' ? 'دنيم، قطيفة، تريكو خفيف' : 'حرير، شيفون، جلد، ساتان', en: lvl === 'easy' ? 'Cotton, Poplin, Stable Jersey' : lvl === 'medium' ? 'Denim, Velvet, Light Knit' : 'Silk, Chiffon, Leather, Satin', es: lvl === 'easy' ? 'Algodón, Popelina, Jersey estable' : lvl === 'medium' ? 'Denim, Terciopelo, Punto ligero' : 'Seda, Gasilla, Cuero, Satén', pt: lvl === 'easy' ? 'Algodão, Popeline, Jersey estável' : lvl === 'medium' ? 'Denim, Veludo, Malha leve' : 'Seda, Mousseline, Couro, Cetim', tr: lvl === 'easy' ? 'Pamuk, Poplin, Stabil Jersey' : lvl === 'medium' ? 'Denim, Kadife, Hafif Örgü' : 'İpek, Şifon, Deri, Saten'}; })())}
                         </div>
                     </div>
                     
                     {/* Penalty Input */}
                     <div className="space-y-2">
-                        <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Penalite (Secondes)</label>
+                        <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">{tx(lang,{fr:'Penalite (Secondes)',ar:'غرامة (ثوان)',en:'Penalty (Seconds)',es:'Penalización (Segundos)',pt:'Penalidade (Segundos)',tr:'Ceza (Saniye)'})}</label>
                         <div className="relative">
                             <input 
                                 type="number" 
@@ -2593,11 +2596,11 @@ export default function Gamme({
                                 onWheel={(e) => (e.target as HTMLInputElement).blur()}
                                 className="w-full bg-white border border-slate-200 rounded-2xl px-4 py-3 text-lg font-black text-slate-700 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all shadow-sm"
                             />
-                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-black text-slate-500 uppercase bg-slate-100 px-2 py-1 rounded-md">Sec</span>
+                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-black text-slate-500 uppercase bg-slate-100 px-2 py-1 rounded-md">{tx(lang,{fr:'Sec',ar:'ث',en:'Sec',es:'Seg',pt:'Seg',tr:'Sn'})}</span>
                         </div>
                         <div className="flex items-center justify-between gap-2">
                             <p className="text-[10px] text-slate-400 flex items-center gap-1">
-                                <Info className="w-3 h-3" /> Ajouté à chaque opération machine.
+                                <Info className="w-3 h-3" /> {tx(lang,{fr:'Ajouté à chaque opération machine.',ar:'يضاف إلى كل عملية آلة.',en:'Added to each machine operation.',es:'Añadido a cada operación de máquina.',pt:'Adicionado a cada operação de máquina.',tr:'Her makine işlemine eklenir.'})}
                             </p>
                             <button
                                 type="button"
@@ -2606,9 +2609,9 @@ export default function Gamme({
                                     updateFabricValue(selectedLevel, FABRIC_LEVEL_SUGGESTED_SECONDS[selectedLevel]);
                                 }}
                                 className="text-[10px] font-bold px-2 py-1 rounded-md border border-indigo-100 bg-indigo-50 text-indigo-600 hover:bg-indigo-100 transition-colors"
-                                title="Appliquer la valeur recommandee pour ce niveau"
+                                title={tx(lang,{fr:'Appliquer la valeur recommandee pour ce niveau',ar:'تطبيق القيمة الموصى بها لهذا المستوى',en:'Apply recommended value for this level',es:'Aplicar valor recomendado para este nivel',pt:'Aplicar valor recomendado para este nível',tr:'Bu seviye için önerilen değeri uygula'})}
                             >
-                                Valeur recommandee
+                                {tx(lang,{fr:'Valeur recommandee',ar:'القيمة الموصى بها',en:'Recommended value',es:'Valor recomendado',pt:'Valor recomendado',tr:'Önerilen değer'})}
                             </button>
                         </div>
                     </div>
@@ -2616,7 +2619,7 @@ export default function Gamme({
                     {/* Toggle */}
                     <div className="flex items-center justify-between pt-1">
                         <label className="w-full flex items-center justify-between gap-3 cursor-pointer group px-3.5 py-3 rounded-2xl border border-slate-100 bg-gradient-to-r from-slate-50 to-white hover:from-slate-100 hover:to-slate-50 transition-colors">
-                            <span className={`text-sm font-bold ${(fabricDraft || fabricSettings).enabled ? 'text-emerald-700' : 'text-slate-500'}`}>Activer la penalite</span>
+                            <span className={`text-sm font-bold ${(fabricDraft || fabricSettings).enabled ? 'text-emerald-700' : 'text-slate-500'}`}>{tx(lang,{fr:'Activer la penalite',ar:'تفعيل الغرامة',en:'Enable penalty',es:'Activar penalización',pt:'Ativar penalidade',tr:'Cezayı etkinleştir'})}</span>
                             <div className={`w-10 h-6 rounded-full p-1 transition-colors duration-300 ${(fabricDraft || fabricSettings).enabled ? 'bg-emerald-500' : 'bg-slate-200'}`}>
                                 <div className={`w-4 h-4 bg-white rounded-full shadow-md transform transition-transform duration-300 ${(fabricDraft || fabricSettings).enabled ? 'translate-x-4' : 'translate-x-0'}`} />
                             </div>
@@ -2641,10 +2644,10 @@ export default function Gamme({
                             onClick={() => updateFabricValue((fabricDraft || fabricSettings).selected, 0)}
                             className="w-full py-3.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-600 rounded-2xl font-bold text-sm transition-all active:scale-[0.98]"
                         >
-                            Réinitialiser
+                            {tx(lang,{fr:'Réinitialiser',ar:'إعادة تعيين',en:'Reset',es:'Reiniciar',pt:'Redefinir',tr:'Sıfırla'})}
                         </button>
                         <button onClick={() => handleFabricModalClose(true)} className="w-full py-3.5 bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-700 hover:to-emerald-600 text-white rounded-2xl font-black text-sm shadow-lg shadow-emerald-200 transition-all active:scale-[0.98]">
-                            Valider
+                            {tx(lang,{fr:'Valider',ar:'موافق',en:'Apply',es:'Validar',pt:'Validar',tr:'Onayla'})}
                         </button>
                     </div>
                 </div>
@@ -2662,10 +2665,10 @@ export default function Gamme({
                     <div>
                         <h3 className="font-bold text-slate-700 flex items-center gap-2">
                             <Layers className="w-5 h-5 text-orange-500" />
-                            Choisir un Guide
+                            {tx(lang,{fr:'Choisir un Guide',ar:'اختيار دليل',en:'Choose a Guide',es:'Elegir una Guía',pt:'Escolher um Guia',tr:'Kılavuz Seç'})}
                         </h3>
                         <p className="text-xs text-slate-400">
-                            Machine: <span className="font-bold text-slate-600">{showGuideModal.machineName || 'Toutes'}</span>
+                            {tx(lang,{fr:'Machine:',ar:'الآلة:',en:'Machine:',es:'Máquina:',pt:'Máquina:',tr:'Makine:'})} <span className="font-bold text-slate-600">{showGuideModal.machineName || tx(lang,{fr:'Toutes',ar:'الكل',en:'All',es:'Todas',pt:'Todas',tr:'Tümü'})}</span>
                         </p>
                     </div>
                     <div className="flex items-center gap-2">
@@ -2678,9 +2681,9 @@ export default function Gamme({
                                   ? 'opacity-40 cursor-not-allowed bg-slate-50 border-slate-200 text-slate-400'
                                   : 'bg-orange-50 border-orange-200 text-orange-700 hover:bg-orange-100'
                             }`}
-                            title={setGuides ? "Ajouter rapidement un guide depuis cette fenetre" : "Ajout guide indisponible ici"}
+                            title={setGuides ? tx(lang,{fr:'Ajouter rapidement un guide depuis cette fenetre',ar:'إضافة دليل بسرعة من هذه النافذة',en:'Quickly add a guide from this window',es:'Añadir rápidamente una guía desde esta ventana',pt:'Adicionar rapidamente um guia desta janela',tr:'Bu pencereden hızlıca kılavuz ekle'}) : tx(lang,{fr:'Ajout guide indisponible ici',ar:'إضافة دليل غير متاحة هنا',en:'Guide addition unavailable here',es:'Adición de guía no disponible aquí',pt:'Adição de guia indisponível aqui',tr:'Kılavuz ekleme burada mevcut değil'})}
                         >
-                            + Nouveau
+                            {tx(lang,{fr:'+ Nouveau',ar:'+ جديد',en:'+ New',es:'+ Nuevo',pt:'+ Novo',tr:'+ Yeni'})}
                         </button>
                         <button onClick={() => setShowGuideModal(null)} className="text-slate-400 hover:text-slate-600 transition-colors"><X className="w-5 h-5" /></button>
                     </div>
@@ -2692,7 +2695,7 @@ export default function Gamme({
                         <input 
                             type="text" 
                             autoFocus
-                            placeholder="Rechercher un guide..." 
+                            placeholder={tx(lang,{fr:'Rechercher un guide...',ar:'البحث عن دليل...',en:'Search for a guide...',es:'Buscar una guía...',pt:'Pesquisar um guia...',tr:'Kılavuz ara...'})} 
                             value={guideSearch}
                             onChange={(e) => setGuideSearch(e.target.value)}
                             onKeyDown={(e) => {
@@ -2720,7 +2723,7 @@ export default function Gamme({
                                     type="button"
                                     onClick={() => assignGuide(showGuideModal.opId, guide)}
                                     className="px-2 py-1 rounded-full text-[10px] font-bold border border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 transition-colors"
-                                    title="Guide frequent pour cette machine"
+                                    title={tx(lang,{fr:'Guide frequent pour cette machine',ar:'دليل متكرر لهذه الآلة',en:'Frequent guide for this machine',es:'Guía frecuente para esta máquina',pt:'Guia frequente para esta máquina',tr:'Bu makine için sık kullanılan kılavuz'})}
                                 >
                                     {guide.name}
                                 </button>
@@ -2734,9 +2737,9 @@ export default function Gamme({
                             onClick={() => assignGuide(showGuideModal.opId, guideModalSuggestion.guide)}
                             className="mt-2 w-full text-left px-3 py-2.5 rounded-xl border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 transition-colors"
                         >
-                            <p className="text-[10px] uppercase tracking-wide font-black text-emerald-600">Suggestion apprise</p>
+                            <p className="text-[10px] uppercase tracking-wide font-black text-emerald-600">{tx(lang,{fr:'Suggestion apprise',ar:'اقتراح متعلم',en:'Learned suggestion',es:'Sugerencia aprendida',pt:'Sugestão aprendida',tr:'Öğrenilen öneri'})}</p>
                             <p className="text-sm font-bold text-emerald-800">{guideModalSuggestion.guide.name}</p>
-                            <p className="text-[11px] text-emerald-700">Confiance: {Math.round(guideModalSuggestion.confidence * 100)}%</p>
+                            <p className="text-[11px] text-emerald-700">{tx(lang,{fr:'Confiance:',ar:'الثقة:',en:'Confidence:',es:'Confianza:',pt:'Confiança:',tr:'Güven:'})} {Math.round(guideModalSuggestion.confidence * 100)}%</p>
                         </button>
                     )}
 
@@ -2750,14 +2753,14 @@ export default function Gamme({
                                         setQuickGuideDraft(prev => ({ ...prev, name: e.target.value }));
                                         if (guideCreateErrors.name) setGuideCreateErrors(prev => ({ ...prev, name: false }));
                                     }}
-                                    placeholder="Nom guide*"
+                                    placeholder={tx(lang,{fr:'Nom guide*',ar:'اسم الدليل*',en:'Guide name*',es:'Nombre guía*',pt:'Nome guia*',tr:'Kılavuz adı*'})}
                                     className={`w-full px-2.5 py-2 rounded-lg text-xs outline-none transition-all ${guideCreateErrors.name ? 'border border-rose-300 bg-rose-50' : 'border border-slate-200 bg-slate-50 focus:border-orange-400'}`}
                                 />
                                 <input
                                     type="text"
                                     value={quickGuideDraft.category || ''}
                                     onChange={(e) => setQuickGuideDraft(prev => ({ ...prev, category: e.target.value }))}
-                                    placeholder="Categorie"
+                                    placeholder={tx(lang,{fr:'Categorie',ar:'فئة',en:'Category',es:'Categoría',pt:'Categoria',tr:'Kategori'})}
                                     className="w-full px-2.5 py-2 rounded-lg text-xs outline-none border border-slate-200 bg-slate-50 focus:border-orange-400 transition-all"
                                 />
                             </div>
@@ -2768,25 +2771,25 @@ export default function Gamme({
                                     setQuickGuideDraft(prev => ({ ...prev, machineType: e.target.value }));
                                     if (guideCreateErrors.machineType) setGuideCreateErrors(prev => ({ ...prev, machineType: false }));
                                 }}
-                                placeholder="Machine cible*"
+                                placeholder={tx(lang,{fr:'Machine cible*',ar:'الآلة المستهدفة*',en:'Target machine*',es:'Máquina objetivo*',pt:'Máquina alvo*',tr:'Hedef makine*'})}
                                 className={`w-full px-2.5 py-2 rounded-lg text-xs outline-none transition-all ${guideCreateErrors.machineType ? 'border border-rose-300 bg-rose-50' : 'border border-slate-200 bg-slate-50 focus:border-orange-400'}`}
                             />
                             <input
                                 type="text"
                                 value={quickGuideDraft.description || ''}
                                 onChange={(e) => setQuickGuideDraft(prev => ({ ...prev, description: e.target.value }))}
-                                placeholder="Description rapide"
+                                placeholder={tx(lang,{fr:'Description rapide',ar:'وصف سريع',en:'Quick description',es:'Descripción rápida',pt:'Descrição rápida',tr:'Hızlı açıklama'})}
                                 className="w-full px-2.5 py-2 rounded-lg text-xs outline-none border border-slate-200 bg-slate-50 focus:border-orange-400 transition-all"
                             />
                             {(guideCreateErrors.name || guideCreateErrors.machineType) && (
-                                <p className="text-[10px] font-bold text-rose-600">Nom guide et machine sont obligatoires.</p>
+                                <p className="text-[10px] font-bold text-rose-600">{tx(lang,{fr:'Nom guide et machine sont obligatoires.',ar:'اسم الدليل والآلة إجباريان.',en:'Guide name and machine are required.',es:'Nombre de guía y máquina son obligatorios.',pt:'Nome do guia e máquina são obrigatórios.',tr:'Kılavuz adı ve makine zorunludur.'})}</p>
                             )}
                             <button
                                 type="button"
                                 onClick={handleCreateGuideFromModal}
                                 className="w-full px-3 py-2 rounded-lg bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold transition-colors"
                             >
-                                Enregistrer + Assigner
+                                {tx(lang,{fr:'Enregistrer + Assigner',ar:'حفظ + تعيين',en:'Save + Assign',es:'Guardar + Asignar',pt:'Salvar + Atribuir',tr:'Kaydet + Ata'})}
                             </button>
                         </div>
                     )}
@@ -2821,8 +2824,8 @@ export default function Gamme({
                     ) : (
                         <div className="py-8 text-center">
                             <Layers className="w-10 h-10 text-slate-200 mx-auto mb-2" />
-                            <p className="text-sm text-slate-400">Aucun guide trouvé.</p>
-                            {guideSearch && <p className="text-xs text-slate-300 mt-1">Essayez un autre terme ou créez un nouveau guide.</p>}
+                            <p className="text-sm text-slate-400">{tx(lang,{fr:'Aucun guide trouvé.',ar:'لم يتم العثور على دليل.',en:'No guide found.',es:'Ninguna guía encontrada.',pt:'Nenhum guia encontrado.',tr:'Kılavuz bulunamadı.'})}</p>
+                            {guideSearch && <p className="text-xs text-slate-300 mt-1">{tx(lang,{fr:'Essayez un autre terme ou créez un nouveau guide.',ar:'جرب مصطلحاً آخر أو أنشئ دليلاً جديداً.',en:'Try another term or create a new guide.',es:'Intente otro término o cree una nueva guía.',pt:'Tente outro termo ou crie um novo guia.',tr:'Başka bir terim deneyin veya yeni bir kılavuz oluşturun.'})}</p>}
                         </div>
                     )}
                 </div>
@@ -2843,7 +2846,7 @@ export default function Gamme({
             onClick={(e) => e.stopPropagation()} 
         >
             <div className="px-3 pb-2 pt-0.5 border-b border-slate-100">
-                <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">Actions Rapides</p>
+                <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">{tx(lang,{fr:'Actions Rapides',ar:'إجراءات سريعة',en:'Quick Actions',es:'Acciones Rápidas',pt:'Ações Rápidas',tr:'Hızlı İşlemler'})}</p>
             </div>
             <div className="overflow-y-auto overflow-x-hidden custom-scrollbar flex-1 py-1">
             {/* LINKING ACTION: Only show if items are selected AND clicking on a different row */}
@@ -2851,7 +2854,7 @@ export default function Gamme({
                 <>
                     <button onClick={() => handleContextAction('targetThis')} className="w-full text-left px-4 py-3 hover:bg-emerald-50 flex items-center gap-2.5 transition-all group text-emerald-700 bg-emerald-50/50 hover:translate-x-0.5">
                         <ArrowLeftToLine className="w-4 h-4 text-emerald-600" /> 
-                        <span>🏁 Lier la sélection ici (Flux)</span>
+                        <span>🏁 {tx(lang,{fr:'Lier la sélection ici (Flux)',ar:'ربط التحديد هنا (تدفق)',en:'Link selection here (Flow)',es:'Enlazar selección aquí (Flujo)',pt:'Vincular seleção aqui (Fluxo)',tr:'Seçimi buraya bağla (Akış)'})}</span>
                     </button>
                     <div className="h-px bg-slate-100 my-1 mx-2"></div>
                 </>
@@ -2862,7 +2865,7 @@ export default function Gamme({
                 <>
                     <button onClick={() => handleContextAction('selectGroup')} className="w-full text-left px-4 py-2.5 hover:bg-indigo-50 flex items-center gap-2.5 transition-all group hover:translate-x-0.5">
                         <Layers className="w-4 h-4 text-indigo-600" /> 
-                        <span>Sélectionner Groupe</span>
+                        <span>{tx(lang,{fr:'Sélectionner Groupe',ar:'تحديد مجموعة',en:'Select Group',es:'Seleccionar Grupo',pt:'Selecionar Grupo',tr:'Grubu Seç'})}</span>
                     </button>
                     <div className="h-px bg-slate-100 my-1 mx-2"></div>
                 </>
@@ -2871,52 +2874,52 @@ export default function Gamme({
             {/* NEW: LINK FLUX ACTION - Manual Trigger */}
             <button onClick={() => handleContextAction('setFlux')} className="w-full text-left px-4 py-2.5 hover:bg-emerald-50 flex items-center gap-2.5 transition-all group text-slate-600 hover:text-emerald-700 hover:translate-x-0.5">
                 <ArrowRight className="w-4 h-4 text-slate-400 group-hover:text-emerald-500" /> 
-                <span>Définir Flux / Destination</span>
+                <span>{tx(lang,{fr:'Définir Flux / Destination',ar:'تحديد التدفق / الوجهة',en:'Set Flow / Destination',es:'Definir Flujo / Destino',pt:'Definir Fluxo / Destino',tr:'Akış / Hedef Belirle'})}</span>
             </button>
             <div className="h-px bg-slate-100 my-1 mx-2"></div>
 
             <button onClick={() => handleContextAction('select')} className="w-full text-left px-4 py-2.5 hover:bg-indigo-50 flex items-center gap-2.5 transition-all group hover:translate-x-0.5">
                 <CheckSquare className={`w-4 h-4 ${selectedOpIds.includes(contextMenu.opId!) ? 'text-indigo-600' : 'text-slate-400'}`} /> 
-                <span>{selectedOpIds.includes(contextMenu.opId!) ? 'Désélectionner' : 'Sélectionner'}</span>
+                <span>{selectedOpIds.includes(contextMenu.opId!) ? tx(lang,{fr:'Désélectionner',ar:'إلغاء التحديد',en:'Deselect',es:'Deseleccionar',pt:'Desmarcar',tr:'Seçimi kaldır'}) : tx(lang,{fr:'Sélectionner',ar:'تحديد',en:'Select',es:'Seleccionar',pt:'Selecionar',tr:'Seç'})}</span>
             </button>
             <div className="h-px bg-slate-100 my-1 mx-2"></div>
             <button onClick={() => handleContextAction('link')} disabled={selectedOpIds.length < 2} className={`w-full text-left px-4 py-2.5 hover:bg-emerald-50 flex items-center gap-2.5 transition-all group ${selectedOpIds.length < 2 ? 'opacity-50 cursor-not-allowed' : 'hover:translate-x-0.5'}`}>
                 <LinkIcon className="w-4 h-4 text-emerald-500" /> 
-                <span>Grouper / Lier ({selectedOpIds.length})</span>
+                <span>{tx(lang,{fr:'Grouper / Lier',ar:'تجميع / ربط',en:'Group / Link',es:'Agrupar / Enlazar',pt:'Agrupar / Vincular',tr:'Grupla / Bağla'})} ({selectedOpIds.length})</span>
             </button>
             <button onClick={() => handleContextAction('unlink')} className="w-full text-left px-4 py-2.5 hover:bg-orange-50 flex items-center gap-2.5 transition-all group hover:translate-x-0.5">
                 <Unlink className="w-4 h-4 text-orange-500" /> 
-                <span>Dégrouper</span>
+                <span>{tx(lang,{fr:'Dégrouper',ar:'فك التجميع',en:'Ungroup',es:'Desagrupar',pt:'Desagrupar',tr:'Grubu çöz'})}</span>
             </button>
             <div className="h-px bg-slate-100 my-1 mx-2"></div>
             <button onClick={() => handleContextAction('insert')} className="w-full text-left px-4 py-2.5 hover:bg-slate-50 flex items-center gap-2.5 transition-all group hover:translate-x-0.5">
                 <Plus className="w-4 h-4 text-slate-400 group-hover:text-indigo-500" /> 
-                <span>Insérer Poste</span>
+                <span>{tx(lang,{fr:'Insérer Poste',ar:'إدراج محطة',en:'Insert Station',es:'Insertar Puesto',pt:'Inserir Posto',tr:'İstasyon Ekle'})}</span>
             </button>
             <button onClick={() => handleContextAction('duplicate')} className="w-full text-left px-4 py-2.5 hover:bg-slate-50 flex items-center gap-2.5 transition-all group hover:translate-x-0.5">
                 <CopyPlus className="w-4 h-4 text-slate-400 group-hover:text-indigo-500" /> 
-                <span>Dupliquer</span>
+                <span>{tx(lang,{fr:'Dupliquer',ar:'نسخ مكرر',en:'Duplicate',es:'Duplicar',pt:'Duplicar',tr:'Çoğalt'})}</span>
             </button>
             <button onClick={() => handleContextAction('cut')} className="w-full text-left px-4 py-2.5 hover:bg-slate-50 flex items-center gap-2.5 transition-all group hover:translate-x-0.5">
                 <Scissors className="w-4 h-4 text-slate-400 group-hover:text-slate-600" /> 
-                <span>Couper</span>
+                <span>{tx(lang,{fr:'Couper',ar:'قص',en:'Cut',es:'Cortar',pt:'Cortar',tr:'Kes'})}</span>
             </button>
             <button onClick={() => handleContextAction('copy')} className="w-full text-left px-4 py-2.5 hover:bg-slate-50 flex items-center gap-2.5 transition-all group hover:translate-x-0.5">
                 <Copy className="w-4 h-4 text-slate-400 group-hover:text-slate-600" /> 
-                <span>Copier</span>
+                <span>{tx(lang,{fr:'Copier',ar:'نسخ',en:'Copy',es:'Copiar',pt:'Copiar',tr:'Kopyala'})}</span>
             </button>
             <button onClick={() => handleContextAction('paste')} disabled={!clipboard} className={`w-full text-left px-4 py-2.5 hover:bg-slate-50 flex items-center gap-2.5 transition-all group ${!clipboard ? 'opacity-50 cursor-not-allowed' : 'hover:translate-x-0.5'}`}>
                 <Clipboard className="w-4 h-4 text-slate-400 group-hover:text-slate-600" /> 
-                <span>Coller</span>
+                <span>{tx(lang,{fr:'Coller',ar:'لصق',en:'Paste',es:'Pegar',pt:'Colar',tr:'Yapıştır'})}</span>
             </button>
             <div className="h-px bg-slate-100 my-1 mx-2"></div>
             <button onClick={() => handleContextAction('clear')} className="w-full text-left px-4 py-2.5 hover:bg-amber-50 flex items-center gap-2.5 text-amber-600 transition-all hover:translate-x-0.5">
                 <Eraser className="w-4 h-4" /> 
-                <span>Vider le contenu</span>
+                <span>{tx(lang,{fr:'Vider le contenu',ar:'مسح المحتوى',en:'Clear content',es:'Vaciar contenido',pt:'Limpar conteúdo',tr:'İçeriği temizle'})}</span>
             </button>
             <button onClick={() => handleContextAction('delete')} className="w-full text-left px-4 py-2.5 hover:bg-rose-50 flex items-center gap-2.5 text-rose-600 transition-all hover:translate-x-0.5">
                 <Trash2 className="w-4 h-4" /> 
-                <span>Supprimer</span>
+                <span>{tx(lang,{fr:'Supprimer',ar:'حذف',en:'Delete',es:'Eliminar',pt:'Excluir',tr:'Sil'})}</span>
             </button>
             </div>
         </div>,
@@ -2935,10 +2938,10 @@ export default function Gamme({
                     </div>
                     <h3 className="text-lg font-bold flex items-center gap-2 relative z-10">
                         <Bot className="w-5 h-5 text-yellow-300" />
-                        Assistant Intelligent
+                        {tx(lang,{fr:'Assistant Intelligent',ar:'مساعد ذكي',en:'Smart Assistant',es:'Asistente Inteligente',pt:'Assistente Inteligente',tr:'Akıllı Asistan'})}
                     </h3>
                     <p className="text-rose-100 text-xs mt-1 relative z-10">
-                        Je "lis" votre gamme en temps réel pour apprendre et vous aider.
+                        {tx(lang,{fr:'Je "lis" votre gamme en temps réel pour apprendre et vous aider.',ar:'أنا "أقرأ" التسلسل الخاص بك في الوقت الفعلي للتعلم ومساعدتك.',en:'I "read" your routing in real-time to learn and help you.',es:'"Leo" su gama en tiempo real para aprender y ayudarle.',pt:'"Leio" sua gama em tempo real para aprender e ajudá-lo.',tr:'Size yardım etmek ve öğrenmek için rotanızı gerçek zamanlı "okuyorum".'})}
                     </p>
                     <button onClick={() => setShowAiModal(false)} disabled={isAnalyzing} className="absolute top-4 right-4 text-white/70 hover:text-white p-1 rounded-lg">
                         <X className="w-5 h-5" />
@@ -2952,18 +2955,18 @@ export default function Gamme({
                                 <MessageSquare className="w-6 h-6 text-rose-400" />
                             </div>
                             <p className="text-slate-500 text-sm font-medium">
-                                Bonjour ! J'analyse les <strong className="text-slate-800">{operations.length} opérations</strong> que vous avez saisies.
+                                {tx(lang,{fr:'Bonjour ! J\'analyse les',ar:'مرحباً! أحلل',en:'Hello! I analyze',es:'¡Hola! Analizo las',pt:'Olá! Analiso as',tr:'Merhaba! Analiz ediyorum'})} <strong className="text-slate-800">{operations.length} {tx(lang,{fr:'opérations',ar:'عملية',en:'operations',es:'operaciones',pt:'operações',tr:'işlem'})}</strong> {tx(lang,{fr:'que vous avez saisies.',ar:'التي أدخلتها.',en:'you have entered.',es:'que ha ingresado.',pt:'que você inseriu.',tr:'girdiniz.'})}
                             </p>
                             <p className="text-xs text-slate-400 mt-2">
-                                Demandez-moi d'identifier le modèle, de vérifier l'équilibrage, ou de suggérer des temps.
+                                {tx(lang,{fr:'Demandez-moi d\'identifier le modèle, de vérifier l\'équilibrage, ou de suggérer des temps.',ar:'اطلب مني تحديد النموذج، أو التحقق من التوازن، أو اقتراح الأوقات.',en:'Ask me to identify the model, check the balancing, or suggest times.',es:'Pídeme identificar el modelo, verificar el equilibrio, o sugerir tiempos.',pt:'Peça-me para identificar o modelo, verificar o equilíbrio ou sugerir tempos.',tr:'Modeli tanımamı, dengeyi kontrol etmemi veya süre önermemi isteyin.'})}
                             </p>
                             
                             <div className="flex flex-wrap gap-2 justify-center mt-6">
                                 <button onClick={() => { setAiPrompt("Quel est ce modèle ?"); handleAiAssist(); }} className="px-3 py-1.5 bg-white border border-slate-200 rounded-full text-xs text-slate-600 hover:border-rose-300 hover:text-rose-600 transition-colors">
-                                    Quel est ce modèle ?
+                                    {tx(lang,{fr:'Quel est ce modèle ?',ar:'ما هذا النموذج؟',en:'What is this model?',es:'¿Qué modelo es este?',pt:'Qual é este modelo?',tr:'Bu model nedir?'})}
                                 </button>
                                 <button onClick={() => { setAiPrompt("Analyse l'équilibrage"); handleAiAssist(); }} className="px-3 py-1.5 bg-white border border-slate-200 rounded-full text-xs text-slate-600 hover:border-rose-300 hover:text-rose-600 transition-colors">
-                                    Analyse l'équilibrage
+                                    {tx(lang,{fr:"Analyse l'équilibrage",ar:'تحليل التوازن',en:'Analyze balancing',es:'Analizar equilibrio',pt:'Analisar equilíbrio',tr:'Denge analizi'})}
                                 </button>
                             </div>
                         </div>
@@ -2987,7 +2990,7 @@ export default function Gamme({
                         <div className="flex justify-start">
                             <div className="bg-white px-4 py-3 rounded-2xl rounded-tl-sm border border-slate-100 shadow-sm flex items-center gap-2 text-sm text-slate-500">
                                 <Loader2 className="w-4 h-4 animate-spin text-rose-500" />
-                                <span>Analyse de la gamme en cours...</span>
+                                <span>{tx(lang,{fr:'Analyse de la gamme en cours...',ar:'تحليل التسلسل قيد التقدم...',en:'Analyzing routing...',es:'Analizando gama en curso...',pt:'Analisando gama em andamento...',tr:'Rota analiz ediliyor...'})}</span>
                             </div>
                         </div>
                     )}
@@ -3001,7 +3004,7 @@ export default function Gamme({
                         onChange={(e) => setAiPrompt(e.target.value)}
                         onKeyDown={(e) => e.key === 'Enter' && handleAiAssist()}
                         disabled={isAnalyzing}
-                        placeholder="Posez une question sur votre gamme..."
+                                        placeholder={tx(lang,{fr:'Posez une question sur votre gamme...',ar:'اطرح سؤالاً حول التسلسل الخاص بك...',en:'Ask a question about your routing...',es:'Haga una pregunta sobre su gama...',pt:'Faça uma pergunta sobre sua gama...',tr:'Rotanız hakkında soru sorun...'})}
                         className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-rose-400 focus:bg-white transition-all placeholder:text-slate-400"
                     />
                     <button 
@@ -3051,7 +3054,7 @@ export default function Gamme({
           className="w-52 rounded-2xl border border-slate-200 bg-white shadow-2xl shadow-slate-300/50 ring-1 ring-black/5 overflow-hidden animate-in fade-in zoom-in-95 duration-100"
         >
           <div className="px-3 py-2 border-b border-slate-100 bg-slate-50 text-[10px] font-black uppercase tracking-widest text-slate-500">
-            Photo de l'opération
+            {tx(lang,{fr:"Photo de l'opération",ar:'صورة العملية',en:'Operation Photo',es:'Foto de la operación',pt:'Foto da operação',tr:'İşlem Fotoğrafı'})}
           </div>
           <button
             type="button"
@@ -3059,7 +3062,7 @@ export default function Gamme({
             className="w-full flex items-center gap-3 px-3 py-2.5 text-sm font-bold text-slate-700 hover:bg-indigo-50 hover:text-indigo-700 transition-colors"
           >
             <span className="bg-indigo-100 text-indigo-600 p-1.5 rounded-lg"><Camera className="w-4 h-4" /></span>
-            Prendre une photo
+            {tx(lang,{fr:'Prendre une photo',ar:'التقاط صورة',en:'Take a photo',es:'Tomar una foto',pt:'Tirar uma foto',tr:'Fotoğraf çek'})}
           </button>
           <button
             type="button"
@@ -3067,7 +3070,7 @@ export default function Gamme({
             className="w-full flex items-center gap-3 px-3 py-2.5 text-sm font-bold text-slate-700 hover:bg-indigo-50 hover:text-indigo-700 transition-colors"
           >
             <span className="bg-emerald-100 text-emerald-600 p-1.5 rounded-lg"><ImageIcon className="w-4 h-4" /></span>
-            Choisir depuis la galerie
+            {tx(lang,{fr:'Choisir depuis la galerie',ar:'اختيار من المعرض',en:'Choose from gallery',es:'Elegir desde la galería',pt:'Escolher da galeria',tr:'Galeriden seç'})}
           </button>
           {photoMenu.hasPhoto && (
             <button
@@ -3076,7 +3079,7 @@ export default function Gamme({
               className="w-full flex items-center gap-3 px-3 py-2.5 text-sm font-bold text-rose-600 hover:bg-rose-50 transition-colors border-t border-slate-100"
             >
               <span className="bg-rose-100 text-rose-600 p-1.5 rounded-lg"><Trash className="w-4 h-4" /></span>
-              Supprimer la photo
+              {tx(lang,{fr:'Supprimer la photo',ar:'حذف الصورة',en:'Delete photo',es:'Eliminar foto',pt:'Excluir foto',tr:'Fotoğrafı sil'})}
             </button>
           )}
         </div>,
@@ -3096,14 +3099,14 @@ export default function Gamme({
             <div className="flex items-center justify-between border-b border-slate-200 bg-gradient-to-r from-slate-50 via-white to-slate-50 px-4 py-3 sm:px-5">
               <div className="min-w-0">
                 <h3 className="truncate text-base font-black tracking-wide text-slate-800 sm:text-lg">{photoPreview.title}</h3>
-                <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Aperçu haute résolution</p>
+                <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">{tx(lang,{fr:'Aperçu haute résolution',ar:'معاينة عالية الدقة',en:'High-resolution preview',es:'Vista previa alta resolución',pt:'Visualização de alta resolução',tr:'Yüksek çözünürlüklü önizleme'})}</p>
               </div>
               <button
                 onClick={() => setPhotoPreview(null)}
                 className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-600 shadow-sm transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900"
               >
                 <X className="h-4 w-4" />
-                Fermer
+                {tx(lang,{fr:'Fermer',ar:'إغلاق',en:'Close',es:'Cerrar',pt:'Fechar',tr:'Kapat'})}
               </button>
             </div>
             <div className="relative flex-1 overflow-auto bg-[radial-gradient(circle_at_top,_#f8fafc_0%,_#e2e8f0_100%)] p-3 sm:p-5">

@@ -1,8 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { Wifi, WifiOff, Check, Copy } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useLang } from '../../src/context/LanguageContext';
+import { tx } from '../../lib/i18n';
 
 export default function NetworkAccessPanel({ isDark }: { isDark: boolean }) {
+  const { lang } = useLang();
   const [addresses, setAddresses] = useState<string[]>([]);
   const [port, setPort] = useState<number>(8000);
   const [status, setStatus] = useState<'loading' | 'online' | 'offline'>('loading');
@@ -37,7 +40,7 @@ export default function NetworkAccessPanel({ isDark }: { isDark: boolean }) {
   };
 
   const dotColor = status === 'online' ? 'bg-emerald-500' : status === 'offline' ? 'bg-red-500' : 'bg-amber-500';
-  const statusLabel = status === 'online' ? 'Connecté au serveur' : status === 'offline' ? 'Hors ligne' : 'Connexion…';
+  const statusLabel = status === 'online' ? tx(lang, {fr:"Connecté au serveur",ar:"متصل بالخادم",en:"Connected to server",es:"Conectado al servidor",pt:"Conectado ao servidor",tr:"Sunucuya bağlı"}) : status === 'offline' ? tx(lang, {fr:"Hors ligne",ar:"غير متصل",en:"Offline",es:"Fuera de línea",pt:"Offline",tr:"Çevrimdışı"}) : tx(lang, {fr:"Connexion…",ar:"جارٍ الاتصال…",en:"Connecting…",es:"Conectando…",pt:"Conectando…",tr:"Bağlanıyor…"});
 
   return (
     <motion.div
@@ -93,12 +96,12 @@ export default function NetworkAccessPanel({ isDark }: { isDark: boolean }) {
                         ? 'bg-slate-800/60 text-slate-300 hover:bg-emerald-500/20 hover:text-emerald-300'
                         : 'bg-slate-100 text-slate-700 hover:bg-emerald-50 hover:text-emerald-700'
                     }`}
-                    title="Cliquer pour copier"
+                    title={tx(lang, {fr:"Cliquer pour copier",ar:"انقر للنسخ",en:"Click to copy",es:"Clic para copiar",pt:"Clique para copiar",tr:"Kopyalamak için tıkla"})}
                   >
                     <span className="flex-1 text-left truncate">http://{ip}:{port}</span>
                     {isCopied ? (
                       <span className="flex items-center gap-1 text-emerald-500 font-sans font-semibold">
-                        <Check className="w-3 h-3" /> Copié
+                        <Check className="w-3 h-3" /> {tx(lang, {fr:"Copié",ar:"تم النسخ",en:"Copied",es:"Copiado",pt:"Copiado",tr:"Kopyalandı"})}
                       </span>
                     ) : (
                       <Copy className={`w-3 h-3 ${isDark ? 'text-slate-500' : 'text-slate-400'}`} />
@@ -107,7 +110,7 @@ export default function NetworkAccessPanel({ isDark }: { isDark: boolean }) {
                 );
               })}
               <p className={`text-[10px] pt-1 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
-                Tapez cette adresse depuis un autre appareil sur le même WiFi.
+                {tx(lang, {fr:"Tapez cette adresse depuis un autre appareil sur le même WiFi.",ar:"اكتب هذا العنوان من جهاز آخر على نفس WiFi",en:"Type this address from another device on the same WiFi",es:"Escriba esta dirección desde otro dispositivo en el mismo WiFi",pt:"Digite este endereço de outro dispositivo no mesmo WiFi",tr:"Aynı WiFi üzerindeki başka bir cihazdan bu adresi yazın"})}
               </p>
             </div>
           </motion.div>
@@ -120,7 +123,7 @@ export default function NetworkAccessPanel({ isDark }: { isDark: boolean }) {
             className="overflow-hidden"
           >
             <p className={`px-4 py-3 text-[11px] ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-              Le serveur ne répond pas. Vérifiez que <code className="font-mono">npm run dev</code> est lancé.
+              {tx(lang, {fr:"Le serveur ne répond pas. Vérifiez que",ar:"الخادم لا يستجيب. تأكد من أن",en:"The server is not responding. Make sure",es:"El servidor no responde. Verifique que",pt:"O servidor não responde. Verifique se",tr:"Sunucu yanıt vermiyor. Şunun çalıştığından emin olun:"})} <code className="font-mono">npm run dev</code> {tx(lang, {fr:"est lancé.",ar:"قيد التشغيل.",en:"is running.",es:"está en ejecución.",pt:"está em execução.",tr:"çalışıyor."})}
             </p>
           </motion.div>
         )}

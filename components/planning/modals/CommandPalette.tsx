@@ -1,6 +1,8 @@
 import React, { useEffect, useMemo, useState, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Search, Plus, Sparkles, Calendar, LayoutGrid, Rows, Eye, Printer, Filter, X } from 'lucide-react';
+import { tx } from '../../../lib/i18n';
+import { useLang } from '../../../src/context/LanguageContext';
 
 export interface CommandAction {
     id: string;
@@ -20,6 +22,7 @@ interface Props {
 }
 
 export default function CommandPalette({ open, onClose, actions }: Props) {
+    const { lang } = useLang();
     const [query, setQuery] = useState('');
     const [activeIdx, setActiveIdx] = useState(0);
     const inputRef = useRef<HTMLInputElement>(null);
@@ -102,7 +105,7 @@ export default function CommandPalette({ open, onClose, actions }: Props) {
                         type="text"
                         value={query}
                         onChange={(e) => { setQuery(e.target.value); setActiveIdx(0); }}
-                        placeholder="Tapez une commande ou recherchez…"
+                        placeholder={tx(lang,{fr:'Tapez une commande ou recherchez…',ar:'اكتب أمراً أو ابحث…',en:'Type a command or search…',es:'Escriba un comando o busque…',pt:'Digite um comando ou pesquise…',tr:'Bir komut yazın veya arayın…'})}
                         className="flex-1 text-[14px] text-slate-900 placeholder:text-slate-400 outline-none bg-transparent"
                     />
                     <button
@@ -118,7 +121,7 @@ export default function CommandPalette({ open, onClose, actions }: Props) {
                 <div ref={listRef} className="max-h-[50vh] overflow-y-auto py-1">
                     {filtered.length === 0 && (
                         <div className="px-4 py-8 text-center text-[12px] text-slate-400">
-                            Aucune commande
+                            {tx(lang,{fr:'Aucune commande',ar:'لا توجد أوامر',en:'No commands',es:'Ningún comando',pt:'Nenhum comando',tr:'Komut yok'})}
                         </div>
                     )}
                     {groups.map(([group, items]) => (
@@ -159,9 +162,9 @@ export default function CommandPalette({ open, onClose, actions }: Props) {
                 {/* Footer hints */}
                 <div className="flex items-center justify-between px-4 h-8 border-t border-slate-100 bg-slate-50/40 text-[10px] text-slate-400">
                     <div className="flex items-center gap-3">
-                        <span>↑↓ Naviguer</span>
-                        <span>↵ Sélectionner</span>
-                        <span>Esc Fermer</span>
+                        <span>{tx(lang,{fr:'↑↓ Naviguer',ar:'↑↓ تنقل',en:'↑↓ Navigate',es:'↑↓ Navegar',pt:'↑↓ Navegar',tr:'↑↓ Gezin'})}</span>
+                        <span>{tx(lang,{fr:'↵ Sélectionner',ar:'↵ اختر',en:'↵ Select',es:'↵ Seleccionar',pt:'↵ Selecionar',tr:'↵ Seç'})}</span>
+                        <span>{tx(lang,{fr:'Esc Fermer',ar:'Esc إغلاق',en:'Esc Close',es:'Esc Cerrar',pt:'Esc Fechar',tr:'Esc Kapat'})}</span>
                     </div>
                     <span>⌘K</span>
                 </div>

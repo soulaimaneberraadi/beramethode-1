@@ -5,6 +5,8 @@ import { getClientColor } from '../shared/clientColors';
 import { getModelColor } from '../shared/modelColors';
 import { parsePlanningDateAtNoon, planningLocalDateKey } from '../../../utils/planning';
 import { fmtMonthYear } from '../shared/dateFmt';
+import { tx } from '../../../lib/i18n';
+import { useLang } from '../../../src/context/LanguageContext';
 
 interface Props {
     events: PlanningEvent[];
@@ -14,8 +16,22 @@ interface Props {
     onSelectEvent: (id: string) => void;
 }
 
-const WEEK_DAYS = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
-const WEEK_DAYS_SHORT = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
+const WEEK_DAYS_MAP = {
+    fr: ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'],
+    ar: ['الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت', 'الأحد'],
+    en: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'],
+    es: ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'],
+    pt: ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado', 'Domingo'],
+    tr: ['Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi', 'Pazar'],
+};
+const WEEK_DAYS_SHORT_MAP = {
+    fr: ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'],
+    ar: ['إثن', 'ثلاث', 'أرب', 'خمي', 'جمع', 'سبت', 'أحد'],
+    en: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+    es: ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'],
+    pt: ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'],
+    tr: ['Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt', 'Paz'],
+};
 
 function getMonthMatrix(d: Date): Date[] {
     const year = d.getFullYear();
@@ -31,6 +47,7 @@ function getMonthMatrix(d: Date): Date[] {
 }
 
 export default function CalendarView({ events, models, currentDate, pulseToday, onSelectEvent }: Props) {
+    const { lang } = useLang();
     const cells = useMemo(() => getMonthMatrix(currentDate), [currentDate]);
     const todayKey = planningLocalDateKey(new Date());
     const [pulsing, setPulsing] = React.useState(false);
@@ -83,9 +100,9 @@ export default function CalendarView({ events, models, currentDate, pulseToday, 
 
             {/* Week header */}
             <div className="grid grid-cols-7 mb-2">
-                {WEEK_DAYS.map((d, i) => (
+                {(WEEK_DAYS_MAP[lang as keyof typeof WEEK_DAYS_MAP] || WEEK_DAYS_MAP.fr).map((d, i) => (
                     <div key={d} className="text-[9px] sm:text-[10px] font-medium text-slate-400 uppercase tracking-wider px-1 sm:px-2 py-1 text-center sm:text-left">
-                        <span className="sm:hidden">{WEEK_DAYS_SHORT[i]}</span>
+                        <span className="sm:hidden">{(WEEK_DAYS_SHORT_MAP[lang as keyof typeof WEEK_DAYS_SHORT_MAP] || WEEK_DAYS_SHORT_MAP.fr)[i]}</span>
                         <span className="hidden sm:inline">{d}</span>
                     </div>
                 ))}
@@ -133,14 +150,14 @@ export default function CalendarView({ events, models, currentDate, pulseToday, 
                                             <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: accent }} />
                                             <span className="truncate text-slate-700">{client}</span>
                                             {ev.isSubcontracted && (
-                                                <span className="text-[7px] font-semibold bg-indigo-100 text-indigo-700 px-1 rounded shrink-0">S-T</span>
+                                                <span className="text-[7px] font-semibold bg-indigo-100 text-indigo-700 px-1 rounded shrink-0">{tx(lang, { fr: 'S-T', ar: 'م ب', en: 'Sub', es: 'Sub', pt: 'Sub', tr: 'Taş' })}</span>
                                             )}
                                         </button>
                                     );
                                 })}
                                 {dayEvents.length > 3 && (
                                     <div className="text-[10px] text-slate-400 px-1.5">
-                                        +{dayEvents.length - 3} de plus
+                                        {tx(lang, { fr: `+${dayEvents.length - 3} de plus`, ar: `+${dayEvents.length - 3} إضافي`, en: `+${dayEvents.length - 3} more`, es: `+${dayEvents.length - 3} más`, pt: `+${dayEvents.length - 3} mais`, tr: `+${dayEvents.length - 3} daha` })}
                                     </div>
                                 )}
                             </div>

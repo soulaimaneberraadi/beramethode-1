@@ -3,6 +3,8 @@ import { Palette, Layers } from 'lucide-react';
 import { FicheData, AppSettings } from '../types';
 import { fmt } from '../constants';
 import SensitiveValue from './ui/SensitiveValue';
+import { useLang } from '../src/context/LanguageContext';
+import { tx } from '../lib/i18n';
 
 interface OrderTablesPanelProps {
     ficheData: FicheData;
@@ -32,6 +34,7 @@ const OrderTablesPanel: React.FC<OrderTablesPanelProps> = ({
     laborCost, costPrice, sellPriceHT, sellPriceTTC, boutiquePrice,
     totalPurchasingMatCost, colorCosts, isExport = false,
 }) => {
+    const { lang } = useLang();
     const orderQty = ficheData.quantity > 0 ? ficheData.quantity : 1;
     const totalProjectCost = isExport ? (laborCost * orderQty) : totalPurchasingMatCost + (laborCost * orderQty);
     const costPerPiece = orderQty > 0 ? totalProjectCost / orderQty : 0;
@@ -91,7 +94,7 @@ const OrderTablesPanel: React.FC<OrderTablesPanelProps> = ({
                     <div className="px-3 sm:px-5 h-auto sm:h-12 border-b border-slate-100 flex flex-col sm:flex-row items-start sm:items-center gap-1 sm:gap-2 py-2 sm:py-0">
                         <Palette className="w-4 h-4 text-slate-400 shrink-0" strokeWidth={1.75} />
                         <div>
-                            <h3 className="text-[13px] font-semibold text-slate-900 tracking-tight">Répartition et coût des tailles</h3>
+                            <h3 className="text-[13px] font-semibold text-slate-900 tracking-tight">{tx(lang, {fr:"Répartition et coût des tailles",ar:"توزيع وتكلفة المقاسات",en:"Size distribution & cost",es:"Distribución y costo de tallas",pt:"Distribuição e custo dos tamanhos",tr:"Beden dağılımı ve maliyeti"})}</h3>
                             <p className="text-[11px] text-slate-400">Répartition des quantités et des coûts (synchronisé avec la fiche technique)</p>
                         </div>
                     </div>
@@ -111,7 +114,7 @@ const OrderTablesPanel: React.FC<OrderTablesPanelProps> = ({
                                             {s}
                                         </th>
                                     ))}
-                                    <th className="py-2.5 px-3 text-center font-semibold text-slate-700 bg-slate-100/60 w-24">Total</th>
+                                    <th className="py-2.5 px-3 text-center font-semibold text-slate-700 bg-slate-100/60 w-24">{tx(lang, {fr:"Total",ar:"المجموع",en:"Total",es:"Total",pt:"Total",tr:"Toplam"})}</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
@@ -173,7 +176,7 @@ const OrderTablesPanel: React.FC<OrderTablesPanelProps> = ({
                             <tfoot className="border-t border-slate-200 bg-slate-50/60">
                                 <tr>
                                     <td className="py-2.5 px-3 text-left font-semibold text-slate-500 text-[11px] uppercase tracking-wider border-r border-slate-100">
-                                        Total général
+                                        {tx(lang, {fr:"Total général",ar:"المجموع الكلي",en:"Grand total",es:"Total general",pt:"Total geral",tr:"Genel toplam"})}
                                     </td>
                                     {sizes.length === 0 && (
                                         <td className="py-2.5 px-3 text-center text-slate-300 border-r border-slate-100">—</td>
@@ -198,7 +201,7 @@ const OrderTablesPanel: React.FC<OrderTablesPanelProps> = ({
                                     })}
                                     <td className="py-2.5 px-3 text-center bg-slate-900">
                                         <div className="font-semibold text-white text-[15px] tabular-nums">{matrixStats.grandTotal > 0 ? matrixStats.grandTotal : '—'}</div>
-                                        <div className="text-[9px] text-slate-400 font-medium tracking-wider uppercase mt-0.5">pièces</div>
+                                        <div className="text-[9px] text-slate-400 font-medium tracking-wider uppercase mt-0.5">{tx(lang, {fr:"pièces",ar:"قطعة",en:"pcs",es:"piezas",pt:"peças",tr:"adet"})}</div>
                                     </td>
                                 </tr>
                             </tfoot>
@@ -211,7 +214,7 @@ const OrderTablesPanel: React.FC<OrderTablesPanelProps> = ({
             <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
                 <div className="px-3 sm:px-5 h-12 border-b border-slate-100 flex items-center gap-2">
                     <Layers className="w-4 h-4 text-slate-400" strokeWidth={1.75} />
-                    <h3 className="text-[13px] font-semibold text-slate-900 tracking-tight">Grille tarifaire</h3>
+                    <h3 className="text-[13px] font-semibold text-slate-900 tracking-tight">{tx(lang, {fr:"Grille tarifaire",ar:"جدول الأسعار",en:"Price grid",es:"Cuadro de precios",pt:"Grade de preços",tr:"Fiyat tablosu"})}</h3>
                 </div>
                 <div className="p-3 sm:p-5">
                     {colors.length > 0 && hasColorCosts ? (
@@ -219,12 +222,12 @@ const OrderTablesPanel: React.FC<OrderTablesPanelProps> = ({
                             <table className="w-full border-collapse">
                                 <thead>
                                     <tr className="text-[10px] uppercase tracking-wider text-slate-500 border-b border-slate-200">
-                                        <th className="py-2 px-3 text-left font-semibold">Couleur</th>
-                                        <th className="py-2 px-3 text-center font-semibold">PR</th>
+                                        <th className="py-2 px-3 text-left font-semibold">{tx(lang, {fr:"Couleur",ar:"اللون",en:"Color",es:"Color",pt:"Cor",tr:"Renk"})}</th>
+                                        <th className="py-2 px-3 text-center font-semibold">{tx(lang, {fr:"PR",ar:"PR",en:"CP",es:"PR",pt:"PR",tr:"BM"})}</th>
                                         <th className="py-2 px-3 text-center font-semibold text-[#2149C1]">HT +{settings.marginAtelier}%</th>
                                         <th className="py-2 px-3 text-center font-semibold text-indigo-600">TTC +{settings.tva}%</th>
                                         <th className="py-2 px-3 text-center font-semibold text-violet-600">Boutique +{settings.marginBoutique}%</th>
-                                        <th className="py-2 px-3 text-center font-semibold text-emerald-600">Marge/pièce</th>
+                                        <th className="py-2 px-3 text-center font-semibold text-emerald-600">{tx(lang, {fr:"Marge/pièce",ar:"الهامش/قطعة",en:"Margin/pc",es:"Margen/pieza",pt:"Margem/peça",tr:"Kar marjı/adet"})}</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-100">

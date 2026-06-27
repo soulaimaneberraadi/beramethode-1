@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 import db from './db';
 
 export const getWorkers = (req: Request, res: Response) => {
-    const userId = (req as any).user.id;
+    const userId = (req as any).companyId ?? (req as any).user.id;
     try {
         const rows = db.prepare('SELECT * FROM workers WHERE owner_id = ? ORDER BY matricule ASC').all(userId) as any[];
         const workers = rows.map(r => ({
@@ -18,7 +18,7 @@ export const getWorkers = (req: Request, res: Response) => {
 };
 
 export const saveWorker = (req: Request, res: Response) => {
-    const userId = (req as any).user.id;
+    const userId = (req as any).companyId ?? (req as any).user.id;
     const w = req.body;
 
     if (!w?.id || !w?.matricule || !w?.nom || !w?.prenom || !w?.date_embauche) {
@@ -59,7 +59,7 @@ export const saveWorker = (req: Request, res: Response) => {
 };
 
 export const deleteWorker = (req: Request, res: Response) => {
-    const userId = (req as any).user.id;
+    const userId = (req as any).companyId ?? (req as any).user.id;
     const { id } = req.params;
     try {
         db.prepare('DELETE FROM workers WHERE id = ? AND owner_id = ?').run(id, userId);
@@ -71,7 +71,7 @@ export const deleteWorker = (req: Request, res: Response) => {
 };
 
 export const bulkImportWorkers = (req: Request, res: Response) => {
-    const userId = (req as any).user.id;
+    const userId = (req as any).companyId ?? (req as any).user.id;
     const { workers } = req.body;
     if (!Array.isArray(workers)) {
         return res.status(400).json({ message: 'workers array required' });

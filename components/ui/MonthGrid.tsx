@@ -1,6 +1,9 @@
 import React from 'react';
 import type { AppSettings } from '../../types';
 import { isPlanningWorkingDay, planningLocalDateKey } from '../../utils/planning';
+import { tx } from '../../lib/i18n';
+import type { TxMap } from '../../lib/i18n';
+import { useLang } from '../../src/context/LanguageContext';
 
 export interface MonthGridProps {
     monthAnchor: Date;
@@ -15,11 +18,29 @@ export interface MonthGridProps {
     onNextMonth: () => void;
 }
 
-const FR_MONTHS = [
-    'Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin',
-    'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre',
+const MONTHS_TX: TxMap[] = [
+    { fr:'Janvier', ar:'يناير', en:'January', es:'Enero', pt:'Janeiro', tr:'Ocak' },
+    { fr:'Février', ar:'فبراير', en:'February', es:'Febrero', pt:'Fevereiro', tr:'Şubat' },
+    { fr:'Mars', ar:'مارس', en:'March', es:'Marzo', pt:'Março', tr:'Mart' },
+    { fr:'Avril', ar:'أبريل', en:'April', es:'Abril', pt:'Abril', tr:'Nisan' },
+    { fr:'Mai', ar:'ماي', en:'May', es:'Mayo', pt:'Maio', tr:'Mayıs' },
+    { fr:'Juin', ar:'يونيو', en:'June', es:'Junio', pt:'Junho', tr:'Haziran' },
+    { fr:'Juillet', ar:'يوليوز', en:'July', es:'Julio', pt:'Julho', tr:'Temmuz' },
+    { fr:'Août', ar:'غشت', en:'August', es:'Agosto', pt:'Agosto', tr:'Ağustos' },
+    { fr:'Septembre', ar:'شتنبر', en:'September', es:'Septiembre', pt:'Setembro', tr:'Eylül' },
+    { fr:'Octobre', ar:'أكتوبر', en:'October', es:'Octubre', pt:'Outubro', tr:'Ekim' },
+    { fr:'Novembre', ar:'نونبر', en:'November', es:'Noviembre', pt:'Novembro', tr:'Kasım' },
+    { fr:'Décembre', ar:'دجنبر', en:'December', es:'Diciembre', pt:'Dezembro', tr:'Aralık' },
 ];
-const FR_DOW = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'];
+const DOW_TX: TxMap[] = [
+    { fr:'Dim', ar:'أحد', en:'Sun', es:'Dom', pt:'Dom', tr:'Paz' },
+    { fr:'Lun', ar:'إثن', en:'Mon', es:'Lun', pt:'Seg', tr:'Pzt' },
+    { fr:'Mar', ar:'ثلاث', en:'Tue', es:'Mar', pt:'Ter', tr:'Sal' },
+    { fr:'Mer', ar:'أرب', en:'Wed', es:'Mié', pt:'Qua', tr:'Çar' },
+    { fr:'Jeu', ar:'خميس', en:'Thu', es:'Jue', pt:'Qui', tr:'Per' },
+    { fr:'Ven', ar:'جمعة', en:'Fri', es:'Vie', pt:'Sex', tr:'Cum' },
+    { fr:'Sam', ar:'سبت', en:'Sat', es:'Sáb', pt:'Sáb', tr:'Cmt' },
+];
 
 function parseYmd(s: string): number | null {
     const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec((s || '').split('T')[0]);
@@ -38,6 +59,7 @@ export default function MonthGrid({
     onPrevMonth,
     onNextMonth,
 }: MonthGridProps) {
+    const { lang } = useLang();
     const y = monthAnchor.getFullYear();
     const mo = monthAnchor.getMonth();
     const first = new Date(y, mo, 1, 12, 0, 0, 0);
@@ -71,26 +93,26 @@ export default function MonthGrid({
                     type="button"
                     onClick={onPrevMonth}
                     className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-800"
-                    aria-label="Mois précédent"
+                    aria-label={tx(lang,{fr:'Mois précédent',ar:'الشهر السابق',en:'Previous month',es:'Mes anterior',pt:'Mês anterior',tr:'Önceki ay'})}
                 >
                     ‹
                 </button>
                 <div className="text-sm font-black text-slate-800">
-                    {FR_MONTHS[mo]} {y}
+                    {tx(lang, MONTHS_TX[mo])} {y}
                 </div>
                 <button
                     type="button"
                     onClick={onNextMonth}
                     className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-800"
-                    aria-label="Mois suivant"
+                    aria-label={tx(lang,{fr:'Mois suivant',ar:'الشهر التالي',en:'Next month',es:'Mes siguiente',pt:'Próximo mês',tr:'Sonraki ay'})}
                 >
                     ›
                 </button>
             </div>
             <div className="grid grid-cols-7 gap-0.5 text-center text-[10px] font-bold uppercase tracking-wide text-slate-400">
-                {FR_DOW.map(d => (
-                    <div key={d} className="py-1">
-                        {d}
+                {DOW_TX.map((m, i) => (
+                    <div key={i} className="py-1">
+                        {tx(lang, m)}
                     </div>
                 ))}
             </div>

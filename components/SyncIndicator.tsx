@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { RefreshCw, Check } from 'lucide-react';
+import { tx } from '../lib/i18n';
+import { useLang } from '../src/context/LanguageContext';
 
 /**
  * Indicateur de synchronisation cloud discret pour le header.
@@ -14,6 +16,7 @@ import { RefreshCw, Check } from 'lucide-react';
  * occupée), pour rester aussi sobre que le reste du header.
  */
 const SyncIndicator: React.FC = () => {
+    const { lang } = useLang();
     const [state, setState] = useState<'idle' | 'syncing' | 'done'>('idle');
 
     useEffect(() => {
@@ -49,7 +52,7 @@ const SyncIndicator: React.FC = () => {
                     ? 'bg-white border-gray-100 text-emerald-500'
                     : 'bg-emerald-50 border-emerald-100 text-emerald-600'
             }`}
-            title={syncing ? 'Synchronisation en cours… / المزامنة جارية…' : 'Synchronisé / تمّت المزامنة'}
+            title={syncing ? tx(lang,{fr:"Synchronisation en cours…",ar:"المزامنة جارية…",en:"Syncing…",es:"Sincronizando…",pt:"Sincronizando…",tr:"Senkronize ediliyor…"}) : tx(lang,{fr:"Synchronisé",ar:"تمت المزامنة",en:"Synced",es:"Sincronizado",pt:"Sincronizado",tr:"Senkronize edildi"})}
             aria-live="polite"
         >
             {syncing

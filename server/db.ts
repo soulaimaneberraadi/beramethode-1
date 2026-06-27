@@ -1571,6 +1571,58 @@ db.exec(`
 try { db.exec("ALTER TABLE company_settings ADD COLUMN account_type TEXT DEFAULT 'societe'"); } catch { /* colonne déjà présente */ }
 try { db.exec('ALTER TABLE company_settings ADD COLUMN profile_meta TEXT'); } catch { /* colonne déjà présente */ }
 
+// ════════════════════════════════════════════════════════════════════════════════
+// MULTI-WORKSPACE — un même compte (humain) peut gérer plusieurs sociétés isolées.
+// owner_id reste l'UNIQUE clé de cloisonnement des données (déjà appliquée par tous
+// les controllers + verify-tenancy). Un « workspace » = un owner_id. Chaque workspace
+// est ancré par une ligne `users` non-connectable (mot de passe verrouillé), et le
+// compte humain y adhère via `company_members` (qui autorise déjà N owner_id par user).
+// active_owner_id sur `users` = workspace actif choisi par le compte humain.
+// ════════════════════════════════════════════════════════════════════════════════
+db.exec(`
+  CREATE TABLE IF NOT EXISTS workspaces (
+    owner_id INTEGER PRIMARY KEY,        -- = clé de cloisonnement (id de l'ancre)
+    account_user_id INTEGER NOT NULL,    -- compte humain qui gère ce workspace
+    name TEXT NOT NULL,
+    logo TEXT,
+    specialty TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (account_user_id) REFERENCES users(id) ON DELETE CASCADE
+  );
+  CREATE INDEX IF NOT EXISTS idx_workspaces_account ON workspaces(account_user_id);
+`);
+// Workspace actif par compte (NULL => fallback historique : 1ʳᵉ adhésion = comportement inchangé).
+try { db.exec('ALTER TABLE users ADD COLUMN active_owner_id INTEGER'); } catch { /* colonne déjà présente */ }
+// Ancre non-connectable : marque les lignes `users` créées comme support d'un workspace.
+try { db.exec('ALTER TABLE users ADD COLUMN is_workspace_anchor INTEGER DEFAULT 0'); } catch { /* colonne déjà présente */ }
+
+// Backfill idempotent : chaque société existante (patron = membre de sa propre
+// société, owner_id === user_id) devient un workspace nommé d'après company_settings.
+try {
+  const primaryName = (db.prepare('SELECT name FROM company_settings WHERE id = 1').get() as { name?: string } | undefined)?.name || 'Workspace 1';
+  const patrons = db
+    .prepare(`SELECT owner_id, user_id FROM company_members WHERE owner_id = user_id AND status = 'active'`)
+    .all() as { owner_id: number; user_id: number }[];
+  const insWs = db.prepare(
+    `INSERT OR IGNORE INTO workspaces (owner_id, account_user_id, name) VALUES (?, ?, ?)`
+  );
+  const setActive = db.prepare('UPDATE users SET active_owner_id = ? WHERE id = ? AND active_owner_id IS NULL');
+  for (const p of patrons) {
+    insWs.run(p.owner_id, p.user_id, primaryName);
+    setActive.run(p.owner_id, p.user_id);
+  }
+} catch (e) { console.error('[db] workspaces backfill error:', e); }
+
+// Cloisonnement des modèles par workspace : la table `models` n'avait que
+// `user_id` (le compte humain) => les modèles étaient partagés entre TOUS les
+// workspaces du même compte. On ajoute `owner_id` (= workspace) et on rétro-remplit
+// owner_id = user_id (le workspace primaire a owner_id === user_id), ce qui rattache
+// proprement les modèles existants au workspace d'origine.
+try { db.exec('ALTER TABLE models ADD COLUMN owner_id INTEGER'); } catch { /* colonne déjà présente */ }
+try { db.exec('UPDATE models SET owner_id = user_id WHERE owner_id IS NULL'); } catch (e) { console.error('[db] models owner_id backfill error:', e); }
+try { db.exec('CREATE INDEX IF NOT EXISTS idx_models_owner ON models(owner_id)'); } catch { /* ignore */ }
+
 // Rapports de crash envoyés par le frontend (Error Boundary ou window.onerror)
 db.exec(`
   CREATE TABLE IF NOT EXISTS crash_reports (

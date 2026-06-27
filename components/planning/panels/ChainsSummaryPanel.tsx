@@ -1,6 +1,8 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { ChevronDown, Eye, Link2, X } from 'lucide-react';
 import type { PlanningChain } from '../hooks/usePlanningChains';
+import { tx } from '../../../lib/i18n';
+import { useLang } from '../../../src/context/LanguageContext';
 
 interface ChainContextMenu {
     x: number;
@@ -21,6 +23,7 @@ export default function ChainsSummaryPanel({
     onToggleSolo,
     onViewChainOnly,
 }: Props) {
+    const { lang } = useLang();
     const [expanded, setExpanded] = useState(true);
     const [ctxMenu, setCtxMenu] = useState<ChainContextMenu | null>(null);
     const menuRef = useRef<HTMLDivElement>(null);
@@ -67,7 +70,7 @@ export default function ChainsSummaryPanel({
                 <div className="flex items-center gap-2">
                     <Link2 className="w-3 h-3 text-slate-400" />
                     <span className="text-[10px] font-semibold text-slate-400 tracking-widest uppercase">
-                        Chaînes
+                        {tx(lang, { fr: 'Chaînes', ar: 'الخطوط', en: 'Lines', es: 'Líneas', pt: 'Linhas', tr: 'Hatlar' })}
                     </span>
                     <span className="text-[9px] font-black text-slate-400">·</span>
                     <span className="text-[10px] font-bold text-slate-500">{chains.length}</span>
@@ -87,7 +90,7 @@ export default function ChainsSummaryPanel({
                             className="text-[9px] text-slate-400 hover:text-slate-600 flex items-center gap-1 px-1.5 py-0.5 rounded hover:bg-slate-100 transition-colors cursor-pointer"
                         >
                             <X className="w-2.5 h-2.5" />
-                            Tout
+                            {tx(lang, { fr: 'Tout', ar: 'الكل', en: 'All', es: 'Todo', pt: 'Tudo', tr: 'Tümü' })}
                         </span>
                     )}
                     <ChevronDown
@@ -107,7 +110,7 @@ export default function ChainsSummaryPanel({
                             <button
                                 key={chain.id}
                                 type="button"
-                                title="Clic: isoler · Clic droit: options"
+                                title={tx(lang, { fr: 'Clic: isoler · Clic droit: options', ar: 'نقر: عزل · زر أيمن: خيارات', en: 'Click: isolate · Right-click: options', es: 'Clic: aislar · Clic derecho: opciones', pt: 'Clique: isolar · Clique direito: opções', tr: 'Tıkla: izole · Sağ tık: seçenekler' })}
                                 onClick={() => onToggleSolo(chain.id)}
                                 onContextMenu={e => handleRightClick(e, chain.id)}
                                 className={`shrink-0 flex flex-col justify-center gap-0.5 px-4 py-2 text-left transition-colors min-w-[120px] ${
@@ -157,7 +160,7 @@ export default function ChainsSummaryPanel({
                         className="w-full flex items-center gap-2.5 px-3 py-2 text-[12px] text-slate-700 hover:bg-slate-50 transition-colors"
                     >
                         <Eye className="w-3.5 h-3.5 text-slate-400" />
-                        Isoler cette chaîne
+                        {tx(lang, { fr: 'Isoler cette chaîne', ar: 'عزل هذا الخط', en: 'Isolate this line', es: 'Aislar esta línea', pt: 'Isolar esta linha', tr: 'Bu hattı izole et' })}
                     </button>
                     <button
                         type="button"
@@ -168,7 +171,7 @@ export default function ChainsSummaryPanel({
                         className="w-full flex items-center gap-2.5 px-3 py-2 text-[12px] text-slate-700 hover:bg-slate-50 transition-colors"
                     >
                         <Eye className="w-3.5 h-3.5 text-indigo-500" />
-                        Voir seule (modèles)
+                        {tx(lang, { fr: 'Voir seule (modèles)', ar: 'عرض منفرد (موديلات)', en: 'View alone (models)', es: 'Ver sola (modelos)', pt: 'Ver sozinha (modelos)', tr: 'Tek başına gör (modeller)' })}
                     </button>
                     {soloChainId && (
                         <button
@@ -180,7 +183,7 @@ export default function ChainsSummaryPanel({
                             className="w-full flex items-center gap-2.5 px-3 py-2 text-[12px] text-slate-500 hover:bg-slate-50 transition-colors border-t border-slate-100"
                         >
                             <X className="w-3.5 h-3.5 text-slate-400" />
-                            Tout afficher
+                            {tx(lang, { fr: 'Tout afficher', ar: 'عرض الكل', en: 'Show all', es: 'Mostrar todo', pt: 'Mostrar tudo', tr: 'Tümünü göster' })}
                         </button>
                     )}
                 </div>

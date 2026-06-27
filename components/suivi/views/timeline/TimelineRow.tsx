@@ -1,6 +1,8 @@
 import React from 'react';
 import type { ChainActiveContext } from '../../hooks/useSuiviActiveContext';
 import type { CellEntry } from '../../hooks/useSuiviGrid';
+import { useLang } from '../../../../src/context/LanguageContext';
+import { tx } from '../../../../lib/i18n';
 
 interface Props {
     index: number;
@@ -31,6 +33,7 @@ export function TimelineRow({
     index, chaineId, activeContext, hourKeys, hours, currentHourKey,
     chainTotal, getCell, selectedCell, onSelectCell,
 }: Props) {
+    const { lang } = useLang();
     const primaryColor = activeContext?.primary?.color || '#94a3b8';
     const conflict = !!activeContext?.conflict;
     const activeModels = activeContext?.activeModels || [];
@@ -67,10 +70,10 @@ export function TimelineRow({
                         )}
                     </div>
                 ) : (
-                    <div className="mt-1 text-[10px] text-slate-400">Aucun OF actif</div>
+                    <div className="mt-1 text-[10px] text-slate-400">{tx(lang, {fr:"Aucun OF actif",ar:"لا يوجد أمر تصنيع نشط",en:"No active WO",es:"Ningún OF activo",pt:"Nenhum OF ativo",tr:"Aktif İE yok"})}</div>
                 )}
                 <div className="mt-1 text-[10px] text-slate-500 tabular-nums">
-                    Total : <span className="font-semibold text-slate-900">{chainTotal}</span>
+                    {tx(lang, {fr:"Total :",ar:"المجموع:",en:"Total:",es:"Total:",pt:"Total:",tr:"Toplam:"})} <span className="font-semibold text-slate-900">{chainTotal}</span>
                 </div>
             </div>
 

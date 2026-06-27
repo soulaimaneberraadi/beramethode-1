@@ -3,6 +3,8 @@ import { X } from 'lucide-react';
 import type { WorkStatus } from '../shared/statusConfig';
 import { STATUS_META } from '../shared/statusConfig';
 import { getClientColor } from '../shared/clientColors';
+import { useLang } from '../../../src/context/LanguageContext';
+import { tx } from '../../../lib/i18n';
 
 interface Props {
     open: boolean;
@@ -39,6 +41,7 @@ export default function QuickFilters({
     showCriticalOnly,
     onToggleCriticalOnly,
 }: Props) {
+    const { lang } = useLang();
     if (!open) return null;
 
     return (
@@ -48,7 +51,7 @@ export default function QuickFilters({
                 {/* Status section */}
                 <div className="flex items-center gap-2">
                     <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mr-1.5">
-                        Statut
+                        {tx(lang, {fr:"Statut",ar:"الحالة",en:"Status",es:"Estado",pt:"Status",tr:"Durum"})}
                     </span>
                     {STATUS_ORDER.map(s => {
                         const meta = STATUS_META[s];
@@ -75,7 +78,7 @@ export default function QuickFilters({
                 {onToggleChain && allChains && allChains.length > 0 && (
                     <div className="flex items-center gap-2 min-w-0">
                         <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mr-1.5 shrink-0">
-                            Chaîne
+                            {tx(lang, {fr:"Chaîne",ar:"خط الإنتاج",en:"Line",es:"Línea",pt:"Linha",tr:"Hat"})}
                         </span>
                         <div className="flex flex-wrap items-center gap-1.5">
                             {allChains.map(c => {
@@ -105,7 +108,7 @@ export default function QuickFilters({
                 {allClients.length > 0 && (
                     <div className="flex items-center gap-2 min-w-0">
                         <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mr-1.5 shrink-0">
-                            Client
+                            {tx(lang, {fr:"Client",ar:"عميل",en:"Client",es:"Cliente",pt:"Cliente",tr:"Müşteri"})}
                         </span>
                         <div className="flex flex-wrap items-center gap-1.5">
                             {allClients.slice(0, 8).map(c => {
@@ -140,7 +143,7 @@ export default function QuickFilters({
                 {onToggleCriticalOnly && (
                     <div className="flex items-center gap-2">
                         <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mr-1.5">
-                            Filtres
+                            {tx(lang, {fr:"Filtres",ar:"مرشحات",en:"Filters",es:"Filtros",pt:"Filtros",tr:"Filtreler"})}
                         </span>
                         <button
                             type="button"
@@ -152,7 +155,7 @@ export default function QuickFilters({
                             }`}
                         >
                             <span className={`w-1.5 h-1.5 rounded-full ${showCriticalOnly ? 'bg-red-550' : 'bg-slate-350'}`} />
-                            Taux Critique (CR)
+                            {tx(lang, {fr:"Taux Critique (CR)",ar:"معدل حرج (CR)",en:"Critical Rate (CR)",es:"Tasa Crítica (CR)",pt:"Taxa Crítica (CR)",tr:"Kritik Oran (CR)"})}
                         </button>
                     </div>
                 )}
@@ -164,7 +167,7 @@ export default function QuickFilters({
                         className="inline-flex items-center gap-1 h-6 px-2.5 rounded-lg text-[11px] font-bold text-slate-500 hover:text-red-600 hover:bg-red-50/50 border border-transparent hover:border-red-200/50 ml-auto transition-all duration-200 active:scale-95"
                     >
                         <X className="w-3 h-3" />
-                        Effacer
+                        {tx(lang, {fr:"Effacer",ar:"مسح",en:"Clear",es:"Limpiar",pt:"Limpar",tr:"Temizle"})}
                     </button>
                 )}
             </div>

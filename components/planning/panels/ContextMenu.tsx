@@ -2,6 +2,8 @@ import React, { useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Edit2, Split, Copy, Trash2, Eye, Pause, Play } from 'lucide-react';
 import { useIsMobile } from '../shared/useIsMobile';
+import { tx } from '../../../lib/i18n';
+import { useLang } from '../../../src/context/LanguageContext';
 
 interface Props {
     x: number;
@@ -37,17 +39,19 @@ export default function ContextMenu({
         };
     }, [onClose]);
 
+    const { lang } = useLang();
+
     const items = [
-        { id: 'view', label: 'Voir les détails', Icon: Eye },
-        { id: 'edit', label: 'Modifier', Icon: Edit2 },
-        { id: 'split', label: 'Fractionner', Icon: Split },
-        { id: 'duplicate', label: 'Dupliquer', Icon: Copy },
+        { id: 'view', label: tx(lang, { fr: 'Voir les détails', ar: 'عرض التفاصيل', en: 'View details', es: 'Ver detalles', pt: 'Ver detalhes', tr: 'Detayları görüntüle' }), Icon: Eye },
+        { id: 'edit', label: tx(lang, { fr: 'Modifier', ar: 'تعديل', en: 'Edit', es: 'Editar', pt: 'Editar', tr: 'Düzenle' }), Icon: Edit2 },
+        { id: 'split', label: tx(lang, { fr: 'Fractionner', ar: 'تجزئة', en: 'Split', es: 'Dividir', pt: 'Dividir', tr: 'Böl' }), Icon: Split },
+        { id: 'duplicate', label: tx(lang, { fr: 'Dupliquer', ar: 'نسخ', en: 'Duplicate', es: 'Duplicar', pt: 'Duplicar', tr: 'Çoğalt' }), Icon: Copy },
         ...(onTogglePause ? [{
             id: 'togglePause',
-            label: isPaused ? 'Reprendre (Relancer)' : 'Geler / Pause (Freeze)',
+            label: isPaused ? tx(lang, { fr: 'Reprendre (Relancer)', ar: 'استئناف (إعادة تشغيل)', en: 'Resume (Restart)', es: 'Reanudar (Reiniciar)', pt: 'Retomar (Reiniciar)', tr: 'Devam (Yeniden Başlat)' }) : tx(lang, { fr: 'Geler / Pause (Freeze)', ar: 'تجميد / إيقاف مؤقت', en: 'Freeze / Pause', es: 'Congelar / Pausa', pt: 'Congelar / Pausa', tr: 'Dondur / Duraklat' }),
             Icon: isPaused ? Play : Pause
         }] : []),
-        { id: 'delete', label: 'Supprimer', Icon: Trash2, danger: true },
+        { id: 'delete', label: tx(lang, { fr: 'Supprimer', ar: 'حذف', en: 'Delete', es: 'Eliminar', pt: 'Eliminar', tr: 'Sil' }), Icon: Trash2, danger: true },
     ];
 
     const handlers: Record<string, () => void> = {

@@ -26,8 +26,10 @@ import {
 } from 'lucide-react';
 import type { Lang } from './constants';
 import { TRANSLATIONS } from './constants';
+import { tx } from '../lib/i18n';
 import SupportWidget from '../components/SupportWidget';
 import SyncIndicator from '../components/SyncIndicator';
+import { clearLocalAppData } from '../src/lib/cloudSync';
 
 type ViewType = 'dashboard' | 'ingenierie' | 'library' | 'coupe' | 'effectifs' | 'gestionRh' | 'planning' | 'suivi' | 'magasin' | 'export' | 'config' | 'profil' | 'admin' | 'rendement' | 'pageMachine' | 'machin' | 'facturation' | 'atelierProd' | 'sousTraitance' | 'catalogTemps';
 
@@ -49,99 +51,100 @@ interface AppHeaderProps {
     logout: () => void;
 }
 
-const VIEW_DEFS: Record<string, { label: string | ((t: any) => string); icon: React.ReactNode; activeClass: string }> = {
+type ViewLabelFn = (lang: Lang) => string;
+const VIEW_DEFS: Record<string, { label: string | ViewLabelFn; icon: React.ReactNode; activeClass: string }> = {
     dashboard: {
-        label: 'Tableau de bord',
+        label: (l: any) => tx(l, { fr: 'Tableau de bord', ar: 'لوحة التحكم', en: 'Dashboard', es: 'Panel', pt: 'Painel', tr: 'Gösterge Paneli' }),
         icon: <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect width="7" height="9" x="3" y="3" rx="1" /><rect width="7" height="5" x="14" y="3" rx="1" /><rect width="7" height="9" x="14" y="12" rx="1" /><rect width="7" height="5" x="3" y="16" rx="1" /></svg>,
         activeClass: 'bg-indigo-50 border-indigo-100 text-indigo-700'
     },
     planning: {
-        label: 'Planning',
+        label: (l: any) => tx(l, { fr: 'Planning', ar: 'التخطيط', en: 'Planning', es: 'Planificación', pt: 'Planeamento', tr: 'Planlama' }),
         icon: <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M19 4H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2Z" /><path d="M16 2v4" /><path d="M8 2v4" /><path d="M3 10h18" /></svg>,
         activeClass: 'bg-blue-50 border-blue-100 text-blue-700'
     },
     suivi: {
-        label: 'Suivi Production',
+        label: (l: any) => tx(l, { fr: 'Suivi Production', ar: 'تتبع الإنتاج', en: 'Production Tracking', es: 'Seguimiento Producción', pt: 'Acompanhamento Produção', tr: 'Üretim Takibi' }),
         icon: <Activity className="w-3.5 h-3.5" />,
         activeClass: 'bg-indigo-50 border-indigo-100 text-indigo-700'
     },
     rendement: {
-        label: 'Rendement',
+        label: (l: any) => tx(l, { fr: 'Rendement', ar: 'الإنتاجية', en: 'Yield', es: 'Rendimiento', pt: 'Rendimento', tr: 'Verim' }),
         icon: <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18" /><polyline points="17 6 23 6 23 12" /></svg>,
         activeClass: 'bg-violet-50 border-violet-100 text-violet-700'
     },
     ingenierie: {
-        label: (t: any) => t.ingenierie,
+        label: (l: any) => tx(l, { fr: 'Ingénierie', ar: 'الهندسة', en: 'Engineering', es: 'Ingeniería', pt: 'Engenharia', tr: 'Mühendislik' }),
         icon: <Factory className="w-3.5 h-3.5" />,
         activeClass: 'bg-emerald-50 border-emerald-100 text-emerald-700'
     },
     atelierProd: {
-        label: 'Atelier P°',
+        label: (l: any) => tx(l, { fr: 'Atelier P°', ar: 'ورشة الإنتاج', en: 'Workshop Prod.', es: 'Taller Prod.', pt: 'Oficina Prod.', tr: 'Atölye Üretim' }),
         icon: <Factory className="w-3.5 h-3.5" />,
         activeClass: 'bg-orange-50 border-orange-100 text-orange-700'
     },
     coupe: {
-        label: 'La Coupe',
+        label: (l: any) => tx(l, { fr: 'La Coupe', ar: 'القص', en: 'Cutting', es: 'Corte', pt: 'Corte', tr: 'Kesim' }),
         icon: <Scissors className="w-3.5 h-3.5" />,
         activeClass: 'bg-rose-50 border-rose-100 text-rose-700'
     },
     sousTraitance: {
-        label: 'Sous-traitance',
+        label: (l: any) => tx(l, { fr: 'Sous-traitance', ar: 'مقاولة من الباطن', en: 'Subcontracting', es: 'Subcontratación', pt: 'Subcontratação', tr: 'Taşeron' }),
         icon: <Truck className="w-3.5 h-3.5" />,
         activeClass: 'bg-indigo-50 border-indigo-100 text-indigo-700'
     },
     effectifs: {
-        label: (t: any) => t.effectifs,
+        label: (l: any) => tx(l, { fr: 'Effectifs', ar: 'التأطير', en: 'Staffing', es: 'Personal', pt: 'Efetivos', tr: 'Personel' }),
         icon: <Users className="w-3.5 h-3.5" />,
         activeClass: 'bg-orange-50 border-orange-100 text-orange-700'
     },
     gestionRh: {
-        label: 'Gestion RH',
+        label: (l: any) => tx(l, { fr: 'Gestion RH', ar: 'إدارة الموارد البشرية', en: 'HR Management', es: 'Gestión RRHH', pt: 'Gestão RH', tr: 'İK Yönetimi' }),
         icon: <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>,
         activeClass: 'bg-sky-50 border-sky-100 text-sky-700'
     },
     magasin: {
-        label: 'Magasin',
+        label: (l: any) => tx(l, { fr: 'Magasin', ar: 'المخزن', en: 'Warehouse', es: 'Almacén', pt: 'Armazém', tr: 'Depo' }),
         icon: <Package className="w-3.5 h-3.5" />,
         activeClass: 'bg-emerald-50 border-emerald-100 text-emerald-700'
     },
     export: {
-        label: 'Stock Fini',
+        label: (l: any) => tx(l, { fr: 'Stock Fini', ar: 'المخزون النهائي', en: 'Finished Stock', es: 'Stock Terminado', pt: 'Stock Final', tr: 'Bitmiş Stok' }),
         icon: <PackageCheck className="w-3.5 h-3.5" />,
         activeClass: 'bg-cyan-50 border-cyan-100 text-cyan-700'
     },
     facturation: {
-        label: 'Facturation',
+        label: (l: any) => tx(l, { fr: 'Facturation', ar: 'الفوترة', en: 'Invoicing', es: 'Facturación', pt: 'Faturação', tr: 'Faturalama' }),
         icon: <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>,
         activeClass: 'bg-blue-50 border-blue-100 text-blue-700'
     },
     library: {
-        label: (t: any) => t.library,
+        label: (l: any) => tx(l, { fr: 'Bibliothèque', ar: 'المكتبة', en: 'Library', es: 'Biblioteca', pt: 'Biblioteca', tr: 'Kütüphane' }),
         icon: <FolderOpen className="w-3.5 h-3.5" />,
         activeClass: 'bg-indigo-50 border-indigo-100 text-indigo-700'
     },
     pageMachine: {
-        label: 'Suivi des Machines',
+        label: (l: any) => tx(l, { fr: 'Suivi des Machines', ar: 'متابعة الآلات', en: 'Machine Monitoring', es: 'Seguimiento de Máquinas', pt: 'Acompanhamento de Máquinas', tr: 'Makine Takibi' }),
         icon: <Activity className="w-3.5 h-3.5" />,
         activeClass: 'bg-fuchsia-50 border-fuchsia-100 text-fuchsia-700'
     },
     machin: {
-        label: 'Catalogue & Paramètres',
+        label: (l: any) => tx(l, { fr: 'Catalogue & Paramètres', ar: 'الكتالوج والإعدادات', en: 'Catalog & Settings', es: 'Catálogo y Ajustes', pt: 'Catálogo e Definições', tr: 'Katalog ve Ayarlar' }),
         icon: <Layers className="w-3.5 h-3.5" />,
         activeClass: 'bg-indigo-50 border-indigo-100 text-indigo-700'
     },
     catalogTemps: {
-        label: 'Catalogue de Temps',
+        label: (l: any) => tx(l, { fr: 'Catalogue de Temps', ar: 'كتالوج الأوقات', en: 'Time Catalog', es: 'Catálogo de Tiempos', pt: 'Catálogo de Tempos', tr: 'Zaman Kataloğu' }),
         icon: <Clock className="w-3.5 h-3.5" />,
         activeClass: 'bg-violet-50 border-violet-100 text-violet-700'
     },
     config: {
-        label: (t: any) => t.configuration,
+        label: (l: any) => tx(l, { fr: 'Configuration', ar: 'الإعدادات', en: 'Configuration', es: 'Configuración', pt: 'Configuração', tr: 'Yapılandırma' }),
         icon: <SettingsIcon className="w-3.5 h-3.5" />,
         activeClass: 'bg-amber-50 border-amber-100 text-amber-700'
     },
     admin: {
-        label: (t: any) => t.admin,
+        label: (l: any) => tx(l, { fr: 'Admin', ar: 'المشرف', en: 'Admin', es: 'Admin', pt: 'Admin', tr: 'Yönetici' }),
         icon: <Shield className="w-3.5 h-3.5" />,
         activeClass: 'bg-purple-50 border-purple-100 text-purple-700'
     }
@@ -186,7 +189,7 @@ export default function AppHeader({
                     {/* Logo */}
                     <button
                         type="button"
-                        aria-label="Retour au tableau de bord"
+                        aria-label={tx(lang, {fr:"Retour au tableau de bord",ar:"العودة إلى لوحة القيادة",en:"Back to dashboard",es:"Volver al panel",pt:"Voltar ao painel",tr:"Gösterge paneline dön"})}
                         onClick={() => handleNavigation('dashboard')}
                         className="group relative inline-flex items-center justify-center px-1 py-0.5 rounded-sm border-none transition-all duration-200 hover:-translate-y-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/60"
                     >
@@ -196,6 +199,9 @@ export default function AppHeader({
                             BERA<span className="text-emerald-600">METHODE</span>
                         </span>
                     </button>
+
+                    {/* WORKSPACE SWITCHER — bascule entre sociétés isolées du même compte */}
+                    <WorkspaceSwitcher lang={lang} />
 
                     {/* AUTO-SAVE INDICATOR */}
                     {currentView === 'ingenierie' && (
@@ -264,7 +270,7 @@ export default function AppHeader({
                                         {visibleViews.map(view => {
                                             const def = VIEW_DEFS[view];
                                             if (!def) return null;
-                                            const label = typeof def.label === 'function' ? def.label(t) : def.label;
+                                            const label = typeof def.label === 'function' ? def.label(lang) : def.label;
                                             return (
                                                 <DropdownItem
                                                     key={view}
@@ -299,7 +305,7 @@ export default function AppHeader({
                                 if (view === 'admin' && user?.role !== 'admin') return null;
                                 const def = VIEW_DEFS[view];
                                 if (!def) return null;
-                                const label = typeof def.label === 'function' ? def.label(t) : def.label;
+                                const label = typeof def.label === 'function' ? def.label(lang) : def.label;
                                 return (
                                     <NavButton
                                         key={view}
@@ -371,6 +377,163 @@ export default function AppHeader({
                 </div>
             </div>
         </header>
+    );
+}
+
+/** Sélecteur de workspace (société) — liste, bascule, création. Visible en mode serveur. */
+interface WorkspaceItem { ownerId: number; name: string; isActive: boolean; }
+function WorkspaceSwitcher({ lang }: { lang: Lang }) {
+    const [open, setOpen] = useState(false);
+    const [list, setList] = useState<WorkspaceItem[]>([]);
+    const [busy, setBusy] = useState(false);
+    const [adding, setAdding] = useState(false);
+    const [newName, setNewName] = useState('');
+    const btnRef = useRef<HTMLButtonElement>(null);
+    const [pos, setPos] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
+
+    const load = () => {
+        fetch('/api/workspaces', { credentials: 'include' })
+            .then(r => (r.ok ? r.json() : null))
+            .then(d => { if (d?.ok && Array.isArray(d.workspaces)) setList(d.workspaces); })
+            .catch(() => { /* mode statique / hors-ligne : on masque */ });
+    };
+    useEffect(() => { load(); }, []);
+
+    useEffect(() => {
+        if (!open) return;
+        const close = () => setOpen(false);
+        window.addEventListener('scroll', close, true);
+        window.addEventListener('resize', close);
+        return () => {
+            window.removeEventListener('scroll', close, true);
+            window.removeEventListener('resize', close);
+        };
+    }, [open]);
+
+    const active = list.find(w => w.isActive) || list[0];
+
+    const openMenu = () => {
+        const r = btnRef.current?.getBoundingClientRect();
+        if (r) setPos({ top: r.bottom + 6, left: r.left });
+        load();
+        setAdding(false);
+        setNewName('');
+        setOpen(o => !o);
+    };
+
+    const switchTo = (ownerId: number) => {
+        if (busy || ownerId === active?.ownerId) { setOpen(false); return; }
+        setBusy(true);
+        fetch('/api/workspaces/switch', {
+            method: 'POST', credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ownerId }),
+        })
+            .then(r => { if (!r.ok) throw new Error('switch failed'); return r.json(); })
+            .then(() => {
+                // Purge des données locales (machines, paramètres, biblio, planning…)
+                // pour qu'elles ne fuient PAS de l'ancien workspace vers le nouveau.
+                // Les données serveur sont déjà re-cloisonnées par companyId au reload.
+                clearLocalAppData();
+                window.location.reload();
+            })
+            .catch(() => setBusy(false));
+    };
+
+    const create = () => {
+        const name = newName.trim();
+        if (!name || busy) return;
+        setBusy(true);
+        fetch('/api/workspaces', {
+            method: 'POST', credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name }),
+        })
+            .then(r => { if (!r.ok) throw new Error('create failed'); return r.json(); })
+            .then(() => {
+                // Nouveau workspace = données vierges : on purge le local pour ne pas
+                // hériter de l'ancien (le serveur est déjà cloisonné par companyId).
+                clearLocalAppData();
+                window.location.reload();
+            })
+            .catch(() => setBusy(false));
+    };
+
+    // Rien à afficher tant que la liste n'est pas chargée (ou mode statique).
+    if (list.length === 0) return null;
+
+    return (
+        <div className="relative shrink-0">
+            <button
+                ref={btnRef}
+                onClick={openMenu}
+                disabled={busy}
+                title={tx(lang, { fr: 'Changer de société', ar: 'تبديل الشركة', en: 'Switch workspace', es: 'Cambiar empresa', pt: 'Trocar empresa', tr: 'Çalışma alanını değiştir' })}
+                className="hidden sm:flex items-center gap-1.5 max-w-[180px] pl-2 pr-1.5 py-1 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 text-gray-700 transition-colors disabled:opacity-50"
+            >
+                <Factory className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
+                <span className="text-[11px] font-bold truncate">{active?.name || '—'}</span>
+                <ChevronDown className={`w-3 h-3 opacity-60 transition-transform ${open ? 'rotate-180' : ''}`} />
+            </button>
+
+            {open && createPortal(
+                <>
+                    <div className="fixed inset-0 z-[190]" onClick={() => setOpen(false)} />
+                    <div
+                        style={{ position: 'fixed', top: pos.top, left: pos.left }}
+                        className="w-60 bg-white border border-gray-100 rounded-xl shadow-lg p-1.5 z-[200] flex flex-col gap-0.5 animate-in fade-in zoom-in-95 duration-150"
+                    >
+                        <div className="px-2.5 py-1.5 text-[9px] font-bold uppercase tracking-wide text-gray-400">
+                            {tx(lang, { fr: 'Sociétés', ar: 'الشركات', en: 'Workspaces', es: 'Empresas', pt: 'Empresas', tr: 'Çalışma alanları' })}
+                        </div>
+                        {list.map(w => (
+                            <button
+                                key={w.ownerId}
+                                onClick={() => switchTo(w.ownerId)}
+                                className={`flex items-center gap-2 w-full px-2.5 py-2 rounded-lg transition-all text-[12px] font-bold text-start ${
+                                    w.isActive ? 'bg-indigo-50 text-indigo-700' : 'text-gray-600 hover:bg-gray-50'
+                                }`}
+                            >
+                                <Factory className="w-3.5 h-3.5 shrink-0 opacity-70" />
+                                <span className="truncate flex-1">{w.name}</span>
+                                {w.isActive && <CheckCircle2 className="w-3.5 h-3.5 text-indigo-500 shrink-0" />}
+                            </button>
+                        ))}
+
+                        <div className="h-px bg-gray-100 my-1" />
+
+                        {adding ? (
+                            <div className="flex items-center gap-1 px-1.5 py-1">
+                                <input
+                                    autoFocus
+                                    value={newName}
+                                    onChange={e => setNewName(e.target.value)}
+                                    onKeyDown={e => { if (e.key === 'Enter') create(); if (e.key === 'Escape') setAdding(false); }}
+                                    placeholder={tx(lang, { fr: 'Nom de la société', ar: 'اسم الشركة', en: 'Workspace name', es: 'Nombre', pt: 'Nome', tr: 'Ad' })}
+                                    className="flex-1 min-w-0 px-2 py-1.5 text-[12px] rounded-lg border border-gray-200 focus:border-indigo-300 focus:outline-none"
+                                />
+                                <button
+                                    onClick={create}
+                                    disabled={busy || !newName.trim()}
+                                    className="px-2.5 py-1.5 text-[11px] font-bold rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50"
+                                >
+                                    {tx(lang, { fr: 'Créer', ar: 'إنشاء', en: 'Create', es: 'Crear', pt: 'Criar', tr: 'Oluştur' })}
+                                </button>
+                            </div>
+                        ) : (
+                            <button
+                                onClick={() => setAdding(true)}
+                                className="flex items-center gap-2 w-full px-2.5 py-2 rounded-lg text-[12px] font-bold text-emerald-700 hover:bg-emerald-50 text-start"
+                            >
+                                <span className="w-3.5 h-3.5 flex items-center justify-center text-base leading-none">+</span>
+                                {tx(lang, { fr: 'Nouvelle société', ar: 'شركة جديدة', en: 'New workspace', es: 'Nueva empresa', pt: 'Nova empresa', tr: 'Yeni çalışma alanı' })}
+                            </button>
+                        )}
+                    </div>
+                </>,
+                document.body
+            )}
+        </div>
     );
 }
 

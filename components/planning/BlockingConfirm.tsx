@@ -1,5 +1,7 @@
 import React from 'react';
 import { AlertTriangle, X } from 'lucide-react';
+import { tx } from '../../lib/i18n';
+import { useLang } from '../../src/context/LanguageContext';
 
 export interface BlockingConfirmProps {
     open: boolean;
@@ -16,12 +18,15 @@ export default function BlockingConfirm({
     open,
     title,
     message,
-    confirmLabel = 'Confirmer',
-    cancelLabel = 'Annuler',
+    confirmLabel: _confirmLabel,
+    cancelLabel: _cancelLabel,
     variant = 'warning',
     onConfirm,
     onCancel,
 }: BlockingConfirmProps) {
+    const { lang } = useLang();
+    const confirmLabel = _confirmLabel ?? tx(lang, { fr: 'Confirmer', ar: 'تأكيد', en: 'Confirm', es: 'Confirmar', pt: 'Confirmar', tr: 'Onayla' });
+    const cancelLabel = _cancelLabel ?? tx(lang, { fr: 'Annuler', ar: 'إلغاء', en: 'Cancel', es: 'Cancelar', pt: 'Cancelar', tr: 'İptal' });
     if (!open) return null;
     const accent = variant === 'danger' ? 'bg-red-500 hover:bg-red-600' : 'bg-amber-500 hover:bg-amber-600';
     return (
@@ -34,7 +39,7 @@ export default function BlockingConfirm({
                         </div>
                         <h3 className="font-black text-slate-900 text-sm leading-tight">{title}</h3>
                     </div>
-                    <button type="button" onClick={onCancel} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600" aria-label="Fermer">
+                    <button type="button" onClick={onCancel} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600" aria-label={tx(lang, { fr: 'Fermer', ar: 'إغلاق', en: 'Close', es: 'Cerrar', pt: 'Fechar', tr: 'Kapat' })}>
                         <X className="h-4 w-4" />
                     </button>
                 </div>

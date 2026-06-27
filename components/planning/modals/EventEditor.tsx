@@ -11,6 +11,8 @@ import type { Issue } from '../hooks/usePlanningValidation';
 import { getMaterialAvailability } from '../hooks/usePlanningValidation';
 import { todayYmd } from '../shared/dateFmt';
 import { getClientColor } from '../shared/clientColors';
+import { tx } from '../../../lib/i18n';
+import { useLang } from '../../../src/context/LanguageContext';
 
 interface Props {
     open: boolean;
@@ -51,6 +53,7 @@ interface Props {
 }
 
 export default function EventEditor({ open, mode, initial, models, chains, planningEvents, settings, onClose, onSubmit, checkDraft, onOpenInIngenierie }: Props) {
+    const { lang } = useLang();
     const [modelId, setModelId] = useState('');
     const [chaineId, setChaineId] = useState(chains[0]?.id || 'CHAINE 1');
     const [startDate, setStartDate] = useState(todayYmd());
@@ -486,14 +489,14 @@ export default function EventEditor({ open, mode, initial, models, chains, plann
         <Modal
             open={open}
             onClose={onClose}
-            title={mode === 'create' ? 'Nouvel ordre' : 'Modifier l\'ordre'}
-            subtitle={mode === 'create' ? 'Configurez les paramètres principaux' : initial?.modelName}
+            title={mode === 'create' ? tx(lang,{fr:'Nouvel ordre',ar:'طلب جديد',en:'New Order',es:'Nuevo pedido',pt:'Novo pedido',tr:'Yeni Sipariş'}) : tx(lang,{fr:'Modifier l\'ordre',ar:'تعديل الطلب',en:'Edit Order',es:'Modificar pedido',pt:'Editar pedido',tr:'Siparişi Düzenle'})}
+            subtitle={mode === 'create' ? tx(lang,{fr:'Configurez les paramètres principaux',ar:'قم بتكوين الإعدادات الرئيسية',en:'Configure the main settings',es:'Configure los parámetros principales',pt:'Configure os parâmetros principais',tr:'Ana ayarları yapılandırın'}) : initial?.modelName}
             size="lg"
             footer={
                 <>
-                    <Button variant="ghost" onClick={onClose}>Annuler</Button>
+                    <Button variant="ghost" onClick={onClose}>{tx(lang,{fr:'Annuler',ar:'إلغاء',en:'Cancel',es:'Cancelar',pt:'Cancelar',tr:'İptal'})}</Button>
                     <Button variant="primary" onClick={submit} disabled={!modelId || (showDistribution ? calculatedTotal <= 0 : totalQuantity <= 0)}>
-                        {mode === 'create' ? 'Créer l\'ordre' : 'Enregistrer'}
+                        {mode === 'create' ? tx(lang,{fr:'Créer l\'ordre',ar:'إنشاء الطلب',en:'Create Order',es:'Crear pedido',pt:'Criar pedido',tr:'Sipariş Oluştur'}) : tx(lang,{fr:'Enregistrer',ar:'حفظ',en:'Save',es:'Guardar',pt:'Salvar',tr:'Kaydet'})}
                     </Button>
                 </>
             }
@@ -504,7 +507,7 @@ export default function EventEditor({ open, mode, initial, models, chains, plann
                     models={models}
                     value={modelId}
                     onChange={(id) => setModelId(id)}
-                    label="Modèle"
+                    label={tx(lang,{fr:'Modèle',ar:'الموديل',en:'Model',es:'Modelo',pt:'Modelo',tr:'Model'})}
                     planningEvents={planningEvents}
                     chainEfficiency={chains.find(c => c.id === chaineId)?.efficiency || 0.85}
                     quantity={quantity}
@@ -521,7 +524,7 @@ export default function EventEditor({ open, mode, initial, models, chains, plann
                         <div className="rounded-lg border border-white/25 bg-white/40 backdrop-blur-md p-3 shadow-sm">
                             <div className="flex items-center gap-1.5 mb-2">
                                 <Layers className="w-3.5 h-3.5 text-indigo-600" />
-                                <span className="text-[11px] font-semibold text-slate-700">Pididos du modèle — choisis ceux à lancer</span>
+                                <span className="text-[11px] font-semibold text-slate-700">{tx(lang,{fr:'Pididos du modèle — choisis ceux à lancer',ar:'Pididos الخاصة بالموديل — اختر ما تريد إطلاقه',en:'Model Pididos — choose which to launch',es:'Pididos del modelo — elige los que lanzar',pt:'Pididos do modelo — escolha os que lançar',tr:'Model Pididoları — başlatılacakları seç'})}</span>
                             </div>
                             <div className="flex flex-wrap gap-2">
                                 {modelLots.map(lot => {
@@ -546,7 +549,7 @@ export default function EventEditor({ open, mode, initial, models, chains, plann
                                                 style={{ backgroundColor: clientColor || '#ccc' }} 
                                             />
                                             <span className="truncate max-w-[150px] font-semibold">{suffix}</span>
-                                            <span className="tabular-nums text-slate-400 font-bold">{qty} pcs</span>
+                                            <span className="tabular-nums text-slate-400 font-bold">{qty} {tx(lang,{fr:'pcs',ar:'قطعة',en:'pcs',es:'uds',pt:'pcs',tr:'adet'})}</span>
                                             <span className="text-[11px]" title={matAv.label}>{matAv.emoji}</span>
                                             {active && <Check className="w-3.5 h-3.5 text-indigo-600" />}
                                         </button>
@@ -555,7 +558,7 @@ export default function EventEditor({ open, mode, initial, models, chains, plann
                             </div>
                             {selectedLotId && (
                                 <p className="mt-2 text-[10px] text-slate-400">
-                                    Le lot sélectionné pré-remplit les dates, client, quantité et répartition.
+                                    {tx(lang,{fr:'Le lot sélectionné pré-remplit les dates, client, quantité et répartition.',ar:'الدفعة المحددة تملأ التواريخ والعميل والكمية والتوزيع مسبقاً.',en:'The selected lot pre-fills dates, client, quantity and distribution.',es:'El lote seleccionado rellena las fechas, cliente, cantidad y distribución.',pt:'O lote selecionado pré-preenche as datas, cliente, quantidade e distribuição.',tr:'Seçilen parti tarihleri, müşteriyi, miktarı ve dağılımı önceden doldurur.'})}
                                 </p>
                             )}
                         </div>
@@ -566,13 +569,13 @@ export default function EventEditor({ open, mode, initial, models, chains, plann
                                 <div className="flex items-center justify-between border-b border-slate-100 pb-2">
                                     <h4 className="text-[11px] font-bold text-slate-700 flex items-center gap-1.5 uppercase tracking-wide">
                                         <Package className="w-3.5 h-3.5 text-indigo-500" />
-                                        Suivi Logistique : {activeLot.modelName?.split(' — ').slice(1).join(' — ') || activeLot.modelName}
+                                        {tx(lang,{fr:'Suivi Logistique',ar:'المتابعة اللوجستية',en:'Logistics Tracking',es:'Seguimiento Logístico',pt:'Acompanhamento Logístico',tr:'Lojistik Takibi'})} : {activeLot.modelName?.split(' — ').slice(1).join(' — ') || activeLot.modelName}
                                     </h4>
                                     <div className="flex items-center gap-1.5">
                                         {/* Lot production status badge */}
                                         {(() => {
                                             const status = activeLot.status || 'READY';
-                                            const label = status === 'DONE' ? 'Terminé' : status === 'BLOCKED_STOCK' ? 'Bloqué' : status === 'IN_PROGRESS' ? 'En cours' : 'Prêt';
+                                            const label = status === 'DONE' ? tx(lang,{fr:'Terminé',ar:'منتهي',en:'Completed',es:'Terminado',pt:'Concluído',tr:'Tamamlandı'}) : status === 'BLOCKED_STOCK' ? tx(lang,{fr:'Bloqué',ar:'محظور',en:'Blocked',es:'Bloqueado',pt:'Bloqueado',tr:'Engellendi'}) : status === 'IN_PROGRESS' ? tx(lang,{fr:'En cours',ar:'قيد التنفيذ',en:'In Progress',es:'En curso',pt:'Em andamento',tr:'Devam ediyor'}) : tx(lang,{fr:'Prêt',ar:'جاهز',en:'Ready',es:'Listo',pt:'Pronto',tr:'Hazır'});
                                             const colorCls = status === 'DONE' ? 'bg-slate-100 text-slate-600 border-slate-200' : status === 'BLOCKED_STOCK' ? 'bg-rose-50 text-rose-700 border-rose-200' : status === 'IN_PROGRESS' ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200';
                                             return (
                                                 <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold border ${colorCls}`}>
@@ -599,26 +602,26 @@ export default function EventEditor({ open, mode, initial, models, chains, plann
                                         <span className="text-slate-400 font-bold uppercase tracking-wider text-[9px]">Planning</span>
                                         <div className="space-y-0.5 text-slate-700 font-semibold">
                                             <div className="flex justify-between">
-                                                <span>Début :</span>
+                                                <span>{tx(lang,{fr:'Début :',ar:'البداية :',en:'Start:',es:'Inicio:',pt:'Início:',tr:'Başlangıç:'})}</span>
                                                 <span className="font-mono text-slate-900">{activeLot.startDate || activeLot.dateLancement || '—'}</span>
                                             </div>
                                             <div className="flex justify-between">
-                                                <span>DDS (Délai) :</span>
+                                                <span>{tx(lang,{fr:'DDS (Délai) :',ar:'DDS (الموعد النهائي) :',en:'DDS (Deadline):',es:'DDS (Plazo):',pt:'DDS (Prazo):',tr:'DDS (Teslim tarihi):'})}</span>
                                                 <span className="font-mono text-slate-900">{activeLot.strictDeadline_DDS ? activeLot.strictDeadline_DDS.split('T')[0] : '—'}</span>
                                             </div>
                                         </div>
                                     </div>
                                     <div className="space-y-1">
-                                        <span className="text-slate-400 font-bold uppercase tracking-wider text-[9px]">Fournitures</span>
+                                        <span className="text-slate-400 font-bold uppercase tracking-wider text-[9px]">{tx(lang,{fr:'Fournitures',ar:'التجهيزات',en:'Supplies',es:'Suministros',pt:'Suprimentos',tr:'Malzemeler'})}</span>
                                         <div className="space-y-0.5 text-slate-700 font-semibold">
                                             <div className="flex justify-between items-center">
-                                                <span>Arrivée prévue :</span>
+                                                <span>{tx(lang,{fr:'Arrivée prévue :',ar:'الوصول المتوقع :',en:'Expected arrival:',es:'Llegada prevista:',pt:'Chegada prevista:',tr:'Beklenen varış:'})}</span>
                                                 {activeLot.fournisseurDate ? (
                                                     <span className="font-mono text-indigo-700 font-bold bg-indigo-50 px-1.5 py-0.5 rounded border border-indigo-150">
                                                         {activeLot.fournisseurDate.split('T')[0]}
                                                     </span>
                                                 ) : (
-                                                    <span className="text-amber-600 italic font-medium">Non définie</span>
+                                                    <span className="text-amber-600 italic font-medium">{tx(lang,{fr:'Non définie',ar:'غير محددة',en:'Not defined',es:'No definida',pt:'Não definida',tr:'Tanımlanmamış'})}</span>
                                                 )}
                                             </div>
                                         </div>
@@ -629,7 +632,7 @@ export default function EventEditor({ open, mode, initial, models, chains, plann
                                 {lotMaterialAvailability && lotMaterialAvailability.details.length > 0 && (
                                     <div className="pt-1.5">
                                         <div className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
-                                            Taux de Couverture des Fournitures (BOM)
+                                            {tx(lang,{fr:'Taux de Couverture des Fournitures (BOM)',ar:'معدل تغطية التجهيزات (BOM)',en:'Supplies Coverage Rate (BOM)',es:'Tasa de Cobertura de Suministros (BOM)',pt:'Taxa de Cobertura de Suprimentos (BOM)',tr:'Malzeme Karşılama Oranı (BOM)'})}
                                         </div>
                                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 max-h-[120px] overflow-y-auto pr-1">
                                             {lotMaterialAvailability.details.map((d, idx) => (
@@ -655,7 +658,7 @@ export default function EventEditor({ open, mode, initial, models, chains, plann
                         <div className="rounded-lg border border-white/25 bg-white/40 backdrop-blur-md p-3 shadow-sm">
                             <div className="flex items-center gap-1.5 mb-2">
                                 <Palette className="w-3.5 h-3.5 text-indigo-600" />
-                                <span className="text-[11px] font-semibold text-slate-700">Pididos du modèle — choisis ceux à lancer</span>
+                                <span className="text-[11px] font-semibold text-slate-700">{tx(lang,{fr:'Pididos du modèle — choisis ceux à lancer',ar:'Pididos الخاصة بالموديل — اختر ما تريد إطلاقه',en:'Model Pididos — choose which to launch',es:'Pididos del modelo — elige los que lanzar',pt:'Pididos do modelo — escolha os que lançar',tr:'Model Pididoları — başlatılacakları seç'})}</span>
                             </div>
                             <div className="flex flex-wrap gap-2">
                                 {pididoOptions.map(p => {
@@ -678,7 +681,7 @@ export default function EventEditor({ open, mode, initial, models, chains, plann
                             </div>
                             {selectedPididos.size > 0 && (
                                 <p className="mt-2 text-[10px] text-slate-400">
-                                    La répartition ci-dessous est pré-remplie depuis la fiche pour les pididos choisis.
+                                    {tx(lang,{fr:'La répartition ci-dessous est pré-remplie depuis la fiche pour les pididos choisis.',ar:'التوزيع أدناه معبأ مسبقاً من البطاقة للـ pididos المختارة.',en:'The distribution below is pre-filled from the fiche for the selected pididos.',es:'La distribución siguiente está prellenada desde la ficha para los pididos seleccionados.',pt:'A distribuição abaixo é pré-preenchida da ficha para os pididos selecionados.',tr:'Aşağıdaki dağılım, seçilen pididolar için fiche\'dan önceden doldurulmuştur.'})}
                                 </p>
                             )}
                         </div>
@@ -688,7 +691,7 @@ export default function EventEditor({ open, mode, initial, models, chains, plann
                 {/* Grid 2 cols */}
                 <div className="grid grid-cols-2 gap-3">
                     <Input
-                        label={isSubcontracted ? "Quantité totale" : "Quantité"}
+                        label={isSubcontracted ? tx(lang,{fr:'Quantité totale',ar:'الكمية الإجمالية',en:'Total Quantity',es:'Cantidad total',pt:'Quantidade total',tr:'Toplam Miktar'}) : tx(lang,{fr:'Quantité',ar:'الكمية',en:'Quantity',es:'Cantidad',pt:'Quantidade',tr:'Miktar'})}
                         type="number"
                         value={showDistribution ? (calculatedTotal || '') : (totalQuantity || '')}
                         onChange={(e) => {
@@ -701,7 +704,7 @@ export default function EventEditor({ open, mode, initial, models, chains, plann
                         readOnly={showDistribution}
                         className={showDistribution ? 'opacity-50 cursor-not-allowed' : ''}
                     />
-                    <Select label="Chaîne" value={chaineId} onChange={(e) => setChaineId(e.target.value)}>
+                    <Select label={tx(lang,{fr:'Chaîne',ar:'الخط',en:'Line',es:'Línea',pt:'Linha',tr:'Hat'})} value={chaineId} onChange={(e) => setChaineId(e.target.value)}>
                         {chains.map(c => (
                             <option key={c.id} value={c.id}>
                                 {c.name}  ·  η {Math.round(c.efficiency * 100)}%
@@ -710,7 +713,7 @@ export default function EventEditor({ open, mode, initial, models, chains, plann
                     </Select>
 
                     <Input
-                        label="Date de lancement"
+                        label={tx(lang,{fr:'Date de lancement',ar:'تاريخ الإطلاق',en:'Launch Date',es:'Fecha de lanzamiento',pt:'Data de lançamento',tr:'Başlangıç Tarihi'})}
                         type="date"
                         value={startDate}
                         onChange={(e) => setStartDate(e.target.value)}
@@ -724,19 +727,19 @@ export default function EventEditor({ open, mode, initial, models, chains, plann
                                 className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 h-3.5 w-3.5"
                             />
                             <span className="text-[11px] font-semibold text-slate-500 select-none">
-                                Figer la date (ne pas décaler automatiquement)
+                                {tx(lang,{fr:'Figer la date (ne pas décaler automatiquement)',ar:'تجميد التاريخ (عدم النقل تلقائياً)',en:'Freeze date (do not shift automatically)',es:'Congelar fecha (no desplazar automáticamente)',pt:'Congelar data (não deslocar automaticamente)',tr:'Tarihi dondur (otomatik kaydırma)'})}
                             </span>
                         </label>
                     </div>
                     <Input
-                        label="DDS (deadline)"
+                        label={tx(lang,{fr:'DDS (deadline)',ar:'DDS (الموعد النهائي)',en:'DDS (Deadline)',es:'DDS (Plazo)',pt:'DDS (Prazo)',tr:'DDS (Teslim tarihi)'})}
                         type="date"
                         value={strictDeadline}
                         onChange={(e) => setStrictDeadline(e.target.value)}
                     />
 
                     <div className="space-y-1.5">
-                        <label className="block text-[11px] font-medium text-slate-600">Client</label>
+                        <label className="block text-[11px] font-medium text-slate-600">{tx(lang,{fr:'Client',ar:'العميل',en:'Client',es:'Cliente',pt:'Cliente',tr:'Müşteri'})}</label>
                         <div className="relative">
                             <span
                                 className="absolute left-3 top-1/2 -translate-y-1/2 w-2 h-2 rounded-full"
@@ -747,13 +750,13 @@ export default function EventEditor({ open, mode, initial, models, chains, plann
                                 className="w-full h-9 pl-8 pr-3 text-[13px] text-slate-900 placeholder:text-slate-400 bg-white border border-slate-200 rounded-md focus:border-slate-400 focus:ring-2 focus:ring-slate-100 outline-none transition-colors"
                                 value={clientName}
                                 onChange={(e) => setClientName(e.target.value)}
-                                placeholder="Nom du client"
+                                placeholder={tx(lang,{fr:'Nom du client',ar:'اسم العميل',en:'Client name',es:'Nombre del cliente',pt:'Nome do cliente',tr:'Müşteri adı'})}
                             />
                         </div>
                     </div>
 
                     <Input
-                        label="Matières (optionnel)"
+                        label={tx(lang,{fr:'Matières (optionnel)',ar:'المواد (اختياري)',en:'Materials (optional)',es:'Materiales (opcional)',pt:'Materiais (opcional)',tr:'Malzemeler (isteğe bağlı)'})}
                         type="date"
                         value={fournisseurDate}
                         onChange={(e) => setFournisseurDate(e.target.value)}
@@ -771,15 +774,15 @@ export default function EventEditor({ open, mode, initial, models, chains, plann
                                     onChange={(e) => setShowDistribution(e.target.checked)}
                                     className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
                                 />
-                                <span className="text-[12px] font-semibold text-slate-800 flex items-center gap-1.5">
-                                    <Grid3X3 className="w-4 h-4 text-indigo-600" />
-                                    Répartition (Tailles / Couleurs)
-                                </span>
+                                    <span className="text-[12px] font-semibold text-slate-800 flex items-center gap-1.5">
+                                        <Grid3X3 className="w-4 h-4 text-indigo-600" />
+                                        {tx(lang,{fr:'Répartition (Tailles / Couleurs)',ar:'التوزيع (المقاسات / الألوان)',en:'Distribution (Sizes / Colors)',es:'Distribución (Tallas / Colores)',pt:'Distribuição (Tamanhos / Cores)',tr:'Dağılım (Bedenler / Renkler)'})}
+                                    </span>
                             </label>
                             {showDistribution && (
-                                <span className="text-[11px] font-bold text-indigo-600 bg-indigo-50 px-2 py-1 rounded-md">
-                                    Total: {calculatedTotal} pcs
-                                </span>
+                                    <span className="text-[11px] font-bold text-indigo-600 bg-indigo-50 px-2 py-1 rounded-md">
+                                        {tx(lang,{fr:'Total:',ar:'المجموع:',en:'Total:',es:'Total:',pt:'Total:',tr:'Toplam:'})} {calculatedTotal} pcs
+                                    </span>
                             )}
                         </div>
 
@@ -787,7 +790,7 @@ export default function EventEditor({ open, mode, initial, models, chains, plann
                             <div className="space-y-4">
                                 <div className="flex items-center justify-between">
                                     <span className="text-[12px] font-semibold text-slate-800">
-                                        Répartition Totale (Commande)
+                                        {tx(lang,{fr:'Répartition Totale (Commande)',ar:'التوزيع الإجمالي (الطلب)',en:'Total Distribution (Order)',es:'Distribución Total (Pedido)',pt:'Distribuição Total (Pedido)',tr:'Toplam Dağılım (Sipariş)'})}
                                     </span>
                                 </div>
                                 <div className="bg-white/30 backdrop-blur-md rounded-xl border border-white/20 overflow-hidden shadow-sm animate-[planning-slide-in-right_150ms_ease-out]">
@@ -796,7 +799,7 @@ export default function EventEditor({ open, mode, initial, models, chains, plann
                                             <thead>
                                                 <tr className="bg-white/40 border-b border-white/20 backdrop-blur-sm">
                                                     <th className="px-4 py-3 text-left text-[11px] font-bold text-slate-600 uppercase tracking-wider sticky left-0 bg-white/90 backdrop-blur-md border-r border-white/10 z-10">
-                                                        Couleur \ Taille
+                                                        {tx(lang,{fr:'Couleur \\ Taille',ar:'اللون \\ المقاس',en:'Color \\ Size',es:'Color \\ Talla',pt:'Cor \\ Tamanho',tr:'Renk \\ Beden'})}
                                                     </th>
                                                     {sizes.map(size => (
                                                         <th key={size} className="px-4 py-3 text-center text-[11px] font-bold text-slate-600 uppercase tracking-wider min-w-[80px]">
@@ -876,12 +879,12 @@ export default function EventEditor({ open, mode, initial, models, chains, plann
                         {showDistribution && isSubcontracted && (
                             <div className="mt-4 space-y-4">
                                 <div className="flex items-center justify-between">
-                                    <span className="text-[12px] font-semibold text-indigo-800 flex items-center gap-1.5">
+                                        <span className="text-[12px] font-semibold text-indigo-800 flex items-center gap-1.5">
                                         <Truck className="w-4 h-4 text-indigo-600" />
-                                        Répartition Sous-traitance
+                                        {tx(lang,{fr:'Répartition Sous-traitance',ar:'توزيع المقاولة من الباطن',en:'Subcontracting Distribution',es:'Distribución Subcontratación',pt:'Distribuição Subcontratação',tr:'Taşeron Dağılımı'})}
                                     </span>
                                     <span className="text-[11px] font-bold text-indigo-600 bg-indigo-50 px-2 py-1 rounded-md">
-                                        Total sous-traité: {calculatedSubcontractTotal} pcs
+                                        {tx(lang,{fr:'Total sous-traité:',ar:'الإجمالي المقاول من الباطن:',en:'Subcontracted Total:',es:'Total subcontratado:',pt:'Total subcontratado:',tr:'Taşeron Toplamı:'})} {calculatedSubcontractTotal} pcs
                                     </span>
                                 </div>
                                 <div className="bg-white/30 backdrop-blur-md rounded-xl border border-white/20 overflow-hidden shadow-sm animate-[planning-slide-in-right_150ms_ease-out]">
@@ -890,7 +893,7 @@ export default function EventEditor({ open, mode, initial, models, chains, plann
                                             <thead>
                                                 <tr className="bg-white/40 border-b border-white/20 backdrop-blur-sm">
                                                     <th className="px-4 py-3 text-left text-[11px] font-bold text-slate-600 uppercase tracking-wider sticky left-0 bg-white/90 backdrop-blur-md border-r border-white/10 z-10">
-                                                        Couleur \ Taille
+                                                        {tx(lang,{fr:'Couleur \\ Taille',ar:'اللون \\ المقاس',en:'Color \\ Size',es:'Color \\ Talla',pt:'Cor \\ Tamanho',tr:'Renk \\ Beden'})}
                                                     </th>
                                                     {sizes.map(size => (
                                                         <th key={size} className="px-4 py-3 text-center text-[11px] font-bold text-slate-600 uppercase tracking-wider min-w-[80px]">
@@ -973,10 +976,10 @@ export default function EventEditor({ open, mode, initial, models, chains, plann
                                 <div className="flex items-center justify-between">
                                     <span className="text-[12px] font-semibold text-emerald-800 flex items-center gap-1.5">
                                         <Package className="w-4 h-4 text-emerald-600" />
-                                        Reste en Production Interne (Chaîne)
+                                        {tx(lang,{fr:'Reste en Production Interne (Chaîne)',ar:'المتبقي في الإنتاج الداخلي (الخط)',en:'Remaining In-House Production (Line)',es:'Restante en Producción Interna (Línea)',pt:'Restante em Produção Interna (Linha)',tr:'İç Üretimde Kalan (Hat)'})}
                                     </span>
                                     <span className="text-[11px] font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-md">
-                                        Reste interne: {Math.max(0, calculatedTotal - calculatedSubcontractTotal)} pcs
+                                        {tx(lang,{fr:'Reste interne:',ar:'المتبقي داخلياً:',en:'Internal Remaining:',es:'Restante interno:',pt:'Restante interno:',tr:'İç Kalan:'})} {Math.max(0, calculatedTotal - calculatedSubcontractTotal)} pcs
                                     </span>
                                 </div>
                                 <div className="bg-emerald-500/5 backdrop-blur-md rounded-xl border border-emerald-500/20 overflow-hidden shadow-sm animate-[planning-slide-in-right_150ms_ease-out]">
@@ -985,7 +988,7 @@ export default function EventEditor({ open, mode, initial, models, chains, plann
                                             <thead>
                                                 <tr className="bg-emerald-500/10 border-b border-emerald-500/20 backdrop-blur-sm">
                                                     <th className="px-4 py-3 text-left text-[11px] font-bold text-emerald-800 uppercase tracking-wider sticky left-0 bg-emerald-50/90 backdrop-blur-md border-r border-emerald-500/10 z-10">
-                                                        Couleur \ Taille
+                                                        {tx(lang,{fr:'Couleur \\ Taille',ar:'اللون \\ المقاس',en:'Color \\ Size',es:'Color \\ Talla',pt:'Cor \\ Tamanho',tr:'Renk \\ Beden'})}
                                                     </th>
                                                     {sizes.map(size => (
                                                         <th key={size} className="px-4 py-3 text-center text-[11px] font-bold text-emerald-800 uppercase tracking-wider min-w-[80px]">
@@ -1075,51 +1078,51 @@ export default function EventEditor({ open, mode, initial, models, chains, plann
                             onChange={(e) => setIsSubcontracted(e.target.checked)}
                             className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
                         />
-                        <span className="text-[12px] font-medium text-slate-700">En sous-traitance</span>
+                        <span className="text-[12px] font-medium text-slate-700">{tx(lang,{fr:'En sous-traitance',ar:'مقاولة من الباطن',en:'Subcontracted',es:'Subcontratado',pt:'Subcontratado',tr:'Taşeron'})}</span>
                     </label>
                     
                     {isSubcontracted && (
                         <div className="mt-4 p-4 bg-white/40 backdrop-blur-md border border-white/20 rounded-xl space-y-4 shadow-sm animate-[planning-slide-in-right_150ms_ease-out]">
                             <h4 className="text-[12px] font-bold text-slate-800 flex items-center gap-1.5 border-b border-slate-100 pb-2">
                                 <Truck className="w-4 h-4 text-indigo-600" />
-                                Détails du Partenaire Sous-traitant
+                                {tx(lang,{fr:'Détails du Partenaire Sous-traitant',ar:'تفاصيل شريك المقاولة من الباطن',en:'Subcontractor Partner Details',es:'Detalles del Socio Subcontratista',pt:'Detalhes do Parceiro Subcontratado',tr:'Taşeron Ortak Detayları'})}
                             </h4>
                             
                             <div className="grid grid-cols-2 gap-3">
                                 <Input
-                                    label="Nom du sous-traitant"
+                                    label={tx(lang,{fr:'Nom du sous-traitant',ar:'اسم المقاول من الباطن',en:'Subcontractor Name',es:'Nombre del subcontratista',pt:'Nome do subcontratado',tr:'Taşeron Adı'})}
                                     type="text"
                                     value={subcontractorName}
                                     onChange={(e) => setSubcontractorName(e.target.value)}
-                                    placeholder="Ex: Atelier X"
+                                    placeholder={tx(lang,{fr:'Ex: Atelier X',ar:'مثال: ورشة X',en:'E.g.: Workshop X',es:'Ej: Taller X',pt:'Ex: Oficina X',tr:'Örn: Atölye X'})}
                                 />
                                 <Input
-                                    label="Téléphone"
+                                    label={tx(lang,{fr:'Téléphone',ar:'الهاتف',en:'Phone',es:'Teléfono',pt:'Telefone',tr:'Telefon'})}
                                     type="tel"
                                     value={subcontractorPhone}
                                     onChange={(e) => setSubcontractorPhone(e.target.value)}
-                                    placeholder="Ex: +212 600000000"
+                                    placeholder={tx(lang,{fr:'Ex: +212 600000000',ar:'مثال: +212 600000000',en:'E.g.: +212 600000000',es:'Ej: +212 600000000',pt:'Ex: +212 600000000',tr:'Örn: +212 600000000'})}
                                 />
                                 
                                 <Select
-                                    label="Statut"
+                                    label={tx(lang,{fr:'Statut',ar:'الحالة',en:'Status',es:'Estado',pt:'Status',tr:'Durum'})}
                                     value={subcontractStatus}
                                     onChange={(e) => setSubcontractStatus(e.target.value as any)}
                                 >
-                                    <option value="PENDING">En attente</option>
-                                    <option value="SENT">Envoyé</option>
-                                    <option value="COMPLETED">Complété</option>
+                                    <option value="PENDING">{tx(lang,{fr:'En attente',ar:'قيد الانتظار',en:'Pending',es:'Pendiente',pt:'Pendente',tr:'Beklemede'})}</option>
+                                    <option value="SENT">{tx(lang,{fr:'Envoyé',ar:'تم الإرسال',en:'Sent',es:'Enviado',pt:'Enviado',tr:'Gönderildi'})}</option>
+                                    <option value="COMPLETED">{tx(lang,{fr:'Complété',ar:'مكتمل',en:'Completed',es:'Completado',pt:'Concluído',tr:'Tamamlandı'})}</option>
                                 </Select>
 
                                 <Input
-                                    label="Date de disponibilité"
+                                    label={tx(lang,{fr:'Date de disponibilité',ar:'تاريخ التوفّر',en:'Availability Date',es:'Fecha de disponibilidad',pt:'Data de disponibilidade',tr:'Müsaitlik Tarihi'})}
                                     type="date"
                                     value={subcontractorAvailabilityDate}
                                     onChange={(e) => setSubcontractorAvailabilityDate(e.target.value)}
                                 />
 
                                 <Input
-                                    label="Date de livraison prévue"
+                                    label={tx(lang,{fr:'Date de livraison prévue',ar:'تاريخ التسليم المتوقع',en:'Expected Delivery Date',es:'Fecha de entrega prevista',pt:'Data de entrega prevista',tr:'Beklenen Teslim Tarihi'})}
                                     type="date"
                                     value={subcontractDeadline}
                                     onChange={(e) => setSubcontractDeadline(e.target.value)}
@@ -1127,7 +1130,7 @@ export default function EventEditor({ open, mode, initial, models, chains, plann
 
                                 {!showDistribution && (
                                     <Input
-                                        label="Quantité sous-traitée"
+                                        label={tx(lang,{fr:'Quantité sous-traitée',ar:'الكمية المقاول من الباطن',en:'Subcontracted Quantity',es:'Cantidad subcontratada',pt:'Quantidade subcontratada',tr:'Taşeron Miktarı'})}
                                         type="number"
                                         value={subcontractQuantity || ''}
                                         onChange={(e) => {
@@ -1141,7 +1144,7 @@ export default function EventEditor({ open, mode, initial, models, chains, plann
                                 )}
 
                                 <Input
-                                    label="Prix par pièce (DH)"
+                                    label={tx(lang,{fr:'Prix par pièce (DH)',ar:'السعر للقطعة (DH)',en:'Price per piece (DH)',es:'Precio por pieza (DH)',pt:'Preço por peça (DH)',tr:'Birim fiyat (DH)'})}
                                     type="number"
                                     step="0.01"
                                     value={subcontractPricePerPiece || ''}
@@ -1152,7 +1155,7 @@ export default function EventEditor({ open, mode, initial, models, chains, plann
                             </div>
 
                             <div className="flex justify-between items-center bg-indigo-500/10 p-3 rounded-lg border border-indigo-500/20 backdrop-blur-sm">
-                                <span className="text-[12px] font-semibold text-slate-700">Coût total estimé :</span>
+                                <span className="text-[12px] font-semibold text-slate-700">{tx(lang,{fr:'Coût total estimé :',ar:'التكلفة الإجمالية المقدرة :',en:'Estimated Total Cost:',es:'Costo total estimado:',pt:'Custo total estimado:',tr:'Tahmini Toplam Maliyet:'})}</span>
                                 <span className="text-[14px] font-bold text-indigo-700 tabular-nums">
                                     {((showDistribution ? calculatedSubcontractTotal : subcontractQuantity) * subcontractPricePerPiece).toFixed(2)} DH
                                 </span>
@@ -1166,7 +1169,7 @@ export default function EventEditor({ open, mode, initial, models, chains, plann
                     <div className="rounded-lg bg-amber-50/40 border border-amber-100 p-3 space-y-1.5">
                         <div className="flex items-center gap-1.5 text-[11px] font-medium text-amber-800">
                             <AlertTriangle className="w-3 h-3" strokeWidth={2} />
-                            {draftIssues.length} point{draftIssues.length > 1 ? 's' : ''} d'attention
+                            {draftIssues.length} {tx(lang,{fr:'point',ar:'نقطة',en:'point',es:'punto',pt:'ponto',tr:'nokta'})}{draftIssues.length > 1 ? 's' : ''} {tx(lang,{fr:"d'attention",ar:"تحتاج انتباهاً",en:"requires attention",es:"de atención",pt:"de atenção",tr:"dikkat gerektiriyor"})}
                         </div>
                         {draftIssues.map(i => (
                             <div key={i.id} className="text-[11px] text-amber-900 leading-snug">

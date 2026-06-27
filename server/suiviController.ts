@@ -54,8 +54,9 @@ export const saveSuiviData = (req: Request, res: Response) => {
                     JSON.stringify(s)
                 );
 
-                // Auto-sync progress to Plan Master (planning_events)
-                const rows = db.prepare(`SELECT raw_data FROM suivi_data WHERE planningId = ?`).all(s.planningId);
+                // Auto-sync progress to Plan Master (planning_events) — TOUT scopé owner :
+                // un planningId forgé dans le body ne doit ni lire ni écrire l'OF d'un autre tenant.
+                const rows = db.prepare(`SELECT raw_data FROM suivi_data WHERE planningId = ? AND owner_id = ?`).all(s.planningId, companyId);
                 let totalProduced = 0;
                 for (const r of rows) {
                     try {
@@ -64,19 +65,19 @@ export const saveSuiviData = (req: Request, res: Response) => {
                     } catch(e) {}
                 }
 
-                const planRow = db.prepare(`SELECT status, qteTotal, raw_data FROM planning_events WHERE id = ?`).get(s.planningId) as { status: string, qteTotal: number, raw_data: string } | undefined;
+                const planRow = db.prepare(`SELECT status, qteTotal, raw_data FROM planning_events WHERE id = ? AND owner_id = ?`).get(s.planningId, companyId) as { status: string, qteTotal: number, raw_data: string } | undefined;
                 if (planRow) {
                     const status = totalProduced >= planRow.qteTotal ? 'DONE' : (totalProduced > 0 ? 'IN_PROGRESS' : planRow.status);
-                    
+
                     try {
                         const rawData = JSON.parse(planRow.raw_data);
                         rawData.qteProduite = totalProduced;
                         rawData.status = status;
-                        db.prepare(`UPDATE planning_events SET qteProduite = ?, status = ?, raw_data = ? WHERE id = ?`)
-                          .run(totalProduced, status, JSON.stringify(rawData), s.planningId);
+                        db.prepare(`UPDATE planning_events SET qteProduite = ?, status = ?, raw_data = ? WHERE id = ? AND owner_id = ?`)
+                          .run(totalProduced, status, JSON.stringify(rawData), s.planningId, companyId);
                     } catch(e) {
-                        db.prepare(`UPDATE planning_events SET qteProduite = ?, status = ? WHERE id = ?`)
-                          .run(totalProduced, status, s.planningId);
+                        db.prepare(`UPDATE planning_events SET qteProduite = ?, status = ? WHERE id = ? AND owner_id = ?`)
+                          .run(totalProduced, status, s.planningId, companyId);
                     }
                 }
             }

@@ -4,6 +4,8 @@ import { Building2, User, Users, StopCircle, ChevronRight, ChevronLeft, CheckCir
 import { AccountType } from '../app/accountTypes';
 import { useTheme } from '../src/context/ThemeContext';
 import { DEFAULT_CALENDAR_APP_SETTINGS } from '../lib/defaultCalendarSettings';
+import { tx } from '../lib/i18n';
+import { useLang } from '../src/context/LanguageContext';
 
 type PrefLang = 'fr' | 'ar' | 'en' | 'es' | 'pt' | 'tr';
 
@@ -277,6 +279,7 @@ const CGU_SECTIONS: { title: string; body: string }[] = [
 ];
 
 export default function Setup({ onComplete }: Props) {
+  const { lang } = useLang();
   const [step, setStep] = useState<Step>(1);
 
   // ── Traînée de fumée pilotée par la souris ─────────────────────────────────
@@ -391,9 +394,9 @@ export default function Setup({ onComplete }: Props) {
       : false;
   // Validation e-mail stricte : un simple '@' ne suffit pas (ex. « khbs2gmail.com »).
   const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(adminEmail.trim());
-  const emailError = adminEmail.trim() && !emailValid ? 'Adresse e-mail invalide (ex. : nom@gmail.com)' : undefined;
-  const passwordError = adminPassword.length > 0 && adminPassword.length < 6 ? 'Au moins 6 caractères' : undefined;
-  const confirmError = confirmPassword.length > 0 && confirmPassword !== adminPassword ? 'Les mots de passe ne correspondent pas' : undefined;
+  const emailError = adminEmail.trim() && !emailValid ? tx(lang,{fr:'Adresse e-mail invalide (ex. : nom@gmail.com)',ar:'\u0639\u0646\u0648\u0627\u0646 \u0627\u0644\u0628\u0631\u064a\u062f \u0627\u0644\u0625\u0644\u0643\u062a\u0631\u0648\u0646\u064a \u063a\u064a\u0631 \u0635\u0627\u0644\u062d (\u0645\u062b\u0627\u0644: example@gmail.com)',en:'Invalid email address (e.g.: name@gmail.com)',es:'Direcci\u00f3n de correo inv\u00e1lida (ej.: nombre@gmail.com)',pt:'Endere\u00e7o de email inv\u00e1lido (ex.: nome@gmail.com)',tr:'Ge\u00e7ersiz e-posta adresi (\u00f6rn: ad@gmail.com)'}) : undefined;
+  const passwordError = adminPassword.length > 0 && adminPassword.length < 6 ? tx(lang,{fr:'Au moins 6 caractères',ar:'\u0639\u0644\u0649 \u0627\u0644\u0623\u0642\u0644 6 \u0623\u062d\u0631\u0641',en:'At least 6 characters',es:'Al menos 6 caracteres',pt:'Pelo menos 6 caracteres',tr:'En az 6 karakter'}) : undefined;
+  const confirmError = confirmPassword.length > 0 && confirmPassword !== adminPassword ? tx(lang,{fr:'Les mots de passe ne correspondent pas',ar:'\u0643\u0644\u0645\u0627\u062a \u0627\u0644\u0633\u0631 \u0644\u0627 \u062a\u062a\u0637\u0627\u0628\u0642',en:'Passwords do not match',es:'Las contrase\u00f1as no coinciden',pt:'As palavras-passe n\u00e3o coincidem',tr:'\u015eifreler e\u015fle\u015fmiyor'}) : undefined;
   const canProceedStep3 =
     adminName.trim().length >= 2 &&
     emailValid &&
@@ -477,16 +480,16 @@ export default function Setup({ onComplete }: Props) {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setError(data?.message || data?.error || 'Une erreur est survenue lors de l\'initialisation.');
+        setError(data?.message || data?.error || tx(lang,{fr:'Une erreur est survenue lors de l\'initialisation.',ar:'\u062d\u062f\u062b \u062e\u0637\u0623 \u0623\u062b\u0646\u0627\u0621 \u0627\u0644\u062a\u0647\u064a\u0626\u0629.',en:'An error occurred during initialization.',es:'Se produjo un error durante la inicializaci\u00f3n.',pt:'Ocorreu um erro durante a inicializa\u00e7\u00e3o.',tr:'Ba\u015flatma s\u0131ras\u0131nda bir hata olu\u015ftu.'}));
         return;
       }
       if (!data?.user) {
-        setError('Réponse serveur inattendue. Veuillez réessayer.');
+        setError(tx(lang,{fr:'Réponse serveur inattendue. Veuillez réessayer.',ar:'\u0627\u0633\u062a\u062c\u0627\u0628\u0629 \u063a\u064a\u0631 \u0645\u062a\u0648\u0642\u0639\u0629 \u0645\u0646 \u0627\u0644\u062e\u0627\u062f\u0645. \u064a\u0631\u062c\u0649 \u0625\u0639\u0627\u062f\u0629 \u0627\u0644\u0645\u062d\u0627\u0648\u0644\u0629.',en:'Unexpected server response. Please try again.',es:'Respuesta del servidor inesperada. Por favor, int\u00e9ntelo de nuevo.',pt:'Resposta inesperada do servidor. Por favor, tente novamente.',tr:'Beklenmeyen sunucu yan\u0131t\u0131. L\u00fctfen tekrar deneyin.'}));
         return;
       }
       onComplete(data.user as SetupUser);
     } catch {
-      setError('Impossible de joindre le serveur. Vérifiez que l\'application est bien démarrée.');
+      setError(tx(lang,{fr:'Impossible de joindre le serveur. Vérifiez que l\'application est bien démarrée.',ar:'تعذر الاتصال بالخادم. تأكد من أن التطبيق قيد التشغيل.',en:'Could not reach the server. Make sure the application is running.',es:'No se pudo conectar con el servidor. Asegúrese de que la aplicación esté funcionando.',pt:'Não foi possível contactar o servidor. Certifique-se de que a aplicação está em execução.',tr:'Sunucuya ulaşılamadı. Uygulamanın çalıştığından emin olun.'}));
     } finally {
       setLoading(false);
     }
@@ -548,7 +551,7 @@ export default function Setup({ onComplete }: Props) {
               </motion.span>
             </h1>
           </div>
-          <p className="text-sm text-slate-500 mt-1">Configuration initiale</p>
+          <p className="text-sm text-slate-500 mt-1">{tx(lang,{fr:'Configuration initiale',ar:'\u0627\u0644\u062a\u0647\u064a\u0626\u0629 \u0627\u0644\u0623\u0648\u0644\u064a\u0629',en:'Initial setup',es:'Configuraci\u00f3n inicial',pt:'Configura\u00e7\u00e3o inicial',tr:'\u0130lk kurulum'})}</p>
         </div>
 
         {/* Carte principale */}
@@ -572,21 +575,21 @@ export default function Setup({ onComplete }: Props) {
                 </div>
               </motion.div>
 
-              <motion.h2 variants={welcomeItem} className="text-2xl font-black text-slate-900 tracking-tight mb-2">Bienvenue !</motion.h2>
+              <motion.h2 variants={welcomeItem} className="text-2xl font-black text-slate-900 tracking-tight mb-2">{tx(lang,{fr:'Bienvenue !',ar:'\u0623\u0647\u0644\u0627 \u0648\u0633\u0647\u0644\u0627 !',en:'Welcome!',es:'\u00a1Bienvenido!',pt:'Bem-vindo!',tr:'Ho\u015f geldiniz!'})}</motion.h2>
               <motion.p variants={welcomeItem} className="text-sm text-slate-500 leading-relaxed mb-7">
-                C'est la première fois que vous lancez BERAMETHODE sur cet appareil.
+                {tx(lang,{fr:'C\'est la premi\u00e8re fois que vous lancez BERAMETHODE sur cet appareil.',ar:'\u0647\u0630\u0647 \u0647\u064a \u0627\u0644\u0645\u0631\u0629 \u0627\u0644\u0623\u0648\u0644\u0649 \u0627\u0644\u062a\u064a \u062a\u0642\u0648\u0645 \u0641\u064a\u0647\u0627 \u0628\u062a\u0634\u063a\u064a\u0644 BERAMETHODE \u0639\u0644\u0649 \u0647\u0630\u0627 \u0627\u0644\u062c\u0647\u0627\u0632.',en:'This is the first time you launch BERAMETHODE on this device.',es:'Es la primera vez que inicia BERAMETHODE en este dispositivo.',pt:'\u00c9 a primeira vez que inicia o BERAMETHODE neste dispositivo.',tr:'BERAMETHODE\'yi bu cihazda ilk kez ba\u015flat\u0131yorsunuz.'})}
                 <br />
-                Configurons votre espace de travail en <strong className="text-slate-700">4 étapes rapides</strong>.
+                {tx(lang,{fr:'Configurons votre espace de travail en ',ar:'\u0644\u0646\u0642\u0645 \u0628\u062a\u0647\u064a\u0626\u0629 \u0645\u0633\u0627\u062d\u0629 \u0627\u0644\u0639\u0645\u0644 \u0641\u064a ',en:'Set up your workspace in ',es:'Configuremos su espacio de trabajo en ',pt:'Vamos configurar o seu espa\u00e7o de trabalho em ',tr:'\u00c7al\u0131\u015fma alan\u0131n\u0131z\u0131 \u015fu kadar ad\u0131mda yap\u0131land\u0131ral\u0131m: '})}<strong className="text-slate-700">{tx(lang,{fr:'4 \u00e9tapes rapides',ar:'4 \u062e\u0637\u0648\u0627\u062a \u0633\u0631\u064a\u0639\u0629',en:'4 quick steps',es:'4 pasos r\u00e1pidos',pt:'4 passos r\u00e1pidos',tr:'4 h\u0131zl\u0131 ad\u0131m'})}</strong>.
               </motion.p>
 
               {/* Étapes numérotées */}
               <motion.ul variants={welcomeItem} className="text-left space-y-2 mb-6">
-                {[
-                  "Type d'activité",
-                  'Vos informations & logo',
-                  'Compte administrateur',
-                  'Préférences',
-                ].map((label, i) => (
+                  {[
+                    tx(lang,{fr:'Type d\'activité',ar:'\u0646\u0648\u0639 \u0627\u0644\u0646\u0634\u0627\u0637',en:'Activity type',es:'Tipo de actividad',pt:'Tipo de atividade',tr:'Faaliyet türü'}),
+                    tx(lang,{fr:'Vos informations & logo',ar:'\u0645\u0639\u0644\u0648\u0645\u0627\u062a\u0643 \u0648\u0627\u0644\u0634\u0639\u0627\u0631',en:'Your info & logo',es:'Su información y logo',pt:'As suas informações e logótipo',tr:'Bilgileriniz ve logo'}),
+                    tx(lang,{fr:'Compte administrateur',ar:'\u062d\u0633\u0627\u0628 \u0627\u0644\u0645\u0633\u0624\u0648\u0644',en:'Admin account',es:'Cuenta de administrador',pt:'Conta de administrador',tr:'Yönetici hesabı'}),
+                    tx(lang,{fr:'Préférences',ar:'التفضيلات',en:'Preferences',es:'Preferencias',pt:'Preferências',tr:'Tercihler'}),
+              ].map((label, i) => (
                   <li
                     key={i}
                     className={`flex items-center gap-3 bg-slate-50 rounded-xl px-4 py-3 border border-slate-100 transition-opacity ${
@@ -608,13 +611,13 @@ export default function Setup({ onComplete }: Props) {
                   className="mt-0.5 w-4 h-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-400"
                 />
                 <span className="text-xs text-slate-600">
-                  J'ai lu et j'accepte les{' '}
+                  {tx(lang,{fr:'J\'ai lu et j\'accepte les ',ar:'\u0644\u0642\u062f \u0642\u0631\u0623\u062a \u0648\u0623\u0648\u0627\u0641\u0642 \u0639\u0644\u0649 ',en:'I have read and accept the ',es:'He le\u00eddo y acepto los ',pt:'Li e aceito os ',tr:'Okudum ve kabul ediyorum: '})}{' '}
                   <button
                     type="button"
                     onClick={(e) => { e.preventDefault(); setShowTerms(true); }}
                     className="font-semibold text-emerald-700 underline underline-offset-2 hover:text-emerald-800"
                   >
-                    Conditions Générales d'Utilisation
+                    {tx(lang,{fr:'Conditions Générales d\'Utilisation',ar:'الشروط العامة للاستخدام',en:'Terms and Conditions',es:'Términos y Condiciones de Uso',pt:'Termos e Condições de Utilização',tr:'Kullanım Şartları'})}
                   </button>.
                 </span>
               </motion.label>
@@ -626,7 +629,7 @@ export default function Setup({ onComplete }: Props) {
                   disabled={!acceptedTerms}
                   className="w-full py-3 px-6 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold rounded-xl flex items-center justify-center gap-2 transition-colors shadow-sm shadow-emerald-600/25"
                 >
-                  Commencer
+                  {tx(lang,{fr:'Commencer',ar:'البدء',en:'Start',es:'Comenzar',pt:'Começar',tr:'Başla'})}
                   <ChevronRight className="w-4 h-4" />
                 </button>
               </motion.div>
@@ -637,8 +640,8 @@ export default function Setup({ onComplete }: Props) {
           {step === 2 && !accountType && (
             <div>
               <div className="mb-6">
-                <h2 className="text-lg font-bold text-slate-800">Type d'activité</h2>
-                <p className="text-xs text-slate-500 mt-0.5">Sélectionnez votre profil pour adapter l'interface.</p>
+                <h2 className="text-lg font-bold text-slate-800">{tx(lang,{fr:'Type d\'activit\u00e9',ar:'\u0646\u0648\u0639 \u0627\u0644\u0646\u0634\u0627\u0637',en:'Activity type',es:'Tipo de actividad',pt:'Tipo de atividade',tr:'Faaliyet t\u00fcr\u00fc'})}</h2>
+                <p className="text-xs text-slate-500 mt-0.5">{tx(lang,{fr:'S\u00e9lectionnez votre profil pour adapter l\'interface.',ar:'\u0627\u062e\u062a\u0631 \u0645\u0644\u0641\u0643 \u0644\u062a\u0643\u064a\u064a\u0641 \u0627\u0644\u0648\u0627\u062c\u0647\u0629.',en:'Select your profile to adapt the interface.',es:'Seleccione su perfil para adaptar la interfaz.',pt:'Selecione o seu perfil para adaptar a interface.',tr:'Aray\u00fcz\u00fc uyarlamak i\u00e7in profilinizi se\u00e7in.'})}</p>
               </div>
 
               <div className="space-y-2.5">
@@ -667,7 +670,7 @@ export default function Setup({ onComplete }: Props) {
                   className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-800 transition-colors"
                 >
                   <ChevronLeft className="w-4 h-4" />
-                  Retour
+                  {tx(lang,{fr:'Retour',ar:'رجوع',en:'Back',es:'Volver',pt:'Voltar',tr:'Geri'})}
                 </button>
               </div>
             </div>
@@ -679,18 +682,18 @@ export default function Setup({ onComplete }: Props) {
               <div className="mb-6 flex items-start justify-between gap-3">
                 <div>
                   <h2 className="text-lg font-bold text-slate-800">
-                    {accountType === 'societe' && 'Votre société'}
-                    {accountType === 'client' && 'Informations client'}
-                    {accountType === 'personnel' && 'Profil indépendant'}
+                    {accountType === 'societe' && tx(lang,{fr:'Votre soci\u00e9t\u00e9',ar:'\u0634\u0631\u0643\u062a\u0643',en:'Your company',es:'Su empresa',pt:'A sua empresa',tr:'\u015eirketiniz'})}
+                    {accountType === 'client' && tx(lang,{fr:'Informations client',ar:'\u0645\u0639\u0644\u0648\u0645\u0627\u062a \u0627\u0644\u0639\u0645\u064a\u0644',en:'Client information',es:'Informaci\u00f3n del cliente',pt:'Informa\u00e7\u00f5es do cliente',tr:'M\u00fc\u015fteri bilgileri'})}
+                    {accountType === 'personnel' && tx(lang,{fr:'Profil ind\u00e9pendant',ar:'\u0627\u0644\u0645\u0644\u0641 \u0627\u0644\u0645\u0633\u062a\u0642\u0644',en:'Freelance profile',es:'Perfil independiente',pt:'Perfil independente',tr:'Serbest \u00e7al\u0131\u015fan profili'})}
                   </h2>
-                  <p className="text-xs text-slate-500 mt-0.5">Ces informations apparaîtront sur vos documents</p>
+                  <p className="text-xs text-slate-500 mt-0.5">{tx(lang,{fr:'Ces informations appara\u00eetront sur vos documents',ar:'\u0633\u062a\u0638\u0647\u0631 \u0647\u0630\u0647 \u0627\u0644\u0645\u0639\u0644\u0648\u0645\u0627\u062a \u0639\u0644\u0649 \u0645\u0633\u062a\u0646\u062f\u0627\u062a\u0643',en:'This information will appear on your documents',es:'Esta informaci\u00f3n aparecer\u00e1 en sus documentos',pt:'Estas informa\u00e7\u00f5es aparecer\u00e3o nos seus documentos',tr:'Bu bilgiler belgelerinizde g\u00f6r\u00fcnecek'})}</p>
                 </div>
                 <button
                   type="button"
                   onClick={() => { setAccountType(null); setStep(1); }}
                   className="shrink-0 text-xs text-emerald-700 bg-emerald-50 hover:bg-emerald-100 px-2.5 py-1 rounded-lg transition-colors"
                 >
-                  Changer de type
+                  {tx(lang,{fr:'Changer de type',ar:'\u062a\u063a\u064a\u064a\u0631 \u0627\u0644\u0646\u0648\u0639',en:'Change type',es:'Cambiar tipo',pt:'Alterar tipo',tr:'T\u00fcr\u00fc de\u011fi\u015ftir'})}
                 </button>
               </div>
 
@@ -699,7 +702,7 @@ export default function Setup({ onComplete }: Props) {
                 <button
                   type="button"
                   onClick={() => logoInputRef.current?.click()}
-                  aria-label="Choisir le logo"
+                  aria-label={tx(lang,{fr:'Choisir le logo',ar:'\u0627\u062e\u062a\u0631 \u0627\u0644\u0634\u0639\u0627\u0631',en:'Choose logo',es:'Elegir logotipo',pt:'Escolher log\u00f3tipo',tr:'Logo se\u00e7'})}
                   className="group relative w-14 h-14 rounded-xl border-2 border-dashed border-slate-200 hover:border-emerald-400 bg-white hover:bg-emerald-50/40 flex items-center justify-center overflow-hidden transition-colors shrink-0"
                 >
                   {logo ? (
@@ -714,9 +717,9 @@ export default function Setup({ onComplete }: Props) {
                     onClick={() => logoInputRef.current?.click()}
                     className="text-sm font-medium text-slate-700 hover:text-emerald-600 transition-colors"
                   >
-                    {logo ? 'Changer le logo' : 'Ajouter un logo'}
+                    {logo ? tx(lang,{fr:'Changer le logo',ar:'\u062a\u063a\u064a\u064a\u0631 \u0627\u0644\u0634\u0639\u0627\u0631',en:'Change logo',es:'Cambiar logotipo',pt:'Alterar log\u00f3tipo',tr:'Logoyu de\u011fi\u015ftir'}) : tx(lang,{fr:'Ajouter un logo',ar:'\u0625\u0636\u0627\u0641\u0629 \u0634\u0639\u0627\u0631',en:'Add a logo',es:'A\u00f1adir logotipo',pt:'Adicionar log\u00f3tipo',tr:'Logo ekle'})}
                   </button>
-                  <p className="text-xs text-slate-400 mt-0.5">Optionnel — apparaîtra sur vos documents.</p>
+                  <p className="text-xs text-slate-400 mt-0.5">{tx(lang,{fr:'Optionnel \u2014 appara\u00eetra sur vos documents.',ar:'\u0627\u062e\u062a\u064a\u0627\u0631\u064a \u2014 \u0633\u064a\u0638\u0647\u0631 \u0639\u0644\u0649 \u0645\u0633\u062a\u0646\u062f\u0627\u062a\u0643.',en:'Optional \u2014 will appear on your documents.',es:'Opcional \u2014 aparecer\u00e1 en sus documentos.',pt:'Opcional \u2014 aparecer\u00e1 nos seus documentos.',tr:'\u0130ste\u011fe ba\u011fl\u0131 \u2014 belgelerinizde g\u00f6r\u00fcnecek.'})}</p>
                 </div>
               </div>
 
@@ -732,21 +735,21 @@ export default function Setup({ onComplete }: Props) {
               {accountType === 'societe' && (
                 <div className="space-y-4">
                   <Field
-                    label="Nom de la société"
+                    label={tx(lang,{fr:'Nom de la soci\u00e9t\u00e9',ar:'\u0627\u0633\u0645 \u0627\u0644\u0634\u0631\u0643\u0629',en:'Company name',es:'Nombre de la empresa',pt:'Nome da empresa',tr:'\u015eirket ad\u0131'})}
                     value={companyName}
                     onChange={setCompanyName}
-                    placeholder="Ex. : Confection Atlas SARL"
+                    placeholder={tx(lang,{fr:'Ex. : Confection Atlas SARL',ar:'\u0645\u062b\u0627\u0644: Confection Atlas SARL',en:'E.g.: Confection Atlas SARL',es:'Ej.: Confection Atlas SARL',pt:'Ex.: Confection Atlas SARL',tr:'\u00d6rn: Confection Atlas SARL'})}
                     autoComplete="organization"
                   />
                   <div className="flex flex-col gap-1">
-                    <label className="text-xs font-semibold text-slate-600 uppercase tracking-wide">Spécialité</label>
+                    label={tx(lang,{fr:'Sp\u00e9cialit\u00e9',ar:'\u0627\u0644\u062a\u062e\u0635\u0635',en:'Specialty',es:'Especialidad',pt:'Especialidade',tr:'Uzmanl\u0131k'})}
                     <select
                       value={specialty}
                       onChange={(e) => setSpecialty(e.target.value)}
                       required
                       className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-transparent transition"
                     >
-                      <option value="" disabled>Sélectionner une spécialité…</option>
+                      <option value="" disabled>{tx(lang,{fr:'S\u00e9lectionner une sp\u00e9cialit\u00e9\u2026',ar:'\u0627\u062e\u062a\u0631 \u062a\u062e\u0635\u0635\u0627\u064b\u2026',en:'Select a specialty\u2026',es:'Seleccione una especialidad\u2026',pt:'Selecione uma especialidade\u2026',tr:'Bir uzmanl\u0131k se\u00e7in\u2026'})}</option>
                       {SPECIALTIES.map((s) => (
                         <option key={s} value={s}>{s}</option>
                       ))}
@@ -759,17 +762,17 @@ export default function Setup({ onComplete }: Props) {
               {accountType === 'client' && (
                 <div className="space-y-4">
                   <Field
-                    label="Nom de la marque / client"
+                    label={tx(lang,{fr:'Nom de la marque / client',ar:'\u0627\u0633\u0645 \u0627\u0644\u0639\u0644\u0627\u0645\u0629 \u0627\u0644\u062a\u062c\u0627\u0631\u064a\u0629 / \u0627\u0644\u0639\u0645\u064a\u0644',en:'Brand / client name',es:'Nombre de la marca / cliente',pt:'Nome da marca / cliente',tr:'Marka / m\u00fc\u015fteri ad\u0131'})}
                     value={clientName}
                     onChange={setClientName}
-                    placeholder="Ex. : Zara / Inditex Buying"
+                    placeholder={tx(lang,{fr:'Ex. : Zara / Inditex Buying',ar:'\u0645\u062b\u0627\u0644: Zara / Inditex Buying',en:'E.g.: Zara / Inditex Buying',es:'Ej.: Zara / Inditex Buying',pt:'Ex.: Zara / Inditex Buying',tr:'\u00d6rn: Zara / Inditex Buying'})}
                     autoComplete="organization"
                   />
                   <Field
-                    label="Région principale d'importation"
+                    label={tx(lang,{fr:'R\u00e9gion principale d\'importation',ar:'\u0627\u0644\u0645\u0646\u0637\u0642\u0629 \u0627\u0644\u0631\u0626\u064a\u0633\u064a\u0629 \u0644\u0644\u0627\u0633\u062a\u064a\u0631\u0627\u062f',en:'Main import region',es:'Regi\u00f3n principal de importaci\u00f3n',pt:'Regi\u00e3o principal de importa\u00e7\u00e3o',tr:'Ana ithalat b\u00f6lgesi'})}
                     value={region}
                     onChange={setRegion}
-                    placeholder="Ex. : Espagne / Europe"
+                    placeholder={tx(lang,{fr:'Ex. : Espagne / Europe',ar:'\u0645\u062b\u0627\u0644: \u0625\u0633\u0628\u0627\u0646\u064a\u0627 / \u0623\u0648\u0631\u0648\u0628\u0627',en:'E.g.: Spain / Europe',es:'Ej.: Espa\u00f1a / Europa',pt:'Ex.: Espanha / Europa',tr:'\u00d6rn: \u0130spanya / Avrupa'})}
                   />
                 </div>
               )}
@@ -778,21 +781,21 @@ export default function Setup({ onComplete }: Props) {
               {accountType === 'personnel' && (
                 <div className="space-y-4">
                   <Field
-                    label="Nom complet de l'expert"
+                    label={tx(lang,{fr:'Nom complet de l\'expert',ar:'\u0627\u0644\u0627\u0633\u0645 \u0627\u0644\u0643\u0627\u0645\u0644 \u0644\u0644\u062e\u0628\u064a\u0631',en:'Expert full name',es:'Nombre completo del experto',pt:'Nome completo do perito',tr:'Uzman\u0131n tam ad\u0131'})}
                     value={expertName}
                     onChange={setExpertName}
-                    placeholder="Ex. : Soulaimane Berraadi"
+                    placeholder={tx(lang,{fr:'Ex. : Soulaimane Berraadi',ar:'\u0645\u062b\u0627\u0644: Soulaimane Berraadi',en:'E.g.: Soulaimane Berraadi',es:'Ej.: Soulaimane Berraadi',pt:'Ex.: Soulaimane Berraadi',tr:'\u00d6rn: Soulaimane Berraadi'})}
                     autoComplete="name"
                   />
                   <div className="flex flex-col gap-1">
-                    <label className="text-xs font-semibold text-slate-600 uppercase tracking-wide">Spécialisation principale</label>
+                    <label className="text-xs font-semibold text-slate-600 uppercase tracking-wide">{tx(lang,{fr:'Sp\u00e9cialisation principale',ar:'\u0627\u0644\u062a\u062e\u0635\u0635 \u0627\u0644\u0631\u0626\u064a\u0633\u064a',en:'Main specialization',es:'Especializaci\u00f3n principal',pt:'Especializa\u00e7\u00e3o principal',tr:'Ana uzmanl\u0131k'})}</label>
                     <select
                       value={focusArea}
                       onChange={(e) => setFocusArea(e.target.value)}
                       required
                       className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-transparent transition"
                     >
-                      <option value="" disabled>Sélectionner une spécialisation…</option>
+                      <option value="" disabled>{tx(lang,{fr:'S\u00e9lectionner une sp\u00e9cialisation\u2026',ar:'\u0627\u062e\u062a\u0631 \u062a\u062e\u0635\u0635\u0627\u064b\u2026',en:'Select a specialization\u2026',es:'Seleccione una especializaci\u00f3n\u2026',pt:'Selecione uma especializa\u00e7\u00e3o\u2026',tr:'Bir uzmanl\u0131k se\u00e7in\u2026'})}</option>
                       {FOCUS_AREAS.map((f) => (
                         <option key={f} value={f}>{f}</option>
                       ))}
@@ -808,7 +811,7 @@ export default function Setup({ onComplete }: Props) {
                   className="flex-1 py-2.5 px-4 border border-slate-200 text-slate-600 font-semibold rounded-xl hover:bg-slate-50 flex items-center justify-center gap-1.5 transition-colors text-sm"
                 >
                   <ChevronLeft className="w-4 h-4" />
-                  Retour
+                  {tx(lang,{fr:'Retour',ar:'رجوع',en:'Back',es:'Volver',pt:'Voltar',tr:'Geri'})}
                 </button>
                 <button
                   type="button"
@@ -816,7 +819,7 @@ export default function Setup({ onComplete }: Props) {
                   disabled={!canProceedStep2}
                   className="flex-[2] py-2.5 px-4 bg-slate-800 hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold rounded-xl flex items-center justify-center gap-1.5 transition-colors text-sm"
                 >
-                  Continuer
+                  {tx(lang,{fr:'Continuer',ar:'متابعة',en:'Continue',es:'Continuar',pt:'Continuar',tr:'Devam et'})}
                   <ChevronRight className="w-4 h-4" />
                 </button>
               </div>
@@ -827,63 +830,63 @@ export default function Setup({ onComplete }: Props) {
           {step === 3 && (
             <form onSubmit={(e) => { e.preventDefault(); handleNext(); }}>
               <div className="mb-6">
-                <h2 className="text-lg font-bold text-slate-800">Compte administrateur</h2>
-                <p className="text-xs text-slate-500 mt-0.5">Ce compte aura accès à toutes les fonctionnalités</p>
+                <h2 className="text-lg font-bold text-slate-800">{tx(lang,{fr:'Compte administrateur',ar:'\u062d\u0633\u0627\u0628 \u0627\u0644\u0645\u0633\u0624\u0648\u0644',en:'Admin account',es:'Cuenta de administrador',pt:'Conta de administrador',tr:'Y\u00f6netici hesab\u0131'})}</h2>
+                <p className="text-xs text-slate-500 mt-0.5">{tx(lang,{fr:'Ce compte aura acc\u00e8s \u00e0 toutes les fonctionnalit\u00e9s',ar:'\u0633\u064a\u0643\u0648\u0646 \u0644\u0647\u0630\u0627 \u0627\u0644\u062d\u0633\u0627\u0628 \u062f\u0633\u062a\u0648\u062d \u0625\u0644\u0649 \u062c\u0645\u064a\u0639 \u0627\u0644\u0648\u0638\u0627\u0626\u0641',en:'This account will have access to all features',es:'Esta cuenta tendr\u00e1 acceso a todas las funciones',pt:'Esta conta ter\u00e1 acesso a todas as funcionalidades',tr:'Bu hesab\u0131n t\u00fcm \u00f6zelliklere eri\u015fimi olacak'})}</p>
               </div>
 
               <div className="space-y-4">
                 <Field
-                  label="Nom complet"
+                  label={tx(lang,{fr:'Nom complet',ar:'\u0627\u0644\u0627\u0633\u0645 \u0627\u0644\u0643\u0627\u0645\u0644',en:'Full name',es:'Nombre completo',pt:'Nome completo',tr:'Ad Soyad'})}
                   value={adminName}
                   onChange={setAdminName}
                   placeholder="Ex. : Soulaimane Berraadi"
                   autoComplete="name"
                 />
                 <Field
-                  label="Adresse e-mail"
+                  label={tx(lang,{fr:'Adresse e-mail',ar:'\u0627\u0644\u0628\u0631\u064a\u062f \u0627\u0644\u0625\u0644\u0643\u062a\u0631\u0648\u0646\u064a',en:'Email address',es:'Direcci\u00f3n de correo',pt:'Endere\u00e7o de email',tr:'E-posta adresi'})}
                   type="email"
                   value={adminEmail}
                   onChange={setAdminEmail}
-                  placeholder="exemple@gmail.com"
+                  placeholder={tx(lang,{fr:'exemple@gmail.com',ar:'\u0645\u062b\u0627\u0644@gmail.com',en:'example@gmail.com',es:'ejemplo@gmail.com',pt:'exemplo@gmail.com',tr:'ornek@gmail.com'})}
                   autoComplete="email"
                   error={emailError}
                 />
                 <Field
-                  label="Téléphone personnel"
+                  label={tx(lang,{fr:'T\u00e9l\u00e9phone personnel',ar:'\u0627\u0644\u0647\u0627\u062a\u0641 \u0627\u0644\u0634\u062e\u0635\u064a',en:'Personal phone',es:'Tel\u00e9fono personal',pt:'Telem\u00f3vel pessoal',tr:'Ki\u015fisel telefon'})}
                   type="tel"
                   value={adminPhone}
                   onChange={setAdminPhone}
-                  placeholder="Ex. : 06 12 34 56 78"
+                  placeholder={tx(lang,{fr:'Ex. : 06 12 34 56 78',ar:'\u0645\u062b\u0627\u0644: 06 12 34 56 78',en:'E.g.: 06 12 34 56 78',es:'Ej.: 06 12 34 56 78',pt:'Ex.: 06 12 34 56 78',tr:'\u00d6rn: 06 12 34 56 78'})}
                   autoComplete="tel"
                   required={false}
-                  hint="Optionnel"
+                  hint={tx(lang,{fr:'Optionnel',ar:'\u0627\u062e\u062a\u064a\u0627\u0631\u064a',en:'Optional',es:'Opcional',pt:'Opcional',tr:'\u0130ste\u011fe ba\u011fl\u0131'})}
                 />
                 <Field
-                  label="Téléphone de la société"
+                  label={tx(lang,{fr:'T\u00e9l\u00e9phone de la soci\u00e9t\u00e9',ar:'\u0647\u0627\u062a\u0641 \u0627\u0644\u0634\u0631\u0643\u0629',en:'Company phone',es:'Tel\u00e9fono de la empresa',pt:'Telefone da empresa',tr:'\u015eirket telefonu'})}
                   type="tel"
                   value={companyPhone}
                   onChange={setCompanyPhone}
-                  placeholder="Ex. : 05 22 00 00 00"
+                  placeholder={tx(lang,{fr:'Ex. : 05 22 00 00 00',ar:'\u0645\u062b\u0627\u0644: 05 22 00 00 00',en:'E.g.: 05 22 00 00 00',es:'Ej.: 05 22 00 00 00',pt:'Ex.: 05 22 00 00 00',tr:'\u00d6rn: 05 22 00 00 00'})}
                   autoComplete="tel"
                   required={false}
                   hint="Optionnel"
                 />
                 <Field
-                  label="Mot de passe"
+                  label={tx(lang,{fr:'Mot de passe',ar:'\u0643\u0644\u0645\u0629 \u0627\u0644\u0633\u0631',en:'Password',es:'Contrase\u00f1a',pt:'Palavra-passe',tr:'\u015eifre'})}
                   type="password"
                   value={adminPassword}
                   onChange={setAdminPassword}
-                  placeholder="Minimum 6 caractères"
+                  placeholder={tx(lang,{fr:'Minimum 6 caract\u00e8res',ar:'\u0639\u0644\u0649 \u0627\u0644\u0623\u0642\u0644 6 \u0623\u062d\u0631\u0641',en:'At least 6 characters',es:'M\u00ednimo 6 caracteres',pt:'M\u00ednimo 6 caracteres',tr:'En az 6 karakter'})}
                   autoComplete="new-password"
-                  hint="Au moins 6 caractères"
+                  hint={tx(lang,{fr:'Au moins 6 caract\u00e8res',ar:'\u0639\u0644\u0649 \u0627\u0644\u0623\u0642\u0644 6 \u0623\u062d\u0631\u0641',en:'At least 6 characters',es:'Al menos 6 caracteres',pt:'Pelo menos 6 caracteres',tr:'En az 6 karakter'})}
                   error={passwordError}
                 />
                 <Field
-                  label="Confirmer le mot de passe"
+                  label={tx(lang,{fr:'Confirmer le mot de passe',ar:'\u062a\u0623\u0643\u064a\u062f \u0643\u0644\u0645\u0629 \u0627\u0644\u0633\u0631',en:'Confirm password',es:'Confirmar contrase\u00f1a',pt:'Confirmar palavra-passe',tr:'\u015eifreyi onayla'})}
                   type="password"
                   value={confirmPassword}
                   onChange={setConfirmPassword}
-                  placeholder="Répétez le mot de passe"
+                  placeholder={tx(lang,{fr:'R\u00e9p\u00e9tez le mot de passe',ar:'\u0623\u0639\u062f \u0625\u062f\u062e\u0627\u0644 \u0643\u0644\u0645\u0629 \u0627\u0644\u0633\u0631',en:'Repeat password',es:'Repita la contrase\u00f1a',pt:'Repita a palavra-passe',tr:'\u015eifreyi tekrarlay\u0131n'})}
                   autoComplete="new-password"
                   error={confirmError}
                 />
@@ -898,8 +901,8 @@ export default function Setup({ onComplete }: Props) {
 
               {!canProceedStep3 && (
                 <p className="mt-4 text-[11px] text-slate-400 text-center">
-                  Renseignez un nom, un e-mail valide et un mot de passe (6+ caractères) identique pour continuer.
-                  <br />Le téléphone reste optionnel.
+                  {tx(lang,{fr:'Renseignez un nom, un e-mail valide et un mot de passe (6+ caractères) identique pour continuer.',ar:'أدخل اسماً وبريداً إلكترونياً صالحاً وكلمة سر (6+ أحرف) متطابقة للمتابعة.',en:'Enter a name, a valid email and a matching password (6+ characters) to continue.',es:'Introduzca un nombre, un correo válido y una contraseña (6+ caracteres) coincidente para continuar.',pt:'Introduza um nome, um e-mail válido e uma palavra-passe (6+ caracteres) correspondente para continuar.',tr:'Devam etmek için bir ad, geçerli bir e-posta ve eşleşen bir şifre (6+ karakter) girin.'})}
+                  <br />{tx(lang,{fr:'Le téléphone reste optionnel.',ar:'الهاتف اختياري.',en:'Phone is optional.',es:'El teléfono sigue siendo opcional.',pt:'O telefone continua opcional.',tr:'Telefon isteğe bağlıdır.'})}
                 </p>
               )}
 
@@ -911,14 +914,14 @@ export default function Setup({ onComplete }: Props) {
                   className="flex-1 py-2.5 px-4 border border-slate-200 text-slate-600 font-semibold rounded-xl hover:bg-slate-50 flex items-center justify-center gap-1.5 transition-colors text-sm disabled:opacity-40"
                 >
                   <ChevronLeft className="w-4 h-4" />
-                  Retour
+                  {tx(lang,{fr:'Retour',ar:'رجوع',en:'Back',es:'Volver',pt:'Voltar',tr:'Geri'})}
                 </button>
                 <button
                   type="submit"
                   disabled={!canProceedStep3}
                   className="flex-[2] py-2.5 px-4 bg-slate-800 hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold rounded-xl flex items-center justify-center gap-1.5 transition-colors text-sm"
                 >
-                  Continuer
+                  {tx(lang,{fr:'Continuer',ar:'متابعة',en:'Continue',es:'Continuar',pt:'Continuar',tr:'Devam et'})}
                   <ChevronRight className="w-4 h-4" />
                 </button>
               </div>
@@ -931,14 +934,14 @@ export default function Setup({ onComplete }: Props) {
               <div className="mb-6 flex items-center gap-2">
                 <SlidersHorizontal className="w-4 h-4 text-emerald-600 shrink-0" />
                 <div>
-                  <h2 className="text-lg font-bold text-slate-800">Préférences</h2>
-                  <p className="text-xs text-slate-500 mt-0.5">Valeurs par défaut — modifiables à tout moment dans Configuration.</p>
+                  <h2 className="text-lg font-bold text-slate-800">{tx(lang,{fr:'Pr\u00e9f\u00e9rences',ar:'\u0627\u0644\u062a\u0641\u0636\u064a\u0644\u0627\u062a',en:'Preferences',es:'Preferencias',pt:'Prefer\u00eancias',tr:'Tercihler'})}</h2>
+                  <p className="text-xs text-slate-500 mt-0.5">{tx(lang,{fr:'Valeurs par d\u00e9faut \u2014 modifiables \u00e0 tout moment dans Configuration.',ar:'\u0627\u0644\u0642\u064a\u0645 \u0627\u0644\u0627\u0641\u062a\u0631\u0627\u0636\u064a\u0629 \u2014 \u0642\u0627\u0628\u0644\u0629 \u0644\u0644\u062a\u063a\u064a\u064a\u0631 \u0641\u064a \u0623\u064a \u0648\u0642\u062a \u0645\u0646 \u0627\u0644\u0625\u0639\u062f\u0627\u062f\u0627\u062a.',en:'Default values \u2014 can be changed anytime in Settings.',es:'Valores por defecto \u2014 modificables en cualquier momento en Configuraci\u00f3n.',pt:'Valores predefinidos \u2014 alter\u00e1veis a qualquer momento na Configura\u00e7\u00e3o.',tr:'Varsay\u0131lan de\u011ferler \u2014 Ayarlar\'dan her zaman de\u011fi\u015ftirilebilir.'})}</p>
                 </div>
               </div>
 
               <div className="space-y-5">
                 <Seg<PrefLang>
-                  label="Langue"
+                  label={tx(lang,{fr:'Langue',ar:'\u0627\u0644\u0644\u063a\u0629',en:'Language',es:'Idioma',pt:'Idioma',tr:'Dil'})}
                   value={prefLang}
                   onChange={setPrefLang}
                   options={[
@@ -951,17 +954,17 @@ export default function Setup({ onComplete }: Props) {
                   ]}
                 />
                 <Seg
-                  label="Thème"
+                  label={tx(lang,{fr:'Th\u00e8me',ar:'\u0627\u0644\u0645\u0646\u0638\u0631',en:'Theme',es:'Tema',pt:'Tema',tr:'Tema'})}
                   value={theme}
                   onChange={setTheme}
                   options={[
-                    { v: 'light', label: 'Clair', icon: Sun },
-                    { v: 'dark', label: 'Sombre', icon: Moon },
-                    { v: 'system', label: 'Auto', icon: Monitor },
+                    { v: 'light', label: tx(lang,{fr:'Clair',ar:'\u0641\u0627\u062a\u062d',en:'Light',es:'Claro',pt:'Claro',tr:'A\u00e7\u0131k'}), icon: Sun },
+                    { v: 'dark', label: tx(lang,{fr:'Sombre',ar:'\u062f\u0627\u0643\u0646',en:'Dark',es:'Oscuro',pt:'Escuro',tr:'Koyu'}), icon: Moon },
+                    { v: 'system', label: tx(lang,{fr:'Auto',ar:'\u062a\u0644\u0642\u0627\u0626\u064a',en:'System',es:'Auto',pt:'Auto',tr:'Sistem'}), icon: Monitor },
                   ]}
                 />
                 <Seg<string>
-                  label="Devise par défaut"
+                  label={tx(lang,{fr:'Devise par d\u00e9faut',ar:'\u0627\u0644\u0639\u0645\u0644\u0629 \u0627\u0644\u0627\u0641\u062a\u0631\u0627\u0636\u064a\u0629',en:'Default currency',es:'Moneda por defecto',pt:'Moeda predefinida',tr:'Varsay\u0131lan para birimi'})}
                   value={prefCurrency}
                   onChange={setPrefCurrency}
                   options={[
@@ -987,7 +990,7 @@ export default function Setup({ onComplete }: Props) {
                   className="flex-1 py-2.5 px-4 border border-slate-200 text-slate-600 font-semibold rounded-xl hover:bg-slate-50 flex items-center justify-center gap-1.5 transition-colors text-sm disabled:opacity-40"
                 >
                   <ChevronLeft className="w-4 h-4" />
-                  Retour
+                  {tx(lang,{fr:'Retour',ar:'رجوع',en:'Back',es:'Volver',pt:'Voltar',tr:'Geri'})}
                 </button>
                 <button
                   type="button"
@@ -995,7 +998,7 @@ export default function Setup({ onComplete }: Props) {
                   disabled={loading}
                   className="text-xs text-slate-500 hover:text-slate-700 transition-colors px-2 disabled:opacity-40"
                 >
-                  Passer
+                  {tx(lang,{fr:'Passer',ar:'تخطي',en:'Skip',es:'Saltar',pt:'Saltar',tr:'Atla'})}
                 </button>
                 <button
                   type="button"
@@ -1006,12 +1009,12 @@ export default function Setup({ onComplete }: Props) {
                   {loading ? (
                     <>
                       <Loader2 className="w-4 h-4 animate-spin" />
-                      Initialisation…
+                      {tx(lang,{fr:'Initialisation\u2026',ar:'\u062c\u0627\u0631\u064d \u0627\u0644\u062a\u0647\u064a\u0626\u0629\u2026',en:'Initializing\u2026',es:'Inicializando\u2026',pt:'A inicializar\u2026',tr:'Ba\u015flat\u0131l\u0131yor\u2026'})}
                     </>
                   ) : (
                     <>
                       <CheckCircle2 className="w-4 h-4" />
-                      Terminer
+                      {tx(lang,{fr:'Terminer',ar:'إنهاء',en:'Finish',es:'Finalizar',pt:'Terminar',tr:'Bitir'})}
                     </>
                   )}
                 </button>
@@ -1021,7 +1024,7 @@ export default function Setup({ onComplete }: Props) {
         </div>
 
         <p className="text-center text-xs text-slate-400 mt-4">
-          BERAMETHODE — Système de gestion textile
+          {tx(lang,{fr:'BERAMETHODE \u2014 Syst\u00e8me de gestion textile',ar:'BERAMETHODE \u2014 \u0646\u0638\u0627\u0645 \u0625\u062f\u0627\u0631\u0629 \u0627\u0644\u0645\u0646\u0633\u0648\u062c\u0627\u062a',en:'BERAMETHODE \u2014 Textile management system',es:'BERAMETHODE \u2014 Sistema de gesti\u00f3n textil',pt:'BERAMETHODE \u2014 Sistema de gest\u00e3o t\u00eaxteis',tr:'BERAMETHODE \u2014 Tekstil y\u00f6netim sistemi'})}
         </p>
       </div>
 
@@ -1042,12 +1045,12 @@ export default function Setup({ onComplete }: Props) {
             <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-slate-100">
               <div className="flex items-center gap-2 min-w-0">
                 <ScrollText className="w-4 h-4 text-emerald-600 shrink-0" />
-                <h3 className="text-sm font-bold text-slate-800 truncate">Conditions Générales d'Utilisation</h3>
+                <h3 className="text-sm font-bold text-slate-800 truncate">{tx(lang,{fr:'Conditions G\u00e9n\u00e9rales d\'Utilisation',ar:'\u0627\u0644\u0634\u0631\u0648\u0637 \u0627\u0644\u0639\u0627\u0645\u0629 \u0644\u0644\u0627\u0633\u062a\u062e\u062f\u0627\u0645',en:'Terms and Conditions',es:'T\u00e9rminos y Condiciones de Uso',pt:'Termos e Condi\u00e7\u00f5es de Utiliza\u00e7\u00e3o',tr:'Kullan\u0131m \u015eartlar\u0131'})}</h3>
               </div>
               <button
                 type="button"
                 onClick={() => setShowTerms(false)}
-                aria-label="Fermer"
+                aria-label={tx(lang,{fr:'Fermer',ar:'\u0625\u063a\u0644\u0627\u0642',en:'Close',es:'Cerrar',pt:'Fechar',tr:'Kapat'})}
                 className="text-slate-400 hover:text-slate-600 transition-colors shrink-0"
               >
                 <X className="w-5 h-5" />
@@ -1068,7 +1071,7 @@ export default function Setup({ onComplete }: Props) {
                 onClick={() => setShowTerms(false)}
                 className="flex-1 py-2.5 px-4 border border-slate-200 text-slate-600 font-semibold rounded-xl hover:bg-slate-50 transition-colors text-sm"
               >
-                Fermer
+                {tx(lang,{fr:'Fermer',ar:'إغلاق',en:'Close',es:'Cerrar',pt:'Fechar',tr:'Kapat'})}
               </button>
               <button
                 type="button"
@@ -1076,7 +1079,7 @@ export default function Setup({ onComplete }: Props) {
                 className="flex-[2] py-2.5 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl flex items-center justify-center gap-2 transition-colors text-sm"
               >
                 <CheckCircle2 className="w-4 h-4" />
-                J'accepte
+                {tx(lang,{fr:'J\'accepte',ar:'أوافق',en:'I accept',es:'Acepto',pt:'Aceito',tr:'Kabul ediyorum'})}
               </button>
             </div>
           </motion.div>

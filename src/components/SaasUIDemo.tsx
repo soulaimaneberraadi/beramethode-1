@@ -17,6 +17,8 @@ import {
   CheckCircle2,
   AlertTriangle,
 } from 'lucide-react';
+import { tx } from '../../lib/i18n';
+import { useLang } from '../../src/context/LanguageContext';
 import {
   SaasPanel,
   SaasEmpty,
@@ -48,6 +50,7 @@ const DEMO_ROWS = [
 
 /* ─── Demo Component ─── */
 export default function SaasUIDemo() {
+  const { lang } = useLang();
   const [selectedRows, setSelectedRows] = useState<string[]>([]);
   const [toggleA, setToggleA] = useState(true);
   const [toggleB, setToggleB] = useState(false);
@@ -84,39 +87,39 @@ export default function SaasUIDemo() {
         <div>
           <h1 className="text-[18px] font-semibold text-slate-900">Saas UI Kit</h1>
           <p className="text-[12px] text-slate-500 mt-0.5">
-            Composants Minimalist SaaS — Responsive, Dense, Professionnel
+            {tx(lang, { fr: 'Composants Minimalist SaaS — Responsive, Dense, Professionnel', ar: 'مكونات SaaS بسيطة — سريعة الاستجابة، كثيفة، احترافية', en: 'Minimalist SaaS Components — Responsive, Dense, Professional', es: 'Componentes SaaS Minimalistas — Adaptables, Densos, Profesionales', pt: 'Componentes SaaS Minimalistas — Responsivos, Densos, Profissionais', tr: 'Minimalist SaaS Bileşenleri — Duyarlı, Yoğun, Profesyonel' })}
           </p>
         </div>
         <SaasButtonGroup>
           <SaasButton variant="secondary" icon={<Download className="w-3.5 h-3.5" />}>
-            Exporter
+            {tx(lang, { fr: 'Exporter', ar: 'تصدير', en: 'Export', es: 'Exportar', pt: 'Exportar', tr: 'Dışa Aktar' })}
           </SaasButton>
           <SaasButton variant="primary" icon={<Plus className="w-3.5 h-3.5" />}>
-            Ajouter
+            {tx(lang, { fr: 'Ajouter', ar: 'إضافة', en: 'Add', es: 'Añadir', pt: 'Adicionar', tr: 'Ekle' })}
           </SaasButton>
         </SaasButtonGroup>
       </div>
 
       {/* ─── Stats Grid ─── */}
-      <SaasPanel title="Indicateurs" icon={BarChart3} compact>
+      <SaasPanel title={tx(lang, { fr: 'Indicateurs', ar: 'المؤشرات', en: 'Indicators', es: 'Indicadores', pt: 'Indicadores', tr: 'Göstergeler' })} icon={BarChart3} compact>
         <SaasStatGrid cols={4}>
           <SaasStat
-            label="Production"
+            label={tx(lang, { fr: 'Production', ar: 'الإنتاج', en: 'Production', es: 'Producción', pt: 'Produção', tr: 'Üretim' })}
             value="12,847"
-            unit="pièces"
+            unit={tx(lang, { fr: 'pièces', ar: 'قطعة', en: 'pieces', es: 'piezas', pt: 'peças', tr: 'adet' })}
             icon={Package}
             variant="info"
             trend={{ direction: 'up', value: '+12%' }}
           />
           <SaasStat
-            label="Effectifs"
+            label={tx(lang, { fr: 'Effectifs', ar: 'التأطير', en: 'Staff', es: 'Personal', pt: 'Efetivos', tr: 'Personel' })}
             value="84"
-            unit="agents"
+            unit={tx(lang, { fr: 'agents', ar: 'عامل', en: 'agents', es: 'agentes', pt: 'agentes', tr: 'çalışan' })}
             icon={Users}
             variant="default"
           />
           <SaasStat
-            label="Rendement"
+            label={tx(lang, { fr: 'Rendement', ar: 'الإنتاجية', en: 'Yield', es: 'Rendimiento', pt: 'Rendimento', tr: 'Verim' })}
             value="94.2"
             unit="%"
             icon={TrendingUp}
@@ -124,9 +127,9 @@ export default function SaasUIDemo() {
             trend={{ direction: 'up', value: '+2.1%' }}
           />
           <SaasStat
-            label="Arrêts"
+            label={tx(lang, { fr: 'Arrêts', ar: 'التوقفات', en: 'Stops', es: 'Paradas', pt: 'Paragens', tr: 'Duruşlar' })}
             value="3"
-            unit="en cours"
+            unit={tx(lang, { fr: 'en cours', ar: 'جارية', en: 'ongoing', es: 'en curso', pt: 'em curso', tr: 'devam eden' })}
             icon={Activity}
             variant="danger"
             trend={{ direction: 'down', value: '-1' }}
@@ -135,17 +138,17 @@ export default function SaasUIDemo() {
       </SaasPanel>
 
       {/* ─── Cards Grid ─── */}
-      <SaasPanel title="Cartes" icon={LayoutDashboard}>
+      <SaasPanel title={tx(lang, { fr: 'Cartes', ar: 'البطاقات', en: 'Cards', es: 'Tarjetas', pt: 'Cartões', tr: 'Kartlar' })} icon={LayoutDashboard}>
         <SaasCardGrid cols={3}>
-          <SaasCard variant="interactive" icon={Package} title="Magasin" subtitle="Gestion des stocks">
-            <CardValue label="Articles" value="1,247" />
-            <div className="mt-2"><CardValue label="Valeur" value="2.4M" unit="MAD" /></div>
+          <SaasCard variant="interactive" icon={Package} title={tx(lang, { fr: 'Magasin', ar: 'المخزن', en: 'Warehouse', es: 'Almacén', pt: 'Armazém', tr: 'Depo' })} subtitle={tx(lang, { fr: 'Gestion des stocks', ar: 'إدارة المخزون', en: 'Stock management', es: 'Gestión de stocks', pt: 'Gestão de stocks', tr: 'Stok yönetimi' })}>
+            <CardValue label={tx(lang, { fr: 'Articles', ar: 'المواد', en: 'Items', es: 'Artículos', pt: 'Artigos', tr: 'Ürünler' })} value="1,247" />
+            <div className="mt-2"><CardValue label={tx(lang, { fr: 'Valeur', ar: 'القيمة', en: 'Value', es: 'Valor', pt: 'Valor', tr: 'Değer' })} value="2.4M" unit="MAD" /></div>
           </SaasCard>
-          <SaasCard variant="interactive" icon={Users} title="RH" subtitle="Effectifs & présence">
-            <CardValue label="Présents" value="78" trend="up" trendValue="92%" />
+          <SaasCard variant="interactive" icon={Users} title={tx(lang, { fr: 'RH', ar: 'الموارد البشرية', en: 'HR', es: 'RRHH', pt: 'RH', tr: 'İK' })} subtitle={tx(lang, { fr: 'Effectifs & présence', ar: 'التأطير والحضور', en: 'Staff & attendance', es: 'Personal y asistencia', pt: 'Efetivos e presença', tr: 'Personel ve devam' })}>
+            <CardValue label={tx(lang, { fr: 'Présents', ar: 'الحاضرون', en: 'Present', es: 'Presentes', pt: 'Presentes', tr: 'Mevcut' })} value="78" trend="up" trendValue="92%" />
           </SaasCard>
-          <SaasCard variant="interactive" icon={Activity} title="Production" subtitle="Suivi en temps réel">
-            <CardValue label="Taux" value="94.2" unit="%" trend="up" trendValue="+2.1%" />
+          <SaasCard variant="interactive" icon={Activity} title={tx(lang, { fr: 'Production', ar: 'الإنتاج', en: 'Production', es: 'Producción', pt: 'Produção', tr: 'Üretim' })} subtitle={tx(lang, { fr: 'Suivi en temps réel', ar: 'متابعة فورية', en: 'Real-time tracking', es: 'Seguimiento en tiempo real', pt: 'Acompanhamento em tempo real', tr: 'Gerçek zamanlı takip' })}>
+            <CardValue label={tx(lang, { fr: 'Taux', ar: 'المعدل', en: 'Rate', es: 'Tasa', pt: 'Taxa', tr: 'Oran' })} value="94.2" unit="%" trend="up" trendValue="+2.1%" />
           </SaasCard>
         </SaasCardGrid>
       </SaasPanel>
@@ -154,14 +157,14 @@ export default function SaasUIDemo() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Table */}
         <SaasPanel
-          title="Machines"
+          title={tx(lang, { fr: 'Machines', ar: 'الآلات', en: 'Machines', es: 'Máquinas', pt: 'Máquinas', tr: 'Makineler' })}
           icon={Settings}
           className="lg:col-span-2"
           actions={
             <SaasButtonGroup>
-              <SaasIconButton icon={<Filter className="w-3.5 h-3.5" />} tooltip="Filtrer" />
+              <SaasIconButton icon={<Filter className="w-3.5 h-3.5" />} tooltip={tx(lang, { fr: 'Filtrer', ar: 'تصفية', en: 'Filter', es: 'Filtrar', pt: 'Filtrar', tr: 'Filtrele' })} />
               <SaasButton size="sm" variant="secondary" icon={<Plus className="w-3 h-3" />}>
-                Ajouter
+                {tx(lang, { fr: 'Ajouter', ar: 'إضافة', en: 'Add', es: 'Añadir', pt: 'Adicionar', tr: 'Ekle' })}
               </SaasButton>
             </SaasButtonGroup>
           }
@@ -171,7 +174,7 @@ export default function SaasUIDemo() {
             data={DEMO_ROWS}
             rowKey="id"
             searchable
-            searchPlaceholder="Rechercher une machine..."
+            searchPlaceholder={tx(lang, { fr: 'Rechercher une machine...', ar: 'ابحث عن آلة...', en: 'Search a machine...', es: 'Buscar una máquina...', pt: 'Procurar uma máquina...', tr: 'Makine ara...' })}
             selectable
             selectedRows={selectedRows}
             onSelectionChange={setSelectedRows}
@@ -181,16 +184,16 @@ export default function SaasUIDemo() {
         </SaasPanel>
 
         {/* Form Panel */}
-        <SaasPanel title="Formulaire" icon={Edit3}>
+        <SaasPanel title={tx(lang, { fr: 'Formulaire', ar: 'نموذج', en: 'Form', es: 'Formulario', pt: 'Formulário', tr: 'Form' })} icon={Edit3}>
           <div className="space-y-4">
             <SaasInput
-              label="Nom"
-              placeholder="Nom de la machine"
+              label={tx(lang, { fr: 'Nom', ar: 'الاسم', en: 'Name', es: 'Nombre', pt: 'Nome', tr: 'Ad' })}
+              placeholder={tx(lang, { fr: 'Nom de la machine', ar: 'اسم الآلة', en: 'Machine name', es: 'Nombre de la máquina', pt: 'Nome da máquina', tr: 'Makine adı' })}
               icon={<Package className="w-3.5 h-3.5" />}
             />
             <SaasSelect
-              label="Classe"
-              placeholder="Sélectionner..."
+              label={tx(lang, { fr: 'Classe', ar: 'الفئة', en: 'Class', es: 'Clase', pt: 'Classe', tr: 'Sınıf' })}
+              placeholder={tx(lang, { fr: 'Sélectionner...', ar: 'اختر...', en: 'Select...', es: 'Seleccionar...', pt: 'Selecionar...', tr: 'Seç...' })}
               options={[
                 { value: '516', label: '516 — Surjeteuse' },
                 { value: '301', label: '301 — Casseuse' },
@@ -198,26 +201,26 @@ export default function SaasUIDemo() {
               ]}
             />
             <SaasInput
-              label="Vitesse"
+              label={tx(lang, { fr: 'Vitesse', ar: 'السرعة', en: 'Speed', es: 'Velocidad', pt: 'Velocidade', tr: 'Hız' })}
               type="number"
               placeholder="5500"
-              hint="Vitesse en courses par minute"
+              hint={tx(lang, { fr: 'Vitesse en courses par minute', ar: 'السرعة بعدد الغرز في الدقيقة', en: 'Speed in stitches per minute', es: 'Velocidad en puntadas por minuto', pt: 'Velocidade em pontos por minuto', tr: 'Dakikadaki dikiş sayısı' })}
             />
             <SaasTextarea
-              label="Observations"
-              placeholder="Notes optionnelles..."
+              label={tx(lang, { fr: 'Observations', ar: 'ملاحظات', en: 'Observations', es: 'Observaciones', pt: 'Observações', tr: 'Gözlemler' })}
+              placeholder={tx(lang, { fr: 'Notes optionnelles...', ar: 'ملاحظات اختيارية...', en: 'Optional notes...', es: 'Notas opcionales...', pt: 'Notas opcionais...', tr: 'İsteğe bağlı notlar...' })}
               rows={3}
             />
             <SaasDivider />
             <div className="space-y-3">
-              <SaasToggle label="Machine active" checked={toggleA} onChange={setToggleA} />
-              <SaasToggle label="Mode maintenance" checked={toggleB} onChange={setToggleB} />
+              <SaasToggle label={tx(lang, { fr: 'Machine active', ar: 'آلة نشطة', en: 'Active machine', es: 'Máquina activa', pt: 'Máquina ativa', tr: 'Aktif makine' })} checked={toggleA} onChange={setToggleA} />
+              <SaasToggle label={tx(lang, { fr: 'Mode maintenance', ar: 'وضع الصيانة', en: 'Maintenance mode', es: 'Modo mantenimiento', pt: 'Modo manutenção', tr: 'Bakım modu' })} checked={toggleB} onChange={setToggleB} />
             </div>
             <SaasDivider />
             <SaasButtonGroup className="justify-end">
-              <SaasButton variant="ghost">Annuler</SaasButton>
+              <SaasButton variant="ghost">{tx(lang, { fr: 'Annuler', ar: 'إلغاء', en: 'Cancel', es: 'Cancelar', pt: 'Cancelar', tr: 'İptal' })}</SaasButton>
               <SaasButton variant="primary" icon={<CheckCircle2 className="w-3.5 h-3.5" />}>
-                Enregistrer
+                {tx(lang, { fr: 'Enregistrer', ar: 'حفظ', en: 'Save', es: 'Guardar', pt: 'Guardar', tr: 'Kaydet' })}
               </SaasButton>
             </SaasButtonGroup>
           </div>
@@ -225,10 +228,10 @@ export default function SaasUIDemo() {
       </div>
 
       {/* ─── Buttons Showcase ─── */}
-      <SaasPanel title="Boutons" icon={Settings} compact>
+      <SaasPanel title={tx(lang, { fr: 'Boutons', ar: 'الأزرار', en: 'Buttons', es: 'Botones', pt: 'Botões', tr: 'Düğmeler' })} icon={Settings} compact>
         <div className="space-y-4">
           <div>
-            <p className="text-[11px] font-medium text-slate-500 mb-2">Variants</p>
+            <p className="text-[11px] font-medium text-slate-500 mb-2">{tx(lang, { fr: 'Variants', ar: 'الأنواع', en: 'Variants', es: 'Variantes', pt: 'Variantes', tr: 'Çeşitler' })}</p>
             <SaasButtonGroup>
               <SaasButton variant="primary">Primary</SaasButton>
               <SaasButton variant="secondary">Secondary</SaasButton>
@@ -237,7 +240,7 @@ export default function SaasUIDemo() {
             </SaasButtonGroup>
           </div>
           <div>
-            <p className="text-[11px] font-medium text-slate-500 mb-2">Sizes</p>
+            <p className="text-[11px] font-medium text-slate-500 mb-2">{tx(lang, { fr: 'Tailles', ar: 'الأحجام', en: 'Sizes', es: 'Tamaños', pt: 'Tamanhos', tr: 'Boyutlar' })}</p>
             <SaasButtonGroup>
               <SaasButton size="sm">Small</SaasButton>
               <SaasButton size="md">Medium</SaasButton>
@@ -245,47 +248,47 @@ export default function SaasUIDemo() {
             </SaasButtonGroup>
           </div>
           <div>
-            <p className="text-[11px] font-medium text-slate-500 mb-2">With Icons</p>
+            <p className="text-[11px] font-medium text-slate-500 mb-2">{tx(lang, { fr: 'Avec icônes', ar: 'مع الأيقونات', en: 'With Icons', es: 'Con iconos', pt: 'Com ícones', tr: 'Simgelerle' })}</p>
             <SaasButtonGroup>
-              <SaasButton variant="primary" icon={<Plus className="w-3.5 h-3.5" />}>Ajouter</SaasButton>
-              <SaasButton variant="secondary" icon={<Download className="w-3.5 h-3.5" />}>Exporter</SaasButton>
-              <SaasButton variant="danger" icon={<Trash2 className="w-3.5 h-3.5" />}>Supprimer</SaasButton>
+              <SaasButton variant="primary" icon={<Plus className="w-3.5 h-3.5" />}>{tx(lang, { fr: 'Ajouter', ar: 'إضافة', en: 'Add', es: 'Añadir', pt: 'Adicionar', tr: 'Ekle' })}</SaasButton>
+              <SaasButton variant="secondary" icon={<Download className="w-3.5 h-3.5" />}>{tx(lang, { fr: 'Exporter', ar: 'تصدير', en: 'Export', es: 'Exportar', pt: 'Exportar', tr: 'Dışa Aktar' })}</SaasButton>
+              <SaasButton variant="danger" icon={<Trash2 className="w-3.5 h-3.5" />}>{tx(lang, { fr: 'Supprimer', ar: 'حذف', en: 'Delete', es: 'Eliminar', pt: 'Eliminar', tr: 'Sil' })}</SaasButton>
             </SaasButtonGroup>
           </div>
           <div>
             <p className="text-[11px] font-medium text-slate-500 mb-2">Loading</p>
             <SaasButtonGroup>
-              <SaasButton variant="primary" loading>Chargement</SaasButton>
-              <SaasButton variant="secondary" loading>Chargement</SaasButton>
+              <SaasButton variant="primary" loading>{tx(lang, { fr: 'Chargement', ar: 'جارٍ التحميل', en: 'Loading', es: 'Cargando', pt: 'A carregar', tr: 'Yükleniyor' })}</SaasButton>
+              <SaasButton variant="secondary" loading>{tx(lang, { fr: 'Chargement', ar: 'جارٍ التحميل', en: 'Loading', es: 'Cargando', pt: 'A carregar', tr: 'Yükleniyor' })}</SaasButton>
             </SaasButtonGroup>
           </div>
         </div>
       </SaasPanel>
 
       {/* ─── Inline Stats ─── */}
-      <SaasPanel title="Stats Inline" icon={BarChart3} compact>
+      <SaasPanel title={tx(lang, { fr: 'Stats Inline', ar: 'إحصائيات سريعة', en: 'Inline Stats', es: 'Estadísticas en línea', pt: 'Estatísticas em linha', tr: 'Satır İçi İstatistikler' })} icon={BarChart3} compact>
         <div className="flex flex-wrap items-center gap-6">
-          <SaasStat label="Production" value="12,847" unit="pcs" inline variant="info" />
-          <SaasStat label="Rendement" value="94.2" unit="%" inline variant="success" />
-          <SaasStat label="Arrêts" value="3" inline variant="danger" />
+          <SaasStat label={tx(lang, { fr: 'Production', ar: 'الإنتاج', en: 'Production', es: 'Producción', pt: 'Produção', tr: 'Üretim' })} value="12,847" unit="pcs" inline variant="info" />
+          <SaasStat label={tx(lang, { fr: 'Rendement', ar: 'الإنتاجية', en: 'Yield', es: 'Rendimiento', pt: 'Rendimento', tr: 'Verim' })} value="94.2" unit="%" inline variant="success" />
+          <SaasStat label={tx(lang, { fr: 'Arrêts', ar: 'التوقفات', en: 'Stops', es: 'Paradas', pt: 'Paragens', tr: 'Duruşlar' })} value="3" inline variant="danger" />
           <SaasStat
-            label="Tendance"
+            label={tx(lang, { fr: 'Tendance', ar: 'الاتجاه', en: 'Trend', es: 'Tendencia', pt: 'Tendência', tr: 'Eğilim' })}
             value="+12%"
             inline
             variant="success"
-            trend={{ direction: 'up', value: 'vs hier' }}
+            trend={{ direction: 'up', value: tx(lang, { fr: 'vs hier', ar: 'مقارنة بالأمس', en: 'vs yesterday', es: 'vs ayer', pt: 'vs ontem', tr: 'düne göre' }) }}
           />
         </div>
       </SaasPanel>
 
       {/* ─── Empty State ─── */}
-      <SaasPanel title="État Vide" icon={AlertTriangle}>
+      <SaasPanel title={tx(lang, { fr: 'État Vide', ar: 'حالة فارغة', en: 'Empty State', es: 'Estado vacío', pt: 'Estado vazio', tr: 'Boş Durum' })} icon={AlertTriangle}>
         <SaasEmpty
           icon={Package}
-          message="Aucune donnée disponible. Ajoutez un élément pour commencer."
+          message={tx(lang, { fr: 'Aucune donnée disponible. Ajoutez un élément pour commencer.', ar: 'لا توجد بيانات متاحة. أضف عنصراً للبدء.', en: 'No data available. Add an item to start.', es: 'No hay datos disponibles. Añada un elemento para empezar.', pt: 'Nenhum dado disponível. Adicione um elemento para começar.', tr: 'Veri yok. Başlamak için bir öğe ekleyin.' })}
           action={
             <SaasButton size="sm" variant="secondary" icon={<Plus className="w-3 h-3" />}>
-              Ajouter
+              {tx(lang, { fr: 'Ajouter', ar: 'إضافة', en: 'Add', es: 'Añadir', pt: 'Adicionar', tr: 'Ekle' })}
             </SaasButton>
           }
         />
@@ -294,7 +297,7 @@ export default function SaasUIDemo() {
       {/* ─── Footer ─── */}
       <div className="text-center py-4">
         <p className="text-[10px] text-slate-400">
-          BERAMETHODE Saas UI Kit — Minimalist, Responsive, Dense
+          BERAMETHODE Saas UI Kit — {tx(lang, { fr: 'Minimalist, Responsive, Dense', ar: 'بسيط، متجاوب، كثيف', en: 'Minimalist, Responsive, Dense', es: 'Minimalista, Adaptable, Denso', pt: 'Minimalista, Responsivo, Denso', tr: 'Minimalist, Duyarlı, Yoğun' })}
         </p>
       </div>
     </div>

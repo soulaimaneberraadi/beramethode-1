@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { ChevronRight, ChevronDown, Shield, Plus, Trash2, Check, UserPlus, Eye, Pencil, X, Users } from 'lucide-react';
 import { PROTECTED_PAGES, PROTECTED_FIELDS, ROLE_PRESETS, RolePresetKey } from '../server/permissions/presets';
+import { useLang } from '../src/context/LanguageContext';
+import { tx } from '../lib/i18n';
 
 /**
  * Gestionnaire de permissions — arbre type « Device Manager ».
@@ -17,9 +19,9 @@ const ACCENT = '#2149C1';
 const PAGE_LABELS: Record<string, string> = {
   dashboard: 'Tableau de bord', ingenierie: 'Ingénierie', atelier: 'Chef Atelier',
   atelierProd: 'Atelier Prod', library: 'Bibliothèque', coupe: 'La Coupe', effectifs: 'Effectifs',
-  gestionRh: 'Gestion RH', planning: 'Planning', suivi: 'Suivi', rendement: 'Rendement', magasin: 'Magasin',
+  gestionRh: 'Gestion RH', planning: '{tx(lang, {fr:"Planning",ar:"التخطيط",en:"Planning",es:"Planificación",pt:"Planejamento",tr:"Planlama"})}', suivi: '{tx(lang, {fr:"Suivi",ar:"المتابعة",en:"Tracking",es:"Seguimiento",pt:"Acompanhamento",tr:"Takip"})}', rendement: 'Rendement', magasin: 'Magasin',
   export: 'Export', facturation: 'Facturation', config: 'Paramètres', pageMachine: 'Page Machine',
-  machin: 'Machines', objectifs: 'Objectifs', sousTraitance: 'Sous-traitance',
+  machin: 'Machines', objectifs: 'Objectifs', sousTraitance: '{tx(lang, {fr:"Sous-traitance",ar:"المقاولة من الباطن",en:"Subcontracting",es:"Subcontratación",pt:"Subcontratação",tr:"Taşeronluk"})}',
 };
 const FIELD_LABELS: Record<string, string> = {
   'model.cout_minute': 'Coût / minute', 'model.prix_revient': 'Prix de revient',
@@ -30,6 +32,7 @@ const api = (url: string, opts?: RequestInit) =>
   fetch(url, { credentials: 'include', headers: { 'Content-Type': 'application/json' }, ...opts }).then(r => r.json());
 
 export default function PermissionsManager() {
+  const { lang } = useLang();
   const [roles, setRoles] = useState<Role[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
   const [openRole, setOpenRole] = useState<string | null>(null);
@@ -119,20 +122,20 @@ export default function PermissionsManager() {
         <Shield size={16} strokeWidth={1.75} className="text-slate-400" />
         <div>
           <h2 className="text-[15px] font-semibold text-slate-900">Permissions & Hiérarchie</h2>
-          <p className="text-[11px] text-slate-400">Gérez les rôles, ce que chacun voit et modifie.</p>
+          <p className="text-[11px] text-slate-400">{tx(lang, {fr:"Gérez les rôles, ce que chacun voit et modifie.",ar:"إدارة الأدوار، وما يراه ويعدله كل شخص.",en:"Manage roles, what each person sees and edits.",es:"Gestione roles, lo que cada uno ve y modifica.",pt:"Gerencie funções, o que cada um vê e modifica.",tr:"Rolleri, herkesin ne gördüğünü ve düzenlediğini yönetin."})}</p>
         </div>
       </div>
 
       {/* Rôles */}
       <div className="bg-white rounded-lg border border-slate-200 p-4">
-        <h3 className="text-[13px] font-semibold text-slate-900 mb-3">Rôles</h3>
+        <h3 className="text-[13px] font-semibold text-slate-900 mb-3">{tx(lang, {fr:"Rôles",ar:"الأدوار",en:"Roles",es:"Roles",pt:"Funções",tr:"Roller"})}</h3>
         <div className="flex flex-wrap gap-2 mb-4">
           <input value={newRole.name} onChange={e => setNewRole(s => ({ ...s, name: e.target.value }))} placeholder="Nom du rôle" className={`flex-1 min-w-[140px] ${inputCls}`} />
           <select value={newRole.preset} onChange={e => setNewRole(s => ({ ...s, preset: e.target.value as RolePresetKey }))} className={`${inputCls} bg-white`}>
-            <option value="">Sans preset</option>
+            <option value="">{tx(lang, {fr:"Sans preset",ar:"بدون قالب",en:"No preset",es:"Sin plantilla",pt:"Sem predefinição",tr:"Ön ayar yok"})}</option>
             {Object.keys(ROLE_PRESETS).map(k => <option key={k} value={k}>{ROLE_PRESETS[k as RolePresetKey].name}</option>)}
           </select>
-          <button onClick={createRole} className="h-8 px-3 rounded-md bg-slate-900 text-white text-[13px] font-medium inline-flex items-center gap-1 hover:bg-slate-800"><Plus size={14} strokeWidth={1.75} /> Ajouter</button>
+          <button onClick={createRole} className="h-8 px-3 rounded-md bg-slate-900 text-white text-[13px] font-medium inline-flex items-center gap-1 hover:bg-slate-800"><Plus size={14} strokeWidth={1.75} /> {tx(lang, {fr:"Ajouter",ar:"إضافة",en:"Add",es:"Añadir",pt:"Adicionar",tr:"Ekle"})}</button>
         </div>
 
         {roles.length === 0 && <p className="text-[13px] text-slate-400 py-3 text-center">Aucun rôle. Créez-en un (avec preset pour démarrer vite).</p>}
@@ -151,7 +154,7 @@ export default function PermissionsManager() {
             {openRole === role.id && (
               <div className="px-3 pb-3 pt-1 space-y-3 border-t border-slate-50">
                 <div>
-                  <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1 mt-2">Pages</p>
+                  <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1 mt-2">{tx(lang, {fr:"Pages",ar:"الصفحات",en:"Pages",es:"Páginas",pt:"Páginas",tr:"Sayfalar"})}</p>
                   {PROTECTED_PAGES.map(pg => {
                     const p = perms[`page|${pg}`] || { can_view: 0, can_edit: 0 };
                     return (
@@ -166,7 +169,7 @@ export default function PermissionsManager() {
                   })}
                 </div>
                 <div>
-                  <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1">Champs sensibles</p>
+                  <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1">{tx(lang, {fr:"Champs sensibles",ar:"الحقول الحساسة",en:"Sensitive fields",es:"Campos sensibles",pt:"Campos sensíveis",tr:"Hassas alanlar"})}</p>
                   {PROTECTED_FIELDS.map(fd => {
                     const p = perms[`field|${fd}`] || { can_view: 0, can_edit: 0 };
                     return (
@@ -179,7 +182,7 @@ export default function PermissionsManager() {
                 </div>
                 {dirty && (
                   <button onClick={saveRolePerms} className="w-full h-8 rounded-md text-white text-[13px] font-medium inline-flex items-center justify-center gap-1.5" style={{ background: ACCENT }}>
-                    <Check size={14} strokeWidth={2} /> Enregistrer
+                    <Check size={14} strokeWidth={2} /> {tx(lang, {fr:"Enregistrer",ar:"حفظ",en:"Save",es:"Guardar",pt:"Salvar",tr:"Kaydet"})}
                   </button>
                 )}
               </div>
@@ -190,14 +193,14 @@ export default function PermissionsManager() {
 
       {/* Membres */}
       <div className="bg-white rounded-lg border border-slate-200 p-4">
-        <h3 className="text-[13px] font-semibold text-slate-900 mb-3 flex items-center gap-1.5"><Users size={14} strokeWidth={1.75} className="text-slate-400" /> Membres</h3>
+        <h3 className="text-[13px] font-semibold text-slate-900 mb-3 flex items-center gap-1.5"><Users size={14} strokeWidth={1.75} className="text-slate-400" /> {tx(lang, {fr:"Membres",ar:"الأعضاء",en:"Members",es:"Miembros",pt:"Membros",tr:"Üyeler"})}</h3>
         <div className="flex flex-wrap gap-2 mb-3">
           <input value={newMember.email} onChange={e => setNewMember(s => ({ ...s, email: e.target.value }))} placeholder="E-mail du membre" className={`flex-1 min-w-[160px] ${inputCls}`} />
           <select value={newMember.role_id} onChange={e => setNewMember(s => ({ ...s, role_id: e.target.value }))} className={`${inputCls} bg-white`}>
             <option value="">Rôle…</option>
             {roles.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
           </select>
-          <button onClick={addMember} className="h-8 px-3 rounded-md bg-slate-900 text-white text-[13px] font-medium inline-flex items-center gap-1 hover:bg-slate-800"><UserPlus size={14} strokeWidth={1.75} /> Inviter</button>
+          <button onClick={addMember} className="h-8 px-3 rounded-md bg-slate-900 text-white text-[13px] font-medium inline-flex items-center gap-1 hover:bg-slate-800"><UserPlus size={14} strokeWidth={1.75} /> {tx(lang, {fr:"Inviter",ar:"دعوة",en:"Invite",es:"Invitar",pt:"Convidar",tr:"Davet et"})}</button>
         </div>
         {members.length === 0 && <p className="text-[13px] text-slate-400 py-2 text-center">Aucun membre.</p>}
         {members.map(m => (
@@ -216,13 +219,13 @@ export default function PermissionsManager() {
         <div className="fixed inset-0 bg-slate-900/30 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setConfirm(null)}>
           <div className="bg-white rounded-lg border border-slate-200 shadow-lg p-5 max-w-sm w-full" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-2">
-              <h4 className="text-[13px] font-semibold text-slate-900">Confirmation</h4>
+              <h4 className="text-[13px] font-semibold text-slate-900">{tx(lang, {fr:"Confirmation",ar:"تأكيد",en:"Confirmation",es:"Confirmación",pt:"Confirmação",tr:"Onay"})}</h4>
               <button onClick={() => setConfirm(null)} className="text-slate-400 hover:text-slate-600"><X size={16} strokeWidth={1.75} /></button>
             </div>
             <p className="text-[13px] text-slate-500 mb-4">{confirmText}</p>
             <div className="flex gap-2 justify-end">
-              <button onClick={() => setConfirm(null)} className="h-8 px-3 rounded-md border border-slate-200 text-[13px] font-medium text-slate-500 hover:bg-slate-50">Annuler</button>
-              <button onClick={() => confirm()} className="h-8 px-3 rounded-md text-white text-[13px] font-medium" style={{ background: ACCENT }}>Confirmer</button>
+              <button onClick={() => setConfirm(null)} className="h-8 px-3 rounded-md border border-slate-200 text-[13px] font-medium text-slate-500 hover:bg-slate-50">{tx(lang, {fr:"Annuler",ar:"إلغاء",en:"Cancel",es:"Cancelar",pt:"Cancelar",tr:"İptal"})}</button>
+              <button onClick={() => confirm()} className="h-8 px-3 rounded-md text-white text-[13px] font-medium" style={{ background: ACCENT }}>{tx(lang, {fr:"Confirmer",ar:"تأكيد",en:"Confirm",es:"Confirmar",pt:"Confirmar",tr:"Onayla"})}</button>
             </div>
           </div>
         </div>

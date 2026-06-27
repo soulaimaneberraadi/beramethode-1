@@ -1,6 +1,8 @@
 import React from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { fmtMonthYear } from '../shared/dateFmt';
+import { tx } from '../../../lib/i18n';
+import { useLang } from '../../../src/context/LanguageContext';
 
 interface Props {
     currentDate: Date;
@@ -9,6 +11,7 @@ interface Props {
 }
 
 export default function DateNavigator({ currentDate, onChange, onToday }: Props) {
+    const { lang } = useLang();
     const shift = (delta: number) => {
         const n = new Date(currentDate);
         n.setMonth(n.getMonth() + delta);
@@ -20,7 +23,7 @@ export default function DateNavigator({ currentDate, onChange, onToday }: Props)
                 type="button"
                 onClick={() => shift(-1)}
                 className="p-1 rounded-lg text-slate-500 hover:bg-white hover:text-slate-800 hover:shadow-[0_1px_3px_rgba(0,0,0,0.05)] transition-all duration-200 active:scale-95"
-                aria-label="Mois précédent"
+                aria-label={tx(lang,{fr:"Mois précédent",ar:"الشهر السابق",en:"Previous month",es:"Mes anterior",pt:"Mês anterior",tr:"Önceki ay"})}
             >
                 <ChevronLeft className="w-3.5 h-3.5" />
             </button>
@@ -31,7 +34,7 @@ export default function DateNavigator({ currentDate, onChange, onToday }: Props)
                 type="button"
                 onClick={() => shift(1)}
                 className="p-1 rounded-lg text-slate-500 hover:bg-white hover:text-slate-800 hover:shadow-[0_1px_3px_rgba(0,0,0,0.05)] transition-all duration-200 active:scale-95"
-                aria-label="Mois suivant"
+                aria-label={tx(lang,{fr:"Mois suivant",ar:"الشهر التالي",en:"Next month",es:"Mes siguiente",pt:"Próximo mês",tr:"Sonraki ay"})}
             >
                 <ChevronRight className="w-3.5 h-3.5" />
             </button>
@@ -40,9 +43,9 @@ export default function DateNavigator({ currentDate, onChange, onToday }: Props)
                 type="button"
                 onClick={onToday}
                 className="px-2 py-1 rounded-lg text-[10px] font-bold text-indigo-650 hover:bg-white hover:text-indigo-700 hover:shadow-[0_1px_3px_rgba(0,0,0,0.05)] transition-all duration-200 active:scale-95"
-                title="Aujourd'hui"
+                title={tx(lang,{fr:"Aujourd'hui",ar:"اليوم",en:"Today",es:"Hoy",pt:"Hoje",tr:"Bugün"})}
             >
-                Aujourd'hui
+                {tx(lang,{fr:"Aujourd'hui",ar:"اليوم",en:"Today",es:"Hoy",pt:"Hoje",tr:"Bugün"})}
             </button>
         </div>
     );

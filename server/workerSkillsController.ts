@@ -11,7 +11,7 @@ function computeLevel(ratio: number): SkillLevel {
 }
 
 export const getWorkerSkills = (req: Request, res: Response) => {
-    const userId = (req as any).user.id;
+    const userId = (req as any).companyId ?? (req as any).user.id;
     const { workerId } = req.query;
     try {
         const rows = workerId
@@ -25,7 +25,7 @@ export const getWorkerSkills = (req: Request, res: Response) => {
 };
 
 export const saveWorkerSkill = (req: Request, res: Response) => {
-    const userId = (req as any).user.id;
+    const userId = (req as any).companyId ?? (req as any).user.id;
     const s = req.body;
 
     if (!s?.id || !s?.worker_id || !s?.poste_keyword || !s?.level) {
@@ -55,7 +55,7 @@ export const saveWorkerSkill = (req: Request, res: Response) => {
 };
 
 export const deleteWorkerSkill = (req: Request, res: Response) => {
-    const userId = (req as any).user.id;
+    const userId = (req as any).companyId ?? (req as any).user.id;
     const { id } = req.params;
     try {
         db.prepare('DELETE FROM worker_skills WHERE id = ? AND owner_id = ?').run(id, userId);
@@ -71,7 +71,7 @@ export const deleteWorkerSkill = (req: Request, res: Response) => {
  * Body: { worker_id, poste_keyword, fabric_type?, pieces_produced, hours_worked, poste_avg_pieces_per_hour?, defaults? }
  */
 export const updateSkillFromSuivi = (req: Request, res: Response) => {
-    const userId = (req as any).user.id;
+    const userId = (req as any).companyId ?? (req as any).user.id;
     const { worker_id, poste_keyword, fabric_type, pieces_produced, hours_worked, poste_avg_pieces_per_hour, quality_rate } = req.body;
 
     if (!worker_id || !poste_keyword || !pieces_produced || !hours_worked) {

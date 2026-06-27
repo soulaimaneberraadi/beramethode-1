@@ -4,7 +4,7 @@ import { randomUUID } from 'crypto';
 
 // GET all finished goods stock entries for this user
 export const getFinishedGoods = (req: Request, res: Response) => {
-    const userId = (req as any).user.id;
+    const userId = (req as any).companyId ?? (req as any).user.id;
     try {
         const rows = db.prepare('SELECT * FROM finished_goods_stock WHERE owner_id = ? ORDER BY created_at DESC').all(userId);
         res.json(rows);
@@ -16,7 +16,7 @@ export const getFinishedGoods = (req: Request, res: Response) => {
 
 // CREATE or UPDATE a finished goods stock entry
 export const saveFinishedGood = (req: Request, res: Response) => {
-    const userId = (req as any).user.id;
+    const userId = (req as any).companyId ?? (req as any).user.id;
     const fg = req.body;
 
     if (!fg.id || !fg.modelId) {
@@ -54,7 +54,7 @@ export const saveFinishedGood = (req: Request, res: Response) => {
 
 // DELETE a finished goods stock entry
 export const deleteFinishedGood = (req: Request, res: Response) => {
-    const userId = (req as any).user.id;
+    const userId = (req as any).companyId ?? (req as any).user.id;
     const { id } = req.params;
     try {
         db.prepare('DELETE FROM finished_goods_stock WHERE id = ? AND owner_id = ?').run(id, userId);
@@ -67,7 +67,7 @@ export const deleteFinishedGood = (req: Request, res: Response) => {
 
 // CREATE a finished goods entry from a closed OF (auto-trigger)
 export const createFromCloture = (req: Request, res: Response) => {
-    const userId = (req as any).user.id;
+    const userId = (req as any).companyId ?? (req as any).user.id;
     const { planningId, modelId, reference, designation, clientName, chaineId,
             quantiteProduite, quantiteDefaut, dateExportPrevue, notes } = req.body;
 
@@ -102,7 +102,7 @@ export const createFromCloture = (req: Request, res: Response) => {
 
 // GET all movements for a finished good
 export const getFinishedGoodMovements = (req: Request, res: Response) => {
-    const userId = (req as any).user.id;
+    const userId = (req as any).companyId ?? (req as any).user.id;
     const { fgId } = req.params;
     try {
         const rows = db.prepare('SELECT * FROM finished_goods_movements WHERE owner_id = ? AND fgId = ? ORDER BY date DESC').all(userId, fgId);
@@ -115,7 +115,7 @@ export const getFinishedGoodMovements = (req: Request, res: Response) => {
 
 // GET all movements for this user
 export const getAllFinishedGoodMovements = (req: Request, res: Response) => {
-    const userId = (req as any).user.id;
+    const userId = (req as any).companyId ?? (req as any).user.id;
     try {
         const rows = db.prepare('SELECT * FROM finished_goods_movements WHERE owner_id = ? ORDER BY date DESC').all(userId);
         res.json(rows);
@@ -127,7 +127,7 @@ export const getAllFinishedGoodMovements = (req: Request, res: Response) => {
 
 // CREATE a movement (expedition, retour, regularisation)
 export const saveFinishedGoodMovement = (req: Request, res: Response) => {
-    const userId = (req as any).user.id;
+    const userId = (req as any).companyId ?? (req as any).user.id;
     const mvt = req.body;
 
     if (!mvt.fgId || !mvt.type || !mvt.quantite) {
@@ -186,7 +186,7 @@ export const saveFinishedGoodMovement = (req: Request, res: Response) => {
 
 // DELETE a movement
 export const deleteFinishedGoodMovement = (req: Request, res: Response) => {
-    const userId = (req as any).user.id;
+    const userId = (req as any).companyId ?? (req as any).user.id;
     const { id } = req.params;
     try {
         db.prepare('DELETE FROM finished_goods_movements WHERE id = ? AND owner_id = ?').run(id, userId);

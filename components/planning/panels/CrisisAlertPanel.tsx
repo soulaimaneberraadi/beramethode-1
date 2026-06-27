@@ -4,6 +4,8 @@ import type { PlanningEventWithCR } from '../hooks/useCriticalRatio';
 import type { ModelData, AppSettings } from '../../../types';
 import { evClientName, evModelName } from '../shared/eventAccessors';
 import { resolveCrisis, CrisisProposal } from '../../../utils/crisisResolver';
+import { tx } from '../../../lib/i18n';
+import { useLang } from '../../../src/context/LanguageContext';
 
 interface Props {
     crisisEvents: PlanningEventWithCR[];
@@ -26,6 +28,7 @@ export default function CrisisAlertPanel({
     onJumpToEvent,
     showToast,
 }: Props) {
+    const { lang } = useLang();
     const [expanded, setExpanded] = useState(false);
     const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
     const [actioningId, setActioningId] = useState<string | null>(null);
@@ -95,14 +98,14 @@ export default function CrisisAlertPanel({
                 });
 
                 showToast(
-                    `Heures supplémentaires (${(proposal.details as any).requiredHours}h) validées pour la ${ev.chaineId}.`,
+                    tx(lang, { fr: `Heures supplémentaires (${(proposal.details as any).requiredHours}h) validées pour la ${ev.chaineId}.`, ar: `تمت الموافقة على الساعات الإضافية (${(proposal.details as any).requiredHours}h) للخط ${ev.chaineId}.`, en: `Overtime (${(proposal.details as any).requiredHours}h) approved for ${ev.chaineId}.`, es: `Horas extra (${(proposal.details as any).requiredHours}h) aprobadas para ${ev.chaineId}.`, pt: `Horas extra (${(proposal.details as any).requiredHours}h) aprovadas para a ${ev.chaineId}.`, tr: `${ev.chaineId} için fazla mesai (${(proposal.details as any).requiredHours}h) onaylandı.` }),
                     'success'
                 );
             } else {
-                showToast("Erreur lors de la validation des heures supplémentaires.", 'error');
+                showToast(tx(lang, { fr: 'Erreur lors de la validation des heures supplémentaires.', ar: 'خطأ في الموافقة على الساعات الإضافية.', en: 'Error validating overtime.', es: 'Error al validar las horas extra.', pt: 'Erro ao validar as horas extra.', tr: 'Fazla mesai onaylanırken hata oluştu.' }), 'error');
             }
         } catch {
-            showToast("Erreur réseau.", 'error');
+            showToast(tx(lang, { fr: 'Erreur réseau.', ar: 'خطأ في الشبكة.', en: 'Network error.', es: 'Error de red.', pt: 'Erro de rede.', tr: 'Ağ hatası.' }), 'error');
         } finally {
             setActioningId(null);
         }
@@ -163,9 +166,9 @@ export default function CrisisAlertPanel({
                 }
             }
 
-            showToast(`Transfert de ${qty} pièces vers ${targetChainId} effectué.`, 'success');
+            showToast(tx(lang, { fr: `Transfert de ${qty} pièces vers ${targetChainId} effectué.`, ar: `تم نقل ${qty} قطعة إلى ${targetChainId}.`, en: `Transfer of ${qty} pieces to ${targetChainId} completed.`, es: `Transferencia de ${qty} piezas a ${targetChainId} realizada.`, pt: `Transferência de ${qty} peças para ${targetChainId} concluída.`, tr: `${qty} parça ${targetChainId} hattına aktarıldı.` }), 'success');
         } catch {
-            showToast("Erreur lors de la répartition de charge.", 'error');
+            showToast(tx(lang, { fr: 'Erreur lors de la répartition de charge.', ar: 'خطأ في توزيع الحمولة.', en: 'Error during load balancing.', es: 'Error durante la redistribución de carga.', pt: 'Erro durante a redistribuição de carga.', tr: 'Yük dengeleme sırasında hata oluştu.' }), 'error');
         } finally {
             setActioningId(null);
         }
@@ -234,9 +237,9 @@ export default function CrisisAlertPanel({
                 }
             }
 
-            showToast(`Sous-traitance de ${qty} pièces créée avec succès.`, 'success');
+            showToast(tx(lang, { fr: `Sous-traitance de ${qty} pièces créée avec succès.`, ar: `تم إنشاء طلب مقاولة من الباطن لـ ${qty} قطعة بنجاح.`, en: `Subcontracting of ${qty} pieces created successfully.`, es: `Subcontratación de ${qty} piezas creada con éxito.`, pt: `Subcontratação de ${qty} peças criada com sucesso.`, tr: `${qty} parça için taşeron siparişi başarıyla oluşturuldu.` }), 'success');
         } catch {
-            showToast("Erreur lors de la création de la sous-traitance.", 'error');
+            showToast(tx(lang, { fr: 'Erreur lors de la création de la sous-traitance.', ar: 'خطأ في إنشاء طلب المقاولة من الباطن.', en: 'Error creating the subcontract.', es: 'Error al crear la subcontratación.', pt: 'Erro ao criar a subcontratação.', tr: 'Taşeron oluşturulurken hata oluştu.' }), 'error');
         } finally {
             setActioningId(null);
         }
@@ -255,20 +258,20 @@ export default function CrisisAlertPanel({
                         <span className="relative inline-flex rounded-full h-2 w-2 bg-red-600"></span>
                     </span>
                     <span className="text-[12px] font-semibold text-red-900 tracking-wide uppercase">
-                        Protocoles d'Urgence APS
+                        {tx(lang, { fr: 'Protocoles d\'Urgence APS', ar: 'بروتوكولات الطوارئ APS', en: 'APS Emergency Protocols', es: 'Protocolos de Emergencia APS', pt: 'Protocolos de Emergência APS', tr: 'APS Acil Durum Protokolleri' })}
                     </span>
                     <div className="h-4 w-px bg-red-200" />
                     <div className="flex items-center gap-2">
                         {criticalCount > 0 && (
                             <span className="inline-flex items-center gap-1 text-[11px] font-medium text-red-700 bg-red-100 px-2 py-0.5 rounded-full">
                                 <AlertCircle className="w-3 h-3 text-red-600" />
-                                <span className="font-bold">{criticalCount}</span> critique{criticalCount > 1 ? 's' : ''}
+                                <span className="font-bold">{criticalCount}</span> {tx(lang, { fr: criticalCount > 1 ? 'critiques' : 'critique', ar: 'حرج', en: criticalCount > 1 ? 'critical' : 'critical', es: criticalCount > 1 ? 'críticos' : 'crítico', pt: criticalCount > 1 ? 'críticos' : 'crítico', tr: 'kritik' })}
                             </span>
                         )}
                         {atRiskCount > 0 && (
                             <span className="inline-flex items-center gap-1 text-[11px] font-medium text-orange-700 bg-orange-100 px-2 py-0.5 rounded-full">
                                 <AlertTriangle className="w-3 h-3 text-orange-600" />
-                                <span className="font-bold">{atRiskCount}</span> à risque
+                                <span className="font-bold">{atRiskCount}</span> {tx(lang, { fr: 'à risque', ar: 'معرض للخطر', en: 'at risk', es: 'en riesgo', pt: 'em risco', tr: 'risk altında' })}
                             </span>
                         )}
                     </div>
@@ -328,7 +331,7 @@ export default function CrisisAlertPanel({
                                             </span>
                                         </div>
                                         <p className="text-[11px] text-slate-600 mt-1">
-                                            Retard de <span className="font-semibold text-red-600">{ev.crResult.deficit} pièces</span> sur la date d'export. Jours restants : <span className="font-medium text-slate-900">{ev.crResult.daysRemaining} j</span> (Requis: {ev.crResult.daysNeeded} j).
+                                            {tx(lang, { fr: 'Retard de', ar: 'تأخير', en: 'Delay of', es: 'Retraso de', pt: 'Atraso de', tr: 'Gecikme' })} <span className="font-semibold text-red-600">{ev.crResult.deficit} {tx(lang, { fr: 'pièces', ar: 'قطعة', en: 'pieces', es: 'piezas', pt: 'peças', tr: 'parça' })}</span> {tx(lang, { fr: 'sur la date d\'export.', ar: 'عن تاريخ التصدير.', en: 'on the export date.', es: 'en la fecha de exportación.', pt: 'na data de exportação.', tr: 'ihracat tarihinden itibaren.' })} {tx(lang, { fr: 'Jours restants :', ar: 'الأيام المتبقية:', en: 'Days remaining:', es: 'Días restantes:', pt: 'Dias restantes:', tr: 'Kalan gün:' })} <span className="font-medium text-slate-900">{ev.crResult.daysRemaining} {tx(lang, { fr: 'j', ar: 'يوم', en: 'd', es: 'd', pt: 'd', tr: 'g' })}</span> ({tx(lang, { fr: 'Requis:', ar: 'المطلوب:', en: 'Required:', es: 'Requerido:', pt: 'Necessário:', tr: 'Gerekli:' })} {ev.crResult.daysNeeded} {tx(lang, { fr: 'j', ar: 'يوم', en: 'd', es: 'd', pt: 'd', tr: 'g' })}).
                                         </p>
                                     </div>
                                     <div className="flex items-center gap-2 shrink-0">
@@ -337,14 +340,14 @@ export default function CrisisAlertPanel({
                                             onClick={() => onJumpToEvent(ev.id)}
                                             className="px-2 py-1 text-[10px] font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded border border-slate-200 transition-all"
                                         >
-                                            Localiser
+                                            {tx(lang, { fr: 'Localiser', ar: 'تحديد الموقع', en: 'Locate', es: 'Localizar', pt: 'Localizar', tr: 'Konumlandır' })}
                                         </button>
                                         <button
                                             type="button"
                                             onClick={() => setSelectedEventId(isSelected ? null : ev.id)}
                                             className="px-3 py-1 text-[10px] font-bold text-red-700 bg-red-50 hover:bg-red-100 rounded border border-red-200 transition-all flex items-center gap-1"
                                         >
-                                            Solutions
+                                            {tx(lang, { fr: 'Solutions', ar: 'حلول', en: 'Solutions', es: 'Soluciones', pt: 'Soluções', tr: 'Çözümler' })}
                                             <ChevronDown className={`w-3 h-3 transition-transform ${isSelected ? 'rotate-180' : ''}`} />
                                         </button>
                                     </div>
@@ -372,21 +375,21 @@ export default function CrisisAlertPanel({
                                                             <div className="p-1.5 bg-white rounded-lg shadow-sm text-slate-700 border border-slate-100">
                                                                 <Icon className="w-3.5 h-3.5" />
                                                             </div>
-                                                            Option {prop.level} : {prop.type}
+                                                            {tx(lang, { fr: 'Option', ar: 'خيار', en: 'Option', es: 'Opción', pt: 'Opção', tr: 'Seçenek' })} {prop.level} : {prop.type}
                                                         </div>
                                                         <p className="text-[11px] text-slate-600 mt-2.5 leading-relaxed">
                                                             {prop.description_fr}
                                                         </p>
                                                         {prop.type === 'OVERTIME' && (
                                                             <div className="mt-2 text-[9px] font-mono text-slate-400 bg-slate-100/50 p-1.5 rounded border border-slate-100">
-                                                                Calcul: {(prop.details as any).formula}
+                                                                {tx(lang, { fr: 'Calcul:', ar: 'حساب:', en: 'Calculation:', es: 'Cálculo:', pt: 'Cálculo:', tr: 'Hesaplama:' })} {(prop.details as any).formula}
                                                             </div>
                                                         )}
                                                     </div>
 
                                                     <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
                                                         <span className="text-[11px] font-black text-slate-900">
-                                                            {prop.estimatedCost ? `${prop.estimatedCost} MAD` : 'Sans surcoût'}
+                                                            {prop.estimatedCost ? `${prop.estimatedCost} MAD` : tx(lang, { fr: 'Sans surcoût', ar: 'بدون تكلفة إضافية', en: 'No extra cost', es: 'Sin sobrecoste', pt: 'Sem custo adicional', tr: 'Ek maliyet yok' })}
                                                         </span>
                                                         <button
                                                             type="button"
@@ -395,10 +398,10 @@ export default function CrisisAlertPanel({
                                                             className="px-2.5 py-1 text-[10px] font-bold text-white bg-slate-900 hover:bg-slate-800 disabled:bg-slate-300 rounded-lg transition-colors flex items-center gap-1 shadow-sm active:scale-95 duration-75"
                                                         >
                                                             {isActioning ? (
-                                                                "Application..."
+                                                                tx(lang, { fr: 'Application...', ar: 'جارٍ التطبيق...', en: 'Applying...', es: 'Aplicando...', pt: 'A aplicar...', tr: 'Uygulanıyor...' })
                                                             ) : (
                                                                 <>
-                                                                    Appliquer
+                                                                    {tx(lang, { fr: 'Appliquer', ar: 'تطبيق', en: 'Apply', es: 'Aplicar', pt: 'Aplicar', tr: 'Uygula' })}
                                                                     <Zap className="w-3 h-3 text-amber-400 shrink-0" />
                                                                 </>
                                                             )}

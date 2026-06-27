@@ -21,9 +21,23 @@ interface ResolvedMeta {
  * Sans adhésion => utilisateur solo = patron de sa propre société (accès total à ses données).
  */
 export function loadUserContext(userId: number, globalRole?: string): ResolvedMeta {
-  const member = db
-    .prepare(`SELECT * FROM company_members WHERE user_id = ? AND status = 'active'`)
-    .get(userId) as any;
+  // Workspace actif : si le compte gère plusieurs sociétés, on cible l'adhésion
+  // correspondant à `active_owner_id`. Sinon (NULL ou adhésion absente) on retombe
+  // sur la 1ʳᵉ adhésion active => comportement historique strictement inchangé.
+  const activeOwnerId = (
+    db.prepare('SELECT active_owner_id FROM users WHERE id = ?').get(userId) as { active_owner_id?: number } | undefined
+  )?.active_owner_id;
+
+  let member = activeOwnerId
+    ? (db
+        .prepare(`SELECT * FROM company_members WHERE user_id = ? AND owner_id = ? AND status = 'active'`)
+        .get(userId, activeOwnerId) as any)
+    : null;
+  if (!member) {
+    member = db
+      .prepare(`SELECT * FROM company_members WHERE user_id = ? AND status = 'active'`)
+      .get(userId) as any;
+  }
 
   if (!member) {
     // Solo : sa propre société, accès total à ses propres données.

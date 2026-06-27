@@ -5,6 +5,8 @@ import type { PlanningEvent, ModelData, Lot as TypeLot } from '../../../types';
 import { evClientName, evModelName, evQty, evModelThumb } from '../shared/eventAccessors';
 import { getClientColor } from '../shared/clientColors';
 import { Package, Plus, Minus, Scissors, Grid3X3, ChevronDown, ChevronUp } from 'lucide-react';
+import { tx } from '../../../lib/i18n';
+import { useLang } from '../../../src/context/LanguageContext';
 
 interface Lot {
     id: string;
@@ -25,6 +27,7 @@ interface Props {
 }
 
 export default function SplitModal({ open, event, models, onClose, onSubmit }: Props) {
+    const { lang } = useLang();
     const [mode, setMode] = useState<'simple' | 'lots'>('simple');
     const [qty, setQty] = useState(0);
     const [lots, setLots] = useState<Lot[]>([]);
@@ -218,19 +221,19 @@ export default function SplitModal({ open, event, models, onClose, onSubmit }: P
         <Modal
             open={open}
             onClose={onClose}
-            title="Fractionner l'ordre"
+            title={tx(lang,{fr:"Fractionner l'ordre",ar:'تقسيم الطلب',en:'Split Order',es:'Dividir pedido',pt:'Dividir pedido',tr:'Siparişi Böl'})}
             subtitle={`${client} · ${modelName}`}
             size="lg"
             footer={
                 <>
-                    <Button variant="ghost" onClick={onClose}>Annuler</Button>
+                    <Button variant="ghost" onClick={onClose}>{tx(lang,{fr:'Annuler',ar:'إلغاء',en:'Cancel',es:'Cancelar',pt:'Cancelar',tr:'İptal'})}</Button>
                     {mode === 'simple' ? (
                         <Button variant="primary" onClick={handleSimpleSubmit} disabled={!valid}>
-                            Fractionner
+                            {tx(lang,{fr:'Fractionner',ar:'تقسيم',en:'Split',es:'Dividir',pt:'Dividir',tr:'Böl'})}
                         </Button>
                     ) : (
                         <Button variant="primary" onClick={handleLotsSubmit} disabled={!lotsValid}>
-                            Créer les lots
+                            {tx(lang,{fr:'Créer les lots',ar:'إنشاء الدفعات',en:'Create lots',es:'Crear lotes',pt:'Criar lotes',tr:'Partiler oluştur'})}
                         </Button>
                     )}
                 </>
@@ -248,7 +251,7 @@ export default function SplitModal({ open, event, models, onClose, onSubmit }: P
                     </div>
                     <div className="text-right">
                         <div className="text-[18px] font-black text-slate-900 tabular-nums">{total}</div>
-                        <div className="text-[10px] text-slate-500">pcs total</div>
+                        <div className="text-[10px] text-slate-500">{tx(lang,{fr:'pcs total',ar:'إجمالي القطع',en:'pcs total',es:'pcs total',pt:'pcs total',tr:'toplam adet'})}</div>
                     </div>
                 </div>
 
@@ -262,7 +265,7 @@ export default function SplitModal({ open, event, models, onClose, onSubmit }: P
                         }`}
                     >
                         <Scissors className="w-3.5 h-3.5" />
-                        Simple
+                        {tx(lang,{fr:'Simple',ar:'بسيط',en:'Simple',es:'Simple',pt:'Simples',tr:'Basit'})}
                     </button>
                     <button
                         type="button"
@@ -272,7 +275,7 @@ export default function SplitModal({ open, event, models, onClose, onSubmit }: P
                         }`}
                     >
                         <Package className="w-3.5 h-3.5" />
-                        Par lots / Livraisons
+                        {tx(lang,{fr:'Par lots / Livraisons',ar:'دفعات / تسليمات',en:'By lots / Deliveries',es:'Por lotes / Entregas',pt:'Por lotes / Entregas',tr:'Partiler / Teslimatlar'})}
                     </button>
                 </div>
 
@@ -280,7 +283,7 @@ export default function SplitModal({ open, event, models, onClose, onSubmit }: P
                     <>
                         {/* Simple split */}
                         <div className="text-[13px] text-slate-600">
-                            Quantité à transférer vers un nouvel ordre :
+                            {tx(lang,{fr:'Quantité à transférer vers un nouvel ordre :',ar:'الكمية المراد نقلها إلى طلب جديد:',en:'Quantity to transfer to a new order:',es:'Cantidad a transferir a un nuevo pedido:',pt:'Quantidade a transferir para um novo pedido:',tr:'Yeni siparişe aktarılacak miktar:'})}
                         </div>
 
                         <div className="space-y-2">
@@ -301,7 +304,7 @@ export default function SplitModal({ open, event, models, onClose, onSubmit }: P
                                     min={1}
                                     max={total - 1}
                                 />
-                                <span className="text-[12px] text-slate-500 tabular-nums">sur {total}</span>
+                                <span className="text-[12px] text-slate-500 tabular-nums">{tx(lang,{fr:'sur',ar:'من',en:'of',es:'de',pt:'de',tr:'/ toplam'})} {total}</span>
                             </div>
                         </div>
 

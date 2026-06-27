@@ -2,6 +2,8 @@ import React, { useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import { useIsMobile } from './useIsMobile';
+import { useLang } from '../../../src/context/LanguageContext';
+import { tx } from '../../../lib/i18n';
 
 interface Props {
     open: boolean;
@@ -20,6 +22,7 @@ const SIZE_CLS = {
 } as const;
 
 export default function Modal({ open, onClose, title, subtitle, children, footer, size = 'md' }: Props) {
+    const { lang } = useLang();
     const isMobile = useIsMobile();
     useEffect(() => {
         if (!open) return;
@@ -67,7 +70,7 @@ export default function Modal({ open, onClose, title, subtitle, children, footer
                         type="button"
                         onClick={onClose}
                         className="p-1.5 rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
-                        aria-label="Fermer"
+                        aria-label={tx(lang, {fr:"Fermer",ar:"إغلاق",en:"Close",es:"Cerrar",pt:"Fechar",tr:"Kapat"})}
                     >
                         <X className="w-4 h-4" strokeWidth={2} />
                     </button>

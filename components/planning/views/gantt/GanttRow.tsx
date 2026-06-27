@@ -1,4 +1,6 @@
 import React from 'react';
+import { tx } from '../../../../lib/i18n';
+import { useLang } from '../../../../src/context/LanguageContext';
 import type { AppSettings, Machine, ModelData, PlanningEvent } from '../../../../types';
 import type { PlanningChain } from '../../hooks/usePlanningChains';
 import EventBar from './EventBar';
@@ -47,6 +49,7 @@ function GanttRow({
     onChainContextMenu, sidebarCollapsed = false, sidebarW,
     machines = [],
 }: Props) {
+    const { lang } = useLang();
     const isSolo = soloChainId === chain.id;
     const cap = chain.capacityPerDay;
     const effPct = Math.round(chain.efficiency * 100);
@@ -197,7 +200,7 @@ function GanttRow({
 
     return (
         <div
-            className="planning-row flex border-b border-slate-50 group/row hover:bg-slate-50/30 transition-colors"
+            className="planning-row flex border-b border-slate-50 dark:border-slate-800 group/row hover:bg-slate-50/30 dark:hover:bg-slate-800/30 transition-colors"
             style={{ animationDelay: `${Math.min(index * 30, 240)}ms` }}
         >
 
@@ -206,8 +209,8 @@ function GanttRow({
                 type="button"
                 onClick={() => onToggleSolo(chain.id)}
                 onContextMenu={onChainContextMenu ? (e) => { e.preventDefault(); onChainContextMenu(e, chain.id); } : undefined}
-                title={isSolo ? 'Désisoler · Clic droit: options' : 'Isoler · Clic droit: options'}
-                className={`shrink-0 border-r border-slate-100 sticky left-0 z-[28] flex flex-col justify-center gap-1 text-left overflow-hidden hover:brightness-[1.02] ${
+                title={isSolo ? tx(lang, { fr: 'Désisoler · Clic droit: options', ar: 'إلغاء العزل · النقر الأيمن: خيارات', en: 'Unsolo · Right-click: options', es: 'Desaislar · Clic derecho: opciones', pt: 'Desisolar · Clique direito: opções', tr: 'Ayrımı kaldır · Sağ tık: seçenekler' }) : tx(lang, { fr: 'Isoler · Clic droit: options', ar: 'عزل · النقر الأيمن: خيارات', en: 'Isolate · Right-click: options', es: 'Aislar · Clic derecho: opciones', pt: 'Isolar · Clique direito: opções', tr: 'Ayır · Sağ tık: seçenekler' })}
+                className={`shrink-0 border-r border-slate-100 dark:border-slate-800 sticky left-0 z-[28] flex flex-col justify-center gap-1 text-left overflow-hidden hover:brightness-[1.02] ${
                     sidebarCollapsed ? 'items-center justify-center' : 'px-2 sm:px-4'
                 }`}
                 style={{
@@ -234,14 +237,14 @@ function GanttRow({
                     <>
                         <div className="flex items-center gap-2">
                             <span className={`w-1.5 h-1.5 rounded-full ${loadColor}`} />
-                            <span className="text-[12px] font-medium truncate text-slate-900">{chain.name}</span>
+                            <span className="text-[12px] font-medium truncate text-slate-900 dark:text-slate-100">{chain.name}</span>
                             {isSolo && <span className="ml-auto text-[9px] font-semibold uppercase tracking-wider text-slate-500">Solo</span>}
                         </div>
                         {rowHeight >= 60 && (
                             <div className="flex flex-col ml-3.5 text-[10px] text-slate-400 leading-normal max-w-[170px] min-w-0">
                                 {activeEventToday ? (
                                     <>
-                                        <span className="font-semibold text-slate-700 truncate flex items-center gap-1" title={evModelName(activeEventToday, models)}>
+                                        <span className="font-semibold text-slate-700 dark:text-slate-300 truncate flex items-center gap-1" title={evModelName(activeEventToday, models)}>
                                             <span 
                                                 className="w-1.5 h-1.5 rounded-full shrink-0 animate-pulse" 
                                                 style={{ background: getModelColor(activeEventToday.modelId || evModelName(activeEventToday, models)) }}
@@ -249,7 +252,7 @@ function GanttRow({
                                             {evModelName(activeEventToday, models)}
                                         </span>
                                         <span className="tabular-nums text-slate-500 font-medium pl-2.5">
-                                            Reste {100 - evProgressPct(activeEventToday)}%
+                                            {tx(lang, { fr: 'Reste', ar: 'المتبقي', en: 'Left', es: 'Restante', pt: 'Restante', tr: 'Kalan' })} {100 - evProgressPct(activeEventToday)}%
                                         </span>
                                     </>
                                 ) : (
@@ -259,7 +262,7 @@ function GanttRow({
                                             {chain.capacityPerDay} pcs/j
                                         </span>
                                         <span className="tabular-nums text-slate-400 font-medium pl-2.5">
-                                            Rendement {effPct}%
+                                            {tx(lang, { fr: 'Rendement', ar: 'الإنتاجية', en: 'Yield', es: 'Rendimiento', pt: 'Rendimento', tr: 'Verim' })} {effPct}%
                                         </span>
                                     </>
                                 )}
@@ -298,7 +301,7 @@ function GanttRow({
                         }
                         const downMachine = downtimeInfo.find(m => key >= m.downtimeStartYmd! && key <= m.downtimeEndYmd!);
                         const tooltip = downMachine
-                            ? `${downMachine.status === 'PANNE' ? 'Panne' : 'Maintenance'}: ${downMachine.name || 'Machine'} (${downMachine.matricule || 'Sans matricule'}) du ${downMachine.downtimeStartYmd} au ${downMachine.downtimeEndYmd}`
+                            ? `${downMachine.status === 'PANNE' ? tx(lang, { fr: 'Panne', ar: 'عطل', en: 'Breakdown', es: 'Avería', pt: 'Avaria', tr: 'Arıza' }) : tx(lang, { fr: 'Maintenance', ar: 'صيانة', en: 'Maintenance', es: 'Mantenimiento', pt: 'Manutenção', tr: 'Bakım' })}: ${downMachine.name || tx(lang, { fr: 'Machine', ar: 'آلة', en: 'Machine', es: 'Máquina', pt: 'Máquina', tr: 'Makine' })} (${downMachine.matricule || tx(lang, { fr: 'Sans matricule', ar: 'بدون رقم تسجيل', en: 'No registration number', es: 'Sin matrícula', pt: 'Sem matrícula', tr: 'Kayıt numarası yok' })}) ${tx(lang, { fr: 'du', ar: 'من', en: 'from', es: 'del', pt: 'de', tr: '-' })} ${downMachine.downtimeStartYmd} ${tx(lang, { fr: 'au', ar: 'إلى', en: 'to', es: 'al', pt: 'até', tr: '-' })} ${downMachine.downtimeEndYmd}`
                             : undefined;
                         let cellStyle: React.CSSProperties = { width: dayWidth, minWidth: dayWidth, ...heatStyle };
                         if (downMachine) {

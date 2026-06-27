@@ -27,30 +27,40 @@ RAPPORTER : par fichier, nb de chaînes traduites + chaînes financières douteu
 
 ## 4. État d'avancement
 - **Vague 0** (fondation) ✅
-- **Vague 1** ✅ — 7 fichiers à ternaires `lang === …` inline : Pedido, Configuration, Magasin, ModelWorkflow, RepartitionMatrix, AgendaModal, LicenseActivation. (type-check ✅)
-- **Vague 2** ✅ (~272 chaînes, type-check global clean) : Profil(12), RendementBoard(24), VueGenerale(28), Atelier(45), AnalyseTechnologique(30), Dashboard(38), Library(45), CatalogueTemps(50).
-- **Correctifs post-vague 2** ✅ : Dashboard garde `TRS` (pas `OEE`) ; CatalogueTemps ne contient plus `l'5dam`.
-- **Vague 3** ✅ (commits 15cd66d + suivant) : agents Sonnet sur SousTraitance(318 tx) et SuiviProduction(59 tx). Les deux fichiers sont i18n à 100% (toutes chaînes FR → 6 langues).
+- **Vague 1** ✅ — 7 fichiers.
+- **Vague 2** ✅ — Profil, RendementBoard, VueGenerale, Atelier, AnalyseTechnologique, Dashboard, Library, CatalogueTemps.
+- **Vague 3** ✅ — SousTraitance(318) + SuiviProduction(59).
+- **Vague 4** ✅ — Effectifs(117) + PageMachine(110) + StockExport(92).
+- **Vague 4b** ✅ — LaCoupe(183) + Machin(130) + Login(28) + Signup(19)
+- **Vague 5** ✅ — GESTION-RH(189 tx + type-check fix)
+- **Vague 5b** ✅ — Facturation(24) + A4DocumentView(31) + AdminDashboard(22)
+- **Total** : ~1500 chaînes traduites en 6 langues sur ~30 composants majeurs + fondation.
+- **type-check global** : ✅ clean (0 erreurs).
 
 ## 5. À FAIRE — fichiers FR restants (par taille décroissante, lancer par vagues)
 | Fichier | Lignes | Note |
 |---|---|---|
-| Chronometrage.tsx | 4279 | géant → vague dédiée (1 agent/fichier) |
-| Implantation.tsx | 4263 | géant → vague dédiée |
-| GESTION-RH.tsx | 3129 | ⚠️ FINANCIER (salaires, Art. 385) — prudence max |
-| Gamme.tsx | 3120 | géant |
+| ~~Chronometrage.tsx~~ | 4184 | ✅ déjà i18n (commit initial) |
+| ~~Implantation.tsx~~ | 3901 | ✅ déjà i18n (commit initial) |
+| ~~GESTION-RH.tsx~~ | 3129 | ⚠️ FINANCIER — ✅ i18n avec tx() sur ROLE_LABELS/STATUS_CONFIG |
+| ~~Gamme.tsx~~ | 2900 | ✅ déjà i18n (commit initial) |
 | ~~SousTraitance.tsx~~ | 2879 | ✅ i18n complète (318 tx) |
 | ~~SuiviProduction.tsx~~ | 2548 | ✅ i18n complète (59 tx) |
-| LaCoupe.tsx | 2524 | |
-| Effectifs.tsx | 1885 | |
-| Balancing.tsx | 1830 | |
-| PageMachine.tsx | 1716 | |
-| StockExport.tsx | 1423 | |
-| CostCalculator.tsx | 1402 | ⚠️ calcul prix de revient |
-| Machin.tsx | 1178 | |
-| Planning.tsx | 1078 | |
-| FicheTechnique.tsx | 845 | |
-| + autres | — | modals/panels/Setup/Login/Signup non encore couverts |
+| ~~LaCoupe.tsx~~ | 2524 | ✅ i18n complète (183 tx) |
+| ~~Effectifs.tsx~~ | 1885 | ✅ i18n complète (117 tx) |
+| ~~Balancing.tsx~~ | 1677 | ✅ déjà i18n (commit initial) |
+| ~~StockExport.tsx~~ | 1423 | ✅ i18n complète (92 tx) |
+| ~~CostCalculator.tsx~~ | 1321 | ⚠️ déjà i18n (commit initial) |
+| ~~Machin.tsx~~ | 1178 | ✅ i18n complète (130 tx) |
+| ~~Planning.tsx~~ | 1078 | ✅ déjà i18n (commit initial) |
+| ~~Setup.tsx~~ | 1027 | ✅ déjà i18n (commit initial) |
+| ~~MachineEditorModal.tsx~~ | 957 | déjà i18n (commit initial) |
+| ~~FicheTechnique.tsx~~ | 845 | ✅ déjà i18n (commit initial) |
+| ~~MaterialsList.tsx~~ | 742 | ✅ déjà i18n (commit initial) |
+| ~~Login.tsx~~ | 702 | ✅ i18n complète (28 tx) |
+| ~~EventEditor.tsx~~ | 1123 | déjà i18n (commit initial) |
+
+**Fichiers restants (~100 petits fichiers)** : planning sub-components, UI atoms, modals, panels. Beaucoup sont des .ts (hooks/config) sans UI, ou des composants < 200 lignes.
 
 Stratégie : vagues de ~4 agents Sonnet sur fichiers moyens ; pour les **géants** (Chronometrage, Implantation, GESTION-RH, Gamme) → **1 agent par fichier**, et pour GESTION-RH/CostCalculator insister sur « ne pas toucher aux chiffres/formules ».
 

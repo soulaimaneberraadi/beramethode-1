@@ -1,5 +1,7 @@
 import React from 'react';
 import { ChevronLeft, ChevronRight, Search, SlidersHorizontal, Activity } from 'lucide-react';
+import { useLang } from '../../../src/context/LanguageContext';
+import { tx } from '../../../lib/i18n';
 
 interface Props {
     date: string;
@@ -36,13 +38,14 @@ export default function SuiviHeader({
     activeChainsCount, totalPieces, conflictsCount,
     filtersOpen, onToggleFilters, hasActiveFilters,
 }: Props) {
+    const { lang } = useLang();
     const isToday = date === todayYmd();
     return (
         <header className="shrink-0 bg-white border-b border-slate-100">
             <div className="px-6 h-14 flex items-center gap-4">
                 <div className="flex items-baseline gap-3 shrink-0">
-                    <h1 className="text-[15px] font-semibold text-slate-900 tracking-tight">Suivi</h1>
-                    <span className="text-[12px] text-slate-400">Production</span>
+                    <h1 className="text-[15px] font-semibold text-slate-900 tracking-tight">{tx(lang, {fr:"Suivi",ar:"المتابعة",en:"Tracking",es:"Seguimiento",pt:"Acompanhamento",tr:"Takip"})}</h1>
+                    <span className="text-[12px] text-slate-400">{tx(lang, {fr:"Production",ar:"الإنتاج",en:"Production",es:"Producción",pt:"Produção",tr:"Üretim"})}</span>
                 </div>
 
                 <div className="hidden md:flex items-center gap-4 ml-2">
@@ -59,13 +62,13 @@ export default function SuiviHeader({
                         type="text"
                         value={searchText}
                         onChange={(e) => onSearch(e.target.value)}
-                        placeholder="Rechercher un modèle, un client…"
+                        placeholder={tx(lang, {fr:"Rechercher un modèle, un client…",ar:"البحث عن نموذج، عميل…",en:"Search for a model, client…",es:"Buscar modelo, cliente…",pt:"Procurar modelo, cliente…",tr:"Model, müşteri ara…"})}
                         className="w-full h-8 pl-9 pr-3 text-[12px] text-slate-700 placeholder:text-slate-400 bg-slate-50/60 hover:bg-slate-50 focus:bg-white border border-transparent focus:border-slate-200 focus:ring-2 focus:ring-slate-100 rounded-md outline-none transition-all"
                     />
                 </div>
 
                 <div className="flex items-center gap-1 shrink-0">
-                    <IconButton onClick={onToggleFilters} active={filtersOpen || hasActiveFilters} title="Filtres">
+                    <IconButton onClick={onToggleFilters} active={filtersOpen || hasActiveFilters} title={tx(lang, {fr:"Filtres",ar:"مرشحات",en:"Filters",es:"Filtros",pt:"Filtros",tr:"Filtreler"})}>
                         <SlidersHorizontal className="w-3.5 h-3.5" strokeWidth={1.75} />
                         {hasActiveFilters && <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-[#2149C1]" />}
                     </IconButton>
@@ -82,7 +85,7 @@ export default function SuiviHeader({
                         type="button"
                         onClick={() => onDateChange(shiftDate(date, -1))}
                         className="w-6 h-6 flex items-center justify-center rounded text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
-                        aria-label="Jour précédent"
+                        aria-label={tx(lang, {fr:"Jour précédent",ar:"اليوم السابق",en:"Previous day",es:"Día anterior",pt:"Dia anterior",tr:"Önceki gün"})}
                     >
                         <ChevronLeft className="w-3.5 h-3.5" strokeWidth={2} />
                     </button>
@@ -93,7 +96,7 @@ export default function SuiviHeader({
                         type="button"
                         onClick={() => onDateChange(shiftDate(date, 1))}
                         className="w-6 h-6 flex items-center justify-center rounded text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
-                        aria-label="Jour suivant"
+                        aria-label={tx(lang, {fr:"Jour suivant",ar:"اليوم التالي",en:"Next day",es:"Día siguiente",pt:"Próximo dia",tr:"Sonraki gün"})}
                     >
                         <ChevronRight className="w-3.5 h-3.5" strokeWidth={2} />
                     </button>

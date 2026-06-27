@@ -7,6 +7,8 @@ import type { ModelData } from '../../../types';
 import type { PlanningChain } from '../hooks/usePlanningChains';
 import { getClientColor } from '../shared/clientColors';
 import { todayYmd } from '../shared/dateFmt';
+import { tx } from '../../../lib/i18n';
+import { useLang } from '../../../src/context/LanguageContext';
 
 /* ─── helpers ────────────────────────────────────────────────── */
 
@@ -63,6 +65,7 @@ interface Props {
 /* ─── tiny model picker ──────────────────────────────────────── */
 
 function ModelPicker({ models, value, onChange }: { models: ModelData[]; value: string; onChange: (id: string) => void }) {
+    const { lang } = useLang();
     const [open, setOpen] = useState(false);
     const [search, setSearch] = useState('');
     const ref = useRef<HTMLDivElement>(null);
@@ -120,7 +123,7 @@ function ModelPicker({ models, value, onChange }: { models: ModelData[]; value: 
                 ) : (
                     <>
                         <Package className="w-4 h-4 text-slate-300 shrink-0" />
-                        <span className="flex-1 text-slate-400">— Choisir un modèle —</span>
+                        <span className="flex-1 text-slate-400">{tx(lang, {fr:"— Choisir un modèle —",ar:"— اختر نموذجًا —",en:"— Choose a model —",es:"— Elegir un modelo —",pt:"— Escolher um modelo —",tr:"— Bir model seçin —"})}</span>
                     </>
                 )}
                 <ChevronDown className={`w-3.5 h-3.5 text-slate-400 shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} />
@@ -134,7 +137,7 @@ function ModelPicker({ models, value, onChange }: { models: ModelData[]; value: 
                             type="text"
                             value={search}
                             onChange={e => setSearch(e.target.value)}
-                            placeholder="Rechercher un modèle…"
+                            placeholder={tx(lang, {fr:"Rechercher un modèle…",ar:"البحث عن نموذج…",en:"Search for a model…",es:"Buscar un modelo…",pt:"Procurar um modelo…",tr:"Bir model ara…"})}
                             className="w-full h-8 pl-8 pr-7 text-[12px] bg-white border border-slate-200 rounded-md outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition-all"
                             autoFocus
                         />
@@ -146,7 +149,7 @@ function ModelPicker({ models, value, onChange }: { models: ModelData[]; value: 
                     </div>
                     <div className="overflow-y-auto" style={{ maxHeight: 260 }}>
                         {filtered.length === 0 ? (
-                            <div className="px-4 py-8 text-center text-[12px] text-slate-400">Aucun modèle trouvé</div>
+                            <div className="px-4 py-8 text-center text-[12px] text-slate-400">{tx(lang, {fr:"Aucun modèle trouvé",ar:"لم يتم العثور على نموذج",en:"No model found",es:"Ningún modelo encontrado",pt:"Nenhum modelo encontrado",tr:"Model bulunamadı"})}</div>
                         ) : filtered.map(m => {
                             const thumb = getModelThumb(m);
                             const color = getClientColor(m.ficheData?.client);
@@ -190,6 +193,7 @@ const newRow = (): BatchOrderItem => ({
 });
 
 export default function BatchOrderModal({ open, models, chains, computeEndDate, onClose, onSubmit }: Props) {
+    const { lang } = useLang();
     const [chaineId, setChaineId] = useState(chains[0]?.id || 'CHAINE 1');
     const [globalStart, setGlobalStart] = useState(todayYmd());
     const [rows, setRows] = useState<BatchOrderItem[]>([newRow(), newRow()]);
@@ -271,19 +275,19 @@ export default function BatchOrderModal({ open, models, chains, computeEndDate, 
         <Modal
             open={open}
             onClose={onClose}
-            title="Planification en lot"
-            subtitle="Planifiez plusieurs modèles en séquence sur une chaîne"
+            title={tx(lang, {fr:"Planification en lot",ar:"تخطيط دفعة",en:"Batch planning",es:"Planificación por lotes",pt:"Planejamento em lote",tr:"Toplu planlama"})}
+            subtitle={tx(lang, {fr:"Planifiez plusieurs modèles en séquence sur une chaîne",ar:"تخطيط نماذج متعددة بالتسلسل على سلسلة",en:"Plan multiple models in sequence on a chain",es:"Planifique varios modelos en secuencia en una cadena",pt:"Planeje vários modelos em sequência em uma cadeia",tr:"Bir zincir üzerinde sıralı olarak birden çok model planlayın"})}
             size="lg"
             footer={
                 <>
-                    <Button variant="ghost" onClick={onClose}>Annuler</Button>
+                    <Button variant="ghost" onClick={onClose}>{tx(lang, {fr:"Annuler",ar:"إلغاء",en:"Cancel",es:"Cancelar",pt:"Cancelar",tr:"İptal"})}</Button>
                     <Button
                         variant="primary"
                         onClick={handleSubmit}
                         disabled={!canSubmit}
                         icon={<Sparkles className="w-3.5 h-3.5" />}
                     >
-                        Planifier {validRows.length > 0 ? `${validRows.length} ordre${validRows.length > 1 ? 's' : ''}` : ''}
+                        {tx(lang, {fr:"Planifier",ar:"تخطيط",en:"Plan",es:"Planificar",pt:"Planejar",tr:"Planla"})} {validRows.length > 0 ? `${validRows.length} ${validRows.length > 1 ? tx(lang, {fr:"ordres",ar:"أوامر",en:"orders",es:"órdenes",pt:"pedidos",tr:"siparişler"}) : tx(lang, {fr:"ordre",ar:"أمر",en:"order",es:"orden",pt:"pedido",tr:"sipariş"})}` : ''}
                     </Button>
                 </>
             }
@@ -292,7 +296,7 @@ export default function BatchOrderModal({ open, models, chains, computeEndDate, 
                 {/* ── chain + start date ── */}
                 <div className="grid grid-cols-2 gap-3 p-4 bg-indigo-50/40 rounded-xl border border-indigo-100">
                     <div className="space-y-1.5">
-                        <label className="block text-[11px] font-medium text-slate-600">Chaîne cible</label>
+                        <label className="block text-[11px] font-medium text-slate-600">{tx(lang, {fr:"Chaîne cible",ar:"السلسلة المستهدفة",en:"Target chain",es:"Cadena objetivo",pt:"Cadeia alvo",tr:"Hedef zincir"})}</label>
                         <select
                             value={chaineId}
                             onChange={e => setChaineId(e.target.value)}
@@ -305,7 +309,7 @@ export default function BatchOrderModal({ open, models, chains, computeEndDate, 
                         </select>
                     </div>
                     <div className="space-y-1.5">
-                        <label className="block text-[11px] font-medium text-slate-600">Date de départ</label>
+                        <label className="block text-[11px] font-medium text-slate-600">{tx(lang, {fr:"Date de départ",ar:"تاريخ البداية",en:"Start date",es:"Fecha de inicio",pt:"Data de início",tr:"Başlangıç tarihi"})}</label>
                         <input
                             type="date"
                             value={globalStart}
@@ -348,7 +352,7 @@ export default function BatchOrderModal({ open, models, chains, computeEndDate, 
                                             min={0}
                                             value={row.quantity || ''}
                                             onChange={e => updateRow(row.id, { quantity: Number(e.target.value) || 0 })}
-                                            placeholder="Qté"
+                                            placeholder={tx(lang, {fr:"Qté",ar:"الكمية",en:"Qty",es:"Cant.",pt:"Qtd",tr:"Mik"})}
                                             className="w-full h-9 px-2 text-[13px] text-center tabular-nums text-slate-900 bg-white border border-slate-200 rounded-lg focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 outline-none transition-colors"
                                         />
 
@@ -362,7 +366,7 @@ export default function BatchOrderModal({ open, models, chains, computeEndDate, 
                                                 type="text"
                                                 value={row.clientName}
                                                 onChange={e => updateRow(row.id, { clientName: e.target.value })}
-                                                placeholder="Client"
+                                                placeholder={tx(lang, {fr:"Client",ar:"العميل",en:"Client",es:"Cliente",pt:"Cliente",tr:"Müşteri"})}
                                                 className="w-full h-9 pl-7 pr-2 text-[12px] text-slate-900 bg-white border border-slate-200 rounded-lg focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 outline-none transition-colors"
                                             />
                                         </div>
@@ -373,7 +377,7 @@ export default function BatchOrderModal({ open, models, chains, computeEndDate, 
                                             onClick={() => removeRow(row.id)}
                                             disabled={rows.length <= 1}
                                             className="h-9 w-9 flex items-center justify-center rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors disabled:opacity-25 disabled:cursor-not-allowed"
-                                            title="Supprimer"
+                                            title={tx(lang, {fr:"Supprimer",ar:"حذف",en:"Delete",es:"Eliminar",pt:"Excluir",tr:"Sil"})}
                                         >
                                             <Trash2 className="w-4 h-4" />
                                         </button>
@@ -389,7 +393,7 @@ export default function BatchOrderModal({ open, models, chains, computeEndDate, 
                                                 <span className="font-semibold text-indigo-700">{fmtDate(row.startDate)}</span>
                                                 <ArrowRight className="w-3 h-3 text-slate-400" />
                                                 <span className="font-semibold text-slate-700">{fmtDate(row.endDate)}</span>
-                                                <span className="text-slate-400">· {row.daysNeeded}j</span>
+                                                <span className="text-slate-400">· {row.daysNeeded}{tx(lang, {fr:"j",ar:"يوم",en:"d",es:"d",pt:"d",tr:"g"})}</span>
                                             </div>
                                             {row.strictDeadline_DDS && (() => {
                                                 const ddsDt = new Date(row.strictDeadline_DDS);
@@ -408,7 +412,7 @@ export default function BatchOrderModal({ open, models, chains, computeEndDate, 
                                     {/* optional DDS */}
                                     {hasData && (
                                         <div className="mt-2 flex items-center gap-2">
-                                            <label className="text-[10px] text-slate-500 font-medium shrink-0">DDS (optionnel)</label>
+                                            <label className="text-[10px] text-slate-500 font-medium shrink-0">{tx(lang, {fr:"DDS (optionnel)",ar:"DDS (اختياري)",en:"DDS (optional)",es:"DDS (opcional)",pt:"DDS (opcional)",tr:"DDS (isteğe bağlı)"})}</label>
                                             <input
                                                 type="date"
                                                 value={row.strictDeadline_DDS}
@@ -429,7 +433,7 @@ export default function BatchOrderModal({ open, models, chains, computeEndDate, 
                         className="w-full py-2.5 border-2 border-dashed border-slate-200 rounded-xl text-[12px] font-semibold text-slate-400 hover:border-indigo-400 hover:text-indigo-600 hover:bg-indigo-50/30 transition-all flex items-center justify-center gap-1.5 group"
                     >
                         <Plus className="w-4 h-4 group-hover:scale-110 transition-transform" />
-                        Ajouter un modèle
+                        {tx(lang, {fr:"Ajouter un modèle",ar:"إضافة نموذج",en:"Add a model",es:"Añadir un modelo",pt:"Adicionar um modelo",tr:"Model ekle"})}
                     </button>
                 </div>
 
@@ -438,7 +442,7 @@ export default function BatchOrderModal({ open, models, chains, computeEndDate, 
                     <div className="flex items-center gap-3 p-3 bg-slate-900 rounded-xl text-white">
                         <Layers className="w-4 h-4 text-indigo-400 shrink-0" />
                         <div className="flex-1 text-[12px]">
-                            <span className="font-bold text-white">{validRows.length} ordre{validRows.length > 1 ? 's' : ''}</span>
+                            <span className="font-bold text-white">{validRows.length} {validRows.length > 1 ? tx(lang, {fr:"ordres",ar:"أوامر",en:"orders",es:"órdenes",pt:"pedidos",tr:"siparişler"}) : tx(lang, {fr:"ordre",ar:"أمر",en:"order",es:"orden",pt:"pedido",tr:"sipariş"})}</span>
                             <span className="text-slate-400 mx-1.5">·</span>
                             <span className="text-slate-300">{chaineId}</span>
                             <span className="text-slate-400 mx-1.5">·</span>
@@ -447,7 +451,7 @@ export default function BatchOrderModal({ open, models, chains, computeEndDate, 
                             <span className="text-slate-300">{fmtDate(batchRows[batchRows.length - 1]?.endDate)}</span>
                         </div>
                         <div className="text-[13px] font-bold text-indigo-400 tabular-nums">
-                            {validRows.reduce((s, r) => s + r.quantity, 0).toLocaleString()} pcs
+                            {validRows.reduce((s, r) => s + r.quantity, 0).toLocaleString()} {tx(lang, {fr:"pcs",ar:"قطعة",en:"pcs",es:"pzas",pt:"pcs",tr:"adet"})}
                         </div>
                     </div>
                 )}

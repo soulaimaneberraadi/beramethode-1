@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { X, ChevronLeft, ChevronRight, Calendar, Info, Clock, CheckCircle2, XCircle, Zap, PartyPopper, Globe } from 'lucide-react';
 import { AppSettings } from '../types';
-import { pickT } from '../lib/i18n';
+import { pickT, tx } from '../lib/i18n';
 import type { Lang } from '../app/constants';
 
 // ── National Holidays Database ──────────────────────────────────────────────
@@ -138,9 +138,22 @@ const getHolidaysForYear = (currency: string, year: number): { date: string; nam
     return result;
 };
 
-const COUNTRY_LABEL: Record<string, string> = {
-    MAD: 'Maroc', DZD: 'Algérie', TND: 'Tunisie', EUR: 'France', TRY: 'Türkiye', SAR: 'KSA', AED: 'UAE',
-    QAR: 'Qatar', KWD: 'Kuwait', BHD: 'Bahrain', OMR: 'Oman', ZAR: 'Afr.Sud', XOF: 'UEMOA', XAF: 'CEMAC', USD: 'USA',
+const COUNTRY_LABEL: Record<string, {fr:string;ar:string;en:string;es:string;pt:string;tr:string}> = {
+    MAD: {fr:'Maroc',ar:'المغرب',en:'Morocco',es:'Marruecos',pt:'Marrocos',tr:'Fas'},
+    DZD: {fr:'Algérie',ar:'الجزائر',en:'Algeria',es:'Argelia',pt:'Argélia',tr:'Cezayir'},
+    TND: {fr:'Tunisie',ar:'تونس',en:'Tunisia',es:'Túnez',pt:'Tunísia',tr:'Tunus'},
+    EUR: {fr:'France',ar:'فرنسا',en:'France',es:'Francia',pt:'França',tr:'Fransa'},
+    TRY: {fr:'Türkiye',ar:'تركيا',en:'Turkey',es:'Turquía',pt:'Turquia',tr:'Türkiye'},
+    SAR: {fr:'KSA',ar:'المملكة العربية السعودية',en:'KSA',es:'KSA',pt:'KSA',tr:'KSA'},
+    AED: {fr:'UAE',ar:'الإمارات',en:'UAE',es:'EAU',pt:'EAU',tr:'BAE'},
+    QAR: {fr:'Qatar',ar:'قطر',en:'Qatar',es:'Catar',pt:'Catar',tr:'Katar'},
+    KWD: {fr:'Koweït',ar:'الكويت',en:'Kuwait',es:'Kuwait',pt:'Kuwait',tr:'Kuveyt'},
+    BHD: {fr:'Bahreïn',ar:'البحرين',en:'Bahrain',es:'Baréin',pt:'Bahrein',tr:'Bahreyn'},
+    OMR: {fr:'Oman',ar:'عُمان',en:'Oman',es:'Omán',pt:'Omã',tr:'Umman'},
+    ZAR: {fr:'Afr.Sud',ar:'جنوب أفريقيا',en:'South Africa',es:'Sudáfrica',pt:'África do Sul',tr:'Güney Afrika'},
+    XOF: {fr:'UEMOA',ar:'الإتحاد الاقتصادي والنقدي لغرب أفريقيا',en:'UEMOA',es:'UEMOA',pt:'UEMOA',tr:'UEMOA'},
+    XAF: {fr:'CEMAC',ar:'المجموعة الاقتصادية لدول وسط أفريقيا',en:'CEMAC',es:'CEMAC',pt:'CEMAC',tr:'CEMAC'},
+    USD: {fr:'États-Unis',ar:'الولايات المتحدة',en:'USA',es:'EE.UU.',pt:'EUA',tr:'ABD'},
 };
 
 interface AgendaModalProps {
@@ -333,7 +346,7 @@ export default function AgendaModal({ isOpen, onClose, settings, setSettings, la
     if (!isOpen) return null;
 
     const currency = settings.currency || 'MAD';
-    const countryLabel = COUNTRY_LABEL[currency] || currency;
+    const countryLabel = COUNTRY_LABEL[currency] ? tx(lang, COUNTRY_LABEL[currency]) : currency;
 
     const year = currentDate.getFullYear();
     const month = currentDate.getMonth();

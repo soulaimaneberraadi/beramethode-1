@@ -10,6 +10,7 @@ import { DEFAULT_CALENDAR_APP_SETTINGS } from '../lib/defaultCalendarSettings';
 import ProductDetailPanel from './ProductDetailPanel';
 import { tx, pickT } from '../lib/i18n';
 import type { Lang } from '../app/constants';
+import { useLang } from '../src/context/LanguageContext';
 
 export interface MagasinProps {
     models?: ModelData[];
@@ -145,6 +146,7 @@ const StockBadge = ({ stock, seuil }: { stock: number; seuil: number }) => {
 //  PRODUCT MODAL
 // ══════════════════════════════════════════════════════════════════════════════
 function ProductModal({ item, onSave, onClose }: { item?: MagasinProduct; onSave: (p: MagasinProduct) => void; onClose: () => void; }) {
+    const { lang } = useLang();
     const [f, setF] = useState<MagasinProduct>(item || {
         id: uid(), reference: `REF-${Math.floor(Math.random() * 9000) + 1000}`, designation: '', categorie: 'tissu', unite: 'm', prixUnitaire: 0, stockAlerte: 10, emplacement: ''
     });
@@ -241,7 +243,7 @@ function ProductModal({ item, onSave, onClose }: { item?: MagasinProduct; onSave
 
                 <div className="flex justify-end gap-3 px-6 py-4 border-t border-slate-100 bg-slate-50">
                     <button onClick={onClose} className="px-5 py-2 text-sm font-bold text-slate-600 hover:bg-slate-200 rounded-xl transition-colors">Annuler</button>
-                    <button onClick={() => { if (!f.designation.trim()) { alert('Désignation obligatoire'); return; } onSave(f); }} className="px-6 py-2 text-sm font-black bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 flex items-center gap-2"><Save className="w-4 h-4" /> Enregistrer</button>
+                    <button onClick={() => { if (!f.designation.trim()) { alert(tx(lang, {fr: 'Désignation obligatoire', ar: 'الاسم إجباري', en: 'Designation required', es: 'Designación obligatoria', pt: 'Designação obrigatória', tr: 'Tanım zorunlu'})); return; } onSave(f); }} className="px-6 py-2 text-sm font-black bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 flex items-center gap-2"><Save className="w-4 h-4" /> {tx(lang, {fr: 'Enregistrer', ar: 'حفظ', en: 'Save', es: 'Guardar', pt: 'Salvar', tr: 'Kaydet'})}</button>
                 </div>
             </div>
         </div>
@@ -264,6 +266,7 @@ function BonCommandeModal({
     onSave: (bc: BonCommande) => void;
     onClose: () => void;
 }) {
+    const { lang } = useLang();
     const [bc, setBc] = useState<BonCommande>({ ...initial });
     const [addPid, setAddPid] = useState('');
     const [addQty, setAddQty] = useState('');
@@ -271,7 +274,7 @@ function BonCommandeModal({
     const calcTotal = (lignes: BonCommandeLigne[]) => lignes.reduce((s, l) => s + (l.quantite * (l.prixUnitaire || 0)), 0);
 
     const handleAdd = () => {
-        if (!addPid || !addQty) return alert('Sélectionner un produit et une quantité');
+        if (!addPid || !addQty) return alert(tx(lang, {fr: 'Sélectionner un produit et une quantité', ar: 'اختر منتجًا وكمية', en: 'Select a product and a quantity', es: 'Seleccione un producto y una cantidad', pt: 'Selecione um produto e uma quantidade', tr: 'Bir ürün ve miktar seçin'}));
         const p = products.find(x => x.id === addPid);
         if (!p) return;
         const nl = [...bc.lignes, { id: uid(), productId: p.id, productNom: p.designation, quantite: parseFloat(addQty), prixUnitaire: p.cump || p.prixUnitaire }];
@@ -310,9 +313,9 @@ function BonCommandeModal({
 
                     <div className="bg-white border rounded-2xl shadow-sm overflow-hidden flex flex-col">
                         <div className="p-4 bg-slate-50 border-b flex flex-wrap gap-4 items-end">
-                            <div className="flex-1 min-w-[200px]"><Lbl t="Ajouter un Produit" /><select className={inp} value={addPid} onChange={e => setAddPid(e.target.value)}><option value="">-- Sélectionner --</option>{products.map(p => <option key={p.id} value={p.id}>{p.reference} - {p.designation} (Frs: {p.fournisseurNom || '?'})</option>)}</select></div>
+                            <div className="flex-1 min-w-[200px]"><Lbl t="Ajouter un Produit" /><select className={inp} value={addPid} onChange={e => setAddPid(e.target.value)}><option value="">{tx(lang, {fr: '-- Sélectionner --', ar: '-- اختر --', en: '-- Select --', es: '-- Seleccionar --', pt: '-- Selecionar --', tr: '-- Seçin --'})}</option>{products.map(p => <option key={p.id} value={p.id}>{p.reference} - {p.designation} (Frs: {p.fournisseurNom || '?'})</option>)}</select></div>
                             <div className="w-32"><Lbl t="Quantité" /><input type="number" min="0" className={inp} value={addQty} onChange={e => setAddQty(e.target.value.replace(/-/g, ''))} /></div>
-                            <button onClick={handleAdd} className="bg-indigo-600 text-white px-4 py-2 h-[38px] rounded-xl font-bold text-sm hover:bg-indigo-700">Ajouter</button>
+                            <button onClick={handleAdd} className="bg-indigo-600 text-white px-4 py-2 h-[38px] rounded-xl font-bold text-sm hover:bg-indigo-700">{tx(lang, {fr: 'Ajouter', ar: 'إضافة', en: 'Add', es: 'Agregar', pt: 'Adicionar', tr: 'Ekle'})}</button>
                         </div>
 
                         <div className="p-0 overflow-x-auto max-h-[300px]">
@@ -341,8 +344,8 @@ function BonCommandeModal({
                 <div className="flex justify-between items-center px-6 py-4 border-t border-slate-100 bg-white shrink-0">
                     <div className="text-xs text-slate-400 font-bold"><Activity className="w-3 h-3 inline mr-1" /> Sauvegarde automatique locale</div>
                     <div className="flex gap-3">
-                        <button onClick={onClose} className="px-5 py-2.5 text-sm font-bold text-slate-600 hover:bg-slate-100 rounded-xl transition-colors">Fermer</button>
-                        <button onClick={() => onSave(bc)} className="px-8 py-2.5 text-sm font-black bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 flex items-center gap-2"><CheckCircle className="w-4 h-4" /> Enregistrer BC</button>
+                        <button onClick={onClose} className="px-5 py-2.5 text-sm font-bold text-slate-600 hover:bg-slate-100 rounded-xl transition-colors">{tx(lang, {fr: 'Fermer', ar: 'إغلاق', en: 'Close', es: 'Cerrar', pt: 'Fechar', tr: 'Kapat'})}</button>
+                        <button onClick={() => onSave(bc)} className="px-8 py-2.5 text-sm font-black bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 flex items-center gap-2"><CheckCircle className="w-4 h-4" /> {tx(lang, {fr: 'Enregistrer BC', ar: 'حفظ أمر الشراء', en: 'Save PO', es: 'Guardar BC', pt: 'Salvar BC', tr: 'BC Kaydet'})}</button>
                     </div>
                 </div>
             </div>
@@ -1461,7 +1464,8 @@ function CustomProductSelect({ value, onChange, products, lots, t }: any) {
 // ══════════════════════════════════════════════════════════════════════════════
 //  MAIN COMPONENT
 // ══════════════════════════════════════════════════════════════════════════════
-export default function Magasin({ models = [], planningEvents = [], lang = 'fr', settings }: MagasinProps) {
+export default function Magasin({ models = [], planningEvents = [], settings }: MagasinProps) {
+    const { lang } = useLang();
     const t = (str: string) => lang === 'fr' ? str : (DICT[str]?.[lang] || str);
     const dtpSettings = settings ?? DEFAULT_CALENDAR_APP_SETTINGS;
 
@@ -1630,24 +1634,24 @@ export default function Magasin({ models = [], planningEvents = [], lang = 'fr',
             if (res.ok) {
                 await refreshProducts();
                 setProdModal({ open: false });
-            } else alert('Erreur Serveur: Impossible de sauvegarder le produit.');
+            } else alert(tx(lang, {fr: 'Erreur Serveur: Impossible de sauvegarder le produit.', ar: 'خطأ في الخادم: تعذر حفظ المنتج.', en: 'Server Error: Could not save the product.', es: 'Error del Servidor: No se pudo guardar el producto.', pt: 'Erro do Servidor: Não foi possível salvar o produto.', tr: 'Sunucu Hatası: Ürün kaydedilemedi.'}));
         } catch (e) {
             console.error(e);
-            alert('Erreur: Vérifiez votre connexion au serveur.');
+            alert(tx(lang, {fr: 'Erreur: Vérifiez votre connexion au serveur.', ar: 'خطأ: تحقق من اتصالك بالخادم.', en: 'Error: Check your server connection.', es: 'Error: Verifique su conexión al servidor.', pt: 'Erro: Verifique sua conexão com o servidor.', tr: 'Hata: Sunucu bağlantınızı kontrol edin.'}));
         }
     };
 
     const deleteProduct = async (id: string) => {
-        if (confirm('Supprimer l\'article (Action irréversible sur la base de données) ?')) {
+        if (confirm(tx(lang, {fr: 'Supprimer l\'article (Action irréversible sur la base de données) ?', ar: 'حذف المادة (إجراء لا رجعة فيه على قاعدة البيانات)؟', en: 'Delete item (Irreversible action on the database)?', es: '¿Eliminar el artículo (Acción irreversible en la base de datos)?', pt: 'Excluir o item (Ação irreversível no banco de dados)?', tr: 'Ürün silinsin mi (Veritabanında geri alınamaz işlem)?'}))) {
             try {
                 const res = await fetch(`/api/magasin/products/${id}`, { credentials: 'include',  method: 'DELETE' });
                 if (res.ok) {
                     setProducts(prev => prev.filter(p => p.id !== id));
                     setLots(prev => prev.filter(l => l.productId !== id));
-                } else alert('Erreur Serveur: Suppression refusée.');
+                } else alert(tx(lang, {fr: 'Erreur Serveur: Suppression refusée.', ar: 'خطأ في الخادم: رفض الحذف.', en: 'Server Error: Deletion refused.', es: 'Error del Servidor: Eliminación rechazada.', pt: 'Erro do Servidor: Exclusão recusada.', tr: 'Sunucu Hatası: Silme reddedildi.'}));
             } catch (e) {
                 console.error(e);
-                alert('Erreur: Vérifiez votre connexion au serveur.');
+                alert(tx(lang, {fr: 'Erreur: Vérifiez votre connexion au serveur.', ar: 'خطأ: تحقق من اتصالك بالخادم.', en: 'Error: Check your server connection.', es: 'Error: Verifique su conexión al servidor.', pt: 'Erro: Verifique sua conexão com o servidor.', tr: 'Hata: Sunucu bağlantınızı kontrol edin.'}));
             }
         }
     };
@@ -1717,10 +1721,10 @@ export default function Magasin({ models = [], planningEvents = [], lang = 'fr',
             setMvts(prev => prev.map(m => m.id === movement.id ? movement : m));
             setSelectedMovement(movement);
             setMovementEditDraft(movement);
-            alert('Mouvement mis à jour');
+            alert(tx(lang, {fr: 'Mouvement mis à jour', ar: 'تم تحديث الحركة', en: 'Movement updated', es: 'Movimiento actualizado', pt: 'Movimento atualizado', tr: 'Hareket güncellendi'}));
         } catch (error: any) {
             console.error(error);
-            alert('Impossible de sauvegarder les modifications : ' + (error.message || 'Erreur'));}
+            alert(tx(lang, {fr: 'Impossible de sauvegarder les modifications', ar: 'تعذر حفظ التعديلات', en: 'Could not save the changes', es: 'No se pudieron guardar los cambios', pt: 'Não foi possível salvar as alterações', tr: 'Değişiklikler kaydedilemedi'}) + ' : ' + (error.message || tx(lang, {fr: 'Erreur', ar: 'خطأ', en: 'Error', es: 'Error', pt: 'Erro', tr: 'Hata'})));}
     };
 
     const deleteMovement = async (id: string) => {

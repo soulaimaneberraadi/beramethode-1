@@ -246,6 +246,11 @@ export const savePaiement = (req: Request, res: Response) => {
     } = payload;
 
     const tx = db.transaction(() => {
+        // Anti-IDOR : la facture DOIT appartenir à la société/workspace active, sinon
+        // un facture_id forgé enregistrerait un paiement sur la facture d'un autre tenant.
+        const owns = db.prepare('SELECT 1 FROM factures WHERE id = ? AND owner_id = ?').get(facture_id, ownerId);
+        if (!owns) throw new Error('FACTURE_NOT_OWNED');
+
         const query = `
         INSERT INTO paiements (
             id, owner_id, facture_id, date_paiement, montant, mode, reference, notes
@@ -264,11 +269,11 @@ export const savePaiement = (req: Request, res: Response) => {
             id, ownerId, facture_id, date_paiement, montant, mode || 'VIREMENT', reference || null, notes || null
         );
 
-        // Recalculate total payments for this invoice
-        const totalPaidRes = db.prepare('SELECT SUM(montant) as total FROM paiements WHERE facture_id = ?').get(facture_id) as { total: number };
+        // Recalculate total payments for this invoice (scopé owner : pas de fuite inter-tenant).
+        const totalPaidRes = db.prepare('SELECT SUM(montant) as total FROM paiements WHERE facture_id = ? AND owner_id = ?').get(facture_id, ownerId) as { total: number };
         const totalPaid = totalPaidRes.total || 0;
 
-        db.prepare('UPDATE factures SET montant_paye = ? WHERE id = ?').run(totalPaid, facture_id);
+        db.prepare('UPDATE factures SET montant_paye = ? WHERE id = ? AND owner_id = ?').run(totalPaid, facture_id, ownerId);
     });
 
     tx();
@@ -287,11 +292,11 @@ export const deletePaiement = (req: Request, res: Response) => {
     const tx = db.transaction(() => {
         db.prepare('DELETE FROM paiements WHERE owner_id = ? AND id = ?').run(ownerId, id);
 
-        // Recalculate total payments for this invoice
-        const totalPaidRes = db.prepare('SELECT SUM(montant) as total FROM paiements WHERE facture_id = ?').get(facture_id) as { total: number };
+        // Recalculate total payments for this invoice (scopé owner).
+        const totalPaidRes = db.prepare('SELECT SUM(montant) as total FROM paiements WHERE facture_id = ? AND owner_id = ?').get(facture_id, ownerId) as { total: number };
         const totalPaid = totalPaidRes?.total || 0;
 
-        db.prepare('UPDATE factures SET montant_paye = ? WHERE id = ?').run(totalPaid, facture_id);
+        db.prepare('UPDATE factures SET montant_paye = ? WHERE id = ? AND owner_id = ?').run(totalPaid, facture_id, ownerId);
     });
 
     tx();

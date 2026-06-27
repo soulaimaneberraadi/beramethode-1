@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { X, Factory, Scissors, Package, Coins, Check } from 'lucide-react';
 import { fmt } from '../constants';
+import { useLang } from '../src/context/LanguageContext';
+import { tx } from '../lib/i18n';
 
 export type SousTraitance = {
     active: boolean;
@@ -16,6 +18,7 @@ interface SousTraitanceModalProps {
 }
 
 const SousTraitanceModal: React.FC<SousTraitanceModalProps> = ({ currency, value, onApply, onClose }) => {
+    const { lang } = useLang();
     const [active, setActive] = useState<boolean>(value?.active ?? false);
     const [mode, setMode] = useState<'facon' | 'complet'>(value?.mode ?? 'facon');
     // Champ géré en texte : un 0 « collant » ne reste pas devant la saisie, et le
@@ -50,7 +53,7 @@ const SousTraitanceModal: React.FC<SousTraitanceModalProps> = ({ currency, value
                     <div className="flex items-center gap-2">
                         <Factory className="w-4 h-4 text-slate-400" strokeWidth={1.75} />
                         <div>
-                            <h3 className="text-[13px] font-semibold text-slate-900 tracking-tight">Sous-traitance</h3>
+                            <h3 className="text-[13px] font-semibold text-slate-900 tracking-tight">{tx(lang, {fr:"Sous-traitance",ar:"المقاولة من الباطن",en:"Subcontracting",es:"Subcontratación",pt:"Subcontratação",tr:"Taşeronluk"})}</h3>
                             <p className="text-[11px] text-slate-400">Modèle confié à un façonnier</p>
                         </div>
                     </div>
@@ -64,7 +67,7 @@ const SousTraitanceModal: React.FC<SousTraitanceModalProps> = ({ currency, value
                     {/* Toggle activer */}
                     <div className="flex items-center justify-between p-3 rounded-md bg-slate-50/60 border border-slate-200">
                         <div>
-                            <p className="text-[12px] font-semibold text-slate-800">Activer la sous-traitance</p>
+                            <p className="text-[12px] font-semibold text-slate-800">{tx(lang, {fr:"Activer la sous-traitance",ar:"تفعيل المقاولة من الباطن",en:"Activate subcontracting",es:"Activar subcontratación",pt:"Ativar subcontratação",tr:"Taşeronluğu etkinleştir"})}</p>
                             <p className="text-[11px] text-slate-400">Remplace le calcul du temps par un prix fixe / pièce</p>
                         </div>
                         <button
@@ -131,13 +134,13 @@ const SousTraitanceModal: React.FC<SousTraitanceModalProps> = ({ currency, value
                         onClick={onClose}
                         className="px-4 h-9 text-[12px] font-medium text-slate-600 bg-white border border-slate-200 rounded-md hover:bg-slate-50 transition-colors"
                     >
-                        Annuler
+                        {tx(lang, {fr:"Annuler",ar:"إلغاء",en:"Cancel",es:"Cancelar",pt:"Cancelar",tr:"İptal"})}
                     </button>
                     <button
                         onClick={apply}
                         className="inline-flex items-center gap-1.5 px-4 h-9 text-[12px] font-medium text-white bg-slate-900 hover:bg-slate-800 rounded-md transition-colors"
                     >
-                        <Check className="w-3.5 h-3.5" strokeWidth={2} /> Appliquer
+                        <Check className="w-3.5 h-3.5" strokeWidth={2} /> {tx(lang, {fr:"Appliquer",ar:"تطبيق",en:"Apply",es:"Aplicar",pt:"Aplicar",tr:"Uygula"})}
                     </button>
                 </div>
             </div>

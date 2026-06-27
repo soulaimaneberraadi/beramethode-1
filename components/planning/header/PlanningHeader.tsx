@@ -4,6 +4,8 @@ import { fmtMonthYear } from '../shared/dateFmt';
 import { useIsMobile } from '../shared/useIsMobile';
 import type { ViewKind } from './ViewSwitcher';
 import ZoomSwitcher, { type ZoomLevel } from './ZoomSwitcher';
+import { tx } from '../../../lib/i18n';
+import { useLang } from '../../../src/context/LanguageContext';
 
 interface Props {
     active: number;
@@ -40,6 +42,13 @@ const VIEW_OPTIONS: { id: ViewKind; label: string }[] = [
     { id: 'simulation', label: 'Simulateur' },
 ];
 
+const VIEW_LABELS: Record<string, {fr:string;ar:string;en:string;es:string;pt:string;tr:string}> = {
+    gantt: {fr:"Gantt",ar:"مخطط جانت",en:"Gantt",es:"Gantt",pt:"Gantt",tr:"Gantt"},
+    calendar: {fr:"Calendrier",ar:"تقويم",en:"Calendar",es:"Calendario",pt:"Calendário",tr:"Takvim"},
+    cards: {fr:"Cartes",ar:"بطاقات",en:"Cards",es:"Tarjetas",pt:"Cartões",tr:"Kartlar"},
+    simulation: {fr:"Simulateur",ar:"محاكي",en:"Simulator",es:"Simulador",pt:"Simulador",tr:"Simülatör"},
+};
+
 
 export default function PlanningHeader({
     active, blocked, late,
@@ -53,6 +62,8 @@ export default function PlanningHeader({
     canUndo, canRedo, onUndo, onRedo,
 }: Props) {
 
+    const { lang } = useLang();
+
     const shift = (delta: number) => {
         const n = new Date(currentDate);
         n.setMonth(n.getMonth() + delta);
@@ -65,10 +76,10 @@ export default function PlanningHeader({
 
     if (isMobile) {
         return (
-            <header className="shrink-0 bg-white/80 border-b border-slate-200/45 backdrop-blur-md shadow-sm">
+            <header className="shrink-0 bg-white/80 dark:bg-slate-900/80 border-b border-slate-200/45 dark:border-slate-700/60 backdrop-blur-md shadow-sm">
                 {/* ROW 1 — title + primary actions */}
                 <div className="px-3 h-12 flex items-center gap-2">
-                    <h1 className="text-[15px] font-bold text-slate-900 tracking-tight">Planning</h1>
+                    <h1 className="text-[15px] font-bold text-slate-900 dark:text-slate-100 tracking-tight">{tx(lang,{fr:"Planning",ar:"التخطيط",en:"Planning",es:"Planificación",pt:"Planejamento",tr:"Planlama"})}</h1>
 
                     {/* Stat dots compact */}
                     <div className="flex items-center gap-2 ml-1">
@@ -79,7 +90,7 @@ export default function PlanningHeader({
                     <div className="flex-1" />
 
                     {onUndo && (
-                        <IconButton onClick={onUndo} title="Annuler" disabled={!canUndo}>
+                        <IconButton onClick={onUndo} title={tx(lang,{fr:"Annuler",ar:"تراجع",en:"Undo",es:"Deshacer",pt:"Desfazer",tr:"Geri al"})} disabled={!canUndo}>
                             <Undo2 className="w-4 h-4" strokeWidth={2} />
                         </IconButton>
                     )}
@@ -87,7 +98,7 @@ export default function PlanningHeader({
                     <IconButton
                         active={mobileSearchOpen}
                         onClick={() => setMobileSearchOpen(v => !v)}
-                        title="Rechercher"
+                        title={tx(lang,{fr:"Rechercher",ar:"بحث",en:"Search",es:"Buscar",pt:"Buscar",tr:"Ara"})}
                     >
                         <Search className="w-4 h-4" strokeWidth={2} />
                     </IconButton>
@@ -95,7 +106,7 @@ export default function PlanningHeader({
                     <IconButton
                         active={filtersOpen || hasActiveFilters}
                         onClick={onToggleFilters}
-                        title="Filtres"
+                        title={tx(lang,{fr:"Filtres",ar:"مرشحات",en:"Filters",es:"Filtros",pt:"Filtros",tr:"Filtreler"})}
                     >
                         <SlidersHorizontal className="w-4 h-4" strokeWidth={2} />
                         {activeFilterCount > 0 && (
@@ -105,7 +116,7 @@ export default function PlanningHeader({
                         )}
                     </IconButton>
 
-                    <IconButton onClick={() => setMobileMenuOpen(v => !v)} title="Plus" active={mobileMenuOpen}>
+                    <IconButton onClick={() => setMobileMenuOpen(v => !v)} title={tx(lang,{fr:"Plus",ar:"المزيد",en:"More",es:"Más",pt:"Mais",tr:"Daha fazla"})} active={mobileMenuOpen}>
                         <MoreHorizontal className="w-4 h-4" strokeWidth={2} />
                     </IconButton>
 
@@ -113,7 +124,7 @@ export default function PlanningHeader({
                         type="button"
                         onClick={onAddEvent}
                         className="inline-flex items-center justify-center w-9 h-9 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white transition-all duration-200 active:scale-95 shadow-sm"
-                        aria-label="Planifier"
+                        aria-label={tx(lang,{fr:"Nouvel ordre",ar:"أمر جديد",en:"New order",es:"Nuevo pedido",pt:"Novo pedido",tr:"Yeni sipariş"})}
                     >
                         <Plus className="w-4 h-4" strokeWidth={2.25} />
                     </button>
@@ -128,7 +139,7 @@ export default function PlanningHeader({
                             autoFocus
                             value={searchText}
                             onChange={(e) => onSearch(e.target.value)}
-                            placeholder="Rechercher un OF, un client…"
+                            placeholder={tx(lang,{fr:"Rechercher un OF, un client…",ar:"البحث عن أمر تصنيع، عميل…",en:"Search for a WO, a client…",es:"Buscar OF, cliente…",pt:"Procurar OF, cliente…",tr:"İş emri, müşteri ara…"})}
                             className="w-full h-9 pl-9 pr-9 text-[13px] text-slate-700 placeholder:text-slate-450 bg-slate-100/40 focus:bg-white border border-slate-200/40 focus:border-indigo-500/50 focus:ring-4 focus:ring-indigo-500/10 focus:shadow-sm rounded-xl outline-none transition-all duration-300 backdrop-blur-sm"
                         />
                         {searchText && (
@@ -136,7 +147,7 @@ export default function PlanningHeader({
                                 type="button"
                                 onClick={() => onSearch('')}
                                 className="absolute right-5 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-700"
-                                aria-label="Effacer"
+                                aria-label={tx(lang,{fr:"Effacer",ar:"مسح",en:"Clear",es:"Limpiar",pt:"Limpar",tr:"Temizle"})}
                             >
                                 <X className="w-3.5 h-3.5" />
                             </button>
@@ -147,12 +158,12 @@ export default function PlanningHeader({
                 {/* Mobile menu — secondary actions */}
                 {mobileMenuOpen && (
                     <div className="px-3 pb-2 grid grid-cols-3 gap-1.5">
-                        <MobileMenuBtn icon={Sparkles} label="Auto" onClick={() => { setMobileMenuOpen(false); onAutoSchedule(); }} />
+                        <MobileMenuBtn icon={Sparkles} label={tx(lang,{fr:"Auto",ar:"تلقائي",en:"Auto",es:"Auto",pt:"Auto",tr:"Otomatik"})} onClick={() => { setMobileMenuOpen(false); onAutoSchedule(); }} />
                         {onOptimizePlanning && (
-                            <MobileMenuBtn icon={Brain} label="IA" accent="text-purple-600" onClick={() => { setMobileMenuOpen(false); onOptimizePlanning(); }} />
+                            <MobileMenuBtn icon={Brain} label={tx(lang,{fr:"IA",ar:"ذكاء اصطناعي",en:"AI",es:"IA",pt:"IA",tr:"YZ"})} accent="text-purple-600" onClick={() => { setMobileMenuOpen(false); onOptimizePlanning(); }} />
                         )}
                         {onPrint && (
-                            <MobileMenuBtn icon={Printer} label="Imprimer" onClick={() => { setMobileMenuOpen(false); onPrint(); }} />
+                            <MobileMenuBtn icon={Printer} label={tx(lang,{fr:"Imprimer",ar:"طباعة",en:"Print",es:"Imprimir",pt:"Imprimir",tr:"Yazdır"})} onClick={() => { setMobileMenuOpen(false); onPrint(); }} />
                         )}
                     </div>
                 )}
@@ -164,7 +175,7 @@ export default function PlanningHeader({
                             type="button"
                             onClick={() => shift(-1)}
                             className="w-6 h-6 flex items-center justify-center rounded-lg text-slate-500 hover:bg-white hover:text-slate-800 hover:shadow-[0_1px_3px_rgba(0,0,0,0.05)] transition-all duration-200 active:scale-95"
-                            aria-label="Mois précédent"
+                            aria-label={tx(lang,{fr:"Mois précédent",ar:"الشهر السابق",en:"Previous month",es:"Mes anterior",pt:"Mês anterior",tr:"Önceki ay"})}
                         >
                             <ChevronLeft className="w-4 h-4" strokeWidth={2} />
                         </button>
@@ -175,7 +186,7 @@ export default function PlanningHeader({
                             type="button"
                             onClick={() => shift(1)}
                             className="w-6 h-6 flex items-center justify-center rounded-lg text-slate-500 hover:bg-white hover:text-slate-800 hover:shadow-[0_1px_3px_rgba(0,0,0,0.05)] transition-all duration-200 active:scale-95"
-                            aria-label="Mois suivant"
+                            aria-label={tx(lang,{fr:"Mois suivant",ar:"الشهر التالي",en:"Next month",es:"Mes siguiente",pt:"Próximo mês",tr:"Sonraki ay"})}
                         >
                             <ChevronRight className="w-4 h-4" strokeWidth={2} />
                         </button>
@@ -185,13 +196,13 @@ export default function PlanningHeader({
                             onClick={onToday}
                             className="px-2 py-1 rounded-lg text-[10px] font-bold text-indigo-655 hover:bg-white hover:text-indigo-700 hover:shadow-[0_1px_3px_rgba(0,0,0,0.05)] transition-all duration-200 active:scale-95"
                         >
-                            Auj.
+                            {tx(lang,{fr:"Auj.",ar:"اليوم",en:"Today",es:"Hoy",pt:"Hoje",tr:"Bugün"})}
                         </button>
                     </div>
 
                     <div className="w-px h-4 bg-slate-200/60 shrink-0" />
 
-                    <Segmented options={VIEW_OPTIONS} value={view} onChange={onView} />
+                    <Segmented options={VIEW_OPTIONS.map(o => ({ ...o, label: tx(lang, VIEW_LABELS[o.id]) }))} value={view} onChange={onView} />
 
                     {view === 'gantt' && (
                         <>
@@ -205,21 +216,21 @@ export default function PlanningHeader({
     }
 
     return (
-        <header className="shrink-0 bg-white/70 border-b border-slate-200/45 backdrop-blur-md sticky top-0 z-40 shadow-sm">
+        <header className="shrink-0 bg-white/70 dark:bg-slate-900/70 border-b border-slate-200/45 dark:border-slate-700/60 backdrop-blur-md sticky top-0 z-40 shadow-sm">
             {/* ROW 1 — Brand + actions */}
             <div className="px-6 h-14 flex items-center gap-4">
 
                 {/* Title */}
                 <div className="flex items-baseline gap-2 shrink-0">
-                    <h1 className="text-[15px] font-bold text-slate-900 tracking-tight">Planning</h1>
-                    <span className="text-[11px] text-slate-400 font-bold uppercase tracking-wider">Production</span>
+                    <h1 className="text-[15px] font-bold text-slate-900 dark:text-slate-100 tracking-tight">{tx(lang,{fr:"Planning",ar:"التخطيط",en:"Planning",es:"Planificación",pt:"Planejamento",tr:"Planlama"})}</h1>
+                    <span className="text-[11px] text-slate-400 font-bold uppercase tracking-wider">{tx(lang,{fr:"Production",ar:"الإنتاج",en:"Production",es:"Producción",pt:"Produção",tr:"Üretim"})}</span>
                 </div>
 
                 {/* Inline stats — minimaliste */}
                 <div className="hidden md:flex items-center gap-1.5 ml-2">
-                    <Stat label="Actifs" value={active} color="bg-slate-400" />
-                    <Stat label="Bloqués" value={blocked} color="bg-red-500" emphasize={blocked > 0} />
-                    <Stat label="Retards" value={late} color="bg-amber-500" emphasize={late > 0} />
+                    <Stat label={tx(lang,{fr:"Actifs",ar:"نشط",en:"Active",es:"Activos",pt:"Ativos",tr:"Aktif"})} value={active} color="bg-slate-400" />
+                    <Stat label={tx(lang,{fr:"Bloqués",ar:"محظور",en:"Blocked",es:"Bloqueados",pt:"Bloqueados",tr:"Engellendi"})} value={blocked} color="bg-red-500" emphasize={blocked > 0} />
+                    <Stat label={tx(lang,{fr:"Retards",ar:"متأخر",en:"Late",es:"Retrasos",pt:"Atrasados",tr:"Gecikmiş"})} value={late} color="bg-amber-500" emphasize={late > 0} />
                 </div>
 
                 {/* Search — flex-grow */}
@@ -229,7 +240,7 @@ export default function PlanningHeader({
                         type="text"
                         value={searchText}
                         onChange={(e) => onSearch(e.target.value)}
-                        placeholder="Rechercher un OF, un client…"
+                        placeholder={tx(lang,{fr:"Rechercher un OF, un client…",ar:"البحث عن أمر تصنيع، عميل…",en:"Search for a WO, a client…",es:"Buscar OF, cliente…",pt:"Procurar OF, cliente…",tr:"İş emri, müşteri ara…"})}
                         className="w-full h-8 pl-9 pr-3 text-[12px] text-slate-700 placeholder:text-slate-450 bg-slate-100/40 hover:bg-slate-100/70 focus:bg-white/85 border border-slate-200/40 focus:border-indigo-500/50 focus:ring-4 focus:ring-indigo-500/10 focus:shadow-md rounded-xl outline-none transition-all duration-300 backdrop-blur-sm"
                     />
                 </div>
@@ -239,7 +250,7 @@ export default function PlanningHeader({
                     {onUndo && (
                         <IconButton
                             onClick={onUndo}
-                            title="Annuler (Ctrl+Z)"
+                            title={tx(lang,{fr:"Annuler (Ctrl+Z)",ar:"تراجع (Ctrl+Z)",en:"Undo (Ctrl+Z)",es:"Deshacer (Ctrl+Z)",pt:"Desfazer (Ctrl+Z)",tr:"Geri al (Ctrl+Z)"})}
                             disabled={!canUndo}
                         >
                             <Undo2 className="w-3.5 h-3.5" strokeWidth={2} />
@@ -248,7 +259,7 @@ export default function PlanningHeader({
                     {onRedo && (
                         <IconButton
                             onClick={onRedo}
-                            title="Rétablir (Ctrl+Y)"
+                            title={tx(lang,{fr:"Rétablir (Ctrl+Y)",ar:"إعادة (Ctrl+Y)",en:"Redo (Ctrl+Y)",es:"Rehacer (Ctrl+Y)",pt:"Refazer (Ctrl+Y)",tr:"Yinele (Ctrl+Y)"})}
                             disabled={!canRedo}
                         >
                             <Redo2 className="w-3.5 h-3.5" strokeWidth={2} />
@@ -259,7 +270,7 @@ export default function PlanningHeader({
                     <button
                         type="button"
                         onClick={onToggleFilters}
-                        title="Filtres"
+                        title={tx(lang,{fr:"Filtres",ar:"مرشحات",en:"Filters",es:"Filtros",pt:"Filtros",tr:"Filtreler"})}
                         className={`relative inline-flex items-center gap-1.5 h-8 px-2.5 rounded-xl text-[12px] font-bold transition-all duration-200 active:scale-95 border ${
                             filtersOpen || hasActiveFilters
                                 ? 'bg-white text-indigo-650 border-slate-200/50 shadow-sm'
@@ -267,7 +278,7 @@ export default function PlanningHeader({
                         }`}
                     >
                         <SlidersHorizontal className="w-3.5 h-3.5" strokeWidth={2} />
-                        <span className="hidden lg:inline">Filtres</span>
+                        <span className="hidden lg:inline">{tx(lang,{fr:"Filtres",ar:"مرشحات",en:"Filters",es:"Filtros",pt:"Filtros",tr:"Filtreler"})}</span>
                         {activeFilterCount > 0 && (
                             <span className="min-w-[16px] h-4 px-1 flex items-center justify-center rounded-full bg-indigo-600 text-white text-[9px] font-bold tabular-nums leading-none">
                                 {activeFilterCount}
@@ -276,7 +287,7 @@ export default function PlanningHeader({
                     </button>
 
                     {onPrint && (
-                        <IconButton onClick={onPrint} title="Imprimer (Ctrl+P)">
+                        <IconButton onClick={onPrint} title={tx(lang,{fr:"Imprimer (Ctrl+P)",ar:"طباعة (Ctrl+P)",en:"Print (Ctrl+P)",es:"Imprimir (Ctrl+P)",pt:"Imprimir (Ctrl+P)",tr:"Yazdır (Ctrl+P)"})}>
                             <Printer className="w-3.5 h-3.5" strokeWidth={2} />
                         </IconButton>
                     )}
@@ -289,7 +300,7 @@ export default function PlanningHeader({
                         className="inline-flex items-center gap-1.5 h-8 px-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-[12px] font-bold transition-all duration-200 shadow-sm hover:shadow-md active:scale-95"
                     >
                         <Plus className="w-3.5 h-3.5" strokeWidth={2.25} />
-                        Planifier
+                        {tx(lang,{fr:"Nouvel ordre",ar:"أمر جديد",en:"New order",es:"Nuevo pedido",pt:"Novo pedido",tr:"Yeni sipariş"})}
                     </button>
                 </div>
             </div>
@@ -303,7 +314,7 @@ export default function PlanningHeader({
                         type="button"
                         onClick={() => shift(-1)}
                         className="w-6 h-6 flex items-center justify-center rounded-lg text-slate-500 hover:bg-white hover:text-slate-800 hover:shadow-[0_1px_3px_rgba(0,0,0,0.05)] transition-all duration-200 active:scale-95"
-                        aria-label="Mois précédent"
+                        aria-label={tx(lang,{fr:"Mois précédent",ar:"الشهر السابق",en:"Previous month",es:"Mes anterior",pt:"Mês anterior",tr:"Önceki ay"})}
                     >
                         <ChevronLeft className="w-3.5 h-3.5" strokeWidth={2} />
                     </button>
@@ -314,7 +325,7 @@ export default function PlanningHeader({
                         type="button"
                         onClick={() => shift(1)}
                         className="w-6 h-6 flex items-center justify-center rounded-lg text-slate-500 hover:bg-white hover:text-slate-800 hover:shadow-[0_1px_3px_rgba(0,0,0,0.05)] transition-all duration-200 active:scale-95"
-                        aria-label="Mois suivant"
+                        aria-label={tx(lang,{fr:"Mois suivant",ar:"الشهر التالي",en:"Next month",es:"Mes siguiente",pt:"Próximo mês",tr:"Sonraki ay"})}
                     >
                         <ChevronRight className="w-3.5 h-3.5" strokeWidth={2} />
                     </button>
@@ -324,14 +335,14 @@ export default function PlanningHeader({
                         onClick={onToday}
                         className="px-2 py-1 rounded-lg text-[10px] font-bold text-indigo-650 hover:bg-white hover:text-indigo-700 hover:shadow-[0_1px_3px_rgba(0,0,0,0.05)] transition-all duration-200 active:scale-95"
                     >
-                        Aujourd'hui
+                        {tx(lang,{fr:"Aujourd'hui",ar:"اليوم",en:"Today",es:"Hoy",pt:"Hoje",tr:"Bugün"})}
                     </button>
                 </div>
 
                 <div className="w-px h-4 bg-slate-200/60" />
 
                 {/* View switcher — segmented */}
-                <Segmented options={VIEW_OPTIONS} value={view} onChange={onView} />
+                <Segmented options={VIEW_OPTIONS.map(o => ({ ...o, label: tx(lang, VIEW_LABELS[o.id]) }))} value={view} onChange={onView} />
 
                 {view === 'gantt' && (
                     <>

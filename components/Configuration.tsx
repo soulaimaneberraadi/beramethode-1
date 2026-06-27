@@ -1064,8 +1064,8 @@ export default function Configuration({ settings, setSettings, lang, machines, n
                             <label className="block text-xs font-bold uppercase text-slate-500 mb-2">{t.timeFormat}</label>
                             <div className="flex p-1 bg-slate-100 border border-slate-200 rounded-xl relative overflow-hidden">
                                 <div className={`absolute top-1 bottom-1 w-[calc(50%-4px)] bg-white rounded-lg shadow-sm border border-slate-200 transition-all duration-300 ${settings.timeFormat === '12h' ? 'left-[calc(50%+2px)]' : 'left-1'}`}></div>
-                                <button onClick={() => setSettings(prev => ({ ...prev, timeFormat: '24h' }))} className={`flex-1 py-2 text-sm font-bold rounded-lg transition-colors relative z-10 ${settings.timeFormat === '24h' ? 'text-indigo-700' : 'text-slate-500 hover:text-slate-700'}`}>24 Heures</button>
-                                <button onClick={() => setSettings(prev => ({ ...prev, timeFormat: '12h' }))} className={`flex-1 py-2 text-sm font-bold rounded-lg transition-colors relative z-10 ${settings.timeFormat === '12h' ? 'text-indigo-700' : 'text-slate-500 hover:text-slate-700'}`}>12 Heures (AM/PM)</button>
+                                <button onClick={() => setSettings(prev => ({ ...prev, timeFormat: '24h' }))} className={`flex-1 py-2 text-sm font-bold rounded-lg transition-colors relative z-10 ${settings.timeFormat === '24h' ? 'text-indigo-700' : 'text-slate-500 hover:text-slate-700'}`}>{tx(lang, { fr: '24 Heures', ar: '24 ساعة', en: '24 Hours', es: '24 Horas', pt: '24 Horas', tr: '24 Saat' })}</button>
+                                <button onClick={() => setSettings(prev => ({ ...prev, timeFormat: '12h' }))} className={`flex-1 py-2 text-sm font-bold rounded-lg transition-colors relative z-10 ${settings.timeFormat === '12h' ? 'text-indigo-700' : 'text-slate-500 hover:text-slate-700'}`}>{tx(lang, { fr: '12 Heures (AM/PM)', ar: '12 ساعة (AM/PM)', en: '12 Hours (AM/PM)', es: '12 Horas (AM/PM)', pt: '12 Horas (AM/PM)', tr: '12 Saat (AM/PM)' })}</button>
                             </div>
                         </div>
 
@@ -1086,9 +1086,9 @@ export default function Configuration({ settings, setSettings, lang, machines, n
                             <div className="flex items-center justify-between mb-2">
                                 <label className="flex items-center gap-2 block text-xs font-bold uppercase text-slate-500">{t.workingDays} <span className="text-[10px] text-indigo-500 bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-100 font-black tracking-widest">{(settings.workingDays || []).length}/7</span></label>
                                 <div className="flex gap-2">
-                                    <button onClick={() => setSettings(prev => ({ ...prev, workingDays: [1, 2, 3, 4, 5, 6, 7] }))} className="text-xs font-bold text-slate-500 hover:text-indigo-600 transition-colors uppercase pr-2 border-r border-slate-200 hidden sm:block">Tous</button>
+                                    <button onClick={() => setSettings(prev => ({ ...prev, workingDays: [1, 2, 3, 4, 5, 6, 7] }))} className="text-xs font-bold text-slate-500 hover:text-indigo-600 transition-colors uppercase pr-2 border-r border-slate-200 hidden sm:block">{tx(lang, { fr: 'Tous', ar: 'الكل', en: 'All', es: 'Todos', pt: 'Todos', tr: 'Tümü' })}</button>
                                     <button onClick={() => setShowAgenda(true)} className="text-[11px] font-bold bg-indigo-50 text-indigo-600 hover:text-indigo-700 hover:bg-indigo-100 border border-indigo-100 px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5 shadow-sm active:scale-95">
-                                        <Calendar className="w-3.5 h-3.5" /> Agenda
+                                        <Calendar className="w-3.5 h-3.5" /> {tx(lang, { fr: 'Agenda', ar: 'التقويم', en: 'Calendar', es: 'Agenda', pt: 'Agenda', tr: 'Takvim' })}
                                     </button>
                                 </div>
                             </div>
@@ -1130,7 +1130,7 @@ export default function Configuration({ settings, setSettings, lang, machines, n
                                         <div className="flex-1 flex flex-col xl:flex-row gap-3 w-full">
                                             <div className="flex-[1.5]">
                                                 <span className="text-[10px] uppercase text-slate-400 font-bold block mb-1">{t.pauseName}</span>
-                                                <input type="text" value={pause.name || ''} onChange={(e) => updatePause(pause.id, 'name', e.target.value)} className="w-full bg-white border border-slate-200 rounded-lg px-3 py-1.5 outline-none focus:border-indigo-500 text-sm font-bold text-slate-700 placeholder:text-slate-300" placeholder="Ex: Déjeuner" />
+                                                <input type="text" value={pause.name || ''} onChange={(e) => updatePause(pause.id, 'name', e.target.value)} className="w-full bg-white border border-slate-200 rounded-lg px-3 py-1.5 outline-none focus:border-indigo-500 text-sm font-bold text-slate-700 placeholder:text-slate-300" placeholder={tx(lang, { fr: 'Ex: Déjeuner', ar: 'مثال: غداء', en: 'Ex: Lunch', es: 'Ej: Almuerzo', pt: 'Ex: Almoço', tr: 'Örn: Öğle yemeği' })} />
                                             </div>
                                             <div className="flex-1">
                                                 <span className="text-[10px] uppercase text-slate-400 font-bold block mb-1">{t.pauseStart}</span>
@@ -1147,13 +1147,13 @@ export default function Configuration({ settings, setSettings, lang, machines, n
                                                 </div>
                                             </div>
                                         </div>
-                                        <button onClick={() => removePause(pause.id)} className="p-2 text-rose-400 hover:text-rose-600 hover:bg-rose-50 border border-transparent hover:border-rose-100 rounded-lg transition-colors Shrink-0 mt-4 sm:mt-0" title="Supprimer cette pause">
+                                        <button onClick={() => removePause(pause.id)} className="p-2 text-rose-400 hover:text-rose-600 hover:bg-rose-50 border border-transparent hover:border-rose-100 rounded-lg transition-colors Shrink-0 mt-4 sm:mt-0" title={tx(lang, { fr: 'Supprimer cette pause', ar: 'حذف هذا الاستراحة', en: 'Delete this break', es: 'Eliminar esta pausa', pt: 'Eliminar esta pausa', tr: 'Bu molayı sil' })}>
                                             <Trash2 className="w-4 h-4" />
                                         </button>
                                     </div>
                                 ))}
                                 {(settings.pauses || []).length === 0 && (
-                                    <p className="text-sm text-slate-500 italic text-center py-4 bg-slate-50 rounded-lg border border-dashed border-slate-200">Aucune pause définie pour le moment.</p>
+                                    <p className="text-sm text-slate-500 italic text-center py-4 bg-slate-50 rounded-lg border border-dashed border-slate-200">{tx(lang, { fr: 'Aucune pause définie pour le moment.', ar: 'لا توجد أي استراحة معرفة حالياً.', en: 'No break defined at the moment.', es: 'Ninguna pausa definida por el momento.', pt: 'Nenhuma pausa definida de momento.', tr: 'Henüz mola tanımlanmamış.' })}</p>
                                 )}
                             </div>
                         </div>
@@ -1222,41 +1222,41 @@ export default function Configuration({ settings, setSettings, lang, machines, n
                     {(settings.tailleSystems || []).map(sys => (
                         <div key={sys.id} className="flex flex-col sm:flex-row sm:items-end gap-3 bg-slate-50 border border-slate-200 rounded-xl p-3">
                             <div className="flex-1">
-                                <label className="block text-[11px] font-black text-slate-500 mb-1">Nom</label>
+                                <label className="block text-[11px] font-black text-slate-500 mb-1">{tx(lang, { fr: 'Nom', ar: 'الاسم', en: 'Name', es: 'Nombre', pt: 'Nome', tr: 'Ad' })}</label>
                                 <input
                                     value={sys.label}
                                     onChange={e => setSettings(prev => ({ ...prev, tailleSystems: (prev.tailleSystems || []).map(s => s.id === sys.id ? { ...s, label: e.target.value } : s) }))}
-                                    placeholder="ex: Alpha"
+                                    placeholder={tx(lang, { fr: 'ex: Alpha', ar: 'مثال: ألفا', en: 'e.g., Alpha', es: 'ej: Alpha', pt: 'ex: Alpha', tr: 'örn: Alfa' })}
                                     className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold outline-none focus:border-indigo-500"
                                 />
                             </div>
                             <div>
-                                <label className="block text-[11px] font-black text-slate-500 mb-1">Type</label>
+                                <label className="block text-[11px] font-black text-slate-500 mb-1">{tx(lang, { fr: 'Type', ar: 'النوع', en: 'Type', es: 'Tipo', pt: 'Tipo', tr: 'Tür' })}</label>
                                 <select
                                     value={sys.mode}
                                     onChange={e => { const mode = e.target.value as 'alpha' | 'numerique' | 'gros' | 'custom'; setSettings(prev => ({ ...prev, tailleSystems: (prev.tailleSystems || []).map(s => s.id === sys.id ? { ...s, mode, sizes: mode === 'gros' ? [] : s.sizes } : s) })); }}
                                     className="bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold outline-none focus:border-indigo-500"
                                 >
-                                    <option value="alpha">Alpha (S/M/L)</option>
-                                    <option value="numerique">Numérique (36-44)</option>
-                                    <option value="gros">En gros (sans tailles)</option>
-                                    <option value="custom">Personnalisé</option>
+                                    <option value="alpha">{tx(lang, { fr: 'Alpha (S/M/L)', ar: 'ألفا (S/M/L)', en: 'Alpha (S/M/L)', es: 'Alfa (S/M/L)', pt: 'Alfa (S/M/L)', tr: 'Alfa (S/M/L)' })}</option>
+                                    <option value="numerique">{tx(lang, { fr: 'Numérique (36-44)', ar: 'رقمي (36-44)', en: 'Numeric (36-44)', es: 'Numérico (36-44)', pt: 'Numérico (36-44)', tr: 'Sayısal (36-44)' })}</option>
+                                    <option value="gros">{tx(lang, { fr: 'En gros (sans tailles)', ar: 'بالجملة (بدون مقاسات)', en: 'Bulk (no sizes)', es: 'Al por mayor (sin tallas)', pt: 'Por grosso (sem tamanhos)', tr: 'Toplu (bedensiz)' })}</option>
+                                    <option value="custom">{tx(lang, { fr: 'Personnalisé', ar: 'مخصص', en: 'Custom', es: 'Personalizado', pt: 'Personalizado', tr: 'Özel' })}</option>
                                 </select>
                             </div>
                             <div className="flex-[2]">
-                                <label className="block text-[11px] font-black text-slate-500 mb-1">Tailles (séparées par un espace)</label>
+                                <label className="block text-[11px] font-black text-slate-500 mb-1">{tx(lang, { fr: 'Tailles (séparées par un espace)', ar: 'المقاسات (مفصولة بمسافة)', en: 'Sizes (space-separated)', es: 'Tallas (separadas por espacio)', pt: 'Tamanhos (separados por espaço)', tr: 'Bedenler (boşlukla ayrılmış)' })}</label>
                                 <input
                                     disabled={sys.mode === 'gros'}
                                     value={sys.sizes.join(' ')}
                                     onChange={e => setSettings(prev => ({ ...prev, tailleSystems: (prev.tailleSystems || []).map(s => s.id === sys.id ? { ...s, sizes: e.target.value.trim().split(/\s+/).filter(Boolean) } : s) }))}
-                                    placeholder={sys.mode === 'gros' ? '— aucune taille —' : 'S M L XL XXL'}
+                                    placeholder={sys.mode === 'gros' ? tx(lang, { fr: '— aucune taille —', ar: '— بدون مقاسات —', en: '— no sizes —', es: '— sin tallas —', pt: '— sem tamanhos —', tr: '— beden yok —' }) : 'S M L XL XXL'}
                                     className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold outline-none focus:border-indigo-500 disabled:bg-slate-100 disabled:text-slate-400"
                                 />
                             </div>
                             <button
                                 onClick={() => setSettings(prev => ({ ...prev, tailleSystems: (prev.tailleSystems || []).filter(s => s.id !== sys.id) }))}
                                 className="p-2 text-rose-400 hover:text-rose-600 hover:bg-rose-50 border border-transparent hover:border-rose-100 rounded-lg transition-colors shrink-0"
-                                title="Supprimer ce système"
+                                title={tx(lang, { fr: 'Supprimer ce système', ar: 'حذف هذا النظام', en: 'Delete this system', es: 'Eliminar este sistema', pt: 'Eliminar este sistema', tr: 'Bu sistemi sil' })}
                             >
                                 <Trash2 className="w-4 h-4" />
                             </button>
@@ -1264,7 +1264,7 @@ export default function Configuration({ settings, setSettings, lang, machines, n
                     ))}
 
                     {(settings.tailleSystems || []).length === 0 && (
-                        <p className="text-sm text-slate-500 italic text-center py-4 bg-slate-50 rounded-lg border border-dashed border-slate-200">Aucun système de tailles défini.</p>
+                        <p className="text-sm text-slate-500 italic text-center py-4 bg-slate-50 rounded-lg border border-dashed border-slate-200">{tx(lang, { fr: 'Aucun système de tailles défini.', ar: 'لا يوجد أي نظام مقاسات معرف.', en: 'No size system defined.', es: 'Ningún sistema de tallas definido.', pt: 'Nenhum sistema de tamanhos definido.', tr: 'Beden sistemi tanımlanmamış.' })}</p>
                     )}
                     </>
                     )}
@@ -1291,35 +1291,35 @@ export default function Configuration({ settings, setSettings, lang, machines, n
                                 </div>
                                 <div>
                                     <h3 className="text-lg font-black text-slate-800 tracking-tight">{t.generalManagers}</h3>
-                                    <p className="text-sm text-slate-500 mt-0.5 font-medium">Direction, administration, pointeurs, chronométreurs...</p>
+                                    <p className="text-sm text-slate-500 mt-0.5 font-medium">{tx(lang, { fr: 'Direction, administration, pointeurs, chronométreurs...', ar: 'الإدارة، الإشراف، مراقبو الوقت...', en: 'Management, administration, timekeepers...', es: 'Dirección, administración, cronometradores...', pt: 'Direção, administração, cronometristas...', tr: 'Yönetim, idare, zaman hakemleri...' })}</p>
                                 </div>
                             </div>
                             <button onClick={() => setSettings(prev => ({ ...prev, organigram: [...(prev.organigram || []), { id: Date.now().toString(), name: '', role: '' }] }))} className="w-full sm:w-auto text-sm font-bold bg-white text-indigo-600 flex items-center justify-center gap-2 hover:text-indigo-700 hover:bg-indigo-50 px-5 py-2.5 rounded-xl transition-all border border-slate-200 shadow-sm active:scale-95">
-                                <Plus className="w-4 h-4" /> Ajouter Un Membre
+                                <Plus className="w-4 h-4" /> {tx(lang, { fr: 'Ajouter Un Membre', ar: 'إضافة عضو', en: 'Add a Member', es: 'Añadir un miembro', pt: 'Adicionar um membro', tr: 'Üye Ekle' })}
                             </button>
                         </div>
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                             {(settings.organigram || []).map((person) => (
                                 <div key={person.id} className="flex flex-col gap-3 bg-white p-5 rounded-2xl border border-slate-200 hover:border-blue-300 hover:shadow-md transition-all relative group overflow-hidden">
                                     <div className="absolute top-0 left-0 w-1 h-full bg-blue-500 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                                    <button onClick={() => setSettings(prev => ({ ...prev, organigram: prev.organigram.filter(p => p.id !== person.id) }))} className="absolute top-3 right-3 p-1.5 bg-rose-50 text-rose-500 hover:text-rose-600 hover:bg-rose-100 rounded-lg shadow-sm border border-rose-100 opacity-0 group-hover:opacity-100 transition-all active:scale-90" title="Supprimer">
+                                    <button onClick={() => setSettings(prev => ({ ...prev, organigram: prev.organigram.filter(p => p.id !== person.id) }))} className="absolute top-3 right-3 p-1.5 bg-rose-50 text-rose-500 hover:text-rose-600 hover:bg-rose-100 rounded-lg shadow-sm border border-rose-100 opacity-0 group-hover:opacity-100 transition-all active:scale-90" title={tx(lang, { fr: 'Supprimer', ar: 'حذف', en: 'Delete', es: 'Eliminar', pt: 'Excluir', tr: 'Sil' })}>
                                         <Trash2 className="w-3.5 h-3.5" />
                                     </button>
                                     <div>
-                                        <label className="text-[10px] uppercase font-bold text-slate-400 mb-1 block">Nom Complet</label>
-                                        <input type="text" value={person.name} onChange={(e) => setSettings(prev => ({ ...prev, organigram: prev.organigram.map(p => p.id === person.id ? { ...p, name: e.target.value } : p) }))} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 outline-none focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-100 text-sm font-bold text-slate-800 placeholder:text-slate-300 transition-all font-sans" placeholder="ex: Ahmed" />
+                                        <label className="text-[10px] uppercase font-bold text-slate-400 mb-1 block">{tx(lang, { fr: 'Nom Complet', ar: 'الاسم الكامل', en: 'Full Name', es: 'Nombre Completo', pt: 'Nome Completo', tr: 'Tam Ad' })}</label>
+                                        <input type="text" value={person.name} onChange={(e) => setSettings(prev => ({ ...prev, organigram: prev.organigram.map(p => p.id === person.id ? { ...p, name: e.target.value } : p) }))} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 outline-none focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-100 text-sm font-bold text-slate-800 placeholder:text-slate-300 transition-all font-sans" placeholder={tx(lang, { fr: 'ex: Ahmed', ar: 'مثال: أحمد', en: 'e.g., Ahmed', es: 'ej: Ahmed', pt: 'ex: Ahmed', tr: 'örn: Ahmed' })} />
                                     </div>
                                     <div>
-                                        <label className="text-[10px] uppercase font-bold text-slate-400 mb-1 block">Rôle / Poste</label>
-                                        <input type="text" value={person.role} onChange={(e) => setSettings(prev => ({ ...prev, organigram: prev.organigram.map(p => p.id === person.id ? { ...p, role: e.target.value } : p) }))} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 outline-none focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-100 text-sm font-medium text-slate-600 placeholder:text-slate-300 transition-all" placeholder="ex: Directeur" />
+                                        <label className="text-[10px] uppercase font-bold text-slate-400 mb-1 block">{tx(lang, { fr: 'Rôle / Poste', ar: 'الدور / المنصب', en: 'Role / Position', es: 'Rol / Puesto', pt: 'Função / Cargo', tr: 'Rol / Pozisyon' })}</label>
+                                        <input type="text" value={person.role} onChange={(e) => setSettings(prev => ({ ...prev, organigram: prev.organigram.map(p => p.id === person.id ? { ...p, role: e.target.value } : p) }))} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 outline-none focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-100 text-sm font-medium text-slate-600 placeholder:text-slate-300 transition-all" placeholder={tx(lang, { fr: 'ex: Directeur', ar: 'مثال: مدير', en: 'e.g., Director', es: 'ej: Director', pt: 'ex: Diretor', tr: 'örn: Müdür' })} />
                                     </div>
                                 </div>
                             ))}
                             {(!settings.organigram || settings.organigram.length === 0) && (
                                 <div className="sm:col-span-2 lg:col-span-3 xl:col-span-4 p-8 border-2 border-dashed border-slate-200 rounded-3xl text-center flex flex-col items-center justify-center gap-3 bg-slate-50">
                                     <Shield className="w-10 h-10 text-slate-300" />
-                                    <span className="text-slate-500 font-bold text-sm">Aucun responsable général défini.</span>
-                                    <span className="text-slate-400 text-xs">Cliquez sur « Ajouter un membre » pour commencer.</span>
+                                    <span className="text-slate-500 font-bold text-sm">{tx(lang, { fr: 'Aucun responsable général défini.', ar: 'لا يوجد أي مسؤول عام معرف.', en: 'No supervisor defined.', es: 'Ningún responsable general definido.', pt: 'Nenhum responsável geral definido.', tr: 'Hiçbir yönetici tanımlanmamış.' })}</span>
+                                    <span className="text-slate-400 text-xs">{tx(lang, { fr: 'Cliquez sur « Ajouter un membre » pour commencer.', ar: 'انقر على « إضافة عضو » للبدء.', en: 'Click "Add a member" to get started.', es: 'Haga clic en « Añadir un miembro » para comenzar.', pt: 'Clique em « Adicionar um membro » para começar.', tr: 'Başlamak için « Üye Ekle »ye tıklayın.' })}</span>
                                 </div>
                             )}
                         </div>
@@ -1369,7 +1369,7 @@ export default function Configuration({ settings, setSettings, lang, machines, n
                                                         chainNames: { ...(prev.chainNames || {}), [chainKey]: e.target.value || chainKey }
                                                     }))}
                                                     className="font-black text-slate-800 tracking-wider text-base bg-transparent border-b-2 border-transparent hover:border-emerald-300 focus:border-emerald-500 focus:bg-white px-1 outline-none transition-all w-32"
-                                                    placeholder="Nom de la chaîne..."
+                                                    placeholder={tx(lang, { fr: 'Nom de la chaîne...', ar: 'اسم الخط...', en: 'Chain name...', es: 'Nombre de la cadena...', pt: 'Nome da cadeia...', tr: 'Hat adı...' })}
                                                 />
                                             </div>
                                             <button onClick={() => setSettings(prev => ({
@@ -1388,12 +1388,12 @@ export default function Configuration({ settings, setSettings, lang, machines, n
                                                     {staff.map((person) => (
                                                         <div key={person.id} className="flex flex-col sm:flex-row items-center gap-3 group relative bg-slate-50 p-3 rounded-2xl border border-slate-100 hover:border-emerald-200 transition-colors">
                                                             <div className="flex-1 w-full">
-                                                                <input type="text" value={person.name} onChange={(e) => setSettings(prev => ({ ...prev, chainStaff: { ...prev.chainStaff, [chainKey]: prev.chainStaff[chainKey].map(p => p.id === person.id ? { ...p, name: e.target.value } : p) } }))} className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 text-sm font-bold text-slate-700 transition-all" placeholder="Nom Complet" />
+                                                                <input type="text" value={person.name} onChange={(e) => setSettings(prev => ({ ...prev, chainStaff: { ...prev.chainStaff, [chainKey]: prev.chainStaff[chainKey].map(p => p.id === person.id ? { ...p, name: e.target.value } : p) } }))} className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 text-sm font-bold text-slate-700 transition-all" placeholder={tx(lang, { fr: 'Nom Complet', ar: 'الاسم الكامل', en: 'Full Name', es: 'Nombre Completo', pt: 'Nome Completo', tr: 'Tam Ad' })} />
                                                             </div>
                                                             <div className="flex-1 w-full">
-                                                                <input type="text" value={person.role} onChange={(e) => setSettings(prev => ({ ...prev, chainStaff: { ...prev.chainStaff, [chainKey]: prev.chainStaff[chainKey].map(p => p.id === person.id ? { ...p, role: e.target.value } : p) } }))} className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 text-sm font-medium text-slate-600 transition-all" placeholder="Rôle (ex: Qualité)" />
+                                                                <input type="text" value={person.role} onChange={(e) => setSettings(prev => ({ ...prev, chainStaff: { ...prev.chainStaff, [chainKey]: prev.chainStaff[chainKey].map(p => p.id === person.id ? { ...p, role: e.target.value } : p) } }))} className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 text-sm font-medium text-slate-600 transition-all" placeholder={tx(lang, { fr: 'Rôle (ex: Qualité)', ar: 'الدور (مثال: الجودة)', en: 'Role (ex: Quality)', es: 'Rol (ej: Calidad)', pt: 'Função (ex: Qualidade)', tr: 'Rol (örn: Kalite)' })} />
                                                             </div>
-                                                            <button onClick={() => setSettings(prev => ({ ...prev, chainStaff: { ...prev.chainStaff, [chainKey]: prev.chainStaff[chainKey].filter(p => p.id !== person.id) } }))} className="w-full sm:w-10 sm:h-10 text-rose-400 hover:text-rose-600 bg-white hover:bg-rose-50 rounded-xl border border-slate-200 hover:border-rose-300 shadow-sm transition-all focus:outline-none shrink-0 flex items-center justify-center active:scale-90 py-2 sm:py-0" title="Supprimer">
+                                                             <button onClick={() => setSettings(prev => ({ ...prev, chainStaff: { ...prev.chainStaff, [chainKey]: prev.chainStaff[chainKey].filter(p => p.id !== person.id) } }))} className="w-full sm:w-10 sm:h-10 text-rose-400 hover:text-rose-600 bg-white hover:bg-rose-50 rounded-xl border border-slate-200 hover:border-rose-300 shadow-sm transition-all focus:outline-none shrink-0 flex items-center justify-center active:scale-90 py-2 sm:py-0" title={tx(lang, { fr: 'Supprimer', ar: 'حذف', en: 'Delete', es: 'Eliminar', pt: 'Excluir', tr: 'Sil' })}>
                                                                 <Trash2 className="w-4 h-4" />
                                                             </button>
                                                         </div>
@@ -1404,7 +1404,7 @@ export default function Configuration({ settings, setSettings, lang, machines, n
                                                     <div className="w-12 h-12 bg-slate-50 rounded-full flex items-center justify-center mb-3">
                                                         <Users className="w-6 h-6 text-slate-300" />
                                                     </div>
-                                                    <span className="text-sm text-slate-400 font-bold bg-slate-50 px-5 py-2 rounded-full border border-slate-100">Aucun personnel affecté</span>
+                                                    <span className="text-sm text-slate-400 font-bold bg-slate-50 px-5 py-2 rounded-full border border-slate-100">{tx(lang, { fr: 'Aucun personnel affecté', ar: 'لا يوجد موظفون معينون', en: 'No staff assigned', es: 'Ningún personal asignado', pt: 'Nenhum pessoal atribuído', tr: 'Atanmış personel yok' })}</span>
                                                 </div>
                                             )}
                                         </div>
@@ -1937,7 +1937,7 @@ export default function Configuration({ settings, setSettings, lang, machines, n
                 <div onClick={() => toggleSec('tasks')} className={`px-5 py-4 bg-slate-50 flex items-center justify-between cursor-pointer select-none ${openSec['tasks'] ? 'border-b border-slate-100' : ''}`}>
                     <div className="flex items-center gap-2">
                         <ListTodo className="w-5 h-5 text-indigo-500" />
-                        <h2 className="font-bold text-slate-800">Gestion des Tâches</h2>
+                        <h2 className="font-bold text-slate-800">{tx(lang, { fr: 'Gestion des Tâches', ar: 'إدارة المهام', en: 'Task Management', es: 'Gestión de Tareas', pt: 'Gestão de Tarefas', tr: 'Görev Yönetimi' })}</h2>
                     </div>
                     <ChevronDown className={`w-5 h-5 text-slate-400 shrink-0 transition-transform ${openSec['tasks'] ? 'rotate-180' : ''}`} />
                 </div>
@@ -1945,17 +1945,17 @@ export default function Configuration({ settings, setSettings, lang, machines, n
                     {/* Add New Task Form */}
                     <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 flex flex-col sm:flex-row gap-4 items-end">
                         <div className="flex-1 w-full relative">
-                            <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">Description de la tâche</label>
+                            <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">{tx(lang, { fr: 'Description de la tâche', ar: 'وصف المهمة', en: 'Task description', es: 'Descripción de la tarea', pt: 'Descrição da tarefa', tr: 'Görev açıklaması' })}</label>
                             <input
                                 type="text"
                                 value={newTaskText}
                                 onChange={e => setNewTaskText(e.target.value)}
                                 className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm font-medium outline-none focus:border-indigo-500"
-                                placeholder="Nouvelle tâche..."
+                                placeholder={tx(lang, { fr: 'Nouvelle tâche...', ar: 'مهمة جديدة...', en: 'New task...', es: 'Nueva tarea...', pt: 'Nova tarefa...', tr: 'Yeni görev...' })}
                             />
                         </div>
                         <div className="w-full sm:w-40 relative">
-                            <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">Date</label>
+                            <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">{tx(lang, { fr: 'Date', ar: 'التاريخ', en: 'Date', es: 'Fecha', pt: 'Data', tr: 'Tarih' })}</label>
                             <input
                                 type="date"
                                 value={newTaskDate}
@@ -1964,14 +1964,14 @@ export default function Configuration({ settings, setSettings, lang, machines, n
                             />
                         </div>
                         <div className="w-full sm:w-64 relative">
-                            <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">Assigner à</label>
+                            <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">{tx(lang, { fr: 'Assigner à', ar: 'تعيين إلى', en: 'Assign to', es: 'Asignar a', pt: 'Atribuir a', tr: 'Ata' })}</label>
                             <select
                                 value={newTaskAssignee}
                                 onChange={e => setNewTaskAssignee(e.target.value)}
                                 className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm font-medium outline-none focus:border-indigo-500"
                             >
-                                <option value="">Choisir un responsable...</option>
-                                <optgroup label="Direction">
+                                <option value="">{tx(lang, { fr: 'Choisir un responsable...', ar: 'اختر مسؤولاً...', en: 'Choose a person...', es: 'Elegir un responsable...', pt: 'Escolher um responsável...', tr: 'Bir sorumlu seçin...' })}</option>
+                                <optgroup label={tx(lang, { fr: 'Direction', ar: 'الإدارة', en: 'Management', es: 'Dirección', pt: 'Direção', tr: 'Yönetim' })}>
                                     {settings.organigram?.map(p => (
                                         <option key={p.id} value={`${p.name}|${p.role}`}>{p.name} ({p.role})</option>
                                     ))}
@@ -1995,15 +1995,15 @@ export default function Configuration({ settings, setSettings, lang, machines, n
                             disabled={!newTaskText || !newTaskAssignee || !newTaskDate}
                             className="w-full sm:w-auto px-6 py-2 bg-indigo-600 text-white text-sm font-bold rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2 h-[38px] shrink-0"
                         >
-                            <Plus className="w-4 h-4" /> Ajouter
+                            <Plus className="w-4 h-4" /> {tx(lang, { fr: 'Ajouter', ar: 'إضافة', en: 'Add', es: 'Añadir', pt: 'Adicionar', tr: 'Ekle' })}
                         </button>
                     </div>
 
                     {/* Tasks List (Admin View) */}
                     <div className="space-y-3 mt-6">
-                        <h3 className="text-sm font-bold text-slate-700 mb-4">Toutes les tâches ({settings.tasks?.length || 0})</h3>
+                        <h3 className="text-sm font-bold text-slate-700 mb-4">{tx(lang, { fr: 'Toutes les tâches', ar: 'جميع المهام', en: 'All tasks', es: 'Todas las tareas', pt: 'Todas as tarefas', tr: 'Tüm görevler' })} ({settings.tasks?.length || 0})</h3>
                         {(!settings.tasks || settings.tasks.length === 0) && (
-                            <p className="text-sm text-slate-500 italic bg-white p-4 rounded-xl border border-dashed border-slate-200 text-center">Aucune tâche active.</p>
+                            <p className="text-sm text-slate-500 italic bg-white p-4 rounded-xl border border-dashed border-slate-200 text-center">{tx(lang, { fr: 'Aucune tâche active.', ar: 'لا توجد أي مهمة نشطة.', en: 'No active task.', es: 'Ninguna tarea activa.', pt: 'Nenhuma tarefa ativa.', tr: 'Aktif görev yok.' })}</p>
                         )}
                         <div className="max-h-96 overflow-y-auto pr-2 custom-scrollbar space-y-2">
                             {settings.tasks?.slice().reverse().map(task => (
@@ -2030,18 +2030,18 @@ export default function Configuration({ settings, setSettings, lang, machines, n
                                     <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
                                         {task.status === 'PENDING' && (
                                             <>
-                                                <button onClick={() => updateTaskStatus(task.id, 'DONE_OK')} className="p-1.5 bg-emerald-50 text-emerald-600 hover:bg-emerald-100 rounded-lg border border-emerald-100 transition-colors" title="Marquer comme OK"><Check className="w-3.5 h-3.5" /></button>
-                                                <button onClick={() => updateTaskStatus(task.id, 'DONE_NOT_OK')} className="p-1.5 bg-rose-50 text-rose-600 hover:bg-rose-100 rounded-lg border border-rose-100 transition-colors" title="Marquer comme NOT OK"><X className="w-3.5 h-3.5" /></button>
+                                                <button onClick={() => updateTaskStatus(task.id, 'DONE_OK')} className="p-1.5 bg-emerald-50 text-emerald-600 hover:bg-emerald-100 rounded-lg border border-emerald-100 transition-colors" title={tx(lang, { fr: 'Marquer comme OK', ar: 'تحديد كمقبول', en: 'Mark as OK', es: 'Marcar como OK', pt: 'Marcar como OK', tr: 'OK olarak işaretle' })}><Check className="w-3.5 h-3.5" /></button>
+                                                <button onClick={() => updateTaskStatus(task.id, 'DONE_NOT_OK')} className="p-1.5 bg-rose-50 text-rose-600 hover:bg-rose-100 rounded-lg border border-rose-100 transition-colors" title={tx(lang, { fr: 'Marquer comme NOT OK', ar: 'تحديد كغير مقبول', en: 'Mark as NOT OK', es: 'Marcar como NOT OK', pt: 'Marcar como NOT OK', tr: 'OK değil olarak işaretle' })}><X className="w-3.5 h-3.5" /></button>
                                                 <button onClick={() => {
-                                                    const reason = prompt('Motif d\'annulation ?');
+                                                    const reason = prompt(tx(lang, { fr: 'Motif d\'annulation ?', ar: 'سبب الإلغاء؟', en: 'Cancellation reason?', es: '¿Motivo de cancelación?', pt: 'Motivo de cancelamento?', tr: 'İptal sebebi?' }));
                                                     if (reason) updateTaskStatus(task.id, 'SKIPPED', reason);
-                                                }} className="p-1.5 bg-amber-50 text-amber-600 hover:bg-amber-100 rounded-lg border border-amber-100 transition-colors" title="Ignorer / Annuler"><SkipForward className="w-3.5 h-3.5" /></button>
+                                                }} className="p-1.5 bg-amber-50 text-amber-600 hover:bg-amber-100 rounded-lg border border-amber-100 transition-colors" title={tx(lang, { fr: 'Ignorer / Annuler', ar: 'تخطي / إلغاء', en: 'Skip / Cancel', es: 'Omitir / Cancelar', pt: 'Ignorar / Cancelar', tr: 'Atla / İptal' })}><SkipForward className="w-3.5 h-3.5" /></button>
                                             </>
                                         )}
                                         <button
                                             onClick={() => handleDeleteTask(task.id)}
                                             className="p-1.5 bg-slate-50 text-rose-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg border border-slate-200 hover:border-rose-200 transition-colors"
-                                            title="Supprimer la tâche"
+                                            title={tx(lang, { fr: 'Supprimer la tâche', ar: 'حذف المهمة', en: 'Delete task', es: 'Eliminar tarea', pt: 'Eliminar tarefa', tr: 'Görevi sil' })}
                                         >
                                             <Trash2 className="w-3.5 h-3.5" />
                                         </button>

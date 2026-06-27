@@ -1,4 +1,7 @@
 import React from 'react';
+import { tx } from '../../../lib/i18n';
+import type { TxMap } from '../../../lib/i18n';
+import { useLang } from '../../../src/context/LanguageContext';
 
 export type ViewKind = 'gantt' | 'calendar' | 'cards' | 'simulation';
 
@@ -14,7 +17,15 @@ const OPTIONS: { id: ViewKind; label: string }[] = [
     { id: 'simulation', label: 'Simulateur' },
 ];
 
+const VIEW_LABEL_TX: Record<string, TxMap> = {
+    'Gantt': { fr: 'Gantt', ar: 'Gantt', en: 'Gantt', es: 'Gantt', pt: 'Gantt', tr: 'Gantt' },
+    'Calendrier': { fr: 'Calendrier', ar: 'تقويم', en: 'Calendar', es: 'Calendario', pt: 'Calendário', tr: 'Takvim' },
+    'Cartes': { fr: 'Cartes', ar: 'بطاقات', en: 'Cards', es: 'Tarjetas', pt: 'Cartões', tr: 'Kartlar' },
+    'Simulateur': { fr: 'Simulateur', ar: 'محاكي', en: 'Simulator', es: 'Simulador', pt: 'Simulador', tr: 'Simülatör' },
+};
+
 export default function ViewSwitcher({ value, onChange }: Props) {
+    const { lang } = useLang();
     return (
         <div className="inline-flex rounded-xl border border-slate-200/50 bg-slate-100/50 p-0.5 backdrop-blur-sm shadow-sm">
             {OPTIONS.map(({ id, label }) => (
@@ -28,7 +39,7 @@ export default function ViewSwitcher({ value, onChange }: Props) {
                             : 'text-slate-500 hover:text-slate-800 hover:bg-white/40'
                     }`}
                 >
-                    {label}
+                    {tx(lang, VIEW_LABEL_TX[label])}
                 </button>
             ))}
         </div>

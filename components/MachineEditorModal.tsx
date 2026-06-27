@@ -5,6 +5,8 @@ import { ChevronDown, ChevronLeft, ChevronRight, Download, Edit2, ImageIcon, Lin
 import type { Machine, MachinePdfAttachment } from '../types';
 import { BASE_MACHINE_TYPE_PRESETS, machineTypeDatalistOptions } from '../lib/machineTypePresets';
 import { suggestClasseFromFamilyInput, suggestFamilyFromClasseInput } from '../lib/machineCategoryClasseLink';
+import { useLang } from '../src/context/LanguageContext';
+import { tx } from '../lib/i18n';
 
 const PDF_MAX_BYTES = 5 * 1024 * 1024;
 const IMG_MAX_BYTES = 5 * 1024 * 1024;
@@ -146,6 +148,7 @@ export default function MachineEditorModal({
   /** `classe` : titres alignés sur Parc Machines (Nouvelle classe). `machine` : inventaire / libellé générique. */
   titleMode?: MachineEditorTitleMode;
 }) {
+  const { lang } = useLang();
   const [machineForm, setMachineForm] = useState<Partial<Machine>>(emptyForm());
   const [errors, setErrors] = useState({ name: false, classe: false });
   const [fileHint, setFileHint] = useState<string | null>(null);
@@ -370,11 +373,11 @@ export default function MachineEditorModal({
   const headerTitle =
     titleMode === 'classe'
       ? initialMachine
-        ? 'Modifier la classe'
-        : 'Nouvelle classe'
+        ? tx(lang, {fr:'Modifier la classe',ar:'تعديل الفئة',en:'Edit class',es:'Editar clase',pt:'Editar classe',tr:'Sınıfı düzenle'})
+        : tx(lang, {fr:'Nouvelle classe',ar:'فئة جديدة',en:'New class',es:'Nueva clase',pt:'Nova classe',tr:'Yeni sınıf'})
       : initialMachine
-        ? 'Modifier machine'
-        : 'Ajouter machine';
+        ? tx(lang, {fr:'Modifier machine',ar:'تعديل الماكينة',en:'Edit machine',es:'Editar máquina',pt:'Editar máquina',tr:'Makineyi düzenle'})
+        : tx(lang, {fr:'Ajouter machine',ar:'إضافة ماكينة',en:'Add machine',es:'Añadir máquina',pt:'Adicionar máquina',tr:'Makine ekle'});
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -413,7 +416,7 @@ export default function MachineEditorModal({
     const file = e.target.files?.[0];
     e.target.value = '';
     if (!file || !file.type.startsWith('image/')) {
-      setFileHint('Choisissez une image (JPEG, PNG, WebP…).');
+      setFileHint(tx(lang, {fr:'Choisissez une image (JPEG, PNG, WebP…).',ar:'اختر صورة (JPEG، PNG، WebP…).',en:'Choose an image (JPEG, PNG, WebP…).',es:'Elija una imagen (JPEG, PNG, WebP…).',pt:'Escolha uma imagem (JPEG, PNG, WebP…).',tr:'Bir görsel seçin (JPEG, PNG, WebP…).'}));
       return;
     }
     try {
@@ -423,14 +426,14 @@ export default function MachineEditorModal({
         Boolean
       ) as string[];
       if (prev.length >= MAX_PHOTOS) {
-        setFileHint(`Maximum ${MAX_PHOTOS} photos par machine (stockage local).`);
+        setFileHint(tx(lang, {fr:`Maximum ${MAX_PHOTOS} photos par machine (stockage local).`,ar:`الحد الأقصى ${MAX_PHOTOS} صورة لكل ماكينة (تخزين محلي).`,en:`Maximum ${MAX_PHOTOS} photos per machine (local storage).`,es:`Máximo ${MAX_PHOTOS} fotos por máquina (almacenamiento local).`,pt:`Máximo ${MAX_PHOTOS} fotos por máquina (armazenamento local).`,tr:`Makine başına maksimum ${MAX_PHOTOS} fotoğraf (yerel depolama).`}));
         return;
       }
       const next = [...prev, dataUrl];
       setMachineForm({ ...f, machinePhotos: next, photoDataUrl: next[0] || '' });
       setFileHint(null);
     } catch {
-      setFileHint(`Image trop volumineuse (max ~${formatMo(IMG_MAX_BYTES)} Mo).`);
+      setFileHint(tx(lang, {fr:`Image trop volumineuse (max ~${formatMo(IMG_MAX_BYTES)} Mo).`,ar:`الصورة كبيرة جداً (الحد الأقصى ~${formatMo(IMG_MAX_BYTES)} MB).`,en:`Image too large (max ~${formatMo(IMG_MAX_BYTES)} MB).`,es:`Imagen demasiado grande (máx. ~${formatMo(IMG_MAX_BYTES)} MB).`,pt:`Imagem muito grande (máx. ~${formatMo(IMG_MAX_BYTES)} MB).`,tr:`Görsel çok büyük (maks. ~${formatMo(IMG_MAX_BYTES)} MB).`}));
     }
   };
 
@@ -438,7 +441,7 @@ export default function MachineEditorModal({
     const file = e.target.files?.[0];
     e.target.value = '';
     if (!file || file.type !== 'application/pdf') {
-      setFileHint('Choisissez un fichier PDF.');
+      setFileHint(tx(lang, {fr:'Choisissez un fichier PDF.',ar:'اختر ملف PDF.',en:'Choose a PDF file.',es:'Elija un archivo PDF.',pt:'Escolha um ficheiro PDF.',tr:'Bir PDF dosyası seçin.'}));
       return;
     }
     try {
@@ -448,7 +451,7 @@ export default function MachineEditorModal({
         ? [{ dataUrl: f.manualPdfDataUrl, name: f.manualPdfName || 'manuel.pdf' }]
         : []) as MachinePdfAttachment[];
       if (prev.length >= MAX_PDFS) {
-        setFileHint(`Maximum ${MAX_PDFS} PDF par machine (stockage local).`);
+        setFileHint(tx(lang, {fr:`Maximum ${MAX_PDFS} PDF par machine (stockage local).`,ar:`الحد الأقصى ${MAX_PDFS} PDF لكل ماكينة (تخزين محلي).`,en:`Maximum ${MAX_PDFS} PDF per machine (local storage).`,es:`Máximo ${MAX_PDFS} PDF por máquina (almacenamiento local).`,pt:`Máximo ${MAX_PDFS} PDF por máquina (armazenamento local).`,tr:`Makine başına maksimum ${MAX_PDFS} PDF (yerel depolama).`}));
         return;
       }
       const row: MachinePdfAttachment = { dataUrl, name: file.name || 'document.pdf' };
@@ -463,8 +466,8 @@ export default function MachineEditorModal({
     } catch (err) {
       setFileHint(
         err instanceof Error && err.message === 'FILE_TOO_LARGE'
-          ? `PDF trop volumineux (max ~${formatMo(PDF_MAX_BYTES)} Mo). Compressez le fichier si besoin.`
-          : 'Lecture du fichier impossible.'
+          ? tx(lang, {fr:`PDF trop volumineux (max ~${formatMo(PDF_MAX_BYTES)} Mo). Compressez le fichier si besoin.`,ar:`PDF كبير جداً (الحد الأقصى ~${formatMo(PDF_MAX_BYTES)} MB). قم بضغط الملف إذا لزم الأمر.`,en:`PDF too large (max ~${formatMo(PDF_MAX_BYTES)} MB). Compress the file if needed.`,es:`PDF demasiado grande (máx. ~${formatMo(PDF_MAX_BYTES)} MB). Comprima el archivo si es necesario.`,pt:`PDF muito grande (máx. ~${formatMo(PDF_MAX_BYTES)} MB). Comprima o ficheiro se necessário.`,tr:`PDF çok büyük (maks. ~${formatMo(PDF_MAX_BYTES)} MB). Gerekirse dosyayı sıkıştırın.`})
+          : tx(lang, {fr:'Lecture du fichier impossible.',ar:'تعذر قراءة الملف.',en:'Could not read the file.',es:'No se pudo leer el archivo.',pt:'Não foi possível ler o ficheiro.',tr:'Dosya okunamadı.'})
       );
     }
   };
@@ -532,11 +535,11 @@ export default function MachineEditorModal({
         <div className="p-6 overflow-y-auto">
           <form onSubmit={submit} className="space-y-5">
             <div className="rounded-xl border border-slate-100 bg-slate-50/80 p-4 space-y-3">
-              <p className="text-[10px] font-black text-slate-500 uppercase tracking-wider">Identification</p>
+              <p className="text-[10px] font-black text-slate-500 uppercase tracking-wider">{tx(lang, {fr:'Identification',ar:'التعريف',en:'Identification',es:'Identificación',pt:'Identificação',tr:'Kimlik'})}</p>
               <div>
-                <label className="block text-xs font-semibold text-slate-500 uppercase mb-1.5">
-                  Référence / matricule · رقم التعريف
-                </label>
+                  <label className="block text-xs font-semibold text-slate-500 uppercase mb-1.5">
+                    {tx(lang, {fr:'Référence / matricule',ar:'المرجع / الرقم التسلسلي',en:'Reference / serial number',es:'Referencia / matrícula',pt:'Referência / número de série',tr:'Referans / seri numarası'})} · رقم التعريف
+                  </label>
                 <input
                   type="text"
                   inputMode="text"
@@ -548,14 +551,14 @@ export default function MachineEditorModal({
                     setMachineForm({ ...machineForm, name: v, matricule: v });
                     if (errors.name) setErrors(prev => ({ ...prev, name: false }));
                   }}
-                  placeholder="Poste, ligne, n° série ou plaque — visible dans le parc et l’inventaire"
+                  placeholder={tx(lang, {fr:"Poste, ligne, n° série ou plaque — visible dans le parc et l'inventaire",ar:"المنصب، الخط، الرقم التسلسلي أو اللوحة — ظاهر في المخزون",en:"Station, line, serial or plate number — visible in inventory",es:"Puesto, línea, nº serie o placa — visible en el inventario",pt:"Posto, linha, nº série ou placa — visível no inventário",tr:"İstasyon, hat, seri veya plaka numarası — envanterde görünür"})}
                   className={`w-full rounded-xl px-3 py-2.5 text-slate-700 outline-none transition-all placeholder:text-slate-400 font-mono text-sm ${
                     errors.name ? 'bg-rose-50 border border-rose-300 focus:border-rose-500' : 'bg-white border border-slate-200 focus:border-emerald-500'
                   }`}
                 />
               </div>
               <div ref={brandSuggestWrapRef} className="relative min-w-0">
-                  <label className="block text-xs font-semibold text-slate-500 uppercase mb-1.5">Marque</label>
+                  <label className="block text-xs font-semibold text-slate-500 uppercase mb-1.5">{tx(lang, {fr:'Marque',ar:'العلامة التجارية',en:'Brand',es:'Marca',pt:'Marca',tr:'Marka'})}</label>
                   <input
                     type="text"
                     autoComplete="off"
@@ -602,7 +605,7 @@ export default function MachineEditorModal({
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-500 uppercase mb-1.5">Type (famille)</label>
+                    <label className="block text-xs font-semibold text-slate-500 uppercase mb-1.5">{tx(lang, {fr:'Type (famille)',ar:'النوع (العائلة)',en:'Type (family)',es:'Tipo (familia)',pt:'Tipo (família)',tr:'Tip (aile)'})}</label>
                   <div
                     ref={typeAnchorRef}
                     className={`flex rounded-xl border bg-white transition-[box-shadow,border-color] ${
@@ -629,13 +632,13 @@ export default function MachineEditorModal({
                         }
                       }}
                       className="min-w-0 flex-1 rounded-l-xl border-0 bg-transparent px-3 py-2.5 text-sm text-slate-700 outline-none ring-0 placeholder:text-slate-400"
-                      placeholder="Saisie libre ou liste…"
+                      placeholder={tx(lang, {fr:'Saisie libre ou liste…',ar:'إدخال حر أو قائمة…',en:'Free input or list…',es:'Entrada libre o lista…',pt:'Entrada livre ou lista…',tr:'Serbest giriş veya liste…'})}
                     />
                     <button
                       type="button"
                       aria-expanded={typePickerOpen}
                       aria-haspopup="listbox"
-                      title="Ouvrir la liste des familles"
+                      title={tx(lang, {fr:'Ouvrir la liste des familles',ar:'فتح قائمة العائلات',en:'Open the family list',es:'Abrir la lista de familias',pt:'Abrir a lista de famílias',tr:'Aile listesini aç'})}
                       onMouseDown={e => e.preventDefault()}
                       onClick={() => setTypePickerOpen(o => !o)}
                       className="flex shrink-0 items-center justify-center border-l border-slate-100 px-2.5 text-slate-500 hover:bg-slate-50 hover:text-slate-800 rounded-r-xl transition-colors"
@@ -647,7 +650,7 @@ export default function MachineEditorModal({
                   </div>
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-500 uppercase mb-1.5">Classe (code planning)</label>
+                  <label className="block text-xs font-semibold text-slate-500 uppercase mb-1.5">{tx(lang, {fr:'Classe (code planning)',ar:'الفئة (رمز التخطيط)',en:'Class (planning code)',es:'Clase (código de planificación)',pt:'Classe (código de planeamento)',tr:'Sınıf (planlama kodu)'})}</label>
                   <motion.div
                     animate={
                       linkFlash === 'classe'
@@ -699,10 +702,10 @@ export default function MachineEditorModal({
             </div>
 
             <div className="rounded-xl border border-slate-100 bg-indigo-50/30 p-4 space-y-3">
-              <p className="text-[10px] font-black text-indigo-700 uppercase tracking-wider">Achat</p>
+              <p className="text-[10px] font-black text-indigo-700 uppercase tracking-wider">{tx(lang, {fr:'Achat',ar:'شراء',en:'Purchase',es:'Compra',pt:'Compra',tr:'Satın alma'})}</p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-500 uppercase mb-1.5">Date d&apos;achat</label>
+                  <label className="block text-xs font-semibold text-slate-500 uppercase mb-1.5">{tx(lang, {fr:"Date d'achat",ar:'تاريخ الشراء',en:'Purchase date',es:'Fecha de compra',pt:'Data de compra',tr:'Satın alma tarihi'})}</label>
                   <input
                     type="date"
                     value={machineForm.purchaseDate || ''}

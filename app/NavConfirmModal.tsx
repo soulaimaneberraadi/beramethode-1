@@ -1,5 +1,7 @@
 import React from 'react';
 import { Save, AlertTriangle } from 'lucide-react';
+import { tx } from '../lib/i18n';
+import { useLang } from '../src/context/LanguageContext';
 import type { Lang } from '../app/constants';
 
 interface NavConfirmModalProps {
@@ -10,7 +12,8 @@ interface NavConfirmModalProps {
     onConfirm: (action: 'yes' | 'no' | 'cancel') => void;
 }
 
-export default function NavConfirmModal({ isOpen, type, lang, user, onConfirm }: NavConfirmModalProps) {
+export default function NavConfirmModal({ isOpen, type, user, onConfirm }: NavConfirmModalProps) {
+    const { lang } = useLang();
     if (!isOpen) return null;
 
     return (
@@ -78,29 +81,21 @@ export default function NavConfirmModal({ isOpen, type, lang, user, onConfirm }:
 
                     <div className="space-y-2 mb-8">
                         <h3 className="text-[22px] font-black text-slate-900 tracking-tight leading-tight">
-                            {lang === 'ar'
-                                ? (type === 'effectifs'
-                                    ? 'حفظ تأطير اليوم؟'
-                                    : type === 'save' ? 'حفظ التغييرات؟' : 'تنبيه: نموذج قيد العمل')
-                                : (type === 'effectifs'
-                                    ? 'Enregistrer les effectifs du jour ?'
-                                    : type === 'save' ? 'Sauvegarder ?' : 'Modèle en cours')
+                            {type === 'effectifs'
+                                ? tx(lang, {ar: 'حفظ تأطير اليوم؟', fr: 'Enregistrer les effectifs du jour ?', en: "Save today's staffing?", es: '¿Guardar el personal de hoy?', pt: 'Salvar os efetivos de hoje?', tr: 'Bugünkü personeli kaydet?'})
+                                : type === 'save'
+                                ? tx(lang, {ar: 'حفظ التغييرات؟', fr: 'Sauvegarder ?', en: 'Save changes?', es: '¿Guardar cambios?', pt: 'Salvar alterações?', tr: 'Değişiklikleri kaydet?'})
+                                : tx(lang, {ar: 'تنبيه: نموذج قيد العمل', fr: 'Modèle en cours', en: 'Model in progress', es: 'Modelo en curso', pt: 'Modelo em andamento', tr: 'Devam eden model'})
                             }
                         </h3>
                         <p className="text-[14px] text-slate-500 font-medium leading-relaxed max-w-[280px]">
-                            {lang === 'ar'
-                                ? (type === 'effectifs'
-                                    ? 'لديك تغييرات على التأطير. أكد لمزامنة الخادم والخروج، أو ألغِ للبقاء.'
-                                    : type === 'save'
-                                    ? 'هل تريد حفظ النموذج الحالي قبل الانتقال للإجراء التالي؟'
-                                    : 'لديك عمل غير محفوظ حالياً. هل تريد إكمال العمل أم البدء من جديد؟')
-                                : (type === 'effectifs'
-                                    ? (user
-                                        ? 'Vous avez modifié des effectifs. Confirmez pour envoyer tout de suite au serveur et quitter, ou annulez pour rester sur cette page.'
-                                        : 'Vous avez modifié des effectifs (sauvegarde locale). Confirmez pour quitter ou annulez pour rester.')
-                                    : type === 'save'
-                                    ? 'Voulez-vous sauvegarder votre travail actuel avant de quitter cette vue ?'
-                                    : 'Vous avez des modifications non sauvées. Voulez-vous continuer ou recommencer ?')
+                            {type === 'effectifs'
+                                ? (user
+                                    ? tx(lang, {ar: 'لديك تغييرات على التأطير. أكد لمزامنة الخادم والخروج، أو ألغِ للبقاء.', fr: 'Vous avez modifié des effectifs. Confirmez pour envoyer tout de suite au serveur et quitter, ou annulez pour rester sur cette page.', en: 'You have modified staffing. Confirm to send to server and leave, or cancel to stay.', es: 'Ha modificado el personal. Confirme para enviar al servidor y salir, o cancele para quedarse.', pt: 'Modificou os efetivos. Confirme para enviar ao servidor e sair, ou cancele para ficar.', tr: 'Personeli değiştirdiniz. Sunucuya göndermek ve çıkmak için onaylayın veya kalmak için iptal edin.'})
+                                    : tx(lang, {ar: 'لديك تغييرات على التأطير. أكد لمزامنة الخادم والخروج، أو ألغِ للبقاء.', fr: 'Vous avez modifié des effectifs (sauvegarde locale). Confirmez pour quitter ou annulez pour rester.', en: 'You have modified staffing (local save). Confirm to leave or cancel to stay.', es: 'Ha modificado el personal (guardado local). Confirme para salir o cancele para quedarse.', pt: 'Modificou os efetivos (salvo localmente). Confirme para sair ou cancele para ficar.', tr: 'Personeli değiştirdiniz (yerel kayıt). Çıkmak için onaylayın veya iptal edin.'}))
+                                : type === 'save'
+                                ? tx(lang, {ar: 'هل تريد حفظ النموذج الحالي قبل الانتقال للإجراء التالي؟', fr: 'Voulez-vous sauvegarder votre travail actuel avant de quitter cette vue ?', en: 'Do you want to save your current work before leaving this view?', es: '¿Quiere guardar su trabajo actual antes de salir de esta vista?', pt: 'Deseja salvar seu trabalho atual antes de sair desta visualização?', tr: 'Bu görünümden ayrılmadan önce mevcut çalışmanızı kaydetmek istiyor musunuz?'})
+                                : tx(lang, {ar: 'لديك عمل غير محفوظ حالياً. هل تريد إكمال العمل أم البدء من جديد؟', fr: 'Vous avez des modifications non sauvées. Voulez-vous continuer ou recommencer ?', en: 'You have unsaved changes. Do you want to continue or start over?', es: 'Tiene cambios sin guardar. ¿Quiere continuar o empezar de nuevo?', pt: 'Você tem alterações não salvas. Deseja continuar ou começar de novo?', tr: 'Kaydedilmemiş değişiklikleriniz var. Devam etmek mi yoksa yeniden başlamak mı istiyorsunuz?'})
                             }
                         </p>
                     </div>
@@ -119,10 +114,10 @@ export default function NavConfirmModal({ isOpen, type, lang, user, onConfirm }:
                         >
                             <span className="relative z-10">
                                 {type === 'effectifs'
-                                    ? (lang === 'ar' ? 'تأكيد والخروج' : 'Confirmer et quitter')
+                                    ? tx(lang, {ar: 'تأكيد والخروج', fr: 'Confirmer et quitter', en: 'Confirm and leave', es: 'Confirmar y salir', pt: 'Confirmar e sair', tr: 'Onayla ve çık'})
                                     : type === 'save'
-                                    ? (lang === 'ar' ? 'نعم، حفظ العمل' : 'Oui, Sauvegarder')
-                                    : (lang === 'ar' ? 'مشروع جديد (مسح)' : 'Nouveau projet')
+                                    ? tx(lang, {ar: 'نعم، حفظ العمل', fr: 'Oui, Sauvegarder', en: 'Yes, Save', es: 'Sí, Guardar', pt: 'Sim, Salvar', tr: 'Evet, Kaydet'})
+                                    : tx(lang, {ar: 'مشروع جديد (مسح)', fr: 'Nouveau projet', en: 'New project', es: 'Nuevo proyecto', pt: 'Novo projeto', tr: 'Yeni proje'})
                                 }
                             </span>
                             <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/0 via-white/10 to-emerald-500/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700 pointer-events-none" />
@@ -136,8 +131,8 @@ export default function NavConfirmModal({ isOpen, type, lang, user, onConfirm }:
                             className="w-full h-12 flex items-center justify-center gap-2 rounded-xl font-bold text-[14px] transition-all duration-200 border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 active:scale-[0.98]"
                         >
                             {type === 'save'
-                                ? (lang === 'ar' ? 'تجاهل والحذف' : 'Quitter sans sauvegarder')
-                                : (lang === 'ar' ? 'المتابعة في الحالي' : "Continuer l'actuel")
+                                ? tx(lang, {ar: 'تجاهل والحذف', fr: 'Quitter sans sauvegarder', en: 'Discard and leave', es: 'Descartar y salir', pt: 'Descartar e sair', tr: 'At ve çık'})
+                                : tx(lang, {ar: 'المتابعة في الحالي', fr: "Continuer l'actuel", en: 'Continue current', es: 'Continuar actual', pt: 'Continuar atual', tr: 'Mevcut devam'})
                             }
                         </button>
                         )}
@@ -148,7 +143,7 @@ export default function NavConfirmModal({ isOpen, type, lang, user, onConfirm }:
                             onClick={() => onConfirm('cancel')}
                             className="w-full h-10 font-bold text-[12px] text-slate-400 hover:text-slate-600 transition-colors uppercase tracking-widest pt-2"
                         >
-                            {lang === 'ar' ? 'إلغاء الأمر' : 'Annuler'}
+                            {tx(lang, {ar: 'إلغاء الأمر', fr: 'Annuler', en: 'Cancel', es: 'Cancelar', pt: 'Cancelar', tr: 'İptal'})}
                         </button>
                     </div>
                 </div>
