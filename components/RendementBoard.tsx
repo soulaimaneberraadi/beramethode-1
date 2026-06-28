@@ -110,20 +110,20 @@ export default function RendementBoard({ models, planningEvents, suivis, setting
     ];
 
     return (
-        <div className="h-full flex flex-col bg-slate-50">
-            <div className="bg-white border-b border-slate-200 px-8 py-5 flex items-center justify-between">
+        <div className="h-full flex flex-col bg-slate-50 dark:bg-dk-bg">
+            <div className="bg-white dark:bg-dk-surface border-b border-slate-200 dark:border-dk-border px-8 py-5 flex items-center justify-between">
                 <div className="flex items-center gap-3">
                     <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center shadow-lg">
                         <TrendingUp className="w-6 h-6 text-white" />
                     </div>
                     <div>
-                        <h1 className="text-2xl font-black text-slate-800">{tx(lang, { fr: 'Rendement', ar: 'العائد', en: 'Performance', es: 'Rendimiento', pt: 'Rendimento', tr: 'Performans' })}</h1>
-                        <p className="text-xs text-slate-500">{tx(lang, { fr: 'Agrégation jour · modèle · poste · machine + société', ar: 'تجميع: اليوم · النموذج · المحطة · الآلة + الشركة', en: 'Aggregation: day · model · station · machine + company', es: 'Agregación: día · modelo · puesto · máquina + empresa', pt: 'Agregação: dia · modelo · posto · máquina + empresa', tr: 'Toplama: gün · model · istasyon · makine + şirket' })}</p>
+                        <h1 className="text-2xl font-black text-slate-800 dark:text-dk-text">{tx(lang, { fr: 'Rendement', ar: 'العائد', en: 'Performance', es: 'Rendimiento', pt: 'Rendimento', tr: 'Performans' })}</h1>
+                        <p className="text-xs text-slate-500 dark:text-dk-muted">{tx(lang, { fr: 'Agrégation jour · modèle · poste · machine + société', ar: 'تجميع: اليوم · النموذج · المحطة · الآلة + الشركة', en: 'Aggregation: day · model · station · machine + company', es: 'Agregación: día · modelo · puesto · máquina + empresa', pt: 'Agregação: dia · modelo · posto · máquina + empresa', tr: 'Toplama: gün · model · istasyon · makine + şirket' })}</p>
                     </div>
                 </div>
-                <div className="flex bg-slate-100 p-1 rounded-xl">
+                <div className="flex bg-slate-100 dark:bg-dk-elevated p-1 rounded-xl">
                     {tabs.map(t => (
-                        <button key={t.id} onClick={() => setTab(t.id)} className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all ${tab === t.id ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
+                        <button key={t.id} onClick={() => setTab(t.id)} className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all ${tab === t.id ? 'bg-white dark:bg-dk-elevated text-indigo-700 dark:text-dk-accent-text shadow-sm dark:shadow-none' : 'text-slate-500 dark:text-dk-muted hover:text-slate-700 dark:hover:text-dk-text-soft'}`}>
                             <t.icon className="w-3.5 h-3.5" /> {t.label}
                         </button>
                     ))}
@@ -132,28 +132,28 @@ export default function RendementBoard({ models, planningEvents, suivis, setting
 
             <div className="flex-1 overflow-auto p-6">
                 {tab === 'jour' && (
-                    <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+                    <div className="bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border overflow-hidden">
                         <table className="w-full text-sm">
-                            <thead className="bg-slate-50 text-slate-500 text-[11px] uppercase">
+                            <thead className="bg-slate-50 dark:bg-dk-elevated text-slate-500 dark:text-dk-muted text-[11px] uppercase">
                                 <tr>
                                     <th className="px-4 py-3 text-left">{tx(lang, { fr: 'Date', ar: 'التاريخ', en: 'Date', es: 'Fecha', pt: 'Data', tr: 'Tarih' })}</th>
                                     <th className="px-4 py-3 text-left">{tx(lang, { fr: 'Chaîne', ar: 'الخط', en: 'Line', es: 'Cadena', pt: 'Linha', tr: 'Hat' })}</th>
                                     <th className="px-4 py-3 text-right">{tx(lang, { fr: 'Effectif', ar: 'العدد', en: 'Staff', es: 'Personal', pt: 'Efetivo', tr: 'Personel' })}</th>
-                                    <th className="px-4 py-3 text-right text-blue-600">{tx(lang, { fr: 'Prép.', ar: 'تحضير', en: 'Prep.', es: 'Prep.', pt: 'Prep.', tr: 'Haz.' })}</th>
-                                    <th className="px-4 py-3 text-right text-emerald-600">{tx(lang, { fr: 'Montage', ar: 'التركيب', en: 'Assembly', es: 'Montaje', pt: 'Montagem', tr: 'Montaj' })}</th>
+                                    <th className="px-4 py-3 text-right text-blue-600 dark:text-blue-400">{tx(lang, { fr: 'Prép.', ar: 'تحضير', en: 'Prep.', es: 'Prep.', pt: 'Prep.', tr: 'Haz.' })}</th>
+                                    <th className="px-4 py-3 text-right text-emerald-600 dark:text-emerald-400">{tx(lang, { fr: 'Montage', ar: 'التركيب', en: 'Assembly', es: 'Montaje', pt: 'Montagem', tr: 'Montaj' })}</th>
                                     <th className="px-4 py-3 text-right">{tx(lang, { fr: 'Total Output', ar: 'مجموع الإنتاج', en: 'Total Output', es: 'Salida Total', pt: 'Saída Total', tr: 'Toplam Çıkış' })}</th>
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-slate-100">
-                                {byDay.length === 0 && <tr><td colSpan={6} className="px-4 py-8 text-center text-slate-400">{tx(lang, { fr: 'Aucune donnée de suivi', ar: 'لا توجد بيانات متابعة', en: 'No tracking data', es: 'Sin datos de seguimiento', pt: 'Nenhum dado de acompanhamento', tr: 'Takip verisi yok' })}</td></tr>}
+                            <tbody className="divide-y divide-slate-100 dark:divide-dk-border">
+                                {byDay.length === 0 && <tr><td colSpan={6} className="px-4 py-8 text-center text-slate-400 dark:text-dk-muted">{tx(lang, { fr: 'Aucune donnée de suivi', ar: 'لا توجد بيانات متابعة', en: 'No tracking data', es: 'Sin datos de seguimiento', pt: 'Nenhum dado de acompanhamento', tr: 'Takip verisi yok' })}</td></tr>}
                                 {byDay.map((r, i) => (
-                                    <tr key={i} className="hover:bg-slate-50">
-                                        <td className="px-4 py-2.5 font-mono text-xs">{r.date}</td>
-                                        <td className="px-4 py-2.5">{settings.chainNames?.[r.chaineId] || r.chaineId}</td>
-                                        <td className="px-4 py-2.5 text-right font-bold">{r.effectif}</td>
-                                        <td className="px-4 py-2.5 text-right text-blue-700 font-bold">{r.prep || '—'}</td>
-                                        <td className="px-4 py-2.5 text-right text-emerald-700 font-bold">{r.montage || '—'}</td>
-                                        <td className="px-4 py-2.5 text-right font-black text-slate-800">{r.output}</td>
+                                    <tr key={i} className="hover:bg-slate-50 dark:hover:bg-dk-elevated/60">
+                                        <td className="px-4 py-2.5 font-mono text-xs dark:text-dk-text-soft">{r.date}</td>
+                                        <td className="px-4 py-2.5 dark:text-dk-text-soft">{settings.chainNames?.[r.chaineId] || r.chaineId}</td>
+                                        <td className="px-4 py-2.5 text-right font-bold dark:text-dk-text">{r.effectif}</td>
+                                        <td className="px-4 py-2.5 text-right text-blue-700 dark:text-blue-400 font-bold">{r.prep || '—'}</td>
+                                        <td className="px-4 py-2.5 text-right text-emerald-700 dark:text-emerald-400 font-bold">{r.montage || '—'}</td>
+                                        <td className="px-4 py-2.5 text-right font-black text-slate-800 dark:text-dk-text">{r.output}</td>
                                     </tr>
                                 ))}
                             </tbody>
@@ -162,30 +162,30 @@ export default function RendementBoard({ models, planningEvents, suivis, setting
                 )}
 
                 {tab === 'modele' && (
-                    <div className="bg-white rounded-2xl border border-slate-200 overflow-x-auto">
+                    <div className="bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border overflow-x-auto">
                         <table className="w-full min-w-[640px] text-sm">
-                            <thead className="bg-slate-50 text-slate-500 text-[11px] uppercase">
+                            <thead className="bg-slate-50 dark:bg-dk-elevated text-slate-500 dark:text-dk-muted text-[11px] uppercase">
                                 <tr>
                                     <th className="px-4 py-3 text-left">{tx(lang, { fr: 'Modèle', ar: 'النموذج', en: 'Model', es: 'Modelo', pt: 'Modelo', tr: 'Model' })}</th>
                                     <th className="px-4 py-3 text-right">SAM</th>
                                     <th className="px-4 py-3 text-right">{tx(lang, { fr: 'Produit', ar: 'مُنتَج', en: 'Produced', es: 'Producido', pt: 'Produzido', tr: 'Üretilen' })}</th>
                                     <th className="px-4 py-3 text-right">{tx(lang, { fr: 'Cible', ar: 'الهدف', en: 'Target', es: 'Objetivo', pt: 'Meta', tr: 'Hedef' })}</th>
-                                    <th className="px-4 py-3 text-right text-blue-600">{tx(lang, { fr: 'Prép.', ar: 'تحضير', en: 'Prep.', es: 'Prep.', pt: 'Prep.', tr: 'Haz.' })}</th>
-                                    <th className="px-4 py-3 text-right text-emerald-600">{tx(lang, { fr: 'Montage', ar: 'التركيب', en: 'Assembly', es: 'Montaje', pt: 'Montagem', tr: 'Montaj' })}</th>
+                                    <th className="px-4 py-3 text-right text-blue-600 dark:text-blue-400">{tx(lang, { fr: 'Prép.', ar: 'تحضير', en: 'Prep.', es: 'Prep.', pt: 'Prep.', tr: 'Haz.' })}</th>
+                                    <th className="px-4 py-3 text-right text-emerald-600 dark:text-emerald-400">{tx(lang, { fr: 'Montage', ar: 'التركيب', en: 'Assembly', es: 'Montaje', pt: 'Montagem', tr: 'Montaj' })}</th>
                                     <th className="px-4 py-3 text-right">{tx(lang, { fr: '% Eff.', ar: '% الفعالية', en: '% Eff.', es: '% Ef.', pt: '% Ef.', tr: '% Verim' })}</th>
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-slate-100">
-                                {byModel.length === 0 && <tr><td colSpan={7} className="px-4 py-8 text-center text-slate-400">{tx(lang, { fr: 'Aucun modèle planifié', ar: 'لا يوجد نموذج مبرمج', en: 'No model planned', es: 'Ningún modelo planificado', pt: 'Nenhum modelo planejado', tr: 'Planlanmış model yok' })}</td></tr>}
+                            <tbody className="divide-y divide-slate-100 dark:divide-dk-border">
+                                {byModel.length === 0 && <tr><td colSpan={7} className="px-4 py-8 text-center text-slate-400 dark:text-dk-muted">{tx(lang, { fr: 'Aucun modèle planifié', ar: 'لا يوجد نموذج مبرمج', en: 'No model planned', es: 'Ningún modelo planificado', pt: 'Nenhum modelo planejado', tr: 'Planlanmış model yok' })}</td></tr>}
                                 {byModel.map(r => (
-                                    <tr key={r.id} className="hover:bg-slate-50">
-                                        <td className="px-4 py-2.5 font-bold flex items-center gap-2">{r.name}{r.split && <span className="px-1.5 py-0.5 text-[9px] font-bold rounded bg-violet-100 text-violet-700">SPLIT</span>}</td>
-                                        <td className="px-4 py-2.5 text-right">{r.sam.toFixed(2)}</td>
-                                        <td className="px-4 py-2.5 text-right font-black text-emerald-700">{r.produced}</td>
-                                        <td className="px-4 py-2.5 text-right">{r.target}</td>
-                                        <td className="px-4 py-2.5 text-right text-blue-700">{r.split ? r.prep : '—'}</td>
-                                        <td className="px-4 py-2.5 text-right text-emerald-700">{r.split ? r.mont : '—'}</td>
-                                        <td className="px-4 py-2.5 text-right"><span className={`px-2 py-0.5 rounded text-xs font-black ${r.eff >= 85 ? 'bg-emerald-100 text-emerald-700' : r.eff >= 70 ? 'bg-amber-100 text-amber-700' : 'bg-rose-100 text-rose-700'}`}>{r.eff}%</span></td>
+                                    <tr key={r.id} className="hover:bg-slate-50 dark:hover:bg-dk-elevated/60">
+                                        <td className="px-4 py-2.5 font-bold flex items-center gap-2 dark:text-dk-text">{r.name}{r.split && <span className="px-1.5 py-0.5 text-[9px] font-bold rounded bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300">SPLIT</span>}</td>
+                                        <td className="px-4 py-2.5 text-right dark:text-dk-text-soft">{r.sam.toFixed(2)}</td>
+                                        <td className="px-4 py-2.5 text-right font-black text-emerald-700 dark:text-emerald-400">{r.produced}</td>
+                                        <td className="px-4 py-2.5 text-right dark:text-dk-text-soft">{r.target}</td>
+                                        <td className="px-4 py-2.5 text-right text-blue-700 dark:text-blue-400">{r.split ? r.prep : '—'}</td>
+                                        <td className="px-4 py-2.5 text-right text-emerald-700 dark:text-emerald-400">{r.split ? r.mont : '—'}</td>
+                                        <td className="px-4 py-2.5 text-right"><span className={`px-2 py-0.5 rounded text-xs font-black ${r.eff >= 85 ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300' : r.eff >= 70 ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300' : 'bg-rose-100 dark:bg-rose-900/30 text-rose-700 dark:text-rose-300'}`}>{r.eff}%</span></td>
                                     </tr>
                                 ))}
                             </tbody>
@@ -194,9 +194,9 @@ export default function RendementBoard({ models, planningEvents, suivis, setting
                 )}
 
                 {tab === 'poste' && (
-                    <div className="bg-white rounded-2xl border border-slate-200 overflow-x-auto">
+                    <div className="bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border overflow-x-auto">
                         <table className="w-full min-w-[480px] text-sm">
-                            <thead className="bg-slate-50 text-slate-500 text-[11px] uppercase">
+                            <thead className="bg-slate-50 dark:bg-dk-elevated text-slate-500 dark:text-dk-muted text-[11px] uppercase">
                                 <tr>
                                     <th className="px-4 py-3 text-left">{tx(lang, { fr: 'Poste', ar: 'المحطة', en: 'Station', es: 'Puesto', pt: 'Posto', tr: 'İstasyon' })}</th>
                                     <th className="px-4 py-3 text-left">{tx(lang, { fr: 'Modèle', ar: 'النموذج', en: 'Model', es: 'Modelo', pt: 'Modelo', tr: 'Model' })}</th>
@@ -204,14 +204,14 @@ export default function RendementBoard({ models, planningEvents, suivis, setting
                                     <th className="px-4 py-3 text-right">{tx(lang, { fr: 'SAM cumulé', ar: 'SAM التراكمي', en: 'Cumulative SAM', es: 'SAM acumulado', pt: 'SAM acumulado', tr: 'Kümülatif SAM' })}</th>
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-slate-100">
-                                {byPoste.length === 0 && <tr><td colSpan={4} className="px-4 py-8 text-center text-slate-400">{tx(lang, { fr: 'Aucune implantation', ar: 'لا يوجد تخطيط للمحطات', en: 'No layout', es: 'Sin implantación', pt: 'Nenhuma implantação', tr: 'Yerleşim yok' })}</td></tr>}
+                            <tbody className="divide-y divide-slate-100 dark:divide-dk-border">
+                                {byPoste.length === 0 && <tr><td colSpan={4} className="px-4 py-8 text-center text-slate-400 dark:text-dk-muted">{tx(lang, { fr: 'Aucune implantation', ar: 'لا يوجد تخطيط للمحطات', en: 'No layout', es: 'Sin implantación', pt: 'Nenhuma implantação', tr: 'Yerleşim yok' })}</td></tr>}
                                 {byPoste.map((r, i) => (
-                                    <tr key={i} className="hover:bg-slate-50">
-                                        <td className="px-4 py-2.5 font-bold">{r.posteName}</td>
-                                        <td className="px-4 py-2.5">{r.modelName}</td>
-                                        <td className="px-4 py-2.5 text-right">{r.nbOps}</td>
-                                        <td className="px-4 py-2.5 text-right font-mono">{r.samExpected.toFixed(2)} min</td>
+                                    <tr key={i} className="hover:bg-slate-50 dark:hover:bg-dk-elevated/60">
+                                        <td className="px-4 py-2.5 font-bold dark:text-dk-text">{r.posteName}</td>
+                                        <td className="px-4 py-2.5 dark:text-dk-text-soft">{r.modelName}</td>
+                                        <td className="px-4 py-2.5 text-right dark:text-dk-text-soft">{r.nbOps}</td>
+                                        <td className="px-4 py-2.5 text-right font-mono dark:text-dk-text-soft">{r.samExpected.toFixed(2)} min</td>
                                     </tr>
                                 ))}
                             </tbody>
@@ -222,22 +222,22 @@ export default function RendementBoard({ models, planningEvents, suivis, setting
                 {tab === 'machine' && (
                     <div className="space-y-4">
                         <div className="grid grid-cols-3 gap-4">
-                            <div className="bg-white p-4 rounded-2xl border border-slate-200">
-                                <div className="text-[10px] uppercase font-bold text-slate-400">{tx(lang, { fr: 'Machines distinctes', ar: 'الآلات المتميزة', en: 'Distinct machines', es: 'Máquinas distintas', pt: 'Máquinas distintas', tr: 'Farklı makineler' })}</div>
-                                <div className="text-3xl font-black text-indigo-700">{byMachine.societeTotals.machines}</div>
+                            <div className="bg-white dark:bg-dk-surface p-4 rounded-2xl border border-slate-200 dark:border-dk-border">
+                                <div className="text-[10px] uppercase font-bold text-slate-400 dark:text-dk-muted">{tx(lang, { fr: 'Machines distinctes', ar: 'الآلات المتميزة', en: 'Distinct machines', es: 'Máquinas distintas', pt: 'Máquinas distintas', tr: 'Farklı makineler' })}</div>
+                                <div className="text-3xl font-black text-indigo-700 dark:text-dk-accent-text">{byMachine.societeTotals.machines}</div>
                             </div>
-                            <div className="bg-white p-4 rounded-2xl border border-slate-200">
-                                <div className="text-[10px] uppercase font-bold text-slate-400">{tx(lang, { fr: 'Total opérations société', ar: 'إجمالي عمليات الشركة', en: 'Total company operations', es: 'Total operaciones empresa', pt: 'Total de operações da empresa', tr: 'Toplam şirket işlemleri' })}</div>
-                                <div className="text-3xl font-black text-emerald-700">{byMachine.societeTotals.nbOps}</div>
+                            <div className="bg-white dark:bg-dk-surface p-4 rounded-2xl border border-slate-200 dark:border-dk-border">
+                                <div className="text-[10px] uppercase font-bold text-slate-400 dark:text-dk-muted">{tx(lang, { fr: 'Total opérations société', ar: 'إجمالي عمليات الشركة', en: 'Total company operations', es: 'Total operaciones empresa', pt: 'Total de operações da empresa', tr: 'Toplam şirket işlemleri' })}</div>
+                                <div className="text-3xl font-black text-emerald-700 dark:text-emerald-400">{byMachine.societeTotals.nbOps}</div>
                             </div>
-                            <div className="bg-white p-4 rounded-2xl border border-slate-200">
-                                <div className="text-[10px] uppercase font-bold text-slate-400">{tx(lang, { fr: 'SAM société (min)', ar: 'SAM الشركة (دقيقة)', en: 'Company SAM (min)', es: 'SAM empresa (min)', pt: 'SAM da empresa (min)', tr: 'Şirket SAM (dk)' })}</div>
-                                <div className="text-3xl font-black text-amber-700">{byMachine.societeTotals.samTotal.toFixed(1)}</div>
+                            <div className="bg-white dark:bg-dk-surface p-4 rounded-2xl border border-slate-200 dark:border-dk-border">
+                                <div className="text-[10px] uppercase font-bold text-slate-400 dark:text-dk-muted">{tx(lang, { fr: 'SAM société (min)', ar: 'SAM الشركة (دقيقة)', en: 'Company SAM (min)', es: 'SAM empresa (min)', pt: 'SAM da empresa (min)', tr: 'Şirket SAM (dk)' })}</div>
+                                <div className="text-3xl font-black text-amber-700 dark:text-amber-400">{byMachine.societeTotals.samTotal.toFixed(1)}</div>
                             </div>
                         </div>
-                        <div className="bg-white rounded-2xl border border-slate-200 overflow-x-auto">
+                        <div className="bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border overflow-x-auto">
                             <table className="w-full min-w-[480px] text-sm">
-                                <thead className="bg-slate-50 text-slate-500 text-[11px] uppercase">
+                                <thead className="bg-slate-50 dark:bg-dk-elevated text-slate-500 dark:text-dk-muted text-[11px] uppercase">
                                     <tr>
                                         <th className="px-4 py-3 text-left">{tx(lang, { fr: 'Machine', ar: 'الآلة', en: 'Machine', es: 'Máquina', pt: 'Máquina', tr: 'Makine' })}</th>
                                         <th className="px-4 py-3 text-right">{tx(lang, { fr: 'Nb Ops', ar: 'عدد العمليات', en: 'Nb Ops', es: 'N.º Ops', pt: 'N.º Ops', tr: 'İşlem Sayısı' })}</th>
@@ -245,13 +245,13 @@ export default function RendementBoard({ models, planningEvents, suivis, setting
                                         <th className="px-4 py-3 text-right">{tx(lang, { fr: 'SAM cumulé', ar: 'SAM التراكمي', en: 'Cumulative SAM', es: 'SAM acumulado', pt: 'SAM acumulado', tr: 'Kümülatif SAM' })}</th>
                                     </tr>
                                 </thead>
-                                <tbody className="divide-y divide-slate-100">
+                                <tbody className="divide-y divide-slate-100 dark:divide-dk-border">
                                     {byMachine.rows.map(r => (
-                                        <tr key={r.machine} className="hover:bg-slate-50">
-                                            <td className="px-4 py-2.5 font-bold">{r.machine}</td>
-                                            <td className="px-4 py-2.5 text-right">{r.nbOps}</td>
-                                            <td className="px-4 py-2.5 text-right">{r.modelCount}</td>
-                                            <td className="px-4 py-2.5 text-right font-mono">{r.samTotal.toFixed(2)}</td>
+                                        <tr key={r.machine} className="hover:bg-slate-50 dark:hover:bg-dk-elevated/60">
+                                            <td className="px-4 py-2.5 font-bold dark:text-dk-text">{r.machine}</td>
+                                            <td className="px-4 py-2.5 text-right dark:text-dk-text-soft">{r.nbOps}</td>
+                                            <td className="px-4 py-2.5 text-right dark:text-dk-text-soft">{r.modelCount}</td>
+                                            <td className="px-4 py-2.5 text-right font-mono dark:text-dk-text-soft">{r.samTotal.toFixed(2)}</td>
                                         </tr>
                                     ))}
                                 </tbody>
