@@ -18,12 +18,12 @@ import { PurchasingData } from '../types';
 type ViewMode = 'list' | 'board' | 'calendar' | 'stats';
 
 const BADGE_COLORS = [
-    { bg: 'bg-rose-100', text: 'text-rose-700', border: 'border-rose-200', dot: 'bg-rose-500' },
-    { bg: 'bg-blue-100', text: 'text-blue-700', border: 'border-blue-200', dot: 'bg-blue-500' },
-    { bg: 'bg-amber-100', text: 'text-amber-700', border: 'border-amber-200', dot: 'bg-amber-500' },
-    { bg: 'bg-emerald-100', text: 'text-emerald-700', border: 'border-emerald-200', dot: 'bg-emerald-500' },
-    { bg: 'bg-purple-100', text: 'text-purple-700', border: 'border-purple-200', dot: 'bg-purple-500' },
-    { bg: 'bg-cyan-100', text: 'text-cyan-700', border: 'border-cyan-200', dot: 'bg-cyan-500' },
+    { bg: 'bg-rose-100 dark:bg-rose-900/30', text: 'text-rose-700 dark:text-rose-300', border: 'border-rose-200 dark:border-rose-800', dot: 'bg-rose-500' },
+    { bg: 'bg-blue-100 dark:bg-blue-900/30', text: 'text-blue-700 dark:text-blue-300', border: 'border-blue-200 dark:border-blue-800', dot: 'bg-blue-500' },
+    { bg: 'bg-amber-100 dark:bg-amber-900/30', text: 'text-amber-700 dark:text-amber-300', border: 'border-amber-200 dark:border-amber-800', dot: 'bg-amber-500' },
+    { bg: 'bg-emerald-100 dark:bg-emerald-900/30', text: 'text-emerald-700 dark:text-emerald-300', border: 'border-emerald-200 dark:border-emerald-800', dot: 'bg-emerald-500' },
+    { bg: 'bg-purple-100 dark:bg-purple-900/30', text: 'text-purple-700 dark:text-purple-300', border: 'border-purple-200 dark:border-purple-800', dot: 'bg-purple-500' },
+    { bg: 'bg-cyan-100 dark:bg-cyan-900/30', text: 'text-cyan-700 dark:text-cyan-300', border: 'border-cyan-200 dark:border-cyan-800', dot: 'bg-cyan-500' },
 ];
 
 interface LaCoupeProps {
@@ -285,10 +285,10 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
 
     const STATUS_MAP = {
         'EN_PREPARATION': { label: tx(lang, { fr: 'En PrÃ©paration', ar: 'Ù‚ÙŠØ¯ Ø§Ù„ØªØ­Ø¶ÙŠØ±', en: 'In Preparation', es: 'En PreparaciÃ³n', pt: 'Em PreparaÃ§Ã£o', tr: 'HazÄ±rlÄ±kta' }), color: 'text-slate-700 dark:text-dk-text-soft border-slate-300', icon: Clock },
-        'EN_COURS': { label: tx(lang, { fr: 'En Cours', ar: 'Ù‚ÙŠØ¯ Ø§Ù„ØªÙ†ÙÙŠØ°', en: 'In Progress', es: 'En Curso', pt: 'Em Andamento', tr: 'Devam Ediyor' }), color: 'text-blue-700 border-blue-400', icon: PlayCircle },
-        'SOUS_TRAITANCE': { label: tx(lang, { fr: 'ExtÃ©riorisÃ©', ar: 'Ù…Ù‚Ø§ÙˆÙ„ Ø®Ø§Ø±Ø¬ÙŠ', en: 'Subcontracted', es: 'Subcontratado', pt: 'Terceirizado', tr: 'TaÅŸeron' }), color: 'text-purple-700 border-purple-400', icon: Truck },
-        'VALIDE': { label: tx(lang, { fr: 'ValidÃ©', ar: 'ØªÙ… Ø§Ù„ØªØ­Ù‚Ù‚', en: 'Validated', es: 'Validado', pt: 'Validado', tr: 'OnaylandÄ±' }), color: 'text-emerald-700 border-emerald-400', icon: CheckCircle },
-        'REJETE': { label: tx(lang, { fr: 'RejetÃ©', ar: 'Ù…Ø±ÙÙˆØ¶', en: 'Rejected', es: 'Rechazado', pt: 'Rejeitado', tr: 'Reddedildi' }), color: 'text-red-700 border-red-400', icon: XCircle },
+        'EN_COURS': { label: tx(lang, { fr: 'En Cours', ar: 'Ù‚ÙŠØ¯ Ø§Ù„ØªÙ†ÙÙŠØ°', en: 'In Progress', es: 'En Curso', pt: 'Em Andamento', tr: 'Devam Ediyor' }), color: 'text-blue-700 dark:text-blue-300 border-blue-400 dark:border-blue-600', icon: PlayCircle },
+        'SOUS_TRAITANCE': { label: tx(lang, { fr: 'ExtÃ©riorisÃ©', ar: 'Ù…Ù‚Ø§ÙˆÙ„ Ø®Ø§Ø±Ø¬ÙŠ', en: 'Subcontracted', es: 'Subcontratado', pt: 'Terceirizado', tr: 'TaÅŸeron' }), color: 'text-purple-700 dark:text-purple-300 border-purple-400 dark:border-purple-600', icon: Truck },
+        'VALIDE': { label: tx(lang, { fr: 'ValidÃ©', ar: 'ØªÙ… Ø§Ù„ØªØ­Ù‚Ù‚', en: 'Validated', es: 'Validado', pt: 'Validado', tr: 'OnaylandÄ±' }), color: 'text-emerald-700 dark:text-emerald-300 border-emerald-400 dark:border-emerald-600', icon: CheckCircle },
+        'REJETE': { label: tx(lang, { fr: 'RejetÃ©', ar: 'Ù…Ø±ÙÙˆØ¶', en: 'Rejected', es: 'Rechazado', pt: 'Rejeitado', tr: 'Reddedildi' }), color: 'text-red-700 dark:text-red-300 border-red-400 dark:border-red-600', icon: XCircle },
     };
 
     const openModel = (model: ModelData) => {
@@ -794,7 +794,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                 </div>
                                 <div className="flex-1 min-w-0">
                                     <div className="flex items-center gap-1.5">
-                                        <h4 className={`text-[12px] font-semibold truncate ${isSelected ? 'text-indigo-900' : 'text-slate-800 dark:text-dk-text'}`}>
+                                        <h4 className={`text-[12px] font-semibold truncate ${isSelected ? 'text-indigo-900 dark:text-indigo-300' : 'text-slate-800 dark:text-dk-text'}`}>
                                             {model.meta_data?.nom_modele}
                                         </h4>
                                         {model.isPublishedToLibrary === false && (
@@ -803,14 +803,13 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                     </div>
                                     <div className="flex items-center gap-2 mt-0.5">
                                         {ref && (
-                                            <span className={`text-[9px] font-medium truncate ${isSelected ? 'text-indigo-500' : 'text-slate-400 dark:text-dk-muted'}`}>
+                                            <span className={`text-[9px] font-medium truncate ${isSelected ? 'text-indigo-500 dark:text-indigo-400' : 'text-slate-400 dark:text-dk-muted'}`}>
                                                 {ref}
                                             </span>
-                                        )}
-                                        {qte > 0 && (
-                                            <>
-                                                <span className="text-slate-300 dark:text-dk-muted text-[8px]">Â·</span>
-                                                <span className={`text-[9px] font-medium ${isSelected ? 'text-indigo-500' : 'text-slate-400 dark:text-dk-muted'}`}>
+                                            {qte > 0 && (
+                                                <>
+                                                    <span className="text-slate-300 dark:text-dk-muted text-[8px]">Â·</span>
+                                                    <span className={`text-[9px] font-medium ${isSelected ? 'text-indigo-500 dark:text-indigo-400' : 'text-slate-400 dark:text-dk-muted'}`}>
                                                     {qte} pcs
                                                 </span>
                                             </>
@@ -1192,7 +1191,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                     <div className="border-t border-slate-100 dark:border-dk-border pt-5 mb-6">
                                         <div className="flex items-center justify-between mb-4">
                                             <h4 className="text-[12px] font-bold text-slate-700 dark:text-dk-text-soft uppercase tracking-wide flex items-center gap-1.5">
-                                                <Scissors className="w-3.5 h-3.5 text-indigo-500" />
+                                                <Scissors className="w-3.5 h-3.5 text-indigo-500 dark:text-indigo-400" />
                                                 {tx(lang, { fr: 'Lignes de Matelas (Coupe)', ar: 'Ø®Ø·ÙˆØ· Ø§Ù„Ù…ÙØ±Ø´Ø§Øª (Ø§Ù„Ù‚Øµ)', en: 'Layer Lines (Cutting)', es: 'LÃ­neas de Capas (Corte)', pt: 'Linhas de Esteiramento (Corte)', tr: 'Katman HatlarÄ± (Kesim)' })}
                                             </h4>
                                             <button
@@ -1217,7 +1216,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                                             <th className="py-2.5 px-3 font-bold text-center w-24">{tx(lang, { fr: 'Plis', ar: 'Ø·ÙŠØ§Øª', en: 'Plys', es: 'Pliegues', pt: 'Dobras', tr: 'Kat SayÄ±sÄ±' })}</th>
                                                             <th className="py-2.5 px-3 font-bold text-center w-32">{tx(lang, { fr: 'Long. TracÃ©e (m)', ar: 'Ø§Ù„Ø·ÙˆÙ„ Ø§Ù„Ù…Ø±Ø³ÙˆÙ… (Ù…)', en: 'Traced Length (m)', es: 'Long. Trazada (m)', pt: 'Comp. TraÃ§ado (m)', tr: 'Ã‡izilen Uzunluk (m)' })}</th>
                                                             {sizes.map((s, idx) => (
-                                                                <th key={idx} className="py-2.5 px-2 font-bold text-center text-emerald-700 min-w-[50px]">{s}</th>
+                                                                <th key={idx} className="py-2.5 px-2 font-bold text-center text-emerald-700 dark:text-emerald-300 min-w-[50px]">{s}</th>
                                                             ))}
                                                             <th className="py-2.5 px-3 font-bold text-center w-24">{tx(lang, { fr: 'Total Pcs', ar: 'Ø¥Ø¬Ù…Ø§Ù„ÙŠ Ø§Ù„Ù‚Ø·Ø¹', en: 'Total Pcs', es: 'Total Pzs', pt: 'Total PeÃ§as', tr: 'Toplam Adet' })}</th>
                                                             <th className="py-2.5 px-3 font-bold text-center w-28">{tx(lang, { fr: 'Cons. (m)', ar: 'Ø§Ù„Ø§Ø³ØªÙ‡Ù„Ø§Ùƒ (Ù…)', en: 'Cons. (m)', es: 'Cons. (m)', pt: 'Cons. (m)', tr: 'TÃ¼k. (m)' })}</th>
@@ -1232,7 +1231,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                                             const lineCons = (line.plis || 0) * ((line.longTracee || 0) + 0.03);
                                                             
                                                             return (
-                                                                <tr key={line.id} className="hover:bg-slate-50/50 transition-colors">
+                                                                <tr key={line.id} className="hover:bg-slate-50/50 dark:hover:bg-dk-elevated/60 transition-colors">
                                                                     <td className="py-2 px-3 text-center font-bold text-slate-500 dark:text-dk-muted bg-slate-50 dark:bg-dk-bg/50">{lIdx + 1}</td>
                                                                     <td className="py-1 px-2">
                                                                         <input
@@ -1262,7 +1261,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                                                                 min="0"
                                                                                 value={line.ratios?.[s] || ''}
                                                                                 onChange={e => handleUpdateMatelasRatio(line.id, s, Number(e.target.value))}
-                                                                                className="w-full text-center py-1.5 px-1 bg-emerald-50 dark:bg-emerald-900/30/30 border border-slate-200 dark:border-dk-border rounded text-[12px] font-semibold text-emerald-700 outline-none focus:bg-emerald-50 focus:border-emerald-400"
+                                                                                className="w-full text-center py-1.5 px-1 bg-emerald-50 dark:bg-emerald-900/30/30 border border-slate-200 dark:border-dk-border rounded text-[12px] font-semibold text-emerald-700 dark:text-emerald-300 outline-none focus:bg-emerald-50 dark:focus:bg-emerald-900/30 focus:border-emerald-400"
                                                                                 placeholder="0"
                                                                             />
                                                                         </td>
@@ -1273,7 +1272,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                                                         <button
                                                                             type="button"
                                                                             onClick={() => handleDeleteMatelasLine(line.id)}
-                                                                            className="p-1.5 text-slate-400 dark:text-dk-muted hover:text-rose-600 rounded-md hover:bg-rose-50 transition-colors"
+                                                                            className="p-1.5 text-slate-400 dark:text-dk-muted hover:text-rose-600 rounded-md hover:bg-rose-50 dark:hover:bg-rose-900/30 transition-colors"
                                                                             title={tx(lang, { fr: 'Supprimer la ligne', ar: 'Ø­Ø°Ù Ø§Ù„Ø³Ø·Ø±', en: 'Delete line', es: 'Eliminar lÃ­nea', pt: 'Excluir linha', tr: 'SatÄ±rÄ± sil' })}
                                                                         >
                                                                             <Trash2 className="w-3.5 h-3.5" />
@@ -1325,7 +1324,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                                                         {matelasCalculations.perSize[s] || 0}
                                                                     </td>
                                                                 ))}
-                                                                <td className="py-2 px-2.5 text-center font-bold bg-indigo-100 text-indigo-800">{matelasCalculations.totalPieces}</td>
+                                                                <td className="py-2 px-2.5 text-center font-bold bg-indigo-100 dark:bg-indigo-900/30 text-indigo-800 dark:text-indigo-400">{matelasCalculations.totalPieces}</td>
                                                             </tr>
                                                             <tr className="border-t border-slate-200 dark:border-dk-border">
                                                                 <td className="py-2 px-2.5 font-bold text-slate-800 dark:text-dk-text">{tx(lang, { fr: 'Ã‰cart (DIF)', ar: 'Ø§Ù„ÙØ±Ù‚', en: 'Gap (DIF)', es: 'Diferencia (DIF)', pt: 'DiferenÃ§a (DIF)', tr: 'Fark (DIF)' })}</td>
@@ -1399,7 +1398,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                                                     <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
                                                                     <div>
                                                                         <p className="text-[11px] font-bold text-emerald-800">{tx(lang, { fr: 'Ã‰conomie de tissu rÃ©alisÃ©e !', ar: 'ØªÙ… ØªØ­Ù‚ÙŠÙ‚ ØªÙˆÙÙŠØ± ÙÙŠ Ø§Ù„Ù†Ø³ÙŠØ¬!', en: 'Fabric savings achieved!', es: 'Â¡Ahorro de tejido logrado!', pt: 'Economia de tecido realizada!', tr: 'KumaÅŸ tasarrufu saÄŸlandÄ±!' })}</p>
-                                                                        <p className="text-[10px] text-emerald-700/90 mt-0.5">
+                                                                        <p className="text-[10px] text-emerald-700/90 dark:text-emerald-300/90 mt-0.5">
                                                                             {tx(lang, { fr: 'Gain de', ar: 'ØªÙˆÙÙŠØ±', en: 'Savings of', es: 'Ahorro de', pt: 'Ganho de', tr: 'Tasarruf' })} <strong>{gap.toFixed(1)}m</strong> {tx(lang, { fr: 'par rapport au besoin thÃ©orique', ar: 'Ù…Ù‚Ø§Ø¨Ù„ Ø§Ù„Ø§Ø­ØªÙŠØ§Ø¬ Ø§Ù„Ù†Ø¸Ø±ÙŠ', en: 'compared to theoretical need', es: 'con respecto a la necesidad teÃ³rica', pt: 'em relaÃ§Ã£o Ã  necessidade teÃ³rica', tr: 'teorik ihtiyaca kÄ±yasla' })} ({targetNeed.toFixed(1)}m).
                                                                         </p>
                                                                     </div>
@@ -1502,7 +1501,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                                 {sizes.map((s, i) => (
                                                     <th
                                                         key={i}
-                                                        className="py-3 px-2 text-center font-bold border-l border-slate-200 dark:border-dk-border text-emerald-700 min-w-[70px] cursor-pointer hover:bg-emerald-50 transition-colors"
+                                                        className="py-3 px-2 text-center font-bold border-l border-slate-200 dark:border-dk-border text-emerald-700 dark:text-emerald-300 min-w-[70px] cursor-pointer hover:bg-emerald-50 dark:hover:bg-emerald-900/30 transition-colors"
                                                         onContextMenu={(e) => { e.preventDefault(); setMatrixCtx({ x: e.pageX, y: e.pageY, type: 'size', index: i, name: s }); }}
                                                         title={tx(lang, { fr: 'Clic droit pour modifier', ar: 'Ø§Ù†Ù‚Ø± Ø¨Ø²Ø± Ø§Ù„Ù…Ø§ÙˆØ³ Ø§Ù„Ø£ÙŠÙ…Ù† Ù„Ù„ØªØ¹Ø¯ÙŠÙ„', en: 'Right-click to edit', es: 'Clic derecho para editar', pt: 'Clique direito para editar', tr: 'DÃ¼zenlemek iÃ§in saÄŸ tÄ±klayÄ±n' })}
                                                     >
@@ -1535,7 +1534,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                                 const cHex = c.id && c.id.startsWith('#') ? c.id : null;
                                                 const palette = BADGE_COLORS[cIdx % BADGE_COLORS.length];
                                                 return (
-                                                    <tr key={`${cId}-${cIdx}`} className="hover:bg-emerald-50/30 transition-colors">
+                                                    <tr key={`${cId}-${cIdx}`} className="hover:bg-emerald-50/30 dark:hover:bg-emerald-900/30 transition-colors">
                                                         <td
                                                             className="py-2.5 px-3 border-l border-slate-200 dark:border-dk-border font-semibold text-slate-800 dark:text-dk-text cursor-pointer hover:bg-slate-50 dark:hover:bg-dk-elevated/60 transition-colors"
                                                             onContextMenu={(e) => { e.preventDefault(); setMatrixCtx({ x: e.pageX, y: e.pageY, type: 'color', index: cIdx, id: cId, name: cName }); }}
@@ -1569,10 +1568,10 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                                             const key = `${cId}_${sIdx}`;
                                                             const val = gridQuantities[key] || '';
                                                             return (
-                                                                <td key={sIdx} className="p-0 border-l border-slate-100 dark:border-dk-border bg-white dark:bg-dk-surface hover:bg-emerald-50/50 transition-colors">
+                                                                <td key={sIdx} className="p-0 border-l border-slate-100 dark:border-dk-border bg-white dark:bg-dk-surface hover:bg-emerald-50/50 dark:hover:bg-emerald-900/30 transition-colors">
                                                                     <input
                                                                         type="number" min="0"
-                                                                        className="w-full text-center py-3 bg-transparent outline-none focus:bg-emerald-50 focus:text-emerald-700 font-semibold text-[12px] placeholder:text-slate-200 transition-colors"
+                                                                        className="w-full text-center py-3 bg-transparent outline-none focus:bg-emerald-50 dark:focus:bg-emerald-900/30 focus:text-emerald-700 dark:focus:text-emerald-300 font-semibold text-[12px] placeholder:text-slate-200 transition-colors"
                                                                         placeholder="0"
                                                                         value={val}
                                                                         onChange={(e) => updateQuantity(cId, sIdx, e.target.value)}
@@ -1632,7 +1631,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                                 else { if (confirm(`${tx(lang, { fr: 'Supprimer la couleur', ar: 'Ø­Ø°Ù Ø§Ù„Ù„ÙˆÙ†', en: 'Delete color', es: 'Eliminar color', pt: 'Excluir cor', tr: 'Rengi sil' })} "${matrixCtx.name}" ?`)) removeColor(matrixCtx.id!); }
                                                 setMatrixCtx(null);
                                             }}
-                                            className="w-full text-left px-3 py-1.5 hover:bg-rose-50 text-rose-600 dark:text-rose-400 flex items-center gap-2"
+                                            className="w-full text-left px-3 py-1.5 hover:bg-rose-50 dark:hover:bg-rose-900/30 text-rose-600 dark:text-rose-400 flex items-center gap-2"
                                         >
                                             {tx(lang, { fr: 'Supprimer', ar: 'Ø­Ø°Ù', en: 'Delete', es: 'Eliminar', pt: 'Excluir', tr: 'Sil' })}
                                         </button>
@@ -1841,7 +1840,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                 setDeleteConfirm(quickActionMenu.modelId);
                                 setQuickActionMenu(null);
                             }}
-                            className="w-full text-left px-3 py-2 hover:bg-rose-50 text-rose-600 dark:text-rose-400 flex items-center gap-2"
+                            className="w-full text-left px-3 py-2 hover:bg-rose-50 dark:hover:bg-rose-900/30 text-rose-600 dark:text-rose-400 flex items-center gap-2"
                         >
                                                             <Trash2 className="w-3.5 h-3.5" /> {tx(lang, { fr: 'Supprimer', ar: 'Ø­Ø°Ù', en: 'Delete', es: 'Eliminar', pt: 'Excluir', tr: 'Sil' })}
                         </button>
@@ -1931,7 +1930,7 @@ function BoardView({
                                             className={`bg-white dark:bg-dk-surface border rounded-xl p-3 cursor-pointer transition-all duration-200 group ${
                                                 draggedModel === m.id
                                                     ? 'opacity-40 scale-95 border-slate-300'
-                                                    : `border-slate-200 dark:border-dk-border hover:shadow-lg hover:shadow-slate-200/50 ${col.cardBorder}`
+                                                    : `border-slate-200 dark:border-dk-border hover:shadow-lg dark:hover:shadow-dk-lg hover:shadow-slate-200/50 ${col.cardBorder}`
                                             }`}
                                         >
                                             {/* Thumbnail */}
@@ -2106,7 +2105,7 @@ function CalendarView({ models, onOpen, getProgress }: {
                                         );
                                     })}
                                     {dayModels.length > 3 && (
-                                        <div className="text-[9px] text-indigo-500 font-semibold px-1">+{dayModels.length - 3} {tx(lang, { fr: 'de plus', ar: 'Ø£Ø®Ø±Ù‰', en: 'more', es: 'mÃ¡s', pt: 'mais', tr: 'daha fazla' })}</div>
+                                        <div className="text-[9px] text-indigo-500 dark:text-indigo-400 font-semibold px-1">+{dayModels.length - 3} {tx(lang, { fr: 'de plus', ar: 'Ø£Ø®Ø±Ù‰', en: 'more', es: 'mÃ¡s', pt: 'mais', tr: 'daha fazla' })}</div>
                                     )}
                                 </div>
                             </div>
@@ -2220,7 +2219,7 @@ function StatsView({ models, statusMap }: { models: ModelData[]; statusMap: any 
                 {/* Avg waste + Production qty */}
                 <div className="bg-white dark:bg-dk-surface rounded-xl border border-slate-200 dark:border-dk-border p-4 md:p-6">
                     <div className="flex items-center gap-2 mb-4">
-                        <Zap className="w-4 h-4 text-amber-500" />
+                        <Zap className="w-4 h-4 text-amber-500 dark:text-amber-400" />
                         <h3 className="text-[14px] font-semibold text-slate-800 dark:text-dk-text">{tx(lang, { fr: 'Performance', ar: 'Ø§Ù„Ø£Ø¯Ø§Ø¡', en: 'Performance', es: 'Rendimiento', pt: 'Desempenho', tr: 'Performans' })}</h3>
                     </div>
                     <div className="space-y-4">
@@ -2301,7 +2300,7 @@ function StatCard({ label, value, icon: Icon, color, delay }: {
 }) {
     return (
         <div
-            className="bg-white dark:bg-dk-surface rounded-xl border border-slate-200 dark:border-dk-border p-4 hover:shadow-md transition-all duration-200 hover:border-slate-300 group"
+            className="bg-white dark:bg-dk-surface rounded-xl border border-slate-200 dark:border-dk-border p-4 hover:shadow-md dark:hover:shadow-dk-md transition-all duration-200 hover:border-slate-300 group"
             style={{ animation: 'coupe-fade-in 300ms ease-out forwards', animationDelay: `${delay || 0}ms`, opacity: 0 }}
         >
             <div className="flex items-center justify-between mb-2">
@@ -2388,7 +2387,7 @@ function EmptyDashboard({
             {/* Quick guide */}
             <div className="bg-gradient-to-r from-indigo-50 to-rose-50 rounded-xl border border-indigo-100 p-4 md:p-5">
                 <div className="flex items-center gap-2 mb-3">
-                    <Zap className="w-4 h-4 text-indigo-500" />
+                    <Zap className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />
                     <h3 className="text-[13px] font-bold text-slate-800 dark:text-dk-text">{tx(lang, { fr: 'Guide Rapide', ar: 'Ø¯Ù„ÙŠÙ„ Ø³Ø±ÙŠØ¹', en: 'Quick Guide', es: 'GuÃ­a RÃ¡pida', pt: 'Guia RÃ¡pido', tr: 'HÄ±zlÄ± Rehber' })}</h3>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
