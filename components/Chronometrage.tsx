@@ -2155,7 +2155,7 @@ export default function Chronometrage({
                                     {activeOperatorStationId === `${st.id}__${op.id}` && (
                                         <div
                                             onClick={e => e.stopPropagation()}
-                                            className="absolute z-[200] left-0 top-full mt-1.5 w-full sm:w-72 max-h-60 sm:max-h-72 overflow-y-auto bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border/90 rounded-xl sm:rounded-2xl shadow-xl dark:shadow-dk-elevated divide-y divide-slate-100 p-1.5"
+                                            className="absolute z-[200] left-0 top-full mt-1.5 w-full sm:w-72 max-h-60 sm:max-h-72 overflow-y-auto bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border/90 rounded-xl sm:rounded-2xl shadow-xl dark:shadow-dk-elevated divide-y divide-slate-100 dark:divide-dk-border p-1.5"
                                         >
                                             <div className="px-3 py-2 bg-slate-50 dark:bg-dk-bg/80 rounded-t-lg text-[9px] sm:text-[10px] font-black text-slate-400 dark:text-dk-muted uppercase tracking-wider sticky top-0 z-10 border-b border-slate-100 dark:border-dk-border flex items-center justify-between">
                                                 <span>{tx(lang, { fr: "Membres d'effectifs disponibles", ar: 'أعضاء الفريق المتاحين', en: 'Available staff members', es: 'Miembros de personal disponibles', pt: 'Membros da equipe disponíveis', tr: 'Mevcut personel üyeleri' })}</span>
@@ -2871,7 +2871,7 @@ export default function Chronometrage({
 
                                 {/* Suggestions d'opérations : ancrées juste sous le champ "Opération / Desc" */}
                                 {activeSuggestionStationId === station.id && suggestions.length > 0 && (
-                                    <div className="absolute z-[150] left-0 top-full mt-1.5 w-full sm:w-80 max-h-56 sm:max-h-72 overflow-y-auto bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border/90 rounded-xl sm:rounded-2xl shadow-xl dark:shadow-dk-elevated divide-y divide-slate-100 p-1.5">
+                                    <div className="absolute z-[150] left-0 top-full mt-1.5 w-full sm:w-80 max-h-56 sm:max-h-72 overflow-y-auto bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border/90 rounded-xl sm:rounded-2xl shadow-xl dark:shadow-dk-elevated divide-y divide-slate-100 dark:divide-dk-border p-1.5">
                                         {suggestions.map(op => (
                                             <button
                                                 key={op.id}
@@ -2948,7 +2948,7 @@ export default function Chronometrage({
                                         {activeOperatorStationId === station.id && (
                                             <div
                                                 onClick={e => e.stopPropagation()}
-                                                className="absolute z-[200] left-0 top-full mt-1.5 w-full sm:w-72 max-h-60 sm:max-h-72 overflow-y-auto bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border/90 rounded-xl sm:rounded-2xl shadow-xl dark:shadow-dk-elevated divide-y divide-slate-100 p-1.5"
+                                                className="absolute z-[200] left-0 top-full mt-1.5 w-full sm:w-72 max-h-60 sm:max-h-72 overflow-y-auto bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border/90 rounded-xl sm:rounded-2xl shadow-xl dark:shadow-dk-elevated divide-y divide-slate-100 dark:divide-dk-border p-1.5"
                                             >
                                                 <div className="px-3 py-2 bg-slate-50 dark:bg-dk-bg/80 rounded-t-lg text-[9px] sm:text-[10px] font-black text-slate-400 dark:text-dk-muted uppercase tracking-wider sticky top-0 z-10 border-b border-slate-100 dark:border-dk-border flex items-center justify-between">
                                                     <span>{tx(lang, { fr: "Membres d'effectifs disponibles", ar: 'أعضاء الفريق المتاحين', en: 'Available staff members', es: 'Miembros de personal disponibles', pt: 'Membros da equipe disponíveis', tr: 'Mevcut personel üyeleri' })}</span>
@@ -3673,7 +3673,7 @@ export default function Chronometrage({
                                         )}
                                     </tr>
                                 </thead>
-                                <tbody className="divide-y divide-slate-100">
+                                <tbody className="divide-y divide-slate-100 dark:divide-dk-border">
                                     {filteredOperations.length === 0 ? (
                                         <tr>
                                             <td colSpan={desktopColSpan} className="px-8 py-16 text-center">
@@ -3941,7 +3941,7 @@ export default function Chronometrage({
                         </div>
         
                         {/* ─── MOBILE CARD VIEW ─── */}
-                        <div className="md:hidden divide-y divide-slate-100">
+                        <div className="md:hidden divide-y divide-slate-100 dark:divide-dk-border">
                             {filteredOperations.length === 0 ? (
                                 <div className="px-6 py-12 text-center">
                                     <div className="w-12 h-12 bg-slate-100 dark:bg-dk-elevated rounded-full flex items-center justify-center mx-auto mb-3">
@@ -4379,7 +4379,7 @@ export default function Chronometrage({
                                                 <th className="py-2.5 px-2 text-center font-black text-indigo-700 dark:text-dk-accent-text bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20/50 min-w-[60px]">Δ</th>
                                             </tr>
                                         </thead>
-                                        <tbody className="divide-y divide-slate-100">
+                                        <tbody className="divide-y divide-slate-100 dark:divide-dk-border">
                                             {filteredOperations.map(op => {
                                                 const series = sessions.map(s => s.entries[op.id]?.tempMajore);
                                                 const firstV = series.find(v => v !== undefined && v !== null);

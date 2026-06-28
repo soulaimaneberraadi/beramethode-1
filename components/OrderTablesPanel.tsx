@@ -117,7 +117,7 @@ const OrderTablesPanel: React.FC<OrderTablesPanelProps> = ({
                                     <th className="py-2.5 px-3 text-center font-semibold text-slate-700 dark:text-dk-text-soft bg-slate-100/60 w-24">{tx(lang, {fr:"Total",ar:"المجموع",en:"Total",es:"Total",pt:"Total",tr:"Toplam"})}</th>
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-slate-100">
+                            <tbody className="divide-y divide-slate-100 dark:divide-dk-border">
                                 {colors.map((c, cIdx) => {
                                     const rowTotal = matrixStats.rowTotals[c.id] || 0;
                                     const rowTotalCost = rowTotal * prFor(c.id);
@@ -230,7 +230,7 @@ const OrderTablesPanel: React.FC<OrderTablesPanelProps> = ({
                                         <th className="py-2 px-3 text-center font-semibold text-emerald-600 dark:text-emerald-400">{tx(lang, {fr:"Marge/pièce",ar:"الهامش/قطعة",en:"Margin/pc",es:"Margen/pieza",pt:"Margem/peça",tr:"Kar marjı/adet"})}</th>
                                     </tr>
                                 </thead>
-                                <tbody className="divide-y divide-slate-100">
+                                <tbody className="divide-y divide-slate-100 dark:divide-dk-border">
                                     {(() => {
                                         const seenL = new Set<string>();
                                         return colors.filter(c => { if (seenL.has(c.id)) return false; seenL.add(c.id); return true; }).map((c, cIdx) => {

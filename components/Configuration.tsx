@@ -1628,7 +1628,7 @@ export default function Configuration({ settings, setSettings, lang, machines, n
                                         <th className="px-6 py-3">{t.apsActivityRate}</th>
                                     </tr>
                                 </thead>
-                                <tbody className="divide-y divide-slate-100 text-sm font-medium text-slate-700 dark:text-dk-text-soft">
+                                <tbody className="divide-y divide-slate-100 dark:divide-dk-border text-sm font-medium text-slate-700 dark:text-dk-text-soft">
                                     {Array.from({ length: settings.chainsCount || 4 }).map((_, i) => {
                                         const chainKey = `CHAINE ${i + 1}`;
                                         const chainDisplayName = settings.chainNames?.[chainKey] || chainKey;

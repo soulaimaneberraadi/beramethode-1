@@ -3865,7 +3865,7 @@ export default function Implantation({
                                         <th className="py-3 px-4 w-24 text-center border-b border-slate-200 dark:border-dk-border text-emerald-600 dark:text-emerald-400">{tx(lang,{fr:'Temps',ar:'الوقت',en:'Time',es:'Tiempo',pt:'Tempo',tr:'Süre'})}</th>
                                     </tr>
                                 </thead>
-                                <tbody className="divide-y divide-slate-100 text-sm">
+                                <tbody className="divide-y divide-slate-100 dark:divide-dk-border text-sm">
                                     {modalOps.map((op, idx) => {
                                         const isForced = op.forcedTime !== undefined;
                                         return (

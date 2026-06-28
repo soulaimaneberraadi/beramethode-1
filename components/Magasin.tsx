@@ -2208,7 +2208,7 @@ export default function Magasin({ models = [], planningEvents = [], settings }: 
                                     <p className="text-xl font-black text-slate-400 dark:text-dk-muted">{t('Aucune demande en attente.')}</p>
                                 </div>
                             ) : (
-                                <div className="divide-y divide-slate-100">
+                                <div className="divide-y divide-slate-100 dark:divide-dk-border">
                                     {demandes?.map(d => {
                                         const p = products.find(x => x.designation === d.produitDesignation);
                                         const st = p ? stockQty(lots, p.id) : 0;
@@ -2601,7 +2601,7 @@ export default function Magasin({ models = [], planningEvents = [], settings }: 
                                     <button onClick={() => { if (confirm(t('Annuler cette session ?'))) setInvSession(null); }} className="text-rose-500 dark:text-rose-300 hover:text-rose-600 dark:text-rose-300 font-bold text-sm bg-rose-50 dark:bg-rose-900/30 px-3 py-1 rounded-lg">{t('Annuler')}</button>
                                 </div>
 
-                                <div className="divide-y divide-slate-100">
+                                <div className="divide-y divide-slate-100 dark:divide-dk-border">
                                     {invSession.items.map((item, idx) => {
                                         const p = products.find(x => x.id === item.pid);
                                         const st = p ? stockQty(lots, p.id) : 0;
