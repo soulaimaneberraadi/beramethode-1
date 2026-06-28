@@ -521,10 +521,10 @@ export default function EventEditor({ open, mode, initial, models, chains, plann
                 {/* Lots / Pedidos du modèle — sélection rapide */}
                 {selectedModel && (modelLots.length > 0 ? (
                     <div className="space-y-3">
-                        <div className="rounded-lg border border-white/25 bg-white/40 backdrop-blur-md p-3 shadow-sm">
+                        <div className="rounded-lg border border-white/25 dark:border-dk-border/30 bg-white/40 dark:bg-dk-surface/40 backdrop-blur-md p-3 shadow-sm">
                             <div className="flex items-center gap-1.5 mb-2">
                                 <Layers className="w-3.5 h-3.5 text-indigo-600" />
-                                <span className="text-[11px] font-semibold text-slate-700">{tx(lang,{fr:'Pididos du modèle — choisis ceux à lancer',ar:'Pididos الخاصة بالموديل — اختر ما تريد إطلاقه',en:'Model Pididos — choose which to launch',es:'Pididos del modelo — elige los que lanzar',pt:'Pididos do modelo — escolha os que lançar',tr:'Model Pididoları — başlatılacakları seç'})}</span>
+                                <span className="text-[11px] font-semibold text-slate-700 dark:text-dk-text-soft">{tx(lang,{fr:'Pididos du modèle — choisis ceux à lancer',ar:'Pididos الخاصة بالموديل — اختر ما تريد إطلاقه',en:'Model Pididos — choose which to launch',es:'Pididos del modelo — elige los que lanzar',pt:'Pididos do modelo — escolha os que lançar',tr:'Model Pididoları — başlatılacakları seç'})}</span>
                             </div>
                             <div className="flex flex-wrap gap-2">
                                 {modelLots.map(lot => {
@@ -542,14 +542,14 @@ export default function EventEditor({ open, mode, initial, models, chains, plann
                                             key={lot.id}
                                             type="button"
                                             onClick={() => toggleLot(lot.id)}
-                                            className={`inline-flex items-center gap-1.5 h-8 px-2.5 rounded-md border text-[12px] font-medium transition-colors ${active ? 'border-indigo-300 bg-indigo-50 text-indigo-800' : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'}`}
+                                            className={`inline-flex items-center gap-1.5 h-8 px-2.5 rounded-md border text-[12px] font-medium transition-colors ${active ? 'border-indigo-300 bg-indigo-50 text-indigo-800' : 'border-slate-200 dark:border-dk-border bg-white text-slate-600 dark:text-dk-muted hover:bg-slate-50'}`}
                                         >
                                             <span 
-                                                className="w-2.5 h-2.5 rounded-full border border-slate-300" 
+                                                className="w-2.5 h-2.5 rounded-full border border-slate-300 dark:border-dk-muted" 
                                                 style={{ backgroundColor: clientColor || '#ccc' }} 
                                             />
                                             <span className="truncate max-w-[150px] font-semibold">{suffix}</span>
-                                            <span className="tabular-nums text-slate-400 font-bold">{qty} {tx(lang,{fr:'pcs',ar:'قطعة',en:'pcs',es:'uds',pt:'pcs',tr:'adet'})}</span>
+                                            <span className="tabular-nums text-slate-400 dark:text-dk-muted font-bold">{qty} {tx(lang,{fr:'pcs',ar:'قطعة',en:'pcs',es:'uds',pt:'pcs',tr:'adet'})}</span>
                                             <span className="text-[11px]" title={matAv.label}>{matAv.emoji}</span>
                                             {active && <Check className="w-3.5 h-3.5 text-indigo-600" />}
                                         </button>
@@ -557,7 +557,7 @@ export default function EventEditor({ open, mode, initial, models, chains, plann
                                 })}
                             </div>
                             {selectedLotId && (
-                                <p className="mt-2 text-[10px] text-slate-400">
+                                <p className="mt-2 text-[10px] text-slate-400 dark:text-dk-muted">
                                     {tx(lang,{fr:'Le lot sélectionné pré-remplit les dates, client, quantité et répartition.',ar:'الدفعة المحددة تملأ التواريخ والعميل والكمية والتوزيع مسبقاً.',en:'The selected lot pre-fills dates, client, quantity and distribution.',es:'El lote seleccionado rellena las fechas, cliente, cantidad y distribución.',pt:'O lote selecionado pré-preenche as datas, cliente, quantidade e distribuição.',tr:'Seçilen parti tarihleri, müşteriyi, miktarı ve dağılımı önceden doldurur.'})}
                                 </p>
                             )}
@@ -565,9 +565,9 @@ export default function EventEditor({ open, mode, initial, models, chains, plann
 
                         {/* Logistics details card for the selected lot */}
                         {activeLot && (
-                            <div className="rounded-xl border border-white/20 bg-white/55 backdrop-blur-md p-3 space-y-3 shadow-sm animate-in fade-in duration-200">
-                                <div className="flex items-center justify-between border-b border-slate-100 pb-2">
-                                    <h4 className="text-[11px] font-bold text-slate-700 flex items-center gap-1.5 uppercase tracking-wide">
+                            <div className="rounded-xl border border-white/20 dark:border-dk-border/20 bg-white/55 dark:bg-dk-surface/55 backdrop-blur-md p-3 space-y-3 shadow-sm animate-in fade-in duration-200">
+                                <div className="flex items-center justify-between border-b border-slate-100 dark:border-dk-border pb-2">
+                                    <h4 className="text-[11px] font-bold text-slate-700 dark:text-dk-text-soft flex items-center gap-1.5 uppercase tracking-wide">
                                         <Package className="w-3.5 h-3.5 text-indigo-500" />
                                         {tx(lang,{fr:'Suivi Logistique',ar:'المتابعة اللوجستية',en:'Logistics Tracking',es:'Seguimiento Logístico',pt:'Acompanhamento Logístico',tr:'Lojistik Takibi'})} : {activeLot.modelName?.split(' — ').slice(1).join(' — ') || activeLot.modelName}
                                     </h4>
@@ -576,7 +576,7 @@ export default function EventEditor({ open, mode, initial, models, chains, plann
                                         {(() => {
                                             const status = activeLot.status || 'READY';
                                             const label = status === 'DONE' ? tx(lang,{fr:'Terminé',ar:'منتهي',en:'Completed',es:'Terminado',pt:'Concluído',tr:'Tamamlandı'}) : status === 'BLOCKED_STOCK' ? tx(lang,{fr:'Bloqué',ar:'محظور',en:'Blocked',es:'Bloqueado',pt:'Bloqueado',tr:'Engellendi'}) : status === 'IN_PROGRESS' ? tx(lang,{fr:'En cours',ar:'قيد التنفيذ',en:'In Progress',es:'En curso',pt:'Em andamento',tr:'Devam ediyor'}) : tx(lang,{fr:'Prêt',ar:'جاهز',en:'Ready',es:'Listo',pt:'Pronto',tr:'Hazır'});
-                                            const colorCls = status === 'DONE' ? 'bg-slate-100 text-slate-600 border-slate-200' : status === 'BLOCKED_STOCK' ? 'bg-rose-50 text-rose-700 border-rose-200' : status === 'IN_PROGRESS' ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200';
+                                            const colorCls = status === 'DONE' ? 'bg-slate-100 dark:bg-dk-elevated/60 text-slate-600 dark:text-dk-muted border-slate-200 dark:border-dk-border' : status === 'BLOCKED_STOCK' ? 'bg-rose-50 text-rose-700 border-rose-200' : status === 'IN_PROGRESS' ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200';
                                             return (
                                                 <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold border ${colorCls}`}>
                                                     {label}
@@ -588,7 +588,7 @@ export default function EventEditor({ open, mode, initial, models, chains, plann
                                             <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold border flex items-center gap-1 ${
                                                 lotMaterialAvailability.color === 'green' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
                                                 lotMaterialAvailability.color === 'yellow' ? 'bg-amber-50 text-amber-700 border-amber-200' :
-                                                lotMaterialAvailability.color === 'red' ? 'bg-rose-50 text-rose-700 border-rose-200' : 'bg-slate-50 text-slate-600 border-slate-200'
+                                                lotMaterialAvailability.color === 'red' ? 'bg-rose-50 text-rose-700 border-rose-200' : 'bg-slate-50 text-slate-600 dark:text-dk-muted border-slate-200 dark:border-dk-border'
                                             }`}>
                                                 <span>{lotMaterialAvailability.emoji}</span>
                                                 <span>{lotMaterialAvailability.label}</span>
@@ -597,23 +597,23 @@ export default function EventEditor({ open, mode, initial, models, chains, plann
                                     </div>
                                 </div>
 
-                                <div className="grid grid-cols-2 gap-4 text-[11px] bg-white/40 backdrop-blur-sm p-2.5 rounded-lg border border-white/20 shadow-xs">
+                                <div className="grid grid-cols-2 gap-4 text-[11px] bg-white/40 dark:bg-dk-surface/40 backdrop-blur-sm p-2.5 rounded-lg border border-white/20 dark:border-dk-border/20 shadow-xs">
                                     <div className="space-y-1">
-                                        <span className="text-slate-400 font-bold uppercase tracking-wider text-[9px]">Planning</span>
-                                        <div className="space-y-0.5 text-slate-700 font-semibold">
+                                        <span className="text-slate-400 dark:text-dk-muted font-bold uppercase tracking-wider text-[9px]">Planning</span>
+                                        <div className="space-y-0.5 text-slate-700 dark:text-dk-text-soft font-semibold">
                                             <div className="flex justify-between">
                                                 <span>{tx(lang,{fr:'Début :',ar:'البداية :',en:'Start:',es:'Inicio:',pt:'Início:',tr:'Başlangıç:'})}</span>
-                                                <span className="font-mono text-slate-900">{activeLot.startDate || activeLot.dateLancement || '—'}</span>
+                                                <span className="font-mono text-slate-900 dark:text-dk-text">{activeLot.startDate || activeLot.dateLancement || '—'}</span>
                                             </div>
                                             <div className="flex justify-between">
                                                 <span>{tx(lang,{fr:'DDS (Délai) :',ar:'DDS (الموعد النهائي) :',en:'DDS (Deadline):',es:'DDS (Plazo):',pt:'DDS (Prazo):',tr:'DDS (Teslim tarihi):'})}</span>
-                                                <span className="font-mono text-slate-900">{activeLot.strictDeadline_DDS ? activeLot.strictDeadline_DDS.split('T')[0] : '—'}</span>
+                                                <span className="font-mono text-slate-900 dark:text-dk-text">{activeLot.strictDeadline_DDS ? activeLot.strictDeadline_DDS.split('T')[0] : '—'}</span>
                                             </div>
                                         </div>
                                     </div>
                                     <div className="space-y-1">
-                                        <span className="text-slate-400 font-bold uppercase tracking-wider text-[9px]">{tx(lang,{fr:'Fournitures',ar:'التجهيزات',en:'Supplies',es:'Suministros',pt:'Suprimentos',tr:'Malzemeler'})}</span>
-                                        <div className="space-y-0.5 text-slate-700 font-semibold">
+                                        <span className="text-slate-400 dark:text-dk-muted font-bold uppercase tracking-wider text-[9px]">{tx(lang,{fr:'Fournitures',ar:'التجهيزات',en:'Supplies',es:'Suministros',pt:'Suprimentos',tr:'Malzemeler'})}</span>
+                                        <div className="space-y-0.5 text-slate-700 dark:text-dk-text-soft font-semibold">
                                             <div className="flex justify-between items-center">
                                                 <span>{tx(lang,{fr:'Arrivée prévue :',ar:'الوصول المتوقع :',en:'Expected arrival:',es:'Llegada prevista:',pt:'Chegada prevista:',tr:'Beklenen varış:'})}</span>
                                                 {activeLot.fournisseurDate ? (
@@ -631,7 +631,7 @@ export default function EventEditor({ open, mode, initial, models, chains, plann
                                 {/* Materials breakdown list */}
                                 {lotMaterialAvailability && lotMaterialAvailability.details.length > 0 && (
                                     <div className="pt-1.5">
-                                        <div className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
+                                        <div className="text-[9px] font-bold text-slate-400 dark:text-dk-muted uppercase tracking-wider mb-1.5">
                                             {tx(lang,{fr:'Taux de Couverture des Fournitures (BOM)',ar:'معدل تغطية التجهيزات (BOM)',en:'Supplies Coverage Rate (BOM)',es:'Tasa de Cobertura de Suministros (BOM)',pt:'Taxa de Cobertura de Suprimentos (BOM)',tr:'Malzeme Karşılama Oranı (BOM)'})}
                                         </div>
                                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 max-h-[120px] overflow-y-auto pr-1">
@@ -655,10 +655,10 @@ export default function EventEditor({ open, mode, initial, models, chains, plann
                     </div>
                 ) : (
                     pididoOptions.length > 0 && (
-                        <div className="rounded-lg border border-white/25 bg-white/40 backdrop-blur-md p-3 shadow-sm">
+                        <div className="rounded-lg border border-white/25 dark:border-dk-border/30 bg-white/40 dark:bg-dk-surface/40 backdrop-blur-md p-3 shadow-sm">
                             <div className="flex items-center gap-1.5 mb-2">
                                 <Palette className="w-3.5 h-3.5 text-indigo-600" />
-                                <span className="text-[11px] font-semibold text-slate-700">{tx(lang,{fr:'Pididos du modèle — choisis ceux à lancer',ar:'Pididos الخاصة بالموديل — اختر ما تريد إطلاقه',en:'Model Pididos — choose which to launch',es:'Pididos del modelo — elige los que lanzar',pt:'Pididos do modelo — escolha os que lançar',tr:'Model Pididoları — başlatılacakları seç'})}</span>
+                                <span className="text-[11px] font-semibold text-slate-700 dark:text-dk-text-soft">{tx(lang,{fr:'Pididos du modèle — choisis ceux à lancer',ar:'Pididos الخاصة بالموديل — اختر ما تريد إطلاقه',en:'Model Pididos — choose which to launch',es:'Pididos del modelo — elige los que lanzar',pt:'Pididos do modelo — escolha os que lançar',tr:'Model Pididoları — başlatılacakları seç'})}</span>
                             </div>
                             <div className="flex flex-wrap gap-2">
                                 {pididoOptions.map(p => {
@@ -669,18 +669,18 @@ export default function EventEditor({ open, mode, initial, models, chains, plann
                                             key={p.id}
                                             type="button"
                                             onClick={() => togglePidido(p.id)}
-                                            className={`inline-flex items-center gap-1.5 h-8 px-2.5 rounded-md border text-[12px] font-medium transition-colors ${active ? 'border-indigo-300 bg-indigo-50 text-indigo-800' : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'}`}
+                                            className={`inline-flex items-center gap-1.5 h-8 px-2.5 rounded-md border text-[12px] font-medium transition-colors ${active ? 'border-indigo-300 bg-indigo-50 text-indigo-800' : 'border-slate-200 dark:border-dk-border bg-white text-slate-600 dark:text-dk-muted hover:bg-slate-50'}`}
                                         >
-                                            <span className={`w-2.5 h-2.5 rounded-full border border-slate-300 ${hex ? '' : 'bg-slate-300'}`} style={hex ? { backgroundColor: hex } : undefined} />
+                                            <span className={`w-2.5 h-2.5 rounded-full border border-slate-300 dark:border-dk-muted ${hex ? '' : 'bg-slate-300'}`} style={hex ? { backgroundColor: hex } : undefined} />
                                             <span className="truncate max-w-[110px]">{p.name}</span>
-                                            <span className="tabular-nums text-slate-400">{p.qty}</span>
+                                            <span className="tabular-nums text-slate-400 dark:text-dk-muted">{p.qty}</span>
                                             {active && <Check className="w-3.5 h-3.5 text-indigo-600" />}
                                         </button>
                                     );
                                 })}
                             </div>
                             {selectedPididos.size > 0 && (
-                                <p className="mt-2 text-[10px] text-slate-400">
+                                <p className="mt-2 text-[10px] text-slate-400 dark:text-dk-muted">
                                     {tx(lang,{fr:'La répartition ci-dessous est pré-remplie depuis la fiche pour les pididos choisis.',ar:'التوزيع أدناه معبأ مسبقاً من البطاقة للـ pididos المختارة.',en:'The distribution below is pre-filled from the fiche for the selected pididos.',es:'La distribución siguiente está prellenada desde la ficha para los pididos seleccionados.',pt:'A distribuição abaixo é pré-preenchida da ficha para os pididos selecionados.',tr:'Aşağıdaki dağılım, seçilen pididolar için fiche\'dan önceden doldurulmuştur.'})}
                                 </p>
                             )}
@@ -724,9 +724,9 @@ export default function EventEditor({ open, mode, initial, models, chains, plann
                                 type="checkbox"
                                 checked={isLocked}
                                 onChange={(e) => setIsLocked(e.target.checked)}
-                                className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 h-3.5 w-3.5"
+                                className="rounded border-slate-300 dark:border-dk-muted text-indigo-600 focus:ring-indigo-500 h-3.5 w-3.5"
                             />
-                            <span className="text-[11px] font-semibold text-slate-500 select-none">
+                            <span className="text-[11px] font-semibold text-slate-500 dark:text-dk-muted select-none">
                                 {tx(lang,{fr:'Figer la date (ne pas décaler automatiquement)',ar:'تجميد التاريخ (عدم النقل تلقائياً)',en:'Freeze date (do not shift automatically)',es:'Congelar fecha (no desplazar automáticamente)',pt:'Congelar data (não deslocar automaticamente)',tr:'Tarihi dondur (otomatik kaydırma)'})}
                             </span>
                         </label>
@@ -739,7 +739,7 @@ export default function EventEditor({ open, mode, initial, models, chains, plann
                     />
 
                     <div className="space-y-1.5">
-                        <label className="block text-[11px] font-medium text-slate-600">{tx(lang,{fr:'Client',ar:'العميل',en:'Client',es:'Cliente',pt:'Cliente',tr:'Müşteri'})}</label>
+                        <label className="block text-[11px] font-medium text-slate-600 dark:text-dk-muted">{tx(lang,{fr:'Client',ar:'العميل',en:'Client',es:'Cliente',pt:'Cliente',tr:'Müşteri'})}</label>
                         <div className="relative">
                             <span
                                 className="absolute left-3 top-1/2 -translate-y-1/2 w-2 h-2 rounded-full"
@@ -747,7 +747,7 @@ export default function EventEditor({ open, mode, initial, models, chains, plann
                             />
                             <input
                                 type="text"
-                                className="w-full h-9 pl-8 pr-3 text-[13px] text-slate-900 placeholder:text-slate-400 bg-white border border-slate-200 rounded-md focus:border-slate-400 focus:ring-2 focus:ring-slate-100 outline-none transition-colors"
+                                className="w-full h-9 pl-8 pr-3 text-[13px] text-slate-900 dark:text-dk-text placeholder:text-slate-400 dark:text-dk-muted bg-white border border-slate-200 dark:border-dk-border rounded-md focus:border-slate-400 focus:ring-2 focus:ring-slate-100 outline-none transition-colors"
                                 value={clientName}
                                 onChange={(e) => setClientName(e.target.value)}
                                 placeholder={tx(lang,{fr:'Nom du client',ar:'اسم العميل',en:'Client name',es:'Nombre del cliente',pt:'Nome do cliente',tr:'Müşteri adı'})}
@@ -765,16 +765,16 @@ export default function EventEditor({ open, mode, initial, models, chains, plann
 
                 {/* Répartition Tailles / Couleurs */}
                 {selectedModel && colors.length > 0 && sizes.length > 0 && (
-                    <div className="border-t border-slate-100 pt-4 mt-4 space-y-4">
+                    <div className="border-t border-slate-100 dark:border-dk-border pt-4 mt-4 space-y-4">
                         <div className="flex items-center justify-between mb-3">
                             <label className="flex items-center gap-2 cursor-pointer">
                                 <input
                                     type="checkbox"
                                     checked={showDistribution}
                                     onChange={(e) => setShowDistribution(e.target.checked)}
-                                    className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                                    className="rounded border-slate-300 dark:border-dk-muted text-indigo-600 focus:ring-indigo-500"
                                 />
-                                    <span className="text-[12px] font-semibold text-slate-800 flex items-center gap-1.5">
+                                    <span className="text-[12px] font-semibold text-slate-800 dark:text-dk-text flex items-center gap-1.5">
                                         <Grid3X3 className="w-4 h-4 text-indigo-600" />
                                         {tx(lang,{fr:'Répartition (Tailles / Couleurs)',ar:'التوزيع (المقاسات / الألوان)',en:'Distribution (Sizes / Colors)',es:'Distribución (Tallas / Colores)',pt:'Distribuição (Tamanhos / Cores)',tr:'Dağılım (Bedenler / Renkler)'})}
                                     </span>
@@ -789,20 +789,20 @@ export default function EventEditor({ open, mode, initial, models, chains, plann
                         {showDistribution && (
                             <div className="space-y-4">
                                 <div className="flex items-center justify-between">
-                                    <span className="text-[12px] font-semibold text-slate-800">
+                                    <span className="text-[12px] font-semibold text-slate-800 dark:text-dk-text">
                                         {tx(lang,{fr:'Répartition Totale (Commande)',ar:'التوزيع الإجمالي (الطلب)',en:'Total Distribution (Order)',es:'Distribución Total (Pedido)',pt:'Distribuição Total (Pedido)',tr:'Toplam Dağılım (Sipariş)'})}
                                     </span>
                                 </div>
-                                <div className="bg-white/30 backdrop-blur-md rounded-xl border border-white/20 overflow-hidden shadow-sm animate-[planning-slide-in-right_150ms_ease-out]">
+                                <div className="bg-white/30 dark:bg-dk-surface/30 backdrop-blur-md rounded-xl border border-white/20 dark:border-dk-border/20 overflow-hidden shadow-sm animate-[planning-slide-in-right_150ms_ease-out]">
                                     <div className="overflow-x-auto">
                                         <table className="w-full text-sm">
                                             <thead>
-                                                <tr className="bg-white/40 border-b border-white/20 backdrop-blur-sm">
-                                                    <th className="px-4 py-3 text-left text-[11px] font-bold text-slate-600 uppercase tracking-wider sticky left-0 bg-white/90 backdrop-blur-md border-r border-white/10 z-10">
+                                                <tr className="bg-white/40 dark:bg-dk-surface/40 border-b border-white/20 dark:border-dk-border/20 backdrop-blur-sm">
+                                                    <th className="px-4 py-3 text-left text-[11px] font-bold text-slate-600 dark:text-dk-muted uppercase tracking-wider sticky left-0 bg-white/90 dark:bg-dk-surface/90 backdrop-blur-md border-r border-white/10 z-10">
                                                         {tx(lang,{fr:'Couleur \\ Taille',ar:'اللون \\ المقاس',en:'Color \\ Size',es:'Color \\ Talla',pt:'Cor \\ Tamanho',tr:'Renk \\ Beden'})}
                                                     </th>
                                                     {sizes.map(size => (
-                                                        <th key={size} className="px-4 py-3 text-center text-[11px] font-bold text-slate-600 uppercase tracking-wider min-w-[80px]">
+                                                        <th key={size} className="px-4 py-3 text-center text-[11px] font-bold text-slate-600 dark:text-dk-muted uppercase tracking-wider min-w-[80px]">
                                                             {size}
                                                         </th>
                                                     ))}
@@ -815,14 +815,14 @@ export default function EventEditor({ open, mode, initial, models, chains, plann
                                                 {colors.map((color, cIdx) => {
                                                     const colorTotal = Object.values(distribution[color.id] || {}).reduce((a, b) => a + b, 0);
                                                     return (
-                                                        <tr key={`${color.id}-${cIdx}`} className="hover:bg-white/50 transition-colors">
-                                                            <td className="px-4 py-2 sticky left-0 bg-white/90 backdrop-blur-md z-10 border-r border-white/20">
+                                                        <tr key={`${color.id}-${cIdx}`} className="hover:bg-white/50 dark:bg-dk-surface/50 transition-colors">
+                                                            <td className="px-4 py-2 sticky left-0 bg-white/90 dark:bg-dk-surface/90 backdrop-blur-md z-10 border-r border-white/20 dark:border-dk-border/20">
                                                                 <div className="flex items-center gap-2">
                                                                     <div 
-                                                                        className="w-3 h-3 rounded-full border border-slate-300 shadow-sm" 
+                                                                        className="w-3 h-3 rounded-full border border-slate-300 dark:border-dk-muted shadow-sm" 
                                                                         style={{ background: color.id || '#888' }} 
                                                                     />
-                                                                    <span className="text-[12px] font-medium text-slate-800 truncate max-w-[120px]">
+                                                                    <span className="text-[12px] font-medium text-slate-800 dark:text-dk-text truncate max-w-[120px]">
                                                                         {color.name}
                                                                     </span>
                                                                 </div>
@@ -833,7 +833,7 @@ export default function EventEditor({ open, mode, initial, models, chains, plann
                                                                         type="number"
                                                                         value={distribution[color.id]?.[size] || ''}
                                                                         onChange={(e) => updateDistribution(color.id, size, Number(e.target.value) || 0)}
-                                                                        className="w-full h-8 px-2 text-center text-[12px] tabular-nums bg-white border border-slate-200 rounded-md focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 outline-none transition-all"
+                                                                        className="w-full h-8 px-2 text-center text-[12px] tabular-nums bg-white border border-slate-200 dark:border-dk-border rounded-md focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 outline-none transition-all"
                                                                         min={0}
                                                                         placeholder="0"
                                                                     />
@@ -849,15 +849,15 @@ export default function EventEditor({ open, mode, initial, models, chains, plann
                                                 })}
                                             </tbody>
                                             <tfoot>
-                                                <tr className="bg-white/50 border-t border-white/30 backdrop-blur-sm">
-                                                    <td className="px-4 py-3 text-right text-[11px] font-bold text-slate-700 uppercase sticky left-0 bg-white/90 backdrop-blur-md border-r border-white/20 z-10">
+                                                <tr className="bg-white/50 dark:bg-dk-surface/50 border-t border-white/30 backdrop-blur-sm">
+                                                    <td className="px-4 py-3 text-right text-[11px] font-bold text-slate-700 dark:text-dk-text-soft uppercase sticky left-0 bg-white/90 dark:bg-dk-surface/90 backdrop-blur-md border-r border-white/20 dark:border-dk-border/20 z-10">
                                                         Total
                                                     </td>
                                                     {sizes.map(size => {
                                                         const sizeTotal = colors.reduce((sum, c) => sum + (distribution[c.id]?.[size] || 0), 0);
                                                         return (
                                                             <td key={size} className="px-4 py-3 text-center">
-                                                                <span className="text-[12px] font-semibold text-slate-700 tabular-nums">
+                                                                <span className="text-[12px] font-semibold text-slate-700 dark:text-dk-text-soft tabular-nums">
                                                                     {sizeTotal}
                                                                 </span>
                                                             </td>
@@ -887,16 +887,16 @@ export default function EventEditor({ open, mode, initial, models, chains, plann
                                         {tx(lang,{fr:'Total sous-traité:',ar:'الإجمالي المقاول من الباطن:',en:'Subcontracted Total:',es:'Total subcontratado:',pt:'Total subcontratado:',tr:'Taşeron Toplamı:'})} {calculatedSubcontractTotal} pcs
                                     </span>
                                 </div>
-                                <div className="bg-white/30 backdrop-blur-md rounded-xl border border-white/20 overflow-hidden shadow-sm animate-[planning-slide-in-right_150ms_ease-out]">
+                                <div className="bg-white/30 dark:bg-dk-surface/30 backdrop-blur-md rounded-xl border border-white/20 dark:border-dk-border/20 overflow-hidden shadow-sm animate-[planning-slide-in-right_150ms_ease-out]">
                                     <div className="overflow-x-auto">
                                         <table className="w-full text-sm">
                                             <thead>
-                                                <tr className="bg-white/40 border-b border-white/20 backdrop-blur-sm">
-                                                    <th className="px-4 py-3 text-left text-[11px] font-bold text-slate-600 uppercase tracking-wider sticky left-0 bg-white/90 backdrop-blur-md border-r border-white/10 z-10">
+                                                <tr className="bg-white/40 dark:bg-dk-surface/40 border-b border-white/20 dark:border-dk-border/20 backdrop-blur-sm">
+                                                    <th className="px-4 py-3 text-left text-[11px] font-bold text-slate-600 dark:text-dk-muted uppercase tracking-wider sticky left-0 bg-white/90 dark:bg-dk-surface/90 backdrop-blur-md border-r border-white/10 z-10">
                                                         {tx(lang,{fr:'Couleur \\ Taille',ar:'اللون \\ المقاس',en:'Color \\ Size',es:'Color \\ Talla',pt:'Cor \\ Tamanho',tr:'Renk \\ Beden'})}
                                                     </th>
                                                     {sizes.map(size => (
-                                                        <th key={size} className="px-4 py-3 text-center text-[11px] font-bold text-slate-600 uppercase tracking-wider min-w-[80px]">
+                                                        <th key={size} className="px-4 py-3 text-center text-[11px] font-bold text-slate-600 dark:text-dk-muted uppercase tracking-wider min-w-[80px]">
                                                             {size}
                                                         </th>
                                                     ))}
@@ -909,14 +909,14 @@ export default function EventEditor({ open, mode, initial, models, chains, plann
                                                 {colors.map((color, cIdx) => {
                                                     const colorTotal = Object.values(subcontractDist[color.id] || {}).reduce((a, b) => a + b, 0);
                                                     return (
-                                                        <tr key={`${color.id}-${cIdx}`} className="hover:bg-white/50 transition-colors">
-                                                            <td className="px-4 py-2 sticky left-0 bg-white/90 backdrop-blur-md z-10 border-r border-white/20">
+                                                        <tr key={`${color.id}-${cIdx}`} className="hover:bg-white/50 dark:bg-dk-surface/50 transition-colors">
+                                                            <td className="px-4 py-2 sticky left-0 bg-white/90 dark:bg-dk-surface/90 backdrop-blur-md z-10 border-r border-white/20 dark:border-dk-border/20">
                                                                 <div className="flex items-center gap-2">
                                                                     <div 
-                                                                        className="w-3 h-3 rounded-full border border-slate-300 shadow-sm" 
+                                                                        className="w-3 h-3 rounded-full border border-slate-300 dark:border-dk-muted shadow-sm" 
                                                                         style={{ background: color.id || '#888' }} 
                                                                     />
-                                                                    <span className="text-[12px] font-medium text-slate-800 truncate max-w-[120px]">
+                                                                    <span className="text-[12px] font-medium text-slate-800 dark:text-dk-text truncate max-w-[120px]">
                                                                         {color.name}
                                                                     </span>
                                                                 </div>
@@ -927,7 +927,7 @@ export default function EventEditor({ open, mode, initial, models, chains, plann
                                                                         type="number"
                                                                         value={subcontractDist[color.id]?.[size] || ''}
                                                                         onChange={(e) => updateSubcontractDistribution(color.id, size, Number(e.target.value) || 0)}
-                                                                        className="w-full h-8 px-2 text-center text-[12px] tabular-nums bg-white border border-slate-200 rounded-md focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 outline-none transition-all"
+                                                                        className="w-full h-8 px-2 text-center text-[12px] tabular-nums bg-white border border-slate-200 dark:border-dk-border rounded-md focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 outline-none transition-all"
                                                                         min={0}
                                                                         max={distribution[color.id]?.[size] || 0}
                                                                         placeholder="0"
@@ -944,15 +944,15 @@ export default function EventEditor({ open, mode, initial, models, chains, plann
                                                 })}
                                             </tbody>
                                             <tfoot>
-                                                <tr className="bg-white/50 border-t border-white/30 backdrop-blur-sm">
-                                                    <td className="px-4 py-3 text-right text-[11px] font-bold text-slate-700 uppercase sticky left-0 bg-white/90 backdrop-blur-md border-r border-white/20 z-10">
+                                                <tr className="bg-white/50 dark:bg-dk-surface/50 border-t border-white/30 backdrop-blur-sm">
+                                                    <td className="px-4 py-3 text-right text-[11px] font-bold text-slate-700 dark:text-dk-text-soft uppercase sticky left-0 bg-white/90 dark:bg-dk-surface/90 backdrop-blur-md border-r border-white/20 dark:border-dk-border/20 z-10">
                                                         Total
                                                     </td>
                                                     {sizes.map(size => {
                                                         const sizeTotal = colors.reduce((sum, c) => sum + (subcontractDist[c.id]?.[size] || 0), 0);
                                                         return (
                                                             <td key={size} className="px-4 py-3 text-center">
-                                                                <span className="text-[12px] font-semibold text-slate-700 tabular-nums">
+                                                                <span className="text-[12px] font-semibold text-slate-700 dark:text-dk-text-soft tabular-nums">
                                                                     {sizeTotal}
                                                                 </span>
                                                             </td>
@@ -1006,14 +1006,14 @@ export default function EventEditor({ open, mode, initial, models, chains, plann
                                                     const colorSubTotal = Object.values(subcontractDist[color.id] || {}).reduce((a, b) => a + b, 0);
                                                     const colorTotal = Math.max(0, colorTotalTotal - colorSubTotal);
                                                     return (
-                                                        <tr key={`${color.id}-${cIdx}`} className="hover:bg-white/50 transition-colors">
+                                                        <tr key={`${color.id}-${cIdx}`} className="hover:bg-white/50 dark:bg-dk-surface/50 transition-colors">
                                                             <td className="px-4 py-2 sticky left-0 bg-emerald-50/95 backdrop-blur-md z-10 border-r border-emerald-500/20">
                                                                 <div className="flex items-center gap-2">
                                                                     <div 
-                                                                        className="w-3 h-3 rounded-full border border-slate-300 shadow-sm" 
+                                                                        className="w-3 h-3 rounded-full border border-slate-300 dark:border-dk-muted shadow-sm" 
                                                                         style={{ background: color.id || '#888' }} 
                                                                     />
-                                                                    <span className="text-[12px] font-medium text-slate-800 truncate max-w-[120px]">
+                                                                    <span className="text-[12px] font-medium text-slate-800 dark:text-dk-text truncate max-w-[120px]">
                                                                         {color.name}
                                                                     </span>
                                                                 </div>
@@ -1023,7 +1023,7 @@ export default function EventEditor({ open, mode, initial, models, chains, plann
                                                                 const cellSubVal = subcontractDist[color.id]?.[size] || 0;
                                                                 const cellVal = Math.max(0, cellTotalVal - cellSubVal);
                                                                 return (
-                                                                    <td key={size} className="px-2 py-2 text-center text-[12px] font-medium text-slate-800 tabular-nums">
+                                                                    <td key={size} className="px-2 py-2 text-center text-[12px] font-medium text-slate-800 dark:text-dk-text tabular-nums">
                                                                         {cellVal}
                                                                     </td>
                                                                 );
@@ -1070,20 +1070,20 @@ export default function EventEditor({ open, mode, initial, models, chains, plann
                 )}
 
                 {/* Subcontracting */}
-                <div className="border-t border-slate-100 pt-3 mt-3">
+                <div className="border-t border-slate-100 dark:border-dk-border pt-3 mt-3">
                     <label className="flex items-center gap-2 cursor-pointer">
                         <input
                             type="checkbox"
                             checked={isSubcontracted}
                             onChange={(e) => setIsSubcontracted(e.target.checked)}
-                            className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                            className="rounded border-slate-300 dark:border-dk-muted text-indigo-600 focus:ring-indigo-500"
                         />
-                        <span className="text-[12px] font-medium text-slate-700">{tx(lang,{fr:'En sous-traitance',ar:'مقاولة من الباطن',en:'Subcontracted',es:'Subcontratado',pt:'Subcontratado',tr:'Taşeron'})}</span>
+                        <span className="text-[12px] font-medium text-slate-700 dark:text-dk-text-soft">{tx(lang,{fr:'En sous-traitance',ar:'مقاولة من الباطن',en:'Subcontracted',es:'Subcontratado',pt:'Subcontratado',tr:'Taşeron'})}</span>
                     </label>
                     
                     {isSubcontracted && (
-                        <div className="mt-4 p-4 bg-white/40 backdrop-blur-md border border-white/20 rounded-xl space-y-4 shadow-sm animate-[planning-slide-in-right_150ms_ease-out]">
-                            <h4 className="text-[12px] font-bold text-slate-800 flex items-center gap-1.5 border-b border-slate-100 pb-2">
+                        <div className="mt-4 p-4 bg-white/40 dark:bg-dk-surface/40 backdrop-blur-md border border-white/20 dark:border-dk-border/20 rounded-xl space-y-4 shadow-sm animate-[planning-slide-in-right_150ms_ease-out]">
+                            <h4 className="text-[12px] font-bold text-slate-800 dark:text-dk-text flex items-center gap-1.5 border-b border-slate-100 dark:border-dk-border pb-2">
                                 <Truck className="w-4 h-4 text-indigo-600" />
                                 {tx(lang,{fr:'Détails du Partenaire Sous-traitant',ar:'تفاصيل شريك المقاولة من الباطن',en:'Subcontractor Partner Details',es:'Detalles del Socio Subcontratista',pt:'Detalhes do Parceiro Subcontratado',tr:'Taşeron Ortak Detayları'})}
                             </h4>
@@ -1155,7 +1155,7 @@ export default function EventEditor({ open, mode, initial, models, chains, plann
                             </div>
 
                             <div className="flex justify-between items-center bg-indigo-500/10 p-3 rounded-lg border border-indigo-500/20 backdrop-blur-sm">
-                                <span className="text-[12px] font-semibold text-slate-700">{tx(lang,{fr:'Coût total estimé :',ar:'التكلفة الإجمالية المقدرة :',en:'Estimated Total Cost:',es:'Costo total estimado:',pt:'Custo total estimado:',tr:'Tahmini Toplam Maliyet:'})}</span>
+                                <span className="text-[12px] font-semibold text-slate-700 dark:text-dk-text-soft">{tx(lang,{fr:'Coût total estimé :',ar:'التكلفة الإجمالية المقدرة :',en:'Estimated Total Cost:',es:'Costo total estimado:',pt:'Custo total estimado:',tr:'Tahmini Toplam Maliyet:'})}</span>
                                 <span className="text-[14px] font-bold text-indigo-700 tabular-nums">
                                     {((showDistribution ? calculatedSubcontractTotal : subcontractQuantity) * subcontractPricePerPiece).toFixed(2)} DH
                                 </span>
