@@ -162,9 +162,9 @@ const btnDanger: React.CSSProperties = { display: 'flex', alignItems: 'center', 
 function Field({ label, value, onChange, type = 'text', placeholder, required }: { label: string; value?: string | number; onChange: (v: string) => void; type?: string; placeholder?: string; required?: boolean }) {
   return (
     <div>
-      <label style={labelStyle}>{label}{required && <span style={{ color: '#EF4444' }}> *</span>}</label>
+      <label style={_\labelStyle}>{label}{required && <span style={{ color: '#EF4444' }}> *</span>}</label>
       <input type={type} value={value ?? ''} onChange={e => onChange(e.target.value)} placeholder={placeholder}
-        style={inputStyle} />
+        style={_\inputStyle} />
     </div>
   );
 }
@@ -347,7 +347,7 @@ function WorkerModal({ worker, onClose, onSave, transportLignes }: { worker: Par
               <Field label={tx(lang, { fr: 'CNSS', ar: 'رقم CNSS', en: 'CNSS No.', es: 'CNSS', pt: 'CNSS', tr: 'CNSS No' })} value={form.cnss ?? ''} onChange={v => set('cnss', v)} placeholder={tx(lang, { fr: 'Numéro CNSS', ar: 'رقم CNSS', en: 'CNSS Number', es: 'Número CNSS', pt: 'Número CNSS', tr: 'CNSS Numarası' })} />
               {form.id && (
                 <div style={{ gridColumn: '1/-1' }}>
-                  <label style={labelStyle}>{tx(lang, { fr: 'Person ID (plateforme)', ar: 'معرف الشخص (المنصة)', en: 'Person ID (platform)', es: 'ID Persona (plataforma)', pt: 'ID Pessoa (plataforma)', tr: 'Kişi ID (platform)' })}</label>
+                  <label style={_\labelStyle}>{tx(lang, { fr: 'Person ID (plateforme)', ar: 'معرف الشخص (المنصة)', en: 'Person ID (platform)', es: 'ID Persona (plataforma)', pt: 'ID Pessoa (plataforma)', tr: 'Kişi ID (platform)' })}</label>
                   <div style={{ ...inputStyle, background: '#F8FAFC', color: '#475569', fontSize: 12 }} title={tx(lang, { fr: 'Identifiant stable Section 23', ar: 'معرف ثابت القسم 23', en: 'Stable ID Section 23', es: 'ID estable Sección 23', pt: 'ID estável Seção 23', tr: 'Kararlı ID Bölüm 23' })}>
                     {form.person_id || tx(lang, { fr: '—', ar: '—', en: '—', es: '—', pt: '—', tr: '—' })}
                   </div>
@@ -380,8 +380,8 @@ function WorkerModal({ worker, onClose, onSave, transportLignes }: { worker: Par
               <Field label={tx(lang, { fr: 'Téléphone', ar: 'الهاتف', en: 'Phone', es: 'Teléfono', pt: 'Telefone', tr: 'Telefon' })} value={form.phone ?? ''} onChange={v => set('phone', v)} placeholder="06 XX XX XX" />
               <Field label={tx(lang, { fr: 'Date Naissance', ar: 'تاريخ الميلاد', en: 'Date of Birth', es: 'Fecha de Nacimiento', pt: 'Data de Nascimento', tr: 'Doğum Tarihi' })} value={form.date_naissance ?? ''} onChange={v => set('date_naissance', v)} type="date" />
               <div>
-                <label style={labelStyle}>{tx(lang, { fr: 'Sexe', ar: 'الجنس', en: 'Sex', es: 'Sexo', pt: 'Sexo', tr: 'Cinsiyet' })}</label>
-                <select value={form.sexe ?? 'M'} onChange={e => set('sexe', e.target.value)} style={inputStyle}>
+                <label style={_\labelStyle}>{tx(lang, { fr: 'Sexe', ar: 'الجنس', en: 'Sex', es: 'Sexo', pt: 'Sexo', tr: 'Cinsiyet' })}</label>
+                <select value={form.sexe ?? 'M'} onChange={e => set('sexe', e.target.value)} style={_\inputStyle}>
                   <option value="M">{tx(lang, { fr: 'Homme', ar: 'ذكر', en: 'Male', es: 'Hombre', pt: 'Homem', tr: 'Erkek' })}</option>
                   <option value="F">{tx(lang, { fr: 'Femme', ar: 'أنثى', en: 'Female', es: 'Mujer', pt: 'Mulher', tr: 'Kadın' })}</option>
                 </select>
@@ -395,8 +395,8 @@ function WorkerModal({ worker, onClose, onSave, transportLignes }: { worker: Par
           {subTab === 'emploi' && (
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
               <div>
-                <label style={labelStyle}>{tx(lang, { fr: 'Rôle', ar: 'الدور', en: 'Role', es: 'Rol', pt: 'Função', tr: 'Rol' })}</label>
-                <select value={form.role ?? 'OPERATOR'} onChange={e => set('role', e.target.value as HRWorkerRole)} style={inputStyle}>
+                <label style={_\labelStyle}>{tx(lang, { fr: 'Rôle', ar: 'الدور', en: 'Role', es: 'Rol', pt: 'Função', tr: 'Rol' })}</label>
+                <select value={form.role ?? 'OPERATOR'} onChange={e => set('role', e.target.value as HRWorkerRole)} style={_\inputStyle}>
                   {ROLES.map(r => <option key={r} value={r}>{tx(lang, ROLE_LABELS[r])}</option>)}
                 </select>
               </div>
@@ -406,8 +406,8 @@ function WorkerModal({ worker, onClose, onSave, transportLignes }: { worker: Par
               <Field label={tx(lang, { fr: 'Spécialité', ar: 'التخصص', en: 'Specialty', es: 'Especialidad', pt: 'Especialidade', tr: 'Uzmanlık' })} value={form.specialite ?? ''} onChange={v => set('specialite', v)} placeholder={tx(lang, { fr: 'ex: Jupe', ar: 'مثال: تنورة', en: 'ex: Skirt', es: 'ej: Falda', pt: 'ex: Saia', tr: 'ör: Etek' })} />
               <Field label={tx(lang, { fr: 'Date Embauche', ar: 'تاريخ التوظيف', en: 'Hire Date', es: 'Fecha de Contratación', pt: 'Data de Contratação', tr: 'İşe Giriş Tarihi' })} value={form.date_embauche ?? ''} onChange={v => set('date_embauche', v)} type="date" required />
               <div>
-                <label style={labelStyle}>{tx(lang, { fr: 'Type Contrat', ar: 'نوع العقد', en: 'Contract Type', es: 'Tipo de Contrato', pt: 'Tipo de Contrato', tr: 'Sözleşme Türü' })}</label>
-                <select value={form.type_contrat ?? 'CDI'} onChange={e => set('type_contrat', e.target.value as HRContractType)} style={inputStyle}>
+                <label style={_\labelStyle}>{tx(lang, { fr: 'Type Contrat', ar: 'نوع العقد', en: 'Contract Type', es: 'Tipo de Contrato', pt: 'Tipo de Contrato', tr: 'Sözleşme Türü' })}</label>
+                <select value={form.type_contrat ?? 'CDI'} onChange={e => set('type_contrat', e.target.value as HRContractType)} style={_\inputStyle}>
                   {(['CDI','CDD','ANAPEC','STAGE'] as HRContractType[]).map(t => <option key={t} value={t}>{t}</option>)}
                 </select>
               </div>
@@ -415,15 +415,15 @@ function WorkerModal({ worker, onClose, onSave, transportLignes }: { worker: Par
                 <Field label={tx(lang, { fr: 'Date Fin Contrat', ar: 'تاريخ نهاية العقد', en: 'Contract End Date', es: 'Fecha de Fin de Contrato', pt: 'Data de Fim do Contrato', tr: 'Sözleşme Bitiş Tarihi' })} value={form.date_fin_contrat ?? ''} onChange={v => set('date_fin_contrat', v)} type="date" />
               )}
               <div>
-                <label style={labelStyle}>{tx(lang, { fr: 'Statut', ar: 'الحالة', en: 'Status', es: 'Estado', pt: 'Status', tr: 'Durum' })}</label>
-                <select value={form.is_active ? '1' : '0'} onChange={e => set('is_active', e.target.value === '1')} style={inputStyle}>
+                <label style={_\labelStyle}>{tx(lang, { fr: 'Statut', ar: 'الحالة', en: 'Status', es: 'Estado', pt: 'Status', tr: 'Durum' })}</label>
+                <select value={form.is_active ? '1' : '0'} onChange={e => set('is_active', e.target.value === '1')} style={_\inputStyle}>
                   <option value="1">{tx(lang, { fr: 'Actif', ar: 'نشط', en: 'Active', es: 'Activo', pt: 'Ativo', tr: 'Aktif' })}</option>
                   <option value="0">{tx(lang, { fr: 'Inactif', ar: 'غير نشط', en: 'Inactive', es: 'Inactivo', pt: 'Inativo', tr: 'Pasif' })}</option>
                 </select>
               </div>
               <div>
-                <label style={labelStyle}>{tx(lang, { fr: 'Ligne de Transport', ar: 'خط النقل', en: 'Transport Line', es: 'Línea de Transporte', pt: 'Linha de Transporte', tr: 'Ulaşım Hattı' })}</label>
-                <select value={form.transport_ligne_id ?? ''} onChange={e => set('transport_ligne_id', e.target.value || null)} style={inputStyle}>
+                <label style={_\labelStyle}>{tx(lang, { fr: 'Ligne de Transport', ar: 'خط النقل', en: 'Transport Line', es: 'Línea de Transporte', pt: 'Linha de Transporte', tr: 'Ulaşım Hattı' })}</label>
+                <select value={form.transport_ligne_id ?? ''} onChange={e => set('transport_ligne_id', e.target.value || null)} style={_\inputStyle}>
                   <option value="">{tx(lang, { fr: '-- Sans Transport --', ar: '-- بدون نقل --', en: '-- No Transport --', es: '-- Sin Transporte --', pt: '-- Sem Transporte --', tr: '-- Ulaşım Yok --' })}</option>
                   {transportLignes.map(l => (
                     <option key={l.id} value={l.id}>{l.nom} {l.chauffeur_nom ? `(${l.chauffeur_nom})` : ''}</option>
@@ -444,8 +444,8 @@ function WorkerModal({ worker, onClose, onSave, transportLignes }: { worker: Par
               <Field label={tx(lang, { fr: 'Prime Assiduité (MAD)', ar: 'Prime Assiduité (MAD)', en: 'Prime Assiduité (MAD)', es: 'Prime Assiduité (MAD)', pt: 'Prime Assiduité (MAD)', tr: 'Prime Assiduité (MAD)' })} value={form.prime_assiduite ?? 0} onChange={v => set('prime_assiduite', parseFloat(v) || 0)} type="number" />
               <Field label={tx(lang, { fr: 'Prime Transport (MAD)', ar: 'Prime Transport (MAD)', en: 'Prime Transport (MAD)', es: 'Prime Transport (MAD)', pt: 'Prime Transport (MAD)', tr: 'Prime Transport (MAD)' })} value={form.prime_transport ?? 0} onChange={v => set('prime_transport', parseFloat(v) || 0)} type="number" />
               <div>
-                <label style={labelStyle}>{tx(lang, { fr: 'Mode Paiement', ar: 'طريقة الدفع', en: 'Payment Method', es: 'Método de Pago', pt: 'Método de Pagamento', tr: 'Ödeme Yöntemi' })}</label>
-                <select value={form.mode_paiement ?? 'VIREMENT'} onChange={e => set('mode_paiement', e.target.value)} style={inputStyle}>
+                <label style={_\labelStyle}>{tx(lang, { fr: 'Mode Paiement', ar: 'طريقة الدفع', en: 'Payment Method', es: 'Método de Pago', pt: 'Método de Pagamento', tr: 'Ödeme Yöntemi' })}</label>
+                <select value={form.mode_paiement ?? 'VIREMENT'} onChange={e => set('mode_paiement', e.target.value)} style={_\inputStyle}>
                   <option value="VIREMENT">{tx(lang, { fr: 'Virement bancaire', ar: 'تحويل بنكي', en: 'Bank Transfer', es: 'Transferencia bancaria', pt: 'Transferência bancária', tr: 'Banka Havalesi' })}</option>
                   <option value="ESPECES">{tx(lang, { fr: 'Espèces', ar: 'نقداً', en: 'Cash', es: 'Efectivo', pt: 'Dinheiro', tr: 'Nakit' })}</option>
                   <option value="CHEQUE">{tx(lang, { fr: 'Chèque', ar: 'شيك', en: 'Cheque', es: 'Cheque', pt: 'Cheque', tr: 'Çek' })}</option>
@@ -459,8 +459,8 @@ function WorkerModal({ worker, onClose, onSave, transportLignes }: { worker: Par
               <Field label={tx(lang, { fr: 'Nom Contact Urgence', ar: 'اسم جهة الاتصال في الطوارئ', en: 'Emergency Contact Name', es: 'Nombre Contacto Emergencia', pt: 'Nome Contato Emergência', tr: 'Acil Durum İletişim Adı' })} value={form.contact_urgence_nom ?? ''} onChange={v => set('contact_urgence_nom', v)} placeholder={tx(lang, { fr: 'Nom complet', ar: 'الاسم الكامل', en: 'Full name', es: 'Nombre completo', pt: 'Nome completo', tr: 'Tam ad' })} />
               <Field label={tx(lang, { fr: 'Tél Contact Urgence', ar: 'هاتف جهة الاتصال في الطوارئ', en: 'Emergency Contact Phone', es: 'Teléfono Contacto Emergencia', pt: 'Telefone Contato Emergência', tr: 'Acil İletişim Telefonu' })} value={form.contact_urgence_tel ?? ''} onChange={v => set('contact_urgence_tel', v)} placeholder="06 XX XX XX" />
               <div>
-                <label style={labelStyle}>{tx(lang, { fr: 'Lien de parenté', ar: 'صلة القرابة', en: 'Relationship', es: 'Parentesco', pt: 'Parentesco', tr: 'Yakınlık Derecesi' })}</label>
-                <select value={form.contact_urgence_lien ?? ''} onChange={e => set('contact_urgence_lien', e.target.value)} style={inputStyle}>
+                <label style={_\labelStyle}>{tx(lang, { fr: 'Lien de parenté', ar: 'صلة القرابة', en: 'Relationship', es: 'Parentesco', pt: 'Parentesco', tr: 'Yakınlık Derecesi' })}</label>
+                <select value={form.contact_urgence_lien ?? ''} onChange={e => set('contact_urgence_lien', e.target.value)} style={_\inputStyle}>
                   <option value="">{tx(lang, { fr: '-- Sélectionner --', ar: '-- اختر --', en: '-- Select --', es: '-- Seleccionar --', pt: '-- Selecionar --', tr: '-- Seç --' })}</option>
                   {[
                     { fr: 'Père', ar: 'أب', en: 'Father', es: 'Padre', pt: 'Pai', tr: 'Baba' },
@@ -473,7 +473,7 @@ function WorkerModal({ worker, onClose, onSave, transportLignes }: { worker: Par
                 </select>
               </div>
               <div style={{ gridColumn: '1/-1' }}>
-                <label style={labelStyle}>{tx(lang, { fr: 'Notes', ar: 'ملاحظات', en: 'Notes', es: 'Notas', pt: 'Notas', tr: 'Notlar' })}</label>
+                <label style={_\labelStyle}>{tx(lang, { fr: 'Notes', ar: 'ملاحظات', en: 'Notes', es: 'Notas', pt: 'Notas', tr: 'Notlar' })}</label>
                 <textarea value={form.notes ?? ''} onChange={e => set('notes', e.target.value)} rows={4}
                   style={{ ...inputStyle, resize: 'vertical' }} placeholder={tx(lang, { fr: 'Notes libres...', ar: 'ملاحظات...', en: 'Free notes...', es: 'Notas libres...', pt: 'Notas livres...', tr: 'Serbest notlar...' })} />
               </div>
@@ -483,8 +483,8 @@ function WorkerModal({ worker, onClose, onSave, transportLignes }: { worker: Par
 
         {/* Footer */}
         <div style={{ padding: '16px 24px', borderTop: '1px solid #E2E8F0', display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
-          <button onClick={onClose} style={btnSecondary}>{tx(lang, { fr: 'Annuler', ar: 'إلغاء', en: 'Cancel', es: 'Cancelar', pt: 'Cancelar', tr: 'İptal' })}</button>
-          <button onClick={handleSave} disabled={saving} style={btnPrimary}>
+          <button onClick={onClose} style={_\btnSecondary}>{tx(lang, { fr: 'Annuler', ar: 'إلغاء', en: 'Cancel', es: 'Cancelar', pt: 'Cancelar', tr: 'İptal' })}</button>
+          <button onClick={handleSave} disabled={saving} style={_\btnPrimary}>
             {saving ? tx(lang, { fr: 'Enregistrement...', ar: 'جارٍ الحفظ...', en: 'Saving...', es: 'Guardando...', pt: 'Salvando...', tr: 'Kaydediliyor...' }) : <><Save size={14} style={{ marginRight: 6 }} />{tx(lang, { fr: 'Enregistrer', ar: 'حفظ', en: 'Save', es: 'Guardar', pt: 'Salvar', tr: 'Kaydet' })}</>}
           </button>
         </div>
@@ -600,7 +600,7 @@ function StatistiquesTab({ workers, pointages, suivis, planningEvents, selectedD
           <input type="date" value={selectedDate} onChange={e => setSelectedDate(e.target.value)}
             style={{ ...inputStyle, width: 160 }} />
         </div>
-        <button onClick={onRefresh} style={btnSecondary}><RefreshCw size={14} style={{ marginRight: 6 }} />{tx(lang, { fr: 'Actualiser', ar: 'تحديث', en: 'Refresh', es: 'Actualizar', pt: 'Atualizar', tr: 'Yenile' })}</button>
+        <button onClick={onRefresh} style={_\btnSecondary}><RefreshCw size={14} style={{ marginRight: 6 }} />{tx(lang, { fr: 'Actualiser', ar: 'تحديث', en: 'Refresh', es: 'Actualizar', pt: 'Atualizar', tr: 'Yenile' })}</button>
 
         {/* Global KPIs */}
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 12 }}>
@@ -905,7 +905,7 @@ function StatistiquesTab({ workers, pointages, suivis, planningEvents, selectedD
 
                 {/* Footer */}
                 <div style={{ padding: '16px 24px', borderTop: '1px solid #E2E8F0', display: 'flex', justifyContent: 'flex-end', background: '#F8FAFC', borderBottomLeftRadius: 16, borderBottomRightRadius: 16 }}>
-                  <button onClick={() => setSelectedChainDetail(null)} style={btnSecondary}>
+                  <button onClick={() => setSelectedChainDetail(null)} style={_\btnSecondary}>
                     {tx(lang, { fr: 'Fermer', ar: 'إغلاق', en: 'Close', es: 'Cerrar', pt: 'Fechar', tr: 'Kapat' })}
                   </button>
                 </div>
@@ -1013,8 +1013,8 @@ function InvitationsTab({
         </p>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 12 }}>
           <div>
-            <label style={labelStyle}>{tx(lang, { fr: 'Person ID (depuis annuaire)', ar: 'Person ID (من الدليل)', en: 'Person ID (from directory)', es: 'Person ID (del directorio)', pt: 'Person ID (do diretório)', tr: 'Person ID (rehberden)' })}</label>
-            <select value={personId} onChange={e => setPersonId(e.target.value)} style={inputStyle}>
+            <label style={_\labelStyle}>{tx(lang, { fr: 'Person ID (depuis annuaire)', ar: 'Person ID (من الدليل)', en: 'Person ID (from directory)', es: 'Person ID (del directorio)', pt: 'Person ID (do diretório)', tr: 'Person ID (rehberden)' })}</label>
+            <select value={personId} onChange={e => setPersonId(e.target.value)} style={_\inputStyle}>
               <option value="">{tx(lang, { fr: '— Choisir un ouvrier —', ar: '— اختر عاملاً —', en: '— Choose a worker —', es: '— Elija un operario —', pt: '— Escolha um operário —', tr: '— Bir işçi seçin —' })}</option>
               {withPerson.map(w => (
                 <option key={w.id} value={w.person_id || ''}>

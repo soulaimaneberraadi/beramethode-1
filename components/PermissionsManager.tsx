@@ -107,8 +107,8 @@ export default function PermissionsManager() {
 
   const Toggle = ({ on, onClick, icon: Icon }: { on: boolean; onClick: () => void; icon: any }) => (
     <button onClick={onClick}
-      className="inline-flex items-center justify-center w-7 h-7 rounded-md border transition-colors"
-      style={on ? { background: ACCENT, borderColor: ACCENT, color: '#fff' } : { background: '#f8fafc', borderColor: '#e2e8f0', color: '#94a3b8' }}>
+      className={`inline-flex items-center justify-center w-7 h-7 rounded-md border transition-colors ${on ? '' : isDark ? 'bg-dk-bg border-dk-border text-dk-muted' : 'bg-slate-50 border-slate-200 text-slate-400'}`}
+      style={on ? { background: ACCENT, borderColor: ACCENT, color: '#fff' } : undefined}>
       {on ? <Check size={13} strokeWidth={2} /> : <Icon size={13} strokeWidth={1.75} />}
     </button>
   );
@@ -140,7 +140,7 @@ export default function PermissionsManager() {
           <button onClick={createRole} className="h-8 px-3 rounded-md bg-slate-900 text-white text-[13px] font-medium inline-flex items-center gap-1 hover:bg-slate-800"><Plus size={14} strokeWidth={1.75} /> {tx(lang, {fr:"Ajouter",ar:"إضافة",en:"Add",es:"Añadir",pt:"Adicionar",tr:"Ekle"})}</button>
         </div>
 
-        {roles.length === 0 && <p className="text-[13px] text-slate-400 py-3 text-center">{tx(lang, {fr:'Aucun rôle. Créez-en un (avec preset pour démarrer vite).',ar:'لا توجد أدوار. أنشئ واحداً (باستخدام قالب للبدء بسرعة).',en:'No roles. Create one (with a preset to start quickly).',es:'Sin roles. Cree uno (con una plantilla para empezar rápido).',pt:'Nenhuma função. Crie uma (com uma predefinição para começar rapidamente).',tr:'Rol yok. Hızlı başlamak için bir ön ayar ile oluşturun.'})}</p>}
+        {roles.length === 0 && <p className={`text-[13px] py-3 text-center ${isDark ? 'text-dk-muted' : 'text-slate-400'}`}>{tx(lang, {fr:'Aucun rôle. Créez-en un (avec preset pour démarrer vite).',ar:'لا توجد أدوار. أنشئ واحداً (باستخدام قالب للبدء بسرعة).',en:'No roles. Create one (with a preset to start quickly).',es:'Sin roles. Cree uno (con una plantilla para empezar rápido).',pt:'Nenhuma função. Crie uma (com uma predefinição para começar rapidamente).',tr:'Rol yok. Hızlı başlamak için bir ön ayar ile oluşturun.'})}</p>}
 
           {roles.map(role => (
           <div key={role.id} className={`rounded-md mb-1.5 overflow-hidden ${isDark ? 'border border-dk-border' : 'border border-slate-100'}`}>
@@ -171,12 +171,12 @@ export default function PermissionsManager() {
                   })}
                 </div>
                 <div>
-                  <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1">{tx(lang, {fr:"Champs sensibles",ar:"الحقول الحساسة",en:"Sensitive fields",es:"Campos sensibles",pt:"Campos sensíveis",tr:"Hassas alanlar"})}</p>
+                  <p className={`text-[10px] font-semibold uppercase tracking-wide mb-1 ${isDark ? 'text-dk-muted' : 'text-slate-400'}`}>{tx(lang, {fr:"Champs sensibles",ar:"الحقول الحساسة",en:"Sensitive fields",es:"Campos sensibles",pt:"Campos sensíveis",tr:"Hassas alanlar"})}</p>
                   {PROTECTED_FIELDS.map(fd => {
                     const p = perms[`field|${fd}`] || { can_view: 0, can_edit: 0 };
                     return (
                       <div key={fd} className="flex items-center justify-between py-0.5">
-                        <span className="text-[13px] text-slate-600">🔒 {FIELD_LABELS[fd] || fd}</span>
+                        <span className={`text-[13px] ${isDark ? 'text-dk-text' : 'text-slate-600'}`}>🔒 {FIELD_LABELS[fd] || fd}</span>
                         <Toggle on={!!p.can_view} onClick={() => toggle('field', fd, 'view')} icon={Eye} />
                       </div>
                     );
@@ -194,8 +194,8 @@ export default function PermissionsManager() {
       </div>
 
       {/* Membres */}
-      <div className="bg-white rounded-lg border border-slate-200 p-4">
-        <h3 className="text-[13px] font-semibold text-slate-900 mb-3 flex items-center gap-1.5"><Users size={14} strokeWidth={1.75} className="text-slate-400" /> {tx(lang, {fr:"Membres",ar:"الأعضاء",en:"Members",es:"Miembros",pt:"Membros",tr:"Üyeler"})}</h3>
+      <div className={`rounded-lg border p-4 ${isDark ? 'bg-dk-surface border-dk-border' : 'bg-white border-slate-200'}`}>
+        <h3 className={`text-[13px] font-semibold mb-3 flex items-center gap-1.5 ${isDark ? 'text-dk-text' : 'text-slate-900'}`}><Users size={14} strokeWidth={1.75} className="text-slate-400 dark:text-dk-muted" /> {tx(lang, {fr:"Membres",ar:"الأعضاء",en:"Members",es:"Miembros",pt:"Membros",tr:"Üyeler"})}</h3>
         <div className="flex flex-wrap gap-2 mb-3">
           <input value={newMember.email} onChange={e => setNewMember(s => ({ ...s, email: e.target.value }))} placeholder={tx(lang, {fr:'E-mail du membre',ar:'البريد الإلكتروني للعضو',en:'Member email',es:'Correo del miembro',pt:'E-mail do membro',tr:'Üye e-posta'})} className={`flex-1 min-w-[160px] ${inputCls}`} />
           <select value={newMember.role_id} onChange={e => setNewMember(s => ({ ...s, role_id: e.target.value }))} className={`${inputCls} bg-white`}>
@@ -204,14 +204,14 @@ export default function PermissionsManager() {
           </select>
           <button onClick={addMember} className="h-8 px-3 rounded-md bg-slate-900 text-white text-[13px] font-medium inline-flex items-center gap-1 hover:bg-slate-800"><UserPlus size={14} strokeWidth={1.75} /> {tx(lang, {fr:"Inviter",ar:"دعوة",en:"Invite",es:"Invitar",pt:"Convidar",tr:"Davet et"})}</button>
         </div>
-        {members.length === 0 && <p className="text-[13px] text-slate-400 py-2 text-center">{tx(lang, {fr:'Aucun membre.',ar:'لا يوجد أعضاء.',en:'No members.',es:'Sin miembros.',pt:'Nenhum membro.',tr:'Üye yok.'})}</p>}
+        {members.length === 0 && <p className={`text-[13px] py-2 text-center ${isDark ? 'text-dk-muted' : 'text-slate-400'}`}>{tx(lang, {fr:'Aucun membre.',ar:'لا يوجد أعضاء.',en:'No members.',es:'Sin miembros.',pt:'Nenhum membro.',tr:'Üye yok.'})}</p>}
         {members.map(m => (
-          <div key={m.id} className="flex items-center justify-between py-2 border-b border-slate-50 last:border-0">
+          <div key={m.id} className={`flex items-center justify-between py-2 border-b last:border-0 ${isDark ? 'border-dk-border' : 'border-slate-50'}`}>
             <div>
-              <p className="text-[13px] font-medium text-slate-700">{m.name || m.email} {m.status === 'removed' && <span className="text-[10px] text-slate-400">(retiré)</span>}</p>
-              <p className="text-[11px] text-slate-400">{m.email} · {m.role_name || '—'}</p>
+              <p className={`text-[13px] font-medium ${isDark ? 'text-dk-text' : 'text-slate-700'}`}>{m.name || m.email} {m.status === 'removed' && <span className={`text-[10px] ${isDark ? 'text-dk-muted' : 'text-slate-400'}`}>(retiré)</span>}</p>
+              <p className={`text-[11px] ${isDark ? 'text-dk-muted' : 'text-slate-400'}`}>{m.email} · {m.role_name || '—'}</p>
             </div>
-            {m.status === 'active' && <button onClick={() => removeMember(m.user_id)} className="text-slate-300 hover:text-slate-600"><Trash2 size={13} strokeWidth={1.75} /></button>}
+            {m.status === 'active' && <button onClick={() => removeMember(m.user_id)} className={`${isDark ? 'text-dk-muted hover:text-dk-text' : 'text-slate-300 hover:text-slate-600'}`}><Trash2 size={13} strokeWidth={1.75} /></button>}
           </div>
         ))}
       </div>
@@ -219,14 +219,14 @@ export default function PermissionsManager() {
       {/* Confirmation */}
       {confirm && (
         <div className="fixed inset-0 bg-slate-900/30 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setConfirm(null)}>
-          <div className="bg-white rounded-lg border border-slate-200 shadow-lg p-5 max-w-sm w-full" onClick={e => e.stopPropagation()}>
+          <div className={`rounded-lg border shadow-lg p-5 max-w-sm w-full ${isDark ? 'bg-dk-surface border-dk-border' : 'bg-white border-slate-200'}`} onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-2">
-              <h4 className="text-[13px] font-semibold text-slate-900">{tx(lang, {fr:"Confirmation",ar:"تأكيد",en:"Confirmation",es:"Confirmación",pt:"Confirmação",tr:"Onay"})}</h4>
-              <button onClick={() => setConfirm(null)} className="text-slate-400 hover:text-slate-600"><X size={16} strokeWidth={1.75} /></button>
+              <h4 className={`text-[13px] font-semibold ${isDark ? 'text-dk-text' : 'text-slate-900'}`}>{tx(lang, {fr:"Confirmation",ar:"تأكيد",en:"Confirmation",es:"Confirmación",pt:"Confirmação",tr:"Onay"})}</h4>
+              <button onClick={() => setConfirm(null)} className={`${isDark ? 'text-dk-muted hover:text-dk-text' : 'text-slate-400 hover:text-slate-600'}`}><X size={16} strokeWidth={1.75} /></button>
             </div>
-            <p className="text-[13px] text-slate-500 mb-4">{confirmText}</p>
+            <p className={`text-[13px] mb-4 ${isDark ? 'text-dk-muted' : 'text-slate-500'}`}>{confirmText}</p>
             <div className="flex gap-2 justify-end">
-              <button onClick={() => setConfirm(null)} className="h-8 px-3 rounded-md border border-slate-200 text-[13px] font-medium text-slate-500 hover:bg-slate-50">{tx(lang, {fr:"Annuler",ar:"إلغاء",en:"Cancel",es:"Cancelar",pt:"Cancelar",tr:"İptal"})}</button>
+              <button onClick={() => setConfirm(null)} className={`h-8 px-3 rounded-md border text-[13px] font-medium ${isDark ? 'border-dk-border text-dk-muted hover:bg-dk-bg' : 'border-slate-200 text-slate-500 hover:bg-slate-50'}`}>{tx(lang, {fr:"Annuler",ar:"إلغاء",en:"Cancel",es:"Cancelar",pt:"Cancelar",tr:"İptal"})}</button>
               <button onClick={() => confirm()} className="h-8 px-3 rounded-md text-white text-[13px] font-medium" style={{ background: ACCENT }}>{tx(lang, {fr:"Confirmer",ar:"تأكيد",en:"Confirm",es:"Confirmar",pt:"Confirmar",tr:"Onayla"})}</button>
             </div>
           </div>

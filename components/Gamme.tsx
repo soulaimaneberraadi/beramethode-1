@@ -2126,8 +2126,8 @@ export default function Gamme({
                 
                 const isForced = op.forcedTime !== undefined && op.forcedTime !== null;
                 const chronoInputClass = isForced 
-                    ? "bg-purple-50 text-purple-700 border-purple-200 focus:border-purple-500 focus:bg-purple-100 font-black shadow-sm"
-                    : (isMachine ? 'bg-slate-50 text-slate-600 border-slate-200 focus:bg-white focus:border-indigo-300' : 'bg-emerald-50/40 border-emerald-100 text-emerald-700 focus:border-emerald-500 focus:bg-white');
+                    ? "bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800 focus:border-purple-500 focus:bg-purple-100 dark:focus:bg-purple-900/50 font-black shadow-sm"
+                    : (isMachine ? 'bg-slate-50 dark:bg-dk-surface text-slate-600 dark:text-dk-text border-slate-200 dark:border-dk-border focus:bg-white dark:focus:bg-dk-elevated focus:border-indigo-300' : 'bg-emerald-50/40 dark:bg-emerald-900/20 border-emerald-100 dark:border-emerald-900/30 text-emerald-700 dark:text-emerald-300 focus:border-emerald-500 focus:bg-white dark:focus:bg-dk-surface');
 
                 const currentGuide = op.guideFactor ?? 1.1;
                 const assignedGuideName = op.guideName || (op.guideId ? guides.find(g => g.id === op.guideId)?.name : '') || '';
@@ -2152,8 +2152,8 @@ export default function Gamme({
                 
                 const linkModeClasses = isLinkingMode 
                     ? (isLinkSource 
-                        ? 'bg-indigo-100/80 border-indigo-200' 
-                        : (isTargetRow ? 'bg-emerald-100 ring-2 ring-emerald-500 z-30' : 'hover:bg-emerald-50 cursor-crosshair opacity-60'))
+                        ? 'bg-indigo-100/80 dark:bg-indigo-900/40 border-indigo-200 dark:border-indigo-800' 
+                        : (isTargetRow ? 'bg-emerald-100 dark:bg-emerald-900/40 ring-2 ring-emerald-500 dark:ring-emerald-600 z-30' : 'hover:bg-emerald-50 dark:hover:bg-emerald-900/20 cursor-crosshair opacity-60'))
                     : '';
 
                 // LOGIC: Find if this row is a TARGET for any flux (Incoming)
@@ -2167,16 +2167,16 @@ export default function Gamme({
                 const incomingDisplayId = maxIndexOp ? getOpDisplayId(maxIndexOp.id) : null;
 
                 // Side Logic styling
-                let sideBadgeClass = "text-slate-300 bg-slate-50 border-slate-200 hover:bg-slate-100 hover:text-slate-500";
+                let sideBadgeClass = "text-slate-300 dark:text-dk-muted bg-slate-50 dark:bg-dk-elevated/60 border-slate-200 dark:border-dk-border hover:bg-slate-100 dark:hover:bg-dk-elevated hover:text-slate-500 dark:hover:text-dk-text";
                 let sideText = "-";
                 if (op.side === 'G') {
-                    sideBadgeClass = "bg-sky-50 text-sky-700 border-sky-200 font-bold hover:bg-sky-100";
+                    sideBadgeClass = "bg-sky-50 dark:bg-sky-900/30 text-sky-700 dark:text-sky-300 border-sky-200 dark:border-sky-800 font-bold hover:bg-sky-100 dark:hover:bg-sky-900/50";
                     sideText = "G";
                 } else if (op.side === 'D') {
-                    sideBadgeClass = "bg-orange-50 text-orange-700 border-orange-200 font-bold hover:bg-orange-100";
+                    sideBadgeClass = "bg-orange-50 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 border-orange-200 dark:border-orange-800 font-bold hover:bg-orange-100 dark:hover:bg-orange-900/50";
                     sideText = "D";
                 } else if (op.side === 'GD') {
-                    sideBadgeClass = "bg-purple-50 text-purple-700 border-purple-200 font-bold hover:bg-purple-100";
+                    sideBadgeClass = "bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800 font-bold hover:bg-purple-100 dark:hover:bg-purple-900/50";
                     sideText = "G/D";
                 }
 
@@ -2190,44 +2190,43 @@ export default function Gamme({
                     onDragOver={handleDragOver}
                     onDrop={(e) => handleDrop(e, index)}
                     onDragEnd={handleDragEnd}
-                    className={`group transition-colors ${linkModeClasses} ${draggedIndex === index ? 'bg-emerald-50 opacity-50' : ''} ${isSelected && !isLinkingMode ? 'bg-indigo-100 hover:bg-indigo-200' : (!isLinkingMode ? 'hover:bg-slate-50' : '')} ${groupClasses}`}
+                    className={`group transition-colors ${linkModeClasses} ${draggedIndex === index ? 'bg-emerald-50 dark:bg-emerald-900/30 opacity-50' : ''} ${isSelected && !isLinkingMode ? 'bg-indigo-100 dark:bg-indigo-900/40 hover:bg-indigo-200 dark:hover:bg-indigo-900/60' : (!isLinkingMode ? 'hover:bg-slate-50 dark:hover:bg-dk-elevated/30' : '')} ${groupClasses}`}
                   >
                     {/* CHECKBOX CELL - VISIBLE ONLY IN SELECTION MODE */}
                     {isSelectionMode && (
                         <td 
                             onClick={(e) => { e.stopPropagation(); toggleSelection(op.id); }}
-                            className={`py-3 px-2 text-center sticky left-0 z-20 border-r border-slate-100 cursor-pointer transition-colors ${checkboxBorderLeft} ${
+                            className={`py-3 px-2 text-center sticky left-0 z-20 border-r border-slate-100 dark:border-dk-border cursor-pointer transition-colors ${checkboxBorderLeft} ${
                                 isSelected 
-                                    ? 'bg-indigo-100 hover:bg-indigo-200' 
+                                    ? 'bg-indigo-100 dark:bg-indigo-900/40 hover:bg-indigo-200 dark:hover:bg-indigo-900/60' 
                                     : (hasGroup && groupStyle 
-                                        ? `${groupStyle.bg} hover:${groupStyle.bg.replace('50', '100')}` 
-                                        : 'bg-white hover:bg-slate-100'
+                                        ? `${groupStyle.bg} hover:${groupStyle.bg.replace('50', '100').replace('dark:', 'dark:').replace('/30', '/50')}` 
+                                        : 'bg-white dark:bg-dk-surface hover:bg-slate-100 dark:hover:bg-dk-elevated/60'
                                     )
                             }`}
                         >
-                            <div className={`w-4 h-4 border rounded mx-auto flex items-center justify-center transition-colors ${isSelected ? 'bg-indigo-600 border-indigo-600' : 'border-slate-300 bg-white'}`}>
+                            <div className={`w-4 h-4 border rounded mx-auto flex items-center justify-center transition-colors ${isSelected ? 'bg-indigo-600 border-indigo-600' : 'border-slate-300 dark:border-dk-border bg-white dark:bg-dk-surface'}`}>
                                 {isSelected && <Check className="w-3 h-3 text-white" />}
                             </div>
                         </td>
                     )}
 
                     <td
-                        className={`py-3 px-2 text-center cursor-move sticky ${isSelectionMode ? 'left-8' : 'left-0'} z-20 border-r border-transparent group-hover:border-slate-100 transition-colors ${
+                        className={`py-3 px-2 text-center cursor-move sticky ${isSelectionMode ? 'left-8' : 'left-0'} z-20 border-r border-transparent group-hover:border-slate-100 dark:group-hover:border-dk-border transition-colors ${
                             isSelected 
-                                ? 'bg-indigo-100 hover:bg-indigo-200' 
+                                ? 'bg-indigo-100 dark:bg-indigo-900/40 hover:bg-indigo-200 dark:hover:bg-indigo-900/60' 
                                 : (hasGroup && groupStyle 
-                                    ? `${groupStyle.bg} hover:${groupStyle.bg.replace('50', '100')}` 
-                                    : 'bg-white group-hover:bg-slate-50'
+                                    ? `${groupStyle.bg} hover:${groupStyle.bg.replace('50', '100').replace('dark:', 'dark:').replace('/30', '/50')}` 
+                                    : 'bg-white dark:bg-dk-surface group-hover:bg-slate-50 dark:group-hover:bg-dk-elevated/30'
                                 )
                         } ${!isSelectionMode ? groupBorderLeft : ''}`}
                     >
                         <div className="flex items-center justify-center gap-1.5 mx-auto">
-                            {/* PHOTO (1:1) à gauche si présente — clic = aperçu */}
                             {op.photo && (
                                 <button
                                     type="button"
                                     onClick={(e) => { e.stopPropagation(); setPhotoPreview({ src: op.photo!, title: `Op. ${getDisplayIndex(op, index)} — ${op.description || ''}` }); }}
-                                    className="relative w-9 h-9 shrink-0 rounded-lg overflow-hidden border border-slate-200 shadow-sm bg-slate-50 group/photo"
+                                    className="relative w-9 h-9 shrink-0 rounded-lg overflow-hidden border border-slate-200 dark:border-dk-border shadow-sm bg-slate-50 dark:bg-dk-elevated/60 group/photo"
                                     title={tx(lang,{fr:'Voir la photo',ar:'عرض الصورة',en:'View photo',es:'Ver foto',pt:'Ver foto',tr:'Fotoğrafı gör'})}
                                 >
                                     <img src={op.photo} alt="" className="w-full h-full object-cover" />
@@ -2236,7 +2235,6 @@ export default function Gamme({
                                     </span>
                                 </button>
                             )}
-                            {/* NUMÉRO (à droite quand une photo est présente) — clic = menu caméra/galerie */}
                             <button
                                 type="button"
                                 onClick={(e) => openPhotoMenu(e, op.id, !!op.photo)}
@@ -2251,31 +2249,31 @@ export default function Gamme({
                                         {getDisplayIndex(op, index)}
                                     </span>
                                 ) : (
-                                    <span className={`font-mono text-xs font-bold inline-flex items-center justify-center min-w-[2rem] h-8 px-2 rounded-lg ${hasGroup && groupStyle ? groupStyle.text : 'text-indigo-600'} group-hover:text-emerald-600`}>
+                                    <span className={`font-mono text-xs font-bold inline-flex items-center justify-center min-w-[2rem] h-8 px-2 rounded-lg ${hasGroup && groupStyle ? groupStyle.text : 'text-indigo-600 dark:text-indigo-400'} group-hover:text-emerald-600 dark:group-hover:text-emerald-400`}>
                                         {getDisplayIndex(op, index)}
                                     </span>
                                 )}
                                 {photoProcessingOpId === op.id ? (
-                                    <span className="absolute -bottom-1 -right-1 bg-white rounded-full p-0.5 shadow ring-1 ring-slate-200">
+                                    <span className="absolute -bottom-1 -right-1 bg-white dark:bg-dk-surface rounded-full p-0.5 shadow ring-1 ring-slate-200 dark:ring-dk-border">
                                         <Loader2 className="w-2.5 h-2.5 text-indigo-500 animate-spin" />
                                     </span>
                                 ) : !op.photo && (
-                                    <span className="absolute -bottom-1 -right-1 bg-indigo-500 rounded-full p-0.5 shadow ring-1 ring-white opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <span className="absolute -bottom-1 -right-1 bg-indigo-500 rounded-full p-0.5 shadow ring-1 ring-white dark:ring-dk-surface opacity-0 group-hover:opacity-100 transition-opacity">
                                         <Camera className="w-2.5 h-2.5 text-white" />
                                     </span>
                                 )}
                             </button>
-                            {!isLinkingMode && <GripVertical className="w-3.5 h-3.5 text-slate-300 group-hover:text-emerald-500 transition-colors shrink-0" />}
+                            {!isLinkingMode && <GripVertical className="w-3.5 h-3.5 text-slate-300 dark:text-dk-muted group-hover:text-emerald-500 dark:group-hover:text-emerald-400 transition-colors shrink-0" />}
                         </div>
                     </td>
                     
                     {/* SIDE COLUMN - COMPACT */}
-                    <td className={`py-3 px-1 text-center sticky ${isSelectionMode ? 'left-20' : 'left-12'} z-20 border-r border-slate-50 transition-colors ${
+                    <td className={`py-3 px-1 text-center sticky ${isSelectionMode ? 'left-20' : 'left-12'} z-20 border-r border-slate-50 dark:border-dk-border transition-colors ${
                         isSelected 
-                            ? 'bg-indigo-100 hover:bg-indigo-200' 
+                            ? 'bg-indigo-100 dark:bg-indigo-900/40 hover:bg-indigo-200 dark:hover:bg-indigo-900/60' 
                             : (hasGroup && groupStyle 
-                                ? `${groupStyle.bg} hover:${groupStyle.bg.replace('50', '100')}` 
-                                : 'bg-white group-hover:bg-slate-50'
+                                ? `${groupStyle.bg} hover:${groupStyle.bg.replace('50', '100').replace('dark:', 'dark:').replace('/30', '/50')}` 
+                                : 'bg-white dark:bg-dk-surface group-hover:bg-slate-50 dark:group-hover:bg-dk-elevated/30'
                             )
                     }`}>
                         <button
@@ -2288,12 +2286,12 @@ export default function Gamme({
                     </td>
                     {/* SECTION COLUMN */}
                     {sectionSplitEnabled && (
-                      <td className="py-3 px-1 text-center border-r border-slate-50 group-hover:bg-slate-50 transition-colors">
+                      <td className="py-3 px-1 text-center border-r border-slate-50 dark:border-dk-border group-hover:bg-slate-50 dark:group-hover:bg-dk-elevated/30 transition-colors">
                           {(() => {
                               const sec = op.section || 'GLOBAL';
-                              const cls = sec === 'PREPARATION' ? 'bg-blue-100 text-blue-700 border-blue-300'
-                                  : sec === 'MONTAGE' ? 'bg-emerald-100 text-emerald-700 border-emerald-300'
-                                  : 'bg-slate-100 text-slate-500 border-slate-200';
+                              const cls = sec === 'PREPARATION' ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border-blue-300 dark:border-blue-800'
+                                  : sec === 'MONTAGE' ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800'
+                                  : 'bg-slate-100 dark:bg-dk-elevated/60 text-slate-500 dark:text-dk-muted border-slate-200 dark:border-dk-border';
                               const text = sec === 'PREPARATION' ? 'P' : sec === 'MONTAGE' ? 'M' : '—';
                               return (
                                   <button
