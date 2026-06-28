@@ -33,9 +33,8 @@ export default function NavConfirmModal({ isOpen, type, user, onConfirm }: NavCo
 
             {/* Ultra-Glass Card */}
             <div
-                className="relative w-full max-w-[400px] overflow-hidden"
+                className="relative w-full max-w-[400px] overflow-hidden bg-white/95 dark:bg-dk-surface/96 dark:text-dk-text dark:border-dk-border"
                 style={{
-                    background: isDark ? 'rgba(29, 46, 40, 0.96)' : 'rgba(255, 255, 255, 0.94)',
                     backdropFilter: 'blur(16px)',
                     borderRadius: '24px',
                     boxShadow: isDark 
@@ -55,7 +54,7 @@ export default function NavConfirmModal({ isOpen, type, user, onConfirm }: NavCo
                     }}
                 />
 
-                <div className="relative px-8 pt-10 pb-8 flex flex-col items-center text-center">
+                <div className="relative px-8 pt-10 pb-8 flex flex-col items-center text-center dark:bg-dk-bg dark:text-dk-text-soft">
                     {/* Icon Circle - More Minimalist */}
                     <div
                         className={`mb-6 w-16 h-16 rounded-2xl flex items-center justify-center transition-transform duration-500`}

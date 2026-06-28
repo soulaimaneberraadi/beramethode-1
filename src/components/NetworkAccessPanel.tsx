@@ -47,7 +47,7 @@ export default function NetworkAccessPanel({ isDark }: { isDark: boolean }) {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 0.6 }}
-      className={`fixed bottom-4 right-4 z-20 rounded-2xl backdrop-blur-xl border shadow-lg max-w-xs ${
+      className={`fixed bottom-4 right-4 z-20 rounded-2xl backdrop-blur-xl border shadow-lg max-w-xs dark:bg-dk-bg/5 dark:text-dk-text ${
         isDark ? 'bg-white/5 border-white/10' : 'bg-white/70 border-white/40'
       }`}
     >
