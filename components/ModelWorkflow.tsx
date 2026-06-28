@@ -348,16 +348,16 @@ export default function ModelWorkflow({
         <div className="flex flex-col h-full overflow-hidden">
 
             {/* STEPPER HEADER + NAVIGATION */}
-            <div className="bg-white border-b border-slate-200 px-3 sm:px-4 py-2 sm:py-3 shrink-0 flex flex-wrap items-center justify-between gap-y-2 gap-x-4 shadow-sm z-20">
+            <div className="bg-white dark:bg-dk-surface border-b border-slate-200 dark:border-dk-border px-3 sm:px-4 py-2 sm:py-3 shrink-0 flex flex-wrap items-center justify-between gap-y-2 gap-x-4 shadow-sm z-20">
 
                 {/* DATA UNDO/REDO NAVIGATION (Left) */}
-                <div className="flex items-center gap-1 bg-slate-50 p-1 rounded-lg border border-slate-200 shrink-0 mr-2 shadow-sm">
+                <div className="flex items-center gap-1 bg-slate-50 dark:bg-dk-bg p-1 rounded-lg border border-slate-200 dark:border-dk-border shrink-0 mr-2 shadow-sm">
                     <button
                         onClick={onUndo}
                         disabled={!canUndo}
                         className={`p-1.5 rounded-md transition-all ${!canUndo
-                            ? 'text-slate-300 cursor-not-allowed bg-slate-50'
-                            : 'text-slate-600 hover:bg-white hover:text-indigo-600 hover:shadow-sm active:scale-95'
+                            ? 'text-slate-300 dark:text-dk-muted cursor-not-allowed bg-slate-50 dark:bg-dk-bg'
+                            : 'text-slate-600 dark:text-dk-text-soft hover:bg-white dark:hover:bg-dk-surface hover:text-indigo-600 hover:shadow-sm active:scale-95'
                             }`}
                         title={st.undo}
                     >
@@ -367,8 +367,8 @@ export default function ModelWorkflow({
                         onClick={onRedo}
                         disabled={!canRedo}
                         className={`p-1.5 rounded-md transition-all ${!canRedo
-                            ? 'text-slate-300 cursor-not-allowed bg-slate-50'
-                            : 'text-slate-600 hover:bg-white hover:text-indigo-600 hover:shadow-sm active:scale-95'
+                            ? 'text-slate-300 dark:text-dk-muted cursor-not-allowed bg-slate-50 dark:bg-dk-bg'
+                            : 'text-slate-600 dark:text-dk-text-soft hover:bg-white dark:hover:bg-dk-surface hover:text-indigo-600 hover:shadow-sm active:scale-95'
                             }`}
                         title={st.redo}
                     >
@@ -377,7 +377,7 @@ export default function ModelWorkflow({
                     <div className="w-px h-4 bg-slate-200 mx-0.5"></div>
                     <button
                         onClick={handleRefresh}
-                        className="p-1.5 rounded-md text-slate-600 hover:bg-white hover:text-emerald-600 transition-all hover:shadow-sm active:scale-95"
+                        className="p-1.5 rounded-md text-slate-600 dark:text-dk-text-soft hover:bg-white dark:hover:bg-dk-surface hover:text-emerald-600 transition-all hover:shadow-sm active:scale-95"
                         title={st.refresh}
                     >
                         <RotateCcw className="w-4 h-4" />
@@ -389,7 +389,7 @@ export default function ModelWorkflow({
                     {/* Left Scroll Button */}
                     <button
                         onClick={() => scrollSteps('left')}
-                        className="absolute left-0 top-0 bottom-0 z-10 w-8 bg-white/40 hover:bg-white/60 backdrop-blur-md border-r border-slate-200/50 text-slate-600 hover:text-indigo-600 transition-all duration-200 active:bg-white/80 opacity-0 group-hover/stepper:opacity-100 flex items-center justify-center"
+                        className="absolute left-0 top-0 bottom-0 z-10 w-8 bg-white/40 dark:bg-dk-surface/40 hover:bg-white/60 dark:hover:bg-dk-surface/60 backdrop-blur-md border-r border-slate-200/50 dark:border-dk-border/50 text-slate-600 dark:text-dk-text-soft hover:text-indigo-600 transition-all duration-200 active:bg-white/80 dark:active:bg-dk-surface/80 opacity-0 group-hover/stepper:opacity-100 flex items-center justify-center"
                         title={tx(lang, { fr: 'Précédent', ar: 'السابق', en: 'Previous', es: 'Anterior', pt: 'Anterior', tr: 'Önceki' })}
                     >
                         <ChevronLeft className="w-4 h-4" />
@@ -412,10 +412,10 @@ export default function ModelWorkflow({
                                             ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200'
                                             : isPast
                                                 ? 'text-emerald-600 bg-emerald-50/50 hover:bg-emerald-100'
-                                                : 'text-slate-400 hover:text-slate-600 hover:bg-slate-50'
+                                                : 'text-slate-400 dark:text-dk-muted hover:text-slate-600 dark:hover:text-dk-text hover:bg-slate-50 dark:hover:bg-dk-bg'
                                             }`}
                                     >
-                                        {isPast ? <CheckCircle2 className="w-3.5 h-3.5" /> : <step.icon className={`w-3.5 h-3.5 ${isActive ? 'text-indigo-200' : 'text-slate-400'}`} />}
+                                        {isPast ? <CheckCircle2 className="w-3.5 h-3.5" /> : <step.icon className={`w-3.5 h-3.5 ${isActive ? 'text-indigo-200' : 'text-slate-400 dark:text-dk-muted'}`} />}
                                         <span className="hidden md:inline">{step.label}</span>
                                         {/* Mobile : label complet sur l'étape active, numéro sinon */}
                                         <span className="md:hidden">{isActive ? step.label : index + 1}</span>
@@ -429,7 +429,7 @@ export default function ModelWorkflow({
                     {/* Right Scroll Button */}
                     <button
                         onClick={() => scrollSteps('right')}
-                        className="absolute right-0 top-0 bottom-0 z-10 w-8 bg-white/40 hover:bg-white/60 backdrop-blur-md border-l border-slate-200/50 text-slate-600 hover:text-indigo-600 transition-all duration-200 active:bg-white/80 opacity-0 group-hover/stepper:opacity-100 flex items-center justify-center"
+                        className="absolute right-0 top-0 bottom-0 z-10 w-8 bg-white/40 dark:bg-dk-surface/40 hover:bg-white/60 dark:hover:bg-dk-surface/60 backdrop-blur-md border-l border-slate-200/50 dark:border-dk-border/50 text-slate-600 dark:text-dk-text-soft hover:text-indigo-600 transition-all duration-200 active:bg-white/80 dark:active:bg-dk-surface/80 opacity-0 group-hover/stepper:opacity-100 flex items-center justify-center"
                         title={tx(lang, { fr: 'Suivant', ar: 'التالي', en: 'Next', es: 'Siguiente', pt: 'Próximo', tr: 'İleri' })}
                     >
                         <ChevronRight className="w-4 h-4" />
@@ -442,8 +442,8 @@ export default function ModelWorkflow({
                         onClick={handleLinearPrev}
                         disabled={currentIndex === 0}
                         className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all shadow-sm border ${currentIndex === 0
-                            ? 'opacity-40 cursor-not-allowed border-slate-200 text-slate-300 bg-white'
-                            : 'bg-white border-slate-200 hover:bg-slate-50 text-slate-600'
+                            ? 'opacity-40 cursor-not-allowed border-slate-200 dark:border-dk-border text-slate-300 dark:text-dk-muted bg-white dark:bg-dk-surface'
+                            : 'bg-white dark:bg-dk-surface border-slate-200 dark:border-dk-border hover:bg-slate-50 dark:hover:bg-dk-bg text-slate-600 dark:text-dk-text-soft'
                             }`}
                         title={st.back}
                     >
@@ -453,7 +453,7 @@ export default function ModelWorkflow({
 
                     <button
                         onClick={handleSave}
-                        className="flex items-center gap-2 px-3 py-2.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-600 rounded-xl text-xs font-bold shadow-sm transition-all"
+                        className="flex items-center gap-2 px-3 py-2.5 bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border hover:bg-slate-50 dark:hover:bg-dk-bg text-slate-600 dark:text-dk-text-soft rounded-xl text-xs font-bold shadow-sm transition-all"
                         title={st.save}
                     >
                         <Save className="w-4 h-4" />
@@ -474,7 +474,7 @@ export default function ModelWorkflow({
             </div>
 
             {/* CONTENT AREA */}
-            <div className="flex-1 overflow-hidden relative bg-slate-50/50">
+            <div className="flex-1 overflow-hidden relative bg-slate-50 dark:bg-dk-bg/50">
                 {/* FLOATING ERROR MESSAGE (4s with shake animation) */}
                 {validationError && (
                     <div className="fixed top-24 left-1/2 -translate-x-1/2 z-[100] animate-in slide-in-from-top-4 duration-300">
