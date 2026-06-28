@@ -153,18 +153,31 @@ function sanitizePointageRowForSave(row: Record<string, unknown> | undefined): R
 }
 
 // ─── STYLE HELPERS ────────────────────────────────────────
-const labelStyle: React.CSSProperties = { display: 'block', fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 5 };
-const inputStyle: React.CSSProperties = { border: '1px solid #E2E8F0', borderRadius: 8, padding: '8px 10px', fontSize: 13, color: '#0F172A', background: '#fff', outline: 'none', fontFamily: 'inherit', width: '100%' };
-const btnPrimary: React.CSSProperties = { display: 'flex', alignItems: 'center', padding: '10px 20px', background: 'linear-gradient(135deg, #4f46e5 0%, #3b82f6 100%)', color: '#fff', border: 'none', borderRadius: '12px', cursor: 'pointer', fontSize: '13px', fontWeight: 600, boxShadow: '0 4px 12px rgba(79, 70, 229, 0.25)', transition: 'all 0.2s' };
-const btnSecondary: React.CSSProperties = { display: 'flex', alignItems: 'center', padding: '10px 16px', background: '#fff', color: '#475569', border: '1px solid #e2e8f0', borderRadius: '12px', cursor: 'pointer', fontSize: '13px', fontWeight: 500, boxShadow: '0 1px 2px rgba(0,0,0,0.05)', transition: 'all 0.2s' };
-const btnDanger: React.CSSProperties = { display: 'flex', alignItems: 'center', padding: '10px 16px', background: '#fff1f2', color: '#e11d48', border: 'none', borderRadius: '12px', cursor: 'pointer', fontSize: '13px', fontWeight: 600, transition: 'all 0.2s' };
+function labelStyle(isDark: boolean): React.CSSProperties {
+  return { display: 'block', fontSize: 12, fontWeight: 600, color: isDark ? '#CBD5E1' : '#374151', marginBottom: 5 };
+}
+function inputStyle(isDark: boolean): React.CSSProperties {
+  var b = isDark ? '#334155' : '#E2E8F0';
+  return { border: '1px solid ' + b, borderRadius: 8, padding: '8px 10px', fontSize: 13, color: isDark ? '#F1F5F9' : '#0F172A', background: isDark ? '#1E293B' : '#fff', outline: 'none', fontFamily: 'inherit', width: '100%' };
+}
+function btnPrimary(isDark: boolean): React.CSSProperties {
+  return { display: 'flex', alignItems: 'center', padding: '10px 20px', background: isDark ? 'linear-gradient(135deg, #6366f1 0%, #818cf8 100%)' : 'linear-gradient(135deg, #4f46e5 0%, #3b82f6 100%)', color: '#fff', border: 'none', borderRadius: '12px', cursor: 'pointer', fontSize: '13px', fontWeight: 600, boxShadow: isDark ? '0 4px 12px rgba(99, 102, 241, 0.15)' : '0 4px 12px rgba(79, 70, 229, 0.25)', transition: 'all 0.2s' };
+}
+function btnSecondary(isDark: boolean): React.CSSProperties {
+  var b = isDark ? '#334155' : '#e2e8f0';
+  return { display: 'flex', alignItems: 'center', padding: '10px 16px', background: isDark ? '#1E293B' : '#fff', color: isDark ? '#CBD5E1' : '#475569', border: '1px solid ' + b, borderRadius: '12px', cursor: 'pointer', fontSize: '13px', fontWeight: 500, boxShadow: isDark ? 'none' : '0 1px 2px rgba(0,0,0,0.05)', transition: 'all 0.2s' };
+}
+function btnDanger(isDark: boolean): React.CSSProperties {
+  return { display: 'flex', alignItems: 'center', padding: '10px 16px', background: isDark ? '#3b0f1a' : '#fff1f2', color: isDark ? '#fb7185' : '#e11d48', border: 'none', borderRadius: '12px', cursor: 'pointer', fontSize: '13px', fontWeight: 600, transition: 'all 0.2s' };
+}
 
 function Field({ label, value, onChange, type = 'text', placeholder, required }: { label: string; value?: string | number; onChange: (v: string) => void; type?: string; placeholder?: string; required?: boolean }) {
+  const isDark = useIsDark();
   return (
     <div>
-      <label style={_\labelStyle}>{label}{required && <span style={{ color: '#EF4444' }}> *</span>}</label>
+      <label style={labelStyle(isDark)}>{label}{required && <span style={{ color: isDark ? '#fb7185' : '#EF4444' }}> *</span>}</label>
       <input type={type} value={value ?? ''} onChange={e => onChange(e.target.value)} placeholder={placeholder}
-        style={_\inputStyle} />
+        style={inputStyle(isDark)} />
     </div>
   );
 }
@@ -335,7 +348,7 @@ function WorkerModal({ worker, onClose, onSave, transportLignes }: { worker: Par
                 </div>
                 <input ref={photoRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handlePhoto} />
                 <div>
-                  <button onClick={() => photoRef.current?.click()} style={{ ...btnSecondary, fontSize: 12 }}>
+                  <button onClick={() => photoRef.current?.click()} style={{ ..._btnSecondary, fontSize: 12 }}>
                     <Camera size={14} style={{ marginRight: 6 }} />{tx(lang, { fr: 'Choisir photo', ar: 'اختيار صورة', en: 'Choose photo', es: 'Elegir foto', pt: 'Escolher foto', tr: 'Fotoğraf seç' })}
                   </button>
                   <div style={{ fontSize: 11, color: '#94A3B8', marginTop: 4 }}>{tx(lang, { fr: 'JPG, PNG — max 2MB', ar: 'JPG، PNG — 2MB كحد أقصى', en: 'JPG, PNG — max 2MB', es: 'JPG, PNG — máx 2MB', pt: 'JPG, PNG — máx 2MB', tr: 'JPG, PNG — maks 2MB' })}</div>
@@ -347,7 +360,7 @@ function WorkerModal({ worker, onClose, onSave, transportLignes }: { worker: Par
               <Field label={tx(lang, { fr: 'CNSS', ar: 'رقم CNSS', en: 'CNSS No.', es: 'CNSS', pt: 'CNSS', tr: 'CNSS No' })} value={form.cnss ?? ''} onChange={v => set('cnss', v)} placeholder={tx(lang, { fr: 'Numéro CNSS', ar: 'رقم CNSS', en: 'CNSS Number', es: 'Número CNSS', pt: 'Número CNSS', tr: 'CNSS Numarası' })} />
               {form.id && (
                 <div style={{ gridColumn: '1/-1' }}>
-                  <label style={_\labelStyle}>{tx(lang, { fr: 'Person ID (plateforme)', ar: 'معرف الشخص (المنصة)', en: 'Person ID (platform)', es: 'ID Persona (plataforma)', pt: 'ID Pessoa (plataforma)', tr: 'Kişi ID (platform)' })}</label>
+                  <label style={_labelStyle}>{tx(lang, { fr: 'Person ID (plateforme)', ar: 'معرف الشخص (المنصة)', en: 'Person ID (platform)', es: 'ID Persona (plataforma)', pt: 'ID Pessoa (plataforma)', tr: 'Kişi ID (platform)' })}</label>
                   <div style={{ ...inputStyle, background: '#F8FAFC', color: '#475569', fontSize: 12 }} title={tx(lang, { fr: 'Identifiant stable Section 23', ar: 'معرف ثابت القسم 23', en: 'Stable ID Section 23', es: 'ID estable Sección 23', pt: 'ID estável Seção 23', tr: 'Kararlı ID Bölüm 23' })}>
                     {form.person_id || tx(lang, { fr: '—', ar: '—', en: '—', es: '—', pt: '—', tr: '—' })}
                   </div>
@@ -372,7 +385,7 @@ function WorkerModal({ worker, onClose, onSave, transportLignes }: { worker: Par
                     <Field label={tx(lang, { fr: 'Nouveau PIN', ar: 'PIN جديد', en: 'New PIN', es: 'Nuevo PIN', pt: 'Novo PIN', tr: 'Yeni PIN' })} value={pin1} onChange={setPin1} type="password" placeholder={tx(lang, { fr: '4–8 chiffres', ar: '4–8 أرقام', en: '4–8 digits', es: '4–8 dígitos', pt: '4–8 dígitos', tr: '4–8 hane' })} />
                     <Field label={tx(lang, { fr: 'Confirmer PIN', ar: 'تأكيد PIN', en: 'Confirm PIN', es: 'Confirmar PIN', pt: 'Confirmar PIN', tr: 'PIN\'i Onayla' })} value={pin2} onChange={setPin2} type="password" placeholder={tx(lang, { fr: 'répéter', ar: 'أعد الإدخال', en: 'repeat', es: 'repetir', pt: 'repetir', tr: 'tekrarla' })} />
                   </div>
-                  <button type="button" onClick={handleSetPin} disabled={pinBusy} style={{ ...btnSecondary, marginTop: 10 }}>
+                  <button type="button" onClick={handleSetPin} disabled={pinBusy} style={{ ..._btnSecondary, marginTop: 10 }}>
                     {pinBusy ? tx(lang, { fr: '…', ar: '…', en: '…', es: '…', pt: '…', tr: '…' }) : tx(lang, { fr: 'Enregistrer le PIN', ar: 'حفظ PIN', en: 'Save PIN', es: 'Guardar PIN', pt: 'Salvar PIN', tr: 'PIN\'i Kaydet' })}
                   </button>
                 </div>
@@ -380,8 +393,8 @@ function WorkerModal({ worker, onClose, onSave, transportLignes }: { worker: Par
               <Field label={tx(lang, { fr: 'Téléphone', ar: 'الهاتف', en: 'Phone', es: 'Teléfono', pt: 'Telefone', tr: 'Telefon' })} value={form.phone ?? ''} onChange={v => set('phone', v)} placeholder="06 XX XX XX" />
               <Field label={tx(lang, { fr: 'Date Naissance', ar: 'تاريخ الميلاد', en: 'Date of Birth', es: 'Fecha de Nacimiento', pt: 'Data de Nascimento', tr: 'Doğum Tarihi' })} value={form.date_naissance ?? ''} onChange={v => set('date_naissance', v)} type="date" />
               <div>
-                <label style={_\labelStyle}>{tx(lang, { fr: 'Sexe', ar: 'الجنس', en: 'Sex', es: 'Sexo', pt: 'Sexo', tr: 'Cinsiyet' })}</label>
-                <select value={form.sexe ?? 'M'} onChange={e => set('sexe', e.target.value)} style={_\inputStyle}>
+                <label style={_labelStyle}>{tx(lang, { fr: 'Sexe', ar: 'الجنس', en: 'Sex', es: 'Sexo', pt: 'Sexo', tr: 'Cinsiyet' })}</label>
+                <select value={form.sexe ?? 'M'} onChange={e => set('sexe', e.target.value)} style={_inputStyle}>
                   <option value="M">{tx(lang, { fr: 'Homme', ar: 'ذكر', en: 'Male', es: 'Hombre', pt: 'Homem', tr: 'Erkek' })}</option>
                   <option value="F">{tx(lang, { fr: 'Femme', ar: 'أنثى', en: 'Female', es: 'Mujer', pt: 'Mulher', tr: 'Kadın' })}</option>
                 </select>
@@ -395,8 +408,8 @@ function WorkerModal({ worker, onClose, onSave, transportLignes }: { worker: Par
           {subTab === 'emploi' && (
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
               <div>
-                <label style={_\labelStyle}>{tx(lang, { fr: 'Rôle', ar: 'الدور', en: 'Role', es: 'Rol', pt: 'Função', tr: 'Rol' })}</label>
-                <select value={form.role ?? 'OPERATOR'} onChange={e => set('role', e.target.value as HRWorkerRole)} style={_\inputStyle}>
+                <label style={_labelStyle}>{tx(lang, { fr: 'Rôle', ar: 'الدور', en: 'Role', es: 'Rol', pt: 'Função', tr: 'Rol' })}</label>
+                <select value={form.role ?? 'OPERATOR'} onChange={e => set('role', e.target.value as HRWorkerRole)} style={_inputStyle}>
                   {ROLES.map(r => <option key={r} value={r}>{tx(lang, ROLE_LABELS[r])}</option>)}
                 </select>
               </div>
@@ -406,8 +419,8 @@ function WorkerModal({ worker, onClose, onSave, transportLignes }: { worker: Par
               <Field label={tx(lang, { fr: 'Spécialité', ar: 'التخصص', en: 'Specialty', es: 'Especialidad', pt: 'Especialidade', tr: 'Uzmanlık' })} value={form.specialite ?? ''} onChange={v => set('specialite', v)} placeholder={tx(lang, { fr: 'ex: Jupe', ar: 'مثال: تنورة', en: 'ex: Skirt', es: 'ej: Falda', pt: 'ex: Saia', tr: 'ör: Etek' })} />
               <Field label={tx(lang, { fr: 'Date Embauche', ar: 'تاريخ التوظيف', en: 'Hire Date', es: 'Fecha de Contratación', pt: 'Data de Contratação', tr: 'İşe Giriş Tarihi' })} value={form.date_embauche ?? ''} onChange={v => set('date_embauche', v)} type="date" required />
               <div>
-                <label style={_\labelStyle}>{tx(lang, { fr: 'Type Contrat', ar: 'نوع العقد', en: 'Contract Type', es: 'Tipo de Contrato', pt: 'Tipo de Contrato', tr: 'Sözleşme Türü' })}</label>
-                <select value={form.type_contrat ?? 'CDI'} onChange={e => set('type_contrat', e.target.value as HRContractType)} style={_\inputStyle}>
+                <label style={_labelStyle}>{tx(lang, { fr: 'Type Contrat', ar: 'نوع العقد', en: 'Contract Type', es: 'Tipo de Contrato', pt: 'Tipo de Contrato', tr: 'Sözleşme Türü' })}</label>
+                <select value={form.type_contrat ?? 'CDI'} onChange={e => set('type_contrat', e.target.value as HRContractType)} style={_inputStyle}>
                   {(['CDI','CDD','ANAPEC','STAGE'] as HRContractType[]).map(t => <option key={t} value={t}>{t}</option>)}
                 </select>
               </div>
@@ -415,15 +428,15 @@ function WorkerModal({ worker, onClose, onSave, transportLignes }: { worker: Par
                 <Field label={tx(lang, { fr: 'Date Fin Contrat', ar: 'تاريخ نهاية العقد', en: 'Contract End Date', es: 'Fecha de Fin de Contrato', pt: 'Data de Fim do Contrato', tr: 'Sözleşme Bitiş Tarihi' })} value={form.date_fin_contrat ?? ''} onChange={v => set('date_fin_contrat', v)} type="date" />
               )}
               <div>
-                <label style={_\labelStyle}>{tx(lang, { fr: 'Statut', ar: 'الحالة', en: 'Status', es: 'Estado', pt: 'Status', tr: 'Durum' })}</label>
-                <select value={form.is_active ? '1' : '0'} onChange={e => set('is_active', e.target.value === '1')} style={_\inputStyle}>
+                <label style={_labelStyle}>{tx(lang, { fr: 'Statut', ar: 'الحالة', en: 'Status', es: 'Estado', pt: 'Status', tr: 'Durum' })}</label>
+                <select value={form.is_active ? '1' : '0'} onChange={e => set('is_active', e.target.value === '1')} style={_inputStyle}>
                   <option value="1">{tx(lang, { fr: 'Actif', ar: 'نشط', en: 'Active', es: 'Activo', pt: 'Ativo', tr: 'Aktif' })}</option>
                   <option value="0">{tx(lang, { fr: 'Inactif', ar: 'غير نشط', en: 'Inactive', es: 'Inactivo', pt: 'Inativo', tr: 'Pasif' })}</option>
                 </select>
               </div>
               <div>
-                <label style={_\labelStyle}>{tx(lang, { fr: 'Ligne de Transport', ar: 'خط النقل', en: 'Transport Line', es: 'Línea de Transporte', pt: 'Linha de Transporte', tr: 'Ulaşım Hattı' })}</label>
-                <select value={form.transport_ligne_id ?? ''} onChange={e => set('transport_ligne_id', e.target.value || null)} style={_\inputStyle}>
+                <label style={_labelStyle}>{tx(lang, { fr: 'Ligne de Transport', ar: 'خط النقل', en: 'Transport Line', es: 'Línea de Transporte', pt: 'Linha de Transporte', tr: 'Ulaşım Hattı' })}</label>
+                <select value={form.transport_ligne_id ?? ''} onChange={e => set('transport_ligne_id', e.target.value || null)} style={_inputStyle}>
                   <option value="">{tx(lang, { fr: '-- Sans Transport --', ar: '-- بدون نقل --', en: '-- No Transport --', es: '-- Sin Transporte --', pt: '-- Sem Transporte --', tr: '-- Ulaşım Yok --' })}</option>
                   {transportLignes.map(l => (
                     <option key={l.id} value={l.id}>{l.nom} {l.chauffeur_nom ? `(${l.chauffeur_nom})` : ''}</option>
@@ -444,8 +457,8 @@ function WorkerModal({ worker, onClose, onSave, transportLignes }: { worker: Par
               <Field label={tx(lang, { fr: 'Prime Assiduité (MAD)', ar: 'Prime Assiduité (MAD)', en: 'Prime Assiduité (MAD)', es: 'Prime Assiduité (MAD)', pt: 'Prime Assiduité (MAD)', tr: 'Prime Assiduité (MAD)' })} value={form.prime_assiduite ?? 0} onChange={v => set('prime_assiduite', parseFloat(v) || 0)} type="number" />
               <Field label={tx(lang, { fr: 'Prime Transport (MAD)', ar: 'Prime Transport (MAD)', en: 'Prime Transport (MAD)', es: 'Prime Transport (MAD)', pt: 'Prime Transport (MAD)', tr: 'Prime Transport (MAD)' })} value={form.prime_transport ?? 0} onChange={v => set('prime_transport', parseFloat(v) || 0)} type="number" />
               <div>
-                <label style={_\labelStyle}>{tx(lang, { fr: 'Mode Paiement', ar: 'طريقة الدفع', en: 'Payment Method', es: 'Método de Pago', pt: 'Método de Pagamento', tr: 'Ödeme Yöntemi' })}</label>
-                <select value={form.mode_paiement ?? 'VIREMENT'} onChange={e => set('mode_paiement', e.target.value)} style={_\inputStyle}>
+                <label style={_labelStyle}>{tx(lang, { fr: 'Mode Paiement', ar: 'طريقة الدفع', en: 'Payment Method', es: 'Método de Pago', pt: 'Método de Pagamento', tr: 'Ödeme Yöntemi' })}</label>
+                <select value={form.mode_paiement ?? 'VIREMENT'} onChange={e => set('mode_paiement', e.target.value)} style={_inputStyle}>
                   <option value="VIREMENT">{tx(lang, { fr: 'Virement bancaire', ar: 'تحويل بنكي', en: 'Bank Transfer', es: 'Transferencia bancaria', pt: 'Transferência bancária', tr: 'Banka Havalesi' })}</option>
                   <option value="ESPECES">{tx(lang, { fr: 'Espèces', ar: 'نقداً', en: 'Cash', es: 'Efectivo', pt: 'Dinheiro', tr: 'Nakit' })}</option>
                   <option value="CHEQUE">{tx(lang, { fr: 'Chèque', ar: 'شيك', en: 'Cheque', es: 'Cheque', pt: 'Cheque', tr: 'Çek' })}</option>
@@ -459,8 +472,8 @@ function WorkerModal({ worker, onClose, onSave, transportLignes }: { worker: Par
               <Field label={tx(lang, { fr: 'Nom Contact Urgence', ar: 'اسم جهة الاتصال في الطوارئ', en: 'Emergency Contact Name', es: 'Nombre Contacto Emergencia', pt: 'Nome Contato Emergência', tr: 'Acil Durum İletişim Adı' })} value={form.contact_urgence_nom ?? ''} onChange={v => set('contact_urgence_nom', v)} placeholder={tx(lang, { fr: 'Nom complet', ar: 'الاسم الكامل', en: 'Full name', es: 'Nombre completo', pt: 'Nome completo', tr: 'Tam ad' })} />
               <Field label={tx(lang, { fr: 'Tél Contact Urgence', ar: 'هاتف جهة الاتصال في الطوارئ', en: 'Emergency Contact Phone', es: 'Teléfono Contacto Emergencia', pt: 'Telefone Contato Emergência', tr: 'Acil İletişim Telefonu' })} value={form.contact_urgence_tel ?? ''} onChange={v => set('contact_urgence_tel', v)} placeholder="06 XX XX XX" />
               <div>
-                <label style={_\labelStyle}>{tx(lang, { fr: 'Lien de parenté', ar: 'صلة القرابة', en: 'Relationship', es: 'Parentesco', pt: 'Parentesco', tr: 'Yakınlık Derecesi' })}</label>
-                <select value={form.contact_urgence_lien ?? ''} onChange={e => set('contact_urgence_lien', e.target.value)} style={_\inputStyle}>
+                <label style={_labelStyle}>{tx(lang, { fr: 'Lien de parenté', ar: 'صلة القرابة', en: 'Relationship', es: 'Parentesco', pt: 'Parentesco', tr: 'Yakınlık Derecesi' })}</label>
+                <select value={form.contact_urgence_lien ?? ''} onChange={e => set('contact_urgence_lien', e.target.value)} style={_inputStyle}>
                   <option value="">{tx(lang, { fr: '-- Sélectionner --', ar: '-- اختر --', en: '-- Select --', es: '-- Seleccionar --', pt: '-- Selecionar --', tr: '-- Seç --' })}</option>
                   {[
                     { fr: 'Père', ar: 'أب', en: 'Father', es: 'Padre', pt: 'Pai', tr: 'Baba' },
@@ -473,7 +486,7 @@ function WorkerModal({ worker, onClose, onSave, transportLignes }: { worker: Par
                 </select>
               </div>
               <div style={{ gridColumn: '1/-1' }}>
-                <label style={_\labelStyle}>{tx(lang, { fr: 'Notes', ar: 'ملاحظات', en: 'Notes', es: 'Notas', pt: 'Notas', tr: 'Notlar' })}</label>
+                <label style={_labelStyle}>{tx(lang, { fr: 'Notes', ar: 'ملاحظات', en: 'Notes', es: 'Notas', pt: 'Notas', tr: 'Notlar' })}</label>
                 <textarea value={form.notes ?? ''} onChange={e => set('notes', e.target.value)} rows={4}
                   style={{ ...inputStyle, resize: 'vertical' }} placeholder={tx(lang, { fr: 'Notes libres...', ar: 'ملاحظات...', en: 'Free notes...', es: 'Notas libres...', pt: 'Notas livres...', tr: 'Serbest notlar...' })} />
               </div>
@@ -483,8 +496,8 @@ function WorkerModal({ worker, onClose, onSave, transportLignes }: { worker: Par
 
         {/* Footer */}
         <div style={{ padding: '16px 24px', borderTop: '1px solid #E2E8F0', display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
-          <button onClick={onClose} style={_\btnSecondary}>{tx(lang, { fr: 'Annuler', ar: 'إلغاء', en: 'Cancel', es: 'Cancelar', pt: 'Cancelar', tr: 'İptal' })}</button>
-          <button onClick={handleSave} disabled={saving} style={_\btnPrimary}>
+          <button onClick={onClose} style={_btnSecondary}>{tx(lang, { fr: 'Annuler', ar: 'إلغاء', en: 'Cancel', es: 'Cancelar', pt: 'Cancelar', tr: 'İptal' })}</button>
+          <button onClick={handleSave} disabled={saving} style={_btnPrimary}>
             {saving ? tx(lang, { fr: 'Enregistrement...', ar: 'جارٍ الحفظ...', en: 'Saving...', es: 'Guardando...', pt: 'Salvando...', tr: 'Kaydediliyor...' }) : <><Save size={14} style={{ marginRight: 6 }} />{tx(lang, { fr: 'Enregistrer', ar: 'حفظ', en: 'Save', es: 'Guardar', pt: 'Salvar', tr: 'Kaydet' })}</>}
           </button>
         </div>
@@ -600,7 +613,7 @@ function StatistiquesTab({ workers, pointages, suivis, planningEvents, selectedD
           <input type="date" value={selectedDate} onChange={e => setSelectedDate(e.target.value)}
             style={{ ...inputStyle, width: 160 }} />
         </div>
-        <button onClick={onRefresh} style={_\btnSecondary}><RefreshCw size={14} style={{ marginRight: 6 }} />{tx(lang, { fr: 'Actualiser', ar: 'تحديث', en: 'Refresh', es: 'Actualizar', pt: 'Atualizar', tr: 'Yenile' })}</button>
+        <button onClick={onRefresh} style={_btnSecondary}><RefreshCw size={14} style={{ marginRight: 6 }} />{tx(lang, { fr: 'Actualiser', ar: 'تحديث', en: 'Refresh', es: 'Actualizar', pt: 'Atualizar', tr: 'Yenile' })}</button>
 
         {/* Global KPIs */}
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 12 }}>
@@ -905,7 +918,7 @@ function StatistiquesTab({ workers, pointages, suivis, planningEvents, selectedD
 
                 {/* Footer */}
                 <div style={{ padding: '16px 24px', borderTop: '1px solid #E2E8F0', display: 'flex', justifyContent: 'flex-end', background: '#F8FAFC', borderBottomLeftRadius: 16, borderBottomRightRadius: 16 }}>
-                  <button onClick={() => setSelectedChainDetail(null)} style={_\btnSecondary}>
+                  <button onClick={() => setSelectedChainDetail(null)} style={_btnSecondary}>
                     {tx(lang, { fr: 'Fermer', ar: 'إغلاق', en: 'Close', es: 'Cerrar', pt: 'Fechar', tr: 'Kapat' })}
                   </button>
                 </div>
@@ -1013,8 +1026,8 @@ function InvitationsTab({
         </p>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 12 }}>
           <div>
-            <label style={_\labelStyle}>{tx(lang, { fr: 'Person ID (depuis annuaire)', ar: 'Person ID (من الدليل)', en: 'Person ID (from directory)', es: 'Person ID (del directorio)', pt: 'Person ID (do diretório)', tr: 'Person ID (rehberden)' })}</label>
-            <select value={personId} onChange={e => setPersonId(e.target.value)} style={_\inputStyle}>
+            <label style={_labelStyle}>{tx(lang, { fr: 'Person ID (depuis annuaire)', ar: 'Person ID (من الدليل)', en: 'Person ID (from directory)', es: 'Person ID (del directorio)', pt: 'Person ID (do diretório)', tr: 'Person ID (rehberden)' })}</label>
+            <select value={personId} onChange={e => setPersonId(e.target.value)} style={_inputStyle}>
               <option value="">{tx(lang, { fr: '— Choisir un ouvrier —', ar: '— اختر عاملاً —', en: '— Choose a worker —', es: '— Elija un operario —', pt: '— Escolha um operário —', tr: '— Bir işçi seçin —' })}</option>
               {withPerson.map(w => (
                 <option key={w.id} value={w.person_id || ''}>
@@ -1030,7 +1043,7 @@ function InvitationsTab({
             <Field label={tx(lang, { fr: 'E-mail destinataire (optionnel, SMTP .env)', ar: 'البريد الإلكتروني للمستلم (اختياري، SMTP .env)', en: 'Recipient email (optional, SMTP .env)', es: 'Correo del destinatario (opcional, SMTP .env)', pt: 'E-mail do destinatário (opcional, SMTP .env)', tr: 'Alıcı e-posta (isteğe bağlı, SMTP .env)' })} value={inviteEmail} onChange={setInviteEmail} placeholder="ouvrier@example.com" />
           </div>
         </div>
-        <button type="button" onClick={createInvite} style={{ ...btnPrimary, marginTop: 16 }}>
+        <button type="button" onClick={createInvite} style={{ ..._btnPrimary, marginTop: 16 }}>
           <Mail size={15} style={{ marginRight: 8 }} />{tx(lang, { fr: 'Créer l\'invitation', ar: 'إنشاء الدعوة', en: 'Create invitation', es: 'Crear invitación', pt: 'Criar convite', tr: 'Davetiye oluştur' })}
         </button>
       </div>
@@ -1068,7 +1081,7 @@ function InvitationsTab({
                     <td style={{ padding: '10px 12px', borderBottom: '1px solid #F1F5F9', fontWeight: 600 }}>{inv.status}</td>
                     <td style={{ padding: '10px 12px', borderBottom: '1px solid #F1F5F9' }}>
                       {inv.status === 'PENDING' && inv.token && (
-                        <button type="button" onClick={() => copyText(link)} style={{ ...btnSecondary, fontSize: 12, padding: '6px 10px' }}>
+                        <button type="button" onClick={() => copyText(link)} style={{ ..._btnSecondary, fontSize: 12, padding: '6px 10px' }}>
                           <Copy size={14} style={{ marginRight: 6 }} />{tx(lang, { fr: 'Copier le lien', ar: 'نسخ الرابط', en: 'Copy link', es: 'Copiar enlace', pt: 'Copiar link', tr: 'Bağlantıyı kopyala' })}
                         </button>
                       )}
@@ -1809,7 +1822,7 @@ export default function GestionRH({
             </div>
           </div>
           {tab === 'annuaire' && (
-            <button onClick={() => { setEditWorker(null); setShowWorkerModal(true); }} style={_\btnPrimary}>
+            <button onClick={() => { setEditWorker(null); setShowWorkerModal(true); }} style={_btnPrimary}>
               <UserPlus size={15} style={{ marginRight: 8 }} />{tx(lang, { fr: 'Ajouter Ouvrier', ar: 'إضافة عامل', en: 'Add Worker', es: 'Añadir Operario', pt: 'Adicionar Operário', tr: 'İşçi Ekle' })}
             </button>
           )}
@@ -1854,7 +1867,7 @@ export default function GestionRH({
               type="button"
               onClick={handleClaimFromGuest}
               disabled={claiming}
-              style={{ ..._\btnPrimary, whiteSpace: 'nowrap', opacity: claiming ? 0.7 : 1 }}
+              style={{ ..._btnPrimary, whiteSpace: 'nowrap', opacity: claiming ? 0.7 : 1 }}
             >
               {claiming ? 'Rattachement…' : `Rattacher les ${claimPreview.guestCount} fiche(s) à mon compte`}
             </button>
@@ -1878,13 +1891,13 @@ export default function GestionRH({
                   <div style={{ position: 'relative', flex: 1, minWidth: 200 }}>
                     <Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: isDark ? '#64748B' : '#94A3B8' }} />
                     <input value={search} onChange={e => setSearch(e.target.value)} placeholder={tx(lang, { fr: 'Chercher par nom, matricule, CIN...', ar: 'ابحث بالاسم، الرقم المهني، رقم البطاقة...', en: 'Search by name, reg. no., ID...', es: 'Buscar por nombre, matrícula, cédula...', pt: 'Pesquisar por nome, matrícula, CIN...', tr: 'İsim, kayıt no, kimlik ile ara...' })}
-                      style={{ ..._\inputStyle, paddingLeft: 32, width: '100%' }} />
+                      style={{ ..._inputStyle, paddingLeft: 32, width: '100%' }} />
                   </div>
-                  <select value={filterRole} onChange={e => setFilterRole(e.target.value)} style={{ ..._\inputStyle, width: 160 }}>
+                  <select value={filterRole} onChange={e => setFilterRole(e.target.value)} style={{ ..._inputStyle, width: 160 }}>
                     <option value="">{tx(lang, { fr: 'Tous les rôles', ar: 'جميع الأدوار', en: 'All roles', es: 'Todos los roles', pt: 'Todos os cargos', tr: 'Tüm roller' })}</option>
                     {ROLES.map(r => <option key={r} value={r}>{tx(lang, ROLE_LABELS[r])}</option>)}
                   </select>
-                  <select value={filterChaine} onChange={e => setFilterChaine(e.target.value)} style={{ ..._\inputStyle, width: 160 }}>
+                  <select value={filterChaine} onChange={e => setFilterChaine(e.target.value)} style={{ ..._inputStyle, width: 160 }}>
                     <option value="">{tx(lang, { fr: 'Toutes les chaînes', ar: 'جميع الخطوط', en: 'All lines', es: 'Todas las líneas', pt: 'Todas as linhas', tr: 'Tüm hatlar' })}</option>
                     {pointageChaineOptions.map(c => <option key={c} value={c}>{c}</option>)}
                   </select>
@@ -1895,7 +1908,7 @@ export default function GestionRH({
                         onClick={() => setAnnuaireViewPersist('cards')}
                         title={tx(lang, { fr: 'Vue cartes', ar: 'عرض البطاقات', en: 'Card view', es: 'Vista tarjetas', pt: 'Visualização em cartões', tr: 'Kart görünümü' })}
                         style={{
-                          ..._\btnSecondary,
+                          ..._btnSecondary,
                           padding: '7px 12px',
                           fontSize: 12,
                           fontWeight: 600,
@@ -1912,7 +1925,7 @@ export default function GestionRH({
                         onClick={() => setAnnuaireViewPersist('table')}
                         title={tx(lang, { fr: 'Vue liste / tableau', ar: 'عرض القائمة / الجدول', en: 'List / Table view', es: 'Vista lista / tabla', pt: 'Visualização em lista / tabela', tr: 'Liste / Tablo görünümü' })}
                         style={{
-                          ..._\btnSecondary,
+                          ..._btnSecondary,
                           padding: '7px 12px',
                           fontSize: 12,
                           fontWeight: 600,
@@ -1984,9 +1997,9 @@ export default function GestionRH({
                                   ) : '—'}
                                 </td>
                                 <td style={{ padding: '8px 12px', whiteSpace: 'nowrap' }}>
-                                  <button type="button" onClick={() => setProfileWorkerId(w.id)} style={{ ..._\btnPrimary, display: 'inline-flex', padding: '5px 10px', fontSize: 11, marginRight: 6 }}><IdCard size={11} style={{ marginRight: 4 }} />{tx(lang, { fr: 'Fiche', ar: 'ملف', en: 'Profile', es: 'Ficha', pt: 'Ficha', tr: 'Profil' })}</button>
-                                  <button type="button" onClick={() => { setEditWorker(w); setShowWorkerModal(true); }} style={{ ..._\btnSecondary, display: 'inline-flex', padding: '5px 10px', fontSize: 11, marginRight: 6 }}><Edit3 size={11} style={{ marginRight: 4 }} />{tx(lang, { fr: 'Édit.', ar: 'تعديل', en: 'Edit', es: 'Editar', pt: 'Editar', tr: 'Düzenle' })}</button>
-                                  <button type="button" onClick={() => handleDeleteWorker(w.id, w.full_name)} style={{ ..._\btnDanger, display: 'inline-flex', padding: '5px 8px', fontSize: 11 }}><Trash2 size={11} /></button>
+                                  <button type="button" onClick={() => setProfileWorkerId(w.id)} style={{ ..._btnPrimary, display: 'inline-flex', padding: '5px 10px', fontSize: 11, marginRight: 6 }}><IdCard size={11} style={{ marginRight: 4 }} />{tx(lang, { fr: 'Fiche', ar: 'ملف', en: 'Profile', es: 'Ficha', pt: 'Ficha', tr: 'Profil' })}</button>
+                                  <button type="button" onClick={() => { setEditWorker(w); setShowWorkerModal(true); }} style={{ ..._btnSecondary, display: 'inline-flex', padding: '5px 10px', fontSize: 11, marginRight: 6 }}><Edit3 size={11} style={{ marginRight: 4 }} />{tx(lang, { fr: 'Édit.', ar: 'تعديل', en: 'Edit', es: 'Editar', pt: 'Editar', tr: 'Düzenle' })}</button>
+                                  <button type="button" onClick={() => handleDeleteWorker(w.id, w.full_name)} style={{ ..._btnDanger, display: 'inline-flex', padding: '5px 8px', fontSize: 11 }}><Trash2 size={11} /></button>
                                 </td>
                               </tr>
                             );
@@ -2053,15 +2066,15 @@ export default function GestionRH({
                         </div>
                         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                           <button type="button" onClick={() => setProfileWorkerId(w.id)}
-                            style={{ ..._\btnPrimary, flex: 1, justifyContent: 'center', fontSize: 12, padding: '7px 10px' }}>
+                            style={{ ..._btnPrimary, flex: 1, justifyContent: 'center', fontSize: 12, padding: '7px 10px' }}>
                             <IdCard size={12} style={{ marginRight: 4 }} />{tx(lang, { fr: 'Fiche', ar: 'ملف', en: 'Profile', es: 'Ficha', pt: 'Ficha', tr: 'Profil' })}
                           </button>
                           <button onClick={() => { setEditWorker(w); setShowWorkerModal(true); }}
-                            style={{ ..._\btnSecondary, flex: 1, justifyContent: 'center', fontSize: 12, padding: '7px 10px' }}>
+                            style={{ ..._btnSecondary, flex: 1, justifyContent: 'center', fontSize: 12, padding: '7px 10px' }}>
                             <Edit3 size={12} style={{ marginRight: 4 }} />{tx(lang, { fr: 'Modifier', ar: 'تعديل', en: 'Edit', es: 'Editar', pt: 'Editar', tr: 'Düzenle' })}
                           </button>
                           <button onClick={() => handleDeleteWorker(w.id, w.full_name)}
-                            style={{ ..._\btnDanger, padding: '7px 10px', fontSize: 12 }}>
+                            style={{ ..._btnDanger, padding: '7px 10px', fontSize: 12 }}>
                             <Trash2 size={12} />
                           </button>
                         </div>
@@ -2096,7 +2109,7 @@ export default function GestionRH({
                       <Calendar size={14} color="#4f46e5" style={{ flexShrink: 0 }} />
                       <input type="date" value={selectedDate} onChange={e => setSelectedDate(e.target.value)}
                         style={{ border: 'none', padding: 0, fontSize: '12px', fontWeight: 800, color: isDark ? '#334155' : '#1E293B', width: '100%', minWidth: 0, cursor: 'pointer', outline: 'none' }} />
-                      <button type="button" onClick={fetchPointage} style={{ ..._\btnSecondary, padding: '4px', borderRadius: '6px', flexShrink: 0 }} title="Actualiser">
+                      <button type="button" onClick={fetchPointage} style={{ ..._btnSecondary, padding: '4px', borderRadius: '6px', flexShrink: 0 }} title="Actualiser">
                         <RefreshCw size={13} />
                       </button>
                     </div>
@@ -2144,7 +2157,7 @@ export default function GestionRH({
                       value={pointageSearch}
                       onChange={e => setPointageSearch(e.target.value)}
                       placeholder={tx(lang, { fr: 'Nom, matricule…', ar: 'الاسم، رقم التسجيل…', en: 'Name, ID…', es: 'Nombre, matrícula…', pt: 'Nome, matrícula…', tr: 'İsim, kimlik…' })}
-                      style={{ ..._\inputStyle, paddingLeft: '30px', borderRadius: '6px', border: '1px solid #f1f5f9', background: isDark ? '#1E293B' : '#F8FAFC', width: '100%', height: '30px', fontSize: '11px' }}
+                      style={{ ..._inputStyle, paddingLeft: '30px', borderRadius: '6px', border: '1px solid #f1f5f9', background: isDark ? '#1E293B' : '#F8FAFC', width: '100%', height: '30px', fontSize: '11px' }}
                     />
                   </div>
                   
@@ -2153,7 +2166,7 @@ export default function GestionRH({
                     <select
                       value={pointageChaine}
                       onChange={e => setPointageChaine(e.target.value)}
-                      style={{ ..._\inputStyle, width: 'min(148px, 42vw)', maxWidth: '100%', height: '30px', borderRadius: '6px', background: isDark ? '#1E293B' : '#F8FAFC', fontSize: '11px' }}
+                      style={{ ..._inputStyle, width: 'min(148px, 42vw)', maxWidth: '100%', height: '30px', borderRadius: '6px', background: isDark ? '#1E293B' : '#F8FAFC', fontSize: '11px' }}
                     >
                       <option value="">{tx(lang, { fr: 'Toutes les chaînes', ar: 'جميع الخطوط', en: 'All lines', es: 'Todas las líneas', pt: 'Todas as linhas', tr: 'Tüm hatlar' })}</option>
                       {pointageChaineOptions.map(c => (
@@ -2428,7 +2441,7 @@ export default function GestionRH({
                                     defaultValue={normalizeTimeForInput(ptg?.heure_entree as string)}
                                     onBlur={e => savePointageRow(w.id, 'heure_entree', e.target.value, ptg)}
                                     disabled={gridDisabled}
-                                    style={{ ..._\inputStyle, padding: '3px 6px', borderRadius: '6px', background: gridDisabled ? '#f8fafc' : '#fff', opacity: gridDisabled ? 0.45 : 1, border: gridDisabled ? '1px solid #f1f5f9' : '1px solid #e2e8f0', width: '86px', fontVariantNumeric: 'tabular-nums', fontWeight: 600, fontSize: '11px', color: isDark ? '#334155' : '#1E293B' }}
+                                    style={{ ..._inputStyle, padding: '3px 6px', borderRadius: '6px', background: gridDisabled ? '#f8fafc' : '#fff', opacity: gridDisabled ? 0.45 : 1, border: gridDisabled ? '1px solid #f1f5f9' : '1px solid #e2e8f0', width: '86px', fontVariantNumeric: 'tabular-nums', fontWeight: 600, fontSize: '11px', color: isDark ? '#334155' : '#1E293B' }}
                                   />
                                 </td>
                                 <td style={{ padding: '3px 4px' }}>
@@ -2437,7 +2450,7 @@ export default function GestionRH({
                                     defaultValue={normalizeTimeForInput(ptg?.heure_sortie as string)}
                                     onBlur={e => savePointageRow(w.id, 'heure_sortie', e.target.value, ptg)}
                                     disabled={gridDisabled}
-                                    style={{ ..._\inputStyle, padding: '3px 6px', borderRadius: '6px', background: gridDisabled ? '#f8fafc' : '#fff', opacity: gridDisabled ? 0.45 : 1, border: gridDisabled ? '1px solid #f1f5f9' : '1px solid #e2e8f0', width: '86px', fontVariantNumeric: 'tabular-nums', fontWeight: 600, fontSize: '11px', color: isDark ? '#334155' : '#1E293B' }}
+                                    style={{ ..._inputStyle, padding: '3px 6px', borderRadius: '6px', background: gridDisabled ? '#f8fafc' : '#fff', opacity: gridDisabled ? 0.45 : 1, border: gridDisabled ? '1px solid #f1f5f9' : '1px solid #e2e8f0', width: '86px', fontVariantNumeric: 'tabular-nums', fontWeight: 600, fontSize: '11px', color: isDark ? '#334155' : '#1E293B' }}
                                   />
                                 </td>
 
@@ -2556,8 +2569,8 @@ export default function GestionRH({
             {tab === 'production' && (
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
-                  <input type="date" value={selectedDate} onChange={e => setSelectedDate(e.target.value)} style={{ ..._\inputStyle, width: 160 }} />
-                  <button onClick={fetchProduction} style={_\btnSecondary}><RefreshCw size={14} style={{ marginRight: 6 }} />{tx(lang, { fr: 'Actualiser', ar: 'تحديث', en: 'Refresh', es: 'Actualizar', pt: 'Atualizar', tr: 'Yenile' })}</button>
+                  <input type="date" value={selectedDate} onChange={e => setSelectedDate(e.target.value)} style={{ ..._inputStyle, width: 160 }} />
+                  <button onClick={fetchProduction} style={_btnSecondary}><RefreshCw size={14} style={{ marginRight: 6 }} />{tx(lang, { fr: 'Actualiser', ar: 'تحديث', en: 'Refresh', es: 'Actualizar', pt: 'Atualizar', tr: 'Yenile' })}</button>
                   {productions.length > 0 && (
                     <div style={{ marginLeft: 'auto', display: 'flex', gap: 20, fontSize: 13 }}>
                       <span>{tx(lang, { fr: 'Total pièces', ar: 'إجمالي القطع', en: 'Total pieces', es: 'Total piezas', pt: 'Total peças', tr: 'Toplam parça' })}: <strong style={{ color: '#10B981' }}>{productions.reduce((a:number, p:any) => a + (p.pieces_produites || 0), 0)}</strong></span>
@@ -2714,15 +2727,15 @@ export default function GestionRH({
                       
                       {/* Date Filter */}
                       <div style={{ marginBottom: 16 }}>
-                        <label style={_\labelStyle}>{tx(lang, { fr: 'Date de recensement', ar: 'تاريخ الحصر', en: 'Census Date', es: 'Fecha de censo', pt: 'Data do recenseamento', tr: 'Sayım Tarihi' })}</label>
-                        <input type="date" value={filterTransportDate} onChange={e => setFilterTransportDate(e.target.value)} style={_\inputStyle} />
+                        <label style={_labelStyle}>{tx(lang, { fr: 'Date de recensement', ar: 'تاريخ الحصر', en: 'Census Date', es: 'Fecha de censo', pt: 'Data do recenseamento', tr: 'Sayım Tarihi' })}</label>
+                        <input type="date" value={filterTransportDate} onChange={e => setFilterTransportDate(e.target.value)} style={_inputStyle} />
                       </div>
 
                       {/* Quick Add Search */}
                       <div style={{ marginBottom: 20, position: 'relative' }}>
-                        <label style={_\labelStyle}>{tx(lang, { fr: 'Recherche & Ajout Rapide', ar: 'بحث وإضافة سريعة', en: 'Quick Search & Add', es: 'Búsqueda y Agregado Rápido', pt: 'Pesquisa e Adição Rápida', tr: 'Hızlı Ara ve Ekle' })}</label>
+                        <label style={_labelStyle}>{tx(lang, { fr: 'Recherche & Ajout Rapide', ar: 'بحث وإضافة سريعة', en: 'Quick Search & Add', es: 'Búsqueda y Agregado Rápido', pt: 'Pesquisa e Adição Rápida', tr: 'Hızlı Ara ve Ekle' })}</label>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                          <input type="text" placeholder={tx(lang, { fr: 'Rechercher par nom...', ar: 'بحث بالاسم...', en: 'Search by name...', es: 'Buscar por nombre...', pt: 'Pesquisar por nome...', tr: 'İsimle ara...' })} value={recensementSearch} onChange={e => setRecensementSearch(e.target.value)} style={_\inputStyle} />
+                          <input type="text" placeholder={tx(lang, { fr: 'Rechercher par nom...', ar: 'بحث بالاسم...', en: 'Search by name...', es: 'Buscar por nombre...', pt: 'Pesquisar por nome...', tr: 'İsimle ara...' })} value={recensementSearch} onChange={e => setRecensementSearch(e.target.value)} style={_inputStyle} />
                           {recensementSearch && (
                             <button onClick={() => setRecensementSearch('')} style={{ padding: 8, background: isDark ? '#1E293B' : '#F1F5F9', border: 'none', borderRadius: 8, cursor: 'pointer' }}>
                               <X size={16} />
@@ -2750,8 +2763,8 @@ export default function GestionRH({
 
                       {/* Select by Chaine */}
                       <div style={{ borderTop: '1px solid #F1F5F9', paddingTop: 16 }}>
-                        <label style={_\labelStyle}>{tx(lang, { fr: 'Sélection par Chaîne de Production', ar: 'اختيار حسب خط الإنتاج', en: 'Selection by Production Line', es: 'Selección por Línea de Producción', pt: 'Seleção por Linha de Produção', tr: 'Üretim Hattına Göre Seçim' })}</label>
-                        <select value={recensementChaine} onChange={e => setRecensementChaine(e.target.value)} style={{ ..._\inputStyle, marginBottom: 12 }}>
+                        <label style={_labelStyle}>{tx(lang, { fr: 'Sélection par Chaîne de Production', ar: 'اختيار حسب خط الإنتاج', en: 'Selection by Production Line', es: 'Selección por Línea de Producción', pt: 'Seleção por Linha de Produção', tr: 'Üretim Hattına Göre Seçim' })}</label>
+                        <select value={recensementChaine} onChange={e => setRecensementChaine(e.target.value)} style={{ ..._inputStyle, marginBottom: 12 }}>
                           <option value="">{tx(lang, { fr: '-- Sélectionner une chaîne --', ar: '-- اختر خطاً --', en: '-- Select a line --', es: '-- Seleccionar una línea --', pt: '-- Selecionar uma linha --', tr: '-- Bir hat seçin --' })}</option>
                           {pointageChaineOptions.map(ch => <option key={ch} value={ch}>{ch}</option>)}
                         </select>
@@ -2760,14 +2773,14 @@ export default function GestionRH({
                           <div>
                             {/* Mass actions */}
                             <div style={{ display: 'flex', gap: 10, marginBottom: 12 }}>
-                              <button type="button" style={{ ..._\btnSecondary, padding: '5px 10px', fontSize: 11 }}
+                              <button type="button" style={{ ..._btnSecondary, padding: '5px 10px', fontSize: 11 }}
                                 onClick={() => {
                                   const chainIds = workers.filter(w => w.is_active && String(w.chaine_id || '') === recensementChaine).map(w => w.id);
                                   setRecensementWorkers(prev => [...new Set([...prev, ...chainIds])]);
                                 }}>
                                 {tx(lang, { fr: 'Tout cocher', ar: 'تحديد الكل', en: 'Select All', es: 'Seleccionar todo', pt: 'Selecionar tudo', tr: 'Tümünü Seç' })}
                               </button>
-                              <button type="button" style={{ ..._\btnSecondary, padding: '5px 10px', fontSize: 11, color: '#EF4444', borderColor: '#FCA5A5' }}
+                              <button type="button" style={{ ..._btnSecondary, padding: '5px 10px', fontSize: 11, color: '#EF4444', borderColor: '#FCA5A5' }}
                                 onClick={() => {
                                   const chainIds = workers.filter(w => w.is_active && String(w.chaine_id || '') === recensementChaine).map(w => w.id);
                                   setRecensementWorkers(prev => prev.filter(id => !chainIds.includes(id)));
@@ -2802,7 +2815,7 @@ export default function GestionRH({
                       <div style={{ background: isDark ? '#1E293B' : '#fff', borderRadius: 16, padding: 20, border: '1px solid #E2E8F0', boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
                           <h3 style={{ margin: 0, fontSize: 15, fontWeight: 700, color: isDark ? '#334155' : '#0F172A' }}>{tx(lang, { fr: 'Fiche Récapitulative', ar: 'بطاقة ملخصة', en: 'Summary Sheet', es: 'Ficha Resumen', pt: 'Ficha Resumo', tr: 'Özet Kartı' })}</h3>
-                          <button onClick={handleCopyRecensementWhatsApp} disabled={recensementWorkers.length === 0} style={_\btnPrimary}>
+                          <button onClick={handleCopyRecensementWhatsApp} disabled={recensementWorkers.length === 0} style={_btnPrimary}>
                             <Copy size={14} style={{ marginRight: 6 }} /> {tx(lang, { fr: 'Copier WhatsApp', ar: 'نسخ واتساب', en: 'Copy WhatsApp', es: 'Copiar WhatsApp', pt: 'Copiar WhatsApp', tr: 'WhatsApp\'ı Kopyala' })}
                           </button>
                         </div>
@@ -2883,7 +2896,7 @@ export default function GestionRH({
                         <input type="text" placeholder="ex: Équipe A" value={filterTransportParda} onChange={e => setFilterTransportParda(e.target.value)}
                           style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid #CBD5E1', fontSize: 13, outline: 'none' }} />
                       </div>
-                      <button onClick={() => { fetchTransportLignes(); fetchPointage(); }} style={{ ..._\btnSecondary, padding: '8px 12px' }}>
+                      <button onClick={() => { fetchTransportLignes(); fetchPointage(); }} style={{ ..._btnSecondary, padding: '8px 12px' }}>
                         <RefreshCw size={14} style={{ marginRight: 6 }} />{tx(lang, { fr: 'Actualiser', ar: 'تحديث', en: 'Refresh', es: 'Actualizar', pt: 'Atualizar', tr: 'Yenile' })}
                       </button>
                     </div>
@@ -2945,7 +2958,7 @@ export default function GestionRH({
                                 <span style={{ background: '#EEF2FF', color: isDark ? '#818cf8' : '#2149C1', fontSize: 11, fontWeight: 700, padding: '4px 10px', borderRadius: 12 }}>
                                   {tx(lang, { fr: 'Présents', ar: 'الحاضرون', en: 'Present', es: 'Presentes', pt: 'Presentes', tr: 'Mevcut' })}: {presentWorkers.length} / {assignedWorkers.length} ({tx(lang, { fr: 'Capacité', ar: 'السعة', en: 'Capacity', es: 'Capacidad', pt: 'Capacidade', tr: 'Kapasite' })}: {l.capacite || '—'})
                                 </span>
-                                <button onClick={handleCopyWhatsApp} style={{ ..._\btnSecondary, fontSize: 11, padding: '4px 10px' }}>
+                                <button onClick={handleCopyWhatsApp} style={{ ..._btnSecondary, fontSize: 11, padding: '4px 10px' }}>
                                   <Copy size={12} style={{ marginRight: 4 }} /> {tx(lang, { fr: 'Copier WhatsApp', ar: 'نسخ واتساب', en: 'Copy WhatsApp', es: 'Copiar WhatsApp', pt: 'Copiar WhatsApp', tr: 'WhatsApp\'ı Kopyala' })}
                                 </button>
                               </div>
@@ -2992,7 +3005,7 @@ export default function GestionRH({
                 {transportSubTab === 'lignes' && (
                   <div>
                     <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>
-                      <button onClick={() => { setSelectedLigne({ nom: '', code_ligne: '', quartier: '', chauffeur_nom: '', chauffeur_tel: '', matricule_vehicule: '', capacite: 15, notes: '' }); setShowLigneModal(true); }} style={_\btnPrimary}>
+                      <button onClick={() => { setSelectedLigne({ nom: '', code_ligne: '', quartier: '', chauffeur_nom: '', chauffeur_tel: '', matricule_vehicule: '', capacite: 15, notes: '' }); setShowLigneModal(true); }} style={_btnPrimary}>
                         <Plus size={15} style={{ marginRight: 6 }} /> {tx(lang, { fr: 'Ajouter Ligne', ar: 'إضافة خط', en: 'Add Line', es: 'Agregar Línea', pt: 'Adicionar Linha', tr: 'Hat Ekle' })}
                       </button>
                     </div>
@@ -3021,7 +3034,7 @@ export default function GestionRH({
                           </div>
                           <div style={{ display: 'flex', gap: 8, borderTop: '1px solid #F1F5F9', paddingTop: 12, marginTop: 12, justifyContent: 'flex-end' }}>
                             <button onClick={() => { setSelectedLigne(l); setShowLigneModal(true); }}
-                              style={{ ..._\btnSecondary, fontSize: 11, padding: '4px 8px' }}>
+                              style={{ ..._btnSecondary, fontSize: 11, padding: '4px 8px' }}>
                               <Edit3 size={12} style={{ marginRight: 4 }} /> {tx(lang, { fr: 'Modifier', ar: 'تعديل', en: 'Edit', es: 'Editar', pt: 'Editar', tr: 'Düzenle' })}
                             </button>
                             <button onClick={() => handleDeleteLigne(l.id, l.nom)}
@@ -3053,52 +3066,52 @@ export default function GestionRH({
                       <div style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 14 }}>
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 10 }}>
                           <div>
-                            <label style={_\labelStyle}>{tx(lang, { fr: 'Code Ligne *', ar: 'رمز الخط *', en: 'Line Code *', es: 'Código de Línea *', pt: 'Código da Linha *', tr: 'Hat Kodu *' })}</label>
+                            <label style={_labelStyle}>{tx(lang, { fr: 'Code Ligne *', ar: 'رمز الخط *', en: 'Line Code *', es: 'Código de Línea *', pt: 'Código da Linha *', tr: 'Hat Kodu *' })}</label>
                             <input type="text" value={selectedLigne?.code_ligne ?? ''} onChange={e => setSelectedLigne(prev => prev ? ({ ...prev, code_ligne: e.target.value }) : null)}
-                              placeholder="ex: L1" style={_\inputStyle} />
+                              placeholder="ex: L1" style={_inputStyle} />
                           </div>
                           <div>
-                            <label style={_\labelStyle}>{tx(lang, { fr: 'Nom de la ligne *', ar: 'اسم الخط *', en: 'Line Name *', es: 'Nombre de la línea *', pt: 'Nome da linha *', tr: 'Hat Adı *' })}</label>
+                            <label style={_labelStyle}>{tx(lang, { fr: 'Nom de la ligne *', ar: 'اسم الخط *', en: 'Line Name *', es: 'Nombre de la línea *', pt: 'Nome da linha *', tr: 'Hat Adı *' })}</label>
                             <input type="text" value={selectedLigne?.nom ?? ''} onChange={e => setSelectedLigne(prev => prev ? ({ ...prev, nom: e.target.value }) : null)}
-                              placeholder="ex: Ligne 1" style={_\inputStyle} />
+                              placeholder="ex: Ligne 1" style={_inputStyle} />
                           </div>
                         </div>
                         <div>
-                          <label style={_\labelStyle}>{tx(lang, { fr: 'Quartier / Destination (Hay)', ar: 'الحي / الوجهة', en: 'District / Destination', es: 'Barrio / Destino', pt: 'Bairro / Destino', tr: 'Mahalle / Varış Noktası' })}</label>
+                          <label style={_labelStyle}>{tx(lang, { fr: 'Quartier / Destination (Hay)', ar: 'الحي / الوجهة', en: 'District / Destination', es: 'Barrio / Destino', pt: 'Bairro / Destino', tr: 'Mahalle / Varış Noktası' })}</label>
                           <input type="text" value={selectedLigne?.quartier ?? ''} onChange={e => setSelectedLigne(prev => prev ? ({ ...prev, quartier: e.target.value }) : null)}
-                            placeholder="ex: Hay Mohammadi" style={_\inputStyle} />
+                            placeholder="ex: Hay Mohammadi" style={_inputStyle} />
                         </div>
                         <div>
-                          <label style={_\labelStyle}>{tx(lang, { fr: 'Nom du Chauffeur', ar: 'اسم السائق', en: 'Driver Name', es: 'Nombre del Conductor', pt: 'Nome do Motorista', tr: 'Şoför Adı' })}</label>
+                          <label style={_labelStyle}>{tx(lang, { fr: 'Nom du Chauffeur', ar: 'اسم السائق', en: 'Driver Name', es: 'Nombre del Conductor', pt: 'Nome do Motorista', tr: 'Şoför Adı' })}</label>
                           <input type="text" value={selectedLigne?.chauffeur_nom ?? ''} onChange={e => setSelectedLigne(prev => prev ? ({ ...prev, chauffeur_nom: e.target.value }) : null)}
-                            placeholder="ex: Mohamed" style={_\inputStyle} />
+                            placeholder="ex: Mohamed" style={_inputStyle} />
                         </div>
                         <div>
-                          <label style={_\labelStyle}>{tx(lang, { fr: 'Téléphone du Chauffeur', ar: 'هاتف السائق', en: 'Driver Phone', es: 'Teléfono del Conductor', pt: 'Telefone do Motorista', tr: 'Şoför Telefonu' })}</label>
+                          <label style={_labelStyle}>{tx(lang, { fr: 'Téléphone du Chauffeur', ar: 'هاتف السائق', en: 'Driver Phone', es: 'Teléfono del Conductor', pt: 'Telefone do Motorista', tr: 'Şoför Telefonu' })}</label>
                           <input type="text" value={selectedLigne?.chauffeur_tel ?? ''} onChange={e => setSelectedLigne(prev => prev ? ({ ...prev, chauffeur_tel: e.target.value }) : null)}
-                            placeholder="ex: 0612345678" style={_\inputStyle} />
+                            placeholder="ex: 0612345678" style={_inputStyle} />
                         </div>
                         <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 10 }}>
                           <div>
-                            <label style={_\labelStyle}>{tx(lang, { fr: 'Matricule du véhicule', ar: 'رقم المركبة', en: 'Vehicle Registration', es: 'Matrícula del vehículo', pt: 'Matrícula do veículo', tr: 'Araç Plakası' })}</label>
+                            <label style={_labelStyle}>{tx(lang, { fr: 'Matricule du véhicule', ar: 'رقم المركبة', en: 'Vehicle Registration', es: 'Matrícula del vehículo', pt: 'Matrícula do veículo', tr: 'Araç Plakası' })}</label>
                             <input type="text" value={selectedLigne?.matricule_vehicule ?? ''} onChange={e => setSelectedLigne(prev => prev ? ({ ...prev, matricule_vehicule: e.target.value }) : null)}
-                              placeholder="ex: 12345-A-6" style={_\inputStyle} />
+                              placeholder="ex: 12345-A-6" style={_inputStyle} />
                           </div>
                           <div>
-                            <label style={_\labelStyle}>{tx(lang, { fr: 'Capacité', ar: 'السعة', en: 'Capacity', es: 'Capacidad', pt: 'Capacidade', tr: 'Kapasite' })}</label>
+                            <label style={_labelStyle}>{tx(lang, { fr: 'Capacité', ar: 'السعة', en: 'Capacity', es: 'Capacidad', pt: 'Capacidade', tr: 'Kapasite' })}</label>
                             <input type="number" value={selectedLigne?.capacite ?? 0} onChange={e => setSelectedLigne(prev => prev ? ({ ...prev, capacite: parseInt(e.target.value) || 0 }) : null)}
-                              placeholder="ex: 15" style={_\inputStyle} />
+                              placeholder="ex: 15" style={_inputStyle} />
                           </div>
                         </div>
                         <div>
-                          <label style={_\labelStyle}>{tx(lang, { fr: 'Notes', ar: 'ملاحظات', en: 'Notes', es: 'Notas', pt: 'Notas', tr: 'Notlar' })}</label>
+                          <label style={_labelStyle}>{tx(lang, { fr: 'Notes', ar: 'ملاحظات', en: 'Notes', es: 'Notas', pt: 'Notas', tr: 'Notlar' })}</label>
                           <textarea value={selectedLigne?.notes ?? ''} onChange={e => setSelectedLigne(prev => prev ? ({ ...prev, notes: e.target.value }) : null)}
-                            placeholder={tx(lang, { fr: 'Notes additionnelles...', ar: 'ملاحظات إضافية...', en: 'Additional notes...', es: 'Notas adicionales...', pt: 'Notas adicionais...', tr: 'Ek notlar...' })} rows={3} style={{ ..._\inputStyle, resize: 'vertical' }} />
+                            placeholder={tx(lang, { fr: 'Notes additionnelles...', ar: 'ملاحظات إضافية...', en: 'Additional notes...', es: 'Notas adicionales...', pt: 'Notas adicionais...', tr: 'Ek notlar...' })} rows={3} style={{ ..._inputStyle, resize: 'vertical' }} />
                         </div>
                       </div>
                       <div style={{ padding: '16px 24px', borderTop: '1px solid #E2E8F0', display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
-                        <button onClick={() => setShowLigneModal(false)} style={_\btnSecondary}>{tx(lang, { fr: 'Annuler', ar: 'إلغاء', en: 'Cancel', es: 'Cancelar', pt: 'Cancelar', tr: 'İptal' })}</button>
-                        <button onClick={handleSaveLigne} style={_\btnPrimary}>{tx(lang, { fr: 'Enregistrer', ar: 'حفظ', en: 'Save', es: 'Guardar', pt: 'Salvar', tr: 'Kaydet' })}</button>
+                        <button onClick={() => setShowLigneModal(false)} style={_btnSecondary}>{tx(lang, { fr: 'Annuler', ar: 'إلغاء', en: 'Cancel', es: 'Cancelar', pt: 'Cancelar', tr: 'İptal' })}</button>
+                        <button onClick={handleSaveLigne} style={_btnPrimary}>{tx(lang, { fr: 'Enregistrer', ar: 'حفظ', en: 'Save', es: 'Guardar', pt: 'Salvar', tr: 'Kaydet' })}</button>
                       </div>
                     </div>
                   </div>
@@ -3113,9 +3126,9 @@ export default function GestionRH({
                 <div style={{ background: isDark ? '#1E293B' : '#fff', borderRadius: 14, padding: 24, boxShadow: '0 2px 8px rgba(0,0,0,0.07)' }}>
                   <h3 style={{ margin: '0 0 16px', fontSize: 16, fontWeight: 700, color: isDark ? '#334155' : '#0F172A' }}>{tx(lang, { fr: 'Générer Export Paie', ar: 'توليد تصدير الرواتب', en: 'Generate Payroll Export', es: 'Generar Exportación de Nómina', pt: 'Gerar Exportação de Folha', tr: 'Maaş Bordrosu Dışa Aktar' })}</h3>
                   <div style={{ marginBottom: 16 }}>
-                    <label style={_\labelStyle}>{tx(lang, { fr: 'Période', ar: 'الفترة', en: 'Period', es: 'Período', pt: 'Período', tr: 'Dönem' })}</label>
+                    <label style={_labelStyle}>{tx(lang, { fr: 'Période', ar: 'الفترة', en: 'Period', es: 'Período', pt: 'Período', tr: 'Dönem' })}</label>
                     <input type="month" value={selectedMois} onChange={e => setSelectedMois(e.target.value)}
-                      style={{ ..._\inputStyle }} />
+                      style={{ ..._inputStyle }} />
                   </div>
 
                   {sagePreview && sagePreview.rows && (
@@ -3140,7 +3153,7 @@ export default function GestionRH({
                   </div>
 
                   <button onClick={handleGenerateSage} disabled={generatingSage}
-                    style={{ ..._\btnPrimary, width: '100%', justifyContent: 'center', marginBottom: 10 }}>
+                    style={{ ..._btnPrimary, width: '100%', justifyContent: 'center', marginBottom: 10 }}>
                     <Download size={15} style={{ marginRight: 8 }} />
                     {generatingSage ? tx(lang, { fr: 'Génération...', ar: 'جارٍ التوليد...', en: 'Generating...', es: 'Generando...', pt: 'Gerando...', tr: 'Oluşturuluyor...' }) : tx(lang, { fr: `Télécharger CSV Sage — ${selectedMois}`, ar: `تنزيل CSV Sage — ${selectedMois}`, en: `Download CSV Sage — ${selectedMois}`, es: `Descargar CSV Sage — ${selectedMois}`, pt: `Baixar CSV Sage — ${selectedMois}`, tr: `CSV Sage İndir — ${selectedMois}` })}
                   </button>
@@ -3151,7 +3164,7 @@ export default function GestionRH({
                   <div style={{ borderTop: '1px solid #E2E8F0', paddingTop: 16 }}>
                     <div style={{ fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 8 }}>{tx(lang, { fr: 'Rapport RH Mensuel Excel', ar: 'تقرير الموارد البشرية الشهري Excel', en: 'Monthly HR Report Excel', es: 'Informe RH Mensual Excel', pt: 'Relatório RH Mensal Excel', tr: 'Aylık İK Raporu Excel' })}</div>
                     <button onClick={handleExportExcelRH}
-                      style={{ ..._\btnSecondary, width: '100%', justifyContent: 'center', borderColor: '#10B981', color: '#065F46' }}>
+                      style={{ ..._btnSecondary, width: '100%', justifyContent: 'center', borderColor: '#10B981', color: '#065F46' }}>
                       <Download size={15} style={{ marginRight: 8 }} />
                       {tx(lang, { fr: `Exporter Excel — ${selectedMois}`, ar: `تصدير Excel — ${selectedMois}`, en: `Export Excel — ${selectedMois}`, es: `Exportar Excel — ${selectedMois}`, pt: `Exportar Excel — ${selectedMois}`, tr: `Excel Dışa Aktar — ${selectedMois}` })}
                     </button>
