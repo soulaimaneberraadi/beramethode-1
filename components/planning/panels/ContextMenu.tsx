@@ -75,12 +75,12 @@ export default function ContextMenu({
             ref={ref}
             className={
                 isMobile
-                    ? 'fixed inset-x-0 bottom-0 z-[100] bg-white rounded-t-2xl shadow-xl shadow-slate-900/20 ring-1 ring-slate-200 py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] animate-[fadeIn_120ms_ease]'
-                    : 'fixed z-[100] min-w-[180px] bg-white rounded-xl shadow-xl shadow-slate-900/10 ring-1 ring-slate-200 py-1 animate-[fadeIn_120ms_ease]'
+                    ? 'fixed inset-x-0 bottom-0 z-[100] bg-white dark:bg-dk-surface rounded-t-2xl shadow-xl shadow-slate-900/20 ring-1 ring-slate-200 dark:ring-dk-border py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] animate-[fadeIn_120ms_ease]'
+                    : 'fixed z-[100] min-w-[180px] bg-white dark:bg-dk-surface rounded-xl shadow-xl shadow-slate-900/10 ring-1 ring-slate-200 dark:ring-dk-border py-1 animate-[fadeIn_120ms_ease]'
             }
             style={isMobile ? undefined : { left: Math.max(8, clampedLeft), top: Math.max(8, clampedTop) }}
         >
-            {isMobile && <div className="mx-auto mb-1 h-1 w-10 rounded-full bg-slate-300" />}
+            {isMobile && <div className="mx-auto mb-1 h-1 w-10 rounded-full bg-slate-300 dark:bg-dk-muted" />}
             {items.map(({ id, label, Icon, danger }) => (
                 <button
                     key={id}
@@ -90,8 +90,8 @@ export default function ContextMenu({
                         isMobile ? 'px-5 py-3 text-sm' : 'px-3 py-1.5 text-[11px]'
                     } ${
                         danger
-                            ? 'text-red-600 hover:bg-red-50'
-                            : 'text-slate-700 hover:bg-slate-50'
+                            ? 'text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20'
+                            : 'text-slate-700 dark:text-dk-text-soft hover:bg-slate-50 dark:hover:bg-dk-elevated/60'
                     }`}
                 >
                     <Icon className={isMobile ? 'w-4 h-4' : 'w-3.5 h-3.5'} />
@@ -104,7 +104,7 @@ export default function ContextMenu({
     return createPortal(
         isMobile
             ? <>
-                <div className="fixed inset-0 z-[99] bg-black/30 animate-[fadeIn_120ms_ease]" onClick={onClose} />
+                <div className="fixed inset-0 z-[99] bg-black/30 dark:bg-dk-bg/50 animate-[fadeIn_120ms_ease]" onClick={onClose} />
                 {menu}
               </>
             : menu,
