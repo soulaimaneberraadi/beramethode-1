@@ -552,7 +552,7 @@ export default function Setup({ onComplete }: Props) {
               </motion.span>
             </h1>
           </div>
-          <p className="text-sm text-slate-500 mt-1">{tx(lang,{fr:'Configuration initiale',ar:'\u0627\u0644\u062a\u0647\u064a\u0626\u0629 \u0627\u0644\u0623\u0648\u0644\u064a\u0629',en:'Initial setup',es:'Configuraci\u00f3n inicial',pt:'Configura\u00e7\u00e3o inicial',tr:'\u0130lk kurulum'})}</p>
+          <p className={`text-sm mt-1 ${isDark ? 'text-dk-muted' : 'text-slate-500'}`}>{tx(lang,{fr:'Configuration initiale',ar:'\u0627\u0644\u062a\u0647\u064a\u0626\u0629 \u0627\u0644\u0623\u0648\u0644\u064a\u0629',en:'Initial setup',es:'Configuraci\u00f3n inicial',pt:'Configura\u00e7\u00e3o inicial',tr:'\u0130lk kurulum'})}</p>
         </div>
 
         {/* Carte principale */}
@@ -1043,7 +1043,7 @@ export default function Setup({ onComplete }: Props) {
             onClick={(e) => e.stopPropagation()}
             className={`w-full max-w-lg max-h-[85vh] flex flex-col rounded-2xl shadow-xl overflow-hidden ${isDark ? 'bg-dk-surface border border-dk-border' : 'bg-white border border-slate-100'}`}
           >
-            <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-slate-100">
+            <div className={`flex items-center justify-between gap-3 px-5 py-4 border-b ${isDark ? 'border-dk-border' : 'border-slate-100'}`}>
               <div className="flex items-center gap-2 min-w-0">
                 <ScrollText className="w-4 h-4 text-emerald-600 shrink-0" />
                 <h3 className="text-sm font-bold text-slate-800 truncate">{tx(lang,{fr:'Conditions G\u00e9n\u00e9rales d\'Utilisation',ar:'\u0627\u0644\u0634\u0631\u0648\u0637 \u0627\u0644\u0639\u0627\u0645\u0629 \u0644\u0644\u0627\u0633\u062a\u062e\u062f\u0627\u0645',en:'Terms and Conditions',es:'T\u00e9rminos y Condiciones de Uso',pt:'Termos e Condi\u00e7\u00f5es de Utiliza\u00e7\u00e3o',tr:'Kullan\u0131m \u015eartlar\u0131'})}</h3>
@@ -1057,7 +1057,7 @@ export default function Setup({ onComplete }: Props) {
                 <X className="w-5 h-5" />
               </button>
             </div>
-            <div className="overflow-y-auto px-5 py-4 text-xs leading-relaxed text-slate-600 space-y-3">
+            <div className={`overflow-y-auto px-5 py-4 text-xs leading-relaxed space-y-3 ${isDark ? 'text-dk-text' : 'text-slate-600'}`}>
               <p className="text-[11px] text-slate-400">Version {CGU_VERSION} — {CGU_DATE}</p>
               {CGU_SECTIONS.map((s) => (
                 <div key={s.title}>
