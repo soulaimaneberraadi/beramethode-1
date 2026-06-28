@@ -63,7 +63,7 @@ const ConfirmModal = ({ isOpen, title, message, type = 'danger', onConfirm, onCa
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="bg-white dark:bg-dk-surface rounded-2xl shadow-xl w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-200">
+      <div className="bg-white dark:bg-dk-surface rounded-2xl shadow-xl dark:shadow-dk-elevated w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-200">
         <div className="p-6">
           <div className="flex items-start gap-4">
             <div className={`p-3 rounded-full ${colors.icon} shrink-0`}>
@@ -871,7 +871,7 @@ export default function Effectifs({
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
       return (
-        <div className="bg-white dark:bg-dk-surface/95 backdrop-blur-md border border-slate-200 dark:border-dk-border shadow-xl rounded-xl p-4">
+        <div className="bg-white dark:bg-dk-surface/95 backdrop-blur-md border border-slate-200 dark:border-dk-border shadow-xl dark:shadow-dk-elevated rounded-xl p-4">
           <p className="text-slate-500 dark:text-dk-muted font-bold mb-2 pb-2 border-b border-slate-100 dark:border-dk-border">{label}</p>
           <div className="flex items-center gap-3">
             <div className="w-3 h-3 rounded-full bg-indigo-500"></div>
@@ -930,7 +930,7 @@ export default function Effectifs({
     <div className="flex-1 min-h-0 w-full overflow-y-auto bg-gradient-to-b from-slate-50 via-[#fafafa] to-slate-100">
       {obsCommentOpen && obsCommentAnchor && (
         <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-white dark:bg-dk-surface rounded-2xl shadow-xl w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-200 border border-slate-200 dark:border-dk-border">
+          <div className="bg-white dark:bg-dk-surface rounded-2xl shadow-xl dark:shadow-dk-elevated w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-200 border border-slate-200 dark:border-dk-border">
             <div className="p-6">
               <div className="flex items-start gap-3 mb-4">
                 <div className="p-2.5 rounded-xl bg-violet-100 text-violet-600 shrink-0">
@@ -1022,7 +1022,7 @@ export default function Effectifs({
         {/* HEADER & FILTERS — ultra-compact téléphone */}
         <div className="flex flex-col lg:flex-row lg:justify-between lg:items-center gap-1.5 sm:gap-4 min-w-0">
           <div className="flex items-center gap-1.5 sm:gap-3 min-w-0">
-            <div className="p-1.5 sm:p-3 bg-indigo-100 text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text rounded-md sm:rounded-xl shadow-sm shrink-0">
+            <div className="p-1.5 sm:p-3 bg-indigo-100 text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text rounded-md sm:rounded-xl shadow-sm dark:shadow-dk-sm shrink-0">
               <Users className="w-3.5 h-3.5 sm:w-6 sm:h-6" />
             </div>
             <div className="min-w-0 flex-1">
@@ -1044,7 +1044,7 @@ export default function Effectifs({
                 role="tab"
                 aria-selected={activeTab === 'grid'}
                 onClick={() => setActiveTab('grid')}
-                className={`flex-1 sm:flex-none px-1.5 py-1 sm:px-6 sm:py-2.5 rounded sm:rounded-lg text-[10px] sm:text-sm font-bold flex items-center justify-center gap-0.5 sm:gap-2 transition-all duration-300 ${activeTab === 'grid' ? 'bg-white dark:bg-dk-surface text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text shadow-sm ring-1 ring-slate-200' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'}`}
+                className={`flex-1 sm:flex-none px-1.5 py-1 sm:px-6 sm:py-2.5 rounded sm:rounded-lg text-[10px] sm:text-sm font-bold flex items-center justify-center gap-0.5 sm:gap-2 transition-all duration-300 ${activeTab === 'grid' ? 'bg-white dark:bg-dk-surface text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text shadow-sm dark:shadow-dk-sm ring-1 ring-slate-200' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'}`}
               >
                  <LayoutGrid className="w-3 h-3 sm:w-4 sm:h-4 shrink-0" aria-hidden /> {tx(lang,{fr:'Saisie',ar:'إدخال',en:'Entry',es:'Ingreso',pt:'Entrada',tr:'Giriş'})}
               </button>
@@ -1053,7 +1053,7 @@ export default function Effectifs({
                 role="tab"
                 aria-selected={activeTab === 'analytics'}
                 onClick={() => setActiveTab('analytics')}
-                className={`flex-1 sm:flex-none px-1.5 py-1 sm:px-6 sm:py-2.5 rounded sm:rounded-lg text-[10px] sm:text-sm font-bold flex items-center justify-center gap-0.5 sm:gap-2 transition-all duration-300 ${activeTab === 'analytics' ? 'bg-white dark:bg-dk-surface text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text shadow-sm ring-1 ring-slate-200' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'}`}
+                className={`flex-1 sm:flex-none px-1.5 py-1 sm:px-6 sm:py-2.5 rounded sm:rounded-lg text-[10px] sm:text-sm font-bold flex items-center justify-center gap-0.5 sm:gap-2 transition-all duration-300 ${activeTab === 'analytics' ? 'bg-white dark:bg-dk-surface text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text shadow-sm dark:shadow-dk-sm ring-1 ring-slate-200' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'}`}
               >
                  <Activity className="w-3 h-3 sm:w-4 sm:h-4 shrink-0" aria-hidden /> {tx(lang,{fr:'Analytique',ar:'تحليلي',en:'Analytics',es:'Analítica',pt:'Analítica',tr:'Analitik'})}
               </button>
@@ -1064,7 +1064,7 @@ export default function Effectifs({
                 type="button"
                 onClick={onOpenGestionRH}
                  aria-label={tx(lang,{fr:'Gestion RH détaillée',ar:'إدارة الموارد البشرية المفصلة',en:'Detailed HR management',es:'Gestión de RRHH detallada',pt:'Gestão de RH detalhada',tr:'Detaylı İK yönetimi'})}
-                className="px-2 py-1 sm:px-4 sm:py-2 bg-sky-50 dark:bg-sky-900/30 text-sky-600 dark:text-sky-400 hover:bg-sky-100 font-bold rounded-md sm:rounded-xl flex items-center justify-center sm:justify-start gap-1 sm:gap-2 transition-colors shadow-sm text-[10px] sm:text-sm w-full sm:w-auto shrink-0"
+                className="px-2 py-1 sm:px-4 sm:py-2 bg-sky-50 dark:bg-sky-900/30 text-sky-600 dark:text-sky-400 hover:bg-sky-100 font-bold rounded-md sm:rounded-xl flex items-center justify-center sm:justify-start gap-1 sm:gap-2 transition-colors shadow-sm dark:shadow-dk-sm text-[10px] sm:text-sm w-full sm:w-auto shrink-0"
               >
                 <UserCog className="w-3 h-3 sm:w-4 sm:h-4 shrink-0" aria-hidden />
                  <span className="sm:hidden">{tx(lang,{fr:'RH',ar:'الموارد البشرية',en:'HR',es:'RRHH',pt:'RH',tr:'İK'})}</span>
@@ -1078,7 +1078,7 @@ export default function Effectifs({
               disabled={exportingPointage}
                aria-label={tx(lang,{fr:'Exporter pointage mensuel Excel',ar:'تصدير كشف الحضور الشهري Excel',en:'Export monthly attendance Excel',es:'Exportar registro mensual Excel',pt:'Exportar ponto mensal Excel',tr:'Aylık puantajı Excel\'e aktar'})}
                title={tx(lang,{fr:`Exporter pointage ${selectedDate.slice(0, 7)}${selectedChain !== 'Toutes les chaines' ? ` — ${selectedChain}` : ''}`,ar:`تصدير كشف الحضور ${selectedDate.slice(0, 7)}${selectedChain !== 'Toutes les chaines' ? ` — ${selectedChain}` : ''}`,en:`Export attendance ${selectedDate.slice(0, 7)}${selectedChain !== 'Toutes les chaines' ? ` — ${selectedChain}` : ''}`,es:`Exportar registro ${selectedDate.slice(0, 7)}${selectedChain !== 'Toutes les chaines' ? ` — ${selectedChain}` : ''}`,pt:`Exportar ponto ${selectedDate.slice(0, 7)}${selectedChain !== 'Toutes les chaines' ? ` — ${selectedChain}` : ''}`,tr:`Puantajı dışa aktar ${selectedDate.slice(0, 7)}${selectedChain !== 'Toutes les chaines' ? ` — ${selectedChain}` : ''}`})}
-              className="px-2 py-1 sm:px-4 sm:py-2 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 hover:bg-emerald-100 disabled:opacity-50 font-bold rounded-md sm:rounded-xl flex items-center justify-center sm:justify-start gap-1 sm:gap-2 transition-colors shadow-sm text-[10px] sm:text-sm w-full sm:w-auto shrink-0"
+              className="px-2 py-1 sm:px-4 sm:py-2 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 hover:bg-emerald-100 disabled:opacity-50 font-bold rounded-md sm:rounded-xl flex items-center justify-center sm:justify-start gap-1 sm:gap-2 transition-colors shadow-sm dark:shadow-dk-sm text-[10px] sm:text-sm w-full sm:w-auto shrink-0"
             >
               <FileDown className="w-3 h-3 sm:w-4 sm:h-4 shrink-0" aria-hidden />
               <span className="sm:hidden">{exportingPointage ? '…' : tx(lang,{fr:'Excel',ar:'Excel',en:'Excel',es:'Excel',pt:'Excel',tr:'Excel'})}</span>
@@ -1091,7 +1091,7 @@ export default function Effectifs({
                 onChange={(e) => setSelectedChain(e.target.value)}
                  aria-label={tx(lang,{fr:'Filtrer par chaîne',ar:'تصفية حسب خط الإنتاج',en:'Filter by chain',es:'Filtrar por cadena',pt:'Filtrar por linha',tr:'Hata göre filtrele'})}
                  title={selectedChain === 'Toutes les chaines' ? tx(lang,{fr:'Toutes les chaînes',ar:'جميع خطوط الإنتاج',en:'All chains',es:'Todas las cadenas',pt:'Todas as linhas',tr:'Tüm hatlar'}) : getChainLabel(selectedChain)}
-                className="appearance-none min-h-[44px] w-full min-w-0 rounded-lg border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface py-2 pl-3 pr-9 text-xs font-bold leading-snug text-slate-700 dark:text-dk-text-soft shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50 sm:min-h-0 sm:rounded-xl sm:py-2.5 sm:pl-4 sm:pr-9 sm:text-sm truncate"
+                className="appearance-none min-h-[44px] w-full min-w-0 rounded-lg border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface py-2 pl-3 pr-9 text-xs font-bold leading-snug text-slate-700 dark:text-dk-text-soft shadow-sm dark:shadow-dk-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50 sm:min-h-0 sm:rounded-xl sm:py-2.5 sm:pl-4 sm:pr-9 sm:text-sm truncate"
               >
                  <option value="Toutes les chaines">{tx(lang,{fr:'Toutes',ar:'الكل',en:'All',es:'Todas',pt:'Todas',tr:'Tümü'})}</option>
                 {allKnownChains.map(c => <option key={c} value={c}>{getChainLabel(c)}</option>)}
@@ -1099,7 +1099,7 @@ export default function Effectifs({
               <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 shrink-0 text-slate-400 dark:text-dk-muted sm:right-3 sm:h-4 sm:w-4" aria-hidden />
             </div>
 
-            <div className="flex items-center bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-md sm:rounded-xl shadow-sm overflow-hidden focus-within:ring-2 focus-within:ring-indigo-500/50 focus-within:border-indigo-300 transition-all w-full sm:w-auto min-w-0 justify-stretch">
+            <div className="flex items-center bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-md sm:rounded-xl shadow-sm dark:shadow-dk-sm overflow-hidden focus-within:ring-2 focus-within:ring-indigo-500/50 focus-within:border-indigo-300 transition-all w-full sm:w-auto min-w-0 justify-stretch">
               <button 
                 type="button"
                 onClick={() => changeDate(-1)}
@@ -1141,7 +1141,7 @@ export default function Effectifs({
                   onClick={() => setGridRoleToolsOpen(v => !v)}
                   aria-expanded={gridRoleToolsOpen || isEditMode || isAddingRole}
                   title={gridRoleToolsOpen || isEditMode || isAddingRole ? tx(lang,{fr:'Masquer les actions rôles / salles',ar:'إخفاء إجراءات الأدوار / القاعات',en:'Hide role/room actions',es:'Ocultar acciones de roles/salas',pt:'Ocultar ações de funções/salas',tr:'Rol/oda işlemlerini gizle'}) : tx(lang,{fr:'Afficher les actions rôles / salles',ar:'إظهار إجراءات الأدوار / القاعات',en:'Show role/room actions',es:'Mostrar acciones de roles/salas',pt:'Mostrar ações de funções/salas',tr:'Rol/oda işlemlerini göster'})}
-                  className={`flex w-full items-center justify-between gap-2 rounded-lg sm:rounded-xl border px-2.5 py-1.5 text-[11px] font-bold shadow-sm transition-colors sm:justify-center sm:gap-2 sm:px-3 sm:py-2 sm:text-sm ${
+                  className={`flex w-full items-center justify-between gap-2 rounded-lg sm:rounded-xl border px-2.5 py-1.5 text-[11px] font-bold shadow-sm dark:shadow-dk-sm transition-colors sm:justify-center sm:gap-2 sm:px-3 sm:py-2 sm:text-sm ${
                     gridRoleToolsOpen || isEditMode || isAddingRole
                       ? 'border-indigo-200 bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 text-indigo-800'
                       : 'border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface text-slate-700 dark:text-dk-text-soft hover:bg-slate-50 dark:hover:bg-dk-elevated/60'
@@ -1160,7 +1160,7 @@ export default function Effectifs({
 
                 {(gridRoleToolsOpen || isEditMode || isAddingRole) && (
                   <div
-                    className="flex w-full flex-col overflow-hidden rounded-xl border border-slate-200 dark:border-dk-border bg-slate-50 dark:bg-dk-bg/90 shadow-sm divide-y divide-slate-200 dark:divide-dk-border sm:flex-row sm:divide-x sm:divide-y-0"
+                    className="flex w-full flex-col overflow-hidden rounded-xl border border-slate-200 dark:border-dk-border bg-slate-50 dark:bg-dk-bg/90 shadow-sm dark:shadow-dk-sm divide-y divide-slate-200 dark:divide-dk-border sm:flex-row sm:divide-x sm:divide-y-0"
                     role="group"
                     aria-label={tx(lang,{fr:'Configurer les rôles et créer un rôle',ar:'تكوين الأدوار وإنشاء دور',en:'Configure roles and create a role',es:'Configurar roles y crear un rol',pt:'Configurar funções e criar uma função',tr:'Rolleri yapılandır ve rol oluştur'})}
                   >
@@ -1202,18 +1202,18 @@ export default function Effectifs({
 
         {/* EDIT CONFIG PANEL */}
         {isEditMode && (
-          <div className="bg-amber-50 dark:bg-amber-900/30/50 border border-amber-200 rounded-2xl p-5 shadow-sm mb-2 flex flex-col gap-6">
+          <div className="bg-amber-50 dark:bg-amber-900/30/50 border border-amber-200 rounded-2xl p-5 shadow-sm dark:shadow-dk-sm mb-2 flex flex-col gap-6">
             <div>
               <div className="flex items-center justify-between mb-4">
                 <h3 className="font-bold text-amber-900 flex items-center gap-2"><LayoutGrid className="w-4 h-4"/> {tx(lang,{fr:'Gestion des Répartitions Personnalisées',ar:'إدارة التقسيمات المخصصة',en:'Custom Partitions Management',es:'Gestión de Distribuciones Personalizadas',pt:'Gestão de Partições Personalizadas',tr:'Özel Bölüm Yönetimi'})}</h3>
-                <button onClick={handleAddPartition} className="text-xs font-bold bg-amber-200 text-amber-800 px-3 py-1.5 rounded-lg hover:bg-amber-300 transition-colors flex items-center gap-1 shadow-sm">
+                <button onClick={handleAddPartition} className="text-xs font-bold bg-amber-200 text-amber-800 px-3 py-1.5 rounded-lg hover:bg-amber-300 transition-colors flex items-center gap-1 shadow-sm dark:shadow-dk-sm">
                   <Plus className="w-3.5 h-3.5" /> {tx(lang,{fr:'Nouvelle Répartition',ar:'تقسيم جديد',en:'New Partition',es:'Nueva Distribución',pt:'Nova Partição',tr:'Yeni Bölüm'})}
                 </button>
               </div>
 
               <div className="flex flex-col gap-4">
                 {customPartitions.map(partition => (
-                  <div key={partition.id} className="bg-white dark:bg-dk-surface p-4 rounded-xl border border-amber-200 shadow-sm flex flex-col gap-3">
+                  <div key={partition.id} className="bg-white dark:bg-dk-surface p-4 rounded-xl border border-amber-200 shadow-sm dark:shadow-dk-sm flex flex-col gap-3">
                     <div className="flex items-center gap-2 pb-3 border-b border-amber-100">
                       <EditableText 
                         value={partition.name} 
@@ -1271,7 +1271,7 @@ export default function Effectifs({
         )}
 
         {isAddingRole && (
-          <div className="px-5 py-4 bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20/50 border border-indigo-100 rounded-2xl flex flex-wrap items-end gap-4 shadow-sm mb-4">
+          <div className="px-5 py-4 bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20/50 border border-indigo-100 rounded-2xl flex flex-wrap items-end gap-4 shadow-sm dark:shadow-dk-sm mb-4">
             <div>
               <label className="block text-xs font-bold text-indigo-800 mb-1">{tx(lang,{fr:'Catégorie',ar:'الفئة',en:'Category',es:'Categoría',pt:'Categoria',tr:'Kategori'})}</label>
               <div className="flex gap-2">
@@ -1337,7 +1337,7 @@ export default function Effectifs({
           if (visibleRoles.length === 0 && !isEditMode) return null;
 
           return (
-            <div key={category} className={`bg-white dark:bg-dk-surface border ${config.isHidden ? 'border-slate-200 dark:border-dk-border/50 opacity-75' : 'border-slate-200 dark:border-dk-border'} shadow-sm rounded-2xl flex flex-col w-full`}>
+            <div key={category} className={`bg-white dark:bg-dk-surface border ${config.isHidden ? 'border-slate-200 dark:border-dk-border/50 opacity-75' : 'border-slate-200 dark:border-dk-border'} shadow-sm dark:shadow-dk-sm rounded-2xl flex flex-col w-full`}>
               <div className="px-5 py-4 border-b border-slate-100 dark:border-dk-border bg-slate-50 dark:bg-dk-bg/50 flex flex-wrap gap-4 justify-between items-center">
                 <div className="flex items-center gap-3 flex-shrink-0">
                   {isEditMode && (
@@ -1434,7 +1434,7 @@ export default function Effectifs({
                         >
                           {colNotesCount > 0 && (
                             <span
-                              className="absolute top-1.5 right-1.5 min-w-[1.125rem] h-[1.125rem] px-1 flex items-center justify-center rounded-full bg-violet-600 text-white text-[10px] font-black leading-none shadow-sm z-20"
+                              className="absolute top-1.5 right-1.5 min-w-[1.125rem] h-[1.125rem] px-1 flex items-center justify-center rounded-full bg-violet-600 text-white text-[10px] font-black leading-none shadow-sm dark:shadow-dk-sm z-20"
                               aria-hidden
                             >
                               {colNotesCount > 9 ? '9+' : colNotesCount}
@@ -1557,7 +1557,7 @@ export default function Effectifs({
           <div className="flex flex-col gap-2 sm:gap-6 animate-in fade-in duration-300">
             {/* KPI Cards — chiffres réduits sur téléphone */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-1.5 sm:gap-4">
-              <div className="bg-white dark:bg-dk-surface rounded-lg sm:rounded-2xl p-2 sm:p-5 shadow-sm border border-slate-200 dark:border-dk-border flex flex-col gap-0.5 sm:gap-2">
+              <div className="bg-white dark:bg-dk-surface rounded-lg sm:rounded-2xl p-2 sm:p-5 shadow-sm dark:shadow-dk-sm border border-slate-200 dark:border-dk-border flex flex-col gap-0.5 sm:gap-2">
                 <div className="text-[10px] sm:text-sm font-bold text-slate-500 dark:text-dk-muted flex items-center gap-1 sm:gap-2"><Users className="w-3 h-3 sm:w-4 sm:h-4 shrink-0" /> {tx(lang,{fr:"Effectif Total Aujourd'hui",ar:'إجمالي الموظفين اليوم',en:"Total Staff Today",es:'Efectivo Total Hoy',pt:'Efetivo Total Hoje',tr:"Bugünkü Toplam Personel"})}</div>
                 <div className="text-lg sm:text-3xl font-black text-slate-800 dark:text-dk-text leading-none tabular-nums">{analyticsData.today.total}</div>
                 <div className={`text-[10px] sm:text-sm font-semibold flex items-center gap-0.5 sm:gap-1 ${analyticsData.today.total >= analyticsData.yesterday.total ? 'text-emerald-500' : 'text-red-500'}`}>
@@ -1565,7 +1565,7 @@ export default function Effectifs({
                   {Math.abs(analyticsData.today.total - analyticsData.yesterday.total)} {tx(lang,{fr:'vs hier',ar:'مقارنة بأمس',en:'vs yesterday',es:'vs ayer',pt:'vs ontem',tr:'düne göre'})}
                 </div>
               </div>
-              <div className="bg-white dark:bg-dk-surface rounded-lg sm:rounded-2xl p-2 sm:p-5 shadow-sm border border-slate-200 dark:border-dk-border flex flex-col gap-0.5 sm:gap-2 min-w-0">
+              <div className="bg-white dark:bg-dk-surface rounded-lg sm:rounded-2xl p-2 sm:p-5 shadow-sm dark:shadow-dk-sm border border-slate-200 dark:border-dk-border flex flex-col gap-0.5 sm:gap-2 min-w-0">
                 <div className="text-[10px] sm:text-sm font-bold text-slate-500 dark:text-dk-muted flex items-center gap-1 sm:gap-2"><Factory className="w-3 h-3 sm:w-4 sm:h-4 shrink-0" /> {tx(lang,{fr:'Chaine la plus peuplée',ar:'خط الإنتاج الأكثر كثافة',en:'Most staffed chain',es:'Cadena más poblada',pt:'Linha mais populosa',tr:'En kalabalık hat'})}</div>
                 {(() => {
                   let max = 0; let name = '-';
@@ -1580,7 +1580,7 @@ export default function Effectifs({
                   );
                 })()}
               </div>
-              <div className="bg-white dark:bg-dk-surface rounded-lg sm:rounded-2xl p-2 sm:p-5 shadow-sm border border-slate-200 dark:border-dk-border flex flex-col gap-0.5 sm:gap-2">
+              <div className="bg-white dark:bg-dk-surface rounded-lg sm:rounded-2xl p-2 sm:p-5 shadow-sm dark:shadow-dk-sm border border-slate-200 dark:border-dk-border flex flex-col gap-0.5 sm:gap-2">
                 <div className="text-[10px] sm:text-sm font-bold text-slate-500 dark:text-dk-muted flex items-center gap-1 sm:gap-2"><CalendarDays className="w-3 h-3 sm:w-4 sm:h-4 shrink-0" /> {tx(lang,{fr:'Moyenne 30 jours',ar:'متوسط 30 يوماً',en:'30-day average',es:'Promedio 30 días',pt:'Média 30 dias',tr:'30 günlük ortalama'})}</div>
                 {(() => {
                   const avg = Math.round(analyticsData.dailyStats.reduce((sum, d) => sum + d.total, 0) / 30);
@@ -1596,7 +1596,7 @@ export default function Effectifs({
 
             {/* Main Chart & Observations */}
             <div className="grid grid-cols-1 gap-2 sm:gap-6 lg:grid-cols-3 lg:items-start">
-              <div className="flex min-h-0 flex-col overflow-hidden rounded-lg sm:rounded-2xl border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface shadow-sm lg:col-span-2">
+              <div className="flex min-h-0 flex-col overflow-hidden rounded-lg sm:rounded-2xl border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface shadow-sm dark:shadow-dk-sm lg:col-span-2">
                 <div className="p-2 sm:p-5 border-b border-slate-100 dark:border-dk-border bg-slate-50 dark:bg-dk-bg flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
                   <h3 className="text-sm sm:text-lg font-bold text-slate-800 dark:text-dk-text flex items-center gap-2 min-w-0 shrink-0">
                     <Activity className="w-4 h-4 sm:w-5 sm:h-5 text-indigo-500 shrink-0" />
@@ -1609,7 +1609,7 @@ export default function Effectifs({
                       value={analyticsTimeframe}
                       onChange={(e) => setAnalyticsTimeframe(e.target.value as '30' | '7')}
                       aria-label={tx(lang,{fr:'Période du graphique',ar:'فترة الرسم البياني',en:'Chart period',es:'Período del gráfico',pt:'Período do gráfico',tr:'Grafik dönemi'})}
-                      className="min-h-[44px] w-full shrink-0 rounded-lg border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface px-3 py-2 text-xs font-bold text-slate-700 dark:text-dk-text-soft shadow-sm outline-none focus:ring-2 focus:ring-indigo-500 sm:min-h-0 sm:w-auto sm:rounded-lg sm:px-2.5 sm:py-1.5 sm:text-xs"
+                      className="min-h-[44px] w-full shrink-0 rounded-lg border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface px-3 py-2 text-xs font-bold text-slate-700 dark:text-dk-text-soft shadow-sm dark:shadow-dk-sm outline-none focus:ring-2 focus:ring-indigo-500 sm:min-h-0 sm:w-auto sm:rounded-lg sm:px-2.5 sm:py-1.5 sm:text-xs"
                     >
                       <option value="30">{tx(lang,{fr:'30 Jours',ar:'30 يوماً',en:'30 Days',es:'30 Días',pt:'30 Dias',tr:'30 Gün'})}</option>
                        <option value="7">{tx(lang,{fr:'7 Jours',ar:'7 أيام',en:'7 Days',es:'7 Días',pt:'7 Dias',tr:'7 Gün'})}</option>
@@ -1619,7 +1619,7 @@ export default function Effectifs({
                       value={analyticsFilterChain}
                       onChange={(e) => setAnalyticsFilterChainFromChart(e.target.value)}
                       aria-label={tx(lang,{fr:'Chaîne pour le graphique',ar:'خط الإنتاج للرسم البياني',en:'Chain for chart',es:'Cadena para el gráfico',pt:'Linha para o gráfico',tr:'Grafik için hat'})}
-                      className="min-h-[44px] w-full shrink-0 rounded-lg border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface px-3 py-2 text-xs font-bold text-slate-700 dark:text-dk-text-soft shadow-sm outline-none focus:ring-2 focus:ring-indigo-500 sm:min-h-0 sm:w-auto sm:min-w-[8rem] sm:max-w-[120px] sm:rounded-lg sm:px-2.5 sm:py-1.5 sm:text-xs"
+                      className="min-h-[44px] w-full shrink-0 rounded-lg border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface px-3 py-2 text-xs font-bold text-slate-700 dark:text-dk-text-soft shadow-sm dark:shadow-dk-sm outline-none focus:ring-2 focus:ring-indigo-500 sm:min-h-0 sm:w-auto sm:min-w-[8rem] sm:max-w-[120px] sm:rounded-lg sm:px-2.5 sm:py-1.5 sm:text-xs"
                     >
                       <option value="Toutes">{tx(lang,{fr:'Toutes les chaines',ar:'جميع السلاسل',en:'All chains',es:'Todas las cadenas',pt:'Todas as linhas',tr:'Tüm hatlar'})}</option>
                       {allKnownChains.map(c => <option key={c} value={c}>{getChainLabel(c)}</option>)}
@@ -1629,7 +1629,7 @@ export default function Effectifs({
                       value={analyticsFilterCategory}
                       onChange={(e) => setAnalyticsFilterCategory(e.target.value)}
                       aria-label={tx(lang,{fr:'Catégorie pour le graphique',ar:'الفئة للرسم البياني',en:'Category for chart',es:'Categoría para el gráfico',pt:'Categoria para o gráfico',tr:'Grafik için kategori'})}
-                      className="min-h-[44px] w-full shrink-0 rounded-lg border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface px-3 py-2 text-xs font-bold text-slate-700 dark:text-dk-text-soft shadow-sm outline-none focus:ring-2 focus:ring-indigo-500 sm:min-h-0 sm:w-auto sm:min-w-[8rem] sm:max-w-[140px] sm:rounded-lg sm:px-2.5 sm:py-1.5 sm:text-xs"
+                      className="min-h-[44px] w-full shrink-0 rounded-lg border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface px-3 py-2 text-xs font-bold text-slate-700 dark:text-dk-text-soft shadow-sm dark:shadow-dk-sm outline-none focus:ring-2 focus:ring-indigo-500 sm:min-h-0 sm:w-auto sm:min-w-[8rem] sm:max-w-[140px] sm:rounded-lg sm:px-2.5 sm:py-1.5 sm:text-xs"
                     >
                       <option value="Toutes">{tx(lang,{fr:'Toutes les catégories',ar:'جميع الفئات',en:'All categories',es:'Todas las categorías',pt:'Todas as categorias',tr:'Tüm kategoriler'})}</option>
                       {Object.keys(rolesByCategory).map(cat => <option key={cat} value={cat}>{cat}</option>)}
@@ -1702,7 +1702,7 @@ export default function Effectifs({
                         {tx(lang,{fr:'Veille & notes',ar:'مراقبة وملاحظات',en:'Monitoring & notes',es:'Vigilancia y notas',pt:'Vigilância e notas',tr:'İzleme ve notlar'})}
                       </span>
                       <h3 className="flex items-center gap-2 text-base font-black tracking-tight text-slate-900 dark:text-dk-text sm:gap-3 sm:text-xl">
-                        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 text-white shadow-lg shadow-indigo-500/35 ring-2 ring-white/50 sm:h-11 sm:w-11 sm:rounded-2xl">
+                        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 text-white shadow-lg dark:shadow-dk-lg shadow-indigo-500/35 ring-2 ring-white/50 sm:h-11 sm:w-11 sm:rounded-2xl">
                           <Eye className="h-4 w-4 sm:h-5 sm:w-5" strokeWidth={2.25} />
                         </span>
                         {tx(lang,{fr:'Observations',ar:'ملاحظات',en:'Observations',es:'Observaciones',pt:'Observações',tr:'Gözlemler'})}
@@ -1746,10 +1746,10 @@ export default function Effectifs({
                             return (
                               <div
                                 key={`auto-${i}`}
-                                className={`group relative overflow-hidden rounded-xl border border-slate-200 dark:border-dk-border/80 border-l-[3px] bg-gradient-to-r ${accent} p-3.5 pl-4 shadow-sm transition-all duration-200 hover:-translate-y-px hover:shadow-md`}
+                                className={`group relative overflow-hidden rounded-xl border border-slate-200 dark:border-dk-border/80 border-l-[3px] bg-gradient-to-r ${accent} p-3.5 pl-4 shadow-sm dark:shadow-dk-sm transition-all duration-200 hover:-translate-y-px hover:shadow-md`}
                               >
                                 <div className="flex items-start gap-3">
-                                  <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white dark:bg-dk-surface/90 shadow-sm ring-1 ring-slate-200/60 transition-transform group-hover:scale-[1.03]">
+                                  <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white dark:bg-dk-surface/90 shadow-sm dark:shadow-dk-sm ring-1 ring-slate-200/60 transition-transform group-hover:scale-[1.03]">
                                     {obs.icon}
                                   </div>
                                   <p className={`min-w-0 flex-1 line-clamp-5 text-sm font-semibold leading-snug ${text}`} title={obs.text}>{obs.text}</p>
@@ -1772,11 +1772,11 @@ export default function Effectifs({
                           {userNotesForAnalyticsPanel.map(note => (
                             <div
                               key={note.id}
-                              className="group relative overflow-hidden rounded-2xl border border-violet-200/70 bg-gradient-to-br from-violet-50 via-white to-fuchsia-50/40 p-4 shadow-md shadow-violet-500/10 ring-1 ring-white/80 transition-all duration-200 hover:-translate-y-px hover:shadow-lg hover:shadow-violet-500/15"
+                              className="group relative overflow-hidden rounded-2xl border border-violet-200/70 bg-gradient-to-br from-violet-50 via-white to-fuchsia-50/40 p-4 shadow-md dark:shadow-dk-md shadow-violet-500/10 ring-1 ring-white/80 transition-all duration-200 hover:-translate-y-px hover:shadow-lg hover:shadow-violet-500/15"
                             >
                               <div className="pointer-events-none absolute right-0 top-0 h-16 w-16 translate-x-6 -translate-y-6 rounded-full bg-violet-400/10" />
                               <div className="relative flex items-start gap-3">
-                                <div className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-indigo-600 text-white shadow-md shadow-violet-500/30">
+                                <div className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-indigo-600 text-white shadow-md dark:shadow-dk-md shadow-violet-500/30">
                                   <MessageSquare className="h-5 w-5" strokeWidth={2} />
                                 </div>
                                 <div className="min-w-0 flex-1">
@@ -1831,7 +1831,7 @@ export default function Effectifs({
             </div>
 
             {/* Detailed Analytics Table */}
-            <div className="bg-white dark:bg-dk-surface rounded-2xl shadow-sm border border-slate-200 dark:border-dk-border overflow-hidden mt-6">
+            <div className="bg-white dark:bg-dk-surface rounded-2xl shadow-sm dark:shadow-dk-sm border border-slate-200 dark:border-dk-border overflow-hidden mt-6">
               <div className="px-6 py-4 border-b border-slate-100 dark:border-dk-border bg-slate-50 dark:bg-dk-bg flex items-center justify-between">
                 <h3 className="text-base font-bold text-slate-800 dark:text-dk-text flex items-center gap-2">
                   <LayoutGrid className="w-4 h-4 text-slate-500 dark:text-dk-muted" /> {tx(lang,{fr:'Répartition par Chaîne & Catégorie',ar:'التوزيع حسب خط الإنتاج والفئة',en:'Distribution by Chain & Category',es:'Distribución por Cadena y Categoría',pt:'Distribuição por Linha e Categoria',tr:'Hat ve Kategoriye Göre Dağılım'})}

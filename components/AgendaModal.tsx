@@ -473,7 +473,7 @@ export default function AgendaModal({ isOpen, onClose, settings, setSettings, la
 
     return (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
-            <div className={`rounded-2xl shadow-2xl w-full max-w-5xl flex flex-col md:flex-row overflow-hidden max-h-[90vh] ${isDark ? 'bg-dk-surface border border-dk-border' : 'bg-white dark:bg-dk-surface'}`} dir={lang === 'ar' ? 'rtl' : 'ltr'}>
+            <div className={`rounded-2xl shadow-2xl dark:shadow-dk-lg w-full max-w-5xl flex flex-col md:flex-row overflow-hidden max-h-[90vh] ${isDark ? 'bg-dk-surface border border-dk-border' : 'bg-white dark:bg-dk-surface'}`} dir={lang === 'ar' ? 'rtl' : 'ltr'}>
 
                 {/* Calendar Column */}
                 <div className="flex-1 p-6 overflow-y-auto">
@@ -537,15 +537,15 @@ export default function AgendaModal({ isOpen, onClose, settings, setSettings, la
                                     : 'bg-amber-50 dark:bg-amber-900/30 border-amber-400 text-amber-800 hover:bg-amber-100';
                             } else if (effectivelyWorking) {
                                 bgClass = hasException
-                                    ? 'bg-emerald-100 border-emerald-500 text-emerald-900 shadow-md shadow-emerald-100 font-black'
+                                    ? 'bg-emerald-100 border-emerald-500 text-emerald-900 shadow-md dark:shadow-dk-md shadow-emerald-100 font-black'
                                     : 'bg-emerald-50 dark:bg-emerald-900/30 border-emerald-200 text-emerald-800 hover:bg-emerald-100 hover:border-emerald-400';
                             } else {
                                 bgClass = hasException
-                                    ? 'bg-rose-100 border-rose-500 text-rose-900 shadow-md shadow-rose-100 font-black'
+                                    ? 'bg-rose-100 border-rose-500 text-rose-900 shadow-md dark:shadow-dk-md shadow-rose-100 font-black'
                                     : 'bg-rose-50 dark:bg-rose-900/30/60 border-rose-100 text-rose-400 hover:bg-rose-50 hover:border-rose-200';
                             }
 
-                            if (isSelected) bgClass += ' ring-2 ring-indigo-500 ring-offset-1 shadow-md scale-105 z-10';
+                            if (isSelected) bgClass += ' ring-2 ring-indigo-500 ring-offset-1 shadow-md dark:shadow-dk-md scale-105 z-10';
                             if (isToday) bgClass += ' ring-2 ring-amber-400 ring-offset-1';
 
                             // Shorten holiday name for cell display
@@ -618,7 +618,7 @@ export default function AgendaModal({ isOpen, onClose, settings, setSettings, la
                         </div>
                     ) : (
                         <div className="space-y-4 flex-1 flex flex-col">
-                            <div className="bg-white dark:bg-dk-surface p-3 rounded-xl border border-slate-200 dark:border-dk-border text-center shadow-sm">
+                            <div className="bg-white dark:bg-dk-surface p-3 rounded-xl border border-slate-200 dark:border-dk-border text-center shadow-sm dark:shadow-dk-sm">
                                 <span className="block text-xs uppercase font-bold text-slate-400 dark:text-dk-muted mb-1">{t.selectedDate}</span>
                                 <span className="text-lg font-black text-indigo-700 dark:text-dk-accent-text">{selectedDate}</span>
                                 {selectedDate === todayStr && (
@@ -631,13 +631,13 @@ export default function AgendaModal({ isOpen, onClose, settings, setSettings, la
                                 <div className="flex bg-slate-100 dark:bg-dk-elevated p-1 rounded-xl border border-slate-200 dark:border-dk-border gap-1">
                                     <button
                                         onClick={() => setIsWorking(true)}
-                                        className={`flex-1 py-3 text-sm font-bold rounded-lg transition-all ${isWorking ? 'bg-emerald-500 text-white shadow-md' : 'bg-white dark:bg-dk-surface text-slate-500 dark:text-dk-muted hover:text-emerald-600'}`}
+                                        className={`flex-1 py-3 text-sm font-bold rounded-lg transition-all ${isWorking ? 'bg-emerald-500 text-white shadow-md dark:shadow-dk-md' : 'bg-white dark:bg-dk-surface text-slate-500 dark:text-dk-muted hover:text-emerald-600'}`}
                                     >
                                         {t.work}
                                     </button>
                                     <button
                                         onClick={() => setIsWorking(false)}
-                                        className={`flex-1 py-3 text-sm font-bold rounded-lg transition-all ${!isWorking ? 'bg-rose-500 text-white shadow-md' : 'bg-white dark:bg-dk-surface text-slate-500 dark:text-dk-muted hover:text-rose-600'}`}
+                                        className={`flex-1 py-3 text-sm font-bold rounded-lg transition-all ${!isWorking ? 'bg-rose-500 text-white shadow-md dark:shadow-dk-md' : 'bg-white dark:bg-dk-surface text-slate-500 dark:text-dk-muted hover:text-rose-600'}`}
                                     >
                                         {t.off}
                                     </button>
@@ -670,7 +670,7 @@ export default function AgendaModal({ isOpen, onClose, settings, setSettings, la
                             </div>
 
                             <div className="flex flex-col gap-2">
-                                <button onClick={handleSaveException} className="w-full bg-indigo-600 dark:bg-dk-accent hover:bg-indigo-700 dark:hover:bg-dk-accent-hover text-white font-bold py-3 rounded-xl transition-colors shadow-md shadow-indigo-600/20 active:scale-95 text-sm">
+                                <button onClick={handleSaveException} className="w-full bg-indigo-600 dark:bg-dk-accent hover:bg-indigo-700 dark:hover:bg-dk-accent-hover text-white font-bold py-3 rounded-xl transition-colors shadow-md dark:shadow-dk-md shadow-indigo-600/20 active:scale-95 text-sm">
                                     {t.save}
                                 </button>
                                 {settings.calendarExceptions?.[selectedDate] && (

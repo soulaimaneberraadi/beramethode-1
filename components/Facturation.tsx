@@ -71,25 +71,25 @@ export default function Facturation({ t }: FacturationProps) {
         );
 
         return (
-            <div className="bg-white dark:bg-dk-surface rounded-2xl shadow-sm border border-slate-200 dark:border-dk-border overflow-hidden">
+            <div className="bg-white dark:bg-dk-surface rounded-2xl shadow-sm dark:shadow-dk-sm border border-slate-200 dark:border-dk-border overflow-hidden">
                 <div className="overflow-x-auto">
                     <table className="w-full text-sm text-left">
                         <thead className="bg-slate-50 dark:bg-dk-bg border-b border-slate-100 dark:border-dk-border text-slate-500 dark:text-dk-muted font-medium">
                             <tr>
-                                <th className="px-6 py-4">{tx(lang,{fr:'N° Document',ar:'رقم المستند',en:'Doc. No.',es:'N.º Doc.',pt:'N.º Doc.',tr:'Belge No.'})}</th>
-                                <th className="px-6 py-4">{activeTab === 'ACHAT' ? tx(lang,{fr:'Fournisseur',ar:'المورد',en:'Supplier',es:'Proveedor',pt:'Fornecedor',tr:'Tedarikçi'}) : tx(lang,{fr:'Client',ar:'العميل',en:'Client',es:'Cliente',pt:'Cliente',tr:'Müşteri'})}</th>
-                                <th className="px-6 py-4">{tx(lang,{fr:'Date',ar:'التاريخ',en:'Date',es:'Fecha',pt:'Data',tr:'Tarih'})}</th>
-                                <th className="px-6 py-4">{tx(lang,{fr:'Montant TTC',ar:'المبلغ شامل الضريبة',en:'Total incl. Tax',es:'Total IVA incl.',pt:'Total c/ Imposto',tr:'Vergi Dahil Toplam'})}</th>
-                                <th className="px-6 py-4">{tx(lang,{fr:'Statut',ar:'الحالة',en:'Status',es:'Estado',pt:'Status',tr:'Durum'})}</th>
-                                <th className="px-6 py-4 text-right">{tx(lang,{fr:'Actions',ar:'الإجراءات',en:'Actions',es:'Acciones',pt:'Ações',tr:'İşlemler'})}</th>
+                                <th className="px-6 py-4">{tx(lang,{fr:'NÂ° Document',ar:'Ø±Ù‚Ù… Ø§Ù„Ù…Ø³ØªÙ†Ø¯',en:'Doc. No.',es:'N.Âº Doc.',pt:'N.Âº Doc.',tr:'Belge No.'})}</th>
+                                <th className="px-6 py-4">{activeTab === 'ACHAT' ? tx(lang,{fr:'Fournisseur',ar:'Ø§Ù„Ù…ÙˆØ±Ø¯',en:'Supplier',es:'Proveedor',pt:'Fornecedor',tr:'TedarikÃ§i'}) : tx(lang,{fr:'Client',ar:'Ø§Ù„Ø¹Ù…ÙŠÙ„',en:'Client',es:'Cliente',pt:'Cliente',tr:'MÃ¼ÅŸteri'})}</th>
+                                <th className="px-6 py-4">{tx(lang,{fr:'Date',ar:'Ø§Ù„ØªØ§Ø±ÙŠØ®',en:'Date',es:'Fecha',pt:'Data',tr:'Tarih'})}</th>
+                                <th className="px-6 py-4">{tx(lang,{fr:'Montant TTC',ar:'Ø§Ù„Ù…Ø¨Ù„Øº Ø´Ø§Ù…Ù„ Ø§Ù„Ø¶Ø±ÙŠØ¨Ø©',en:'Total incl. Tax',es:'Total IVA incl.',pt:'Total c/ Imposto',tr:'Vergi Dahil Toplam'})}</th>
+                                <th className="px-6 py-4">{tx(lang,{fr:'Statut',ar:'Ø§Ù„Ø­Ø§Ù„Ø©',en:'Status',es:'Estado',pt:'Status',tr:'Durum'})}</th>
+                                <th className="px-6 py-4 text-right">{tx(lang,{fr:'Actions',ar:'Ø§Ù„Ø¥Ø¬Ø±Ø§Ø¡Ø§Øª',en:'Actions',es:'Acciones',pt:'AÃ§Ãµes',tr:'Ä°ÅŸlemler'})}</th>
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-slate-100">
+                        <tbody className="divide-y divide-slate-100 dark:divide-dk-border">
                             {filtered.length === 0 ? (
                                 <tr>
                                     <td colSpan={6} className="px-6 py-12 text-center text-slate-400 dark:text-dk-muted">
                                         <FileText className="w-12 h-12 mx-auto mb-3 opacity-20" />
-                                        <p>{tx(lang,{fr:'Aucun document trouvé',ar:'لم يتم العثور على أي مستند',en:'No document found',es:'No se encontró ningún documento',pt:'Nenhum documento encontrado',tr:'Hiçbir belge bulunamadı'})}</p>
+                                        <p>{tx(lang,{fr:'Aucun document trouvÃ©',ar:'Ù„Ù… ÙŠØªÙ… Ø§Ù„Ø¹Ø«ÙˆØ± Ø¹Ù„Ù‰ Ø£ÙŠ Ù…Ø³ØªÙ†Ø¯',en:'No document found',es:'No se encontrÃ³ ningÃºn documento',pt:'Nenhum documento encontrado',tr:'HiÃ§bir belge bulunamadÄ±'})}</p>
                                     </td>
                                 </tr>
                             ) : filtered.map(f => (
@@ -131,25 +131,25 @@ export default function Facturation({ t }: FacturationProps) {
         );
 
         return (
-            <div className="bg-white dark:bg-dk-surface rounded-2xl shadow-sm border border-slate-200 dark:border-dk-border overflow-hidden">
+            <div className="bg-white dark:bg-dk-surface rounded-2xl shadow-sm dark:shadow-dk-sm border border-slate-200 dark:border-dk-border overflow-hidden">
                 <div className="overflow-x-auto">
                     <table className="w-full text-sm text-left">
                         <thead className="bg-slate-50 dark:bg-dk-bg border-b border-slate-100 dark:border-dk-border text-slate-500 dark:text-dk-muted font-medium">
                             <tr>
-                                <th className="px-6 py-4">{tx(lang,{fr:'N° BL',ar:'رقم إيصال التسليم',en:'DN No.',es:'N.º Alb.',pt:'N.º GR',tr:'TN No.'})}</th>
-                                <th className="px-6 py-4">{tx(lang,{fr:'Destinataire',ar:'المستلم',en:'Recipient',es:'Destinatario',pt:'Destinatário',tr:'Alıcı'})}</th>
-                                <th className="px-6 py-4">{tx(lang,{fr:'Date de livraison',ar:'تاريخ التسليم',en:'Delivery Date',es:'Fecha de entrega',pt:'Data de entrega',tr:'Teslimat Tarihi'})}</th>
-                                <th className="px-6 py-4">{tx(lang,{fr:'Ref. Facture',ar:'رقم الفاتورة',en:'Invoice Ref.',es:'Ref. Factura',pt:'Ref. Fatura',tr:'Fatura Ref.'})}</th>
-                                <th className="px-6 py-4">{tx(lang,{fr:'Statut',ar:'الحالة',en:'Status',es:'Estado',pt:'Status',tr:'Durum'})}</th>
-                                <th className="px-6 py-4 text-right">{tx(lang,{fr:'Actions',ar:'الإجراءات',en:'Actions',es:'Acciones',pt:'Ações',tr:'İşlemler'})}</th>
+                                <th className="px-6 py-4">{tx(lang,{fr:'NÂ° BL',ar:'Ø±Ù‚Ù… Ø¥ÙŠØµØ§Ù„ Ø§Ù„ØªØ³Ù„ÙŠÙ…',en:'DN No.',es:'N.Âº Alb.',pt:'N.Âº GR',tr:'TN No.'})}</th>
+                                <th className="px-6 py-4">{tx(lang,{fr:'Destinataire',ar:'Ø§Ù„Ù…Ø³ØªÙ„Ù…',en:'Recipient',es:'Destinatario',pt:'DestinatÃ¡rio',tr:'AlÄ±cÄ±'})}</th>
+                                <th className="px-6 py-4">{tx(lang,{fr:'Date de livraison',ar:'ØªØ§Ø±ÙŠØ® Ø§Ù„ØªØ³Ù„ÙŠÙ…',en:'Delivery Date',es:'Fecha de entrega',pt:'Data de entrega',tr:'Teslimat Tarihi'})}</th>
+                                <th className="px-6 py-4">{tx(lang,{fr:'Ref. Facture',ar:'Ø±Ù‚Ù… Ø§Ù„ÙØ§ØªÙˆØ±Ø©',en:'Invoice Ref.',es:'Ref. Factura',pt:'Ref. Fatura',tr:'Fatura Ref.'})}</th>
+                                <th className="px-6 py-4">{tx(lang,{fr:'Statut',ar:'Ø§Ù„Ø­Ø§Ù„Ø©',en:'Status',es:'Estado',pt:'Status',tr:'Durum'})}</th>
+                                <th className="px-6 py-4 text-right">{tx(lang,{fr:'Actions',ar:'Ø§Ù„Ø¥Ø¬Ø±Ø§Ø¡Ø§Øª',en:'Actions',es:'Acciones',pt:'AÃ§Ãµes',tr:'Ä°ÅŸlemler'})}</th>
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-slate-100">
+                        <tbody className="divide-y divide-slate-100 dark:divide-dk-border">
                             {filtered.length === 0 ? (
                                 <tr>
                                     <td colSpan={6} className="px-6 py-12 text-center text-slate-400 dark:text-dk-muted">
                                         <FileCheck2 className="w-12 h-12 mx-auto mb-3 opacity-20" />
-                                        <p>{tx(lang,{fr:'Aucun bon de livraison trouvé',ar:'لم يتم العثور على أي إيصال تسليم',en:'No delivery note found',es:'No se encontró ningún albarán',pt:'Nenhuma guia de remessa encontrada',tr:'Hiçbir teslimat notu bulunamadı'})}</p>
+                                        <p>{tx(lang,{fr:'Aucun bon de livraison trouvÃ©',ar:'Ù„Ù… ÙŠØªÙ… Ø§Ù„Ø¹Ø«ÙˆØ± Ø¹Ù„Ù‰ Ø£ÙŠ Ø¥ÙŠØµØ§Ù„ ØªØ³Ù„ÙŠÙ…',en:'No delivery note found',es:'No se encontrÃ³ ningÃºn albarÃ¡n',pt:'Nenhuma guia de remessa encontrada',tr:'HiÃ§bir teslimat notu bulunamadÄ±'})}</p>
                                     </td>
                                 </tr>
                             ) : filtered.map(bl => (
@@ -185,26 +185,26 @@ export default function Facturation({ t }: FacturationProps) {
     return (
         <div className="space-y-6">
             {/* Header section with gradient background matching BERAMETHODE theme */}
-            <div className="bg-gradient-to-br from-indigo-900 via-indigo-800 to-slate-900 rounded-3xl p-8 text-white shadow-xl relative overflow-hidden">
+            <div className="bg-gradient-to-br from-indigo-900 via-indigo-800 to-slate-900 rounded-3xl p-8 text-white shadow-xl dark:shadow-dk-elevated relative overflow-hidden">
                 <div className="absolute top-0 right-0 p-12 opacity-10 pointer-events-none">
                     <Receipt className="w-64 h-64 transform rotate-12" />
                 </div>
                 
                 <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
                     <div>
-                        <h1 className="text-3xl font-bold mb-2 tracking-tight">{tx(lang,{fr:'Facturation & Documents',ar:'الفوترة والمستندات',en:'Invoicing & Documents',es:'Facturación & Documentos',pt:'Faturação & Documentos',tr:'Faturalama & Belgeler'})}</h1>
+                        <h1 className="text-3xl font-bold mb-2 tracking-tight">{tx(lang,{fr:'Facturation & Documents',ar:'Ø§Ù„ÙÙˆØªØ±Ø© ÙˆØ§Ù„Ù…Ø³ØªÙ†Ø¯Ø§Øª',en:'Invoicing & Documents',es:'FacturaciÃ³n & Documentos',pt:'FaturaÃ§Ã£o & Documentos',tr:'Faturalama & Belgeler'})}</h1>
                         <p className="text-indigo-200 max-w-xl text-lg">
-                            {tx(lang,{fr:'Gérez vos factures d\'achat, de vente, devis et bons de livraison en un seul endroit.',ar:'إدارة فواتير الشراء والبيع وعروض الأسعار وإيصالات التسليم في مكان واحد.',en:'Manage your purchase invoices, sales invoices, quotes and delivery notes in one place.',es:'Gestione sus facturas de compra, venta, presupuestos y albaranes en un solo lugar.',pt:'Gerencie suas faturas de compra, venda, orçamentos e guias de remessa em um só lugar.',tr:'Satın alma faturalarınızı, satış faturalarınızı, tekliflerinizi ve teslimat notlarınızı tek bir yerde yönetin.'})}
+                            {tx(lang,{fr:'GÃ©rez vos factures d\'achat, de vente, devis et bons de livraison en un seul endroit.',ar:'Ø¥Ø¯Ø§Ø±Ø© ÙÙˆØ§ØªÙŠØ± Ø§Ù„Ø´Ø±Ø§Ø¡ ÙˆØ§Ù„Ø¨ÙŠØ¹ ÙˆØ¹Ø±ÙˆØ¶ Ø§Ù„Ø£Ø³Ø¹Ø§Ø± ÙˆØ¥ÙŠØµØ§Ù„Ø§Øª Ø§Ù„ØªØ³Ù„ÙŠÙ… ÙÙŠ Ù…ÙƒØ§Ù† ÙˆØ§Ø­Ø¯.',en:'Manage your purchase invoices, sales invoices, quotes and delivery notes in one place.',es:'Gestione sus facturas de compra, venta, presupuestos y albaranes en un solo lugar.',pt:'Gerencie suas faturas de compra, venda, orÃ§amentos e guias de remessa em um sÃ³ lugar.',tr:'SatÄ±n alma faturalarÄ±nÄ±zÄ±, satÄ±ÅŸ faturalarÄ±nÄ±zÄ±, tekliflerinizi ve teslimat notlarÄ±nÄ±zÄ± tek bir yerde yÃ¶netin.'})}
                         </p>
                     </div>
                     <div className="flex items-center gap-3">
                         <button className="bg-white dark:bg-dk-surface/10 hover:bg-white text-white px-5 py-2.5 rounded-xl transition-all flex items-center gap-2 font-medium border border-white/10 backdrop-blur-sm">
                             <Settings className="w-5 h-5" />
-                            <span>{tx(lang,{fr:'Paramètres',ar:'الإعدادات',en:'Settings',es:'Ajustes',pt:'Configurações',tr:'Ayarlar'})}</span>
+                            <span>{tx(lang,{fr:'ParamÃ¨tres',ar:'Ø§Ù„Ø¥Ø¹Ø¯Ø§Ø¯Ø§Øª',en:'Settings',es:'Ajustes',pt:'ConfiguraÃ§Ãµes',tr:'Ayarlar'})}</span>
                         </button>
-                        <button className="bg-emerald-500 hover:bg-emerald-400 text-white px-6 py-2.5 rounded-xl transition-all shadow-lg hover:shadow-emerald-500/30 flex items-center gap-2 font-medium border border-emerald-400/50">
+                        <button className="bg-emerald-500 hover:bg-emerald-400 text-white px-6 py-2.5 rounded-xl transition-all shadow-lg dark:shadow-dk-lg hover:shadow-emerald-500/30 flex items-center gap-2 font-medium border border-emerald-400/50">
                             <Plus className="w-5 h-5" />
-                            <span>{tx(lang,{fr:'Nouveau Document',ar:'مستند جديد',en:'New Document',es:'Nuevo Documento',pt:'Novo Documento',tr:'Yeni Belge'})}</span>
+                            <span>{tx(lang,{fr:'Nouveau Document',ar:'Ù…Ø³ØªÙ†Ø¯ Ø¬Ø¯ÙŠØ¯',en:'New Document',es:'Nuevo Documento',pt:'Novo Documento',tr:'Yeni Belge'})}</span>
                         </button>
                     </div>
                 </div>
@@ -215,44 +215,44 @@ export default function Facturation({ t }: FacturationProps) {
                 <div className="w-full md:w-64 shrink-0 space-y-2">
                     <button 
                         onClick={() => setActiveTab('VENTE')}
-                        className={`w-full flex items-center justify-between p-4 rounded-2xl transition-all ${activeTab === 'VENTE' ? 'bg-indigo-600 dark:bg-dk-accent text-white shadow-md shadow-indigo-600/20' : 'bg-white dark:bg-dk-surface text-slate-600 dark:text-dk-text-soft hover:bg-slate-50 dark:hover:bg-dk-elevated/60 border border-slate-200 dark:border-dk-border'}`}
+                        className={`w-full flex items-center justify-between p-4 rounded-2xl transition-all ${activeTab === 'VENTE' ? 'bg-indigo-600 dark:bg-dk-accent text-white shadow-md dark:shadow-dk-md shadow-indigo-600/20' : 'bg-white dark:bg-dk-surface text-slate-600 dark:text-dk-text-soft hover:bg-slate-50 dark:hover:bg-dk-elevated/60 border border-slate-200 dark:border-dk-border'}`}
                     >
                         <div className="flex items-center gap-3 font-medium">
                             <ArrowRight className="w-5 h-5" />
-                            <span>{tx(lang,{fr:'Factures Clients',ar:'فواتير العملاء',en:'Customer Invoices',es:'Facturas de Clientes',pt:'Faturas de Clientes',tr:'Müşteri Faturaları'})}</span>
+                            <span>{tx(lang,{fr:'Factures Clients',ar:'ÙÙˆØ§ØªÙŠØ± Ø§Ù„Ø¹Ù…Ù„Ø§Ø¡',en:'Customer Invoices',es:'Facturas de Clientes',pt:'Faturas de Clientes',tr:'MÃ¼ÅŸteri FaturalarÄ±'})}</span>
                         </div>
                         {activeTab === 'VENTE' && <ChevronRight className="w-5 h-5 opacity-50" />}
                     </button>
                     
                     <button 
                         onClick={() => setActiveTab('ACHAT')}
-                        className={`w-full flex items-center justify-between p-4 rounded-2xl transition-all ${activeTab === 'ACHAT' ? 'bg-indigo-600 dark:bg-dk-accent text-white shadow-md shadow-indigo-600/20' : 'bg-white dark:bg-dk-surface text-slate-600 dark:text-dk-text-soft hover:bg-slate-50 dark:hover:bg-dk-elevated/60 border border-slate-200 dark:border-dk-border'}`}
+                        className={`w-full flex items-center justify-between p-4 rounded-2xl transition-all ${activeTab === 'ACHAT' ? 'bg-indigo-600 dark:bg-dk-accent text-white shadow-md dark:shadow-dk-md shadow-indigo-600/20' : 'bg-white dark:bg-dk-surface text-slate-600 dark:text-dk-text-soft hover:bg-slate-50 dark:hover:bg-dk-elevated/60 border border-slate-200 dark:border-dk-border'}`}
                     >
                         <div className="flex items-center gap-3 font-medium">
                             <ArrowRight className="w-5 h-5 rotate-180" />
-                            <span>{tx(lang,{fr:'Factures Achats',ar:'فواتير المشتريات',en:'Purchase Invoices',es:'Facturas de Compra',pt:'Faturas de Compra',tr:'Satın Alma Faturaları'})}</span>
+                            <span>{tx(lang,{fr:'Factures Achats',ar:'ÙÙˆØ§ØªÙŠØ± Ø§Ù„Ù…Ø´ØªØ±ÙŠØ§Øª',en:'Purchase Invoices',es:'Facturas de Compra',pt:'Faturas de Compra',tr:'SatÄ±n Alma FaturalarÄ±'})}</span>
                         </div>
                         {activeTab === 'ACHAT' && <ChevronRight className="w-5 h-5 opacity-50" />}
                     </button>
 
                     <button 
                         onClick={() => setActiveTab('DEVIS')}
-                        className={`w-full flex items-center justify-between p-4 rounded-2xl transition-all ${activeTab === 'DEVIS' ? 'bg-indigo-600 dark:bg-dk-accent text-white shadow-md shadow-indigo-600/20' : 'bg-white dark:bg-dk-surface text-slate-600 dark:text-dk-text-soft hover:bg-slate-50 dark:hover:bg-dk-elevated/60 border border-slate-200 dark:border-dk-border'}`}
+                        className={`w-full flex items-center justify-between p-4 rounded-2xl transition-all ${activeTab === 'DEVIS' ? 'bg-indigo-600 dark:bg-dk-accent text-white shadow-md dark:shadow-dk-md shadow-indigo-600/20' : 'bg-white dark:bg-dk-surface text-slate-600 dark:text-dk-text-soft hover:bg-slate-50 dark:hover:bg-dk-elevated/60 border border-slate-200 dark:border-dk-border'}`}
                     >
                         <div className="flex items-center gap-3 font-medium">
                             <Tag className="w-5 h-5" />
-                            <span>{tx(lang,{fr:'Devis & Proformas',ar:'عروض الأسعار والفواتير الأولية',en:'Quotes & Proformas',es:'Presupuestos & Proformas',pt:'Orçamentos & Proformas',tr:'Teklifler & Proformalar'})}</span>
+                            <span>{tx(lang,{fr:'Devis & Proformas',ar:'Ø¹Ø±ÙˆØ¶ Ø§Ù„Ø£Ø³Ø¹Ø§Ø± ÙˆØ§Ù„ÙÙˆØ§ØªÙŠØ± Ø§Ù„Ø£ÙˆÙ„ÙŠØ©',en:'Quotes & Proformas',es:'Presupuestos & Proformas',pt:'OrÃ§amentos & Proformas',tr:'Teklifler & Proformalar'})}</span>
                         </div>
                         {activeTab === 'DEVIS' && <ChevronRight className="w-5 h-5 opacity-50" />}
                     </button>
 
                     <button 
                         onClick={() => setActiveTab('BL')}
-                        className={`w-full flex items-center justify-between p-4 rounded-2xl transition-all ${activeTab === 'BL' ? 'bg-indigo-600 dark:bg-dk-accent text-white shadow-md shadow-indigo-600/20' : 'bg-white dark:bg-dk-surface text-slate-600 dark:text-dk-text-soft hover:bg-slate-50 dark:hover:bg-dk-elevated/60 border border-slate-200 dark:border-dk-border'}`}
+                        className={`w-full flex items-center justify-between p-4 rounded-2xl transition-all ${activeTab === 'BL' ? 'bg-indigo-600 dark:bg-dk-accent text-white shadow-md dark:shadow-dk-md shadow-indigo-600/20' : 'bg-white dark:bg-dk-surface text-slate-600 dark:text-dk-text-soft hover:bg-slate-50 dark:hover:bg-dk-elevated/60 border border-slate-200 dark:border-dk-border'}`}
                     >
                         <div className="flex items-center gap-3 font-medium">
                             <FileCheck2 className="w-5 h-5" />
-                            <span>{tx(lang,{fr:'Bons de Livraison',ar:'إيصالات التسليم',en:'Delivery Notes',es:'Albaranes',pt:'Guias de Remessa',tr:'Teslimat Notları'})}</span>
+                            <span>{tx(lang,{fr:'Bons de Livraison',ar:'Ø¥ÙŠØµØ§Ù„Ø§Øª Ø§Ù„ØªØ³Ù„ÙŠÙ…',en:'Delivery Notes',es:'Albaranes',pt:'Guias de Remessa',tr:'Teslimat NotlarÄ±'})}</span>
                         </div>
                         {activeTab === 'BL' && <ChevronRight className="w-5 h-5 opacity-50" />}
                     </button>
@@ -265,7 +265,7 @@ export default function Facturation({ t }: FacturationProps) {
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 dark:text-dk-muted" />
                             <input 
                                 type="text"
-                                placeholder={activeTab === 'ACHAT' ? tx(lang,{fr:'Rechercher un document ou fournisseur...',ar:'ابحث عن مستند أو مورد...',en:'Search document or supplier...',es:'Buscar documento o proveedor...',pt:'Pesquisar documento ou fornecedor...',tr:'Belge veya tedarikçi ara...'}) : tx(lang,{fr:'Rechercher un document ou client...',ar:'ابحث عن مستند أو عميل...',en:'Search document or client...',es:'Buscar documento o cliente...',pt:'Pesquisar documento ou cliente...',tr:'Belge veya müşteri ara...'})}
+                                placeholder={activeTab === 'ACHAT' ? tx(lang,{fr:'Rechercher un document ou fournisseur...',ar:'Ø§Ø¨Ø­Ø« Ø¹Ù† Ù…Ø³ØªÙ†Ø¯ Ø£Ùˆ Ù…ÙˆØ±Ø¯...',en:'Search document or supplier...',es:'Buscar documento o proveedor...',pt:'Pesquisar documento ou fornecedor...',tr:'Belge veya tedarikÃ§i ara...'}) : tx(lang,{fr:'Rechercher un document ou client...',ar:'Ø§Ø¨Ø­Ø« Ø¹Ù† Ù…Ø³ØªÙ†Ø¯ Ø£Ùˆ Ø¹Ù…ÙŠÙ„...',en:'Search document or client...',es:'Buscar documento o cliente...',pt:'Pesquisar documento ou cliente...',tr:'Belge veya mÃ¼ÅŸteri ara...'})}
                                 value={searchTerm}
                                 onChange={e => setSearchTerm(e.target.value)}
                                 className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 dark:border-dk-border focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all placeholder:text-slate-400"
@@ -278,7 +278,7 @@ export default function Facturation({ t }: FacturationProps) {
 
                     {/* Content Area */}
                     {isLoading ? (
-                        <div className="h-64 flex items-center justify-center bg-white dark:bg-dk-surface rounded-2xl border border-slate-100 dark:border-dk-border shadow-sm">
+                        <div className="h-64 flex items-center justify-center bg-white dark:bg-dk-surface rounded-2xl border border-slate-100 dark:border-dk-border shadow-sm dark:shadow-dk-sm">
                             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
                         </div>
                     ) : (

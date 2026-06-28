@@ -302,7 +302,7 @@ export default function AnalyseTechnologique({
     <div className="space-y-4 pb-20 animate-in fade-in slide-in-from-bottom-2 duration-300">
       
       {/* 1. SINGLE ROW HEADER - RESPONSIVE */}
-       <div className="bg-white dark:bg-dk-surface rounded-xl border border-slate-200 dark:border-dk-border shadow-sm mb-4 p-2 flex flex-nowrap items-center gap-2 overflow-x-auto no-scrollbar">
+       <div className="bg-white dark:bg-dk-surface rounded-xl border border-slate-200 dark:border-dk-border shadow-sm dark:shadow-dk-sm mb-4 p-2 flex flex-nowrap items-center gap-2 overflow-x-auto no-scrollbar">
             {/* OUVRIERS / HEURES */}
             <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-50 dark:bg-dk-bg rounded-lg border border-slate-100 dark:border-dk-border shrink-0">
                 <div className="flex flex-col items-center border-r border-slate-200 dark:border-dk-border pr-3 mr-3">
@@ -381,7 +381,7 @@ export default function AnalyseTechnologique({
        </div>
 
       {/* MODERN TABLE CONTAINER */}
-      <div className="bg-white dark:bg-dk-surface rounded-xl border border-slate-200 dark:border-dk-border shadow-sm overflow-hidden flex flex-col">
+      <div className="bg-white dark:bg-dk-surface rounded-xl border border-slate-200 dark:border-dk-border shadow-sm dark:shadow-dk-sm overflow-hidden flex flex-col">
         {/* Toolbar */}
         <div className="shrink-0 p-3 border-b border-slate-100 dark:border-dk-border flex flex-col sm:flex-row sm:justify-between sm:items-center bg-white dark:bg-dk-surface gap-3">
           <div className="flex items-center gap-4">
@@ -398,14 +398,14 @@ export default function AnalyseTechnologique({
               </div>
           </div>
           <div className="flex gap-2 self-end sm:self-auto">
-            <button onClick={() => window.print()} className="flex items-center gap-2 px-3 py-1.5 bg-slate-800 text-white rounded-lg hover:bg-slate-900 transition-colors text-xs font-bold shadow-sm"><Printer className="w-3.5 h-3.5" /><span>{tx(lang, { fr: 'Imprimer', ar: 'طباعة', en: 'Print', es: 'Imprimir', pt: 'Imprimir', tr: 'Yazdır' })}</span></button>
+            <button onClick={() => window.print()} className="flex items-center gap-2 px-3 py-1.5 bg-slate-800 text-white rounded-lg hover:bg-slate-900 transition-colors text-xs font-bold shadow-sm dark:shadow-dk-sm"><Printer className="w-3.5 h-3.5" /><span>{tx(lang, { fr: 'Imprimer', ar: 'طباعة', en: 'Print', es: 'Imprimir', pt: 'Imprimir', tr: 'Yazdır' })}</span></button>
           </div>
         </div>
 
         {/* Scrollable Table Area */}
         <div className="flex-1 overflow-auto relative custom-scrollbar">
           <table className="w-full text-left border-collapse min-w-[1000px]">
-            <thead className="sticky top-0 z-20 shadow-sm bg-slate-50 dark:bg-dk-bg">
+            <thead className="sticky top-0 z-20 shadow-sm dark:shadow-dk-sm bg-slate-50 dark:bg-dk-bg">
               <tr>
                 <th className={`${headerClass} text-center w-12 pl-2 border-r border-slate-200 dark:border-dk-border`}>N°</th>
                 <th className={`${headerClass} text-left pl-4 min-w-[200px]`}>{tx(lang, { fr: 'Opérations', ar: 'العمليات', en: 'Operations', es: 'Operaciones', pt: 'Operações', tr: 'Operasyonlar' })}</th>
@@ -517,7 +517,7 @@ export default function AnalyseTechnologique({
                         <div className="flex items-center justify-center min-w-[2.5rem]">
                             {primaryPosteColor ? (
                                 <span
-                                    className="font-mono text-xs font-black inline-flex items-center justify-center min-w-[2rem] h-8 px-2 rounded-lg text-white shadow-sm ring-1 ring-black/10"
+                                    className="font-mono text-xs font-black inline-flex items-center justify-center min-w-[2rem] h-8 px-2 rounded-lg text-white shadow-sm dark:shadow-dk-sm ring-1 ring-black/10"
                                     style={{ backgroundColor: primaryPosteColor.fill ?? '#6366f1' }}
                                 >
                                     {getDisplayIndex(op, index)}
@@ -533,7 +533,7 @@ export default function AnalyseTechnologique({
                         <input type="text" value={op.description} onChange={(e) => updateOperation(op.id, 'description', e.target.value)} className="w-full bg-transparent outline-none text-xs font-medium text-slate-700 dark:text-dk-text-soft truncate focus:text-clip focus:overflow-visible focus:bg-white focus:absolute focus:z-10 focus:shadow-md focus:px-2 rounded focus:w-auto focus:min-w-full"/>
                     </td>
                     <td className="py-1.5 px-2 text-center">
-                        <span className={`inline-block px-1.5 py-0.5 rounded-[4px] text-[9px] font-bold uppercase tracking-tight border ${isMan ? 'bg-slate-100 dark:bg-dk-elevated text-slate-500 dark:text-dk-muted border-slate-200 dark:border-dk-border' : 'bg-white dark:bg-dk-surface text-emerald-600 dark:text-emerald-400 border-emerald-200 shadow-sm'}`}>
+                        <span className={`inline-block px-1.5 py-0.5 rounded-[4px] text-[9px] font-bold uppercase tracking-tight border ${isMan ? 'bg-slate-100 dark:bg-dk-elevated text-slate-500 dark:text-dk-muted border-slate-200 dark:border-dk-border' : 'bg-white dark:bg-dk-surface text-emerald-600 dark:text-emerald-400 border-emerald-200 shadow-sm dark:shadow-dk-sm'}`}>
                           {machine.name.length > 10 ? machine.name.substring(0,8)+'..' : machine.name}
                         </span>
                     </td>

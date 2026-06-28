@@ -164,7 +164,7 @@ export default function Atelier({ models, planningEvents, suivis, settings, hand
     return (
         <div className="h-full flex flex-col bg-slate-50 dark:bg-dk-bg relative pb-20">
             {/* Header */}
-            <div className="bg-white dark:bg-dk-surface border-b border-slate-200 dark:border-dk-border px-6 py-4 flex items-center justify-between shrink-0 shadow-sm z-20">
+            <div className="bg-white dark:bg-dk-surface border-b border-slate-200 dark:border-dk-border px-6 py-4 flex items-center justify-between shrink-0 shadow-sm dark:shadow-dk-sm z-20">
                 <div>
                     <h1 className="text-2xl font-black text-slate-800 dark:text-dk-text tracking-tight flex items-center gap-2">
                         <Factory className="w-6 h-6 text-orange-500" />
@@ -207,7 +207,7 @@ export default function Atelier({ models, planningEvents, suivis, settings, hand
                 {tab === 'dashboard' && (
                     <div className="space-y-6 animate-in fade-in zoom-in-95 duration-300">
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                            <div className="bg-white dark:bg-dk-surface rounded-2xl p-5 border border-slate-200 dark:border-dk-border shadow-sm flex items-center gap-4">
+                            <div className="bg-white dark:bg-dk-surface rounded-2xl p-5 border border-slate-200 dark:border-dk-border shadow-sm dark:shadow-dk-sm flex items-center gap-4">
                                 <div className="w-12 h-12 rounded-xl bg-orange-50 dark:bg-orange-900/30 flex items-center justify-center shrink-0">
                                     <Factory className="w-6 h-6 text-orange-600 dark:text-orange-400" />
                                 </div>
@@ -216,7 +216,7 @@ export default function Atelier({ models, planningEvents, suivis, settings, hand
                                     <p className="text-3xl font-black text-slate-800 dark:text-dk-text">{todayEvents.length}</p>
                                 </div>
                             </div>
-                            <div className="bg-white dark:bg-dk-surface rounded-2xl p-5 border border-slate-200 dark:border-dk-border shadow-sm flex items-center gap-4">
+                            <div className="bg-white dark:bg-dk-surface rounded-2xl p-5 border border-slate-200 dark:border-dk-border shadow-sm dark:shadow-dk-sm flex items-center gap-4">
                                 <div className="w-12 h-12 rounded-xl bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 dark:bg-indigo-900/30 flex items-center justify-center shrink-0">
                                     <Package className="w-6 h-6 text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text dark:text-indigo-400" />
                                 </div>
@@ -225,7 +225,7 @@ export default function Atelier({ models, planningEvents, suivis, settings, hand
                                     <p className="text-3xl font-black text-slate-800 dark:text-dk-text">{todayEvents.reduce((s, e) => s + e.qteTotal, 0).toLocaleString()}</p>
                                 </div>
                             </div>
-                            <div className="bg-white dark:bg-dk-surface rounded-2xl p-5 border border-slate-200 dark:border-dk-border shadow-sm flex items-center gap-4">
+                            <div className="bg-white dark:bg-dk-surface rounded-2xl p-5 border border-slate-200 dark:border-dk-border shadow-sm dark:shadow-dk-sm flex items-center gap-4">
                                 <div className="w-12 h-12 rounded-xl bg-emerald-50 dark:bg-emerald-900/30 flex items-center justify-center shrink-0">
                                     <CheckCircle2 className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />
                                 </div>
@@ -256,7 +256,7 @@ export default function Atelier({ models, planningEvents, suivis, settings, hand
                                     const progress = evt.qteTotal > 0 ? Math.min(100, Math.round((totalProduced / evt.qteTotal) * 100)) : 0;
 
                                     return (
-                                        <div key={evt.id} className="bg-white dark:bg-dk-surface rounded-3xl p-6 border border-slate-200 dark:border-dk-border shadow-sm flex flex-col hover:shadow-md transition-shadow">
+                                        <div key={evt.id} className="bg-white dark:bg-dk-surface rounded-3xl p-6 border border-slate-200 dark:border-dk-border shadow-sm dark:shadow-dk-sm flex flex-col hover:shadow-md transition-shadow">
                                             <div className="flex justify-between items-start mb-4">
                                                 <div className="flex items-center gap-3">
                                                     <div className="w-12 h-16 bg-slate-100 dark:bg-dk-elevated/60 rounded-xl overflow-hidden shrink-0">
@@ -305,7 +305,7 @@ export default function Atelier({ models, planningEvents, suivis, settings, hand
                 {/* ══ Demandes Magasin ══ */}
                 {tab === 'demandes' && (
                     <div className="animate-in fade-in zoom-in-95 duration-300">
-                        <div className="bg-white dark:bg-dk-surface p-8 rounded-3xl border dark:border-dk-border shadow-sm max-w-2xl mx-auto">
+                        <div className="bg-white dark:bg-dk-surface p-8 rounded-3xl border dark:border-dk-border shadow-sm dark:shadow-dk-sm max-w-2xl mx-auto">
                             <h2 className="text-2xl font-black text-slate-800 dark:text-dk-text mb-6 flex items-center gap-3">
                                 <Package className="w-6 h-6 text-indigo-500" /> {tx(lang, { fr: "Nouvelle Demande d'Appro", ar: 'طلب توريد جديد', en: 'New Supply Request', es: 'Nueva Solicitud de Suministro', pt: 'Novo Pedido de Abastecimento', tr: 'Yeni Tedarik Talebi' })}
                             </h2>
@@ -379,7 +379,7 @@ export default function Atelier({ models, planningEvents, suivis, settings, hand
                                     <div className="pt-4">
                                         <button
                                             onClick={handleSendDemande}
-                                            className="w-full bg-indigo-600 dark:bg-dk-accent hover:bg-indigo-700 dark:hover:bg-dk-accent-hover text-white font-black py-4 rounded-xl transition-all shadow-lg shadow-indigo-200 dark:shadow-indigo-900/30 flex items-center justify-center gap-2"
+                                            className="w-full bg-indigo-600 dark:bg-dk-accent hover:bg-indigo-700 dark:hover:bg-dk-accent-hover text-white font-black py-4 rounded-xl transition-all shadow-lg dark:shadow-dk-lg shadow-indigo-200 dark:shadow-indigo-900/30 flex items-center justify-center gap-2"
                                         >
                                             <Send className="w-5 h-5" /> {tx(lang, { fr: 'Envoyer la Demande au Magasin', ar: 'إرسال الطلب إلى المخزن', en: 'Send Request to Warehouse', es: 'Enviar Solicitud al Almacén', pt: 'Enviar Pedido ao Armazém', tr: 'Talebi Depoya Gönder' })}
                                         </button>
@@ -393,7 +393,7 @@ export default function Atelier({ models, planningEvents, suivis, settings, hand
                 {/* ══ Clôture & Retours ══ */}
                 {tab === 'cloture' && (
                     <div className="animate-in fade-in zoom-in-95 duration-300">
-                        <div className="bg-white dark:bg-dk-surface p-8 rounded-3xl border dark:border-dk-border shadow-sm max-w-3xl mx-auto border-t-4 border-t-rose-500">
+                        <div className="bg-white dark:bg-dk-surface p-8 rounded-3xl border dark:border-dk-border shadow-sm dark:shadow-dk-sm max-w-3xl mx-auto border-t-4 border-t-rose-500">
                             <h2 className="text-2xl font-black text-slate-800 dark:text-dk-text mb-2 flex items-center gap-3">
                                 <AlertCircle className="w-6 h-6 text-rose-500" /> {tx(lang, { fr: 'Clôture de Lancement (OF)', ar: 'إغلاق الإطلاق (OF)', en: 'Launch Closure (OF)', es: 'Cierre de Lanzamiento (OF)', pt: 'Encerramento de Lançamento (OF)', tr: 'Başlatma Kapatma (OF)' })}
                             </h2>
@@ -505,7 +505,7 @@ export default function Atelier({ models, planningEvents, suivis, settings, hand
                                     <div className="pt-4">
                                         <button
                                             onClick={handleClotureOF}
-                                            className="w-full bg-rose-600 hover:bg-rose-700 text-white font-black py-4 rounded-xl transition-all shadow-lg shadow-rose-200 dark:shadow-rose-900/30 flex items-center justify-center gap-2"
+                                            className="w-full bg-rose-600 hover:bg-rose-700 text-white font-black py-4 rounded-xl transition-all shadow-lg dark:shadow-dk-lg shadow-rose-200 dark:shadow-rose-900/30 flex items-center justify-center gap-2"
                                         >
                                             <CheckSquare className="w-5 h-5" /> {tx(lang, { fr: "Validation Définitive de l'OF", ar: 'التصديق النهائي على OF', en: 'Final Validation of the OF', es: 'Validación Definitiva del OF', pt: 'Validação Definitiva da OF', tr: 'OF\'nin Nihai Onayı' })}
                                         </button>

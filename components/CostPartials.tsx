@@ -12,13 +12,13 @@ export const MaterialsList = ({
 }: any) => {
   const { lang } = useLang();
   return (
-    <div className="bg-white dark:bg-dk-surface rounded-xl border border-slate-200 dark:border-dk-border shadow-sm overflow-hidden">
+    <div className="bg-white dark:bg-dk-surface rounded-xl border border-slate-200 dark:border-dk-border shadow-sm dark:shadow-dk-sm overflow-hidden">
       <div className="px-4 py-3 border-b border-slate-100 dark:border-dk-border flex justify-between items-center bg-slate-50 dark:bg-dk-bg">
         <div className="flex items-center gap-2">
           <Package className="w-4 h-4 text-slate-500 dark:text-dk-muted" />
           <h2 className="font-bold text-slate-700 dark:text-dk-text-soft text-sm">{t.materials}</h2>
         </div>
-        <button onClick={addMaterial} className="text-[10px] font-bold bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg flex items-center gap-1 transition shadow-sm">
+        <button onClick={addMaterial} className="text-[10px] font-bold bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg flex items-center gap-1 transition shadow-sm dark:shadow-dk-sm">
           <Plus className="w-3 h-3" /> {t.addMat}
         </button>
       </div>
@@ -33,11 +33,11 @@ export const MaterialsList = ({
               <th className="px-4 py-2 w-8"></th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-100">
+          <tbody className="divide-y divide-slate-100 dark:divide-dk-border">
             {materials.map((item: Material) => (
               <tr key={item.id} className="hover:bg-slate-50 dark:hover:bg-dk-elevated/60 transition-colors group">
                 <td className="p-2">
-                  <input type="text" value={item.name} onChange={(e) => updateMaterial(item.id, 'name', e.target.value)} className="w-full rounded border border-slate-200 dark:border-dk-border px-2 py-1 outline-none focus:border-blue-500" placeholder={tx(lang, {fr:'Nom…',ar:'الاسم…',en:'Name…',es:'Nombre…',pt:'Nome…',tr:'Ad…'})} />
+                  <input type="text" value={item.name} onChange={(e) => updateMaterial(item.id, 'name', e.target.value)} className="w-full rounded border border-slate-200 dark:border-dk-border px-2 py-1 outline-none focus:border-blue-500" placeholder={tx(lang, {fr:'Nomâ€¦',ar:'Ø§Ù„Ø§Ø³Ù…â€¦',en:'Nameâ€¦',es:'Nombreâ€¦',pt:'Nomeâ€¦',tr:'Adâ€¦'})} />
                 </td>
                 <td className="p-2">
                   <input type="number" min="0" value={item.unitPrice} onChange={(e) => updateMaterial(item.id, 'unitPrice', e.target.value)} className="w-full rounded border border-slate-200 dark:border-dk-border px-2 py-1 text-center outline-none focus:border-blue-500" />
@@ -78,19 +78,19 @@ export const OrderSimulation = ({
 }: any) => {
   const totalProjectCost = totalPurchasingMatCost + (laborCost * orderQty);
   return (
-    <div className="bg-white dark:bg-dk-surface rounded-xl border border-indigo-100 shadow-sm overflow-hidden">
+    <div className="bg-white dark:bg-dk-surface rounded-xl border border-indigo-100 shadow-sm dark:shadow-dk-sm overflow-hidden">
       <div className="px-4 py-3 border-b border-indigo-100 bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20/50 flex flex-col sm:flex-row justify-between items-center gap-3">
         <div className="flex items-center gap-2">
           <TrendingUp className="w-4 h-4 text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text" />
           <h2 className="font-bold text-indigo-900 text-sm">{t.needs}</h2>
         </div>
         <div className="flex gap-3">
-          <div className="flex items-center gap-2 bg-white dark:bg-dk-surface px-2 py-1 rounded border border-indigo-100 shadow-sm">
+          <div className="flex items-center gap-2 bg-white dark:bg-dk-surface px-2 py-1 rounded border border-indigo-100 shadow-sm dark:shadow-dk-sm">
             <span className="text-[10px] font-bold text-slate-400 dark:text-dk-muted uppercase">{t.waste}</span>
             <input type="number" min="0" value={wasteRate} onChange={(e) => setWasteRate(Math.max(0, parseFloat(e.target.value) || 0))} className="w-10 text-center font-bold text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text outline-none text-xs" />
             <Percent className="w-3 h-3 text-indigo-400" />
           </div>
-          <div className="flex items-center gap-2 bg-white dark:bg-dk-surface px-2 py-1 rounded border border-indigo-100 shadow-sm">
+          <div className="flex items-center gap-2 bg-white dark:bg-dk-surface px-2 py-1 rounded border border-indigo-100 shadow-sm dark:shadow-dk-sm">
             <span className="text-[10px] font-bold text-slate-400 dark:text-dk-muted uppercase">{t.orderQty}</span>
             <input type="number" min="1" value={orderQty} onChange={(e) => setOrderQty(Math.max(1, parseInt(e.target.value) || 0))} className="w-14 text-center font-bold text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text outline-none text-xs" />
             <ShoppingCart className="w-3 h-3 text-indigo-400" />
@@ -137,7 +137,7 @@ export const OrderSimulation = ({
                      <Clock className="w-4 h-4 text-blue-400" />
                 </div>
             </div>
-            <div className="p-3 rounded-lg bg-indigo-600 dark:bg-dk-accent text-white shadow-md flex flex-col justify-between">
+            <div className="p-3 rounded-lg bg-indigo-600 dark:bg-dk-accent text-white shadow-md dark:shadow-dk-md flex flex-col justify-between">
                 <span className="text-[10px] font-bold text-indigo-200 uppercase">{t.totalBudget}</span>
                 <div className="flex items-center justify-between mt-1">
                     <span className="text-2xl font-black">{fmt(totalProjectCost)} <span className="text-xs">{currency}</span></span>
@@ -152,7 +152,7 @@ export const OrderSimulation = ({
 // --- SETTINGS PANEL COMPONENT ---
 export const SettingsPanel = ({ t, settings, handleChange }: any) => {
   return (
-    <div className="bg-white dark:bg-dk-surface rounded-xl border border-slate-200 dark:border-dk-border shadow-sm overflow-hidden">
+    <div className="bg-white dark:bg-dk-surface rounded-xl border border-slate-200 dark:border-dk-border shadow-sm dark:shadow-dk-sm overflow-hidden">
       <div className="px-4 py-3 border-b border-slate-100 dark:border-dk-border flex items-center gap-2 bg-slate-50 dark:bg-dk-bg">
         <Settings className="w-4 h-4 text-slate-500 dark:text-dk-muted" />
         <h2 className="font-bold text-slate-700 dark:text-dk-text-soft text-sm">{t.settings}</h2>

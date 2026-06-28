@@ -239,7 +239,7 @@ function FancySelect({
 
             {/* Menu */}
             {open && (
-                <div className="absolute z-50 mt-1 w-full rounded-lg border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface shadow-lg shadow-slate-300/40 dark:shadow-dk-bg/60 overflow-hidden p-1 animate-in fade-in slide-in-from-top-1 duration-100">
+                <div className="absolute z-50 mt-1 w-full rounded-lg border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface shadow-lg dark:shadow-dk-lg shadow-slate-300/40 dark:shadow-dk-bg/60 overflow-hidden p-1 animate-in fade-in slide-in-from-top-1 duration-100">
                     {options.map(o => {
                         const selected = o.value === value;
                         return (
@@ -524,7 +524,7 @@ export default function FicheTechnique({
         <div className="space-y-6 pb-24 animate-in fade-in slide-in-from-bottom-2 duration-300 relative">
             <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-start">
                 <div className="md:col-span-8 space-y-6 order-2 md:order-1">
-                    <div className="bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border shadow-sm overflow-hidden">
+                    <div className="bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border shadow-sm dark:shadow-dk-sm overflow-hidden">
                         <div className="bg-slate-50 dark:bg-dk-bg/50 dark:bg-dk-elevated/60 px-4 sm:px-6 py-3 border-b border-slate-100 dark:border-dk-border flex items-center justify-between">
                             <div className="flex items-center gap-2">
                                 <Tag className="w-4 h-4 text-indigo-500" />
@@ -612,7 +612,7 @@ export default function FicheTechnique({
                     </div>
 
                     {/* MATIERE CARD */}
-                    <div className="bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border shadow-sm overflow-hidden p-4 sm:p-6 space-y-4">
+                    <div className="bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border shadow-sm dark:shadow-dk-sm overflow-hidden p-4 sm:p-6 space-y-4">
                         <div className="space-y-1">
                             <label className="text-xs font-bold text-slate-500 dark:text-dk-text-soft uppercase ml-1 flex items-center gap-2">
                                 <Layers className="w-4 h-4 text-indigo-500" />
@@ -636,7 +636,7 @@ export default function FicheTechnique({
                     <RepartitionMatrix data={data} setData={setData} lang={lang} />
 
                     {/* PRODUCTION & DATA LINKED CARD */}
-                    <div className="bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border shadow-sm overflow-hidden">
+                    <div className="bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border shadow-sm dark:shadow-dk-sm overflow-hidden">
                         <div className="bg-emerald-50 dark:bg-emerald-900/30/50 dark:bg-emerald-900/20 px-4 sm:px-6 py-3 border-b border-emerald-100 dark:border-emerald-900/30 flex items-center gap-2">
                             <Factory className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                             <h3 className="font-bold text-emerald-800 dark:text-emerald-300 text-sm uppercase tracking-wide">
@@ -742,7 +742,7 @@ export default function FicheTechnique({
                     </div>
 
                     {/* PLANNING & RISK CONTROLS CARD */}
-                    <div className="bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border shadow-sm overflow-hidden">
+                    <div className="bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border shadow-sm dark:shadow-dk-sm overflow-hidden">
                         <div className="bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20/50 dark:bg-indigo-900/20 px-4 sm:px-6 py-3 border-b border-indigo-100 dark:border-indigo-900/30 flex items-center gap-2">
                             <TrendingUp className="w-4 h-4 text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text dark:text-indigo-400" />
                             <h3 className="font-bold text-indigo-800 dark:text-indigo-300 text-sm uppercase tracking-wide">
@@ -877,13 +877,13 @@ export default function FicheTechnique({
                     {/* IMAGES GRID (SIDE BY SIDE) */}
                     <div className="grid grid-cols-2 gap-3">
                         {/* FRONT IMAGE */}
-                        <div className="group relative flex flex-col overflow-hidden rounded-2xl border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface shadow-sm transition-all duration-300 hover:shadow-lg hover:-translate-y-0.5">
-                            <div className="absolute top-2 left-2 z-10 flex items-center gap-1.5 rounded-full bg-white/90 dark:bg-dk-surface/90 backdrop-blur-sm border border-slate-200/80 dark:border-dk-border/80 px-2 py-1 shadow-sm">
+                        <div className="group relative flex flex-col overflow-hidden rounded-2xl border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface shadow-sm dark:shadow-dk-sm transition-all duration-300 hover:shadow-lg hover:-translate-y-0.5">
+                            <div className="absolute top-2 left-2 z-10 flex items-center gap-1.5 rounded-full bg-white/90 dark:bg-dk-surface/90 backdrop-blur-sm border border-slate-200/80 dark:border-dk-border/80 px-2 py-1 shadow-sm dark:shadow-dk-sm">
                                 <span className="text-[9px] font-black tracking-widest text-slate-600 dark:text-dk-text-soft uppercase">{tx(lang, { fr: 'Devant', ar: 'أمام', en: 'Front', es: 'Frente', pt: 'Frente', tr: 'Ön' })}</span>
                             </div>
                             <button
                                 onClick={() => frontInputRef.current?.click()}
-                                className="absolute top-2 right-2 z-10 flex items-center gap-1 rounded-full bg-indigo-500 px-2 py-1 text-[9px] font-bold text-white shadow-md transition-all hover:bg-indigo-600 dark:hover:bg-dk-accent hover:shadow-lg active:scale-95"
+                                className="absolute top-2 right-2 z-10 flex items-center gap-1 rounded-full bg-indigo-500 px-2 py-1 text-[9px] font-bold text-white shadow-md dark:shadow-dk-md transition-all hover:bg-indigo-600 dark:hover:bg-dk-accent hover:shadow-lg active:scale-95"
                             >
                                 <Upload className="w-2.5 h-2.5" />
                                 {tx(lang, { fr: 'Photo', ar: 'صورة', en: 'Photo', es: 'Foto', pt: 'Foto', tr: 'Fotoğraf' })}
@@ -922,13 +922,13 @@ export default function FicheTechnique({
                         </div>
 
                         {/* BACK IMAGE */}
-                        <div className="group relative flex flex-col overflow-hidden rounded-2xl border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface shadow-sm transition-all duration-300 hover:shadow-lg hover:-translate-y-0.5">
-                            <div className="absolute top-2 left-2 z-10 flex items-center gap-1.5 rounded-full bg-white/90 dark:bg-dk-surface/90 backdrop-blur-sm border border-slate-200/80 dark:border-dk-border/80 px-2 py-1 shadow-sm">
+                        <div className="group relative flex flex-col overflow-hidden rounded-2xl border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface shadow-sm dark:shadow-dk-sm transition-all duration-300 hover:shadow-lg hover:-translate-y-0.5">
+                            <div className="absolute top-2 left-2 z-10 flex items-center gap-1.5 rounded-full bg-white/90 dark:bg-dk-surface/90 backdrop-blur-sm border border-slate-200/80 dark:border-dk-border/80 px-2 py-1 shadow-sm dark:shadow-dk-sm">
                                 <span className="text-[9px] font-black tracking-widest text-slate-600 dark:text-dk-text-soft uppercase">{tx(lang, { fr: 'Dos', ar: 'ظهر', en: 'Back', es: 'Espalda', pt: 'Costas', tr: 'Arka' })}</span>
                             </div>
                             <button
                                 onClick={() => backInputRef.current?.click()}
-                                className="absolute top-2 right-2 z-10 flex items-center gap-1 rounded-full bg-indigo-500 px-2 py-1 text-[9px] font-bold text-white shadow-md transition-all hover:bg-indigo-600 dark:hover:bg-dk-accent hover:shadow-lg active:scale-95"
+                                className="absolute top-2 right-2 z-10 flex items-center gap-1 rounded-full bg-indigo-500 px-2 py-1 text-[9px] font-bold text-white shadow-md dark:shadow-dk-md transition-all hover:bg-indigo-600 dark:hover:bg-dk-accent hover:shadow-lg active:scale-95"
                             >
                                 <Upload className="w-2.5 h-2.5" />
                                 {tx(lang, { fr: 'Photo', ar: 'صورة', en: 'Photo', es: 'Foto', pt: 'Foto', tr: 'Fotoğraf' })}
@@ -968,7 +968,7 @@ export default function FicheTechnique({
                     </div>
 
                     {/* SECTION SPLIT TOGGLE */}
-                    <div className="bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border shadow-sm p-4 flex items-center justify-between gap-4 font-sans">
+                    <div className="bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border shadow-sm dark:shadow-dk-sm p-4 flex items-center justify-between gap-4 font-sans">
                         <div>
                             <div className="text-xs font-bold text-slate-500 dark:text-dk-text-soft uppercase">{tx(lang, {fr: "Mode Préparation / Montage",ar: "وضع التحضير / التركيب",en: "Preparation / Assembly Mode",es: "Modo de preparación / montaje",pt: "Modo de preparação / montagem",tr: "Hazırlık / Montaj Modu"})}</div>
                             {data.sectionSplitEnabled && (
@@ -991,7 +991,7 @@ export default function FicheTechnique({
                     </div>
 
                     {/* OBSERVATIONS */}
-                    <div className="bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border shadow-sm p-4 flex flex-col font-sans">
+                    <div className="bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border shadow-sm dark:shadow-dk-sm p-4 flex flex-col font-sans">
                         <label className="text-xs font-bold text-slate-500 dark:text-dk-text-soft uppercase mb-2">{tx(lang, {fr: "Observations (Echantillon)",ar: "ملاحظات (العينة)",en: "Observations (Sample)",es: "Observaciones (Muestra)",pt: "Observações (Amostra)",tr: "Gözlemler (Numune)"})}</label>
                         <textarea
                             rows={6}
@@ -1022,7 +1022,7 @@ export default function FicheTechnique({
                             </div>
                             <button
                                 onClick={() => setPreviewImage(null)}
-                                className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface px-3 py-1.5 text-xs font-bold text-slate-600 dark:text-dk-text-soft shadow-sm transition hover:border-slate-300 dark:hover:border-dk-border hover:bg-slate-50 dark:hover:bg-dk-elevated/60 hover:text-slate-900 dark:hover:text-dk-text"
+                                className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface px-3 py-1.5 text-xs font-bold text-slate-600 dark:text-dk-text-soft shadow-sm dark:shadow-dk-sm transition hover:border-slate-300 dark:hover:border-dk-border hover:bg-slate-50 dark:hover:bg-dk-elevated/60 hover:text-slate-900 dark:hover:text-dk-text"
                             >
                                 <X className="h-4 w-4" />
                                 {tx(lang, { fr: 'Fermer', ar: 'إغلاق', en: 'Close', es: 'Cerrar', pt: 'Fechar', tr: 'Kapat' })}
@@ -1030,7 +1030,7 @@ export default function FicheTechnique({
                         </div>
                         <div className="relative flex-1 overflow-auto bg-[radial-gradient(circle_at_top,_#f8fafc_0%,_#e2e8f0_100%)] dark:bg-[radial-gradient(circle_at_top,_#1c2830_0%,_#151f24_100%)] p-3 sm:p-5">
                             <div className="mx-auto flex min-h-full max-w-[92%] items-center justify-center rounded-2xl border border-white/80 dark:border-dk-border/50 bg-white/60 dark:bg-dk-surface/60 p-2 shadow-inner sm:p-4">
-                                <img src={previewImage.src} alt="Full Preview" className="max-h-[74vh] w-auto max-w-full rounded-xl border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface object-contain shadow-xl" />
+                                <img src={previewImage.src} alt="Full Preview" className="max-h-[74vh] w-auto max-w-full rounded-xl border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface object-contain shadow-xl dark:shadow-dk-elevated" />
                             </div>
                         </div>
                         <div className="border-t border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface px-4 py-2 text-center text-[11px] font-medium text-slate-500 dark:text-dk-muted sm:px-5">

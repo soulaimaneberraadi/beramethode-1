@@ -1247,7 +1247,7 @@ export default function Balancing({
     <div className="space-y-4 sm:space-y-6 pb-32 animate-in fade-in slide-in-from-bottom-4 duration-500">
        
        {/* 1. SINGLE ROW HEADER - RESPONSIVE */}
-       <div className="bg-white dark:bg-dk-surface rounded-xl border border-slate-200 dark:border-dk-border shadow-sm mb-4 p-2 flex flex-nowrap items-center gap-2 overflow-x-auto no-scrollbar">
+       <div className="bg-white dark:bg-dk-surface rounded-xl border border-slate-200 dark:border-dk-border shadow-sm dark:shadow-dk-sm mb-4 p-2 flex flex-nowrap items-center gap-2 overflow-x-auto no-scrollbar">
             {/* OUVRIERS / HEURES */}
             <div className="flex items-center gap-2 px-2 py-1 sm:px-3 sm:py-1.5 bg-slate-50 dark:bg-dk-bg rounded-lg border border-slate-100 dark:border-dk-border shrink-0">
                 <div className="flex flex-col items-center border-r border-slate-200 dark:border-dk-border pr-3 mr-3">
@@ -1379,10 +1379,10 @@ export default function Balancing({
       {/* 2. CONTROLS (VIEW SWITCHER + ACTIONS) */}
       <div className="flex flex-col sm:flex-row justify-between items-end gap-3 px-2">
          <div className="flex bg-slate-100/80 p-1 rounded-xl shadow-inner border border-slate-200 dark:border-dk-border">
-             <button onClick={() => setViewMode('grouped')} className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all ${viewMode === 'grouped' ? 'bg-white dark:bg-dk-surface text-slate-700 dark:text-dk-text-soft shadow-sm ring-1 ring-slate-100' : 'text-slate-400 hover:text-slate-600'}`}>
+             <button onClick={() => setViewMode('grouped')} className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all ${viewMode === 'grouped' ? 'bg-white dark:bg-dk-surface text-slate-700 dark:text-dk-text-soft shadow-sm dark:shadow-dk-sm ring-1 ring-slate-100' : 'text-slate-400 hover:text-slate-600'}`}>
                 <LayoutList className="w-4 h-4" /> {tx(lang,{fr:'Vue Par Poste',ar:'عرض حسب المحطة',en:'View By Station',es:'Vista Por Puesto',pt:'Vista Por Posto',tr:'İstasyon Görünümü'})}
              </button>
-             <button onClick={() => setViewMode('matrix')} className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all ${viewMode === 'matrix' ? 'bg-white dark:bg-dk-surface text-slate-700 dark:text-dk-text-soft shadow-sm ring-1 ring-slate-100' : 'text-slate-400 hover:text-slate-600'}`}>
+             <button onClick={() => setViewMode('matrix')} className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all ${viewMode === 'matrix' ? 'bg-white dark:bg-dk-surface text-slate-700 dark:text-dk-text-soft shadow-sm dark:shadow-dk-sm ring-1 ring-slate-100' : 'text-slate-400 hover:text-slate-600'}`}>
                 <TableProperties className="w-4 h-4" /> {tx(lang,{fr:'Matrice',ar:'مصفوفة',en:'Matrix',es:'Matriz',pt:'Matriz',tr:'Matris'})}
              </button>
          </div>
@@ -1390,19 +1390,19 @@ export default function Balancing({
          <div className="flex items-center gap-2">
             <button
                 onClick={() => setIsHeaderSticky(!isHeaderSticky)}
-                className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold transition-all border shadow-sm ${isHeaderSticky ? 'bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 border-indigo-200 text-indigo-700 dark:text-dk-accent-text ring-1 ring-indigo-100' : 'bg-white dark:bg-dk-surface border-slate-200 dark:border-dk-border text-slate-500 dark:text-dk-muted hover:bg-slate-50 dark:hover:bg-dk-elevated/60'}`}
+                className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold transition-all border shadow-sm dark:shadow-dk-sm ${isHeaderSticky ? 'bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 border-indigo-200 text-indigo-700 dark:text-dk-accent-text ring-1 ring-indigo-100' : 'bg-white dark:bg-dk-surface border-slate-200 dark:border-dk-border text-slate-500 dark:text-dk-muted hover:bg-slate-50 dark:hover:bg-dk-elevated/60'}`}
                 title={isHeaderSticky ? tx(lang,{fr:"En-tête figé",ar:'رأس ثابت',en:'Header Frozen',es:'Cabecera fijada',pt:'Cabeçalho fixo',tr:'Başlık Sabitlendi'}) : tx(lang,{fr:"Figer l'en-tête",ar:'تثبيت الرأس',en:'Freeze Header',es:'Fijar cabecera',pt:'Fixar cabeçalho',tr:'Başlığı Sabitle'})}
             >
                 <PanelTop className="w-4 h-4" />
             </button>
             <button 
                 onClick={() => setShowGroupColors(!showGroupColors)} 
-                className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold transition-all border shadow-sm ${showGroupColors ? 'bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 border-indigo-200 text-indigo-700 dark:text-dk-accent-text ring-1 ring-indigo-100' : 'bg-white dark:bg-dk-surface border-slate-200 dark:border-dk-border text-slate-500 dark:text-dk-muted hover:bg-slate-50 dark:hover:bg-dk-elevated/60'}`} 
+                className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold transition-all border shadow-sm dark:shadow-dk-sm ${showGroupColors ? 'bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 border-indigo-200 text-indigo-700 dark:text-dk-accent-text ring-1 ring-indigo-100' : 'bg-white dark:bg-dk-surface border-slate-200 dark:border-dk-border text-slate-500 dark:text-dk-muted hover:bg-slate-50 dark:hover:bg-dk-elevated/60'}`} 
                 title={showGroupColors ? tx(lang,{fr:"Masquer couleurs groupes",ar:'إخفاء ألوان المجموعات',en:'Hide Group Colors',es:'Ocultar colores grupos',pt:'Ocultar cores grupos',tr:'Grup Renklerini Gizle'}) : tx(lang,{fr:"Afficher couleurs groupes",ar:'إظهار ألوان المجموعات',en:'Show Group Colors',es:'Mostrar colores grupos',pt:'Mostrar cores grupos',tr:'Grup Renklerini Göster'})}
             >
                 <Link className="w-4 h-4" />
             </button>
-            <button onClick={() => setShowColors(!showColors)} className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold transition-all border shadow-sm ${showColors ? 'bg-purple-50 dark:bg-purple-900/30 border-purple-200 text-purple-700 ring-1 ring-purple-100' : 'bg-white dark:bg-dk-surface border-slate-200 dark:border-dk-border text-slate-500 dark:text-dk-muted hover:bg-slate-50 dark:hover:bg-dk-elevated/60'}`} title={showColors ? tx(lang,{fr:"Désactiver les couleurs",ar:'تعطيل الألوان',en:'Disable Colors',es:'Desactivar colores',pt:'Desativar cores',tr:'Renkleri Devre Dışı Bırak'}) : tx(lang,{fr:"Activer les couleurs",ar:'تفعيل الألوان',en:'Enable Colors',es:'Activar colores',pt:'Ativar cores',tr:'Renkleri Etkinleştir'})}>
+            <button onClick={() => setShowColors(!showColors)} className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold transition-all border shadow-sm dark:shadow-dk-sm ${showColors ? 'bg-purple-50 dark:bg-purple-900/30 border-purple-200 text-purple-700 ring-1 ring-purple-100' : 'bg-white dark:bg-dk-surface border-slate-200 dark:border-dk-border text-slate-500 dark:text-dk-muted hover:bg-slate-50 dark:hover:bg-dk-elevated/60'}`} title={showColors ? tx(lang,{fr:"Désactiver les couleurs",ar:'تعطيل الألوان',en:'Disable Colors',es:'Desactivar colores',pt:'Desativar cores',tr:'Renkleri Devre Dışı Bırak'}) : tx(lang,{fr:"Activer les couleurs",ar:'تفعيل الألوان',en:'Enable Colors',es:'Activar colores',pt:'Ativar cores',tr:'Renkleri Etkinleştir'})}>
                 <Palette className="w-4 h-4" />
             </button>
             <button 
@@ -1413,12 +1413,12 @@ export default function Balancing({
                         runAutoBalancing(true);
                     }
                 }} 
-                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all border shadow-sm ${isManual ? 'bg-amber-50 dark:bg-amber-900/30 border-amber-200 text-amber-700 ring-2 ring-amber-100' : 'bg-white dark:bg-dk-surface border-slate-200 dark:border-dk-border text-slate-500 dark:text-dk-muted hover:bg-slate-50 dark:hover:bg-dk-elevated/60'}`}
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all border shadow-sm dark:shadow-dk-sm ${isManual ? 'bg-amber-50 dark:bg-amber-900/30 border-amber-200 text-amber-700 ring-2 ring-amber-100' : 'bg-white dark:bg-dk-surface border-slate-200 dark:border-dk-border text-slate-500 dark:text-dk-muted hover:bg-slate-50 dark:hover:bg-dk-elevated/60'}`}
             >
                 {isManual ? <MousePointer2 className="w-3.5 h-3.5" /> : <ArrowRightLeft className="w-3.5 h-3.5" />}
                 {isManual ? tx(lang,{fr:'Mode Manuel Actif',ar:'الوضع اليدوي نشط',en:'Manual Mode Active',es:'Modo Manual Activo',pt:'Modo Manual Ativo',tr:'Manuel Mod Aktif'}) : tx(lang,{fr:'Mode Automatique',ar:'الوضع التلقائي',en:'Automatic Mode',es:'Modo Automático',pt:'Modo Automático',tr:'Otomatik Mod'})}
             </button>
-            <button onClick={() => runAutoBalancing(true)} className="px-4 py-2 bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border text-slate-400 dark:text-dk-muted rounded-xl hover:text-emerald-600 hover:border-emerald-200 hover:bg-emerald-50 transition-all shadow-sm flex items-center gap-2 text-xs font-bold" title={tx(lang,{fr:'Recalculer',ar:'إعادة حساب',en:'Recalculate',es:'Recalcular',pt:'Recalcular',tr:'Yeniden Hesapla'})}>
+            <button onClick={() => runAutoBalancing(true)} className="px-4 py-2 bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border text-slate-400 dark:text-dk-muted rounded-xl hover:text-emerald-600 hover:border-emerald-200 hover:bg-emerald-50 transition-all shadow-sm dark:shadow-dk-sm flex items-center gap-2 text-xs font-bold" title={tx(lang,{fr:'Recalculer',ar:'إعادة حساب',en:'Recalculate',es:'Recalcular',pt:'Recalcular',tr:'Yeniden Hesapla'})}>
                 <RefreshCw className="w-3.5 h-3.5" />
             </button>
          </div>
@@ -1427,10 +1427,10 @@ export default function Balancing({
        {/* 3. MAIN CONTENT (CONDITIONAL VIEW) */}
        {viewMode === 'matrix' ? (
            <div className="flex flex-col gap-6">
-                <div className="bg-white dark:bg-dk-surface rounded-[1rem] border border-slate-200 dark:border-dk-border shadow-sm overflow-hidden h-[450px] sm:h-[600px]">
+                <div className="bg-white dark:bg-dk-surface rounded-[1rem] border border-slate-200 dark:border-dk-border shadow-sm dark:shadow-dk-sm overflow-hidden h-[450px] sm:h-[600px]">
                     <div className="overflow-auto w-full h-full relative custom-scrollbar pb-2">
                         <table className="text-left border-collapse border-spacing-0 min-w-full">
-                            <thead className={`${isHeaderSticky ? 'sticky top-0 z-30' : ''} bg-white dark:bg-dk-surface shadow-sm`}>
+                            <thead className={`${isHeaderSticky ? 'sticky top-0 z-30' : ''} bg-white dark:bg-dk-surface shadow-sm dark:shadow-dk-sm`}>
                                 <tr className="bg-slate-50 dark:bg-dk-bg">
                                     <th className={`py-2 px-2 border-b-2 border-slate-300 border-r border-slate-300 min-w-[130px] sm:min-w-[200px] ${isSticky ? 'sticky left-0 z-50 bg-slate-50 dark:bg-dk-bg shadow-[4px_0_12px_-4px_rgba(0,0,0,0.1)]' : 'z-40'}`}>
                                         <div className="flex items-center justify-between">
@@ -1454,7 +1454,7 @@ export default function Balancing({
                                                 {isMixed && <div className="absolute top-1 left-1 text-amber-500" title={tx(lang,{fr:'Poste multi-machines — clic droit → Séparer par machine',ar:'محطة متعددة الآلات — زر أيمن → فصل حسب الآلة',en:'Multi-machine station — right click → Separate by machine',es:'Puesto multi-máquinas — clic derecho → Separar por máquina',pt:'Posto multi-máquinas — clique direito → Separar por máquina',tr:'Çoklu makine istasyonu — sağ tık → Makineye göre ayır'})}><AlertCircle className="w-3 h-3" /></div>}
                                                 <div className="flex flex-col items-center justify-center gap-1 pointer-events-none">
                                                     <span className={`inline-block px-1.5 py-0.5 rounded-[4px] text-[9px] font-bold bg-white dark:bg-dk-surface border ${color.border} ${color.text} uppercase truncate max-w-[65px]`}>{p.machine}</span>
-                                                    <div className={`flex items-center justify-center w-6 h-6 rounded-full font-bold text-xs shadow-sm bg-white dark:bg-dk-surface border ${color.border} ${color.text}`}>{p.name.replace('P','')}</div>
+                                                    <div className={`flex items-center justify-center w-6 h-6 rounded-full font-bold text-xs shadow-sm dark:shadow-dk-sm bg-white dark:bg-dk-surface border ${color.border} ${color.text}`}>{p.name.replace('P','')}</div>
                                                 </div>
                                             </th>
                                         );
@@ -1490,7 +1490,7 @@ export default function Balancing({
                                                             <span className="text-[8px] font-bold px-1 rounded bg-slate-100 dark:bg-dk-elevated text-slate-500 dark:text-dk-muted uppercase">{displayName}</span>
                                                             <span className="text-[9px] font-bold text-emerald-600 dark:text-emerald-400">{Math.round(timeSec)}s</span>
                                                             {op.groupId && (
-                                                                <span className={`text-[8px] font-black px-1 rounded border flex items-center gap-0.5 ${groupStyle ? 'bg-white dark:bg-dk-surface ' + groupStyle.text + ' border-transparent shadow-sm' : 'bg-indigo-100 text-indigo-700 dark:text-dk-accent-text border-indigo-200'}`}>
+                                                                <span className={`text-[8px] font-black px-1 rounded border flex items-center gap-0.5 ${groupStyle ? 'bg-white dark:bg-dk-surface ' + groupStyle.text + ' border-transparent shadow-sm dark:shadow-dk-sm' : 'bg-indigo-100 text-indigo-700 dark:text-dk-accent-text border-indigo-200'}`}>
                                                                     <Link className="w-2 h-2" /> GRP
                                                                 </span>
                                                             )}
@@ -1510,7 +1510,7 @@ export default function Balancing({
                                                     >
                                                         <div className="absolute inset-y-0 left-1/2 w-px bg-slate-50 dark:bg-dk-bg -z-10 group-hover:bg-slate-100"></div>
                                                         {isAssigned && (
-                                                            <div className={`mx-auto min-w-[32px] px-1 py-0.5 rounded font-bold text-[10px] shadow-sm transform hover:scale-110 transition-transform cursor-default text-white`} style={{ backgroundColor: color.fill }}>
+                                                            <div className={`mx-auto min-w-[32px] px-1 py-0.5 rounded font-bold text-[10px] shadow-sm dark:shadow-dk-sm transform hover:scale-110 transition-transform cursor-default text-white`} style={{ backgroundColor: color.fill }}>
                                                                 {displayTime}
                                                             </div>
                                                         )}
@@ -1558,11 +1558,11 @@ export default function Balancing({
 
                 {/* TOLÉRANCE CONTROLLER BELOW TABLE */}
                 <div className="flex flex-wrap items-center gap-3 mt-2 mb-2">
-                    <div className="flex items-center gap-3 px-4 py-2.5 bg-white dark:bg-dk-surface rounded-xl border border-slate-200 dark:border-dk-border shadow-sm w-fit">
+                    <div className="flex items-center gap-3 px-4 py-2.5 bg-white dark:bg-dk-surface rounded-xl border border-slate-200 dark:border-dk-border shadow-sm dark:shadow-dk-sm w-fit">
                         <span className="text-xs font-black text-slate-500 dark:text-dk-muted uppercase tracking-wider flex items-center gap-1.5">
                             <Activity className="w-3.5 h-3.5 text-indigo-500" /> {tx(lang,{fr:'Tolérance Saturation :',ar:'تسامح التشبع :',en:'Saturation Tolerance :',es:'Tolerancia de Saturación :',pt:'Tolerância de Saturação :',tr:'Doygunluk Toleransı :'})}
                         </span>
-                        <div className="flex items-center gap-1.5 text-xs bg-rose-50 dark:bg-rose-900/30 text-rose-700 px-2 py-0.5 rounded-lg border border-rose-200 shadow-sm">
+                        <div className="flex items-center gap-1.5 text-xs bg-rose-50 dark:bg-rose-900/30 text-rose-700 px-2 py-0.5 rounded-lg border border-rose-200 shadow-sm dark:shadow-dk-sm">
                             <input 
                                 type="number" 
                                 min="50" max="200" 
@@ -1593,12 +1593,12 @@ export default function Balancing({
                     </div>
 
                     {numWorkers < totalMinReq && (
-                        <div className="flex items-center gap-2 px-4 py-2.5 bg-rose-50 dark:bg-rose-900/30 border border-rose-200 rounded-xl shadow-sm text-xs text-rose-700 font-bold animate-in fade-in slide-in-from-left-2 duration-300">
+                        <div className="flex items-center gap-2 px-4 py-2.5 bg-rose-50 dark:bg-rose-900/30 border border-rose-200 rounded-xl shadow-sm dark:shadow-dk-sm text-xs text-rose-700 font-bold animate-in fade-in slide-in-from-left-2 duration-300">
                             <AlertCircle className="w-4 h-4 text-rose-500 animate-pulse" />
                             <span>{tx(lang,{fr:`Effectif insuffisant pour respecter la tolérance (Requis : ${totalMinReq} ouvriers)`,ar:`عدد غير كافٍ لاحترام التسامح (المطلوب: ${totalMinReq} عمال)`,en:`Insufficient staff to meet tolerance (Required: ${totalMinReq} workers)`,es:`Personal insuficiente para cumplir tolerancia (Requerido: ${totalMinReq} obreros)`,pt:`Efetivo insuficiente para respeitar a tolerância (Necessário: ${totalMinReq} trabalhadores)`,tr:`Toleransı karşılamak için yetersiz personel (Gerekli: ${totalMinReq} işçi)`})}</span>
                             <button 
                                 onClick={() => setNumWorkers(totalMinReq)}
-                                className="ml-2 bg-rose-600 hover:bg-rose-700 text-white px-2.5 py-1 rounded-lg text-[10px] font-black transition-all hover:scale-105 active:scale-95 shadow-sm animate-bounce"
+                                className="ml-2 bg-rose-600 hover:bg-rose-700 text-white px-2.5 py-1 rounded-lg text-[10px] font-black transition-all hover:scale-105 active:scale-95 shadow-sm dark:shadow-dk-sm animate-bounce"
                             >
                                 {tx(lang,{fr:`Ajuster à ${totalMinReq}`,ar:`ضبط إلى ${totalMinReq}`,en:`Adjust to ${totalMinReq}`,es:`Ajustar a ${totalMinReq}`,pt:`Ajustar para ${totalMinReq}`,tr:`${totalMinReq} olarak ayarla`})}
                             </button>
@@ -1609,7 +1609,7 @@ export default function Balancing({
                 {/* Charts & Needs - Moved here to be visible in Matrix View too */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-6">
                     {/* Charts Section */}
-                    <div className="bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border shadow-sm p-3 sm:p-4 h-80 sm:h-96">
+                    <div className="bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border shadow-sm dark:shadow-dk-sm p-3 sm:p-4 h-80 sm:h-96">
                         <h3 className="text-sm font-bold text-slate-700 dark:text-dk-text-soft mb-4 flex items-center gap-2"><BarChart3 className="w-4 h-4" /> {tx(lang,{fr:'Équilibrage & Saturation',ar:'التوازن والتشبع',en:'Balancing & Saturation',es:'Equilibrio y Saturación',pt:'Balanceamento e Saturação',tr:'Dengeleme ve Doygunluk'})}</h3>
                         <ResponsiveChart>
                             <ComposedChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 60 }}>
@@ -1632,7 +1632,7 @@ export default function Balancing({
                     </div>
 
                     {/* Machine Requirements Table */}
-                    <div className="bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border shadow-sm overflow-hidden h-80 sm:h-96 flex flex-col">
+                    <div className="bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border shadow-sm dark:shadow-dk-sm overflow-hidden h-80 sm:h-96 flex flex-col">
                         <div className="px-4 py-3 sm:px-6 sm:py-4 border-b border-slate-100 dark:border-dk-border flex items-center justify-between shrink-0">
                             <h3 className="font-bold text-slate-700 dark:text-dk-text-soft flex items-center gap-2"><Cpu className="w-4 h-4 text-emerald-500" /> {tx(lang,{fr:'Besoin Matériel',ar:'الاحتياج من المعدات',en:'Equipment Need',es:'Necesidad de Equipo',pt:'Necessidade de Equipamento',tr:'Ekipman İhtiyacı'})}</h3>
                         </div>
@@ -1674,7 +1674,7 @@ export default function Balancing({
                       const color = showColors ? getPosteColor(p, index) : NEUTRAL_COLOR;
                       
                       return (
-                        <div key={p.id} onContextMenu={(e) => handleContextMenu(e, p.id)} className={`bg-white dark:bg-dk-surface rounded-xl border ${color.border} shadow-sm p-3 relative group hover:shadow-md transition-all`}>
+                        <div key={p.id} onContextMenu={(e) => handleContextMenu(e, p.id)} className={`bg-white dark:bg-dk-surface rounded-xl border ${color.border} shadow-sm dark:shadow-dk-sm p-3 relative group hover:shadow-md transition-all`}>
                            {/* Card content */}
                            <div className="flex justify-between items-start mb-2">
                               <div className="flex items-center gap-2">
@@ -1722,7 +1722,7 @@ export default function Balancing({
        {showInsertModal && createPortal(
            <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
                 <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setShowInsertModal(false)} />
-                <div className="bg-white dark:bg-dk-surface rounded-2xl shadow-2xl w-full max-w-sm relative overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+                <div className="bg-white dark:bg-dk-surface rounded-2xl shadow-2xl dark:shadow-dk-lg w-full max-w-sm relative overflow-hidden animate-in fade-in zoom-in-95 duration-200">
                     <div className="px-6 py-4 border-b border-slate-100 dark:border-dk-border flex justify-between items-center bg-white dark:bg-dk-surface">
                         <h3 className="font-bold text-slate-800 dark:text-dk-text flex items-center gap-2">
                             <ListPlus className="w-5 h-5 text-indigo-500" />
@@ -1782,7 +1782,7 @@ export default function Balancing({
                             </div>
                         </div>
 
-                        <button type="submit" className="w-full py-3 bg-indigo-600 dark:bg-dk-accent hover:bg-indigo-700 dark:hover:bg-dk-accent-hover text-white rounded-xl font-bold text-sm shadow-lg shadow-indigo-200 transition-all active:scale-[0.98] mt-2">
+                        <button type="submit" className="w-full py-3 bg-indigo-600 dark:bg-dk-accent hover:bg-indigo-700 dark:hover:bg-dk-accent-hover text-white rounded-xl font-bold text-sm shadow-lg dark:shadow-dk-lg shadow-indigo-200 transition-all active:scale-[0.98] mt-2">
                             {tx(lang,{fr:'Insérer et Calculer',ar:'إدراج وحساب',en:'Insert & Calculate',es:'Insertar y Calcular',pt:'Inserir e Calcular',tr:'Ekle ve Hesapla'})}
                         </button>
                     </form>
@@ -1794,7 +1794,7 @@ export default function Balancing({
        {/* CONTEXT MENU PORTAL */}
        {contextMenu && contextMenu.visible && createPortal(
            <div 
-               className="absolute z-[9999] bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-xl shadow-2xl py-1 w-56 text-xs font-medium text-slate-700 dark:text-dk-text-soft animate-in fade-in zoom-in-95 duration-100 origin-top-left overflow-hidden ring-4 ring-slate-100/50"
+               className="absolute z-[9999] bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-xl shadow-2xl dark:shadow-dk-lg py-1 w-56 text-xs font-medium text-slate-700 dark:text-dk-text-soft animate-in fade-in zoom-in-95 duration-100 origin-top-left overflow-hidden ring-4 ring-slate-100/50"
                style={{ top: contextMenu.y, left: contextMenu.x }}
                onClick={(e) => e.stopPropagation()} 
            >

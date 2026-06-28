@@ -81,7 +81,7 @@ const KpiCard = React.memo(function KpiCard({ kpi, showLoading, onNavigateModule
       )}
     </>
   );
-  const shell = 'bg-white dark:bg-dk-surface rounded-xl sm:rounded-2xl p-3 sm:p-4 lg:p-5 border border-slate-200 dark:border-dk-border/80 shadow-sm flex items-center gap-3 sm:gap-4 group hover:shadow-lg hover:border-slate-300 dark:hover:border-dk-border hover:-translate-y-0.5 transition-all duration-300 cursor-pointer';
+  const shell = 'bg-white dark:bg-dk-surface rounded-xl sm:rounded-2xl p-3 sm:p-4 lg:p-5 border border-slate-200 dark:border-dk-border/80 shadow-sm dark:shadow-dk-sm flex items-center gap-3 sm:gap-4 group hover:shadow-lg hover:border-slate-300 dark:hover:border-dk-border hover:-translate-y-0.5 transition-all duration-300 cursor-pointer';
   if (onNavigateModule) {
     return (
       <button key={kpi.key} type="button" onClick={() => onNavigateModule(kpi.nav)} className={`${shell} w-full text-left focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:ring-offset-2`}>
@@ -467,7 +467,7 @@ export default function Dashboard({ models, suivis, planningEvents, settings, se
             <div className="lg:col-span-1 space-y-4 sm:space-y-5 md:space-y-6">
 
               {/* TASKS */}
-              <div className="bg-white dark:bg-dk-surface rounded-xl sm:rounded-2xl border border-slate-200 dark:border-dk-border/80 shadow-sm overflow-hidden flex flex-col">
+              <div className="bg-white dark:bg-dk-surface rounded-xl sm:rounded-2xl border border-slate-200 dark:border-dk-border/80 shadow-sm dark:shadow-dk-sm overflow-hidden flex flex-col">
                 <div className="px-3 sm:px-4 md:px-5 py-3 sm:py-4 bg-gradient-to-r from-slate-50 to-white dark:from-dk-bg dark:to-dk-surface border-b border-slate-100 dark:border-dk-border flex items-center justify-between">
                   <div className="flex items-center gap-2 sm:gap-2.5">
                     <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-indigo-100 flex items-center justify-center">
@@ -512,7 +512,7 @@ export default function Dashboard({ models, suivis, planningEvents, settings, se
               </div>
 
               {/* CALENDAR */}
-              <div className="bg-white dark:bg-dk-surface rounded-xl sm:rounded-2xl border border-slate-200 dark:border-dk-border/80 shadow-sm overflow-hidden">
+              <div className="bg-white dark:bg-dk-surface rounded-xl sm:rounded-2xl border border-slate-200 dark:border-dk-border/80 shadow-sm dark:shadow-dk-sm overflow-hidden">
                 <div className="px-3 sm:px-4 md:px-5 py-3 sm:py-4 bg-gradient-to-r from-slate-50 to-white dark:from-dk-bg dark:to-dk-surface border-b border-slate-100 dark:border-dk-border flex items-center gap-2 sm:gap-2.5">
                   <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-emerald-100 flex items-center justify-center">
                     <CalendarIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-600 dark:text-emerald-400" />
@@ -533,25 +533,25 @@ export default function Dashboard({ models, suivis, planningEvents, settings, se
                       const isToday = day === new Date().getDate();
                       return (
                         <div key={i} className={`relative rounded-lg sm:rounded-xl border flex items-center justify-center text-[10px] sm:text-xs font-medium py-1.5 sm:py-2 transition-all duration-200
-                          ${isToday ? 'border-indigo-500 bg-gradient-to-br from-indigo-500 to-indigo-600 text-white font-bold shadow-md sm:shadow-lg shadow-indigo-500/30 scale-105' : 'border-slate-100 dark:border-dk-border hover:border-slate-200'}
+                          ${isToday ? 'border-indigo-500 bg-gradient-to-br from-indigo-500 to-indigo-600 text-white font-bold shadow-md dark:shadow-dk-md sm:shadow-lg shadow-indigo-500/30 scale-105' : 'border-slate-100 dark:border-dk-border hover:border-slate-200'}
                           ${hasProd && !isToday ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 border-emerald-200/60 font-bold' : ''}
                         `}>
                           {day}
-                          {hasProd && !isToday && <div className="absolute -bottom-0.5 w-1 sm:w-1.5 h-1 sm:h-1.5 bg-emerald-500 rounded-full shadow-sm" />}
+                          {hasProd && !isToday && <div className="absolute -bottom-0.5 w-1 sm:w-1.5 h-1 sm:h-1.5 bg-emerald-500 rounded-full shadow-sm dark:shadow-dk-sm" />}
                         </div>
                       );
                     })}
                   </div>
                   <div className="mt-3 sm:mt-5 pt-3 sm:pt-4 border-t border-slate-100 dark:border-dk-border flex gap-3 sm:gap-4 text-[10px] sm:text-xs">
                     <div className="flex items-center gap-1.5 sm:gap-2 font-medium text-slate-500 dark:text-dk-muted"><div className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded bg-emerald-100 border border-emerald-200" /> {tx(lang, { fr: 'Prod', ar: 'إنتاج', en: 'Prod', es: 'Prod', pt: 'Prod', tr: 'Üretim' })}</div>
-                    <div className="flex items-center gap-1.5 sm:gap-2 font-medium text-slate-500 dark:text-dk-muted"><div className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded bg-indigo-500 shadow-sm" /> {tx(lang, { fr: "Aujourd'hui", ar: 'اليوم', en: 'Today', es: 'Hoy', pt: 'Hoje', tr: 'Bugün' })}</div>
+                    <div className="flex items-center gap-1.5 sm:gap-2 font-medium text-slate-500 dark:text-dk-muted"><div className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded bg-indigo-500 shadow-sm dark:shadow-dk-sm" /> {tx(lang, { fr: "Aujourd'hui", ar: 'اليوم', en: 'Today', es: 'Hoy', pt: 'Hoje', tr: 'Bugün' })}</div>
                   </div>
                 </div>
               </div>
             </div>
 
             {/* RIGHT AREA: Production Chart */}
-            <div className="lg:col-span-2 bg-white dark:bg-dk-surface rounded-xl sm:rounded-2xl border border-slate-200 dark:border-dk-border/80 shadow-sm overflow-hidden flex flex-col">
+            <div className="lg:col-span-2 bg-white dark:bg-dk-surface rounded-xl sm:rounded-2xl border border-slate-200 dark:border-dk-border/80 shadow-sm dark:shadow-dk-sm overflow-hidden flex flex-col">
               <div className="px-3 sm:px-4 md:px-5 py-3 sm:py-4 bg-gradient-to-r from-slate-50 to-white dark:from-dk-bg dark:to-dk-surface border-b border-slate-100 dark:border-dk-border flex items-center justify-between flex-wrap gap-2 sm:gap-3">
                 <div className="flex items-center gap-2 sm:gap-2.5">
                   <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-indigo-100 flex items-center justify-center">
@@ -559,7 +559,7 @@ export default function Dashboard({ models, suivis, planningEvents, settings, se
                   </div>
                   <h2 className="font-bold text-slate-800 dark:text-dk-text text-xs sm:text-sm">{tx(lang, { fr: 'Évolution Production', ar: 'تطور الإنتاج', en: 'Production Trend', es: 'Evolución de Producción', pt: 'Evolução da Produção', tr: 'Üretim Trendi' })}</h2>
                 </div>
-                <button onClick={handleExportCSV} className="inline-flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-lg sm:rounded-xl bg-gradient-to-r from-indigo-500 to-indigo-600 hover:from-indigo-600 hover:to-indigo-700 text-white font-bold text-[10px] sm:text-xs shadow-lg shadow-indigo-500/30 transition-all duration-200 hover:shadow-xl hover:-translate-y-0.5">
+                <button onClick={handleExportCSV} className="inline-flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-lg sm:rounded-xl bg-gradient-to-r from-indigo-500 to-indigo-600 hover:from-indigo-600 hover:to-indigo-700 text-white font-bold text-[10px] sm:text-xs shadow-lg dark:shadow-dk-lg shadow-indigo-500/30 transition-all duration-200 hover:shadow-xl hover:-translate-y-0.5">
                   <Download className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
                   <span className="hidden sm:inline">{tx(lang, { fr: 'Export CSV', ar: 'تصدير CSV', en: 'Export CSV', es: 'Exportar CSV', pt: 'Exportar CSV', tr: 'CSV Dışa Aktar' })}</span>
                   <span className="sm:hidden">CSV</span>
@@ -593,7 +593,7 @@ export default function Dashboard({ models, suivis, planningEvents, settings, se
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-5 md:gap-6">
 
             {/* EFFICIENCY */}
-            <div className="bg-white dark:bg-dk-surface rounded-xl sm:rounded-2xl border border-slate-200 dark:border-dk-border/80 shadow-sm overflow-hidden">
+            <div className="bg-white dark:bg-dk-surface rounded-xl sm:rounded-2xl border border-slate-200 dark:border-dk-border/80 shadow-sm dark:shadow-dk-sm overflow-hidden">
               <div className="px-3 sm:px-4 md:px-5 py-3 sm:py-4 bg-gradient-to-r from-slate-50 to-white dark:from-dk-bg dark:to-dk-surface border-b border-slate-100 dark:border-dk-border flex items-center gap-2 sm:gap-2.5">
                 <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-indigo-100 flex items-center justify-center">
                   <Activity className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text" />
@@ -618,7 +618,7 @@ export default function Dashboard({ models, suivis, planningEvents, settings, se
             </div>
 
             {/* ANDON ALERTS */}
-            <div className="bg-white dark:bg-dk-surface rounded-xl sm:rounded-2xl border border-slate-200 dark:border-dk-border/80 shadow-sm overflow-hidden flex flex-col">
+            <div className="bg-white dark:bg-dk-surface rounded-xl sm:rounded-2xl border border-slate-200 dark:border-dk-border/80 shadow-sm dark:shadow-dk-sm overflow-hidden flex flex-col">
               <div className="px-3 sm:px-4 md:px-5 py-3 sm:py-4 bg-gradient-to-r from-slate-50 to-white dark:from-dk-bg dark:to-dk-surface border-b border-slate-100 dark:border-dk-border flex items-center gap-2 sm:gap-2.5">
                 <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-rose-100 flex items-center justify-center">
                   <AlertTriangle className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-rose-600 dark:text-rose-400" />
@@ -662,7 +662,7 @@ export default function Dashboard({ models, suivis, planningEvents, settings, se
       {/* SKIP MODAL */}
       {skipReasonModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 dark:bg-dk-bg/80 backdrop-blur-sm p-3 sm:p-4">
-          <div className="bg-white dark:bg-dk-surface rounded-xl sm:rounded-2xl w-full max-w-sm sm:max-w-md overflow-hidden shadow-2xl border border-slate-200 dark:border-dk-border/80">
+          <div className="bg-white dark:bg-dk-surface rounded-xl sm:rounded-2xl w-full max-w-sm sm:max-w-md overflow-hidden shadow-2xl dark:shadow-dk-lg border border-slate-200 dark:border-dk-border/80">
             <div className="h-1.5 w-full bg-gradient-to-r from-amber-400 to-orange-500" />
             <div className="p-4 sm:p-6 border-b border-slate-100 dark:border-dk-border flex justify-between items-center">
               <h3 className="font-bold text-slate-800 dark:text-dk-text text-base sm:text-lg">{tx(lang, { fr: "Motif d'annulation", ar: 'سبب الإلغاء', en: 'Cancellation reason', es: 'Motivo de cancelación', pt: 'Motivo do cancelamento', tr: 'İptal nedeni' })}</h3>
@@ -679,12 +679,12 @@ export default function Dashboard({ models, suivis, planningEvents, settings, se
               </div>
               <div>
                 <label className="block text-xs font-bold uppercase text-slate-500 dark:text-dk-muted mb-2">{tx(lang, { fr: 'Raison / Justification', ar: 'السبب / التبرير', en: 'Reason / Justification', es: 'Motivo / Justificación', pt: 'Motivo / Justificativa', tr: 'Neden / Gerekçe' })}</label>
-                <textarea value={skipReasonText} onChange={(e) => setSkipReasonText(e.target.value)} placeholder={tx(lang, { fr: 'Ex: Machine en panne...', ar: 'مثال: عطل في الآلة...', en: 'E.g.: Machine breakdown...', es: 'Ej: Máquina averiada...', pt: 'Ex: Máquina avariada...', tr: 'Örn: Makine arızası...' })} className="w-full border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface rounded-lg sm:rounded-xl px-3 sm:px-4 py-2.5 sm:py-3 text-xs sm:text-sm outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 transition-all shadow-sm h-20 sm:h-24 resize-none" autoFocus />
+                <textarea value={skipReasonText} onChange={(e) => setSkipReasonText(e.target.value)} placeholder={tx(lang, { fr: 'Ex: Machine en panne...', ar: 'مثال: عطل في الآلة...', en: 'E.g.: Machine breakdown...', es: 'Ej: Máquina averiada...', pt: 'Ex: Máquina avariada...', tr: 'Örn: Makine arızası...' })} className="w-full border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface rounded-lg sm:rounded-xl px-3 sm:px-4 py-2.5 sm:py-3 text-xs sm:text-sm outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 transition-all shadow-sm dark:shadow-dk-sm h-20 sm:h-24 resize-none" autoFocus />
               </div>
             </div>
             <div className="p-3 sm:p-4 bg-slate-50 dark:bg-dk-bg/80 border-t border-slate-100 dark:border-dk-border flex justify-end gap-2">
               <button onClick={() => { setSkipReasonModal(null); setSkipReasonText(''); }} className="px-3 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm font-bold text-slate-600 dark:text-dk-text-soft hover:bg-slate-100 dark:hover:bg-dk-elevated/60 rounded-lg sm:rounded-xl transition-colors">{tx(lang, { fr: 'Annuler', ar: 'إلغاء', en: 'Cancel', es: 'Cancelar', pt: 'Cancelar', tr: 'İptal' })}</button>
-              <button onClick={handleSkipSubmit} disabled={!skipReasonText.trim()} className="px-4 sm:px-5 py-2 sm:py-2.5 text-xs sm:text-sm font-bold bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white rounded-lg sm:rounded-xl shadow-lg shadow-amber-500/30 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed">{tx(lang, { fr: 'Confirmer', ar: 'تأكيد', en: 'Confirm', es: 'Confirmar', pt: 'Confirmar', tr: 'Onayla' })}</button>
+              <button onClick={handleSkipSubmit} disabled={!skipReasonText.trim()} className="px-4 sm:px-5 py-2 sm:py-2.5 text-xs sm:text-sm font-bold bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white rounded-lg sm:rounded-xl shadow-lg dark:shadow-dk-lg shadow-amber-500/30 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed">{tx(lang, { fr: 'Confirmer', ar: 'تأكيد', en: 'Confirm', es: 'Confirmar', pt: 'Confirmar', tr: 'Onayla' })}</button>
             </div>
           </div>
         </div>
