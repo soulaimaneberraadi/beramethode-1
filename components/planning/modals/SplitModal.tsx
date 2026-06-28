@@ -261,7 +261,7 @@ export default function SplitModal({ open, event, models, onClose, onSubmit }: P
                         type="button"
                         onClick={() => setMode('simple')}
                         className={`flex-1 py-2 text-[12px] font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 ${
-                            mode === 'simple' ? 'bg-white dark:bg-dk-surface text-slate-900 dark:text-dk-text shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                            mode === 'simple' ? 'bg-white dark:bg-dk-surface text-slate-900 dark:text-dk-text shadow-sm' : 'text-slate-500 dark:text-dk-muted hover:text-slate-700 dark:hover:text-dk-text'
                         }`}
                     >
                         <Scissors className="w-3.5 h-3.5" />
@@ -271,7 +271,7 @@ export default function SplitModal({ open, event, models, onClose, onSubmit }: P
                         type="button"
                         onClick={() => setMode('lots')}
                         className={`flex-1 py-2 text-[12px] font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 ${
-                            mode === 'lots' ? 'bg-white dark:bg-dk-surface text-slate-900 dark:text-dk-text shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                            mode === 'lots' ? 'bg-white dark:bg-dk-surface text-slate-900 dark:text-dk-text shadow-sm' : 'text-slate-500 dark:text-dk-muted hover:text-slate-700 dark:hover:text-dk-text'
                         }`}
                     >
                         <Package className="w-3.5 h-3.5" />
@@ -358,7 +358,7 @@ export default function SplitModal({ open, event, models, onClose, onSubmit }: P
                                                     <tr key={`${color.id}-${cIdx}`} className="hover:bg-slate-50/50">
                                                         <td className="px-2 py-1.5 sticky left-0 bg-white dark:bg-dk-surface border-r border-slate-100 dark:border-dk-border flex items-center gap-1.5">
                                                             <div className="w-2.5 h-2.5 rounded-full border border-slate-300" style={{ background: color.id }} />
-                                                            <span className="truncate max-w-[80px] text-slate-750 font-medium">{color.name}</span>
+                                                            <span className="truncate max-w-[80px] text-slate-750 dark:text-dk-text-soft font-medium">{color.name}</span>
                                                         </td>
                                                         {sizes.map(size => {
                                                             const qtyVal = remainingDistribution[color.id]?.[size] ?? 0;
@@ -368,7 +368,7 @@ export default function SplitModal({ open, event, models, onClose, onSubmit }: P
                                                                 </td>
                                                             );
                                                         })}
-                                                        <td className={`px-2 py-1.5 text-center font-bold font-mono ${rowRemaining < 0 ? 'text-red-700 bg-red-100' : rowRemaining === 0 ? 'text-slate-400 dark:text-dk-muted' : 'text-indigo-650 dark:text-dk-accent-text'}`}>
+                                                        <td className={`px-2 py-1.5 text-center font-bold font-mono ${rowRemaining < 0 ? 'text-red-700 dark:text-red-400 bg-red-100 dark:bg-red-900/30' : rowRemaining === 0 ? 'text-slate-400 dark:text-dk-muted' : 'text-indigo-650 dark:text-dk-accent-text'}`}>
                                                             {rowRemaining}
                                                         </td>
                                                     </tr>

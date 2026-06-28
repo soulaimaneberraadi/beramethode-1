@@ -576,7 +576,7 @@ export default function EventEditor({ open, mode, initial, models, chains, plann
                                         {(() => {
                                             const status = activeLot.status || 'READY';
                                             const label = status === 'DONE' ? tx(lang,{fr:'Terminé',ar:'منتهي',en:'Completed',es:'Terminado',pt:'Concluído',tr:'Tamamlandı'}) : status === 'BLOCKED_STOCK' ? tx(lang,{fr:'Bloqué',ar:'محظور',en:'Blocked',es:'Bloqueado',pt:'Bloqueado',tr:'Engellendi'}) : status === 'IN_PROGRESS' ? tx(lang,{fr:'En cours',ar:'قيد التنفيذ',en:'In Progress',es:'En curso',pt:'Em andamento',tr:'Devam ediyor'}) : tx(lang,{fr:'Prêt',ar:'جاهز',en:'Ready',es:'Listo',pt:'Pronto',tr:'Hazır'});
-                                            const colorCls = status === 'DONE' ? 'bg-slate-100 dark:bg-dk-elevated/60 text-slate-600 dark:text-dk-muted border-slate-200 dark:border-dk-border' : status === 'BLOCKED_STOCK' ? 'bg-rose-50 text-rose-700 border-rose-200' : status === 'IN_PROGRESS' ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200';
+                                            const colorCls = status === 'DONE' ? 'bg-slate-100 dark:bg-dk-elevated/60 text-slate-600 dark:text-dk-muted border-slate-200 dark:border-dk-border' : status === 'BLOCKED_STOCK' ? 'bg-rose-50 dark:bg-rose-900/30 text-rose-700 dark:text-rose-400 border-rose-200 dark:border-rose-800' : status === 'IN_PROGRESS' ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 border-blue-200 dark:border-blue-800' : 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800';
                                             return (
                                                 <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold border ${colorCls}`}>
                                                     {label}
@@ -586,9 +586,9 @@ export default function EventEditor({ open, mode, initial, models, chains, plann
                                         {/* Material status badge */}
                                         {lotMaterialAvailability && (
                                             <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold border flex items-center gap-1 ${
-                                                lotMaterialAvailability.color === 'green' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
-                                                lotMaterialAvailability.color === 'yellow' ? 'bg-amber-50 text-amber-700 border-amber-200' :
-                                                lotMaterialAvailability.color === 'red' ? 'bg-rose-50 text-rose-700 border-rose-200' : 'bg-slate-50 dark:bg-dk-bg text-slate-600 dark:text-dk-muted border-slate-200 dark:border-dk-border'
+                                                lotMaterialAvailability.color === 'green' ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800' :
+                                                lotMaterialAvailability.color === 'yellow' ? 'bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-800' :
+                                                lotMaterialAvailability.color === 'red' ? 'bg-rose-50 dark:bg-rose-900/30 text-rose-700 dark:text-rose-400 border-rose-200 dark:border-rose-800' : 'bg-slate-50 dark:bg-dk-bg text-slate-600 dark:text-dk-muted border-slate-200 dark:border-dk-border'
                                             }`}>
                                                 <span>{lotMaterialAvailability.emoji}</span>
                                                 <span>{lotMaterialAvailability.label}</span>

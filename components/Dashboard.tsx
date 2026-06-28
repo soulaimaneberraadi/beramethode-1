@@ -671,9 +671,9 @@ export default function Dashboard({ models, suivis, planningEvents, settings, se
               </button>
             </div>
             <div className="p-4 sm:p-6 space-y-3 sm:space-y-4">
-              <div className="bg-gradient-to-r from-amber-50 to-orange-50 text-amber-800 p-3 sm:p-4 rounded-lg sm:rounded-xl text-xs sm:text-sm border border-amber-200/60 flex gap-2 sm:gap-3 items-start">
-                <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-amber-100 flex items-center justify-center shrink-0">
-                  <AlertTriangle className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-600" />
+              <div className="bg-gradient-to-r from-amber-50 to-orange-50 dark:from-dk-surface dark:to-dk-elevated text-amber-800 dark:text-dk-text-soft p-3 sm:p-4 rounded-lg sm:rounded-xl text-xs sm:text-sm border border-amber-200/60 dark:border-dk-border/60 flex gap-2 sm:gap-3 items-start">
+                <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-amber-100 dark:bg-dk-elevated flex items-center justify-center shrink-0">
+                  <AlertTriangle className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-600 dark:text-dk-accent-text" />
                 </div>
                 <p>{tx(lang, { fr: "Vous êtes sur le point d'ignorer la tâche :", ar: 'أنت على وشك تجاوز المهمة:', en: 'You are about to skip the task:', es: 'Está a punto de omitir la tarea:', pt: 'Você está prestes a ignorar a tarefa:', tr: 'Görevi atlamak üzeresiniz:' })} <br /><span className="font-bold">"{skipReasonModal.text}"</span>.</p>
               </div>

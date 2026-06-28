@@ -87,9 +87,9 @@ export default function VueGenerale({
       sub: tx(lang, { fr: `${globalProgress}% avancement global`, ar: `${globalProgress}% تقدّم عام`, en: `${globalProgress}% overall progress`, es: `${globalProgress}% progreso global`, pt: `${globalProgress}% progresso global`, tr: `${globalProgress}% genel ilerleme` }),
       icon: Target,
       color: 'emerald',
-      bg: 'bg-emerald-50',
-      iconBg: 'text-emerald-600',
-      border: 'border-emerald-100'
+      bg: 'bg-emerald-50 dark:bg-dk-elevated',
+      iconBg: 'text-emerald-600 dark:text-dk-accent-text',
+      border: 'border-emerald-100 dark:border-dk-border'
     },
     {
       label: tx(lang, { fr: 'Parc Machines', ar: 'أسطول الآلات', en: 'Machine Fleet', es: 'Parque de Máquinas', pt: 'Parque de Máquinas', tr: 'Makine Filosu' }),
@@ -97,9 +97,9 @@ export default function VueGenerale({
       sub: tx(lang, { fr: `${okMachines} opérationnelles`, ar: `${okMachines} تعمل بشكل سليم`, en: `${okMachines} operational`, es: `${okMachines} operativas`, pt: `${okMachines} operacionais`, tr: `${okMachines} çalışır durumda` }),
       icon: Layers,
       color: 'sky',
-      bg: 'bg-sky-50',
-      iconBg: 'text-sky-600',
-      border: 'border-sky-100'
+      bg: 'bg-sky-50 dark:bg-dk-elevated',
+      iconBg: 'text-sky-600 dark:text-dk-accent-text',
+      border: 'border-sky-100 dark:border-dk-border'
     },
     {
       label: tx(lang, { fr: 'Santé Machines', ar: 'سلامة الآلات', en: 'Machine Health', es: 'Salud de Máquinas', pt: 'Saúde das Máquinas', tr: 'Makine Sağlığı' }),
@@ -107,9 +107,9 @@ export default function VueGenerale({
       sub: tx(lang, { fr: `${panneMachines} en panne · ${maintMachines} maintenance`, ar: `${panneMachines} معطلة · ${maintMachines} صيانة`, en: `${panneMachines} broken down · ${maintMachines} maintenance`, es: `${panneMachines} averiadas · ${maintMachines} mantenimiento`, pt: `${panneMachines} com defeito · ${maintMachines} manutenção`, tr: `${panneMachines} arızalı · ${maintMachines} bakımda` }),
       icon: Activity,
       color: panneMachines > 0 ? 'rose' : 'emerald',
-      bg: panneMachines > 0 ? 'bg-rose-50' : 'bg-emerald-50',
-      iconBg: panneMachines > 0 ? 'text-rose-600' : 'text-emerald-600',
-      border: panneMachines > 0 ? 'border-rose-100' : 'border-emerald-100'
+      bg: panneMachines > 0 ? 'bg-rose-50 dark:bg-dk-elevated' : 'bg-emerald-50 dark:bg-dk-elevated',
+      iconBg: panneMachines > 0 ? 'text-rose-600 dark:text-dk-text' : 'text-emerald-600 dark:text-dk-accent-text',
+      border: panneMachines > 0 ? 'border-rose-100 dark:border-dk-border' : 'border-emerald-100 dark:border-dk-border'
     }
     ];
     // Module Machines désactivé (Configuration) → on retire les cartes liées aux machines
@@ -135,7 +135,7 @@ export default function VueGenerale({
   }, [planningEvents, models]);
 
   return (
-    <div className="min-h-screen bg-[#f8f9fc]">
+    <div className="min-h-screen bg-[#f8f9fc] dark:bg-dk-bg">
       {/* Header */}
       <div className="bg-white dark:bg-dk-surface border-b border-slate-200 dark:border-dk-border/60 sticky top-0 z-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
@@ -230,7 +230,7 @@ export default function VueGenerale({
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">
                           <p className="text-sm font-bold text-slate-800 dark:text-dk-text truncate">{model?.meta_data?.nom_modele || tx(lang, { fr: 'Modèle sans nom', ar: 'نموذج بدون اسم', en: 'Unnamed model', es: 'Modelo sin nombre', pt: 'Modelo sem nome', tr: 'Adsız model' })}</p>
-                          <span className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider ${event.status === 'IN_PROGRESS' ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'}`}>
+                          <span className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider ${event.status === 'IN_PROGRESS' ? 'bg-emerald-50 dark:bg-dk-elevated text-emerald-600 dark:text-dk-accent-text' : 'bg-amber-50 dark:bg-dk-elevated text-amber-600 dark:text-dk-text-soft'}`}>
                             {event.status === 'IN_PROGRESS' ? tx(lang, { fr: 'En cours', ar: 'جارٍ', en: 'In progress', es: 'En curso', pt: 'Em andamento', tr: 'Devam ediyor' }) : tx(lang, { fr: 'Prêt', ar: 'جاهز', en: 'Ready', es: 'Listo', pt: 'Pronto', tr: 'Hazır' })}
                           </span>
                         </div>
