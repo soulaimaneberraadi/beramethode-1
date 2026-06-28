@@ -300,17 +300,17 @@ export default function SplitModal({ open, event, models, onClose, onSubmit }: P
                                     type="number"
                                     value={qty || ''}
                                     onChange={(e) => setQty(Number(e.target.value) || 0)}
-                                    className="w-24 h-8 px-2 text-[13px] tabular-nums text-slate-900 bg-white border border-slate-200 rounded-md focus:border-slate-400 outline-none"
+                                    className="w-24 h-8 px-2 text-[13px] tabular-nums text-slate-900 dark:text-dk-text bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-md focus:border-slate-400 outline-none"
                                     min={1}
                                     max={total - 1}
                                 />
-                                <span className="text-[12px] text-slate-500 tabular-nums">{tx(lang,{fr:'sur',ar:'من',en:'of',es:'de',pt:'de',tr:'/ toplam'})} {total}</span>
+                                <span className="text-[12px] text-slate-500 dark:text-dk-muted tabular-nums">{tx(lang,{fr:'sur',ar:'من',en:'of',es:'de',pt:'de',tr:'/ toplam'})} {total}</span>
                             </div>
                         </div>
 
                         {/* Visual bar */}
                         <div className="space-y-2">
-                            <div className="flex h-2 rounded-full overflow-hidden bg-slate-100">
+                            <div className="flex h-2 rounded-full overflow-hidden bg-slate-100 dark:bg-dk-border">
                                 <div
                                     className="bg-slate-700 transition-all"
                                     style={{ width: `${(remain / total) * 100}%` }}
@@ -321,8 +321,8 @@ export default function SplitModal({ open, event, models, onClose, onSubmit }: P
                                 />
                             </div>
                             <div className="flex justify-between text-[11px]">
-                                <span className="text-slate-700">Original : <span className="font-semibold tabular-nums">{remain} pcs</span></span>
-                                <span className="text-emerald-700">Nouveau : <span className="font-semibold tabular-nums">{qty} pcs</span></span>
+                                <span className="text-slate-700 dark:text-dk-text-soft">Original : <span className="font-semibold tabular-nums">{remain} pcs</span></span>
+                                <span className="text-emerald-700 dark:text-emerald-400">Nouveau : <span className="font-semibold tabular-nums">{qty} pcs</span></span>
                             </div>
                         </div>
                     </>
@@ -335,8 +335,8 @@ export default function SplitModal({ open, event, models, onClose, onSubmit }: P
 
                         {/* Remaining grid to allocate */}
                         {hasGrid && lots.length > 0 && (
-                            <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 space-y-2">
-                                <div className="text-[11px] font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+                            <div className="bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl p-3 space-y-2">
+                                <div className="text-[11px] font-bold text-slate-700 dark:text-dk-text-soft uppercase tracking-wider flex items-center gap-1.5">
                                     <Grid3X3 className="w-3.5 h-3.5 text-indigo-500" />
                                     Reste à attribuer par taille/couleur
                                 </div>
@@ -521,19 +521,19 @@ export default function SplitModal({ open, event, models, onClose, onSubmit }: P
                         <button
                             type="button"
                             onClick={addLot}
-                            className="w-full py-2 border-2 border-dashed border-slate-300 rounded-xl text-[12px] font-semibold text-slate-500 hover:border-indigo-400 hover:text-indigo-650 hover:bg-slate-50/30 transition-all flex items-center justify-center gap-1.5"
+                            className="w-full py-2 border-2 border-dashed border-slate-300 dark:border-dk-border rounded-xl text-[12px] font-semibold text-slate-500 dark:text-dk-muted hover:border-indigo-400 hover:text-indigo-650 hover:bg-slate-50/30 dark:hover:bg-dk-elevated/30 transition-all flex items-center justify-center gap-1.5"
                         >
                             <Plus className="w-3.5 h-3.5" />
                             Ajouter un lot
                         </button>
 
                         {/* Summary */}
-                        <div className="bg-slate-50 rounded-xl p-3 space-y-2">
+                        <div className="bg-slate-50 dark:bg-dk-bg rounded-xl p-3 space-y-2">
                             <div className="flex justify-between text-[11px]">
-                                <span className="text-slate-600 font-medium">Total lots</span>
-                                <span className="font-bold tabular-nums text-slate-900">{lotsTotal} / {total} pcs</span>
+                                <span className="text-slate-600 dark:text-dk-muted font-medium">Total lots</span>
+                                <span className="font-bold tabular-nums text-slate-900 dark:text-dk-text">{lotsTotal} / {total} pcs</span>
                             </div>
-                            <div className="flex h-1.5 rounded-full overflow-hidden bg-slate-200">
+                            <div className="flex h-1.5 rounded-full overflow-hidden bg-slate-200 dark:bg-dk-border">
                                 <div
                                     className="bg-indigo-500 transition-all"
                                     style={{ width: `${Math.min(100, (lotsTotal / total) * 100)}%` }}
