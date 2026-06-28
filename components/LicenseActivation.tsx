@@ -160,7 +160,7 @@ export default function LicenseActivation({ lang }: LicenseActivationProps) {
 
     return (
         <div
-            className="bg-white dark:bg-dk-surface rounded-2xl shadow-sm border border-slate-200 dark:border-dk-border overflow-hidden flex flex-col"
+            className="bg-white dark:bg-dk-surface rounded-2xl shadow-sm dark:shadow-dk-sm border border-slate-200 dark:border-dk-border overflow-hidden flex flex-col"
             dir={isAr ? 'rtl' : 'ltr'}
         >
             <div className="px-5 py-4 bg-slate-50 dark:bg-dk-bg border-b border-slate-100 dark:border-dk-border flex items-center gap-2">
@@ -198,7 +198,7 @@ export default function LicenseActivation({ lang }: LicenseActivationProps) {
                         type="button"
                         onClick={handleActivate}
                         disabled={!canSubmit}
-                        className="shrink-0 flex items-center justify-center gap-2 px-6 py-3 bg-indigo-600 dark:bg-dk-accent hover:bg-indigo-700 dark:hover:bg-dk-accent-hover text-white font-bold rounded-xl transition-all shadow-lg shadow-indigo-600/30 active:scale-95 disabled:opacity-50 disabled:shadow-none disabled:active:scale-100"
+                        className="shrink-0 flex items-center justify-center gap-2 px-6 py-3 bg-indigo-600 dark:bg-dk-accent hover:bg-indigo-700 dark:hover:bg-dk-accent-hover text-white font-bold rounded-xl transition-all shadow-lg dark:shadow-dk-lg shadow-indigo-600/30 active:scale-95 disabled:opacity-50 disabled:shadow-none disabled:active:scale-100"
                     >
                         {busy
                             ? <><Loader2 className="w-5 h-5 animate-spin" /> {t.activating}</>

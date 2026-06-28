@@ -1786,7 +1786,7 @@ export default function Gamme({
     <div className="space-y-6 pb-20 animate-in fade-in slide-in-from-bottom-2 duration-300 relative">
       
        {/* 1. SINGLE ROW HEADER - RESPONSIVE (UNCHANGED) */}
-       <div className="bg-white dark:bg-dk-surface rounded-xl border border-slate-200 dark:border-dk-border shadow-sm mb-4 p-2 flex flex-nowrap items-center gap-2 overflow-x-auto no-scrollbar">
+       <div className="bg-white dark:bg-dk-surface rounded-xl border border-slate-200 dark:border-dk-border shadow-sm dark:shadow-dk-sm mb-4 p-2 flex flex-nowrap items-center gap-2 overflow-x-auto no-scrollbar">
             <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-50 dark:bg-dk-bg dark:bg-dk-elevated/60 rounded-lg border border-slate-100 dark:border-dk-border shrink-0">
                 <div className="flex flex-col items-center border-r border-slate-200 dark:border-dk-border pr-3 mr-3">
                     <span className="text-[9px] font-bold text-slate-400 dark:text-dk-muted uppercase">{tx(lang,{fr:'Ouvriers',ar:'عمال',en:'Workers',es:'Obreros',pt:'Trabalhadores',tr:'İşçiler'})}</span>
@@ -1880,11 +1880,11 @@ export default function Gamme({
             </div>
        </div>
 
-      <div className="bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border shadow-sm overflow-hidden flex flex-col min-h-[500px] relative">
+      <div className="bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border shadow-sm dark:shadow-dk-sm overflow-hidden flex flex-col min-h-[500px] relative">
         
         {/* SMALL FLOATING TOAST: LINKING MODE ACTIF (Top Center) - Disappears after 7s */}
         {isLinkingMode && showLinkNotification && !pendingLinkTarget && createPortal(
-            <div className="fixed top-20 left-1/2 -translate-x-1/2 z-[9999] bg-indigo-600 dark:bg-dk-accent text-white pl-4 pr-2 py-2 rounded-full shadow-xl flex items-center gap-3 animate-in slide-in-from-top-5 duration-300 pointer-events-none">
+            <div className="fixed top-20 left-1/2 -translate-x-1/2 z-[9999] bg-indigo-600 dark:bg-dk-accent text-white pl-4 pr-2 py-2 rounded-full shadow-xl dark:shadow-dk-elevated flex items-center gap-3 animate-in slide-in-from-top-5 duration-300 pointer-events-none">
                 <div className="flex items-center gap-2 pointer-events-auto">
                     <MousePointerClick className="w-4 h-4 text-indigo-200" />
                     <span className="text-xs font-bold">{tx(lang,{fr:'Mode Flux Actif',ar:'وضع التدفق نشط',en:'Active Flow Mode',es:'Modo Flujo Activo',pt:'Modo Fluxo Ativo',tr:'Akış Modu Aktif'})}</span>
@@ -1902,7 +1902,7 @@ export default function Gamme({
 
         {/* COMPACT FLOATING BAR: CONFIRMATION (Bottom Center) */}
         {pendingLinkTarget && targetOpInfo && createPortal(
-            <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-[9999] bg-white dark:bg-dk-surface border border-emerald-200 dark:border-emerald-900/30 pl-4 pr-1.5 py-1.5 rounded-full shadow-2xl flex items-center gap-4 animate-in slide-in-from-bottom-5 duration-300 min-w-[320px]">
+            <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-[9999] bg-white dark:bg-dk-surface border border-emerald-200 dark:border-emerald-900/30 pl-4 pr-1.5 py-1.5 rounded-full shadow-2xl dark:shadow-dk-lg flex items-center gap-4 animate-in slide-in-from-bottom-5 duration-300 min-w-[320px]">
                 <div className="flex items-center gap-3">
                     <div className="p-1.5 bg-emerald-100 dark:bg-emerald-900/50 rounded-full text-emerald-600 dark:text-emerald-400 dark:text-emerald-300">
                         <LinkIcon className="w-4 h-4" />
@@ -1926,7 +1926,7 @@ export default function Gamme({
                     <div className="w-px h-6 bg-slate-100 dark:bg-dk-border mx-1"></div>
                     <button 
                         onClick={confirmFlux}
-                        className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-full text-xs font-bold shadow-lg shadow-emerald-200 dark:shadow-emerald-900/30 transition-all flex items-center gap-2 active:scale-95"
+                        className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-full text-xs font-bold shadow-lg dark:shadow-dk-lg shadow-emerald-200 dark:shadow-emerald-900/30 transition-all flex items-center gap-2 active:scale-95"
                     >
                         <CheckCircle className="w-3.5 h-3.5" />
                         {tx(lang,{fr:'Confirmer',ar:'تأكيد',en:'Confirm',es:'Confirmar',pt:'Confirmar',tr:'Onayla'})}
@@ -1937,7 +1937,7 @@ export default function Gamme({
         )}
 
         {guideFeedback && createPortal(
-            <div className={`fixed top-24 right-4 sm:right-6 z-[9999] rounded-2xl border px-4 py-3 shadow-2xl backdrop-blur-sm max-w-sm animate-in fade-in slide-in-from-top-2 duration-200 ${
+            <div className={`fixed top-24 right-4 sm:right-6 z-[9999] rounded-2xl border px-4 py-3 shadow-2xl dark:shadow-dk-lg backdrop-blur-sm max-w-sm animate-in fade-in slide-in-from-top-2 duration-200 ${
                 guideFeedback.tone === 'warning'
                   ? 'bg-rose-50 dark:bg-rose-900/30/95 dark:bg-rose-900/40 border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300'
                   : 'bg-emerald-50 dark:bg-emerald-900/30/95 dark:bg-emerald-900/40 border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300'
@@ -1952,7 +1952,7 @@ export default function Gamme({
 
         {/* FLOATING ACTION BAR FOR SELECTION - NOW CONTROLS EXIT */}
         {isSelectionMode && !isLinkingMode && createPortal(
-            <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-[9999] bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border pl-4 pr-1.5 py-1.5 rounded-full shadow-2xl flex items-center gap-4 animate-in slide-in-from-bottom-5 duration-300 min-w-[220px]">
+            <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-[9999] bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border pl-4 pr-1.5 py-1.5 rounded-full shadow-2xl dark:shadow-dk-lg flex items-center gap-4 animate-in slide-in-from-bottom-5 duration-300 min-w-[220px]">
                 <div className="flex items-center gap-2">
                     <div className="p-1.5 bg-indigo-100 dark:bg-indigo-900/50 rounded-full text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text dark:text-indigo-300">
                         <CheckSquare className="w-4 h-4" />
@@ -2025,7 +2025,7 @@ export default function Gamme({
                     onClick={() => setIsSelectionMode(!isSelectionMode)}
                     className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-xs font-bold border transition-colors whitespace-nowrap ${
                         isSelectionMode 
-                        ? 'bg-indigo-600 dark:bg-dk-accent text-white border-indigo-600 shadow-md shadow-indigo-200 dark:shadow-indigo-900/30' 
+                        ? 'bg-indigo-600 dark:bg-dk-accent text-white border-indigo-600 shadow-md dark:shadow-dk-md shadow-indigo-200 dark:shadow-indigo-900/30' 
                         : 'bg-white dark:bg-dk-surface text-slate-500 dark:text-dk-text-soft border-slate-200 dark:border-dk-border hover:bg-slate-50 dark:hover:bg-dk-elevated/60'
                     }`}
                     title={tx(lang,{fr:'Activer/Désactiver le mode sélection',ar:'تفعيل/إلغاء وضع التحديد',en:'Toggle selection mode',es:'Activar/Desactivar selección',pt:'Ativar/Desativar seleção',tr:'Seçim modunu aç/kapat'})}
@@ -2059,7 +2059,7 @@ export default function Gamme({
 
                  <button 
                    onClick={addOperation}
-                   className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-2 rounded-lg font-bold shadow-sm transition-colors text-xs uppercase tracking-wide whitespace-nowrap"
+                   className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-2 rounded-lg font-bold shadow-sm dark:shadow-dk-sm transition-colors text-xs uppercase tracking-wide whitespace-nowrap"
                  >
                    <Plus className="w-4 h-4" />
                     {tx(lang,{fr:'Ajouter',ar:'إضافة',en:'Add',es:'Añadir',pt:'Adicionar',tr:'Ekle'})}
@@ -2126,7 +2126,7 @@ export default function Gamme({
                 
                 const isForced = op.forcedTime !== undefined && op.forcedTime !== null;
                 const chronoInputClass = isForced 
-                    ? "bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800 focus:border-purple-500 focus:bg-purple-100 dark:focus:bg-purple-900/50 font-black shadow-sm"
+                    ? "bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800 focus:border-purple-500 focus:bg-purple-100 dark:focus:bg-purple-900/50 font-black shadow-sm dark:shadow-dk-sm"
                     : (isMachine ? 'bg-slate-50 dark:bg-dk-bg dark:bg-dk-surface text-slate-600 dark:text-dk-text border-slate-200 dark:border-dk-border focus:bg-white dark:focus:bg-dk-elevated focus:border-indigo-300' : 'bg-emerald-50 dark:bg-emerald-900/30/40 dark:bg-emerald-900/20 border-emerald-100 dark:border-emerald-900/30 text-emerald-700 dark:text-emerald-300 focus:border-emerald-500 focus:bg-white dark:focus:bg-dk-surface');
 
                 const currentGuide = op.guideFactor ?? 1.1;
@@ -2226,7 +2226,7 @@ export default function Gamme({
                                 <button
                                     type="button"
                                     onClick={(e) => { e.stopPropagation(); setPhotoPreview({ src: op.photo!, title: `Op. ${getDisplayIndex(op, index)} — ${op.description || ''}` }); }}
-                                    className="relative w-9 h-9 shrink-0 rounded-lg overflow-hidden border border-slate-200 dark:border-dk-border shadow-sm bg-slate-50 dark:bg-dk-bg dark:bg-dk-elevated/60 group/photo"
+                                    className="relative w-9 h-9 shrink-0 rounded-lg overflow-hidden border border-slate-200 dark:border-dk-border shadow-sm dark:shadow-dk-sm bg-slate-50 dark:bg-dk-bg dark:bg-dk-elevated/60 group/photo"
                                     title={tx(lang,{fr:'Voir la photo',ar:'عرض الصورة',en:'View photo',es:'Ver foto',pt:'Ver foto',tr:'Fotoğrafı gör'})}
                                 >
                                     <img src={op.photo} alt="" className="w-full h-full object-cover" />
@@ -2243,7 +2243,7 @@ export default function Gamme({
                             >
                                 {primaryPosteColor ? (
                                     <span
-                                        className="font-mono text-xs font-black inline-flex items-center justify-center min-w-[2rem] h-8 px-2 rounded-lg text-white shadow-sm ring-1 ring-black/10"
+                                        className="font-mono text-xs font-black inline-flex items-center justify-center min-w-[2rem] h-8 px-2 rounded-lg text-white shadow-sm dark:shadow-dk-sm ring-1 ring-black/10"
                                         style={{ backgroundColor: primaryPosteColor.fill ?? '#6366f1' }}
                                     >
                                         {getDisplayIndex(op, index)}
@@ -2278,7 +2278,7 @@ export default function Gamme({
                     }`}>
                         <button
                             onClick={(e) => { e.stopPropagation(); toggleSide(op.id); }}
-                            className={`w-7 h-7 rounded-lg border flex items-center justify-center text-[10px] transition-all mx-auto select-none shadow-sm ${sideBadgeClass}`}
+                            className={`w-7 h-7 rounded-lg border flex items-center justify-center text-[10px] transition-all mx-auto select-none shadow-sm dark:shadow-dk-sm ${sideBadgeClass}`}
                             title={tx(lang,{fr:'Changer Côté (G/D)',ar:'تغيير الجانب (ي/س)',en:'Change Side (L/R)',es:'Cambiar Lado (I/D)',pt:'Alterar Lado (E/D)',tr:'Yön Değiştir (S/Sağ)'})}
                         >
                             {sideText}
@@ -2296,7 +2296,7 @@ export default function Gamme({
                               return (
                                   <button
                                       onClick={(e) => { e.stopPropagation(); toggleSection(op.id); }}
-                                      className={`w-7 h-7 rounded-lg border flex items-center justify-center text-[10px] font-bold transition-all mx-auto select-none shadow-sm ${cls}`}
+                                      className={`w-7 h-7 rounded-lg border flex items-center justify-center text-[10px] font-bold transition-all mx-auto select-none shadow-sm dark:shadow-dk-sm ${cls}`}
                                        title={tx(lang,{fr:`Section: ${sec} (cliquer pour changer)`,ar:`القسم: ${sec} (انقر للتغيير)`,en:`Section: ${sec} (click to change)`,es:`Sección: ${sec} (clic para cambiar)`,pt:`Seção: ${sec} (clique para alterar)`,tr:`Bölüm: ${sec} (değiştirmek için tıklayın)`})}
                                   >
                                       {text}
@@ -2326,7 +2326,7 @@ export default function Gamme({
                                   <div className="flex items-center gap-1 mt-1.5 group/flux">
                                       <div className="relative flex items-center">
                                           <ArrowLeftToLine className="w-3 h-3 text-emerald-500 -ml-0.5 mr-1" />
-                                          <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 border border-emerald-200 shadow-sm cursor-help"                                           title={tx(lang,{fr:`Cette opération reçoit le flux de l'opération N°${incomingDisplayId}`,ar:`هذه العملية تستقبل تدفق العملية رقم ${incomingDisplayId}`,en:`This operation receives flow from operation No.${incomingDisplayId}`,es:`Esta operación recibe flujo de operación N°${incomingDisplayId}`,pt:`Esta operação recebe fluxo da operação N°${incomingDisplayId}`,tr:`Bu işlem, No.${incomingDisplayId} işleminden akış alır`})}>
+                                          <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 border border-emerald-200 shadow-sm dark:shadow-dk-sm cursor-help"                                           title={tx(lang,{fr:`Cette opération reçoit le flux de l'opération N°${incomingDisplayId}`,ar:`هذه العملية تستقبل تدفق العملية رقم ${incomingDisplayId}`,en:`This operation receives flow from operation No.${incomingDisplayId}`,es:`Esta operación recibe flujo de operación N°${incomingDisplayId}`,pt:`Esta operação recebe fluxo da operação N°${incomingDisplayId}`,tr:`Bu işlem, No.${incomingDisplayId} işleminden akış alır`})}>
                                               {tx(lang,{fr:`Provient de N°`,ar:`من رقم`,en:`From No.`,es:`Proviene de N°`,pt:`Provém de N°`,tr:`No.'dan geliyor`})} {incomingDisplayId}
                                           </span>
                                       </div>
@@ -2338,7 +2338,7 @@ export default function Gamme({
                                   <div className="flex items-center gap-1 mt-1.5 group/flux">
                                       <div className="relative flex items-center">
                                           <CornerDownRight className="w-3 h-3 text-blue-400 -ml-0.5 mr-1" />
-                                          <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded bg-blue-50 dark:bg-blue-900/30 text-blue-700 border border-blue-200 shadow-sm hover:bg-blue-100 transition-colors">
+                                          <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded bg-blue-50 dark:bg-blue-900/30 text-blue-700 border border-blue-200 shadow-sm dark:shadow-dk-sm hover:bg-blue-100 transition-colors">
                                               {tx(lang,{fr:'Vers N°',ar:'إلى رقم',en:'To No.',es:'Hacia N°',pt:'Para N°',tr:"No.'ya"})} {getOpDisplayId(op.targetOperationId)}
                                               <button 
                                                 onClick={(e) => { e.stopPropagation(); clearFlux(op.id); }}
@@ -2521,7 +2521,7 @@ export default function Gamme({
             >
                 <div className="p-4 border-b border-emerald-100/80 dark:border-dk-border flex justify-between items-center bg-gradient-to-r from-emerald-50 dark:from-dk-elevated/60 via-white dark:via-dk-surface to-indigo-50 dark:to-dk-elevated/60">
                     <h3 id="fabric-modal-title" className="font-black text-slate-800 dark:text-dk-text flex items-center gap-2">
-                        <span className="inline-flex w-8 h-8 items-center justify-center rounded-xl bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300 shadow-sm">
+                        <span className="inline-flex w-8 h-8 items-center justify-center rounded-xl bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300 shadow-sm dark:shadow-dk-sm">
                             <Shirt className="w-4 h-4" />
                         </span>
                         {tx(lang,{fr:'Difficulté Tissu',ar:'صعوبة القماش',en:'Fabric Difficulty',es:'Dificultad Tela',pt:'Dificuldade Tecido',tr:'Kumaş Zorluğu'})}
@@ -2550,7 +2550,7 @@ export default function Gamme({
                                     title={tx(lang,{fr:`Niveau ${FABRIC_LEVEL_LABELS[level]}`,ar:`مستوى ${FABRIC_LEVEL_LABELS[level] === 'Facile' ? 'سهل' : FABRIC_LEVEL_LABELS[level] === 'Moyen' ? 'متوسط' : 'صعب'}`,en:`${FABRIC_LEVEL_LABELS[level] === 'Facile' ? 'Easy' : FABRIC_LEVEL_LABELS[level] === 'Moyen' ? 'Medium' : 'Hard'} Level`,es:`Nivel ${FABRIC_LEVEL_LABELS[level] === 'Facile' ? 'Fácil' : FABRIC_LEVEL_LABELS[level] === 'Moyen' ? 'Medio' : 'Difícil'}`,pt:`Nível ${FABRIC_LEVEL_LABELS[level] === 'Fácil' ? 'Fácil' : FABRIC_LEVEL_LABELS[level] === 'Moyen' ? 'Médio' : 'Difícil'}`,tr:`${FABRIC_LEVEL_LABELS[level] === 'Facile' ? 'Kolay' : FABRIC_LEVEL_LABELS[level] === 'Moyen' ? 'Orta' : 'Zor'} Seviye`})}
                                     className={`flex flex-col items-center justify-center py-3 px-1 rounded-2xl border-2 transition-all duration-200 active:scale-95 ${
                                         (fabricDraft || fabricSettings).selected === level
-                                        ? (level === 'easy' ? 'bg-emerald-50 dark:bg-emerald-900/30 border-emerald-500 dark:border-emerald-600 text-emerald-700 dark:text-emerald-300 shadow-sm shadow-emerald-100 dark:shadow-emerald-900/30' : level === 'medium' ? 'bg-orange-50 dark:bg-orange-900/30 border-orange-500 dark:border-orange-600 text-orange-700 dark:text-orange-300 shadow-sm shadow-orange-100 dark:shadow-orange-900/30' : 'bg-rose-50 dark:bg-rose-900/30 border-rose-500 dark:border-rose-600 text-rose-700 dark:text-rose-300 shadow-sm shadow-rose-100 dark:shadow-rose-900/30')
+                                        ? (level === 'easy' ? 'bg-emerald-50 dark:bg-emerald-900/30 border-emerald-500 dark:border-emerald-600 text-emerald-700 dark:text-emerald-300 shadow-sm dark:shadow-dk-sm shadow-emerald-100 dark:shadow-emerald-900/30' : level === 'medium' ? 'bg-orange-50 dark:bg-orange-900/30 border-orange-500 dark:border-orange-600 text-orange-700 dark:text-orange-300 shadow-sm dark:shadow-dk-sm shadow-orange-100 dark:shadow-orange-900/30' : 'bg-rose-50 dark:bg-rose-900/30 border-rose-500 dark:border-rose-600 text-rose-700 dark:text-rose-300 shadow-sm dark:shadow-dk-sm shadow-rose-100 dark:shadow-rose-900/30')
                                         : 'bg-white dark:bg-dk-surface border-slate-100 dark:border-dk-border text-slate-500 dark:text-dk-text-soft hover:border-slate-300 dark:hover:border-dk-border hover:bg-slate-50 dark:hover:bg-dk-elevated/60 hover:-translate-y-0.5'
                                     }`}
                                 >
@@ -2582,7 +2582,7 @@ export default function Gamme({
                                 onChange={(e) => handleFabricPenaltyInputChange(e.target.value)}
                                 onBlur={handleFabricPenaltyInputBlur}
                                 onWheel={(e) => (e.target as HTMLInputElement).blur()}
-                                className="w-full bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-2xl px-4 py-3 text-lg font-black text-slate-700 dark:text-dk-text outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 dark:focus:ring-indigo-900/30 transition-all shadow-sm"
+                                className="w-full bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-2xl px-4 py-3 text-lg font-black text-slate-700 dark:text-dk-text outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 dark:focus:ring-indigo-900/30 transition-all shadow-sm dark:shadow-dk-sm"
                             />
                             <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-black text-slate-500 dark:text-dk-muted uppercase bg-slate-100 dark:bg-dk-elevated/60 px-2 py-1 rounded-md">{tx(lang,{fr:'Sec',ar:'ث',en:'Sec',es:'Seg',pt:'Seg',tr:'Sn'})}</span>
                         </div>
@@ -2608,7 +2608,7 @@ export default function Gamme({
                         <label className="w-full flex items-center justify-between gap-3 cursor-pointer group px-3.5 py-3 rounded-2xl border border-slate-100 dark:border-dk-border bg-gradient-to-r from-slate-50 dark:from-dk-elevated/60 to-white dark:to-dk-surface hover:from-slate-100 dark:hover:from-dk-elevated hover:to-slate-50 dark:hover:to-dk-elevated/60 transition-colors">
                             <span className={`text-sm font-bold ${(fabricDraft || fabricSettings).enabled ? 'text-emerald-700 dark:text-emerald-300' : 'text-slate-500 dark:text-dk-text-soft'}`}>{tx(lang,{fr:'Activer la penalite',ar:'تفعيل الغرامة',en:'Enable penalty',es:'Activar penalización',pt:'Ativar penalidade',tr:'Cezayı etkinleştir'})}</span>
                             <div className={`w-10 h-6 rounded-full p-1 transition-colors duration-300 ${(fabricDraft || fabricSettings).enabled ? 'bg-emerald-500 dark:bg-emerald-600' : 'bg-slate-200 dark:bg-dk-elevated'}`}>
-                                <div className={`w-4 h-4 bg-white dark:bg-dk-surface rounded-full shadow-md transform transition-transform duration-300 ${(fabricDraft || fabricSettings).enabled ? 'translate-x-4' : 'translate-x-0'}`} />
+                                <div className={`w-4 h-4 bg-white dark:bg-dk-surface rounded-full shadow-md dark:shadow-dk-md transform transition-transform duration-300 ${(fabricDraft || fabricSettings).enabled ? 'translate-x-4' : 'translate-x-0'}`} />
                             </div>
                             <input 
                                 type="checkbox" 
@@ -2633,7 +2633,7 @@ export default function Gamme({
                         >
                             {tx(lang,{fr:'Réinitialiser',ar:'إعادة تعيين',en:'Reset',es:'Reiniciar',pt:'Redefinir',tr:'Sıfırla'})}
                         </button>
-                        <button onClick={() => handleFabricModalClose(true)} className="w-full py-3.5 bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-700 hover:to-emerald-600 text-white rounded-2xl font-black text-sm shadow-lg shadow-emerald-200 dark:shadow-emerald-900/30 transition-all active:scale-[0.98]">
+                        <button onClick={() => handleFabricModalClose(true)} className="w-full py-3.5 bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-700 hover:to-emerald-600 text-white rounded-2xl font-black text-sm shadow-lg dark:shadow-dk-lg shadow-emerald-200 dark:shadow-emerald-900/30 transition-all active:scale-[0.98]">
                             {tx(lang,{fr:'Valider',ar:'موافق',en:'Apply',es:'Validar',pt:'Validar',tr:'Onayla'})}
                         </button>
                     </div>
@@ -2647,7 +2647,7 @@ export default function Gamme({
       {showGuideModal && createPortal(
         <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
             <div className="absolute inset-0 bg-slate-900/60 dark:bg-dk-bg/80 backdrop-blur-sm" onClick={() => setShowGuideModal(null)} />
-            <div className="bg-white dark:bg-dk-surface rounded-2xl shadow-2xl w-full max-w-md relative overflow-hidden animate-in fade-in zoom-in-95 duration-200 z-10 flex flex-col max-h-[80vh]">
+            <div className="bg-white dark:bg-dk-surface rounded-2xl shadow-2xl dark:shadow-dk-lg w-full max-w-md relative overflow-hidden animate-in fade-in zoom-in-95 duration-200 z-10 flex flex-col max-h-[80vh]">
                 <div className="p-4 border-b border-slate-100 dark:border-dk-border flex justify-between items-center bg-white dark:bg-dk-surface shrink-0">
                     <div>
                         <h3 className="font-bold text-slate-700 dark:text-dk-text flex items-center gap-2">
@@ -2795,7 +2795,7 @@ export default function Gamme({
                                       : 'hover:bg-orange-50 dark:hover:bg-orange-900/20 border-transparent hover:border-orange-100 dark:hover:border-orange-800'
                                 }`}
                             >
-                                <div className="w-10 h-10 rounded-lg bg-white dark:bg-dk-surface border border-slate-100 dark:border-dk-border flex items-center justify-center text-orange-500 shadow-sm group-hover:scale-110 transition-transform">
+                                <div className="w-10 h-10 rounded-lg bg-white dark:bg-dk-surface border border-slate-100 dark:border-dk-border flex items-center justify-center text-orange-500 shadow-sm dark:shadow-dk-sm group-hover:scale-110 transition-transform">
                                     <Component className="w-5 h-5" />
                                 </div>
                                 <div>
@@ -2914,7 +2914,7 @@ export default function Gamme({
       {showAiModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <div className="absolute inset-0 bg-slate-900/60 dark:bg-dk-bg/80 backdrop-blur-sm" onClick={() => !isAnalyzing && setShowAiModal(false)} />
-            <div className="bg-white dark:bg-dk-surface rounded-2xl shadow-2xl w-full max-w-lg relative overflow-hidden animate-in fade-in zoom-in-95 duration-200 flex flex-col max-h-[85vh]">
+            <div className="bg-white dark:bg-dk-surface rounded-2xl shadow-2xl dark:shadow-dk-lg w-full max-w-lg relative overflow-hidden animate-in fade-in zoom-in-95 duration-200 flex flex-col max-h-[85vh]">
                 <div className="bg-gradient-to-r from-rose-500 to-pink-600 p-5 text-white relative overflow-hidden shrink-0">
                     <div className="absolute top-0 right-0 p-8 opacity-10 transform translate-x-4 -translate-y-4">
                         <Sparkles className="w-24 h-24" />
@@ -2934,7 +2934,7 @@ export default function Gamme({
                 <div className="flex-1 overflow-y-auto custom-scrollbar p-4 bg-slate-50 dark:bg-dk-bg space-y-4">
                     {chatHistory.length === 0 && (
                         <div className="text-center py-8 px-4">
-                            <div className="w-12 h-12 bg-white dark:bg-dk-surface rounded-full flex items-center justify-center mx-auto mb-3 shadow-sm">
+                            <div className="w-12 h-12 bg-white dark:bg-dk-surface rounded-full flex items-center justify-center mx-auto mb-3 shadow-sm dark:shadow-dk-sm">
                                 <MessageSquare className="w-6 h-6 text-rose-400" />
                             </div>
                             <p className="text-slate-500 dark:text-dk-text-soft text-sm font-medium">
@@ -2957,7 +2957,7 @@ export default function Gamme({
 
                     {chatHistory.map((msg, i) => (
                         <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                            <div className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm shadow-sm ${
+                            <div className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm shadow-sm dark:shadow-dk-sm ${
                                 msg.role === 'user' 
                                 ? 'bg-rose-600 text-white rounded-tr-sm' 
                                 : 'bg-white dark:bg-dk-surface text-slate-700 dark:text-dk-text border border-slate-100 dark:border-dk-border rounded-tl-sm'
@@ -2971,7 +2971,7 @@ export default function Gamme({
                     
                     {isAnalyzing && (
                         <div className="flex justify-start">
-                            <div className="bg-white dark:bg-dk-surface px-4 py-3 rounded-2xl rounded-tl-sm border border-slate-100 dark:border-dk-border shadow-sm flex items-center gap-2 text-sm text-slate-500 dark:text-dk-text-soft">
+                            <div className="bg-white dark:bg-dk-surface px-4 py-3 rounded-2xl rounded-tl-sm border border-slate-100 dark:border-dk-border shadow-sm dark:shadow-dk-sm flex items-center gap-2 text-sm text-slate-500 dark:text-dk-text-soft">
                                 <Loader2 className="w-4 h-4 animate-spin text-rose-500" />
                                 <span>{tx(lang,{fr:'Analyse de la gamme en cours...',ar:'تحليل التسلسل قيد التقدم...',en:'Analyzing routing...',es:'Analizando gama en curso...',pt:'Analisando gama em andamento...',tr:'Rota analiz ediliyor...'})}</span>
                             </div>
@@ -2996,7 +2996,7 @@ export default function Gamme({
                         className={`p-2.5 rounded-xl transition-all ${
                             !aiPrompt.trim() || isAnalyzing 
                             ? 'bg-slate-100 dark:bg-dk-elevated/60 text-slate-300 dark:text-dk-muted' 
-                            : 'bg-rose-600 text-white hover:bg-rose-700 shadow-md shadow-rose-200 dark:shadow-rose-900/30'
+                            : 'bg-rose-600 text-white hover:bg-rose-700 shadow-md dark:shadow-dk-md shadow-rose-200 dark:shadow-rose-900/30'
                         }`}
                     >
                         <Send className="w-5 h-5" />
@@ -3034,7 +3034,7 @@ export default function Gamme({
             left: Math.min(photoMenu.x, (typeof window !== 'undefined' ? window.innerWidth : 800) - 220),
             zIndex: 10000,
           }}
-          className="w-52 rounded-2xl border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface shadow-2xl shadow-slate-300/50 dark:shadow-black/30 ring-1 ring-black/5 overflow-hidden animate-in fade-in zoom-in-95 duration-100"
+          className="w-52 rounded-2xl border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface shadow-2xl dark:shadow-dk-lg shadow-slate-300/50 dark:shadow-black/30 ring-1 ring-black/5 overflow-hidden animate-in fade-in zoom-in-95 duration-100"
         >
           <div className="px-3 py-2 border-b border-slate-100 dark:border-dk-border bg-slate-50 dark:bg-dk-bg dark:bg-dk-elevated/60 text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-dk-muted">
             {tx(lang,{fr:"Photo de l'opération",ar:'صورة العملية',en:'Operation Photo',es:'Foto de la operación',pt:'Foto da operação',tr:'İşlem Fotoğrafı'})}
@@ -3086,7 +3086,7 @@ export default function Gamme({
               </div>
               <button
                 onClick={() => setPhotoPreview(null)}
-                className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface px-3 py-1.5 text-xs font-bold text-slate-600 dark:text-dk-text-soft shadow-sm transition hover:border-slate-300 dark:hover:border-dk-border hover:bg-slate-50 dark:hover:bg-dk-elevated/60 hover:text-slate-900 dark:hover:text-dk-text"
+                className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface px-3 py-1.5 text-xs font-bold text-slate-600 dark:text-dk-text-soft shadow-sm dark:shadow-dk-sm transition hover:border-slate-300 dark:hover:border-dk-border hover:bg-slate-50 dark:hover:bg-dk-elevated/60 hover:text-slate-900 dark:hover:text-dk-text"
               >
                 <X className="h-4 w-4" />
                 {tx(lang,{fr:'Fermer',ar:'إغلاق',en:'Close',es:'Cerrar',pt:'Fechar',tr:'Kapat'})}
@@ -3094,7 +3094,7 @@ export default function Gamme({
             </div>
             <div className="relative flex-1 overflow-auto bg-[radial-gradient(circle_at_top,_#f8fafc_0%,_#e2e8f0_100%)] dark:bg-dk-bg p-3 sm:p-5">
               <div className="mx-auto flex min-h-full max-w-[92%] items-center justify-center rounded-2xl border border-white/80 dark:border-dk-border/40 bg-white/60 dark:bg-dk-surface/60 p-2 shadow-inner sm:p-4">
-                <img src={photoPreview.src} alt="Aperçu" className="max-h-[74vh] w-auto max-w-full rounded-xl border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface object-contain shadow-xl" />
+                <img src={photoPreview.src} alt="Aperçu" className="max-h-[74vh] w-auto max-w-full rounded-xl border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface object-contain shadow-xl dark:shadow-dk-elevated" />
               </div>
             </div>
           </div>

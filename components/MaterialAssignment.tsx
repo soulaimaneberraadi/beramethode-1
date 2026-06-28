@@ -95,7 +95,7 @@ const MaterialAssignment: React.FC<MaterialAssignmentProps> = ({
 
     return (
         <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-slate-950/30 backdrop-blur-sm p-0 md:p-4">
-            <div className="bg-white dark:bg-dk-surface w-full max-h-[92vh] md:max-w-3xl md:max-h-[88vh] rounded-t-2xl md:rounded-2xl shadow-2xl overflow-hidden flex flex-col animate-in fade-in slide-in-from-bottom-4 duration-200">
+            <div className="bg-white dark:bg-dk-surface w-full max-h-[92vh] md:max-w-3xl md:max-h-[88vh] rounded-t-2xl md:rounded-2xl shadow-2xl dark:shadow-dk-lg overflow-hidden flex flex-col animate-in fade-in slide-in-from-bottom-4 duration-200">
 
                 {/* Header — Clean flat */}
                 <div className="px-6 py-4 flex items-center justify-between shrink-0 border-b border-slate-100 dark:border-dk-border">
@@ -228,7 +228,7 @@ const MaterialAssignment: React.FC<MaterialAssignmentProps> = ({
                         Les changements sont appliqués en direct
                     </span>
                     <button onClick={onClose}
-                        className="px-5 py-2 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-[12px] font-semibold transition-colors shadow-sm">
+                        className="px-5 py-2 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-[12px] font-semibold transition-colors shadow-sm dark:shadow-dk-sm">
                         Terminé
                     </button>
                 </div>

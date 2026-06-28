@@ -49,7 +49,7 @@ const MaterialDetailModal: React.FC<MaterialDetailModalProps> = ({
 
     return (
         <div dir="ltr" className="fixed inset-0 z-[200] flex items-center justify-center p-2 sm:p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-200" onClick={onClose}>
-            <div className="bg-white dark:bg-dk-surface rounded-lg border border-slate-200 dark:border-dk-border shadow-sm w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-200 flex flex-col max-h-[90vh]" onClick={e => e.stopPropagation()}>
+            <div className="bg-white dark:bg-dk-surface rounded-lg border border-slate-200 dark:border-dk-border shadow-sm dark:shadow-dk-sm w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-200 flex flex-col max-h-[90vh]" onClick={e => e.stopPropagation()}>
                 <div className="px-4 sm:px-5 h-12 border-b border-slate-100 dark:border-dk-border flex items-center justify-between shrink-0">
                     <div className="flex items-center gap-2 min-w-0">
                         <Package className="w-4 h-4 text-slate-400 dark:text-dk-muted shrink-0" strokeWidth={1.75} />
