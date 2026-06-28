@@ -61,25 +61,25 @@ const KpiCard = React.memo(function KpiCard({ kpi, showLoading, onNavigateModule
         <kpi.icon className={`w-5 h-5 sm:w-6 sm:h-6 ${kpi.iconColor}`} />
       </div>
       <div className="min-w-0 flex-1">
-        <p className="text-[10px] sm:text-[11px] font-bold text-slate-400 uppercase tracking-wider truncate">{kpi.label}</p>
+        <p className="text-[10px] sm:text-[11px] font-bold text-slate-400 dark:text-dk-muted uppercase tracking-wider truncate">{kpi.label}</p>
         <div className="flex items-center gap-2">
-          <p className="text-xl sm:text-2xl lg:text-3xl font-black text-slate-800 leading-none tabular-nums tracking-tight">
+          <p className="text-xl sm:text-2xl lg:text-3xl font-black text-slate-800 dark:text-dk-text leading-none tabular-nums tracking-tight">
             {showLoading ? <span className="text-slate-200 animate-pulse">···</span> : kpi.value}
           </p>
           {kpi.sparkData && kpi.sparkData.length > 0 && (
             <Sparkline data={kpi.sparkData} color={kpi.sparkColor || '#6366f1'} />
           )}
         </div>
-        <p className="text-[10px] sm:text-xs text-slate-500 mt-1 font-medium truncate">{kpi.sub}</p>
+        <p className="text-[10px] sm:text-xs text-slate-500 dark:text-dk-muted mt-1 font-medium truncate">{kpi.sub}</p>
       </div>
       {onNavigateModule && (
-        <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-slate-100 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-200 group-hover:bg-indigo-100 shrink-0">
-          <ChevronRight className="w-3 h-3 sm:w-4 sm:h-4 text-slate-400 group-hover:text-indigo-600" aria-hidden />
+        <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-slate-100 dark:bg-dk-elevated/60 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-200 group-hover:bg-indigo-100 shrink-0">
+          <ChevronRight className="w-3 h-3 sm:w-4 sm:h-4 text-slate-400 dark:text-dk-muted group-hover:text-indigo-600" aria-hidden />
         </div>
       )}
     </>
   );
-  const shell = 'bg-white rounded-xl sm:rounded-2xl p-3 sm:p-4 lg:p-5 border border-slate-200/80 shadow-sm flex items-center gap-3 sm:gap-4 group hover:shadow-lg hover:border-slate-300 hover:-translate-y-0.5 transition-all duration-300 cursor-pointer';
+  const shell = 'bg-white dark:bg-dk-surface rounded-xl sm:rounded-2xl p-3 sm:p-4 lg:p-5 border border-slate-200 dark:border-dk-border/80 shadow-sm flex items-center gap-3 sm:gap-4 group hover:shadow-lg hover:border-slate-300 hover:-translate-y-0.5 transition-all duration-300 cursor-pointer';
   if (onNavigateModule) {
     return (
       <button key={kpi.key} type="button" onClick={() => onNavigateModule(kpi.nav)} className={`${shell} w-full text-left focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:ring-offset-2`}>
@@ -370,18 +370,18 @@ export default function Dashboard({ models, suivis, planningEvents, settings, se
     <div className="h-full flex flex-col bg-gradient-to-br from-slate-50 via-white to-slate-50 overflow-hidden">
 
       {/* HEADER */}
-      <div className="bg-white/80 backdrop-blur-xl border-b border-slate-200/80 px-3 sm:px-4 md:px-6 py-3 sm:py-4 flex justify-between items-center shrink-0 sticky top-0 z-10">
+      <div className="bg-white/80 dark:bg-dk-surface/80 backdrop-blur-xl border-b border-slate-200 dark:border-dk-border/80 px-3 sm:px-4 md:px-6 py-3 sm:py-4 flex justify-between items-center shrink-0 sticky top-0 z-10">
         <div className="flex items-center gap-2 sm:gap-3 md:gap-4 min-w-0">
           <div className="relative shrink-0">
             <div className="w-10 h-10 sm:w-11 sm:h-11 md:w-12 md:h-12 rounded-[18px] bg-[linear-gradient(135deg,#4f46e5_0%,#7c3aed_48%,#0f766e_100%)] flex items-center justify-center text-white shadow-[0_18px_38px_-18px_rgba(79,70,229,0.7)] ring-1 ring-white/50">
               <TrendingUp className="w-4.5 h-4.5 sm:w-5 sm:h-5" strokeWidth={2.3} />
             </div>
-            <div className="absolute inset-0 rounded-[18px] bg-white/20 blur-xl scale-90 -z-10" />
+            <div className="absolute inset-0 rounded-[18px] bg-white dark:bg-dk-surface/20 blur-xl scale-90 -z-10" />
             <div className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 sm:w-3 sm:h-3 bg-emerald-400 rounded-full border-2 border-white" />
           </div>
           <div className="min-w-0">
-            <h1 className="text-base sm:text-lg md:text-xl font-black text-slate-800 tracking-tight truncate">{tx(lang, { fr: 'Tableau de Bord', ar: 'لوحة القيادة', en: 'Dashboard', es: 'Panel de Control', pt: 'Painel de Controle', tr: 'Kontrol Paneli' })}</h1>
-            <p className="text-[10px] sm:text-xs text-slate-400 font-medium hidden sm:block">{tx(lang, { fr: "Vue d'ensemble synchronisee automatiquement", ar: 'نظرة عامة تتزامن آلياً', en: 'Overview synchronized automatically', es: 'Vista general sincronizada automáticamente', pt: 'Visão geral sincronizada automaticamente', tr: 'Otomatik senkronize edilen genel görünüm' })}</p>
+            <h1 className="text-base sm:text-lg md:text-xl font-black text-slate-800 dark:text-dk-text tracking-tight truncate">{tx(lang, { fr: 'Tableau de Bord', ar: 'لوحة القيادة', en: 'Dashboard', es: 'Panel de Control', pt: 'Painel de Controle', tr: 'Kontrol Paneli' })}</h1>
+            <p className="text-[10px] sm:text-xs text-slate-400 dark:text-dk-muted font-medium hidden sm:block">{tx(lang, { fr: "Vue d'ensemble synchronisee automatiquement", ar: 'نظرة عامة تتزامن آلياً', en: 'Overview synchronized automatically', es: 'Vista general sincronizada automáticamente', pt: 'Visão geral sincronizada automaticamente', tr: 'Otomatik senkronize edilen genel görünüm' })}</p>
           </div>
         </div>
         <div className="flex items-center gap-2 sm:gap-3 shrink-0">
@@ -397,7 +397,7 @@ export default function Dashboard({ models, suivis, planningEvents, settings, se
                 : tx(lang, { fr: 'Hors ligne - cliquer pour rafraichir', ar: 'غير متصل - اضغط للتحديث', en: 'Offline - click to refresh', es: 'Sin conexión - haga clic para actualizar', pt: 'Offline - clique para atualizar', tr: 'Çevrimdışı - yenilemek için tıklayın' })
             }
             aria-label={tx(lang, { fr: 'Rafraichir les KPIs', ar: 'تحديث مؤشرات الأداء', en: 'Refresh KPIs', es: 'Actualizar KPIs', pt: 'Atualizar KPIs', tr: 'KPI\'ları Yenile' })}
-            className="relative w-9 h-9 sm:w-10 sm:h-10 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 active:scale-95 transition-all flex items-center justify-center text-slate-600 hover:text-slate-900 disabled:opacity-60 disabled:cursor-not-allowed"
+            className="relative w-9 h-9 sm:w-10 sm:h-10 rounded-xl border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface hover:bg-slate-50 dark:bg-dk-bg active:scale-95 transition-all flex items-center justify-center text-slate-600 dark:text-dk-text-soft hover:text-slate-900 disabled:opacity-60 disabled:cursor-not-allowed"
           >
             <RefreshCw className={`w-4 h-4 ${kpiLoading ? 'animate-spin' : ''}`} />
             {/* Live status dot: green pulse when SSE stream is active,
@@ -463,34 +463,34 @@ export default function Dashboard({ models, suivis, planningEvents, settings, se
             <div className="lg:col-span-1 space-y-4 sm:space-y-5 md:space-y-6">
 
               {/* TASKS */}
-              <div className="bg-white rounded-xl sm:rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden flex flex-col">
-                <div className="px-3 sm:px-4 md:px-5 py-3 sm:py-4 bg-gradient-to-r from-slate-50 to-white border-b border-slate-100 flex items-center justify-between">
+              <div className="bg-white dark:bg-dk-surface rounded-xl sm:rounded-2xl border border-slate-200 dark:border-dk-border/80 shadow-sm overflow-hidden flex flex-col">
+                <div className="px-3 sm:px-4 md:px-5 py-3 sm:py-4 bg-gradient-to-r from-slate-50 to-white border-b border-slate-100 dark:border-dk-border flex items-center justify-between">
                   <div className="flex items-center gap-2 sm:gap-2.5">
                     <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-indigo-100 flex items-center justify-center">
                       <ListTodo className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-indigo-600" />
                     </div>
-                    <h2 className="font-bold text-slate-800 text-xs sm:text-sm">{tx(lang, { fr: 'Tâches', ar: 'المهام', en: 'Tasks', es: 'Tareas', pt: 'Tarefas', tr: 'Görevler' })}</h2>
+                    <h2 className="font-bold text-slate-800 dark:text-dk-text text-xs sm:text-sm">{tx(lang, { fr: 'Tâches', ar: 'المهام', en: 'Tasks', es: 'Tareas', pt: 'Tarefas', tr: 'Görevler' })}</h2>
                   </div>
                   <span className="text-[10px] sm:text-xs font-bold px-2 sm:px-2.5 py-1 rounded-full bg-indigo-100 text-indigo-700">{pendingTasks.length} {tx(lang, { fr: 'en attente', ar: 'قيد الانتظار', en: 'pending', es: 'pendiente(s)', pt: 'pendente(s)', tr: 'beklemede' })}</span>
                 </div>
                 <div className="p-3 sm:p-4 md:p-5 flex-1 flex flex-col">
-                  <p className="text-[10px] sm:text-xs text-slate-400 mb-3 sm:mb-4 font-medium hidden sm:block">{tx(lang, { fr: "Aujourd'hui et retards. Cliquez pour ouvrir l'Agenda.", ar: 'اليوم والمتأخرات. اضغط لفتح الأجندة.', en: "Today and overdue. Click to open the Agenda.", es: 'Hoy y atrasos. Haga clic para abrir la Agenda.', pt: 'Hoje e atrasos. Clique para abrir a Agenda.', tr: 'Bugün ve geciken görevler. Ajandayı açmak için tıklayın.' })}</p>
+                  <p className="text-[10px] sm:text-xs text-slate-400 dark:text-dk-muted mb-3 sm:mb-4 font-medium hidden sm:block">{tx(lang, { fr: "Aujourd'hui et retards. Cliquez pour ouvrir l'Agenda.", ar: 'اليوم والمتأخرات. اضغط لفتح الأجندة.', en: "Today and overdue. Click to open the Agenda.", es: 'Hoy y atrasos. Haga clic para abrir la Agenda.', pt: 'Hoje e atrasos. Clique para abrir a Agenda.', tr: 'Bugün ve geciken görevler. Ajandayı açmak için tıklayın.' })}</p>
                   <div className="flex-1 overflow-y-auto space-y-2 sm:space-y-3 custom-scrollbar">
                     {pendingTasks.map(task => (
-                      <div key={task.id} className="bg-slate-50/80 border border-slate-200/60 rounded-lg sm:rounded-xl p-2.5 sm:p-3 md:p-3.5 hover:border-indigo-300 hover:shadow-sm transition-all duration-200 flex flex-col gap-2 sm:gap-3">
+                      <div key={task.id} className="bg-slate-50 dark:bg-dk-bg/80 dark:bg-dk-bg/80 border border-slate-200 dark:border-dk-border/60 rounded-lg sm:rounded-xl p-2.5 sm:p-3 md:p-3.5 hover:border-indigo-300 hover:shadow-sm transition-all duration-200 flex flex-col gap-2 sm:gap-3">
                         <div className="cursor-pointer" onClick={() => onOpenAgenda()}>
                           <div className="flex justify-between items-start mb-1 sm:mb-1.5">
-                            <span className="text-[9px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-wide truncate">{task.assigneeName}</span>
+                            <span className="text-[9px] sm:text-[10px] font-bold text-slate-400 dark:text-dk-muted uppercase tracking-wide truncate">{task.assigneeName}</span>
                             <span className={`text-[9px] sm:text-[10px] font-bold px-1.5 sm:px-2 py-0.5 rounded-full flex items-center gap-1 shrink-0 ${task.date < todayStr ? 'text-rose-600 bg-rose-100 border border-rose-200' : 'text-amber-600 bg-amber-100 border border-amber-200'}`}>
                               <CalendarClock className="w-2.5 h-2.5 sm:w-3 sm:h-3" /> {task.date}
                             </span>
                           </div>
-                          <p className="text-xs sm:text-sm font-bold text-slate-700 leading-tight">{task.text}</p>
+                          <p className="text-xs sm:text-sm font-bold text-slate-700 dark:text-dk-text leading-tight">{task.text}</p>
                         </div>
-                        <div className="flex gap-1.5 sm:gap-2 pt-2 sm:pt-2.5 border-t border-slate-200/60">
+                        <div className="flex gap-1.5 sm:gap-2 pt-2 sm:pt-2.5 border-t border-slate-200 dark:border-dk-border/60">
                           <button onClick={(e) => { e.stopPropagation(); handleUpdateTaskStatus(task.id, 'DONE_OK'); }} className="flex-1 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 text-[9px] sm:text-[10px] font-bold py-1.5 sm:py-2 rounded-lg transition-colors border border-emerald-200/60">OK</button>
                           <button onClick={(e) => { e.stopPropagation(); handleUpdateTaskStatus(task.id, 'DONE_NOT_OK'); }} className="flex-1 bg-rose-50 text-rose-700 hover:bg-rose-100 text-[9px] sm:text-[10px] font-bold py-1.5 sm:py-2 rounded-lg transition-colors border border-rose-200/60">NOT OK</button>
-                          <button onClick={(e) => { e.stopPropagation(); setSkipReasonModal(task as AppTask); }} className="flex-1 bg-slate-100 text-slate-600 hover:bg-slate-200 text-[9px] sm:text-[10px] font-bold py-1.5 sm:py-2 rounded-lg transition-colors border border-slate-200/60">{tx(lang, { fr: 'IGNORER', ar: 'تجاوز', en: 'SKIP', es: 'OMITIR', pt: 'IGNORAR', tr: 'ATLA' })}</button>
+                          <button onClick={(e) => { e.stopPropagation(); setSkipReasonModal(task as AppTask); }} className="flex-1 bg-slate-100 dark:bg-dk-elevated/60 text-slate-600 dark:text-dk-text-soft hover:bg-slate-200 text-[9px] sm:text-[10px] font-bold py-1.5 sm:py-2 rounded-lg transition-colors border border-slate-200 dark:border-dk-border/60">{tx(lang, { fr: 'IGNORER', ar: 'تجاوز', en: 'SKIP', es: 'OMITIR', pt: 'IGNORAR', tr: 'ATLA' })}</button>
                         </div>
                       </div>
                     ))}
@@ -499,8 +499,8 @@ export default function Dashboard({ models, suivis, planningEvents, settings, se
                         <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-xl sm:rounded-2xl bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-200/60 flex items-center justify-center shadow-inner mb-3 sm:mb-4">
                           <CheckCircle2 className="w-6 h-6 sm:w-8 sm:h-8 text-emerald-400" strokeWidth={1.5} />
                         </div>
-                        <p className="text-xs sm:text-sm font-bold text-slate-400">{tx(lang, { fr: 'Aucune tâche', ar: 'لا توجد مهام', en: 'No tasks', es: 'Sin tareas', pt: 'Nenhuma tarefa', tr: 'Görev yok' })}</p>
-                        <p className="text-[10px] sm:text-xs text-slate-300 mt-1 hidden sm:block">{tx(lang, { fr: 'Tout est à jour', ar: 'كل شيء محدّث', en: 'Everything is up to date', es: 'Todo está actualizado', pt: 'Tudo está atualizado', tr: 'Her şey güncel' })}</p>
+                        <p className="text-xs sm:text-sm font-bold text-slate-400 dark:text-dk-muted">{tx(lang, { fr: 'Aucune tâche', ar: 'لا توجد مهام', en: 'No tasks', es: 'Sin tareas', pt: 'Nenhuma tarefa', tr: 'Görev yok' })}</p>
+                        <p className="text-[10px] sm:text-xs text-slate-300 dark:text-dk-muted mt-1 hidden sm:block">{tx(lang, { fr: 'Tout est à jour', ar: 'كل شيء محدّث', en: 'Everything is up to date', es: 'Todo está actualizado', pt: 'Tudo está atualizado', tr: 'Her şey güncel' })}</p>
                       </div>
                     )}
                   </div>
@@ -508,17 +508,17 @@ export default function Dashboard({ models, suivis, planningEvents, settings, se
               </div>
 
               {/* CALENDAR */}
-              <div className="bg-white rounded-xl sm:rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
-                <div className="px-3 sm:px-4 md:px-5 py-3 sm:py-4 bg-gradient-to-r from-slate-50 to-white border-b border-slate-100 flex items-center gap-2 sm:gap-2.5">
+              <div className="bg-white dark:bg-dk-surface rounded-xl sm:rounded-2xl border border-slate-200 dark:border-dk-border/80 shadow-sm overflow-hidden">
+                <div className="px-3 sm:px-4 md:px-5 py-3 sm:py-4 bg-gradient-to-r from-slate-50 to-white border-b border-slate-100 dark:border-dk-border flex items-center gap-2 sm:gap-2.5">
                   <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-emerald-100 flex items-center justify-center">
                     <CalendarIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-600" />
                   </div>
-                  <h2 className="font-bold text-slate-800 text-xs sm:text-sm">{tx(lang, { fr: 'Planning', ar: 'التخطيط', en: 'Planning', es: 'Planificación', pt: 'Planejamento', tr: 'Planlama' })}</h2>
+                  <h2 className="font-bold text-slate-800 dark:text-dk-text text-xs sm:text-sm">{tx(lang, { fr: 'Planning', ar: 'التخطيط', en: 'Planning', es: 'Planificación', pt: 'Planejamento', tr: 'Planlama' })}</h2>
                 </div>
                 <div className="p-3 sm:p-4 md:p-5">
                   <div className="grid grid-cols-7 gap-0.5 sm:gap-1 text-center mb-2 sm:mb-3">
                     {currentWeekDayLabels.map((d, idx) => (
-                      <div key={idx} className="text-[9px] sm:text-[10px] font-bold text-slate-400 py-1 sm:py-1.5">{d}</div>
+                      <div key={idx} className="text-[9px] sm:text-[10px] font-bold text-slate-400 dark:text-dk-muted py-1 sm:py-1.5">{d}</div>
                     ))}
                   </div>
                   <div className="grid grid-cols-7 gap-0.5 sm:gap-1.5">
@@ -529,7 +529,7 @@ export default function Dashboard({ models, suivis, planningEvents, settings, se
                       const isToday = day === new Date().getDate();
                       return (
                         <div key={i} className={`relative rounded-lg sm:rounded-xl border flex items-center justify-center text-[10px] sm:text-xs font-medium py-1.5 sm:py-2 transition-all duration-200
-                          ${isToday ? 'border-indigo-500 bg-gradient-to-br from-indigo-500 to-indigo-600 text-white font-bold shadow-md sm:shadow-lg shadow-indigo-500/30 scale-105' : 'border-slate-100 hover:border-slate-200'}
+                          ${isToday ? 'border-indigo-500 bg-gradient-to-br from-indigo-500 to-indigo-600 text-white font-bold shadow-md sm:shadow-lg shadow-indigo-500/30 scale-105' : 'border-slate-100 dark:border-dk-border hover:border-slate-200 dark:border-dk-border'}
                           ${hasProd && !isToday ? 'bg-emerald-50 text-emerald-700 border-emerald-200/60 font-bold' : ''}
                         `}>
                           {day}
@@ -538,22 +538,22 @@ export default function Dashboard({ models, suivis, planningEvents, settings, se
                       );
                     })}
                   </div>
-                  <div className="mt-3 sm:mt-5 pt-3 sm:pt-4 border-t border-slate-100 flex gap-3 sm:gap-4 text-[10px] sm:text-xs">
-                    <div className="flex items-center gap-1.5 sm:gap-2 font-medium text-slate-500"><div className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded bg-emerald-100 border border-emerald-200" /> {tx(lang, { fr: 'Prod', ar: 'إنتاج', en: 'Prod', es: 'Prod', pt: 'Prod', tr: 'Üretim' })}</div>
-                    <div className="flex items-center gap-1.5 sm:gap-2 font-medium text-slate-500"><div className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded bg-indigo-500 shadow-sm" /> {tx(lang, { fr: "Aujourd'hui", ar: 'اليوم', en: 'Today', es: 'Hoy', pt: 'Hoje', tr: 'Bugün' })}</div>
+                  <div className="mt-3 sm:mt-5 pt-3 sm:pt-4 border-t border-slate-100 dark:border-dk-border flex gap-3 sm:gap-4 text-[10px] sm:text-xs">
+                    <div className="flex items-center gap-1.5 sm:gap-2 font-medium text-slate-500 dark:text-dk-muted"><div className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded bg-emerald-100 border border-emerald-200" /> {tx(lang, { fr: 'Prod', ar: 'إنتاج', en: 'Prod', es: 'Prod', pt: 'Prod', tr: 'Üretim' })}</div>
+                    <div className="flex items-center gap-1.5 sm:gap-2 font-medium text-slate-500 dark:text-dk-muted"><div className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded bg-indigo-500 shadow-sm" /> {tx(lang, { fr: "Aujourd'hui", ar: 'اليوم', en: 'Today', es: 'Hoy', pt: 'Hoje', tr: 'Bugün' })}</div>
                   </div>
                 </div>
               </div>
             </div>
 
             {/* RIGHT AREA: Production Chart */}
-            <div className="lg:col-span-2 bg-white rounded-xl sm:rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden flex flex-col">
-              <div className="px-3 sm:px-4 md:px-5 py-3 sm:py-4 bg-gradient-to-r from-slate-50 to-white border-b border-slate-100 flex items-center justify-between flex-wrap gap-2 sm:gap-3">
+            <div className="lg:col-span-2 bg-white dark:bg-dk-surface rounded-xl sm:rounded-2xl border border-slate-200 dark:border-dk-border/80 shadow-sm overflow-hidden flex flex-col">
+              <div className="px-3 sm:px-4 md:px-5 py-3 sm:py-4 bg-gradient-to-r from-slate-50 to-white border-b border-slate-100 dark:border-dk-border flex items-center justify-between flex-wrap gap-2 sm:gap-3">
                 <div className="flex items-center gap-2 sm:gap-2.5">
                   <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-indigo-100 flex items-center justify-center">
                     <TrendingUp className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-indigo-600" />
                   </div>
-                  <h2 className="font-bold text-slate-800 text-xs sm:text-sm">{tx(lang, { fr: 'Évolution Production', ar: 'تطور الإنتاج', en: 'Production Trend', es: 'Evolución de Producción', pt: 'Evolução da Produção', tr: 'Üretim Trendi' })}</h2>
+                  <h2 className="font-bold text-slate-800 dark:text-dk-text text-xs sm:text-sm">{tx(lang, { fr: 'Évolution Production', ar: 'تطور الإنتاج', en: 'Production Trend', es: 'Evolución de Producción', pt: 'Evolução da Produção', tr: 'Üretim Trendi' })}</h2>
                 </div>
                 <button onClick={handleExportCSV} className="inline-flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-lg sm:rounded-xl bg-gradient-to-r from-indigo-500 to-indigo-600 hover:from-indigo-600 hover:to-indigo-700 text-white font-bold text-[10px] sm:text-xs shadow-lg shadow-indigo-500/30 transition-all duration-200 hover:shadow-xl hover:-translate-y-0.5">
                   <Download className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
@@ -589,12 +589,12 @@ export default function Dashboard({ models, suivis, planningEvents, settings, se
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-5 md:gap-6">
 
             {/* EFFICIENCY */}
-            <div className="bg-white rounded-xl sm:rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
-              <div className="px-3 sm:px-4 md:px-5 py-3 sm:py-4 bg-gradient-to-r from-slate-50 to-white border-b border-slate-100 flex items-center gap-2 sm:gap-2.5">
+            <div className="bg-white dark:bg-dk-surface rounded-xl sm:rounded-2xl border border-slate-200 dark:border-dk-border/80 shadow-sm overflow-hidden">
+              <div className="px-3 sm:px-4 md:px-5 py-3 sm:py-4 bg-gradient-to-r from-slate-50 to-white border-b border-slate-100 dark:border-dk-border flex items-center gap-2 sm:gap-2.5">
                 <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-indigo-100 flex items-center justify-center">
                   <Activity className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-indigo-600" />
                 </div>
-                <h2 className="font-bold text-slate-800 text-xs sm:text-sm">{tx(lang, { fr: 'Rendement Chaînes', ar: 'مردودية الخطوط', en: 'Line Efficiency', es: 'Rendimiento de Líneas', pt: 'Rendimento das Linhas', tr: 'Hat Verimliliği' })}</h2>
+                <h2 className="font-bold text-slate-800 dark:text-dk-text text-xs sm:text-sm">{tx(lang, { fr: 'Rendement Chaînes', ar: 'مردودية الخطوط', en: 'Line Efficiency', es: 'Rendimiento de Líneas', pt: 'Rendimento das Linhas', tr: 'Hat Verimliliği' })}</h2>
               </div>
               <div className="p-3 sm:p-4 md:p-5">
                 <div className="h-[180px] sm:h-[200px] w-full">
@@ -614,12 +614,12 @@ export default function Dashboard({ models, suivis, planningEvents, settings, se
             </div>
 
             {/* ANDON ALERTS */}
-            <div className="bg-white rounded-xl sm:rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden flex flex-col">
-              <div className="px-3 sm:px-4 md:px-5 py-3 sm:py-4 bg-gradient-to-r from-slate-50 to-white border-b border-slate-100 flex items-center gap-2 sm:gap-2.5">
+            <div className="bg-white dark:bg-dk-surface rounded-xl sm:rounded-2xl border border-slate-200 dark:border-dk-border/80 shadow-sm overflow-hidden flex flex-col">
+              <div className="px-3 sm:px-4 md:px-5 py-3 sm:py-4 bg-gradient-to-r from-slate-50 to-white border-b border-slate-100 dark:border-dk-border flex items-center gap-2 sm:gap-2.5">
                 <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-rose-100 flex items-center justify-center">
                   <AlertTriangle className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-rose-600" />
                 </div>
-                <h2 className="font-bold text-slate-800 text-xs sm:text-sm">{tx(lang, { fr: 'Alertes Andon', ar: 'تنبيهات Andon', en: 'Andon Alerts', es: 'Alertas Andon', pt: 'Alertas Andon', tr: 'Andon Uyarıları' })}</h2>
+                <h2 className="font-bold text-slate-800 dark:text-dk-text text-xs sm:text-sm">{tx(lang, { fr: 'Alertes Andon', ar: 'تنبيهات Andon', en: 'Andon Alerts', es: 'Alertas Andon', pt: 'Alertas Andon', tr: 'Andon Uyarıları' })}</h2>
               </div>
               <div className="p-3 sm:p-4 md:p-5 flex-1" style={{ minHeight: '200px' }}>
                 <div className="h-full overflow-y-auto space-y-2 sm:space-y-3 custom-scrollbar">
@@ -642,8 +642,8 @@ export default function Dashboard({ models, suivis, planningEvents, settings, se
                       <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-xl sm:rounded-2xl bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-200/60 flex items-center justify-center shadow-inner mb-3 sm:mb-4">
                         <CheckCircle2 className="w-6 h-6 sm:w-8 sm:h-8 text-emerald-400" strokeWidth={1.5} />
                       </div>
-                      <p className="text-xs sm:text-sm font-bold text-slate-400">{tx(lang, { fr: 'Aucune alerte', ar: 'لا توجد تنبيهات', en: 'No alerts', es: 'Sin alertas', pt: 'Nenhum alerta', tr: 'Uyarı yok' })}</p>
-                      <p className="text-[10px] sm:text-xs text-slate-300 mt-1 hidden sm:block">{tx(lang, { fr: 'Tout fonctionne normalement', ar: 'كل شيء يعمل بشكل طبيعي', en: 'Everything is running normally', es: 'Todo funciona normalmente', pt: 'Tudo está funcionando normalmente', tr: 'Her şey normal çalışıyor' })}</p>
+                      <p className="text-xs sm:text-sm font-bold text-slate-400 dark:text-dk-muted">{tx(lang, { fr: 'Aucune alerte', ar: 'لا توجد تنبيهات', en: 'No alerts', es: 'Sin alertas', pt: 'Nenhum alerta', tr: 'Uyarı yok' })}</p>
+                      <p className="text-[10px] sm:text-xs text-slate-300 dark:text-dk-muted mt-1 hidden sm:block">{tx(lang, { fr: 'Tout fonctionne normalement', ar: 'كل شيء يعمل بشكل طبيعي', en: 'Everything is running normally', es: 'Todo funciona normalmente', pt: 'Tudo está funcionando normalmente', tr: 'Her şey normal çalışıyor' })}</p>
                     </div>
                   )}
                 </div>
@@ -657,12 +657,12 @@ export default function Dashboard({ models, suivis, planningEvents, settings, se
 
       {/* SKIP MODAL */}
       {skipReasonModal && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-3 sm:p-4">
-          <div className="bg-white rounded-xl sm:rounded-2xl w-full max-w-sm sm:max-w-md overflow-hidden shadow-2xl border border-slate-200/80">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 dark:bg-dk-bg/80 backdrop-blur-sm p-3 sm:p-4">
+          <div className="bg-white dark:bg-dk-surface rounded-xl sm:rounded-2xl w-full max-w-sm sm:max-w-md overflow-hidden shadow-2xl border border-slate-200 dark:border-dk-border/80">
             <div className="h-1.5 w-full bg-gradient-to-r from-amber-400 to-orange-500" />
-            <div className="p-4 sm:p-6 border-b border-slate-100 flex justify-between items-center">
-              <h3 className="font-bold text-slate-800 text-base sm:text-lg">{tx(lang, { fr: "Motif d'annulation", ar: 'سبب الإلغاء', en: 'Cancellation reason', es: 'Motivo de cancelación', pt: 'Motivo do cancelamento', tr: 'İptal nedeni' })}</h3>
-              <button onClick={() => { setSkipReasonModal(null); setSkipReasonText(''); }} className="p-2 rounded-xl hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors">
+            <div className="p-4 sm:p-6 border-b border-slate-100 dark:border-dk-border flex justify-between items-center">
+              <h3 className="font-bold text-slate-800 dark:text-dk-text text-base sm:text-lg">{tx(lang, { fr: "Motif d'annulation", ar: 'سبب الإلغاء', en: 'Cancellation reason', es: 'Motivo de cancelación', pt: 'Motivo do cancelamento', tr: 'İptal nedeni' })}</h3>
+              <button onClick={() => { setSkipReasonModal(null); setSkipReasonText(''); }} className="p-2 rounded-xl hover:bg-slate-100 dark:bg-dk-elevated/60 text-slate-400 dark:text-dk-muted hover:text-slate-600 dark:text-dk-text-soft transition-colors">
                 <AlertTriangle className="w-5 h-5 opacity-0" />
               </button>
             </div>
@@ -674,12 +674,12 @@ export default function Dashboard({ models, suivis, planningEvents, settings, se
                 <p>{tx(lang, { fr: "Vous êtes sur le point d'ignorer la tâche :", ar: 'أنت على وشك تجاوز المهمة:', en: 'You are about to skip the task:', es: 'Está a punto de omitir la tarea:', pt: 'Você está prestes a ignorar a tarefa:', tr: 'Görevi atlamak üzeresiniz:' })} <br /><span className="font-bold">"{skipReasonModal.text}"</span>.</p>
               </div>
               <div>
-                <label className="block text-xs font-bold uppercase text-slate-500 mb-2">{tx(lang, { fr: 'Raison / Justification', ar: 'السبب / التبرير', en: 'Reason / Justification', es: 'Motivo / Justificación', pt: 'Motivo / Justificativa', tr: 'Neden / Gerekçe' })}</label>
-                <textarea value={skipReasonText} onChange={(e) => setSkipReasonText(e.target.value)} placeholder={tx(lang, { fr: 'Ex: Machine en panne...', ar: 'مثال: عطل في الآلة...', en: 'E.g.: Machine breakdown...', es: 'Ej: Máquina averiada...', pt: 'Ex: Máquina avariada...', tr: 'Örn: Makine arızası...' })} className="w-full border border-slate-200 bg-white rounded-lg sm:rounded-xl px-3 sm:px-4 py-2.5 sm:py-3 text-xs sm:text-sm outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 transition-all shadow-sm h-20 sm:h-24 resize-none" autoFocus />
+                <label className="block text-xs font-bold uppercase text-slate-500 dark:text-dk-muted mb-2">{tx(lang, { fr: 'Raison / Justification', ar: 'السبب / التبرير', en: 'Reason / Justification', es: 'Motivo / Justificación', pt: 'Motivo / Justificativa', tr: 'Neden / Gerekçe' })}</label>
+                <textarea value={skipReasonText} onChange={(e) => setSkipReasonText(e.target.value)} placeholder={tx(lang, { fr: 'Ex: Machine en panne...', ar: 'مثال: عطل في الآلة...', en: 'E.g.: Machine breakdown...', es: 'Ej: Máquina averiada...', pt: 'Ex: Máquina avariada...', tr: 'Örn: Makine arızası...' })} className="w-full border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface rounded-lg sm:rounded-xl px-3 sm:px-4 py-2.5 sm:py-3 text-xs sm:text-sm outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 transition-all shadow-sm h-20 sm:h-24 resize-none" autoFocus />
               </div>
             </div>
-            <div className="p-3 sm:p-4 bg-slate-50/80 border-t border-slate-100 flex justify-end gap-2">
-              <button onClick={() => { setSkipReasonModal(null); setSkipReasonText(''); }} className="px-3 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm font-bold text-slate-600 hover:bg-slate-100 rounded-lg sm:rounded-xl transition-colors">{tx(lang, { fr: 'Annuler', ar: 'إلغاء', en: 'Cancel', es: 'Cancelar', pt: 'Cancelar', tr: 'İptal' })}</button>
+            <div className="p-3 sm:p-4 bg-slate-50 dark:bg-dk-bg/80 dark:bg-dk-bg/80 border-t border-slate-100 dark:border-dk-border flex justify-end gap-2">
+              <button onClick={() => { setSkipReasonModal(null); setSkipReasonText(''); }} className="px-3 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm font-bold text-slate-600 dark:text-dk-text-soft hover:bg-slate-100 dark:bg-dk-elevated/60 rounded-lg sm:rounded-xl transition-colors">{tx(lang, { fr: 'Annuler', ar: 'إلغاء', en: 'Cancel', es: 'Cancelar', pt: 'Cancelar', tr: 'İptal' })}</button>
               <button onClick={handleSkipSubmit} disabled={!skipReasonText.trim()} className="px-4 sm:px-5 py-2 sm:py-2.5 text-xs sm:text-sm font-bold bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white rounded-lg sm:rounded-xl shadow-lg shadow-amber-500/30 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed">{tx(lang, { fr: 'Confirmer', ar: 'تأكيد', en: 'Confirm', es: 'Confirmar', pt: 'Confirmar', tr: 'Onayla' })}</button>
             </div>
           </div>
