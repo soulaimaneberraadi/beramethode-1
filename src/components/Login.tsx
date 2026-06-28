@@ -406,7 +406,7 @@ export default function Login({ onSwitch, onGuest }: { onSwitch: () => void, onG
                   <input
                     type="email"
                     required
-                    className="w-full pl-11 pr-4 py-4 rounded-xl border border-slate-200 text-slate-900 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 bg-slate-50/50 focus:bg-white placeholder-slate-400 sm:text-sm transition-all duration-200 shadow-sm"
+                    className="w-full pl-11 pr-4 py-4 rounded-xl border border-slate-200 text-slate-900 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 bg-slate-50/50 focus:bg-white placeholder-slate-400 sm:text-sm transition-all duration-200 shadow-sm dark:border-dk-border dark:text-dk-text dark:bg-dk-bg/60 dark:focus:bg-dk-surface"
                     placeholder={tx(lang, {fr:'Adresse e-mail',ar:'البريد الإلكتروني',en:'Email address',es:'Correo electrónico',pt:'Endereço de e-mail',tr:'E-posta adresi'})}
                     value={resetEmail}
                     onChange={(e) => setResetEmail(e.target.value)}
@@ -691,7 +691,7 @@ export default function Login({ onSwitch, onGuest }: { onSwitch: () => void, onG
         )}
         
         <motion.div variants={itemVariants} className="mt-8 text-center">
-          <p className="text-sm text-slate-500">
+          <p className="text-sm text-slate-500 dark:text-dk-muted">
             {tx(lang, {fr:'Vous n\'avez pas de compte ?',ar:'ليس لديك حساب؟',en:'Don\'t have an account?',es:'¿No tiene una cuenta?',pt:'Não tem uma conta?',tr:'Hesabınız yok mu?'})}{' '}
             <button 
               onClick={onSwitch} 

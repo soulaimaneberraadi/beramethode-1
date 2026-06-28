@@ -32,7 +32,7 @@ export default function DragPreview({
             className="fixed z-[80] pointer-events-none"
             style={{ left: x + 16, top: y + 16, animation: 'planning-fade-in 80ms ease-out' }}
         >
-            <div className="bg-slate-900 text-white rounded-md shadow-[0_4px_16px_rgba(0,0,0,0.2)] px-3 py-2 min-w-[180px]">
+            <div className="bg-slate-900 text-white rounded-md shadow-[0_4px_16px_rgba(0,0,0,0.2)] dark:shadow-[0_4px_16px_rgba(0,0,0,0.5)] px-3 py-2 min-w-[180px]">
                 <div className="text-[10px] uppercase tracking-wider text-slate-400 dark:text-dk-muted mb-1">{chainName}</div>
                 <div className="flex items-center gap-1.5 text-[11px] mb-1">
                     <Calendar className="w-3 h-3 text-slate-300 dark:text-dk-muted" strokeWidth={1.75} />

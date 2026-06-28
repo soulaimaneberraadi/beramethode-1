@@ -21,7 +21,7 @@ export default function CapacityRibbon({ timelineDates, chainId, events, setting
     const { lang } = useLang();
     const cap = getChainDailyCapacity(settings.chainCapacityPerDay, chainId, 1000);
     return (
-        <div className="flex w-full shrink-0 border-b border-slate-200 dark:border-dk-border/60 bg-slate-50/80">
+        <div className="flex w-full shrink-0 border-b border-slate-200 dark:border-dk-border/60 bg-slate-50/80 dark:bg-dk-bg/80">
             {timelineDates.map(date => {
                 const dk = planningLocalDateKey(date);
                 const r = dayLoadRatio(dk, events, chainId, cap);
