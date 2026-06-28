@@ -1786,11 +1786,10 @@ export default function Gamme({
     <div className="space-y-6 pb-20 animate-in fade-in slide-in-from-bottom-2 duration-300 relative">
       
        {/* 1. SINGLE ROW HEADER - RESPONSIVE (UNCHANGED) */}
-       <div className="bg-white rounded-xl border border-slate-200 shadow-sm mb-4 p-2 flex flex-nowrap items-center gap-2 overflow-x-auto no-scrollbar">
-            {/* ... (Header Stats - Identical to previous) ... */}
-            <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-50 rounded-lg border border-slate-100 shrink-0">
-                <div className="flex flex-col items-center border-r border-slate-200 pr-3 mr-3">
-                    <span className="text-[9px] font-bold text-slate-400 uppercase">{tx(lang,{fr:'Ouvriers',ar:'عمال',en:'Workers',es:'Obreros',pt:'Trabalhadores',tr:'İşçiler'})}</span>
+       <div className="bg-white dark:bg-dk-surface rounded-xl border border-slate-200 dark:border-dk-border shadow-sm mb-4 p-2 flex flex-nowrap items-center gap-2 overflow-x-auto no-scrollbar">
+            <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-50 dark:bg-dk-elevated/60 rounded-lg border border-slate-100 dark:border-dk-border shrink-0">
+                <div className="flex flex-col items-center border-r border-slate-200 dark:border-dk-border pr-3 mr-3">
+                    <span className="text-[9px] font-bold text-slate-400 dark:text-dk-muted uppercase">{tx(lang,{fr:'Ouvriers',ar:'عمال',en:'Workers',es:'Obreros',pt:'Trabalhadores',tr:'İşçiler'})}</span>
                     <input 
                         type="number" 
                         min="1" 
@@ -1799,11 +1798,11 @@ export default function Gamme({
                           const nextWorkers = Math.max(1, Math.round(Number(e.target.value)));
                           setNumWorkers(nextWorkers);
                         }} 
-                        className="w-12 text-center bg-transparent font-black text-slate-700 outline-none text-sm p-0" 
+                        className="w-12 text-center bg-transparent font-black text-slate-700 dark:text-dk-text outline-none text-sm p-0" 
                     />
                 </div>
                 <div className="flex flex-col items-center">
-                    <span className="text-[9px] font-bold text-slate-400 uppercase">{tx(lang,{fr:'Heures',ar:'ساعات',en:'Hours',es:'Horas',pt:'Horas',tr:'Saatler'})}</span>
+                    <span className="text-[9px] font-bold text-slate-400 dark:text-dk-muted uppercase">{tx(lang,{fr:'Heures',ar:'ساعات',en:'Hours',es:'Horas',pt:'Horas',tr:'Saatler'})}</span>
                     <input 
                         type="number" 
                         min="0" 
@@ -1814,48 +1813,46 @@ export default function Gamme({
                           const nextPresenceTime = nextHours * 60;
                           setPresenceTime(nextPresenceTime);
                         }} 
-                        className="w-10 text-center bg-transparent font-black text-slate-700 outline-none text-sm p-0" 
+                        className="w-10 text-center bg-transparent font-black text-slate-700 dark:text-dk-text outline-none text-sm p-0" 
                     />
                 </div>
             </div>
 
-            <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-50/50 rounded-lg border border-emerald-100 shrink-0">
-                <div className="flex flex-col items-center border-r border-emerald-100 pr-3 mr-3">
-                    <span className="text-[9px] font-bold text-emerald-600 uppercase flex items-center gap-1"><Zap className="w-3 h-3" />{tx(lang,{fr:'BF (s)',ar:'BF (ث)',en:'BF (s)',es:'BF (s)',pt:'BF (s)',tr:'BF (s)'})}</span>
-                    <span className="font-black text-emerald-700 text-sm">{(bf * 60).toFixed(1)}</span>
+            <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-50/50 dark:bg-emerald-900/20 rounded-lg border border-emerald-100 dark:border-emerald-900/30 shrink-0">
+                <div className="flex flex-col items-center border-r border-emerald-100 dark:border-emerald-900/30 pr-3 mr-3">
+                    <span className="text-[9px] font-bold text-emerald-600 dark:text-emerald-400 uppercase flex items-center gap-1"><Zap className="w-3 h-3" />{tx(lang,{fr:'BF (s)',ar:'BF (ث)',en:'BF (s)',es:'BF (s)',pt:'BF (s)',tr:'BF (s)'})}</span>
+                    <span className="font-black text-emerald-700 dark:text-emerald-300 text-sm">{(bf * 60).toFixed(1)}</span>
                 </div>
                 <div className="flex flex-col items-center">
-                    <span className="text-[9px] font-bold text-emerald-600 uppercase">{tx(lang,{fr:'Min Tot.',ar:'مجموع د',en:'Total Min',es:'Min Tot.',pt:'Min Tot.',tr:'Toplam Dk'})}</span>
-                    <span className="font-black text-emerald-700 text-sm">{presenceTime}</span>
+                    <span className="text-[9px] font-bold text-emerald-600 dark:text-emerald-400 uppercase">{tx(lang,{fr:'Min Tot.',ar:'مجموع د',en:'Total Min',es:'Min Tot.',pt:'Min Tot.',tr:'Toplam Dk'})}</span>
+                    <span className="font-black text-emerald-700 dark:text-emerald-300 text-sm">{presenceTime}</span>
                 </div>
             </div>
 
-            {/* P/H 100% */}
-            <div className="flex flex-col items-center px-3 py-1.5 bg-orange-50/50 rounded-lg border border-orange-100 shrink-0">
-                <span className="text-[9px] font-bold text-orange-400 uppercase">{tx(lang,{fr:'P/H (100%)',ar:'P/H (100%)',en:'P/H (100%)',es:'P/H (100%)',pt:'P/H (100%)',tr:'P/H (100%)'})}</span>
-                <span className="font-black text-orange-500 text-sm leading-none mt-1">
+            <div className="flex flex-col items-center px-3 py-1.5 bg-orange-50/50 dark:bg-orange-900/20 rounded-lg border border-orange-100 dark:border-orange-900/30 shrink-0">
+                <span className="text-[9px] font-bold text-orange-400 dark:text-orange-300 uppercase">{tx(lang,{fr:'P/H (100%)',ar:'P/H (100%)',en:'P/H (100%)',es:'P/H (100%)',pt:'P/H (100%)',tr:'P/H (100%)'})}</span>
+                <span className="font-black text-orange-500 dark:text-orange-300 text-sm leading-none mt-1">
                     {Math.round((tempsArticle > 0 && presenceTime > 0) ? ((presenceTime * numWorkers) / tempsArticle) / (presenceTime / 60) : 0)}
                 </span>
             </div>
 
-            {/* TARGETS */}
-            <div className="flex items-center gap-3 px-3 py-1.5 bg-slate-50/50 rounded-lg border border-slate-100 shrink-0">
-                <div className="flex flex-col items-center border-r border-slate-200 pr-3 mr-1">
-                    <span className="text-[9px] font-bold text-slate-400 uppercase">{tx(lang,{fr:'P/J',ar:'P/J',en:'P/D',es:'P/D',pt:'P/D',tr:'P/G'})}</span>
-                    <span className="font-black text-slate-700 text-sm leading-none mt-1">
+            <div className="flex items-center gap-3 px-3 py-1.5 bg-slate-50/50 dark:bg-dk-elevated/60 rounded-lg border border-slate-100 dark:border-dk-border shrink-0">
+                <div className="flex flex-col items-center border-r border-slate-200 dark:border-dk-border pr-3 mr-1">
+                    <span className="text-[9px] font-bold text-slate-400 dark:text-dk-muted uppercase">{tx(lang,{fr:'P/J',ar:'P/J',en:'P/D',es:'P/D',pt:'P/D',tr:'P/G'})}</span>
+                    <span className="font-black text-slate-700 dark:text-dk-text text-sm leading-none mt-1">
                         {Math.round(((tempsArticle > 0 && presenceTime > 0) ? (presenceTime * numWorkers) / tempsArticle : 0) * (efficiency / 100))}
                     </span>
                 </div>
                 <div className="flex flex-col items-center">
-                    <span className="text-[9px] font-bold text-slate-400 uppercase">{tx(lang,{fr:'P/H',ar:'P/H',en:'P/H',es:'P/H',pt:'P/H',tr:'P/H'})}</span>
-                    <span className="font-black text-slate-700 text-sm leading-none mt-1">
+                    <span className="text-[9px] font-bold text-slate-400 dark:text-dk-muted uppercase">{tx(lang,{fr:'P/H',ar:'P/H',en:'P/H',es:'P/H',pt:'P/H',tr:'P/H'})}</span>
+                    <span className="font-black text-slate-700 dark:text-dk-text text-sm leading-none mt-1">
                         {Math.round(((tempsArticle > 0 && presenceTime > 0) ? ((presenceTime * numWorkers) / tempsArticle) / (presenceTime / 60) : 0) * (efficiency / 100))}
                     </span>
                 </div>
             </div>
 
-            <div className="flex flex-col items-center px-3 py-1.5 bg-indigo-50/50 rounded-lg border border-indigo-100 shrink-0">
-                <span className="text-[9px] font-bold text-indigo-400 uppercase">{tx(lang,{fr:'% Rendu',ar:'% إنتاجية',en:'% Yield',es:'% Rendim.',pt:'% Rendim.',tr:'% Verim'})}</span>
+            <div className="flex flex-col items-center px-3 py-1.5 bg-indigo-50/50 dark:bg-indigo-900/20 rounded-lg border border-indigo-100 dark:border-indigo-900/30 shrink-0">
+                <span className="text-[9px] font-bold text-indigo-400 dark:text-indigo-300 uppercase">{tx(lang,{fr:'% Rendu',ar:'% إنتاجية',en:'% Yield',es:'% Rendim.',pt:'% Rendim.',tr:'% Verim'})}</span>
                 <div className="flex items-baseline gap-0.5">
                     <input 
                         type="number" 
@@ -1865,25 +1862,25 @@ export default function Gamme({
                           const nextEfficiency = Math.max(1, Math.min(100, Number(e.target.value)));
                           setEfficiency(nextEfficiency);
                         }} 
-                        className="w-8 text-center bg-transparent font-black text-indigo-600 outline-none text-sm border-b border-indigo-200 p-0" 
+                        className="w-8 text-center bg-transparent font-black text-indigo-600 dark:text-indigo-300 outline-none text-sm border-b border-indigo-200 dark:border-indigo-800 p-0" 
                     />
-                    <span className="text-[10px] font-bold text-indigo-400">{tx(lang,{fr:'%',ar:'%',en:'%',es:'%',pt:'%',tr:'%'})}</span>
+                    <span className="text-[10px] font-bold text-indigo-400 dark:text-indigo-300">{tx(lang,{fr:'%',ar:'%',en:'%',es:'%',pt:'%',tr:'%'})}</span>
                 </div>
             </div>
 
-            <div className="ml-auto flex items-center gap-2 px-3 py-1.5 bg-purple-100 rounded-lg border border-purple-200 shrink-0">
-                <div className="flex flex-col items-center border-r border-purple-200 pr-3 mr-1">
-                    <span className="text-[9px] font-bold text-purple-500 uppercase flex items-center gap-1"><Timer className="w-3 h-3" />{tx(lang,{fr:'T. Art (min)',ar:'و. قط (د)',en:'T. Art (min)',es:'T. Art (min)',pt:'T. Art (min)',tr:'P. Süre (dk)'})}</span>
-                    <span className="font-black text-purple-700 text-xl leading-none">{tempsArticle.toFixed(2)}</span>
+            <div className="ml-auto flex items-center gap-2 px-3 py-1.5 bg-purple-100 dark:bg-purple-900/30 rounded-lg border border-purple-200 dark:border-purple-800 shrink-0">
+                <div className="flex flex-col items-center border-r border-purple-200 dark:border-purple-800 pr-3 mr-1">
+                    <span className="text-[9px] font-bold text-purple-500 dark:text-purple-300 uppercase flex items-center gap-1"><Timer className="w-3 h-3" />{tx(lang,{fr:'T. Art (min)',ar:'و. قط (د)',en:'T. Art (min)',es:'T. Art (min)',pt:'T. Art (min)',tr:'P. Süre (dk)'})}</span>
+                    <span className="font-black text-purple-700 dark:text-purple-200 text-xl leading-none">{tempsArticle.toFixed(2)}</span>
                 </div>
                 <div className="flex flex-col items-center">
-                    <span className="text-[9px] font-bold text-purple-500 uppercase">{tx(lang,{fr:'T. Art (s)',ar:'و. قط (ث)',en:'T. Art (s)',es:'T. Art (s)',pt:'T. Art (s)',tr:'P. Süre (sn)'})}</span>
-                    <span className="font-black text-purple-700 text-xl leading-none">{(tempsArticle * 60).toFixed(1)}</span>
+                    <span className="text-[9px] font-bold text-purple-500 dark:text-purple-300 uppercase">{tx(lang,{fr:'T. Art (s)',ar:'و. قط (ث)',en:'T. Art (s)',es:'T. Art (s)',pt:'T. Art (s)',tr:'P. Süre (sn)'})}</span>
+                    <span className="font-black text-purple-700 dark:text-purple-200 text-xl leading-none">{(tempsArticle * 60).toFixed(1)}</span>
                 </div>
             </div>
        </div>
 
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col min-h-[500px] relative">
+      <div className="bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border shadow-sm overflow-hidden flex flex-col min-h-[500px] relative">
         
         {/* SMALL FLOATING TOAST: LINKING MODE ACTIF (Top Center) - Disappears after 7s */}
         {isLinkingMode && showLinkNotification && !pendingLinkTarget && createPortal(
@@ -1905,14 +1902,14 @@ export default function Gamme({
 
         {/* COMPACT FLOATING BAR: CONFIRMATION (Bottom Center) */}
         {pendingLinkTarget && targetOpInfo && createPortal(
-            <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-[9999] bg-white border border-emerald-200 pl-4 pr-1.5 py-1.5 rounded-full shadow-2xl flex items-center gap-4 animate-in slide-in-from-bottom-5 duration-300 min-w-[320px]">
+            <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-[9999] bg-white dark:bg-dk-surface border border-emerald-200 dark:border-emerald-900/30 pl-4 pr-1.5 py-1.5 rounded-full shadow-2xl flex items-center gap-4 animate-in slide-in-from-bottom-5 duration-300 min-w-[320px]">
                 <div className="flex items-center gap-3">
-                    <div className="p-1.5 bg-emerald-100 rounded-full text-emerald-600">
+                    <div className="p-1.5 bg-emerald-100 dark:bg-emerald-900/50 rounded-full text-emerald-600 dark:text-emerald-300">
                         <LinkIcon className="w-4 h-4" />
                     </div>
                     <div className="flex flex-col">
-                        <span className="text-[10px] font-black uppercase text-slate-400 tracking-wide">{tx(lang,{fr:'Lier & Regrouper vers',ar:'ربط وتجميع إلى',en:'Link & Group to',es:'Enlazar y Agrupar a',pt:'Vincular e Agrupar para',tr:'Bağla ve Gruplandır'})}</span>
-                        <span className="text-xs font-bold text-slate-800 max-w-[150px] truncate" title={targetOpInfo.description}>
+                        <span className="text-[10px] font-black uppercase text-slate-400 dark:text-dk-muted tracking-wide">{tx(lang,{fr:'Lier & Regrouper vers',ar:'ربط وتجميع إلى',en:'Link & Group to',es:'Enlazar y Agrupar a',pt:'Vincular e Agrupar para',tr:'Bağla ve Gruplandır'})}</span>
+                        <span className="text-xs font-bold text-slate-800 dark:text-dk-text max-w-[150px] truncate" title={targetOpInfo.description}>
                             {targetOpInfo.description}
                         </span>
                     </div>
@@ -1921,15 +1918,15 @@ export default function Gamme({
                 <div className="flex items-center gap-1 ml-auto">
                     <button 
                         onClick={cancelFlux}
-                    className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full transition-colors"
+                    className="p-2 text-slate-400 dark:text-dk-muted hover:text-slate-600 dark:hover:text-dk-text hover:bg-slate-100 dark:hover:bg-dk-elevated/60 rounded-full transition-colors"
                     title={tx(lang,{fr:'Annuler',ar:'إلغاء',en:'Cancel',es:'Cancelar',pt:'Cancelar',tr:'İptal'})}
                     >
                         <X className="w-4 h-4" />
                     </button>
-                    <div className="w-px h-6 bg-slate-100 mx-1"></div>
+                    <div className="w-px h-6 bg-slate-100 dark:bg-dk-border mx-1"></div>
                     <button 
                         onClick={confirmFlux}
-                        className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-full text-xs font-bold shadow-lg shadow-emerald-200 transition-all flex items-center gap-2 active:scale-95"
+                        className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-full text-xs font-bold shadow-lg shadow-emerald-200 dark:shadow-emerald-900/30 transition-all flex items-center gap-2 active:scale-95"
                     >
                         <CheckCircle className="w-3.5 h-3.5" />
                         {tx(lang,{fr:'Confirmer',ar:'تأكيد',en:'Confirm',es:'Confirmar',pt:'Confirmar',tr:'Onayla'})}
@@ -1942,11 +1939,11 @@ export default function Gamme({
         {guideFeedback && createPortal(
             <div className={`fixed top-24 right-4 sm:right-6 z-[9999] rounded-2xl border px-4 py-3 shadow-2xl backdrop-blur-sm max-w-sm animate-in fade-in slide-in-from-top-2 duration-200 ${
                 guideFeedback.tone === 'warning'
-                  ? 'bg-rose-50/95 border-rose-200 text-rose-700'
-                  : 'bg-emerald-50/95 border-emerald-200 text-emerald-700'
+                  ? 'bg-rose-50/95 dark:bg-rose-900/40 border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300'
+                  : 'bg-emerald-50/95 dark:bg-emerald-900/40 border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300'
             }`}>
                 <div className="flex items-start gap-2">
-                    <AlertTriangle className={`w-4 h-4 mt-0.5 shrink-0 ${guideFeedback.tone === 'warning' ? 'text-rose-500' : 'text-emerald-500'}`} />
+                    <AlertTriangle className={`w-4 h-4 mt-0.5 shrink-0 ${guideFeedback.tone === 'warning' ? 'text-rose-500 dark:text-rose-400' : 'text-emerald-500 dark:text-emerald-400'}`} />
                     <p className="text-xs font-bold leading-relaxed">{guideFeedback.message}</p>
                 </div>
             </div>,
@@ -1955,24 +1952,24 @@ export default function Gamme({
 
         {/* FLOATING ACTION BAR FOR SELECTION - NOW CONTROLS EXIT */}
         {isSelectionMode && !isLinkingMode && createPortal(
-            <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-[9999] bg-white border border-slate-200 pl-4 pr-1.5 py-1.5 rounded-full shadow-2xl flex items-center gap-4 animate-in slide-in-from-bottom-5 duration-300 min-w-[220px]">
+            <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-[9999] bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border pl-4 pr-1.5 py-1.5 rounded-full shadow-2xl flex items-center gap-4 animate-in slide-in-from-bottom-5 duration-300 min-w-[220px]">
                 <div className="flex items-center gap-2">
-                    <div className="p-1.5 bg-indigo-100 rounded-full text-indigo-600">
+                    <div className="p-1.5 bg-indigo-100 dark:bg-indigo-900/50 rounded-full text-indigo-600 dark:text-indigo-300">
                         <CheckSquare className="w-4 h-4" />
                     </div>
-                    <span className="text-xs font-bold text-slate-700">{tx(lang,{fr:'Mode Sélection',ar:'وضع التحديد',en:'Selection Mode',es:'Modo Selección',pt:'Modo Seleção',tr:'Seçim Modu'})} {selectedOpIds.length > 0 && `(${selectedOpIds.length})`}</span>
+                    <span className="text-xs font-bold text-slate-700 dark:text-dk-text">{tx(lang,{fr:'Mode Sélection',ar:'وضع التحديد',en:'Selection Mode',es:'Modo Selección',pt:'Modo Seleção',tr:'Seçim Modu'})} {selectedOpIds.length > 0 && `(${selectedOpIds.length})`}</span>
                 </div>
-                <div className="h-4 w-px bg-slate-200"></div>
+                <div className="h-4 w-px bg-slate-200 dark:bg-dk-border"></div>
                 
                 {selectedOpIds.length > 0 && (
-                    <button onClick={() => handleContextAction('link')} className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-full text-xs font-bold transition-colors flex items-center gap-2">
+                    <button onClick={() => handleContextAction('link')} className="px-3 py-1.5 bg-slate-100 dark:bg-dk-elevated/60 hover:bg-slate-200 dark:hover:bg-dk-elevated text-slate-700 dark:text-dk-text rounded-full text-xs font-bold transition-colors flex items-center gap-2">
                         <LinkIcon className="w-3.5 h-3.5" /> {tx(lang,{fr:'Figer',ar:'تجميد',en:'Lock',es:'Fijar',pt:'Fixar',tr:'Kilitle'})}
                     </button>
                 )}
 
                 <button 
                     onClick={() => { setSelectedOpIds([]); setIsSelectionMode(false); }} 
-                    className="p-1.5 hover:bg-rose-50 text-slate-400 hover:text-rose-500 rounded-full transition-colors" 
+                    className="p-1.5 hover:bg-rose-50 dark:hover:bg-rose-900/30 text-slate-400 dark:text-dk-muted hover:text-rose-500 dark:hover:text-rose-300 rounded-full transition-colors" 
                     title={tx(lang,{fr:'Quitter Mode Sélection',ar:'خروج من وضع التحديد',en:'Exit Selection Mode',es:'Salir Modo Selección',pt:'Sair Modo Seleção',tr:'Seçim Modundan Çık'})}
                 >
                     <X className="w-4 h-4" />
@@ -1982,9 +1979,9 @@ export default function Gamme({
         )}
 
         {/* RESPONSIVE TOOLBAR */}
-        <div className="p-4 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-white">
-          <h3 className="font-bold text-slate-700 flex items-center gap-2 text-lg shrink-0">
-            <span className="inline-flex w-8 h-8 items-center justify-center rounded-lg bg-slate-100 text-slate-500">
+        <div className="p-4 border-b border-slate-100 dark:border-dk-border flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-white dark:bg-dk-surface">
+          <h3 className="font-bold text-slate-700 dark:text-dk-text flex items-center gap-2 text-lg shrink-0">
+            <span className="inline-flex w-8 h-8 items-center justify-center rounded-lg bg-slate-100 dark:bg-dk-elevated/60 text-slate-500 dark:text-dk-text-soft">
               <ClipboardList className="w-4.5 h-4.5" />
             </span>
             {tx(lang,{fr:'Gamme de Montage',ar:'تسلسل التركيب',en:'Assembly Routing',es:'Gama de Montaje',pt:'Gama de Montagem',tr:'Montaj Rotası'})}
@@ -1994,28 +1991,28 @@ export default function Gamme({
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 w-full sm:w-auto sm:flex-1 sm:min-w-0 sm:justify-end sm:flex-nowrap">
              
              {/* Guide Factors & Fabric */}
-             <div className="flex items-center justify-between gap-1.5 px-2 py-1.5 bg-slate-50 rounded-lg border border-slate-200 w-full sm:w-auto">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase whitespace-nowrap mr-1">{tx(lang,{fr:'F.Guide:',ar:'م.Guide:',en:'G.Factor:',es:'F.Guía:',pt:'F.Guia:',tr:'R.Faktör:'})}</label>
+             <div className="flex items-center justify-between gap-1.5 px-2 py-1.5 bg-slate-50 dark:bg-dk-elevated/60 rounded-lg border border-slate-200 dark:border-dk-border w-full sm:w-auto">
+                  <label className="text-[10px] font-bold text-slate-400 dark:text-dk-muted uppercase whitespace-nowrap mr-1">{tx(lang,{fr:'F.Guide:',ar:'م.Guide:',en:'G.Factor:',es:'F.Guía:',pt:'F.Guia:',tr:'R.Faktör:'})}</label>
                  <div className="relative">
                       <select 
                         value={globalGuide}
                         onChange={(e) => setGlobalGuide(Number(e.target.value))}
-                        className="appearance-none w-14 px-1 py-1.5 text-xs font-bold border border-slate-200 rounded-md focus:border-emerald-500 outline-none bg-white transition-all pr-4 cursor-pointer text-center"
+                        className="appearance-none w-14 px-1 py-1.5 text-xs font-bold border border-slate-200 dark:border-dk-border rounded-md focus:border-emerald-500 outline-none bg-white dark:bg-dk-surface text-slate-700 dark:text-dk-text transition-all pr-4 cursor-pointer text-center"
                       >
                          {complexityFactors.map(f => (
                            <option key={f.id} value={f.value}>{f.value}</option>
                          ))}
                       </select>
-                      <ChevronDown className="absolute right-0.5 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400 pointer-events-none" />
+                      <ChevronDown className="absolute right-0.5 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400 dark:text-dk-muted pointer-events-none" />
                  </div>
                  <button 
                     onClick={openFabricModal}
-                    className={`p-1.5 rounded-md border transition-colors ml-1 ${fabricSettings.enabled ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : 'bg-white border-slate-200 text-slate-400 hover:bg-emerald-50 hover:text-emerald-700'}`}
+                    className={`p-1.5 rounded-md border transition-colors ml-1 ${fabricSettings.enabled ? 'bg-emerald-50 dark:bg-emerald-900/30 border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300' : 'bg-white dark:bg-dk-surface border-slate-200 dark:border-dk-border text-slate-400 dark:text-dk-muted hover:bg-emerald-50 dark:hover:bg-emerald-900/20 hover:text-emerald-700 dark:hover:text-emerald-300'}`}
                     title={tx(lang,{fr:'Choisir selon le tissu',ar:'اختيار حسب القماش',en:'Choose by fabric',es:'Elegir según tela',pt:'Escolher conforme tecido',tr:'Kumaşa göre seç'})}
                  >
                     <Shirt className="w-3.5 h-3.5" />
                  </button>
-                                   <button onClick={applyGlobalGuide} title={tx(lang,{fr:'Appliquer à toute la gamme',ar:'تطبيق على كل التسلسل',en:'Apply to all routing',es:'Aplicar a toda la gama',pt:'Aplicar a toda gama',tr:'Tüm rotaya uygula'})} className="p-1.5 bg-white hover:bg-emerald-50 hover:text-emerald-700 text-slate-400 rounded-md border border-slate-200 transition-colors ml-1">
+                                   <button onClick={applyGlobalGuide} title={tx(lang,{fr:'Appliquer à toute la gamme',ar:'تطبيق على كل التسلسل',en:'Apply to all routing',es:'Aplicar a toda la gama',pt:'Aplicar a toda gama',tr:'Tüm rotaya uygula'})} className="p-1.5 bg-white dark:bg-dk-surface hover:bg-emerald-50 dark:hover:bg-emerald-900/20 hover:text-emerald-700 dark:hover:text-emerald-300 text-slate-400 dark:text-dk-muted rounded-md border border-slate-200 dark:border-dk-border transition-colors ml-1">
                      <ArrowDownToLine className="w-3.5 h-3.5" />
                  </button>
              </div>

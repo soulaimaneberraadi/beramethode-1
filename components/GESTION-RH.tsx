@@ -1766,7 +1766,7 @@ export default function GestionRH({
       </AnimatePresence>
 
       {/* ── HEADER ── */}
-      <div className="gestion-rh-head-compact" style={{ background: '#fff', borderBottom: '1px solid #E2E8F0', padding: '16px 24px', flexShrink: 0 }}>
+      <div className="gestion-rh-head-compact" style={{ background: isDark ? '#1E293B' : '#fff', borderBottom: '1px solid #E2E8F0', padding: '16px 24px', flexShrink: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             {onBack && (
@@ -1780,12 +1780,12 @@ export default function GestionRH({
                   padding: '0 14px 0 10px',
                   borderRadius: 12,
                   border: '1px solid #E2E8F0',
-                  background: '#F8FAFC',
+                  background: isDark ? '#1E293B' : '#F8FAFC',
                   display: 'flex',
                   alignItems: 'center',
                   gap: 8,
                   cursor: 'pointer',
-                  color: '#475569',
+                  color: isDark ? '#94A3B8' : '#475569',
                   fontWeight: 700,
                   fontSize: 13,
                 }}
@@ -1798,8 +1798,8 @@ export default function GestionRH({
               <Users size={22} color="#fff" />
             </div>
             <div>
-              <h1 style={{ margin: 0, fontSize: 20, fontWeight: 800, color: '#0F172A' }}>{tx(lang, { fr: 'Gestion RH', ar: 'إدارة الموارد البشرية', en: 'HR Management', es: 'Gestión RH', pt: 'Gestão RH', tr: 'İK Yönetimi' })}</h1>
-              <p style={{ margin: 0, fontSize: 12, color: '#64748B' }}>
+              <h1 style={{ margin: 0, fontSize: 20, fontWeight: 800, color: isDark ? '#334155' : '#0F172A' }}>{tx(lang, { fr: 'Gestion RH', ar: 'إدارة الموارد البشرية', en: 'HR Management', es: 'Gestión RH', pt: 'Gestão RH', tr: 'İK Yönetimi' })}</h1>
+              <p style={{ margin: 0, fontSize: 12, color: isDark ? '#94A3B8' : '#64748B' }}>
                 {loading
                   ? tx(lang, { fr: 'Chargement des effectifs…', ar: 'جارٍ تحميل العمال…', en: 'Loading staff…', es: 'Cargando personal…', pt: 'Carregando efetivos…', tr: 'Personel yükleniyor…' })
                   : loadError
@@ -1876,7 +1876,7 @@ export default function GestionRH({
                 {/* Filtres */}
                 <div style={{ display: 'flex', gap: 10, marginBottom: 16, flexWrap: 'wrap', alignItems: 'center' }}>
                   <div style={{ position: 'relative', flex: 1, minWidth: 200 }}>
-                    <Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: '#94A3B8' }} />
+                    <Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: isDark ? '#64748B' : '#94A3B8' }} />
                     <input value={search} onChange={e => setSearch(e.target.value)} placeholder={tx(lang, { fr: 'Chercher par nom, matricule, CIN...', ar: 'ابحث بالاسم، الرقم المهني، رقم البطاقة...', en: 'Search by name, reg. no., ID...', es: 'Buscar por nombre, matrícula, cédula...', pt: 'Pesquisar por nome, matrícula, CIN...', tr: 'İsim, kayıt no, kimlik ile ara...' })}
                       style={{ ..._\inputStyle, paddingLeft: 32, width: '100%' }} />
                   </div>
@@ -1889,7 +1889,7 @@ export default function GestionRH({
                     {pointageChaineOptions.map(c => <option key={c} value={c}>{c}</option>)}
                   </select>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginLeft: 'auto', flexWrap: 'wrap' }}>
-                    <span style={{ fontSize: 11, fontWeight: 600, color: '#94A3B8', textTransform: 'uppercase' }}>{tx(lang, { fr: 'Affichage', ar: 'العرض', en: 'View', es: 'Vista', pt: 'Exibição', tr: 'Görünüm' })}</span>
+                    <span style={{ fontSize: 11, fontWeight: 600, color: isDark ? '#64748B' : '#94A3B8', textTransform: 'uppercase' }}>{tx(lang, { fr: 'Affichage', ar: 'العرض', en: 'View', es: 'Vista', pt: 'Exibição', tr: 'Görünüm' })}</span>
                       <button
                         type="button"
                         onClick={() => setAnnuaireViewPersist('cards')}
@@ -1900,7 +1900,7 @@ export default function GestionRH({
                           fontSize: 12,
                           fontWeight: 600,
                           background: annuaireView === 'cards' ? '#EEF2FF' : '#fff',
-                          borderColor: annuaireView === 'cards' ? '#C7D2FE' : '#E2E8F0',
+                          borderColor: annuaireView === 'cards' ? '#C7D2FE' : isDark ? '#334155' : '#E2E8F0',
                           color: annuaireView === 'cards' ? '#2149C1' : '#64748B',
                         }}
                       >
@@ -1917,7 +1917,7 @@ export default function GestionRH({
                           fontSize: 12,
                           fontWeight: 600,
                           background: annuaireView === 'table' ? '#EEF2FF' : '#fff',
-                          borderColor: annuaireView === 'table' ? '#C7D2FE' : '#E2E8F0',
+                          borderColor: annuaireView === 'table' ? '#C7D2FE' : isDark ? '#334155' : '#E2E8F0',
                           color: annuaireView === 'table' ? '#2149C1' : '#64748B',
                         }}
                       >
@@ -1928,13 +1928,13 @@ export default function GestionRH({
                 </div>
 
                 {loading ? (
-                  <div style={{ textAlign: 'center', padding: 60, color: '#94A3B8' }}>{tx(lang, { fr: 'Chargement...', ar: 'جارٍ التحميل...', en: 'Loading...', es: 'Cargando...', pt: 'Carregando...', tr: 'Yükleniyor...' })}</div>
+                  <div style={{ textAlign: 'center', padding: 60, color: isDark ? '#64748B' : '#94A3B8' }}>{tx(lang, { fr: 'Chargement...', ar: 'جارٍ التحميل...', en: 'Loading...', es: 'Cargando...', pt: 'Carregando...', tr: 'Yükleniyor...' })}</div>
                 ) : annuaireView === 'table' ? (
-                  <div style={{ background: '#fff', borderRadius: 14, border: '1px solid #E2E8F0', overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
+                  <div style={{ background: isDark ? '#1E293B' : '#fff', borderRadius: 14, border: '1px solid #E2E8F0', overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
                     <div style={{ overflowX: 'auto' }}>
                       <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, minWidth: 880 }}>
                         <thead>
-                          <tr style={{ background: '#F8FAFC', borderBottom: '2px solid #E2E8F0' }}>
+                          <tr style={{ background: isDark ? '#1E293B' : '#F8FAFC', borderBottom: '2px solid #E2E8F0' }}>
                             {[
                               { fr: 'Nom', ar: 'الاسم', en: 'Name', es: 'Nombre', pt: 'Nome', tr: 'Ad' },
                               { fr: 'Matricule', ar: 'الرقم المهني', en: 'Reg. No.', es: 'Matrícula', pt: 'Matrícula', tr: 'Kayıt No' },
@@ -1948,7 +1948,7 @@ export default function GestionRH({
                               { fr: 'Tél.', ar: 'الهاتف', en: 'Phone', es: 'Tel.', pt: 'Tel.', tr: 'Tel' },
                               { fr: 'Actions', ar: 'الإجراءات', en: 'Actions', es: 'Acciones', pt: 'Ações', tr: 'İşlemler' },
                             ].map(h => (
-                              <th key={h.fr} style={{ textAlign: 'left', padding: '10px 12px', fontWeight: 700, color: '#64748B', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.04em', whiteSpace: 'nowrap' }}>{tx(lang, h)}</th>
+                              <th key={h.fr} style={{ textAlign: 'left', padding: '10px 12px', fontWeight: 700, color: isDark ? '#94A3B8' : '#64748B', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.04em', whiteSpace: 'nowrap' }}>{tx(lang, h)}</th>
                             ))}
                           </tr>
                         </thead>
@@ -1957,7 +1957,7 @@ export default function GestionRH({
                             const roleK = (w.role && ROLES.includes(w.role as HRWorkerRole) ? w.role : 'OPERATOR') as HRWorkerRole;
                             return (
                               <tr key={w.id} style={{ borderBottom: '1px solid #F1F5F9' }}>
-                                <td style={{ padding: '10px 12px', fontWeight: 700, color: '#0F172A', maxWidth: 200 }}>
+                                <td style={{ padding: '10px 12px', fontWeight: 700, color: isDark ? '#334155' : '#0F172A', maxWidth: 200 }}>
                                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                                     <div style={{ width: 32, height: 32, borderRadius: '50%', background: w.photo ? 'transparent' : ROLE_COLORS[roleK] + '25', border: `1px solid ${ROLE_COLORS[roleK]}`, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 12, fontWeight: 800, color: ROLE_COLORS[roleK] }}>
                                       {w.photo ? <img src={w.photo} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : (w.full_name || '?')[0]}
@@ -1965,19 +1965,19 @@ export default function GestionRH({
                                     <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{w.full_name}</span>
                                   </div>
                                 </td>
-                                <td style={{ padding: '10px 12px', color: '#475569', fontFamily: 'ui-monospace, monospace', fontSize: 12 }}>{w.matricule}</td>
-                                <td style={{ padding: '10px 12px', color: '#475569', fontSize: 12 }}>{w.cin || '—'}</td>
+                                <td style={{ padding: '10px 12px', color: isDark ? '#94A3B8' : '#475569', fontFamily: 'ui-monospace, monospace', fontSize: 12 }}>{w.matricule}</td>
+                                <td style={{ padding: '10px 12px', color: isDark ? '#94A3B8' : '#475569', fontSize: 12 }}>{w.cin || '—'}</td>
                                 <td style={{ padding: '10px 12px' }}>
                                   <span style={{ padding: '2px 8px', borderRadius: 8, fontSize: 11, fontWeight: 700, background: ROLE_COLORS[roleK] + '18', color: ROLE_COLORS[roleK] }}>{tx(lang, ROLE_LABELS[roleK])}</span>
                                 </td>
-                                <td style={{ padding: '10px 12px', color: '#475569' }}>{w.chaine_id || '—'}</td>
-                                <td style={{ padding: '10px 12px', color: '#475569' }}>{w.equipe || '—'}</td>
-                                <td style={{ padding: '10px 12px', color: '#475569' }}>{w.transport_ligne_quartier || w.transport_ligne_nom || '—'}</td>
-                                <td style={{ padding: '10px 12px', color: '#475569', maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{w.poste || '—'}</td>
-                                <td style={{ padding: '10px 12px', color: '#475569' }}>{w.type_contrat || '—'}</td>
-                                <td style={{ padding: '10px 12px', color: '#475569', whiteSpace: 'nowrap' }}>
+                                <td style={{ padding: '10px 12px', color: isDark ? '#94A3B8' : '#475569' }}>{w.chaine_id || '—'}</td>
+                                <td style={{ padding: '10px 12px', color: isDark ? '#94A3B8' : '#475569' }}>{w.equipe || '—'}</td>
+                                <td style={{ padding: '10px 12px', color: isDark ? '#94A3B8' : '#475569' }}>{w.transport_ligne_quartier || w.transport_ligne_nom || '—'}</td>
+                                <td style={{ padding: '10px 12px', color: isDark ? '#94A3B8' : '#475569', maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{w.poste || '—'}</td>
+                                <td style={{ padding: '10px 12px', color: isDark ? '#94A3B8' : '#475569' }}>{w.type_contrat || '—'}</td>
+                                <td style={{ padding: '10px 12px', color: isDark ? '#94A3B8' : '#475569', whiteSpace: 'nowrap' }}>
                                   {w.phone ? (
-                                    <a href={`tel:${w.phone}`} style={{ color: '#2149C1', fontWeight: 600, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                                    <a href={`tel:${w.phone}`} style={{ color: isDark ? '#818cf8' : '#2149C1', fontWeight: 600, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                                       <Phone size={12} />
                                       {w.phone}
                                     </a>
@@ -1995,7 +1995,7 @@ export default function GestionRH({
                       </table>
                     </div>
                     {filteredWorkers.length === 0 && !loadError && (
-                      <div style={{ textAlign: 'center', padding: 48, color: '#94A3B8' }}>
+                      <div style={{ textAlign: 'center', padding: 48, color: isDark ? '#64748B' : '#94A3B8' }}>
                         <Users size={40} style={{ marginBottom: 10, opacity: 0.3 }} />
                         <div style={{ fontWeight: 600 }}>
                           {workers.length > 0 ? tx(lang, { fr: 'Aucun ouvrier ne correspond aux filtres', ar: 'لا يوجد عامل يطابق معايير البحث', en: 'No worker matches the filters', es: 'Ningún operario coincide con los filtros', pt: 'Nenhum operário corresponde aos filtros', tr: 'Filtrelere uygun işçi yok' }) : tx(lang, { fr: 'Aucun ouvrier enregistré pour ce compte', ar: 'لا يوجد عامل مسجل لهذا الحساب', en: 'No worker registered for this account', es: 'Ningún operario registrado para esta cuenta', pt: 'Nenhum operário registrado para esta conta', tr: 'Bu hesap için kayıtlı işçi yok' })}
@@ -2013,7 +2013,7 @@ export default function GestionRH({
                     {filteredWorkers.map(w => {
                       const roleK = (w.role && ROLES.includes(w.role as HRWorkerRole) ? w.role : 'OPERATOR') as HRWorkerRole;
                       return (
-                      <div key={w.id} style={{ background: '#fff', borderRadius: 14, padding: 18, boxShadow: '0 2px 8px rgba(0,0,0,0.07)', border: '1px solid #F1F5F9' }}>
+                      <div key={w.id} style={{ background: isDark ? '#1E293B' : '#fff', borderRadius: 14, padding: 18, boxShadow: '0 2px 8px rgba(0,0,0,0.07)', border: '1px solid #F1F5F9' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
                           <div style={{ width: 48, height: 48, borderRadius: '50%', background: w.photo ? 'transparent' : ROLE_COLORS[roleK] + '20', border: `2px solid ${ROLE_COLORS[roleK]}`, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                             {w.photo
@@ -2021,8 +2021,8 @@ export default function GestionRH({
                               : <span style={{ fontSize: 18, fontWeight: 800, color: ROLE_COLORS[roleK] }}>{(w.full_name || '?')[0]}</span>}
                           </div>
                           <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ fontWeight: 700, fontSize: 14, color: '#0F172A', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{w.full_name}</div>
-                            <div style={{ fontSize: 11, color: '#94A3B8' }}>{w.matricule} • {w.cin || '—'}</div>
+                            <div style={{ fontWeight: 700, fontSize: 14, color: isDark ? '#334155' : '#0F172A', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{w.full_name}</div>
+                            <div style={{ fontSize: 11, color: isDark ? '#64748B' : '#94A3B8' }}>{w.matricule} • {w.cin || '—'}</div>
                           </div>
                           <span style={{ padding: '3px 8px', borderRadius: 20, fontSize: 10, fontWeight: 700, background: ROLE_COLORS[roleK] + '20', color: ROLE_COLORS[roleK], flexShrink: 0 }}>
                             {tx(lang, ROLE_LABELS[roleK])}
@@ -2038,15 +2038,15 @@ export default function GestionRH({
                             {
                               label: 'Tel',
                               val: w.phone ? (
-                                <a href={`tel:${w.phone}`} style={{ color: '#2149C1', fontWeight: 600, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                                <a href={`tel:${w.phone}`} style={{ color: isDark ? '#818cf8' : '#2149C1', fontWeight: 600, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                                   <Phone size={11} /> {w.phone}
                                 </a>
                               ) : '—',
                               fullWidth: true
                             },
                           ].map(i => (
-                            <div key={i.label} style={{ background: '#F8FAFC', borderRadius: 6, padding: '6px 8px', gridColumn: i.fullWidth ? '1 / -1' : undefined }}>
-                              <div style={{ color: '#94A3B8', fontSize: 10 }}>{i.label}</div>
+                            <div key={i.label} style={{ background: isDark ? '#1E293B' : '#F8FAFC', borderRadius: 6, padding: '6px 8px', gridColumn: i.fullWidth ? '1 / -1' : undefined }}>
+                              <div style={{ color: isDark ? '#64748B' : '#94A3B8', fontSize: 10 }}>{i.label}</div>
                               <div style={{ fontWeight: 600, color: '#374151', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{i.val}</div>
                             </div>
                           ))}
@@ -2069,7 +2069,7 @@ export default function GestionRH({
                     );
                     })}
                     {filteredWorkers.length === 0 && !loadError && (
-                      <div style={{ gridColumn: '1/-1', textAlign: 'center', padding: 60, color: '#94A3B8' }}>
+                      <div style={{ gridColumn: '1/-1', textAlign: 'center', padding: 60, color: isDark ? '#64748B' : '#94A3B8' }}>
                         <Users size={48} style={{ marginBottom: 12, opacity: 0.3 }} />
                         <div style={{ fontWeight: 600 }}>
                           {workers.length > 0 ? tx(lang, { fr: 'Aucun ouvrier ne correspond aux filtres', ar: 'لا يوجد عامل يطابق معايير البحث', en: 'No worker matches the filters', es: 'Ningún trabajador coincide con los filtros', pt: 'Nenhum trabalhador corresponde aos filtros', tr: 'Filtrelere uygun işçi yok' }) : tx(lang, { fr: 'Aucun ouvrier enregistré pour ce compte', ar: 'لا يوجد عامل مسجل لهذا الحساب', en: 'No worker registered for this account', es: 'Ningún trabajador registrado para esta cuenta', pt: 'Nenhum trabalhador registrado para esta conta', tr: 'Bu hesap için kayıtlı işçi yok' })}
@@ -2092,10 +2092,10 @@ export default function GestionRH({
                 {/* 1. KPI — largeur 100 % (plus de min 508px → plus de bande vide sur téléphone) */}
                 <div style={{ overflowX: 'auto', overflowY: 'hidden', width: '100%', maxWidth: '100%', WebkitOverflowScrolling: 'touch', flexShrink: 0, marginBottom: 2 }}>
                   <div className="pointage-kpi-grid">
-                    <div title={tx(lang, { fr: 'Journée de pointage', ar: 'يوم التسجيل', en: 'Attendance day', es: 'Día de registro', pt: 'Dia de registo', tr: 'Yoklama günü' })} style={{ background: '#fff', padding: '4px 8px', borderRadius: '8px', border: '1px solid #f1f5f9', boxShadow: '0 1px 2px rgba(0,0,0,0.04)', display: 'flex', alignItems: 'center', gap: '6px', minHeight: 32 }}>
+                    <div title={tx(lang, { fr: 'Journée de pointage', ar: 'يوم التسجيل', en: 'Attendance day', es: 'Día de registro', pt: 'Dia de registo', tr: 'Yoklama günü' })} style={{ background: isDark ? '#1E293B' : '#fff', padding: '4px 8px', borderRadius: '8px', border: '1px solid #f1f5f9', boxShadow: '0 1px 2px rgba(0,0,0,0.04)', display: 'flex', alignItems: 'center', gap: '6px', minHeight: 32 }}>
                       <Calendar size={14} color="#4f46e5" style={{ flexShrink: 0 }} />
                       <input type="date" value={selectedDate} onChange={e => setSelectedDate(e.target.value)}
-                        style={{ border: 'none', padding: 0, fontSize: '12px', fontWeight: 800, color: '#1e293b', width: '100%', minWidth: 0, cursor: 'pointer', outline: 'none' }} />
+                        style={{ border: 'none', padding: 0, fontSize: '12px', fontWeight: 800, color: isDark ? '#334155' : '#1E293B', width: '100%', minWidth: 0, cursor: 'pointer', outline: 'none' }} />
                       <button type="button" onClick={fetchPointage} style={{ ..._\btnSecondary, padding: '4px', borderRadius: '6px', flexShrink: 0 }} title="Actualiser">
                         <RefreshCw size={13} />
                       </button>
@@ -2137,14 +2137,14 @@ export default function GestionRH({
                 </div>
 
                 {/* 2. Unified Toolbar */}
-                <div style={{ background: '#fff', padding: '6px 8px', borderRadius: '8px', border: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', rowGap: 6, boxShadow: '0 1px 2px rgba(0,0,0,0.04)', overflowX: 'auto', WebkitOverflowScrolling: 'touch', flexShrink: 0, width: '100%', maxWidth: '100%', boxSizing: 'border-box' }}>
+                <div style={{ background: isDark ? '#1E293B' : '#fff', padding: '6px 8px', borderRadius: '8px', border: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', rowGap: 6, boxShadow: '0 1px 2px rgba(0,0,0,0.04)', overflowX: 'auto', WebkitOverflowScrolling: 'touch', flexShrink: 0, width: '100%', maxWidth: '100%', boxSizing: 'border-box' }}>
                   <div style={{ position: 'relative', flex: '1 1 160px', minWidth: 0 }}>
-                    <Search size={13} style={{ position: 'absolute', left: '8px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
+                    <Search size={13} style={{ position: 'absolute', left: '8px', top: '50%', transform: 'translateY(-50%)', color: isDark ? '#64748B' : '#94A3B8' }} />
                     <input
                       value={pointageSearch}
                       onChange={e => setPointageSearch(e.target.value)}
                       placeholder={tx(lang, { fr: 'Nom, matricule…', ar: 'الاسم، رقم التسجيل…', en: 'Name, ID…', es: 'Nombre, matrícula…', pt: 'Nome, matrícula…', tr: 'İsim, kimlik…' })}
-                      style={{ ..._\inputStyle, paddingLeft: '30px', borderRadius: '6px', border: '1px solid #f1f5f9', background: '#f8fafc', width: '100%', height: '30px', fontSize: '11px' }}
+                      style={{ ..._\inputStyle, paddingLeft: '30px', borderRadius: '6px', border: '1px solid #f1f5f9', background: isDark ? '#1E293B' : '#F8FAFC', width: '100%', height: '30px', fontSize: '11px' }}
                     />
                   </div>
                   
@@ -2153,7 +2153,7 @@ export default function GestionRH({
                     <select
                       value={pointageChaine}
                       onChange={e => setPointageChaine(e.target.value)}
-                      style={{ ..._\inputStyle, width: 'min(148px, 42vw)', maxWidth: '100%', height: '30px', borderRadius: '6px', background: '#f8fafc', fontSize: '11px' }}
+                      style={{ ..._\inputStyle, width: 'min(148px, 42vw)', maxWidth: '100%', height: '30px', borderRadius: '6px', background: isDark ? '#1E293B' : '#F8FAFC', fontSize: '11px' }}
                     >
                       <option value="">{tx(lang, { fr: 'Toutes les chaînes', ar: 'جميع الخطوط', en: 'All lines', es: 'Todas las líneas', pt: 'Todas as linhas', tr: 'Tüm hatlar' })}</option>
                       {pointageChaineOptions.map(c => (
@@ -2162,7 +2162,7 @@ export default function GestionRH({
                     </select>
                   </div>
 
-                  <div style={{ height: '14px', width: '1px', background: '#e2e8f0', margin: '0 2px', flexShrink: 0 }} />
+                  <div style={{ height: '14px', width: '1px', background: isDark ? '#334155' : '#E2E8F0', margin: '0 2px', flexShrink: 0 }} />
 
                   <div
                     role="group"
@@ -2207,7 +2207,7 @@ export default function GestionRH({
                             }
                           : {
                               background: 'transparent',
-                              color: '#94a3b8',
+                              color: isDark ? '#64748B' : '#94A3B8',
                             }),
                       }}
                     >
@@ -2235,13 +2235,13 @@ export default function GestionRH({
                         transition: 'background 0.15s ease, color 0.15s ease, box-shadow 0.15s ease',
                         ...(!showTranches
                           ? {
-                              background: '#fff',
+                              background: isDark ? '#1E293B' : '#fff',
                               color: '#334155',
                               boxShadow: '0 1px 2px rgba(15,23,42,0.08), inset 0 1px 0 rgba(255,255,255,1)',
                             }
                           : {
                               background: 'transparent',
-                              color: '#94a3b8',
+                              color: isDark ? '#64748B' : '#94A3B8',
                             }),
                       }}
                     >
@@ -2252,7 +2252,7 @@ export default function GestionRH({
 
                   <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0, marginLeft: 'auto' }} title={tx(lang, { fr: 'Entrée/Sortie même jour · tranches SAGE', ar: 'دخول/خروج نفس اليوم · فترات SAGE', en: 'Same day Entry/Exit · SAGE time slots', es: 'Entrada/Salida mismo día · franjas SAGE', pt: 'Entrada/Saída mesmo dia · segmentos SAGE', tr: 'Aynı gün Giriş/Çıkış · SAGE dilimleri' })}>
                     <div style={{ width: '5px', height: '5px', borderRadius: '50%', background: '#10b981', animation: 'pulse 2s infinite' }} />
-                    <span style={{ fontSize: '10px', fontWeight: 700, color: '#64748b' }}>:00</span>
+                    <span style={{ fontSize: '10px', fontWeight: 700, color: isDark ? '#94A3B8' : '#64748B' }}>:00</span>
                   </div>
                 </div>
 
@@ -2260,7 +2260,7 @@ export default function GestionRH({
                   lang="fr-FR"
                   title={tx(lang, { fr: 'Entrée/Sortie le même jour. Tranches synchronisées avec le moteur SAGE.', ar: 'دخول/خروج في نفس اليوم. الفترات متزامنة مع محرك SAGE.', en: 'Same day Entry/Exit. Time slots synchronized with the SAGE engine.', es: 'Entrada/Salida el mismo día. Franjas sincronizadas con el motor SAGE.', pt: 'Entrada/Saída no mesmo dia. Segmentos sincronizados com o motor SAGE.', tr: 'Aynı gün Giriş/Çıkış. Dilimler SAGE motoru ile senkronize edilmiştir.' })}
                   style={{
-                    background: '#fff',
+                    background: isDark ? '#1E293B' : '#fff',
                     borderRadius: '8px',
                     boxShadow: '0 1px 2px rgba(0, 0, 0, 0.05)',
                     border: '1px solid #f1f5f9',
@@ -2287,28 +2287,28 @@ export default function GestionRH({
                     }}
                   >
                     <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0, minWidth: 'max-content' }}>
-                      <thead style={{ position: 'sticky', top: 0, zIndex: 40, background: '#fff' }}>
-                        <tr style={{ background: '#f8fafc' }}>
+                      <thead style={{ position: 'sticky', top: 0, zIndex: 40, background: isDark ? '#1E293B' : '#fff' }}>
+                        <tr style={{ background: isDark ? '#1E293B' : '#F8FAFC' }}>
                           {/* Sans 2e ligne d’en-tête (tranches masquées), rowSpan doit être 1 sinon le tableau HTML est invalide / affichage cassé */}
-                          <th rowSpan={showTranches ? 2 : 1} style={{ padding: '4px 6px', textAlign: 'left', fontSize: '9px', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em', borderBottom: '1px solid #e2e8f0', position: 'sticky', left: 0, zIndex: 50, background: '#f8fafc', boxShadow: '2px 0 4px -2px rgba(0,0,0,0.06)', minWidth: '168px' }}>{tx(lang, { fr: 'Ouvrier', ar: 'العامل', en: 'Worker', es: 'Operario', pt: 'Operário', tr: 'İşçi' })}</th>
+                          <th rowSpan={showTranches ? 2 : 1} style={{ padding: '4px 6px', textAlign: 'left', fontSize: '9px', fontWeight: 800, color: isDark ? '#94A3B8' : '#64748B', textTransform: 'uppercase', letterSpacing: '0.04em', borderBottom: '1px solid #e2e8f0', position: 'sticky', left: 0, zIndex: 50, background: isDark ? '#1E293B' : '#F8FAFC', boxShadow: '2px 0 4px -2px rgba(0,0,0,0.06)', minWidth: '168px' }}>{tx(lang, { fr: 'Ouvrier', ar: 'العامل', en: 'Worker', es: 'Operario', pt: 'Operário', tr: 'İşçi' })}</th>
                           {showTranches && (
                             <th colSpan={pointageTrancheColCount} style={{ padding: '3px 4px', textAlign: 'center', fontSize: '8px', fontWeight: 800, color: '#4f46e5', textTransform: 'uppercase', letterSpacing: '0.04em', borderBottom: '1px solid #e2e8f0', background: '#f5f3ff' }}>{tx(lang, { fr: 'Tranches', ar: 'الفترات', en: 'Slots', es: 'Franjas', pt: 'Intervalos', tr: 'Dilimler' })}</th>
                           )}
-                          <th rowSpan={showTranches ? 2 : 1} style={{ padding: '4px 6px', textAlign: 'left', fontSize: '9px', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em', borderBottom: '1px solid #e2e8f0', width: '92px' }}>{tx(lang, { fr: 'Entrée', ar: 'الدخول', en: 'Entry', es: 'Entrada', pt: 'Entrada', tr: 'Giriş' })}</th>
-                          <th rowSpan={showTranches ? 2 : 1} style={{ padding: '4px 6px', textAlign: 'left', fontSize: '9px', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em', borderBottom: '1px solid #e2e8f0', width: '92px' }}>{tx(lang, { fr: 'Sortie', ar: 'الخروج', en: 'Exit', es: 'Salida', pt: 'Saída', tr: 'Çıkış' })}</th>
-                          <th rowSpan={showTranches ? 2 : 1} style={{ padding: '4px 4px', textAlign: 'center', fontSize: '9px', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em', borderBottom: '1px solid #e2e8f0', width: '62px' }}>H.N.</th>
-                          <th rowSpan={showTranches ? 2 : 1} style={{ padding: '4px 4px', textAlign: 'center', fontSize: '9px', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em', borderBottom: '1px solid #e2e8f0', width: '62px' }}>25%</th>
-                          <th rowSpan={showTranches ? 2 : 1} style={{ padding: '4px 4px', textAlign: 'center', fontSize: '9px', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em', borderBottom: '1px solid #e2e8f0', width: '62px' }}>50%</th>
-                          <th rowSpan={showTranches ? 2 : 1} style={{ padding: '4px 6px', textAlign: 'right', fontSize: '9px', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em', borderBottom: '1px solid #e2e8f0', width: '108px' }}>{tx(lang, { fr: 'Statut', ar: 'الحالة', en: 'Status', es: 'Estado', pt: 'Status', tr: 'Durum' })}</th>
+                          <th rowSpan={showTranches ? 2 : 1} style={{ padding: '4px 6px', textAlign: 'left', fontSize: '9px', fontWeight: 800, color: isDark ? '#94A3B8' : '#64748B', textTransform: 'uppercase', letterSpacing: '0.04em', borderBottom: '1px solid #e2e8f0', width: '92px' }}>{tx(lang, { fr: 'Entrée', ar: 'الدخول', en: 'Entry', es: 'Entrada', pt: 'Entrada', tr: 'Giriş' })}</th>
+                          <th rowSpan={showTranches ? 2 : 1} style={{ padding: '4px 6px', textAlign: 'left', fontSize: '9px', fontWeight: 800, color: isDark ? '#94A3B8' : '#64748B', textTransform: 'uppercase', letterSpacing: '0.04em', borderBottom: '1px solid #e2e8f0', width: '92px' }}>{tx(lang, { fr: 'Sortie', ar: 'الخروج', en: 'Exit', es: 'Salida', pt: 'Saída', tr: 'Çıkış' })}</th>
+                          <th rowSpan={showTranches ? 2 : 1} style={{ padding: '4px 4px', textAlign: 'center', fontSize: '9px', fontWeight: 800, color: isDark ? '#94A3B8' : '#64748B', textTransform: 'uppercase', letterSpacing: '0.04em', borderBottom: '1px solid #e2e8f0', width: '62px' }}>H.N.</th>
+                          <th rowSpan={showTranches ? 2 : 1} style={{ padding: '4px 4px', textAlign: 'center', fontSize: '9px', fontWeight: 800, color: isDark ? '#94A3B8' : '#64748B', textTransform: 'uppercase', letterSpacing: '0.04em', borderBottom: '1px solid #e2e8f0', width: '62px' }}>25%</th>
+                          <th rowSpan={showTranches ? 2 : 1} style={{ padding: '4px 4px', textAlign: 'center', fontSize: '9px', fontWeight: 800, color: isDark ? '#94A3B8' : '#64748B', textTransform: 'uppercase', letterSpacing: '0.04em', borderBottom: '1px solid #e2e8f0', width: '62px' }}>50%</th>
+                          <th rowSpan={showTranches ? 2 : 1} style={{ padding: '4px 6px', textAlign: 'right', fontSize: '9px', fontWeight: 800, color: isDark ? '#94A3B8' : '#64748B', textTransform: 'uppercase', letterSpacing: '0.04em', borderBottom: '1px solid #e2e8f0', width: '108px' }}>{tx(lang, { fr: 'Statut', ar: 'الحالة', en: 'Status', es: 'Estado', pt: 'Status', tr: 'Durum' })}</th>
                         </tr>
                         {showTranches && (
-                          <tr style={{ background: '#f8fafc' }}>
+                          <tr style={{ background: isDark ? '#1E293B' : '#F8FAFC' }}>
                             {pointageTranches.slots.map((slot, gi) => (
                               <Fragment key={`slot-h-${gi}`}>
                                 {pointageTranches.sepAfterIndex >= 0 && gi === pointageTranches.sepAfterIndex + 1 && (
-                                  <th style={{ padding: '1px', textAlign: 'center', fontSize: '7px', fontWeight: 900, color: '#94a3b8', borderBottom: '1px solid #e2e8f0', position: 'sticky', top: '22px', zIndex: 40 }}>—</th>
+                                  <th style={{ padding: '1px', textAlign: 'center', fontSize: '7px', fontWeight: 900, color: isDark ? '#64748B' : '#94A3B8', borderBottom: '1px solid #e2e8f0', position: 'sticky', top: '22px', zIndex: 40 }}>—</th>
                                 )}
-                                <th style={{ padding: '1px 2px', textAlign: 'center', fontSize: '7px', fontWeight: 900, color: '#64748b', borderBottom: '1px solid #e2e8f0', minWidth: '40px', position: 'sticky', top: '22px', zIndex: 40, background: '#f8fafc' }}>{slot.label}</th>
+                                <th style={{ padding: '1px 2px', textAlign: 'center', fontSize: '7px', fontWeight: 900, color: isDark ? '#94A3B8' : '#64748B', borderBottom: '1px solid #e2e8f0', minWidth: '40px', position: 'sticky', top: '22px', zIndex: 40, background: isDark ? '#1E293B' : '#F8FAFC' }}>{slot.label}</th>
                               </Fragment>
                             ))}
                           </tr>
@@ -2340,7 +2340,7 @@ export default function GestionRH({
                                 exit={{ opacity: 0 }}
                                 transition={{ duration: 0.2, delay: Math.min(idx * 0.02, 0.4) }}
                                 className="ptg-row"
-                                style={{ borderBottom: '1px solid #f1f5f9', background: '#fff' }}
+                                style={{ borderBottom: '1px solid #f1f5f9', background: isDark ? '#1E293B' : '#fff' }}
                               >
                                 <td style={{ padding: '4px 6px', position: 'sticky', left: 0, zIndex: 10, background: 'inherit', boxShadow: '2px 0 4px -2px rgba(0,0,0,0.05)' }}>
                                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -2360,15 +2360,15 @@ export default function GestionRH({
                                     <div style={{ overflow: 'hidden', minWidth: 0 }}>
                                       <div 
                                         onClick={() => setProfileWorkerId(w.id)}
-                                        style={{ fontSize: '11px', fontWeight: 700, color: '#1e293b', cursor: 'pointer', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', lineHeight: 1.2 }}
+                                        style={{ fontSize: '11px', fontWeight: 700, color: isDark ? '#334155' : '#1E293B', cursor: 'pointer', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', lineHeight: 1.2 }}
                                       >
                                         {w.full_name}
                                       </div>
-                                      <div style={{ fontSize: '9px', color: '#94a3b8', fontWeight: 600, lineHeight: 1.2 }}>
-                                        {w.matricule} · <span style={{ color: '#64748b' }}>{w.chaine_id || 'BUREAU'}</span>{w.equipe ? ` · ${w.equipe}` : ''}{w.phone ? (
+                                      <div style={{ fontSize: '9px', color: isDark ? '#64748B' : '#94A3B8', fontWeight: 600, lineHeight: 1.2 }}>
+                                        {w.matricule} · <span style={{ color: isDark ? '#94A3B8' : '#64748B' }}>{w.chaine_id || 'BUREAU'}</span>{w.equipe ? ` · ${w.equipe}` : ''}{w.phone ? (
                                           <>
                                             {' · '}
-                                            <a href={`tel:${w.phone}`} style={{ color: '#2149C1', fontWeight: 700, textDecoration: 'none' }}>
+                                            <a href={`tel:${w.phone}`} style={{ color: isDark ? '#818cf8' : '#2149C1', fontWeight: 700, textDecoration: 'none' }}>
                                               {w.phone}
                                             </a>
                                           </>
@@ -2389,8 +2389,8 @@ export default function GestionRH({
                                     {pointageTranches.slots.map((slot, gi) => (
                                       <Fragment key={`slot-b-${w.id}-${gi}`}>
                                         {pointageTranches.sepAfterIndex >= 0 && gi === pointageTranches.sepAfterIndex + 1 && (
-                                          <td style={{ padding: '4px', textAlign: 'center', background: '#f8fafc' }}>
-                                            <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#cbd5e1', margin: 'auto' }} />
+                                          <td style={{ padding: '4px', textAlign: 'center', background: isDark ? '#1E293B' : '#F8FAFC' }}>
+                                            <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: isDark ? '#475569' : '#CBD5E1', margin: 'auto' }} />
                                           </td>
                                         )}
                                         <td style={{ padding: '2px', textAlign: 'center' }}>
@@ -2428,7 +2428,7 @@ export default function GestionRH({
                                     defaultValue={normalizeTimeForInput(ptg?.heure_entree as string)}
                                     onBlur={e => savePointageRow(w.id, 'heure_entree', e.target.value, ptg)}
                                     disabled={gridDisabled}
-                                    style={{ ..._\inputStyle, padding: '3px 6px', borderRadius: '6px', background: gridDisabled ? '#f8fafc' : '#fff', opacity: gridDisabled ? 0.45 : 1, border: gridDisabled ? '1px solid #f1f5f9' : '1px solid #e2e8f0', width: '86px', fontVariantNumeric: 'tabular-nums', fontWeight: 600, fontSize: '11px', color: '#1e293b' }}
+                                    style={{ ..._\inputStyle, padding: '3px 6px', borderRadius: '6px', background: gridDisabled ? '#f8fafc' : '#fff', opacity: gridDisabled ? 0.45 : 1, border: gridDisabled ? '1px solid #f1f5f9' : '1px solid #e2e8f0', width: '86px', fontVariantNumeric: 'tabular-nums', fontWeight: 600, fontSize: '11px', color: isDark ? '#334155' : '#1E293B' }}
                                   />
                                 </td>
                                 <td style={{ padding: '3px 4px' }}>
@@ -2437,12 +2437,12 @@ export default function GestionRH({
                                     defaultValue={normalizeTimeForInput(ptg?.heure_sortie as string)}
                                     onBlur={e => savePointageRow(w.id, 'heure_sortie', e.target.value, ptg)}
                                     disabled={gridDisabled}
-                                    style={{ ..._\inputStyle, padding: '3px 6px', borderRadius: '6px', background: gridDisabled ? '#f8fafc' : '#fff', opacity: gridDisabled ? 0.45 : 1, border: gridDisabled ? '1px solid #f1f5f9' : '1px solid #e2e8f0', width: '86px', fontVariantNumeric: 'tabular-nums', fontWeight: 600, fontSize: '11px', color: '#1e293b' }}
+                                    style={{ ..._\inputStyle, padding: '3px 6px', borderRadius: '6px', background: gridDisabled ? '#f8fafc' : '#fff', opacity: gridDisabled ? 0.45 : 1, border: gridDisabled ? '1px solid #f1f5f9' : '1px solid #e2e8f0', width: '86px', fontVariantNumeric: 'tabular-nums', fontWeight: 600, fontSize: '11px', color: isDark ? '#334155' : '#1E293B' }}
                                   />
                                 </td>
 
                                 <td style={{ padding: '4px 6px', textAlign: 'center' }}>
-                                  <span style={{ fontSize: '11px', fontWeight: 800, color: ptg?.heures_normales ? '#1e293b' : '#cbd5e1' }}>
+                                  <span style={{ fontSize: '11px', fontWeight: 800, color: ptg?.heures_normales ? '#1e293b' : isDark ? '#475569' : '#CBD5E1' }}>
                                     {formatDureeCellulePointage(ptg?.heures_normales)}
                                   </span>
                                 </td>
@@ -2496,43 +2496,43 @@ export default function GestionRH({
                   </div>
 
                   {/* Footer Totals Banner */}
-                  <div style={{ padding: '16px 24px', background: '#f8fafc', borderTop: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div style={{ padding: '16px 24px', background: isDark ? '#1E293B' : '#F8FAFC', borderTop: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '32px' }}>
                       <div style={{ display: 'flex', flexDirection: 'column' }}>
-                        <span style={{ fontSize: '10px', fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase' }}>H. Normales</span>
-                        <span style={{ fontSize: '16px', fontWeight: 900, color: '#1e293b' }}>{formatDureeHeuresFR(pointageHeuresFiltre.n)}</span>
+                        <span style={{ fontSize: '10px', fontWeight: 800, color: isDark ? '#64748B' : '#94A3B8', textTransform: 'uppercase' }}>H. Normales</span>
+                        <span style={{ fontSize: '16px', fontWeight: 900, color: isDark ? '#334155' : '#1E293B' }}>{formatDureeHeuresFR(pointageHeuresFiltre.n)}</span>
                       </div>
                       <div style={{ display: 'flex', flexDirection: 'column' }}>
-                        <span style={{ fontSize: '10px', fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase' }}>H.S. 25%</span>
+                        <span style={{ fontSize: '10px', fontWeight: 800, color: isDark ? '#64748B' : '#94A3B8', textTransform: 'uppercase' }}>H.S. 25%</span>
                         <span style={{ fontSize: '16px', fontWeight: 900, color: '#2563eb' }}>{formatDureeHeuresFR(pointageHeuresFiltre.s25)}</span>
                       </div>
                       <div style={{ display: 'flex', flexDirection: 'column' }}>
-                        <span style={{ fontSize: '10px', fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase' }}>H.S. 50%</span>
+                        <span style={{ fontSize: '10px', fontWeight: 800, color: isDark ? '#64748B' : '#94A3B8', textTransform: 'uppercase' }}>H.S. 50%</span>
                         <span style={{ fontSize: '16px', fontWeight: 900, color: '#7c3aed' }}>{formatDureeHeuresFR(pointageHeuresFiltre.s50)}</span>
                       </div>
                     </div>
                     <div style={{ textAlign: 'right' }}>
-                      <div style={{ fontSize: '12px', fontWeight: 700, color: '#64748b' }}>{pointageTableWorkers.length} {tx(lang, { fr: 'ouvriers affichés', ar: 'عامل معروض', en: 'workers displayed', es: 'trabajadores mostrados', pt: 'trabalhadores exibidos', tr: 'işçi görüntüleniyor' })}</div>
-                      <div style={{ fontSize: '10px', color: '#94a3b8', fontWeight: 500 }}>{tx(lang, { fr: 'Basé sur les filtres actifs', ar: 'بناءً على الفلاتر النشطة', en: 'Based on active filters', es: 'Basado en filtros activos', pt: 'Com base nos filtros ativos', tr: 'Aktif filtrelere göre' })}</div>
+                      <div style={{ fontSize: '12px', fontWeight: 700, color: isDark ? '#94A3B8' : '#64748B' }}>{pointageTableWorkers.length} {tx(lang, { fr: 'ouvriers affichés', ar: 'عامل معروض', en: 'workers displayed', es: 'trabajadores mostrados', pt: 'trabalhadores exibidos', tr: 'işçi görüntüleniyor' })}</div>
+                      <div style={{ fontSize: '10px', color: isDark ? '#64748B' : '#94A3B8', fontWeight: 500 }}>{tx(lang, { fr: 'Basé sur les filtres actifs', ar: 'بناءً على الفلاتر النشطة', en: 'Based on active filters', es: 'Basado en filtros activos', pt: 'Com base nos filtros ativos', tr: 'Aktif filtrelere göre' })}</div>
                     </div>
                   </div>
 
                   {pointageTableWorkers.length === 0 && workers.length > 0 && (
                     <div style={{ padding: '48px 20px', textAlign: 'center' }}>
-                      <div style={{ width: '56px', height: '56px', borderRadius: '16px', background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+                      <div style={{ width: '56px', height: '56px', borderRadius: '16px', background: isDark ? '#1E293B' : '#F1F5F9', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
                         <Search size={24} color="#94a3b8" />
                       </div>
                       <div style={{ fontSize: '15px', fontWeight: 700, color: '#334155', marginBottom: '8px' }}>{tx(lang, { fr: 'Aucun résultat', ar: 'لا توجد نتائج', en: 'No results', es: 'Sin resultados', pt: 'Nenhum resultado', tr: 'Sonuç yok' })}</div>
-                      <div style={{ fontSize: '13px', color: '#94a3b8', fontWeight: 500 }}>{tx(lang, { fr: 'Ajustez la recherche ou le filtre chaîne pour afficher des ouvriers', ar: 'عدّل البحث أو فلتر الخط لعرض العمال', en: 'Adjust the search or line filter to display workers', es: 'Ajuste la búsqueda o el filtro de línea para mostrar operarios', pt: 'Ajuste a pesquisa ou o filtro de linha para exibir trabalhadores', tr: 'İşçileri görüntülemek için aramayı veya hat filtresini ayarlayın' })}</div>
+                      <div style={{ fontSize: '13px', color: isDark ? '#64748B' : '#94A3B8', fontWeight: 500 }}>{tx(lang, { fr: 'Ajustez la recherche ou le filtre chaîne pour afficher des ouvriers', ar: 'عدّل البحث أو فلتر الخط لعرض العمال', en: 'Adjust the search or line filter to display workers', es: 'Ajuste la búsqueda o el filtro de línea para mostrar operarios', pt: 'Ajuste a pesquisa ou o filtro de linha para exibir trabalhadores', tr: 'İşçileri görüntülemek için aramayı veya hat filtresini ayarlayın' })}</div>
                     </div>
                   )}
                   {workers.length === 0 && (
                     <div style={{ padding: '48px 20px', textAlign: 'center' }}>
-                      <div style={{ width: '56px', height: '56px', borderRadius: '16px', background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+                      <div style={{ width: '56px', height: '56px', borderRadius: '16px', background: isDark ? '#1E293B' : '#F1F5F9', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
                         <Users size={24} color="#94a3b8" />
                       </div>
                       <div style={{ fontSize: '15px', fontWeight: 700, color: '#334155', marginBottom: '8px' }}>{tx(lang, { fr: 'Aucun ouvrier enregistré', ar: 'لا يوجد عمال مسجلون', en: 'No registered workers', es: 'Ningún trabajador registrado', pt: 'Nenhum trabalhador registrado', tr: 'Kayıtlı işçi yok' })}</div>
-                      <div style={{ fontSize: '13px', color: '#94a3b8', fontWeight: 500 }}>{tx(lang, { fr: 'Ajoutez des ouvriers dans l\'onglet Annuaire pour commencer le pointage', ar: 'أضف عمالاً في علامة التبويب "الدليل" لبدء تسجيل الحضور', en: 'Add workers in the Directory tab to start time tracking', es: 'Agregue operarios en la pestaña Directorio para comenzar el registro', pt: 'Adicione trabalhadores na guia Diretório para iniciar o ponto', tr: 'Puanta j Kaydına başlamak için Rehber sekmesine işçi ekleyin' })}</div>
+                      <div style={{ fontSize: '13px', color: isDark ? '#64748B' : '#94A3B8', fontWeight: 500 }}>{tx(lang, { fr: 'Ajoutez des ouvriers dans l\'onglet Annuaire pour commencer le pointage', ar: 'أضف عمالاً في علامة التبويب "الدليل" لبدء تسجيل الحضور', en: 'Add workers in the Directory tab to start time tracking', es: 'Agregue operarios en la pestaña Directorio para comenzar el registro', pt: 'Adicione trabalhadores na guia Diretório para iniciar o ponto', tr: 'Puanta j Kaydına başlamak için Rehber sekmesine işçi ekleyin' })}</div>
                     </div>
                   )}
                 </div>
@@ -2565,13 +2565,13 @@ export default function GestionRH({
                     </div>
                   )}
                 </div>
-                <div style={{ background: '#fff', borderRadius: 14, boxShadow: '0 2px 8px rgba(0,0,0,0.07)', overflow: 'hidden' }}>
+                <div style={{ background: isDark ? '#1E293B' : '#fff', borderRadius: 14, boxShadow: '0 2px 8px rgba(0,0,0,0.07)', overflow: 'hidden' }}>
                   <div style={{ overflowX: 'auto' }}>
                     <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                       <thead>
-                        <tr style={{ background: '#F8FAFC' }}>
+                        <tr style={{ background: isDark ? '#1E293B' : '#F8FAFC' }}>
                           {['Ouvrier', 'Chaîne', 'Pièces ✓', 'Défauts', 'Retouches', 'Taux Qualité', 'Rendement'].map(h => (
-                            <th key={h} style={{ padding: '10px 14px', textAlign: 'left', fontWeight: 600, color: '#64748B', fontSize: 12, borderBottom: '2px solid #E2E8F0' }}>{h}</th>
+                            <th key={h} style={{ padding: '10px 14px', textAlign: 'left', fontWeight: 600, color: isDark ? '#94A3B8' : '#64748B', fontSize: 12, borderBottom: '2px solid #E2E8F0' }}>{h}</th>
                           ))}
                         </tr>
                       </thead>
@@ -2581,10 +2581,10 @@ export default function GestionRH({
                           return (
                             <tr key={w.id} style={{ borderBottom: '1px solid #F1F5F9' }}>
                               <td style={{ padding: '10px 14px' }}>
-                                <div style={{ fontWeight: 600, color: '#0F172A' }}>{w.full_name}</div>
-                                <div style={{ fontSize: 11, color: '#94A3B8' }}>{w.matricule}</div>
+                                <div style={{ fontWeight: 600, color: isDark ? '#334155' : '#0F172A' }}>{w.full_name}</div>
+                                <div style={{ fontSize: 11, color: isDark ? '#64748B' : '#94A3B8' }}>{w.matricule}</div>
                               </td>
-                              <td style={{ padding: '10px 14px', color: '#64748B' }}>{w.chaine_id || '—'}</td>
+                              <td style={{ padding: '10px 14px', color: isDark ? '#94A3B8' : '#64748B' }}>{w.chaine_id || '—'}</td>
                               <td style={{ padding: '10px 14px', fontWeight: 700, color: '#10B981', textAlign: 'center' }}>{prod?.pieces_produites ?? '—'}</td>
                               <td style={{ padding: '10px 14px', fontWeight: 600, color: '#EF4444', textAlign: 'center' }}>{prod?.pieces_defaut ?? '—'}</td>
                               <td style={{ padding: '10px 14px', color: '#F59E0B', textAlign: 'center' }}>{prod?.pieces_retouchees ?? '—'}</td>
@@ -2606,7 +2606,7 @@ export default function GestionRH({
                       </tbody>
                     </table>
                     {workers.length === 0 && (
-                      <div style={{ textAlign: 'center', padding: 40, color: '#94A3B8' }}>{tx(lang, { fr: 'Aucun ouvrier enregistré', ar: 'لا يوجد عمال مسجلون', en: 'No registered workers', es: 'Ningún trabajador registrado', pt: 'Nenhum trabalhador registrado', tr: 'Kayıtlı işçi yok' })}</div>
+                      <div style={{ textAlign: 'center', padding: 40, color: isDark ? '#64748B' : '#94A3B8' }}>{tx(lang, { fr: 'Aucun ouvrier enregistré', ar: 'لا يوجد عمال مسجلون', en: 'No registered workers', es: 'Ningún trabajador registrado', pt: 'Nenhum trabalhador registrado', tr: 'Kayıtlı işçi yok' })}</div>
                     )}
                   </div>
                 </div>
@@ -2620,13 +2620,13 @@ export default function GestionRH({
                   <AlertTriangle size={16} />
                   <span>{tx(lang, { fr: '<strong>Article 385 — Code du Travail Marocain :</strong> La déduction mensuelle ne peut excéder 1/10ème du salaire net. Plafond appliqué automatiquement.', ar: '<strong>المادة 385 — مدونة الشغل المغربية:</strong> لا يمكن أن يتجاوز الخصم الشهري 1/10 من الراتب الصافي. تم تطبيق الحد الأقصى تلقائياً.', en: '<strong>Article 385 — Moroccan Labor Code:</strong> Monthly deduction cannot exceed 1/10 of net salary. Cap applied automatically.', es: '<strong>Artículo 385 — Código del Trabajo Marroquí:</strong> La deducción mensual no puede exceder 1/10 del salario neto. Límite aplicado automáticamente.', pt: '<strong>Artigo 385 — Código do Trabalho Marroquino:</strong> A dedução mensal não pode exceder 1/10 do salário líquido. Limite aplicado automaticamente.', tr: '<strong>Madde 385 — Fas Çalışma Kanunu:</strong> Aylık kesinti net maaşın 1/10\'unu aşamaz. Sınır otomatik olarak uygulandı.' })}</span>
                 </div>
-                <div style={{ background: '#fff', borderRadius: 14, boxShadow: '0 2px 8px rgba(0,0,0,0.07)', overflow: 'hidden' }}>
+                <div style={{ background: isDark ? '#1E293B' : '#fff', borderRadius: 14, boxShadow: '0 2px 8px rgba(0,0,0,0.07)', overflow: 'hidden' }}>
                   <div style={{ overflowX: 'auto' }}>
                     <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                       <thead>
-                        <tr style={{ background: '#F8FAFC' }}>
+                        <tr style={{ background: isDark ? '#1E293B' : '#F8FAFC' }}>
                           {[tx(lang, { fr: 'Ouvrier', ar: 'العامل', en: 'Worker', es: 'Operario', pt: 'Operário', tr: 'İşçi' }), tx(lang, { fr: 'Date', ar: 'التاريخ', en: 'Date', es: 'Fecha', pt: 'Data', tr: 'Tarih' }), tx(lang, { fr: 'Montant', ar: 'المبلغ', en: 'Amount', es: 'Monto', pt: 'Valor', tr: 'Tutar' }), tx(lang, { fr: 'Solde Restant', ar: 'الرصيد المتبقي', en: 'Remaining Balance', es: 'Saldo Restante', pt: 'Saldo Restante', tr: 'Kalan Bakiye' }), tx(lang, { fr: 'Statut', ar: 'الحالة', en: 'Status', es: 'Estado', pt: 'Status', tr: 'Durum' }), tx(lang, { fr: 'Actions', ar: 'الإجراءات', en: 'Actions', es: 'Acciones', pt: 'Ações', tr: 'İşlemler' })].map(h => (
-                            <th key={h} style={{ padding: '10px 14px', textAlign: 'left', fontWeight: 600, color: '#64748B', fontSize: 12, borderBottom: '2px solid #E2E8F0' }}>{h}</th>
+                            <th key={h} style={{ padding: '10px 14px', textAlign: 'left', fontWeight: 600, color: isDark ? '#94A3B8' : '#64748B', fontSize: 12, borderBottom: '2px solid #E2E8F0' }}>{h}</th>
                           ))}
                         </tr>
                       </thead>
@@ -2637,10 +2637,10 @@ export default function GestionRH({
                             <tr key={a.id} style={{ borderBottom: '1px solid #F1F5F9' }}>
                               <td style={{ padding: '10px 14px' }}>
                                 <div style={{ fontWeight: 600 }}>{a.full_name}</div>
-                                <div style={{ fontSize: 11, color: '#94A3B8' }}>{tx(lang, { fr: 'Salaire', ar: 'الراتب', en: 'Salary', es: 'Salario', pt: 'Salário', tr: 'Maaş' })}: {a.salaire_base?.toLocaleString()} MAD</div>
+                                <div style={{ fontSize: 11, color: isDark ? '#64748B' : '#94A3B8' }}>{tx(lang, { fr: 'Salaire', ar: 'الراتب', en: 'Salary', es: 'Salario', pt: 'Salário', tr: 'Maaş' })}: {a.salaire_base?.toLocaleString()} MAD</div>
                               </td>
-                              <td style={{ padding: '10px 14px', color: '#64748B' }}>{a.date_demande}</td>
-                              <td style={{ padding: '10px 14px', fontWeight: 700, color: '#0F172A' }}>
+                              <td style={{ padding: '10px 14px', color: isDark ? '#94A3B8' : '#64748B' }}>{a.date_demande}</td>
+                              <td style={{ padding: '10px 14px', fontWeight: 700, color: isDark ? '#334155' : '#0F172A' }}>
                                 {a.montant?.toLocaleString()} MAD
                                 {a.salaire_base > 0 && (
                                   <div style={{ fontSize: 10, color: a.montant > a.salaire_base * 0.1 ? '#EF4444' : '#10B981' }}>
@@ -2670,7 +2670,7 @@ export default function GestionRH({
                       </tbody>
                     </table>
                     {avances.length === 0 && (
-                      <div style={{ textAlign: 'center', padding: 40, color: '#94A3B8' }}>
+                      <div style={{ textAlign: 'center', padding: 40, color: isDark ? '#64748B' : '#94A3B8' }}>
                         <DollarSign size={40} style={{ marginBottom: 10, opacity: 0.3 }} />
                         <div>{tx(lang, { fr: 'Aucune avance enregistrée', ar: 'لا توجد سلفات مسجلة', en: 'No advances recorded', es: 'Ningún anticipo registrado', pt: 'Nenhum adiantamento registrado', tr: 'Kayıtlı avans yok' })}</div>
                       </div>
@@ -2709,8 +2709,8 @@ export default function GestionRH({
                 {transportSubTab === 'recensement' && (
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, alignItems: 'start' }} className="recensement-grid-compact">
                     {/* Left Panel: Selection by Chaine & Quick Add */}
-                    <div style={{ background: '#fff', borderRadius: 16, padding: 20, border: '1px solid #E2E8F0', boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}>
-                      <h3 style={{ margin: '0 0 16px', fontSize: 15, fontWeight: 700, color: '#0F172A' }}>{tx(lang, { fr: 'Sélection des Passagers HS', ar: 'اختيار الركاب للساعات الإضافية', en: 'OT Passenger Selection', es: 'Selección de Pasajeros HS', pt: 'Seleção de Passageiros HE', tr: 'Fazla Mesai Yolcu Seçimi' })}</h3>
+                    <div style={{ background: isDark ? '#1E293B' : '#fff', borderRadius: 16, padding: 20, border: '1px solid #E2E8F0', boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}>
+                      <h3 style={{ margin: '0 0 16px', fontSize: 15, fontWeight: 700, color: isDark ? '#334155' : '#0F172A' }}>{tx(lang, { fr: 'Sélection des Passagers HS', ar: 'اختيار الركاب للساعات الإضافية', en: 'OT Passenger Selection', es: 'Selección de Pasajeros HS', pt: 'Seleção de Passageiros HE', tr: 'Fazla Mesai Yolcu Seçimi' })}</h3>
                       
                       {/* Date Filter */}
                       <div style={{ marginBottom: 16 }}>
@@ -2724,25 +2724,25 @@ export default function GestionRH({
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                           <input type="text" placeholder={tx(lang, { fr: 'Rechercher par nom...', ar: 'بحث بالاسم...', en: 'Search by name...', es: 'Buscar por nombre...', pt: 'Pesquisar por nome...', tr: 'İsimle ara...' })} value={recensementSearch} onChange={e => setRecensementSearch(e.target.value)} style={_\inputStyle} />
                           {recensementSearch && (
-                            <button onClick={() => setRecensementSearch('')} style={{ padding: 8, background: '#F1F5F9', border: 'none', borderRadius: 8, cursor: 'pointer' }}>
+                            <button onClick={() => setRecensementSearch('')} style={{ padding: 8, background: isDark ? '#1E293B' : '#F1F5F9', border: 'none', borderRadius: 8, cursor: 'pointer' }}>
                               <X size={16} />
                             </button>
                           )}
                         </div>
                         {/* Suggestions Dropdown */}
                         {recensementSearch.trim() && (
-                          <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: '#fff', border: '1px solid #E2E8F0', borderRadius: 10, boxShadow: '0 10px 25px rgba(0,0,0,0.1)', zIndex: 100, marginTop: 4, maxHeight: 200, overflowY: 'auto' }}>
+                          <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: isDark ? '#1E293B' : '#fff', border: '1px solid #E2E8F0', borderRadius: 10, boxShadow: '0 10px 25px rgba(0,0,0,0.1)', zIndex: 100, marginTop: 4, maxHeight: 200, overflowY: 'auto' }}>
                             {workers.filter(w => w.is_active && !recensementWorkers.includes(w.id) && w.full_name.toLowerCase().includes(recensementSearch.toLowerCase())).slice(0, 6).map(w => (
                               <div key={w.id} onClick={() => { setRecensementWorkers(prev => [...prev, w.id]); setRecensementSearch(''); }}
                                 style={{ padding: '10px 14px', cursor: 'pointer', borderBottom: '1px solid #F1F5F9', fontSize: 13, display: 'flex', justifyContent: 'space-between', transition: 'background 0.15s' }}
                                 onMouseEnter={e => e.currentTarget.style.backgroundColor = '#F8FAFC'}
                                 onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}>
                                 <span style={{ fontWeight: 600 }}>{w.full_name}</span>
-                                <span style={{ fontSize: 11, color: '#64748B' }}>{w.equipe || tx(lang, { fr: 'Sans Équipe', ar: 'بدون فريق', en: 'No Team', es: 'Sin Equipo', pt: 'Sem Equipe', tr: 'Takım Yok' })} • {w.chaine_id || '—'}</span>
+                                <span style={{ fontSize: 11, color: isDark ? '#94A3B8' : '#64748B' }}>{w.equipe || tx(lang, { fr: 'Sans Équipe', ar: 'بدون فريق', en: 'No Team', es: 'Sin Equipo', pt: 'Sem Equipe', tr: 'Takım Yok' })} • {w.chaine_id || '—'}</span>
                               </div>
                             ))}
                             {workers.filter(w => w.is_active && !recensementWorkers.includes(w.id) && w.full_name.toLowerCase().includes(recensementSearch.toLowerCase())).length === 0 && (
-                              <div style={{ padding: '12px 14px', fontSize: 12, color: '#94A3B8', textAlign: 'center' }}>{tx(lang, { fr: 'Aucun ouvrier actif correspondant', ar: 'لا يوجد عامل نشط مطابق', en: 'No matching active worker', es: 'Ningún trabajador activo coincide', pt: 'Nenhum trabalhador ativo correspondente', tr: 'Eşleşen aktif işçi yok' })}</div>
+                              <div style={{ padding: '12px 14px', fontSize: 12, color: isDark ? '#64748B' : '#94A3B8', textAlign: 'center' }}>{tx(lang, { fr: 'Aucun ouvrier actif correspondant', ar: 'لا يوجد عامل نشط مطابق', en: 'No matching active worker', es: 'Ningún trabajador activo coincide', pt: 'Nenhum trabalhador ativo correspondente', tr: 'Eşleşen aktif işçi yok' })}</div>
                             )}
                           </div>
                         )}
@@ -2785,7 +2785,7 @@ export default function GestionRH({
                                     <input type="checkbox" checked={isChecked} onChange={() => toggleWorkerRecensement(w.id)} style={{ width: 16, height: 16 }} />
                                     <div>
                                       <span style={{ fontWeight: isChecked ? 700 : 500, color: isChecked ? '#2149C1' : '#1E293B' }}>{w.full_name}</span>
-                                      <div style={{ fontSize: 11, color: '#64748B' }}>{w.matricule} • {w.poste || '—'} {w.equipe ? `(${w.equipe})` : ''}</div>
+                                      <div style={{ fontSize: 11, color: isDark ? '#94A3B8' : '#64748B' }}>{w.matricule} • {w.poste || '—'} {w.equipe ? `(${w.equipe})` : ''}</div>
                                     </div>
                                   </label>
                                 );
@@ -2799,9 +2799,9 @@ export default function GestionRH({
                     {/* Right Panel: Fiche Récapitulative */}
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
                       {/* Summary Table Card */}
-                      <div style={{ background: '#fff', borderRadius: 16, padding: 20, border: '1px solid #E2E8F0', boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}>
+                      <div style={{ background: isDark ? '#1E293B' : '#fff', borderRadius: 16, padding: 20, border: '1px solid #E2E8F0', boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-                          <h3 style={{ margin: 0, fontSize: 15, fontWeight: 700, color: '#0F172A' }}>{tx(lang, { fr: 'Fiche Récapitulative', ar: 'بطاقة ملخصة', en: 'Summary Sheet', es: 'Ficha Resumen', pt: 'Ficha Resumo', tr: 'Özet Kartı' })}</h3>
+                          <h3 style={{ margin: 0, fontSize: 15, fontWeight: 700, color: isDark ? '#334155' : '#0F172A' }}>{tx(lang, { fr: 'Fiche Récapitulative', ar: 'بطاقة ملخصة', en: 'Summary Sheet', es: 'Ficha Resumen', pt: 'Ficha Resumo', tr: 'Özet Kartı' })}</h3>
                           <button onClick={handleCopyRecensementWhatsApp} disabled={recensementWorkers.length === 0} style={_\btnPrimary}>
                             <Copy size={14} style={{ marginRight: 6 }} /> {tx(lang, { fr: 'Copier WhatsApp', ar: 'نسخ واتساب', en: 'Copy WhatsApp', es: 'Copiar WhatsApp', pt: 'Copiar WhatsApp', tr: 'WhatsApp\'ı Kopyala' })}
                           </button>
@@ -2811,10 +2811,10 @@ export default function GestionRH({
                         <div style={{ border: '1px solid #E2E8F0', borderRadius: 10, overflow: 'hidden', marginBottom: 16 }}>
                           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
                             <thead>
-                              <tr style={{ background: '#F8FAFC', borderBottom: '1px solid #E2E8F0' }}>
-                                <th style={{ padding: '8px 12px', textAlign: 'left', fontWeight: 600, color: '#475569' }}>{tx(lang, { fr: 'Équipe (Parda)', ar: 'الفريق (الوردية)', en: 'Team (Parda)', es: 'Equipo (Parda)', pt: 'Equipe (Parda)', tr: 'Takım (Parda)' })}</th>
-                                <th style={{ padding: '8px 12px', textAlign: 'center', fontWeight: 600, color: '#475569' }}>{tx(lang, { fr: 'Nombre', ar: 'العدد', en: 'Count', es: 'Cantidad', pt: 'Quantidade', tr: 'Sayı' })}</th>
-                                <th style={{ padding: '8px 12px', textAlign: 'left', fontWeight: 600, color: '#475569' }}>{tx(lang, { fr: 'Lignes / Quartiers', ar: 'الخطوط / الأحياء', en: 'Lines / Districts', es: 'Líneas / Barrios', pt: 'Linhas / Bairros', tr: 'Hatlar / Mahalleler' })}</th>
+                              <tr style={{ background: isDark ? '#1E293B' : '#F8FAFC', borderBottom: '1px solid #E2E8F0' }}>
+                                <th style={{ padding: '8px 12px', textAlign: 'left', fontWeight: 600, color: isDark ? '#94A3B8' : '#475569' }}>{tx(lang, { fr: 'Équipe (Parda)', ar: 'الفريق (الوردية)', en: 'Team (Parda)', es: 'Equipo (Parda)', pt: 'Equipe (Parda)', tr: 'Takım (Parda)' })}</th>
+                                <th style={{ padding: '8px 12px', textAlign: 'center', fontWeight: 600, color: isDark ? '#94A3B8' : '#475569' }}>{tx(lang, { fr: 'Nombre', ar: 'العدد', en: 'Count', es: 'Cantidad', pt: 'Quantidade', tr: 'Sayı' })}</th>
+                                <th style={{ padding: '8px 12px', textAlign: 'left', fontWeight: 600, color: isDark ? '#94A3B8' : '#475569' }}>{tx(lang, { fr: 'Lignes / Quartiers', ar: 'الخطوط / الأحياء', en: 'Lines / Districts', es: 'Líneas / Barrios', pt: 'Linhas / Bairros', tr: 'Hatlar / Mahalleler' })}</th>
                               </tr>
                             </thead>
                             <tbody>
@@ -2828,32 +2828,32 @@ export default function GestionRH({
                                 }, {} as Record<string, { count: number; lines: Set<string> }>)
                               ).map(([parda, info]) => (
                                 <tr key={parda} style={{ borderBottom: '1px solid #F1F5F9' }}>
-                                  <td style={{ padding: '8px 12px', fontWeight: 600, color: '#0F172A' }}>{parda}</td>
+                                  <td style={{ padding: '8px 12px', fontWeight: 600, color: isDark ? '#334155' : '#0F172A' }}>{parda}</td>
                                   <td style={{ padding: '8px 12px', textAlign: 'center', fontWeight: 700, color: '#6366F1' }}>{info.count}</td>
-                                  <td style={{ padding: '8px 12px', color: '#64748B', fontSize: 11 }}>{[...info.lines].join(', ')}</td>
+                                  <td style={{ padding: '8px 12px', color: isDark ? '#94A3B8' : '#64748B', fontSize: 11 }}>{[...info.lines].join(', ')}</td>
                                 </tr>
                               ))}
-                              <tr style={{ background: '#F8FAFC', fontWeight: 700, borderTop: '2px solid #E2E8F0' }}>
+                              <tr style={{ background: isDark ? '#1E293B' : '#F8FAFC', fontWeight: 700, borderTop: '2px solid #E2E8F0' }}>
                                 <td style={{ padding: '10px 12px' }}>{tx(lang, { fr: 'Total passagers', ar: 'إجمالي الركاب', en: 'Total passengers', es: 'Total pasajeros', pt: 'Total passageiros', tr: 'Toplam yolcu' })}</td>
-                                <td style={{ padding: '10px 12px', textAlign: 'center', fontSize: 14, color: '#2149C1' }}>{recensementWorkers.length}</td>
-                                <td style={{ padding: '10px 12px', color: '#94A3B8', fontSize: 11 }}>{tx(lang, { fr: 'Toutes équipes confondues', ar: 'جميع الفرق مجتمعة', en: 'All teams combined', es: 'Todos los equipos combinados', pt: 'Todas as equipes combinadas', tr: 'Tüm takımlar dahil' })}</td>
+                                <td style={{ padding: '10px 12px', textAlign: 'center', fontSize: 14, color: isDark ? '#818cf8' : '#2149C1' }}>{recensementWorkers.length}</td>
+                                <td style={{ padding: '10px 12px', color: isDark ? '#64748B' : '#94A3B8', fontSize: 11 }}>{tx(lang, { fr: 'Toutes équipes confondues', ar: 'جميع الفرق مجتمعة', en: 'All teams combined', es: 'Todos los equipos combinados', pt: 'Todas as equipes combinadas', tr: 'Tüm takımlar dahil' })}</td>
                               </tr>
                             </tbody>
                           </table>
                           {recensementWorkers.length === 0 && (
-                            <div style={{ textAlign: 'center', padding: 24, color: '#94A3B8', fontSize: 12 }}>{tx(lang, { fr: 'Aucun passager sélectionné', ar: 'لم يتم اختيار أي راكب', en: 'No passenger selected', es: 'Ningún pasajero seleccionado', pt: 'Nenhum passageiro selecionado', tr: 'Yolcu seçilmedi' })}</div>
+                            <div style={{ textAlign: 'center', padding: 24, color: isDark ? '#64748B' : '#94A3B8', fontSize: 12 }}>{tx(lang, { fr: 'Aucun passager sélectionné', ar: 'لم يتم اختيار أي راكب', en: 'No passenger selected', es: 'Ningún pasajero seleccionado', pt: 'Nenhum passageiro selecionado', tr: 'Yolcu seçilmedi' })}</div>
                           )}
                         </div>
 
                         {/* List of checked passengers with quick remove */}
                         <div>
-                          <div style={{ fontSize: 12, fontWeight: 700, color: '#475569', marginBottom: 8 }}>{tx(lang, { fr: 'Liste des passagers', ar: 'قائمة الركاب', en: 'Passenger List', es: 'Lista de pasajeros', pt: 'Lista de passageiros', tr: 'Yolcu Listesi' })} ({recensementWorkers.length}) :</div>
+                          <div style={{ fontSize: 12, fontWeight: 700, color: isDark ? '#94A3B8' : '#475569', marginBottom: 8 }}>{tx(lang, { fr: 'Liste des passagers', ar: 'قائمة الركاب', en: 'Passenger List', es: 'Lista de pasajeros', pt: 'Lista de passageiros', tr: 'Yolcu Listesi' })} ({recensementWorkers.length}) :</div>
                           <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 6, maxHeight: 220, overflowY: 'auto' }}>
                             {workers.filter(w => recensementWorkers.includes(w.id)).map(w => (
-                              <div key={w.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 10px', borderRadius: 8, border: '1px solid #F1F5F9', background: '#F8FAFC', fontSize: 12 }}>
+                              <div key={w.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 10px', borderRadius: 8, border: '1px solid #F1F5F9', background: isDark ? '#1E293B' : '#F8FAFC', fontSize: 12 }}>
                                 <div>
-                                  <span style={{ fontWeight: 600, color: '#1E293B' }}>{w.full_name}</span>
-                                  <span style={{ color: '#64748B', marginLeft: 8 }}>({w.equipe || '—'} • {w.transport_ligne_quartier || w.transport_ligne_nom || 'Sans Transport'})</span>
+                                  <span style={{ fontWeight: 600, color: isDark ? '#334155' : '#1E293B' }}>{w.full_name}</span>
+                                  <span style={{ color: isDark ? '#94A3B8' : '#64748B', marginLeft: 8 }}>({w.equipe || '—'} • {w.transport_ligne_quartier || w.transport_ligne_nom || 'Sans Transport'})</span>
                                 </div>
                                 <button onClick={() => setRecensementWorkers(prev => prev.filter(id => id !== w.id))}
                                   style={{ padding: 4, background: 'none', border: 'none', cursor: 'pointer', color: '#EF4444' }}>
@@ -2874,12 +2874,12 @@ export default function GestionRH({
                     {/* Filters */}
                     <div style={{ display: 'flex', gap: 12, marginBottom: 20, alignItems: 'center', flexWrap: 'wrap' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <span style={{ fontSize: 13, fontWeight: 600, color: '#475569' }}>{tx(lang, { fr: 'Date', ar: 'التاريخ', en: 'Date', es: 'Fecha', pt: 'Data', tr: 'Tarih' })} :</span>
+                        <span style={{ fontSize: 13, fontWeight: 600, color: isDark ? '#94A3B8' : '#475569' }}>{tx(lang, { fr: 'Date', ar: 'التاريخ', en: 'Date', es: 'Fecha', pt: 'Data', tr: 'Tarih' })} :</span>
                         <input type="date" value={filterTransportDate} onChange={e => setFilterTransportDate(e.target.value)}
                           style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid #CBD5E1', fontSize: 13, outline: 'none' }} />
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <span style={{ fontSize: 13, fontWeight: 600, color: '#475569' }}>{tx(lang, { fr: 'Équipe (Parda)', ar: 'الفريق (الوردية)', en: 'Team (Parda)', es: 'Equipo (Parda)', pt: 'Equipe (Parda)', tr: 'Takım (Parda)' })} :</span>
+                        <span style={{ fontSize: 13, fontWeight: 600, color: isDark ? '#94A3B8' : '#475569' }}>{tx(lang, { fr: 'Équipe (Parda)', ar: 'الفريق (الوردية)', en: 'Team (Parda)', es: 'Equipo (Parda)', pt: 'Equipe (Parda)', tr: 'Takım (Parda)' })} :</span>
                         <input type="text" placeholder="ex: Équipe A" value={filterTransportParda} onChange={e => setFilterTransportParda(e.target.value)}
                           style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid #CBD5E1', fontSize: 13, outline: 'none' }} />
                       </div>
@@ -2920,19 +2920,19 @@ export default function GestionRH({
                         };
 
                         return (
-                          <div key={l.id} style={{ background: '#fff', borderRadius: 16, boxShadow: '0 4px 12px rgba(0,0,0,0.05)', border: '1px solid #E2E8F0', padding: 20 }}>
+                          <div key={l.id} style={{ background: isDark ? '#1E293B' : '#fff', borderRadius: 16, boxShadow: '0 4px 12px rgba(0,0,0,0.05)', border: '1px solid #E2E8F0', padding: 20 }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '1px solid #F1F5F9', paddingBottom: 12, marginBottom: 16, flexWrap: 'wrap', gap: 10 }}>
                               <div>
-                                <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: '#1E293B', display: 'flex', alignItems: 'center', gap: 8 }}>
+                                <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: isDark ? '#334155' : '#1E293B', display: 'flex', alignItems: 'center', gap: 8 }}>
                                   <Navigation size={18} color="#2149C1" /> {l.code_ligne ? `[${l.code_ligne}] ` : ''}{l.nom}
-                                  {l.quartier && <span style={{ fontSize: 12, fontWeight: 500, color: '#64748B', background: '#F1F5F9', padding: '2px 8px', borderRadius: 6 }}>{tx(lang, { fr: 'Quartier', ar: 'الحي', en: 'District', es: 'Barrio', pt: 'Bairro', tr: 'Mahalle' })}: {l.quartier}</span>}
+                                  {l.quartier && <span style={{ fontSize: 12, fontWeight: 500, color: isDark ? '#94A3B8' : '#64748B', background: isDark ? '#1E293B' : '#F1F5F9', padding: '2px 8px', borderRadius: 6 }}>{tx(lang, { fr: 'Quartier', ar: 'الحي', en: 'District', es: 'Barrio', pt: 'Bairro', tr: 'Mahalle' })}: {l.quartier}</span>}
                                 </h3>
-                                <div style={{ display: 'flex', gap: 16, marginTop: 6, flexWrap: 'wrap', fontSize: 12, color: '#64748B' }}>
+                                <div style={{ display: 'flex', gap: 16, marginTop: 6, flexWrap: 'wrap', fontSize: 12, color: isDark ? '#94A3B8' : '#64748B' }}>
                                   {l.chauffeur_nom && (
                                     <span>
                                       {tx(lang, { fr: 'Chauffeur', ar: 'السائق', en: 'Driver', es: 'Conductor', pt: 'Motorista', tr: 'Şoför' })}: <strong>{l.chauffeur_nom}</strong>
                                       {l.chauffeur_tel && (
-                                        <a href={`tel:${l.chauffeur_tel}`} style={{ marginLeft: 6, color: '#2149C1', fontWeight: 600 }}>
+                                        <a href={`tel:${l.chauffeur_tel}`} style={{ marginLeft: 6, color: isDark ? '#818cf8' : '#2149C1', fontWeight: 600 }}>
                                           📞 {l.chauffeur_tel}
                                         </a>
                                       )}
@@ -2942,7 +2942,7 @@ export default function GestionRH({
                                 </div>
                               </div>
                               <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                                <span style={{ background: '#EEF2FF', color: '#2149C1', fontSize: 11, fontWeight: 700, padding: '4px 10px', borderRadius: 12 }}>
+                                <span style={{ background: '#EEF2FF', color: isDark ? '#818cf8' : '#2149C1', fontSize: 11, fontWeight: 700, padding: '4px 10px', borderRadius: 12 }}>
                                   {tx(lang, { fr: 'Présents', ar: 'الحاضرون', en: 'Present', es: 'Presentes', pt: 'Presentes', tr: 'Mevcut' })}: {presentWorkers.length} / {assignedWorkers.length} ({tx(lang, { fr: 'Capacité', ar: 'السعة', en: 'Capacity', es: 'Capacidad', pt: 'Capacidade', tr: 'Kapasite' })}: {l.capacite || '—'})
                                 </span>
                                 <button onClick={handleCopyWhatsApp} style={{ ..._\btnSecondary, fontSize: 11, padding: '4px 10px' }}>
@@ -2952,13 +2952,13 @@ export default function GestionRH({
                             </div>
 
                             <div>
-                              <div style={{ fontSize: 12, fontWeight: 700, color: '#475569', marginBottom: 10 }}>{tx(lang, { fr: 'Liste des passagers présents aujourd\'hui', ar: 'قائمة الركاب الحاضرين اليوم', en: 'List of passengers present today', es: 'Lista de pasajeros presentes hoy', pt: 'Lista de passageiros presentes hoje', tr: 'Bugün mevcut yolcu listesi' })} :</div>
+                              <div style={{ fontSize: 12, fontWeight: 700, color: isDark ? '#94A3B8' : '#475569', marginBottom: 10 }}>{tx(lang, { fr: 'Liste des passagers présents aujourd\'hui', ar: 'قائمة الركاب الحاضرين اليوم', en: 'List of passengers present today', es: 'Lista de pasajeros presentes hoy', pt: 'Lista de passageiros presentes hoje', tr: 'Bugün mevcut yolcu listesi' })} :</div>
                               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 10 }}>
                                 {presentWorkers.map(w => (
-                                  <div key={w.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', borderRadius: 10, border: '1px solid #E2E8F0', background: '#F8FAFC' }}>
+                                  <div key={w.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', borderRadius: 10, border: '1px solid #E2E8F0', background: isDark ? '#1E293B' : '#F8FAFC' }}>
                                     <div>
-                                      <div style={{ fontWeight: 600, fontSize: 13, color: '#1E293B' }}>{w.full_name}</div>
-                                      <div style={{ fontSize: 11, color: '#64748B' }}>
+                                      <div style={{ fontWeight: 600, fontSize: 13, color: isDark ? '#334155' : '#1E293B' }}>{w.full_name}</div>
+                                      <div style={{ fontSize: 11, color: isDark ? '#94A3B8' : '#64748B' }}>
                                         {w.matricule} • {w.poste || '—'} {w.equipe ? `(${w.equipe})` : ''}
                                       </div>
                                     </div>
@@ -2971,7 +2971,7 @@ export default function GestionRH({
                                 ))}
                               </div>
                               {presentWorkers.length === 0 && (
-                                <div style={{ textAlign: 'center', padding: '20px 0', color: '#94A3B8', fontSize: 12 }}>
+                                <div style={{ textAlign: 'center', padding: '20px 0', color: isDark ? '#64748B' : '#94A3B8', fontSize: 12 }}>
                                   {tx(lang, { fr: 'Aucun passager présent sur cette ligne aujourd\'hui.', ar: 'لا يوجد ركاب حاضرون على هذا الخط اليوم.', en: 'No passengers present on this line today.', es: 'Ningún pasajero presente en esta línea hoy.', pt: 'Nenhum passageiro presente nesta linha hoje.', tr: 'Bugün bu hatta mevcut yolcu yok.' })}
                                 </div>
                               )}
@@ -2980,7 +2980,7 @@ export default function GestionRH({
                         );
                       })}
                       {transportLignes.length === 0 && (
-                        <div style={{ textAlign: 'center', padding: 40, background: '#fff', borderRadius: 14, border: '1px dashed #CBD5E1', color: '#64748B' }}>
+                        <div style={{ textAlign: 'center', padding: 40, background: isDark ? '#1E293B' : '#fff', borderRadius: 14, border: '1px dashed #CBD5E1', color: isDark ? '#94A3B8' : '#64748B' }}>
                           {tx(lang, { fr: 'Aucune ligne de transport enregistrée. Rendez-vous sur l\'onglet "Gestion des Lignes" pour en ajouter une.', ar: 'لا يوجد خط نقل مسجل. انتقل إلى علامة التبويب "إدارة الخطوط" لإضافة واحد.', en: 'No transport line registered. Go to the "Line Management" tab to add one.', es: 'Ninguna línea de transporte registrada. Vaya a la pestaña "Gestión de Líneas" para agregar una.', pt: 'Nenhuma linha de transporte registrada. Vá para a guia "Gerenciamento de Linhas" para adicionar uma.', tr: 'Kayıtlı ulaşım hattı yok. Eklemek için "Hat Yönetimi" sekmesine gidin.' })}
                         </div>
                       )}
@@ -2999,24 +2999,24 @@ export default function GestionRH({
 
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 16 }}>
                       {transportLignes.map(l => (
-                        <div key={l.id} style={{ background: '#fff', borderRadius: 14, boxShadow: '0 2px 8px rgba(0,0,0,0.05)', border: '1px solid #E2E8F0', padding: 16, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                        <div key={l.id} style={{ background: isDark ? '#1E293B' : '#fff', borderRadius: 14, boxShadow: '0 2px 8px rgba(0,0,0,0.05)', border: '1px solid #E2E8F0', padding: 16, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
                           <div>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                              <h4 style={{ margin: 0, fontSize: 15, fontWeight: 700, color: '#1E293B' }}>
+                              <h4 style={{ margin: 0, fontSize: 15, fontWeight: 700, color: isDark ? '#334155' : '#1E293B' }}>
                                 {l.code_ligne ? `[${l.code_ligne}] ` : ''}{l.nom}
                               </h4>
                               <span style={{ fontSize: 11, background: '#F0FDF4', color: '#166534', padding: '2px 8px', borderRadius: 10, fontWeight: 700 }}>
                                 Capacité: {l.capacite || 0}
                               </span>
                             </div>
-                            <div style={{ marginTop: 12, fontSize: 13, color: '#475569', display: 'flex', flexDirection: 'column', gap: 6 }}>
+                            <div style={{ marginTop: 12, fontSize: 13, color: isDark ? '#94A3B8' : '#475569', display: 'flex', flexDirection: 'column', gap: 6 }}>
                               {l.quartier && <div>📍 Quartier (Hay): <strong>{l.quartier}</strong></div>}
                               <div>👤 Chauffeur: <strong>{l.chauffeur_nom || '—'}</strong></div>
                               {l.chauffeur_tel && (
-                                <div>📞 Téléphone: <a href={`tel:${l.chauffeur_tel}`} style={{ color: '#2149C1', fontWeight: 600 }}>{l.chauffeur_tel}</a></div>
+                                <div>📞 Téléphone: <a href={`tel:${l.chauffeur_tel}`} style={{ color: isDark ? '#818cf8' : '#2149C1', fontWeight: 600 }}>{l.chauffeur_tel}</a></div>
                               )}
                               <div>🚗 Véhicule: <strong>{l.matricule_vehicule || '—'}</strong></div>
-                              {l.notes && <div style={{ fontSize: 12, color: '#94A3B8', fontStyle: 'italic', marginTop: 4 }}>📝 {l.notes}</div>}
+                              {l.notes && <div style={{ fontSize: 12, color: isDark ? '#64748B' : '#94A3B8', fontStyle: 'italic', marginTop: 4 }}>📝 {l.notes}</div>}
                             </div>
                           </div>
                           <div style={{ display: 'flex', gap: 8, borderTop: '1px solid #F1F5F9', paddingTop: 12, marginTop: 12, justifyContent: 'flex-end' }}>
@@ -3032,7 +3032,7 @@ export default function GestionRH({
                         </div>
                       ))}
                       {transportLignes.length === 0 && (
-                        <div style={{ gridColumn: '1/-1', textAlign: 'center', padding: 40, color: '#94A3B8' }}>
+                        <div style={{ gridColumn: '1/-1', textAlign: 'center', padding: 40, color: isDark ? '#64748B' : '#94A3B8' }}>
                           {tx(lang, { fr: 'Aucune ligne de transport enregistrée.', ar: 'لا يوجد خط نقل مسجل.', en: 'No transport line registered.', es: 'Ninguna línea de transporte registrada.', pt: 'Nenhuma linha de transporte registrada.', tr: 'Kayıtlı ulaşım hattı yok.' })}
                         </div>
                       )}
@@ -3042,13 +3042,13 @@ export default function GestionRH({
 
                 {/* Ligne Modal */}
                 {showLigneModal && (
-                  <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
-                    <div style={{ background: '#fff', borderRadius: 16, width: '100%', maxWidth: 480, boxShadow: '0 25px 60px rgba(0,0,0,0.2)', display: 'flex', flexDirection: 'column' }}>
+                  <div style={{ position: 'fixed', inset: 0, background: isDark ? 'rgba(0,0,0,0.7)' : 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+                    <div style={{ background: isDark ? '#1E293B' : '#fff', borderRadius: 16, width: '100%', maxWidth: 480, boxShadow: '0 25px 60px rgba(0,0,0,0.2)', display: 'flex', flexDirection: 'column' }}>
                       <div style={{ padding: '20px 24px', borderBottom: '1px solid #E2E8F0', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                        <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: '#0F172A' }}>
+                        <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: isDark ? '#334155' : '#0F172A' }}>
                           {selectedLigne?.id ? tx(lang, { fr: 'Modifier la ligne de transport', ar: 'تعديل خط النقل', en: 'Edit Transport Line', es: 'Editar Línea de Transporte', pt: 'Editar Linha de Transporte', tr: 'Taşıma Hattını Düzenle' }) : tx(lang, { fr: 'Ajouter une ligne de transport', ar: 'إضافة خط نقل', en: 'Add a Transport Line', es: 'Agregar una Línea de Transporte', pt: 'Adicionar uma Linha de Transporte', tr: 'Taşıma Hattı Ekle' })}
                         </h3>
-                        <button onClick={() => setShowLigneModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94A3B8' }}><X size={18} /></button>
+                        <button onClick={() => setShowLigneModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: isDark ? '#64748B' : '#94A3B8' }}><X size={18} /></button>
                       </div>
                       <div style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 14 }}>
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 10 }}>
@@ -3110,8 +3110,8 @@ export default function GestionRH({
             {tab === 'sage' && (
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
                 {/* Générateur */}
-                <div style={{ background: '#fff', borderRadius: 14, padding: 24, boxShadow: '0 2px 8px rgba(0,0,0,0.07)' }}>
-                  <h3 style={{ margin: '0 0 16px', fontSize: 16, fontWeight: 700, color: '#0F172A' }}>{tx(lang, { fr: 'Générer Export Paie', ar: 'توليد تصدير الرواتب', en: 'Generate Payroll Export', es: 'Generar Exportación de Nómina', pt: 'Gerar Exportação de Folha', tr: 'Maaş Bordrosu Dışa Aktar' })}</h3>
+                <div style={{ background: isDark ? '#1E293B' : '#fff', borderRadius: 14, padding: 24, boxShadow: '0 2px 8px rgba(0,0,0,0.07)' }}>
+                  <h3 style={{ margin: '0 0 16px', fontSize: 16, fontWeight: 700, color: isDark ? '#334155' : '#0F172A' }}>{tx(lang, { fr: 'Générer Export Paie', ar: 'توليد تصدير الرواتب', en: 'Generate Payroll Export', es: 'Generar Exportación de Nómina', pt: 'Gerar Exportação de Folha', tr: 'Maaş Bordrosu Dışa Aktar' })}</h3>
                   <div style={{ marginBottom: 16 }}>
                     <label style={_\labelStyle}>{tx(lang, { fr: 'Période', ar: 'الفترة', en: 'Period', es: 'Período', pt: 'Período', tr: 'Dönem' })}</label>
                     <input type="month" value={selectedMois} onChange={e => setSelectedMois(e.target.value)}
@@ -3119,16 +3119,16 @@ export default function GestionRH({
                   </div>
 
                   {sagePreview && sagePreview.rows && (
-                    <div style={{ background: '#F8FAFC', borderRadius: 10, padding: 14, marginBottom: 16 }}>
+                    <div style={{ background: isDark ? '#1E293B' : '#F8FAFC', borderRadius: 10, padding: 14, marginBottom: 16 }}>
                       <div style={{ fontWeight: 600, fontSize: 13, color: '#374151', marginBottom: 8 }}>{tx(lang, { fr: 'Aperçu', ar: 'معاينة', en: 'Preview', es: 'Vista previa', pt: 'Visualização', tr: 'Önizleme' })} {selectedMois}</div>
                       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
                         {[
                           { label: tx(lang, { fr: 'Salariés', ar: 'الموظفون', en: 'Employees', es: 'Empleados', pt: 'Funcionários', tr: 'Çalışanlar' }), value: sagePreview.rows.length },
                           { label: tx(lang, { fr: 'Masse brute', ar: 'الكتلة الإجمالية', en: 'Gross mass', es: 'Masa bruta', pt: 'Massa bruta', tr: 'Brüt kütle' }), value: sagePreview.rows.reduce((s: number, r: any) => s + (r.total_brut || 0), 0).toLocaleString() + ' MAD' },
                         ].map(k => (
-                          <div key={k.label} style={{ background: '#fff', borderRadius: 8, padding: '8px 12px', border: '1px solid #E2E8F0' }}>
-                            <div style={{ fontSize: 11, color: '#94A3B8' }}>{k.label}</div>
-                            <div style={{ fontWeight: 700, fontSize: 14, color: '#0F172A' }}>{k.value}</div>
+                          <div key={k.label} style={{ background: isDark ? '#1E293B' : '#fff', borderRadius: 8, padding: '8px 12px', border: '1px solid #E2E8F0' }}>
+                            <div style={{ fontSize: 11, color: isDark ? '#64748B' : '#94A3B8' }}>{k.label}</div>
+                            <div style={{ fontWeight: 700, fontSize: 14, color: isDark ? '#334155' : '#0F172A' }}>{k.value}</div>
                           </div>
                         ))}
                       </div>
@@ -3144,7 +3144,7 @@ export default function GestionRH({
                     <Download size={15} style={{ marginRight: 8 }} />
                     {generatingSage ? tx(lang, { fr: 'Génération...', ar: 'جارٍ التوليد...', en: 'Generating...', es: 'Generando...', pt: 'Gerando...', tr: 'Oluşturuluyor...' }) : tx(lang, { fr: `Télécharger CSV Sage — ${selectedMois}`, ar: `تنزيل CSV Sage — ${selectedMois}`, en: `Download CSV Sage — ${selectedMois}`, es: `Descargar CSV Sage — ${selectedMois}`, pt: `Baixar CSV Sage — ${selectedMois}`, tr: `CSV Sage İndir — ${selectedMois}` })}
                   </button>
-                  <div style={{ fontSize: 11, color: '#94A3B8', textAlign: 'center', marginBottom: 16 }}>
+                  <div style={{ fontSize: 11, color: isDark ? '#64748B' : '#94A3B8', textAlign: 'center', marginBottom: 16 }}>
                     {tx(lang, { fr: 'Format: UTF-8 BOM • Séparateur: point-virgule • Compatible Excel & Sage', ar: 'التنسيق: UTF-8 BOM • الفاصل: فاصلة منقوطة • متوافق مع Excel & Sage', en: 'Format: UTF-8 BOM • Separator: semicolon • Compatible with Excel & Sage', es: 'Formato: UTF-8 BOM • Separador: punto y coma • Compatible con Excel & Sage', pt: 'Formato: UTF-8 BOM • Separador: ponto e vírgula • Compatível com Excel & Sage', tr: 'Biçim: UTF-8 BOM • Ayırıcı: noktalı virgül • Excel & Sage ile uyumlu' })}
                   </div>
 
@@ -3155,17 +3155,17 @@ export default function GestionRH({
                       <Download size={15} style={{ marginRight: 8 }} />
                       {tx(lang, { fr: `Exporter Excel — ${selectedMois}`, ar: `تصدير Excel — ${selectedMois}`, en: `Export Excel — ${selectedMois}`, es: `Exportar Excel — ${selectedMois}`, pt: `Exportar Excel — ${selectedMois}`, tr: `Excel Dışa Aktar — ${selectedMois}` })}
                     </button>
-                    <div style={{ marginTop: 6, fontSize: 11, color: '#94A3B8' }}>
+                    <div style={{ marginTop: 6, fontSize: 11, color: isDark ? '#64748B' : '#94A3B8' }}>
                       {tx(lang, { fr: '3 feuilles: Rapport Mensuel • Avances • Résumé', ar: '3 أوراق: التقرير الشهري • السلفات • الملخص', en: '3 sheets: Monthly Report • Advances • Summary', es: '3 hojas: Informe Mensual • Anticipos • Resumen', pt: '3 folhas: Relatório Mensal • Adiantamentos • Resumo', tr: '3 sayfa: Aylık Rapor • Avanslar • Özet' })}
                     </div>
                   </div>
                 </div>
 
                 {/* Historique */}
-                <div style={{ background: '#fff', borderRadius: 14, padding: 24, boxShadow: '0 2px 8px rgba(0,0,0,0.07)' }}>
-                  <h3 style={{ margin: '0 0 16px', fontSize: 16, fontWeight: 700, color: '#0F172A' }}>{tx(lang, { fr: 'Historique des Exports', ar: 'سجل التصدير', en: 'Export History', es: 'Historial de Exportaciones', pt: 'Histórico de Exportações', tr: 'Dışa Aktarım Geçmişi' })}</h3>
+                <div style={{ background: isDark ? '#1E293B' : '#fff', borderRadius: 14, padding: 24, boxShadow: '0 2px 8px rgba(0,0,0,0.07)' }}>
+                  <h3 style={{ margin: '0 0 16px', fontSize: 16, fontWeight: 700, color: isDark ? '#334155' : '#0F172A' }}>{tx(lang, { fr: 'Historique des Exports', ar: 'سجل التصدير', en: 'Export History', es: 'Historial de Exportaciones', pt: 'Histórico de Exportações', tr: 'Dışa Aktarım Geçmişi' })}</h3>
                   {sageExports.length === 0 ? (
-                    <div style={{ textAlign: 'center', padding: 30, color: '#94A3B8' }}>
+                    <div style={{ textAlign: 'center', padding: 30, color: isDark ? '#64748B' : '#94A3B8' }}>
                       <FileText size={36} style={{ marginBottom: 8, opacity: 0.3 }} />
                       <div>{tx(lang, { fr: 'Aucun export généré', ar: 'لم يتم إنشاء أي تصدير', en: 'No export generated', es: 'Ninguna exportación generada', pt: 'Nenhuma exportação gerada', tr: 'Dışa aktarma oluşturulmadı' })}</div>
                     </div>
@@ -3174,8 +3174,8 @@ export default function GestionRH({
                       {sageExports.map((e: any) => (
                         <div key={e.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', border: '1px solid #E2E8F0', borderRadius: 10 }}>
                           <div>
-                            <div style={{ fontWeight: 600, fontSize: 14, color: '#0F172A' }}>{e.mois}</div>
-                            <div style={{ fontSize: 11, color: '#94A3B8' }}>{new Date(e.date_export).toLocaleDateString('fr-FR')}</div>
+                            <div style={{ fontWeight: 600, fontSize: 14, color: isDark ? '#334155' : '#0F172A' }}>{e.mois}</div>
+                            <div style={{ fontSize: 11, color: isDark ? '#64748B' : '#94A3B8' }}>{new Date(e.date_export).toLocaleDateString('fr-FR')}</div>
                           </div>
                           <CheckCircle size={18} style={{ color: '#10B981' }} />
                         </div>

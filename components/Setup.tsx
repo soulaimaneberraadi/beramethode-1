@@ -1024,7 +1024,7 @@ export default function Setup({ onComplete }: Props) {
           )}
         </div>
 
-        <p className="text-center text-xs text-slate-400 mt-4">
+        <p className={`text-center text-xs mt-4 ${isDark ? 'text-dk-muted' : 'text-slate-400'}`}>
           {tx(lang,{fr:'BERAMETHODE \u2014 Syst\u00e8me de gestion textile',ar:'BERAMETHODE \u2014 \u0646\u0638\u0627\u0645 \u0625\u062f\u0627\u0631\u0629 \u0627\u0644\u0645\u0646\u0633\u0648\u062c\u0627\u062a',en:'BERAMETHODE \u2014 Textile management system',es:'BERAMETHODE \u2014 Sistema de gesti\u00f3n textil',pt:'BERAMETHODE \u2014 Sistema de gest\u00e3o t\u00eaxteis',tr:'BERAMETHODE \u2014 Tekstil y\u00f6netim sistemi'})}
         </p>
       </div>

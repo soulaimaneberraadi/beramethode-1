@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { ChevronRight, ChevronDown, Shield, Plus, Trash2, Check, UserPlus, Eye, Pencil, X, Users } from 'lucide-react';
 import { PROTECTED_PAGES, PROTECTED_FIELDS, ROLE_PRESETS, RolePresetKey } from '../server/permissions/presets';
 import { useLang } from '../src/context/LanguageContext';
+import { useIsDark } from '../src/context/ThemeContext';
 import { tx } from '../lib/i18n';
 
 /**
@@ -33,6 +34,7 @@ const api = (url: string, opts?: RequestInit) =>
 
 export default function PermissionsManager() {
   const { lang } = useLang();
+  const isDark = useIsDark();
   const [roles, setRoles] = useState<Role[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
   const [openRole, setOpenRole] = useState<string | null>(null);
@@ -113,7 +115,7 @@ export default function PermissionsManager() {
 
   const inputCls = 'px-2.5 h-8 rounded-md border border-slate-200 bg-slate-50/60 focus:bg-white focus:outline-none focus:ring-2 focus:ring-slate-100 text-[13px] text-slate-700';
 
-  if (loading) return <div className="p-8 text-slate-400 text-[13px]">Chargement…</div>;
+  if (loading) return <div className={`p-8 text-[13px] ${isDark ? 'text-dk-muted' : 'text-slate-400'}`}>Chargement…</div>;
 
   return (
     <div className="max-w-3xl mx-auto p-4 space-y-5" dir="ltr">
