@@ -130,7 +130,7 @@ function ModelPicker({ models, value, onChange }: { models: ModelData[]; value: 
             </button>
 
             {open && (
-                <div className="absolute z-50 mt-1 w-72 bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-xl shadow-xl overflow-hidden">
+                <div className="absolute z-50 mt-1 w-72 bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-xl shadow-xl dark:shadow-dk-elevated overflow-hidden">
                     <div className="p-2 border-b border-slate-100 dark:border-dk-border bg-slate-50 dark:bg-dk-bg/60 relative">
                         <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 dark:text-dk-muted" />
                         <input
@@ -330,10 +330,10 @@ export default function BatchOrderModal({ open, models, chains, computeEndDate, 
                         return (
                             <div
                                 key={row.id}
-                                className={`relative rounded-xl border transition-all ${hasData ? 'border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface shadow-sm' : 'border-dashed border-slate-200 dark:border-dk-border bg-slate-50 dark:bg-dk-bg/60'}`}
+                                className={`relative rounded-xl border transition-all ${hasData ? 'border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface shadow-sm dark:shadow-dk-sm' : 'border-dashed border-slate-200 dark:border-dk-border bg-slate-50 dark:bg-dk-bg/60'}`}
                             >
                                 {/* row number badge */}
-                                <div className="absolute -left-3 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full bg-indigo-600 dark:bg-dk-accent text-white text-[10px] font-bold flex items-center justify-center shadow-sm z-10">
+                                <div className="absolute -left-3 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full bg-indigo-600 dark:bg-dk-accent text-white text-[10px] font-bold flex items-center justify-center shadow-sm dark:shadow-dk-sm z-10">
                                     {idx + 1}
                                 </div>
 

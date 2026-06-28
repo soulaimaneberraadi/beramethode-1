@@ -177,7 +177,7 @@ export default function AIOptimizationModal({
                                 {data.suggestions.map((s, idx) => (
                                     <div
                                         key={idx}
-                                        className="flex items-start gap-3 p-3.5 rounded-lg border border-slate-100 dark:border-dk-border bg-white dark:bg-dk-surface shadow-sm ring-1 ring-slate-100/50 dark:ring-dk-border/50"
+                                        className="flex items-start gap-3 p-3.5 rounded-lg border border-slate-100 dark:border-dk-border bg-white dark:bg-dk-surface shadow-sm dark:shadow-dk-sm ring-1 ring-slate-100/50 dark:ring-dk-border/50"
                                     >
                                         <div className="mt-0.5 shrink-0">
                                             {s.type === 'MOVE_EVENT' ? (

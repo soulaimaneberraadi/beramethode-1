@@ -368,11 +368,11 @@ export default function CrisisAlertPanel({
                                             return (
                                                 <div
                                                     key={idx}
-                                                    className="flex flex-col justify-between border border-slate-100 dark:border-dk-border rounded-xl p-3.5 bg-slate-50 dark:bg-dk-bg hover:border-red-200 dark:hover:border-red-700 hover:bg-red-50/10 dark:hover:bg-red-900/10 transition-all shadow-sm"
+                                                    className="flex flex-col justify-between border border-slate-100 dark:border-dk-border rounded-xl p-3.5 bg-slate-50 dark:bg-dk-bg hover:border-red-200 dark:hover:border-red-700 hover:bg-red-50/10 dark:hover:bg-red-900/10 transition-all shadow-sm dark:shadow-dk-sm"
                                                 >
                                                     <div>
                                                         <div className="flex items-center gap-2 text-[11px] font-bold text-slate-800 dark:text-dk-text uppercase tracking-wide">
-                                                            <div className="p-1.5 bg-white dark:bg-dk-surface rounded-lg shadow-sm text-slate-700 dark:text-dk-text-soft border border-slate-100 dark:border-dk-border">
+                                                            <div className="p-1.5 bg-white dark:bg-dk-surface rounded-lg shadow-sm dark:shadow-dk-sm text-slate-700 dark:text-dk-text-soft border border-slate-100 dark:border-dk-border">
                                                                 <Icon className="w-3.5 h-3.5" />
                                                             </div>
                                                             {tx(lang, { fr: 'Option', ar: 'خيار', en: 'Option', es: 'Opción', pt: 'Opção', tr: 'Seçenek' })} {prop.level} : {prop.type}
@@ -395,7 +395,7 @@ export default function CrisisAlertPanel({
                                                             type="button"
                                                             disabled={isActioning}
                                                             onClick={btnHandler}
-                                                            className="px-2.5 py-1 text-[10px] font-bold text-white dark:text-dk-accent-text bg-slate-900 dark:bg-dk-accent hover:bg-slate-800 dark:hover:bg-dk-accent/80 disabled:bg-slate-300 dark:disabled:bg-dk-muted rounded-lg transition-colors flex items-center gap-1 shadow-sm active:scale-95 duration-75"
+                                                            className="px-2.5 py-1 text-[10px] font-bold text-white dark:text-dk-accent-text bg-slate-900 dark:bg-dk-accent hover:bg-slate-800 dark:hover:bg-dk-accent/80 disabled:bg-slate-300 dark:disabled:bg-dk-muted rounded-lg transition-colors flex items-center gap-1 shadow-sm dark:shadow-dk-sm active:scale-95 duration-75"
                                                         >
                                                             {isActioning ? (
                                                                 tx(lang, { fr: 'Application...', ar: 'جارٍ التطبيق...', en: 'Applying...', es: 'Aplicando...', pt: 'A aplicar...', tr: 'Uygulanıyor...' })

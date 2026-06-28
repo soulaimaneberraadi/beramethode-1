@@ -221,19 +221,19 @@ export default function SplitModal({ open, event, models, onClose, onSubmit }: P
         <Modal
             open={open}
             onClose={onClose}
-            title={tx(lang,{fr:"Fractionner l'ordre",ar:'تقسيم الطلب',en:'Split Order',es:'Dividir pedido',pt:'Dividir pedido',tr:'Siparişi Böl'})}
-            subtitle={`${client} · ${modelName}`}
+            title={tx(lang,{fr:"Fractionner l'ordre",ar:'ØªÙ‚Ø³ÙŠÙ… Ø§Ù„Ø·Ù„Ø¨',en:'Split Order',es:'Dividir pedido',pt:'Dividir pedido',tr:'SipariÅŸi BÃ¶l'})}
+            subtitle={`${client} Â· ${modelName}`}
             size="lg"
             footer={
                 <>
-                    <Button variant="ghost" onClick={onClose}>{tx(lang,{fr:'Annuler',ar:'إلغاء',en:'Cancel',es:'Cancelar',pt:'Cancelar',tr:'İptal'})}</Button>
+                    <Button variant="ghost" onClick={onClose}>{tx(lang,{fr:'Annuler',ar:'Ø¥Ù„ØºØ§Ø¡',en:'Cancel',es:'Cancelar',pt:'Cancelar',tr:'Ä°ptal'})}</Button>
                     {mode === 'simple' ? (
                         <Button variant="primary" onClick={handleSimpleSubmit} disabled={!valid}>
-                            {tx(lang,{fr:'Fractionner',ar:'تقسيم',en:'Split',es:'Dividir',pt:'Dividir',tr:'Böl'})}
+                            {tx(lang,{fr:'Fractionner',ar:'ØªÙ‚Ø³ÙŠÙ…',en:'Split',es:'Dividir',pt:'Dividir',tr:'BÃ¶l'})}
                         </Button>
                     ) : (
                         <Button variant="primary" onClick={handleLotsSubmit} disabled={!lotsValid}>
-                            {tx(lang,{fr:'Créer les lots',ar:'إنشاء الدفعات',en:'Create lots',es:'Crear lotes',pt:'Criar lotes',tr:'Partiler oluştur'})}
+                            {tx(lang,{fr:'CrÃ©er les lots',ar:'Ø¥Ù†Ø´Ø§Ø¡ Ø§Ù„Ø¯ÙØ¹Ø§Øª',en:'Create lots',es:'Crear lotes',pt:'Criar lotes',tr:'Partiler oluÅŸtur'})}
                         </Button>
                     )}
                 </>
@@ -242,7 +242,7 @@ export default function SplitModal({ open, event, models, onClose, onSubmit }: P
             <div className="space-y-4">
                 {/* Model preview */}
                 <div className="flex items-center gap-3 bg-slate-50 dark:bg-dk-bg rounded-xl p-3">
-                    <div className="w-12 h-12 rounded-lg flex items-center justify-center text-lg font-black text-white shadow-sm" style={{ background: color }}>
+                    <div className="w-12 h-12 rounded-lg flex items-center justify-center text-lg font-black text-white shadow-sm dark:shadow-dk-sm" style={{ background: color }}>
                         {client[0]?.toUpperCase() || '?'}
                     </div>
                     <div className="flex-1">
@@ -251,7 +251,7 @@ export default function SplitModal({ open, event, models, onClose, onSubmit }: P
                     </div>
                     <div className="text-right">
                         <div className="text-[18px] font-black text-slate-900 dark:text-dk-text tabular-nums">{total}</div>
-                        <div className="text-[10px] text-slate-500 dark:text-dk-muted">{tx(lang,{fr:'pcs total',ar:'إجمالي القطع',en:'pcs total',es:'pcs total',pt:'pcs total',tr:'toplam adet'})}</div>
+                        <div className="text-[10px] text-slate-500 dark:text-dk-muted">{tx(lang,{fr:'pcs total',ar:'Ø¥Ø¬Ù…Ø§Ù„ÙŠ Ø§Ù„Ù‚Ø·Ø¹',en:'pcs total',es:'pcs total',pt:'pcs total',tr:'toplam adet'})}</div>
                     </div>
                 </div>
 
@@ -261,21 +261,21 @@ export default function SplitModal({ open, event, models, onClose, onSubmit }: P
                         type="button"
                         onClick={() => setMode('simple')}
                         className={`flex-1 py-2 text-[12px] font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 ${
-                            mode === 'simple' ? 'bg-white dark:bg-dk-surface text-slate-900 dark:text-dk-text shadow-sm' : 'text-slate-500 dark:text-dk-muted hover:text-slate-700 dark:hover:text-dk-text'
+                            mode === 'simple' ? 'bg-white dark:bg-dk-surface text-slate-900 dark:text-dk-text shadow-sm dark:shadow-dk-sm' : 'text-slate-500 dark:text-dk-muted hover:text-slate-700 dark:hover:text-dk-text'
                         }`}
                     >
                         <Scissors className="w-3.5 h-3.5" />
-                        {tx(lang,{fr:'Simple',ar:'بسيط',en:'Simple',es:'Simple',pt:'Simples',tr:'Basit'})}
+                        {tx(lang,{fr:'Simple',ar:'Ø¨Ø³ÙŠØ·',en:'Simple',es:'Simple',pt:'Simples',tr:'Basit'})}
                     </button>
                     <button
                         type="button"
                         onClick={() => setMode('lots')}
                         className={`flex-1 py-2 text-[12px] font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 ${
-                            mode === 'lots' ? 'bg-white dark:bg-dk-surface text-slate-900 dark:text-dk-text shadow-sm' : 'text-slate-500 dark:text-dk-muted hover:text-slate-700 dark:hover:text-dk-text'
+                            mode === 'lots' ? 'bg-white dark:bg-dk-surface text-slate-900 dark:text-dk-text shadow-sm dark:shadow-dk-sm' : 'text-slate-500 dark:text-dk-muted hover:text-slate-700 dark:hover:text-dk-text'
                         }`}
                     >
                         <Package className="w-3.5 h-3.5" />
-                        {tx(lang,{fr:'Par lots / Livraisons',ar:'دفعات / تسليمات',en:'By lots / Deliveries',es:'Por lotes / Entregas',pt:'Por lotes / Entregas',tr:'Partiler / Teslimatlar'})}
+                        {tx(lang,{fr:'Par lots / Livraisons',ar:'Ø¯ÙØ¹Ø§Øª / ØªØ³Ù„ÙŠÙ…Ø§Øª',en:'By lots / Deliveries',es:'Por lotes / Entregas',pt:'Por lotes / Entregas',tr:'Partiler / Teslimatlar'})}
                     </button>
                 </div>
 
@@ -283,7 +283,7 @@ export default function SplitModal({ open, event, models, onClose, onSubmit }: P
                     <>
                         {/* Simple split */}
                         <div className="text-[13px] text-slate-600 dark:text-dk-text-soft">
-                            {tx(lang,{fr:'Quantité à transférer vers un nouvel ordre :',ar:'الكمية المراد نقلها إلى طلب جديد:',en:'Quantity to transfer to a new order:',es:'Cantidad a transferir a un nuevo pedido:',pt:'Quantidade a transferir para um novo pedido:',tr:'Yeni siparişe aktarılacak miktar:'})}
+                            {tx(lang,{fr:'QuantitÃ© Ã  transfÃ©rer vers un nouvel ordre :',ar:'Ø§Ù„ÙƒÙ…ÙŠØ© Ø§Ù„Ù…Ø±Ø§Ø¯ Ù†Ù‚Ù„Ù‡Ø§ Ø¥Ù„Ù‰ Ø·Ù„Ø¨ Ø¬Ø¯ÙŠØ¯:',en:'Quantity to transfer to a new order:',es:'Cantidad a transferir a un nuevo pedido:',pt:'Quantidade a transferir para um novo pedido:',tr:'Yeni sipariÅŸe aktarÄ±lacak miktar:'})}
                         </div>
 
                         <div className="space-y-2">
@@ -304,7 +304,7 @@ export default function SplitModal({ open, event, models, onClose, onSubmit }: P
                                     min={1}
                                     max={total - 1}
                                 />
-                                <span className="text-[12px] text-slate-500 dark:text-dk-muted tabular-nums">{tx(lang,{fr:'sur',ar:'من',en:'of',es:'de',pt:'de',tr:'/ toplam'})} {total}</span>
+                                <span className="text-[12px] text-slate-500 dark:text-dk-muted tabular-nums">{tx(lang,{fr:'sur',ar:'Ù…Ù†',en:'of',es:'de',pt:'de',tr:'/ toplam'})} {total}</span>
                             </div>
                         </div>
 
@@ -338,7 +338,7 @@ export default function SplitModal({ open, event, models, onClose, onSubmit }: P
                             <div className="bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl p-3 space-y-2">
                                 <div className="text-[11px] font-bold text-slate-700 dark:text-dk-text-soft uppercase tracking-wider flex items-center gap-1.5">
                                     <Grid3X3 className="w-3.5 h-3.5 text-indigo-500" />
-                                    Reste à attribuer par taille/couleur
+                                    Reste Ã  attribuer par taille/couleur
                                 </div>
                                 <div className="overflow-x-auto border border-slate-150 rounded-lg">
                                     <table className="w-full text-[11px] bg-white dark:bg-dk-surface">
@@ -351,7 +351,7 @@ export default function SplitModal({ open, event, models, onClose, onSubmit }: P
                                                 <th className="px-2 py-1.5 text-center font-bold text-slate-700 dark:text-dk-text-soft bg-slate-100 dark:bg-dk-elevated">Total</th>
                                             </tr>
                                         </thead>
-                                        <tbody className="divide-y divide-slate-100">
+                                        <tbody className="divide-y divide-slate-100 dark:divide-dk-border">
                                             {colors.map((color, cIdx) => {
                                                 const rowRemaining = Object.values(remainingDistribution[color.id] || {}).reduce((s, q) => s + q, 0);
                                                 return (
@@ -386,7 +386,7 @@ export default function SplitModal({ open, event, models, onClose, onSubmit }: P
                                 <div key={lot.id} className="bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl p-3 space-y-2.5">
                                     <div className="flex items-center justify-between">
                                         <div className="flex items-center gap-2">
-                                            <div className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold text-white shadow-sm" style={{ background: color }}>
+                                            <div className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold text-white shadow-sm dark:shadow-dk-sm" style={{ background: color }}>
                                                 {idx + 1}
                                             </div>
                                             <input
@@ -408,7 +408,7 @@ export default function SplitModal({ open, event, models, onClose, onSubmit }: P
 
                                     <div className="grid grid-cols-3 gap-2">
                                         <div>
-                                            <label className="text-[9px] font-bold text-slate-500 dark:text-dk-muted uppercase tracking-wider">Quantité</label>
+                                            <label className="text-[9px] font-bold text-slate-500 dark:text-dk-muted uppercase tracking-wider">QuantitÃ©</label>
                                             <input
                                                 type="number"
                                                 value={lot.quantity || ''}
@@ -437,8 +437,8 @@ export default function SplitModal({ open, event, models, onClose, onSubmit }: P
                                                 className="w-full h-8 px-2 text-[11px] bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-md outline-none"
                                             >
                                                 <option value="PENDING">En attente</option>
-                                                <option value="READY">Prêt</option>
-                                                <option value="DELIVERED">Livré</option>
+                                                <option value="READY">PrÃªt</option>
+                                                <option value="DELIVERED">LivrÃ©</option>
                                             </select>
                                         </div>
                                     </div>
@@ -449,11 +449,11 @@ export default function SplitModal({ open, event, models, onClose, onSubmit }: P
                                             <button
                                                 type="button"
                                                 onClick={() => setExpandedLotId(expandedLotId === lot.id ? null : lot.id)}
-                                                className="w-full flex items-center justify-between py-1.5 px-2.5 bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-lg text-[11px] font-bold text-slate-700 hover:bg-slate-50 dark:hover:bg-dk-elevated/60 hover:text-slate-900 transition-all shadow-sm"
+                                                className="w-full flex items-center justify-between py-1.5 px-2.5 bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-lg text-[11px] font-bold text-slate-700 hover:bg-slate-50 dark:hover:bg-dk-elevated/60 hover:text-slate-900 transition-all shadow-sm dark:shadow-dk-sm"
                                             >
                                                 <span className="flex items-center gap-1.5">
                                                     <Grid3X3 className="w-3.5 h-3.5 text-indigo-500" />
-                                                    Répartition Tailles / Couleurs
+                                                    RÃ©partition Tailles / Couleurs
                                                 </span>
                                                 {expandedLotId === lot.id ? (
                                                     <ChevronUp className="w-3.5 h-3.5 text-slate-500 dark:text-dk-muted" />
@@ -475,7 +475,7 @@ export default function SplitModal({ open, event, models, onClose, onSubmit }: P
                                                                     <th className="px-2 py-1 text-center font-bold text-slate-700 dark:text-dk-text-soft bg-slate-100 dark:bg-dk-elevated">Total</th>
                                                                 </tr>
                                                             </thead>
-                                                            <tbody className="divide-y divide-slate-100">
+                                                            <tbody className="divide-y divide-slate-100 dark:divide-dk-border">
                                                                 {colors.map((color, cIdx) => {
                                                                     const colorMap = lot.sizeColorDistribution?.[color.id] || {};
                                                                     const colorTotal = Object.values(colorMap).reduce((s, q) => s + q, 0);
@@ -541,17 +541,17 @@ export default function SplitModal({ open, event, models, onClose, onSubmit }: P
                             </div>
                             {lotsTotal > total && (
                                 <div className="text-[10px] text-red-600 dark:text-red-400 font-semibold flex items-center gap-1 animate-pulse">
-                                    <span>⚠</span> Excédent de {lotsTotal - total} pcs
+                                    <span>âš </span> ExcÃ©dent de {lotsTotal - total} pcs
                                 </div>
                             )}
                             {hasGrid && hasOverAllocation && (
                                 <div className="text-[10px] text-red-650 font-bold flex items-center gap-1 animate-pulse">
-                                    <span>⚠</span> Certaines tailles/couleurs sont sur-allouées (vérifier les valeurs négatives du reste à attribuer)
+                                    <span>âš </span> Certaines tailles/couleurs sont sur-allouÃ©es (vÃ©rifier les valeurs nÃ©gatives du reste Ã  attribuer)
                                 </div>
                             )}
                             {lotsRemain > 0 && lots.length > 0 && (
                                 <div className="text-[10px] text-slate-550 font-medium">
-                                    Reste à attribuer : {lotsRemain} pcs
+                                    Reste Ã  attribuer : {lotsRemain} pcs
                                 </div>
                             )}
                         </div>

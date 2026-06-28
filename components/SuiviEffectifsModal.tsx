@@ -121,7 +121,7 @@ export default function SuiviEffectifsModal({ open, suivi, onClose, onConfirm }:
             }}
         >
             <div
-                className={`w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl border shadow-2xl ${isDark ? 'border-dk-border bg-dk-surface' : 'border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface'}`}
+                className={`w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl border shadow-2xl dark:shadow-dk-lg ${isDark ? 'border-dk-border bg-dk-surface' : 'border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface'}`}
                 onMouseDown={e => e.stopPropagation()}
             >
                 <div className={`flex items-center justify-between gap-3 border-b px-4 py-3 ${isDark ? 'border-dk-border' : 'border-slate-100 dark:border-dk-border'}`}>
@@ -191,7 +191,7 @@ export default function SuiviEffectifsModal({ open, suivi, onClose, onConfirm }:
                     <button
                         type="button"
                         onClick={handleConfirm}
-                        className="px-4 py-2 rounded-xl text-xs font-black bg-indigo-600 dark:bg-dk-accent text-white hover:bg-indigo-700 dark:hover:bg-dk-accent-hover shadow-sm"
+                        className="px-4 py-2 rounded-xl text-xs font-black bg-indigo-600 dark:bg-dk-accent text-white hover:bg-indigo-700 dark:hover:bg-dk-accent-hover shadow-sm dark:shadow-dk-sm"
                     >
                         {tx(lang, {fr:"Confirmer",ar:"تأكيد",en:"Confirm",es:"Confirmar",pt:"Confirmar",tr:"Onayla"})}
                     </button>

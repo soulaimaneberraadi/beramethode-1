@@ -140,7 +140,7 @@ export default function VueGenerale({
       <div className="bg-white dark:bg-dk-surface border-b border-slate-200 dark:border-dk-border/60 sticky top-0 z-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 to-indigo-600 flex items-center justify-center shadow-sm">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 to-indigo-600 flex items-center justify-center shadow-sm dark:shadow-dk-sm">
               <BarChart3 className="w-5 h-5 text-white" />
             </div>
             <div>

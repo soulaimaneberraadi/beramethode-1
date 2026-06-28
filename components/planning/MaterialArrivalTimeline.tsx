@@ -229,7 +229,7 @@ export default function MaterialArrivalTimeline({
     return (
         <div className={`space-y-3 ${className}`}>
             {/* Stock Reservation card */}
-            <div className="rounded-xl border border-white/20 bg-white dark:bg-dk-surface/50 backdrop-blur-md p-4 shadow-sm space-y-3">
+            <div className="rounded-xl border border-white/20 bg-white dark:bg-dk-surface/50 backdrop-blur-md p-4 shadow-sm dark:shadow-dk-sm space-y-3">
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                         <Package className="h-4 w-4 text-slate-700 dark:text-dk-text-soft" />
@@ -255,7 +255,7 @@ export default function MaterialArrivalTimeline({
                             </div>
                         </div>
 
-                        <div className="overflow-hidden rounded-lg border border-white/20 bg-white dark:bg-dk-surface/30 backdrop-blur-md text-[11px] shadow-sm">
+                        <div className="overflow-hidden rounded-lg border border-white/20 bg-white dark:bg-dk-surface/30 backdrop-blur-md text-[11px] shadow-sm dark:shadow-dk-sm">
                             <table className="w-full text-left">
                                 <thead>
                                     <tr className="border-b border-white/20 bg-white dark:bg-dk-surface/40 font-semibold text-slate-600 dark:text-dk-text-soft backdrop-blur-sm">
@@ -285,7 +285,7 @@ export default function MaterialArrivalTimeline({
                                 type="button"
                                 onClick={handleDeductReservations}
                                 disabled={loadingRes}
-                                className="flex-1 h-8 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold shadow-sm transition-colors flex items-center justify-center gap-1.5 disabled:opacity-50"
+                                className="flex-1 h-8 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold shadow-sm dark:shadow-dk-sm transition-colors flex items-center justify-center gap-1.5 disabled:opacity-50"
                             >
                                 <CheckCircle2 className="h-3.5 w-3.5" />
                                 {tx(lang, {fr:"Déduire",ar:"خصم",en:"Deduct",es:"Deducir",pt:"Deduzir",tr:"Düş"})}
@@ -310,7 +310,7 @@ export default function MaterialArrivalTimeline({
                             type="button"
                             onClick={handleReserveFIFO}
                             disabled={loadingRes || !catalogLots.length}
-                            className="w-full h-8 px-3 rounded-lg bg-indigo-600 dark:bg-dk-accent hover:bg-indigo-700 dark:hover:bg-dk-accent-hover text-white text-[11px] font-bold shadow-sm transition-colors flex items-center justify-center gap-1.5 disabled:opacity-50"
+                            className="w-full h-8 px-3 rounded-lg bg-indigo-600 dark:bg-dk-accent hover:bg-indigo-700 dark:hover:bg-dk-accent-hover text-white text-[11px] font-bold shadow-sm dark:shadow-dk-sm transition-colors flex items-center justify-center gap-1.5 disabled:opacity-50"
                         >
                             <Sparkles className="h-3.5 w-3.5" />
                             {tx(lang, {fr:"Réserver via FIFO",ar:"حجز عبر FIFO",en:"Reserve via FIFO",es:"Reservar vía FIFO",pt:"Reservar via FIFO",tr:"FIFO ile rezerve et"})}
@@ -381,7 +381,7 @@ export default function MaterialArrivalTimeline({
                     <button
                         type="button"
                         onClick={handleApplyWorst}
-                        className="inline-flex items-center gap-1.5 rounded-lg bg-[#2149C1] px-3 py-2 text-[11px] font-bold text-white shadow-sm hover:bg-[#1a3ba5] transition-colors"
+                        className="inline-flex items-center gap-1.5 rounded-lg bg-[#2149C1] px-3 py-2 text-[11px] font-bold text-white shadow-sm dark:shadow-dk-sm hover:bg-[#1a3ba5] transition-colors"
                     >
                         <Sparkles className="h-3.5 w-3.5 shrink-0" aria-hidden />
                         Appliquer date fournisseur ({plan.worstArrivalYmd})
@@ -422,7 +422,7 @@ export default function MaterialArrivalTimeline({
                 </p>
             )}
 
-            <div className="overflow-hidden rounded-xl border border-white/20 bg-white dark:bg-dk-surface/30 backdrop-blur-md shadow-sm">
+            <div className="overflow-hidden rounded-xl border border-white/20 bg-white dark:bg-dk-surface/30 backdrop-blur-md shadow-sm dark:shadow-dk-sm">
                 <div className="flex items-center gap-2 border-b border-white/10 bg-white dark:bg-dk-surface/40 px-3 py-2 backdrop-blur-sm">
                     <Package className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" aria-hidden />
                     <span className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-dk-muted">

@@ -521,7 +521,7 @@ export default function EventEditor({ open, mode, initial, models, chains, plann
                 {/* Lots / Pedidos du modèle — sélection rapide */}
                 {selectedModel && (modelLots.length > 0 ? (
                     <div className="space-y-3">
-                        <div className="rounded-lg border border-white/25 dark:border-dk-border/30 bg-white/40 dark:bg-dk-surface/40 backdrop-blur-md p-3 shadow-sm">
+                        <div className="rounded-lg border border-white/25 dark:border-dk-border/30 bg-white/40 dark:bg-dk-surface/40 backdrop-blur-md p-3 shadow-sm dark:shadow-dk-sm">
                             <div className="flex items-center gap-1.5 mb-2">
                                 <Layers className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text" />
                                 <span className="text-[11px] font-semibold text-slate-700 dark:text-dk-text-soft">{tx(lang,{fr:'Pididos du modèle — choisis ceux à lancer',ar:'Pididos الخاصة بالموديل — اختر ما تريد إطلاقه',en:'Model Pididos — choose which to launch',es:'Pididos del modelo — elige los que lanzar',pt:'Pididos do modelo — escolha os que lançar',tr:'Model Pididoları — başlatılacakları seç'})}</span>
@@ -565,7 +565,7 @@ export default function EventEditor({ open, mode, initial, models, chains, plann
 
                         {/* Logistics details card for the selected lot */}
                         {activeLot && (
-                            <div className="rounded-xl border border-white/20 dark:border-dk-border/20 bg-white/55 dark:bg-dk-surface/55 backdrop-blur-md p-3 space-y-3 shadow-sm animate-in fade-in duration-200">
+                            <div className="rounded-xl border border-white/20 dark:border-dk-border/20 bg-white/55 dark:bg-dk-surface/55 backdrop-blur-md p-3 space-y-3 shadow-sm dark:shadow-dk-sm animate-in fade-in duration-200">
                                 <div className="flex items-center justify-between border-b border-slate-100 dark:border-dk-border pb-2">
                                     <h4 className="text-[11px] font-bold text-slate-700 dark:text-dk-text-soft flex items-center gap-1.5 uppercase tracking-wide">
                                         <Package className="w-3.5 h-3.5 text-indigo-500" />
@@ -655,7 +655,7 @@ export default function EventEditor({ open, mode, initial, models, chains, plann
                     </div>
                 ) : (
                     pididoOptions.length > 0 && (
-                        <div className="rounded-lg border border-white/25 dark:border-dk-border/30 bg-white/40 dark:bg-dk-surface/40 backdrop-blur-md p-3 shadow-sm">
+                        <div className="rounded-lg border border-white/25 dark:border-dk-border/30 bg-white/40 dark:bg-dk-surface/40 backdrop-blur-md p-3 shadow-sm dark:shadow-dk-sm">
                             <div className="flex items-center gap-1.5 mb-2">
                                 <Palette className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text" />
                                 <span className="text-[11px] font-semibold text-slate-700 dark:text-dk-text-soft">{tx(lang,{fr:'Pididos du modèle — choisis ceux à lancer',ar:'Pididos الخاصة بالموديل — اختر ما تريد إطلاقه',en:'Model Pididos — choose which to launch',es:'Pididos del modelo — elige los que lanzar',pt:'Pididos do modelo — escolha os que lançar',tr:'Model Pididoları — başlatılacakları seç'})}</span>
@@ -793,7 +793,7 @@ export default function EventEditor({ open, mode, initial, models, chains, plann
                                         {tx(lang,{fr:'Répartition Totale (Commande)',ar:'التوزيع الإجمالي (الطلب)',en:'Total Distribution (Order)',es:'Distribución Total (Pedido)',pt:'Distribuição Total (Pedido)',tr:'Toplam Dağılım (Sipariş)'})}
                                     </span>
                                 </div>
-                                <div className="bg-white/30 dark:bg-dk-surface/30 backdrop-blur-md rounded-xl border border-white/20 dark:border-dk-border/20 overflow-hidden shadow-sm animate-[planning-slide-in-right_150ms_ease-out]">
+                                <div className="bg-white/30 dark:bg-dk-surface/30 backdrop-blur-md rounded-xl border border-white/20 dark:border-dk-border/20 overflow-hidden shadow-sm dark:shadow-dk-sm animate-[planning-slide-in-right_150ms_ease-out]">
                                     <div className="overflow-x-auto">
                                         <table className="w-full text-sm">
                                             <thead>
@@ -819,7 +819,7 @@ export default function EventEditor({ open, mode, initial, models, chains, plann
                                                             <td className="px-4 py-2 sticky left-0 bg-white/90 dark:bg-dk-surface/90 backdrop-blur-md z-10 border-r border-white/20 dark:border-dk-border/20">
                                                                 <div className="flex items-center gap-2">
                                                                     <div 
-                                                                        className="w-3 h-3 rounded-full border border-slate-300 dark:border-dk-muted shadow-sm" 
+                                                                        className="w-3 h-3 rounded-full border border-slate-300 dark:border-dk-muted shadow-sm dark:shadow-dk-sm" 
                                                                         style={{ background: color.id || '#888' }} 
                                                                     />
                                                                     <span className="text-[12px] font-medium text-slate-800 dark:text-dk-text truncate max-w-[120px]">
@@ -887,7 +887,7 @@ export default function EventEditor({ open, mode, initial, models, chains, plann
                                         {tx(lang,{fr:'Total sous-traité:',ar:'الإجمالي المقاول من الباطن:',en:'Subcontracted Total:',es:'Total subcontratado:',pt:'Total subcontratado:',tr:'Taşeron Toplamı:'})} {calculatedSubcontractTotal} pcs
                                     </span>
                                 </div>
-                                <div className="bg-white/30 dark:bg-dk-surface/30 backdrop-blur-md rounded-xl border border-white/20 dark:border-dk-border/20 overflow-hidden shadow-sm animate-[planning-slide-in-right_150ms_ease-out]">
+                                <div className="bg-white/30 dark:bg-dk-surface/30 backdrop-blur-md rounded-xl border border-white/20 dark:border-dk-border/20 overflow-hidden shadow-sm dark:shadow-dk-sm animate-[planning-slide-in-right_150ms_ease-out]">
                                     <div className="overflow-x-auto">
                                         <table className="w-full text-sm">
                                             <thead>
@@ -913,7 +913,7 @@ export default function EventEditor({ open, mode, initial, models, chains, plann
                                                             <td className="px-4 py-2 sticky left-0 bg-white/90 dark:bg-dk-surface/90 backdrop-blur-md z-10 border-r border-white/20 dark:border-dk-border/20">
                                                                 <div className="flex items-center gap-2">
                                                                     <div 
-                                                                        className="w-3 h-3 rounded-full border border-slate-300 dark:border-dk-muted shadow-sm" 
+                                                                        className="w-3 h-3 rounded-full border border-slate-300 dark:border-dk-muted shadow-sm dark:shadow-dk-sm" 
                                                                         style={{ background: color.id || '#888' }} 
                                                                     />
                                                                     <span className="text-[12px] font-medium text-slate-800 dark:text-dk-text truncate max-w-[120px]">
@@ -982,7 +982,7 @@ export default function EventEditor({ open, mode, initial, models, chains, plann
                                         {tx(lang,{fr:'Reste interne:',ar:'المتبقي داخلياً:',en:'Internal Remaining:',es:'Restante interno:',pt:'Restante interno:',tr:'İç Kalan:'})} {Math.max(0, calculatedTotal - calculatedSubcontractTotal)} pcs
                                     </span>
                                 </div>
-                                <div className="bg-emerald-500/5 backdrop-blur-md rounded-xl border border-emerald-500/20 overflow-hidden shadow-sm animate-[planning-slide-in-right_150ms_ease-out]">
+                                <div className="bg-emerald-500/5 backdrop-blur-md rounded-xl border border-emerald-500/20 overflow-hidden shadow-sm dark:shadow-dk-sm animate-[planning-slide-in-right_150ms_ease-out]">
                                     <div className="overflow-x-auto">
                                         <table className="w-full text-sm">
                                             <thead>
@@ -1010,7 +1010,7 @@ export default function EventEditor({ open, mode, initial, models, chains, plann
                                                             <td className="px-4 py-2 sticky left-0 bg-emerald-50 dark:bg-emerald-900/30/95 backdrop-blur-md z-10 border-r border-emerald-500/20">
                                                                 <div className="flex items-center gap-2">
                                                                     <div 
-                                                                        className="w-3 h-3 rounded-full border border-slate-300 dark:border-dk-muted shadow-sm" 
+                                                                        className="w-3 h-3 rounded-full border border-slate-300 dark:border-dk-muted shadow-sm dark:shadow-dk-sm" 
                                                                         style={{ background: color.id || '#888' }} 
                                                                     />
                                                                     <span className="text-[12px] font-medium text-slate-800 dark:text-dk-text truncate max-w-[120px]">
@@ -1082,7 +1082,7 @@ export default function EventEditor({ open, mode, initial, models, chains, plann
                     </label>
                     
                     {isSubcontracted && (
-                        <div className="mt-4 p-4 bg-white/40 dark:bg-dk-surface/40 backdrop-blur-md border border-white/20 dark:border-dk-border/20 rounded-xl space-y-4 shadow-sm animate-[planning-slide-in-right_150ms_ease-out]">
+                        <div className="mt-4 p-4 bg-white/40 dark:bg-dk-surface/40 backdrop-blur-md border border-white/20 dark:border-dk-border/20 rounded-xl space-y-4 shadow-sm dark:shadow-dk-sm animate-[planning-slide-in-right_150ms_ease-out]">
                             <h4 className="text-[12px] font-bold text-slate-800 dark:text-dk-text flex items-center gap-1.5 border-b border-slate-100 dark:border-dk-border pb-2">
                                 <Truck className="w-4 h-4 text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text" />
                                 {tx(lang,{fr:'Détails du Partenaire Sous-traitant',ar:'تفاصيل شريك المقاولة من الباطن',en:'Subcontractor Partner Details',es:'Detalles del Socio Subcontratista',pt:'Detalhes do Parceiro Subcontratado',tr:'Taşeron Ortak Detayları'})}
