@@ -103,7 +103,7 @@ function ModelPicker({ models, value, onChange }: { models: ModelData[]; value: 
             <button
                 type="button"
                 onClick={() => setOpen(v => !v)}
-                className={`w-full h-9 px-2.5 flex items-center gap-2 bg-white border rounded-lg text-left transition-all outline-none text-[12px] ${
+                className={`w-full h-9 px-2.5 flex items-center gap-2 bg-white dark:bg-dk-surface border rounded-lg text-left transition-all outline-none text-[12px] ${
                     open ? 'border-indigo-400 ring-2 ring-indigo-100' : 'border-slate-200 hover:border-slate-300'
                 }`}
             >
@@ -116,40 +116,40 @@ function ModelPicker({ models, value, onChange }: { models: ModelData[]; value: 
                                 {(selected.ficheData?.client || '?')[0].toUpperCase()}
                             </div>
                         )}
-                        <span className="flex-1 truncate text-slate-900 font-medium">
+                        <span className="flex-1 truncate text-slate-900 dark:text-dk-text font-medium">
                             {selected.meta_data?.nom_modele || selected.id}
                         </span>
                     </>
                 ) : (
                     <>
                         <Package className="w-4 h-4 text-slate-300 shrink-0" />
-                        <span className="flex-1 text-slate-400">{tx(lang, {fr:"— Choisir un modèle —",ar:"— اختر نموذجًا —",en:"— Choose a model —",es:"— Elegir un modelo —",pt:"— Escolher um modelo —",tr:"— Bir model seçin —"})}</span>
+                        <span className="flex-1 text-slate-400 dark:text-dk-muted">{tx(lang, {fr:"— Choisir un modèle —",ar:"— اختر نموذجًا —",en:"— Choose a model —",es:"— Elegir un modelo —",pt:"— Escolher um modelo —",tr:"— Bir model seçin —"})}</span>
                     </>
                 )}
-                <ChevronDown className={`w-3.5 h-3.5 text-slate-400 shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} />
+                <ChevronDown className={`w-3.5 h-3.5 text-slate-400 dark:text-dk-muted shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} />
             </button>
 
             {open && (
-                <div className="absolute z-50 mt-1 w-72 bg-white border border-slate-200 rounded-xl shadow-xl overflow-hidden">
+                <div className="absolute z-50 mt-1 w-72 bg-white dark:bg-dk-surface border border-slate-200 rounded-xl shadow-xl overflow-hidden">
                     <div className="p-2 border-b border-slate-100 bg-slate-50/60 relative">
-                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 dark:text-dk-muted" />
                         <input
                             type="text"
                             value={search}
                             onChange={e => setSearch(e.target.value)}
                             placeholder={tx(lang, {fr:"Rechercher un modèle…",ar:"البحث عن نموذج…",en:"Search for a model…",es:"Buscar un modelo…",pt:"Procurar um modelo…",tr:"Bir model ara…"})}
-                            className="w-full h-8 pl-8 pr-7 text-[12px] bg-white border border-slate-200 rounded-md outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition-all"
+                            className="w-full h-8 pl-8 pr-7 text-[12px] bg-white dark:bg-dk-surface border border-slate-200 rounded-md outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition-all"
                             autoFocus
                         />
                         {search && (
-                            <button type="button" onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700">
+                            <button type="button" onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-dk-muted hover:text-slate-700 dark:text-dk-text-soft">
                                 <X className="w-3 h-3" />
                             </button>
                         )}
                     </div>
                     <div className="overflow-y-auto" style={{ maxHeight: 260 }}>
                         {filtered.length === 0 ? (
-                            <div className="px-4 py-8 text-center text-[12px] text-slate-400">{tx(lang, {fr:"Aucun modèle trouvé",ar:"لم يتم العثور على نموذج",en:"No model found",es:"Ningún modelo encontrado",pt:"Nenhum modelo encontrado",tr:"Model bulunamadı"})}</div>
+                            <div className="px-4 py-8 text-center text-[12px] text-slate-400 dark:text-dk-muted">{tx(lang, {fr:"Aucun modèle trouvé",ar:"لم يتم العثور على نموذج",en:"No model found",es:"Ningún modelo encontrado",pt:"Nenhum modelo encontrado",tr:"Model bulunamadı"})}</div>
                         ) : filtered.map(m => {
                             const thumb = getModelThumb(m);
                             const color = getClientColor(m.ficheData?.client);
@@ -168,8 +168,8 @@ function ModelPicker({ models, value, onChange }: { models: ModelData[]; value: 
                                         </div>
                                     )}
                                     <div className="flex-1 min-w-0">
-                                        <div className="text-[12px] font-medium text-slate-900 truncate">{m.meta_data?.nom_modele || m.id}</div>
-                                        <div className="text-[10px] text-slate-500 truncate">{m.ficheData?.client || '—'}{m.meta_data?.reference ? ` · ${m.meta_data.reference}` : ''}</div>
+                                        <div className="text-[12px] font-medium text-slate-900 dark:text-dk-text truncate">{m.meta_data?.nom_modele || m.id}</div>
+                                        <div className="text-[10px] text-slate-500 dark:text-dk-muted truncate">{m.ficheData?.client || '—'}{m.meta_data?.reference ? ` · ${m.meta_data.reference}` : ''}</div>
                                     </div>
                                     {m.id === value && <CheckCircle2 className="w-4 h-4 text-indigo-500 shrink-0" />}
                                 </button>
@@ -296,11 +296,11 @@ export default function BatchOrderModal({ open, models, chains, computeEndDate, 
                 {/* ── chain + start date ── */}
                 <div className="grid grid-cols-2 gap-3 p-4 bg-indigo-50/40 rounded-xl border border-indigo-100">
                     <div className="space-y-1.5">
-                        <label className="block text-[11px] font-medium text-slate-600">{tx(lang, {fr:"Chaîne cible",ar:"السلسلة المستهدفة",en:"Target chain",es:"Cadena objetivo",pt:"Cadeia alvo",tr:"Hedef zincir"})}</label>
+                        <label className="block text-[11px] font-medium text-slate-600 dark:text-dk-muted">{tx(lang, {fr:"Chaîne cible",ar:"السلسلة المستهدفة",en:"Target chain",es:"Cadena objetivo",pt:"Cadeia alvo",tr:"Hedef zincir"})}</label>
                         <select
                             value={chaineId}
                             onChange={e => setChaineId(e.target.value)}
-                            className="w-full h-9 px-3 text-[13px] text-slate-900 bg-white border border-indigo-200 rounded-md focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 outline-none transition-colors appearance-none"
+                            className="w-full h-9 px-3 text-[13px] text-slate-900 dark:text-dk-text bg-white dark:bg-dk-surface border border-indigo-200 rounded-md focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 outline-none transition-colors appearance-none"
                             style={{ backgroundImage: "url('data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2212%22 height=%2212%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%2364748b%22 stroke-width=%222%22><polyline points=%226 9 12 15 18 9%22/></svg>')", backgroundRepeat: 'no-repeat', backgroundPosition: 'right 0.6rem center', paddingRight: '2rem' }}
                         >
                             {chains.map(c => (
@@ -309,12 +309,12 @@ export default function BatchOrderModal({ open, models, chains, computeEndDate, 
                         </select>
                     </div>
                     <div className="space-y-1.5">
-                        <label className="block text-[11px] font-medium text-slate-600">{tx(lang, {fr:"Date de départ",ar:"تاريخ البداية",en:"Start date",es:"Fecha de inicio",pt:"Data de início",tr:"Başlangıç tarihi"})}</label>
+                        <label className="block text-[11px] font-medium text-slate-600 dark:text-dk-muted">{tx(lang, {fr:"Date de départ",ar:"تاريخ البداية",en:"Start date",es:"Fecha de inicio",pt:"Data de início",tr:"Başlangıç tarihi"})}</label>
                         <input
                             type="date"
                             value={globalStart}
                             onChange={e => setGlobalStart(e.target.value)}
-                            className="w-full h-9 px-3 text-[13px] text-slate-900 bg-white border border-indigo-200 rounded-md focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 outline-none transition-colors"
+                            className="w-full h-9 px-3 text-[13px] text-slate-900 dark:text-dk-text bg-white dark:bg-dk-surface border border-indigo-200 rounded-md focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 outline-none transition-colors"
                         />
                     </div>
                 </div>
@@ -330,7 +330,7 @@ export default function BatchOrderModal({ open, models, chains, computeEndDate, 
                         return (
                             <div
                                 key={row.id}
-                                className={`relative rounded-xl border transition-all ${hasData ? 'border-slate-200 bg-white shadow-sm' : 'border-dashed border-slate-200 bg-slate-50/60'}`}
+                                className={`relative rounded-xl border transition-all ${hasData ? 'border-slate-200 bg-white dark:bg-dk-surface shadow-sm' : 'border-dashed border-slate-200 bg-slate-50/60'}`}
                             >
                                 {/* row number badge */}
                                 <div className="absolute -left-3 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full bg-indigo-600 text-white text-[10px] font-bold flex items-center justify-center shadow-sm z-10">
@@ -353,7 +353,7 @@ export default function BatchOrderModal({ open, models, chains, computeEndDate, 
                                             value={row.quantity || ''}
                                             onChange={e => updateRow(row.id, { quantity: Number(e.target.value) || 0 })}
                                             placeholder={tx(lang, {fr:"Qté",ar:"الكمية",en:"Qty",es:"Cant.",pt:"Qtd",tr:"Mik"})}
-                                            className="w-full h-9 px-2 text-[13px] text-center tabular-nums text-slate-900 bg-white border border-slate-200 rounded-lg focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 outline-none transition-colors"
+                                            className="w-full h-9 px-2 text-[13px] text-center tabular-nums text-slate-900 dark:text-dk-text bg-white dark:bg-dk-surface border border-slate-200 rounded-lg focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 outline-none transition-colors"
                                         />
 
                                         {/* client */}
@@ -367,7 +367,7 @@ export default function BatchOrderModal({ open, models, chains, computeEndDate, 
                                                 value={row.clientName}
                                                 onChange={e => updateRow(row.id, { clientName: e.target.value })}
                                                 placeholder={tx(lang, {fr:"Client",ar:"العميل",en:"Client",es:"Cliente",pt:"Cliente",tr:"Müşteri"})}
-                                                className="w-full h-9 pl-7 pr-2 text-[12px] text-slate-900 bg-white border border-slate-200 rounded-lg focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 outline-none transition-colors"
+                                                className="w-full h-9 pl-7 pr-2 text-[12px] text-slate-900 dark:text-dk-text bg-white dark:bg-dk-surface border border-slate-200 rounded-lg focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 outline-none transition-colors"
                                             />
                                         </div>
 
@@ -376,7 +376,7 @@ export default function BatchOrderModal({ open, models, chains, computeEndDate, 
                                             type="button"
                                             onClick={() => removeRow(row.id)}
                                             disabled={rows.length <= 1}
-                                            className="h-9 w-9 flex items-center justify-center rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors disabled:opacity-25 disabled:cursor-not-allowed"
+                                            className="h-9 w-9 flex items-center justify-center rounded-lg text-slate-400 dark:text-dk-muted hover:text-red-500 hover:bg-red-50 transition-colors disabled:opacity-25 disabled:cursor-not-allowed"
                                             title={tx(lang, {fr:"Supprimer",ar:"حذف",en:"Delete",es:"Eliminar",pt:"Excluir",tr:"Sil"})}
                                         >
                                             <Trash2 className="w-4 h-4" />
@@ -391,9 +391,9 @@ export default function BatchOrderModal({ open, models, chains, computeEndDate, 
                                             )}
                                             <div className="flex items-center gap-1.5 text-[11px]">
                                                 <span className="font-semibold text-indigo-700">{fmtDate(row.startDate)}</span>
-                                                <ArrowRight className="w-3 h-3 text-slate-400" />
-                                                <span className="font-semibold text-slate-700">{fmtDate(row.endDate)}</span>
-                                                <span className="text-slate-400">· {row.daysNeeded}{tx(lang, {fr:"j",ar:"يوم",en:"d",es:"d",pt:"d",tr:"g"})}</span>
+                                                <ArrowRight className="w-3 h-3 text-slate-400 dark:text-dk-muted" />
+                                                <span className="font-semibold text-slate-700 dark:text-dk-text-soft">{fmtDate(row.endDate)}</span>
+                                                <span className="text-slate-400 dark:text-dk-muted">· {row.daysNeeded}{tx(lang, {fr:"j",ar:"يوم",en:"d",es:"d",pt:"d",tr:"g"})}</span>
                                             </div>
                                             {row.strictDeadline_DDS && (() => {
                                                 const ddsDt = new Date(row.strictDeadline_DDS);
@@ -412,12 +412,12 @@ export default function BatchOrderModal({ open, models, chains, computeEndDate, 
                                     {/* optional DDS */}
                                     {hasData && (
                                         <div className="mt-2 flex items-center gap-2">
-                                            <label className="text-[10px] text-slate-500 font-medium shrink-0">{tx(lang, {fr:"DDS (optionnel)",ar:"DDS (اختياري)",en:"DDS (optional)",es:"DDS (opcional)",pt:"DDS (opcional)",tr:"DDS (isteğe bağlı)"})}</label>
+                                            <label className="text-[10px] text-slate-500 dark:text-dk-muted font-medium shrink-0">{tx(lang, {fr:"DDS (optionnel)",ar:"DDS (اختياري)",en:"DDS (optional)",es:"DDS (opcional)",pt:"DDS (opcional)",tr:"DDS (isteğe bağlı)"})}</label>
                                             <input
                                                 type="date"
                                                 value={row.strictDeadline_DDS}
                                                 onChange={e => updateRow(row.id, { strictDeadline_DDS: e.target.value })}
-                                                className="h-7 px-2 text-[11px] text-slate-900 bg-white border border-slate-200 rounded-md focus:border-indigo-400 outline-none transition-colors"
+                                                className="h-7 px-2 text-[11px] text-slate-900 dark:text-dk-text bg-white dark:bg-dk-surface border border-slate-200 rounded-md focus:border-indigo-400 outline-none transition-colors"
                                             />
                                         </div>
                                     )}
@@ -430,7 +430,7 @@ export default function BatchOrderModal({ open, models, chains, computeEndDate, 
                     <button
                         type="button"
                         onClick={addRow}
-                        className="w-full py-2.5 border-2 border-dashed border-slate-200 rounded-xl text-[12px] font-semibold text-slate-400 hover:border-indigo-400 hover:text-indigo-600 hover:bg-indigo-50/30 transition-all flex items-center justify-center gap-1.5 group"
+                        className="w-full py-2.5 border-2 border-dashed border-slate-200 rounded-xl text-[12px] font-semibold text-slate-400 dark:text-dk-muted hover:border-indigo-400 hover:text-indigo-600 hover:bg-indigo-50/30 transition-all flex items-center justify-center gap-1.5 group"
                     >
                         <Plus className="w-4 h-4 group-hover:scale-110 transition-transform" />
                         {tx(lang, {fr:"Ajouter un modèle",ar:"إضافة نموذج",en:"Add a model",es:"Añadir un modelo",pt:"Adicionar um modelo",tr:"Model ekle"})}
@@ -443,11 +443,11 @@ export default function BatchOrderModal({ open, models, chains, computeEndDate, 
                         <Layers className="w-4 h-4 text-indigo-400 shrink-0" />
                         <div className="flex-1 text-[12px]">
                             <span className="font-bold text-white">{validRows.length} {validRows.length > 1 ? tx(lang, {fr:"ordres",ar:"أوامر",en:"orders",es:"órdenes",pt:"pedidos",tr:"siparişler"}) : tx(lang, {fr:"ordre",ar:"أمر",en:"order",es:"orden",pt:"pedido",tr:"sipariş"})}</span>
-                            <span className="text-slate-400 mx-1.5">·</span>
+                            <span className="text-slate-400 dark:text-dk-muted mx-1.5">·</span>
                             <span className="text-slate-300">{chaineId}</span>
-                            <span className="text-slate-400 mx-1.5">·</span>
+                            <span className="text-slate-400 dark:text-dk-muted mx-1.5">·</span>
                             <span className="text-slate-300">{fmtDate(globalStart)}</span>
-                            <span className="text-slate-500 mx-1">→</span>
+                            <span className="text-slate-500 dark:text-dk-muted mx-1">→</span>
                             <span className="text-slate-300">{fmtDate(batchRows[batchRows.length - 1]?.endDate)}</span>
                         </div>
                         <div className="text-[13px] font-bold text-indigo-400 tabular-nums">
