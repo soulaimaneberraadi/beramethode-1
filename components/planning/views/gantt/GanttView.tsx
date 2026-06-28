@@ -359,9 +359,9 @@ export default function GanttView({
                 {/* Header timeline */}
                 <div className="flex">
                     <div className="shrink-0 sticky left-0 z-[31] bg-white dark:bg-slate-900 border-r border-slate-100 dark:border-slate-800 relative" style={{ width: SIDEBAR_W }}>
-                        <div className="h-[64px] flex items-center justify-between border-b border-slate-100 dark:border-slate-800 overflow-hidden">
+                        <div className="h-[64px] flex items-center justify-between border-b border-slate-100 dark:border-dk-border overflow-hidden">
                             {!sidebarCollapsed && (
-                                <span className="text-[10px] font-medium text-slate-400 uppercase tracking-wider px-3 whitespace-nowrap">
+                                <span className="text-[10px] font-medium text-slate-400 dark:text-dk-muted uppercase tracking-wider px-3 whitespace-nowrap">
                                     {tx(lang, {fr: 'Chaînes · ', ar: 'السلاسل · ', en: 'Chains · ', es: 'Cadenas · ', pt: 'Cadeias · ', tr: 'Zincirler · '})}{chains.length}
                                 </span>
                             )}
@@ -370,7 +370,7 @@ export default function GanttView({
                                 type="button"
                                 onClick={() => setSidebarCollapsed(v => !v)}
                                 title={sidebarCollapsed ? tx(lang, {fr: 'Afficher les chaînes', ar: 'إظهار السلاسل', en: 'Show chains', es: 'Mostrar cadenas', pt: 'Mostrar cadeias', tr: 'Zincirleri göster'}) : tx(lang, {fr: 'Réduire la colonne', ar: 'طي العمود', en: 'Collapse column', es: 'Colapsar columna', pt: 'Recolher coluna', tr: 'Sütunu daralt'})}
-                                className={`w-5 h-5 ${sidebarCollapsed ? 'mx-auto' : 'mr-1.5'} text-slate-400 hover:text-indigo-600 hover:bg-slate-100 rounded transition-all flex items-center justify-center text-[12px] font-bold`}
+                                className={`w-5 h-5 ${sidebarCollapsed ? 'mx-auto' : 'mr-1.5'} text-slate-400 dark:text-dk-muted hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-slate-100 dark:hover:bg-dk-elevated/60 rounded transition-all flex items-center justify-center text-[12px] font-bold`}
                             >
                                 {sidebarCollapsed ? '›' : '‹'}
                             </button>
@@ -441,7 +441,7 @@ export default function GanttView({
                 if (el) el.scrollTo({ left: Math.max(0, todayOffset - el.clientWidth / 3), behavior: 'smooth' });
             }}
             style={{ opacity: 0, transition: 'opacity 0.15s' }}
-            className="absolute top-1/2 -translate-y-1/2 left-2 z-[35] flex items-center gap-1 px-2 py-1 rounded-full bg-red-500 text-white text-[10px] font-bold uppercase tracking-wider shadow-lg hover:bg-red-600 cursor-pointer"
+            className="absolute top-1/2 -translate-y-1/2 left-2 z-[35] flex items-center gap-1 px-2 py-1 rounded-full bg-red-500 dark:bg-red-700 text-white dark:text-dk-text text-[10px] font-bold uppercase tracking-wider shadow-lg hover:bg-red-600 dark:hover:bg-red-600 cursor-pointer"
             aria-label={tx(lang, {fr: "Aujourd'hui est à gauche", ar: 'اليوم على اليسار', en: 'Today is to the left', es: 'Hoy está a la izquierda', pt: 'Hoje está à esquerda', tr: 'Bugün solda'})}
         >
             <span className="text-[14px] rotate-180">›</span>
@@ -454,7 +454,7 @@ export default function GanttView({
                 if (el) el.scrollTo({ left: Math.max(0, todayOffset - el.clientWidth / 3), behavior: 'smooth' });
             }}
             style={{ opacity: 0, transition: 'opacity 0.15s' }}
-            className="absolute top-1/2 -translate-y-1/2 right-2 z-[35] flex items-center gap-1 px-2 py-1 rounded-full bg-red-500 text-white text-[10px] font-bold uppercase tracking-wider shadow-lg hover:bg-red-600 cursor-pointer"
+            className="absolute top-1/2 -translate-y-1/2 right-2 z-[35] flex items-center gap-1 px-2 py-1 rounded-full bg-red-500 dark:bg-red-700 text-white dark:text-dk-text text-[10px] font-bold uppercase tracking-wider shadow-lg hover:bg-red-600 dark:hover:bg-red-600 cursor-pointer"
             aria-label={tx(lang, {fr: "Aujourd'hui est à droite", ar: 'اليوم على اليمين', en: 'Today is to the right', es: 'Hoy está a la derecha', pt: 'Hoje está à direita', tr: 'Bugün sağda'})}
         >
             <span className="text-[14px]">›</span>
