@@ -88,42 +88,42 @@ export default function AutoScheduleSuggestion({ open, models, onClose, suggest,
 
                 {/* Suggestion */}
                 {suggestion && (
-                    <div className="rounded-lg border border-slate-200 bg-slate-50/40 p-4 space-y-3">
+                    <div className="rounded-lg border border-slate-200 dark:border-dk-border bg-slate-50/40 dark:bg-dk-bg p-4 space-y-3">
                         <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2">
-                                <Sparkles className="w-3.5 h-3.5 text-slate-600" strokeWidth={1.75} />
-                                <span className="text-[12px] font-semibold text-slate-900">{tx(lang,{fr:'Suggestion',ar:'اقتراح',en:'Suggestion',es:'Sugerencia',pt:'Sugestão',tr:'Öneri'})}</span>
+                                <Sparkles className="w-3.5 h-3.5 text-slate-600 dark:text-dk-muted" strokeWidth={1.75} />
+                                <span className="text-[12px] font-semibold text-slate-900 dark:text-dk-text">{tx(lang,{fr:'Suggestion',ar:'اقتراح',en:'Suggestion',es:'Sugerencia',pt:'Sugestão',tr:'Öneri'})}</span>
                             </div>
-                            <span className="text-[11px] text-slate-500 tabular-nums">
-                                {tx(lang,{fr:'Score',ar:'النتيجة',en:'Score',es:'Puntuación',pt:'Pontuação',tr:'Puan'})} <span className="font-semibold text-slate-900">{suggestion.score}</span>
+                            <span className="text-[11px] text-slate-500 dark:text-dk-muted tabular-nums">
+                                {tx(lang,{fr:'Score',ar:'النتيجة',en:'Score',es:'Puntuación',pt:'Pontuação',tr:'Puan'})} <span className="font-semibold text-slate-900 dark:text-dk-text">{suggestion.score}</span>
                             </span>
                         </div>
 
                         <div className="grid grid-cols-3 gap-3">
                             <div>
-                                <div className="text-[10px] font-medium text-slate-400 uppercase tracking-wider mb-1">{tx(lang,{fr:'Chaîne',ar:'السلسلة',en:'Chain',es:'Cadena',pt:'Cadeia',tr:'Zincir'})}</div>
-                                <div className="text-[13px] font-semibold text-slate-900">{suggestion.chainName}</div>
+                                <div className="text-[10px] font-medium text-slate-400 dark:text-dk-muted uppercase tracking-wider mb-1">{tx(lang,{fr:'Chaîne',ar:'السلسلة',en:'Chain',es:'Cadena',pt:'Cadeia',tr:'Zincir'})}</div>
+                                <div className="text-[13px] font-semibold text-slate-900 dark:text-dk-text">{suggestion.chainName}</div>
                             </div>
                             <div>
-                                <div className="text-[10px] font-medium text-slate-400 uppercase tracking-wider mb-1">{tx(lang,{fr:'Début',ar:'البداية',en:'Start',es:'Inicio',pt:'Início',tr:'Başlangıç'})}</div>
-                                <div className="text-[13px] font-medium text-slate-900 tabular-nums">{suggestion.startDate}</div>
+                                <div className="text-[10px] font-medium text-slate-400 dark:text-dk-muted uppercase tracking-wider mb-1">{tx(lang,{fr:'Début',ar:'البداية',en:'Start',es:'Inicio',pt:'Início',tr:'Başlangıç'})}</div>
+                                <div className="text-[13px] font-medium text-slate-900 dark:text-dk-text tabular-nums">{suggestion.startDate}</div>
                             </div>
                             <div>
-                                <div className="text-[10px] font-medium text-slate-400 uppercase tracking-wider mb-1">{tx(lang,{fr:'Fin',ar:'النهاية',en:'End',es:'Fin',pt:'Fim',tr:'Bitiş'})}</div>
-                                <div className="text-[13px] font-medium text-slate-900 tabular-nums">{suggestion.endDate}</div>
+                                <div className="text-[10px] font-medium text-slate-400 dark:text-dk-muted uppercase tracking-wider mb-1">{tx(lang,{fr:'Fin',ar:'النهاية',en:'End',es:'Fin',pt:'Fim',tr:'Bitiş'})}</div>
+                                <div className="text-[13px] font-medium text-slate-900 dark:text-dk-text tabular-nums">{suggestion.endDate}</div>
                             </div>
                         </div>
 
-                        <ul className="pt-3 border-t border-slate-200/60 space-y-1">
+                        <ul className="pt-3 border-t border-slate-200/60 dark:border-dk-border/60 space-y-1">
                             {suggestion.reasoning.map((r, i) => (
-                                <li key={i} className="text-[11px] text-slate-600 leading-snug">{r}</li>
+                                <li key={i} className="text-[11px] text-slate-600 dark:text-dk-text-soft leading-snug">{r}</li>
                             ))}
                         </ul>
                     </div>
                 )}
 
                 {!modelId && (
-                    <p className="text-[12px] text-slate-400 text-center py-4">
+                    <p className="text-[12px] text-slate-400 dark:text-dk-muted text-center py-4">
                         {tx(lang,{fr:'Sélectionnez un modèle et une quantité.',ar:'اختر موديلاً وكمية.',en:'Select a model and a quantity.',es:'Seleccione un modelo y una cantidad.',pt:'Selecione um modelo e uma quantidade.',tr:'Bir model ve miktar seçin.'})}
                     </p>
                 )}
