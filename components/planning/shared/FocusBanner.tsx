@@ -14,7 +14,7 @@ export default function FocusBanner({ visible, label, onExit }: Props) {
     if (!visible) return null;
     return (
         <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[55] bg-slate-900 text-white rounded-full pl-3 pr-1.5 py-1 flex items-center gap-2 shadow-[0_8px_24px_rgba(15,23,42,0.20)] animate-[planning-fade-up_180ms_ease-out]">
-            <Eye className="w-3 h-3 text-slate-400" strokeWidth={2} />
+            <Eye className="w-3 h-3 text-slate-400 dark:text-dk-muted" strokeWidth={2} />
             <span className="text-[11px] font-medium">{tx(lang, { fr: 'Focus ·', ar: 'تركيز ·', en: 'Focus ·', es: 'Enfoque ·', pt: 'Foco ·', tr: 'Odak ·' })} {label}</span>
             <button
                 type="button"

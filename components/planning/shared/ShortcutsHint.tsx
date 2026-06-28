@@ -69,20 +69,20 @@ export default function ShortcutsHint() {
     return (
         <div ref={wrapRef} className="fixed bottom-4 right-4 z-30">
             {open && (
-                <div className="absolute bottom-12 right-0 w-80 max-h-[70vh] overflow-y-auto bg-white rounded-xl shadow-[0_8px_32px_rgba(15,23,42,0.10)] ring-1 ring-slate-200/60 p-3 mb-2 animate-[planning-fade-up_140ms_ease-out]">
-                    <div className="text-[11px] font-semibold text-slate-900 mb-2 px-1">
+                <div className="absolute bottom-12 right-0 w-80 max-h-[70vh] overflow-y-auto bg-white dark:bg-dk-surface rounded-xl shadow-[0_8px_32px_rgba(15,23,42,0.10)] ring-1 ring-slate-200/60 dark:ring-dk-border p-3 mb-2 animate-[planning-fade-up_140ms_ease-out]">
+                    <div className="text-[11px] font-semibold text-slate-900 dark:text-dk-text mb-2 px-1">
                         {tx(lang, {fr:"Raccourcis clavier",ar:"اختصارات لوحة المفاتيح",en:"Keyboard shortcuts",es:"Atajos de teclado",pt:"Atalhos de teclado",tr:"Klavye kısayolları"})}
                     </div>
                     {groups.map(group => (
                         <div key={group.title} className="mb-3 last:mb-0">
-                            <div className="text-[9px] font-medium text-slate-400 uppercase tracking-wider mb-1 px-1">
+                            <div className="text-[9px] font-medium text-slate-400 dark:text-dk-muted uppercase tracking-wider mb-1 px-1">
                                 {group.title}
                             </div>
                             <ul className="space-y-0.5">
                                 {group.items.map(s => (
-                                    <li key={`${group.title}-${s.key}`} className="flex items-center justify-between gap-3 px-1.5 py-1 rounded hover:bg-slate-50">
-                                        <span className="text-[12px] text-slate-700">{s.label}</span>
-                                        <kbd className="text-[10px] font-medium text-slate-500 bg-slate-100 border border-slate-200 px-1.5 py-0.5 rounded shrink-0 tabular-nums">
+                                    <li key={`${group.title}-${s.key}`} className="flex items-center justify-between gap-3 px-1.5 py-1 rounded hover:bg-slate-50 dark:hover:bg-dk-elevated/60">
+                                        <span className="text-[12px] text-slate-700 dark:text-dk-text-soft">{s.label}</span>
+                                        <kbd className="text-[10px] font-medium text-slate-500 dark:text-dk-muted bg-slate-100 dark:bg-dk-bg border border-slate-200 dark:border-dk-border px-1.5 py-0.5 rounded shrink-0 tabular-nums">
                                             {s.key}
                                         </kbd>
                                     </li>
@@ -98,7 +98,7 @@ export default function ShortcutsHint() {
                 className={`w-9 h-9 flex items-center justify-center rounded-full transition-all ${
                     open
                         ? 'bg-slate-900 text-white shadow-[0_4px_16px_rgba(15,23,42,0.20)]'
-                        : 'bg-white text-slate-500 hover:text-slate-900 shadow-[0_2px_8px_rgba(15,23,42,0.08)] ring-1 ring-slate-200'
+                        : 'bg-white dark:bg-dk-surface text-slate-500 dark:text-dk-muted hover:text-slate-900 dark:hover:text-dk-text shadow-[0_2px_8px_rgba(15,23,42,0.08)] ring-1 ring-slate-200 dark:ring-dk-border'
                 }`}
                 title={tx(lang, {fr:"Raccourcis clavier",ar:"اختصارات لوحة المفاتيح",en:"Keyboard shortcuts",es:"Atajos de teclado",pt:"Atalhos de teclado",tr:"Klavye kısayolları"})}
                 aria-label="Raccourcis"

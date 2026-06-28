@@ -17,7 +17,7 @@ export default function StatusBadge({ status, size = 'sm', showLabel = true }: P
         const fontSize = size === 'xs' ? 'text-[9px]' : 'text-[10px]';
         return (
             <span
-                className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md font-medium bg-amber-50 text-amber-700 border border-amber-200/50 ${fontSize}`}
+                className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md font-medium bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 border border-amber-200/50 dark:border-amber-800/50 ${fontSize}`}
                 title={tx(lang, {fr:"Proc. Externe",ar:"إجراء خارجي",en:"Ext. Process",es:"Proc. Externo",pt:"Proc. Externo",tr:"Harici Süreç"})}
             >
                 <span className={`${dotSize} rounded-full bg-amber-500`} />
