@@ -3,6 +3,7 @@ import { ShieldCheck, ShieldAlert, ChevronDown, ChevronUp, Check, AlertTriangle,
 import { Material, PurchasingData, FicheData, AppSettings } from '../types';
 import { fmt } from '../constants';
 import { useLang } from '../src/context/LanguageContext';
+import { useIsDark } from '../src/context/ThemeContext';
 import { tx } from '../lib/i18n';
 
 interface CostSanityCheckProps {
@@ -34,6 +35,7 @@ const CostSanityCheck: React.FC<CostSanityCheckProps> = ({
     purchasingData, totalPurchasingMatCost, commandeQty, ficheData, settings,
 }) => {
     const { lang } = useLang();
+    const isDark = useIsDark();
     const checks = useMemo<CheckRow[]>(() => {
         const rows: CheckRow[] = [];
 
@@ -135,17 +137,17 @@ const CostSanityCheck: React.FC<CostSanityCheckProps> = ({
             </button>
 
             {open && (
-                <div className="px-3 pb-3 pt-1 space-y-1 bg-white/60 border-t border-slate-200/60">
+                <div className={`px-3 pb-3 pt-1 space-y-1 border-t ${isDark ? 'bg-dk-bg/60 border-dk-border' : 'bg-white/60 border-slate-200/60'}`}>
                     {checks.map((c, i) => (
                         <div key={i} className="flex items-start gap-2 px-2 py-1.5 rounded-md">
                             <span className="mt-0.5 shrink-0">
                                 {c.status === 'ok' && <Check className="w-3.5 h-3.5 text-emerald-500" strokeWidth={2.5} />}
                                 {c.status === 'warn' && <AlertTriangle className="w-3.5 h-3.5 text-amber-500" strokeWidth={2.5} />}
-                                {c.status === 'info' && <Info className="w-3.5 h-3.5 text-slate-400" strokeWidth={2.5} />}
+                                {c.status === 'info' && <Info className="w-3.5 h-3.5 text-slate-400 dark:text-dk-muted" strokeWidth={2.5} />}
                             </span>
                             <div className="min-w-0">
-                                <div className={`text-[12px] font-medium ${c.status === 'warn' ? 'text-amber-800' : 'text-slate-700'}`}>{c.label}</div>
-                                <div className="text-[11px] text-slate-500 tabular-nums">{c.detail}</div>
+                                <div className={`text-[12px] font-medium ${c.status === 'warn' ? 'text-amber-800' : isDark ? 'text-dk-text' : 'text-slate-700'}`}>{c.label}</div>
+                                <div className={`text-[11px] tabular-nums ${isDark ? 'text-dk-muted' : 'text-slate-500'}`}>{c.detail}</div>
                             </div>
                         </div>
                     ))}

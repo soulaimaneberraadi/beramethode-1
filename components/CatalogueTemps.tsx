@@ -393,23 +393,23 @@ export default function CatalogueTemps({ models, onOpenWorker }: CatalogueTempsP
     const reliability = (count: number) =>
         count >= 3 ? { label: tx(lang, { fr: 'Fiable', ar: 'موثوق', en: 'Reliable', es: 'Confiable', pt: 'Confiável', tr: 'Güvenilir' }), cls: 'text-emerald-600 bg-emerald-50 ring-emerald-100', dot: 'bg-emerald-500' }
         : count === 2 ? { label: tx(lang, { fr: 'Moyen', ar: 'متوسط', en: 'Medium', es: 'Medio', pt: 'Médio', tr: 'Orta' }), cls: 'text-blue-600 bg-blue-50 ring-blue-100', dot: 'bg-blue-500' }
-        : { label: tx(lang, { fr: '1 mesure', ar: 'قياس واحد', en: '1 measurement', es: '1 medición', pt: '1 medição', tr: '1 ölçüm' }), cls: 'text-amber-600 bg-amber-50 ring-amber-100', dot: 'bg-amber-500' };
+        : { label: tx(lang, { fr: '1 mesure', ar: 'قياس واحد', en: '1 measurement', es: '1 medición', pt: '1 medição', tr: '1 ölçüm' }), cls: 'text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/30 ring-amber-100', dot: 'bg-amber-500' };
 
     const totalObs = measures.length;
     const hasActiveFilters = !!(machineFilter || matiereFilter || categoryFilter || clientFilter || operatorFilter || sectionFilter);
     const resetFilters = () => { setMachineFilter(null); setMatiereFilter(null); setCategoryFilter(null); setClientFilter(null); setOperatorFilter(null); setSectionFilter(null); };
 
     return (
-        <div className="h-full flex flex-col font-sans text-slate-800 antialiased relative overflow-hidden">
+        <div className="h-full flex flex-col font-sans text-slate-800 dark:text-dk-text antialiased relative overflow-hidden">
             {/* Fond sobre */}
             <div className="absolute inset-0 -z-10 bg-[#f7f8fb]" />
 
             {/* ── HEADER (glass) ── */}
-            <header className="shrink-0 sticky top-0 z-20 bg-white/65 backdrop-blur-xl border-b border-white/60 shadow-[0_1px_0_rgba(255,255,255,0.6)_inset,0_8px_30px_-18px_rgba(15,23,42,0.25)]">
+            <header className="shrink-0 sticky top-0 z-20 bg-white/65 dark:bg-dk-surface/65 backdrop-blur-xl border-b border-white/60 shadow-[0_1px_0_rgba(255,255,255,0.6)_inset,0_8px_30px_-18px_rgba(15,23,42,0.25)]">
                 <div className="px-3 sm:px-6 h-12 sm:h-14 flex items-center gap-2 sm:gap-4">
                     <div className="flex items-baseline gap-2 shrink-0">
                         <h1 className="text-[14px] sm:text-[15px] font-semibold text-slate-900 tracking-tight whitespace-nowrap">{tx(lang, { fr: "Catalogue de Temps", ar: "كتالوج الأوقات", en: "Time Catalogue", es: "Catálogo de Tiempos", pt: "Catálogo de Tempos", tr: "Süre Kataloğu" })}</h1>
-                        <span className="hidden sm:inline text-[12px] text-slate-400">{tx(lang, { fr: "Temps réels · Chrono", ar: "أوقات حقيقية · Chrono", en: "Real times · Chrono", es: "Tiempos reales · Chrono", pt: "Tempos reais · Chrono", tr: "Gerçek süreler · Chrono" })}</span>
+                        <span className="hidden sm:inline text-[12px] text-slate-400 dark:text-dk-text-muted">{tx(lang, { fr: "Temps réels · Chrono", ar: "أوقات حقيقية · Chrono", en: "Real times · Chrono", es: "Tiempos reales · Chrono", pt: "Tempos reais · Chrono", tr: "Gerçek süreler · Chrono" })}</span>
                     </div>
 
                     <div className="hidden md:flex items-center gap-4 ml-1">
@@ -419,7 +419,7 @@ export default function CatalogueTemps({ models, onOpenWorker }: CatalogueTempsP
                     </div>
 
                     <div className="flex-1 min-w-0 max-w-md mx-auto relative">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" strokeWidth={2} />
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 dark:text-dk-text-muted" strokeWidth={2} />
                         <input
                             type="text"
                             value={query}
@@ -432,10 +432,10 @@ export default function CatalogueTemps({ models, onOpenWorker }: CatalogueTempsP
                                 pt: "Pesquisar uma operação, máquina, operador…",
                                 tr: "Bir operasyon, makine, operatör ara…",
                             })}
-                            className="w-full h-9 pl-9 pr-9 text-[12px] text-slate-700 placeholder:text-slate-400 bg-white/70 hover:bg-white/90 focus:bg-white border border-white/70 focus:border-indigo-200 focus:ring-2 focus:ring-indigo-100 rounded-xl outline-none transition-all shadow-[0_1px_2px_rgba(15,23,42,0.04)]"
+                            className="w-full h-9 pl-9 pr-9 text-[12px] text-slate-700 dark:text-dk-text placeholder:text-slate-400 dark:text-dk-text-muted bg-white/70 dark:bg-dk-surface/70 hover:bg-white/90 dark:hover:bg-dk-hover/90 focus:bg-white dark:bg-dk-surface border border-white/70 focus:border-indigo-200 focus:ring-2 focus:ring-indigo-100 rounded-xl outline-none transition-all shadow-[0_1px_2px_rgba(15,23,42,0.04)]"
                         />
                         {query && (
-                            <button type="button" onClick={() => setQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 p-0.5 text-slate-400 hover:text-slate-700">
+                            <button type="button" onClick={() => setQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 p-0.5 text-slate-400 dark:text-dk-text-muted hover:text-slate-700 dark:text-dk-text">
                                 <X className="w-3.5 h-3.5" />
                             </button>
                         )}
@@ -480,12 +480,12 @@ export default function CatalogueTemps({ models, onOpenWorker }: CatalogueTempsP
 
                     {hasActiveFilters && (
                         <button type="button" onClick={resetFilters}
-                            className="shrink-0 inline-flex items-center gap-1 h-8 px-2.5 rounded-lg text-[11px] font-medium text-rose-600 bg-rose-50/70 hover:bg-rose-100 transition-colors">
+                            className="shrink-0 inline-flex items-center gap-1 h-8 px-2.5 rounded-lg text-[11px] font-medium text-rose-600 bg-rose-50/70 dark:bg-rose-950/30 hover:bg-rose-100 transition-colors">
                             <X className="w-3 h-3" /> {tx(lang, { fr: "Réinitialiser", ar: "إعادة تعيين", en: "Reset", es: "Restablecer", pt: "Redefinir", tr: "Sıfırla" })}
                         </button>
                     )}
                     <button type="button" onClick={() => setSortBy(s => s === 'count' ? 'time' : s === 'time' ? 'alpha' : 'count')}
-                        className="shrink-0 inline-flex items-center gap-1.5 h-8 px-2.5 rounded-lg text-[11px] font-medium text-slate-600 bg-white/60 hover:bg-white/90 border border-white/70 transition-colors">
+                        className="shrink-0 inline-flex items-center gap-1.5 h-8 px-2.5 rounded-lg text-[11px] font-medium text-slate-600 dark:text-dk-text-secondary bg-white/60 dark:bg-dk-surface/60 hover:bg-white/90 dark:hover:bg-dk-hover/90 border border-white/70 transition-colors">
                         <ArrowUpDown className="w-3 h-3" strokeWidth={2} />
                         {sortBy === 'count' ? tx(lang, { fr: 'Fréquence', ar: 'التكرار', en: 'Frequency', es: 'Frecuencia', pt: 'Frequência', tr: 'Sıklık' })
                             : sortBy === 'time' ? tx(lang, { fr: 'Temps', ar: 'الوقت', en: 'Time', es: 'Tiempo', pt: 'Tempo', tr: 'Süre' })
@@ -508,8 +508,8 @@ export default function CatalogueTemps({ models, onOpenWorker }: CatalogueTempsP
                                 return (
                                     <button key={e.key} type="button" onClick={() => setSelectedKey(isSel ? null : e.key)}
                                         className={`group text-left rounded-2xl p-3.5 transition-all duration-200 border backdrop-blur-md ${
-                                            isSel ? 'bg-white/95 border-indigo-200 ring-2 ring-indigo-100 shadow-[0_12px_40px_-18px_rgba(79,70,229,0.45)]'
-                                                : 'bg-white/65 border-white/70 hover:bg-white/90 shadow-[0_6px_24px_-18px_rgba(15,23,42,0.4)] hover:shadow-[0_12px_36px_-18px_rgba(15,23,42,0.45)] hover:-translate-y-0.5'
+                                            isSel ? 'bg-white/95 dark:bg-dk-surface/95 border-indigo-200 ring-2 ring-indigo-100 shadow-[0_12px_40px_-18px_rgba(79,70,229,0.45)]'
+                                                : 'bg-white/65 dark:bg-dk-surface/65 border-white/70 hover:bg-white/90 dark:hover:bg-dk-hover/90 shadow-[0_6px_24px_-18px_rgba(15,23,42,0.4)] hover:shadow-[0_12px_36px_-18px_rgba(15,23,42,0.45)] hover:-translate-y-0.5'
                                         }`}>
                                         <div className="flex items-start justify-between gap-2">
                                             <p className="text-[13px] font-semibold text-slate-900 leading-snug line-clamp-2">{e.description}</p>
@@ -528,9 +528,9 @@ export default function CatalogueTemps({ models, onOpenWorker }: CatalogueTempsP
                                             <div>
                                                 <div className="flex items-baseline gap-1">
                                                     <span className="text-[22px] font-black text-slate-900 tabular-nums leading-none">{fmtTime(e.avg)}</span>
-                                                    <span className="text-[11px] font-medium text-slate-400">{unitSuffix}</span>
+                                                    <span className="text-[11px] font-medium text-slate-400 dark:text-dk-text-muted">{unitSuffix}</span>
                                                 </div>
-                                                <span className="text-[10px] text-slate-400">
+                                                <span className="text-[10px] text-slate-400 dark:text-dk-text-muted">
                                                     {e.measuredCount > 0 ? tx(lang, {
                                                         fr: `temps moyen · ${e.measuredCount}/${e.count} mesuré`,
                                                         ar: `الوقت المتوسط · ${e.measuredCount}/${e.count} مقاس`,
@@ -548,9 +548,9 @@ export default function CatalogueTemps({ models, onOpenWorker }: CatalogueTempsP
                                                     })}
                                                 </span>
                                             </div>
-                                            <div className="text-right text-[10px] text-slate-500 tabular-nums">
-                                                <div>{tx(lang, { fr: "min", ar: "أدنى", en: "min", es: "mín", pt: "mín", tr: "min" })} <span className="font-semibold text-slate-700">{fmtTime(e.min)}</span></div>
-                                                <div>{tx(lang, { fr: "max", ar: "أعلى", en: "max", es: "máx", pt: "máx", tr: "maks" })} <span className="font-semibold text-slate-700">{fmtTime(e.max)}</span></div>
+                                            <div className="text-right text-[10px] text-slate-500 dark:text-dk-text-muted tabular-nums">
+                                                <div>{tx(lang, { fr: "min", ar: "أدنى", en: "min", es: "mín", pt: "mín", tr: "min" })} <span className="font-semibold text-slate-700 dark:text-dk-text">{fmtTime(e.min)}</span></div>
+                                                <div>{tx(lang, { fr: "max", ar: "أعلى", en: "max", es: "máx", pt: "máx", tr: "maks" })} <span className="font-semibold text-slate-700 dark:text-dk-text">{fmtTime(e.max)}</span></div>
                                             </div>
                                         </div>
 
@@ -653,15 +653,15 @@ function DetailPanel({ entry, fmt, unitSuffix, reliability, onClose, onOpenWorke
                     {sorted.map((s, i) => {
                         const pct = entry.max > 0 ? (s.timeMin / entry.max) * 100 : 0;
                         return (
-                            <div key={`${s.modelId}-${i}`} className="relative rounded-lg bg-slate-50 border border-slate-100 px-2.5 py-1.5 overflow-hidden">
+                            <div key={`${s.modelId}-${i}`} className="relative rounded-lg bg-slate-50 border border-slate-100 dark:border-dk-border px-2.5 py-1.5 overflow-hidden">
                                 <div className="absolute inset-y-0 left-0 bg-indigo-50/70" style={{ width: `${pct}%` }} />
                                 <div className="relative flex items-center justify-between gap-2">
                                     <div className="min-w-0">
-                                        <p className="text-[12px] font-medium text-slate-800 truncate">
+                                        <p className="text-[12px] font-medium text-slate-800 dark:text-dk-text truncate">
                                             {s.modelName}
-                                            {s.client !== '—' && <span className="text-slate-400 font-normal"> · {s.client}</span>}
+                                            {s.client !== '—' && <span className="text-slate-400 dark:text-dk-text-muted font-normal"> · {s.client}</span>}
                                         </p>
-                                        <p className="text-[10px] text-slate-400 truncate flex items-center gap-1.5">
+                                        <p className="text-[10px] text-slate-400 dark:text-dk-text-muted truncate flex items-center gap-1.5">
                                             <span className="truncate">{s.matiere}</span>
                                             {s.operator && (onOpenWorker ? (
                                                 <button type="button" onClick={(e) => { e.stopPropagation(); onOpenWorker(s.operator!); }}
@@ -688,7 +688,7 @@ function DetailPanel({ entry, fmt, unitSuffix, reliability, onClose, onOpenWorke
                                             pt: "TS da gama (estimado)",
                                             tr: "TS rotası (tahmini)",
                                         })} />
-                                        {fmt(s.timeMin)}<span className="text-[9px] font-normal text-slate-400 ml-0.5">{unitSuffix}</span>
+                                        {fmt(s.timeMin)}<span className="text-[9px] font-normal text-slate-400 dark:text-dk-text-muted ml-0.5">{unitSuffix}</span>
                                     </span>
                                 </div>
                             </div>
@@ -704,13 +704,13 @@ function DetailPanel({ entry, fmt, unitSuffix, reliability, onClose, onOpenWorke
         return createPortal(
             <div className="fixed inset-0 z-[60] flex items-end justify-center bg-slate-950/30 backdrop-blur-[3px] animate-[catSheetFade_140ms_ease-out]" onClick={onClose}>
                 <style>{`@keyframes catSheetFade{from{opacity:0}to{opacity:1}}@keyframes catSheetUp{from{transform:translateY(100%)}to{transform:translateY(0)}}`}</style>
-                <div className="relative w-full max-h-[88vh] bg-white rounded-t-2xl shadow-[0_-12px_40px_rgba(15,23,42,0.18)] ring-1 ring-slate-200/60 overflow-hidden flex flex-col animate-[catSheetUp_200ms_cubic-bezier(0.22,1,0.36,1)]" onClick={(e) => e.stopPropagation()}>
+                <div className="relative w-full max-h-[88vh] bg-white dark:bg-dk-surface rounded-t-2xl shadow-[0_-12px_40px_rgba(15,23,42,0.18)] ring-1 ring-slate-200/60 dark:ring-dk-border/60 overflow-hidden flex flex-col animate-[catSheetUp_200ms_cubic-bezier(0.22,1,0.36,1)]" onClick={(e) => e.stopPropagation()}>
                     <div className="pt-2 pb-1 flex items-center justify-center shrink-0">
                         <span className="w-10 h-1 rounded-full bg-slate-300" />
                     </div>
-                    <header className="px-4 pt-1 pb-3 flex items-start justify-between gap-3 shrink-0 border-b border-slate-100">
+                    <header className="px-4 pt-1 pb-3 flex items-start justify-between gap-3 shrink-0 border-b border-slate-100 dark:border-dk-border">
                         {titleBlock}
-                        <button type="button" onClick={onClose} className="shrink-0 p-1.5 rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors" aria-label={tx(lang, { fr: "Fermer", ar: "إغلاق", en: "Close", es: "Cerrar", pt: "Fechar", tr: "Kapat" })}>
+                        <button type="button" onClick={onClose} className="shrink-0 p-1.5 rounded-md text-slate-400 dark:text-dk-text-muted hover:text-slate-700 dark:text-dk-text hover:bg-slate-100 dark:hover:bg-dk-hover transition-colors" aria-label={tx(lang, { fr: "Fermer", ar: "إغلاق", en: "Close", es: "Cerrar", pt: "Fechar", tr: "Kapat" })}>
                             <X className="w-4 h-4" />
                         </button>
                     </header>
@@ -723,11 +723,11 @@ function DetailPanel({ entry, fmt, unitSuffix, reliability, onClose, onOpenWorke
 
     // ── Desktop : panneau latéral ──
     return (
-        <aside className="w-[380px] shrink-0 border-l border-slate-200/70 bg-white overflow-auto shadow-[-12px_0_40px_-24px_rgba(15,23,42,0.4)] animate-[catfade_160ms_ease-out]">
+        <aside className="w-[380px] shrink-0 border-l border-slate-200/70 dark:border-dk-border/70 bg-white dark:bg-dk-surface overflow-auto shadow-[-12px_0_40px_-24px_rgba(15,23,42,0.4)] animate-[catfade_160ms_ease-out]">
             <style>{`@keyframes catfade{from{opacity:0;transform:translateX(8px)}to{opacity:1;transform:translateX(0)}}`}</style>
-            <div className="sticky top-0 z-10 bg-white/85 backdrop-blur-xl px-4 py-3 border-b border-slate-100 flex items-start justify-between gap-2">
+            <div className="sticky top-0 z-10 bg-white/85 dark:bg-dk-surface/85 backdrop-blur-xl px-4 py-3 border-b border-slate-100 dark:border-dk-border flex items-start justify-between gap-2">
                 {titleBlock}
-                <button type="button" onClick={onClose} className="shrink-0 p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100/60"><X className="w-4 h-4" /></button>
+                <button type="button" onClick={onClose} className="shrink-0 p-1 rounded-lg text-slate-400 dark:text-dk-text-muted hover:text-slate-700 dark:text-dk-text hover:bg-slate-100 dark:hover:bg-dk-hover/60"><X className="w-4 h-4" /></button>
             </div>
             {body}
         </aside>
@@ -738,9 +738,9 @@ function DetailPanel({ entry, fmt, unitSuffix, reliability, onClose, onOpenWorke
 function Stat({ icon: Icon, label, value }: { icon: any; label: string; value: number }) {
     return (
         <div className="inline-flex items-center gap-1.5">
-            <Icon className="w-3.5 h-3.5 text-slate-400" strokeWidth={2} />
-            <span className="text-[12px] text-slate-500">{label}</span>
-            <span className="text-[12px] font-semibold tabular-nums text-slate-800">{value}</span>
+            <Icon className="w-3.5 h-3.5 text-slate-400 dark:text-dk-text-muted" strokeWidth={2} />
+            <span className="text-[12px] text-slate-500 dark:text-dk-text-muted">{label}</span>
+            <span className="text-[12px] font-semibold tabular-nums text-slate-800 dark:text-dk-text">{value}</span>
         </div>
     );
 }
@@ -791,7 +791,7 @@ function FilterSelect({
             <button ref={btnRef} type="button" onClick={() => open ? setOpen(false) : openMenu()}
                 className={`inline-flex items-center gap-1.5 h-8 px-2.5 rounded-lg text-[11px] font-medium transition-all border max-w-[180px] ${
                     value ? 'bg-slate-900 text-white border-slate-900 shadow-[0_4px_12px_-4px_rgba(15,23,42,0.5)]'
-                        : 'bg-white/60 text-slate-600 border-white/70 hover:bg-white/90'
+                        : 'bg-white/60 dark:bg-dk-surface/60 text-slate-600 dark:text-dk-text-secondary border-white/70 hover:bg-white/90 dark:hover:bg-dk-hover/90'
                 }`}>
                 <Icon className="w-3 h-3 shrink-0" strokeWidth={2} />
                 <span className="truncate">{shown}</span>
@@ -801,30 +801,30 @@ function FilterSelect({
             {open && coords && createPortal(
                 <div ref={panelRef}
                     style={{ position: 'fixed', top: coords.top, left: coords.left, width: coords.width }}
-                    className="z-[300] max-h-[60vh] overflow-auto rounded-xl bg-white border border-slate-200 shadow-[0_16px_48px_-12px_rgba(15,23,42,0.45)] p-1 animate-[catfade_120ms_ease-out]">
+                    className="z-[300] max-h-[60vh] overflow-auto rounded-xl bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border shadow-[0_16px_48px_-12px_rgba(15,23,42,0.45)] p-1 animate-[catfade_120ms_ease-out]">
                     <button type="button" onClick={() => { onChange(null); setOpen(false); }}
-                        className={`w-full flex items-center justify-between gap-2 px-2.5 py-2 rounded-lg text-[12px] transition-colors ${!value ? 'bg-indigo-50 text-indigo-700 font-semibold' : 'text-slate-600 hover:bg-slate-100'}`}>
+                        className={`w-full flex items-center justify-between gap-2 px-2.5 py-2 rounded-lg text-[12px] transition-colors ${!value ? 'bg-indigo-50 text-indigo-700 font-semibold' : 'text-slate-600 dark:text-dk-text-secondary hover:bg-slate-100 dark:hover:bg-dk-hover'}`}>
                         <span>{allLabel}</span>{!value && <Check className="w-3.5 h-3.5" />}
                     </button>
                     {options.map(o => {
                         const active = value === o.name;
                         return (
                             <button key={o.name} type="button" onClick={() => { onChange(active ? null : o.name); setOpen(false); }}
-                                className={`w-full flex items-center justify-between gap-2 px-2.5 py-2 rounded-lg text-[12px] transition-colors ${active ? 'bg-indigo-50 text-indigo-700 font-semibold' : 'text-slate-700 hover:bg-slate-100'}`}>
+                                className={`w-full flex items-center justify-between gap-2 px-2.5 py-2 rounded-lg text-[12px] transition-colors ${active ? 'bg-indigo-50 text-indigo-700 font-semibold' : 'text-slate-700 dark:text-dk-text hover:bg-slate-100 dark:hover:bg-dk-hover'}`}>
                                 <span className="truncate text-left">{display ? display(o.name) : o.name}</span>
                                 <span className="shrink-0 inline-flex items-center gap-1.5">
-                                    {o.n > 0 && <span className="text-[10px] text-slate-400 tabular-nums">{o.n}</span>}
+                                    {o.n > 0 && <span className="text-[10px] text-slate-400 dark:text-dk-text-muted tabular-nums">{o.n}</span>}
                                     {active && <Check className="w-3.5 h-3.5" />}
                                 </span>
                             </button>
                         );
                     })}
                     {onAdd && (
-                        <div className="mt-1 pt-1 border-t border-slate-100 flex items-center gap-1 px-1">
+                        <div className="mt-1 pt-1 border-t border-slate-100 dark:border-dk-border flex items-center gap-1 px-1">
                             <input value={draft} onChange={e => setDraft(e.target.value)}
                                 onKeyDown={e => { if (e.key === 'Enter') { onAdd(draft); setDraft(''); setOpen(false); } }}
                                 placeholder={addPlaceholder || 'Ajouter…'}
-                                className="flex-1 h-8 px-2 text-[11px] bg-slate-50 border border-slate-200 rounded-md outline-none focus:ring-2 focus:ring-indigo-100" />
+                                className="flex-1 h-8 px-2 text-[11px] bg-slate-50 border border-slate-200 dark:border-dk-border rounded-md outline-none focus:ring-2 focus:ring-indigo-100" />
                             <button type="button" onClick={() => { onAdd(draft); setDraft(''); setOpen(false); }}
                                 className="shrink-0 w-8 h-8 inline-flex items-center justify-center rounded-md bg-slate-900 text-white hover:bg-slate-800">
                                 <Plus className="w-3.5 h-3.5" />
@@ -840,7 +840,7 @@ function FilterSelect({
 
 function Tag({ children, icon: Icon }: { children: React.ReactNode; icon?: any }) {
     return (
-        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-slate-100/80 text-slate-600 text-[10px] font-medium max-w-full truncate">
+        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-slate-100/80 text-slate-600 dark:text-dk-text-secondary text-[10px] font-medium max-w-full truncate">
             {Icon && <Icon className="w-2.5 h-2.5 shrink-0" strokeWidth={2} />}<span className="truncate">{children}</span>
         </span>
     );
@@ -849,7 +849,7 @@ function Tag({ children, icon: Icon }: { children: React.ReactNode; icon?: any }
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
     return (
         <div>
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">{title}</p>
+            <p className="text-[10px] font-bold text-slate-400 dark:text-dk-text-muted uppercase tracking-wider mb-1.5">{title}</p>
             {children}
         </div>
     );
@@ -857,12 +857,12 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 
 function KpiCard({ icon: Icon, label, value, suffix, accent }: { icon: any; label: string; value: string; suffix: string; accent: string }) {
     return (
-        <div className="rounded-xl bg-white/70 border border-white/70 p-2 shadow-[0_4px_16px_-12px_rgba(15,23,42,0.4)]">
+        <div className="rounded-xl bg-white/70 dark:bg-dk-surface/70 border border-white/70 p-2 shadow-[0_4px_16px_-12px_rgba(15,23,42,0.4)]">
             <div className={`w-5 h-5 rounded-md bg-gradient-to-br ${accent} flex items-center justify-center mb-1`}>
                 <Icon className="w-3 h-3 text-white" strokeWidth={2.2} />
             </div>
-            <p className="text-[9px] text-slate-400 uppercase tracking-wide font-bold">{label}</p>
-            <p className="text-[15px] font-black text-slate-900 tabular-nums leading-tight">{value}<span className="text-[9px] font-normal text-slate-400 ml-0.5">{suffix}</span></p>
+            <p className="text-[9px] text-slate-400 dark:text-dk-text-muted uppercase tracking-wide font-bold">{label}</p>
+            <p className="text-[15px] font-black text-slate-900 tabular-nums leading-tight">{value}<span className="text-[9px] font-normal text-slate-400 dark:text-dk-text-muted ml-0.5">{suffix}</span></p>
         </div>
     );
 }
@@ -891,7 +891,7 @@ function EmptyState({ hasData }: { hasData: boolean }) {
                     tr: 'Kronometre ölçümü bulunamadı',
                 })}
             </h3>
-            <p className="text-[12px] text-slate-500 mt-1 max-w-sm">
+            <p className="text-[12px] text-slate-500 dark:text-dk-text-muted mt-1 max-w-sm">
                 {hasData
                     ? tx(lang, {
                         fr: 'Essayez un autre terme de recherche ou ajustez les filtres.',
@@ -916,10 +916,10 @@ function EmptyState({ hasData }: { hasData: boolean }) {
 
 function Segmented<T extends string>({ options, value, onChange }: { options: { id: T; label: string }[]; value: T; onChange: (v: T) => void }) {
     return (
-        <div className="shrink-0 inline-flex p-0.5 bg-white/60 border border-white/70 rounded-lg backdrop-blur-md">
+        <div className="shrink-0 inline-flex p-0.5 bg-white/60 dark:bg-dk-surface/60 border border-white/70 rounded-lg backdrop-blur-md">
             {options.map(({ id, label }) => (
                 <button key={id} type="button" onClick={() => onChange(id)}
-                    className={`px-2.5 h-6 text-[11px] font-medium rounded-md transition-all ${value === id ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}>
+                    className={`px-2.5 h-6 text-[11px] font-medium rounded-md transition-all ${value === id ? 'bg-slate-900 text-white shadow-sm dark:shadow-dk-sm' : 'text-slate-500 dark:text-dk-text-muted hover:text-slate-800 dark:text-dk-text'}`}>
                     {label}
                 </button>
             ))}

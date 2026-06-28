@@ -3,10 +3,11 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Activity, Clock, Component, Layers, AlertTriangle, CheckCircle2,
   Search, Wrench, XCircle, Database, Plus, LayoutDashboard, History, 
-  LogOut, Server, ArrowUpRight, ActivitySquare, AlertCircle, ArrowLeft, Users, Printer
+  LogOut, Server, ArrowUpRight, ActivitySquare, AlertCircle, ArrowLeft, Users, Printer, ScanLine
 } from 'lucide-react';
 import { PlanningEvent, ModelData, AppSettings, Machine, MachineFleetHistoryEntry, MachineInstance } from '../types';
 import MachineExitModal, { type MachineExitPayload } from './MachineExitModal';
+import MachineQuickScanModal from './MachineQuickScanModal';
 import { MachineQrTicket } from './MachineQrTicket';
 import Implantation from './Implantation';
 import { tx } from '../lib/i18n';
@@ -73,6 +74,7 @@ export default function PageMachine({
   const [exitModalInitialId, setExitModalInitialId] = useState<string | null>(null);
   
   const [qrMachine, setQrMachine] = useState<Machine | null>(null);
+  const [scanOpen, setScanOpen] = useState(false);
   const { lang } = useLang();
 
   // --- Logic & Data Preparation ---
@@ -252,7 +254,7 @@ export default function PageMachine({
             className="group cursor-pointer rounded-2xl bg-white border border-slate-200 flex flex-col h-full overflow-hidden transition-all duration-300 hover:border-slate-300"
           >
             {activeData && (
-              <div className="h-1 w-full bg-gradient-to-r from-emerald-400 via-emerald-500 to-teal-400 shrink-0" />
+              <div className="h-1 w-full bg-emerald-500 shrink-0" />
             )}
 
             <div className="p-5 flex flex-col h-full gap-4">
@@ -363,7 +365,7 @@ export default function PageMachine({
                       <span className="text-[10px] font-bold text-slate-600">{qteProduite}<span className="text-slate-400"> / </span>{qteTotal}</span>
                     </div>
                     <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden">
-                      <div className="h-full bg-gradient-to-r from-emerald-400 to-emerald-500 rounded-full transition-all duration-700" style={{ width: `${progress}%` }} />
+                      <div className="h-full bg-emerald-500 rounded-full transition-all duration-700" style={{ width: `${progress}%` }} />
                     </div>
                   </div>
                 </div>
@@ -396,13 +398,8 @@ export default function PageMachine({
         whileHover={{ y: -6, scale: 1.01 }}
         whileTap={{ scale: 0.98 }}
         onClick={() => { setSelectedChainId('MAGASIN'); setViewingModelId(null); }}
-        className="group cursor-pointer bg-white rounded-2xl border border-indigo-200 hover:border-indigo-300 hover:shadow-[0_20px_40px_-12px_rgba(99,102,241,0.15)] transition-all duration-300 flex flex-col h-full relative overflow-hidden"
+        className="group cursor-pointer bg-white rounded-2xl border border-slate-200 hover:border-slate-300 transition-all duration-300 flex flex-col h-full relative overflow-hidden"
       >
-        <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
-          <div className="absolute -top-20 -right-20 w-64 h-64 bg-indigo-100 rounded-full blur-[60px] group-hover:bg-indigo-200 transition-all duration-700" />
-          <div className="absolute -bottom-20 -left-20 w-56 h-56 bg-violet-100 rounded-full blur-[50px] group-hover:bg-violet-200 transition-all duration-700" />
-        </div>
-        
         <div className="p-5 md:p-6 flex flex-col h-full relative z-10">
           {/* Header */}
           <div className="flex justify-between items-start mb-5">
@@ -1236,7 +1233,15 @@ export default function PageMachine({
                       />
                    </div>
                    
-                   <button onClick={() => { setEditingInstance(null); setInstanceEditorOpen(true); }} className="flex items-center justify-center gap-1.5 px-3 md:px-4 py-1.5 md:py-2 bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 text-white text-[10px] md:text-[11px] font-black rounded-lg shadow-md shadow-indigo-500/25 hover:shadow-lg hover:shadow-indigo-500/35 hover:-translate-y-0.5 transition-all tracking-widest uppercase border border-white/10">
+                   <button onClick={() => setScanOpen(true)} title={tx(lang,{fr:'Scanner une machine',ar:'مسح آلة',en:'Scan a machine',es:'Escanear una máquina',pt:'Escanear uma máquina',tr:'Makine tara'})} className="flex items-center justify-center gap-1.5 px-3 md:px-4 py-1.5 md:py-2 bg-white dark:bg-dk-surface text-slate-700 dark:text-dk-text text-[10px] md:text-[11px] font-black rounded-lg border border-slate-200 dark:border-dk-border shadow-sm hover:border-indigo-300 hover:text-indigo-600 hover:-translate-y-0.5 transition-all tracking-widest uppercase">
+                     <ScanLine className="w-3.5 h-3.5 md:w-4 md:h-4" /> <span className="hidden sm:inline">{tx(lang,{fr:'Scanner',ar:'مسح',en:'Scan',es:'Escanear',pt:'Escanear',tr:'Tara'})}</span>
+                   </button>
+
+                   <button onClick={() => { setExitModalInitialId(null); setExitModalOpen(true); }} title={tx(lang,{fr:'Sortie / Réforme machine',ar:'إخراج / تصفية آلة',en:'Machine exit / disposal',es:'Salida / baja de máquina',pt:'Saída / abate de máquina',tr:'Makine çıkışı / hurda'})} className="flex items-center justify-center gap-1.5 px-3 md:px-4 py-1.5 md:py-2 bg-white dark:bg-dk-surface text-slate-700 dark:text-dk-text text-[10px] md:text-[11px] font-black rounded-lg border border-slate-200 dark:border-dk-border shadow-sm hover:border-rose-300 hover:text-rose-600 hover:-translate-y-0.5 transition-all tracking-widest uppercase">
+                     <LogOut className="w-3.5 h-3.5 md:w-4 md:h-4" /> <span className="hidden sm:inline">{tx(lang,{fr:'Sortie',ar:'إخراج',en:'Exit',es:'Salida',pt:'Saída',tr:'Çıkış'})}</span>
+                   </button>
+
+                   <button onClick={() => { setEditingInstance(null); setInstanceEditorOpen(true); }} className="flex items-center justify-center gap-1.5 px-3 md:px-4 py-1.5 md:py-2 bg-slate-900 dark:bg-indigo-600 text-white text-[10px] md:text-[11px] font-black rounded-lg shadow-sm hover:bg-slate-800 dark:hover:bg-indigo-500 hover:-translate-y-0.5 transition-all tracking-widest uppercase">
                      <Plus className="w-3.5 h-3.5 md:w-4 md:h-4" /> <span className="hidden sm:inline">{tx(lang,{fr:'Ajouter',ar:'إضافة',en:'Add',es:'Añadir',pt:'Adicionar',tr:'Ekle'})}</span>
                    </button>
                 </div>
@@ -1331,6 +1336,25 @@ export default function PageMachine({
           onClose={() => setQrMachine(null)}
         />
       )}
+
+      <MachineQuickScanModal
+        open={scanOpen}
+        onClose={() => setScanOpen(false)}
+        machineInstances={machineInstances}
+        machines={machines}
+        chains={filteredChains}
+        defaultActorName={defaultFleetActorName}
+        onAction={(payload) => {
+          const inst = machineInstances.find(m => m.id === payload.instanceId);
+          if (!inst) return;
+          if (payload.kind === 'TRANSFER') {
+            onSaveMachineInstance?.({ ...inst, chainId: payload.newChainId || undefined }, { created: false });
+          } else {
+            const newStatus = payload.kind === 'PANNE' ? 'PANNE' : payload.kind === 'MAINT' ? 'MAINT' : 'OK';
+            onSaveMachineInstance?.({ ...inst, status: newStatus }, { created: false });
+          }
+        }}
+      />
 
     </div>
   );

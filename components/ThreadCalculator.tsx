@@ -6,6 +6,7 @@ import { STITCH_TYPES, MACHINE_THREAD_CONFIG, BOBBIN_SIZES, GARMENT_INDICES, fin
 import { suggestClasseFromFamilyInput } from '../lib/machineCategoryClasseLink';
 import { tx } from '../lib/i18n';
 import { useLang } from '../src/context/LanguageContext';
+import { useIsDark } from '../src/context/ThemeContext';
 import type { TxMap } from '../lib/i18n';
 
 interface ThreadCalculatorProps {
@@ -385,6 +386,7 @@ export default function ThreadCalculator({
     onSaveState
 }: ThreadCalculatorProps) {
     const { lang } = useLang();
+    const isDark = useIsDark();
     const _ = useCallback((m: TxMap) => tx(lang, m), [lang]);
     const [wastePercent, setWastePercent] = useState(() => {
         if (threadCalcState?.wastePercent !== undefined) return threadCalcState.wastePercent;
@@ -1653,7 +1655,7 @@ export default function ThreadCalculator({
     // Expanded mode: full page
     return (
         <>
-            <div className="fixed inset-0 z-[100] bg-white flex flex-col">
+            <div className={`fixed inset-0 z-[100] flex flex-col ${isDark ? 'bg-dk-bg' : 'bg-white'}`}>
                 <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-5 flex items-center justify-between shrink-0">
                     <div className="flex items-center gap-3">
                         <div className="bg-white/20 p-2 rounded-xl">
