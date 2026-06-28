@@ -1037,7 +1037,7 @@ export default function SuiviProduction({
     }, [activeModels, models, mvts, products, selectedChaineId]);
 
     return (
-        <div className="flex flex-col h-full bg-[#fafbfe] overflow-hidden font-sans antialiased text-slate-800 dark:text-dk-text">
+        <div className="flex flex-col h-full bg-[#fafbfe] dark:bg-dk-bg overflow-hidden font-sans antialiased text-slate-800 dark:text-dk-text">
             
             {/* Top SaaS Header Bar */}
             <div className="bg-white dark:bg-dk-surface border-b border-slate-200 dark:border-dk-border/60 px-3 py-2.5 sm:px-6 sm:py-4 flex flex-wrap items-center justify-between gap-2 sm:gap-4 shrink-0 shadow-sm dark:shadow-dk-sm z-20">
@@ -1128,7 +1128,7 @@ export default function SuiviProduction({
                                                                 e.stopPropagation();
                                                                 setEditingStatusEvent(ev);
                                                             }}
-                                                            className="p-1.5 rounded-lg text-slate-400 dark:text-dk-muted hover:text-slate-600 hover:bg-slate-100 transition-colors"
+                                                            className="p-1.5 rounded-lg text-slate-400 dark:text-dk-muted hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-dk-elevated transition-colors"
                                                             title={tx(lang, { fr: 'Modifier le statut', ar: 'تعديل الحالة', en: 'Change status', es: 'Modificar estado', pt: 'Alterar estado', tr: 'Durumu değiştir' })}
                                                         >
                                                             <MoreVertical className="w-4 h-4" />
@@ -1421,14 +1421,14 @@ export default function SuiviProduction({
                                     <th className="py-4 px-3 text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-dk-muted text-center w-28">{l.yieldDay}</th>
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-slate-50">
+                            <tbody className="divide-y divide-slate-50 dark:divide-dk-border">
                                 {weekDays.map(day => {
                                     const metrics = getDailyMetrics(day.dateStr);
  
                                     return (
                                         <tr key={day.dateStr} className={`hover:bg-slate-50 dark:hover:bg-dk-elevated/60 transition-colors ${selectedChartDate === day.dateStr ? 'bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 dark:bg-indigo-900/30/20' : ''}`}>
                                             {/* Date */}
-                                            <td className={`py-4 px-4 font-mono text-xs text-slate-500 dark:text-dk-muted font-bold sticky left-0 z-10 border-r border-slate-100 dark:border-dk-border/60 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)] ${selectedChartDate === day.dateStr ? 'bg-[#f4f6fe]' : 'bg-white dark:bg-dk-surface'}`}>
+                                             <td className={`py-4 px-4 font-mono text-xs text-slate-500 dark:text-dk-muted font-bold sticky left-0 z-10 border-r border-slate-100 dark:border-dk-border/60 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)] ${selectedChartDate === day.dateStr ? 'bg-[#f4f6fe] dark:bg-dk-elevated' : 'bg-white dark:bg-dk-surface'}`}>
                                                 <div className="flex items-center gap-2">
                                                     <button
                                                         type="button"
@@ -1439,9 +1439,9 @@ export default function SuiviProduction({
                                                     {day.displayDate}
                                                 </div>
                                             </td>
-                                            
+
                                             {/* Day Name */}
-                                            <td className={`py-4 px-4 font-black text-xs text-slate-800 dark:text-dk-text sticky left-[112px] z-10 border-r border-slate-100 dark:border-dk-border/60 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)] ${selectedChartDate === day.dateStr ? 'bg-[#f4f6fe]' : 'bg-white dark:bg-dk-surface'}`}>
+                                            <td className={`py-4 px-4 font-black text-xs text-slate-800 dark:text-dk-text sticky left-[112px] z-10 border-r border-slate-100 dark:border-dk-border/60 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)] ${selectedChartDate === day.dateStr ? 'bg-[#f4f6fe] dark:bg-dk-elevated' : 'bg-white dark:bg-dk-surface'}`}>
                                                 {day.label}
                                             </td>
 
@@ -1888,7 +1888,7 @@ export default function SuiviProduction({
                                         <th className="py-2.5 px-3 text-right">Alerte Goulot</th>
                                     </tr>
                                 </thead>
-                                <tbody className="divide-y divide-slate-50">
+                                <tbody className="divide-y divide-slate-50 dark:divide-dk-border">
                                     {sizingData.map(row => (
                                         <tr key={row.size} className="hover:bg-slate-50 dark:hover:bg-dk-elevated/60 transition-colors">
                                             <td className="py-3 px-3 font-black text-slate-800 dark:text-dk-text">{row.size}</td>
@@ -1999,7 +1999,7 @@ export default function SuiviProduction({
                                             return (
                                                 <div key={op.id || idx} className="flex items-center shrink-0">
                                                     <div 
-                                                        className={`p-2 rounded-xl border text-left min-w-[110px] max-w-[130px] relative transition-all duration-200 hover:shadow-sm ${
+                                                        className={`p-2 rounded-xl border text-left min-w-[110px] max-w-[130px] relative transition-all duration-200 hover:shadow-sm dark:hover:shadow-dk-sm ${
                                                             isMissing 
                                                                 ? 'bg-rose-50 dark:bg-rose-900/30/50 border-rose-200 dark:border-rose-800 ring-1 ring-rose-500/10' 
                                                                 : 'bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 dark:bg-indigo-900/30/20 border-slate-100 dark:border-dk-border/60 hover:border-indigo-200 dark:border-indigo-800'
@@ -2083,7 +2083,7 @@ export default function SuiviProduction({
                                 {consumptionAlerts.map((alert, idx) => (
                                     <div
                                         key={`${alert.modelId}-${alert.materialName}-${idx}`}
-                                        className={`rounded-2xl border p-4 transition-all hover:shadow-md ${
+                                        className={`rounded-2xl border p-4 transition-all hover:shadow-md dark:hover:shadow-dk-md ${
                                             alert.severity === 'critical'
                                                 ? 'bg-white dark:bg-dk-surface border-rose-200 dark:border-rose-800 shadow-sm dark:shadow-dk-sm shadow-rose-100/50'
                                                 : 'bg-white dark:bg-dk-surface border-amber-200 dark:border-amber-800 shadow-sm dark:shadow-dk-sm shadow-amber-100/50'
@@ -2267,7 +2267,7 @@ function CellDetailsModal({
                     </div>
                     <button 
                         onClick={onClose} 
-                        className="p-1.5 rounded-lg text-slate-400 dark:text-dk-muted hover:text-slate-600 hover:bg-slate-100 transition-colors"
+                        className="p-1.5 rounded-lg text-slate-400 dark:text-dk-muted hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-dk-elevated transition-colors"
                     >
                         <X className="w-5 h-5" />
                     </button>
@@ -2469,7 +2469,7 @@ function StatusChangeModal({
                     </div>
                     <button 
                         onClick={onClose} 
-                        className="p-1.5 rounded-lg text-slate-400 dark:text-dk-muted hover:text-slate-600 hover:bg-slate-100 transition-colors"
+                        className="p-1.5 rounded-lg text-slate-400 dark:text-dk-muted hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-dk-elevated transition-colors"
                     >
                         <X className="w-4 h-4" />
                     </button>
@@ -2504,7 +2504,7 @@ function StatusChangeModal({
                     <button 
                         type="button" 
                         onClick={onClose} 
-                        className="rounded-xl px-4 py-2 font-bold text-slate-500 dark:text-dk-muted hover:bg-slate-100 transition-colors"
+                        className="rounded-xl px-4 py-2 font-bold text-slate-500 dark:text-dk-muted hover:bg-slate-100 dark:hover:bg-dk-elevated transition-colors"
                     >
                         {cancelLabel}
                     </button>
