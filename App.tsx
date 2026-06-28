@@ -1317,7 +1317,7 @@ export default function App() {
 
     return (
         <DataOwnerProvider user={user ? { ...user, id: Number(user.id) } : null} isGuest={isGuest}>
-            <div className="flex flex-col h-screen bg-white text-gray-800 font-sans overflow-hidden transition-colors duration-300" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
+            <div className="flex flex-col h-screen bg-white dark:bg-dk-bg text-gray-800 dark:text-dk-text font-sans overflow-hidden transition-colors duration-300" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
                 <AnnouncementBar />
                 <LicenseBanner />
                 {/* HEADER TOP BAR - COMPACT (h-12) & CLEAN */}
@@ -1337,11 +1337,11 @@ export default function App() {
                 {mobileMenuOpen && (
                     <div className="fixed inset-0 z-[200] flex">
                         <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" onClick={() => setMobileMenuOpen(false)} />
-                        <nav className="relative w-72 max-w-[85vw] bg-white shadow-2xl h-full overflow-y-auto flex flex-col animate-in slide-in-from-left duration-200">
+                        <nav className="relative w-72 max-w-[85vw] bg-white dark:bg-dk-surface shadow-2xl h-full overflow-y-auto flex flex-col animate-in slide-in-from-left duration-200">
                             {/* Header */}
-                            <div className="px-4 py-4 border-b border-gray-100 flex items-center justify-between shrink-0">
-                                <span className="font-extrabold text-lg text-gray-900">BERA<span className="text-emerald-600">METHODE</span></span>
-                                <button onClick={() => setMobileMenuOpen(false)} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400">
+                            <div className="px-4 py-4 border-b border-gray-100 dark:border-dk-border flex items-center justify-between shrink-0">
+                                <span className="font-extrabold text-lg text-gray-900 dark:text-dk-text">BERA<span className="text-emerald-600">METHODE</span></span>
+                                <button onClick={() => setMobileMenuOpen(false)} className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-dk-elevated/60 text-gray-400 dark:text-dk-muted">
                                     <X className="w-5 h-5" />
                                 </button>
                             </div>
@@ -1389,14 +1389,14 @@ export default function App() {
                                         .filter(section => section.items.length > 0)
                                         .flatMap((section, si) => [
                                             <div key={`sep-${si}`} className="pt-4 pb-1.5 px-3">
-                                                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{section.title}</span>
+                                                <span className="text-[10px] font-bold text-gray-400 dark:text-dk-muted uppercase tracking-widest">{section.title}</span>
                                             </div>,
                                             ...section.items.map(view => {
                                                 const item = allItems[view];
                                                 const isActive = currentView === view;
                                                 return (
                                                     <button key={view} onClick={() => { handleNavigation(view as any); setMobileMenuOpen(false); }}
-                                                        className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-[12px] font-bold uppercase tracking-wide transition-all border mb-0.5 ${isActive ? item.active : 'text-gray-500 hover:text-gray-900 hover:bg-gray-50 border-transparent'}`}>
+                                                        className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-[12px] font-bold uppercase tracking-wide transition-all border mb-0.5 ${isActive ? item.active : 'text-gray-500 dark:text-dk-text-soft hover:text-gray-900 dark:hover:text-dk-text hover:bg-gray-50 dark:hover:bg-dk-elevated/60 border-transparent'}`}>
                                                         {item.icon}{item.label}
                                                     </button>
                                                 );
@@ -1406,16 +1406,16 @@ export default function App() {
                             </div>
 
                             {/* Footer */}
-                            <div className="px-3 py-3 border-t border-gray-100 shrink-0">
+                            <div className="px-3 py-3 border-t border-gray-100 dark:border-dk-border shrink-0">
                                 <button onClick={() => { handleNavigation('profil' as any); setMobileMenuOpen(false); }}
-                                    className="flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-[12px] font-bold text-gray-500 hover:text-gray-900 hover:bg-gray-50 transition-all">
+                                    className="flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-[12px] font-bold text-gray-500 dark:text-dk-text-soft hover:text-gray-900 dark:hover:text-dk-text hover:bg-gray-50 dark:hover:bg-dk-elevated/60 transition-all">
                                     <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-gray-700 to-gray-600 flex items-center justify-center text-[10px] font-bold text-white">
                                         {user?.name ? user.name.substring(0, 2).toUpperCase() : 'SB'}
                                     </div>
                                     {tx(lang, {fr:'Profil',ar:'الملف الشخصي',en:'Profile',es:'Perfil',pt:'Perfil',tr:'Profil'})}
                                 </button>
                                 <button onClick={() => { logout(); setMobileMenuOpen(false); }}
-                                    className="flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-[12px] font-bold text-red-500 hover:text-red-700 hover:bg-red-50 transition-all mt-0.5">
+                                    className="flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-[12px] font-bold text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/30 transition-all mt-0.5">
                                     <LogOut className="w-4 h-4" />
                                     {tx(lang, {fr:'Déconnexion',ar:'تسجيل الخروج',en:'Logout',es:'Cerrar sesión',pt:'Sair',tr:'Çıkış'})}
                                 </button>
@@ -1425,7 +1425,7 @@ export default function App() {
                 )}
 
                 {/* MAIN CONTENT */}
-                <main className="flex-1 min-h-0 min-w-0 overflow-hidden relative flex flex-col bg-[#fafafa]">
+                <main className="flex-1 min-h-0 min-w-0 overflow-hidden relative flex flex-col bg-[#fafafa] dark:bg-dk-bg">
                   {/* Isole le crash d'une page : la barre de navigation et le reste
                       de l'app restent vivants. `key={currentView}` réinitialise le
                       garde-fou automatiquement à chaque changement de page. */}
@@ -1434,11 +1434,11 @@ export default function App() {
                     {routeNotFound ? (
                         <div className="flex-1 flex flex-col items-center justify-center p-8 min-h-0">
                             <div className="text-center max-w-md">
-                                <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-red-50 border border-red-100 flex items-center justify-center">
+                                <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-red-50 dark:bg-red-900/30 border border-red-100 dark:border-red-800 flex items-center justify-center">
                                     <AlertTriangle className="w-7 h-7 text-red-400" />
                                 </div>
-                                <h2 className="text-lg font-bold text-gray-800 mb-2">الصفحة غير موجودة</h2>
-                                <p className="text-sm text-gray-500 mb-6">الرابط الذي أدخلته غير معروف في النظام</p>
+                                <h2 className="text-lg font-bold text-gray-800 dark:text-dk-text mb-2">الصفحة غير موجودة</h2>
+                                <p className="text-sm text-gray-500 dark:text-dk-text-soft mb-6">الرابط الذي أدخلته غير معروف في النظام</p>
                                 <button
                                     onClick={() => handleNavigation('dashboard')}
                                     className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700 transition-colors"
@@ -1727,7 +1727,7 @@ export default function App() {
                     )}
 
                     {currentView === 'config' && (
-                        <div className="flex-1 min-h-0 overflow-y-auto no-scrollbar bg-[#fafafa]">
+                        <div className="flex-1 min-h-0 overflow-y-auto no-scrollbar bg-[#fafafa] dark:bg-dk-bg">
                             <Configuration
                                 settings={globalSettings}
                                 setSettings={setGlobalSettings}
@@ -1746,7 +1746,7 @@ export default function App() {
                     {currentView === 'profil' && <Profil />}
 
                     {currentView === 'pageMachine' && (
-                        <div className="flex-1 min-h-0 overflow-y-auto no-scrollbar bg-[#fafcff] w-full relative">
+                        <div className="flex-1 min-h-0 overflow-y-auto no-scrollbar bg-[#fafcff] dark:bg-dk-bg w-full relative">
                             <PageMachine 
                                 planningEvents={planningEvents}
                                 models={models}
@@ -1763,7 +1763,7 @@ export default function App() {
                     )}
 
                     {currentView === 'machin' && (
-                        <div className="flex-1 min-h-0 overflow-y-auto no-scrollbar bg-[#fafafa]">
+                        <div className="flex-1 min-h-0 overflow-y-auto no-scrollbar bg-[#fafafa] dark:bg-dk-bg">
                             <Machin 
                                 machines={machines}
                                 onSaveMachine={handleSaveMachine}
@@ -1808,7 +1808,7 @@ export default function App() {
 
                     {currentView === 'sousTraitance' && (
                         <div className="flex-1 min-h-0 flex flex-col overflow-hidden w-full">
-                            <Suspense fallback={<div className="p-8 text-center text-gray-500">Chargement...</div>}>
+                            <Suspense fallback={<div className="p-8 text-center text-gray-500 dark:text-dk-text-soft">Chargement...</div>}>
                                 <SousTraitance models={models} settings={globalSettings} onNavigate={(v) => handleNavigation(v as any)} planningEvents={planningEvents} setPlanningEvents={setPlanningEvents} />
                             </Suspense>
                         </div>
@@ -1816,7 +1816,7 @@ export default function App() {
 
                     {currentView === 'catalogTemps' && (
                         <div className="flex-1 min-h-0 flex flex-col overflow-hidden w-full">
-                            <Suspense fallback={<div className="p-8 text-center text-gray-500">Chargement...</div>}>
+                            <Suspense fallback={<div className="p-8 text-center text-gray-500 dark:text-dk-text-soft">Chargement...</div>}>
                                 <CatalogueTemps
                                     models={models}
                                     settings={globalSettings}
@@ -1836,7 +1836,7 @@ export default function App() {
                                     setNavigationContext(null);
                                 }}
                                 title={`Retourner au ${navigationContext === 'coupe' ? 'La Coupe' : 'Planning'}`}
-                                className="group flex items-center gap-2 bg-slate-900 border border-slate-700 text-white rounded-full pl-2.5 pr-3.5 py-1.5 shadow-lg hover:bg-slate-800 hover:-translate-y-0.5 transition-all"
+                                className="group flex items-center gap-2 bg-slate-900 dark:bg-dk-surface border border-slate-700 dark:border-dk-border text-white dark:text-dk-text rounded-full pl-2.5 pr-3.5 py-1.5 shadow-lg hover:bg-slate-800 dark:hover:bg-dk-elevated/80 hover:-translate-y-0.5 transition-all"
                             >
                                 <LogOut className="w-3.5 h-3.5 text-white rotate-180 shrink-0" />
                                 <span className="text-[11px] font-semibold whitespace-nowrap">Retour {navigationContext === 'coupe' ? 'La Coupe' : 'Planning'}</span>
@@ -1868,12 +1868,11 @@ export default function App() {
 
                 {/* TOAST NOTIFICATION */}
                 {toastMessage && (
-                    <div className="fixed top-16 left-1/2 -translate-x-1/2 z-[300] flex items-center gap-2 px-4 py-3 rounded-xl shadow-lg border animate-in slide-in-from-top-4 fade-in duration-300"
-                        style={{
-                            backgroundColor: toastMessage.type === 'success' ? '#ecfdf5' : '#fef2f2',
-                            borderColor: toastMessage.type === 'success' ? '#a7f3d0' : '#fecaca',
-                            color: toastMessage.type === 'success' ? '#065f46' : '#991b1b'
-                        }}
+                    <div className={`fixed top-16 left-1/2 -translate-x-1/2 z-[300] flex items-center gap-2 px-4 py-3 rounded-xl shadow-lg border animate-in slide-in-from-top-4 fade-in duration-300 ${
+                        toastMessage.type === 'success'
+                            ? 'bg-green-50 border-green-200 text-green-700 dark:bg-green-900/30 dark:border-green-800 dark:text-green-300'
+                            : 'bg-red-50 border-red-200 text-red-700 dark:bg-red-900/30 dark:border-red-800 dark:text-red-300'
+                    }`}
                     >
                         {toastMessage.type === 'success' ? <CheckCircle2 className="w-5 h-5 text-emerald-500" /> : <AlertTriangle className="w-5 h-5 text-red-500" />}
                         <span className="text-sm font-bold">{toastMessage.text}</span>
