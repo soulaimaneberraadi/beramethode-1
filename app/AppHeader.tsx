@@ -77,7 +77,7 @@ export const VIEW_DEFS: Record<string, { label: string | ViewLabelFn; icon: Reac
     rendement: {
         label: (l: any) => tx(l, { fr: 'Rendement', ar: 'الإنتاجية', en: 'Yield', es: 'Rendimiento', pt: 'Rendimento', tr: 'Verim' }),
         icon: <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18" /><polyline points="17 6 23 6 23 12" /></svg>,
-        activeClass: 'bg-violet-50 border-violet-100 text-violet-700'
+        activeClass: 'bg-violet-50 dark:bg-violet-900/30 border-violet-100 dark:border-violet-800 text-violet-700 dark:text-violet-300'
     },
     ingenierie: {
         label: (l: any) => tx(l, { fr: 'Ingénierie', ar: 'الهندسة', en: 'Engineering', es: 'Ingeniería', pt: 'Engenharia', tr: 'Mühendislik' }),
@@ -142,7 +142,7 @@ export const VIEW_DEFS: Record<string, { label: string | ViewLabelFn; icon: Reac
     catalogTemps: {
         label: (l: any) => tx(l, { fr: 'Catalogue de Temps', ar: 'كتالوج الأوقات', en: 'Time Catalog', es: 'Catálogo de Tiempos', pt: 'Catálogo de Tempos', tr: 'Zaman Kataloğu' }),
         icon: <Clock className="w-3.5 h-3.5" />,
-        activeClass: 'bg-violet-50 border-violet-100 text-violet-700'
+        activeClass: 'bg-violet-50 dark:bg-violet-900/30 border-violet-100 dark:border-violet-800 text-violet-700 dark:text-violet-300'
     },
     config: {
         label: (l: any) => tx(l, { fr: 'Configuration', ar: 'الإعدادات', en: 'Configuration', es: 'Configuración', pt: 'Configuração', tr: 'Yapılandırma' }),
@@ -214,7 +214,7 @@ export default function AppHeader({
                         <div className="ml-2 sm:ml-4 flex items-center gap-1.5 px-2 py-1 bg-slate-50 dark:bg-dk-bg dark:bg-dk-surface rounded-full border border-slate-100 dark:border-dk-border">
                             {saveStatus === 'saved' ? (
                                 <>
-                                    <CheckCircle2 className="w-3 h-3 text-emerald-500" />
+                                    <CheckCircle2 className="w-3 h-3 text-emerald-500 dark:text-emerald-400" />
                                     <span className="text-[10px] font-bold text-slate-400 dark:text-dk-muted hidden md:inline">{t.saved}</span>
                                 </>
                             ) : saveStatus === 'saving' ? (
@@ -224,7 +224,7 @@ export default function AppHeader({
                                 </>
                             ) : (
                                 <>
-                                    <CloudOff className="w-3 h-3 text-amber-500" />
+                                    <CloudOff className="w-3 h-3 text-amber-500 dark:text-amber-400" />
                                     <span className="text-[10px] font-bold text-amber-500 dark:text-amber-400 hidden md:inline">{t.unsaved}</span>
                                 </>
                             )}
@@ -477,7 +477,7 @@ function WorkspaceSwitcher({ lang }: { lang: Lang }) {
                 title={tx(lang, { fr: 'Changer de société', ar: 'تبديل الشركة', en: 'Switch workspace', es: 'Cambiar empresa', pt: 'Trocar empresa', tr: 'Çalışma alanını değiştir' })}
                 className="hidden sm:flex items-center gap-1.5 max-w-[180px] pl-2 pr-1.5 py-1 rounded-lg border border-gray-200 dark:border-dk-border bg-white dark:bg-dk-surface hover:bg-gray-50 dark:hover:bg-dk-elevated/60 text-gray-700 dark:text-dk-text transition-colors disabled:opacity-50"
             >
-                <Factory className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
+                <Factory className="w-3.5 h-3.5 text-indigo-500 dark:text-indigo-400 shrink-0" />
                 <span className="text-[11px] font-bold truncate">{active?.name || '—'}</span>
                 <ChevronDown className={`w-3 h-3 opacity-60 transition-transform ${open ? 'rotate-180' : ''}`} />
             </button>
@@ -487,7 +487,7 @@ function WorkspaceSwitcher({ lang }: { lang: Lang }) {
                     <div className="fixed inset-0 z-[190]" onClick={() => setOpen(false)} />
                     <div
                         style={{ position: 'fixed', top: pos.top, left: pos.left }}
-                        className="w-60 bg-white dark:bg-dk-surface border border-gray-100 dark:border-dk-border rounded-xl shadow-lg p-1.5 z-[200] flex flex-col gap-0.5 animate-in fade-in zoom-in-95 duration-150"
+                        className="w-60 bg-white dark:bg-dk-surface border border-gray-100 dark:border-dk-border rounded-xl shadow-lg dark:shadow-dk-lg p-1.5 z-[200] flex flex-col gap-0.5 animate-in fade-in zoom-in-95 duration-150"
                     >
                         <div className="px-2.5 py-1.5 text-[9px] font-bold uppercase tracking-wide text-gray-400 dark:text-dk-muted">
                             {tx(lang, { fr: 'Sociétés', ar: 'الشركات', en: 'Workspaces', es: 'Empresas', pt: 'Empresas', tr: 'Çalışma alanları' })}
@@ -502,7 +502,7 @@ function WorkspaceSwitcher({ lang }: { lang: Lang }) {
                             >
                                 <Factory className="w-3.5 h-3.5 shrink-0 opacity-70" />
                                 <span className="truncate flex-1">{w.name}</span>
-                                {w.isActive && <CheckCircle2 className="w-3.5 h-3.5 text-indigo-500 shrink-0" />}
+                                {w.isActive && <CheckCircle2 className="w-3.5 h-3.5 text-indigo-500 dark:text-indigo-400 shrink-0" />}
                             </button>
                         ))}
 
@@ -638,7 +638,7 @@ function NavDropdown({ label, views, currentView, activeClass, align = 'left', c
                         top: pos.top,
                         ...(align === 'right' ? { right: pos.right } : { left: pos.left }),
                     }}
-                    className="w-48 bg-white dark:bg-dk-surface border border-gray-100 dark:border-dk-border rounded-xl shadow-lg p-1.5 z-[200] flex flex-col gap-0.5 animate-in fade-in zoom-in-95 duration-150"
+                    className="w-48 bg-white dark:bg-dk-surface border border-gray-100 dark:border-dk-border rounded-xl shadow-lg dark:shadow-dk-lg p-1.5 z-[200] flex flex-col gap-0.5 animate-in fade-in zoom-in-95 duration-150"
                 >
                     {children}
                 </div>,
