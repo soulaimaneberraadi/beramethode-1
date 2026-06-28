@@ -239,7 +239,7 @@ export default function Pedido({
                 label: tx(lang, { fr: 'Proc. Externe', ar: 'عملية خارجية', en: 'Ext. Process', es: 'Proc. Externo', pt: 'Proc. Externo', tr: 'Dış İşlem' }),
                 dot: 'bg-amber-500',
                 text: 'text-amber-700',
-                bg: 'bg-amber-50',
+                bg: 'bg-amber-50 dark:bg-amber-900/30',
                 border: 'border-amber-200'
             };
         }
@@ -248,15 +248,15 @@ export default function Pedido({
                 label: tx(lang, { fr: 'Bloqué stock', ar: 'متوقف / حابس', en: 'Stock blocked', es: 'Stock bloqueado', pt: 'Stock bloqueado', tr: 'Stok engelli' }),
                 dot: 'bg-red-500',
                 text: 'text-red-700',
-                bg: 'bg-red-50',
+                bg: 'bg-red-50 dark:bg-red-900/30',
                 border: 'border-red-200'
             };
         }
         const s = status === 'DONE' ? 'DONE' : status === 'BLOCKED_STOCK' ? 'BLOCKED' : (status === 'IN_PROGRESS' || status === 'ON_TRACK' || status === 'AT_RISK' || status === 'OFF_TRACK') ? 'IN_PROGRESS' : 'READY';
         const meta = {
-            READY: { label: tx(lang, { fr: 'Prêt', ar: 'جاهز', en: 'Ready', es: 'Listo', pt: 'Pronto', tr: 'Hazır' }), dot: 'bg-emerald-500', text: 'text-emerald-700', bg: 'bg-emerald-50', border: 'border-emerald-200' },
-            BLOCKED: { label: tx(lang, { fr: 'Bloqué', ar: 'متوقف', en: 'Blocked', es: 'Bloqueado', pt: 'Bloqueado', tr: 'Engelli' }), dot: 'bg-red-500', text: 'text-red-700', bg: 'bg-red-50', border: 'border-red-200' },
-            IN_PROGRESS: { label: tx(lang, { fr: 'En cours', ar: 'في طور الإنجاز', en: 'In progress', es: 'En curso', pt: 'Em curso', tr: 'Devam ediyor' }), dot: 'bg-[#2149C1]', text: 'text-[#1a3ba5]', bg: 'bg-blue-50', border: 'border-blue-200' },
+            READY: { label: tx(lang, { fr: 'Prêt', ar: 'جاهز', en: 'Ready', es: 'Listo', pt: 'Pronto', tr: 'Hazır' }), dot: 'bg-emerald-500', text: 'text-emerald-700', bg: 'bg-emerald-50 dark:bg-emerald-900/30', border: 'border-emerald-200' },
+            BLOCKED: { label: tx(lang, { fr: 'Bloqué', ar: 'متوقف', en: 'Blocked', es: 'Bloqueado', pt: 'Bloqueado', tr: 'Engelli' }), dot: 'bg-red-500', text: 'text-red-700', bg: 'bg-red-50 dark:bg-red-900/30', border: 'border-red-200' },
+            IN_PROGRESS: { label: tx(lang, { fr: 'En cours', ar: 'في طور الإنجاز', en: 'In progress', es: 'En curso', pt: 'Em curso', tr: 'Devam ediyor' }), dot: 'bg-[#2149C1]', text: 'text-[#1a3ba5]', bg: 'bg-blue-50 dark:bg-blue-900/30', border: 'border-blue-200' },
             DONE: { label: tx(lang, { fr: 'Terminé', ar: 'مكتمل', en: 'Done', es: 'Terminado', pt: 'Concluído', tr: 'Tamamlandı' }), dot: 'bg-slate-400', text: 'text-slate-600 dark:text-dk-text-soft', bg: 'bg-slate-50 dark:bg-dk-bg', border: 'border-slate-200 dark:border-dk-border' },
         };
         return meta[s] || meta.READY;
@@ -614,10 +614,10 @@ export default function Pedido({
         const hasGrid = filteredSizes.length > 0 && filteredColors.length > 0;
 
         return (
-            <div className="border-2 border-indigo-500/30 rounded-xl p-5 bg-indigo-50 dark:bg-dk-accent/20/10 space-y-5 animate-in fade-in duration-200 shadow-md">
+            <div className="border-2 border-indigo-500/30 rounded-xl p-5 bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20/10 space-y-5 animate-in fade-in duration-200 shadow-md">
                 <div className="flex items-center justify-between border-b border-slate-100 dark:border-dk-border pb-3">
                     <h4 className="font-black text-sm text-indigo-900 flex items-center gap-2">
-                        <Calendar className="w-4 h-4 text-indigo-600 dark:text-dk-accent-text" />
+                        <Calendar className="w-4 h-4 text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text" />
                         {editingEventId === 'new'
                             ? tx(lang, { fr: 'Nouveau lot de livraison', ar: 'إضافة دفعة تسليم جديدة', en: 'New delivery lot', es: 'Nuevo lote de entrega', pt: 'Novo lote de entrega', tr: 'Yeni teslimat partisi' })
                             : tx(lang, { fr: 'Modifier le lot de livraison', ar: 'تعديل دفعة التسليم', en: 'Edit delivery lot', es: 'Editar lote de entrega', pt: 'Editar lote de entrega', tr: 'Teslimat partisini düzenle' })
@@ -685,7 +685,7 @@ export default function Pedido({
                                         ...prev, 
                                         isLocked: e.target.checked 
                                     } : prev)}
-                                    className="rounded border-slate-300 text-indigo-600 dark:text-dk-accent-text focus:ring-indigo-500 h-3.5 w-3.5"
+                                    className="rounded border-slate-300 text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text focus:ring-indigo-500 h-3.5 w-3.5"
                                 />
                                 <span className="text-[10px] font-bold text-slate-500 dark:text-dk-muted select-none">
                                     {tx(lang, { 
@@ -759,7 +759,7 @@ export default function Pedido({
                                                 {s}
                                             </th>
                                         ))}
-                                        <th className="py-2 px-3 text-center bg-indigo-50 dark:bg-dk-accent/20/50 text-indigo-800 w-20">TOTAL</th>
+                                        <th className="py-2 px-3 text-center bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20/50 text-indigo-800 w-20">TOTAL</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-100">
@@ -803,7 +803,7 @@ export default function Pedido({
                                                                     }}
                                                                     className={`w-14 text-center border rounded-lg py-1 tabular-nums text-xs font-semibold focus:ring-2 transition-all outline-none ${
                                                                         diff !== 0 
-                                                                            ? 'border-rose-300 focus:border-rose-500 focus:ring-rose-100 bg-rose-50/20 text-rose-700' 
+                                                                            ? 'border-rose-300 focus:border-rose-500 focus:ring-rose-100 bg-rose-50 dark:bg-rose-900/30/20 text-rose-700' 
                                                                             : 'border-slate-200 dark:border-dk-border focus:border-indigo-500 focus:ring-indigo-100 text-slate-800 dark:text-dk-text'
                                                                     }`}
                                                                     placeholder="0"
@@ -811,18 +811,18 @@ export default function Pedido({
                                                                 <div className="flex flex-col items-center text-[9px] tabular-nums leading-none">
                                                                     <span className="text-slate-400 dark:text-dk-muted">/{targetVal}</span>
                                                                     {diff !== 0 ? (
-                                                                        <span className="text-rose-600 font-bold mt-0.5" title={diff > 0 ? tx(lang, { fr: `${diff} de trop`, ar: `${diff} زائد`, en: `${diff} too many`, es: `${diff} de más`, pt: `${diff} a mais`, tr: `${diff} fazla` }) : tx(lang, { fr: `${diff} manquant`, ar: `${diff} ناقص`, en: `${diff} missing`, es: `${diff} faltante`, pt: `${diff} em falta`, tr: `${diff} eksik` })}>
+                                                                        <span className="text-rose-600 dark:text-rose-400 font-bold mt-0.5" title={diff > 0 ? tx(lang, { fr: `${diff} de trop`, ar: `${diff} زائد`, en: `${diff} too many`, es: `${diff} de más`, pt: `${diff} a mais`, tr: `${diff} fazla` }) : tx(lang, { fr: `${diff} manquant`, ar: `${diff} ناقص`, en: `${diff} missing`, es: `${diff} faltante`, pt: `${diff} em falta`, tr: `${diff} eksik` })}>
                                                                             {diff > 0 ? `+${diff}` : diff}
                                                                         </span>
                                                                     ) : (
-                                                                        qty > 0 && <span className="text-emerald-600 font-bold mt-0.5">✓</span>
+                                                                        qty > 0 && <span className="text-emerald-600 dark:text-emerald-400 font-bold mt-0.5">✓</span>
                                                                     )}
                                                                 </div>
                                                             </div>
                                                         </td>
                                                     );
                                                 })}
-                                                <td className="py-2 px-3 text-center tabular-nums font-bold bg-slate-50/50 text-slate-700 dark:text-dk-text-soft">
+                                                <td className="py-2 px-3 text-center tabular-nums font-bold bg-slate-50 dark:bg-dk-bg/50 text-slate-700 dark:text-dk-text-soft">
                                                     {rowTotal}
                                                 </td>
                                             </tr>
@@ -851,7 +851,7 @@ export default function Pedido({
                 <div className="flex items-center justify-between pt-3 border-t border-slate-100 dark:border-dk-border">
                     <div className="text-xs text-slate-400 dark:text-dk-muted font-bold">
                         {tx(lang, { fr: 'Total calculé:', ar: 'المجموع المحسوب:', en: 'Calculated total:', es: 'Total calculado:', pt: 'Total calculado:', tr: 'Hesaplanan toplam:' })} {' '}
-                        <span className="text-indigo-600 dark:text-dk-accent-text font-black tabular-nums">
+                        <span className="text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text font-black tabular-nums">
                             {hasGrid 
                                 ? Object.values(editDraft.sizeColorDistribution || {}).reduce(
                                     (sum, sizeMap) => sum + Object.values(sizeMap).reduce((s, val) => s + (val || 0), 0), 
@@ -866,7 +866,7 @@ export default function Pedido({
                             <button
                                 type="button"
                                 onClick={() => deleteEvent(editDraft.id || '')}
-                                className="inline-flex items-center gap-1.5 h-8 px-3 text-xs font-bold text-rose-600 border border-rose-200 bg-rose-50 hover:bg-rose-100 rounded-lg transition-colors"
+                                className="inline-flex items-center gap-1.5 h-8 px-3 text-xs font-bold text-rose-600 dark:text-rose-400 border border-rose-200 bg-rose-50 dark:bg-rose-900/30 hover:bg-rose-100 rounded-lg transition-colors"
                             >
                                 <Trash2 className="w-3.5 h-3.5" />
                                 {tx(lang, { fr: 'Supprimer', ar: 'حذف', en: 'Delete', es: 'Eliminar', pt: 'Eliminar', tr: 'Sil' })}
@@ -907,10 +907,10 @@ export default function Pedido({
                     <div className="shrink-0">
                         <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-semibold border uppercase tracking-wider whitespace-nowrap ${
                             totalPlanified === totalCible && totalCible > 0
-                                ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 border-emerald-200'
                                 : totalPlanified > totalCible && totalCible > 0
-                                ? 'bg-indigo-50 dark:bg-dk-accent/20 text-indigo-700 dark:text-dk-accent-text border-indigo-200'
-                                : 'bg-amber-50 text-amber-700 border-amber-200'
+                                ? 'bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 text-indigo-700 dark:text-dk-accent-text border-indigo-200'
+                                : 'bg-amber-50 dark:bg-amber-900/30 text-amber-700 border-amber-200'
                         }`}>
                             {totalPlanified === totalCible && totalCible > 0
                                 ? tx(lang, { fr: 'Plan Alignée 100%', ar: 'تغطية كاملة 100%', en: 'Plan Aligned 100%', es: 'Plan Alineado 100%', pt: 'Plano Alinhado 100%', tr: 'Plan Hizalı %100' })
@@ -933,7 +933,7 @@ export default function Pedido({
                                     {totalCible.toLocaleString()} <span className="text-xs font-medium text-slate-400 dark:text-dk-muted">pcs</span>
                                 </span>
                             </div>
-                            <div className="bg-indigo-50 dark:bg-dk-accent/20/80 p-2.5 rounded-xl text-indigo-500">
+                            <div className="bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20/80 p-2.5 rounded-xl text-indigo-500">
                                 <Grid3X3 className="w-4 h-4" />
                             </div>
                         </div>
@@ -949,12 +949,12 @@ export default function Pedido({
                                 </span>
                                 <span className="text-[9px] block font-medium leading-none">
                                     {totalPlanified === totalCible
-                                        ? <span className="text-emerald-600">✓ {tx(lang, { fr: 'Aligné', ar: 'مطابق', en: 'Aligned', es: 'Alineado', pt: 'Alinhado', tr: 'Hizalı' })}</span>
-                                        : <span className="text-amber-600">{tx(lang, { fr: `Écart : ${totalPlanified - totalCible}`, ar: `فرق: ${totalPlanified - totalCible}`, en: `Gap: ${totalPlanified - totalCible}`, es: `Diferencia: ${totalPlanified - totalCible}`, pt: `Diferença: ${totalPlanified - totalCible}`, tr: `Fark: ${totalPlanified - totalCible}` })}</span>
+                                        ? <span className="text-emerald-600 dark:text-emerald-400">✓ {tx(lang, { fr: 'Aligné', ar: 'مطابق', en: 'Aligned', es: 'Alineado', pt: 'Alinhado', tr: 'Hizalı' })}</span>
+                                        : <span className="text-amber-600 dark:text-amber-400">{tx(lang, { fr: `Écart : ${totalPlanified - totalCible}`, ar: `فرق: ${totalPlanified - totalCible}`, en: `Gap: ${totalPlanified - totalCible}`, es: `Diferencia: ${totalPlanified - totalCible}`, pt: `Diferença: ${totalPlanified - totalCible}`, tr: `Fark: ${totalPlanified - totalCible}` })}</span>
                                     }
                                 </span>
                             </div>
-                            <div className="bg-indigo-50 dark:bg-dk-accent/20/80 p-2.5 rounded-xl text-indigo-500">
+                            <div className="bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20/80 p-2.5 rounded-xl text-indigo-500">
                                 <Calendar className="w-4 h-4" />
                             </div>
                         </div>
@@ -965,14 +965,14 @@ export default function Pedido({
                                 <span className="text-[10px] text-slate-500 dark:text-dk-muted font-semibold uppercase tracking-wider block">
                                     {tx(lang, { fr: 'Total Produit (Réalisé)', ar: 'الكمية المنتجة', en: 'Total Produced (Done)', es: 'Total Producido (Realizado)', pt: 'Total Produzido (Realizado)', tr: 'Toplam Üretilen (Gerçekleşen)' })}
                                 </span>
-                                <span className="text-lg font-bold text-emerald-600 tabular-nums block">
+                                <span className="text-lg font-bold text-emerald-600 dark:text-emerald-400 tabular-nums block">
                                     {totalProduced.toLocaleString()} <span className="text-xs font-medium text-emerald-400">pcs</span>
                                 </span>
                                 <span className="text-[9px] text-indigo-500 font-medium block leading-none">
                                     {globalCompletionPct}% {tx(lang, { fr: 'Prêt', ar: 'جاهز', en: 'Ready', es: 'Listo', pt: 'Pronto', tr: 'Hazır' })}
                                 </span>
                             </div>
-                            <div className="bg-emerald-50/80 p-2.5 rounded-xl text-emerald-600">
+                            <div className="bg-emerald-50 dark:bg-emerald-900/30/80 p-2.5 rounded-xl text-emerald-600 dark:text-emerald-400">
                                 <CheckCircle className="w-4 h-4" />
                             </div>
                         </div>
@@ -982,7 +982,7 @@ export default function Pedido({
                     <div className="space-y-1.5">
                         <div className="flex items-center justify-between text-[11px] font-medium text-slate-500 dark:text-dk-muted">
                             <span>{tx(lang, { fr: 'Avancement de la commande globale', ar: 'نسبة تقدم إنجاز الطلبية', en: 'Overall order progress', es: 'Avance del pedido global', pt: 'Progresso global do pedido', tr: 'Genel sipariş ilerlemesi' })}</span>
-                            <span className="tabular-nums text-emerald-600 font-semibold">{globalCompletionPct}%</span>
+                            <span className="tabular-nums text-emerald-600 dark:text-emerald-400 font-semibold">{globalCompletionPct}%</span>
                         </div>
                         <div className="w-full h-1.5 bg-slate-100 dark:bg-dk-elevated rounded-full overflow-hidden">
                             <div
@@ -1011,7 +1011,7 @@ export default function Pedido({
                             <div className="space-y-1">
                                 <div className="flex flex-col sm:flex-row gap-2">
                                     <div className="flex flex-1 min-w-0 items-center gap-3 bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-lg px-3 py-2 focus-within:ring-2 focus-within:ring-indigo-100 focus-within:border-indigo-400 transition-all">
-                                        <div className="shrink-0 p-1.5 bg-indigo-50 dark:bg-dk-accent/20/80 rounded-md text-indigo-500 pointer-events-none" aria-hidden>
+                                        <div className="shrink-0 p-1.5 bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20/80 rounded-md text-indigo-500 pointer-events-none" aria-hidden>
                                             <Calendar className="w-4 h-4" />
                                         </div>
                                         <DateTimePicker
@@ -1065,7 +1065,7 @@ export default function Pedido({
                                             <div>
                                                 <span className="text-[10px] font-semibold uppercase text-slate-500 dark:text-dk-muted tracking-widest font-sans">HEURE DE LANCEMENT</span>
                                             </div>
-                                            <div className="tabular-nums text-lg font-semibold text-indigo-600 dark:text-dk-accent-text bg-white dark:bg-dk-surface px-3 py-0.5 rounded-lg border border-slate-200 dark:border-dk-border">
+                                            <div className="tabular-nums text-lg font-semibold text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text bg-white dark:bg-dk-surface px-3 py-0.5 rounded-lg border border-slate-200 dark:border-dk-border">
                                                 {launchHM.h}:{launchHM.min}
                                             </div>
                                         </div>
@@ -1149,14 +1149,14 @@ export default function Pedido({
                                         {tx(lang, { fr: 'Ajouter', ar: 'إضافة دفعة', en: 'Add', es: 'Añadir', pt: 'Adicionar', tr: 'Ekle' })}
                                     </button>
                                 )}
-                                <span className="inline-flex items-center justify-center h-6 min-w-[24px] px-2 bg-indigo-50 dark:bg-dk-accent/20 text-indigo-600 dark:text-dk-accent-text text-xs font-semibold rounded-full tabular-nums">
+                                <span className="inline-flex items-center justify-center h-6 min-w-[24px] px-2 bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text text-xs font-semibold rounded-full tabular-nums">
                                     {modelEvents.length}
                                 </span>
                             </div>
                         </div>
                         <div className="flex-1 overflow-y-auto max-h-[680px]">
                             {!currentModelId && (
-                                <div className="m-4 bg-amber-50 border border-amber-200/60 rounded-lg p-4 text-amber-800 text-xs font-medium flex items-center gap-2 font-sans">
+                                <div className="m-4 bg-amber-50 dark:bg-amber-900/30 border border-amber-200/60 rounded-lg p-4 text-amber-800 text-xs font-medium flex items-center gap-2 font-sans">
                                     <Calendar className="w-5 h-5 text-amber-500 shrink-0" />
                                     <span>
                                         {tx(lang, {
@@ -1223,22 +1223,22 @@ export default function Pedido({
                                     const pct = evt.qteTotal > 0 ? Math.round((produced / evt.qteTotal) * 1000) / 10 : 0;
 
                                     return (
-                                        <div key={evt.id} className={`relative border-b border-slate-100 dark:border-dk-border last:border-b-0 transition-colors ${isExpanded ? 'bg-indigo-50 dark:bg-dk-accent/20/20' : 'hover:bg-slate-50/50'}`}>
+                                        <div key={evt.id} className={`relative border-b border-slate-100 dark:border-dk-border last:border-b-0 transition-colors ${isExpanded ? 'bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20/20' : 'hover:bg-slate-50/50'}`}>
                                             {/* ACCORDION HEADER */}
                                             <button
                                                 type="button"
                                                 onClick={() => setExpandedLotId(isExpanded ? null : evt.id)}
                                                 className={`w-full px-4 py-3 flex items-center gap-3 text-left transition-colors hover:bg-slate-50/50 sticky top-0 z-30 bg-white dark:bg-dk-surface ${isExpanded ? 'border-b border-slate-100 dark:border-dk-border shadow-sm' : ''}`}
                                             >
-                                                <div className={`shrink-0 w-6 h-6 rounded-md flex items-center justify-center transition-all ${isExpanded ? 'bg-indigo-100 text-indigo-600 dark:text-dk-accent-text rotate-90' : 'bg-slate-100 dark:bg-dk-elevated text-slate-400 dark:text-dk-muted'}`}>
+                                                <div className={`shrink-0 w-6 h-6 rounded-md flex items-center justify-center transition-all ${isExpanded ? 'bg-indigo-100 text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text rotate-90' : 'bg-slate-100 dark:bg-dk-elevated text-slate-400 dark:text-dk-muted'}`}>
                                                     <ChevronRight className="w-3.5 h-3.5" />
                                                 </div>
                                                 <div className="flex-1 min-w-0">
                                                     <div className="flex items-center gap-2 flex-wrap">
-                                                        <span className="text-indigo-600 dark:text-dk-accent-text bg-indigo-50 dark:bg-dk-accent/20/80 px-1.5 py-0.5 rounded text-[10px] font-semibold">OF</span>
+                                                        <span className="text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20/80 px-1.5 py-0.5 rounded text-[10px] font-semibold">OF</span>
                                                         <span className="text-sm font-semibold text-slate-800 dark:text-dk-text truncate">{displayModelName}</span>
                                                         {isSplit && (
-                                                            <span className="inline-flex items-center gap-0.5 bg-amber-50 text-amber-700 border border-amber-200/60 px-1.5 py-0.5 rounded text-[10px] font-semibold">
+                                                            <span className="inline-flex items-center gap-0.5 bg-amber-50 dark:bg-amber-900/30 text-amber-700 border border-amber-200/60 px-1.5 py-0.5 rounded text-[10px] font-semibold">
                                                                 <Scissors className="w-2.5 h-2.5" />{lotSuffix}
                                                             </span>
                                                         )}
@@ -1250,7 +1250,7 @@ export default function Pedido({
                                                         </span>
                                                         <span className="text-[11px] tabular-nums font-semibold text-slate-500 dark:text-dk-muted">{evt.qteTotal} pcs</span>
                                                         {pct > 0 && (
-                                                            <span className="text-[10px] font-semibold text-indigo-600 dark:text-dk-accent-text tabular-nums">{pct}%</span>
+                                                            <span className="text-[10px] font-semibold text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text tabular-nums">{pct}%</span>
                                                         )}
                                                     </div>
                                                 </div>
@@ -1274,7 +1274,7 @@ export default function Pedido({
                                                     {/* Quick info pills */}
                                                     <div className="grid grid-cols-3 gap-1.5">
                                                         <div className="bg-white dark:bg-dk-surface border border-slate-100 dark:border-dk-border rounded-md p-2 flex items-center gap-1.5">
-                                                            <div className="bg-indigo-50 dark:bg-dk-accent/20/80 p-1 rounded-md text-indigo-500">
+                                                            <div className="bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20/80 p-1 rounded-md text-indigo-500">
                                                                 <Calendar className="w-3.5 h-3.5" />
                                                             </div>
                                                             <div className="min-w-0">
@@ -1287,7 +1287,7 @@ export default function Pedido({
                                                             </div>
                                                         </div>
                                                         <div className="bg-white dark:bg-dk-surface border border-slate-100 dark:border-dk-border rounded-md p-2 flex items-center gap-1.5">
-                                                            <div className="bg-blue-50/80 p-1 rounded-md text-blue-500">
+                                                            <div className="bg-blue-50 dark:bg-blue-900/30/80 p-1 rounded-md text-blue-500">
                                                                 <Clock className="w-3.5 h-3.5" />
                                                             </div>
                                                             <div className="min-w-0">
@@ -1300,7 +1300,7 @@ export default function Pedido({
                                                             </div>
                                                         </div>
                                                         <div className="bg-white dark:bg-dk-surface border border-slate-100 dark:border-dk-border rounded-md p-2 flex items-center gap-1.5">
-                                                            <div className="bg-emerald-50/80 p-1 rounded-md text-emerald-500">
+                                                            <div className="bg-emerald-50 dark:bg-emerald-900/30/80 p-1 rounded-md text-emerald-500">
                                                                 <Calendar className="w-3.5 h-3.5" />
                                                             </div>
                                                             <div className="min-w-0">
@@ -1323,9 +1323,9 @@ export default function Pedido({
                                                             </span>
                                                             {matAv && (
                                                                 <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-bold border ${
-                                                                    matAv.color === 'green' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
-                                                                    matAv.color === 'yellow' ? 'bg-amber-50 text-amber-700 border-amber-200' :
-                                                                    matAv.color === 'red' ? 'bg-rose-50 text-rose-700 border-rose-200' : 'bg-slate-50 dark:bg-dk-bg text-slate-500 dark:text-dk-muted border-slate-200 dark:border-dk-border'
+                                                                    matAv.color === 'green' ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 border-emerald-200' :
+                                                                    matAv.color === 'yellow' ? 'bg-amber-50 dark:bg-amber-900/30 text-amber-700 border-amber-200' :
+                                                                    matAv.color === 'red' ? 'bg-rose-50 dark:bg-rose-900/30 text-rose-700 border-rose-200' : 'bg-slate-50 dark:bg-dk-bg text-slate-500 dark:text-dk-muted border-slate-200 dark:border-dk-border'
                                                                 }`}>
                                                                     <span>{matAv.emoji}</span>
                                                                     <span>{matAv.label}</span>
@@ -1339,8 +1339,8 @@ export default function Pedido({
 
                                                     {/* Conflict alert */}
                                                     {hasConflict && (
-                                                        <div className="flex items-start gap-2 bg-rose-50 border border-rose-200 rounded-lg p-3 text-[11px] font-sans text-rose-800">
-                                                            <AlertTriangle className="w-3.5 h-3.5 shrink-0 text-rose-600 mt-0.5" />
+                                                        <div className="flex items-start gap-2 bg-rose-50 dark:bg-rose-900/30 border border-rose-200 rounded-lg p-3 text-[11px] font-sans text-rose-800">
+                                                            <AlertTriangle className="w-3.5 h-3.5 shrink-0 text-rose-600 dark:text-rose-400 mt-0.5" />
                                                             <p className="font-bold">
                                                                 {tx(lang, {
                                                                     fr: `Conflit : lancement ${launchDateStr} < arrivée ${matArrivalDateStr}`,
@@ -1358,7 +1358,7 @@ export default function Pedido({
                                                     <div className="bg-white dark:bg-dk-surface border border-slate-100 dark:border-dk-border rounded-md p-2.5 space-y-1">
                                                         <div className="flex items-center justify-between text-[11px] font-semibold text-slate-500 dark:text-dk-muted">
                                                             <span>{tx(lang, { fr: 'Production', ar: 'التقدم', en: 'Production', es: 'Producción', pt: 'Produção', tr: 'Üretim' })}</span>
-                                                            <span className="tabular-nums text-indigo-600 dark:text-dk-accent-text">
+                                                            <span className="tabular-nums text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text">
                                                                 {produced.toLocaleString()} / {evt.qteTotal.toLocaleString()} ({pct}%)
                                                             </span>
                                                         </div>
@@ -1385,7 +1385,7 @@ export default function Pedido({
                                                                             {filteredSizes.map((s, i) => (
                                                                                 <th key={i} className="py-2 px-2 text-center font-semibold border-r border-slate-100 dark:border-dk-border">{s}</th>
                                                                             ))}
-                                                                            <th className="py-2 px-2.5 text-center font-semibold bg-indigo-50 dark:bg-dk-accent/20/30 text-indigo-700 dark:text-dk-accent-text">TOT</th>
+                                                                            <th className="py-2 px-2.5 text-center font-semibold bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20/30 text-indigo-700 dark:text-dk-accent-text">TOT</th>
                                                                         </tr>
                                                                     </thead>
                                                                     <tbody className="divide-y divide-slate-100">
@@ -1409,7 +1409,7 @@ export default function Pedido({
                                                                                             </td>
                                                                                         );
                                                                                     })}
-                                                                                    <td className="py-1.5 px-2.5 text-center tabular-nums font-bold bg-slate-50/40 text-slate-700 dark:text-dk-text-soft">
+                                                                                    <td className="py-1.5 px-2.5 text-center tabular-nums font-bold bg-slate-50 dark:bg-dk-bg/40 text-slate-700 dark:text-dk-text-soft">
                                                                                         {rowTotal}
                                                                                     </td>
                                                                                 </tr>
@@ -1433,7 +1433,7 @@ export default function Pedido({
                                                                 const materials = data.materials || [];
                                                                 if (materials.length === 0) {
                                                                     return (
-                                                                        <p className="text-[11px] text-slate-400 dark:text-dk-muted italic text-center py-3 bg-amber-50/20">
+                                                                        <p className="text-[11px] text-slate-400 dark:text-dk-muted italic text-center py-3 bg-amber-50 dark:bg-amber-900/30/20">
                                                                             {tx(lang, { fr: 'Aucune matière définie', ar: 'لا توجد مواد محددة', en: 'No material defined', es: 'Ningún material definido', pt: 'Nenhum material definido', tr: 'Tanımlı malzeme yok' })}
                                                                         </p>
                                                                     );
@@ -1472,7 +1472,7 @@ export default function Pedido({
 
                                                                 if (colorGroups.length === 0) {
                                                                     return (
-                                                                        <p className="text-[11px] text-slate-400 dark:text-dk-muted italic text-center py-3 bg-amber-50/20">
+                                                                        <p className="text-[11px] text-slate-400 dark:text-dk-muted italic text-center py-3 bg-amber-50 dark:bg-amber-900/30/20">
                                                                             {tx(lang, { fr: 'Aucune matière pour ce lot', ar: 'لا توجد مواد لهذا الدفعة', en: 'No material for this lot', es: 'Ningún material para este lote', pt: 'Nenhum material para este lote', tr: 'Bu parti için malzeme yok' })}
                                                                         </p>
                                                                     );
@@ -1482,8 +1482,8 @@ export default function Pedido({
 
                                                                 return (
                                                                     <div className="space-y-0">
-                                                                        <div className="flex items-center justify-between px-3 py-2 bg-amber-50/40 border-b border-amber-100/50">
-                                                                            <span className="text-[10px] font-bold text-amber-600 bg-amber-100 px-2 py-0.5 rounded-full">
+                                                                        <div className="flex items-center justify-between px-3 py-2 bg-amber-50 dark:bg-amber-900/30/40 border-b border-amber-100/50">
+                                                                            <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 bg-amber-100 px-2 py-0.5 rounded-full">
                                                                                 {colorGroups.length} couleur(s)
                                                                             </span>
                                                                             <span className="text-[10px] font-bold text-amber-700 tabular-nums">
@@ -1500,9 +1500,9 @@ export default function Pedido({
                                                                                             <span className="text-[11px] font-bold text-slate-700 dark:text-dk-text-soft">{cg.colorName}</span>
                                                                                             <span className="text-[9px] text-slate-400 dark:text-dk-muted font-medium">{cg.colorPieces} pcs</span>
                                                                                         </div>
-                                                                                        <span className="text-[10px] font-bold text-indigo-600 dark:text-dk-accent-text tabular-nums">{fmt(cg.colorTotal)} DH</span>
+                                                                                        <span className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text tabular-nums">{fmt(cg.colorTotal)} DH</span>
                                                                                     </div>
-                                                                                    <div className="overflow-x-auto bg-amber-50/20">
+                                                                                    <div className="overflow-x-auto bg-amber-50 dark:bg-amber-900/30/20">
                                                                                         <table className="w-full text-[11px] border-collapse">
                                                                                             <thead>
                                                                                                 <tr className="text-[9px] uppercase tracking-wider text-slate-400 dark:text-dk-muted border-b border-amber-100/30">
@@ -1521,20 +1521,20 @@ export default function Pedido({
                                                                                                         <td className="px-2 py-1.5 text-center tabular-nums text-slate-600 dark:text-dk-text-soft whitespace-nowrap">{m.buyQty} {m.unit}</td>
                                                                                                         <td className="px-2 py-1.5 text-center">
                                                                                                             {m.fournisseur ? (
-                                                                                                                <span className="text-[9px] font-bold bg-indigo-50 dark:bg-dk-accent/20 text-indigo-700 dark:text-dk-accent-text px-1.5 py-0.5 rounded whitespace-nowrap">{m.fournisseur}</span>
+                                                                                                                <span className="text-[9px] font-bold bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 text-indigo-700 dark:text-dk-accent-text px-1.5 py-0.5 rounded whitespace-nowrap">{m.fournisseur}</span>
                                                                                                             ) : <span className="text-slate-300 dark:text-dk-muted">—</span>}
                                                                                                         </td>
                                                                                                         <td className="px-2 py-1.5 text-center">
                                                                                                             {m.isDelivered ? (
-                                                                                                                <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-emerald-600 whitespace-nowrap"><CheckCircle className="w-2.5 h-2.5" /> OK</span>
+                                                                                                                <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-emerald-600 dark:text-emerald-400 whitespace-nowrap"><CheckCircle className="w-2.5 h-2.5" /> OK</span>
                                                                                                             ) : m.isPartial ? (
                                                                                                                 <span className="inline-flex flex-col items-center leading-tight">
-                                                                                                                    <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-amber-600 whitespace-nowrap"><AlertTriangle className="w-2.5 h-2.5" /> Partiel</span>
-                                                                                                                    <span className="text-[8px] text-amber-600/80 font-medium whitespace-nowrap">{fmt(m.piecesCouvertes)} pcs</span>
+                                                                                                                    <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-amber-600 dark:text-amber-400 whitespace-nowrap"><AlertTriangle className="w-2.5 h-2.5" /> Partiel</span>
+                                                                                                                    <span className="text-[8px] text-amber-600 dark:text-amber-400/80 font-medium whitespace-nowrap">{fmt(m.piecesCouvertes)} pcs</span>
                                                                                                                 </span>
                                                                                                             ) : (
                                                                                                                 <span className="inline-flex flex-col items-center leading-tight">
-                                                                                                                    <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-rose-600 whitespace-nowrap"><Clock className="w-2.5 h-2.5" /> Attente</span>
+                                                                                                                    <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-rose-600 dark:text-rose-400 whitespace-nowrap"><Clock className="w-2.5 h-2.5" /> Attente</span>
                                                                                                                     <span className="text-[8px] text-rose-500/80 font-medium whitespace-nowrap">-{fmt(m.manque)}{m.unit}</span>
                                                                                                                 </span>
                                                                                                             )}
@@ -1545,7 +1545,7 @@ export default function Pedido({
                                                                                                                 {!m.isDelivered && currentModelId && (
                                                                                                                     <button
                                                                                                                         onClick={(e) => { e.stopPropagation(); setConfirmModal({ open: true, mat: m, qty: String(Math.round(m.buyQty)) }); }}
-                                                                                                                        className="inline-flex items-center gap-1 h-6 px-2 text-[10px] font-bold text-emerald-700 border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 rounded-md transition-colors whitespace-nowrap"
+                                                                                                                        className="inline-flex items-center gap-1 h-6 px-2 text-[10px] font-bold text-emerald-700 border border-emerald-200 bg-emerald-50 dark:bg-emerald-900/30 hover:bg-emerald-100 rounded-md transition-colors whitespace-nowrap"
                                                                                                                         title={tx(lang, { fr: 'Confirmer réception', ar: 'تأكيد الاستلام', en: 'Confirm reception', es: 'Confirmar recepción', pt: 'Confirmar receção', tr: 'Teslimatı onayla' })}
                                                                                                                     >
                                                                                                                         <CheckCircle className="w-3 h-3" /> {tx(lang, { fr: 'Reçu', ar: 'تم الاستلام', en: 'Received', es: 'Recibido', pt: 'Recebido', tr: 'Alındı' })}
@@ -1585,7 +1585,7 @@ export default function Pedido({
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 font-sans">
                         <div className="space-y-0.5">
                             <h4 className="font-semibold text-sm text-slate-900 dark:text-dk-text flex items-center gap-2">
-                                <Grid3X3 className="w-4 h-4 text-indigo-600 dark:text-dk-accent-text" />
+                                <Grid3X3 className="w-4 h-4 text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text" />
                                 {tx(lang, { fr: 'Tableau de Réconciliation & Suivi des Délais', ar: 'جدول مطابقة الكميات مع التوزيع الإجمالي', en: 'Reconciliation & Deadline Tracking Table', es: 'Tabla de Conciliación y Seguimiento de Plazos', pt: 'Tabela de Reconciliação e Acompanhamento de Prazos', tr: 'Mutabakat ve Termin Takip Tablosu' })}
                             </h4>
                             <p className="text-xs text-slate-500 dark:text-dk-muted font-medium">
@@ -1600,12 +1600,12 @@ export default function Pedido({
                             </p>
                         </div>
                         {reconciliationDiscrepancies.hasErrors ? (
-                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-rose-50 text-rose-700 border border-rose-200/60 animate-pulse">
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-rose-50 dark:bg-rose-900/30 text-rose-700 border border-rose-200/60 animate-pulse">
                                 <AlertTriangle className="w-3.5 h-3.5" />
                                 {tx(lang, { fr: 'Attention : Écart détecté !', ar: 'انتباه: هناك فروقات!', en: 'Warning: Discrepancy detected!', es: '¡Atención: discrepancia detectada!', pt: 'Atenção: discrepância detetada!', tr: 'Dikkat: Tutarsızlık tespit edildi!' })}
                             </span>
                         ) : (
-                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200/60">
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 border border-emerald-200/60">
                                 <CheckCircle className="w-3.5 h-3.5" />
                                 {tx(lang, { fr: 'Correspondance parfaite 100%', ar: 'مطابقة تامة 100%', en: 'Perfect match 100%', es: 'Coincidencia perfecta 100%', pt: 'Correspondência perfeita 100%', tr: 'Tam eşleşme %100' })}
                             </span>
@@ -1613,8 +1613,8 @@ export default function Pedido({
                     </div>
 
                     {reconciliationDiscrepancies.hasErrors && (
-                        <div className="bg-rose-50 border border-rose-200/60 rounded-lg p-4 text-rose-900 text-xs font-medium flex items-start gap-3 font-sans">
-                            <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                        <div className="bg-rose-50 dark:bg-rose-900/30 border border-rose-200/60 rounded-lg p-4 text-rose-900 text-xs font-medium flex items-start gap-3 font-sans">
+                            <AlertTriangle className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5" />
                             <div className="space-y-1">
                                 <p className="font-semibold text-rose-950">
                                     {tx(lang, {
@@ -1669,19 +1669,19 @@ export default function Pedido({
                                     const isRowMatching = rowDiff === 0;
                                     const hasRowPlanned = plannedRowTotal > 0;
                                     
-                                    let rowCellBg = "bg-slate-50/30";
+                                    let rowCellBg = "bg-slate-50 dark:bg-dk-bg/30";
                                     let rowPlannedColor = "text-slate-700 dark:text-dk-text-soft font-bold";
                                     if (!isRowMatching) {
-                                        rowCellBg = "bg-rose-50/40 hover:bg-rose-50/60 transition-colors";
+                                        rowCellBg = "bg-rose-50 dark:bg-rose-900/30/40 hover:bg-rose-50/60 transition-colors";
                                         rowPlannedColor = "text-rose-700 font-black";
                                     } else if (hasRowPlanned) {
-                                        rowCellBg = "bg-emerald-50/30 hover:bg-emerald-50/45 transition-colors";
+                                        rowCellBg = "bg-emerald-50 dark:bg-emerald-900/30/30 hover:bg-emerald-50/45 transition-colors";
                                         rowPlannedColor = "text-emerald-700 font-extrabold";
                                     }
 
                                     return (
                                         <tr key={`${c.id}-${cIdx}`} className="hover:bg-slate-50/30 transition-colors">
-                                            <td className="py-2.5 px-3 border-r border-slate-100 dark:border-dk-border font-semibold text-slate-700 dark:text-dk-text-soft flex items-center gap-2 bg-slate-50/20 font-sans">
+                                            <td className="py-2.5 px-3 border-r border-slate-100 dark:border-dk-border font-semibold text-slate-700 dark:text-dk-text-soft flex items-center gap-2 bg-slate-50 dark:bg-dk-bg/20 font-sans">
                                                 <div
                                                     className={`w-3 h-3 rounded-full flex-shrink-0 shadow-sm ${c.id && c.id.startsWith('#') ? '' : 'bg-slate-300'}`}
                                                     style={c.id && c.id.startsWith('#') ? { backgroundColor: c.id } : undefined}
@@ -1698,10 +1698,10 @@ export default function Pedido({
                                                 let cellBg = "bg-white dark:bg-dk-surface";
                                                 let plannedColor = "text-slate-700 dark:text-dk-text-soft font-bold";
                                                 if (!isMatching) {
-                                                    cellBg = "bg-rose-50/20 hover:bg-rose-50/40 transition-colors";
+                                                    cellBg = "bg-rose-50 dark:bg-rose-900/30/20 hover:bg-rose-50/40 transition-colors";
                                                     plannedColor = "text-rose-700 font-black";
                                                 } else if (hasPlanned) {
-                                                    cellBg = "bg-emerald-50/15 hover:bg-emerald-50/30 transition-colors";
+                                                    cellBg = "bg-emerald-50 dark:bg-emerald-900/30/15 hover:bg-emerald-50/30 transition-colors";
                                                     plannedColor = "text-emerald-700 font-extrabold";
                                                 } else {
                                                     plannedColor = "text-slate-400 dark:text-dk-muted font-medium";
@@ -1719,8 +1719,8 @@ export default function Pedido({
                                                             {diff !== 0 && (
                                                                 <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded-md mt-0.5 border ${
                                                                     diff > 0 
-                                                                        ? 'text-rose-600 bg-rose-50 border-rose-100/60' 
-                                                                        : 'text-amber-600 bg-amber-50 border-amber-100/60'
+                                                                        ? 'text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-900/30 border-rose-100/60' 
+                                                                        : 'text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30 border-amber-100/60'
                                                                 }`}>
                                                                     {diff > 0 ? `+${diff}` : diff}
                                                                 </span>
@@ -1734,7 +1734,7 @@ export default function Pedido({
                                                     <span className="text-[9px] text-slate-400 dark:text-dk-muted font-medium font-sans">{targetRowTotal}</span>
                                                     <span className={`text-xs ${rowPlannedColor}`}>{plannedRowTotal}</span>
                                                     {rowDiff !== 0 && (
-                                                        <span className="text-[9px] font-black text-rose-600 bg-rose-50 px-1.5 py-0.5 rounded-md mt-0.5 border border-rose-100 animate-pulse">
+                                                        <span className="text-[9px] font-black text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-900/30 px-1.5 py-0.5 rounded-md mt-0.5 border border-rose-100 animate-pulse">
                                                             {rowDiff > 0 ? `+${rowDiff}` : rowDiff}
                                                         </span>
                                                     )}
@@ -1755,13 +1755,13 @@ export default function Pedido({
                                         const isColMatching = colDiff === 0;
                                         const hasColPlanned = plannedColTotal > 0;
                                         
-                                        let colCellBg = "bg-slate-50/40";
+                                        let colCellBg = "bg-slate-50 dark:bg-dk-bg/40";
                                         let colPlannedColor = "text-slate-700 dark:text-dk-text-soft font-bold";
                                         if (!isColMatching) {
-                                            colCellBg = "bg-rose-50/30 hover:bg-rose-50/45 transition-colors";
+                                            colCellBg = "bg-rose-50 dark:bg-rose-900/30/30 hover:bg-rose-50/45 transition-colors";
                                             colPlannedColor = "text-rose-700 font-black";
                                         } else if (hasColPlanned) {
-                                            colCellBg = "bg-emerald-50/20 hover:bg-emerald-50/35 transition-colors";
+                                            colCellBg = "bg-emerald-50 dark:bg-emerald-900/30/20 hover:bg-emerald-50/35 transition-colors";
                                             colPlannedColor = "text-emerald-700 font-extrabold";
                                         }
                                         
@@ -1771,7 +1771,7 @@ export default function Pedido({
                                                     <span className="text-[9px] text-slate-400 dark:text-dk-muted font-medium font-sans">{targetColTotal}</span>
                                                     <span className={`text-xs ${colPlannedColor}`}>{plannedColTotal}</span>
                                                     {colDiff !== 0 && (
-                                                        <span className="text-[9px] font-black text-rose-600 bg-rose-50 px-1.5 py-0.5 rounded-md mt-0.5 border border-rose-100 animate-pulse">
+                                                        <span className="text-[9px] font-black text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-900/30 px-1.5 py-0.5 rounded-md mt-0.5 border border-rose-100 animate-pulse">
                                                             {colDiff > 0 ? `+${colDiff}` : colDiff}
                                                         </span>
                                                     )}
@@ -1822,7 +1822,7 @@ export default function Pedido({
                 <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-200" dir="ltr" onClick={() => setConfirmModal({ open: false, qty: '' })}>
                     <div className="bg-white dark:bg-dk-surface rounded-xl border border-slate-100 dark:border-dk-border w-full max-w-sm overflow-hidden animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
                         <div className="px-5 h-12 border-b border-slate-100 dark:border-dk-border flex items-center gap-2">
-                            <CheckCircle className="w-4 h-4 text-emerald-600" strokeWidth={1.75} />
+                            <CheckCircle className="w-4 h-4 text-emerald-600 dark:text-emerald-400" strokeWidth={1.75} />
                             <div>
                                 <h3 className="text-[13px] font-semibold text-slate-900 dark:text-dk-text tracking-tight">{tx(lang, { fr: 'Confirmer réception', ar: 'تأكيد الاستلام', en: 'Confirm reception', es: 'Confirmar recepción', pt: 'Confirmar receção', tr: 'Teslimatı onayla' })}</h3>
                                 <p className="text-[11px] text-slate-400 dark:text-dk-muted truncate max-w-[280px]">{confirmModal.mat.name}</p>

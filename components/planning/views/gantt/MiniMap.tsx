@@ -65,7 +65,7 @@ export default function MiniMap({
                 <div
                     ref={ref}
                     onClick={handleClick}
-                    className="relative flex-1 bg-slate-50 dark:bg-slate-800 rounded-md cursor-pointer overflow-hidden"
+                    className="relative flex-1 bg-slate-50 dark:bg-dk-bg dark:bg-slate-800 rounded-md cursor-pointer overflow-hidden"
                     style={{ height: MAP_HEIGHT }}
                     title={tx(lang, { fr: 'Cliquez pour naviguer', ar: 'انقر للتنقل', en: 'Click to navigate', es: 'Haga clic para navegar', pt: 'Clique para navegar', tr: 'Gezinmek için tıklayın' })}
                 >

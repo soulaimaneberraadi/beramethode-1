@@ -74,21 +74,21 @@ const ACCOUNT_TYPE_CARDS: {
     icon: Building2,
     title: 'Société / Usine',
     desc: "Gestion d'ateliers, suivi d'efficacité et calcul du prix de revient.",
-    accent: 'bg-emerald-50 text-emerald-600',
+    accent: 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400',
   },
   {
     type: 'client',
     icon: Users,
     title: "Client / Donneur d'ordres",
     desc: 'Suivi des commandes de confection à distance.',
-    accent: 'bg-blue-50 text-blue-600',
+    accent: 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400',
   },
   {
     type: 'personnel',
     icon: StopCircle,
     title: "Personnel / Bureau d'études",
     desc: 'Chronométrage indépendant et organisation des méthodes.',
-    accent: 'bg-purple-50 text-purple-600',
+    accent: 'bg-purple-50 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400',
   },
 ];
 
@@ -571,7 +571,7 @@ export default function Setup({ onComplete }: Props) {
               {/* Icône hero avec halo doux */}
               <motion.div variants={welcomeItem} className="relative inline-flex items-center justify-center mb-5">
                 <div className="absolute inset-0 bg-emerald-200/50 blur-2xl rounded-full" aria-hidden />
-                <div className="relative inline-flex items-center justify-center w-16 h-16 bg-emerald-50 ring-1 ring-emerald-100 rounded-2xl">
+                <div className="relative inline-flex items-center justify-center w-16 h-16 bg-emerald-50 dark:bg-emerald-900/30 ring-1 ring-emerald-100 rounded-2xl">
                   <Building2 className="w-8 h-8 text-emerald-500" />
                 </div>
               </motion.div>
@@ -597,7 +597,7 @@ export default function Setup({ onComplete }: Props) {
                       i === 0 ? 'opacity-100' : 'opacity-50'
                     }`}
                   >
-                    <span className="flex items-center justify-center w-6 h-6 rounded-lg bg-emerald-100 text-emerald-600 text-xs font-bold shrink-0">{i + 1}</span>
+                    <span className="flex items-center justify-center w-6 h-6 rounded-lg bg-emerald-100 text-emerald-600 dark:text-emerald-400 text-xs font-bold shrink-0">{i + 1}</span>
                     <span className="text-sm text-slate-600 dark:text-dk-text-soft">{label}</span>
                   </li>
                 ))}
@@ -609,7 +609,7 @@ export default function Setup({ onComplete }: Props) {
                   type="checkbox"
                   checked={acceptedTerms}
                   onChange={(e) => setAcceptedTerms(e.target.checked)}
-                  className="mt-0.5 w-4 h-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-400"
+                  className="mt-0.5 w-4 h-4 rounded border-slate-300 text-emerald-600 dark:text-emerald-400 focus:ring-emerald-400"
                 />
                 <span className="text-xs text-slate-600 dark:text-dk-text-soft">
                   {tx(lang,{fr:'J\'ai lu et j\'accepte les ',ar:'\u0644\u0642\u062f \u0642\u0631\u0623\u062a \u0648\u0623\u0648\u0627\u0641\u0642 \u0639\u0644\u0649 ',en:'I have read and accept the ',es:'He le\u00eddo y acepto los ',pt:'Li e aceito os ',tr:'Okudum ve kabul ediyorum: '})}{' '}
@@ -692,7 +692,7 @@ export default function Setup({ onComplete }: Props) {
                 <button
                   type="button"
                   onClick={() => { setAccountType(null); setStep(1); }}
-                  className="shrink-0 text-xs text-emerald-700 bg-emerald-50 hover:bg-emerald-100 px-2.5 py-1 rounded-lg transition-colors"
+                  className="shrink-0 text-xs text-emerald-700 bg-emerald-50 dark:bg-emerald-900/30 hover:bg-emerald-100 px-2.5 py-1 rounded-lg transition-colors"
                 >
                   {tx(lang,{fr:'Changer de type',ar:'\u062a\u063a\u064a\u064a\u0631 \u0627\u0644\u0646\u0648\u0639',en:'Change type',es:'Cambiar tipo',pt:'Alterar tipo',tr:'T\u00fcr\u00fc de\u011fi\u015ftir'})}
                 </button>
@@ -726,7 +726,7 @@ export default function Setup({ onComplete }: Props) {
 
               {/* Erreur éventuelle (ex. fichier logo invalide) */}
               {error && (
-                <div className="mb-5 flex items-start gap-2 bg-red-50 border border-red-100 text-red-700 text-xs rounded-xl px-3.5 py-3">
+                <div className="mb-5 flex items-start gap-2 bg-red-50 dark:bg-red-900/30 border border-red-100 text-red-700 text-xs rounded-xl px-3.5 py-3">
                   <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
                   <span>{error}</span>
                 </div>
@@ -894,7 +894,7 @@ export default function Setup({ onComplete }: Props) {
               </div>
 
               {error && (
-                <div className="mt-4 flex items-start gap-2 bg-red-50 border border-red-100 text-red-700 text-xs rounded-xl px-3.5 py-3">
+                <div className="mt-4 flex items-start gap-2 bg-red-50 dark:bg-red-900/30 border border-red-100 text-red-700 text-xs rounded-xl px-3.5 py-3">
                   <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
                   <span>{error}</span>
                 </div>
@@ -933,7 +933,7 @@ export default function Setup({ onComplete }: Props) {
           {step === 4 && (
             <div>
               <div className="mb-6 flex items-center gap-2">
-                <SlidersHorizontal className="w-4 h-4 text-emerald-600 shrink-0" />
+                <SlidersHorizontal className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
                 <div>
                   <h2 className="text-lg font-bold text-slate-800 dark:text-dk-text">{tx(lang,{fr:'Pr\u00e9f\u00e9rences',ar:'\u0627\u0644\u062a\u0641\u0636\u064a\u0644\u0627\u062a',en:'Preferences',es:'Preferencias',pt:'Prefer\u00eancias',tr:'Tercihler'})}</h2>
                   <p className="text-xs text-slate-500 dark:text-dk-muted mt-0.5">{tx(lang,{fr:'Valeurs par d\u00e9faut \u2014 modifiables \u00e0 tout moment dans Configuration.',ar:'\u0627\u0644\u0642\u064a\u0645 \u0627\u0644\u0627\u0641\u062a\u0631\u0627\u0636\u064a\u0629 \u2014 \u0642\u0627\u0628\u0644\u0629 \u0644\u0644\u062a\u063a\u064a\u064a\u0631 \u0641\u064a \u0623\u064a \u0648\u0642\u062a \u0645\u0646 \u0627\u0644\u0625\u0639\u062f\u0627\u062f\u0627\u062a.',en:'Default values \u2014 can be changed anytime in Settings.',es:'Valores por defecto \u2014 modificables en cualquier momento en Configuraci\u00f3n.',pt:'Valores predefinidos \u2014 alter\u00e1veis a qualquer momento na Configura\u00e7\u00e3o.',tr:'Varsay\u0131lan de\u011ferler \u2014 Ayarlar\'dan her zaman de\u011fi\u015ftirilebilir.'})}</p>
@@ -977,7 +977,7 @@ export default function Setup({ onComplete }: Props) {
               </div>
 
               {error && (
-                <div className="mt-4 flex items-start gap-2 bg-red-50 border border-red-100 text-red-700 text-xs rounded-xl px-3.5 py-3">
+                <div className="mt-4 flex items-start gap-2 bg-red-50 dark:bg-red-900/30 border border-red-100 text-red-700 text-xs rounded-xl px-3.5 py-3">
                   <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
                   <span>{error}</span>
                 </div>
@@ -1045,7 +1045,7 @@ export default function Setup({ onComplete }: Props) {
           >
             <div className={`flex items-center justify-between gap-3 px-5 py-4 border-b ${isDark ? 'border-dk-border' : 'border-slate-100 dark:border-dk-border'}`}>
               <div className="flex items-center gap-2 min-w-0">
-                <ScrollText className="w-4 h-4 text-emerald-600 shrink-0" />
+                <ScrollText className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
                 <h3 className="text-sm font-bold text-slate-800 dark:text-dk-text truncate">{tx(lang,{fr:'Conditions G\u00e9n\u00e9rales d\'Utilisation',ar:'\u0627\u0644\u0634\u0631\u0648\u0637 \u0627\u0644\u0639\u0627\u0645\u0629 \u0644\u0644\u0627\u0633\u062a\u062e\u062f\u0627\u0645',en:'Terms and Conditions',es:'T\u00e9rminos y Condiciones de Uso',pt:'Termos e Condi\u00e7\u00f5es de Utiliza\u00e7\u00e3o',tr:'Kullan\u0131m \u015eartlar\u0131'})}</h3>
               </div>
               <button

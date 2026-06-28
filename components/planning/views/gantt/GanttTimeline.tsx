@@ -125,7 +125,7 @@ export default function GanttTimeline({ dates, dayWidth, settings }: Props) {
                             return (
                                 <div
                                     key={i}
-                                    className={`border-r border-slate-50 dark:border-dk-border/30 last:border-r-0 ${isWeekend ? 'bg-slate-50/40 dark:bg-dk-bg/50' : ''}`}
+                                    className={`border-r border-slate-50 dark:border-dk-border/30 last:border-r-0 ${isWeekend ? 'bg-slate-50 dark:bg-dk-bg/40 dark:bg-dk-bg/50' : ''}`}
                                     style={{ width: dayWidth, minWidth: dayWidth }}
                                 />
                             );
@@ -133,7 +133,7 @@ export default function GanttTimeline({ dates, dayWidth, settings }: Props) {
                         return (
                             <div
                                 key={i}
-                                className={`relative flex flex-col items-center justify-center border-r border-slate-50 dark:border-dk-border/30 last:border-r-0 transition-colors ${isWeekend ? 'bg-slate-50/40 dark:bg-dk-bg/50' : ''}`}
+                                className={`relative flex flex-col items-center justify-center border-r border-slate-50 dark:border-dk-border/30 last:border-r-0 transition-colors ${isWeekend ? 'bg-slate-50 dark:bg-dk-bg/40 dark:bg-dk-bg/50' : ''}`}
                                 style={{ width: dayWidth, minWidth: dayWidth }}
                             >
                                 {dayWidth >= 50 && (

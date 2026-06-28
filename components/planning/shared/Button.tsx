@@ -17,7 +17,7 @@ const VARIANT_CLS: Record<Variant, string> = {
     ghost:
         'text-slate-500 hover:text-slate-900 hover:bg-slate-100 dark:text-dk-muted dark:hover:text-dk-text dark:hover:bg-dk-elevated/60',
     danger:
-        'text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:text-red-300 dark:hover:bg-red-900/20',
+        'text-red-600 dark:text-red-400 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:text-red-300 dark:hover:bg-red-900/20',
 };
 
 const SIZE_CLS: Record<Size, string> = {

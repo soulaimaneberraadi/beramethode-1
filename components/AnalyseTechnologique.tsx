@@ -46,33 +46,33 @@ interface AnalyseProps {
 
 // --- GROUP COLOR PALETTE (IMPORTED FOR CONSISTENCY) ---
 const GROUP_COLORS = [
-  { bg: 'bg-indigo-50 dark:bg-dk-accent/20', border: 'border-indigo-500', text: 'text-indigo-700 dark:text-dk-accent-text' },
-  { bg: 'bg-orange-50', border: 'border-orange-500', text: 'text-orange-700' },
-  { bg: 'bg-emerald-50', border: 'border-emerald-500', text: 'text-emerald-700' },
-  { bg: 'bg-rose-50', border: 'border-rose-500', text: 'text-rose-700' },
-  { bg: 'bg-cyan-50', border: 'border-cyan-500', text: 'text-cyan-700' },
-  { bg: 'bg-amber-50', border: 'border-amber-500', text: 'text-amber-700' },
+  { bg: 'bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20', border: 'border-indigo-500', text: 'text-indigo-700 dark:text-dk-accent-text' },
+  { bg: 'bg-orange-50 dark:bg-orange-900/30', border: 'border-orange-500', text: 'text-orange-700' },
+  { bg: 'bg-emerald-50 dark:bg-emerald-900/30', border: 'border-emerald-500', text: 'text-emerald-700' },
+  { bg: 'bg-rose-50 dark:bg-rose-900/30', border: 'border-rose-500', text: 'text-rose-700' },
+  { bg: 'bg-cyan-50 dark:bg-cyan-900/30', border: 'border-cyan-500', text: 'text-cyan-700' },
+  { bg: 'bg-amber-50 dark:bg-amber-900/30', border: 'border-amber-500', text: 'text-amber-700' },
   { bg: 'bg-violet-50', border: 'border-violet-500', text: 'text-violet-700' },
-  { bg: 'bg-lime-50', border: 'border-lime-500', text: 'text-lime-700' },
+  { bg: 'bg-lime-50 dark:bg-lime-900/30', border: 'border-lime-500', text: 'text-lime-700' },
   { bg: 'bg-fuchsia-50', border: 'border-fuchsia-500', text: 'text-fuchsia-700' },
-  { bg: 'bg-teal-50', border: 'border-teal-500', text: 'text-teal-700' },
-  { bg: 'bg-red-50', border: 'border-red-500', text: 'text-red-700' },
-  { bg: 'bg-sky-50', border: 'border-sky-500', text: 'text-sky-700' },
+  { bg: 'bg-teal-50 dark:bg-teal-900/30', border: 'border-teal-500', text: 'text-teal-700' },
+  { bg: 'bg-red-50 dark:bg-red-900/30', border: 'border-red-500', text: 'text-red-700' },
+  { bg: 'bg-sky-50 dark:bg-sky-900/30', border: 'border-sky-500', text: 'text-sky-700' },
 ];
 
 const POSTE_COLORS = [
-  { name: 'indigo', bg: 'bg-indigo-50 dark:bg-dk-accent/20', border: 'border-indigo-200', text: 'text-indigo-700 dark:text-dk-accent-text', badge: 'bg-indigo-100', badgeText: 'text-indigo-800', fill: '#6366f1' },
-  { name: 'orange', bg: 'bg-orange-50', border: 'border-orange-200', text: 'text-orange-700', badge: 'bg-orange-100', badgeText: 'text-orange-800', fill: '#f97316' },
-  { name: 'emerald', bg: 'bg-emerald-50', border: 'border-emerald-200', text: 'text-emerald-700', badge: 'bg-emerald-100', badgeText: 'text-emerald-800', fill: '#10b981' },
-  { name: 'rose', bg: 'bg-rose-50', border: 'border-rose-200', text: 'text-rose-700', badge: 'bg-rose-100', badgeText: 'text-rose-800', fill: '#f43f5e' },
-  { name: 'cyan', bg: 'bg-cyan-50', border: 'border-cyan-200', text: 'text-cyan-700', badge: 'bg-cyan-100', badgeText: 'text-cyan-800', fill: '#06b6d4' },
-  { name: 'amber', bg: 'bg-amber-50', border: 'border-amber-200', text: 'text-amber-700', badge: 'bg-amber-100', badgeText: 'text-amber-800', fill: '#f59e0b' },
+  { name: 'indigo', bg: 'bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20', border: 'border-indigo-200', text: 'text-indigo-700 dark:text-dk-accent-text', badge: 'bg-indigo-100', badgeText: 'text-indigo-800', fill: '#6366f1' },
+  { name: 'orange', bg: 'bg-orange-50 dark:bg-orange-900/30', border: 'border-orange-200', text: 'text-orange-700', badge: 'bg-orange-100', badgeText: 'text-orange-800', fill: '#f97316' },
+  { name: 'emerald', bg: 'bg-emerald-50 dark:bg-emerald-900/30', border: 'border-emerald-200', text: 'text-emerald-700', badge: 'bg-emerald-100', badgeText: 'text-emerald-800', fill: '#10b981' },
+  { name: 'rose', bg: 'bg-rose-50 dark:bg-rose-900/30', border: 'border-rose-200', text: 'text-rose-700', badge: 'bg-rose-100', badgeText: 'text-rose-800', fill: '#f43f5e' },
+  { name: 'cyan', bg: 'bg-cyan-50 dark:bg-cyan-900/30', border: 'border-cyan-200', text: 'text-cyan-700', badge: 'bg-cyan-100', badgeText: 'text-cyan-800', fill: '#06b6d4' },
+  { name: 'amber', bg: 'bg-amber-50 dark:bg-amber-900/30', border: 'border-amber-200', text: 'text-amber-700', badge: 'bg-amber-100', badgeText: 'text-amber-800', fill: '#f59e0b' },
   { name: 'violet', bg: 'bg-violet-50', border: 'border-violet-200', text: 'text-violet-700', badge: 'bg-violet-100', badgeText: 'text-violet-800', fill: '#8b5cf6' },
-  { name: 'lime', bg: 'bg-lime-50', border: 'border-lime-200', text: 'text-lime-700', badge: 'bg-lime-100', badgeText: 'text-lime-800', fill: '#84cc16' },
+  { name: 'lime', bg: 'bg-lime-50 dark:bg-lime-900/30', border: 'border-lime-200', text: 'text-lime-700', badge: 'bg-lime-100', badgeText: 'text-lime-800', fill: '#84cc16' },
   { name: 'fuchsia', bg: 'bg-fuchsia-50', border: 'border-fuchsia-200', text: 'text-fuchsia-700', badge: 'bg-fuchsia-100', badgeText: 'text-fuchsia-800', fill: '#d946ef' },
-  { name: 'teal', bg: 'bg-teal-50', border: 'border-teal-200', text: 'text-teal-700', badge: 'bg-teal-100', badgeText: 'text-teal-800', fill: '#14b8a6' },
-  { name: 'red', bg: 'bg-red-50', border: 'border-red-200', text: 'text-red-700', badge: 'bg-red-100', badgeText: 'text-red-800', fill: '#ef4444' },
-  { name: 'sky', bg: 'bg-sky-50', border: 'border-sky-200', text: 'text-sky-700', badge: 'bg-sky-100', badgeText: 'text-sky-800', fill: '#0ea5e9' },
+  { name: 'teal', bg: 'bg-teal-50 dark:bg-teal-900/30', border: 'border-teal-200', text: 'text-teal-700', badge: 'bg-teal-100', badgeText: 'text-teal-800', fill: '#14b8a6' },
+  { name: 'red', bg: 'bg-red-50 dark:bg-red-900/30', border: 'border-red-200', text: 'text-red-700', badge: 'bg-red-100', badgeText: 'text-red-800', fill: '#ef4444' },
+  { name: 'sky', bg: 'bg-sky-50 dark:bg-sky-900/30', border: 'border-sky-200', text: 'text-sky-700', badge: 'bg-sky-100', badgeText: 'text-sky-800', fill: '#0ea5e9' },
 ];
 
 const getGroupStyle = (groupId: string) => {
@@ -329,25 +329,25 @@ export default function AnalyseTechnologique({
             </div>
 
             {/* BF / MIN TOTALES */}
-            <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-50/50 rounded-lg border border-emerald-100 shrink-0">
+            <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-50 dark:bg-emerald-900/30/50 rounded-lg border border-emerald-100 shrink-0">
                 <div className="flex flex-col items-center border-r border-emerald-100 pr-3 mr-3">
-                    <span className="text-[9px] font-bold text-emerald-600 uppercase flex items-center gap-1"><Zap className="w-3 h-3" /> BF (s)</span>
+                    <span className="text-[9px] font-bold text-emerald-600 dark:text-emerald-400 uppercase flex items-center gap-1"><Zap className="w-3 h-3" /> BF (s)</span>
                     <span className="font-black text-emerald-700 text-sm">{(bf * 60).toFixed(1)}</span>
                 </div>
                 <div className="flex flex-col items-center">
-                    <span className="text-[9px] font-bold text-emerald-600 uppercase">{tx(lang, { fr: 'Min Tot.', ar: 'إجمالي الدقائق', en: 'Total Min.', es: 'Min Tot.', pt: 'Min Tot.', tr: 'Toplam Dk.' })}</span>
+                    <span className="text-[9px] font-bold text-emerald-600 dark:text-emerald-400 uppercase">{tx(lang, { fr: 'Min Tot.', ar: 'إجمالي الدقائق', en: 'Total Min.', es: 'Min Tot.', pt: 'Min Tot.', tr: 'Toplam Dk.' })}</span>
                     <span className="font-black text-emerald-700 text-sm">{presenceTime}</span>
                 </div>
             </div>
 
             {/* P/H 100% */}
-            <div className="flex flex-col items-center px-3 py-1.5 bg-orange-50/50 rounded-lg border border-orange-100 shrink-0">
+            <div className="flex flex-col items-center px-3 py-1.5 bg-orange-50 dark:bg-orange-900/30/50 rounded-lg border border-orange-100 shrink-0">
                 <span className="text-[9px] font-bold text-orange-400 uppercase">{tx(lang, { fr: 'P/H (100%)', ar: 'قطعة/ساعة (100%)', en: 'P/H (100%)', es: 'P/H (100%)', pt: 'P/H (100%)', tr: 'P/S (100%)' })}</span>
                 <span className="font-black text-orange-500 text-sm leading-none mt-1">{Math.round(prodHour100)}</span>
             </div>
 
             {/* RENDU */}
-            <div className="flex flex-col items-center px-3 py-1.5 bg-indigo-50 dark:bg-dk-accent/20/50 rounded-lg border border-indigo-100 shrink-0">
+            <div className="flex flex-col items-center px-3 py-1.5 bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20/50 rounded-lg border border-indigo-100 shrink-0">
                 <span className="text-[9px] font-bold text-indigo-400 uppercase">{tx(lang, { fr: '% Rendu', ar: 'الإنتاجية %', en: 'Efficiency %', es: '% Rendimiento', pt: '% Rendimento', tr: 'Verim %' })}</span>
                 <div className="flex items-baseline gap-0.5">
                     <input 
@@ -355,14 +355,14 @@ export default function AnalyseTechnologique({
                         min="1" max="100" 
                         value={efficiency} 
                         onChange={(e) => setEfficiency(Math.max(1, Math.min(100, Number(e.target.value))))} 
-                        className="w-8 text-center bg-transparent font-black text-indigo-600 dark:text-dk-accent-text outline-none text-sm border-b border-indigo-200 p-0" 
+                        className="w-8 text-center bg-transparent font-black text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text outline-none text-sm border-b border-indigo-200 p-0" 
                     />
                     <span className="text-[10px] font-bold text-indigo-400">%</span>
                 </div>
             </div>
 
             {/* TARGETS */}
-            <div className="flex items-center gap-3 px-3 py-1.5 bg-slate-50/50 rounded-lg border border-slate-100 dark:border-dk-border shrink-0">
+            <div className="flex items-center gap-3 px-3 py-1.5 bg-slate-50 dark:bg-dk-bg/50 rounded-lg border border-slate-100 dark:border-dk-border shrink-0">
                 <div className="flex flex-col items-center border-r border-slate-200 dark:border-dk-border pr-3 mr-1">
                     <span className="text-[9px] font-bold text-slate-400 dark:text-dk-muted uppercase">P/J</span>
                     <span className="font-black text-slate-700 dark:text-dk-text-soft text-sm leading-none mt-1">{Math.round(prodDayEff)}</span>
@@ -410,8 +410,8 @@ export default function AnalyseTechnologique({
                 <th className={`${headerClass} text-center w-12 pl-2 border-r border-slate-200 dark:border-dk-border`}>N°</th>
                 <th className={`${headerClass} text-left pl-4 min-w-[200px]`}>{tx(lang, { fr: 'Opérations', ar: 'العمليات', en: 'Operations', es: 'Operaciones', pt: 'Operações', tr: 'Operasyonlar' })}</th>
                 <th className={`${headerClass} text-center w-24`}>{tx(lang, { fr: 'Machine', ar: 'الآلة', en: 'Machine', es: 'Máquina', pt: 'Máquina', tr: 'Makine' })}</th>
-                <th className={`${headerClass} text-center w-20 text-emerald-600`}>{tx(lang, { fr: 'Longueur', ar: 'الطول', en: 'Length', es: 'Longitud', pt: 'Comprimento', tr: 'Uzunluk' })}<br/>/ {tx(lang, { fr: 'Qté', ar: 'الكمية', en: 'Qty', es: 'Cant.', pt: 'Qtd', tr: 'Adet' })}</th>
-                <th className={`${headerClass} text-center w-20 text-emerald-600`}>{tx(lang, { fr: 'L. Point', ar: 'طول الغرزة', en: 'Stitch L.', es: 'L. Punto', pt: 'L. Ponto', tr: 'Dikiş U.' })}<br/>(mm)</th>
+                <th className={`${headerClass} text-center w-20 text-emerald-600 dark:text-emerald-400`}>{tx(lang, { fr: 'Longueur', ar: 'الطول', en: 'Length', es: 'Longitud', pt: 'Comprimento', tr: 'Uzunluk' })}<br/>/ {tx(lang, { fr: 'Qté', ar: 'الكمية', en: 'Qty', es: 'Cant.', pt: 'Qtd', tr: 'Adet' })}</th>
+                <th className={`${headerClass} text-center w-20 text-emerald-600 dark:text-emerald-400`}>{tx(lang, { fr: 'L. Point', ar: 'طول الغرزة', en: 'Stitch L.', es: 'L. Punto', pt: 'L. Ponto', tr: 'Dikiş U.' })}<br/>(mm)</th>
                 <th className={`${headerClass} text-center w-20`}>{tx(lang, { fr: 'Vitesse', ar: 'السرعة', en: 'Speed', es: 'Velocidad', pt: 'Velocidade', tr: 'Hız' })}<br/>(rpm)</th>
                 <th className={`${headerClass} text-center w-20`}>{tx(lang, { fr: 'Facteur', ar: 'عامل', en: 'Factor', es: 'Factor', pt: 'Fator', tr: 'Faktör' })}<br/>{tx(lang, { fr: 'Machine', ar: 'الآلة', en: 'Machine', es: 'Máquina', pt: 'Máquina', tr: 'Makine' })}</th>
                 <th className={`${headerClass} text-center w-20`}>{tx(lang, { fr: 'Facteur', ar: 'عامل', en: 'Factor', es: 'Factor', pt: 'Fator', tr: 'Faktör' })}<br/>{tx(lang, { fr: 'Guide', ar: 'الدليل', en: 'Guide', es: 'Guía', pt: 'Guia', tr: 'Kılavuz' })}</th>
@@ -419,9 +419,9 @@ export default function AnalyseTechnologique({
                 <th className={`${headerClass} text-center w-20`}>{tx(lang, { fr: 'Constante', ar: 'ثابت', en: 'Constant', es: 'Constante', pt: 'Constante', tr: 'Sabit' })}<br/>{tx(lang, { fr: 'Arrêt', ar: 'التوقف', en: 'Stop', es: 'Parada', pt: 'Parada', tr: 'Durdurma' })}</th>
                 <th className={`${headerClass} text-center w-20 bg-slate-100 dark:bg-dk-elevated border-l border-slate-200 dark:border-dk-border text-slate-600 dark:text-dk-text-soft`}>{tx(lang, { fr: 'Temps', ar: 'الوقت', en: 'Time', es: 'Tiempo', pt: 'Tempo', tr: 'Süre' })}<br/>{tx(lang, { fr: 'Machine', ar: 'الآلة', en: 'Machine', es: 'Máquina', pt: 'Máquina', tr: 'Makine' })}</th>
                 <th className={`${headerClass} text-center w-20 bg-slate-100 dark:bg-dk-elevated text-slate-600 dark:text-dk-text-soft`}>{tx(lang, { fr: 'Temps', ar: 'الوقت', en: 'Time', es: 'Tiempo', pt: 'Tempo', tr: 'Süre' })}<br/>{tx(lang, { fr: 'Manuel', ar: 'اليدوي', en: 'Manual', es: 'Manual', pt: 'Manual', tr: 'Manuel' })}</th>
-                <th className={`${headerClass} text-center w-16 bg-yellow-50 text-yellow-700`}>{tx(lang, { fr: 'Majoration', ar: 'الزيادة', en: 'Markup', es: 'Recargo', pt: 'Acréscimo', tr: 'Artış' })}</th>
-                <th className={`${headerClass} text-center w-20 bg-emerald-50 text-emerald-700 border-l border-emerald-100`}>{tx(lang, { fr: 'Temps Total', ar: 'الوقت الإجمالي', en: 'Total Time', es: 'Tiempo Total', pt: 'Tempo Total', tr: 'Toplam Süre' })}<br/>(min)</th>
-                <th className={`${headerClass} text-center w-16 bg-emerald-50 text-emerald-700`}>{tx(lang, { fr: 'Secondes', ar: 'الثواني', en: 'Seconds', es: 'Segundos', pt: 'Segundos', tr: 'Saniye' })}</th>
+                <th className={`${headerClass} text-center w-16 bg-yellow-50 dark:bg-yellow-900/30 text-yellow-700`}>{tx(lang, { fr: 'Majoration', ar: 'الزيادة', en: 'Markup', es: 'Recargo', pt: 'Acréscimo', tr: 'Artış' })}</th>
+                <th className={`${headerClass} text-center w-20 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 border-l border-emerald-100`}>{tx(lang, { fr: 'Temps Total', ar: 'الوقت الإجمالي', en: 'Total Time', es: 'Tiempo Total', pt: 'Tempo Total', tr: 'Toplam Süre' })}<br/>(min)</th>
+                <th className={`${headerClass} text-center w-16 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700`}>{tx(lang, { fr: 'Secondes', ar: 'الثواني', en: 'Seconds', es: 'Segundos', pt: 'Segundos', tr: 'Saniye' })}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
@@ -523,7 +523,7 @@ export default function AnalyseTechnologique({
                                     {getDisplayIndex(op, index)}
                                 </span>
                             ) : (
-                                <span className="font-mono text-xs font-bold text-indigo-600 dark:text-dk-accent-text group-hover:text-emerald-600">
+                                <span className="font-mono text-xs font-bold text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text group-hover:text-emerald-600">
                                     {getDisplayIndex(op, index)}
                                 </span>
                             )}
@@ -533,7 +533,7 @@ export default function AnalyseTechnologique({
                         <input type="text" value={op.description} onChange={(e) => updateOperation(op.id, 'description', e.target.value)} className="w-full bg-transparent outline-none text-xs font-medium text-slate-700 dark:text-dk-text-soft truncate focus:text-clip focus:overflow-visible focus:bg-white focus:absolute focus:z-10 focus:shadow-md focus:px-2 rounded focus:w-auto focus:min-w-full"/>
                     </td>
                     <td className="py-1.5 px-2 text-center">
-                        <span className={`inline-block px-1.5 py-0.5 rounded-[4px] text-[9px] font-bold uppercase tracking-tight border ${isMan ? 'bg-slate-100 dark:bg-dk-elevated text-slate-500 dark:text-dk-muted border-slate-200 dark:border-dk-border' : 'bg-white dark:bg-dk-surface text-emerald-600 border-emerald-200 shadow-sm'}`}>
+                        <span className={`inline-block px-1.5 py-0.5 rounded-[4px] text-[9px] font-bold uppercase tracking-tight border ${isMan ? 'bg-slate-100 dark:bg-dk-elevated text-slate-500 dark:text-dk-muted border-slate-200 dark:border-dk-border' : 'bg-white dark:bg-dk-surface text-emerald-600 dark:text-emerald-400 border-emerald-200 shadow-sm'}`}>
                           {machine.name.length > 10 ? machine.name.substring(0,8)+'..' : machine.name}
                         </span>
                     </td>
@@ -544,23 +544,23 @@ export default function AnalyseTechnologique({
                             value={op.length === 0 ? '' : op.length} 
                             onChange={(e) => updateOperation(op.id, 'length', Math.floor(Number(e.target.value)))} 
                             onFocus={(e) => e.target.select()} 
-                            className={`${inputClass} font-bold ${isCounterMachine ? 'text-amber-600 bg-amber-50/50' : ''}`} 
+                            className={`${inputClass} font-bold ${isCounterMachine ? 'text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30/50' : ''}`} 
                             placeholder={isCounterMachine ? tx(lang, { fr: 'Qté', ar: 'الكمية', en: 'Qty', es: 'Cant.', pt: 'Qtd', tr: 'Adet' }) : '-'}
                         />
                     </td>
-                    <td className="py-1.5 px-1 text-center"><input type="number" step="0.1" value={stitchLengthMm} onChange={(e) => updateOperation(op.id, 'stitchCount', e.target.value)} onFocus={(e) => e.target.select()} className={inputClass + " text-emerald-600 font-bold"} disabled={disabledIfForced}/></td>
+                    <td className="py-1.5 px-1 text-center"><input type="number" step="0.1" value={stitchLengthMm} onChange={(e) => updateOperation(op.id, 'stitchCount', e.target.value)} onFocus={(e) => e.target.select()} className={inputClass + " text-emerald-600 dark:text-emerald-400 font-bold"} disabled={disabledIfForced}/></td>
                     <td className="py-1.5 px-1 text-center"><input type="number" step="100" value={rpm} onChange={(e) => updateOperation(op.id, 'rpm', e.target.value)} onFocus={(e) => e.target.select()} className={inputClass + " text-slate-500 dark:text-dk-muted"} disabled={isMan || disabledIfForced}/></td>
                     <td className="py-1.5 px-1 text-center"><input type="number" step="0.01" value={speedFact} onChange={(e) => updateOperation(op.id, 'speedFactor', e.target.value)} onFocus={(e) => e.target.select()} className={inputClass + " text-slate-500 dark:text-dk-muted"} disabled={isMan || disabledIfForced}/></td>
                     <td className="py-1.5 px-1 text-center"><input type="number" step="0.01" value={guideFact} onChange={(e) => updateOperation(op.id, 'guideFactor', e.target.value)} onFocus={(e) => e.target.select()} className={inputClass + " text-slate-500 dark:text-dk-muted"} disabled={isMan || disabledIfForced}/></td>
                     <td className="py-1.5 px-1 text-center"><input type="number" step="0.01" value={endPrecision} onChange={(e) => updateOperation(op.id, 'endPrecision', e.target.value)} onFocus={(e) => e.target.select()} className={inputClass + " text-slate-400 dark:text-dk-muted"} disabled={isMan || disabledIfForced}/></td>
                     <td className="py-1.5 px-1 text-center"><input type="number" step="0.01" value={stop} onChange={(e) => updateOperation(op.id, 'startStop', e.target.value)} onFocus={(e) => e.target.select()} className={inputClass + " text-slate-400 dark:text-dk-muted"} disabled={isMan || disabledIfForced}/></td>
-                    <td className="py-1.5 px-1 text-center bg-slate-50/50 border-l border-slate-100 dark:border-dk-border font-mono text-[10px] text-slate-500 dark:text-dk-muted">{tMachineCalc.toFixed(2)}</td>
-                    <td className="py-1.5 px-1 text-center bg-slate-50/50"><input type="number" step="0.01" value={tManuelCalc === 0 ? '' : tManuelCalc} onChange={(e) => updateOperation(op.id, 'manualTime', e.target.value)} onFocus={(e) => e.target.select()} className={inputClass + " text-slate-600 dark:text-dk-text-soft"} placeholder={tx(lang, { fr: 'Auto', ar: 'تلقائي', en: 'Auto', es: 'Auto', pt: 'Auto', tr: 'Otomatik' })} disabled={disabledIfForced}/></td>
-                    <td className="py-1.5 px-1 text-center bg-yellow-50/30"><input type="number" step="0.01" value={maj} onChange={(e) => updateOperation(op.id, 'majoration', e.target.value)} onFocus={(e) => e.target.select()} className={inputClass + " font-bold text-yellow-700"} disabled={disabledIfForced}/></td>
+                    <td className="py-1.5 px-1 text-center bg-slate-50 dark:bg-dk-bg/50 border-l border-slate-100 dark:border-dk-border font-mono text-[10px] text-slate-500 dark:text-dk-muted">{tMachineCalc.toFixed(2)}</td>
+                    <td className="py-1.5 px-1 text-center bg-slate-50 dark:bg-dk-bg/50"><input type="number" step="0.01" value={tManuelCalc === 0 ? '' : tManuelCalc} onChange={(e) => updateOperation(op.id, 'manualTime', e.target.value)} onFocus={(e) => e.target.select()} className={inputClass + " text-slate-600 dark:text-dk-text-soft"} placeholder={tx(lang, { fr: 'Auto', ar: 'تلقائي', en: 'Auto', es: 'Auto', pt: 'Auto', tr: 'Otomatik' })} disabled={disabledIfForced}/></td>
+                    <td className="py-1.5 px-1 text-center bg-yellow-50 dark:bg-yellow-900/30/30"><input type="number" step="0.01" value={maj} onChange={(e) => updateOperation(op.id, 'majoration', e.target.value)} onFocus={(e) => e.target.select()} className={inputClass + " font-bold text-yellow-700"} disabled={disabledIfForced}/></td>
                     
                     {/* RESULTATS */}
-                    <td className="py-1.5 px-1 text-center bg-emerald-50/30 border-l border-emerald-100 font-black text-emerald-700 text-xs">{tTotalMin.toFixed(2)}</td>
-                    <td className="py-1.5 px-1 text-center bg-emerald-50/30 text-emerald-600 text-[10px] font-bold">{tTotalSec.toFixed(1)}</td>
+                    <td className="py-1.5 px-1 text-center bg-emerald-50 dark:bg-emerald-900/30/30 border-l border-emerald-100 font-black text-emerald-700 text-xs">{tTotalMin.toFixed(2)}</td>
+                    <td className="py-1.5 px-1 text-center bg-emerald-50 dark:bg-emerald-900/30/30 text-emerald-600 dark:text-emerald-400 text-[10px] font-bold">{tTotalSec.toFixed(1)}</td>
                   </tr>
                 );
               })}

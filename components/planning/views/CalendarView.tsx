@@ -120,7 +120,7 @@ export default function CalendarView({ events, models, currentDate, pulseToday, 
                         <div
                             key={i}
                             className={`relative min-h-[64px] sm:min-h-[110px] p-1 sm:p-2 border-r border-b border-slate-100 dark:border-dk-border/30 last:border-r-0 [&:nth-child(7n)]:border-r-0 ${
-                                isCurrentMonth ? 'bg-white dark:bg-dk-surface' : 'bg-slate-50/40 dark:bg-dk-bg/60'
+                                isCurrentMonth ? 'bg-white dark:bg-dk-surface' : 'bg-slate-50 dark:bg-dk-bg/40 dark:bg-dk-bg/60'
                             } ${i >= 35 ? 'border-b-0' : ''}`}
                         >
                             <div className={`text-[12px] mb-1 tabular-nums ${
@@ -144,7 +144,7 @@ export default function CalendarView({ events, models, currentDate, pulseToday, 
                                             type="button"
                                             onClick={() => onSelectEvent(ev.id)}
                                             className={`w-full px-1.5 py-0.5 rounded text-[10px] text-left truncate transition-colors hover:bg-slate-100 dark:hover:bg-dk-elevated/60 flex items-center gap-1.5 ${
-                                                ev.isSubcontracted ? 'border border-dashed border-indigo-400 bg-indigo-50 dark:bg-indigo-900/20' : ''
+                                                ev.isSubcontracted ? 'border border-dashed border-indigo-400 bg-indigo-50 dark:bg-indigo-900/30 dark:bg-indigo-900/20' : ''
                                             }`}
                                         >
                                             <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: accent }} />

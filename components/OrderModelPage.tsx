@@ -24,9 +24,9 @@ function ToastContainer({ toasts, onDismiss }: { toasts: ToastData[]; onDismiss:
                     key={toast.id}
                     className={`flex items-center gap-3 px-5 py-3 rounded-xl shadow-2xl border backdrop-blur-sm text-sm font-bold
                         animate-[slideInRight_0.4s_ease-out]
-                        ${toast.type === 'success' ? 'bg-emerald-50/95 border-emerald-200 text-emerald-800' : ''}
-                        ${toast.type === 'error' ? 'bg-red-50/95 border-red-200 text-red-800' : ''}
-                        ${toast.type === 'info' ? 'bg-blue-50/95 border-blue-200 text-blue-800' : ''}
+                        ${toast.type === 'success' ? 'bg-emerald-50 dark:bg-emerald-900/30/95 border-emerald-200 text-emerald-800' : ''}
+                        ${toast.type === 'error' ? 'bg-red-50 dark:bg-red-900/30/95 border-red-200 text-red-800' : ''}
+                        ${toast.type === 'info' ? 'bg-blue-50 dark:bg-blue-900/30/95 border-blue-200 text-blue-800' : ''}
                     `}
                 >
                     {toast.type === 'success' && <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0" />}
@@ -265,7 +265,7 @@ const OrderModelPage: React.FC<OrderModelPageProps> = ({
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                     <div className="flex items-center gap-3">
                         <div className="bg-indigo-100 p-2.5 rounded-xl">
-                            <ShoppingCart className="w-5 h-5 text-indigo-600 dark:text-dk-accent-text" />
+                            <ShoppingCart className="w-5 h-5 text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text" />
                         </div>
                         <div>
                             <h2 className="font-black text-slate-800 dark:text-dk-text text-lg">معلومات الطلبية</h2>
@@ -281,7 +281,7 @@ const OrderModelPage: React.FC<OrderModelPageProps> = ({
                             <input
                                 type="number" min="1" value={orderQty} readOnly
                                 title="يتم حساب الكمية الإجمالية من جدول التوزيع أدناه"
-                                className="w-20 text-center font-black text-indigo-600 dark:text-dk-accent-text bg-transparent outline-none text-lg cursor-not-allowed"
+                                className="w-20 text-center font-black text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text bg-transparent outline-none text-lg cursor-not-allowed"
                             />
                             <ShoppingCart className="w-4 h-4 text-slate-400 dark:text-dk-muted" />
                         </div>
@@ -293,7 +293,7 @@ const OrderModelPage: React.FC<OrderModelPageProps> = ({
                             <input
                                 type="number" min="0" value={wasteRate}
                                 onChange={e => setWasteRate(Math.max(0, parseFloat(e.target.value) || 0))}
-                                className="w-14 text-center font-black text-amber-600 bg-transparent outline-none text-lg"
+                                className="w-14 text-center font-black text-amber-600 dark:text-amber-400 bg-transparent outline-none text-lg"
                             />
                             <Percent className="w-4 h-4 text-slate-400 dark:text-dk-muted" />
                         </div>
@@ -312,7 +312,7 @@ const OrderModelPage: React.FC<OrderModelPageProps> = ({
                 >
                     <div className="flex items-center gap-3">
                         <div className="bg-emerald-100 p-2 rounded-lg">
-                            <Package className="w-5 h-5 text-emerald-600" />
+                            <Package className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
                         </div>
                         <div className="text-right">
                             <h3 className="font-black text-slate-800 dark:text-dk-text text-base">المواد الأولية</h3>
@@ -334,7 +334,7 @@ const OrderModelPage: React.FC<OrderModelPageProps> = ({
                                         <th className="px-4 py-3 text-center">السعر</th>
                                         <th className="px-4 py-3 text-center">الكمية / الوحدة</th>
                                         <th className="px-4 py-3 text-center">الاحتياج (+{wasteRate}%)</th>
-                                        <th className="px-4 py-3 text-center font-bold text-indigo-600 dark:text-dk-accent-text">للشراء</th>
+                                        <th className="px-4 py-3 text-center font-bold text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text">للشراء</th>
                                         <th className="px-4 py-3 text-center">الإجمالي</th>
                                     </tr>
                                 </thead>
@@ -389,7 +389,7 @@ const OrderModelPage: React.FC<OrderModelPageProps> = ({
                                 </tbody>
                                 {purchasingData.length > 0 && (
                                     <tfoot className="block md:table-footer-group">
-                                        <tr className="flex md:table-row items-center justify-between bg-indigo-50 dark:bg-dk-accent/20 border-t-2 border-indigo-200 rounded-xl md:rounded-none mt-2 md:mt-0 px-2 md:px-0">
+                                        <tr className="flex md:table-row items-center justify-between bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 border-t-2 border-indigo-200 rounded-xl md:rounded-none mt-2 md:mt-0 px-2 md:px-0">
                                             <td colSpan={6} className="block md:table-cell px-4 py-3 text-right md:text-left font-black text-indigo-700 dark:text-dk-accent-text text-sm">
                                                 إجمالي تكلفة المواد
                                             </td>
@@ -457,7 +457,7 @@ const OrderModelPage: React.FC<OrderModelPageProps> = ({
                                                 </div>
                                             </td>
                                             {sizes.length === 0 && (
-                                                <td className="py-3 px-4 border-l border-slate-100 dark:border-dk-border bg-slate-50/50 text-center text-slate-400 dark:text-dk-muted text-xl font-light">-</td>
+                                                <td className="py-3 px-4 border-l border-slate-100 dark:border-dk-border bg-slate-50 dark:bg-dk-bg/50 text-center text-slate-400 dark:text-dk-muted text-xl font-light">-</td>
                                             )}
                                             {sizes.map((s, sIdx) => {
                                                 const key = `${c.id}_${sIdx}`;
@@ -537,10 +537,10 @@ const OrderModelPage: React.FC<OrderModelPageProps> = ({
                     <div className="flex justify-between items-start mb-4">
                         <div>
                             <p className="text-[10px] font-bold text-slate-500 dark:text-dk-muted uppercase tracking-wider mb-1">ميزانية المواد</p>
-                            <p className="text-2xl font-black text-emerald-600">{fmt(totalPurchasingMatCost)} <span className="text-xs text-slate-400 dark:text-dk-muted">{currency}</span></p>
+                            <p className="text-2xl font-black text-emerald-600 dark:text-emerald-400">{fmt(totalPurchasingMatCost)} <span className="text-xs text-slate-400 dark:text-dk-muted">{currency}</span></p>
                         </div>
                         <div className="bg-emerald-100 p-2 rounded-lg group-hover:scale-110 transition-transform">
-                            <Banknote className="w-5 h-5 text-emerald-600" />
+                            <Banknote className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
                         </div>
                     </div>
                     <div className="flex justify-between text-[11px] text-slate-400 dark:text-dk-muted pt-3 border-t border-slate-100 dark:border-dk-border">
@@ -554,10 +554,10 @@ const OrderModelPage: React.FC<OrderModelPageProps> = ({
                     <div className="flex justify-between items-start mb-4">
                         <div>
                             <p className="text-[10px] font-bold text-slate-500 dark:text-dk-muted uppercase tracking-wider mb-1">تكلفة العمالة</p>
-                            <p className="text-2xl font-black text-blue-600">{fmt(laborCost * orderQty)} <span className="text-xs text-slate-400 dark:text-dk-muted">{currency}</span></p>
+                            <p className="text-2xl font-black text-blue-600 dark:text-blue-400">{fmt(laborCost * orderQty)} <span className="text-xs text-slate-400 dark:text-dk-muted">{currency}</span></p>
                         </div>
                         <div className="bg-blue-100 p-2 rounded-lg group-hover:scale-110 transition-transform">
-                            <Clock className="w-5 h-5 text-blue-600" />
+                            <Clock className="w-5 h-5 text-blue-600 dark:text-blue-400" />
                         </div>
                     </div>
                     <div className="flex justify-between text-[11px] text-slate-400 dark:text-dk-muted pt-3 border-t border-slate-100 dark:border-dk-border">
@@ -571,10 +571,10 @@ const OrderModelPage: React.FC<OrderModelPageProps> = ({
                     <div className="flex justify-between items-start mb-4">
                         <div>
                             <p className="text-[10px] font-bold text-slate-500 dark:text-dk-muted uppercase tracking-wider mb-1">تكلفة القطعة</p>
-                            <p className="text-2xl font-black text-amber-600">{fmt(costPerPiece)} <span className="text-xs text-slate-400 dark:text-dk-muted">{currency}</span></p>
+                            <p className="text-2xl font-black text-amber-600 dark:text-amber-400">{fmt(costPerPiece)} <span className="text-xs text-slate-400 dark:text-dk-muted">{currency}</span></p>
                         </div>
                         <div className="bg-amber-100 p-2 rounded-lg group-hover:scale-110 transition-transform">
-                            <Tag className="w-5 h-5 text-amber-600" />
+                            <Tag className="w-5 h-5 text-amber-600 dark:text-amber-400" />
                         </div>
                     </div>
                     <div className="flex justify-between text-[11px] text-slate-400 dark:text-dk-muted pt-3 border-t border-slate-100 dark:border-dk-border">
@@ -605,7 +605,7 @@ const OrderModelPage: React.FC<OrderModelPageProps> = ({
             <div className="bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border shadow-sm mb-6 overflow-hidden">
                 <div className="px-5 py-4 bg-slate-50 dark:bg-dk-bg border-b border-slate-200 dark:border-dk-border flex items-center gap-3">
                     <div className="bg-indigo-100 p-2 rounded-lg">
-                        <Layers className="w-5 h-5 text-indigo-600 dark:text-dk-accent-text" />
+                        <Layers className="w-5 h-5 text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text" />
                     </div>
                     <h3 className="font-black text-slate-800 dark:text-dk-text text-base">سلم الأسعار</h3>
                 </div>
@@ -618,7 +618,7 @@ const OrderModelPage: React.FC<OrderModelPageProps> = ({
                             { label: `سعر المحل (+${settings.marginBoutique}%)`, value: boutiquePrice, color: 'text-violet-700', field: null },
                             { label: 'ربح المصنع / قطعة', value: sellPriceHT - costPrice, color: 'text-emerald-700', field: null },
                         ].map((item, i) => (
-                            <div key={i} className="text-center p-3 rounded-xl bg-slate-50 border border-slate-100 dark:border-dk-border hover:bg-white hover:border-slate-200 hover:shadow-sm transition-all">
+                            <div key={i} className="text-center p-3 rounded-xl bg-slate-50 dark:bg-dk-bg border border-slate-100 dark:border-dk-border hover:bg-white hover:border-slate-200 hover:shadow-sm transition-all">
                                 <p className="text-[10px] font-bold text-slate-500 dark:text-dk-muted uppercase tracking-wider mb-2">{item.label}</p>
                                 <p className={`text-xl font-black ${item.color}`}>
                                   {item.field ? (

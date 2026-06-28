@@ -95,10 +95,10 @@ export default function EmployeeProfile({ employee, tasks, onClose }: EmployeePr
                   <div className="text-center md:text-left">
                     <h3 className="text-3xl font-black text-slate-800 dark:text-dk-text tracking-tight">{employee.fullName}</h3>
                     <div className="flex flex-wrap justify-center md:justify-start items-center gap-3 mt-2">
-                       <span className="text-sm font-bold text-indigo-600 dark:text-dk-accent-text bg-indigo-50 dark:bg-dk-accent/20 dark:bg-dk-elevated px-3 py-1 rounded-full">{employee.role}</span>
+                       <span className="text-sm font-bold text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 dark:bg-dk-elevated px-3 py-1 rounded-full">{employee.role}</span>
                        <span className="text-sm font-medium text-slate-400 dark:text-dk-muted">ID: {employee.id}</span>
                        {employee.chaineId && (
-                          <span className="text-sm font-bold text-amber-600 bg-amber-50 dark:bg-amber-900/30 px-3 py-1 rounded-full">{tx(lang, {fr:'Chaîne:', ar:'الخط:', en:'Line:', es:'Línea:', pt:'Linha:', tr:'Hat:'})} {employee.chaineId}</span>
+                          <span className="text-sm font-bold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30 px-3 py-1 rounded-full">{tx(lang, {fr:'Chaîne:', ar:'الخط:', en:'Line:', es:'Línea:', pt:'Linha:', tr:'Hat:'})} {employee.chaineId}</span>
                        )}
                     </div>
                   </div>
@@ -107,14 +107,14 @@ export default function EmployeeProfile({ employee, tasks, onClose }: EmployeePr
                 <div className="flex flex-wrap justify-center gap-4">
                   <div className="bg-white dark:bg-dk-elevated border border-slate-100 dark:border-dk-border shadow-sm rounded-2xl p-4 flex flex-col items-center min-w-[120px]">
                     <span className="text-[10px] font-black uppercase text-slate-400 dark:text-dk-muted tracking-widest mb-1">{tx(lang, {fr:'Score Performance', ar:'درجة الأداء', en:'Performance Score', es:'Puntuación de Rendimiento', pt:'Pontuação de Desempenho', tr:'Performans Skoru'})}</span>
-                    <span className="text-2xl font-black text-emerald-600 leading-none">{data.completionRate}%</span>
+                    <span className="text-2xl font-black text-emerald-600 dark:text-emerald-400 leading-none">{data.completionRate}%</span>
                     <div className="w-full bg-slate-100 dark:bg-dk-bg h-1 rounded-full mt-2 overflow-hidden">
                       <div className="bg-emerald-500 h-full" style={{ width: `${data.completionRate}%` }} />
                     </div>
                   </div>
                   <div className="bg-white dark:bg-dk-elevated border border-slate-100 dark:border-dk-border shadow-sm rounded-2xl p-4 flex flex-col items-center min-w-[120px]">
                     <span className="text-[10px] font-black uppercase text-slate-400 dark:text-dk-muted tracking-widest mb-1">{tx(lang, {fr:'Activités du Mois', ar:'أنشطة الشهر', en:'Monthly Activities', es:'Actividades del Mes', pt:'Atividades do Mês', tr:'Aylık Aktiviteler'})}</span>
-                    <span className="text-2xl font-black text-indigo-600 dark:text-dk-accent-text leading-none">{data.monthDone}</span>
+                    <span className="text-2xl font-black text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text leading-none">{data.monthDone}</span>
                     <span className="text-[10px] font-bold text-slate-400 dark:text-dk-muted mt-1 uppercase tracking-tighter">{tx(lang, {fr:'Tasks Termitées', ar:'المهام المنجزة', en:'Tasks Completed', es:'Tareas Completadas', pt:'Tarefas Concluídas', tr:'Tamamlanan Görevler'})}</span>
                   </div>
                 </div>
@@ -124,7 +124,7 @@ export default function EmployeeProfile({ employee, tasks, onClose }: EmployeePr
                 <button className="flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-900 dark:bg-dk-accent text-white text-xs font-black shadow-lg shadow-slate-200 dark:shadow-dk-elevated transition-all hover:scale-105 active:scale-95">
                   <Phone className="w-4 h-4" /> {employee.phoneNumber}
                 </button>
-                <div className={`flex items-center gap-2 px-4 py-2 rounded-xl border text-xs font-black ${employee.isActive ? 'bg-emerald-50 dark:bg-green-900/30 text-emerald-700 dark:text-green-300 border-emerald-100 dark:border-green-800' : 'bg-rose-50 dark:bg-red-900/30 text-rose-700 dark:text-red-300 border-rose-100 dark:border-red-800'}`}>
+                <div className={`flex items-center gap-2 px-4 py-2 rounded-xl border text-xs font-black ${employee.isActive ? 'bg-emerald-50 dark:bg-emerald-900/30 dark:bg-green-900/30 text-emerald-700 dark:text-green-300 border-emerald-100 dark:border-green-800' : 'bg-rose-50 dark:bg-rose-900/30 dark:bg-red-900/30 text-rose-700 dark:text-red-300 border-rose-100 dark:border-red-800'}`}>
                    <ShieldCheck className="w-4 h-4" /> {employee.isActive ? tx(lang, {fr:'Profil Actif', ar:'ملف نشط', en:'Active Profile', es:'Perfil Activo', pt:'Perfil Ativo', tr:'Aktif Profil'}) : tx(lang, {fr:'Profil Suspendu', ar:'ملف موقوف', en:'Suspended Profile', es:'Perfil Suspendido', pt:'Perfil Suspenso', tr:'Askıya Alınmış Profil'})}
                 </div>
               </div>
@@ -143,7 +143,7 @@ export default function EmployeeProfile({ employee, tasks, onClose }: EmployeePr
                   <h4 className="text-lg font-black text-slate-800 dark:text-dk-text flex items-center gap-2">
                     <AlertCircle className="w-5 h-5 text-indigo-500" /> {tx(lang, {fr:'Missions Actives', ar:'المهام النشطة', en:'Active Missions', es:'Misiones Activas', pt:'Missões Ativas', tr:'Aktif Görevler'})}
                   </h4>
-                  <span className="px-3 py-1 bg-indigo-50 dark:bg-dk-accent/20 dark:bg-indigo-900/30 text-indigo-700 dark:text-dk-accent-text dark:text-indigo-300 text-[10px] font-black rounded-lg uppercase tracking-widest">
+                  <span className="px-3 py-1 bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 dark:bg-indigo-900/30 text-indigo-700 dark:text-dk-accent-text dark:text-indigo-300 text-[10px] font-black rounded-lg uppercase tracking-widest">
                     {data.active.length} {tx(lang, {fr:'en cours', ar:'قيد التنفيذ', en:'in progress', es:'en curso', pt:'em andamento', tr:'devam ediyor'})}
                   </span>
                 </div>
@@ -152,7 +152,7 @@ export default function EmployeeProfile({ employee, tasks, onClose }: EmployeePr
                   {data.active.map(task => (
                     <motion.div 
                       key={task.id} 
-                      className="group p-5 rounded-3xl border border-slate-100 dark:border-dk-border bg-slate-50/50 dark:bg-dk-bg/50 hover:bg-white dark:hover:bg-dk-elevated hover:shadow-xl hover:border-indigo-100 dark:hover:border-indigo-800 transition-all"
+                      className="group p-5 rounded-3xl border border-slate-100 dark:border-dk-border bg-slate-50 dark:bg-dk-bg/50 dark:bg-dk-bg/50 hover:bg-white dark:hover:bg-dk-elevated hover:shadow-xl hover:border-indigo-100 dark:hover:border-indigo-800 transition-all"
                       whileHover={{ x: 5 }}
                     >
                       <p className="text-sm font-black text-slate-800 dark:text-dk-text mb-1 group-hover:text-indigo-600 dark:text-dk-accent-text dark:group-hover:text-dk-accent-text transition-colors">{task.title}</p>
@@ -189,14 +189,14 @@ export default function EmployeeProfile({ employee, tasks, onClose }: EmployeePr
                   {data.done.map(task => (
                     <div key={task.id} className="relative pl-8 pb-4 group last:pb-0">
                       <div className="absolute left-[11px] top-6 bottom-0 w-[2px] bg-slate-100 dark:bg-dk-border group-last:hidden" />
-                      <div className="absolute left-0 top-1 w-6 h-6 rounded-full bg-emerald-50 dark:bg-green-900/30 border-2 border-emerald-500 flex items-center justify-center z-10">
-                        <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                      <div className="absolute left-0 top-1 w-6 h-6 rounded-full bg-emerald-50 dark:bg-emerald-900/30 dark:bg-green-900/30 border-2 border-emerald-500 flex items-center justify-center z-10">
+                        <CheckCircle2 className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
                       </div>
                       
                       <div className="p-5 rounded-3xl border border-slate-100 dark:border-dk-border bg-white dark:bg-dk-surface hover:border-emerald-200 dark:hover:border-emerald-800 hover:shadow-lg transition-all">
                         <div className="flex justify-between items-start mb-1">
                           <p className="text-sm font-black text-slate-800 dark:text-dk-text">{task.title}</p>
-                          <span className="text-[10px] font-black text-emerald-600 dark:text-green-300 bg-emerald-50 dark:bg-green-900/30 px-2 py-0.5 rounded">{tx(lang, {fr:'TERMINÉ', ar:'مُنْجَز', en:'COMPLETED', es:'TERMINADO', pt:'CONCLUÍDO', tr:'TAMAMLANDI'})}</span>
+                          <span className="text-[10px] font-black text-emerald-600 dark:text-emerald-400 dark:text-green-300 bg-emerald-50 dark:bg-emerald-900/30 dark:bg-green-900/30 px-2 py-0.5 rounded">{tx(lang, {fr:'TERMINÉ', ar:'مُنْجَز', en:'COMPLETED', es:'TERMINADO', pt:'CONCLUÍDO', tr:'TAMAMLANDI'})}</span>
                         </div>
                         <p className="text-xs text-slate-500 dark:text-dk-text-soft mb-3">{task.description || tx(lang, {fr:'Action réalisée conformément aux instructions.', ar:'تم تنفيذ الإجراء وفقاً للتعليمات.', en:'Action completed as per instructions.', es:'Acción realizada según instrucciones.', pt:'Ação realizada conforme as instruções.', tr:'İşlem talimatlara uygun şekilde gerçekleştirildi.'})}</p>
                         <div className="flex items-center gap-4 text-[10px] font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest">

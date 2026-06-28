@@ -77,8 +77,8 @@ export default function VueGenerale({
       sub: tx(lang, { fr: `${activeChains} chaîne(s) active(s)`, ar: `${activeChains} خط(وط) نشط(ة)`, en: `${activeChains} active line(s)`, es: `${activeChains} cadena(s) activa(s)`, pt: `${activeChains} linha(s) ativa(s)`, tr: `${activeChains} aktif hat` }),
       icon: Factory,
       color: 'indigo',
-      bg: 'bg-indigo-50 dark:bg-dk-accent/20',
-      iconBg: 'text-indigo-600 dark:text-dk-accent-text',
+      bg: 'bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20',
+      iconBg: 'text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text',
       border: 'border-indigo-100'
     },
     {
@@ -87,8 +87,8 @@ export default function VueGenerale({
       sub: tx(lang, { fr: `${globalProgress}% avancement global`, ar: `${globalProgress}% تقدّم عام`, en: `${globalProgress}% overall progress`, es: `${globalProgress}% progreso global`, pt: `${globalProgress}% progresso global`, tr: `${globalProgress}% genel ilerleme` }),
       icon: Target,
       color: 'emerald',
-      bg: 'bg-emerald-50 dark:bg-dk-elevated',
-      iconBg: 'text-emerald-600 dark:text-dk-accent-text',
+      bg: 'bg-emerald-50 dark:bg-emerald-900/30 dark:bg-dk-elevated',
+      iconBg: 'text-emerald-600 dark:text-emerald-400 dark:text-dk-accent-text',
       border: 'border-emerald-100 dark:border-dk-border'
     },
     {
@@ -97,8 +97,8 @@ export default function VueGenerale({
       sub: tx(lang, { fr: `${okMachines} opérationnelles`, ar: `${okMachines} تعمل بشكل سليم`, en: `${okMachines} operational`, es: `${okMachines} operativas`, pt: `${okMachines} operacionais`, tr: `${okMachines} çalışır durumda` }),
       icon: Layers,
       color: 'sky',
-      bg: 'bg-sky-50 dark:bg-dk-elevated',
-      iconBg: 'text-sky-600 dark:text-dk-accent-text',
+      bg: 'bg-sky-50 dark:bg-sky-900/30 dark:bg-dk-elevated',
+      iconBg: 'text-sky-600 dark:text-sky-400 dark:text-dk-accent-text',
       border: 'border-sky-100 dark:border-dk-border'
     },
     {
@@ -107,8 +107,8 @@ export default function VueGenerale({
       sub: tx(lang, { fr: `${panneMachines} en panne · ${maintMachines} maintenance`, ar: `${panneMachines} معطلة · ${maintMachines} صيانة`, en: `${panneMachines} broken down · ${maintMachines} maintenance`, es: `${panneMachines} averiadas · ${maintMachines} mantenimiento`, pt: `${panneMachines} com defeito · ${maintMachines} manutenção`, tr: `${panneMachines} arızalı · ${maintMachines} bakımda` }),
       icon: Activity,
       color: panneMachines > 0 ? 'rose' : 'emerald',
-      bg: panneMachines > 0 ? 'bg-rose-50 dark:bg-dk-elevated' : 'bg-emerald-50 dark:bg-dk-elevated',
-      iconBg: panneMachines > 0 ? 'text-rose-600 dark:text-dk-text' : 'text-emerald-600 dark:text-dk-accent-text',
+      bg: panneMachines > 0 ? 'bg-rose-50 dark:bg-rose-900/30 dark:bg-dk-elevated' : 'bg-emerald-50 dark:bg-emerald-900/30 dark:bg-dk-elevated',
+      iconBg: panneMachines > 0 ? 'text-rose-600 dark:text-rose-400 dark:text-dk-text' : 'text-emerald-600 dark:text-emerald-400 dark:text-dk-accent-text',
       border: panneMachines > 0 ? 'border-rose-100 dark:border-dk-border' : 'border-emerald-100 dark:border-dk-border'
     }
     ];
@@ -199,8 +199,8 @@ export default function VueGenerale({
           >
             <div className="px-6 py-4 border-b border-slate-100 dark:border-dk-border flex items-center justify-between">
               <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-indigo-50 dark:bg-dk-accent/20 flex items-center justify-center">
-                  <Factory className="w-4 h-4 text-indigo-600 dark:text-dk-accent-text" />
+                <div className="w-8 h-8 rounded-lg bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 flex items-center justify-center">
+                  <Factory className="w-4 h-4 text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text" />
                 </div>
                 <h2 className="text-sm font-bold text-slate-800 dark:text-dk-text">{tx(lang, { fr: 'Productions Actives', ar: 'الإنتاجات النشطة', en: 'Active Productions', es: 'Producciones Activas', pt: 'Produções Ativas', tr: 'Aktif Üretimler' })}</h2>
               </div>
@@ -230,7 +230,7 @@ export default function VueGenerale({
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">
                           <p className="text-sm font-bold text-slate-800 dark:text-dk-text truncate">{model?.meta_data?.nom_modele || tx(lang, { fr: 'Modèle sans nom', ar: 'نموذج بدون اسم', en: 'Unnamed model', es: 'Modelo sin nombre', pt: 'Modelo sem nome', tr: 'Adsız model' })}</p>
-                          <span className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider ${event.status === 'IN_PROGRESS' ? 'bg-emerald-50 dark:bg-dk-elevated text-emerald-600 dark:text-dk-accent-text' : 'bg-amber-50 dark:bg-dk-elevated text-amber-600 dark:text-dk-text-soft'}`}>
+                          <span className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider ${event.status === 'IN_PROGRESS' ? 'bg-emerald-50 dark:bg-emerald-900/30 dark:bg-dk-elevated text-emerald-600 dark:text-emerald-400 dark:text-dk-accent-text' : 'bg-amber-50 dark:bg-amber-900/30 dark:bg-dk-elevated text-amber-600 dark:text-amber-400 dark:text-dk-text-soft'}`}>
                             {event.status === 'IN_PROGRESS' ? tx(lang, { fr: 'En cours', ar: 'جارٍ', en: 'In progress', es: 'En curso', pt: 'Em andamento', tr: 'Devam ediyor' }) : tx(lang, { fr: 'Prêt', ar: 'جاهز', en: 'Ready', es: 'Listo', pt: 'Pronto', tr: 'Hazır' })}
                           </span>
                         </div>
@@ -265,8 +265,8 @@ export default function VueGenerale({
             className="bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border/60 overflow-hidden"
           >
             <div className="px-6 py-4 border-b border-slate-100 dark:border-dk-border flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-lg bg-sky-50 dark:bg-dk-elevated flex items-center justify-center">
-                <Layers className="w-4 h-4 text-sky-600 dark:text-dk-accent-text" />
+              <div className="w-8 h-8 rounded-lg bg-sky-50 dark:bg-sky-900/30 dark:bg-dk-elevated flex items-center justify-center">
+                <Layers className="w-4 h-4 text-sky-600 dark:text-sky-400 dark:text-dk-accent-text" />
               </div>
               <h2 className="text-sm font-bold text-slate-800 dark:text-dk-text">{tx(lang, { fr: 'État du Parc', ar: 'حالة الأسطول', en: 'Fleet Status', es: 'Estado del Parque', pt: 'Status do Parque', tr: 'Filo Durumu' })}</h2>
             </div>
@@ -295,21 +295,21 @@ export default function VueGenerale({
 
               {/* Status Breakdown */}
               <div className="space-y-2.5">
-                <div className="flex items-center justify-between px-3 py-2.5 rounded-xl bg-emerald-50/50 dark:bg-dk-surface border border-emerald-100/50 dark:border-dk-border">
+                <div className="flex items-center justify-between px-3 py-2.5 rounded-xl bg-emerald-50 dark:bg-emerald-900/30/50 dark:bg-dk-surface border border-emerald-100/50 dark:border-dk-border">
                   <div className="flex items-center gap-2">
                     <div className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
                     <span className="text-[11px] font-semibold text-slate-600 dark:text-dk-text-soft">{tx(lang, { fr: 'Opérationnelles', ar: 'تعمل بشكل سليم', en: 'Operational', es: 'Operativas', pt: 'Operacionais', tr: 'Çalışır Durumda' })}</span>
                   </div>
                   <span className="text-sm font-bold text-emerald-700 dark:text-dk-accent-text">{okMachines}</span>
                 </div>
-                <div className="flex items-center justify-between px-3 py-2.5 rounded-xl bg-rose-50/50 dark:bg-dk-surface border border-rose-100/50 dark:border-dk-border">
+                <div className="flex items-center justify-between px-3 py-2.5 rounded-xl bg-rose-50 dark:bg-rose-900/30/50 dark:bg-dk-surface border border-rose-100/50 dark:border-dk-border">
                   <div className="flex items-center gap-2">
                     <div className="w-2.5 h-2.5 rounded-full bg-rose-500" />
                     <span className="text-[11px] font-semibold text-slate-600 dark:text-dk-text-soft">{tx(lang, { fr: 'En Panne', ar: 'معطلة', en: 'Broken Down', es: 'Averiadas', pt: 'Com Defeito', tr: 'Arızalı' })}</span>
                   </div>
                   <span className="text-sm font-bold text-rose-700 dark:text-dk-text">{panneMachines}</span>
                 </div>
-                <div className="flex items-center justify-between px-3 py-2.5 rounded-xl bg-amber-50/50 dark:bg-dk-surface border border-amber-100/50 dark:border-dk-border">
+                <div className="flex items-center justify-between px-3 py-2.5 rounded-xl bg-amber-50 dark:bg-amber-900/30/50 dark:bg-dk-surface border border-amber-100/50 dark:border-dk-border">
                   <div className="flex items-center gap-2">
                     <div className="w-2.5 h-2.5 rounded-full bg-amber-500" />
                     <span className="text-[11px] font-semibold text-slate-600 dark:text-dk-text-soft">{tx(lang, { fr: 'Maintenance', ar: 'الصيانة', en: 'Maintenance', es: 'Mantenimiento', pt: 'Manutenção', tr: 'Bakım' })}</span>
@@ -357,7 +357,7 @@ export default function VueGenerale({
           </div>
           <div className="flex items-center gap-2">
             <TrendingUp className="w-4 h-4 text-emerald-500 dark:text-dk-accent" />
-            <span className="text-[11px] font-semibold text-emerald-600 dark:text-dk-accent-text">{tx(lang, { fr: 'Production en cours', ar: 'الإنتاج جارٍ', en: 'Production in progress', es: 'Producción en curso', pt: 'Produção em andamento', tr: 'Üretim devam ediyor' })}</span>
+            <span className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 dark:text-dk-accent-text">{tx(lang, { fr: 'Production en cours', ar: 'الإنتاج جارٍ', en: 'Production in progress', es: 'Producción en curso', pt: 'Produção em andamento', tr: 'Üretim devam ediyor' })}</span>
           </div>
         </motion.div>
 

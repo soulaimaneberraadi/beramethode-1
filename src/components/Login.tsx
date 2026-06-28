@@ -377,7 +377,7 @@ export default function Login({ onSwitch, onGuest }: { onSwitch: () => void, onG
           {/* Animated Logo & Brand */}
           <div className="flex flex-col items-center mb-8">
             <h1 className="select-none text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900 dark:text-dk-text">
-              BERA<span className="text-emerald-600">METHODE</span>
+              BERA<span className="text-emerald-600 dark:text-emerald-400">METHODE</span>
             </h1>
             
             <span className="text-[10px] font-semibold uppercase tracking-[0.2em] mt-1.5 text-slate-500 dark:text-dk-muted">
@@ -406,7 +406,7 @@ export default function Login({ onSwitch, onGuest }: { onSwitch: () => void, onG
                   <input
                     type="email"
                     required
-                    className="w-full pl-11 pr-4 py-4 rounded-xl border border-slate-200 text-slate-900 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 bg-slate-50/50 focus:bg-white placeholder-slate-400 sm:text-sm transition-all duration-200 shadow-sm dark:border-dk-border dark:text-dk-text dark:bg-dk-bg/60 dark:focus:bg-dk-surface"
+                    className="w-full pl-11 pr-4 py-4 rounded-xl border border-slate-200 text-slate-900 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 bg-slate-50 dark:bg-dk-bg/50 focus:bg-white placeholder-slate-400 sm:text-sm transition-all duration-200 shadow-sm dark:border-dk-border dark:text-dk-text dark:bg-dk-bg/60 dark:focus:bg-dk-surface"
                     placeholder={tx(lang, {fr:'Adresse e-mail',ar:'البريد الإلكتروني',en:'Email address',es:'Correo electrónico',pt:'Endereço de e-mail',tr:'E-posta adresi'})}
                     value={resetEmail}
                     onChange={(e) => setResetEmail(e.target.value)}
@@ -420,7 +420,7 @@ export default function Login({ onSwitch, onGuest }: { onSwitch: () => void, onG
                       exit={{ opacity: 0, height: 0 }}
                       className="overflow-hidden"
                     >
-                      <div className="p-3 rounded-xl text-sm text-center font-medium border bg-red-50 border-red-100 text-red-600 dark:bg-red-900/30 dark:border-red-800 dark:text-red-300">
+                      <div className="p-3 rounded-xl text-sm text-center font-medium border bg-red-50 dark:bg-red-900/30 border-red-100 text-red-600 dark:text-red-400 dark:bg-red-900/30 dark:border-red-800 dark:text-red-300">
                         {resetError}
                       </div>
                     </motion.div>
@@ -456,7 +456,7 @@ export default function Login({ onSwitch, onGuest }: { onSwitch: () => void, onG
                           if (inputs[index - 1]) (inputs[index - 1] as HTMLInputElement).focus();
                         }
                       }}
-                      className="w-10 h-12 sm:w-12 sm:h-14 text-center text-xl font-bold rounded-xl border border-slate-200 bg-slate-50 focus:bg-white text-slate-900 focus:border-emerald-500 focus:shadow-[0_0_15px_rgba(16,185,129,0.15)] focus:outline-none transition-all duration-200 dark:border-dk-border dark:bg-dk-bg/60 dark:focus:bg-dk-surface dark:text-dk-text"
+                      className="w-10 h-12 sm:w-12 sm:h-14 text-center text-xl font-bold rounded-xl border border-slate-200 bg-slate-50 dark:bg-dk-bg focus:bg-white text-slate-900 focus:border-emerald-500 focus:shadow-[0_0_15px_rgba(16,185,129,0.15)] focus:outline-none transition-all duration-200 dark:border-dk-border dark:bg-dk-bg/60 dark:focus:bg-dk-surface dark:text-dk-text"
                     />
                   ))}
                 </div>
@@ -469,7 +469,7 @@ export default function Login({ onSwitch, onGuest }: { onSwitch: () => void, onG
                     <button
                       type="button"
                       onClick={handleResendCode}
-                      className="mt-2 text-sm font-medium text-emerald-600 hover:text-emerald-500 hover:underline dark:text-emerald-400 dark:hover:text-emerald-300"
+                      className="mt-2 text-sm font-medium text-emerald-600 dark:text-emerald-400 hover:text-emerald-500 hover:underline dark:text-emerald-400 dark:hover:text-emerald-300"
                     >
                       {tx(lang, {fr:'Renvoyer le code',ar:'إعادة إرسال الرمز',en:'Resend Code',es:'Reenviar código',pt:'Reenviar código',tr:'Kodu Yeniden Gönder'})}
                     </button>
@@ -484,7 +484,7 @@ export default function Login({ onSwitch, onGuest }: { onSwitch: () => void, onG
                       exit={{ opacity: 0, height: 0 }}
                       className="overflow-hidden"
                     >
-                      <div className="p-3 rounded-xl text-sm text-center font-medium border bg-red-50 border-red-100 text-red-600 dark:bg-red-900/30 dark:border-red-800 dark:text-red-300">
+                      <div className="p-3 rounded-xl text-sm text-center font-medium border bg-red-50 dark:bg-red-900/30 border-red-100 text-red-600 dark:text-red-400 dark:bg-red-900/30 dark:border-red-800 dark:text-red-300">
                         {resetError}
                       </div>
                     </motion.div>
@@ -511,7 +511,7 @@ export default function Login({ onSwitch, onGuest }: { onSwitch: () => void, onG
                   <input
                     type="password"
                     required
-                    className="w-full pl-11 pr-4 py-4 rounded-xl border border-slate-200 text-slate-900 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 bg-slate-50/50 focus:bg-white placeholder-slate-400 sm:text-sm transition-all duration-200 shadow-sm dark:border-dk-border dark:text-dk-text dark:bg-dk-bg/60 dark:focus:bg-dk-surface dark:placeholder:text-dk-muted"
+                    className="w-full pl-11 pr-4 py-4 rounded-xl border border-slate-200 text-slate-900 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 bg-slate-50 dark:bg-dk-bg/50 focus:bg-white placeholder-slate-400 sm:text-sm transition-all duration-200 shadow-sm dark:border-dk-border dark:text-dk-text dark:bg-dk-bg/60 dark:focus:bg-dk-surface dark:placeholder:text-dk-muted"
                     placeholder={tx(lang, {fr:'Nouveau mot de passe',ar:'كلمة سر جديدة',en:'New Password',es:'Nueva contraseña',pt:'Nova palavra-passe',tr:'Yeni Şifre'})}
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
@@ -547,7 +547,7 @@ export default function Login({ onSwitch, onGuest }: { onSwitch: () => void, onG
                       exit={{ opacity: 0, height: 0 }}
                       className="overflow-hidden"
                     >
-                      <div className="p-3 rounded-xl text-sm text-center font-medium border bg-red-50 border-red-100 text-red-600 dark:bg-red-900/30 dark:border-red-800 dark:text-red-300">
+                      <div className="p-3 rounded-xl text-sm text-center font-medium border bg-red-50 dark:bg-red-900/30 border-red-100 text-red-600 dark:text-red-400 dark:bg-red-900/30 dark:border-red-800 dark:text-red-300">
                         {resetError}
                       </div>
                     </motion.div>
@@ -589,7 +589,7 @@ export default function Login({ onSwitch, onGuest }: { onSwitch: () => void, onG
                 <input
                   type="email"
                   required
-                  className="w-full pl-11 pr-4 py-4 rounded-xl border border-slate-200 text-slate-900 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 bg-slate-50/50 focus:bg-white placeholder-slate-400 sm:text-sm transition-all duration-200 shadow-sm dark:border-dk-border dark:text-dk-text dark:bg-dk-bg/60 dark:focus:bg-dk-surface dark:placeholder:text-dk-muted"
+                  className="w-full pl-11 pr-4 py-4 rounded-xl border border-slate-200 text-slate-900 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 bg-slate-50 dark:bg-dk-bg/50 focus:bg-white placeholder-slate-400 sm:text-sm transition-all duration-200 shadow-sm dark:border-dk-border dark:text-dk-text dark:bg-dk-bg/60 dark:focus:bg-dk-surface dark:placeholder:text-dk-muted"
                   placeholder={tx(lang, {fr:'Adresse e-mail',ar:'البريد الإلكتروني',en:'Email address',es:'Correo electrónico',pt:'Endereço de e-mail',tr:'E-posta adresi'})}
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
@@ -602,7 +602,7 @@ export default function Login({ onSwitch, onGuest }: { onSwitch: () => void, onG
                 <input
                   type="password"
                   required
-                  className="w-full pl-11 pr-4 py-4 rounded-xl border border-slate-200 text-slate-900 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 bg-slate-50/50 focus:bg-white placeholder-slate-400 sm:text-sm transition-all duration-200 shadow-sm dark:border-dk-border dark:text-dk-text dark:bg-dk-bg/60 dark:focus:bg-dk-surface dark:placeholder:text-dk-muted"
+                  className="w-full pl-11 pr-4 py-4 rounded-xl border border-slate-200 text-slate-900 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 bg-slate-50 dark:bg-dk-bg/50 focus:bg-white placeholder-slate-400 sm:text-sm transition-all duration-200 shadow-sm dark:border-dk-border dark:text-dk-text dark:bg-dk-bg/60 dark:focus:bg-dk-surface dark:placeholder:text-dk-muted"
                   placeholder={tx(lang, {fr:'Mot de passe',ar:'كلمة السر',en:'Password',es:'Contraseña',pt:'Palavra-passe',tr:'Şifre'})}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
@@ -612,7 +612,7 @@ export default function Login({ onSwitch, onGuest }: { onSwitch: () => void, onG
                 <button
                   type="button"
                   onClick={() => setShowForgotPassword(true)}
-                  className="text-sm font-medium text-emerald-600 hover:text-emerald-500 hover:underline transition-colors"
+                  className="text-sm font-medium text-emerald-600 dark:text-emerald-400 hover:text-emerald-500 hover:underline transition-colors"
                 >
                   {tx(lang, {fr:'Mot de passe oublié ?',ar:'هل نسيت كلمة السر؟',en:'Forgot password?',es:'¿Olvidó su contraseña?',pt:'Esqueceu a palavra-passe?',tr:'Şifrenizi mi unuttunuz?'})}
                 </button>
@@ -627,7 +627,7 @@ export default function Login({ onSwitch, onGuest }: { onSwitch: () => void, onG
                   exit={{ opacity: 0, height: 0 }}
                   className="overflow-hidden"
                 >
-                  <div className="p-3 rounded-xl text-sm text-center font-medium border bg-red-50 border-red-100 text-red-600 dark:bg-red-900/30 dark:border-red-800 dark:text-red-300">
+                  <div className="p-3 rounded-xl text-sm text-center font-medium border bg-red-50 dark:bg-red-900/30 border-red-100 text-red-600 dark:text-red-400 dark:bg-red-900/30 dark:border-red-800 dark:text-red-300">
                     {error}
                   </div>
                 </motion.div>
@@ -695,7 +695,7 @@ export default function Login({ onSwitch, onGuest }: { onSwitch: () => void, onG
             {tx(lang, {fr:'Vous n\'avez pas de compte ?',ar:'ليس لديك حساب؟',en:'Don\'t have an account?',es:'¿No tiene una cuenta?',pt:'Não tem uma conta?',tr:'Hesabınız yok mu?'})}{' '}
             <button 
               onClick={onSwitch} 
-              className="font-bold transition-colors hover:underline decoration-2 underline-offset-4 text-emerald-600 hover:text-emerald-500"
+              className="font-bold transition-colors hover:underline decoration-2 underline-offset-4 text-emerald-600 dark:text-emerald-400 hover:text-emerald-500"
             >
               {tx(lang, {fr:'Créer un compte',ar:'إنشاء حساب',en:'Create account',es:'Crear cuenta',pt:'Criar conta',tr:'Hesap Oluştur'})}
             </button>

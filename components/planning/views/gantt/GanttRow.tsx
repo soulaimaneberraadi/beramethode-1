@@ -238,7 +238,7 @@ function GanttRow({
                     <div className="flex flex-col items-center justify-center gap-1">
                         <span className={`w-2 h-2 rounded-full ${loadColor}`} />
                         <span className={`text-[12px] font-black tabular-nums leading-none ${
-                            isSolo ? 'text-indigo-600 dark:text-dk-accent-text dark:text-indigo-400' : 'text-slate-700 dark:text-dk-text-soft'
+                            isSolo ? 'text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text dark:text-indigo-400' : 'text-slate-700 dark:text-dk-text-soft'
                         }`}>
                             {chainShort}
                         </span>
@@ -338,7 +338,7 @@ function GanttRow({
                                 }}
                                 title={tooltip}
                                 className={`border-r border-slate-50 dark:border-dk-border/30 last:border-r-0 transition-colors ${
-                                    isWeekend ? 'bg-slate-50/40 dark:bg-dk-bg/60' : ''
+                                    isWeekend ? 'bg-slate-50 dark:bg-dk-bg/40 dark:bg-dk-bg/60' : ''
                                 } ${isDragOver ? '!bg-slate-100 dark:bg-dk-elevated dark:!bg-dk-elevated' : ''}`}
                                 style={cellStyle}
                             />

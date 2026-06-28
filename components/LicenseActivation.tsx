@@ -173,11 +173,11 @@ export default function LicenseActivation({ lang }: LicenseActivationProps) {
 
                 {/* État actif courant */}
                 {isActive && (
-                    <div className="flex items-start gap-3 bg-emerald-50 border border-emerald-100 rounded-xl p-3">
-                        <ShieldCheck className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
+                    <div className="flex items-start gap-3 bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-100 rounded-xl p-3">
+                        <ShieldCheck className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
                         <div className="text-sm">
                             <span className="font-bold text-emerald-700 block">{t.success}</span>
-                            <span className="text-xs text-emerald-600/80">{t.currentlyActive}</span>
+                            <span className="text-xs text-emerald-600 dark:text-emerald-400/80">{t.currentlyActive}</span>
                         </div>
                     </div>
                 )}
@@ -208,7 +208,7 @@ export default function LicenseActivation({ lang }: LicenseActivationProps) {
 
                 {/* Erreur */}
                 {error && (
-                    <div className="flex items-start gap-2 bg-rose-50 border border-rose-100 rounded-xl p-3 text-sm">
+                    <div className="flex items-start gap-2 bg-rose-50 dark:bg-rose-900/30 border border-rose-100 rounded-xl p-3 text-sm">
                         <XCircle className="w-4 h-4 text-rose-500 shrink-0 mt-0.5" />
                         <span className="text-rose-700 font-medium">{error}</span>
                     </div>
@@ -219,7 +219,7 @@ export default function LicenseActivation({ lang }: LicenseActivationProps) {
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2">
                         <div className="bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl p-3 text-center">
                             <span className="block text-[10px] font-bold uppercase tracking-wide text-slate-400 dark:text-dk-muted mb-1">{t.status}</span>
-                            <span className={`inline-flex items-center gap-1 text-xs font-black ${isActive ? 'text-emerald-600' : 'text-amber-600'}`}>
+                            <span className={`inline-flex items-center gap-1 text-xs font-black ${isActive ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'}`}>
                                 {isActive ? <CheckCircle2 className="w-3.5 h-3.5" /> : <ShieldAlert className="w-3.5 h-3.5" />}
                                 {license.status}
                             </span>

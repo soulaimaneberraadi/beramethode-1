@@ -525,7 +525,7 @@ export default function FicheTechnique({
             <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-start">
                 <div className="md:col-span-8 space-y-6 order-2 md:order-1">
                     <div className="bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border shadow-sm overflow-hidden">
-                        <div className="bg-slate-50/50 dark:bg-dk-elevated/60 px-4 sm:px-6 py-3 border-b border-slate-100 dark:border-dk-border flex items-center justify-between">
+                        <div className="bg-slate-50 dark:bg-dk-bg/50 dark:bg-dk-elevated/60 px-4 sm:px-6 py-3 border-b border-slate-100 dark:border-dk-border flex items-center justify-between">
                             <div className="flex items-center gap-2">
                                 <Tag className="w-4 h-4 text-indigo-500" />
                                 <h3 className="font-bold text-slate-700 dark:text-dk-text text-sm uppercase tracking-wide">{pt.identification}</h3>
@@ -534,7 +534,7 @@ export default function FicheTechnique({
                         <div className="p-4 sm:p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div className="space-y-1">
                                 <label className="text-xs font-bold text-slate-400 dark:text-dk-muted uppercase ml-1">{pt.client}</label>
-                                <div className="flex items-center gap-3 bg-slate-50 dark:bg-dk-elevated/60 border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2.5 focus-within:ring-2 focus-within:ring-indigo-100 dark:focus-within:ring-indigo-900/30 focus-within:border-indigo-400 transition-all">
+                                <div className="flex items-center gap-3 bg-slate-50 dark:bg-dk-bg dark:bg-dk-elevated/60 border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2.5 focus-within:ring-2 focus-within:ring-indigo-100 dark:focus-within:ring-indigo-900/30 focus-within:border-indigo-400 transition-all">
                                     <User className="w-4 h-4 text-slate-400 dark:text-dk-muted" />
                                     <input
                                         type="text"
@@ -548,8 +548,8 @@ export default function FicheTechnique({
                             <div className="space-y-1">
                                 <label className="text-xs font-bold text-slate-400 dark:text-dk-muted uppercase ml-1">{pt.modelRef}</label>
                                 <div className={`flex items-center gap-3 rounded-xl px-3 py-2.5 transition-all ${articleNameError 
-                                    ? 'bg-rose-50 dark:bg-rose-900/20 border-2 border-rose-300 dark:border-rose-700 focus-within:ring-2 focus-within:ring-rose-100 dark:focus-within:ring-rose-900/30' 
-                                    : 'bg-slate-50 dark:bg-dk-elevated/60 border border-slate-200 dark:border-dk-border focus-within:ring-2 focus-within:ring-indigo-100 dark:focus-within:ring-indigo-900/30 focus-within:border-indigo-400'}`}>
+                                    ? 'bg-rose-50 dark:bg-rose-900/30 dark:bg-rose-900/20 border-2 border-rose-300 dark:border-rose-700 focus-within:ring-2 focus-within:ring-rose-100 dark:focus-within:ring-rose-900/30' 
+                                    : 'bg-slate-50 dark:bg-dk-bg dark:bg-dk-elevated/60 border border-slate-200 dark:border-dk-border focus-within:ring-2 focus-within:ring-indigo-100 dark:focus-within:ring-indigo-900/30 focus-within:border-indigo-400'}`}>
                                     <Hash className={`w-4 h-4 ${articleNameError ? 'text-rose-500' : 'text-slate-400 dark:text-dk-muted'}`} />
                                     <input
                                         type="text"
@@ -567,7 +567,7 @@ export default function FicheTechnique({
                                     <label className="text-xs font-bold text-slate-400 dark:text-dk-muted uppercase">{pt.category}</label>
                                     <span className="text-[10px] font-bold uppercase tracking-wide text-slate-400 dark:text-dk-muted">{pt.optional}</span>
                                 </div>
-                                <div className="flex items-center gap-3 rounded-xl px-3 py-2.5 transition-all bg-slate-50 dark:bg-dk-elevated/60 border border-slate-200 dark:border-dk-border focus-within:ring-2 focus-within:ring-indigo-100 dark:focus-within:ring-indigo-900/30 focus-within:border-indigo-400">
+                                <div className="flex items-center gap-3 rounded-xl px-3 py-2.5 transition-all bg-slate-50 dark:bg-dk-bg dark:bg-dk-elevated/60 border border-slate-200 dark:border-dk-border focus-within:ring-2 focus-within:ring-indigo-100 dark:focus-within:ring-indigo-900/30 focus-within:border-indigo-400">
                                     <LayoutGrid className="w-4 h-4 text-slate-400 dark:text-dk-muted" />
                                     <ExcelInput
                                         suggestions={["T-Shirt", "Polo", "Chemise", "Pantalon", "Robe", "Veste", "Sweat", "Short", "Jupe", "Pyjama", "Sous-vêtement"]}
@@ -586,7 +586,7 @@ export default function FicheTechnique({
                                     <select
                                         value={data.kisba || ''}
                                         onChange={(e) => handleChange('kisba', e.target.value)}
-                                        className="bg-slate-50 dark:bg-dk-elevated/60 border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2.5 text-sm font-bold text-slate-700 dark:text-dk-text outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 dark:focus:ring-indigo-900/30"
+                                        className="bg-slate-50 dark:bg-dk-bg dark:bg-dk-elevated/60 border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2.5 text-sm font-bold text-slate-700 dark:text-dk-text outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 dark:focus:ring-indigo-900/30"
                                     >
                                         <option value="">{pt.kisbaPlaceholder}</option>
                                         <option value="COUPE">{tx(lang, {fr: 'Coupé',ar: 'مفصل',en: 'Cut',es: 'Cortado',pt: 'Cortado',tr: 'Kesildi'})}</option>
@@ -597,7 +597,7 @@ export default function FicheTechnique({
                                     <select
                                         value={data.hala || ''}
                                         onChange={(e) => handleChange('hala', e.target.value)}
-                                        className="bg-slate-50 dark:bg-dk-elevated/60 border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2.5 text-sm font-bold text-slate-700 dark:text-dk-text outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 dark:focus:ring-indigo-900/30"
+                                        className="bg-slate-50 dark:bg-dk-bg dark:bg-dk-elevated/60 border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2.5 text-sm font-bold text-slate-700 dark:text-dk-text outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 dark:focus:ring-indigo-900/30"
                                     >
                                         <option value="">{pt.halaPlaceholder}</option>
                                         <option value="EN_COURS">{tx(lang, {fr: 'En cours',ar: 'قيد التشغيل',en: 'In progress',es: 'En curso',pt: 'Em curso',tr: 'Devam ediyor'})}</option>
@@ -618,7 +618,7 @@ export default function FicheTechnique({
                                 <Layers className="w-4 h-4 text-indigo-500" />
                                 {ft.matiere}
                             </label>
-                            <div className="flex items-center gap-3 bg-slate-50 dark:bg-dk-elevated/60 border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2.5 focus-within:ring-2 focus-within:ring-indigo-100 dark:focus-within:ring-indigo-900/30 focus-within:border-indigo-400 transition-all relative">
+                            <div className="flex items-center gap-3 bg-slate-50 dark:bg-dk-bg dark:bg-dk-elevated/60 border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2.5 focus-within:ring-2 focus-within:ring-indigo-100 dark:focus-within:ring-indigo-900/30 focus-within:border-indigo-400 transition-all relative">
                                 <Layers className="w-4 h-4 text-slate-400 dark:text-dk-muted z-20 relative" />
                                 <ExcelInput
                                     suggestions={TEXTILE_FABRICS}
@@ -637,7 +637,7 @@ export default function FicheTechnique({
 
                     {/* PRODUCTION & DATA LINKED CARD */}
                     <div className="bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border shadow-sm overflow-hidden">
-                        <div className="bg-emerald-50/50 dark:bg-emerald-900/20 px-4 sm:px-6 py-3 border-b border-emerald-100 dark:border-emerald-900/30 flex items-center gap-2">
+                        <div className="bg-emerald-50 dark:bg-emerald-900/30/50 dark:bg-emerald-900/20 px-4 sm:px-6 py-3 border-b border-emerald-100 dark:border-emerald-900/30 flex items-center gap-2">
                             <Factory className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                             <h3 className="font-bold text-emerald-800 dark:text-emerald-300 text-sm uppercase tracking-wide">
                                 {tx(lang, {fr: 'Données Techniques & Production',ar: 'البيانات التقنية والإنتاج',en: 'Technical & Production Data',es: 'Datos técnicos y de producción',pt: 'Dados técnicos e de produção',tr: 'Teknik ve Üretim Verileri'})}
@@ -681,7 +681,7 @@ export default function FicheTechnique({
                                     <div className="grid grid-cols-1 gap-3">
                                         <div className="space-y-1">
                                             <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 ml-1">{tx(lang, {fr: "Réelle (Moyenne)",ar: "الفعلي (المتوسط)",en: "Actual (Average)",es: "Real (Media)",pt: "Real (Média)",tr: "Gerçek (Ortalama)"})}</span>
-                                            <div className="flex items-center gap-1 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-lg px-2 py-2">
+                                            <div className="flex items-center gap-1 bg-emerald-50 dark:bg-emerald-900/30 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-lg px-2 py-2">
                                                 <Activity className="w-3.5 h-3.5 text-emerald-500" />
                                                 <input
                                                     type="number"
@@ -698,7 +698,7 @@ export default function FicheTechnique({
                                 {/* Input: Chaine */}
                                 <div className="space-y-1">
                                     <label className="text-xs font-bold text-slate-400 dark:text-dk-muted uppercase ml-1">{pt.chaineLabel}</label>
-                                    <div className="flex items-center gap-3 bg-slate-50 dark:bg-dk-elevated/60 border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2.5 focus-within:ring-2 focus-within:ring-indigo-100 dark:focus-within:ring-indigo-900/30 focus-within:border-indigo-400 transition-all h-full">
+                                    <div className="flex items-center gap-3 bg-slate-50 dark:bg-dk-bg dark:bg-dk-elevated/60 border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2.5 focus-within:ring-2 focus-within:ring-indigo-100 dark:focus-within:ring-indigo-900/30 focus-within:border-indigo-400 transition-all h-full">
                                         <Layers className="w-4 h-4 text-slate-400 dark:text-dk-muted" />
                                         <select
                                             value={data.chaine || ''}
@@ -743,8 +743,8 @@ export default function FicheTechnique({
 
                     {/* PLANNING & RISK CONTROLS CARD */}
                     <div className="bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border shadow-sm overflow-hidden">
-                        <div className="bg-indigo-50 dark:bg-dk-accent/20/50 dark:bg-indigo-900/20 px-4 sm:px-6 py-3 border-b border-indigo-100 dark:border-indigo-900/30 flex items-center gap-2">
-                            <TrendingUp className="w-4 h-4 text-indigo-600 dark:text-dk-accent-text dark:text-indigo-400" />
+                        <div className="bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20/50 dark:bg-indigo-900/20 px-4 sm:px-6 py-3 border-b border-indigo-100 dark:border-indigo-900/30 flex items-center gap-2">
+                            <TrendingUp className="w-4 h-4 text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text dark:text-indigo-400" />
                             <h3 className="font-bold text-indigo-800 dark:text-indigo-300 text-sm uppercase tracking-wide">
                                 {tx(lang, {fr: "Contrôles de Planification & Risques",ar: "مراقبة التخطيط والمخاطر",en: "Planning & Risk Controls",es: "Controles de planificación y riesgos",pt: "Controlos de planeamento e riscos",tr: "Planlama ve Risk Kontrolleri"})}
                             </h3>
@@ -756,7 +756,7 @@ export default function FicheTechnique({
                                 <div className="space-y-2">
                                     <div className="flex justify-between items-center">
                                         <label className="text-xs font-bold text-slate-400 dark:text-dk-muted uppercase ml-1">{tx(lang, {fr: "Facteur de Planning",ar: "عامل التخطيط",en: "Planning Factor",es: "Factor de planificación",pt: "Fator de planeamento",tr: "Planlama Faktörü"})}</label>
-                                        <span className="text-xs font-black text-indigo-600 dark:text-dk-accent-text dark:text-indigo-300 bg-indigo-50 dark:bg-dk-accent/20 dark:bg-indigo-900/30 px-2 py-0.5 rounded">{data.facteurPlanning !== undefined ? data.facteurPlanning : 60}%</span>
+                                        <span className="text-xs font-black text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 dark:bg-indigo-900/30 px-2 py-0.5 rounded">{data.facteurPlanning !== undefined ? data.facteurPlanning : 60}%</span>
                                     </div>
                                     <div className="flex items-center gap-4">
                                         <input
@@ -774,7 +774,7 @@ export default function FicheTechnique({
                                             max="200"
                                             value={data.facteurPlanning !== undefined ? data.facteurPlanning : 60}
                                             onChange={(e) => handleChange('facteurPlanning', Math.max(10, Math.min(200, Number(e.target.value))))}
-                                            className="w-16 text-center text-sm font-bold text-indigo-700 dark:text-dk-accent-text dark:text-indigo-300 bg-slate-50 dark:bg-dk-elevated/60 border border-slate-200 dark:border-dk-border rounded-lg py-1 outline-none"
+                                            className="w-16 text-center text-sm font-bold text-indigo-700 dark:text-dk-accent-text dark:text-indigo-300 bg-slate-50 dark:bg-dk-bg dark:bg-dk-elevated/60 border border-slate-200 dark:border-dk-border rounded-lg py-1 outline-none"
                                         />
                                     </div>
                                     <p className="text-[10px] text-slate-400 dark:text-dk-muted leading-tight">{tx(lang, {fr: "Coefficient d'ajustement de la performance pour le calcul des dates de fin (Default: 60%).",ar: "معامل تعديل الأداء لحساب تواريخ الانتهاء (افتراضي: 60%).",en: "Performance adjustment coefficient for calculating end dates (Default: 60%).",es: "Coeficiente de ajuste de rendimiento para calcular las fechas de finalización (Predeterminado: 60%).",pt: "Coeficiente de ajuste do desempenho para o cálculo das datas de fim (Predefinido: 60%).",tr: "Bitiş tarihlerinin hesaplanması için performance düzeltme katsayısı (Varsayılan: %60)."})}</p>
@@ -821,7 +821,7 @@ export default function FicheTechnique({
                                     />
                                     <p className="text-[10px] text-slate-400 dark:text-dk-muted leading-tight">{tx(lang, {fr: "Statut opérationnel du modèle dans l'atelier.",ar: "الحالة التشغيلية للموديل في الورشة.",en: "Operational status of the model in the workshop.",es: "Estado operativo del modelo en el taller.",pt: "Estado operacional do modelo na oficina.",tr: "Atölyedeki modelin operasyonel durumu."})}</p>
                                     {statutSyncMsg && (
-                                        <div className="mt-1 inline-flex items-center gap-1.5 rounded-md bg-indigo-50 dark:bg-dk-accent/20 dark:bg-indigo-900/30 border border-indigo-100 dark:border-indigo-800 px-2 py-1 text-[10px] font-bold text-indigo-600 dark:text-dk-accent-text dark:text-indigo-300 animate-in fade-in slide-in-from-bottom-1">
+                                        <div className="mt-1 inline-flex items-center gap-1.5 rounded-md bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 dark:bg-indigo-900/30 border border-indigo-100 dark:border-indigo-800 px-2 py-1 text-[10px] font-bold text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text dark:text-indigo-300 animate-in fade-in slide-in-from-bottom-1">
                                             <CheckCircle2 className="w-3 h-3" /> {statutSyncMsg}
                                         </div>
                                     )}
@@ -832,7 +832,7 @@ export default function FicheTechnique({
                             {/* Market Type Rule Alerts */}
                             <div className="mt-6 pt-4 border-t border-slate-100 dark:border-dk-border">
                                 {data.typeMarche === 'Export' ? (
-                                    <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-4 flex items-start gap-3">
+                                    <div className="bg-blue-50 dark:bg-blue-900/30 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-4 flex items-start gap-3">
                                         <div className="bg-blue-500 text-white rounded-full p-1 mt-0.5">
                                             <svg className="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd"/></svg>
                                         </div>
@@ -850,7 +850,7 @@ export default function FicheTechnique({
                                         </div>
                                     </div>
                                 ) : (
-                                    <div className="bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-xl p-4 flex items-start gap-3">
+                                    <div className="bg-emerald-50 dark:bg-emerald-900/30 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-xl p-4 flex items-start gap-3">
                                         <div className="bg-emerald-500 text-white rounded-full p-1 mt-0.5">
                                             <svg className="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd"/></svg>
                                         </div>
@@ -997,7 +997,7 @@ export default function FicheTechnique({
                             rows={6}
                             value={data.observations}
                             onChange={(e) => handleChange('observations', e.target.value)}
-                            className="w-full bg-slate-50 dark:bg-dk-elevated/60 border border-slate-200 dark:border-dk-border rounded-xl p-3 text-sm text-slate-700 dark:text-dk-text outline-none focus:border-indigo-400 dark:focus:border-indigo-500 focus:bg-white dark:focus:bg-dk-surface transition-all resize-none"
+                            className="w-full bg-slate-50 dark:bg-dk-bg dark:bg-dk-elevated/60 border border-slate-200 dark:border-dk-border rounded-xl p-3 text-sm text-slate-700 dark:text-dk-text outline-none focus:border-indigo-400 dark:focus:border-indigo-500 focus:bg-white dark:focus:bg-dk-surface transition-all resize-none"
                             placeholder={tx(lang, {fr: "Remarques techniques, défauts tissu, instructions spéciales...",ar: "ملاحظات تقنية، عيوب القماش، تعليمات خاصة...",en: "Technical remarks, fabric defects, special instructions...",es: "Observaciones técnicas, defectos del tejido, instrucciones especiales...",pt: "Observações técnicas, defeitos do tecido, instruções especiais...",tr: "Teknik açıklamalar, kumaş hataları, özel talimatlar..."})}
                         />
                     </div>

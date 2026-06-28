@@ -60,7 +60,7 @@ export default function Profil() {
             <div className="min-w-0">
               <h1 className="text-[15px] font-semibold text-slate-900 dark:text-dk-text truncate">{form.name || user?.name || tx(lang, { fr: 'Mon profil', ar: 'ملفي الشخصي', en: 'My profile', es: 'Mi perfil', pt: 'Meu perfil', tr: 'Profilim' })}{form.metier && <span className="text-[12px] font-normal text-slate-400 dark:text-dk-muted"> · {form.metier}</span>}</h1>
               <div className="flex items-center gap-2 mt-1">
-                <span className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-md border border-indigo-200 dark:border-dk-border bg-indigo-50 dark:bg-dk-accent/20 text-indigo-600 dark:text-dk-accent-text">
+                <span className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-md border border-indigo-200 dark:border-dk-border bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text">
                   <Shield size={11} strokeWidth={1.75} /> {roleLabel}
                 </span>
                 {user?.email && (
@@ -80,24 +80,24 @@ export default function Profil() {
             <label className="block">
               <span className="text-[11px] font-medium text-slate-500 dark:text-dk-text-soft">{tx(lang, { fr: 'Nom complet', ar: 'الاسم الكامل', en: 'Full name', es: 'Nombre completo', pt: 'Nome completo', tr: 'Ad Soyad' })}</span>
               <input value={form.name} onChange={e => setForm(s => ({ ...s, name: e.target.value }))}
-                className="mt-1 w-full px-2.5 h-8 rounded-md border border-slate-200 dark:border-dk-border bg-slate-50/60 dark:bg-dk-bg/60 focus:bg-white dark:focus:bg-dk-surface focus:outline-none focus:ring-2 focus:ring-slate-100 dark:focus:ring-dk-border text-[13px] text-slate-700 dark:text-dk-text" />
+                className="mt-1 w-full px-2.5 h-8 rounded-md border border-slate-200 dark:border-dk-border bg-slate-50 dark:bg-dk-bg/60 dark:bg-dk-bg/60 focus:bg-white dark:focus:bg-dk-surface focus:outline-none focus:ring-2 focus:ring-slate-100 dark:focus:ring-dk-border text-[13px] text-slate-700 dark:text-dk-text" />
             </label>
             <label className="block">
               <span className="text-[11px] font-medium text-slate-500 dark:text-dk-text-soft inline-flex items-center gap-1"><Briefcase size={11} strokeWidth={1.75} /> {tx(lang, { fr: 'Métier', ar: 'المهنة', en: 'Job role', es: 'Profesión', pt: 'Profissão', tr: 'Meslek' })}</span>
               <input value={form.metier} onChange={e => setForm(s => ({ ...s, metier: e.target.value }))} placeholder={tx(lang, { fr: 'Méthode, Commercial…', ar: 'هندسة الطرق، تجاري…', en: 'Methods, Sales…', es: 'Métodos, Comercial…', pt: 'Métodos, Comercial…', tr: 'Yöntemler, Satış…' })}
-                className="mt-1 w-full px-2.5 h-8 rounded-md border border-slate-200 dark:border-dk-border bg-slate-50/60 dark:bg-dk-bg/60 focus:bg-white dark:focus:bg-dk-surface focus:outline-none focus:ring-2 focus:ring-slate-100 dark:focus:ring-dk-border text-[13px] text-slate-700 dark:text-dk-text" />
+                className="mt-1 w-full px-2.5 h-8 rounded-md border border-slate-200 dark:border-dk-border bg-slate-50 dark:bg-dk-bg/60 dark:bg-dk-bg/60 focus:bg-white dark:focus:bg-dk-surface focus:outline-none focus:ring-2 focus:ring-slate-100 dark:focus:ring-dk-border text-[13px] text-slate-700 dark:text-dk-text" />
             </label>
             <label className="block">
               <span className="text-[11px] font-medium text-slate-500 dark:text-dk-text-soft inline-flex items-center gap-1"><Phone size={11} strokeWidth={1.75} /> {tx(lang, { fr: 'Téléphone', ar: 'الهاتف', en: 'Phone', es: 'Teléfono', pt: 'Telefone', tr: 'Telefon' })}</span>
               <input value={form.phone} onChange={e => setForm(s => ({ ...s, phone: e.target.value }))} placeholder={tx(lang, { fr: '06 …', ar: '06 …', en: '06 …', es: '06 …', pt: '06 …', tr: '06 …' })}
-                className="mt-1 w-full px-2.5 h-8 rounded-md border border-slate-200 dark:border-dk-border bg-slate-50/60 dark:bg-dk-bg/60 focus:bg-white dark:focus:bg-dk-surface focus:outline-none focus:ring-2 focus:ring-slate-100 dark:focus:ring-dk-border text-[13px] text-slate-700 dark:text-dk-text" />
+                className="mt-1 w-full px-2.5 h-8 rounded-md border border-slate-200 dark:border-dk-border bg-slate-50 dark:bg-dk-bg/60 dark:bg-dk-bg/60 focus:bg-white dark:focus:bg-dk-surface focus:outline-none focus:ring-2 focus:ring-slate-100 dark:focus:ring-dk-border text-[13px] text-slate-700 dark:text-dk-text" />
             </label>
           </div>
           <div className="mt-3 flex items-center gap-3">
             <button onClick={saveProfile} disabled={saving} className="h-8 px-3 rounded-md text-white text-[13px] font-medium inline-flex items-center gap-1.5 disabled:opacity-50" style={{ background: ACCENT }}>
               <Check size={14} strokeWidth={2} /> {saving ? tx(lang, { fr: 'Enregistrement…', ar: 'جارٍ الحفظ…', en: 'Saving…', es: 'Guardando…', pt: 'Salvando…', tr: 'Kaydediliyor…' }) : tx(lang, { fr: 'Enregistrer', ar: 'حفظ', en: 'Save', es: 'Guardar', pt: 'Salvar', tr: 'Kaydet' })}
             </button>
-            {saved && <span className="text-[12px] text-emerald-600 dark:text-green-300 inline-flex items-center gap-1"><Check size={13} strokeWidth={2} /> {tx(lang, { fr: 'Enregistré', ar: 'تم الحفظ', en: 'Saved', es: 'Guardado', pt: 'Salvo', tr: 'Kaydedildi' })}</span>}
+            {saved && <span className="text-[12px] text-emerald-600 dark:text-emerald-400 dark:text-green-300 inline-flex items-center gap-1"><Check size={13} strokeWidth={2} /> {tx(lang, { fr: 'Enregistré', ar: 'تم الحفظ', en: 'Saved', es: 'Guardado', pt: 'Salvo', tr: 'Kaydedildi' })}</span>}
           </div>
         </div>
 
@@ -116,7 +116,7 @@ export default function Profil() {
               </p>
             )}
             {showAccess && (
-              <div className="border-t border-slate-100 dark:border-dk-border bg-slate-50/30 dark:bg-dk-bg">
+              <div className="border-t border-slate-100 dark:border-dk-border bg-slate-50 dark:bg-dk-bg/30 dark:bg-dk-bg">
                 <PermissionsManager />
               </div>
             )}
@@ -129,7 +129,7 @@ export default function Profil() {
             <h2 className="text-[13px] font-semibold text-slate-900 dark:text-dk-text flex items-center gap-2">
               <Lock size={14} strokeWidth={1.75} className="text-slate-400 dark:text-dk-muted" /> {tx(lang, { fr: 'Abonnement & Workspace', ar: 'الاشتراك ومساحة العمل', en: 'Subscription & Workspace', es: 'Suscripción y Workspace', pt: 'Assinatura e Workspace', tr: 'Abonelik ve Workspace' })}
             </h2>
-            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-300 border border-amber-200 dark:border-amber-700">BETA</span>
+            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 dark:text-amber-300 border border-amber-200 dark:border-amber-700">BETA</span>
           </div>
           <p className="text-[12px] text-slate-500 dark:text-dk-text-soft leading-relaxed">
             {tx(lang, { fr: 'La gestion de l’abonnement (statut, paiement, formule) sera pilotée depuis', ar: 'إدارة الاشتراك (الحالة، الدفع، الصيغة) سيتم التحكم فيها من', en: 'Subscription management (status, payment, plan) will be handled from', es: 'La gestión de la suscripción (estado, pago, plan) se gestionará desde', pt: 'A gestão da assinatura (status, pagamento, plano) será feita a partir de', tr: 'Abonelik yönetimi (durum, ödeme, plan)' })} <span className="font-medium text-slate-700 dark:text-dk-text">BERA MASTER</span>.

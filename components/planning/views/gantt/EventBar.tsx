@@ -208,7 +208,7 @@ export default function EventBar({
                             <span className={`text-[8px] font-black uppercase px-1.5 py-0.25 rounded shrink-0 ${
                                 event.subcontractStatus === 'COMPLETED' ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800' :
                                 event.subcontractStatus === 'SENT' ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 border border-blue-200 dark:border-blue-800' :
-                                'bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-dk-text-soft border border-slate-200 dark:border-dk-border'
+                                'bg-slate-50 dark:bg-dk-bg dark:bg-slate-800 text-slate-600 dark:text-dk-text-soft border border-slate-200 dark:border-dk-border'
                             }`} title={event.subcontractorName}>
                                 {event.subcontractorName ? `${tx(lang, { fr: 'Sous-trait:', ar: 'م ب:', en: 'Subcon:', es: 'Subcon:', pt: 'Subcon:', tr: 'Taş:' })} ${event.subcontractorName}` : tx(lang, { fr: 'Sous-traitance', ar: 'مقاولة من الباطن', en: 'Subcontract', es: 'Subcontratación', pt: 'Subcontratação', tr: 'Taşeron' })}
                             </span>

@@ -173,7 +173,7 @@ export default function MachineExitModal({
       aria-labelledby="machine-exit-title"
     >
       <div className="bg-white dark:bg-dk-surface rounded-t-3xl sm:rounded-3xl shadow-2xl dark:shadow-dk-lg w-full max-w-lg max-h-[92vh] overflow-hidden flex flex-col border border-slate-200 dark:border-dk-border">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 dark:border-dk-border bg-slate-50/90 shrink-0">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 dark:border-dk-border bg-slate-50 dark:bg-dk-bg/90 shrink-0">
           <div className="flex items-center gap-3 min-w-0">
             <div className="w-10 h-10 rounded-2xl bg-rose-100 text-rose-700 flex items-center justify-center shrink-0">
               <PackageMinus className="w-5 h-5" aria-hidden />
@@ -224,7 +224,7 @@ export default function MachineExitModal({
               onClick={() => setKind('EXIT')}
               className={`flex items-center justify-center gap-2 rounded-2xl border px-3 py-3 text-xs font-black uppercase tracking-tight transition-colors ${
                 kind === 'EXIT'
-                  ? 'border-rose-300 dark:border-rose-700 bg-rose-50 dark:bg-rose-950/30 text-rose-800 ring-1 ring-rose-200'
+                  ? 'border-rose-300 dark:border-rose-700 bg-rose-50 dark:bg-rose-900/30 dark:bg-rose-950/30 text-rose-800 ring-1 ring-rose-200'
                   : 'border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface text-slate-500 dark:text-dk-text-muted hover:bg-slate-50 dark:hover:bg-dk-hover'
               }`}
             >
@@ -236,7 +236,7 @@ export default function MachineExitModal({
               onClick={() => setKind('SELL')}
               className={`flex items-center justify-center gap-2 rounded-2xl border px-3 py-3 text-xs font-black uppercase tracking-tight transition-colors ${
                 kind === 'SELL'
-                  ? 'border-amber-300 bg-amber-50 dark:bg-amber-950/30 text-amber-900 ring-1 ring-amber-200'
+                  ? 'border-amber-300 bg-amber-50 dark:bg-amber-900/30 dark:bg-amber-950/30 text-amber-900 ring-1 ring-amber-200'
                   : 'border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface text-slate-500 dark:text-dk-text-muted hover:bg-slate-50 dark:hover:bg-dk-hover'
               }`}
             >
@@ -274,7 +274,7 @@ export default function MachineExitModal({
             />
           </label>
 
-          <div className="rounded-2xl border border-slate-200 dark:border-dk-border bg-slate-50/80 p-4 space-y-3">
+          <div className="rounded-2xl border border-slate-200 dark:border-dk-border bg-slate-50 dark:bg-dk-bg/80 p-4 space-y-3">
             <div className="flex items-start gap-2 text-xs text-slate-600 dark:text-dk-text-secondary font-bold leading-snug">
               <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" aria-hidden />
               <span>
@@ -347,7 +347,7 @@ export default function MachineExitModal({
                       className="absolute inset-0 z-10 h-full w-full cursor-pointer opacity-0"
                       aria-label={tx(lang,{fr:'Prendre une photo du QR (appareil photo)',ar:'التقاط صورة QR (كاميرا)',en:'Take a QR photo (camera)',es:'Tomar una foto del QR (cámara)',pt:'Tirar uma foto do QR (câmara)',tr:'QR fotoğrafı çek (kamera)'})}
                     />
-                    <Camera className="w-4 h-4 text-indigo-600 dark:text-dk-accent-text pointer-events-none shrink-0" aria-hidden />
+                    <Camera className="w-4 h-4 text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text pointer-events-none shrink-0" aria-hidden />
                     <span className="pointer-events-none">{decodeBusy ? tx(lang,{fr:'Décodage…',ar:'فك الترميز…',en:'Decoding…',es:'Decodificando…',pt:'A descodificar…',tr:'Kod çözülüyor…'}) : tx(lang,{fr:'Photo / fichier QR',ar:'صورة / ملف QR',en:'QR photo / file',es:'Foto / archivo QR',pt:'Foto / ficheiro QR',tr:'QR fotoğrafı / dosyası'})}</span>
                   </label>
                   <span className="text-[10px] font-bold text-slate-400 dark:text-dk-text-muted self-center flex items-center gap-1">
@@ -359,7 +359,7 @@ export default function MachineExitModal({
           </div>
 
           {error && (
-            <p className="text-sm font-bold text-rose-600 bg-rose-50 dark:bg-rose-950/30 border border-rose-100 rounded-xl px-3 py-2">{error}</p>
+            <p className="text-sm font-bold text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-900/30 dark:bg-rose-950/30 border border-rose-100 rounded-xl px-3 py-2">{error}</p>
           )}
         </div>
 

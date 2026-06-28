@@ -57,22 +57,22 @@ export const VIEW_DEFS: Record<string, { label: string | ViewLabelFn; icon: Reac
     vuegenerale: {
         label: (l: any) => tx(l, { fr: 'Vue Générale', ar: 'نظرة عامة', en: 'Overview', es: 'Vista General', pt: 'Visão Geral', tr: 'Genel Bakış' }),
         icon: <BarChart3 className="w-3.5 h-3.5" />,
-        activeClass: 'bg-indigo-50 border-indigo-100 text-indigo-700'
+        activeClass: 'bg-indigo-50 dark:bg-indigo-900/30 border-indigo-100 text-indigo-700'
     },
     dashboard: {
         label: (l: any) => tx(l, { fr: 'Tableau de bord', ar: 'لوحة التحكم', en: 'Dashboard', es: 'Panel', pt: 'Painel', tr: 'Gösterge Paneli' }),
         icon: <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect width="7" height="9" x="3" y="3" rx="1" /><rect width="7" height="5" x="14" y="3" rx="1" /><rect width="7" height="9" x="14" y="12" rx="1" /><rect width="7" height="5" x="3" y="16" rx="1" /></svg>,
-        activeClass: 'bg-indigo-50 border-indigo-100 text-indigo-700'
+        activeClass: 'bg-indigo-50 dark:bg-indigo-900/30 border-indigo-100 text-indigo-700'
     },
     planning: {
         label: (l: any) => tx(l, { fr: 'Planning', ar: 'التخطيط', en: 'Planning', es: 'Planificación', pt: 'Planeamento', tr: 'Planlama' }),
         icon: <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M19 4H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2Z" /><path d="M16 2v4" /><path d="M8 2v4" /><path d="M3 10h18" /></svg>,
-        activeClass: 'bg-blue-50 border-blue-100 text-blue-700'
+        activeClass: 'bg-blue-50 dark:bg-blue-900/30 border-blue-100 text-blue-700'
     },
     suivi: {
         label: (l: any) => tx(l, { fr: 'Suivi Production', ar: 'تتبع الإنتاج', en: 'Production Tracking', es: 'Seguimiento Producción', pt: 'Acompanhamento Produção', tr: 'Üretim Takibi' }),
         icon: <Activity className="w-3.5 h-3.5" />,
-        activeClass: 'bg-indigo-50 border-indigo-100 text-indigo-700'
+        activeClass: 'bg-indigo-50 dark:bg-indigo-900/30 border-indigo-100 text-indigo-700'
     },
     rendement: {
         label: (l: any) => tx(l, { fr: 'Rendement', ar: 'الإنتاجية', en: 'Yield', es: 'Rendimiento', pt: 'Rendimento', tr: 'Verim' }),
@@ -82,52 +82,52 @@ export const VIEW_DEFS: Record<string, { label: string | ViewLabelFn; icon: Reac
     ingenierie: {
         label: (l: any) => tx(l, { fr: 'Ingénierie', ar: 'الهندسة', en: 'Engineering', es: 'Ingeniería', pt: 'Engenharia', tr: 'Mühendislik' }),
         icon: <Factory className="w-3.5 h-3.5" />,
-        activeClass: 'bg-emerald-50 border-emerald-100 text-emerald-700'
+        activeClass: 'bg-emerald-50 dark:bg-emerald-900/30 border-emerald-100 text-emerald-700'
     },
     atelierProd: {
         label: (l: any) => tx(l, { fr: 'Atelier P°', ar: 'ورشة الإنتاج', en: 'Workshop Prod.', es: 'Taller Prod.', pt: 'Oficina Prod.', tr: 'Atölye Üretim' }),
         icon: <Factory className="w-3.5 h-3.5" />,
-        activeClass: 'bg-orange-50 border-orange-100 text-orange-700'
+        activeClass: 'bg-orange-50 dark:bg-orange-900/30 border-orange-100 text-orange-700'
     },
     coupe: {
         label: (l: any) => tx(l, { fr: 'La Coupe', ar: 'القص', en: 'Cutting', es: 'Corte', pt: 'Corte', tr: 'Kesim' }),
         icon: <Scissors className="w-3.5 h-3.5" />,
-        activeClass: 'bg-rose-50 border-rose-100 text-rose-700'
+        activeClass: 'bg-rose-50 dark:bg-rose-900/30 border-rose-100 text-rose-700'
     },
     sousTraitance: {
         label: (l: any) => tx(l, { fr: 'Sous-traitance', ar: 'مقاولة من الباطن', en: 'Subcontracting', es: 'Subcontratación', pt: 'Subcontratação', tr: 'Taşeron' }),
         icon: <Truck className="w-3.5 h-3.5" />,
-        activeClass: 'bg-indigo-50 border-indigo-100 text-indigo-700'
+        activeClass: 'bg-indigo-50 dark:bg-indigo-900/30 border-indigo-100 text-indigo-700'
     },
     effectifs: {
         label: (l: any) => tx(l, { fr: 'Effectifs', ar: 'التأطير', en: 'Staffing', es: 'Personal', pt: 'Efetivos', tr: 'Personel' }),
         icon: <Users className="w-3.5 h-3.5" />,
-        activeClass: 'bg-orange-50 border-orange-100 text-orange-700'
+        activeClass: 'bg-orange-50 dark:bg-orange-900/30 border-orange-100 text-orange-700'
     },
     gestionRh: {
         label: (l: any) => tx(l, { fr: 'Gestion RH', ar: 'إدارة الموارد البشرية', en: 'HR Management', es: 'Gestión RRHH', pt: 'Gestão RH', tr: 'İK Yönetimi' }),
         icon: <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>,
-        activeClass: 'bg-sky-50 border-sky-100 text-sky-700'
+        activeClass: 'bg-sky-50 dark:bg-sky-900/30 border-sky-100 text-sky-700'
     },
     magasin: {
         label: (l: any) => tx(l, { fr: 'Magasin', ar: 'المخزن', en: 'Warehouse', es: 'Almacén', pt: 'Armazém', tr: 'Depo' }),
         icon: <Package className="w-3.5 h-3.5" />,
-        activeClass: 'bg-emerald-50 border-emerald-100 text-emerald-700'
+        activeClass: 'bg-emerald-50 dark:bg-emerald-900/30 border-emerald-100 text-emerald-700'
     },
     export: {
         label: (l: any) => tx(l, { fr: 'Stock Fini', ar: 'المخزون النهائي', en: 'Finished Stock', es: 'Stock Terminado', pt: 'Stock Final', tr: 'Bitmiş Stok' }),
         icon: <PackageCheck className="w-3.5 h-3.5" />,
-        activeClass: 'bg-cyan-50 border-cyan-100 text-cyan-700'
+        activeClass: 'bg-cyan-50 dark:bg-cyan-900/30 border-cyan-100 text-cyan-700'
     },
     facturation: {
         label: (l: any) => tx(l, { fr: 'Facturation', ar: 'الفوترة', en: 'Invoicing', es: 'Facturación', pt: 'Faturação', tr: 'Faturalama' }),
         icon: <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>,
-        activeClass: 'bg-blue-50 border-blue-100 text-blue-700'
+        activeClass: 'bg-blue-50 dark:bg-blue-900/30 border-blue-100 text-blue-700'
     },
     library: {
         label: (l: any) => tx(l, { fr: 'Bibliothèque', ar: 'المكتبة', en: 'Library', es: 'Biblioteca', pt: 'Biblioteca', tr: 'Kütüphane' }),
         icon: <FolderOpen className="w-3.5 h-3.5" />,
-        activeClass: 'bg-indigo-50 border-indigo-100 text-indigo-700'
+        activeClass: 'bg-indigo-50 dark:bg-indigo-900/30 border-indigo-100 text-indigo-700'
     },
     pageMachine: {
         label: (l: any) => tx(l, { fr: 'Suivi des Machines', ar: 'متابعة الآلات', en: 'Machine Monitoring', es: 'Seguimiento de Máquinas', pt: 'Acompanhamento de Máquinas', tr: 'Makine Takibi' }),
@@ -137,7 +137,7 @@ export const VIEW_DEFS: Record<string, { label: string | ViewLabelFn; icon: Reac
     machin: {
         label: (l: any) => tx(l, { fr: 'Catalogue & Paramètres', ar: 'الكتالوج والإعدادات', en: 'Catalog & Settings', es: 'Catálogo y Ajustes', pt: 'Catálogo e Definições', tr: 'Katalog ve Ayarlar' }),
         icon: <Layers className="w-3.5 h-3.5" />,
-        activeClass: 'bg-indigo-50 border-indigo-100 text-indigo-700'
+        activeClass: 'bg-indigo-50 dark:bg-indigo-900/30 border-indigo-100 text-indigo-700'
     },
     catalogTemps: {
         label: (l: any) => tx(l, { fr: 'Catalogue de Temps', ar: 'كتالوج الأوقات', en: 'Time Catalog', es: 'Catálogo de Tiempos', pt: 'Catálogo de Tempos', tr: 'Zaman Kataloğu' }),
@@ -147,12 +147,12 @@ export const VIEW_DEFS: Record<string, { label: string | ViewLabelFn; icon: Reac
     config: {
         label: (l: any) => tx(l, { fr: 'Configuration', ar: 'الإعدادات', en: 'Configuration', es: 'Configuración', pt: 'Configuração', tr: 'Yapılandırma' }),
         icon: <SettingsIcon className="w-3.5 h-3.5" />,
-        activeClass: 'bg-amber-50 border-amber-100 text-amber-700'
+        activeClass: 'bg-amber-50 dark:bg-amber-900/30 border-amber-100 text-amber-700'
     },
     admin: {
         label: (l: any) => tx(l, { fr: 'Admin', ar: 'المشرف', en: 'Admin', es: 'Admin', pt: 'Admin', tr: 'Yönetici' }),
         icon: <Shield className="w-3.5 h-3.5" />,
-        activeClass: 'bg-purple-50 border-purple-100 text-purple-700'
+        activeClass: 'bg-purple-50 dark:bg-purple-900/30 border-purple-100 text-purple-700'
     }
 };
 
@@ -202,7 +202,7 @@ export default function AppHeader({
                         <span
                             className={`relative font-extrabold text-base sm:text-lg tracking-tight transition-all duration-200 [text-shadow:none] group-hover:[text-shadow:0_1px_3px_rgba(16,185,129,0.4),0_2px_8px_rgba(16,185,129,0.22)] ${currentView === 'dashboard' ? 'text-gray-900 dark:text-dk-text' : 'text-gray-800 dark:text-dk-text group-hover:text-emerald-700 dark:group-hover:text-emerald-400'}`}
                         >
-                            BERA<span className="text-emerald-600">METHODE</span>
+                            BERA<span className="text-emerald-600 dark:text-emerald-400">METHODE</span>
                         </span>
                     </button>
 
@@ -211,7 +211,7 @@ export default function AppHeader({
 
                     {/* AUTO-SAVE INDICATOR */}
                     {currentView === 'ingenierie' && (
-                        <div className="ml-2 sm:ml-4 flex items-center gap-1.5 px-2 py-1 bg-slate-50 dark:bg-dk-surface rounded-full border border-slate-100 dark:border-dk-border">
+                        <div className="ml-2 sm:ml-4 flex items-center gap-1.5 px-2 py-1 bg-slate-50 dark:bg-dk-bg dark:bg-dk-surface rounded-full border border-slate-100 dark:border-dk-border">
                             {saveStatus === 'saved' ? (
                                 <>
                                     <CheckCircle2 className="w-3 h-3 text-emerald-500" />
@@ -262,7 +262,7 @@ export default function AppHeader({
                                 if (visibleViews.length === 0) return null;
 
                                 const isActive = visibleViews.includes(currentView);
-                                const activeClass = VIEW_DEFS[visibleViews[0]]?.activeClass || 'bg-indigo-50 border-indigo-100 text-indigo-700';
+                                const activeClass = VIEW_DEFS[visibleViews[0]]?.activeClass || 'bg-indigo-50 dark:bg-indigo-900/30 border-indigo-100 text-indigo-700';
 
                                 return (
                                     <NavDropdown
@@ -299,7 +299,7 @@ export default function AppHeader({
                                     view="admin"
                                     currentView={currentView}
                                     onClick={handleNavigation}
-                                    activeClass="bg-purple-50 border-purple-100 text-purple-700"
+                                    activeClass="bg-purple-50 dark:bg-purple-900/30 border-purple-100 text-purple-700"
                                     icon={<Shield className="w-3.5 h-3.5" />}
                                     label={t.admin}
                                 />

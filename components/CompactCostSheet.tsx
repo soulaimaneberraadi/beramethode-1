@@ -122,8 +122,8 @@ const CompactCostSheet = forwardRef<HTMLDivElement, CompactCostSheetProps>(({
 
     const renderProductInfo = () => (
         <div className="flex gap-4 mb-4">
-            <div className="flex-1 border border-slate-200 rounded-xl p-3 bg-slate-50 relative">
-                <span className="absolute -top-2.5 left-3 bg-slate-50 px-2 text-[8px] font-black text-slate-400 uppercase tracking-widest">{_({fr:'Désignation',ar:'التسمية',en:'Designation',es:'Designación',pt:'Designação',tr:'Tanım'})}</span>
+            <div className="flex-1 border border-slate-200 rounded-xl p-3 bg-slate-50 dark:bg-dk-bg relative">
+                <span className="absolute -top-2.5 left-3 bg-slate-50 dark:bg-dk-bg px-2 text-[8px] font-black text-slate-400 uppercase tracking-widest">{_({fr:'Désignation',ar:'التسمية',en:'Designation',es:'Designación',pt:'Designação',tr:'Tanım'})}</span>
                 <p className="font-black text-slate-900 text-xs">{productName || _({fr:'Article Non Défini',ar:'صنف غير محدد',en:'Undefined Item',es:'Artículo No Definido',pt:'Artigo Não Definido',tr:'Tanımsız Ürün'})}</p>
                 <div className="flex gap-3 mt-1.5">
                     <div className="bg-white border border-slate-200 rounded-lg px-2.5 py-1 shadow-sm">
@@ -174,7 +174,7 @@ const CompactCostSheet = forwardRef<HTMLDivElement, CompactCostSheetProps>(({
                                 </td>
                             </tr>
                             {otherMats.map((m, i) => (
-                                <tr key={m.id} className={`border-b border-slate-100 ${i % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'}`}>
+                                <tr key={m.id} className={`border-b border-slate-100 ${i % 2 === 0 ? 'bg-white' : 'bg-slate-50 dark:bg-dk-bg/50'}`}>
                                     <td className="p-2 font-bold text-slate-800">{m.name || '-'}</td>
                                     <td className="p-2 text-center text-[9px] text-slate-500">{m.fournisseur || '—'}</td>
                                     <td className="p-2 text-center text-[9px]">{m.unitPrice.toFixed(2)}</td>
@@ -193,7 +193,7 @@ const CompactCostSheet = forwardRef<HTMLDivElement, CompactCostSheetProps>(({
                                 </td>
                             </tr>
                             {threadMats.map((m, i) => (
-                                <tr key={m.id} className={`border-b border-slate-100 ${i % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'}`}>
+                                <tr key={m.id} className={`border-b border-slate-100 ${i % 2 === 0 ? 'bg-white' : 'bg-slate-50 dark:bg-dk-bg/50'}`}>
                                     <td className="p-2 font-bold text-slate-800">
                                         {m.name || '-'}
                                         {m.threadColor && <span className="text-[8px] text-slate-400 ml-1">({m.threadColor})</span>}
@@ -207,14 +207,14 @@ const CompactCostSheet = forwardRef<HTMLDivElement, CompactCostSheetProps>(({
                         </>
                     )}
 
-                    <tr className="bg-blue-50 border-b border-blue-200">
+                    <tr className="bg-blue-50 dark:bg-blue-900/30 border-b border-blue-200">
                         <td className="p-2 font-bold text-blue-800" colSpan={3}>
                             <div className="flex items-center gap-1">
                                 <Scissors className="w-3 h-3" />
                                 <span>{soustraitanceActive ? `${_({fr:'Sous-traitance',ar:'المقاولة من الباطن',en:'Subcontracting',es:'Subcontratación',pt:'Subcontratação',tr:'Taşeron'})} (${stMode === 'complet' ? _({fr:'Tout compris',ar:'كل شيء شامل',en:'All inclusive',es:'Todo incluido',pt:'Tudo incluído',tr:'Her şey dahil'}) : _({fr:'Façon',ar:'صنعة',en:'Facon',es:'Maquila',pt:'Fação',tr:'İşçilik'})})` : `${_({fr:"Main d'Œuvre",ar:'الأيدي العاملة',en:'Labor',es:'Mano de Obra',pt:'Mão de Obra',tr:'İşçilik'})} (${fmt(totalTime)} × ${settings.costMinute})`}</span>
                             </div>
                         </td>
-                        <td className="p-2 text-center text-[9px] text-blue-600">
+                        <td className="p-2 text-center text-[9px] text-blue-600 dark:text-blue-400">
                             {!soustraitanceActive && (
                                 <span>{fmt(baseTime)}+{fmt(cutTime)}+{fmt(packTime)} min</span>
                             )}
@@ -254,7 +254,7 @@ const CompactCostSheet = forwardRef<HTMLDivElement, CompactCostSheetProps>(({
                 </div>
             </div>
 
-            <div className="w-44 border border-slate-200 rounded-xl p-3 bg-slate-50">
+            <div className="w-44 border border-slate-200 rounded-xl p-3 bg-slate-50 dark:bg-dk-bg">
                 <h4 className="text-[8px] font-black uppercase tracking-widest text-slate-500 mb-2 text-center">{_({fr:'Répartition PR',ar:'توزيع التكلفة',en:'Cost Breakdown',es:'Desglose de Costo',pt:'Repartição de Custo',tr:'Maliyet Dağılımı'})}</h4>
                 <div className="space-y-1.5">
                     <div>
@@ -403,7 +403,7 @@ const CompactCostSheet = forwardRef<HTMLDivElement, CompactCostSheetProps>(({
                                         </thead>
                                         <tbody>
                                             {purchasingData.map((m, i) => (
-                                                <tr key={m.id} className={`border-b border-slate-100 ${i % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'}`}>
+                                                <tr key={m.id} className={`border-b border-slate-100 ${i % 2 === 0 ? 'bg-white' : 'bg-slate-50 dark:bg-dk-bg/50'}`}>
                                                     <td className="p-1.5 font-bold text-slate-800">{m.name}</td>
                                                     <td className="p-1.5 text-center text-[9px] text-slate-500">{m.unit}</td>
                                                     <td className="p-1.5 text-center font-mono text-[9px]">{fmt(m.qty)}</td>
@@ -434,7 +434,7 @@ const CompactCostSheet = forwardRef<HTMLDivElement, CompactCostSheetProps>(({
                                             const hex = pg.colorId && pg.colorId.startsWith('#') ? pg.colorId : null;
                                             return (
                                                 <div key={pg.colorId} className="border border-slate-200 rounded-lg overflow-hidden" style={{ breakInside: 'avoid', pageBreakInside: 'avoid' }}>
-                                                    <div className="flex items-center justify-between px-2.5 py-1 bg-slate-50 border-b border-slate-200">
+                                                    <div className="flex items-center justify-between px-2.5 py-1 bg-slate-50 dark:bg-dk-bg border-b border-slate-200">
                                                         <div className="flex items-center gap-1.5">
                                                             <span className="w-2 h-2 rounded-full border border-slate-300" style={hex ? { backgroundColor: hex } : { backgroundColor: '#94a3b8' }} />
                                                             <span className="font-bold text-slate-800 text-[10px]">{pg.colorName}</span>
@@ -445,7 +445,7 @@ const CompactCostSheet = forwardRef<HTMLDivElement, CompactCostSheetProps>(({
                                                     <table className="w-full border-collapse" style={{ borderSpacing: 0 }}>
                                                         <tbody>
                                                             {pg.materials.map((m, i) => (
-                                                                <tr key={m.id} className={`border-b border-slate-100 ${i % 2 === 0 ? 'bg-white' : 'bg-slate-50/40'}`}>
+                                                                <tr key={m.id} className={`border-b border-slate-100 ${i % 2 === 0 ? 'bg-white' : 'bg-slate-50 dark:bg-dk-bg/40'}`}>
                                                                     <td className="px-2.5 py-1 font-medium text-slate-700 text-[9px]">{m.name || '-'}</td>
                                                                     <td className="px-2 py-1 text-center text-[8px] text-slate-400">{m.unit}</td>
                                                                     <td className="px-2 py-1 text-center font-mono text-[9px] text-slate-600">{fmt(m.buyQty)}</td>

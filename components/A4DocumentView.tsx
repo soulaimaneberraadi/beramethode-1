@@ -138,9 +138,9 @@ const A4DocumentView = forwardRef<HTMLDivElement, A4DocumentViewProps>(({
 
             {/* PRODUCT BLOCK - Compact */}
             {show.info && (
-            <div className="mb-4 rounded overflow-hidden border border-slate-200/60 bg-slate-50/50 flex">
+            <div className="mb-4 rounded overflow-hidden border border-slate-200/60 bg-slate-50 dark:bg-dk-bg/50 flex">
                 <div className="flex-1 p-3 flex flex-col justify-center">
-                    <span className="text-[7px] font-bold uppercase tracking-widest text-blue-600 mb-0.5">
+                    <span className="text-[7px] font-bold uppercase tracking-widest text-blue-600 dark:text-blue-400 mb-0.5">
                         {tx(lang, {fr:'Désignation', ar:'التسمية', en:'Designation', es:'Designación', pt:'Designação', tr:'Tanım'})}
                     </span>
                     <h2 className="text-sm font-black text-slate-900 tracking-tight print:text-black mb-2">
@@ -195,7 +195,7 @@ const A4DocumentView = forwardRef<HTMLDivElement, A4DocumentViewProps>(({
                                 <td className="py-0.5 text-right font-bold text-slate-900 text-[8px]">{isExport ? 0 : fmt(m.qty * m.unitPrice)}</td>
                             </tr>
                         ))}
-                        <tr className="border-b border-slate-200 bg-slate-50/50">
+                        <tr className="border-b border-slate-200 bg-slate-50 dark:bg-dk-bg/50">
                             <td className="py-1 font-bold text-slate-900" colSpan={3}>
                                 <div className="flex items-center gap-0.5">
                                     <ChevronRight className="w-2 h-2 text-slate-400" />
@@ -266,7 +266,7 @@ const A4DocumentView = forwardRef<HTMLDivElement, A4DocumentViewProps>(({
                                     <td className="py-0.5 text-right">{fmt(m.lineCost)}</td>
                                 </tr>
                             ))}
-                            <tr className="bg-slate-50 border-t border-slate-200">
+                            <tr className="bg-slate-50 dark:bg-dk-bg border-t border-slate-200">
                                 <td colSpan={2} className="py-1 text-right font-bold text-slate-500 uppercase text-[6px]">{tx(lang, {fr:'Budget:', ar:'الميزانية:', en:'Budget:', es:'Presupuesto:', pt:'Orçamento:', tr:'Bütçe:'})}</td>
                                 <td className="py-1 text-right font-black text-[9px] text-slate-900">{fmt(totalPurchasingMatCost)} {currency}</td>
                             </tr>
@@ -282,7 +282,7 @@ const A4DocumentView = forwardRef<HTMLDivElement, A4DocumentViewProps>(({
                     placeholder={tx(lang, {fr:'Notes...', ar:'ملاحظات...', en:'Notes...', es:'Notas...', pt:'Notas...', tr:'Notlar...'})}
                     value={docNotes}
                     onChange={(e) => setDocNotes(e.target.value)}
-                    className="w-full bg-slate-50 rounded p-1.5 outline-none resize-none h-8 text-[8px] text-slate-600 placeholder:text-slate-400 print:bg-white print:text-black"
+                    className="w-full bg-slate-50 dark:bg-dk-bg rounded p-1.5 outline-none resize-none h-8 text-[8px] text-slate-600 placeholder:text-slate-400 print:bg-white print:text-black"
                 />
             </div>
             )}

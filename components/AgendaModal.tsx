@@ -488,7 +488,7 @@ export default function AgendaModal({ isOpen, onClose, settings, setSettings, la
                     </div>
 
                     {/* Working Hours Banner */}
-                    <div className="flex items-center gap-3 bg-indigo-50 dark:bg-dk-accent/20 border border-indigo-100 rounded-xl px-4 py-2.5 mb-4">
+                    <div className="flex items-center gap-3 bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 border border-indigo-100 rounded-xl px-4 py-2.5 mb-4">
                         <Clock className="w-4 h-4 text-indigo-500 shrink-0" />
                         <span className="text-sm font-bold text-indigo-700 dark:text-dk-accent-text">{t.workingHours}:</span>
                         <span className="text-sm font-black text-indigo-900">{settings.workingHoursStart} → {settings.workingHoursEnd}</span>
@@ -519,7 +519,7 @@ export default function AgendaModal({ isOpen, onClose, settings, setSettings, la
                     {/* Calendar Grid */}
                     <div className="grid grid-cols-7 gap-1">
                         {days.map((day, i) => {
-                            if (!day) return <div key={i} className="h-16 rounded-xl bg-slate-50/30" />;
+                            if (!day) return <div key={i} className="h-16 rounded-xl bg-slate-50 dark:bg-dk-bg/30" />;
 
                             const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
                             const isSelected = selectedDate === dateStr;
@@ -534,15 +534,15 @@ export default function AgendaModal({ isOpen, onClose, settings, setSettings, la
                                 // National holiday = always amber, regardless of exceptions
                                 bgClass = hasException && settings.calendarExceptions?.[dateStr]?.isWorking
                                     ? 'bg-emerald-100 border-emerald-500 text-emerald-900 font-black' // Manually forced to work
-                                    : 'bg-amber-50 border-amber-400 text-amber-800 hover:bg-amber-100';
+                                    : 'bg-amber-50 dark:bg-amber-900/30 border-amber-400 text-amber-800 hover:bg-amber-100';
                             } else if (effectivelyWorking) {
                                 bgClass = hasException
                                     ? 'bg-emerald-100 border-emerald-500 text-emerald-900 shadow-md shadow-emerald-100 font-black'
-                                    : 'bg-emerald-50 border-emerald-200 text-emerald-800 hover:bg-emerald-100 hover:border-emerald-400';
+                                    : 'bg-emerald-50 dark:bg-emerald-900/30 border-emerald-200 text-emerald-800 hover:bg-emerald-100 hover:border-emerald-400';
                             } else {
                                 bgClass = hasException
                                     ? 'bg-rose-100 border-rose-500 text-rose-900 shadow-md shadow-rose-100 font-black'
-                                    : 'bg-rose-50/60 border-rose-100 text-rose-400 hover:bg-rose-50 hover:border-rose-200';
+                                    : 'bg-rose-50 dark:bg-rose-900/30/60 border-rose-100 text-rose-400 hover:bg-rose-50 hover:border-rose-200';
                             }
 
                             if (isSelected) bgClass += ' ring-2 ring-indigo-500 ring-offset-1 shadow-md scale-105 z-10';
@@ -565,7 +565,7 @@ export default function AgendaModal({ isOpen, onClose, settings, setSettings, la
                                     {isToday && <span className="absolute top-0.5 left-1/2 -translate-x-1/2 text-[7px] font-black text-amber-500">●</span>}
                                     {/* National holiday label */}
                                     {nationalHoliday && !hasException && (
-                                        <span className="text-[7px] font-bold text-amber-600 mt-0.5 px-0.5 text-center leading-tight w-full truncate">⭐ {shortHolidayName}</span>
+                                        <span className="text-[7px] font-bold text-amber-600 dark:text-amber-400 mt-0.5 px-0.5 text-center leading-tight w-full truncate">⭐ {shortHolidayName}</span>
                                     )}
                                     {/* Manual exception label */}
                                     {hasException && exception?.note && (
@@ -582,20 +582,20 @@ export default function AgendaModal({ isOpen, onClose, settings, setSettings, la
 
                     {/* Month Summary */}
                     <div className="mt-4 grid grid-cols-3 gap-2">
-                        <div className="bg-emerald-50 border border-emerald-100 rounded-xl px-3 py-2 flex flex-col items-center">
+                        <div className="bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-100 rounded-xl px-3 py-2 flex flex-col items-center">
                             <CheckCircle2 className="w-4 h-4 text-emerald-500 mb-1" />
                             <span className="text-xl font-black text-emerald-700">{workCount}</span>
-                            <span className="text-[10px] font-bold text-emerald-600 uppercase">{t.workDays}</span>
+                            <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase">{t.workDays}</span>
                         </div>
-                        <div className="bg-rose-50 border border-rose-100 rounded-xl px-3 py-2 flex flex-col items-center">
+                        <div className="bg-rose-50 dark:bg-rose-900/30 border border-rose-100 rounded-xl px-3 py-2 flex flex-col items-center">
                             <XCircle className="w-4 h-4 text-rose-500 mb-1" />
                             <span className="text-xl font-black text-rose-700">{offCount}</span>
-                            <span className="text-[10px] font-bold text-rose-600 uppercase">{t.offDays}</span>
+                            <span className="text-[10px] font-bold text-rose-600 dark:text-rose-400 uppercase">{t.offDays}</span>
                         </div>
-                        <div className="bg-amber-50 border border-amber-100 rounded-xl px-3 py-2 flex flex-col items-center">
+                        <div className="bg-amber-50 dark:bg-amber-900/30 border border-amber-100 rounded-xl px-3 py-2 flex flex-col items-center">
                             <Zap className="w-4 h-4 text-amber-500 mb-1" />
                             <span className="text-xl font-black text-amber-700">{exceptionCount}</span>
-                            <span className="text-[10px] font-bold text-amber-600 uppercase">{t.exceptions}</span>
+                            <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 uppercase">{t.exceptions}</span>
                         </div>
                     </div>
 
@@ -622,7 +622,7 @@ export default function AgendaModal({ isOpen, onClose, settings, setSettings, la
                                 <span className="block text-xs uppercase font-bold text-slate-400 dark:text-dk-muted mb-1">{t.selectedDate}</span>
                                 <span className="text-lg font-black text-indigo-700 dark:text-dk-accent-text">{selectedDate}</span>
                                 {selectedDate === todayStr && (
-                                    <span className="block text-xs text-amber-600 font-bold mt-1">● Aujourd'hui</span>
+                                    <span className="block text-xs text-amber-600 dark:text-amber-400 font-bold mt-1">● Aujourd'hui</span>
                                 )}
                             </div>
 
@@ -646,7 +646,7 @@ export default function AgendaModal({ isOpen, onClose, settings, setSettings, la
 
                             {/* Show working hours if it's a working day */}
                             {isWorking && (
-                                <div className="bg-indigo-50 dark:bg-dk-accent/20 border border-indigo-100 rounded-xl p-3 text-center">
+                                <div className="bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 border border-indigo-100 rounded-xl p-3 text-center">
                                     <Clock className="w-4 h-4 text-indigo-500 mx-auto mb-1" />
                                     <span className="text-sm font-black text-indigo-700 dark:text-dk-accent-text">{settings.workingHoursStart} → {settings.workingHoursEnd}</span>
                                     {settings.pauses && settings.pauses.length > 0 && (
@@ -674,7 +674,7 @@ export default function AgendaModal({ isOpen, onClose, settings, setSettings, la
                                     {t.save}
                                 </button>
                                 {settings.calendarExceptions?.[selectedDate] && (
-                                    <button onClick={handleRemoveException} className="w-full bg-white dark:bg-dk-surface border border-rose-200 hover:bg-rose-50 text-rose-600 font-bold py-3 rounded-xl transition-colors active:scale-95 text-sm">
+                                    <button onClick={handleRemoveException} className="w-full bg-white dark:bg-dk-surface border border-rose-200 hover:bg-rose-50 text-rose-600 dark:text-rose-400 font-bold py-3 rounded-xl transition-colors active:scale-95 text-sm">
                                         {t.reset}
                                     </button>
                                 )}

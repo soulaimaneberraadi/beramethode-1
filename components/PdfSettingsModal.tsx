@@ -263,7 +263,7 @@ const PdfSettingsModal: React.FC<PdfSettingsModalProps> = ({
                                 <button
                                     onClick={() => setPdfSettings({ ...pdfSettings, orientation: 'portrait' })}
                                     className={`relative p-2.5 rounded-lg border-2 transition-all flex flex-col items-center gap-1.5 ${pdfSettings.orientation === 'portrait'
-                                            ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400'
+                                            ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400'
                                             : darkMode
                                             ? 'border-gray-700 bg-gray-900 text-gray-400 dark:text-dk-muted hover:border-gray-600'
                                             : 'border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface text-slate-500 dark:text-dk-muted hover:border-slate-300'
@@ -280,7 +280,7 @@ const PdfSettingsModal: React.FC<PdfSettingsModalProps> = ({
                                 <button
                                     onClick={() => setPdfSettings({ ...pdfSettings, orientation: 'landscape' })}
                                     className={`relative p-2.5 rounded-lg border-2 transition-all flex flex-col items-center gap-1.5 ${pdfSettings.orientation === 'landscape'
-                                            ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400'
+                                            ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400'
                                             : darkMode
                                             ? 'border-gray-700 bg-gray-900 text-gray-400 dark:text-dk-muted hover:border-gray-600'
                                             : 'border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface text-slate-500 dark:text-dk-muted hover:border-slate-300'
@@ -352,7 +352,7 @@ const PdfSettingsModal: React.FC<PdfSettingsModalProps> = ({
                                     className={`flex-1 py-1.5 text-[10px] font-bold rounded-md flex items-center justify-center gap-1.5 transition-all ${pdfSettings.colorMode === 'color'
                                             ? darkMode
                                                 ? 'bg-gray-700 text-purple-400 shadow-sm'
-                                                : 'bg-white dark:bg-dk-surface text-purple-600 shadow-sm'
+                                                : 'bg-white dark:bg-dk-surface text-purple-600 dark:text-purple-400 shadow-sm'
                                             : darkMode
                                             ? 'text-gray-400 dark:text-dk-muted'
                                             : 'text-slate-500 dark:text-dk-muted'
@@ -381,7 +381,7 @@ const PdfSettingsModal: React.FC<PdfSettingsModalProps> = ({
                                 <label className={`block text-[10px] font-bold uppercase tracking-wider ${darkMode ? 'text-gray-500 dark:text-dk-muted' : 'text-slate-500 dark:text-dk-muted'}`}>
                                     {_({fr:'Échelle',ar:'المقياس',en:'Scale',es:'Escala',pt:'Escala',tr:'Ölçek'})}
                                 </label>
-                                <span className={`text-[10px] font-mono font-bold px-1.5 py-0.5 rounded ${darkMode ? 'bg-blue-900/30 text-blue-400' : 'bg-blue-100 text-blue-600'}`}>
+                                <span className={`text-[10px] font-mono font-bold px-1.5 py-0.5 rounded ${darkMode ? 'bg-blue-900/30 text-blue-400' : 'bg-blue-100 text-blue-600 dark:text-blue-400'}`}>
                                     {Math.round(pdfSettings.scale * 100)}%
                                 </span>
                             </div>
@@ -439,12 +439,12 @@ const PdfSettingsModal: React.FC<PdfSettingsModalProps> = ({
                             </section>
                         )}
 
-                        <section className={`p-3 rounded-lg ${darkMode ? 'bg-blue-900/20 border border-blue-800/30' : 'bg-blue-50 border border-blue-100'}`}>
+                        <section className={`p-3 rounded-lg ${darkMode ? 'bg-blue-900/20 border border-blue-800/30' : 'bg-blue-50 dark:bg-blue-900/30 border border-blue-100'}`}>
                             <div className="flex items-start gap-2">
                                 <ZoomIn className={`w-3.5 h-3.5 mt-0.5 ${darkMode ? 'text-blue-400' : 'text-blue-500'}`} />
                                 <div>
                                     <p className={`text-[10px] font-bold ${darkMode ? 'text-blue-300' : 'text-blue-700'}`}>{_({fr:'Aperçu en direct',ar:'معاينة مباشرة',en:'Live preview',es:'Vista previa en vivo',pt:'Pré-visualização ao vivo',tr:'Canlı önizleme'})}</p>
-                                    <p className={`text-[9px] mt-0.5 ${darkMode ? 'text-blue-400/70' : 'text-blue-600/70'}`}>
+                                    <p className={`text-[9px] mt-0.5 ${darkMode ? 'text-blue-400/70' : 'text-blue-600 dark:text-blue-400/70'}`}>
                                         {_({fr:"Les modifications sont appliquées instantanément à l'aperçu",ar:'يتم تطبيق التعديلات فوراً على المعاينة',en:'Changes are applied instantly to the preview',es:'Los cambios se aplican instantáneamente a la vista previa',pt:'As alterações são aplicadas instantaneamente à pré-visualização',tr:'Değişiklikler önizlemeye anında uygulanır'})}
                                     </p>
                                 </div>
@@ -488,7 +488,7 @@ const PdfSettingsModal: React.FC<PdfSettingsModalProps> = ({
                                     onClick={onExcel}
                                     className={`py-2.5 rounded-lg font-bold text-sm flex items-center justify-center gap-2 transition-all active:scale-[0.98] border ${darkMode ? 'bg-gray-800 border-gray-600 text-gray-100 hover:bg-gray-700' : 'bg-white dark:bg-dk-surface border-slate-200 dark:border-dk-border text-slate-700 dark:text-dk-text-soft hover:bg-slate-50 dark:hover:bg-dk-elevated/60'}`}
                                 >
-                                    <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
+                                    <FileSpreadsheet className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                                     <span>{_({fr:'Excel',ar:'Excel',en:'Excel',es:'Excel',pt:'Excel',tr:'Excel'})}</span>
                                 </button>
                             )}

@@ -63,7 +63,7 @@ export default function SuiviHeader({
                         value={searchText}
                         onChange={(e) => onSearch(e.target.value)}
                         placeholder={tx(lang, {fr:"Rechercher un modèle, un client…",ar:"البحث عن نموذج، عميل…",en:"Search for a model, client…",es:"Buscar modelo, cliente…",pt:"Procurar modelo, cliente…",tr:"Model, müşteri ara…"})}
-                        className="w-full h-8 pl-9 pr-3 text-[12px] text-slate-700 dark:text-dk-text-soft placeholder:text-slate-400 dark:placeholder:text-dk-muted bg-slate-50/60 hover:bg-slate-50 dark:hover:bg-dk-elevated/60 focus:bg-white border border-transparent focus:border-slate-200 focus:ring-2 focus:ring-slate-100 rounded-md outline-none transition-all"
+                        className="w-full h-8 pl-9 pr-3 text-[12px] text-slate-700 dark:text-dk-text-soft placeholder:text-slate-400 dark:placeholder:text-dk-muted bg-slate-50 dark:bg-dk-bg/60 hover:bg-slate-50 dark:hover:bg-dk-elevated/60 focus:bg-white border border-transparent focus:border-slate-200 focus:ring-2 focus:ring-slate-100 rounded-md outline-none transition-all"
                     />
                 </div>
 
@@ -72,7 +72,7 @@ export default function SuiviHeader({
                         <SlidersHorizontal className="w-3.5 h-3.5" strokeWidth={1.75} />
                         {hasActiveFilters && <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-[#2149C1]" />}
                     </IconButton>
-                    <div className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md bg-red-50 text-red-700 text-[12px] font-medium">
+                    <div className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md bg-red-50 dark:bg-red-900/30 text-red-700 text-[12px] font-medium">
                         <Activity className="w-3.5 h-3.5" strokeWidth={2} />
                         <span className="tabular-nums">{currentHourLabel}</span>
                     </div>

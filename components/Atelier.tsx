@@ -177,7 +177,7 @@ export default function Atelier({ models, planningEvents, suivis, settings, hand
                         type="date"
                         value={selectedDate}
                         onChange={e => setSelectedDate(e.target.value)}
-                        className="bg-slate-50 dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-xl px-4 py-2 text-sm font-bold text-slate-700 dark:text-dk-text outline-none focus:border-orange-500"
+                        className="bg-slate-50 dark:bg-dk-bg dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-xl px-4 py-2 text-sm font-bold text-slate-700 dark:text-dk-text outline-none focus:border-orange-500"
                     />
                 </div>
             </div>
@@ -192,7 +192,7 @@ export default function Atelier({ models, planningEvents, suivis, settings, hand
                     <button
                         key={t.id}
                         onClick={() => setTab(t.id as any)}
-                        className={`py-3 text-sm font-bold flex items-center gap-2 relative transition-colors whitespace-nowrap ${tab === t.id ? 'text-orange-600' : 'text-slate-500 dark:text-dk-text-soft hover:text-slate-800 dark:hover:text-dk-text'}`}
+                        className={`py-3 text-sm font-bold flex items-center gap-2 relative transition-colors whitespace-nowrap ${tab === t.id ? 'text-orange-600 dark:text-orange-400' : 'text-slate-500 dark:text-dk-text-soft hover:text-slate-800 dark:hover:text-dk-text'}`}
                     >
                         <t.icon className="w-4 h-4" />{t.label}
                         {tab === t.id && <div className="absolute bottom-0 inset-x-0 h-1 bg-orange-600 rounded-t-full" />}
@@ -217,8 +217,8 @@ export default function Atelier({ models, planningEvents, suivis, settings, hand
                                 </div>
                             </div>
                             <div className="bg-white dark:bg-dk-surface rounded-2xl p-5 border border-slate-200 dark:border-dk-border shadow-sm flex items-center gap-4">
-                                <div className="w-12 h-12 rounded-xl bg-indigo-50 dark:bg-dk-accent/20 dark:bg-indigo-900/30 flex items-center justify-center shrink-0">
-                                    <Package className="w-6 h-6 text-indigo-600 dark:text-dk-accent-text dark:text-indigo-400" />
+                                <div className="w-12 h-12 rounded-xl bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 dark:bg-indigo-900/30 flex items-center justify-center shrink-0">
+                                    <Package className="w-6 h-6 text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text dark:text-indigo-400" />
                                 </div>
                                 <div>
                                     <p className="text-sm font-bold text-slate-500 dark:text-dk-text-soft">{tx(lang, { fr: 'Total Pièces Prévues', ar: 'إجمالي القطع المخططة', en: 'Total Planned Pieces', es: 'Total Piezas Previstas', pt: 'Total de Peças Previstas', tr: 'Toplam Planlanan Parça' })}</p>
@@ -267,7 +267,7 @@ export default function Atelier({ models, planningEvents, suivis, settings, hand
                                                         )}
                                                     </div>
                                                     <div>
-                                                        <div className="text-[10px] bg-indigo-50 dark:bg-dk-accent/20 dark:bg-indigo-900/30 text-indigo-700 dark:text-dk-accent-text dark:text-indigo-300 font-black px-2 py-0.5 rounded uppercase inline-block mb-1">
+                                                        <div className="text-[10px] bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 dark:bg-indigo-900/30 text-indigo-700 dark:text-dk-accent-text dark:text-indigo-300 font-black px-2 py-0.5 rounded uppercase inline-block mb-1">
                                                             {settings.chainNames?.[evt.chaineId] || evt.chaineId}
                                                         </div>
                                                         <h4 className="font-black text-lg text-slate-800 dark:text-dk-text leading-tight">{mName}</h4>
@@ -287,7 +287,7 @@ export default function Atelier({ models, planningEvents, suivis, settings, hand
                                             </div>
 
                                             <div className="mt-6 pt-4 border-t border-slate-100 dark:border-dk-border flex gap-2">
-                                                <button onClick={() => { setTab('demandes'); setDemandeOF(evt.id); }} className="flex-1 bg-slate-50 dark:bg-dk-elevated/60 hover:bg-slate-100 dark:hover:bg-dk-elevated text-slate-700 dark:text-dk-text font-bold text-xs py-2 rounded-xl transition-colors border border-slate-200 dark:border-dk-border flex items-center justify-center gap-1">
+                                                <button onClick={() => { setTab('demandes'); setDemandeOF(evt.id); }} className="flex-1 bg-slate-50 dark:bg-dk-bg dark:bg-dk-elevated/60 hover:bg-slate-100 dark:hover:bg-dk-elevated text-slate-700 dark:text-dk-text font-bold text-xs py-2 rounded-xl transition-colors border border-slate-200 dark:border-dk-border flex items-center justify-center gap-1">
                                                     <Plus className="w-3.5 h-3.5" /> {tx(lang, { fr: 'Demander Matière', ar: 'طلب مادة', en: 'Request Material', es: 'Solicitar Material', pt: 'Solicitar Material', tr: 'Malzeme Talep Et' })}
                                                 </button>
                                                 <button onClick={() => { setTab('cloture'); setClotureOF(evt.id); }} className="flex-1 bg-slate-800 dark:bg-dk-accent hover:bg-slate-700 dark:hover:bg-green-600 text-white font-bold text-xs py-2 rounded-xl transition-colors flex items-center justify-center gap-1">
@@ -324,7 +324,7 @@ export default function Atelier({ models, planningEvents, suivis, settings, hand
                                         <select
                                             value={demandeOF}
                                             onChange={e => setDemandeOF(e.target.value)}
-                                            className="w-full bg-slate-50 dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-xl px-4 py-3 font-bold text-slate-700 dark:text-dk-text outline-none focus:border-indigo-500"
+                                            className="w-full bg-slate-50 dark:bg-dk-bg dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-xl px-4 py-3 font-bold text-slate-700 dark:text-dk-text outline-none focus:border-indigo-500"
                                         >
                                             <option value="">{tx(lang, { fr: "Sélectionner l'OF en cours...", ar: 'حدّد OF الجاري...', en: 'Select the current OF...', es: 'Seleccionar el OF en curso...', pt: 'Selecionar a OF em andamento...', tr: 'Devam eden OF seçin...' })}</option>
                                             {activeEvents.map(e => (
@@ -341,7 +341,7 @@ export default function Atelier({ models, planningEvents, suivis, settings, hand
                                             value={demandeArticle}
                                             onChange={e => setDemandeArticle(e.target.value)}
                                             placeholder={tx(lang, { fr: 'Ex: Fil de couture Noir 120, Zip 15cm...', ar: 'مثال: خيط حياكة أسود 120، سحاب 15 سم...', en: 'E.g.: Black sewing thread 120, Zip 15cm...', es: 'Ej: Hilo de costura Negro 120, Cremallera 15cm...', pt: 'Ex: Fio de costura Preto 120, Zíper 15cm...', tr: 'Örn: Siyah dikiş ipliği 120, Fermuar 15cm...' })}
-                                            className="w-full bg-slate-50 dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-xl px-4 py-3 font-medium text-slate-700 dark:text-dk-text outline-none focus:border-indigo-500"
+                                            className="w-full bg-slate-50 dark:bg-dk-bg dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-xl px-4 py-3 font-medium text-slate-700 dark:text-dk-text outline-none focus:border-indigo-500"
                                         />
                                     </div>
                                     <div className="grid grid-cols-2 gap-4">
@@ -353,7 +353,7 @@ export default function Atelier({ models, planningEvents, suivis, settings, hand
                                                 value={demandeQty || ''}
                                                 onChange={e => setDemandeQty(parseInt(e.target.value) || 0)}
                                                 placeholder={tx(lang, { fr: 'Ex: 50', ar: 'مثال: 50', en: 'E.g.: 50', es: 'Ej: 50', pt: 'Ex: 50', tr: 'Örn: 50' })}
-                                                className="w-full bg-slate-50 dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-xl px-4 py-3 font-black text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500"
+                                                className="w-full bg-slate-50 dark:bg-dk-bg dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-xl px-4 py-3 font-black text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500"
                                             />
                                         </div>
                                         <div>
@@ -363,7 +363,7 @@ export default function Atelier({ models, planningEvents, suivis, settings, hand
                                                 value={demandeDemandeur}
                                                 onChange={e => setDemandeDemandeur(e.target.value)}
                                                 placeholder={tx(lang, { fr: 'Nom du Chef', ar: 'اسم الرئيس', en: 'Manager Name', es: 'Nombre del Jefe', pt: 'Nome do Chefe', tr: 'Şef Adı' })}
-                                                className="w-full bg-slate-50 dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-xl px-4 py-3 font-bold text-slate-700 dark:text-dk-text outline-none focus:border-indigo-500"
+                                                className="w-full bg-slate-50 dark:bg-dk-bg dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-xl px-4 py-3 font-bold text-slate-700 dark:text-dk-text outline-none focus:border-indigo-500"
                                             />
                                         </div>
                                     </div>
@@ -373,7 +373,7 @@ export default function Atelier({ models, planningEvents, suivis, settings, hand
                                             value={demandeMotif}
                                             onChange={e => setDemandeMotif(e.target.value)}
                                             placeholder={tx(lang, { fr: 'Ex: Chutes de coupe, Quantité initiale insuffisante...', ar: 'مثال: نفايات القص، الكمية الأولية غير كافية...', en: 'E.g.: Cutting waste, Initial quantity insufficient...', es: 'Ej: Recortes de corte, Cantidad inicial insuficiente...', pt: 'Ex: Resíduos de corte, Quantidade inicial insuficiente...', tr: 'Örn: Kesim fireleri, İlk miktar yetersiz...' })}
-                                            className="w-full bg-slate-50 dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-xl px-4 py-3 font-medium text-slate-700 dark:text-dk-text outline-none focus:border-indigo-500 h-24 resize-none"
+                                            className="w-full bg-slate-50 dark:bg-dk-bg dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-xl px-4 py-3 font-medium text-slate-700 dark:text-dk-text outline-none focus:border-indigo-500 h-24 resize-none"
                                         />
                                     </div>
                                     <div className="pt-4">
@@ -412,7 +412,7 @@ export default function Atelier({ models, planningEvents, suivis, settings, hand
                                         <select
                                             value={clotureOF}
                                             onChange={e => setClotureOF(e.target.value)}
-                                            className="w-full bg-slate-50 dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-xl px-4 py-3 font-bold text-slate-700 dark:text-dk-text outline-none focus:border-rose-400 focus:ring-2 focus:ring-rose-100 dark:focus:ring-rose-900/30 transition-all"
+                                            className="w-full bg-slate-50 dark:bg-dk-bg dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-xl px-4 py-3 font-bold text-slate-700 dark:text-dk-text outline-none focus:border-rose-400 focus:ring-2 focus:ring-rose-100 dark:focus:ring-rose-900/30 transition-all"
                                         >
                                             <option value="">{tx(lang, { fr: 'Sélectionner...', ar: 'اختر...', en: 'Select...', es: 'Seleccionar...', pt: 'Selecionar...', tr: 'Seçin...' })}</option>
                                             {activeEvents.map(e => (
@@ -423,7 +423,7 @@ export default function Atelier({ models, planningEvents, suivis, settings, hand
                                         </select>
                                     </div>
 
-                                    <div className="grid grid-cols-2 gap-6 p-6 bg-slate-50 dark:bg-dk-elevated/60 rounded-2xl border border-slate-200 dark:border-dk-border">
+                                    <div className="grid grid-cols-2 gap-6 p-6 bg-slate-50 dark:bg-dk-bg dark:bg-dk-elevated/60 rounded-2xl border border-slate-200 dark:border-dk-border">
                                         <div>
                                             <label className="block text-xs font-black text-emerald-700 dark:text-emerald-300 uppercase tracking-widest mb-2">{tx(lang, { fr: 'Pièces Bonnes (1er Choix)', ar: 'القطع الجيدة (الاختيار الأول)', en: 'Good Pieces (1st Choice)', es: 'Piezas Buenas (1ª Calidad)', pt: 'Peças Boas (1ª Escolha)', tr: 'İyi Parçalar (1. Seçim)' })}</label>
                                             <input
@@ -446,7 +446,7 @@ export default function Atelier({ models, planningEvents, suivis, settings, hand
                                         </div>
                                     </div>
 
-                                    <div className="p-6 bg-indigo-50 dark:bg-dk-accent/20 dark:bg-indigo-900/20 rounded-2xl border border-indigo-100 dark:border-indigo-900/30">
+                                    <div className="p-6 bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 dark:bg-indigo-900/20 rounded-2xl border border-indigo-100 dark:border-indigo-900/30">
                                         <h3 className="font-black text-indigo-800 dark:text-indigo-300 text-sm mb-4 uppercase tracking-widest flex items-center gap-2">
                                             <Clock className="w-4 h-4" /> {tx(lang, { fr: 'Durée de Production Réelle', ar: 'مدة الإنتاج الفعلية', en: 'Actual Production Duration', es: 'Duración Real de Producción', pt: 'Duração Real de Produção', tr: 'Gerçek Üretim Süresi' })}
                                         </h3>
@@ -458,7 +458,7 @@ export default function Atelier({ models, planningEvents, suivis, settings, hand
                                                 placeholder={tx(lang, { fr: 'Ex: 48', ar: 'مثال: 48', en: 'E.g.: 48', es: 'Ej: 48', pt: 'Ex: 48', tr: 'Örn: 48' })}
                                                 className="bg-white dark:bg-dk-surface border border-indigo-200 dark:border-indigo-900/30 rounded-xl px-4 py-2 font-black text-indigo-700 dark:text-dk-accent-text dark:text-indigo-300 w-32 outline-none text-center text-xl"
                                             />
-                                            <span className="font-bold text-indigo-600 dark:text-dk-accent-text dark:text-indigo-400">{tx(lang, { fr: 'Heures de travail (par O. direct)', ar: 'ساعات العمل (يدوي مباشر)', en: 'Work hours (direct labor)', es: 'Horas de trabajo (mano de obra directa)', pt: 'Horas de trabalho (mão de obra direta)', tr: 'Çalışma saatleri (doğrudan işçilik)' })}</span>
+                                            <span className="font-bold text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text dark:text-indigo-400">{tx(lang, { fr: 'Heures de travail (par O. direct)', ar: 'ساعات العمل (يدوي مباشر)', en: 'Work hours (direct labor)', es: 'Horas de trabajo (mano de obra directa)', pt: 'Horas de trabalho (mão de obra direta)', tr: 'Çalışma saatleri (doğrudan işçilik)' })}</span>
                                         </div>
                                     </div>
 
@@ -481,14 +481,14 @@ export default function Atelier({ models, planningEvents, suivis, settings, hand
                                                     value={line.ref}
                                                     onChange={e => setRetourLines(prev => prev.map((l, i) => i === idx ? { ...l, ref: e.target.value } : l))}
                                                     placeholder={tx(lang, { fr: 'Réf Matière', ar: 'مرجع المادة', en: 'Material Ref', es: 'Ref Material', pt: 'Ref Material', tr: 'Malzeme Ref' })}
-                                                    className="flex-1 bg-slate-50 dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-lg px-3 py-2 text-sm font-bold text-slate-700 dark:text-dk-text outline-none"
+                                                    className="flex-1 bg-slate-50 dark:bg-dk-bg dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-lg px-3 py-2 text-sm font-bold text-slate-700 dark:text-dk-text outline-none"
                                                 />
                                                 <input
                                                     type="number"
                                                     value={line.qty || ''}
                                                     onChange={e => setRetourLines(prev => prev.map((l, i) => i === idx ? { ...l, qty: parseInt(e.target.value) || 0 } : l))}
                                                     placeholder={tx(lang, { fr: 'Qté', ar: 'الكمية', en: 'Qty', es: 'Cant.', pt: 'Qtd', tr: 'Adet' })}
-                                                    className="w-24 bg-slate-50 dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-lg px-3 py-2 text-sm font-black text-center text-slate-700 dark:text-dk-text outline-none"
+                                                    className="w-24 bg-slate-50 dark:bg-dk-bg dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-lg px-3 py-2 text-sm font-black text-center text-slate-700 dark:text-dk-text outline-none"
                                                 />
                                                 {retourLines.length > 1 && (
                                                     <button

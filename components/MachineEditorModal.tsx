@@ -525,7 +525,7 @@ export default function MachineEditorModal({
       <div className="bg-white dark:bg-dk-surface rounded-2xl shadow-2xl dark:shadow-dk-lg w-full max-w-lg relative overflow-hidden animate-in fade-in zoom-in-95 duration-200 border border-slate-200/70 dark:border-dk-border/70 max-h-[90vh] flex flex-col">
         <div className="bg-slate-50 dark:bg-dk-bg px-6 py-4 border-b border-slate-100 dark:border-dk-border flex items-center justify-between shrink-0">
           <h3 className="font-bold text-slate-800 dark:text-dk-text flex items-center gap-2">
-            {initialMachine ? <Edit2 className="w-4 h-4 text-emerald-600" /> : <Plus className="w-4 h-4 text-emerald-600" />}
+            {initialMachine ? <Edit2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" /> : <Plus className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />}
             {headerTitle}
           </h3>
           <button type="button" onClick={onClose} className="text-slate-400 dark:text-dk-text-muted hover:text-slate-600 p-1 hover:bg-slate-200 rounded-lg transition-colors">
@@ -534,7 +534,7 @@ export default function MachineEditorModal({
         </div>
         <div className="p-6 overflow-y-auto">
           <form onSubmit={submit} className="space-y-5">
-            <div className="rounded-xl border border-slate-100 dark:border-dk-border bg-slate-50/80 p-4 space-y-3">
+            <div className="rounded-xl border border-slate-100 dark:border-dk-border bg-slate-50 dark:bg-dk-bg/80 p-4 space-y-3">
               <p className="text-[10px] font-black text-slate-500 dark:text-dk-text-muted uppercase tracking-wider">{tx(lang, {fr:'Identification',ar:'التعريف',en:'Identification',es:'Identificación',pt:'Identificação',tr:'Kimlik'})}</p>
               <div>
                   <label className="block text-xs font-semibold text-slate-500 dark:text-dk-text-muted uppercase mb-1.5">
@@ -553,7 +553,7 @@ export default function MachineEditorModal({
                   }}
                   placeholder={tx(lang, {fr:"Poste, ligne, n° série ou plaque — visible dans le parc et l'inventaire",ar:"المنصب، الخط، الرقم التسلسلي أو اللوحة — ظاهر في المخزون",en:"Station, line, serial or plate number — visible in inventory",es:"Puesto, línea, nº serie o placa — visible en el inventario",pt:"Posto, linha, nº série ou placa — visível no inventário",tr:"İstasyon, hat, seri veya plaka numarası — envanterde görünür"})}
                   className={`w-full rounded-xl px-3 py-2.5 text-slate-700 dark:text-dk-text outline-none transition-all placeholder:text-slate-400 font-mono text-sm ${
-                    errors.name ? 'bg-rose-50 dark:bg-rose-950/30 border border-rose-300 dark:border-rose-700 focus:border-rose-500' : 'bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border focus:border-emerald-500 dark:focus:border-emerald-400'
+                    errors.name ? 'bg-rose-50 dark:bg-rose-900/30 dark:bg-rose-950/30 border border-rose-300 dark:border-rose-700 focus:border-rose-500' : 'bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border focus:border-emerald-500 dark:focus:border-emerald-400'
                   }`}
                 />
               </div>
@@ -686,7 +686,7 @@ export default function MachineEditorModal({
                       }}
                       className={`w-full rounded-xl px-3 py-2.5 text-slate-700 dark:text-dk-text outline-none transition-all ${
                         errors.classe
-                          ? 'bg-rose-50 dark:bg-rose-950/30 border border-rose-300 dark:border-rose-700 focus:border-rose-500'
+                          ? 'bg-rose-50 dark:bg-rose-900/30 dark:bg-rose-950/30 border border-rose-300 dark:border-rose-700 focus:border-rose-500'
                           : 'bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border focus:border-emerald-500 dark:focus:border-emerald-400 focus:ring-2 focus:ring-emerald-500/25 dark:focus:ring-emerald-400/25'
                       }`}
                       placeholder="301, 504, BR…"
@@ -701,7 +701,7 @@ export default function MachineEditorModal({
               </div>
             </div>
 
-            <div className="rounded-xl border border-slate-100 dark:border-dk-border bg-indigo-50 dark:bg-dk-accent/20/30 p-4 space-y-3">
+            <div className="rounded-xl border border-slate-100 dark:border-dk-border bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20/30 p-4 space-y-3">
               <p className="text-[10px] font-black text-indigo-700 dark:text-dk-accent-text uppercase tracking-wider">{tx(lang, {fr:'Achat',ar:'شراء',en:'Purchase',es:'Compra',pt:'Compra',tr:'Satın alma'})}</p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
@@ -825,7 +825,7 @@ export default function MachineEditorModal({
                         key={`${i}-${doc.name}`}
                         className="flex items-center justify-between gap-2 rounded-lg border border-slate-100 dark:border-dk-border bg-slate-50 dark:bg-dk-bg px-3 py-2"
                       >
-                        <a href={doc.dataUrl} target="_blank" rel="noreferrer" className="text-sm font-bold text-indigo-600 dark:text-dk-accent-text truncate flex-1 min-w-0">
+                        <a href={doc.dataUrl} target="_blank" rel="noreferrer" className="text-sm font-bold text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text truncate flex-1 min-w-0">
                           {doc.name}
                         </a>
                         <button
@@ -840,7 +840,7 @@ export default function MachineEditorModal({
                         <button
                           type="button"
                           onClick={() => removeManualAt(i)}
-                          className="text-xs font-bold text-rose-600 shrink-0"
+                          className="text-xs font-bold text-rose-600 dark:text-rose-400 shrink-0"
                         >
                           Retirer
                         </button>
@@ -849,11 +849,11 @@ export default function MachineEditorModal({
                   </ul>
                 </div>
               )}
-              {fileHint && <p className="text-xs font-semibold text-amber-700 bg-amber-50 dark:bg-amber-950/30 border border-amber-100 rounded-lg px-3 py-2">{fileHint}</p>}
+              {fileHint && <p className="text-xs font-semibold text-amber-700 bg-amber-50 dark:bg-amber-900/30 dark:bg-amber-950/30 border border-amber-100 rounded-lg px-3 py-2">{fileHint}</p>}
             </div>
 
             {(errors.name || errors.classe) && (
-              <p className="text-xs font-semibold text-rose-600 bg-rose-50 dark:bg-rose-950/30 border border-rose-100 rounded-lg px-3 py-2">
+              <p className="text-xs font-semibold text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-900/30 dark:bg-rose-950/30 border border-rose-100 rounded-lg px-3 py-2">
                 Remplissez la référence et la classe (code planning).
               </p>
             )}
@@ -900,7 +900,7 @@ export default function MachineEditorModal({
                   >
                     <span className="truncate font-medium">{opt}</span>
                     {linked ? (
-                      <span className="shrink-0 rounded-md bg-emerald-50 px-1.5 py-0.5 font-mono text-[10px] font-bold text-emerald-700 ring-1 ring-emerald-200/80">
+                      <span className="shrink-0 rounded-md bg-emerald-50 dark:bg-emerald-900/30 px-1.5 py-0.5 font-mono text-[10px] font-bold text-emerald-700 ring-1 ring-emerald-200/80">
                         → {linked}
                       </span>
                     ) : null}
@@ -938,7 +938,7 @@ export default function MachineEditorModal({
               );
             }}
           >
-            <Download className="h-4 w-4 text-indigo-600 dark:text-dk-accent-text" aria-hidden />
+            <Download className="h-4 w-4 text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text" aria-hidden />
             {tx(lang, {fr:'Télécharger',ar:'تحميل',en:'Download',es:'Descargar',pt:'Descarregar',tr:'İndir'})}
           </button>
           <button

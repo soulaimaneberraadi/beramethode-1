@@ -88,7 +88,7 @@ export default function GlobalLoader({
                 {/* Brand Identity Text */}
                 <div className="text-center mb-6">
                     <h1 className="select-none text-xl font-extrabold tracking-[0.15em] uppercase text-slate-900 dark:text-dk-text">
-                        {tx(lang, {fr:"BERA",ar:"BERA",en:"BERA",es:"BERA",pt:"BERA",tr:"BERA"})}<span className="text-emerald-600">{tx(lang, {fr:"METHODE",ar:"METHODE",en:"METHODE",es:"METHODE",pt:"METHODE",tr:"METHODE"})}</span>
+                        {tx(lang, {fr:"BERA",ar:"BERA",en:"BERA",es:"BERA",pt:"BERA",tr:"BERA"})}<span className="text-emerald-600 dark:text-emerald-400">{tx(lang, {fr:"METHODE",ar:"METHODE",en:"METHODE",es:"METHODE",pt:"METHODE",tr:"METHODE"})}</span>
                     </h1>
                 </div>
 
@@ -116,7 +116,7 @@ export default function GlobalLoader({
                     ) : (
                         <div 
                             key={`subText-${resolvedSubText}`}
-                            className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-50 dark:bg-dk-surface border border-slate-100 dark:border-dk-border animate-[fade-slide-up_0.4s_ease-out]"
+                            className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-50 dark:bg-dk-bg dark:bg-dk-surface border border-slate-100 dark:border-dk-border animate-[fade-slide-up_0.4s_ease-out]"
                         >
                             <div className="relative flex w-2 h-2">
                                 <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75 animate-ping"></span>

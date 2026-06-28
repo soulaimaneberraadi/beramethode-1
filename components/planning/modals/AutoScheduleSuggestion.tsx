@@ -88,7 +88,7 @@ export default function AutoScheduleSuggestion({ open, models, onClose, suggest,
 
                 {/* Suggestion */}
                 {suggestion && (
-                    <div className="rounded-lg border border-slate-200 dark:border-dk-border bg-slate-50/40 dark:bg-dk-bg p-4 space-y-3">
+                    <div className="rounded-lg border border-slate-200 dark:border-dk-border bg-slate-50 dark:bg-dk-bg/40 dark:bg-dk-bg p-4 space-y-3">
                         <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2">
                                 <Sparkles className="w-3.5 h-3.5 text-slate-600 dark:text-dk-muted" strokeWidth={1.75} />

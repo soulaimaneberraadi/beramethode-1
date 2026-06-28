@@ -24,9 +24,9 @@ const STATUS_LABEL = (lang: string): Record<string, string> => ({
   resolu: tx(lang, {fr:"Résolu",ar:"تم الحل",en:"Resolved",es:"Resuelto",pt:"Resolvido",tr:"Çözüldü"}),
 });
 const STATUS_CLS: Record<string, string> = {
-  nouveau: 'bg-red-50 text-red-600',
-  en_cours: 'bg-amber-50 text-amber-600',
-  resolu: 'bg-emerald-50 text-emerald-600',
+  nouveau: 'bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400',
+  en_cours: 'bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400',
+  resolu: 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400',
 };
 
 const fmt = (iso?: string) => {

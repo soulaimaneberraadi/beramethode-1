@@ -126,7 +126,7 @@ export default function PermissionsManager() {
     </button>
   );
 
-  const inputCls = `px-2.5 h-8 rounded-md border focus:outline-none focus:ring-2 text-[13px] ${isDark ? 'bg-dk-bg border-dk-border text-dk-text focus:bg-dk-surface focus:ring-dk-border' : 'bg-slate-50/60 border-slate-200 dark:border-dk-border text-slate-700 dark:text-dk-text-soft focus:bg-white focus:ring-slate-100'}`;
+  const inputCls = `px-2.5 h-8 rounded-md border focus:outline-none focus:ring-2 text-[13px] ${isDark ? 'bg-dk-bg border-dk-border text-dk-text focus:bg-dk-surface focus:ring-dk-border' : 'bg-slate-50 dark:bg-dk-bg/60 border-slate-200 dark:border-dk-border text-slate-700 dark:text-dk-text-soft focus:bg-white focus:ring-slate-100'}`;
 
   if (loading) return <div className={`p-8 text-[13px] ${isDark ? 'text-dk-muted' : 'text-slate-400 dark:text-dk-muted'}`}>Chargement…</div>;
 
@@ -220,7 +220,7 @@ export default function PermissionsManager() {
           <button onClick={addMember} className="h-8 px-3 rounded-md bg-slate-900 text-white text-[13px] font-medium inline-flex items-center gap-1 hover:bg-slate-800"><UserPlus size={14} strokeWidth={1.75} /> {tx(lang, {fr:"Ajouter",ar:"إضافة",en:"Add",es:"Añadir",pt:"Adicionar",tr:"Ekle"})}</button>
         </div>
         {inviteInfo && (
-          <div className={`flex items-start justify-between gap-2 text-[12px] rounded-md px-3 py-2 mb-3 ${isDark ? 'bg-dk-accent/15 text-dk-text' : 'bg-emerald-50 text-emerald-800'}`}>
+          <div className={`flex items-start justify-between gap-2 text-[12px] rounded-md px-3 py-2 mb-3 ${isDark ? 'bg-dk-accent/15 text-dk-text' : 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-800'}`}>
             <span className="font-medium break-all">{inviteInfo}</span>
             <button onClick={() => setInviteInfo(null)} className="shrink-0 opacity-60 hover:opacity-100"><X size={14} strokeWidth={1.75} /></button>
           </div>

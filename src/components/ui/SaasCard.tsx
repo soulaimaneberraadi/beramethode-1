@@ -27,7 +27,7 @@ const variantClasses: Record<CardVariant, string> = {
     'bg-white border border-slate-200 hover:border-slate-300 hover:bg-slate-50/50 cursor-pointer transition-all duration-150 dark:bg-dk-surface dark:border-dk-border dark:hover:bg-dk-elevated/60',
   highlighted:
     'bg-white border border-slate-200 ring-1 ring-slate-900/5 dark:bg-dk-surface dark:border-dk-border',
-  flat: 'bg-slate-50/60 border border-transparent dark:bg-dk-bg/60',
+  flat: 'bg-slate-50 dark:bg-dk-bg/60 border border-transparent dark:bg-dk-bg/60',
 };
 
 const sizeClasses: Record<CardSize, string> = {
@@ -85,7 +85,7 @@ export default function SaasCard({
         <div className="flex items-start justify-between gap-2 mb-3">
           <div className="flex items-center gap-2.5 min-w-0">
             {Icon && (
-              <div className="w-8 h-8 rounded-md bg-slate-50 border border-slate-100 flex items-center justify-center shrink-0 dark:bg-dk-bg dark:border-dk-border">
+              <div className="w-8 h-8 rounded-md bg-slate-50 dark:bg-dk-bg border border-slate-100 flex items-center justify-center shrink-0 dark:bg-dk-bg dark:border-dk-border">
                 <Icon className="w-4 h-4 text-slate-500 dark:text-dk-muted" strokeWidth={1.75} />
               </div>
             )}

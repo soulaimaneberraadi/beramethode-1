@@ -194,7 +194,7 @@ export default function Library({
     const activeModel = models.find(m => m.id === contextMenu?.modelId);
 
     return (
-        <div className="h-full overflow-y-auto bg-slate-50/50 dark:bg-dk-bg/50 custom-scrollbar flex flex-col">
+        <div className="h-full overflow-y-auto bg-slate-50 dark:bg-dk-bg/50 dark:bg-dk-bg/50 custom-scrollbar flex flex-col">
             <div className="p-4 pb-2 shrink-0">
                 <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-3 bg-white dark:bg-dk-surface p-3 rounded-2xl border border-slate-200 dark:border-dk-border shadow-sm dark:shadow-dk-elevated">
                     <div>
@@ -215,7 +215,7 @@ export default function Library({
                                 onClick={handleSyncPhotos}
                                 disabled={syncPhotoStatus === 'syncing'}
                                 title={tx(lang, { fr: "Resynchroniser les photos des modèles vers le cloud", ar: "إعادة مزامنة صور النماذج مع السحابة", en: "Resync model photos to the cloud", es: "Resincronizar las fotos de los modelos con la nube", pt: "Ressincronizar as fotos dos modelos com a nuvem", tr: "Model fotoğraflarını buluta yeniden senkronize et" })}
-                                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold border transition-all active:scale-95 ${syncPhotoStatus === 'done' ? 'bg-emerald-500 text-white border-emerald-500' : syncPhotoStatus === 'error' ? 'bg-red-500 text-white border-red-500' : 'bg-indigo-50 dark:bg-dk-accent/20 dark:bg-dk-elevated text-indigo-700 dark:text-dk-accent-text dark:text-dk-accent border-indigo-200 dark:border-dk-border hover:bg-indigo-100 dark:hover:bg-dk-elevated'}`}
+                                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold border transition-all active:scale-95 ${syncPhotoStatus === 'done' ? 'bg-emerald-500 text-white border-emerald-500' : syncPhotoStatus === 'error' ? 'bg-red-500 text-white border-red-500' : 'bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 dark:bg-dk-elevated text-indigo-700 dark:text-dk-accent-text dark:text-dk-accent border-indigo-200 dark:border-dk-border hover:bg-indigo-100 dark:hover:bg-dk-elevated'}`}
                             >
                                 {syncPhotoStatus === 'syncing' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : syncPhotoStatus === 'done' ? <CheckCircle2 className="w-3.5 h-3.5" /> : <UploadCloud className="w-3.5 h-3.5" />}
                                 <span className="hidden sm:inline">
@@ -256,14 +256,14 @@ export default function Library({
                         <div className="flex bg-slate-100 dark:bg-dk-elevated rounded-lg p-0.5 border border-slate-200 dark:border-dk-border">
                             <button
                                 onClick={() => setViewMode('grid')}
-                                className={`p-1.5 rounded-md transition-all ${viewMode === 'grid' ? 'bg-white dark:bg-dk-surface shadow-sm dark:shadow-dk-elevated text-indigo-600 dark:text-dk-accent-text dark:text-dk-accent' : 'text-slate-400 dark:text-dk-muted hover:text-slate-600 dark:hover:text-dk-text-soft'}`}
+                                className={`p-1.5 rounded-md transition-all ${viewMode === 'grid' ? 'bg-white dark:bg-dk-surface shadow-sm dark:shadow-dk-elevated text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text dark:text-dk-accent' : 'text-slate-400 dark:text-dk-muted hover:text-slate-600 dark:hover:text-dk-text-soft'}`}
                                 title={tx(lang, { fr: "Vue Grille", ar: "عرض الشبكة", en: "Grid View", es: "Vista de Cuadrícula", pt: "Visualização em Grade", tr: "Izgara Görünümü" })}
                             >
                                 <LayoutGrid className="w-3.5 h-3.5" />
                             </button>
                             <button
                                 onClick={() => setViewMode('list')}
-                                className={`p-1.5 rounded-md transition-all ${viewMode === 'list' ? 'bg-white dark:bg-dk-surface shadow-sm dark:shadow-dk-elevated text-indigo-600 dark:text-dk-accent-text dark:text-dk-accent' : 'text-slate-400 dark:text-dk-muted hover:text-slate-600 dark:hover:text-dk-text-soft'}`}
+                                className={`p-1.5 rounded-md transition-all ${viewMode === 'list' ? 'bg-white dark:bg-dk-surface shadow-sm dark:shadow-dk-elevated text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text dark:text-dk-accent' : 'text-slate-400 dark:text-dk-muted hover:text-slate-600 dark:hover:text-dk-text-soft'}`}
                                 title={tx(lang, { fr: "Vue Liste", ar: "عرض القائمة", en: "List View", es: "Vista de Lista", pt: "Visualização em Lista", tr: "Liste Görünümü" })}
                             >
                                 <ListIcon className="w-3.5 h-3.5" />
@@ -355,7 +355,7 @@ export default function Library({
                                                         <h3 className="font-bold text-slate-800 dark:text-dk-text text-sm truncate flex-1" title={model.meta_data.nom_modele}>
                                                             {model.meta_data.nom_modele}
                                                         </h3>
-                                                        <span className="shrink-0 text-[9px] font-black text-indigo-600 dark:text-dk-accent-text dark:text-dk-accent bg-indigo-50 dark:bg-dk-accent/20 dark:bg-dk-elevated border border-indigo-100 dark:border-dk-border px-1.5 py-0.5 rounded-md tracking-wide">
+                                                        <span className="shrink-0 text-[9px] font-black text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text dark:text-dk-accent bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 dark:bg-dk-elevated border border-indigo-100 dark:border-dk-border px-1.5 py-0.5 rounded-md tracking-wide">
                                                             {getModelAbbrev(model)}
                                                         </span>
                                                     </div>
@@ -443,7 +443,7 @@ export default function Library({
                         )}
                     </>
                 ) : (
-                    <div className="h-full flex flex-col items-center justify-center text-slate-400 dark:text-dk-muted min-h-[400px] border-2 border-dashed border-slate-200 dark:border-dk-border rounded-3xl bg-slate-50/50 dark:bg-dk-bg/50">
+                    <div className="h-full flex flex-col items-center justify-center text-slate-400 dark:text-dk-muted min-h-[400px] border-2 border-dashed border-slate-200 dark:border-dk-border rounded-3xl bg-slate-50 dark:bg-dk-bg/50 dark:bg-dk-bg/50">
                         <div className="w-16 h-16 bg-white dark:bg-dk-surface rounded-full flex items-center justify-center mb-4 shadow-sm dark:shadow-dk-elevated">
                             <FolderOpen className="w-8 h-8 text-slate-300 dark:text-dk-muted" />
                         </div>
@@ -522,7 +522,7 @@ export default function Library({
                             <button
                                 type="button"
                                 onClick={() => handleShare(activeModel)}
-                                className="w-full text-left px-4 py-2.5 text-xs font-bold text-emerald-600 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 flex items-center gap-3 transition-colors"
+                                className="w-full text-left px-4 py-2.5 text-xs font-bold text-emerald-600 dark:text-emerald-400 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 flex items-center gap-3 transition-colors"
                             >
                                 <Share2 className="w-4 h-4" /> {tx(lang, { fr: "Partager / Envoyer", ar: "مشاركة / إرسال", en: "Share / Send", es: "Compartir / Enviar", pt: "Compartilhar / Enviar", tr: "Paylaş / Gönder" })}
                             </button>
@@ -537,7 +537,7 @@ export default function Library({
                             <button
                                 type="button"
                                 onClick={() => { setDeleteConfirm({ id: activeModel.id, name: activeModel.meta_data?.nom_modele || '' }); setContextMenu(null); }}
-                                className="w-full text-left px-4 py-2.5 text-xs font-bold text-rose-600 dark:text-rose-300 hover:bg-rose-50 dark:hover:bg-rose-900/20 flex items-center gap-3 transition-colors"
+                                className="w-full text-left px-4 py-2.5 text-xs font-bold text-rose-600 dark:text-rose-400 dark:text-rose-300 hover:bg-rose-50 dark:hover:bg-rose-900/20 flex items-center gap-3 transition-colors"
                             >
                                 <Trash2 className="w-4 h-4" /> {tx(lang, { fr: "Supprimer", ar: "حذف", en: "Delete", es: "Eliminar", pt: "Excluir", tr: "Sil" })}
                             </button>
@@ -549,7 +549,7 @@ export default function Library({
             {deleteConfirm && createPortal(
                 <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/50 dark:bg-slate-950/70 backdrop-blur-sm dark:backdrop-blur-md animate-in fade-in duration-200">
                     <div className="bg-white dark:bg-dk-surface rounded-2xl shadow-2xl dark:shadow-dk-elevated w-full max-w-sm overflow-hidden p-6 text-center transform scale-100 transition-all">
-                        <div className="w-16 h-16 bg-rose-100 dark:bg-rose-900/30 rounded-full flex items-center justify-center mx-auto mb-4 text-rose-600 dark:text-rose-300">
+                        <div className="w-16 h-16 bg-rose-100 dark:bg-rose-900/30 rounded-full flex items-center justify-center mx-auto mb-4 text-rose-600 dark:text-rose-400 dark:text-rose-300">
                             <Trash2 className="w-8 h-8" />
                         </div>
                         <h3 className="text-xl font-bold text-slate-800 dark:text-dk-text mb-2">{tx(lang, { fr: "Confirmer la suppression", ar: "تأكيد الحذف", en: "Confirm Deletion", es: "Confirmar la eliminación", pt: "Confirmar exclusão", tr: "Silmeyi Onayla" })}</h3>

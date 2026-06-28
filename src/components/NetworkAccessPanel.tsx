@@ -62,7 +62,7 @@ export default function NetworkAccessPanel({ isDark }: { isDark: boolean }) {
         {status === 'offline' ? (
           <WifiOff className={`w-3.5 h-3.5 ${isDark ? 'text-red-400' : 'text-red-500'}`} />
         ) : (
-          <Wifi className={`w-3.5 h-3.5 ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`} />
+          <Wifi className={`w-3.5 h-3.5 ${isDark ? 'text-emerald-400' : 'text-emerald-600 dark:text-emerald-400'}`} />
         )}
         <span className={`text-xs font-bold uppercase tracking-wider flex-1 text-left ${
           isDark ? 'text-slate-200' : 'text-slate-700'

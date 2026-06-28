@@ -297,7 +297,7 @@ function JournalierTableBlock({
               <tr>
                 <td
                   colSpan={footerColSpan + hourKeys.length + 2}
-                  className="px-4 py-6 text-center text-xs font-bold text-slate-500 dark:text-dk-muted bg-slate-50/50"
+                  className="px-4 py-6 text-center text-xs font-bold text-slate-500 dark:text-dk-muted bg-slate-50 dark:bg-dk-bg/50"
                 >
                   {emptyText}
                 </td>
@@ -335,7 +335,7 @@ function JournalierTableBlock({
                         <td
                           key={k}
                           className={`px-0.5 py-1 text-center font-bold border-r border-slate-100 dark:border-dk-border tabular-nums align-middle ${
-                            conflict ? 'bg-amber-50 text-amber-900 ring-1 ring-inset ring-amber-300' : 'text-slate-800 dark:text-dk-text'
+                            conflict ? 'bg-amber-50 dark:bg-amber-900/30 text-amber-900 ring-1 ring-inset ring-amber-300' : 'text-slate-800 dark:text-dk-text'
                           }`}
                           title={cellTitle}
                         >
@@ -345,27 +345,27 @@ function JournalierTableBlock({
                                 type="number"
                                 min={0}
                                 step={1}
-                                className={`${inputCls} ${conflict ? 'border-amber-300 bg-amber-50/80' : ''}`}
+                                className={`${inputCls} ${conflict ? 'border-amber-300 bg-amber-50 dark:bg-amber-900/30/80' : ''}`}
                                 value={show ? String(v) : ''}
                                 onChange={e => onUpdateHourly(s.id, k, e.target.value)}
                                 placeholder="—"
                                 aria-label={`${tx(lang, {fr:'Pièces', ar:'قطع', en:'Pieces', es:'Piezas', pt:'Peças', tr:'Parçalar'})} ${k} ${formatDateDdMmYyyy(s.date)}`}
                               />
-                              {conflict ? <AlertTriangle className="w-3 h-3 shrink-0 text-amber-600" aria-hidden /> : null}
+                              {conflict ? <AlertTriangle className="w-3 h-3 shrink-0 text-amber-600 dark:text-amber-400" aria-hidden /> : null}
                             </span>
                           ) : (
                             <span className="inline-flex items-center justify-center gap-0.5">
                               {show ? v : '—'}
-                              {conflict ? <AlertTriangle className="w-3 h-3 shrink-0 text-amber-600" aria-hidden /> : null}
+                              {conflict ? <AlertTriangle className="w-3 h-3 shrink-0 text-amber-600 dark:text-amber-400" aria-hidden /> : null}
                             </span>
                           )}
                         </td>
                       );
                     })}
-                    <td className="px-2 py-1.5 text-center font-black text-emerald-800 bg-emerald-50/50 border-r border-slate-100 dark:border-dk-border tabular-nums">
+                    <td className="px-2 py-1.5 text-center font-black text-emerald-800 bg-emerald-50 dark:bg-emerald-900/30/50 border-r border-slate-100 dark:border-dk-border tabular-nums">
                       {p}
                     </td>
-                    <td className="px-2 py-1.5 text-center font-black text-amber-800 bg-amber-50/40 tabular-nums">{c}</td>
+                    <td className="px-2 py-1.5 text-center font-black text-amber-800 bg-amber-50 dark:bg-amber-900/30/40 tabular-nums">{c}</td>
                   </tr>
                 );
               })
@@ -506,7 +506,7 @@ export default function ModelOfJournalierSummary({
 
   return (
     <div className="rounded-2xl border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface shadow-sm overflow-hidden">
-      <div className="px-4 py-3 border-b border-slate-100 dark:border-dk-border bg-slate-50/80">
+      <div className="px-4 py-3 border-b border-slate-100 dark:border-dk-border bg-slate-50 dark:bg-dk-bg/80">
         <h3 className="text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-dk-muted">{tx(lang, {fr:'Journalier — vue liée', ar:'يومي — عرض مرتبط', en:'Daily — linked view', es:'Diario — vista vinculada', pt:'Diário — vista vinculada', tr:'Günlük — bağlı görünüm'})}</h3>
         <p className="text-xs font-bold text-slate-800 dark:text-dk-text mt-0.5">
           {modelLabel}

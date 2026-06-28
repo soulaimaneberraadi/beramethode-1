@@ -391,9 +391,9 @@ export default function CatalogueTemps({ models, onOpenWorker }: CatalogueTempsP
     const unitSuffix = unit === 'sec' ? 's' : 'min';
 
     const reliability = (count: number) =>
-        count >= 3 ? { label: tx(lang, { fr: 'Fiable', ar: 'موثوق', en: 'Reliable', es: 'Confiable', pt: 'Confiável', tr: 'Güvenilir' }), cls: 'text-emerald-600 bg-emerald-50 ring-emerald-100', dot: 'bg-emerald-500' }
-        : count === 2 ? { label: tx(lang, { fr: 'Moyen', ar: 'متوسط', en: 'Medium', es: 'Medio', pt: 'Médio', tr: 'Orta' }), cls: 'text-blue-600 bg-blue-50 ring-blue-100', dot: 'bg-blue-500' }
-        : { label: tx(lang, { fr: '1 mesure', ar: 'قياس واحد', en: '1 measurement', es: '1 medición', pt: '1 medição', tr: '1 ölçüm' }), cls: 'text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/30 ring-amber-100', dot: 'bg-amber-500' };
+        count >= 3 ? { label: tx(lang, { fr: 'Fiable', ar: 'موثوق', en: 'Reliable', es: 'Confiable', pt: 'Confiável', tr: 'Güvenilir' }), cls: 'text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/30 ring-emerald-100', dot: 'bg-emerald-500' }
+        : count === 2 ? { label: tx(lang, { fr: 'Moyen', ar: 'متوسط', en: 'Medium', es: 'Medio', pt: 'Médio', tr: 'Orta' }), cls: 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 ring-blue-100', dot: 'bg-blue-500' }
+        : { label: tx(lang, { fr: '1 mesure', ar: 'قياس واحد', en: '1 measurement', es: '1 medición', pt: '1 medição', tr: '1 ölçüm' }), cls: 'text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30 dark:bg-amber-950/30 ring-amber-100', dot: 'bg-amber-500' };
 
     const totalObs = measures.length;
     const hasActiveFilters = !!(machineFilter || matiereFilter || categoryFilter || clientFilter || operatorFilter || sectionFilter);
@@ -480,7 +480,7 @@ export default function CatalogueTemps({ models, onOpenWorker }: CatalogueTempsP
 
                     {hasActiveFilters && (
                         <button type="button" onClick={resetFilters}
-                            className="shrink-0 inline-flex items-center gap-1 h-8 px-2.5 rounded-lg text-[11px] font-medium text-rose-600 bg-rose-50/70 dark:bg-rose-950/30 hover:bg-rose-100 transition-colors">
+                            className="shrink-0 inline-flex items-center gap-1 h-8 px-2.5 rounded-lg text-[11px] font-medium text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-900/30/70 dark:bg-rose-950/30 hover:bg-rose-100 transition-colors">
                             <X className="w-3 h-3" /> {tx(lang, { fr: "Réinitialiser", ar: "إعادة تعيين", en: "Reset", es: "Restablecer", pt: "Redefinir", tr: "Sıfırla" })}
                         </button>
                     )}
@@ -637,7 +637,7 @@ function DetailPanel({ entry, fmt, unitSuffix, reliability, onClose, onOpenWorke
                                     pt: `Ver o perfil de ${c} em Gestão de RH`,
                                     tr: `${c} profilini İK Yönetiminde görüntüle`,
                                 })}
-                                className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-sky-50 text-sky-700 hover:bg-sky-100 ring-1 ring-sky-100 text-[11px] font-medium transition-colors">
+                                className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-sky-50 dark:bg-sky-900/30 text-sky-700 hover:bg-sky-100 ring-1 ring-sky-100 text-[11px] font-medium transition-colors">
                                 <User className="w-2.5 h-2.5" />{c}<ArrowUpRight className="w-2.5 h-2.5 opacity-60" />
                             </button>
                         ) : <Tag key={c} icon={User}>{c}</Tag>)}
@@ -654,7 +654,7 @@ function DetailPanel({ entry, fmt, unitSuffix, reliability, onClose, onOpenWorke
                         const pct = entry.max > 0 ? (s.timeMin / entry.max) * 100 : 0;
                         return (
                             <div key={`${s.modelId}-${i}`} className="relative rounded-lg bg-slate-50 dark:bg-dk-bg border border-slate-100 dark:border-dk-border px-2.5 py-1.5 overflow-hidden">
-                                <div className="absolute inset-y-0 left-0 bg-indigo-50 dark:bg-dk-accent/20/70" style={{ width: `${pct}%` }} />
+                                <div className="absolute inset-y-0 left-0 bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20/70" style={{ width: `${pct}%` }} />
                                 <div className="relative flex items-center justify-between gap-2">
                                     <div className="min-w-0">
                                         <p className="text-[12px] font-medium text-slate-800 dark:text-dk-text truncate">
@@ -665,7 +665,7 @@ function DetailPanel({ entry, fmt, unitSuffix, reliability, onClose, onOpenWorke
                                             <span className="truncate">{s.matiere}</span>
                                             {s.operator && (onOpenWorker ? (
                                                 <button type="button" onClick={(e) => { e.stopPropagation(); onOpenWorker(s.operator!); }}
-                                                    className="inline-flex items-center gap-0.5 text-sky-600 hover:underline font-medium">
+                                                    className="inline-flex items-center gap-0.5 text-sky-600 dark:text-sky-400 hover:underline font-medium">
                                                     <User className="w-2.5 h-2.5" />{s.operator}
                                                 </button>
                                             ) : <span className="inline-flex items-center gap-0.5"><User className="w-2.5 h-2.5" />{s.operator}</span>)}
@@ -803,14 +803,14 @@ function FilterSelect({
                     style={{ position: 'fixed', top: coords.top, left: coords.left, width: coords.width }}
                     className="z-[300] max-h-[60vh] overflow-auto rounded-xl bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border shadow-[0_16px_48px_-12px_rgba(15,23,42,0.45)] p-1 animate-[catfade_120ms_ease-out]">
                     <button type="button" onClick={() => { onChange(null); setOpen(false); }}
-                        className={`w-full flex items-center justify-between gap-2 px-2.5 py-2 rounded-lg text-[12px] transition-colors ${!value ? 'bg-indigo-50 dark:bg-dk-accent/20 text-indigo-700 dark:text-dk-accent-text font-semibold' : 'text-slate-600 dark:text-dk-text-secondary hover:bg-slate-100 dark:hover:bg-dk-hover'}`}>
+                        className={`w-full flex items-center justify-between gap-2 px-2.5 py-2 rounded-lg text-[12px] transition-colors ${!value ? 'bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 text-indigo-700 dark:text-dk-accent-text font-semibold' : 'text-slate-600 dark:text-dk-text-secondary hover:bg-slate-100 dark:hover:bg-dk-hover'}`}>
                         <span>{allLabel}</span>{!value && <Check className="w-3.5 h-3.5" />}
                     </button>
                     {options.map(o => {
                         const active = value === o.name;
                         return (
                             <button key={o.name} type="button" onClick={() => { onChange(active ? null : o.name); setOpen(false); }}
-                                className={`w-full flex items-center justify-between gap-2 px-2.5 py-2 rounded-lg text-[12px] transition-colors ${active ? 'bg-indigo-50 dark:bg-dk-accent/20 text-indigo-700 dark:text-dk-accent-text font-semibold' : 'text-slate-700 dark:text-dk-text hover:bg-slate-100 dark:hover:bg-dk-hover'}`}>
+                                className={`w-full flex items-center justify-between gap-2 px-2.5 py-2 rounded-lg text-[12px] transition-colors ${active ? 'bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 text-indigo-700 dark:text-dk-accent-text font-semibold' : 'text-slate-700 dark:text-dk-text hover:bg-slate-100 dark:hover:bg-dk-hover'}`}>
                                 <span className="truncate text-left">{display ? display(o.name) : o.name}</span>
                                 <span className="shrink-0 inline-flex items-center gap-1.5">
                                     {o.n > 0 && <span className="text-[10px] text-slate-400 dark:text-dk-text-muted tabular-nums">{o.n}</span>}

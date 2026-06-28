@@ -87,18 +87,18 @@ interface BalancingProps {
 
 // --- GROUP COLOR PALETTE (Matched with Gamme - High Contrast Alternating) ---
 const GROUP_COLORS = [
-  { bg: 'bg-indigo-50 dark:bg-dk-accent/20', border: 'border-indigo-500', text: 'text-indigo-700 dark:text-dk-accent-text' }, // Cool
-  { bg: 'bg-orange-50', border: 'border-orange-500', text: 'text-orange-700' }, // Warm
-  { bg: 'bg-emerald-50', border: 'border-emerald-500', text: 'text-emerald-700' }, // Cool
-  { bg: 'bg-rose-50', border: 'border-rose-500', text: 'text-rose-700' },       // Warm
-  { bg: 'bg-cyan-50', border: 'border-cyan-500', text: 'text-cyan-700' },       // Cool
-  { bg: 'bg-amber-50', border: 'border-amber-500', text: 'text-amber-700' },    // Warm
+  { bg: 'bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20', border: 'border-indigo-500', text: 'text-indigo-700 dark:text-dk-accent-text' }, // Cool
+  { bg: 'bg-orange-50 dark:bg-orange-900/30', border: 'border-orange-500', text: 'text-orange-700' }, // Warm
+  { bg: 'bg-emerald-50 dark:bg-emerald-900/30', border: 'border-emerald-500', text: 'text-emerald-700' }, // Cool
+  { bg: 'bg-rose-50 dark:bg-rose-900/30', border: 'border-rose-500', text: 'text-rose-700' },       // Warm
+  { bg: 'bg-cyan-50 dark:bg-cyan-900/30', border: 'border-cyan-500', text: 'text-cyan-700' },       // Cool
+  { bg: 'bg-amber-50 dark:bg-amber-900/30', border: 'border-amber-500', text: 'text-amber-700' },    // Warm
   { bg: 'bg-violet-50', border: 'border-violet-500', text: 'text-violet-700' }, // Cool
-  { bg: 'bg-lime-50', border: 'border-lime-500', text: 'text-lime-700' },       // Warm
+  { bg: 'bg-lime-50 dark:bg-lime-900/30', border: 'border-lime-500', text: 'text-lime-700' },       // Warm
   { bg: 'bg-fuchsia-50', border: 'border-fuchsia-500', text: 'text-fuchsia-700' }, // Cool
-  { bg: 'bg-teal-50', border: 'border-teal-500', text: 'text-teal-700' },       // Warm/Cool
-  { bg: 'bg-red-50', border: 'border-red-500', text: 'text-red-700' },          // Warm
-  { bg: 'bg-sky-50', border: 'border-sky-500', text: 'text-sky-700' },          // Cool
+  { bg: 'bg-teal-50 dark:bg-teal-900/30', border: 'border-teal-500', text: 'text-teal-700' },       // Warm/Cool
+  { bg: 'bg-red-50 dark:bg-red-900/30', border: 'border-red-500', text: 'text-red-700' },          // Warm
+  { bg: 'bg-sky-50 dark:bg-sky-900/30', border: 'border-sky-500', text: 'text-sky-700' },          // Cool
 ];
 
 const getGroupStyle = (groupId: string) => {
@@ -113,18 +113,18 @@ const getGroupStyle = (groupId: string) => {
 
 // --- COLOR PALETTE FOR POSTES (Matched with Gamme Sequence) ---
 const POSTE_COLORS = [
-  { name: 'indigo',  bg: 'bg-indigo-50 dark:bg-dk-accent/20',  border: 'border-indigo-200',  text: 'text-indigo-700 dark:text-dk-accent-text',  badge: 'bg-indigo-100',  fill: '#6366f1', badgeText: 'text-indigo-800' },
-  { name: 'orange',  bg: 'bg-orange-50',  border: 'border-orange-200',  text: 'text-orange-700',  badge: 'bg-orange-100',  fill: '#f97316', badgeText: 'text-orange-800' },
-  { name: 'emerald', bg: 'bg-emerald-50', border: 'border-emerald-200', text: 'text-emerald-700', badge: 'bg-emerald-100', fill: '#10b981', badgeText: 'text-emerald-800' },
-  { name: 'rose',    bg: 'bg-rose-50',    border: 'border-rose-200',    text: 'text-rose-700',    badge: 'bg-rose-100',    fill: '#f43f5e', badgeText: 'text-rose-800' },
-  { name: 'cyan',    bg: 'bg-cyan-50',    border: 'border-cyan-200',    text: 'text-cyan-700',    badge: 'bg-cyan-100',    fill: '#06b6d4', badgeText: 'text-cyan-800' },
-  { name: 'amber',   bg: 'bg-amber-50',   border: 'border-amber-200',   text: 'text-amber-700',   badge: 'bg-amber-100',   fill: '#f59e0b', badgeText: 'text-amber-800' },
+  { name: 'indigo',  bg: 'bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20',  border: 'border-indigo-200',  text: 'text-indigo-700 dark:text-dk-accent-text',  badge: 'bg-indigo-100',  fill: '#6366f1', badgeText: 'text-indigo-800' },
+  { name: 'orange',  bg: 'bg-orange-50 dark:bg-orange-900/30',  border: 'border-orange-200',  text: 'text-orange-700',  badge: 'bg-orange-100',  fill: '#f97316', badgeText: 'text-orange-800' },
+  { name: 'emerald', bg: 'bg-emerald-50 dark:bg-emerald-900/30', border: 'border-emerald-200', text: 'text-emerald-700', badge: 'bg-emerald-100', fill: '#10b981', badgeText: 'text-emerald-800' },
+  { name: 'rose',    bg: 'bg-rose-50 dark:bg-rose-900/30',    border: 'border-rose-200',    text: 'text-rose-700',    badge: 'bg-rose-100',    fill: '#f43f5e', badgeText: 'text-rose-800' },
+  { name: 'cyan',    bg: 'bg-cyan-50 dark:bg-cyan-900/30',    border: 'border-cyan-200',    text: 'text-cyan-700',    badge: 'bg-cyan-100',    fill: '#06b6d4', badgeText: 'text-cyan-800' },
+  { name: 'amber',   bg: 'bg-amber-50 dark:bg-amber-900/30',   border: 'border-amber-200',   text: 'text-amber-700',   badge: 'bg-amber-100',   fill: '#f59e0b', badgeText: 'text-amber-800' },
   { name: 'violet',  bg: 'bg-violet-50',  border: 'border-violet-200',  text: 'text-violet-700',  badge: 'bg-violet-100',  fill: '#8b5cf6', badgeText: 'text-violet-800' },
-  { name: 'lime',    bg: 'bg-lime-50',    border: 'border-lime-200',    text: 'text-lime-700',    badge: 'bg-lime-100',    fill: '#84cc16', badgeText: 'text-lime-800' },
+  { name: 'lime',    bg: 'bg-lime-50 dark:bg-lime-900/30',    border: 'border-lime-200',    text: 'text-lime-700',    badge: 'bg-lime-100',    fill: '#84cc16', badgeText: 'text-lime-800' },
   { name: 'fuchsia', bg: 'bg-fuchsia-50', border: 'border-fuchsia-200', text: 'text-fuchsia-700', badge: 'bg-fuchsia-100', fill: '#d946ef', badgeText: 'text-fuchsia-800' },
-  { name: 'teal',    bg: 'bg-teal-50',    border: 'border-teal-200',    text: 'text-teal-700',    badge: 'bg-teal-100',    fill: '#14b8a6', badgeText: 'text-teal-800' },
-  { name: 'red',     bg: 'bg-red-50',     border: 'border-red-200',     text: 'text-red-700',     badge: 'bg-red-100',     fill: '#ef4444', badgeText: 'text-red-800' },
-  { name: 'sky',     bg: 'bg-sky-50',     border: 'border-sky-200',     text: 'text-sky-700',     badge: 'bg-sky-100',     fill: '#0ea5e9', badgeText: 'text-sky-800' },
+  { name: 'teal',    bg: 'bg-teal-50 dark:bg-teal-900/30',    border: 'border-teal-200',    text: 'text-teal-700',    badge: 'bg-teal-100',    fill: '#14b8a6', badgeText: 'text-teal-800' },
+  { name: 'red',     bg: 'bg-red-50 dark:bg-red-900/30',     border: 'border-red-200',     text: 'text-red-700',     badge: 'bg-red-100',     fill: '#ef4444', badgeText: 'text-red-800' },
+  { name: 'sky',     bg: 'bg-sky-50 dark:bg-sky-900/30',     border: 'border-sky-200',     text: 'text-sky-700',     badge: 'bg-sky-100',     fill: '#0ea5e9', badgeText: 'text-sky-800' },
 ];
 
 const NEUTRAL_COLOR = { 
@@ -140,7 +140,7 @@ const NEUTRAL_COLOR = {
 const getStatusColor = (saturation: number, tolerance = 115) => {
     if (saturation > tolerance) return { 
         name: 'overload', 
-        bg: 'bg-rose-50', 
+        bg: 'bg-rose-50 dark:bg-rose-900/30', 
         border: 'border-rose-200', 
         text: 'text-rose-700', 
         badge: 'bg-rose-100',
@@ -149,7 +149,7 @@ const getStatusColor = (saturation: number, tolerance = 115) => {
     };
     if (saturation < 75 && saturation > 0) return { 
         name: 'underload', 
-        bg: 'bg-amber-50', 
+        bg: 'bg-amber-50 dark:bg-amber-900/30', 
         border: 'border-amber-200', 
         text: 'text-amber-700', 
         badge: 'bg-amber-100',
@@ -161,7 +161,7 @@ const getStatusColor = (saturation: number, tolerance = 115) => {
         bg: 'bg-white dark:bg-dk-surface',
         border: 'border-emerald-200', 
         text: 'text-emerald-700', 
-        badge: 'bg-emerald-50',
+        badge: 'bg-emerald-50 dark:bg-emerald-900/30',
         fill: '#10b981',
         badgeText: 'text-emerald-800'
     };
@@ -1274,19 +1274,19 @@ export default function Balancing({
             </div>
 
             {/* BF / MIN TOTALES */}
-            <div className="flex items-center gap-2 px-2 py-1 sm:px-3 sm:py-1.5 bg-emerald-50/50 rounded-lg border border-emerald-100 shrink-0">
+            <div className="flex items-center gap-2 px-2 py-1 sm:px-3 sm:py-1.5 bg-emerald-50 dark:bg-emerald-900/30/50 rounded-lg border border-emerald-100 shrink-0">
                 <div className="flex flex-col items-center border-r border-emerald-100 pr-3 mr-3">
-                    <span className="text-[9px] font-bold text-emerald-600 uppercase flex items-center gap-1"><Zap className="w-3 h-3" /> BF (s)</span>
+                    <span className="text-[9px] font-bold text-emerald-600 dark:text-emerald-400 uppercase flex items-center gap-1"><Zap className="w-3 h-3" /> BF (s)</span>
                     <span className="font-black text-emerald-700 text-sm">{(bf * 60).toFixed(1)}</span>
                 </div>
                 <div className="flex flex-col items-center">
-                    <span className="text-[9px] font-bold text-emerald-600 uppercase">{tx(lang,{fr:'Min Tot.',ar:'إجمالي الدقائق',en:'Tot Min',es:'Min Tot',pt:'Min Total',tr:'Top Dak'})}</span>
+                    <span className="text-[9px] font-bold text-emerald-600 dark:text-emerald-400 uppercase">{tx(lang,{fr:'Min Tot.',ar:'إجمالي الدقائق',en:'Tot Min',es:'Min Tot',pt:'Min Total',tr:'Top Dak'})}</span>
                     <span className="font-black text-emerald-700 text-sm">{presenceTime}</span>
                 </div>
             </div>
 
             {/* P/H 100% */}
-            <div className="flex flex-col items-center px-3 py-1.5 bg-orange-50/50 rounded-lg border border-orange-100 shrink-0">
+            <div className="flex flex-col items-center px-3 py-1.5 bg-orange-50 dark:bg-orange-900/30/50 rounded-lg border border-orange-100 shrink-0">
                 <span className="text-[9px] font-bold text-orange-400 uppercase">{tx(lang,{fr:'P/H (100%)',ar:'ق/س (100%)',en:'P/H (100%)',es:'P/H (100%)',pt:'P/H (100%)',tr:'A/S (100%)'})}</span>
                 <span className="font-black text-orange-500 text-sm leading-none mt-1">
                     {tempsArticle > 0 ? Math.round((presenceTime * numWorkers) / tempsArticle / (presenceTime / 60)) : 0}
@@ -1294,7 +1294,7 @@ export default function Balancing({
             </div>
 
             {/* TARGETS */}
-            <div className="flex items-center gap-3 px-3 py-1.5 bg-slate-50/50 rounded-lg border border-slate-100 dark:border-dk-border shrink-0">
+            <div className="flex items-center gap-3 px-3 py-1.5 bg-slate-50 dark:bg-dk-bg/50 rounded-lg border border-slate-100 dark:border-dk-border shrink-0">
                 <div className="flex flex-col items-center border-r border-slate-200 dark:border-dk-border pr-3 mr-1">
                     <span className="text-[9px] font-bold text-slate-400 dark:text-dk-muted uppercase">{tx(lang,{fr:'P/J',ar:'ق/ي',en:'P/D',es:'P/D',pt:'P/D',tr:'A/G'})}</span>
                     <span className="font-black text-slate-700 dark:text-dk-text-soft text-sm leading-none mt-1">
@@ -1310,7 +1310,7 @@ export default function Balancing({
             </div>
 
             {/* RENDU */}
-            <div className="flex flex-col items-center px-2 py-1 sm:px-3 sm:py-1.5 bg-indigo-50 dark:bg-dk-accent/20/50 rounded-lg border border-indigo-100 shrink-0">
+            <div className="flex flex-col items-center px-2 py-1 sm:px-3 sm:py-1.5 bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20/50 rounded-lg border border-indigo-100 shrink-0">
                 <span className="text-[9px] font-bold text-indigo-400 uppercase">{tx(lang,{fr:'% Rendu',ar:'% الإنتاجية',en:'% Yield',es:'% Rendimiento',pt:'% Rendimento',tr:'% Verim'})}</span>
                 <div className="flex items-baseline gap-0.5">
                     <input 
@@ -1318,14 +1318,14 @@ export default function Balancing({
                         min="1" max="100" 
                         value={efficiency} 
                         onChange={(e) => setEfficiency(Math.max(1, Math.min(100, Number(e.target.value))))} 
-                        className="w-8 text-center bg-transparent font-black text-indigo-600 dark:text-dk-accent-text outline-none text-sm border-b border-indigo-200 p-0" 
+                        className="w-8 text-center bg-transparent font-black text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text outline-none text-sm border-b border-indigo-200 p-0" 
                     />
                     <span className="text-[10px] font-bold text-indigo-400">%</span>
                 </div>
             </div>
 
             {/* TOLÉRANCE SATURATION */}
-            <div className="flex flex-col items-center px-2 py-1 sm:px-3 sm:py-1.5 bg-rose-50/50 rounded-lg border border-rose-100 shrink-0">
+            <div className="flex flex-col items-center px-2 py-1 sm:px-3 sm:py-1.5 bg-rose-50 dark:bg-rose-900/30/50 rounded-lg border border-rose-100 shrink-0">
                 <span className="text-[9px] font-bold text-rose-400 uppercase">{tx(lang,{fr:'Tolérance',ar:'التسامح',en:'Tolerance',es:'Tolerancia',pt:'Tolerância',tr:'Tolerans'})}</span>
                 <div className="flex items-baseline gap-0.5">
                     <input 
@@ -1346,7 +1346,7 @@ export default function Balancing({
                                 toleranceSaturation: Math.max(50, Math.min(200, prev.toleranceSaturation || 115)) 
                             }));
                         }}
-                        className="w-10 text-center bg-transparent font-black text-rose-600 outline-none text-sm border-b border-rose-200 p-0" 
+                        className="w-10 text-center bg-transparent font-black text-rose-600 dark:text-rose-400 outline-none text-sm border-b border-rose-200 p-0" 
                     />
                     <span className="text-[10px] font-bold text-rose-400">%</span>
                 </div>
@@ -1390,19 +1390,19 @@ export default function Balancing({
          <div className="flex items-center gap-2">
             <button
                 onClick={() => setIsHeaderSticky(!isHeaderSticky)}
-                className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold transition-all border shadow-sm ${isHeaderSticky ? 'bg-indigo-50 dark:bg-dk-accent/20 border-indigo-200 text-indigo-700 dark:text-dk-accent-text ring-1 ring-indigo-100' : 'bg-white dark:bg-dk-surface border-slate-200 dark:border-dk-border text-slate-500 dark:text-dk-muted hover:bg-slate-50 dark:hover:bg-dk-elevated/60'}`}
+                className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold transition-all border shadow-sm ${isHeaderSticky ? 'bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 border-indigo-200 text-indigo-700 dark:text-dk-accent-text ring-1 ring-indigo-100' : 'bg-white dark:bg-dk-surface border-slate-200 dark:border-dk-border text-slate-500 dark:text-dk-muted hover:bg-slate-50 dark:hover:bg-dk-elevated/60'}`}
                 title={isHeaderSticky ? tx(lang,{fr:"En-tête figé",ar:'رأس ثابت',en:'Header Frozen',es:'Cabecera fijada',pt:'Cabeçalho fixo',tr:'Başlık Sabitlendi'}) : tx(lang,{fr:"Figer l'en-tête",ar:'تثبيت الرأس',en:'Freeze Header',es:'Fijar cabecera',pt:'Fixar cabeçalho',tr:'Başlığı Sabitle'})}
             >
                 <PanelTop className="w-4 h-4" />
             </button>
             <button 
                 onClick={() => setShowGroupColors(!showGroupColors)} 
-                className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold transition-all border shadow-sm ${showGroupColors ? 'bg-indigo-50 dark:bg-dk-accent/20 border-indigo-200 text-indigo-700 dark:text-dk-accent-text ring-1 ring-indigo-100' : 'bg-white dark:bg-dk-surface border-slate-200 dark:border-dk-border text-slate-500 dark:text-dk-muted hover:bg-slate-50 dark:hover:bg-dk-elevated/60'}`} 
+                className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold transition-all border shadow-sm ${showGroupColors ? 'bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 border-indigo-200 text-indigo-700 dark:text-dk-accent-text ring-1 ring-indigo-100' : 'bg-white dark:bg-dk-surface border-slate-200 dark:border-dk-border text-slate-500 dark:text-dk-muted hover:bg-slate-50 dark:hover:bg-dk-elevated/60'}`} 
                 title={showGroupColors ? tx(lang,{fr:"Masquer couleurs groupes",ar:'إخفاء ألوان المجموعات',en:'Hide Group Colors',es:'Ocultar colores grupos',pt:'Ocultar cores grupos',tr:'Grup Renklerini Gizle'}) : tx(lang,{fr:"Afficher couleurs groupes",ar:'إظهار ألوان المجموعات',en:'Show Group Colors',es:'Mostrar colores grupos',pt:'Mostrar cores grupos',tr:'Grup Renklerini Göster'})}
             >
                 <Link className="w-4 h-4" />
             </button>
-            <button onClick={() => setShowColors(!showColors)} className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold transition-all border shadow-sm ${showColors ? 'bg-purple-50 border-purple-200 text-purple-700 ring-1 ring-purple-100' : 'bg-white dark:bg-dk-surface border-slate-200 dark:border-dk-border text-slate-500 dark:text-dk-muted hover:bg-slate-50 dark:hover:bg-dk-elevated/60'}`} title={showColors ? tx(lang,{fr:"Désactiver les couleurs",ar:'تعطيل الألوان',en:'Disable Colors',es:'Desactivar colores',pt:'Desativar cores',tr:'Renkleri Devre Dışı Bırak'}) : tx(lang,{fr:"Activer les couleurs",ar:'تفعيل الألوان',en:'Enable Colors',es:'Activar colores',pt:'Ativar cores',tr:'Renkleri Etkinleştir'})}>
+            <button onClick={() => setShowColors(!showColors)} className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold transition-all border shadow-sm ${showColors ? 'bg-purple-50 dark:bg-purple-900/30 border-purple-200 text-purple-700 ring-1 ring-purple-100' : 'bg-white dark:bg-dk-surface border-slate-200 dark:border-dk-border text-slate-500 dark:text-dk-muted hover:bg-slate-50 dark:hover:bg-dk-elevated/60'}`} title={showColors ? tx(lang,{fr:"Désactiver les couleurs",ar:'تعطيل الألوان',en:'Disable Colors',es:'Desactivar colores',pt:'Desativar cores',tr:'Renkleri Devre Dışı Bırak'}) : tx(lang,{fr:"Activer les couleurs",ar:'تفعيل الألوان',en:'Enable Colors',es:'Activar colores',pt:'Ativar cores',tr:'Renkleri Etkinleştir'})}>
                 <Palette className="w-4 h-4" />
             </button>
             <button 
@@ -1413,7 +1413,7 @@ export default function Balancing({
                         runAutoBalancing(true);
                     }
                 }} 
-                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all border shadow-sm ${isManual ? 'bg-amber-50 border-amber-200 text-amber-700 ring-2 ring-amber-100' : 'bg-white dark:bg-dk-surface border-slate-200 dark:border-dk-border text-slate-500 dark:text-dk-muted hover:bg-slate-50 dark:hover:bg-dk-elevated/60'}`}
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all border shadow-sm ${isManual ? 'bg-amber-50 dark:bg-amber-900/30 border-amber-200 text-amber-700 ring-2 ring-amber-100' : 'bg-white dark:bg-dk-surface border-slate-200 dark:border-dk-border text-slate-500 dark:text-dk-muted hover:bg-slate-50 dark:hover:bg-dk-elevated/60'}`}
             >
                 {isManual ? <MousePointer2 className="w-3.5 h-3.5" /> : <ArrowRightLeft className="w-3.5 h-3.5" />}
                 {isManual ? tx(lang,{fr:'Mode Manuel Actif',ar:'الوضع اليدوي نشط',en:'Manual Mode Active',es:'Modo Manual Activo',pt:'Modo Manual Ativo',tr:'Manuel Mod Aktif'}) : tx(lang,{fr:'Mode Automatique',ar:'الوضع التلقائي',en:'Automatic Mode',es:'Modo Automático',pt:'Modo Automático',tr:'Otomatik Mod'})}
@@ -1435,7 +1435,7 @@ export default function Balancing({
                                     <th className={`py-2 px-2 border-b-2 border-slate-300 border-r border-slate-300 min-w-[130px] sm:min-w-[200px] ${isSticky ? 'sticky left-0 z-50 bg-slate-50 dark:bg-dk-bg shadow-[4px_0_12px_-4px_rgba(0,0,0,0.1)]' : 'z-40'}`}>
                                         <div className="flex items-center justify-between">
                                             <span className="text-[10px] font-black text-slate-600 dark:text-dk-text-soft uppercase tracking-widest truncate">{tx(lang,{fr:'Séquence Opératoire',ar:'التسلسل التشغيلي',en:'Operating Sequence',es:'Secuencia Operativa',pt:'Sequência Operatória',tr:'Operasyon Sırası'})}</span>
-                                            <button onClick={() => setIsSticky(!isSticky)} className={`p-1 rounded-md transition-colors ${isSticky ? 'bg-indigo-100 text-indigo-600 dark:text-dk-accent-text' : 'text-slate-400 dark:text-dk-muted hover:bg-slate-200'}`} title={isSticky ? tx(lang,{fr:"Détacher la colonne",ar:'فصل العمود',en:'Detach Column',es:'Despegar columna',pt:'Desanexar coluna',tr:'Sütunu Ayır'}) : tx(lang,{fr:"Figer la colonne",ar:'تثبيت العمود',en:'Freeze Column',es:'Fijar columna',pt:'Fixar coluna',tr:'Sütunu Sabitle'})}>
+                                            <button onClick={() => setIsSticky(!isSticky)} className={`p-1 rounded-md transition-colors ${isSticky ? 'bg-indigo-100 text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text' : 'text-slate-400 dark:text-dk-muted hover:bg-slate-200'}`} title={isSticky ? tx(lang,{fr:"Détacher la colonne",ar:'فصل العمود',en:'Detach Column',es:'Despegar columna',pt:'Desanexar coluna',tr:'Sütunu Ayır'}) : tx(lang,{fr:"Figer la colonne",ar:'تثبيت العمود',en:'Freeze Column',es:'Fijar columna',pt:'Fixar coluna',tr:'Sütunu Sabitle'})}>
                                             {isSticky ? <Pin className="w-3 h-3" /> : <PinOff className="w-3 h-3" />}
                                             </button>
                                         </div>
@@ -1488,7 +1488,7 @@ export default function Balancing({
                                                         <span className="font-bold text-slate-700 dark:text-dk-text-soft text-[11px] truncate max-w-[90px] sm:max-w-[180px]" title={op.description}>{op.description}</span>
                                                         <div className="flex items-center gap-1.5 mt-0.5">
                                                             <span className="text-[8px] font-bold px-1 rounded bg-slate-100 dark:bg-dk-elevated text-slate-500 dark:text-dk-muted uppercase">{displayName}</span>
-                                                            <span className="text-[9px] font-bold text-emerald-600">{Math.round(timeSec)}s</span>
+                                                            <span className="text-[9px] font-bold text-emerald-600 dark:text-emerald-400">{Math.round(timeSec)}s</span>
                                                             {op.groupId && (
                                                                 <span className={`text-[8px] font-black px-1 rounded border flex items-center gap-0.5 ${groupStyle ? 'bg-white dark:bg-dk-surface ' + groupStyle.text + ' border-transparent shadow-sm' : 'bg-indigo-100 text-indigo-700 dark:text-dk-accent-text border-indigo-200'}`}>
                                                                     <Link className="w-2 h-2" /> GRP
@@ -1517,7 +1517,7 @@ export default function Balancing({
                                                     </td>
                                                 );
                                             })}
-                                            <td className="border-l border-b border-slate-200 dark:border-dk-border bg-slate-50/20"></td>
+                                            <td className="border-l border-b border-slate-200 dark:border-dk-border bg-slate-50 dark:bg-dk-bg/20"></td>
                                         </tr>
                                     );
                                 })}
@@ -1542,14 +1542,14 @@ export default function Balancing({
                                     <td className="text-center px-1 py-2 border-l border-b border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface/50"><span className="text-[10px] text-slate-300 dark:text-dk-muted">-</span></td>
                                 </tr>
                                 <tr>
-                                    <td className={`p-2 border-r border-slate-200 dark:border-dk-border bg-slate-50/95 backdrop-blur ${isSticky ? 'sticky left-0 z-40' : ''}`}>
+                                    <td className={`p-2 border-r border-slate-200 dark:border-dk-border bg-slate-50 dark:bg-dk-bg/95 backdrop-blur ${isSticky ? 'sticky left-0 z-40' : ''}`}>
                                         <div className="flex flex-col items-start"><span className="text-[10px] font-black text-slate-500 dark:text-dk-muted uppercase tracking-widest flex items-center gap-2"><Users className="w-3.5 h-3.5 text-slate-400 dark:text-dk-muted" /> {tx(lang,{fr:'Effectif Requis',ar:'العدد المطلوب',en:'Required Staff',es:'Personal Requerido',pt:'Efetivo Necessário',tr:'Gerekli Personel'})}</span></div>
                                     </td>
                                     {postes.map(p => {
                                         const nReq = postRequirements[p.id] || 0;
                                         return <td key={p.id} className="text-center px-1 py-2 border-r border-slate-200 dark:border-dk-border"><span className="font-mono font-bold text-slate-600 dark:text-dk-text-soft text-[10px]">{nReq}</span></td>
                                     })}
-                                    <td className="text-center px-1 py-2 border-l border-slate-200 dark:border-dk-border bg-emerald-50"><span className="font-black text-emerald-700 text-[11px]">{totalRequiredWorkers}</span></td>
+                                    <td className="text-center px-1 py-2 border-l border-slate-200 dark:border-dk-border bg-emerald-50 dark:bg-emerald-900/30"><span className="font-black text-emerald-700 text-[11px]">{totalRequiredWorkers}</span></td>
                                 </tr>
                             </tfoot>
                         </table>
@@ -1562,7 +1562,7 @@ export default function Balancing({
                         <span className="text-xs font-black text-slate-500 dark:text-dk-muted uppercase tracking-wider flex items-center gap-1.5">
                             <Activity className="w-3.5 h-3.5 text-indigo-500" /> {tx(lang,{fr:'Tolérance Saturation :',ar:'تسامح التشبع :',en:'Saturation Tolerance :',es:'Tolerancia de Saturación :',pt:'Tolerância de Saturação :',tr:'Doygunluk Toleransı :'})}
                         </span>
-                        <div className="flex items-center gap-1.5 text-xs bg-rose-50 text-rose-700 px-2 py-0.5 rounded-lg border border-rose-200 shadow-sm">
+                        <div className="flex items-center gap-1.5 text-xs bg-rose-50 dark:bg-rose-900/30 text-rose-700 px-2 py-0.5 rounded-lg border border-rose-200 shadow-sm">
                             <input 
                                 type="number" 
                                 min="50" max="200" 
@@ -1586,14 +1586,14 @@ export default function Balancing({
                             <span className="font-bold">%</span>
                         </div>
                         {tolerance > AUTO_BALANCE_TARGET_CEIL * 100 && (
-                            <span className="text-[10px] font-bold text-amber-600 flex items-center gap-1" title={tx(lang,{fr:`L'équilibrage automatique ne remplit jamais un poste au-delà de ${AUTO_BALANCE_TARGET_CEIL * 100}% (règle anti-goulot). La Tolérance ne sert qu'à l'affichage des couleurs.`,ar:`التوازن التلقائي لا يملأ محطة أبدًا بأكثر من ${AUTO_BALANCE_TARGET_CEIL * 100}% (قاعدة منع الاختناق). التسامح يستخدم فقط لعرض الألوان.`,en:`Auto-balancing never fills a station beyond ${AUTO_BALANCE_TARGET_CEIL * 100}% (anti-bottleneck rule). Tolerance only affects color display.`,es:`El equilibrio automático nunca llena un puesto más allá del ${AUTO_BALANCE_TARGET_CEIL * 100}% (regla anti-cuello de botella). La tolerancia solo afecta la visualización de colores.`,pt:`O balanceamento automático nunca preenche um posto além de ${AUTO_BALANCE_TARGET_CEIL * 100}% (regra anti-gargalo). A tolerância só afeta a exibição de cores.`,tr:`Otomatik dengeleme bir istasyonu asla ${AUTO_BALANCE_TARGET_CEIL * 100}%'nin ötesine doldurmaz (darboğaz önleme kuralı). Tolerans yalnızca renk görüntülemesini etkiler.`})}>
+                            <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 flex items-center gap-1" title={tx(lang,{fr:`L'équilibrage automatique ne remplit jamais un poste au-delà de ${AUTO_BALANCE_TARGET_CEIL * 100}% (règle anti-goulot). La Tolérance ne sert qu'à l'affichage des couleurs.`,ar:`التوازن التلقائي لا يملأ محطة أبدًا بأكثر من ${AUTO_BALANCE_TARGET_CEIL * 100}% (قاعدة منع الاختناق). التسامح يستخدم فقط لعرض الألوان.`,en:`Auto-balancing never fills a station beyond ${AUTO_BALANCE_TARGET_CEIL * 100}% (anti-bottleneck rule). Tolerance only affects color display.`,es:`El equilibrio automático nunca llena un puesto más allá del ${AUTO_BALANCE_TARGET_CEIL * 100}% (regla anti-cuello de botella). La tolerancia solo afecta la visualización de colores.`,pt:`O balanceamento automático nunca preenche um posto além de ${AUTO_BALANCE_TARGET_CEIL * 100}% (regra anti-gargalo). A tolerância só afeta a exibição de cores.`,tr:`Otomatik dengeleme bir istasyonu asla ${AUTO_BALANCE_TARGET_CEIL * 100}%'nin ötesine doldurmaz (darboğaz önleme kuralı). Tolerans yalnızca renk görüntülemesini etkiler.`})}>
                                 <AlertCircle className="w-3 h-3" /> {tx(lang,{fr:`Équilibrage plafonné à ${Math.round(AUTO_BALANCE_TARGET_CEIL * 100)}% (anti-goulot)`,ar:`التوازن محدود بـ ${Math.round(AUTO_BALANCE_TARGET_CEIL * 100)}% (منع الاختناق)`,en:`Balancing capped at ${Math.round(AUTO_BALANCE_TARGET_CEIL * 100)}% (anti-bottleneck)`,es:`Equilibrio limitado al ${Math.round(AUTO_BALANCE_TARGET_CEIL * 100)}% (anti-cuello de botella)`,pt:`Balanceamento limitado a ${Math.round(AUTO_BALANCE_TARGET_CEIL * 100)}% (anti-gargalo)`,tr:`Dengeleme ${Math.round(AUTO_BALANCE_TARGET_CEIL * 100)}% ile sınırlı (darboğaz önleme)`})}
                             </span>
                         )}
                     </div>
 
                     {numWorkers < totalMinReq && (
-                        <div className="flex items-center gap-2 px-4 py-2.5 bg-rose-50 border border-rose-200 rounded-xl shadow-sm text-xs text-rose-700 font-bold animate-in fade-in slide-in-from-left-2 duration-300">
+                        <div className="flex items-center gap-2 px-4 py-2.5 bg-rose-50 dark:bg-rose-900/30 border border-rose-200 rounded-xl shadow-sm text-xs text-rose-700 font-bold animate-in fade-in slide-in-from-left-2 duration-300">
                             <AlertCircle className="w-4 h-4 text-rose-500 animate-pulse" />
                             <span>{tx(lang,{fr:`Effectif insuffisant pour respecter la tolérance (Requis : ${totalMinReq} ouvriers)`,ar:`عدد غير كافٍ لاحترام التسامح (المطلوب: ${totalMinReq} عمال)`,en:`Insufficient staff to meet tolerance (Required: ${totalMinReq} workers)`,es:`Personal insuficiente para cumplir tolerancia (Requerido: ${totalMinReq} obreros)`,pt:`Efetivo insuficiente para respeitar a tolerância (Necessário: ${totalMinReq} trabalhadores)`,tr:`Toleransı karşılamak için yetersiz personel (Gerekli: ${totalMinReq} işçi)`})}</span>
                             <button 
@@ -1799,7 +1799,7 @@ export default function Balancing({
                onClick={(e) => e.stopPropagation()} 
            >
                {/* Manual Toggle */}
-               <button onClick={() => handleContextAction('toggleManual')} className="w-full text-left px-4 py-3 hover:bg-slate-50 dark:hover:bg-dk-elevated/60 flex items-center gap-2 font-bold text-indigo-600 dark:text-dk-accent-text border-b border-slate-100 dark:border-dk-border">
+               <button onClick={() => handleContextAction('toggleManual')} className="w-full text-left px-4 py-3 hover:bg-slate-50 dark:hover:bg-dk-elevated/60 flex items-center gap-2 font-bold text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text border-b border-slate-100 dark:border-dk-border">
                    {isManual ? <Hand className="w-3.5 h-3.5" /> : <ArrowRightLeft className="w-3.5 h-3.5" />}
                     {isManual ? tx(lang,{fr:'Désactiver Mode Manuel',ar:'تعطيل الوضع اليدوي',en:'Disable Manual Mode',es:'Desactivar Modo Manual',pt:'Desativar Modo Manual',tr:'Manuel Modu Devre Dışı Bırak'}) : tx(lang,{fr:'Activer Mode Manuel',ar:'تفعيل الوضع اليدوي',en:'Enable Manual Mode',es:'Activar Modo Manual',pt:'Ativar Modo Manual',tr:'Manuel Modu Etkinleştir'})}
                </button>
@@ -1824,8 +1824,8 @@ export default function Balancing({
                 <button onClick={() => handleContextAction('cut')} className="w-full text-left px-4 py-2 hover:bg-slate-50 dark:hover:bg-dk-elevated/60 flex items-center gap-2"><Scissors className="w-3.5 h-3.5" /> {tx(lang,{fr:'Couper',ar:'قص',en:'Cut',es:'Cortar',pt:'Cortar',tr:'Kes'})}</button>
                 <button onClick={() => handleContextAction('paste')} disabled={!clipboard} className={`w-full text-left px-4 py-2 hover:bg-slate-50 dark:hover:bg-dk-elevated/60 flex items-center gap-2 ${!clipboard ? 'opacity-50 cursor-not-allowed' : ''}`}><Clipboard className="w-3.5 h-3.5" /> {tx(lang,{fr:'Coller',ar:'لصق',en:'Paste',es:'Pegar',pt:'Colar',tr:'Yapıştır'})}</button>
                 <div className="h-px bg-slate-100 dark:bg-dk-elevated my-1"></div>
-                <button onClick={() => handleContextAction('clear')} className="w-full text-left px-4 py-2 hover:bg-amber-50 text-amber-600 flex items-center gap-2"><Eraser className="w-3.5 h-3.5" /> {tx(lang,{fr:'Vider',ar:'إفراغ',en:'Clear',es:'Vaciar',pt:'Limpar',tr:'Temizle'})}</button>
-                <button onClick={() => handleContextAction('delete')} className="w-full text-left px-4 py-2 hover:bg-rose-50 text-rose-600 flex items-center gap-2"><Trash2 className="w-3.5 h-3.5" /> {tx(lang,{fr:'Supprimer',ar:'حذف',en:'Delete',es:'Eliminar',pt:'Eliminar',tr:'Sil'})}</button>
+                <button onClick={() => handleContextAction('clear')} className="w-full text-left px-4 py-2 hover:bg-amber-50 text-amber-600 dark:text-amber-400 flex items-center gap-2"><Eraser className="w-3.5 h-3.5" /> {tx(lang,{fr:'Vider',ar:'إفراغ',en:'Clear',es:'Vaciar',pt:'Limpar',tr:'Temizle'})}</button>
+                <button onClick={() => handleContextAction('delete')} className="w-full text-left px-4 py-2 hover:bg-rose-50 text-rose-600 dark:text-rose-400 flex items-center gap-2"><Trash2 className="w-3.5 h-3.5" /> {tx(lang,{fr:'Supprimer',ar:'حذف',en:'Delete',es:'Eliminar',pt:'Eliminar',tr:'Sil'})}</button>
            </div>,
            document.body
        )}

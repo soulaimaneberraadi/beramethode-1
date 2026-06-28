@@ -189,7 +189,7 @@ export default function RepartitionMatrix({ data, setData, lang = 'fr', syncQuan
 
     return (
         <div className="bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border shadow-sm overflow-hidden">
-            <div className="bg-slate-50/50 px-6 py-4 border-b border-slate-150 flex flex-wrap items-end justify-between gap-3">
+            <div className="bg-slate-50 dark:bg-dk-bg/50 px-6 py-4 border-b border-slate-150 flex flex-wrap items-end justify-between gap-3">
                 <label className="text-xs font-bold text-slate-500 dark:text-dk-muted uppercase flex items-center gap-2">
                     <Grid3X3 className="w-3.5 h-3.5 text-indigo-500" />
                     {tx(lang, { fr: 'Répartition (Tailles / Couleurs)', ar: 'توزيع المقاسات والألوان', en: 'Distribution (Sizes / Colors)', es: 'Distribución (Tallas / Colores)', pt: 'Distribuição (Tamanhos / Cores)', tr: 'Dağılım (Bedenler / Renkler)' })}
@@ -308,7 +308,7 @@ export default function RepartitionMatrix({ data, setData, lang = 'fr', syncQuan
                                             </button>
                                         </td>
                                         {sizes.length === 0 && (
-                                            <td className="p-2 border-r border-slate-100 dark:border-dk-border bg-slate-50/30 text-center text-slate-300 dark:text-dk-muted text-[10px] italic">
+                                            <td className="p-2 border-r border-slate-100 dark:border-dk-border bg-slate-50 dark:bg-dk-bg/30 text-center text-slate-300 dark:text-dk-muted text-[10px] italic">
                                                 -
                                             </td>
                                         )}

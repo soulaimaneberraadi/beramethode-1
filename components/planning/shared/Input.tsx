@@ -20,7 +20,7 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
                 className={`w-full h-9 px-3 text-[13px] text-slate-900 dark:text-dk-text placeholder:text-slate-400 dark:placeholder:text-dk-muted bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-md focus:border-slate-400 dark:focus:border-dk-accent focus:ring-2 focus:ring-slate-100 dark:focus:ring-dk-accent/20 outline-none transition-colors ${className}`}
             />
             {hint && !error && <p className="text-[11px] text-slate-500 dark:text-dk-muted">{hint}</p>}
-            {error && <p className="text-[11px] text-red-600">{error}</p>}
+            {error && <p className="text-[11px] text-red-600 dark:text-red-400">{error}</p>}
         </div>
     )
 );

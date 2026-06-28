@@ -695,7 +695,7 @@ export default function Configuration({ settings, setSettings, lang, machines, n
             {/* Header */}
             <div className="bg-white dark:bg-dk-surface p-4 sm:p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-dk-border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 sticky top-0 z-50">
                 <div className="flex items-center gap-4 w-full sm:w-auto">
-                    <div className="w-12 h-12 bg-indigo-50 dark:bg-dk-accent/20 rounded-xl flex items-center justify-center text-indigo-600 dark:text-dk-accent-text border border-indigo-100 shrink-0">
+                    <div className="w-12 h-12 bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 rounded-xl flex items-center justify-center text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text border border-indigo-100 shrink-0">
                         <Settings className="w-6 h-6" />
                     </div>
                     <div>
@@ -740,7 +740,7 @@ export default function Configuration({ settings, setSettings, lang, machines, n
 
                             <div className="pt-4 border-t border-slate-100 dark:border-dk-border">
                                 <div className="flex items-center gap-2 mb-3">
-                                    <div className="w-9 h-9 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center border border-amber-100 shrink-0">
+                                    <div className="w-9 h-9 rounded-lg bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 flex items-center justify-center border border-amber-100 shrink-0">
                                         <Factory className="w-5 h-5" />
                                     </div>
                                     <span className="font-bold text-slate-800 dark:text-dk-text text-sm">{t.machineModuleTitle}</span>
@@ -865,7 +865,7 @@ export default function Configuration({ settings, setSettings, lang, machines, n
                             </div>
 
                             <div className="mt-auto pt-4 border-t border-slate-100 dark:border-dk-border">
-                                <div className="bg-indigo-50 dark:bg-dk-accent/20 text-indigo-700 dark:text-dk-accent-text p-4 rounded-xl text-sm font-medium border border-indigo-100 flex items-start gap-3">
+                                <div className="bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 text-indigo-700 dark:text-dk-accent-text p-4 rounded-xl text-sm font-medium border border-indigo-100 flex items-start gap-3">
                                     <Settings className="w-5 h-5 shrink-0 mt-0.5" />
                                     <p>Les paramètres globaux (Devise, Coût Minute, Horaires) sont synchronisés instantanément sur toutes les pages de l'application.</p>
                                 </div>
@@ -883,7 +883,7 @@ export default function Configuration({ settings, setSettings, lang, machines, n
                             <label className="flex items-start gap-3 cursor-pointer">
                                 <input
                                     type="checkbox"
-                                    className="mt-1 rounded border-slate-300 text-indigo-600 dark:text-dk-accent-text focus:ring-indigo-500"
+                                    className="mt-1 rounded border-slate-300 text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text focus:ring-indigo-500"
                                     checked={settings.hrAutoOvertime !== false}
                                     onChange={e => setSettings(prev => ({ ...prev, hrAutoOvertime: e.target.checked }))}
                                 />
@@ -938,7 +938,7 @@ export default function Configuration({ settings, setSettings, lang, machines, n
                                 <label className="flex items-start gap-2 mt-3 cursor-pointer">
                                     <input
                                         type="checkbox"
-                                        className="mt-0.5 rounded border-slate-300 text-indigo-600 dark:text-dk-accent-text"
+                                        className="mt-0.5 rounded border-slate-300 text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text"
                                         checked={sageA}
                                         onChange={e => setSageA(e.target.checked)}
                                     />
@@ -980,7 +980,7 @@ export default function Configuration({ settings, setSettings, lang, machines, n
                                 </div>
                                 <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
                                     {trCfg.slots.map((row, idx) => (
-                                        <div key={idx} className="flex flex-wrap items-end gap-2 bg-slate-50/80 border border-slate-200 dark:border-dk-border rounded-lg p-2">
+                                        <div key={idx} className="flex flex-wrap items-end gap-2 bg-slate-50 dark:bg-dk-bg/80 border border-slate-200 dark:border-dk-border rounded-lg p-2">
                                             <div className="min-w-[100px] flex-1">
                                                 <label className="block text-[10px] font-bold text-slate-500 dark:text-dk-muted uppercase">{t.rhTranchesLabel}</label>
                                                 <input
@@ -1011,7 +1011,7 @@ export default function Configuration({ settings, setSettings, lang, machines, n
                                                 type="button"
                                                 onClick={() => removeTrSlot(idx)}
                                                 disabled={trCfg.slots.length <= 2}
-                                                className="p-2 rounded-lg text-red-600 hover:bg-red-50 disabled:opacity-30"
+                                                className="p-2 rounded-lg text-red-600 dark:text-red-400 hover:bg-red-50 disabled:opacity-30"
                                                 title={t.rhTranchesDel}
                                             >
                                                 <Trash2 className="w-4 h-4" />
@@ -1023,7 +1023,7 @@ export default function Configuration({ settings, setSettings, lang, machines, n
                                     <button
                                         type="button"
                                         onClick={addTrSlot}
-                                        className="inline-flex items-center gap-1 px-3 py-2 rounded-lg bg-indigo-50 dark:bg-dk-accent/20 text-indigo-800 text-xs font-bold border border-indigo-200"
+                                        className="inline-flex items-center gap-1 px-3 py-2 rounded-lg bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 text-indigo-800 text-xs font-bold border border-indigo-200"
                                     >
                                         <Plus className="w-4 h-4" />
                                         {t.rhTranchesAdd}
@@ -1084,10 +1084,10 @@ export default function Configuration({ settings, setSettings, lang, machines, n
                         {/* Working Days */}
                         <div>
                             <div className="flex items-center justify-between mb-2">
-                                <label className="flex items-center gap-2 block text-xs font-bold uppercase text-slate-500 dark:text-dk-muted">{t.workingDays} <span className="text-[10px] text-indigo-500 bg-indigo-50 dark:bg-dk-accent/20 px-2 py-0.5 rounded-full border border-indigo-100 font-black tracking-widest">{(settings.workingDays || []).length}/7</span></label>
+                                <label className="flex items-center gap-2 block text-xs font-bold uppercase text-slate-500 dark:text-dk-muted">{t.workingDays} <span className="text-[10px] text-indigo-500 bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 px-2 py-0.5 rounded-full border border-indigo-100 font-black tracking-widest">{(settings.workingDays || []).length}/7</span></label>
                                 <div className="flex gap-2">
                                     <button onClick={() => setSettings(prev => ({ ...prev, workingDays: [1, 2, 3, 4, 5, 6, 7] }))} className="text-xs font-bold text-slate-500 hover:text-indigo-600 dark:text-dk-accent-text transition-colors uppercase pr-2 border-r border-slate-200 dark:border-dk-border hidden sm:block">{tx(lang, { fr: 'Tous', ar: 'الكل', en: 'All', es: 'Todos', pt: 'Todos', tr: 'Tümü' })}</button>
-                                    <button onClick={() => setShowAgenda(true)} className="text-[11px] font-bold bg-indigo-50 dark:bg-dk-accent/20 text-indigo-600 dark:text-dk-accent-text hover:text-indigo-700 dark:text-dk-accent-text hover:bg-indigo-100 border border-indigo-100 px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5 shadow-sm active:scale-95">
+                                    <button onClick={() => setShowAgenda(true)} className="text-[11px] font-bold bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text hover:text-indigo-700 dark:text-dk-accent-text hover:bg-indigo-100 border border-indigo-100 px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5 shadow-sm active:scale-95">
                                         <Calendar className="w-3.5 h-3.5" /> {tx(lang, { fr: 'Agenda', ar: 'التقويم', en: 'Calendar', es: 'Agenda', pt: 'Agenda', tr: 'Takvim' })}
                                     </button>
                                 </div>
@@ -1118,7 +1118,7 @@ export default function Configuration({ settings, setSettings, lang, machines, n
                                     <label className="block text-xs font-bold uppercase text-slate-500 dark:text-dk-muted">{t.pauses}</label>
                                     <span className="text-[10px] text-slate-400 dark:text-dk-muted">Ces temps seront déduits des temps de présence.</span>
                                 </div>
-                                <button onClick={addPause} className="text-xs font-bold bg-indigo-50 dark:bg-dk-accent/20 text-indigo-600 dark:text-dk-accent-text flex items-center gap-1 hover:text-indigo-700 dark:text-dk-accent-text hover:bg-indigo-100 px-3 py-1.5 rounded-lg transition-colors border border-indigo-100">
+                                <button onClick={addPause} className="text-xs font-bold bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text flex items-center gap-1 hover:text-indigo-700 dark:text-dk-accent-text hover:bg-indigo-100 px-3 py-1.5 rounded-lg transition-colors border border-indigo-100">
                                     <Plus className="w-3.5 h-3.5" /> {t.addPause}
                                 </button>
                             </div>
@@ -1142,7 +1142,7 @@ export default function Configuration({ settings, setSettings, lang, machines, n
                                             </div>
                                             <div className="w-20">
                                                 <span className="text-[10px] uppercase text-slate-400 dark:text-dk-muted font-bold block mb-1">{t.pauseDuration}</span>
-                                                <div className="w-full bg-indigo-50 dark:bg-dk-accent/20 border border-indigo-100 rounded-lg px-2 py-1.5 text-center text-sm font-bold text-indigo-700 dark:text-dk-accent-text select-none">
+                                                <div className="w-full bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 border border-indigo-100 rounded-lg px-2 py-1.5 text-center text-sm font-bold text-indigo-700 dark:text-dk-accent-text select-none">
                                                     {pause.durationMin} m
                                                 </div>
                                             </div>
@@ -1175,7 +1175,7 @@ export default function Configuration({ settings, setSettings, lang, machines, n
                 </div>
                 <div className={`p-6 md:p-8 space-y-4 ${openSec['tailles'] ? '' : 'hidden'}`}>
                     {/* Activation de la fonctionnalité (Beta) */}
-                    <div className="flex items-center justify-between gap-3 bg-amber-50/50 border border-amber-100 rounded-xl p-3">
+                    <div className="flex items-center justify-between gap-3 bg-amber-50 dark:bg-amber-900/30/50 border border-amber-100 rounded-xl p-3">
                         <div className="flex items-center gap-2">
                             <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0" />
                             <span className="text-sm font-bold text-slate-700 dark:text-dk-text-soft">{tx(lang, { fr: 'Activer la fonctionnalité (Beta)', ar: 'تفعيل ميزة أنظمة المقاسات (تجريبية)', en: 'Enable the feature (Beta)', es: 'Activar la funcionalidad (Beta)', pt: 'Ativar a funcionalidade (Beta)', tr: 'Özelliği etkinleştir (Beta)' })}</span>
@@ -1212,7 +1212,7 @@ export default function Configuration({ settings, setSettings, lang, machines, n
                             )}
                             <button
                                 onClick={() => setSettings(prev => ({ ...prev, tailleSystems: [...(prev.tailleSystems || []), { id: Date.now().toString(), label: '', mode: 'alpha', sizes: [] }] }))}
-                                className="text-xs font-bold bg-indigo-50 dark:bg-dk-accent/20 text-indigo-600 dark:text-dk-accent-text flex items-center gap-1 hover:text-indigo-700 dark:text-dk-accent-text hover:bg-indigo-100 px-3 py-1.5 rounded-lg transition-colors border border-indigo-100"
+                                className="text-xs font-bold bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text flex items-center gap-1 hover:text-indigo-700 dark:text-dk-accent-text hover:bg-indigo-100 px-3 py-1.5 rounded-lg transition-colors border border-indigo-100"
                             >
                                 <Plus className="w-3.5 h-3.5" /> Ajouter un système
                             </button>
@@ -1286,7 +1286,7 @@ export default function Configuration({ settings, setSettings, lang, machines, n
                     <div>
                         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
                             <div className="flex items-center gap-4">
-                                <div className="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center border border-blue-100 shadow-sm shrink-0">
+                                <div className="w-12 h-12 rounded-2xl bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 flex items-center justify-center border border-blue-100 shadow-sm shrink-0">
                                     <Shield className="w-6 h-6" />
                                 </div>
                                 <div>
@@ -1294,7 +1294,7 @@ export default function Configuration({ settings, setSettings, lang, machines, n
                                     <p className="text-sm text-slate-500 dark:text-dk-muted mt-0.5 font-medium">{tx(lang, { fr: 'Direction, administration, pointeurs, chronométreurs...', ar: 'الإدارة، الإشراف، مراقبو الوقت...', en: 'Management, administration, timekeepers...', es: 'Dirección, administración, cronometradores...', pt: 'Direção, administração, cronometristas...', tr: 'Yönetim, idare, zaman hakemleri...' })}</p>
                                 </div>
                             </div>
-                            <button onClick={() => setSettings(prev => ({ ...prev, organigram: [...(prev.organigram || []), { id: Date.now().toString(), name: '', role: '' }] }))} className="w-full sm:w-auto text-sm font-bold bg-white text-indigo-600 dark:text-dk-accent-text flex items-center justify-center gap-2 hover:text-indigo-700 dark:text-dk-accent-text hover:bg-indigo-50 dark:bg-dk-accent/20 px-5 py-2.5 rounded-xl transition-all border border-slate-200 dark:border-dk-border shadow-sm active:scale-95">
+                            <button onClick={() => setSettings(prev => ({ ...prev, organigram: [...(prev.organigram || []), { id: Date.now().toString(), name: '', role: '' }] }))} className="w-full sm:w-auto text-sm font-bold bg-white text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text flex items-center justify-center gap-2 hover:text-indigo-700 dark:text-dk-accent-text hover:bg-indigo-50 dark:bg-dk-accent/20 px-5 py-2.5 rounded-xl transition-all border border-slate-200 dark:border-dk-border shadow-sm active:scale-95">
                                 <Plus className="w-4 h-4" /> {tx(lang, { fr: 'Ajouter Un Membre', ar: 'إضافة عضو', en: 'Add a Member', es: 'Añadir un miembro', pt: 'Adicionar um membro', tr: 'Üye Ekle' })}
                             </button>
                         </div>
@@ -1302,16 +1302,16 @@ export default function Configuration({ settings, setSettings, lang, machines, n
                             {(settings.organigram || []).map((person) => (
                                 <div key={person.id} className="flex flex-col gap-3 bg-white dark:bg-dk-surface p-5 rounded-2xl border border-slate-200 dark:border-dk-border hover:border-blue-300 hover:shadow-md transition-all relative group overflow-hidden">
                                     <div className="absolute top-0 left-0 w-1 h-full bg-blue-500 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                                    <button onClick={() => setSettings(prev => ({ ...prev, organigram: prev.organigram.filter(p => p.id !== person.id) }))} className="absolute top-3 right-3 p-1.5 bg-rose-50 text-rose-500 hover:text-rose-600 hover:bg-rose-100 rounded-lg shadow-sm border border-rose-100 opacity-0 group-hover:opacity-100 transition-all active:scale-90" title={tx(lang, { fr: 'Supprimer', ar: 'حذف', en: 'Delete', es: 'Eliminar', pt: 'Excluir', tr: 'Sil' })}>
+                                    <button onClick={() => setSettings(prev => ({ ...prev, organigram: prev.organigram.filter(p => p.id !== person.id) }))} className="absolute top-3 right-3 p-1.5 bg-rose-50 dark:bg-rose-900/30 text-rose-500 hover:text-rose-600 hover:bg-rose-100 rounded-lg shadow-sm border border-rose-100 opacity-0 group-hover:opacity-100 transition-all active:scale-90" title={tx(lang, { fr: 'Supprimer', ar: 'حذف', en: 'Delete', es: 'Eliminar', pt: 'Excluir', tr: 'Sil' })}>
                                         <Trash2 className="w-3.5 h-3.5" />
                                     </button>
                                     <div>
                                         <label className="text-[10px] uppercase font-bold text-slate-400 dark:text-dk-muted mb-1 block">{tx(lang, { fr: 'Nom Complet', ar: 'الاسم الكامل', en: 'Full Name', es: 'Nombre Completo', pt: 'Nome Completo', tr: 'Tam Ad' })}</label>
-                                        <input type="text" value={person.name} onChange={(e) => setSettings(prev => ({ ...prev, organigram: prev.organigram.map(p => p.id === person.id ? { ...p, name: e.target.value } : p) }))} className="w-full bg-slate-50 border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2 outline-none focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-100 text-sm font-bold text-slate-800 dark:text-dk-text placeholder:text-slate-300 transition-all font-sans" placeholder={tx(lang, { fr: 'ex: Ahmed', ar: 'مثال: أحمد', en: 'e.g., Ahmed', es: 'ej: Ahmed', pt: 'ex: Ahmed', tr: 'örn: Ahmed' })} />
+                                        <input type="text" value={person.name} onChange={(e) => setSettings(prev => ({ ...prev, organigram: prev.organigram.map(p => p.id === person.id ? { ...p, name: e.target.value } : p) }))} className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2 outline-none focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-100 text-sm font-bold text-slate-800 dark:text-dk-text placeholder:text-slate-300 transition-all font-sans" placeholder={tx(lang, { fr: 'ex: Ahmed', ar: 'مثال: أحمد', en: 'e.g., Ahmed', es: 'ej: Ahmed', pt: 'ex: Ahmed', tr: 'örn: Ahmed' })} />
                                     </div>
                                     <div>
                                         <label className="text-[10px] uppercase font-bold text-slate-400 dark:text-dk-muted mb-1 block">{tx(lang, { fr: 'Rôle / Poste', ar: 'الدور / المنصب', en: 'Role / Position', es: 'Rol / Puesto', pt: 'Função / Cargo', tr: 'Rol / Pozisyon' })}</label>
-                                        <input type="text" value={person.role} onChange={(e) => setSettings(prev => ({ ...prev, organigram: prev.organigram.map(p => p.id === person.id ? { ...p, role: e.target.value } : p) }))} className="w-full bg-slate-50 border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2 outline-none focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-100 text-sm font-medium text-slate-600 dark:text-dk-text-soft placeholder:text-slate-300 transition-all" placeholder={tx(lang, { fr: 'ex: Directeur', ar: 'مثال: مدير', en: 'e.g., Director', es: 'ej: Director', pt: 'ex: Diretor', tr: 'örn: Müdür' })} />
+                                        <input type="text" value={person.role} onChange={(e) => setSettings(prev => ({ ...prev, organigram: prev.organigram.map(p => p.id === person.id ? { ...p, role: e.target.value } : p) }))} className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2 outline-none focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-100 text-sm font-medium text-slate-600 dark:text-dk-text-soft placeholder:text-slate-300 transition-all" placeholder={tx(lang, { fr: 'ex: Directeur', ar: 'مثال: مدير', en: 'e.g., Director', es: 'ej: Director', pt: 'ex: Diretor', tr: 'örn: Müdür' })} />
                                     </div>
                                 </div>
                             ))}
@@ -1328,7 +1328,7 @@ export default function Configuration({ settings, setSettings, lang, machines, n
                     <hr className="border-slate-100 dark:border-dk-border" />
 
                     {/* Number of Chains Config */}
-                    <div className="bg-indigo-50 dark:bg-dk-accent/20 border border-indigo-100 rounded-2xl p-6 relative overflow-hidden">
+                    <div className="bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 border border-indigo-100 rounded-2xl p-6 relative overflow-hidden">
                         <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/10 rounded-full blur-2xl -translate-y-1/2 translate-x-1/3"></div>
                         <div className="relative z-10 flex flex-col sm:flex-row items-start sm:items-center gap-6">
                             <div className="flex-1">
@@ -1345,7 +1345,7 @@ export default function Configuration({ settings, setSettings, lang, machines, n
                     {/* Effectifs par Chaîne */}
                     <div>
                         <div className="flex items-center gap-3 mb-6">
-                            <div className="w-10 h-10 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center border border-emerald-100"><Users className="w-5 h-5" /></div>
+                            <div className="w-10 h-10 rounded-full bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 flex items-center justify-center border border-emerald-100"><Users className="w-5 h-5" /></div>
                             <div>
                                 <h3 className="text-base font-black text-slate-800 dark:text-dk-text tracking-tight">{t.chainStaff}</h3>
                                 <p className="text-xs text-slate-500 dark:text-dk-muted mt-0.5 font-medium">Chef de groupe, moniteur, qualiticien de ligne...</p>
@@ -1358,9 +1358,9 @@ export default function Configuration({ settings, setSettings, lang, machines, n
                                 const staff = settings.chainStaff?.[chainKey] || [];
                                 return (
                                     <div key={chainKey} className="bg-white dark:bg-dk-surface border-2 border-slate-100 dark:border-dk-border rounded-3xl overflow-hidden shadow-sm hover:border-emerald-200 transition-colors flex flex-col">
-                                        <div className="bg-emerald-50/50 px-5 py-4 flex flex-col sm:flex-row sm:items-center justify-between border-b border-emerald-100 gap-3">
+                                        <div className="bg-emerald-50 dark:bg-emerald-900/30/50 px-5 py-4 flex flex-col sm:flex-row sm:items-center justify-between border-b border-emerald-100 gap-3">
                                             <div className="flex items-center gap-3">
-                                                <div className="w-8 h-8 rounded-xl bg-white dark:bg-dk-surface border border-emerald-200 shadow-sm flex items-center justify-center text-emerald-600 font-black text-sm">{i + 1}</div>
+                                                <div className="w-8 h-8 rounded-xl bg-white dark:bg-dk-surface border border-emerald-200 shadow-sm flex items-center justify-center text-emerald-600 dark:text-emerald-400 font-black text-sm">{i + 1}</div>
                                                 <input
                                                     type="text"
                                                     value={settings.chainNames?.[chainKey] || chainKey}
@@ -1418,7 +1418,7 @@ export default function Configuration({ settings, setSettings, lang, machines, n
 
                     <div className="mt-10">
                         <div className="flex items-center gap-3 mb-4">
-                            <div className="w-10 h-10 rounded-full bg-indigo-50 dark:bg-dk-accent/20 text-indigo-600 dark:text-dk-accent-text flex items-center justify-center border border-indigo-100">
+                            <div className="w-10 h-10 rounded-full bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text flex items-center justify-center border border-indigo-100">
                                 <Factory className="w-5 h-5" />
                             </div>
                             <div>
@@ -1462,7 +1462,7 @@ export default function Configuration({ settings, setSettings, lang, machines, n
                                                         return { ...prev, chainMachines: keys.length ? cm : undefined };
                                                     })
                                                 }
-                                                className="text-[10px] font-bold uppercase text-indigo-600 dark:text-dk-accent-text hover:text-indigo-800 px-2 py-1 rounded-lg hover:bg-indigo-50 dark:bg-dk-accent/20"
+                                                className="text-[10px] font-bold uppercase text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text hover:text-indigo-800 px-2 py-1 rounded-lg hover:bg-indigo-50 dark:bg-dk-accent/20"
                                             >
                                                 {tx(lang, { fr: 'Tout le parc', ar: 'الكل', en: 'Whole parc', es: 'Todo el parque', pt: 'Todo o parque', tr: 'Tüm park' })}
                                             </button>
@@ -1479,12 +1479,12 @@ export default function Configuration({ settings, setSettings, lang, machines, n
                                                             className={`inline-flex items-center gap-2 px-2.5 py-1.5 rounded-xl border text-[11px] font-bold cursor-pointer select-none ${
                                                                 usable
                                                                     ? 'border-slate-200 dark:border-dk-border bg-slate-50 dark:bg-dk-bg hover:border-indigo-200'
-                                                                    : 'border-slate-100 dark:border-dk-border bg-slate-50/60 text-slate-400 dark:text-dk-muted cursor-not-allowed'
+                                                                    : 'border-slate-100 dark:border-dk-border bg-slate-50 dark:bg-dk-bg/60 text-slate-400 dark:text-dk-muted cursor-not-allowed'
                                                             }`}
                                                         >
                                                             <input
                                                                 type="checkbox"
-                                                                className="rounded border-slate-300 text-indigo-600 dark:text-dk-accent-text focus:ring-indigo-500"
+                                                                className="rounded border-slate-300 text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text focus:ring-indigo-500"
                                                                 checked={checked}
                                                                 disabled={!usable}
                                                                 onChange={() => {
@@ -1518,7 +1518,7 @@ export default function Configuration({ settings, setSettings, lang, machines, n
                                                             <span className="font-mono text-slate-700 dark:text-dk-text-soft">{m.classe}</span>
                                                             <span className="text-slate-500 dark:text-dk-muted font-medium truncate max-w-[100px]">{m.name}</span>
                                                             {!usable && m.status && (
-                                                                <span className="text-[9px] uppercase text-amber-600">{m.status}</span>
+                                                                <span className="text-[9px] uppercase text-amber-600 dark:text-amber-400">{m.status}</span>
                                                             )}
                                                         </label>
                                                     );
@@ -1561,7 +1561,7 @@ export default function Configuration({ settings, setSettings, lang, machines, n
                                         value="STATIC"
                                         checked={(settings.capacityMode || 'STATIC') === 'STATIC'}
                                         onChange={() => setSettings(prev => ({ ...prev, capacityMode: 'STATIC' }))}
-                                        className="text-indigo-600 dark:text-dk-accent-text focus:ring-indigo-500"
+                                        className="text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text focus:ring-indigo-500"
                                     />
                                     <span>{t.apsModeStatic}</span>
                                 </label>
@@ -1572,7 +1572,7 @@ export default function Configuration({ settings, setSettings, lang, machines, n
                                         value="DYNAMIC"
                                         checked={settings.capacityMode === 'DYNAMIC'}
                                         onChange={() => setSettings(prev => ({ ...prev, capacityMode: 'DYNAMIC' }))}
-                                        className="text-indigo-600 dark:text-dk-accent-text focus:ring-indigo-500"
+                                        className="text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text focus:ring-indigo-500"
                                     />
                                     <span>{t.apsModeDynamic}</span>
                                 </label>
@@ -1718,7 +1718,7 @@ export default function Configuration({ settings, setSettings, lang, machines, n
                                     });
                                 }
                             }}
-                            className="text-xs font-bold text-red-600 hover:text-red-700 bg-red-50 hover:bg-red-100 px-3 py-1.5 rounded-lg border border-red-100 transition-colors"
+                            className="text-xs font-bold text-red-600 dark:text-red-400 hover:text-red-700 bg-red-50 dark:bg-red-900/30 hover:bg-red-100 px-3 py-1.5 rounded-lg border border-red-100 transition-colors"
                         >
                             {tx(lang, { fr: 'Réinitialiser', ar: 'إعادة تعيين', en: 'Reset', es: 'Restablecer', pt: 'Repor', tr: 'Sıfırla' })}
                         </button>
@@ -1751,7 +1751,7 @@ export default function Configuration({ settings, setSettings, lang, machines, n
                                         onClick={() => setNavConfig({ ...navConfig, style: item.key as any })}
                                         className={`p-4 rounded-xl border-2 font-bold text-sm transition-all text-start flex flex-col gap-1 hover:border-indigo-300 active:scale-98 ${
                                             navConfig.style === item.key
-                                                ? 'bg-indigo-50 dark:bg-dk-accent/20 border-indigo-500 text-indigo-700 dark:text-dk-accent-text shadow-sm'
+                                                ? 'bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 border-indigo-500 text-indigo-700 dark:text-dk-accent-text shadow-sm'
                                                 : 'bg-white dark:bg-dk-surface border-slate-200 dark:border-dk-border text-slate-600 dark:text-dk-text-soft'
                                         }`}
                                     >
@@ -1807,7 +1807,7 @@ export default function Configuration({ settings, setSettings, lang, machines, n
                                                     className="bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border hover:border-indigo-300 focus:border-indigo-500 outline-none rounded-xl px-3 py-2 text-sm font-bold text-slate-800 dark:text-dk-text flex-1 shadow-sm transition-all"
                                                     placeholder={tx(lang, { fr: 'Nom de la catégorie', ar: 'اسم الفئة', en: 'Category name', es: 'Nombre de la categoría', pt: 'Nome da categoria', tr: 'Kategori adı' })}
                                                 />
-                                                <span className="text-[10px] font-black uppercase bg-indigo-50 dark:bg-dk-accent/20 text-indigo-700 dark:text-dk-accent-text px-2 py-1 rounded border border-indigo-100">
+                                                <span className="text-[10px] font-black uppercase bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 text-indigo-700 dark:text-dk-accent-text px-2 py-1 rounded border border-indigo-100">
                                                     {category.views.length} {tx(lang, { fr: 'Pages', ar: 'صفحات', en: 'Pages', es: 'Páginas', pt: 'Páginas', tr: 'Sayfa' })}
                                                 </span>
                                             </div>
@@ -1852,7 +1852,7 @@ export default function Configuration({ settings, setSettings, lang, machines, n
                                                                     className={`px-2 py-0.5 text-[9px] font-bold rounded-full border transition-all ${
                                                                         isHidden
                                                                             ? 'bg-slate-100 dark:bg-dk-elevated border-slate-200 dark:border-dk-border text-slate-400 dark:text-dk-muted'
-                                                                            : 'bg-emerald-50 border-emerald-200 text-emerald-600'
+                                                                            : 'bg-emerald-50 dark:bg-emerald-900/30 border-emerald-200 text-emerald-600 dark:text-emerald-400'
                                                                     }`}
                                                                 >
                                                                     {isHidden ? tx(lang, { fr: 'Masqué', ar: 'مخفي', en: 'Hidden', es: 'Oculto', pt: 'Oculto', tr: 'Gizli' }) : tx(lang, { fr: 'Visible', ar: 'مرئي', en: 'Visible', es: 'Visible', pt: 'Visível', tr: 'Görünür' })}
@@ -1917,7 +1917,7 @@ export default function Configuration({ settings, setSettings, lang, machines, n
                                                     className={`px-2.5 py-1 text-[10px] font-bold rounded-full border transition-all shrink-0 ${
                                                         isHidden
                                                             ? 'bg-slate-100 dark:bg-dk-elevated border-slate-200 dark:border-dk-border text-slate-400 dark:text-dk-muted'
-                                                            : 'bg-emerald-50 border-emerald-200 text-emerald-600'
+                                                            : 'bg-emerald-50 dark:bg-emerald-900/30 border-emerald-200 text-emerald-600 dark:text-emerald-400'
                                                     }`}
                                                 >
                                                     {isHidden ? tx(lang, { fr: 'Masqué', ar: 'مخفي', en: 'Hidden', es: 'Oculto', pt: 'Oculto', tr: 'Gizli' }) : tx(lang, { fr: 'Visible', ar: 'مرئي', en: 'Visible', es: 'Visible', pt: 'Visível', tr: 'Görünür' })}
@@ -2011,17 +2011,17 @@ export default function Configuration({ settings, setSettings, lang, machines, n
                                     <div className="flex-1">
                                         <div className="flex items-center gap-2 mb-1">
                                             <span className="text-[10px] uppercase font-bold text-slate-400 dark:text-dk-muted bg-slate-100 dark:bg-dk-elevated px-2 py-0.5 rounded">{task.assigneeName} {task.assigneeRole ? `(${task.assigneeRole})` : ''}</span>
-                                            <span className="text-[10px] font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded flex items-center gap-1"><CalendarClock className="w-3 h-3" /> {task.date}</span>
+                                            <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30 px-2 py-0.5 rounded flex items-center gap-1"><CalendarClock className="w-3 h-3" /> {task.date}</span>
 
                                             {/* Status Badge */}
                                             {task.status === 'PENDING' && <span className="text-[10px] font-bold text-slate-500 dark:text-dk-muted bg-slate-100 dark:bg-dk-elevated px-2 py-0.5 rounded border border-slate-200 dark:border-dk-border">PENDING</span>}
-                                            {task.status === 'DONE_OK' && <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100">OK</span>}
-                                            {task.status === 'DONE_NOT_OK' && <span className="text-[10px] font-bold text-rose-600 bg-rose-50 px-2 py-0.5 rounded border border-rose-100">NOT OK</span>}
-                                            {task.status === 'SKIPPED' && <span className="text-[10px] font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded border border-amber-100">SKIPPED</span>}
+                                            {task.status === 'DONE_OK' && <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/30 px-2 py-0.5 rounded border border-emerald-100">OK</span>}
+                                            {task.status === 'DONE_NOT_OK' && <span className="text-[10px] font-bold text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-900/30 px-2 py-0.5 rounded border border-rose-100">NOT OK</span>}
+                                            {task.status === 'SKIPPED' && <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30 px-2 py-0.5 rounded border border-amber-100">SKIPPED</span>}
                                         </div>
                                         <p className="text-sm font-bold text-slate-700 dark:text-dk-text-soft">{task.text}</p>
                                         {task.status === 'SKIPPED' && task.skipReason && (
-                                            <p className="mt-1 flex items-start gap-1 text-xs text-amber-700 font-medium bg-amber-50 p-2 rounded-lg inline-block w-full">
+                                            <p className="mt-1 flex items-start gap-1 text-xs text-amber-700 font-medium bg-amber-50 dark:bg-amber-900/30 p-2 rounded-lg inline-block w-full">
                                                 <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
                                                 Motif d'annulation: {task.skipReason}
                                             </p>
@@ -2030,12 +2030,12 @@ export default function Configuration({ settings, setSettings, lang, machines, n
                                     <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
                                         {task.status === 'PENDING' && (
                                             <>
-                                                <button onClick={() => updateTaskStatus(task.id, 'DONE_OK')} className="p-1.5 bg-emerald-50 text-emerald-600 hover:bg-emerald-100 rounded-lg border border-emerald-100 transition-colors" title={tx(lang, { fr: 'Marquer comme OK', ar: 'تحديد كمقبول', en: 'Mark as OK', es: 'Marcar como OK', pt: 'Marcar como OK', tr: 'OK olarak işaretle' })}><Check className="w-3.5 h-3.5" /></button>
-                                                <button onClick={() => updateTaskStatus(task.id, 'DONE_NOT_OK')} className="p-1.5 bg-rose-50 text-rose-600 hover:bg-rose-100 rounded-lg border border-rose-100 transition-colors" title={tx(lang, { fr: 'Marquer comme NOT OK', ar: 'تحديد كغير مقبول', en: 'Mark as NOT OK', es: 'Marcar como NOT OK', pt: 'Marcar como NOT OK', tr: 'OK değil olarak işaretle' })}><X className="w-3.5 h-3.5" /></button>
+                                                <button onClick={() => updateTaskStatus(task.id, 'DONE_OK')} className="p-1.5 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-100 rounded-lg border border-emerald-100 transition-colors" title={tx(lang, { fr: 'Marquer comme OK', ar: 'تحديد كمقبول', en: 'Mark as OK', es: 'Marcar como OK', pt: 'Marcar como OK', tr: 'OK olarak işaretle' })}><Check className="w-3.5 h-3.5" /></button>
+                                                <button onClick={() => updateTaskStatus(task.id, 'DONE_NOT_OK')} className="p-1.5 bg-rose-50 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400 hover:bg-rose-100 rounded-lg border border-rose-100 transition-colors" title={tx(lang, { fr: 'Marquer comme NOT OK', ar: 'تحديد كغير مقبول', en: 'Mark as NOT OK', es: 'Marcar como NOT OK', pt: 'Marcar como NOT OK', tr: 'OK değil olarak işaretle' })}><X className="w-3.5 h-3.5" /></button>
                                                 <button onClick={() => {
                                                     const reason = prompt(tx(lang, { fr: 'Motif d\'annulation ?', ar: 'سبب الإلغاء؟', en: 'Cancellation reason?', es: '¿Motivo de cancelación?', pt: 'Motivo de cancelamento?', tr: 'İptal sebebi?' }));
                                                     if (reason) updateTaskStatus(task.id, 'SKIPPED', reason);
-                                                }} className="p-1.5 bg-amber-50 text-amber-600 hover:bg-amber-100 rounded-lg border border-amber-100 transition-colors" title={tx(lang, { fr: 'Ignorer / Annuler', ar: 'تخطي / إلغاء', en: 'Skip / Cancel', es: 'Omitir / Cancelar', pt: 'Ignorar / Cancelar', tr: 'Atla / İptal' })}><SkipForward className="w-3.5 h-3.5" /></button>
+                                                }} className="p-1.5 bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 hover:bg-amber-100 rounded-lg border border-amber-100 transition-colors" title={tx(lang, { fr: 'Ignorer / Annuler', ar: 'تخطي / إلغاء', en: 'Skip / Cancel', es: 'Omitir / Cancelar', pt: 'Ignorar / Cancelar', tr: 'Atla / İptal' })}><SkipForward className="w-3.5 h-3.5" /></button>
                                             </>
                                         )}
                                         <button

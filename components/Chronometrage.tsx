@@ -69,24 +69,24 @@ const TIME_UNIT_OPTIONS: { id: TimeUnit; label: string; name: string; secondsFac
 ];
 
 const POSTE_COLORS = [
-    { name: 'indigo', bg: 'bg-indigo-50 dark:bg-dk-accent/20', border: 'border-indigo-200', text: 'text-indigo-700 dark:text-dk-accent-text', badge: 'bg-indigo-100', badgeText: 'text-indigo-800', fill: '#6366f1' },
-    { name: 'orange', bg: 'bg-orange-50', border: 'border-orange-200', text: 'text-orange-700', badge: 'bg-orange-100', badgeText: 'text-orange-800', fill: '#f97316' },
-    { name: 'emerald', bg: 'bg-emerald-50', border: 'border-emerald-200', text: 'text-emerald-700', badge: 'bg-emerald-100', badgeText: 'text-emerald-800', fill: '#10b981' },
-    { name: 'rose', bg: 'bg-rose-50', border: 'border-rose-200', text: 'text-rose-700', badge: 'bg-rose-100', badgeText: 'text-rose-800', fill: '#f43f5e' },
-    { name: 'cyan', bg: 'bg-cyan-50', border: 'border-cyan-200', text: 'text-cyan-700', badge: 'bg-cyan-100', badgeText: 'text-cyan-800', fill: '#06b6d4' },
-    { name: 'amber', bg: 'bg-amber-50', border: 'border-amber-200', text: 'text-amber-700', badge: 'bg-amber-100', badgeText: 'text-amber-800', fill: '#f59e0b' },
+    { name: 'indigo', bg: 'bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20', border: 'border-indigo-200', text: 'text-indigo-700 dark:text-dk-accent-text', badge: 'bg-indigo-100', badgeText: 'text-indigo-800', fill: '#6366f1' },
+    { name: 'orange', bg: 'bg-orange-50 dark:bg-orange-900/30', border: 'border-orange-200', text: 'text-orange-700', badge: 'bg-orange-100', badgeText: 'text-orange-800', fill: '#f97316' },
+    { name: 'emerald', bg: 'bg-emerald-50 dark:bg-emerald-900/30', border: 'border-emerald-200', text: 'text-emerald-700', badge: 'bg-emerald-100', badgeText: 'text-emerald-800', fill: '#10b981' },
+    { name: 'rose', bg: 'bg-rose-50 dark:bg-rose-900/30', border: 'border-rose-200', text: 'text-rose-700', badge: 'bg-rose-100', badgeText: 'text-rose-800', fill: '#f43f5e' },
+    { name: 'cyan', bg: 'bg-cyan-50 dark:bg-cyan-900/30', border: 'border-cyan-200', text: 'text-cyan-700', badge: 'bg-cyan-100', badgeText: 'text-cyan-800', fill: '#06b6d4' },
+    { name: 'amber', bg: 'bg-amber-50 dark:bg-amber-900/30', border: 'border-amber-200', text: 'text-amber-700', badge: 'bg-amber-100', badgeText: 'text-amber-800', fill: '#f59e0b' },
     { name: 'violet', bg: 'bg-violet-50', border: 'border-violet-200', text: 'text-violet-700', badge: 'bg-violet-100', badgeText: 'text-violet-800', fill: '#8b5cf6' },
-    { name: 'lime', bg: 'bg-lime-50', border: 'border-lime-200', text: 'text-lime-700', badge: 'bg-lime-100', badgeText: 'text-lime-800', fill: '#84cc16' },
+    { name: 'lime', bg: 'bg-lime-50 dark:bg-lime-900/30', border: 'border-lime-200', text: 'text-lime-700', badge: 'bg-lime-100', badgeText: 'text-lime-800', fill: '#84cc16' },
     { name: 'fuchsia', bg: 'bg-fuchsia-50', border: 'border-fuchsia-200', text: 'text-fuchsia-700', badge: 'bg-fuchsia-100', badgeText: 'text-fuchsia-800', fill: '#d946ef' },
-    { name: 'teal', bg: 'bg-teal-50', border: 'border-teal-200', text: 'text-teal-700', badge: 'bg-teal-100', badgeText: 'text-teal-800', fill: '#14b8a6' },
-    { name: 'red', bg: 'bg-red-50', border: 'border-red-200', text: 'text-red-700', badge: 'bg-red-100', badgeText: 'text-red-800', fill: '#ef4444' },
-    { name: 'sky', bg: 'bg-sky-50', border: 'border-sky-200', text: 'text-sky-700', badge: 'bg-sky-100', badgeText: 'text-sky-800', fill: '#0ea5e9' },
+    { name: 'teal', bg: 'bg-teal-50 dark:bg-teal-900/30', border: 'border-teal-200', text: 'text-teal-700', badge: 'bg-teal-100', badgeText: 'text-teal-800', fill: '#14b8a6' },
+    { name: 'red', bg: 'bg-red-50 dark:bg-red-900/30', border: 'border-red-200', text: 'text-red-700', badge: 'bg-red-100', badgeText: 'text-red-800', fill: '#ef4444' },
+    { name: 'sky', bg: 'bg-sky-50 dark:bg-sky-900/30', border: 'border-sky-200', text: 'text-sky-700', badge: 'bg-sky-100', badgeText: 'text-sky-800', fill: '#0ea5e9' },
 ];
 
 const SPECIAL_COLORS = {
-    controle: { name: 'orange', bg: 'bg-orange-50', border: 'border-orange-200', text: 'text-orange-700', fill: '#f97316', badge: 'bg-orange-100', badgeText: 'text-orange-800' },
+    controle: { name: 'orange', bg: 'bg-orange-50 dark:bg-orange-900/30', border: 'border-orange-200', text: 'text-orange-700', fill: '#f97316', badge: 'bg-orange-100', badgeText: 'text-orange-800' },
     fer: { name: 'rose', bg: 'bg-rose-100', border: 'border-rose-300', text: 'text-rose-800', fill: '#e11d48', badge: 'bg-rose-200', badgeText: 'text-rose-900' },
-    finition: { name: 'purple', bg: 'bg-purple-50', border: 'border-purple-200', text: 'text-purple-700', fill: '#a855f7', badge: 'bg-purple-100', badgeText: 'text-purple-800' },
+    finition: { name: 'purple', bg: 'bg-purple-50 dark:bg-purple-900/30', border: 'border-purple-200', text: 'text-purple-700', fill: '#a855f7', badge: 'bg-purple-100', badgeText: 'text-purple-800' },
     vide: { name: 'vide', bg: 'bg-transparent', border: 'border-slate-300 border-2 border-dashed', text: 'text-slate-400 dark:text-dk-muted', fill: 'transparent', badge: 'bg-slate-100 dark:bg-dk-elevated', badgeText: 'text-slate-500 dark:text-dk-muted' },
 };
 
@@ -283,9 +283,9 @@ function AdvancedStopwatch({ onRecord, onClear, onAdvance, onPrev, onNext, onUnd
     const cvLabel = cvStatus === 'valid' ? tx(lang, { fr: 'Série valide', ar: 'سلسلة صالحة', en: 'Valid series', es: 'Serie válida', pt: 'Série válida', tr: 'Geçerli seri' })
         : cvStatus === 'warn' ? tx(lang, { fr: 'Vérifier', ar: 'يجب التحقق', en: 'Check', es: 'Verificar', pt: 'Verificar', tr: 'Kontrol et' })
         : tx(lang, { fr: 'Série invalide', ar: 'سلسلة غير صالحة', en: 'Invalid series', es: 'Serie no válida', pt: 'Série inválida', tr: 'Geçersiz seri' });
-    const cvColor = cvStatus === 'valid' ? 'text-emerald-600 bg-emerald-50 border-emerald-200'
-        : cvStatus === 'warn' ? 'text-amber-600 bg-amber-50 border-amber-200'
-        : 'text-rose-600 bg-rose-50 border-rose-200';
+    const cvColor = cvStatus === 'valid' ? 'text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/30 border-emerald-200'
+        : cvStatus === 'warn' ? 'text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30 border-amber-200'
+        : 'text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-900/30 border-rose-200';
 
     // eslint-disable-next-line react-hooks/exhaustive-deps
     useEffect(() => { if (isCompleted) { beep(660, 120, 0.25); vibrate([30, 20, 80]); } }, [isCompleted]);
@@ -420,7 +420,7 @@ function AdvancedStopwatch({ onRecord, onClear, onAdvance, onPrev, onNext, onUnd
                 <div className={`mx-2 mb-1 flex flex-col ${compact ? 'gap-0.5' : 'gap-1.5'}`}>
                     {/* Lifson warning if needed */}
                     {nRequired !== null && nRequired > neededLaps && (
-                        <div className={`px-2.5 ${compact ? 'py-0.5 text-[8.5px] rounded-lg' : 'py-1 text-[10px] rounded-xl'} border border-amber-200 bg-amber-50 font-bold text-amber-700`}>
+                        <div className={`px-2.5 ${compact ? 'py-0.5 text-[8.5px] rounded-lg' : 'py-1 text-[10px] rounded-xl'} border border-amber-200 bg-amber-50 dark:bg-amber-900/30 font-bold text-amber-700`}>
                             ⚠ {tx(lang, { fr: `Lifson : ${nRequired} relevés recommandés pour fiabilité 95%`, ar: `Lifson: يُنصح بـ ${nRequired} قراءات لموثوقية 95%`, en: `Lifson: ${nRequired} readings recommended for 95% reliability`, es: `Lifson: se recomiendan ${nRequired} lecturas para una fiabilidad del 95%`, pt: `Lifson: recomendam-se ${nRequired} leituras para confiabilidade de 95%`, tr: `Lifson: %95 güvenilirlik için ${nRequired} ölçüm önerilir` })}
                         </div>
                     )}
@@ -431,11 +431,11 @@ function AdvancedStopwatch({ onRecord, onClear, onAdvance, onPrev, onNext, onUnd
                         const sd = Math.sqrt(arr.reduce((acc,v)=>acc+Math.pow(v-m,2),0)/arr.length);
                         return Math.abs(t - m) > 2 * sd;
                     }) && (
-                        <div className={`px-2.5 ${compact ? 'py-0.5 text-[8.5px] rounded-lg' : 'py-1 text-[10px] rounded-xl'} border border-rose-200 bg-rose-50 font-bold text-rose-700`}>
+                        <div className={`px-2.5 ${compact ? 'py-0.5 text-[8.5px] rounded-lg' : 'py-1 text-[10px] rounded-xl'} border border-rose-200 bg-rose-50 dark:bg-rose-900/30 font-bold text-rose-700`}>
                             ✗ {tx(lang, { fr: 'Valeur aberrante détectée — vérifiez avant de continuer', ar: 'تم رصد قيمة شاذة — يرجى التحقق قبل المتابعة', en: 'Outlier detected — verify before continuing', es: 'Valor atípico detectado — verifique antes de continuar', pt: 'Valor atípico detectado — verifique antes de continuar', tr: 'Aykırı değer tespit edildi — devam etmeden önce kontrol edin' })}
                         </div>
                     )}
-                    <div className={`flex items-center gap-1.5 bg-emerald-50 border border-emerald-200 rounded-xl px-2.5 ${compact ? 'py-0.5 text-[9px]' : 'py-1.5'}`}>
+                    <div className={`flex items-center gap-1.5 bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-200 rounded-xl px-2.5 ${compact ? 'py-0.5 text-[9px]' : 'py-1.5'}`}>
                         <div className={`${compact ? 'w-3 h-3' : 'w-4 h-4'} rounded-full bg-emerald-500 flex items-center justify-center shrink-0`}>
                             <Hash className={`${compact ? 'w-1.5 h-1.5' : 'w-2.5 h-2.5'} text-white`} />
                         </div>
@@ -470,7 +470,7 @@ function AdvancedStopwatch({ onRecord, onClear, onAdvance, onPrev, onNext, onUnd
                         <div className="flex-1 flex justify-center items-center gap-1.5">
                             {confirmClear ? (
                                 <div className="flex gap-1.5 items-center">
-                                    <span className="text-[8px] font-bold text-rose-600">{tx(lang, { fr: 'Effacer?', ar: 'مسح؟', en: 'Clear?', es: '¿Borrar?', pt: 'Limpar?', tr: 'Sil?' })}</span>
+                                    <span className="text-[8px] font-bold text-rose-600 dark:text-rose-400">{tx(lang, { fr: 'Effacer?', ar: 'مسح؟', en: 'Clear?', es: '¿Borrar?', pt: 'Limpar?', tr: 'Sil?' })}</span>
                                     <button onClick={() => setConfirmClear(false)} className="px-1.5 py-0.5 text-[8px] font-bold bg-slate-200 rounded">{tx(lang, { fr: 'Non', ar: 'لا', en: 'No', es: 'No', pt: 'Não', tr: 'Hayır' })}</button>
                                     <button onClick={() => { onClear(); handleReset(); setConfirmClear(false); vibrate([50, 30, 50]); }} className="px-1.5 py-0.5 text-[8px] font-bold bg-rose-500 text-white rounded">{tx(lang, { fr: 'Oui', ar: 'نعم', en: 'Yes', es: 'Sí', pt: 'Sim', tr: 'Evet' })}</button>
                                 </div>
@@ -479,7 +479,7 @@ function AdvancedStopwatch({ onRecord, onClear, onAdvance, onPrev, onNext, onUnd
                                     <button onClick={handleReset} className="flex items-center gap-0.5 px-2 py-0.5 text-[8.5px] font-bold bg-slate-200 hover:bg-slate-300 rounded text-slate-750 active:scale-95 transition-all">
                                         <RotateCcw className="w-2.5 h-2.5" /> {tx(lang, { fr: 'Nouveau', ar: 'جديد', en: 'New', es: 'Nuevo', pt: 'Novo', tr: 'Yeni' })}
                                     </button>
-                                    <button onClick={() => setConfirmClear(true)} className="flex items-center gap-0.5 px-2 py-0.5 text-[8.5px] font-bold bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-600 rounded active:scale-95 transition-all">
+                                    <button onClick={() => setConfirmClear(true)} className="flex items-center gap-0.5 px-2 py-0.5 text-[8.5px] font-bold bg-rose-50 dark:bg-rose-900/30 hover:bg-rose-100 border border-rose-200 text-rose-600 dark:text-rose-400 rounded active:scale-95 transition-all">
                                         <X className="w-2.5 h-2.5" /> {tx(lang, { fr: 'Effacer', ar: 'مسح', en: 'Clear', es: 'Borrar', pt: 'Limpar', tr: 'Sil' })}
                                     </button>
                                 </div>
@@ -545,7 +545,7 @@ function AdvancedStopwatch({ onRecord, onClear, onAdvance, onPrev, onNext, onUnd
                     )}
                     {confirmClear && (
                         <div className="flex flex-col gap-1">
-                            <p className="text-[10px] font-bold text-rose-600 text-center">{tx(lang, { fr: `Effacer les ${trCount} relevés ?`, ar: `هل تريد مسح ${trCount} قراءات؟`, en: `Clear ${trCount} readings?`, es: `¿Borrar las ${trCount} lecturas?`, pt: `Limpar as ${trCount} leituras?`, tr: `${trCount} ölçüm silinsin mi?` })}</p>
+                            <p className="text-[10px] font-bold text-rose-600 dark:text-rose-400 text-center">{tx(lang, { fr: `Effacer les ${trCount} relevés ?`, ar: `هل تريد مسح ${trCount} قراءات؟`, en: `Clear ${trCount} readings?`, es: `¿Borrar las ${trCount} lecturas?`, pt: `Limpar as ${trCount} leituras?`, tr: `${trCount} ölçüm silinsin mi?` })}</p>
                             <div className="flex gap-1.5">
                                 <button onClick={() => setConfirmClear(false)}
                                     className="flex-1 py-1.5 text-[11px] font-bold active:scale-95 transition-all"
@@ -1474,9 +1474,9 @@ export default function Chronometrage({
 
     const getSaturationBadgeStyles = (sat: number) => {
         const tolerance = toleranceSaturation ?? 115;
-        if (sat > tolerance) return 'text-rose-700 bg-rose-50 border-rose-200';
-        if (sat >= 70) return 'text-emerald-700 bg-emerald-50 border-emerald-200';
-        if (sat >= 40) return 'text-amber-700 bg-amber-50 border-amber-200';
+        if (sat > tolerance) return 'text-rose-700 bg-rose-50 dark:bg-rose-900/30 border-rose-200';
+        if (sat >= 70) return 'text-emerald-700 bg-emerald-50 dark:bg-emerald-900/30 border-emerald-200';
+        if (sat >= 40) return 'text-amber-700 bg-amber-50 dark:bg-amber-900/30 border-amber-200';
         return 'text-slate-600 dark:text-dk-text-soft bg-slate-50 dark:bg-dk-bg border-slate-200 dark:border-dk-border';
     };
 
@@ -1629,18 +1629,18 @@ export default function Chronometrage({
                 {/* Header Info */}
                 <div className="bg-gradient-to-r from-indigo-50/50 to-white px-5 py-4 border-b border-indigo-50 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-left">
                     <div>
-                        <span className="text-[10px] font-extrabold uppercase tracking-wider text-indigo-500 bg-indigo-50 dark:bg-dk-accent/20 px-2 py-0.5 rounded-md border border-indigo-100">
+                        <span className="text-[10px] font-extrabold uppercase tracking-wider text-indigo-500 bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 px-2 py-0.5 rounded-md border border-indigo-100">
                             {tx(lang, { fr: 'Chronométrage Actif', ar: 'التحكيم الزمني نشط', en: 'Active Time Study', es: 'Cronometraje Activo', pt: 'Cronometragem Ativa', tr: 'Etkin Zaman Etüdü' })}
                         </span>
                         <h4 className="font-black text-slate-800 dark:text-dk-text text-sm mt-1.5 leading-snug line-clamp-2">{op.description}</h4>
                         <p className="text-slate-500 dark:text-dk-muted text-[11px] font-medium mt-0.5 flex items-center gap-1.5">
                             <span className="font-semibold text-slate-400 dark:text-dk-muted">{tx(lang, { fr: 'Machine :', ar: 'الآلة:', en: 'Machine:', es: 'Máquina:', pt: 'Máquina:', tr: 'Makine:' })}</span>
-                            <strong className="text-indigo-600 dark:text-dk-accent-text bg-indigo-50 dark:bg-dk-accent/20/50 px-1.5 py-0.5 rounded border border-indigo-100/50">{getMachineLabel(op.id)}</strong>
+                            <strong className="text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20/50 px-1.5 py-0.5 rounded border border-indigo-100/50">{getMachineLabel(op.id)}</strong>
                         </p>
                     </div>
                     {showTsColumn && (
                         <div className="shrink-0 text-left sm:text-right">
-                            <span className="text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2.5 py-1 rounded-lg inline-block">
+                            <span className="text-[10px] font-bold text-amber-700 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 px-2.5 py-1 rounded-lg inline-block">
                                 TS: {formatTsSeconds(op.time)} s
                             </span>
                         </div>
@@ -1661,7 +1661,7 @@ export default function Chronometrage({
                 />
 
                 {/* TR Inputs & Calculations (Only needed in plantation because columns don't exist) */}
-                <div className="p-5 border-t border-slate-100 dark:border-dk-border bg-slate-50/50 text-left">
+                <div className="p-5 border-t border-slate-100 dark:border-dk-border bg-slate-50 dark:bg-dk-bg/50 text-left">
                     <div className="flex items-center justify-between mb-3">
                         <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-dk-muted">{tx(lang, { fr: `Saisie des Relevés (Unité : ${unitShort})`, ar: `إدخال القراءات (الوحدة: ${unitShort})`, en: `Reading Entry (Unit: ${unitShort})`, es: `Entrada de Lecturas (Unidad: ${unitShort})`, pt: `Entrada de Leituras (Unidade: ${unitShort})`, tr: `Ölçüm Girişi (Birim: ${unitShort})` })}</span>
                         {!trEnabled && (
@@ -1681,7 +1681,7 @@ export default function Chronometrage({
                                         <div className="relative">
                                             <input
                                                 type="number" step="0.01" min="0"
-                                                className={`w-full py-2 px-2 text-center text-sm font-mono font-bold border rounded-lg bg-slate-50 focus:bg-white focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 outline-none transition-all placeholder:text-slate-300 ${INPUT_NO_SPIN} ${hasVal ? trStatusStyles[status] : 'text-indigo-600 dark:text-dk-accent-text border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface shadow-sm'}`}
+                                                className={`w-full py-2 px-2 text-center text-sm font-mono font-bold border rounded-lg bg-slate-50 dark:bg-dk-bg focus:bg-white focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 outline-none transition-all placeholder:text-slate-300 ${INPUT_NO_SPIN} ${hasVal ? trStatusStyles[status] : 'text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface shadow-sm'}`}
                                                 placeholder="—"
                                                 value={hasVal && typeof val === 'number' ? displayValue(val) : ''}
                                                 onChange={e => handleCellChange(op.id, `tr${trNum}` as keyof ChronoData, e.target.value)}
@@ -1717,7 +1717,7 @@ export default function Chronometrage({
                                     type="number"
                                     step="0.01"
                                     min="0"
-                                    className={`w-full max-w-[6.5rem] px-2.5 py-1.5 text-center text-sm font-black text-indigo-700 dark:text-dk-accent-text font-mono border border-slate-200 dark:border-dk-border rounded-lg bg-slate-50 focus:bg-white focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 outline-none ${INPUT_NO_SPIN} shadow-inner`}
+                                    className={`w-full max-w-[6.5rem] px-2.5 py-1.5 text-center text-sm font-black text-indigo-700 dark:text-dk-accent-text font-mono border border-slate-200 dark:border-dk-border rounded-lg bg-slate-50 dark:bg-dk-bg focus:bg-white focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 outline-none ${INPUT_NO_SPIN} shadow-inner`}
                                     placeholder="—"
                                     value={displayValue(row.tm)}
                                     onChange={e => handleCellChange(op.id, 'tm', e.target.value)}
@@ -1734,7 +1734,7 @@ export default function Chronometrage({
                                 type="number"
                                 step="0.01"
                                 min="0"
-                                className={`mt-1 w-full max-w-[5rem] mx-auto px-2.5 py-1.5 text-center text-sm font-mono font-bold text-slate-700 dark:text-dk-text-soft border border-slate-200 dark:border-dk-border rounded-lg bg-slate-50 focus:bg-white focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 outline-none ${INPUT_NO_SPIN} shadow-inner`}
+                                className={`mt-1 w-full max-w-[5rem] mx-auto px-2.5 py-1.5 text-center text-sm font-mono font-bold text-slate-700 dark:text-dk-text-soft border border-slate-200 dark:border-dk-border rounded-lg bg-slate-50 dark:bg-dk-bg focus:bg-white focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 outline-none ${INPUT_NO_SPIN} shadow-inner`}
                                 value={displayValue(data.majoration)}
                                 onChange={e => handleCellChange(op.id, 'majoration', e.target.value)}
                             />
@@ -1885,7 +1885,7 @@ export default function Chronometrage({
 
                         <div className="flex items-center gap-1">
                             <span className="text-[9px] font-bold text-slate-400 dark:text-dk-muted uppercase tracking-wide">{tx(lang, { fr: 'T.Maj :', ar: 'الوقت المرفّع:', en: 'Allowed T.:', es: 'T.Conced.:', pt: 'T.Acresc.:', tr: 'İl.Süre:' })}</span>
-                            <span className="text-xs font-black text-emerald-600 font-mono">
+                            <span className="text-xs font-black text-emerald-600 dark:text-emerald-400 font-mono">
                                 {row.tempMajore !== undefined ? formatTempMajoreInUnit(row.tempMajore) : '—'}
                             </span>
                         </div>
@@ -1904,7 +1904,7 @@ export default function Chronometrage({
                                         <div key={trNum} className="relative group/cell w-8 text-center">
                                             <input
                                                 type="number" step="0.01" min="0"
-                                                className={`w-full py-0.5 text-center text-[9px] font-mono font-bold border rounded bg-white dark:bg-dk-surface focus:border-indigo-400 outline-none transition-all placeholder:text-slate-300 ${INPUT_NO_SPIN} ${hasVal ? trStatusStyles[status] : 'text-indigo-600 dark:text-dk-accent-text border-slate-200 dark:border-dk-border'}`}
+                                                className={`w-full py-0.5 text-center text-[9px] font-mono font-bold border rounded bg-white dark:bg-dk-surface focus:border-indigo-400 outline-none transition-all placeholder:text-slate-300 ${INPUT_NO_SPIN} ${hasVal ? trStatusStyles[status] : 'text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text border-slate-200 dark:border-dk-border'}`}
                                                 placeholder={`TR${trNum}`}
                                                 value={hasVal && typeof val === 'number' ? displayValue(val) : ''}
                                                 onChange={e => handleCellChange(op.id, `tr${trNum}` as keyof ChronoData, e.target.value, stId)}
@@ -1958,7 +1958,7 @@ export default function Chronometrage({
         return (
             <div
                 key={st.id}
-                className="bg-slate-50/20 rounded-xl sm:rounded-2xl border-2 border-dashed border-slate-250 p-3 sm:p-4 flex items-center justify-between gap-3 text-left opacity-60 min-h-[96px] shadow-sm select-none"
+                className="bg-slate-50 dark:bg-dk-bg/20 rounded-xl sm:rounded-2xl border-2 border-dashed border-slate-250 p-3 sm:p-4 flex items-center justify-between gap-3 text-left opacity-60 min-h-[96px] shadow-sm select-none"
             >
                 <div className="flex items-center gap-1.5 sm:gap-2.5 min-w-0 flex-1">
                     {/* Muted Checkbox */}
@@ -2043,7 +2043,7 @@ export default function Chronometrage({
         const stationTimeInSeconds = Math.round(stationMeasuredTime / parentOpsCount);
 
         // Saturation badge & progress classes (mirroring Implantation exactly)
-        let satBadgeClass = 'bg-emerald-50 text-emerald-500';
+        let satBadgeClass = 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-500';
         let satProgressClass = fill; // default to color.fill (hex)
         if (sat > tolerance) {
             satBadgeClass = 'bg-rose-100 text-rose-700 border border-rose-200';
@@ -2118,7 +2118,7 @@ export default function Chronometrage({
                                     M: {st.machine}
                                 </span>
                                 {totalOps > 1 && (
-                                    <span className="text-[9px] font-bold uppercase text-indigo-650 dark:text-dk-accent-text bg-indigo-50 dark:bg-dk-accent/20 border border-indigo-100 px-1 py-0.2 rounded leading-none shrink-0">
+                                    <span className="text-[9px] font-bold uppercase text-indigo-650 dark:text-dk-accent-text bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 border border-indigo-100 px-1 py-0.2 rounded leading-none shrink-0">
                                         Op {opIdx + 1}/{totalOps}
                                     </span>
                                 )}
@@ -2148,7 +2148,7 @@ export default function Chronometrage({
                                             }, 250);
                                         }}
                                         placeholder={tx(lang, { fr: 'Nom / Matricule...', ar: 'الاسم / الرقم الوظيفي...', en: 'Name / ID...', es: 'Nombre / Matrícula...', pt: 'Nome / Matrícula...', tr: 'İsim / Sicil No...' })}
-                                        className="bg-slate-50 border border-slate-200 dark:border-dk-border focus:border-indigo-400 focus:bg-white rounded px-2 py-1 sm:py-0.5 outline-none w-full text-[11px] sm:text-xs font-black text-slate-700 dark:text-dk-text-soft placeholder-slate-400 transition-all shadow-sm"
+                                        className="bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border focus:border-indigo-400 focus:bg-white rounded px-2 py-1 sm:py-0.5 outline-none w-full text-[11px] sm:text-xs font-black text-slate-700 dark:text-dk-text-soft placeholder-slate-400 transition-all shadow-sm"
                                     />
 
                                     {/* Liste des effectifs : ancrée juste sous le champ "Opé" */}
@@ -2157,7 +2157,7 @@ export default function Chronometrage({
                                             onClick={e => e.stopPropagation()}
                                             className="absolute z-[200] left-0 top-full mt-1.5 w-full sm:w-72 max-h-60 sm:max-h-72 overflow-y-auto bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border/90 rounded-xl sm:rounded-2xl shadow-xl divide-y divide-slate-100 p-1.5"
                                         >
-                                            <div className="px-3 py-2 bg-slate-50/80 rounded-t-lg text-[9px] sm:text-[10px] font-black text-slate-400 dark:text-dk-muted uppercase tracking-wider sticky top-0 z-10 border-b border-slate-100 dark:border-dk-border flex items-center justify-between">
+                                            <div className="px-3 py-2 bg-slate-50 dark:bg-dk-bg/80 rounded-t-lg text-[9px] sm:text-[10px] font-black text-slate-400 dark:text-dk-muted uppercase tracking-wider sticky top-0 z-10 border-b border-slate-100 dark:border-dk-border flex items-center justify-between">
                                                 <span>{tx(lang, { fr: "Membres d'effectifs disponibles", ar: 'أعضاء الفريق المتاحين', en: 'Available staff members', es: 'Miembros de personal disponibles', pt: 'Membros da equipe disponíveis', tr: 'Mevcut personel üyeleri' })}</span>
                                                 <span className="text-[8px] bg-slate-200/60 text-slate-555 px-1 py-0.2 rounded font-mono">
                                                     {workerSuggestions.length} {tx(lang, { fr: 'dispo', ar: 'متاح', en: 'avail.', es: 'disp.', pt: 'disp.', tr: 'mevcut' })}
@@ -2193,7 +2193,7 @@ export default function Chronometrage({
                                                             </span>
                                                         </div>
                                                         {w.role && (
-                                                            <span className="text-[8px] sm:text-[9px] font-bold text-indigo-650 dark:text-dk-accent-text bg-indigo-50 dark:bg-dk-accent/20 border border-indigo-100/30 px-1.5 py-0.5 rounded-lg shrink-0 uppercase tracking-wider">
+                                                            <span className="text-[8px] sm:text-[9px] font-bold text-indigo-650 dark:text-dk-accent-text bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 border border-indigo-100/30 px-1.5 py-0.5 rounded-lg shrink-0 uppercase tracking-wider">
                                                                 {w.role}
                                                             </span>
                                                         )}
@@ -2213,7 +2213,7 @@ export default function Chronometrage({
                             <span className="text-[9px] sm:text-[10px] font-bold text-slate-400 dark:text-dk-muted">
                                 {timeLabel}
                             </span>
-                            <span className="font-mono font-black text-indigo-700 dark:text-dk-accent-text text-[11px] sm:text-xs bg-indigo-50 dark:bg-dk-accent/20 border border-indigo-100/50 px-1.5 sm:px-2 py-0.5 rounded-lg shrink-0">
+                            <span className="font-mono font-black text-indigo-700 dark:text-dk-accent-text text-[11px] sm:text-xs bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 border border-indigo-100/50 px-1.5 sm:px-2 py-0.5 rounded-lg shrink-0">
                                 {Math.round(displayTimeSec)}s
                             </span>
                         </div>
@@ -2326,8 +2326,8 @@ export default function Chronometrage({
 
     const trStatusStyles: Record<TRStatus, string> = {
         normal: '',
-        slow: 'bg-rose-50 text-rose-700 border-rose-200',
-        fast: 'bg-rose-50 text-rose-700 border-rose-200',
+        slow: 'bg-rose-50 dark:bg-rose-900/30 text-rose-700 border-rose-200',
+        fast: 'bg-rose-50 dark:bg-rose-900/30 text-rose-700 border-rose-200',
         outlier: 'bg-rose-100 text-rose-800 border-rose-300 ring-1 ring-rose-200',
     };
 
@@ -2581,7 +2581,7 @@ export default function Chronometrage({
                     };
                     setChronoCustomStations?.(prev => [...prev, newStation]);
                 }}
-                className="w-full bg-slate-50/20 hover:bg-slate-100/40 rounded-xl sm:rounded-2xl border-2 border-dashed border-slate-300 hover:border-indigo-400 py-6 px-4 flex items-center justify-center gap-2 text-center opacity-70 text-slate-400 hover:text-indigo-650 dark:text-dk-accent-text transition-all min-h-[96px] shadow-sm select-none"
+                className="w-full bg-slate-50 dark:bg-dk-bg/20 hover:bg-slate-100/40 rounded-xl sm:rounded-2xl border-2 border-dashed border-slate-300 hover:border-indigo-400 py-6 px-4 flex items-center justify-center gap-2 text-center opacity-70 text-slate-400 hover:text-indigo-650 dark:text-dk-accent-text transition-all min-h-[96px] shadow-sm select-none"
             >
                 <Plus className="w-5 h-5 shrink-0 text-slate-400 group-hover:text-indigo-650 dark:text-dk-accent-text" />
                 <span className="text-xs sm:text-sm font-black uppercase tracking-wide">
@@ -2641,7 +2641,7 @@ export default function Chronometrage({
 
                         <div className="flex items-center gap-1">
                             <span className="text-[9px] font-bold text-slate-400 dark:text-dk-muted uppercase tracking-wide">{tx(lang, { fr: 'T.Maj :', ar: 'الوقت المرفّع:', en: 'Allowed T.:', es: 'T.Conced.:', pt: 'T.Acresc.:', tr: 'İl.Süre:' })}</span>
-                            <span className="text-xs font-black text-emerald-600 font-mono">
+                            <span className="text-xs font-black text-emerald-600 dark:text-emerald-400 font-mono">
                                 {row.tempMajore !== undefined ? formatTempMajoreInUnit(row.tempMajore) : '—'}
                             </span>
                         </div>
@@ -2660,7 +2660,7 @@ export default function Chronometrage({
                                         <div key={trNum} className="relative group/cell w-8 text-center">
                                             <input
                                                 type="number" step="0.01" min="0"
-                                                className={`w-full py-0.5 text-center text-[9px] font-mono font-bold border rounded bg-white dark:bg-dk-surface focus:border-indigo-400 outline-none transition-all placeholder:text-slate-300 ${INPUT_NO_SPIN} ${hasVal ? trStatusStyles[status] : 'text-indigo-600 dark:text-dk-accent-text border-slate-200 dark:border-dk-border'}`}
+                                                className={`w-full py-0.5 text-center text-[9px] font-mono font-bold border rounded bg-white dark:bg-dk-surface focus:border-indigo-400 outline-none transition-all placeholder:text-slate-300 ${INPUT_NO_SPIN} ${hasVal ? trStatusStyles[status] : 'text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text border-slate-200 dark:border-dk-border'}`}
                                                 placeholder={`TR${trNum}`}
                                                 value={hasVal && typeof val === 'number' ? displayValue(val) : ''}
                                                 onChange={e => handleCellChange(stationId, `tr${trNum}` as keyof ChronoData, e.target.value)}
@@ -2776,17 +2776,17 @@ export default function Chronometrage({
         const sat = Math.round(activeBf > 0 ? (stationTimeInSeconds / (activeBf * 60)) * 100 : 0);
         const tolerance = toleranceSaturation ?? 115;
 
-        let satBadgeClass = 'bg-emerald-50 text-emerald-500';
+        let satBadgeClass = 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-500';
         let satProgressClass = fill;
         let colorText = 'text-slate-755';
         if (sat > tolerance) {
             satBadgeClass = 'bg-rose-100 text-rose-700 border border-rose-200';
             satProgressClass = 'bg-rose-500 animate-pulse';
-            colorText = 'text-rose-600';
+            colorText = 'text-rose-600 dark:text-rose-400';
         } else if (sat >= 100) {
             satBadgeClass = 'bg-amber-100 text-amber-700 border border-amber-200';
             satProgressClass = 'bg-amber-500';
-            colorText = 'text-amber-600';
+            colorText = 'text-amber-600 dark:text-amber-400';
         } else if (sat < 50) {
             satBadgeClass = 'bg-slate-100 dark:bg-dk-elevated text-slate-500 dark:text-dk-muted border border-slate-200 dark:border-dk-border';
             satProgressClass = 'bg-slate-400';
@@ -2912,7 +2912,7 @@ export default function Chronometrage({
                                             );
                                         }}
                                         placeholder="—"
-                                        className="bg-slate-50 border border-slate-200 dark:border-dk-border focus:border-indigo-400 focus:bg-white rounded px-1.5 py-0.5 outline-none w-14 text-[11px] sm:text-xs font-black text-slate-700 dark:text-dk-text-soft placeholder-slate-400 text-center transition-all shadow-sm"
+                                        className="bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border focus:border-indigo-400 focus:bg-white rounded px-1.5 py-0.5 outline-none w-14 text-[11px] sm:text-xs font-black text-slate-700 dark:text-dk-text-soft placeholder-slate-400 text-center transition-all shadow-sm"
                                     />
                                 </div>
 
@@ -2941,7 +2941,7 @@ export default function Chronometrage({
                                                 }, 250);
                                             }}
                                             placeholder={tx(lang, { fr: 'Nom / Matricule...', ar: 'الاسم / الرقم الوظيفي...', en: 'Name / ID...', es: 'Nombre / Matrícula...', pt: 'Nome / Matrícula...', tr: 'İsim / Sicil No...' })}
-                                            className="bg-slate-50 border border-slate-200 dark:border-dk-border focus:border-indigo-400 focus:bg-white rounded px-2 py-1 sm:py-0.5 outline-none w-full text-[11px] sm:text-xs font-black text-slate-700 dark:text-dk-text-soft placeholder-slate-400 transition-all shadow-sm"
+                                            className="bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border focus:border-indigo-400 focus:bg-white rounded px-2 py-1 sm:py-0.5 outline-none w-full text-[11px] sm:text-xs font-black text-slate-700 dark:text-dk-text-soft placeholder-slate-400 transition-all shadow-sm"
                                         />
 
                                         {/* Liste des effectifs : ancrée juste sous le champ "Opé" */}
@@ -2950,7 +2950,7 @@ export default function Chronometrage({
                                                 onClick={e => e.stopPropagation()}
                                                 className="absolute z-[200] left-0 top-full mt-1.5 w-full sm:w-72 max-h-60 sm:max-h-72 overflow-y-auto bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border/90 rounded-xl sm:rounded-2xl shadow-xl divide-y divide-slate-100 p-1.5"
                                             >
-                                                <div className="px-3 py-2 bg-slate-50/80 rounded-t-lg text-[9px] sm:text-[10px] font-black text-slate-400 dark:text-dk-muted uppercase tracking-wider sticky top-0 z-10 border-b border-slate-100 dark:border-dk-border flex items-center justify-between">
+                                                <div className="px-3 py-2 bg-slate-50 dark:bg-dk-bg/80 rounded-t-lg text-[9px] sm:text-[10px] font-black text-slate-400 dark:text-dk-muted uppercase tracking-wider sticky top-0 z-10 border-b border-slate-100 dark:border-dk-border flex items-center justify-between">
                                                     <span>{tx(lang, { fr: "Membres d'effectifs disponibles", ar: 'أعضاء الفريق المتاحين', en: 'Available staff members', es: 'Miembros de personal disponibles', pt: 'Membros da equipe disponíveis', tr: 'Mevcut personel üyeleri' })}</span>
                                                     <span className="text-[8px] bg-slate-200/60 text-slate-500 dark:text-dk-muted px-1 py-0.2 rounded font-mono">
                                                         {workerSuggestions.length} {tx(lang, { fr: 'dispo', ar: 'متاح', en: 'avail.', es: 'disp.', pt: 'disp.', tr: 'mevcut' })}
@@ -2988,7 +2988,7 @@ export default function Chronometrage({
                                                                 </span>
                                                             </div>
                                                             {w.role && (
-                                                                <span className="text-[8px] sm:text-[9px] font-bold text-indigo-650 dark:text-dk-accent-text bg-indigo-50 dark:bg-dk-accent/20 border border-indigo-100/30 px-1.5 py-0.5 rounded-lg shrink-0 uppercase tracking-wider">
+                                                                <span className="text-[8px] sm:text-[9px] font-bold text-indigo-650 dark:text-dk-accent-text bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 border border-indigo-100/30 px-1.5 py-0.5 rounded-lg shrink-0 uppercase tracking-wider">
                                                                     {w.role}
                                                                 </span>
                                                             )}
@@ -3001,12 +3001,12 @@ export default function Chronometrage({
                                 </div>
 
                                 {totalOps > 1 && (
-                                    <span className="text-[9px] font-bold uppercase text-indigo-650 dark:text-dk-accent-text bg-indigo-50 dark:bg-dk-accent/20 border border-indigo-100 px-1 py-0.2 rounded leading-none shrink-0">
+                                    <span className="text-[9px] font-bold uppercase text-indigo-650 dark:text-dk-accent-text bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 border border-indigo-100 px-1 py-0.2 rounded leading-none shrink-0">
                                         Op {opIdx + 1}/{totalOps}
                                     </span>
                                 )}
                                 {linkedOp && (
-                                    <span className="text-[9px] font-bold uppercase text-indigo-600 dark:text-dk-accent-text bg-indigo-50 dark:bg-dk-accent/20 border border-indigo-100 px-1 py-0.2 rounded leading-none shrink-0" title={tx(lang, { fr: "Lié à l'opération de la Gamme", ar: 'مرتبط بعملية الغامة', en: 'Linked to routing operation', es: 'Vinculado a la operación de la gama', pt: 'Vinculado à operação da gama', tr: 'Rota işlemine bağlı' })}>
+                                    <span className="text-[9px] font-bold uppercase text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 border border-indigo-100 px-1 py-0.2 rounded leading-none shrink-0" title={tx(lang, { fr: "Lié à l'opération de la Gamme", ar: 'مرتبط بعملية الغامة', en: 'Linked to routing operation', es: 'Vinculado a la operación de la gama', pt: 'Vinculado à operação da gama', tr: 'Rota işlemine bağlı' })}>
                                         Gamme Op #{linkedOp.order}
                                     </span>
                                 )}
@@ -3021,7 +3021,7 @@ export default function Chronometrage({
                                 <span className="text-[9px] sm:text-[10px] font-bold text-slate-400 dark:text-dk-muted">
                                     {timeLabel}
                                 </span>
-                                <span className="font-mono font-black text-indigo-700 dark:text-dk-accent-text text-[11px] sm:text-xs bg-indigo-50 dark:bg-dk-accent/20 border border-indigo-100/50 px-1.5 sm:px-2 py-0.5 rounded-lg shrink-0">
+                                <span className="font-mono font-black text-indigo-700 dark:text-dk-accent-text text-[11px] sm:text-xs bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 border border-indigo-100/50 px-1.5 sm:px-2 py-0.5 rounded-lg shrink-0">
                                     {Math.round(displayTimeSec)}s
                                 </span>
                             </div>
@@ -3130,14 +3130,14 @@ export default function Chronometrage({
                         </div>
                         <div className="flex flex-col items-center">
                             <span className="text-[7px] sm:text-[10px] font-bold text-slate-500 dark:text-dk-muted uppercase tracking-wider">{tx(lang, { fr: 'Chrono.', ar: 'كرونو.', en: 'Chrono.', es: 'Crono.', pt: 'Crono.', tr: 'Krono.' })}</span>
-                            <span className="font-black text-indigo-600 dark:text-dk-accent-text text-[10px] sm:text-base">{totals.filledCount}</span>
+                            <span className="font-black text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text text-[10px] sm:text-base">{totals.filledCount}</span>
                         </div>
                     </div>
 
                     {/* BF (s) — compact mobile */}
-                    <div className="flex items-center gap-1 sm:gap-3 px-1.5 py-0.5 sm:px-3 sm:py-1.5 bg-emerald-50/50 rounded-lg border border-emerald-100 shadow-sm shrink-0">
+                    <div className="flex items-center gap-1 sm:gap-3 px-1.5 py-0.5 sm:px-3 sm:py-1.5 bg-emerald-50 dark:bg-emerald-900/30/50 rounded-lg border border-emerald-100 shadow-sm shrink-0">
                         <div className="flex flex-col items-center">
-                            <span className="text-[7px] sm:text-[9px] font-bold text-emerald-600 uppercase flex items-center gap-0.5 sm:gap-1"><Zap className="w-2.5 h-2.5 sm:w-3 sm:h-3" /> BF (s)</span>
+                            <span className="text-[7px] sm:text-[9px] font-bold text-emerald-600 dark:text-emerald-400 uppercase flex items-center gap-0.5 sm:gap-1"><Zap className="w-2.5 h-2.5 sm:w-3 sm:h-3" /> BF (s)</span>
                             <span
                                 className="font-black text-emerald-700 text-[10px] sm:text-sm mt-0.5 sm:mt-1"
                                 title={hasChronoCycle
@@ -3164,7 +3164,7 @@ export default function Chronometrage({
                     </div>
 
                     {/* DYNAMIC TARGETS — compact mobile */}
-                    <div className="flex items-center gap-1.5 sm:gap-3 px-1.5 py-0.5 sm:px-3 sm:py-1.5 bg-slate-50/50 rounded-lg border border-slate-100 dark:border-dk-border shadow-sm shrink-0">
+                    <div className="flex items-center gap-1.5 sm:gap-3 px-1.5 py-0.5 sm:px-3 sm:py-1.5 bg-slate-50 dark:bg-dk-bg/50 rounded-lg border border-slate-100 dark:border-dk-border shadow-sm shrink-0">
                         <div className="flex flex-col items-center border-r border-slate-200 dark:border-dk-border pr-1.5 sm:pr-3 mr-0.5 sm:mr-1">
                             <span className="text-[7px] sm:text-[9px] font-bold text-slate-400 dark:text-dk-muted uppercase">P/J</span>
                             <span className="font-black text-slate-700 dark:text-dk-text-soft text-[10px] sm:text-sm leading-none mt-0.5 sm:mt-1">
@@ -3180,7 +3180,7 @@ export default function Chronometrage({
                     </div>
 
                     {/* % RENDU — compact mobile */}
-                    <div className="flex flex-col items-center px-1.5 py-0.5 sm:px-3 sm:py-1.5 bg-indigo-50 dark:bg-dk-accent/20/50 rounded-lg border border-indigo-100 shadow-sm shrink-0">
+                    <div className="flex flex-col items-center px-1.5 py-0.5 sm:px-3 sm:py-1.5 bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20/50 rounded-lg border border-indigo-100 shadow-sm shrink-0">
                         <span className="text-[7px] sm:text-[9px] font-bold text-indigo-400 uppercase">% Rendu</span>
                         <div className="flex items-baseline gap-0.5">
                             <input 
@@ -3188,14 +3188,14 @@ export default function Chronometrage({
                                 min="1" max="100" 
                                 value={efficiency} 
                                 onChange={(e) => setEfficiency && setEfficiency(Math.max(1, Math.min(100, Number(e.target.value))))} 
-                                className="w-6 sm:w-8 text-center bg-transparent font-black text-indigo-600 dark:text-dk-accent-text outline-none text-xs sm:text-sm border-b border-indigo-200 p-0" 
+                                className="w-6 sm:w-8 text-center bg-transparent font-black text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text outline-none text-xs sm:text-sm border-b border-indigo-200 p-0" 
                             />
                             <span className="text-[8px] sm:text-[10px] font-bold text-indigo-400">%</span>
                         </div>
                     </div>
 
                     {/* Progress bar — compact mobile */}
-                    <div className="flex items-center gap-1 sm:gap-2 px-1.5 py-0.5 sm:px-3 sm:py-2 bg-slate-50/80 rounded-lg border border-slate-100 dark:border-dk-border shadow-sm shrink-0 min-w-[min(100%,100px)] sm:min-w-[160px] xl:flex-1 xl:max-w-[220px]">
+                    <div className="flex items-center gap-1 sm:gap-2 px-1.5 py-0.5 sm:px-3 sm:py-2 bg-slate-50 dark:bg-dk-bg/80 rounded-lg border border-slate-100 dark:border-dk-border shadow-sm shrink-0 min-w-[min(100%,100px)] sm:min-w-[160px] xl:flex-1 xl:max-w-[220px]">
                         <div className="w-full h-1.5 sm:h-2 bg-slate-200 rounded-full overflow-hidden">
                             <div className="h-full bg-gradient-to-r from-indigo-500 to-cyan-400 rounded-full transition-all duration-500" style={{ width: `${progressPercent}%` }} />
                         </div>
@@ -3216,7 +3216,7 @@ export default function Chronometrage({
                     <button
                         type="button"
                         onClick={() => setShowTsColumn(v => !v)}
-                        className={`shrink-0 flex items-center gap-0.5 sm:gap-1.5 px-1.5 py-0.5 sm:px-3 sm:py-2 rounded-lg text-[9px] sm:text-xs font-bold transition-all border shadow-sm min-h-[24px] sm:min-h-[40px] focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-amber-400 focus:outline-none ${showTsColumn ? 'bg-amber-50 text-amber-800 border-amber-200' : 'bg-white dark:bg-dk-surface text-slate-600 dark:text-dk-text-soft border-slate-200 dark:border-dk-border hover:bg-slate-50 dark:hover:bg-dk-elevated/60'}`}
+                        className={`shrink-0 flex items-center gap-0.5 sm:gap-1.5 px-1.5 py-0.5 sm:px-3 sm:py-2 rounded-lg text-[9px] sm:text-xs font-bold transition-all border shadow-sm min-h-[24px] sm:min-h-[40px] focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-amber-400 focus:outline-none ${showTsColumn ? 'bg-amber-50 dark:bg-amber-900/30 text-amber-800 border-amber-200' : 'bg-white dark:bg-dk-surface text-slate-600 dark:text-dk-text-soft border-slate-200 dark:border-dk-border hover:bg-slate-50 dark:hover:bg-dk-elevated/60'}`}
                         title={tx(lang, {
                             fr: "Afficher ou masquer la colonne TS (temps standard gamme)",
                             ar: "إظهار أو إخفاء عمود TS (وقت قياسي للغامة)",
@@ -3234,7 +3234,7 @@ export default function Chronometrage({
                             setTrEnabled(v => !v);
                             setShowTrConfig(false);
                         }}
-                        className={`shrink-0 flex items-center gap-0.5 sm:gap-1.5 px-1.5 py-0.5 sm:px-3 sm:py-2 rounded-lg text-[9px] sm:text-xs font-bold transition-all border shadow-sm min-h-[24px] sm:min-h-[40px] focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-emerald-400 focus:outline-none ${trEnabled ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-white dark:bg-dk-surface text-slate-600 dark:text-dk-text-soft border-slate-200 dark:border-dk-border hover:bg-slate-50 dark:hover:bg-dk-elevated/60'}`}
+                        className={`shrink-0 flex items-center gap-0.5 sm:gap-1.5 px-1.5 py-0.5 sm:px-3 sm:py-2 rounded-lg text-[9px] sm:text-xs font-bold transition-all border shadow-sm min-h-[24px] sm:min-h-[40px] focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-emerald-400 focus:outline-none ${trEnabled ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 border-emerald-200' : 'bg-white dark:bg-dk-surface text-slate-600 dark:text-dk-text-soft border-slate-200 dark:border-dk-border hover:bg-slate-50 dark:hover:bg-dk-elevated/60'}`}
                         title={tx(lang, {
                             fr: "Activer / désactiver TR",
                             ar: "تفعيل / تعطيل TR",
@@ -3330,7 +3330,7 @@ export default function Chronometrage({
                     <button
                         type="button"
                         onClick={() => setShowThroughputKpi(v => !v)}
-                        className={`shrink-0 flex items-center gap-0.5 sm:gap-1.5 px-1.5 py-0.5 sm:px-3 sm:py-2 rounded-lg text-[9px] sm:text-xs font-bold transition-all border shadow-sm min-h-[24px] sm:min-h-[40px] focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-orange-400 focus:outline-none ${showThroughputKpi ? 'bg-orange-50 text-orange-800 border-orange-200' : 'bg-white dark:bg-dk-surface text-slate-600 dark:text-dk-text-soft border-slate-200 dark:border-dk-border hover:bg-slate-50 dark:hover:bg-dk-elevated/60'}`}
+                        className={`shrink-0 flex items-center gap-0.5 sm:gap-1.5 px-1.5 py-0.5 sm:px-3 sm:py-2 rounded-lg text-[9px] sm:text-xs font-bold transition-all border shadow-sm min-h-[24px] sm:min-h-[40px] focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-orange-400 focus:outline-none ${showThroughputKpi ? 'bg-orange-50 dark:bg-orange-900/30 text-orange-800 border-orange-200' : 'bg-white dark:bg-dk-surface text-slate-600 dark:text-dk-text-soft border-slate-200 dark:border-dk-border hover:bg-slate-50 dark:hover:bg-dk-elevated/60'}`}
                         title={tx(lang, { fr: 'Afficher/masquer P° Max / P° Rdt', ar: 'إظهار/إخفاء الإنتاج الأقصى / الإنتاج بالمردود', en: 'Show/hide Max Output / Eff. Output', es: 'Mostrar/ocultar Prod. Máx. / Prod. Rdto.', pt: 'Mostrar/ocultar Prod. Máx. / Prod. Rend.', tr: 'Maks Üretim / Verimli Üretim göster/gizle' })}
                     >
                         <Target className="w-3 h-3 sm:w-4 sm:h-4" /> P° KPI
@@ -3340,7 +3340,7 @@ export default function Chronometrage({
                         <button
                             type="button"
                             onClick={() => setShowUnitMenu(v => !v)}
-                            className={`flex items-center justify-between gap-0.5 sm:gap-2 px-1.5 sm:px-3 py-0.5 sm:py-2 rounded-lg text-left transition-all border shadow-sm min-w-[70px] sm:min-w-[100px] min-h-[24px] sm:min-h-[40px] focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-indigo-400 focus:outline-none ${showUnitMenu ? 'bg-indigo-50 dark:bg-dk-accent/20 text-indigo-800 border-indigo-200' : 'bg-white dark:bg-dk-surface text-slate-700 dark:text-dk-text-soft border-slate-200 dark:border-dk-border hover:bg-slate-50 dark:hover:bg-dk-elevated/60'}`}
+                            className={`flex items-center justify-between gap-0.5 sm:gap-2 px-1.5 sm:px-3 py-0.5 sm:py-2 rounded-lg text-left transition-all border shadow-sm min-w-[70px] sm:min-w-[100px] min-h-[24px] sm:min-h-[40px] focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-indigo-400 focus:outline-none ${showUnitMenu ? 'bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 text-indigo-800 border-indigo-200' : 'bg-white dark:bg-dk-surface text-slate-700 dark:text-dk-text-soft border-slate-200 dark:border-dk-border hover:bg-slate-50 dark:hover:bg-dk-elevated/60'}`}
                             title={tx(lang, { fr: `Unité : ${getUnitName(unit)}`, ar: `الوحدة: ${getUnitName(unit)}`, en: `Unit: ${getUnitName(unit)}`, es: `Unidad: ${getUnitName(unit)}`, pt: `Unidade: ${getUnitName(unit)}`, tr: `Birim: ${getUnitName(unit)}` })}
                         >
                             <span className="flex flex-col leading-none">
@@ -3405,8 +3405,8 @@ export default function Chronometrage({
                 {/* Table Header */}
                 <div className="px-2 py-1.5 sm:px-6 sm:py-5 border-b border-slate-100 dark:border-dk-border flex flex-col md:flex-row md:items-center justify-between gap-1.5 sm:gap-4">
                     <div className="flex items-center gap-1.5 sm:gap-3">
-                        <div className="w-6 h-6 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl bg-indigo-50 dark:bg-dk-accent/20 border border-indigo-100 flex items-center justify-center shrink-0">
-                            <BarChart3 className="w-3 h-3 sm:w-5 sm:h-5 text-indigo-600 dark:text-dk-accent-text" />
+                        <div className="w-6 h-6 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 border border-indigo-100 flex items-center justify-center shrink-0">
+                            <BarChart3 className="w-3 h-3 sm:w-5 sm:h-5 text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text" />
                         </div>
                         <div>
                             <h3 className="font-black text-slate-800 dark:text-dk-text text-[11px] sm:text-lg leading-tight">
@@ -3420,7 +3420,7 @@ export default function Chronometrage({
                                     es: 'lecturas configuradas • Unidad:',
                                     pt: 'leituras configuradas • Unidade:',
                                     tr: 'ölçüm yapılandırıldı • Birim:'
-                                })} <strong className="text-indigo-600 dark:text-dk-accent-text bg-indigo-50 dark:bg-dk-accent/20 px-1 rounded">{unitLabel}</strong>
+                                })} <strong className="text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 px-1 rounded">{unitLabel}</strong>
                             </p>
                         </div>
                     </div>
@@ -3453,7 +3453,7 @@ export default function Chronometrage({
                 </div>
 
                 {orderSource === 'plantation' ? (
-                    <div className="space-y-6 p-4 bg-slate-50/50">
+                    <div className="space-y-6 p-4 bg-slate-50 dark:bg-dk-bg/50">
                         {structureSections.map(section => {
                             const isAlternating = activeLayout === 'double-zigzag' || activeLayout === 'zigzag';
                             
@@ -3513,7 +3513,7 @@ export default function Chronometrage({
                                             {/* Left side: odd stations/operations */}
                                             {(chronoLayoutSide === 'left' || chronoLayoutSide === 'both') && (
                                                 <div className="flex flex-col gap-4">
-                                                    <div className="bg-indigo-50 dark:bg-dk-accent/20 border border-indigo-100 text-indigo-850 py-2 px-3 rounded-xl font-black text-center text-xs uppercase tracking-wide">
+                                                    <div className="bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 border border-indigo-100 text-indigo-850 py-2 px-3 rounded-xl font-black text-center text-xs uppercase tracking-wide">
                                                         {tx(lang, { fr: 'CÔTÉ GAUCHE (POSTES IMPAIRS)', ar: 'الجانب الأيسر (المراكز الفردية)', en: 'LEFT SIDE (ODD STATIONS)', es: 'LADO IZQUIERDO (PUESTOS IMPARES)', pt: 'LADO ESQUERDO (POSTOS ÍMPARES)', tr: 'SOL TARAF (TEK İSTASYONLAR)' })}
                                                     </div>
                                                     {sideA.map((item, idx) => (
@@ -3580,11 +3580,11 @@ export default function Chronometrage({
                         const rightStations = (chronoCustomStations || []).filter(s => s.side === 'right');
 
                         return (
-                            <div className={`grid grid-cols-1 ${chronoLayoutSide === 'both' ? 'lg:grid-cols-2' : ''} gap-3 sm:gap-6 items-start p-2.5 sm:p-4 bg-slate-50/50`}>
+                            <div className={`grid grid-cols-1 ${chronoLayoutSide === 'both' ? 'lg:grid-cols-2' : ''} gap-3 sm:gap-6 items-start p-2.5 sm:p-4 bg-slate-50 dark:bg-dk-bg/50`}>
                                 {/* Left Column */}
                                 {(chronoLayoutSide === 'left' || chronoLayoutSide === 'both') && (
                                     <div className="flex flex-col gap-2.5 sm:gap-4">
-                                        <div className="bg-indigo-50 dark:bg-dk-accent/20 border border-indigo-100 text-indigo-850 py-1.5 sm:py-2 px-2 sm:px-3 rounded-lg sm:rounded-xl font-black text-center text-[10px] sm:text-xs uppercase tracking-wide">
+                                        <div className="bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 border border-indigo-100 text-indigo-850 py-1.5 sm:py-2 px-2 sm:px-3 rounded-lg sm:rounded-xl font-black text-center text-[10px] sm:text-xs uppercase tracking-wide">
                                             {tx(lang, { fr: 'CÔTÉ GAUCHE (POSTES IMPAIRS)', ar: 'الجانب الأيسر (المراكز الفردية)', en: 'LEFT SIDE (ODD STATIONS)', es: 'LADO IZQUIERDO (PUESTOS IMPARES)', pt: 'LADO ESQUERDO (POSTOS ÍMPARES)', tr: 'SOL TARAF (TEK İSTASYONLAR)' })}
                                         </div>
                                         {leftStations.map((station, idx) => (
@@ -3621,7 +3621,7 @@ export default function Chronometrage({
                                         </th>
                                         {showTsColumn && (
                                             <th
-                                                className="py-3 px-3 text-center bg-amber-50/50 text-amber-600 border-x border-slate-100 dark:border-dk-border w-16"
+                                                className="py-3 px-3 text-center bg-amber-50 dark:bg-amber-900/30/50 text-amber-600 dark:text-amber-400 border-x border-slate-100 dark:border-dk-border w-16"
                                                 title={tx(lang, {
                                                     fr: "Temps standard (gamme), affiché en secondes — indépendant de l’unité des relevés",
                                                     ar: "وقت قياسي (الغامة)، يعرض بالثواني - مستقل عن وحدة التسجيلات",
@@ -3637,7 +3637,7 @@ export default function Chronometrage({
                                         {trEnabled && trSlots.map(n => (
                                             <th key={n} className="py-3 px-1 text-center w-14 bg-slate-100/50">TR {n}</th>
                                         ))}
-                                        <th className="py-3 px-2 text-center bg-indigo-50 dark:bg-dk-accent/20/60 text-indigo-700 dark:text-dk-accent-text w-16 border-l border-slate-200 dark:border-dk-border">T.Moy</th>
+                                        <th className="py-3 px-2 text-center bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20/60 text-indigo-700 dark:text-dk-accent-text w-16 border-l border-slate-200 dark:border-dk-border">T.Moy</th>
                                         <th
                                             className="py-3 px-1 text-center w-14"
                                             title={tx(lang, {
@@ -3652,7 +3652,7 @@ export default function Chronometrage({
                                             Maj.
                                         </th>
                                         <th
-                                            className={`py-3 px-2 text-center bg-emerald-50/60 text-emerald-700 w-[5.25rem] ${!showThroughputKpi ? 'rounded-tr-lg' : ''}`}
+                                            className={`py-3 px-2 text-center bg-emerald-50 dark:bg-emerald-900/30/60 text-emerald-700 w-[5.25rem] ${!showThroughputKpi ? 'rounded-tr-lg' : ''}`}
                                             title={tx(lang, {
                                                 fr: `Temps majoré = T.Moy × Maj. Affichage en ${getUnitName(unit)} (${unitShort}).`,
                                                 ar: `الوقت المضاف = T.Moy × علاوة. العرض بـ ${getUnitName(unit)} (${unitShort}).`,
@@ -3663,7 +3663,7 @@ export default function Chronometrage({
                                             })}
                                         >
                                             <span className="block leading-tight">T.Maj</span>
-                                            <span className="block text-[9px] font-semibold normal-case tracking-normal text-emerald-600/90">× Maj</span>
+                                            <span className="block text-[9px] font-semibold normal-case tracking-normal text-emerald-600 dark:text-emerald-400/90">× Maj</span>
                                         </th>
                                         {showThroughputKpi && (
                                             <>
@@ -3707,7 +3707,7 @@ export default function Chronometrage({
                                             return (
                                                 <React.Fragment key={op.id}>
                                                     <tr
-                                                        className={`group transition-colors duration-200 cursor-pointer ${isActive ? 'bg-indigo-50 dark:bg-dk-accent/20/60 ring-1 ring-inset ring-indigo-200 shadow-sm' : 'hover:bg-slate-50/90'}`}
+                                                        className={`group transition-colors duration-200 cursor-pointer ${isActive ? 'bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20/60 ring-1 ring-inset ring-indigo-200 shadow-sm' : 'hover:bg-slate-50/90'}`}
                                                         onClick={() => setActiveRowId(isActive ? null : op.id)}
                                                     >
                                                         <td
@@ -3760,7 +3760,7 @@ export default function Chronometrage({
                                                         </td>
                                                         {showTsColumn && (
                                                             <td
-                                                                className="px-2 py-3 text-center font-bold text-amber-700 bg-amber-50/40 border-x border-slate-100 dark:border-dk-border font-mono text-xs"
+                                                                className="px-2 py-3 text-center font-bold text-amber-700 bg-amber-50 dark:bg-amber-900/30/40 border-x border-slate-100 dark:border-dk-border font-mono text-xs"
                                                                 title={tx(lang, { fr: 'Temps standard gamme (secondes)', ar: 'الوقت القياسي للغامة (بالثواني)', en: 'Routing standard time (seconds)', es: 'Tiempo estándar de gama (segundos)', pt: 'Tempo padrão da gama (segundos)', tr: 'Rota standart süresi (saniye)' })}
                                                             >
                                                                 {formatTsSeconds(op.time)}
@@ -3777,7 +3777,7 @@ export default function Chronometrage({
                                                                     <td key={trNum} className={`px-0.5 py-1.5 ${trNum === trCount ? 'border-r border-slate-200 dark:border-dk-border' : ''} relative group/cell`}>
                                                                         <input
                                                                             type="number" step="0.01" min="0"
-                                                                            className={`w-full pl-1 pr-6 py-1.5 text-center text-[13px] font-mono font-bold border border-transparent rounded-md hover:bg-slate-50 dark:hover:bg-dk-elevated/60 hover:border-slate-200 focus:bg-white focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 outline-none transition-all placeholder:text-slate-300 cursor-text shadow-sm ${INPUT_NO_SPIN} ${hasVal ? trStatusStyles[status] : 'bg-transparent text-indigo-600 dark:text-dk-accent-text'}`}
+                                                                            className={`w-full pl-1 pr-6 py-1.5 text-center text-[13px] font-mono font-bold border border-transparent rounded-md hover:bg-slate-50 dark:hover:bg-dk-elevated/60 hover:border-slate-200 focus:bg-white focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 outline-none transition-all placeholder:text-slate-300 cursor-text shadow-sm ${INPUT_NO_SPIN} ${hasVal ? trStatusStyles[status] : 'bg-transparent text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text'}`}
                                                                             placeholder="—"
                                                                             value={hasVal && typeof val === 'number' ? displayValue(val) : ''}
                                                                             onClick={(e) => { e.stopPropagation(); }}
@@ -3800,7 +3800,7 @@ export default function Chronometrage({
                                                             });
                                                         })()}
                                                         <td
-                                                            className="px-1.5 py-2 text-center align-middle border-l border-slate-200 dark:border-dk-border bg-indigo-50 dark:bg-dk-accent/20/20"
+                                                            className="px-1.5 py-2 text-center align-middle border-l border-slate-200 dark:border-dk-border bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20/20"
                                                             onClick={(e) => e.stopPropagation()}
                                                         >
                                                             <input
@@ -3828,7 +3828,7 @@ export default function Chronometrage({
                                                             />
                                                         </td>
                                                         <td
-                                                            className="px-2 py-3 text-center font-mono font-bold text-emerald-700 bg-emerald-50/30 text-xs"
+                                                            className="px-2 py-3 text-center font-mono font-bold text-emerald-700 bg-emerald-50 dark:bg-emerald-900/30/30 text-xs"
                                                             title={
                                                                 row.tempMajore !== undefined
                                                                     ? tx(lang, {
@@ -3849,7 +3849,7 @@ export default function Chronometrage({
                                                                 <td className="px-2 py-3 text-center font-mono text-slate-500 dark:text-dk-muted font-medium text-xs">
                                                                     {formatProductionCell(row.pMax, outputMode)}
                                                                 </td>
-                                                                <td className="px-2 py-3 text-center font-mono font-black text-slate-800 dark:text-dk-text bg-slate-50 group-hover:bg-indigo-50 dark:bg-dk-accent/20 transition-colors text-xs">
+                                                                <td className="px-2 py-3 text-center font-mono font-black text-slate-800 dark:text-dk-text bg-slate-50 dark:bg-dk-bg group-hover:bg-indigo-50 dark:bg-dk-accent/20 transition-colors text-xs">
                                                                     {formatProductionCell(row.p85, outputMode)}
                                                                 </td>
                                                             </>
@@ -3859,7 +3859,7 @@ export default function Chronometrage({
                                                     {/* ─── EXPANDED: STOPWATCH ─── */}
                                                     {isExpanded && (
                                                         <tr>
-                                                            <td colSpan={desktopColSpan} className="px-6 py-8 bg-slate-50/50 border-b border-slate-200 dark:border-dk-border shadow-inner">
+                                                            <td colSpan={desktopColSpan} className="px-6 py-8 bg-slate-50 dark:bg-dk-bg/50 border-b border-slate-200 dark:border-dk-border shadow-inner">
                                                                 <div className="max-w-4xl mx-auto bg-white dark:bg-dk-surface rounded-2xl shadow-2xl border border-indigo-100 overflow-hidden animate-in zoom-in-95 duration-200">
                                                                     <AdvancedStopwatch
                                                                         key={op.id}
@@ -3891,7 +3891,7 @@ export default function Chronometrage({
                                             </td>
                                             {showTsColumn && (
                                                 <td
-                                                    className="px-2 py-4 text-center font-black font-mono text-amber-600 border-x border-slate-200 dark:border-dk-border bg-amber-50/50 text-xs"
+                                                    className="px-2 py-4 text-center font-black font-mono text-amber-600 dark:text-amber-400 border-x border-slate-200 dark:border-dk-border bg-amber-50 dark:bg-amber-900/30/50 text-xs"
                                                     title={tx(lang, { fr: 'Σ temps gamme (secondes)', ar: 'مجموع وقت الغامة (بالثواني)', en: 'Σ routing time (seconds)', es: 'Σ tiempo de gama (segundos)', pt: 'Σ tempo de gama (segundos)', tr: 'Σ rota süresi (saniye)' })}
                                                 >
                                                     {totalTsSeconds.toFixed(2)}
@@ -3976,12 +3976,12 @@ export default function Chronometrage({
                                                     <div className="min-w-0">
                                                         <p className="font-bold text-slate-800 dark:text-dk-text text-sm truncate">{op.description}</p>
                                                         <div className="flex items-center gap-1 mt-0.5 flex-wrap">
-                                                            <span className="text-[9px] px-1.5 py-0.5 rounded-md bg-blue-50 text-blue-700 border border-blue-100 truncate max-w-[140px]">
+                                                            <span className="text-[9px] px-1.5 py-0.5 rounded-md bg-blue-50 dark:bg-blue-900/30 text-blue-700 border border-blue-100 truncate max-w-[140px]">
                                                                 {getMachineLabel(op.id)}
                                                             </span>
                                                             {showTsColumn && (
                                                                 <span
-                                                                    className="text-[9px] font-mono font-bold text-amber-600 px-1.5 py-0.5 rounded-md bg-amber-50/80 border border-amber-100"
+                                                                    className="text-[9px] font-mono font-bold text-amber-600 dark:text-amber-400 px-1.5 py-0.5 rounded-md bg-amber-50 dark:bg-amber-900/30/80 border border-amber-100"
                                                                     title={tx(lang, { fr: 'Temps standard gamme (s)', ar: 'الوقت القياسي للغامة (ث)', en: 'Routing standard time (s)', es: 'Tiempo estándar de gama (s)', pt: 'Tempo padrão da gama (s)', tr: 'Rota standart süresi (s)' })}
                                                                 >
                                                                     TS {formatTsSeconds(op.time)} s
@@ -3990,7 +3990,7 @@ export default function Chronometrage({
                                                         </div>
                                                     </div>
                                                 </div>
-                                                <button onClick={() => toggleRowExpand(op.id)} className="w-7 h-7 rounded-lg bg-indigo-50 dark:bg-dk-accent/20 text-indigo-600 dark:text-dk-accent-text flex items-center justify-center shrink-0">
+                                                <button onClick={() => toggleRowExpand(op.id)} className="w-7 h-7 rounded-lg bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text flex items-center justify-center shrink-0">
                                                     {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
                                                 </button>
                                             </div>
@@ -4005,7 +4005,7 @@ export default function Chronometrage({
                                                             <label className="text-[9px] font-bold text-slate-400 dark:text-dk-muted uppercase mb-0.5 block text-center">TR {trNum}</label>
                                                             <input
                                                                 type="number" step="0.01"
-                                                                className={`w-full px-2 py-2 text-center text-sm font-mono font-bold border border-slate-200 dark:border-dk-border rounded-lg bg-slate-50 focus:bg-white focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 outline-none transition-all ${INPUT_NO_SPIN}`}
+                                                                className={`w-full px-2 py-2 text-center text-sm font-mono font-bold border border-slate-200 dark:border-dk-border rounded-lg bg-slate-50 dark:bg-dk-bg focus:bg-white focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 outline-none transition-all ${INPUT_NO_SPIN}`}
                                                                 placeholder="—"
                                                                 value={typeof val === 'number' && !isNaN(val) ? displayValue(val) : ''}
                                                                 onChange={e => handleCellChange(op.id, `tr${trNum}` as keyof ChronoData, e.target.value)}
@@ -4116,19 +4116,19 @@ export default function Chronometrage({
                         </div>
                         <div className="flex flex-col">
                             <span className="text-[10px] font-bold text-emerald-500 uppercase tracking-wider mb-0.5">{tx(lang, { fr: 'Temps de Cycle', ar: 'وقت الدورة', en: 'Cycle Time', es: 'Tiempo de ciclo', pt: 'Tempo de ciclo', tr: 'Döngü Süresi' })}</span>
-                            <span className="px-3 py-1.5 rounded-lg bg-emerald-50 border border-emerald-200 font-black text-emerald-700 shadow-sm text-sm">{totals.tempMajore.toFixed(2)} min</span>
+                            <span className="px-3 py-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-200 font-black text-emerald-700 shadow-sm text-sm">{totals.tempMajore.toFixed(2)} min</span>
                         </div>
                         {showThroughputKpi && (
                             <>
                                 <div className="flex flex-col">
                                     <span className="text-[10px] font-bold text-indigo-500 uppercase tracking-wider mb-0.5">{tx(lang, { fr: 'Rendement', ar: 'المردودية', en: 'Efficiency', es: 'Rendimiento', pt: 'Rendimento', tr: 'Verimlilik' })} {Math.max(1, Math.min(100, efficiency))}%</span>
-                                    <span className="px-3 py-1.5 rounded-lg bg-indigo-50 dark:bg-dk-accent/20 border border-indigo-200 font-black text-indigo-700 dark:text-dk-accent-text shadow-sm text-sm">
+                                    <span className="px-3 py-1.5 rounded-lg bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 border border-indigo-200 font-black text-indigo-700 dark:text-dk-accent-text shadow-sm text-sm">
                                         {outputMode === 'PJ' ? `${totals.p85Global} pcs/j` : `${formatProductionCell(totals.p85Global || undefined, 'PH')} pcs/h`}
                                     </span>
                                 </div>
                                 <div className="flex flex-col">
                                     <span className="text-[10px] font-bold text-orange-500 uppercase tracking-wider mb-0.5">{tx(lang, { fr: 'Capacité Max', ar: 'السعة القصوى', en: 'Max Capacity', es: 'Capacidad máx.', pt: 'Capacidade máx.', tr: 'Maks Kapasite' })}</span>
-                                    <span className="px-3 py-1.5 rounded-lg bg-orange-50 border border-orange-200 font-black text-orange-700 shadow-sm text-sm">
+                                    <span className="px-3 py-1.5 rounded-lg bg-orange-50 dark:bg-orange-900/30 border border-orange-200 font-black text-orange-700 shadow-sm text-sm">
                                         {outputMode === 'PJ' ? `${totals.pMaxGlobal} pcs/j` : `${formatProductionCell(totals.pMaxGlobal || undefined, 'PH')} pcs/h`}
                                     </span>
                                 </div>
@@ -4152,7 +4152,7 @@ export default function Chronometrage({
                                 <span className="text-[9px] font-bold text-purple-500 uppercase tracking-wider leading-none mb-1">{tx(lang, { fr: 'Délai estimé', ar: 'الوقت المقدر', en: 'Estimated time', es: 'Plazo estimado', pt: 'Prazo estimado', tr: 'Tahmini süre' })}</span>
                                 {estimatedDays > 0 ? estimatedDays.toFixed(1) : '—'} {tx(lang, { fr: 'jours', ar: 'أيام', en: 'days', es: 'días', pt: 'dias', tr: 'gün' })}
                             </span>
-                            <span className="hidden sm:flex flex-col px-3 py-1.5 rounded-lg bg-cyan-50 border border-cyan-200 font-black text-cyan-700 shadow-sm">
+                            <span className="hidden sm:flex flex-col px-3 py-1.5 rounded-lg bg-cyan-50 dark:bg-cyan-900/30 border border-cyan-200 font-black text-cyan-700 shadow-sm">
                                 <span className="text-[9px] font-bold text-cyan-500 uppercase tracking-wider leading-none mb-1">{tx(lang, { fr: 'Cadence', ar: 'الإيقاع', en: 'Cadence', es: 'Cadencia', pt: 'Cadência', tr: 'Tempo' })}</span>
                                 {cycleHours.toFixed(2)} h / pce
                             </span>
@@ -4162,9 +4162,9 @@ export default function Chronometrage({
             )}
 
             {/* ─── FOOTER INFO ─── */}
-            <div className="bg-blue-50/50 rounded-xl border border-blue-100 p-4 flex items-start sm:items-center gap-3 print:hidden">
+            <div className="bg-blue-50 dark:bg-blue-900/30/50 rounded-xl border border-blue-100 p-4 flex items-start sm:items-center gap-3 print:hidden">
                 <div className="bg-blue-100 p-1.5 rounded-lg shrink-0 mt-0.5 sm:mt-0">
-                    <Activity className="w-5 h-5 text-blue-600" />
+                    <Activity className="w-5 h-5 text-blue-600 dark:text-blue-400" />
                 </div>
                 <p className="text-xs text-blue-800/80 font-medium leading-relaxed">
                     {tx(lang, {
@@ -4205,7 +4205,7 @@ export default function Chronometrage({
                                             }}
                                             className={`flex flex-col items-center gap-1 p-3 rounded-xl border-2 transition-all ${
                                                 newSessionGammeType === opt.value
-                                                    ? 'border-indigo-500 bg-indigo-50 dark:bg-dk-accent/20 text-indigo-700 dark:text-dk-accent-text shadow-md'
+                                                    ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 text-indigo-700 dark:text-dk-accent-text shadow-md'
                                                     : 'border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface text-slate-600 dark:text-dk-text-soft hover:border-slate-300 hover:bg-slate-50 dark:hover:bg-dk-elevated/60'
                                             }`}
                                         >
@@ -4241,7 +4241,7 @@ export default function Chronometrage({
                             <div className="bg-slate-50 dark:bg-dk-bg rounded-xl p-4 border border-slate-100 dark:border-dk-border">
                                 <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-dk-text-soft">
                                     <span className="font-bold">{tx(lang, { fr: 'Modèle :', ar: 'الموديل:', en: 'Model:', es: 'Modelo:', pt: 'Modelo:', tr: 'Model:' })}</span>
-                                    <span className="text-indigo-600 dark:text-dk-accent-text font-black">{articleName || tx(lang, { fr: 'Non défini', ar: 'غير محدد', en: 'Not defined', es: 'No definido', pt: 'Não definido', tr: 'Tanımlanmamış' })}</span>
+                                    <span className="text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text font-black">{articleName || tx(lang, { fr: 'Non défini', ar: 'غير محدد', en: 'Not defined', es: 'No definido', pt: 'Não definido', tr: 'Tanımlanmamış' })}</span>
                                 </div>
                                 <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-dk-text-soft mt-1">
                                     <span className="font-bold">{tx(lang, { fr: 'Opérations :', ar: 'العمليات:', en: 'Operations:', es: 'Operaciones:', pt: 'Operações:', tr: 'Operasyonlar:' })}</span>
@@ -4285,7 +4285,7 @@ export default function Chronometrage({
                             <div>
                                 <h2 className="font-black text-slate-800 dark:text-dk-text text-lg">{selectedSession.label}</h2>
                                 <p className="text-slate-500 dark:text-dk-muted text-xs">
-                                    {articleName && <><strong className="text-indigo-600 dark:text-dk-accent-text">{articleName}</strong> · </>}
+                                    {articleName && <><strong className="text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text">{articleName}</strong> · </>}
                                     {new Date(selectedSession.createdAt).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
                                     {selectedSession.gammeType && selectedSession.gammeType !== 'default' && (
                                         <span className={`ml-2 text-[10px] font-bold px-1.5 py-0.5 rounded ${selectedSession.gammeType === 'plantation' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
@@ -4299,19 +4299,19 @@ export default function Chronometrage({
                     <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6 space-y-6">
                         {/* Summary Cards */}
                         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                            <div className="bg-indigo-50 dark:bg-dk-accent/20 rounded-xl p-4 border border-indigo-100">
+                            <div className="bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 rounded-xl p-4 border border-indigo-100">
                                 <p className="text-[10px] font-bold text-indigo-500 uppercase tracking-wider">{tx(lang, { fr: 'Total T.Maj', ar: 'إجمالي T.Maj', en: 'Total T.Maj', es: 'Total T.Maj', pt: 'Total T.Maj', tr: 'Toplam T.Maj' })}</p>
                                 <p className="font-black text-indigo-700 dark:text-dk-accent-text text-xl mt-1">{(selectedSession.totalTempMajore || 0).toFixed(2)} min</p>
                             </div>
-                            <div className="bg-emerald-50 rounded-xl p-4 border border-emerald-100">
+                            <div className="bg-emerald-50 dark:bg-emerald-900/30 rounded-xl p-4 border border-emerald-100">
                                 <p className="text-[10px] font-bold text-emerald-500 uppercase tracking-wider">{tx(lang, { fr: 'Opérations', ar: 'العمليات', en: 'Operations', es: 'Operaciones', pt: 'Operações', tr: 'Operasyonlar' })}</p>
                                 <p className="font-black text-emerald-700 text-xl mt-1">{Object.keys(selectedSession.entries).length}</p>
                             </div>
-                            <div className="bg-orange-50 rounded-xl p-4 border border-orange-100">
+                            <div className="bg-orange-50 dark:bg-orange-900/30 rounded-xl p-4 border border-orange-100">
                                 <p className="text-[10px] font-bold text-orange-500 uppercase tracking-wider">{tx(lang, { fr: 'Séance #', ar: 'الجلسة #', en: 'Session #', es: 'Sesión #', pt: 'Sessão #', tr: 'Seans #' })}</p>
                                 <p className="font-black text-orange-700 text-xl mt-1">{sessions.findIndex(s => s.id === selectedSession.id) + 1} / {sessions.length}</p>
                             </div>
-                            <div className="bg-purple-50 rounded-xl p-4 border border-purple-100">
+                            <div className="bg-purple-50 dark:bg-purple-900/30 rounded-xl p-4 border border-purple-100">
                                 <p className="text-[10px] font-bold text-purple-500 uppercase tracking-wider">{tx(lang, { fr: 'Ordre', ar: 'الترتيب', en: 'Order', es: 'Orden', pt: 'Ordem', tr: 'Sıra' })}</p>
                                 <p className="font-black text-purple-700 text-xl mt-1">
                                     {(() => {
@@ -4372,11 +4372,11 @@ export default function Chronometrage({
                                             <tr className="bg-slate-50 dark:bg-dk-bg text-slate-500 dark:text-dk-muted border-b border-slate-200 dark:border-dk-border">
                                                 <th className="py-2.5 px-3 text-left font-black sticky left-0 bg-slate-50 dark:bg-dk-bg min-w-[140px]">{tx(lang, { fr: 'Opération', ar: 'العملية', en: 'Operation', es: 'Operación', pt: 'Operação', tr: 'Operasyon' })}</th>
                                                 {sessions.map((s, i) => (
-                                                    <th key={s.id} className={`py-2.5 px-2 text-center font-bold min-w-[60px] ${s.id === selectedSession.id ? 'bg-indigo-50 dark:bg-dk-accent/20 text-indigo-700 dark:text-dk-accent-text' : ''}`} title={s.label}>
+                                                    <th key={s.id} className={`py-2.5 px-2 text-center font-bold min-w-[60px] ${s.id === selectedSession.id ? 'bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 text-indigo-700 dark:text-dk-accent-text' : ''}`} title={s.label}>
                                                         #{i + 1}
                                                     </th>
                                                 ))}
-                                                <th className="py-2.5 px-2 text-center font-black text-indigo-700 dark:text-dk-accent-text bg-indigo-50 dark:bg-dk-accent/20/50 min-w-[60px]">Δ</th>
+                                                <th className="py-2.5 px-2 text-center font-black text-indigo-700 dark:text-dk-accent-text bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20/50 min-w-[60px]">Δ</th>
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-slate-100">
@@ -4386,20 +4386,20 @@ export default function Chronometrage({
                                                 const lastDefined = [...series].reverse().find(v => v !== undefined && v !== null);
                                                 const d = (typeof firstV === 'number' && typeof lastDefined === 'number') ? lastDefined - firstV : undefined;
                                                 return (
-                                                    <tr key={op.id} className={`hover:bg-slate-50/50 ${selectedSession.entries[op.id] ? 'bg-indigo-50 dark:bg-dk-accent/20/20' : ''}`}>
+                                                    <tr key={op.id} className={`hover:bg-slate-50/50 ${selectedSession.entries[op.id] ? 'bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20/20' : ''}`}>
                                                         <td className="py-2 px-3 font-semibold text-slate-700 dark:text-dk-text-soft sticky left-0 bg-white dark:bg-dk-surface truncate max-w-[140px]" title={op.description}>{op.description}</td>
                                                         {sessions.map((s, i) => {
                                                             const v = s.entries[op.id]?.tempMajore;
                                                             const isCurrent = s.id === selectedSession.id;
                                                             return (
-                                                                <td key={i} className={`py-2 px-2 text-center font-mono ${isCurrent ? 'text-indigo-700 dark:text-dk-accent-text font-black bg-indigo-50 dark:bg-dk-accent/20/40' : 'text-slate-600 dark:text-dk-text-soft'}`}>
+                                                                <td key={i} className={`py-2 px-2 text-center font-mono ${isCurrent ? 'text-indigo-700 dark:text-dk-accent-text font-black bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20/40' : 'text-slate-600 dark:text-dk-text-soft'}`}>
                                                                     {typeof v === 'number' ? v.toFixed(2) : <span className="text-slate-300 dark:text-dk-muted">—</span>}
                                                                 </td>
                                                             );
                                                         })}
-                                                        <td className="py-2 px-2 text-center font-mono font-black bg-indigo-50 dark:bg-dk-accent/20/30">
+                                                        <td className="py-2 px-2 text-center font-mono font-black bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20/30">
                                                             {typeof d === 'number'
-                                                                ? <span className={d < 0 ? 'text-emerald-600' : d > 0 ? 'text-rose-600' : 'text-slate-400 dark:text-dk-muted'}>{d > 0 ? '+' : ''}{d.toFixed(2)}</span>
+                                                                ? <span className={d < 0 ? 'text-emerald-600 dark:text-emerald-400' : d > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-slate-400 dark:text-dk-muted'}>{d > 0 ? '+' : ''}{d.toFixed(2)}</span>
                                                                 : <span className="text-slate-300 dark:text-dk-muted">—</span>}
                                                         </td>
                                                     </tr>

@@ -156,7 +156,7 @@ export default function SaasTable<T extends Record<string, any>>({
               placeholder={searchPlaceholder}
               className="
                 w-full h-8 pl-8 pr-8 text-[12px] text-slate-700 dark:text-dk-text-soft
-                bg-slate-50/60 border border-slate-200 rounded-md dark:bg-dk-bg/60 dark:border-dk-border
+                bg-slate-50 dark:bg-dk-bg/60 border border-slate-200 rounded-md dark:bg-dk-bg/60 dark:border-dk-border
                 placeholder:text-slate-400 dark:placeholder:text-dk-muted
                 focus:bg-white focus:border-slate-300 focus:ring-2 focus:ring-slate-100 focus:outline-none dark:focus:bg-dk-surface dark:focus:border-dk-border dark:focus:ring-white/10
                 transition-all duration-150
@@ -184,7 +184,7 @@ export default function SaasTable<T extends Record<string, any>>({
       >
         <table className="w-full border-collapse">
           {/* Header */}
-          <thead className="bg-slate-50/60 sticky top-0 z-10 dark:bg-dk-bg/60">
+          <thead className="bg-slate-50 dark:bg-dk-bg/60 sticky top-0 z-10 dark:bg-dk-bg/60">
             <tr className="border-b border-slate-100 dark:border-dk-border">
               {selectable && (
                 <th className="w-10 px-3 py-2.5">
@@ -256,9 +256,9 @@ export default function SaasTable<T extends Record<string, any>>({
                   <tr
                     key={key}
                     className={`
-                      ${striped && idx % 2 === 1 ? 'bg-slate-50/30 dark:bg-dk-bg/30' : ''}
+                      ${striped && idx % 2 === 1 ? 'bg-slate-50 dark:bg-dk-bg/30 dark:bg-dk-bg/30' : ''}
                       ${onRowClick ? 'cursor-pointer hover:bg-slate-50/50 dark:hover:bg-dk-elevated/30' : ''}
-                      ${isSelected ? 'bg-slate-50 dark:bg-dk-elevated/40' : ''}
+                      ${isSelected ? 'bg-slate-50 dark:bg-dk-bg dark:bg-dk-elevated/40' : ''}
                       transition-colors duration-100
                     `}
                     onClick={() => onRowClick?.(row, idx)}

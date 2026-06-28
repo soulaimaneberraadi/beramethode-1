@@ -31,7 +31,7 @@ export function TimelineHeader({ hours, hourKeys, currentHourKey, hourTotals }: 
                         <div
                             key={k}
                             className={`shrink-0 px-1 pb-1.5 pt-2 border-r border-slate-100 dark:border-dk-border flex flex-col items-center ${
-                                isCurrent ? 'bg-red-50/60 dark:bg-red-900/20' : ''
+                                isCurrent ? 'bg-red-50 dark:bg-red-900/30/60 dark:bg-red-900/20' : ''
                             }`}
                             style={{ width: HOUR_W }}
                         >

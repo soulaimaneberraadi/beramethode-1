@@ -411,7 +411,7 @@ export default function ModelWorkflow({
                                         className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${isActive
                                             ? 'bg-indigo-600 dark:bg-dk-accent text-white shadow-md shadow-indigo-200'
                                             : isPast
-                                                ? 'text-emerald-600 bg-emerald-50/50 hover:bg-emerald-100'
+                                                ? 'text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/30/50 hover:bg-emerald-100'
                                                 : 'text-slate-400 dark:text-dk-muted hover:text-slate-600 dark:hover:text-dk-text hover:bg-slate-50 dark:hover:bg-dk-bg'
                                             }`}
                                     >

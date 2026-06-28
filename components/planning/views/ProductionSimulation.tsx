@@ -378,7 +378,7 @@ export default function ProductionSimulation({
                                     onClick={() => handleSelectModel(m.id)}
                                     className={`w-full text-left p-2 rounded-lg text-xs flex items-center justify-between border transition-all ${
                                         isSelected 
-                                            ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-950 font-semibold' 
+                                            ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/30 dark:bg-indigo-900/20 text-indigo-950 font-semibold' 
                                             : 'border-transparent hover:bg-slate-50 dark:hover:bg-dk-elevated/60 text-slate-700 dark:text-dk-text-soft'
                                     }`}
                                 >
@@ -421,7 +421,7 @@ export default function ProductionSimulation({
                                     }}
                                     className={`w-full text-left p-2.5 rounded-lg text-xs border transition-all flex items-center justify-between ${
                                         selectedEventId === ''
-                                            ? 'border-emerald-500 bg-emerald-50/30 text-emerald-950 font-semibold'
+                                            ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-900/30/30 text-emerald-950 font-semibold'
                                             : 'border-slate-100 dark:border-dk-border hover:bg-slate-50 dark:hover:bg-dk-elevated/60 text-slate-700 dark:text-dk-text-soft'
                                     }`}
                                 >
@@ -429,7 +429,7 @@ export default function ProductionSimulation({
                                         <div className="font-bold">{tx(lang,{fr:'Nouvelle Simulation Libre',ar:'محاكاة حرة جديدة',en:'New Free Simulation',es:'Nueva Simulación Libre',pt:'Nova Simulação Livre',tr:'Yeni Serbest Simülasyon'})}</div>
                                         <div className="text-[10px] text-slate-400 dark:text-dk-muted mt-0.5">{tx(lang,{fr:'Saisir les paramètres manuellement',ar:'أدخل المعلمات يدويًا',en:'Enter parameters manually',es:'Introducir los parámetros manualmente',pt:'Inserir os parâmetros manualmente',tr:'Parametreleri manuel olarak girin'})}</div>
                                     </div>
-                                    {selectedEventId === '' && <Check className="w-4 h-4 text-emerald-600" />}
+                                    {selectedEventId === '' && <Check className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />}
                                 </button>
                                 
                                 {modelEvents.map(ev => {
@@ -444,7 +444,7 @@ export default function ProductionSimulation({
                                             onClick={() => handleSelectEvent(ev.id)}
                                             className={`w-full text-left p-2.5 rounded-lg text-xs border transition-all flex items-center justify-between ${
                                                 isSelected
-                                                    ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-950 font-semibold'
+                                                    ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/30 dark:bg-indigo-900/20 text-indigo-950 font-semibold'
                                                     : 'border-slate-100 dark:border-dk-border hover:bg-slate-50 dark:hover:bg-dk-elevated/60 text-slate-700 dark:text-dk-text-soft'
                                             }`}
                                         >
@@ -459,7 +459,7 @@ export default function ProductionSimulation({
                                                     {tx(lang,{fr:'Qte',ar:'الكمية',en:'Qty',es:'Cant',pt:'Quant',tr:'Mik'})}: {qty} pcs | DDS: {ev.strictDeadline_DDS || tx(lang,{fr:'Non définie',ar:'غير محددة',en:'Undefined',es:'No definida',pt:'Não definida',tr:'Tanımlanmamış'})}
                                                 </div>
                                             </div>
-                                            {isSelected && <Check className="w-4 h-4 text-indigo-600 dark:text-dk-accent-text" />}
+                                            {isSelected && <Check className="w-4 h-4 text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text" />}
                                         </button>
                                     );
                                 })}
@@ -609,7 +609,7 @@ export default function ProductionSimulation({
                                         <Users className="w-3.5 h-3.5 text-slate-500 dark:text-dk-muted" />
                                         {tx(lang,{fr:"Effectif (Nombre d'ouvriers)",ar:'العمالة (عدد العمال)',en:'Workforce (Number of workers)',es:'Personal (Número de trabajadores)',pt:'Efetivo (Número de trabalhadores)',tr:'İşgücü (İşçi sayısı)'})} :
                                     </span>
-                                    <span className="font-black text-indigo-600 dark:text-dk-accent-text bg-indigo-50 dark:bg-dk-accent/20 px-2 py-0.5 rounded text-[11px] min-w-[40px] text-center">
+                                    <span className="font-black text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 px-2 py-0.5 rounded text-[11px] min-w-[40px] text-center">
                                         {numWorkers}
                                     </span>
                                 </div>
@@ -640,7 +640,7 @@ export default function ProductionSimulation({
                                         <Percent className="w-3.5 h-3.5 text-slate-500 dark:text-dk-muted" />
                                         {tx(lang,{fr:'Rendement / Efficacité',ar:'الإنتاجية / الكفاءة',en:'Yield / Efficiency',es:'Rendimiento / Eficiencia',pt:'Rendimento / Eficiência',tr:'Verim / Etkinlik'})} :
                                     </span>
-                                    <span className="font-black text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded text-[11px] min-w-[40px] text-center">
+                                    <span className="font-black text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/30 px-2 py-0.5 rounded text-[11px] min-w-[40px] text-center">
                                         {(efficiency * 100).toFixed(0)}%
                                     </span>
                                 </div>
@@ -671,7 +671,7 @@ export default function ProductionSimulation({
                                         <Clock className="w-3.5 h-3.5 text-slate-500 dark:text-dk-muted" />
                                         {tx(lang,{fr:'Temps unitaire (SAM en minutes)',ar:'الوقت الوحدوي (SAM بالدقائق)',en:'Unit Time (SAM in minutes)',es:'Tiempo unitario (SAM en minutos)',pt:'Tempo unitário (SAM em minutos)',tr:'Birim Süre (SAM dakika olarak)'})} :
                                     </span>
-                                    <span className="font-black text-[#2149C1] bg-blue-50 px-2 py-0.5 rounded text-[11px] min-w-[40px] text-center">
+                                    <span className="font-black text-[#2149C1] bg-blue-50 dark:bg-blue-900/30 px-2 py-0.5 rounded text-[11px] min-w-[40px] text-center">
                                         {sam} min
                                     </span>
                                 </div>
@@ -737,7 +737,7 @@ export default function ProductionSimulation({
 
                             {/* Statut (En avance ou en retard) */}
                             {simulationResult.isLate ? (
-                                <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl flex items-start gap-2.5">
+                                <div className="p-3 bg-rose-50 dark:bg-rose-900/30 border border-rose-200 rounded-xl flex items-start gap-2.5">
                                     <AlertTriangle className="w-5 h-5 text-rose-500 shrink-0 mt-0.5" />
                                     <div>
                                         <h4 className="text-xs font-black text-rose-800 uppercase tracking-wide">{tx(lang,{fr:'DDS Dépassée ! Retard constaté',ar:'تجاوز DDS! تأخر ملاحظ',en:'DDS Exceeded! Delay observed',es:'¡DDS Superada! Retraso constatado',pt:'DDS Excedida! Atraso constatado',tr:'DDS Aşıldı! Gecikme Tespit Edildi'})}</h4>
@@ -747,7 +747,7 @@ export default function ProductionSimulation({
                                     </div>
                                 </div>
                             ) : (
-                                <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl flex items-start gap-2.5">
+                                <div className="p-3 bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-200 rounded-xl flex items-start gap-2.5">
                                     <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0 mt-0.5" />
                                     <div>
                                         <h4 className="text-xs font-black text-emerald-800 uppercase tracking-wide">{tx(lang,{fr:'Production dans les Temps',ar:'الإنتاج في الوقت المحدد',en:'On-Time Production',es:'Producción a Tiempo',pt:'Produção dentro do Prazo',tr:'Zamanında Üretim'})}</h4>
@@ -778,7 +778,7 @@ export default function ProductionSimulation({
                         {/* B. Recommandations d'optimisation */}
                         <div className="bg-white dark:bg-dk-surface rounded-xl border border-slate-200 dark:border-dk-border p-5 shadow-sm space-y-4">
                             <h3 className="text-sm font-bold text-slate-800 dark:text-dk-text border-b border-slate-100 dark:border-dk-border pb-2 flex items-center gap-1.5">
-                                <UserCheck className="w-4 h-4 text-emerald-600" />
+                                <UserCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                                 {tx(lang,{fr:'Solutions Recommandées',ar:'الحلول الموصى بها',en:'Recommended Solutions',es:'Soluciones Recomendadas',pt:'Soluções Recomendadas',tr:'Önerilen Çözümler'})}
                             </h3>
 
@@ -787,7 +787,7 @@ export default function ProductionSimulation({
                                     
                                     {/* 1. Augmenter effectif */}
                                     {simulationResult.requiredWorkers > 0 && simulationResult.requiredWorkers < 150 && (
-                                        <div className="border border-slate-100 dark:border-dk-border rounded-xl p-3 bg-slate-50/50 hover:bg-slate-50 dark:hover:bg-dk-elevated/60 transition-colors">
+                                        <div className="border border-slate-100 dark:border-dk-border rounded-xl p-3 bg-slate-50 dark:bg-dk-bg/50 hover:bg-slate-50 dark:hover:bg-dk-elevated/60 transition-colors">
                                             <div className="font-bold text-slate-700 dark:text-dk-text-soft">{tx(lang,{fr:"Option A : Augmenter l'Effectif",ar:'الخيار أ: زيادة العمالة',en:'Option A: Increase Workforce',es:'Opción A: Aumentar el Personal',pt:'Opção A: Aumentar o Efetivo',tr:'Seçenek A: İşgücünü Artır'})}</div>
                                             <div className="text-slate-500 dark:text-dk-muted text-[11px] mt-1">
                                                 {tx(lang,{fr:`En passant à un effectif de ${simulationResult.requiredWorkers} ouvriers, vous terminerez à temps.`,ar:`من خلال زيادة العمالة إلى ${simulationResult.requiredWorkers} عامل، ستنهي في الوقت المحدد.`,en:`By increasing the workforce to ${simulationResult.requiredWorkers} workers, you will finish on time.`,es:`Aumentando el personal a ${simulationResult.requiredWorkers} trabajadores, terminará a tiempo.`,pt:`Aumentando o efetivo para ${simulationResult.requiredWorkers} trabalhadores, terminará a tempo.`,tr:`İşgücünü ${simulationResult.requiredWorkers} işçiye çıkararak zamanında bitireceksiniz.`})}
@@ -804,7 +804,7 @@ export default function ProductionSimulation({
 
                                     {/* 2. Améliorer rendement */}
                                     {simulationResult.requiredEfficiency > 0 && simulationResult.requiredEfficiency <= 1.2 && (
-                                        <div className="border border-slate-100 dark:border-dk-border rounded-xl p-3 bg-slate-50/50 hover:bg-slate-50 dark:hover:bg-dk-elevated/60 transition-colors">
+                                        <div className="border border-slate-100 dark:border-dk-border rounded-xl p-3 bg-slate-50 dark:bg-dk-bg/50 hover:bg-slate-50 dark:hover:bg-dk-elevated/60 transition-colors">
                                             <div className="font-bold text-slate-700 dark:text-dk-text-soft">{tx(lang,{fr:'Option B : Améliorer le Rendement',ar:'الخيار ب: تحسين الإنتاجية',en:'Option B: Improve Efficiency',es:'Opción B: Mejorar el Rendimiento',pt:'Opção B: Melhorar o Rendimento',tr:'Seçenek B: Verimliliği Artır'})}</div>
                                             <div className="text-slate-500 dark:text-dk-muted text-[11px] mt-1">
                                                 {tx(lang,{fr:`Un rendement moyen de ${(simulationResult.requiredEfficiency * 100).toFixed(0)}% permet de respecter la DDS.`,ar:`معدل إنتاجية ${(simulationResult.requiredEfficiency * 100).toFixed(0)}% يسمح بالوفاء بـ DDS.`,en:`An average efficiency of ${(simulationResult.requiredEfficiency * 100).toFixed(0)}% allows meeting the DDS.`,es:`Un rendimiento promedio de ${(simulationResult.requiredEfficiency * 100).toFixed(0)}% permite cumplir con la DDS.`,pt:`Um rendimento médio de ${(simulationResult.requiredEfficiency * 100).toFixed(0)}% permite cumprir a DDS.`,tr:`Ortalama ${(simulationResult.requiredEfficiency * 100).toFixed(0)}% verimlilik, DDS'yi karşılamaya olanak tanır.`})}
@@ -820,7 +820,7 @@ export default function ProductionSimulation({
                                     )}
 
                                     {/* 3. Sous-traitance */}
-                                    <div className="border border-rose-100 dark:border-rose-900/40 rounded-xl p-3 bg-rose-50/20 dark:bg-rose-900/10 hover:bg-rose-50/30 dark:hover:bg-rose-900/20 transition-colors">
+                                    <div className="border border-rose-100 dark:border-rose-900/40 rounded-xl p-3 bg-rose-50 dark:bg-rose-900/30/20 dark:bg-rose-900/10 hover:bg-rose-50/30 dark:hover:bg-rose-900/20 transition-colors">
                                         <div className="font-bold text-rose-800 dark:text-rose-300 flex items-center gap-1">
                                             <Split className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400" />
                                             {tx(lang,{fr:'Option C : Sous-traitance (Monawla)',ar:'الخيار ج: التعاقد من الباطن (مناولة)',en:'Option C: Subcontracting (Monawla)',es:'Opción C: Subcontratación (Monawla)',pt:'Opção C: Subcontratação (Monawla)',tr:'Seçenek C: Taşeronluk (Monawla)'})}
@@ -844,7 +844,7 @@ export default function ProductionSimulation({
                                 </div>
                             ) : (
                                 <div className="space-y-3 text-xs">
-                                    <div className="p-3 bg-emerald-50/50 dark:bg-emerald-900/20 rounded-xl border border-emerald-100 dark:border-emerald-900/40">
+                                    <div className="p-3 bg-emerald-50 dark:bg-emerald-900/30/50 dark:bg-emerald-900/20 rounded-xl border border-emerald-100 dark:border-emerald-900/40">
                                         <div className="font-bold text-emerald-800 dark:text-emerald-300">{tx(lang,{fr:'Aucune surcharge détectée',ar:'لم يتم اكتشاف أي حمل زائد',en:'No overload detected',es:'Ninguna sobrecarga detectada',pt:'Nenhuma sobrecarga detetada',tr:'Aşırı yük tespit edilmedi'})}</div>
                                         <p className="text-[11px] text-emerald-700 dark:text-emerald-400 mt-1 leading-relaxed">
                                             {tx(lang,{fr:'La capacité interne est suffisante. Si besoin, vous pouvez libérer du personnel pour d\'autres commandes.',ar:'السعة الداخلية كافية. إذا لزم الأمر، يمكنك تحرير الموظفين لأوامر أخرى.',en:'Internal capacity is sufficient. If needed, you can free up staff for other orders.',es:'La capacidad interna es suficiente. Si es necesario, puede liberar personal para otros pedidos.',pt:'A capacidade interna é suficiente. Se necessário, pode libertar pessoal para outras encomendas.',tr:'Dahili kapasite yeterlidir. Gerekirse diğer siparişler için personeli serbest bırakabilirsiniz.'})}
@@ -853,14 +853,14 @@ export default function ProductionSimulation({
                                     
                                     {/* Option to reduce worker count and optimize */}
                                     {simulationResult.requiredWorkers > 0 && simulationResult.requiredWorkers < numWorkers && (
-                                        <div className="border border-slate-100 dark:border-dk-border rounded-xl p-3 bg-slate-50/50">
+                                        <div className="border border-slate-100 dark:border-dk-border rounded-xl p-3 bg-slate-50 dark:bg-dk-bg/50">
                                             <div className="font-bold text-slate-700 dark:text-dk-text-soft">{tx(lang,{fr:'Libérer des opérateurs ?',ar:'تحرير المشغلين؟',en:'Free up operators?',es:'¿Liberar operadores?',pt:'Libertar operadores?',tr:'Operatörleri serbest bırakmak mı?'})}</div>
                                             <div className="text-[11px] text-slate-500 dark:text-dk-muted mt-1">
                                                 {tx(lang,{fr:`Vous pouvez descendre à ${simulationResult.requiredWorkers} ouvriers et finir de produire à temps.`,ar:`يمكنك تقليص العمالة إلى ${simulationResult.requiredWorkers} عامل وإنهاء الإنتاج في الوقت المحدد.`,en:`You can reduce to ${simulationResult.requiredWorkers} workers and finish production on time.`,es:`Puede reducir a ${simulationResult.requiredWorkers} trabajadores y terminar la producción a tiempo.`,pt:`Pode reduzir para ${simulationResult.requiredWorkers} trabalhadores e terminar a produção a tempo.`,tr:`${simulationResult.requiredWorkers} işçiye düşürerek üretimi zamanında bitirebilirsiniz.`})}
                                             </div>
                                             <button 
                                                 onClick={() => setNumWorkers(simulationResult.requiredWorkers)}
-                                                className="mt-2 w-full border border-indigo-150 hover:bg-indigo-50 dark:bg-dk-accent/20 text-indigo-600 dark:text-dk-accent-text text-[11px] font-bold py-1 px-3 rounded-lg transition-colors"
+                                                className="mt-2 w-full border border-indigo-150 hover:bg-indigo-50 dark:bg-dk-accent/20 text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text text-[11px] font-bold py-1 px-3 rounded-lg transition-colors"
                                             >
                                                 {tx(lang,{fr:`Appliquer ${simulationResult.requiredWorkers} ouvriers`,ar:`تطبيق ${simulationResult.requiredWorkers} عامل`,en:`Apply ${simulationResult.requiredWorkers} workers`,es:`Aplicar ${simulationResult.requiredWorkers} trabajadores`,pt:`Aplicar ${simulationResult.requiredWorkers} trabalhadores`,tr:`${simulationResult.requiredWorkers} işçi uygula`})}
                                             </button>

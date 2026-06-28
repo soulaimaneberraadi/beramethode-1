@@ -34,7 +34,7 @@ export default function BlockingConfirm({
             <div className="w-full max-w-sm rounded-2xl border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface p-5 shadow-2xl">
                 <div className="flex items-start justify-between gap-3 mb-3">
                     <div className="flex items-center gap-2">
-                        <div className={`rounded-xl p-2 ${variant === 'danger' ? 'bg-red-50 text-red-500' : 'bg-amber-50 text-amber-500'}`}>
+                        <div className={`rounded-xl p-2 ${variant === 'danger' ? 'bg-red-50 dark:bg-red-900/30 text-red-500' : 'bg-amber-50 dark:bg-amber-900/30 text-amber-500'}`}>
                             <AlertTriangle className="h-5 w-5" />
                         </div>
                         <h3 className="font-black text-slate-900 dark:text-dk-text text-sm leading-tight">{title}</h3>

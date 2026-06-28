@@ -246,7 +246,7 @@ export default function CrisisAlertPanel({
     };
 
     return (
-        <div className="shrink-0 border-b border-red-100 dark:border-red-900/30 bg-red-50/20 dark:bg-red-900/10">
+        <div className="shrink-0 border-b border-red-100 dark:border-red-900/30 bg-red-50 dark:bg-red-900/30/20 dark:bg-red-900/10">
             <button
                 type="button"
                 onClick={() => setExpanded(v => !v)}
@@ -331,7 +331,7 @@ export default function CrisisAlertPanel({
                                             </span>
                                         </div>
                                         <p className="text-[11px] text-slate-600 dark:text-dk-text-soft mt-1">
-                                            {tx(lang, { fr: 'Retard de', ar: 'تأخير', en: 'Delay of', es: 'Retraso de', pt: 'Atraso de', tr: 'Gecikme' })} <span className="font-semibold text-red-600">{ev.crResult.deficit} {tx(lang, { fr: 'pièces', ar: 'قطعة', en: 'pieces', es: 'piezas', pt: 'peças', tr: 'parça' })}</span> {tx(lang, { fr: 'sur la date d\'export.', ar: 'عن تاريخ التصدير.', en: 'on the export date.', es: 'en la fecha de exportación.', pt: 'na data de exportação.', tr: 'ihracat tarihinden itibaren.' })} {tx(lang, { fr: 'Jours restants :', ar: 'الأيام المتبقية:', en: 'Days remaining:', es: 'Días restantes:', pt: 'Dias restantes:', tr: 'Kalan gün:' })} <span className="font-medium text-slate-900 dark:text-dk-text">{ev.crResult.daysRemaining} {tx(lang, { fr: 'j', ar: 'يوم', en: 'd', es: 'd', pt: 'd', tr: 'g' })}</span> ({tx(lang, { fr: 'Requis:', ar: 'المطلوب:', en: 'Required:', es: 'Requerido:', pt: 'Necessário:', tr: 'Gerekli:' })} {ev.crResult.daysNeeded} {tx(lang, { fr: 'j', ar: 'يوم', en: 'd', es: 'd', pt: 'd', tr: 'g' })}).
+                                            {tx(lang, { fr: 'Retard de', ar: 'تأخير', en: 'Delay of', es: 'Retraso de', pt: 'Atraso de', tr: 'Gecikme' })} <span className="font-semibold text-red-600 dark:text-red-400">{ev.crResult.deficit} {tx(lang, { fr: 'pièces', ar: 'قطعة', en: 'pieces', es: 'piezas', pt: 'peças', tr: 'parça' })}</span> {tx(lang, { fr: 'sur la date d\'export.', ar: 'عن تاريخ التصدير.', en: 'on the export date.', es: 'en la fecha de exportación.', pt: 'na data de exportação.', tr: 'ihracat tarihinden itibaren.' })} {tx(lang, { fr: 'Jours restants :', ar: 'الأيام المتبقية:', en: 'Days remaining:', es: 'Días restantes:', pt: 'Dias restantes:', tr: 'Kalan gün:' })} <span className="font-medium text-slate-900 dark:text-dk-text">{ev.crResult.daysRemaining} {tx(lang, { fr: 'j', ar: 'يوم', en: 'd', es: 'd', pt: 'd', tr: 'g' })}</span> ({tx(lang, { fr: 'Requis:', ar: 'المطلوب:', en: 'Required:', es: 'Requerido:', pt: 'Necessário:', tr: 'Gerekli:' })} {ev.crResult.daysNeeded} {tx(lang, { fr: 'j', ar: 'يوم', en: 'd', es: 'd', pt: 'd', tr: 'g' })}).
                                         </p>
                                     </div>
                                     <div className="flex items-center gap-2 shrink-0">
@@ -345,7 +345,7 @@ export default function CrisisAlertPanel({
                                         <button
                                             type="button"
                                             onClick={() => setSelectedEventId(isSelected ? null : ev.id)}
-                                            className="px-3 py-1 text-[10px] font-bold text-red-700 dark:text-red-400 bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/30 rounded border border-red-200 dark:border-red-800 transition-all flex items-center gap-1"
+                                            className="px-3 py-1 text-[10px] font-bold text-red-700 dark:text-red-400 bg-red-50 dark:bg-red-900/30 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/30 rounded border border-red-200 dark:border-red-800 transition-all flex items-center gap-1"
                                         >
                                             {tx(lang, { fr: 'Solutions', ar: 'حلول', en: 'Solutions', es: 'Soluciones', pt: 'Soluções', tr: 'Çözümler' })}
                                             <ChevronDown className={`w-3 h-3 transition-transform ${isSelected ? 'rotate-180' : ''}`} />

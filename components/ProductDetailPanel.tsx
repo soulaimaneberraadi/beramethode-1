@@ -70,21 +70,21 @@ const formatDate = (d: string) => new Date(d).toLocaleDateString('fr-MA', { day:
 const formatTime = (d: string) => new Date(d).toLocaleTimeString('fr-MA', { hour: '2-digit', minute: '2-digit' });
 
 const CAT_COLORS: Record<string, { bg: string; text: string; border: string }> = {
-    tissu: { bg: 'bg-blue-50', text: 'text-blue-700', border: 'border-blue-200' },
-    fil: { bg: 'bg-purple-50', text: 'text-purple-700', border: 'border-purple-200' },
-    bouton: { bg: 'bg-amber-50', text: 'text-amber-700', border: 'border-amber-200' },
+    tissu: { bg: 'bg-blue-50 dark:bg-blue-900/30', text: 'text-blue-700', border: 'border-blue-200' },
+    fil: { bg: 'bg-purple-50 dark:bg-purple-900/30', text: 'text-purple-700', border: 'border-purple-200' },
+    bouton: { bg: 'bg-amber-50 dark:bg-amber-900/30', text: 'text-amber-700', border: 'border-amber-200' },
     fermeture: { bg: 'bg-slate-50 dark:bg-dk-bg', text: 'text-slate-700 dark:text-dk-text-soft', border: 'border-slate-200 dark:border-dk-border' },
-    etiquette: { bg: 'bg-green-50', text: 'text-green-700', border: 'border-green-200' },
-    emballage: { bg: 'bg-orange-50', text: 'text-orange-700', border: 'border-orange-200' },
-    autre: { bg: 'bg-rose-50', text: 'text-rose-700', border: 'border-rose-200' },
+    etiquette: { bg: 'bg-green-50 dark:bg-green-900/30', text: 'text-green-700', border: 'border-green-200' },
+    emballage: { bg: 'bg-orange-50 dark:bg-orange-900/30', text: 'text-orange-700', border: 'border-orange-200' },
+    autre: { bg: 'bg-rose-50 dark:bg-rose-900/30', text: 'text-rose-700', border: 'border-rose-200' },
 };
 
 const MVT_ICONS: Record<string, { icon: React.ElementType; color: string; bg: string }> = {
-    entree: { icon: ArrowDownCircle, color: 'text-emerald-600', bg: 'bg-emerald-50' },
-    sortie: { icon: ArrowUpCircle, color: 'text-rose-600', bg: 'bg-rose-50' },
-    regularisation: { icon: Activity, color: 'text-amber-600', bg: 'bg-amber-50' },
-    retour_atelier: { icon: Factory, color: 'text-blue-600', bg: 'bg-blue-50' },
-    rebut: { icon: AlertTriangle, color: 'text-red-600', bg: 'bg-red-50' },
+    entree: { icon: ArrowDownCircle, color: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-900/30' },
+    sortie: { icon: ArrowUpCircle, color: 'text-rose-600 dark:text-rose-400', bg: 'bg-rose-50 dark:bg-rose-900/30' },
+    regularisation: { icon: Activity, color: 'text-amber-600 dark:text-amber-400', bg: 'bg-amber-50 dark:bg-amber-900/30' },
+    retour_atelier: { icon: Factory, color: 'text-blue-600 dark:text-blue-400', bg: 'bg-blue-50 dark:bg-blue-900/30' },
+    rebut: { icon: AlertTriangle, color: 'text-red-600 dark:text-red-400', bg: 'bg-red-50 dark:bg-red-900/30' },
     reservation: { icon: Clock, color: 'text-violet-600', bg: 'bg-violet-50' },
 };
 
@@ -270,7 +270,7 @@ export default function ProductDetailPanel({ product, lots, mouvements, onClose,
                             <div className="grid grid-cols-3 gap-4">
                                 <div className="bg-white dark:bg-dk-surface rounded-2xl p-5 border border-slate-200 dark:border-dk-border shadow-sm">
                                     <div className="flex items-center justify-between mb-3">
-                                        <Package className="w-5 h-5 text-indigo-600 dark:text-dk-accent-text" />
+                                        <Package className="w-5 h-5 text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text" />
                                         {currentStock <= product.stockAlerte ? (
                                             <span className="px-2 py-0.5 rounded-full bg-red-100 text-red-700 text-[10px] font-black">{_({fr:'ALERTE',ar:'تنبيه',en:'ALERT',es:'ALERTA',pt:'ALERTA',tr:'UYARI'})}</span>
                                         ) : (
@@ -288,11 +288,11 @@ export default function ProductDetailPanel({ product, lots, mouvements, onClose,
                                     <div className="flex items-center justify-between mb-3">
                                         <Activity className="w-5 h-5 text-violet-600" />
                                         {consumptionStats.trend > 0 ? (
-                                            <span className="flex items-center gap-1 text-rose-600 text-xs font-bold">
+                                            <span className="flex items-center gap-1 text-rose-600 dark:text-rose-400 text-xs font-bold">
                                                 <TrendingUp className="w-3 h-3" /> +{consumptionStats.trend.toFixed(0)}%
                                             </span>
                                         ) : consumptionStats.trend < 0 ? (
-                                            <span className="flex items-center gap-1 text-emerald-600 text-xs font-bold">
+                                            <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400 text-xs font-bold">
                                                 <TrendingDown className="w-3 h-3" /> {consumptionStats.trend.toFixed(0)}%
                                             </span>
                                         ) : null}
@@ -306,7 +306,7 @@ export default function ProductDetailPanel({ product, lots, mouvements, onClose,
 
                                 <div className="bg-white dark:bg-dk-surface rounded-2xl p-5 border border-slate-200 dark:border-dk-border shadow-sm">
                                     <div className="flex items-center justify-between mb-3">
-                                        <DollarSign className="w-5 h-5 text-emerald-600" />
+                                        <DollarSign className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
                                         <span className="text-[10px] text-slate-400 dark:text-dk-muted font-bold">CUMP</span>
                                     </div>
                                     <p className="text-3xl font-black text-slate-800 dark:text-dk-text">{stockValue.toLocaleString()}</p>
@@ -320,14 +320,14 @@ export default function ProductDetailPanel({ product, lots, mouvements, onClose,
                             {consumptionStats.daysRemaining < 14 && consumptionStats.daysRemaining !== Infinity && (
                                 <div className={`rounded-2xl p-4 flex items-center gap-4 ${
                                     consumptionStats.daysRemaining < 7 
-                                        ? 'bg-red-50 border border-red-200' 
-                                        : 'bg-amber-50 border border-amber-200'
+                                        ? 'bg-red-50 dark:bg-red-900/30 border border-red-200' 
+                                        : 'bg-amber-50 dark:bg-amber-900/30 border border-amber-200'
                                 }`}>
                                     <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
                                         consumptionStats.daysRemaining < 7 ? 'bg-red-100' : 'bg-amber-100'
                                     }`}>
                                         <AlertTriangle className={`w-6 h-6 ${
-                                            consumptionStats.daysRemaining < 7 ? 'text-red-600' : 'text-amber-600'
+                                            consumptionStats.daysRemaining < 7 ? 'text-red-600 dark:text-red-400' : 'text-amber-600 dark:text-amber-400'
                                         }`} />
                                     </div>
                                     <div>
@@ -337,7 +337,7 @@ export default function ProductDetailPanel({ product, lots, mouvements, onClose,
                                             {consumptionStats.daysRemaining < 7 ? _({fr:'Rupture imminente !',ar:'نفاد وشيك!',en:'Imminent stockout!',es:'¡Desabastecimiento inminente!',pt:'Rotura iminente!',tr:'Yakında tükeniyor!'}) : _({fr:'Stock faible',ar:'مخزون منخفض',en:'Low stock',es:'Stock bajo',pt:'Stock baixo',tr:'Düşük stok'})}
                                         </p>
                                         <p className={`text-sm ${
-                                            consumptionStats.daysRemaining < 7 ? 'text-red-600' : 'text-amber-600'
+                                            consumptionStats.daysRemaining < 7 ? 'text-red-600 dark:text-red-400' : 'text-amber-600 dark:text-amber-400'
                                         }`}>
                                             {_({fr:'~{0} jours restants au rythme actuel',ar:'~{0} يوم متبقي بالمعدل الحالي',en:'~{0} days left at current rate',es:'~{0} días restantes al ritmo actual',pt:'~{0} dias restantes ao ritmo atual',tr:'Mevcut hızda ~{0} gün kaldı'}).replace('{0}', String(consumptionStats.daysRemaining))}
                                         </p>
@@ -358,8 +358,8 @@ export default function ProductDetailPanel({ product, lots, mouvements, onClose,
                                         {chainsUsage.slice(0, 5).map(ch => (
                                             <div key={ch.id} className="px-5 py-3 flex items-center justify-between hover:bg-slate-50 dark:hover:bg-dk-elevated/60 transition-colors">
                                                 <div className="flex items-center gap-3">
-                                                    <div className="w-10 h-10 rounded-xl bg-indigo-50 dark:bg-dk-accent/20 flex items-center justify-center">
-                                                        <Factory className="w-5 h-5 text-indigo-600 dark:text-dk-accent-text" />
+                                                    <div className="w-10 h-10 rounded-xl bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 flex items-center justify-center">
+                                                        <Factory className="w-5 h-5 text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text" />
                                                     </div>
                                                     <div>
                                                         <p className="font-bold text-slate-800 dark:text-dk-text">{ch.id}</p>
@@ -369,7 +369,7 @@ export default function ProductDetailPanel({ product, lots, mouvements, onClose,
                                                 <div className="text-right">
                                                     <p className="font-black text-slate-700 dark:text-dk-text-soft">{ch.qty.toFixed(1)} {product.unite}</p>
                                                     {ch.ofs.length > 0 && (
-                                                        <p className="text-[10px] text-indigo-600 dark:text-dk-accent-text font-bold">{ch.ofs.slice(0, 2).join(', ')}</p>
+                                                        <p className="text-[10px] text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text font-bold">{ch.ofs.slice(0, 2).join(', ')}</p>
                                                     )}
                                                 </div>
                                             </div>
@@ -386,7 +386,7 @@ export default function ProductDetailPanel({ product, lots, mouvements, onClose,
                                     </h3>
                                     <button 
                                         onClick={() => setActiveTab('history')}
-                                        className="text-xs text-indigo-600 dark:text-dk-accent-text font-bold hover:text-indigo-700 dark:text-dk-accent-text flex items-center gap-1"
+                                        className="text-xs text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text font-bold hover:text-indigo-700 dark:text-dk-accent-text flex items-center gap-1"
                                     >
                                         {_({fr:'Voir tout',ar:'عرض الكل',en:'View all',es:'Ver todo',pt:'Ver tudo',tr:'Tümünü gör'})} <ChevronRight className="w-3 h-3" />
                                     </button>
@@ -410,7 +410,7 @@ export default function ProductDetailPanel({ product, lots, mouvements, onClose,
                                                     <p className="text-xs text-slate-400 dark:text-dk-muted truncate">{mvt.notes || (mvt.chaineId ? `→ ${mvt.chaineId}` : '—')}</p>
                                                 </div>
                                                 <div className="text-right shrink-0">
-                                                    <p className={`font-black ${mvt.type === 'entree' || mvt.type === 'retour_atelier' ? 'text-emerald-600' : 'text-rose-600'}`}>
+                                                    <p className={`font-black ${mvt.type === 'entree' || mvt.type === 'retour_atelier' ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
                                                         {mvt.type === 'entree' || mvt.type === 'retour_atelier' ? '+' : '-'}{mvt.quantite}
                                                     </p>
                                                     <p className="text-[10px] text-slate-400 dark:text-dk-muted">{formatDate(mvt.date)}</p>
@@ -444,7 +444,7 @@ export default function ProductDetailPanel({ product, lots, mouvements, onClose,
                                                 key={mvt.id}
                                                 type="button"
                                                 onClick={() => onEditMovement?.(mvt)}
-                                                className={`w-full text-left px-5 py-4 flex gap-4 ${i % 2 === 0 ? 'bg-white dark:bg-dk-surface' : 'bg-slate-50/50'} hover:bg-slate-100 transition-colors`}
+                                                className={`w-full text-left px-5 py-4 flex gap-4 ${i % 2 === 0 ? 'bg-white dark:bg-dk-surface' : 'bg-slate-50 dark:bg-dk-bg/50'} hover:bg-slate-100 transition-colors`}
                                             >
                                                 <div className={`w-11 h-11 rounded-xl ${conf.bg} flex items-center justify-center shrink-0`}>
                                                     <Icon className={`w-5 h-5 ${conf.color}`} />
@@ -472,13 +472,13 @@ export default function ProductDetailPanel({ product, lots, mouvements, onClose,
                                                             </span>
                                                         )}
                                                         {mvt.modeleRef && (
-                                                            <span className="flex items-center gap-1 text-indigo-600 dark:text-dk-accent-text font-bold">
+                                                            <span className="flex items-center gap-1 text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text font-bold">
                                                                 <FileText className="w-3 h-3" />
                                                                 {mvt.modeleRef}
                                                             </span>
                                                         )}
                                                         {mvt.bain && (
-                                                            <span className="flex items-center gap-1 text-purple-600 font-bold">
+                                                            <span className="flex items-center gap-1 text-purple-600 dark:text-purple-400 font-bold">
                                                                 <Droplets className="w-3 h-3" />
                                                                 {_({fr:'Bain:',ar:'الحوض:',en:'Bath:',es:'Baño:',pt:'Tingimento:',tr:'Banyo:'})} {mvt.bain}
                                                             </span>
@@ -530,7 +530,7 @@ export default function ProductDetailPanel({ product, lots, mouvements, onClose,
                                 <div className="px-5 py-4 border-b border-slate-100 dark:border-dk-border bg-gradient-to-r from-indigo-50 to-purple-50">
                                     <div className="flex items-center gap-3">
                                         <div className="w-12 h-12 rounded-xl bg-white dark:bg-dk-surface shadow-sm flex items-center justify-center">
-                                            <Building2 className="w-6 h-6 text-indigo-600 dark:text-dk-accent-text" />
+                                            <Building2 className="w-6 h-6 text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text" />
                                         </div>
                                         <div className="flex-1 min-w-0">
                                             <h3 className="font-black text-slate-800 dark:text-dk-text">
@@ -765,10 +765,10 @@ export default function ProductDetailPanel({ product, lots, mouvements, onClose,
                                 </div>
                                 <div className="max-h-[400px] overflow-y-auto">
                                     {productLots.map((lot, i) => (
-                                        <div key={lot.id} className={`px-5 py-4 flex items-center gap-4 ${i % 2 === 0 ? 'bg-white dark:bg-dk-surface' : 'bg-slate-50/50'}`}>
+                                        <div key={lot.id} className={`px-5 py-4 flex items-center gap-4 ${i % 2 === 0 ? 'bg-white dark:bg-dk-surface' : 'bg-slate-50 dark:bg-dk-bg/50'}`}>
                                             <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
                                                 lot.quantiteRestante > 0 
-                                                    ? 'bg-emerald-50 text-emerald-600' 
+                                                    ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400' 
                                                     : 'bg-slate-100 dark:bg-dk-elevated text-slate-400 dark:text-dk-muted'
                                             }`}>
                                                 <Layers className="w-5 h-5" />

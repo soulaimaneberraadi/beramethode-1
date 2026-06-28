@@ -102,7 +102,7 @@ const OrderTablesPanel: React.FC<OrderTablesPanelProps> = ({
                     <div className="p-3 sm:p-4 overflow-x-auto">
                         <table className="w-full border-collapse">
                             <thead>
-                                <tr className="bg-slate-50/60 text-slate-500 dark:text-dk-muted text-[10px] uppercase tracking-wider border-b border-slate-200 dark:border-dk-border">
+                                <tr className="bg-slate-50 dark:bg-dk-bg/60 text-slate-500 dark:text-dk-muted text-[10px] uppercase tracking-wider border-b border-slate-200 dark:border-dk-border">
                                     <th className="py-2.5 px-3 text-left font-semibold border-r border-slate-100 dark:border-dk-border min-w-[140px]">Couleur \ Taille</th>
                                     {sizes.length === 0 && (
                                         <th className="py-2.5 px-3 text-center font-normal italic text-slate-400 dark:text-dk-muted border-r border-slate-100 dark:border-dk-border">
@@ -135,7 +135,7 @@ const OrderTablesPanel: React.FC<OrderTablesPanelProps> = ({
                                                 </div>
                                             </td>
                                             {sizes.length === 0 && (
-                                                <td className="py-2.5 px-3 border-r border-slate-100 dark:border-dk-border bg-slate-50/40 text-center text-slate-300 dark:text-dk-muted">—</td>
+                                                <td className="py-2.5 px-3 border-r border-slate-100 dark:border-dk-border bg-slate-50 dark:bg-dk-bg/40 text-center text-slate-300 dark:text-dk-muted">—</td>
                                             )}
                                             {sizes.map((_, sIdx) => {
                                                 const key = `${c.id}_${sIdx}`;
@@ -161,7 +161,7 @@ const OrderTablesPanel: React.FC<OrderTablesPanelProps> = ({
                                                     </td>
                                                 );
                                             })}
-                                            <td className="py-2.5 px-3 text-center border-r border-slate-100 dark:border-dk-border bg-slate-50/60 group-hover:bg-slate-100/60 transition-colors">
+                                            <td className="py-2.5 px-3 text-center border-r border-slate-100 dark:border-dk-border bg-slate-50 dark:bg-dk-bg/60 group-hover:bg-slate-100/60 transition-colors">
                                                 <div className="font-semibold text-slate-800 dark:text-dk-text text-[14px] tabular-nums">{rowTotal > 0 ? rowTotal : dash}</div>
                                                 {rowTotal > 0 && (
                                                     <div className="text-[10px] font-medium text-slate-400 dark:text-dk-muted mt-0.5 tabular-nums">
@@ -173,7 +173,7 @@ const OrderTablesPanel: React.FC<OrderTablesPanelProps> = ({
                                     );
                                 })}
                             </tbody>
-                            <tfoot className="border-t border-slate-200 dark:border-dk-border bg-slate-50/60">
+                            <tfoot className="border-t border-slate-200 dark:border-dk-border bg-slate-50 dark:bg-dk-bg/60">
                                 <tr>
                                     <td className="py-2.5 px-3 text-left font-semibold text-slate-500 dark:text-dk-muted text-[11px] uppercase tracking-wider border-r border-slate-100 dark:border-dk-border">
                                         {tx(lang, {fr:"Total général",ar:"المجموع الكلي",en:"Grand total",es:"Total general",pt:"Total geral",tr:"Genel toplam"})}
@@ -225,9 +225,9 @@ const OrderTablesPanel: React.FC<OrderTablesPanelProps> = ({
                                         <th className="py-2 px-3 text-left font-semibold">{tx(lang, {fr:"Couleur",ar:"اللون",en:"Color",es:"Color",pt:"Cor",tr:"Renk"})}</th>
                                         <th className="py-2 px-3 text-center font-semibold">{tx(lang, {fr:"PR",ar:"PR",en:"CP",es:"PR",pt:"PR",tr:"BM"})}</th>
                                         <th className="py-2 px-3 text-center font-semibold text-[#2149C1]">HT +{settings.marginAtelier}%</th>
-                                        <th className="py-2 px-3 text-center font-semibold text-indigo-600 dark:text-dk-accent-text">TTC +{settings.tva}%</th>
+                                        <th className="py-2 px-3 text-center font-semibold text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text">TTC +{settings.tva}%</th>
                                         <th className="py-2 px-3 text-center font-semibold text-violet-600">Boutique +{settings.marginBoutique}%</th>
-                                        <th className="py-2 px-3 text-center font-semibold text-emerald-600">{tx(lang, {fr:"Marge/pièce",ar:"الهامش/قطعة",en:"Margin/pc",es:"Margen/pieza",pt:"Margem/peça",tr:"Kar marjı/adet"})}</th>
+                                        <th className="py-2 px-3 text-center font-semibold text-emerald-600 dark:text-emerald-400">{tx(lang, {fr:"Marge/pièce",ar:"الهامش/قطعة",en:"Margin/pc",es:"Margen/pieza",pt:"Margem/peça",tr:"Kar marjı/adet"})}</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-100">
@@ -247,9 +247,9 @@ const OrderTablesPanel: React.FC<OrderTablesPanelProps> = ({
                                                     </td>
                                                     <td className="py-2.5 px-3 text-center font-semibold text-slate-800 dark:text-dk-text tabular-nums">{fmt(cc.pr)}</td>
                                                     <td className="py-2.5 px-3 text-center font-medium text-[#2149C1] tabular-nums">{fmt(cc.ht)}</td>
-                                                    <td className="py-2.5 px-3 text-center font-medium text-indigo-600 dark:text-dk-accent-text tabular-nums">{fmt(cc.ttc)}</td>
+                                                    <td className="py-2.5 px-3 text-center font-medium text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text tabular-nums">{fmt(cc.ttc)}</td>
                                                     <td className="py-2.5 px-3 text-center font-medium text-violet-600 tabular-nums">{fmt(cc.boutique)}</td>
-                                                    <td className="py-2.5 px-3 text-center font-semibold text-emerald-600 tabular-nums">{fmt(cc.ht - cc.pr)}</td>
+                                                    <td className="py-2.5 px-3 text-center font-semibold text-emerald-600 dark:text-emerald-400 tabular-nums">{fmt(cc.ht - cc.pr)}</td>
                                                 </tr>
                                             );
                                         });
@@ -263,11 +263,11 @@ const OrderTablesPanel: React.FC<OrderTablesPanelProps> = ({
                             {[
                                 { label: 'Prix de revient (PR)', value: costPrice, color: 'text-slate-800 dark:text-dk-text', field: 'model.prix_revient' },
                                 { label: `Prix de vente HT (+${settings.marginAtelier}%)`, value: sellPriceHT, color: 'text-[#2149C1]', field: null },
-                                { label: `Prix de vente TTC (+${settings.tva}%)`, value: sellPriceTTC, color: 'text-indigo-600 dark:text-dk-accent-text', field: null },
+                                { label: `Prix de vente TTC (+${settings.tva}%)`, value: sellPriceTTC, color: 'text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text', field: null },
                                 { label: `Prix boutique (+${settings.marginBoutique}%)`, value: boutiquePrice, color: 'text-violet-600', field: null },
-                                { label: 'Marge usine / pièce', value: sellPriceHT - costPrice, color: 'text-emerald-600', field: null },
+                                { label: 'Marge usine / pièce', value: sellPriceHT - costPrice, color: 'text-emerald-600 dark:text-emerald-400', field: null },
                             ].map((item, i) => (
-                                <div key={i} className="text-center p-3 rounded-md bg-slate-50/60 border border-slate-200 dark:border-dk-border hover:bg-white hover:border-slate-300 transition-all">
+                                <div key={i} className="text-center p-3 rounded-md bg-slate-50 dark:bg-dk-bg/60 border border-slate-200 dark:border-dk-border hover:bg-white hover:border-slate-300 transition-all">
                                     <p className="text-[10px] font-medium text-slate-500 dark:text-dk-muted uppercase tracking-wider mb-1.5">{item.label}</p>
                                     <p className={`text-[16px] font-semibold ${item.color} tabular-nums`}>
                                       {item.field ? (

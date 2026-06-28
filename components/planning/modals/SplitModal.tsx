@@ -363,7 +363,7 @@ export default function SplitModal({ open, event, models, onClose, onSubmit }: P
                                                         {sizes.map(size => {
                                                             const qtyVal = remainingDistribution[color.id]?.[size] ?? 0;
                                                             return (
-                                                                <td key={size} className={`px-2 py-1.5 text-center font-mono tabular-nums ${qtyVal < 0 ? 'text-red-655 bg-red-50 font-bold' : qtyVal === 0 ? 'text-slate-300 dark:text-dk-muted' : 'text-slate-650 font-semibold'}`}>
+                                                                <td key={size} className={`px-2 py-1.5 text-center font-mono tabular-nums ${qtyVal < 0 ? 'text-red-655 bg-red-50 dark:bg-red-900/30 font-bold' : qtyVal === 0 ? 'text-slate-300 dark:text-dk-muted' : 'text-slate-650 font-semibold'}`}>
                                                                     {qtyVal}
                                                                 </td>
                                                             );
@@ -495,12 +495,12 @@ export default function SplitModal({ open, event, models, onClose, onSubmit }: P
                                                                                             value={val || ''}
                                                                                             onChange={(e) => updateLotDistribution(lot.id, color.id, size, Number(e.target.value) || 0)}
                                                                                             placeholder="0"
-                                                                                            className="w-full h-6 px-1 text-center text-[10px] font-mono tabular-nums bg-slate-50 border border-slate-200 dark:border-dk-border rounded outline-none focus:border-indigo-400 focus:bg-white transition-all"
+                                                                                            className="w-full h-6 px-1 text-center text-[10px] font-mono tabular-nums bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded outline-none focus:border-indigo-400 focus:bg-white transition-all"
                                                                                         />
                                                                                     </td>
                                                                                 );
                                                                             })}
-                                                                            <td className="px-2 py-1 text-center font-bold font-mono text-indigo-650 dark:text-dk-accent-text bg-indigo-50 dark:bg-dk-accent/20/20">
+                                                                            <td className="px-2 py-1 text-center font-bold font-mono text-indigo-650 dark:text-dk-accent-text bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20/20">
                                                                                 {colorTotal}
                                                                             </td>
                                                                         </tr>
@@ -540,7 +540,7 @@ export default function SplitModal({ open, event, models, onClose, onSubmit }: P
                                 />
                             </div>
                             {lotsTotal > total && (
-                                <div className="text-[10px] text-red-600 font-semibold flex items-center gap-1 animate-pulse">
+                                <div className="text-[10px] text-red-600 dark:text-red-400 font-semibold flex items-center gap-1 animate-pulse">
                                     <span>⚠</span> Excédent de {lotsTotal - total} pcs
                                 </div>
                             )}

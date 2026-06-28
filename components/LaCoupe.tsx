@@ -726,7 +726,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                             placeholder={tx(lang, { fr: 'Rechercher un ordre...', ar: 'البحث عن أمر...', en: 'Search an order...', es: 'Buscar una orden...', pt: 'Pesquisar uma ordem...', tr: 'Bir emir ara...' })}
                             value={searchTerm}
                             onChange={e => setSearchTerm(e.target.value)}
-                            className="w-full h-9 pl-9 pr-3 text-[13px] text-slate-700 dark:text-dk-text-soft placeholder:text-slate-400 bg-slate-50 focus:bg-white border border-transparent focus:border-slate-200 focus:ring-2 focus:ring-slate-100 rounded-md outline-none transition-all"
+                            className="w-full h-9 pl-9 pr-3 text-[13px] text-slate-700 dark:text-dk-text-soft placeholder:text-slate-400 bg-slate-50 dark:bg-dk-bg focus:bg-white border border-transparent focus:border-slate-200 focus:ring-2 focus:ring-slate-100 rounded-md outline-none transition-all"
                         />
                     </div>
                     {isMobile && (
@@ -780,7 +780,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                             onClick={() => openModel(model)}
                             className={`group flex flex-col gap-1.5 px-2.5 py-2 rounded-lg cursor-pointer transition-all duration-150 ${
                                 isSelected
-                                    ? 'bg-indigo-50 dark:bg-dk-accent/20 border border-indigo-200 shadow-sm'
+                                    ? 'bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 border border-indigo-200 shadow-sm'
                                     : 'hover:bg-slate-50 dark:hover:bg-dk-elevated/60 border border-transparent'
                             }`}
                         >
@@ -798,7 +798,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                             {model.meta_data?.nom_modele}
                                         </h4>
                                         {model.isPublishedToLibrary === false && (
-                                            <span className="shrink-0 px-1 py-0.5 text-[8px] font-bold uppercase text-amber-600 bg-amber-50 border border-amber-200 rounded">{tx(lang, { fr: 'Draft', ar: 'مسودة', en: 'Draft', es: 'Borrador', pt: 'Rascunho', tr: 'Taslak' })}</span>
+                                            <span className="shrink-0 px-1 py-0.5 text-[8px] font-bold uppercase text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 rounded">{tx(lang, { fr: 'Draft', ar: 'مسودة', en: 'Draft', es: 'Borrador', pt: 'Rascunho', tr: 'Taslak' })}</span>
                                         )}
                                     </div>
                                     <div className="flex items-center gap-2 mt-0.5">
@@ -818,7 +818,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                     </div>
                                 </div>
                                 <div className={`shrink-0 px-1.5 py-0.5 rounded text-[8px] font-bold uppercase tracking-wide flex items-center gap-1 ${
-                                    isSelected ? 'bg-indigo-100 text-indigo-600 dark:text-dk-accent-text' : 'bg-slate-50 dark:bg-dk-bg text-slate-500 dark:text-dk-muted'
+                                    isSelected ? 'bg-indigo-100 text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text' : 'bg-slate-50 dark:bg-dk-bg text-slate-500 dark:text-dk-muted'
                                 }`}>
                                     <StatusIcon className="w-2.5 h-2.5" />
                                     <span className="hidden sm:inline">{conf.label.split(' ')[0]}</span>
@@ -942,7 +942,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                         <button
                             onClick={() => setShowFilters(!showFilters)}
                             className={`${isMobile ? 'w-11 h-11' : 'h-8 px-2.5'} inline-flex items-center justify-center gap-1.5 rounded-lg text-[12px] font-medium transition-colors ${
-                                showFilters ? 'bg-indigo-50 dark:bg-dk-accent/20 text-indigo-700 dark:text-dk-accent-text' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'
+                                showFilters ? 'bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 text-indigo-700 dark:text-dk-accent-text' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'
                             }`}
                             title={tx(lang, { fr: 'Filtres', ar: 'مرشحات', en: 'Filters', es: 'Filtros', pt: 'Filtros', tr: 'Filtreler' })}
                         >
@@ -961,7 +961,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                             <>
                                 <button
                                     onClick={() => onOpenInAtelier && onOpenInAtelier(selectedModel)}
-                                    className={`${isMobile ? 'w-11 h-11' : 'h-8 px-3'} inline-flex items-center justify-center gap-1.5 rounded-lg bg-indigo-50 dark:bg-dk-accent/20 hover:bg-indigo-100 text-indigo-700 dark:text-dk-accent-text text-[12px] font-medium transition-colors border border-indigo-200`}
+                                    className={`${isMobile ? 'w-11 h-11' : 'h-8 px-3'} inline-flex items-center justify-center gap-1.5 rounded-lg bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 hover:bg-indigo-100 text-indigo-700 dark:text-dk-accent-text text-[12px] font-medium transition-colors border border-indigo-200`}
                                     title={tx(lang, { fr: 'Méthodes', ar: 'الطرق', en: 'Methods', es: 'Métodos', pt: 'Métodos', tr: 'Yöntemler' })}
                                 >
                                     <Layers className="w-4 h-4" strokeWidth={1.75} />
@@ -1053,10 +1053,10 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                             {[
                                 { v: 'ALL', l: tx(lang, { fr: 'Tous', ar: 'الكل', en: 'All', es: 'Todos', pt: 'Todos', tr: 'Tümü' }), c: 'bg-slate-100 dark:bg-dk-elevated text-slate-700 dark:text-dk-text-soft' },
                                 { v: 'EN_PREPARATION', l: tx(lang, { fr: 'Préparation', ar: 'تحضير', en: 'Preparation', es: 'Preparación', pt: 'Preparação', tr: 'Hazırlık' }), c: 'bg-slate-50 dark:bg-dk-bg text-slate-700 dark:text-dk-text-soft' },
-                                { v: 'EN_COURS', l: tx(lang, { fr: 'En Cours', ar: 'قيد التنفيذ', en: 'In Progress', es: 'En Curso', pt: 'Em Andamento', tr: 'Devam Ediyor' }), c: 'bg-blue-50 text-blue-700' },
-                                { v: 'SOUS_TRAITANCE', l: tx(lang, { fr: 'Extériorisé', ar: 'مقاول خارجي', en: 'Subcontracted', es: 'Subcontratado', pt: 'Terceirizado', tr: 'Taşeron' }), c: 'bg-purple-50 text-purple-700' },
-                                { v: 'VALIDE', l: tx(lang, { fr: 'Validé', ar: 'تم التحقق', en: 'Validated', es: 'Validado', pt: 'Validado', tr: 'Onaylandı' }), c: 'bg-emerald-50 text-emerald-700' },
-                                { v: 'REJETE', l: tx(lang, { fr: 'Rejeté', ar: 'مرفوض', en: 'Rejected', es: 'Rechazado', pt: 'Rejeitado', tr: 'Reddedildi' }), c: 'bg-rose-50 text-rose-700' },
+                                { v: 'EN_COURS', l: tx(lang, { fr: 'En Cours', ar: 'قيد التنفيذ', en: 'In Progress', es: 'En Curso', pt: 'Em Andamento', tr: 'Devam Ediyor' }), c: 'bg-blue-50 dark:bg-blue-900/30 text-blue-700' },
+                                { v: 'SOUS_TRAITANCE', l: tx(lang, { fr: 'Extériorisé', ar: 'مقاول خارجي', en: 'Subcontracted', es: 'Subcontratado', pt: 'Terceirizado', tr: 'Taşeron' }), c: 'bg-purple-50 dark:bg-purple-900/30 text-purple-700' },
+                                { v: 'VALIDE', l: tx(lang, { fr: 'Validé', ar: 'تم التحقق', en: 'Validated', es: 'Validado', pt: 'Validado', tr: 'Onaylandı' }), c: 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700' },
+                                { v: 'REJETE', l: tx(lang, { fr: 'Rejeté', ar: 'مرفوض', en: 'Rejected', es: 'Rechazado', pt: 'Rejeitado', tr: 'Reddedildi' }), c: 'bg-rose-50 dark:bg-rose-900/30 text-rose-700' },
                             ].map(f => (
                                 <button
                                     key={f.v}
@@ -1165,7 +1165,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                                     step="0.01"
                                                     value={ordre.consommation || ''}
                                                     onChange={e => setOrdre(prev => ({ ...prev, consommation: Number(e.target.value) }))}
-                                                    className="w-full bg-slate-50 border border-slate-200 dark:border-dk-border rounded-lg pl-3 pr-12 py-3 text-[13px] font-semibold text-slate-800 dark:text-dk-text outline-none focus:bg-white focus:border-indigo-400 focus:ring-2 focus:ring-indigo-50/50 transition-all min-h-[44px]"
+                                                    className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-lg pl-3 pr-12 py-3 text-[13px] font-semibold text-slate-800 dark:text-dk-text outline-none focus:bg-white focus:border-indigo-400 focus:ring-2 focus:ring-indigo-50/50 transition-all min-h-[44px]"
                                                     placeholder="0.00"
                                                 />
                                                 <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-400 dark:text-dk-muted bg-slate-200 px-1.5 py-0.5 rounded">Mètres</span>
@@ -1180,7 +1180,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                                     type="number"
                                                     value={ordre.tissuRecu || ''}
                                                     onChange={e => setOrdre(prev => ({ ...prev, tissuRecu: Number(e.target.value) }))}
-                                                    className="w-full bg-slate-50 border border-slate-200 dark:border-dk-border rounded-lg pl-3 pr-12 py-3 text-[13px] font-semibold text-slate-800 dark:text-dk-text outline-none focus:bg-white focus:border-indigo-400 focus:ring-2 focus:ring-indigo-50/50 transition-all min-h-[44px]"
+                                                    className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-lg pl-3 pr-12 py-3 text-[13px] font-semibold text-slate-800 dark:text-dk-text outline-none focus:bg-white focus:border-indigo-400 focus:ring-2 focus:ring-indigo-50/50 transition-all min-h-[44px]"
                                                     placeholder="0"
                                                 />
                                                 <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-400 dark:text-dk-muted bg-slate-200 px-1.5 py-0.5 rounded">Mètres</span>
@@ -1233,14 +1233,14 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                                             
                                                             return (
                                                                 <tr key={line.id} className="hover:bg-slate-50/50 transition-colors">
-                                                                    <td className="py-2 px-3 text-center font-bold text-slate-500 dark:text-dk-muted bg-slate-50/50">{lIdx + 1}</td>
+                                                                    <td className="py-2 px-3 text-center font-bold text-slate-500 dark:text-dk-muted bg-slate-50 dark:bg-dk-bg/50">{lIdx + 1}</td>
                                                                     <td className="py-1 px-2">
                                                                         <input
                                                                             type="number"
                                                                             min="0"
                                                                             value={line.plis || ''}
                                                                             onChange={e => handleUpdateMatelasLine(line.id, 'plis', Number(e.target.value))}
-                                                                            className="w-full text-center py-1.5 px-1 bg-slate-50 border border-slate-200 dark:border-dk-border rounded text-[12px] font-semibold outline-none focus:bg-white focus:border-indigo-400"
+                                                                            className="w-full text-center py-1.5 px-1 bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded text-[12px] font-semibold outline-none focus:bg-white focus:border-indigo-400"
                                                                             placeholder="0"
                                                                         />
                                                                     </td>
@@ -1251,7 +1251,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                                                             min="0"
                                                                             value={line.longTracee || ''}
                                                                             onChange={e => handleUpdateMatelasLine(line.id, 'longTracee', Number(e.target.value))}
-                                                                            className="w-full text-center py-1.5 px-1 bg-slate-50 border border-slate-200 dark:border-dk-border rounded text-[12px] font-semibold outline-none focus:bg-white focus:border-indigo-400"
+                                                                            className="w-full text-center py-1.5 px-1 bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded text-[12px] font-semibold outline-none focus:bg-white focus:border-indigo-400"
                                                                             placeholder="0.00"
                                                                         />
                                                                     </td>
@@ -1262,13 +1262,13 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                                                                 min="0"
                                                                                 value={line.ratios?.[s] || ''}
                                                                                 onChange={e => handleUpdateMatelasRatio(line.id, s, Number(e.target.value))}
-                                                                                className="w-full text-center py-1.5 px-1 bg-emerald-50/30 border border-slate-200 dark:border-dk-border rounded text-[12px] font-semibold text-emerald-700 outline-none focus:bg-emerald-50 focus:border-emerald-400"
+                                                                                className="w-full text-center py-1.5 px-1 bg-emerald-50 dark:bg-emerald-900/30/30 border border-slate-200 dark:border-dk-border rounded text-[12px] font-semibold text-emerald-700 outline-none focus:bg-emerald-50 focus:border-emerald-400"
                                                                                 placeholder="0"
                                                                             />
                                                                         </td>
                                                                     ))}
-                                                                    <td className="py-2 px-3 text-center font-bold text-slate-800 dark:text-dk-text bg-slate-50/20">{linePieces}</td>
-                                                                    <td className="py-2 px-3 text-center font-bold text-slate-800 dark:text-dk-text bg-slate-50/20">{lineCons.toFixed(2)}</td>
+                                                                    <td className="py-2 px-3 text-center font-bold text-slate-800 dark:text-dk-text bg-slate-50 dark:bg-dk-bg/20">{linePieces}</td>
+                                                                    <td className="py-2 px-3 text-center font-bold text-slate-800 dark:text-dk-text bg-slate-50 dark:bg-dk-bg/20">{lineCons.toFixed(2)}</td>
                                                                     <td className="py-1 px-2 text-center">
                                                                         <button
                                                                             type="button"
@@ -1311,7 +1311,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                                                 {sizes.map((s, idx) => {
                                                                     // Map size to its column index in gridQuantities
                                                                     return (
-                                                                        <td key={idx} className="py-2 px-1 text-center font-semibold text-slate-700 dark:text-dk-text-soft bg-slate-50/50">
+                                                                        <td key={idx} className="py-2 px-1 text-center font-semibold text-slate-700 dark:text-dk-text-soft bg-slate-50 dark:bg-dk-bg/50">
                                                                             {matrixStats.colTotals[idx] || 0}
                                                                         </td>
                                                                     );
@@ -1319,9 +1319,9 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                                                 <td className="py-2 px-2.5 text-center font-bold bg-slate-100 dark:bg-dk-elevated text-slate-700 dark:text-dk-text-soft">{matrixStats.grandTotal}</td>
                                                             </tr>
                                                             <tr>
-                                                                <td className="py-2 px-2.5 font-semibold text-indigo-700 dark:text-dk-accent-text bg-indigo-50 dark:bg-dk-accent/20/10">{tx(lang, { fr: 'Réalisé (Coupe)', ar: 'المحقق (القص)', en: 'Actual (Cut)', es: 'Realizado (Corte)', pt: 'Realizado (Corte)', tr: 'Gerçekleşen (Kesim)' })}</td>
+                                                                <td className="py-2 px-2.5 font-semibold text-indigo-700 dark:text-dk-accent-text bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20/10">{tx(lang, { fr: 'Réalisé (Coupe)', ar: 'المحقق (القص)', en: 'Actual (Cut)', es: 'Realizado (Corte)', pt: 'Realizado (Corte)', tr: 'Gerçekleşen (Kesim)' })}</td>
                                                                 {sizes.map((s, idx) => (
-                                                                    <td key={idx} className="py-2 px-1 text-center font-bold text-indigo-700 dark:text-dk-accent-text bg-indigo-50 dark:bg-dk-accent/20/10">
+                                                                    <td key={idx} className="py-2 px-1 text-center font-bold text-indigo-700 dark:text-dk-accent-text bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20/10">
                                                                         {matelasCalculations.perSize[s] || 0}
                                                                     </td>
                                                                 ))}
@@ -1335,7 +1335,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                                                         <td
                                                                             key={idx}
                                                                             className={`py-2 px-1 text-center font-bold ${
-                                                                                diff === 0 ? 'text-emerald-600 bg-emerald-50/20' : diff > 0 ? 'text-blue-600 bg-blue-50/20' : 'text-rose-600 bg-rose-50/20'
+                                                                                diff === 0 ? 'text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/30/20' : diff > 0 ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30/20' : 'text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-900/30/20'
                                                                             }`}
                                                                         >
                                                                             {diff > 0 ? `+${diff}` : diff}
@@ -1371,12 +1371,12 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                                         </div>
                                                         <div className="bg-white dark:bg-dk-surface rounded-lg p-2 border border-slate-100 dark:border-dk-border">
                                                             <p className="text-[9px] font-bold text-slate-400 dark:text-dk-muted uppercase">{tx(lang, { fr: 'Consommé', ar: 'المستهلك', en: 'Consumed', es: 'Consumido', pt: 'Consumido', tr: 'Tüketilen' })}</p>
-                                                            <p className="text-sm font-bold text-indigo-600 dark:text-dk-accent-text mt-0.5">{matelasCalculations.totalFabric.toFixed(1)} m</p>
+                                                            <p className="text-sm font-bold text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text mt-0.5">{matelasCalculations.totalFabric.toFixed(1)} m</p>
                                                         </div>
                                                         {(() => {
                                                             const solde = (ordre.tissuRecu || 0) - matelasCalculations.totalFabric;
                                                             return (
-                                                                <div className={`rounded-lg p-2 border ${solde >= 0 ? 'bg-emerald-50/55 border-emerald-100 text-emerald-800' : 'bg-rose-50/55 border-rose-100 text-rose-800'}`}>
+                                                                <div className={`rounded-lg p-2 border ${solde >= 0 ? 'bg-emerald-50 dark:bg-emerald-900/30/55 border-emerald-100 text-emerald-800' : 'bg-rose-50 dark:bg-rose-900/30/55 border-rose-100 text-rose-800'}`}>
                                                                     <p className="text-[9px] font-bold uppercase opacity-80">{tx(lang, { fr: 'Reste (DIF)', ar: 'المتبقي', en: 'Remaining (DIF)', es: 'Restante (DIF)', pt: 'Restante (DIF)', tr: 'Kalan (DIF)' })}</p>
                                                                     <p className="text-sm font-bold mt-0.5">{solde.toFixed(1)} m</p>
                                                                 </div>
@@ -1395,8 +1395,8 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                                         
                                                         if (gap >= 0) {
                                                             return (
-                                                                <div className="p-2.5 bg-emerald-50 rounded-lg border border-emerald-200 flex gap-2">
-                                                                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                                                                <div className="p-2.5 bg-emerald-50 dark:bg-emerald-900/30 rounded-lg border border-emerald-200 flex gap-2">
+                                                                    <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
                                                                     <div>
                                                                         <p className="text-[11px] font-bold text-emerald-800">{tx(lang, { fr: 'Économie de tissu réalisée !', ar: 'تم تحقيق توفير في النسيج!', en: 'Fabric savings achieved!', es: '¡Ahorro de tejido logrado!', pt: 'Economia de tecido realizada!', tr: 'Kumaş tasarrufu sağlandı!' })}</p>
                                                                         <p className="text-[10px] text-emerald-700/90 mt-0.5">
@@ -1407,7 +1407,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                                             );
                                                         } else {
                                                             return (
-                                                                <div className="p-2.5 bg-orange-50 rounded-lg border border-orange-200 flex gap-2">
+                                                                <div className="p-2.5 bg-orange-50 dark:bg-orange-900/30 rounded-lg border border-orange-200 flex gap-2">
                                                                     <AlertCircle className="w-4 h-4 text-orange-500 shrink-0 mt-0.5" />
                                                                     <div>
                                                                         <p className="text-[11px] font-bold text-orange-800">{tx(lang, { fr: 'Surconsommation', ar: 'استهلاك زائد', en: 'Overconsumption', es: 'Sobreconsumo', pt: 'Sobreconsumo', tr: 'Aşırı Tüketim' })} ( ضياع الثوب )</p>
@@ -1430,7 +1430,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                             <div className="bg-white dark:bg-dk-surface rounded-xl border border-slate-200 dark:border-dk-border overflow-hidden">
                                 <div className="px-4 md:px-6 py-4 border-b border-slate-100 dark:border-dk-border flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
                                     <div className="flex items-center gap-2">
-                                        <Palette className="w-4 h-4 text-emerald-600" />
+                                        <Palette className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                                         <h3 className="text-[14px] font-semibold text-slate-800 dark:text-dk-text">{tx(lang, { fr: 'Répartition Tailles / Couleurs', ar: 'توزيع المقاسات / الألوان', en: 'Size / Color Distribution', es: 'Distribución de Tallas / Colores', pt: 'Distribuição de Tamanhos / Cores', tr: 'Beden / Renk Dağılımı' })}</h3>
                                     </div>
                                     <div className="flex flex-wrap gap-2 items-center w-full sm:w-auto">
@@ -1458,12 +1458,12 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                 </div>
 
                                 {/* Color toolbar */}
-                                <div className="px-4 md:px-6 py-2 border-b border-slate-100 dark:border-dk-border bg-slate-50/50 flex flex-wrap gap-2 items-center">
+                                <div className="px-4 md:px-6 py-2 border-b border-slate-100 dark:border-dk-border bg-slate-50 dark:bg-dk-bg/50 flex flex-wrap gap-2 items-center">
                                     <label className="relative flex items-center justify-center cursor-pointer shrink-0" title={tx(lang, { fr: 'Couleur', ar: 'لون', en: 'Color', es: 'Color', pt: 'Cor', tr: 'Renk' })}>
                                         <input type="color" value={pickedHexColor} onChange={(e) => setPickedHexColor(e.target.value)} className="opacity-0 absolute inset-0 w-full h-full cursor-pointer" />
                                         <div className="w-6 h-6 rounded border-2 border-slate-300 shadow-sm cursor-pointer hover:scale-110 transition-transform" style={{ backgroundColor: pickedHexColor }} />
                                     </label>
-                                    <span className="px-1.5 py-0.5 bg-indigo-50 dark:bg-dk-accent/20 text-indigo-600 dark:text-dk-accent-text text-[9px] font-bold rounded whitespace-nowrap">{hexToColorName(pickedHexColor)}</span>
+                                    <span className="px-1.5 py-0.5 bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text text-[9px] font-bold rounded whitespace-nowrap">{hexToColorName(pickedHexColor)}</span>
                                     <div className="relative flex-1 min-w-[120px] flex items-center bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-md focus-within:border-indigo-400 px-2 h-7">
                                         <Palette className="w-3 h-3 text-slate-400 dark:text-dk-muted mr-1.5 z-20 relative shrink-0" />
                                         <ExcelInput
@@ -1632,7 +1632,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                                 else { if (confirm(`${tx(lang, { fr: 'Supprimer la couleur', ar: 'حذف اللون', en: 'Delete color', es: 'Eliminar color', pt: 'Excluir cor', tr: 'Rengi sil' })} "${matrixCtx.name}" ?`)) removeColor(matrixCtx.id!); }
                                                 setMatrixCtx(null);
                                             }}
-                                            className="w-full text-left px-3 py-1.5 hover:bg-rose-50 text-rose-600 flex items-center gap-2"
+                                            className="w-full text-left px-3 py-1.5 hover:bg-rose-50 text-rose-600 dark:text-rose-400 flex items-center gap-2"
                                         >
                                             {tx(lang, { fr: 'Supprimer', ar: 'حذف', en: 'Delete', es: 'Eliminar', pt: 'Excluir', tr: 'Sil' })}
                                         </button>
@@ -1645,7 +1645,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                             <div className="bg-white dark:bg-dk-surface rounded-xl border border-slate-200 dark:border-dk-border overflow-hidden">
                                 <div className="px-4 md:px-6 py-4 border-b border-slate-100 dark:border-dk-border flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
                                     <div className="flex items-center gap-2">
-                                        <PackageSearch className="w-4 h-4 text-indigo-600 dark:text-dk-accent-text" />
+                                        <PackageSearch className="w-4 h-4 text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text" />
                                         <h3 className="text-[14px] font-semibold text-slate-800 dark:text-dk-text">{tx(lang, { fr: 'Simulation Fournitures', ar: 'محاكاة المواد', en: 'Supplies Simulation', es: 'Simulación de Suministros', pt: 'Simulação de Suprimentos', tr: 'Malzeme Simülasyonu' })}</h3>
                                     </div>
                                     <span className="text-[11px] font-medium text-slate-500 dark:text-dk-muted bg-slate-50 dark:bg-dk-bg px-2 py-1 rounded border border-slate-200 dark:border-dk-border">
@@ -1676,20 +1676,20 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                                             <span className="text-[9px] text-slate-400 dark:text-dk-muted font-medium block">{mat.fournisseur || '-'}</span>
                                                         </td>
                                                         <td className="py-3 px-3">
-                                                            <span className="font-bold text-indigo-600 dark:text-dk-accent-text">{mat.neededForProduction}</span>
+                                                            <span className="font-bold text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text">{mat.neededForProduction}</span>
                                                             <span className="text-[9px] text-slate-400 dark:text-dk-muted uppercase ml-1">{mat.unit}</span>
                                                         </td>
                                                         <td className="py-3 px-3">
-                                                            <span className={`font-bold ${mat.isSufficient ? 'text-emerald-600' : 'text-rose-600'}`}>{mat.stockActuel}</span>
+                                                            <span className={`font-bold ${mat.isSufficient ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>{mat.stockActuel}</span>
                                                             <span className="text-[9px] text-slate-400 dark:text-dk-muted uppercase ml-1">{mat.unit}</span>
                                                         </td>
                                                         <td className="py-3 px-3 text-center">
                                                             {mat.isSufficient ? (
-                                                                <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-50 text-emerald-700 rounded text-[10px] font-bold border border-emerald-200">
+                                                                <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 rounded text-[10px] font-bold border border-emerald-200">
                                                                     <CheckCircle2 className="w-3 h-3" /> {tx(lang, { fr: 'OK', ar: 'متوفر', en: 'OK', es: 'OK', pt: 'OK', tr: 'Tamam' })}
                                                                  </span>
                                                              ) : (
-                                                                 <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-rose-50 text-rose-700 rounded text-[10px] font-bold border border-rose-200">
+                                                                 <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-rose-50 dark:bg-rose-900/30 text-rose-700 rounded text-[10px] font-bold border border-rose-200">
                                                                      <AlertCircle className="w-3 h-3" /> {tx(lang, { fr: 'Rupture', ar: 'نفاد', en: 'Out of Stock', es: 'Agotado', pt: 'Esgotado', tr: 'Stok Yok' })}
                                                                 </span>
                                                             )}
@@ -1754,7 +1754,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                 <div className="fixed inset-0 z-[90] flex items-center justify-center p-4 bg-slate-950/20 backdrop-blur-[2px]" onClick={() => setDeleteConfirm(null)}>
                     <div className="bg-white dark:bg-dk-surface rounded-xl shadow-xl border border-slate-200 dark:border-dk-border p-5 max-w-sm w-full" onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center gap-3 mb-3">
-                            <div className="w-10 h-10 rounded-full bg-red-50 flex items-center justify-center shrink-0">
+                            <div className="w-10 h-10 rounded-full bg-red-50 dark:bg-red-900/30 flex items-center justify-center shrink-0">
                                 <Trash2 className="w-5 h-5 text-red-500" />
                             </div>
                             <div>
@@ -1788,7 +1788,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                     className="fixed bottom-5 left-1/2 -translate-x-1/2 z-[100] flex items-center gap-2.5 px-4 py-2.5 rounded-lg shadow-lg border bg-white dark:bg-dk-surface border-slate-100 dark:border-dk-border"
                     style={{ animation: 'coupe-toast-in 200ms ease-out' }}
                 >
-                    <div className={`p-0.5 rounded-full ${toastMessage.type === 'success' ? 'text-emerald-600' : toastMessage.type === 'error' ? 'text-red-600' : 'text-blue-600'}`}>
+                    <div className={`p-0.5 rounded-full ${toastMessage.type === 'success' ? 'text-emerald-600 dark:text-emerald-400' : toastMessage.type === 'error' ? 'text-red-600 dark:text-red-400' : 'text-blue-600 dark:text-blue-400'}`}>
                         {toastMessage.type === 'success' ? <CheckCircle className="w-3.5 h-3.5" /> : <AlertCircle className="w-3.5 h-3.5" />}
                     </div>
                     <span className="text-[12px] font-semibold text-slate-800 dark:text-dk-text">{toastMessage.text}</span>
@@ -1841,7 +1841,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                 setDeleteConfirm(quickActionMenu.modelId);
                                 setQuickActionMenu(null);
                             }}
-                            className="w-full text-left px-3 py-2 hover:bg-rose-50 text-rose-600 flex items-center gap-2"
+                            className="w-full text-left px-3 py-2 hover:bg-rose-50 text-rose-600 dark:text-rose-400 flex items-center gap-2"
                         >
                                                             <Trash2 className="w-3.5 h-3.5" /> {tx(lang, { fr: 'Supprimer', ar: 'حذف', en: 'Delete', es: 'Eliminar', pt: 'Excluir', tr: 'Sil' })}
                         </button>
@@ -1887,9 +1887,9 @@ function BoardView({
     const { lang } = useLang();
     const columns = [
         { key: 'EN_PREPARATION', label: tx(lang, { fr: 'Préparation', ar: 'تحضير', en: 'Preparation', es: 'Preparación', pt: 'Preparação', tr: 'Hazırlık' }), color: 'border-slate-300', bg: 'bg-slate-50 dark:bg-dk-bg', icon: Clock, textColor: 'text-slate-700 dark:text-dk-text-soft', cardBorder: 'hover:border-slate-300', progressColor: 'bg-slate-400' },
-        { key: 'EN_COURS', label: tx(lang, { fr: 'En Cours', ar: 'قيد التنفيذ', en: 'In Progress', es: 'En Curso', pt: 'Em Andamento', tr: 'Devam Ediyor' }), color: 'border-blue-300', bg: 'bg-blue-50', icon: PlayCircle, textColor: 'text-blue-700', cardBorder: 'hover:border-blue-300', progressColor: 'bg-blue-500' },
-        { key: 'SOUS_TRAITANCE', label: tx(lang, { fr: 'Extériorisé', ar: 'مقاول خارجي', en: 'Subcontracted', es: 'Subcontratado', pt: 'Terceirizado', tr: 'Taşeron' }), color: 'border-purple-300', bg: 'bg-purple-50', icon: Truck, textColor: 'text-purple-700', cardBorder: 'hover:border-purple-300', progressColor: 'bg-purple-500' },
-        { key: 'VALIDE', label: tx(lang, { fr: 'Validé', ar: 'تم التحقق', en: 'Validated', es: 'Validado', pt: 'Validado', tr: 'Onaylandı' }), color: 'border-emerald-300', bg: 'bg-emerald-50', icon: CheckCircle, textColor: 'text-emerald-700', cardBorder: 'hover:border-emerald-300', progressColor: 'bg-emerald-500' },
+        { key: 'EN_COURS', label: tx(lang, { fr: 'En Cours', ar: 'قيد التنفيذ', en: 'In Progress', es: 'En Curso', pt: 'Em Andamento', tr: 'Devam Ediyor' }), color: 'border-blue-300', bg: 'bg-blue-50 dark:bg-blue-900/30', icon: PlayCircle, textColor: 'text-blue-700', cardBorder: 'hover:border-blue-300', progressColor: 'bg-blue-500' },
+        { key: 'SOUS_TRAITANCE', label: tx(lang, { fr: 'Extériorisé', ar: 'مقاول خارجي', en: 'Subcontracted', es: 'Subcontratado', pt: 'Terceirizado', tr: 'Taşeron' }), color: 'border-purple-300', bg: 'bg-purple-50 dark:bg-purple-900/30', icon: Truck, textColor: 'text-purple-700', cardBorder: 'hover:border-purple-300', progressColor: 'bg-purple-500' },
+        { key: 'VALIDE', label: tx(lang, { fr: 'Validé', ar: 'تم التحقق', en: 'Validated', es: 'Validado', pt: 'Validado', tr: 'Onaylandı' }), color: 'border-emerald-300', bg: 'bg-emerald-50 dark:bg-emerald-900/30', icon: CheckCircle, textColor: 'text-emerald-700', cardBorder: 'hover:border-emerald-300', progressColor: 'bg-emerald-500' },
     ];
 
     return (
@@ -2079,15 +2079,15 @@ function CalendarView({ models, onOpen, getProgress }: {
                 <div className="grid grid-cols-7">
                     {days.map((day, idx) => {
                         if (day === null) {
-                            return <div key={idx} className="h-24 border-r border-b border-slate-100 dark:border-dk-border bg-slate-50/30" />;
+                            return <div key={idx} className="h-24 border-r border-b border-slate-100 dark:border-dk-border bg-slate-50 dark:bg-dk-bg/30" />;
                         }
                         const dayModels = getOrdersForDay(day);
                         const isToday = day === new Date().getDate() &&
                             currentMonth.getMonth() === new Date().getMonth() &&
                             currentMonth.getFullYear() === new Date().getFullYear();
                         return (
-                            <div key={idx} className={`h-28 border-r border-b border-slate-100 dark:border-dk-border p-1.5 overflow-y-auto transition-colors ${isToday ? 'bg-indigo-50 dark:bg-dk-accent/20/40' : 'bg-white dark:bg-dk-surface hover:bg-slate-50/50'}`}>
-                                <div className={`text-[11px] font-bold mb-1 flex items-center justify-between ${isToday ? 'text-indigo-600 dark:text-dk-accent-text' : 'text-slate-500 dark:text-dk-muted'}`}>
+                            <div key={idx} className={`h-28 border-r border-b border-slate-100 dark:border-dk-border p-1.5 overflow-y-auto transition-colors ${isToday ? 'bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20/40' : 'bg-white dark:bg-dk-surface hover:bg-slate-50/50'}`}>
+                                <div className={`text-[11px] font-bold mb-1 flex items-center justify-between ${isToday ? 'text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text' : 'text-slate-500 dark:text-dk-muted'}`}>
                                     <span>{day}</span>
                                     {isToday && <span className="w-1.5 h-1.5 rounded-full bg-indigo-500" />}
                                 </div>
@@ -2227,7 +2227,7 @@ function StatsView({ models, statusMap }: { models: ModelData[]; statusMap: any 
                         <div>
                             <div className="flex items-center justify-between mb-1.5">
                                 <span className="text-[11px] font-semibold text-slate-500 dark:text-dk-muted">{tx(lang, { fr: 'Taux de chute moyen', ar: 'متوسط نسبة الفاقد', en: 'Avg waste rate', es: 'Tasa de desperdicio media', pt: 'Taxa de desperdício média', tr: 'Ort. fire oranı' })}</span>
-                                <span className={`text-[13px] font-bold ${stats.avgWaste > 10 ? 'text-rose-600' : stats.avgWaste > 5 ? 'text-amber-600' : 'text-emerald-600'}`}>
+                                <span className={`text-[13px] font-bold ${stats.avgWaste > 10 ? 'text-rose-600 dark:text-rose-400' : stats.avgWaste > 5 ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
                                     {stats.avgWaste}%
                                 </span>
                             </div>
@@ -2394,7 +2394,7 @@ function EmptyDashboard({
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     <div className="flex items-start gap-2.5">
                         <div className="w-6 h-6 rounded bg-indigo-100 flex items-center justify-center shrink-0 mt-0.5">
-                            <span className="text-[10px] font-bold text-indigo-600 dark:text-dk-accent-text">1</span>
+                            <span className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text">1</span>
                         </div>
                         <div>
                             <p className="text-[11px] font-semibold text-slate-700 dark:text-dk-text-soft">{tx(lang, { fr: 'Créer un ordre', ar: 'إنشاء أمر', en: 'Create an order', es: 'Crear una orden', pt: 'Criar uma ordem', tr: 'Emir oluştur' })}</p>
@@ -2403,7 +2403,7 @@ function EmptyDashboard({
                     </div>
                     <div className="flex items-start gap-2.5">
                         <div className="w-6 h-6 rounded bg-indigo-100 flex items-center justify-center shrink-0 mt-0.5">
-                            <span className="text-[10px] font-bold text-indigo-600 dark:text-dk-accent-text">2</span>
+                            <span className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text">2</span>
                         </div>
                         <div>
                             <p className="text-[11px] font-semibold text-slate-700 dark:text-dk-text-soft">{tx(lang, { fr: 'Répartir tailles/couleurs', ar: 'توزيع المقاسات/الألوان', en: 'Distribute sizes/colors', es: 'Distribuir tallas/colores', pt: 'Distribuir tamanhos/cores', tr: 'Bedenleri/renkleri dağıt' })}</p>
@@ -2412,7 +2412,7 @@ function EmptyDashboard({
                     </div>
                     <div className="flex items-start gap-2.5">
                         <div className="w-6 h-6 rounded bg-indigo-100 flex items-center justify-center shrink-0 mt-0.5">
-                            <span className="text-[10px] font-bold text-indigo-600 dark:text-dk-accent-text">3</span>
+                            <span className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text">3</span>
                         </div>
                         <div>
                             <p className="text-[11px] font-semibold text-slate-700 dark:text-dk-text-soft">{tx(lang, { fr: 'Publier & Valider', ar: 'نشر وتحقق', en: 'Publish & Validate', es: 'Publicar y Validar', pt: 'Publicar e Validar', tr: 'Yayınla ve Onayla' })}</p>

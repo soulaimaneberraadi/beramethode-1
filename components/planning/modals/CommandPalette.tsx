@@ -160,7 +160,7 @@ export default function CommandPalette({ open, onClose, actions }: Props) {
                 </div>
 
                 {/* Footer hints */}
-                <div className="flex items-center justify-between px-4 h-8 border-t border-slate-100 dark:border-dk-border bg-slate-50/40 dark:bg-dk-bg text-[10px] text-slate-400 dark:text-dk-muted">
+                <div className="flex items-center justify-between px-4 h-8 border-t border-slate-100 dark:border-dk-border bg-slate-50 dark:bg-dk-bg/40 dark:bg-dk-bg text-[10px] text-slate-400 dark:text-dk-muted">
                     <div className="flex items-center gap-3">
                         <span>{tx(lang,{fr:'↑↓ Naviguer',ar:'↑↓ تنقل',en:'↑↓ Navigate',es:'↑↓ Navegar',pt:'↑↓ Navegar',tr:'↑↓ Gezin'})}</span>
                         <span>{tx(lang,{fr:'↵ Sélectionner',ar:'↵ اختر',en:'↵ Select',es:'↵ Seleccionar',pt:'↵ Selecionar',tr:'↵ Seç'})}</span>

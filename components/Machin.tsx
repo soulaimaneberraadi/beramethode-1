@@ -432,32 +432,32 @@ export default function Machin({
                 title={tx(lang, { fr: 'Parc Machines', ar: 'أسطول الماكينات', en: 'Machine Fleet', es: 'Parque de Máquinas', pt: 'Parque de Máquinas', tr: 'Makine Filosu' })}
                 desc={tx(lang, { fr: 'Gérez votre liste de machines, vitesses, classes et coefficients de majoration.', ar: 'إدارة قائمة الماكينات والسرعات والطبقات ومعاملات الزيادة', en: 'Manage your machine list, speeds, classes and surcharge coefficients.', es: 'Gestione su lista de máquinas, velocidades, clases y coeficientes de recargo.', pt: 'Gerencie sua lista de máquinas, velocidades, classes e coeficientes de majoração.', tr: 'Makine listenizi, hızlarınızı, sınıflarınızı ve zam katsayılarınızı yönetin.' })}
                 icon={Scissors}
-                bgClass="bg-emerald-50"
-                colorClass="text-emerald-600"
+                bgClass="bg-emerald-50 dark:bg-emerald-900/30"
+                colorClass="text-emerald-600 dark:text-emerald-400"
                 onClick={() => setCurrentView('machines')}
               />
               <MenuCard 
                 title={tx(lang, { fr: 'Standards & Temps', ar: 'المعايير والأوقات', en: 'Standards & Times', es: 'Estándares & Tiempos', pt: 'Padrões & Tempos', tr: 'Standartlar & Süreler' })}
                 desc={tx(lang, { fr: 'Configurez les temps standards, les facteurs de complexité et les vitesses.', ar: 'تكوين الأوقات القياسية وعوامل التعقيد والسرعات', en: 'Configure standard times, complexity factors and speeds.', es: 'Configure los tiempos estándar, factores de complejidad y velocidades.', pt: 'Configure os tempos padrão, fatores de complexidade e velocidades.', tr: 'Standart süreleri, karmaşıklık faktörlerini ve hızları yapılandırın.' })}
                 icon={Settings}
-                bgClass="bg-indigo-50 dark:bg-dk-accent/20"
-                colorClass="text-indigo-600 dark:text-dk-accent-text"
+                bgClass="bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20"
+                colorClass="text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text"
                 onClick={() => setCurrentView('standards')}
               />
               <MenuCard 
                 title={tx(lang, { fr: 'Guides & Accessoires', ar: 'الأدلة والملحقات', en: 'Guides & Accessories', es: 'Guías & Accesorios', pt: 'Guias & Acessórios', tr: 'Kılavuzlar & Aksesuarlar' })}
                 desc={tx(lang, { fr: 'Base de données des pieds de biche, guides et outils d\'aide à la confection.', ar: 'قاعدة بيانات أقدام الضغط والأدلة وأدوات المساعدة على الخياطة', en: 'Database of presser feet, guides and sewing aids.', es: 'Base de datos de prensatelas, guías y herramientas de ayuda a la confección.', pt: 'Base de dados de pés calcadores, guias e ferramentas de auxílio à confecção.', tr: 'Basit ayağı, kılavuzlar ve dikiş yardımcı araçları veritabanı.' })}
                 icon={Layers}
-                bgClass="bg-orange-50"
-                colorClass="text-orange-600"
+                bgClass="bg-orange-50 dark:bg-orange-900/30"
+                colorClass="text-orange-600 dark:text-orange-400"
                 onClick={() => setCurrentView('guides')}
               />
               <MenuCard 
                 title={tx(lang, { fr: 'Consommation Fil Couture', ar: 'استهلاك خيط الخياطة', en: 'Sewing Thread Consumption', es: 'Consumo de Hilo de Costura', pt: 'Consumo de Linha de Costura', tr: 'Dikiş İpliği Tüketimi' })}
                 desc={tx(lang, { fr: 'Tableau de référence des coefficients de consommation de fil par type de point et machine.', ar: 'جدول مرجعي لمعاملات استهلاك الخيط حسب نوع الغرزة والماكينة', en: 'Reference table of thread consumption coefficients by stitch type and machine.', es: 'Tabla de referencia de coeficientes de consumo de hilo por tipo de puntada y máquina.', pt: 'Tabela de referência de coeficientes de consumo de linha por tipo de ponto e máquina.', tr: 'Dikiş tipine ve makineye göre iplik tüketim katsayıları referans tablosu.' })}
                 icon={Component}
-                bgClass="bg-purple-50"
-                colorClass="text-purple-600"
+                bgClass="bg-purple-50 dark:bg-purple-900/30"
+                colorClass="text-purple-600 dark:text-purple-400"
                 onClick={() => setCurrentView('fil')}
               />
             </div>
@@ -492,7 +492,7 @@ export default function Machin({
                 <div className="overflow-x-auto">
                   <table className="w-full text-left border-collapse">
                     <thead>
-                      <tr className="bg-slate-50 dark:bg-dk-elevated/80 border-b border-slate-100 dark:border-dk-border/60">
+                      <tr className="bg-slate-50 dark:bg-dk-bg dark:bg-dk-elevated/80 border-b border-slate-100 dark:border-dk-border/60">
                         <th className="py-3 px-4 text-xs font-bold text-slate-600 dark:text-dk-muted uppercase tracking-wider">{tx(lang, { fr: 'Machine', ar: 'الماكينة', en: 'Machine', es: 'Máquina', pt: 'Máquina', tr: 'Makine' })}</th>
                         <th className="py-3 px-4 text-xs font-bold text-slate-600 dark:text-dk-muted uppercase tracking-wider text-center">{tx(lang, { fr: 'Type', ar: 'النوع', en: 'Type', es: 'Tipo', pt: 'Tipo', tr: 'Tip' })}</th>
                         <th className="py-3 px-4 text-xs font-bold text-slate-600 dark:text-dk-muted uppercase tracking-wider text-center">{tx(lang, { fr: 'Classe', ar: 'الطبقة', en: 'Class', es: 'Clase', pt: 'Classe', tr: 'Sınıf' })}</th>
@@ -505,8 +505,8 @@ export default function Machin({
                     </thead>
                     <tbody className="divide-y divide-slate-100 dark:divide-dk-border">
                       {filteredMachines.map((machine) => (
-                        <tr key={machine.id} className={`group transition-colors hover:bg-slate-50 dark:hover:bg-dk-elevated/60 ${!machine.active ? 'opacity-60 bg-slate-50 dark:bg-dk-elevated/50' : ''}`}>
-                          <td className="py-2.5 px-4"><div className="flex items-center gap-3"><div className={`w-8 h-8 rounded-lg flex items-center justify-center ${machine.active ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 dark:bg-dk-elevated text-slate-400 dark:text-dk-muted'}`}><Scissors className="w-4 h-4" /></div><span className="font-semibold text-slate-700 dark:text-dk-text-soft text-sm">{machine.name}</span></div></td>
+                        <tr key={machine.id} className={`group transition-colors hover:bg-slate-50 dark:hover:bg-dk-elevated/60 ${!machine.active ? 'opacity-60 bg-slate-50 dark:bg-dk-bg dark:bg-dk-elevated/50' : ''}`}>
+                          <td className="py-2.5 px-4"><div className="flex items-center gap-3"><div className={`w-8 h-8 rounded-lg flex items-center justify-center ${machine.active ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400' : 'bg-slate-100 dark:bg-dk-elevated text-slate-400 dark:text-dk-muted'}`}><Scissors className="w-4 h-4" /></div><span className="font-semibold text-slate-700 dark:text-dk-text-soft text-sm">{machine.name}</span></div></td>
                           <td className="py-2.5 px-4 text-center"><span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-slate-100 dark:bg-dk-elevated text-slate-600 dark:text-dk-muted border border-slate-200 dark:border-dk-border">{machine.machineCategory || '—'}</span></td>
                           <td className="py-2.5 px-4 text-center"><span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-slate-100 dark:bg-dk-elevated text-slate-600 dark:text-dk-muted border border-slate-200 dark:border-dk-border">{machine.classe}</span></td>
                           <td className="py-2.5 px-4 text-center text-slate-600 dark:text-dk-muted font-mono text-sm">{machine.speed}</td>
@@ -528,7 +528,7 @@ export default function Machin({
             <div className="space-y-8">
               {/* Facteurs de complexité */}
               <div className="bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border shadow-sm overflow-hidden">
-                <div className="px-6 py-4 border-b border-slate-100 dark:border-dk-border/60 flex justify-between items-center bg-slate-50 dark:bg-dk-elevated/50">
+                <div className="px-6 py-4 border-b border-slate-100 dark:border-dk-border/60 flex justify-between items-center bg-slate-50 dark:bg-dk-bg dark:bg-dk-elevated/50">
                   <div>
                     <h3 className="font-bold text-slate-800 dark:text-dk-text">{tx(lang, { fr: 'Facteurs de Guide (Complexité)', ar: 'عوامل الدليل (التعقيد)', en: 'Guide Factors (Complexity)', es: 'Factores de Guía (Complejidad)', pt: 'Fatores de Guia (Complexidade)', tr: 'Kılavuz Faktörleri (Karmaşıklık)' })}</h3>
                     <p className="text-xs text-slate-500 dark:text-dk-muted">{tx(lang, { fr: 'Coefficients appliqués selon la difficulté de manipulation.', ar: 'معاملات تُطبق حسب صعوبة التشغيل', en: 'Coefficients applied according to handling difficulty.', es: 'Coeficientes aplicados según la dificultad de manipulación.', pt: 'Coeficientes aplicados conforme a dificuldade de manipulação.', tr: 'Kullanım zorluğuna göre uygulanan katsayılar.' })}</p>
@@ -539,7 +539,7 @@ export default function Machin({
                 </div>
                 <div className="hidden sm:block overflow-x-auto">
                   <table className="w-full text-left">
-                    <thead className="bg-slate-50 dark:bg-dk-elevated text-[10px] uppercase font-bold text-slate-500 dark:text-dk-muted">
+                    <thead className="bg-slate-50 dark:bg-dk-bg dark:bg-dk-elevated text-[10px] uppercase font-bold text-slate-500 dark:text-dk-muted">
                       <tr>
                         <th className="py-3 px-6">{tx(lang, { fr: 'Description', ar: 'الوصف', en: 'Description', es: 'Descripción', pt: 'Descrição', tr: 'Açıklama' })}</th>
                         <th className="py-3 px-6 text-center">{tx(lang, { fr: 'Majoration', ar: 'الزيادة', en: 'Surcharge', es: 'Recargo', pt: 'Majoração', tr: 'Zam' })}</th>
@@ -550,7 +550,7 @@ export default function Machin({
                       {complexityFactors.map(item => (
                         <tr key={item.id} className="hover:bg-slate-50 dark:hover:bg-dk-elevated/60 transition-colors">
                           <td className="py-3 px-6 font-medium text-slate-700 dark:text-dk-text-soft">{item.label}</td>
-                          <td className="py-3 px-6 text-center"><span className="px-2 py-1 bg-indigo-50 dark:bg-dk-accent/20 text-indigo-700 dark:text-dk-accent-text rounded-md font-bold">{item.value}</span></td>
+                          <td className="py-3 px-6 text-center"><span className="px-2 py-1 bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 text-indigo-700 dark:text-dk-accent-text rounded-md font-bold">{item.value}</span></td>
                           <td className="py-3 px-6 text-right">
                             <div className="flex justify-end gap-1">
                               <button onClick={() => openComplexityModal(item)} className="p-1.5 text-slate-400 dark:text-dk-muted hover:text-indigo-600 dark:text-dk-accent-text rounded"><Edit2 className="w-3.5 h-3.5" /></button>
@@ -566,7 +566,7 @@ export default function Machin({
 
               {/* Facteurs de vitesse */}
               <div className="bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border shadow-sm overflow-hidden">
-                <div className="px-6 py-4 border-b border-slate-100 dark:border-dk-border/60 flex justify-between items-center bg-slate-50 dark:bg-dk-elevated/50">
+                <div className="px-6 py-4 border-b border-slate-100 dark:border-dk-border/60 flex justify-between items-center bg-slate-50 dark:bg-dk-bg dark:bg-dk-elevated/50">
                   <div>
                     <h3 className="font-bold text-slate-800 dark:text-dk-text">{tx(lang, { fr: 'Facteurs de Vitesse (RPM)', ar: 'عوامل السرعة (RPM)', en: 'Speed Factors (RPM)', es: 'Factores de Velocidad (RPM)', pt: 'Fatores de Velocidade (RPM)', tr: 'Hız Faktörleri (RPM)' })}</h3>
                     <p className="text-xs text-slate-500 dark:text-dk-muted">{tx(lang, { fr: 'Ajustements automatiques selon la vitesse machine.', ar: 'تعديلات تلقائية حسب سرعة الماكينة', en: 'Automatic adjustments based on machine speed.', es: 'Ajustes automáticos según la velocidad de la máquina.', pt: 'Ajustes automáticos conforme a velocidade da máquina.', tr: 'Makine hızına göre otomatik ayarlamalar.' })}</p>
@@ -577,7 +577,7 @@ export default function Machin({
                 </div>
                 <div className="hidden sm:block overflow-x-auto">
                   <table className="w-full text-left">
-                    <thead className="bg-slate-50 dark:bg-dk-elevated text-[10px] uppercase font-bold text-slate-500 dark:text-dk-muted">
+                    <thead className="bg-slate-50 dark:bg-dk-bg dark:bg-dk-elevated text-[10px] uppercase font-bold text-slate-500 dark:text-dk-muted">
                       <tr>
                         <th className="py-3 px-6">{tx(lang, { fr: 'Plage (RPM)', ar: 'النطاق (RPM)', en: 'Range (RPM)', es: 'Rango (RPM)', pt: 'Faixa (RPM)', tr: 'Aralık (RPM)' })}</th>
                         <th className="py-3 px-6 text-center">{tx(lang, { fr: 'Majoration', ar: 'الزيادة', en: 'Surcharge', es: 'Recargo', pt: 'Majoração', tr: 'Zam' })}</th>
@@ -588,7 +588,7 @@ export default function Machin({
                       {speedFactors.map(item => (
                         <tr key={item.id} className="hover:bg-slate-50 dark:hover:bg-dk-elevated/60 transition-colors">
                           <td className="py-3 px-6 font-medium text-slate-700 dark:text-dk-text-soft">{item.min} - {item.max} tr/min</td>
-                          <td className="py-3 px-6 text-center"><span className="px-2 py-1 bg-emerald-50 text-emerald-700 rounded-md font-bold">{item.value}</span></td>
+                          <td className="py-3 px-6 text-center"><span className="px-2 py-1 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 rounded-md font-bold">{item.value}</span></td>
                           <td className="py-3 px-6 text-right">
                             <div className="flex justify-end gap-1">
                               <button onClick={() => openSpeedModal(item)} className="p-1.5 text-slate-400 dark:text-dk-muted hover:text-emerald-600 rounded"><Edit2 className="w-3.5 h-3.5" /></button>
@@ -604,7 +604,7 @@ export default function Machin({
 
               {/* Temps standards */}
               <div className="bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border shadow-sm overflow-hidden">
-                <div className="px-6 py-4 border-b border-slate-100 dark:border-dk-border/60 flex justify-between items-center bg-slate-50 dark:bg-dk-elevated/50">
+                <div className="px-6 py-4 border-b border-slate-100 dark:border-dk-border/60 flex justify-between items-center bg-slate-50 dark:bg-dk-bg dark:bg-dk-elevated/50">
                   <div>
                     <h3 className="font-bold text-slate-800 dark:text-dk-text">{tx(lang, { fr: 'Temps Standards & Fréquences', ar: 'الأوقات القياسية والتكرارات', en: 'Standard Times & Frequencies', es: 'Tiempos Estándar & Frecuencias', pt: 'Tempos Padrão & Frequências', tr: 'Standart Süreler & Frekanslar' })}</h3>
                     <p className="text-xs text-slate-500 dark:text-dk-muted">{tx(lang, { fr: 'Valeurs prédéfinies pour opérations courantes.', ar: 'قيم محددة مسبقاً للعمليات الشائعة', en: 'Preset values for common operations.', es: 'Valores predefinidos para operaciones comunes.', pt: 'Valores predefinidos para operações comuns.', tr: 'Yaygın işlemler için önceden tanımlanmış değerler.' })}</p>
@@ -615,7 +615,7 @@ export default function Machin({
                 </div>
                 <div className="hidden sm:block overflow-x-auto">
                   <table className="w-full text-left">
-                    <thead className="bg-slate-50 dark:bg-dk-elevated text-[10px] uppercase font-bold text-slate-500 dark:text-dk-muted">
+                    <thead className="bg-slate-50 dark:bg-dk-bg dark:bg-dk-elevated text-[10px] uppercase font-bold text-slate-500 dark:text-dk-muted">
                       <tr>
                         <th className="py-3 px-6">{tx(lang, { fr: 'Opération / Tâche', ar: 'العملية / المهمة', en: 'Operation / Task', es: 'Operación / Tarea', pt: 'Operação / Tarefa', tr: 'İşlem / Görev' })}</th>
                         <th className="py-3 px-6 text-center">{tx(lang, { fr: 'Valeur', ar: 'القيمة', en: 'Value', es: 'Valor', pt: 'Valor', tr: 'Değer' })}</th>
@@ -627,7 +627,7 @@ export default function Machin({
                         <tr key={item.id} className="hover:bg-slate-50 dark:hover:bg-dk-elevated/60 transition-colors">
                           <td className="py-3 px-6 font-medium text-slate-700 dark:text-dk-text-soft">{item.label}</td>
                           <td className="py-3 px-6 text-center">
-                            <span className="px-2 py-1 bg-amber-50 text-amber-700 rounded-md font-bold font-mono">
+                            <span className="px-2 py-1 bg-amber-50 dark:bg-amber-900/30 text-amber-700 rounded-md font-bold font-mono">
                               {item.value} <span className="text-[10px] opacity-70 uppercase">{item.unit}</span>
                             </span>
                           </td>
@@ -687,7 +687,7 @@ export default function Machin({
                                 <div key={guide.id} className="bg-white dark:bg-dk-surface rounded-xl border border-slate-200 dark:border-dk-border p-4 shadow-sm hover:shadow-md transition-all group relative">
                                     <div className="flex justify-between items-start mb-2">
                                         <div className="flex items-center gap-2">
-                                            <div className="w-8 h-8 rounded-lg bg-orange-50 text-orange-600 flex items-center justify-center">
+                                            <div className="w-8 h-8 rounded-lg bg-orange-50 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 flex items-center justify-center">
                                                 <Layers className="w-4 h-4" />
                                             </div>
                                             <div>
@@ -737,7 +737,7 @@ export default function Machin({
                 </button>
                 <div className="flex items-center gap-3">
                   {filHasChanges && (
-                    <span className="text-xs font-bold text-amber-600 bg-amber-50 px-3 py-1 rounded-full">
+                    <span className="text-xs font-bold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30 px-3 py-1 rounded-full">
                       {tx(lang, { fr: 'Modifications non sauvegardées', ar: 'تعديلات غير محفوظة', en: 'Unsaved changes', es: 'Cambios no guardados', pt: 'Alterações não salvas', tr: 'Kaydedilmemiş değişiklikler' })}
                     </span>
                   )}
@@ -767,13 +767,13 @@ export default function Machin({
               </div>
 
               {/* Info Banner */}
-              <div className="bg-purple-50 border border-purple-200 rounded-xl p-4 flex items-start gap-3">
+              <div className="bg-purple-50 dark:bg-purple-900/30 border border-purple-200 rounded-xl p-4 flex items-start gap-3">
                 <div className="w-8 h-8 rounded-lg bg-purple-100 flex items-center justify-center shrink-0 mt-0.5">
-                  <Info className="w-4 h-4 text-purple-600" />
+                  <Info className="w-4 h-4 text-purple-600 dark:text-purple-400" />
                 </div>
                 <div>
                   <h4 className="font-bold text-purple-800 text-sm">{tx(lang, { fr: 'Formule de calcul', ar: 'معادلة الحساب', en: 'Calculation formula', es: 'Fórmula de cálculo', pt: 'Fórmula de cálculo', tr: 'Hesaplama formülü' })}</h4>
-                  <p className="text-purple-600 text-xs mt-1">
+                  <p className="text-purple-600 dark:text-purple-400 text-xs mt-1">
                     <span className="font-mono bg-purple-100 px-1.5 py-0.5 rounded">{tx(lang, { fr: 'Consommation (m) = Longueur couture (m) × Coefficient', ar: 'الاستهلاك (م) = طول الخياطة (م) × المعامل', en: 'Consumption (m) = Seam length (m) × Coefficient', es: 'Consumo (m) = Longitud de costura (m) × Coeficiente', pt: 'Consumo (m) = Comprimento da costura (m) × Coeficiente', tr: 'Tüketim (m) = Dikiş uzunluğu (m) × Katsayı' })}</span>
                   </p>
                   <p className="text-purple-500 text-xs mt-1">
@@ -785,12 +785,12 @@ export default function Machin({
               <div className="bg-white dark:bg-dk-surface rounded-xl border border-slate-200 dark:border-dk-border shadow-sm overflow-hidden">
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
-                    <thead className="bg-slate-50 dark:bg-dk-elevated border-b border-slate-200 dark:border-dk-border">
+                    <thead className="bg-slate-50 dark:bg-dk-bg dark:bg-dk-elevated border-b border-slate-200 dark:border-dk-border">
                       <tr>
                         <th className="p-3 text-left text-xs font-bold text-slate-500 dark:text-dk-muted uppercase">{tx(lang, { fr: 'Type de point', ar: 'نوع الغرزة', en: 'Stitch type', es: 'Tipo de puntada', pt: 'Tipo de ponto', tr: 'Dikiş tipi' })}</th>
                         <th className="p-3 text-center text-xs font-bold text-slate-500 dark:text-dk-muted uppercase">{tx(lang, { fr: 'N° ISO', ar: 'N° ISO', en: 'N° ISO', es: 'N° ISO', pt: 'N° ISO', tr: 'N° ISO' })}</th>
                         <th className="p-3 text-center text-xs font-bold text-slate-500 dark:text-dk-muted uppercase">{tx(lang, { fr: 'Nb fils', ar: 'عدد الخيوط', en: 'Threads', es: 'Nº hilos', pt: 'Nº fios', tr: 'İplik sayısı' })}</th>
-                        <th className="p-3 text-center text-xs font-bold text-purple-600 uppercase">{tx(lang, { fr: 'Conso / m', ar: 'الاستهلاك / م', en: 'Cons. / m', es: 'Cons. / m', pt: 'Cons. / m', tr: 'Tük. / m' })}</th>
+                        <th className="p-3 text-center text-xs font-bold text-purple-600 dark:text-purple-400 uppercase">{tx(lang, { fr: 'Conso / m', ar: 'الاستهلاك / م', en: 'Cons. / m', es: 'Cons. / m', pt: 'Cons. / m', tr: 'Tük. / m' })}</th>
                         <th className="p-3 text-left text-xs font-bold text-slate-500 dark:text-dk-muted uppercase">{tx(lang, { fr: 'Machine', ar: 'الماكينة', en: 'Machine', es: 'Máquina', pt: 'Máquina', tr: 'Makine' })}</th>
                         <th className="p-3 text-left text-xs font-bold text-slate-500 dark:text-dk-muted uppercase">{tx(lang, { fr: 'Observations', ar: 'ملاحظات', en: 'Observations', es: 'Observaciones', pt: 'Observações', tr: 'Gözlemler' })}</th>
                         <th className="p-3 w-10"></th>
@@ -852,9 +852,9 @@ export default function Machin({
         <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-slate-900/45 backdrop-blur-md" onClick={closeModal} />
           <div className="bg-white dark:bg-dk-surface rounded-2xl shadow-2xl w-full max-w-md relative overflow-hidden animate-in fade-in zoom-in-95 duration-200 border border-slate-200 dark:border-dk-border/70">
-            <div className="bg-slate-50 dark:bg-dk-elevated px-6 py-4 border-b border-slate-100 dark:border-dk-border/60 flex items-center justify-between">
+            <div className="bg-slate-50 dark:bg-dk-bg dark:bg-dk-elevated px-6 py-4 border-b border-slate-100 dark:border-dk-border/60 flex items-center justify-between">
               <h3 className="font-bold text-slate-800 dark:text-dk-text flex items-center gap-2">
-                {editingItem ? <Edit2 className="w-4 h-4 text-emerald-600" /> : <Plus className="w-4 h-4 text-emerald-600" />}
+                {editingItem ? <Edit2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" /> : <Plus className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />}
                 {editingItem ? tx(lang, { fr: 'Modifier', ar: 'تعديل', en: 'Edit', es: 'Editar', pt: 'Editar', tr: 'Düzenle' }) : tx(lang, { fr: 'Ajouter', ar: 'إضافة', en: 'Add', es: 'Añadir', pt: 'Adicionar', tr: 'Ekle' })}
                 {modalType === 'machine' && tx(lang, { fr: ' Machine', ar: ' ماكينة', en: ' Machine', es: ' Máquina', pt: ' Máquina', tr: ' Makine' })}
                 {modalType === 'speed' && tx(lang, { fr: ' Facteur Vitesse', ar: ' عامل سرعة', en: ' Speed Factor', es: ' Factor Velocidad', pt: ' Fator Velocidade', tr: ' Hız Faktörü' })}
@@ -876,7 +876,7 @@ export default function Machin({
                         setMachineForm({...machineForm, name: e.target.value});
                         if (machineErrors.name) setMachineErrors(prev => ({ ...prev, name: false }));
                       }}
-                      className={`w-full rounded-xl px-3 py-2.5 text-slate-700 dark:text-dk-text-soft outline-none transition-all ${machineErrors.name ? 'bg-rose-50 border border-rose-300 focus:border-rose-500' : 'bg-slate-50 dark:bg-dk-elevated border border-slate-200 dark:border-dk-border focus:border-emerald-500'}`}
+                      className={`w-full rounded-xl px-3 py-2.5 text-slate-700 dark:text-dk-text-soft outline-none transition-all ${machineErrors.name ? 'bg-rose-50 dark:bg-rose-900/30 border border-rose-300 focus:border-rose-500' : 'bg-slate-50 dark:bg-dk-bg dark:bg-dk-elevated border border-slate-200 dark:border-dk-border focus:border-emerald-500'}`}
                     />
                   </div>
                   <div>
@@ -885,7 +885,7 @@ export default function Machin({
                       type="text"
                       value={machineForm.machineCategory || ''}
                       onChange={e => setMachineForm({...machineForm, machineCategory: e.target.value})}
-                      className="w-full rounded-xl px-3 py-2.5 text-slate-700 dark:text-dk-text-soft outline-none transition-all bg-slate-50 dark:bg-dk-elevated border border-slate-200 dark:border-dk-border focus:border-emerald-500"
+                      className="w-full rounded-xl px-3 py-2.5 text-slate-700 dark:text-dk-text-soft outline-none transition-all bg-slate-50 dark:bg-dk-bg dark:bg-dk-elevated border border-slate-200 dark:border-dk-border focus:border-emerald-500"
                     />
                   </div>
                   <div className="grid grid-cols-2 gap-4">
@@ -898,19 +898,19 @@ export default function Machin({
                           setMachineForm({...machineForm, classe: e.target.value});
                           if (machineErrors.classe) setMachineErrors(prev => ({ ...prev, classe: false }));
                         }}
-                        className={`w-full rounded-xl px-3 py-2.5 text-slate-700 dark:text-dk-text-soft outline-none transition-all ${machineErrors.classe ? 'bg-rose-50 border border-rose-300 focus:border-rose-500' : 'bg-slate-50 dark:bg-dk-elevated border border-slate-200 dark:border-dk-border focus:border-emerald-500'}`}
+                        className={`w-full rounded-xl px-3 py-2.5 text-slate-700 dark:text-dk-text-soft outline-none transition-all ${machineErrors.classe ? 'bg-rose-50 dark:bg-rose-900/30 border border-rose-300 focus:border-rose-500' : 'bg-slate-50 dark:bg-dk-bg dark:bg-dk-elevated border border-slate-200 dark:border-dk-border focus:border-emerald-500'}`}
                       />
                     </div>
-                    <div><label className="block text-xs font-semibold text-slate-500 dark:text-dk-muted uppercase mb-1.5">{tx(lang, { fr: 'Vitesse', ar: 'السرعة', en: 'Speed', es: 'Velocidad', pt: 'Velocidade', tr: 'Hız' })}</label><input type="number" required value={machineForm.speed} onChange={e => setMachineForm({...machineForm, speed: Number(e.target.value)})} className="w-full bg-slate-50 dark:bg-dk-elevated border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2.5 text-slate-700 dark:text-dk-text-soft outline-none focus:border-emerald-500 transition-all" /></div>
+                    <div><label className="block text-xs font-semibold text-slate-500 dark:text-dk-muted uppercase mb-1.5">{tx(lang, { fr: 'Vitesse', ar: 'السرعة', en: 'Speed', es: 'Velocidad', pt: 'Velocidade', tr: 'Hız' })}</label><input type="number" required value={machineForm.speed} onChange={e => setMachineForm({...machineForm, speed: Number(e.target.value)})} className="w-full bg-slate-50 dark:bg-dk-bg dark:bg-dk-elevated border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2.5 text-slate-700 dark:text-dk-text-soft outline-none focus:border-emerald-500 transition-all" /></div>
                   </div>
                   {(machineErrors.name || machineErrors.classe) && (
-                    <p className="text-xs font-semibold text-rose-600 bg-rose-50 border border-rose-100 rounded-lg px-3 py-2">
+                    <p className="text-xs font-semibold text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-900/30 border border-rose-100 rounded-lg px-3 py-2">
                       {tx(lang, { fr: 'Remplissez les champs obligatoires en rouge avant d\'enregistrer.', ar: 'املأ الحقول الإلزامية باللون الأحمر قبل الحفظ', en: 'Fill in the required fields in red before saving.', es: 'Rellene los campos obligatorios en rojo antes de guardar.', pt: 'Preencha os campos obrigatórios a vermelho antes de guardar.', tr: 'Kaydetmeden önce kırmızı renkteki zorunlu alanları doldurun.' })}
                     </p>
                   )}
                   <div className="grid grid-cols-2 gap-4">
-                    <div><label className="block text-xs font-semibold text-slate-500 dark:text-dk-muted uppercase mb-1.5">{tx(lang, { fr: 'Majoration', ar: 'الزيادة', en: 'Surcharge', es: 'Recargo', pt: 'Majoração', tr: 'Zam' })}</label><input type="number" step="0.01" required value={machineForm.speedMajor} onChange={e => setMachineForm({...machineForm, speedMajor: Number(e.target.value)})} className="w-full bg-slate-50 dark:bg-dk-elevated border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2.5 text-slate-700 dark:text-dk-text-soft outline-none focus:border-emerald-500 transition-all" /></div>
-                    <div><label className="block text-xs font-semibold text-slate-500 dark:text-dk-muted uppercase mb-1.5">COFS</label><input type="number" step="0.01" required value={machineForm.cofs} onChange={e => setMachineForm({...machineForm, cofs: Number(e.target.value)})} className="w-full bg-slate-50 dark:bg-dk-elevated border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2.5 text-slate-700 dark:text-dk-text-soft outline-none focus:border-emerald-500 transition-all" /></div>
+                    <div><label className="block text-xs font-semibold text-slate-500 dark:text-dk-muted uppercase mb-1.5">{tx(lang, { fr: 'Majoration', ar: 'الزيادة', en: 'Surcharge', es: 'Recargo', pt: 'Majoração', tr: 'Zam' })}</label><input type="number" step="0.01" required value={machineForm.speedMajor} onChange={e => setMachineForm({...machineForm, speedMajor: Number(e.target.value)})} className="w-full bg-slate-50 dark:bg-dk-bg dark:bg-dk-elevated border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2.5 text-slate-700 dark:text-dk-text-soft outline-none focus:border-emerald-500 transition-all" /></div>
+                    <div><label className="block text-xs font-semibold text-slate-500 dark:text-dk-muted uppercase mb-1.5">COFS</label><input type="number" step="0.01" required value={machineForm.cofs} onChange={e => setMachineForm({...machineForm, cofs: Number(e.target.value)})} className="w-full bg-slate-50 dark:bg-dk-bg dark:bg-dk-elevated border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2.5 text-slate-700 dark:text-dk-text-soft outline-none focus:border-emerald-500 transition-all" /></div>
                   </div>
                   <button type="submit" className="w-full py-2.5 rounded-xl bg-emerald-600 text-white font-medium hover:bg-emerald-700 shadow-lg shadow-emerald-200 transition-all mt-2">{tx(lang, { fr: 'Enregistrer', ar: 'حفظ', en: 'Save', es: 'Guardar', pt: 'Guardar', tr: 'Kaydet' })}</button>
                 </form>
@@ -918,28 +918,28 @@ export default function Machin({
               {modalType === 'speed' && (
                 <form onSubmit={saveSpeed} className="space-y-4">
                    <div className="grid grid-cols-2 gap-4">
-                    <div><label className="block text-xs font-semibold text-slate-500 dark:text-dk-muted uppercase mb-1.5">{tx(lang, { fr: 'Min', ar: 'الحد الأدنى', en: 'Min', es: 'Mín', pt: 'Mín', tr: 'Min' })}</label><input type="number" required value={speedForm.min} onChange={e => setSpeedForm({...speedForm, min: Number(e.target.value)})} className="w-full bg-slate-50 dark:bg-dk-elevated border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2.5 text-slate-700 dark:text-dk-text-soft outline-none focus:border-emerald-500 transition-all" /></div>
-                    <div><label className="block text-xs font-semibold text-slate-500 dark:text-dk-muted uppercase mb-1.5">{tx(lang, { fr: 'Max', ar: 'الحد الأقصى', en: 'Max', es: 'Máx', pt: 'Máx', tr: 'Maks' })}</label><input type="number" required value={speedForm.max} onChange={e => setSpeedForm({...speedForm, max: Number(e.target.value)})} className="w-full bg-slate-50 dark:bg-dk-elevated border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2.5 text-slate-700 dark:text-dk-text-soft outline-none focus:border-emerald-500 transition-all" /></div>
+                    <div><label className="block text-xs font-semibold text-slate-500 dark:text-dk-muted uppercase mb-1.5">{tx(lang, { fr: 'Min', ar: 'الحد الأدنى', en: 'Min', es: 'Mín', pt: 'Mín', tr: 'Min' })}</label><input type="number" required value={speedForm.min} onChange={e => setSpeedForm({...speedForm, min: Number(e.target.value)})} className="w-full bg-slate-50 dark:bg-dk-bg dark:bg-dk-elevated border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2.5 text-slate-700 dark:text-dk-text-soft outline-none focus:border-emerald-500 transition-all" /></div>
+                    <div><label className="block text-xs font-semibold text-slate-500 dark:text-dk-muted uppercase mb-1.5">{tx(lang, { fr: 'Max', ar: 'الحد الأقصى', en: 'Max', es: 'Máx', pt: 'Máx', tr: 'Maks' })}</label><input type="number" required value={speedForm.max} onChange={e => setSpeedForm({...speedForm, max: Number(e.target.value)})} className="w-full bg-slate-50 dark:bg-dk-bg dark:bg-dk-elevated border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2.5 text-slate-700 dark:text-dk-text-soft outline-none focus:border-emerald-500 transition-all" /></div>
                   </div>
-                  <div><label className="block text-xs font-semibold text-slate-500 dark:text-dk-muted uppercase mb-1.5">{tx(lang, { fr: 'Majoration', ar: 'الزيادة', en: 'Surcharge', es: 'Recargo', pt: 'Majoração', tr: 'Zam' })}</label><input type="number" step="0.01" required value={speedForm.value} onChange={e => setSpeedForm({...speedForm, value: Number(e.target.value)})} className="w-full bg-slate-50 dark:bg-dk-elevated border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2.5 text-slate-700 dark:text-dk-text-soft outline-none focus:border-emerald-500 transition-all" /></div>
+                  <div><label className="block text-xs font-semibold text-slate-500 dark:text-dk-muted uppercase mb-1.5">{tx(lang, { fr: 'Majoration', ar: 'الزيادة', en: 'Surcharge', es: 'Recargo', pt: 'Majoração', tr: 'Zam' })}</label><input type="number" step="0.01" required value={speedForm.value} onChange={e => setSpeedForm({...speedForm, value: Number(e.target.value)})} className="w-full bg-slate-50 dark:bg-dk-bg dark:bg-dk-elevated border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2.5 text-slate-700 dark:text-dk-text-soft outline-none focus:border-emerald-500 transition-all" /></div>
                   <button type="submit" className="w-full py-2.5 rounded-xl bg-emerald-600 text-white font-medium hover:bg-emerald-700 shadow-lg shadow-emerald-200 transition-all mt-2">{tx(lang, { fr: 'Enregistrer', ar: 'حفظ', en: 'Save', es: 'Guardar', pt: 'Guardar', tr: 'Kaydet' })}</button>
                 </form>
               )}
               {modalType === 'complexity' && (
                 <form onSubmit={saveComplexity} className="space-y-4">
-                  <div><label className="block text-xs font-semibold text-slate-500 dark:text-dk-muted uppercase mb-1.5">{tx(lang, { fr: 'Description', ar: 'الوصف', en: 'Description', es: 'Descripción', pt: 'Descrição', tr: 'Açıklama' })}</label><input type="text" required value={complexityForm.label} onChange={e => setComplexityForm({...complexityForm, label: e.target.value})} className="w-full bg-slate-50 dark:bg-dk-elevated border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2.5 text-slate-700 dark:text-dk-text-soft outline-none focus:border-indigo-500 transition-all" /></div>
-                  <div><label className="block text-xs font-semibold text-slate-500 dark:text-dk-muted uppercase mb-1.5">{tx(lang, { fr: 'Majoration', ar: 'الزيادة', en: 'Surcharge', es: 'Recargo', pt: 'Majoração', tr: 'Zam' })}</label><input type="number" step="0.01" required value={complexityForm.value} onChange={e => setComplexityForm({...complexityForm, value: Number(e.target.value)})} className="w-full bg-slate-50 dark:bg-dk-elevated border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2.5 text-slate-700 dark:text-dk-text-soft outline-none focus:border-indigo-500 transition-all" /></div>
+                  <div><label className="block text-xs font-semibold text-slate-500 dark:text-dk-muted uppercase mb-1.5">{tx(lang, { fr: 'Description', ar: 'الوصف', en: 'Description', es: 'Descripción', pt: 'Descrição', tr: 'Açıklama' })}</label><input type="text" required value={complexityForm.label} onChange={e => setComplexityForm({...complexityForm, label: e.target.value})} className="w-full bg-slate-50 dark:bg-dk-bg dark:bg-dk-elevated border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2.5 text-slate-700 dark:text-dk-text-soft outline-none focus:border-indigo-500 transition-all" /></div>
+                  <div><label className="block text-xs font-semibold text-slate-500 dark:text-dk-muted uppercase mb-1.5">{tx(lang, { fr: 'Majoration', ar: 'الزيادة', en: 'Surcharge', es: 'Recargo', pt: 'Majoração', tr: 'Zam' })}</label><input type="number" step="0.01" required value={complexityForm.value} onChange={e => setComplexityForm({...complexityForm, value: Number(e.target.value)})} className="w-full bg-slate-50 dark:bg-dk-bg dark:bg-dk-elevated border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2.5 text-slate-700 dark:text-dk-text-soft outline-none focus:border-indigo-500 transition-all" /></div>
                   <button type="submit" className="w-full py-2.5 rounded-xl bg-indigo-600 dark:bg-dk-accent text-white font-medium hover:bg-indigo-700 dark:hover:bg-dk-accent-hover shadow-lg shadow-indigo-200 transition-all mt-2">{tx(lang, { fr: 'Enregistrer', ar: 'حفظ', en: 'Save', es: 'Guardar', pt: 'Guardar', tr: 'Kaydet' })}</button>
                 </form>
               )}
               {modalType === 'time' && (
                 <form onSubmit={saveTime} className="space-y-4">
-                  <div><label className="block text-xs font-semibold text-slate-500 dark:text-dk-muted uppercase mb-1.5">{tx(lang, { fr: 'Opération', ar: 'العملية', en: 'Operation', es: 'Operación', pt: 'Operação', tr: 'İşlem' })}</label><input type="text" required value={timeForm.label} onChange={e => setTimeForm({...timeForm, label: e.target.value})} className="w-full bg-slate-50 dark:bg-dk-elevated border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2.5 text-slate-700 dark:text-dk-text-soft outline-none focus:border-amber-500 transition-all" /></div>
+                  <div><label className="block text-xs font-semibold text-slate-500 dark:text-dk-muted uppercase mb-1.5">{tx(lang, { fr: 'Opération', ar: 'العملية', en: 'Operation', es: 'Operación', pt: 'Operação', tr: 'İşlem' })}</label><input type="text" required value={timeForm.label} onChange={e => setTimeForm({...timeForm, label: e.target.value})} className="w-full bg-slate-50 dark:bg-dk-bg dark:bg-dk-elevated border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2.5 text-slate-700 dark:text-dk-text-soft outline-none focus:border-amber-500 transition-all" /></div>
                   <div className="grid grid-cols-2 gap-4">
-                    <div><label className="block text-xs font-semibold text-slate-500 dark:text-dk-muted uppercase mb-1.5">{tx(lang, { fr: 'Valeur', ar: 'القيمة', en: 'Value', es: 'Valor', pt: 'Valor', tr: 'Değer' })}</label><input type="number" step="0.001" required value={timeForm.value} onChange={e => setTimeForm({...timeForm, value: Number(e.target.value)})} className="w-full bg-slate-50 dark:bg-dk-elevated border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2.5 text-slate-700 dark:text-dk-text-soft outline-none focus:border-amber-500 transition-all" /></div>
+                    <div><label className="block text-xs font-semibold text-slate-500 dark:text-dk-muted uppercase mb-1.5">{tx(lang, { fr: 'Valeur', ar: 'القيمة', en: 'Value', es: 'Valor', pt: 'Valor', tr: 'Değer' })}</label><input type="number" step="0.001" required value={timeForm.value} onChange={e => setTimeForm({...timeForm, value: Number(e.target.value)})} className="w-full bg-slate-50 dark:bg-dk-bg dark:bg-dk-elevated border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2.5 text-slate-700 dark:text-dk-text-soft outline-none focus:border-amber-500 transition-all" /></div>
                     <div>
                       <label className="block text-xs font-semibold text-slate-500 dark:text-dk-muted uppercase mb-1.5">{tx(lang, { fr: 'Unité', ar: 'الوحدة', en: 'Unit', es: 'Unidad', pt: 'Unidade', tr: 'Birim' })}</label>
-                      <select value={timeForm.unit} onChange={e => setTimeForm({...timeForm, unit: e.target.value as 'min'|'sec'})} className="w-full bg-slate-50 dark:bg-dk-elevated border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2.5 text-slate-700 dark:text-dk-text-soft outline-none focus:border-amber-500 transition-all">
+                      <select value={timeForm.unit} onChange={e => setTimeForm({...timeForm, unit: e.target.value as 'min'|'sec'})} className="w-full bg-slate-50 dark:bg-dk-bg dark:bg-dk-elevated border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2.5 text-slate-700 dark:text-dk-text-soft outline-none focus:border-amber-500 transition-all">
                         <option value="min">{tx(lang, { fr: 'Minute (min)', ar: 'دقيقة (min)', en: 'Minute (min)', es: 'Minuto (min)', pt: 'Minuto (min)', tr: 'Dakika (min)' })}</option>
                         <option value="sec">{tx(lang, { fr: 'Seconde (s)', ar: 'ثانية (s)', en: 'Second (s)', es: 'Segundo (s)', pt: 'Segundo (s)', tr: 'Saniye (s)' })}</option>
                       </select>
@@ -960,7 +960,7 @@ export default function Machin({
                         if (guideErrors.name) setGuideErrors(prev => ({ ...prev, name: false }));
                       }}
                       placeholder={tx(lang, { fr: 'Ex: Pied Téflon', ar: 'مثال: قدم تفلونية', en: 'Ex: Teflon Foot', es: 'Ej: Pie de Teflón', pt: 'Ex: Pé de Teflon', tr: 'Örn: Teflon Ayak' })}
-                      className={`w-full rounded-xl px-3 py-2.5 text-slate-700 dark:text-dk-text-soft outline-none transition-all ${guideErrors.name ? 'bg-rose-50 border border-rose-300 focus:border-rose-500' : 'bg-slate-50 dark:bg-dk-elevated border border-slate-200 dark:border-dk-border focus:border-orange-500'}`}
+                      className={`w-full rounded-xl px-3 py-2.5 text-slate-700 dark:text-dk-text-soft outline-none transition-all ${guideErrors.name ? 'bg-rose-50 dark:bg-rose-900/30 border border-rose-300 focus:border-rose-500' : 'bg-slate-50 dark:bg-dk-bg dark:bg-dk-elevated border border-slate-200 dark:border-dk-border focus:border-orange-500'}`}
                     />
                   </div>
                   
@@ -975,7 +975,7 @@ export default function Machin({
                               setGuideForm({...guideForm, category: e.target.value});
                               if (guideErrors.category) setGuideErrors(prev => ({ ...prev, category: false }));
                             }}
-                            className={`w-full rounded-xl px-3 py-2.5 text-slate-700 dark:text-dk-text-soft outline-none transition-all ${guideErrors.category ? 'bg-rose-50 border border-rose-300 focus:border-rose-500' : 'bg-slate-50 dark:bg-dk-elevated border border-slate-200 dark:border-dk-border focus:border-orange-500'}`}
+                            className={`w-full rounded-xl px-3 py-2.5 text-slate-700 dark:text-dk-text-soft outline-none transition-all ${guideErrors.category ? 'bg-rose-50 dark:bg-rose-900/30 border border-rose-300 focus:border-rose-500' : 'bg-slate-50 dark:bg-dk-bg dark:bg-dk-elevated border border-slate-200 dark:border-dk-border focus:border-orange-500'}`}
                           />
                           <datalist id="guide-categories">
                               <option value={tx(lang, { fr: 'Surpiqûre & Précision', ar: 'الخياطة العلوية والدقة', en: 'Topstitching & Precision', es: 'Pespunte & Precisión', pt: 'Pesponto & Precisão', tr: 'Üst dikiş & Hassasiyet' })} />
@@ -999,7 +999,7 @@ export default function Machin({
                               if (guideErrors.machineType) setGuideErrors(prev => ({ ...prev, machineType: false }));
                             }}
                             placeholder={tx(lang, { fr: 'Ex: Piqueuse Plate (301)', ar: 'مثال: ماكينة خياطة مسطحة (301)', en: 'Ex: Flatbed Sewing Machine (301)', es: 'Ej: Máquina de Coser Plana (301)', pt: 'Ex: Máquina de Costura Plana (301)', tr: 'Örn: Düz Dikiş Makinesi (301)' })}
-                            className={`w-full rounded-xl px-3 py-2.5 text-slate-700 dark:text-dk-text-soft outline-none transition-all ${guideErrors.machineType ? 'bg-rose-50 border border-rose-300 focus:border-rose-500' : 'bg-slate-50 dark:bg-dk-elevated border border-slate-200 dark:border-dk-border focus:border-orange-500'}`}
+                            className={`w-full rounded-xl px-3 py-2.5 text-slate-700 dark:text-dk-text-soft outline-none transition-all ${guideErrors.machineType ? 'bg-rose-50 dark:bg-rose-900/30 border border-rose-300 focus:border-rose-500' : 'bg-slate-50 dark:bg-dk-bg dark:bg-dk-elevated border border-slate-200 dark:border-dk-border focus:border-orange-500'}`}
                           />
                           <datalist id="machine-suggestions">
                             {machines.map(m => (
@@ -1010,13 +1010,13 @@ export default function Machin({
                       </div>
                   </div>
                   {(guideErrors.name || guideErrors.category || guideErrors.machineType) && (
-                    <p className="text-xs font-semibold text-rose-600 bg-rose-50 border border-rose-100 rounded-lg px-3 py-2">
+                    <p className="text-xs font-semibold text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-900/30 border border-rose-100 rounded-lg px-3 py-2">
                       {tx(lang, { fr: 'Champs obligatoires: Nom, Catégorie et Machine.', ar: 'الحقول الإلزامية: الاسم والفئة والماكينة', en: 'Required fields: Name, Category and Machine.', es: 'Campos obligatorios: Nombre, Categoría y Máquina.', pt: 'Campos obrigatórios: Nome, Categoria e Máquina.', tr: 'Zorunlu alanlar: Ad, Kategori ve Makine.' })}
                     </p>
                   )}
 
-                  <div><label className="block text-xs font-semibold text-slate-500 dark:text-dk-muted uppercase mb-1.5">{tx(lang, { fr: 'Description', ar: 'الوصف', en: 'Description', es: 'Descripción', pt: 'Descrição', tr: 'Açıklama' })}</label><textarea rows={2} value={guideForm.description} onChange={e => setGuideForm({...guideForm, description: e.target.value})} className="w-full bg-slate-50 dark:bg-dk-elevated border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2.5 text-slate-700 dark:text-dk-text-soft outline-none focus:border-orange-500 transition-all resize-none" /></div>
-                  <div><label className="block text-xs font-semibold text-slate-500 dark:text-dk-muted uppercase mb-1.5">{tx(lang, { fr: 'Utilisation (Cas typiques)', ar: 'الاستخدام (الحالات النموذجية)', en: 'Usage (Typical cases)', es: 'Uso (Casos típicos)', pt: 'Utilização (Casos típicos)', tr: 'Kullanım (Tipik durumlar)' })}</label><input type="text" value={guideForm.useCase} onChange={e => setGuideForm({...guideForm, useCase: e.target.value})} placeholder={tx(lang, { fr: 'Ex: Cuir, Simili...', ar: 'مثال: جلد، جلد صناعي...', en: 'Ex: Leather, Leatherette...', es: 'Ej: Cuero, Similpiel...', pt: 'Ex: Couro, Courino...', tr: 'Örn: Deri, Suni Deri...' })} className="w-full bg-slate-50 dark:bg-dk-elevated border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2.5 text-slate-700 dark:text-dk-text-soft outline-none focus:border-orange-500 transition-all" /></div>
+                  <div><label className="block text-xs font-semibold text-slate-500 dark:text-dk-muted uppercase mb-1.5">{tx(lang, { fr: 'Description', ar: 'الوصف', en: 'Description', es: 'Descripción', pt: 'Descrição', tr: 'Açıklama' })}</label><textarea rows={2} value={guideForm.description} onChange={e => setGuideForm({...guideForm, description: e.target.value})} className="w-full bg-slate-50 dark:bg-dk-bg dark:bg-dk-elevated border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2.5 text-slate-700 dark:text-dk-text-soft outline-none focus:border-orange-500 transition-all resize-none" /></div>
+                  <div><label className="block text-xs font-semibold text-slate-500 dark:text-dk-muted uppercase mb-1.5">{tx(lang, { fr: 'Utilisation (Cas typiques)', ar: 'الاستخدام (الحالات النموذجية)', en: 'Usage (Typical cases)', es: 'Uso (Casos típicos)', pt: 'Utilização (Casos típicos)', tr: 'Kullanım (Tipik durumlar)' })}</label><input type="text" value={guideForm.useCase} onChange={e => setGuideForm({...guideForm, useCase: e.target.value})} placeholder={tx(lang, { fr: 'Ex: Cuir, Simili...', ar: 'مثال: جلد، جلد صناعي...', en: 'Ex: Leather, Leatherette...', es: 'Ej: Cuero, Similpiel...', pt: 'Ex: Couro, Courino...', tr: 'Örn: Deri, Suni Deri...' })} className="w-full bg-slate-50 dark:bg-dk-bg dark:bg-dk-elevated border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2.5 text-slate-700 dark:text-dk-text-soft outline-none focus:border-orange-500 transition-all" /></div>
 
                   <button type="submit" className="w-full py-2.5 rounded-xl bg-orange-600 text-white font-medium hover:bg-orange-700 shadow-lg shadow-orange-200 transition-all mt-2">{tx(lang, { fr: 'Enregistrer', ar: 'حفظ', en: 'Save', es: 'Guardar', pt: 'Guardar', tr: 'Kaydet' })}</button>
                 </form>
@@ -1032,7 +1032,7 @@ export default function Machin({
         <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-slate-900/45 backdrop-blur-md" onClick={() => setFilEditIndex(null)} />
           <div className="bg-white dark:bg-dk-surface rounded-2xl shadow-2xl w-full max-w-md relative overflow-hidden animate-in fade-in zoom-in-95 duration-200 border border-slate-200 dark:border-dk-border/70">
-            <div className="bg-purple-50 px-6 py-4 border-b border-purple-100 flex items-center justify-between">
+            <div className="bg-purple-50 dark:bg-purple-900/30 px-6 py-4 border-b border-purple-100 flex items-center justify-between">
               <h3 className="font-bold text-purple-800 flex items-center gap-2">
                 {filEditIndex === -1 ? <Plus className="w-4 h-4" /> : <Edit2 className="w-4 h-4" />}
                 {filEditIndex === -1 ? tx(lang, { fr: 'Ajouter un type de point', ar: 'إضافة نوع غرزة', en: 'Add a stitch type', es: 'Añadir un tipo de puntada', pt: 'Adicionar um tipo de ponto', tr: 'Bir dikiş tipi ekle' }) : tx(lang, { fr: 'Modifier le coefficient', ar: 'تعديل المعامل', en: 'Edit the coefficient', es: 'Editar el coeficiente', pt: 'Editar o coeficiente', tr: 'Katsayıyı düzenle' })}
@@ -1081,7 +1081,7 @@ export default function Machin({
                 </div>
               </div>
               <div>
-                <label className="text-xs font-bold text-purple-600 uppercase">{tx(lang, { fr: 'Coefficient (Conso / m)', ar: 'المعامل (الاستهلاك / م)', en: 'Coefficient (Cons. / m)', es: 'Coeficiente (Cons. / m)', pt: 'Coeficiente (Cons. / m)', tr: 'Katsayı (Tük. / m)' })}</label>
+                <label className="text-xs font-bold text-purple-600 dark:text-purple-400 uppercase">{tx(lang, { fr: 'Coefficient (Conso / m)', ar: 'المعامل (الاستهلاك / م)', en: 'Coefficient (Cons. / m)', es: 'Coeficiente (Cons. / m)', pt: 'Coeficiente (Cons. / m)', tr: 'Katsayı (Tük. / m)' })}</label>
                 <input
                   type="number"
                   step="0.1"
@@ -1109,7 +1109,7 @@ export default function Machin({
                 />
               </div>
             </div>
-            <div className="bg-slate-50 dark:bg-dk-elevated px-6 py-4 border-t border-slate-100 dark:border-dk-border/60 flex gap-3">
+            <div className="bg-slate-50 dark:bg-dk-bg dark:bg-dk-elevated px-6 py-4 border-t border-slate-100 dark:border-dk-border/60 flex gap-3">
               <button onClick={() => setFilEditIndex(null)} className="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 dark:border-dk-border text-slate-600 dark:text-dk-muted font-medium hover:bg-slate-50 dark:hover:bg-dk-elevated/60 transition-colors">
                 {tx(lang, { fr: 'Annuler', ar: 'إلغاء', en: 'Cancel', es: 'Cancelar', pt: 'Cancelar', tr: 'İptal' })}
               </button>
@@ -1127,7 +1127,7 @@ export default function Machin({
         <div className="fixed inset-0 z-[1100] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-slate-900/50 backdrop-blur-md" onClick={() => setFilConfirmOpen(false)} />
           <div className="bg-white dark:bg-dk-surface rounded-2xl shadow-2xl w-full max-w-sm relative overflow-hidden animate-in fade-in zoom-in-95 duration-200 p-6 text-center">
-            <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-4 text-purple-600"><CheckCircle2 className="w-6 h-6" /></div>
+            <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-4 text-purple-600 dark:text-purple-400"><CheckCircle2 className="w-6 h-6" /></div>
             <h3 className="text-lg font-bold text-slate-800 dark:text-dk-text mb-2">{tx(lang, { fr: 'Confirmer les modifications ?', ar: 'تأكيد التعديلات؟', en: 'Confirm changes?', es: '¿Confirmar los cambios?', pt: 'Confirmar as alterações?', tr: 'Değişiklikler onaylansın mı?' })}</h3>
             <p className="text-slate-500 dark:text-dk-muted text-sm mb-6">{tx(lang, { fr: 'Les nouveaux coefficients seront sauvegardés et utilisés pour les calculs futurs.', ar: 'سيتم حفظ المعاملات الجديدة واستخدامها في الحسابات المستقبلية', en: 'The new coefficients will be saved and used for future calculations.', es: 'Los nuevos coeficientes se guardarán y utilizarán para futuros cálculos.', pt: 'Os novos coeficientes serão guardados e utilizados para cálculos futuros.', tr: 'Yeni katsayılar kaydedilecek ve gelecekteki hesaplamalarda kullanılacak.' })}</p>
             <div className="flex gap-3">
@@ -1144,7 +1144,7 @@ export default function Machin({
         <div className="fixed inset-0 z-[1100] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-slate-900/50 backdrop-blur-md" onClick={() => setFilResetConfirmOpen(false)} />
           <div className="bg-white dark:bg-dk-surface rounded-2xl shadow-2xl w-full max-w-sm relative overflow-hidden animate-in fade-in zoom-in-95 duration-200 p-6 text-center">
-            <div className="w-12 h-12 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-4 text-amber-600"><RotateCcw className="w-6 h-6" /></div>
+            <div className="w-12 h-12 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-4 text-amber-600 dark:text-amber-400"><RotateCcw className="w-6 h-6" /></div>
             <h3 className="text-lg font-bold text-slate-800 dark:text-dk-text mb-2">{tx(lang, { fr: 'Réinitialiser les paramètres ?', ar: 'إعادة تعيين الإعدادات؟', en: 'Reset settings?', es: '¿Restablecer los ajustes?', pt: 'Redefinir as configurações?', tr: 'Ayarlar sıfırlansın mı?' })}</h3>
             <p className="text-slate-500 dark:text-dk-muted text-sm mb-6">{tx(lang, { fr: 'Toutes les modifications seront annulées et les valeurs originales seront restaurées.', ar: 'سيتم إلغاء جميع التعديلات واستعادة القيم الأصلية', en: 'All changes will be cancelled and original values restored.', es: 'Todos los cambios serán cancelados y se restaurarán los valores originales.', pt: 'Todas as alterações serão canceladas e os valores originais serão restaurados.', tr: 'Tüm değişiklikler iptal edilecek ve orijinal değerler geri yüklenecek.' })}</p>
             <div className="flex gap-3">
@@ -1161,7 +1161,7 @@ export default function Machin({
         <div className="fixed inset-0 z-[1100] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-slate-900/50 backdrop-blur-md" onClick={() => setDeleteData(null)} />
           <div className="bg-white dark:bg-dk-surface rounded-2xl shadow-2xl w-full max-w-sm relative overflow-hidden animate-in fade-in zoom-in-95 duration-200 p-6 text-center">
-            <div className="w-12 h-12 bg-rose-100 rounded-full flex items-center justify-center mx-auto mb-4 text-rose-600"><AlertTriangle className="w-6 h-6" /></div>
+            <div className="w-12 h-12 bg-rose-100 rounded-full flex items-center justify-center mx-auto mb-4 text-rose-600 dark:text-rose-400"><AlertTriangle className="w-6 h-6" /></div>
             <h3 className="text-lg font-bold text-slate-800 dark:text-dk-text mb-2">{tx(lang, { fr: 'Supprimer l\'élément ?', ar: 'حذف العنصر؟', en: 'Delete item?', es: '¿Eliminar el elemento?', pt: 'Eliminar o elemento?', tr: 'Öğe silinsin mi?' })}</h3>
             <p className="text-slate-500 dark:text-dk-muted text-sm mb-6">{tx(lang, { fr: 'Cette action est irréversible.', ar: 'هذا الإجراء لا يمكن التراجع عنه', en: 'This action is irreversible.', es: 'Esta acción es irreversible.', pt: 'Esta ação é irreversível.', tr: 'Bu işlem geri alınamaz.' })}</p>
             <div className="flex gap-3">

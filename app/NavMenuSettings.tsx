@@ -40,7 +40,7 @@ export default function NavMenuSettings({ navConfig, saveNavConfig, defaultNavOr
                 <Menu className="w-5 h-5 text-indigo-500" /> {tx(lang, { fr: 'Navigation & Menu', ar: 'التنقل والقائمة', en: 'Navigation & Menu', es: 'Navegación y Menú', pt: 'Navegação e Menu', tr: 'Navigasyon ve Menü' })}
             </h2>
             <p className="text-sm text-slate-500 mb-5">{tx(lang, { fr: 'Personnalisez le menu hamburger et l\'ordre des modules.', ar: 'قم بتخصيص قائمة الهامبرغر وترتيب الوحدات.', en: 'Customize the hamburger menu and module order.', es: 'Personalice el menú hamburguesa y el orden de los módulos.', pt: 'Personalize o menu hambúrguer e a ordem dos módulos.', tr: 'Hamburger menüyü ve modül sırasını özelleştirin.' })}</p>
-            <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-100 mb-5">
+            <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50 dark:bg-dk-bg border border-slate-100 mb-5">
                 <div>
                     <span className="text-sm font-bold text-slate-700">{tx(lang, { fr: 'Menu hamburger (☰)', ar: 'قائمة الهامبرغر (☰)', en: 'Hamburger menu (☰)', es: 'Menú hamburguesa (☰)', pt: 'Menu hambúrguer (☰)', tr: 'Hamburger menü (☰)' })}</span>
                     <p className="text-[11px] text-slate-400">{tx(lang, { fr: 'Afficher le bouton menu rapide dans la barre de navigation', ar: 'إظهار زر القائمة السريعة في شريط التنقل', en: 'Show the quick menu button in the navigation bar', es: 'Mostrar el botón de menú rápido en la barra de navegación', pt: 'Mostrar o botão de menu rápido na barra de navegação', tr: 'Gezinme çubuğunda hızlı menü düğmesini göster' })}</p>
@@ -53,7 +53,7 @@ export default function NavMenuSettings({ navConfig, saveNavConfig, defaultNavOr
             <div className="space-y-1.5 mb-5">
                 <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">{tx(lang, { fr: 'Ordre des modules', ar: 'ترتيب الوحدات', en: 'Module order', es: 'Orden de módulos', pt: 'Ordem dos módulos', tr: 'Modül sırası' })}</span>
                 {visibleItems.map((view, idx) => (
-                    <div key={view} className={`flex items-center gap-2 p-2 rounded-lg border transition-all ${draft.hidden.includes(view) ? 'bg-slate-50 border-slate-100 opacity-50' : 'bg-white border-slate-200'}`}>
+                    <div key={view} className={`flex items-center gap-2 p-2 rounded-lg border transition-all ${draft.hidden.includes(view) ? 'bg-slate-50 dark:bg-dk-bg border-slate-100 opacity-50' : 'bg-white border-slate-200'}`}>
                         <div className="flex flex-col gap-0.5">
                             <button onClick={() => move(idx, -1)} disabled={idx === 0} className="text-slate-400 hover:text-slate-700 disabled:opacity-20 text-[10px] leading-none">▲</button>
                             <button onClick={() => move(idx, 1)} disabled={idx === visibleItems.length - 1} className="text-slate-400 hover:text-slate-700 disabled:opacity-20 text-[10px] leading-none">▼</button>
@@ -61,7 +61,7 @@ export default function NavMenuSettings({ navConfig, saveNavConfig, defaultNavOr
                         <span className="text-sm font-semibold text-slate-700 flex-1">{navLabels[view] || view}</span>
                         {view !== 'dashboard' && (
                             <button onClick={() => toggleHidden(view)}
-                                className={`text-[10px] font-bold px-2 py-0.5 rounded-full border transition-colors ${draft.hidden.includes(view) ? 'bg-slate-100 border-slate-200 text-slate-400' : 'bg-emerald-50 border-emerald-200 text-emerald-600'}`}>
+                                className={`text-[10px] font-bold px-2 py-0.5 rounded-full border transition-colors ${draft.hidden.includes(view) ? 'bg-slate-100 border-slate-200 text-slate-400' : 'bg-emerald-50 dark:bg-emerald-900/30 border-emerald-200 text-emerald-600 dark:text-emerald-400'}`}>
                                 {draft.hidden.includes(view) ? tx(lang, { fr: 'Masqué', ar: 'مخفي', en: 'Hidden', es: 'Oculto', pt: 'Oculto', tr: 'Gizli' }) : tx(lang, { fr: 'Visible', ar: 'مرئي', en: 'Visible', es: 'Visible', pt: 'Visível', tr: 'Görünür' })}
                             </button>
                         )}

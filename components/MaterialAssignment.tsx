@@ -76,7 +76,7 @@ const MaterialAssignment: React.FC<MaterialAssignmentProps> = ({
             type="button"
             onClick={onClick}
             className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium transition-all duration-150 ${active
-                ? 'bg-indigo-50 dark:bg-dk-accent/20 text-indigo-700 dark:text-dk-accent-text ring-1 ring-indigo-200'
+                ? 'bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 text-indigo-700 dark:text-dk-accent-text ring-1 ring-indigo-200'
                 : 'bg-slate-50 dark:bg-dk-bg text-slate-500 hover:bg-slate-100 hover:text-slate-700'}`}
         >
             {hex && <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: hex }} />}
@@ -100,8 +100,8 @@ const MaterialAssignment: React.FC<MaterialAssignmentProps> = ({
                 {/* Header — Clean flat */}
                 <div className="px-6 py-4 flex items-center justify-between shrink-0 border-b border-slate-100 dark:border-dk-border">
                     <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-xl bg-indigo-50 dark:bg-dk-accent/20 flex items-center justify-center">
-                            <Package className="w-4.5 h-4.5 text-indigo-600 dark:text-dk-accent-text" />
+                        <div className="w-9 h-9 rounded-xl bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 flex items-center justify-center">
+                            <Package className="w-4.5 h-4.5 text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text" />
                         </div>
                         <div>
                             <h2 className="text-slate-900 dark:text-dk-text font-semibold text-[15px] leading-tight">Affectation des Matières</h2>
@@ -121,7 +121,7 @@ const MaterialAssignment: React.FC<MaterialAssignmentProps> = ({
                         <input
                             value={query} onChange={e => setQuery(e.target.value)}
                             placeholder={tx(lang, {fr:'Rechercher une matière…',ar:'بحث عن مادة…',en:'Search for a material…',es:'Buscar un material…',pt:'Procurar um material…',tr:'Malzeme ara…'})}
-                            className="w-full h-9 pl-9 pr-3 text-[12px] bg-slate-50 border border-slate-200 dark:border-dk-border rounded-lg outline-none focus:bg-white focus:ring-2 focus:ring-indigo-100 focus:border-indigo-300 transition-all placeholder:text-slate-400"
+                            className="w-full h-9 pl-9 pr-3 text-[12px] bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-lg outline-none focus:bg-white focus:ring-2 focus:ring-indigo-100 focus:border-indigo-300 transition-all placeholder:text-slate-400"
                         />
                     </div>
                     <FilterSelect value={unitFilter || ''} onChange={v => setUnitFilter(v || null)}>
@@ -159,7 +159,7 @@ const MaterialAssignment: React.FC<MaterialAssignmentProps> = ({
                         return (
                             <div key={m.id}
                                 className={`border rounded-xl p-4 transition-all duration-150 ${isAssigned
-                                    ? 'border-indigo-100 bg-indigo-50 dark:bg-dk-accent/20/30'
+                                    ? 'border-indigo-100 bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20/30'
                                     : 'border-slate-100 dark:border-dk-border bg-white dark:bg-dk-surface hover:border-slate-200'}`}>
 
                                 {/* Material Header */}

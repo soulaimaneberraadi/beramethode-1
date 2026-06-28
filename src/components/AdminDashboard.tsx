@@ -241,7 +241,7 @@ export default function AdminDashboard() {
                 {/* Identité */}
                 <div className="bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border shadow-sm p-5 sm:p-6 space-y-5">
                   <div className="flex items-center gap-2">
-                    <Building2 className="w-4 h-4 text-emerald-600" strokeWidth={1.75} />
+                    <Building2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" strokeWidth={1.75} />
                     <h2 className="text-sm font-bold text-slate-700 dark:text-dk-text uppercase tracking-wide">{tx(lang, { fr: 'Identité', ar: 'الهوية', en: 'Identity', es: 'Identidad', pt: 'Identidade', tr: 'Kimlik' })}</h2>
                   </div>
 
@@ -300,7 +300,7 @@ export default function AdminDashboard() {
                 {/* Type de compte + صلاحية الترقية */}
                 <div className="bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border shadow-sm p-5 sm:p-6 space-y-4">
                   <div className="flex items-center gap-2">
-                    <ChevronRight className="w-4 h-4 text-emerald-600" strokeWidth={1.75} />
+                    <ChevronRight className="w-4 h-4 text-emerald-600 dark:text-emerald-400" strokeWidth={1.75} />
                     <h2 className="text-sm font-bold text-slate-700 dark:text-dk-text uppercase tracking-wide">{tx(lang, { fr: 'Type de compte', ar: 'نوع الحساب', en: 'Account type', es: 'Tipo de cuenta', pt: 'Tipo de conta', tr: 'Hesap türü' })}</h2>
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -309,10 +309,10 @@ export default function AdminDashboard() {
                       return (
                         <button key={t} disabled={!company.canEdit}
                           onClick={() => setCompany(c => c ? { ...c, accountType: t } : c)}
-                          className={`text-start p-3.5 rounded-xl border-2 transition-all disabled:cursor-not-allowed ${active ? 'border-emerald-500 bg-emerald-50 dark:bg-dk-accent/15' : 'border-slate-200 dark:border-dk-border hover:border-slate-300 dark:hover:border-dk-muted'}`}>
+                          className={`text-start p-3.5 rounded-xl border-2 transition-all disabled:cursor-not-allowed ${active ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-900/30 dark:bg-dk-accent/15' : 'border-slate-200 dark:border-dk-border hover:border-slate-300 dark:hover:border-dk-muted'}`}>
                           <div className="flex items-center justify-between mb-1">
                             <span className={`text-sm font-bold ${active ? 'text-emerald-700 dark:text-dk-accent-text' : 'text-slate-700 dark:text-dk-text'}`}>{TYPE_LABEL(t, lang)}</span>
-                            {active && <Check className="w-4 h-4 text-emerald-600" strokeWidth={2.5} />}
+                            {active && <Check className="w-4 h-4 text-emerald-600 dark:text-emerald-400" strokeWidth={2.5} />}
                           </div>
                           <p className="text-[11px] leading-snug text-slate-500 dark:text-dk-muted">{TYPE_DESC(t, lang)}</p>
                         </button>
@@ -328,7 +328,7 @@ export default function AdminDashboard() {
                       className="px-5 py-2.5 bg-emerald-600 text-white text-sm font-bold rounded-xl hover:bg-emerald-700 transition-colors disabled:opacity-60 inline-flex items-center gap-2">
                       <Check className="w-4 h-4" /> {savingCompany ? tx(lang, { fr: 'Enregistrement…', ar: 'جارٍ الحفظ…', en: 'Saving…', es: 'Guardando…', pt: 'A guardar…', tr: 'Kaydediliyor…' }) : tx(lang, { fr: 'Enregistrer', ar: 'حفظ', en: 'Save', es: 'Guardar', pt: 'Guardar', tr: 'Kaydet' })}
                     </button>
-                    {companyMsg && <span className={`text-xs font-medium ${companyMsg.startsWith('✅') ? 'text-emerald-600' : 'text-rose-500'}`}>{companyMsg}</span>}
+                    {companyMsg && <span className={`text-xs font-medium ${companyMsg.startsWith('✅') ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-500'}`}>{companyMsg}</span>}
                   </div>
                 )}
               </>
@@ -357,7 +357,7 @@ export default function AdminDashboard() {
             </div>
 
             {error && (
-              <div className="p-4 bg-rose-50 dark:bg-rose-900/20 border border-rose-100 dark:border-rose-900/40 rounded-xl flex items-center gap-3 text-rose-700 dark:text-rose-300 text-sm">
+              <div className="p-4 bg-rose-50 dark:bg-rose-900/30 dark:bg-rose-900/20 border border-rose-100 dark:border-rose-900/40 rounded-xl flex items-center gap-3 text-rose-700 dark:text-rose-300 text-sm">
                 <AlertCircle className="w-5 h-5" /> {error}
               </div>
             )}
@@ -423,7 +423,7 @@ export default function AdminDashboard() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border p-5 shadow-sm">
               <div className="flex items-center gap-2 mb-3">
-                <Download className="w-4 h-4 text-emerald-600" />
+                <Download className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                 <h3 className="font-bold text-slate-800 dark:text-dk-text text-sm">{tx(lang, { fr: 'Exporter toutes les données', ar: 'تصدير جميع البيانات', en: 'Export all data', es: 'Exportar todos los datos', pt: 'Exportar todos os dados', tr: 'Tüm verileri dışa aktar' })}</h3>
               </div>
               <p className="text-xs text-slate-500 dark:text-dk-muted mb-4">{tx(lang, { fr: 'Fichier JSON complet : utilisateurs, modèles, stock, paramètres.', ar: 'ملف JSON كامل: المستخدمون، النماذج، المخزون، الإعدادات.', en: 'Complete JSON file: users, models, stock, settings.', es: 'Archivo JSON completo: usuarios, modelos, stock, ajustes.', pt: 'Ficheiro JSON completo: utilizadores, modelos, stock, definições.', tr: 'Tam JSON dosyası: kullanıcılar, modeller, stok, ayarlar.' })}</p>
@@ -434,7 +434,7 @@ export default function AdminDashboard() {
 
             <div className="bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border p-5 shadow-sm">
               <div className="flex items-center gap-2 mb-3">
-                <GitMerge className="w-4 h-4 text-indigo-600 dark:text-dk-accent-text" />
+                <GitMerge className="w-4 h-4 text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text" />
                 <h3 className="font-bold text-slate-800 dark:text-dk-text text-sm">{tx(lang, { fr: 'Fusionner vers un compte', ar: 'دمج إلى حساب', en: 'Merge to an account', es: 'Fusionar a una cuenta', pt: 'Mesclar para uma conta', tr: 'Bir hesaba birleştir' })}</h3>
               </div>
               <p className="text-xs text-slate-500 dark:text-dk-muted mb-3">{tx(lang, { fr: 'Consolider toutes les données dans un seul compte email.', ar: 'دمج جميع البيانات في حساب بريد واحد.', en: 'Consolidate all data into a single email account.', es: 'Consolidar todos los datos en una sola cuenta.', pt: 'Consolidar todos os dados numa única conta.', tr: 'Tüm verileri tek bir hesapta birleştir.' })}</p>
@@ -443,7 +443,7 @@ export default function AdminDashboard() {
                 <button onClick={handleMergeToUser} disabled={mergeLoading} className="w-full py-2.5 bg-indigo-600 text-white text-sm font-bold rounded-xl hover:bg-indigo-700 transition-colors disabled:opacity-60 flex items-center justify-center gap-2">
                   <GitMerge className="w-4 h-4" /> {mergeLoading ? tx(lang, { fr: 'Fusion…', ar: 'جارٍ الدمج…', en: 'Merging…', es: 'Fusionando…', pt: 'A mesclar…', tr: 'Birleştiriliyor…' }) : tx(lang, { fr: 'Fusionner', ar: 'دمج', en: 'Merge', es: 'Fusionar', pt: 'Mesclar', tr: 'Birleştir' })}
                 </button>
-                {mergeResult && <div className={`text-xs font-medium p-3 rounded-lg ${mergeResult.startsWith('✅') ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300' : 'bg-rose-50 dark:bg-rose-900/20 text-rose-700 dark:text-rose-300'}`}>{mergeResult}</div>}
+                {mergeResult && <div className={`text-xs font-medium p-3 rounded-lg ${mergeResult.startsWith('✅') ? 'bg-emerald-50 dark:bg-emerald-900/30 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300' : 'bg-rose-50 dark:bg-rose-900/30 dark:bg-rose-900/20 text-rose-700 dark:text-rose-300'}`}>{mergeResult}</div>}
               </div>
             </div>
           </div>

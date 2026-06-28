@@ -60,7 +60,7 @@ const SousTraitanceModal: React.FC<SousTraitanceModalProps> = ({ currency, value
                 </div>
 
                 <div className="p-5 space-y-4">
-                    <div className="flex items-center justify-between p-3 rounded-md bg-slate-50/60 dark:bg-dk-bg/60 border border-slate-200 dark:border-dk-border">
+                    <div className="flex items-center justify-between p-3 rounded-md bg-slate-50 dark:bg-dk-bg/60 dark:bg-dk-bg/60 border border-slate-200 dark:border-dk-border">
                         <div>
                             <p className="text-[12px] font-semibold text-slate-800 dark:text-dk-text">{tx(lang, {fr:"Activer la sous-traitance",ar:"تفعيل المقاولة من الباطن",en:"Activate subcontracting",es:"Activar subcontratación",pt:"Ativar subcontratação",tr:"Taşeronluğu etkinleştir"})}</p>
                             <p className="text-[11px] text-slate-400 dark:text-dk-muted">Remplace le calcul du temps par un prix fixe / pièce</p>
@@ -82,7 +82,7 @@ const SousTraitanceModal: React.FC<SousTraitanceModalProps> = ({ currency, value
                                     <button
                                         key={m.id}
                                         onClick={() => setMode(m.id)}
-                                        className={`text-left p-3 rounded-md border transition-all ${selected ? 'border-slate-900 dark:border-dk-accent bg-slate-50 dark:bg-dk-elevated/60 ring-1 ring-slate-900 dark:ring-dk-accent' : 'border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface hover:bg-slate-50 dark:hover:bg-dk-elevated/60'}`}
+                                        className={`text-left p-3 rounded-md border transition-all ${selected ? 'border-slate-900 dark:border-dk-accent bg-slate-50 dark:bg-dk-bg dark:bg-dk-elevated/60 ring-1 ring-slate-900 dark:ring-dk-accent' : 'border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface hover:bg-slate-50 dark:hover:bg-dk-elevated/60'}`}
                                     >
                                         <div className="flex items-center justify-between mb-1.5">
                                             <span className={`inline-flex items-center gap-1.5 text-[12px] font-semibold ${selected ? 'text-slate-900 dark:text-dk-accent' : 'text-slate-700 dark:text-dk-text-soft'}`}>
@@ -107,7 +107,7 @@ const SousTraitanceModal: React.FC<SousTraitanceModalProps> = ({ currency, value
                                     step="0.01"
                                     value={prixStr}
                                     onChange={(e) => setPrixStr(e.target.value)}
-                                    className="w-full h-9 pl-9 pr-3 bg-slate-50/60 dark:bg-dk-bg/60 hover:bg-slate-50 dark:hover:bg-dk-elevated/60 focus:bg-white dark:focus:bg-dk-surface border border-slate-200 dark:border-dk-border focus:border-slate-300 dark:focus:border-dk-accent rounded-md text-[13px] font-semibold text-slate-700 dark:text-dk-text focus:ring-2 focus:ring-slate-100 dark:focus:ring-dk-border outline-none transition-all tabular-nums"
+                                    className="w-full h-9 pl-9 pr-3 bg-slate-50 dark:bg-dk-bg/60 dark:bg-dk-bg/60 hover:bg-slate-50 dark:hover:bg-dk-elevated/60 focus:bg-white dark:focus:bg-dk-surface border border-slate-200 dark:border-dk-border focus:border-slate-300 dark:focus:border-dk-accent rounded-md text-[13px] font-semibold text-slate-700 dark:text-dk-text focus:ring-2 focus:ring-slate-100 dark:focus:ring-dk-border outline-none transition-all tabular-nums"
                                     placeholder="0.00"
                                 />
                                 <Coins className="w-3.5 h-3.5 text-slate-400 dark:text-dk-muted absolute left-3 top-1/2 -translate-y-1/2" strokeWidth={1.75} />

@@ -55,7 +55,7 @@ export function SaasInput({
         <input
           className={`
             w-full h-8 px-3 text-[12px] text-slate-700 dark:text-dk-text-soft
-            bg-slate-50/60 border border-slate-200 rounded-md dark:bg-dk-bg/60 dark:border-dk-border
+            bg-slate-50 dark:bg-dk-bg/60 border border-slate-200 rounded-md dark:bg-dk-bg/60 dark:border-dk-border
             placeholder:text-slate-400 dark:placeholder:text-dk-muted
             focus:bg-white focus:border-slate-300 focus:ring-2 focus:ring-slate-100 focus:outline-none dark:focus:bg-dk-surface dark:focus:border-dk-border dark:focus:ring-white/10
             transition-all duration-150
@@ -99,7 +99,7 @@ export function SaasTextarea({
       <textarea
         className={`
           w-full px-3 py-2 text-[12px] text-slate-700 dark:text-dk-text-soft
-          bg-slate-50/60 border border-slate-200 rounded-md dark:bg-dk-bg/60 dark:border-dk-border
+          bg-slate-50 dark:bg-dk-bg/60 border border-slate-200 rounded-md dark:bg-dk-bg/60 dark:border-dk-border
           placeholder:text-slate-400 dark:placeholder:text-dk-muted
           focus:bg-white focus:border-slate-300 focus:ring-2 focus:ring-slate-100 focus:outline-none dark:focus:bg-dk-surface dark:focus:border-dk-border dark:focus:ring-white/10
           transition-all duration-150

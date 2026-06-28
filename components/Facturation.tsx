@@ -46,16 +46,16 @@ export default function Facturation({ t }: FacturationProps) {
     const StatusBadge = ({ status }: { status: string }) => {
         const styles: Record<string, string> = {
             'BROUILLON': 'bg-gray-100 dark:bg-dk-elevated text-gray-700 dark:text-dk-text-soft border-gray-200 dark:border-dk-border',
-            'ENVOYEE': 'bg-blue-50 text-blue-700 border-blue-200',
-            'PAYEE': 'bg-emerald-50 text-emerald-700 border-emerald-200',
-            'PARTIELLEMENT': 'bg-amber-50 text-amber-700 border-amber-200',
-            'ANNULEE': 'bg-red-50 text-red-700 border-red-200',
-            'ACCEPTE': 'bg-emerald-50 text-emerald-700 border-emerald-200',
-            'REFUSE': 'bg-red-50 text-red-700 border-red-200',
+            'ENVOYEE': 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 border-blue-200',
+            'PAYEE': 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 border-emerald-200',
+            'PARTIELLEMENT': 'bg-amber-50 dark:bg-amber-900/30 text-amber-700 border-amber-200',
+            'ANNULEE': 'bg-red-50 dark:bg-red-900/30 text-red-700 border-red-200',
+            'ACCEPTE': 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 border-emerald-200',
+            'REFUSE': 'bg-red-50 dark:bg-red-900/30 text-red-700 border-red-200',
             'PREPARE': 'bg-gray-100 dark:bg-dk-elevated text-gray-700 dark:text-dk-text-soft border-gray-200 dark:border-dk-border',
-            'EXPEDIE': 'bg-blue-50 text-blue-700 border-blue-200',
-            'LIVRE': 'bg-emerald-50 text-emerald-700 border-emerald-200',
-            'RETOUR': 'bg-red-50 text-red-700 border-red-200'
+            'EXPEDIE': 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 border-blue-200',
+            'LIVRE': 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 border-emerald-200',
+            'RETOUR': 'bg-red-50 dark:bg-red-900/30 text-red-700 border-red-200'
         };
         return (
             <span className={`px-2.5 py-1 rounded-full text-xs font-medium border ${styles[status] || styles['BROUILLON']}`}>

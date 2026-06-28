@@ -161,7 +161,7 @@ export default function PlanningHeader({
                     <div className="px-3 pb-2 grid grid-cols-3 gap-1.5">
                         <MobileMenuBtn icon={Sparkles} label={tx(lang,{fr:"Auto",ar:"تلقائي",en:"Auto",es:"Auto",pt:"Auto",tr:"Otomatik"})} onClick={() => { setMobileMenuOpen(false); onAutoSchedule(); }} />
                         {onOptimizePlanning && (
-                            <MobileMenuBtn icon={Brain} label={tx(lang,{fr:"IA",ar:"ذكاء اصطناعي",en:"AI",es:"IA",pt:"IA",tr:"YZ"})} accent="text-purple-600" onClick={() => { setMobileMenuOpen(false); onOptimizePlanning(); }} />
+                            <MobileMenuBtn icon={Brain} label={tx(lang,{fr:"IA",ar:"ذكاء اصطناعي",en:"AI",es:"IA",pt:"IA",tr:"YZ"})} accent="text-purple-600 dark:text-purple-400" onClick={() => { setMobileMenuOpen(false); onOptimizePlanning(); }} />
                         )}
                         {onPrint && (
                             <MobileMenuBtn icon={Printer} label={tx(lang,{fr:"Imprimer",ar:"طباعة",en:"Print",es:"Imprimir",pt:"Imprimir",tr:"Yazdır"})} onClick={() => { setMobileMenuOpen(false); onPrint(); }} />

@@ -28,9 +28,9 @@ type Props = {
 
 const STATUS_LABEL: Record<string, string> = { OK: 'OK', PANNE: 'Panne', MAINT: 'Maintenance' };
 const STATUS_COLOR: Record<string, string> = {
-  OK: 'text-emerald-600 bg-emerald-50 border-emerald-200',
-  PANNE: 'text-rose-600 bg-rose-50 dark:bg-rose-950/30 border-rose-200',
-  MAINT: 'text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/30 border-amber-200',
+  OK: 'text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/30 border-emerald-200',
+  PANNE: 'text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-900/30 dark:bg-rose-950/30 border-rose-200',
+  MAINT: 'text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30 dark:bg-amber-950/30 border-amber-200',
 };
 
 export default function MachineQuickScanModal({ open, onClose, machineInstances, machines, chains, onAction }: Props) {
@@ -118,10 +118,10 @@ export default function MachineQuickScanModal({ open, onClose, machineInstances,
   const statusKey = (inst?.status || 'OK') as string;
 
   const ACTIONS: { kind: 'PANNE' | 'REPARE' | 'MAINT' | 'TRANSFER'; label: string; icon: React.ReactNode; color: string }[] = [
-    { kind: 'PANNE', label: 'Panne', icon: <AlertTriangle className="w-4 h-4" />, color: 'border-rose-200 bg-rose-50 dark:bg-rose-950/30 text-rose-700 hover:bg-rose-100' },
-    { kind: 'REPARE', label: 'Réparé', icon: <CheckCircle2 className="w-4 h-4" />, color: 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100' },
-    { kind: 'MAINT', label: 'Maintenance', icon: <Wrench className="w-4 h-4" />, color: 'border-amber-200 bg-amber-50 dark:bg-amber-950/30 text-amber-700 hover:bg-amber-100' },
-    { kind: 'TRANSFER', label: 'Transfert', icon: <ArrowRightLeft className="w-4 h-4" />, color: 'border-sky-200 bg-sky-50 text-sky-700 hover:bg-sky-100' },
+    { kind: 'PANNE', label: 'Panne', icon: <AlertTriangle className="w-4 h-4" />, color: 'border-rose-200 bg-rose-50 dark:bg-rose-900/30 dark:bg-rose-950/30 text-rose-700 hover:bg-rose-100' },
+    { kind: 'REPARE', label: 'Réparé', icon: <CheckCircle2 className="w-4 h-4" />, color: 'border-emerald-200 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 hover:bg-emerald-100' },
+    { kind: 'MAINT', label: 'Maintenance', icon: <Wrench className="w-4 h-4" />, color: 'border-amber-200 bg-amber-50 dark:bg-amber-900/30 dark:bg-amber-950/30 text-amber-700 hover:bg-amber-100' },
+    { kind: 'TRANSFER', label: 'Transfert', icon: <ArrowRightLeft className="w-4 h-4" />, color: 'border-sky-200 bg-sky-50 dark:bg-sky-900/30 text-sky-700 hover:bg-sky-100' },
   ];
 
   // Helper for translating ACTIONS labels
@@ -140,7 +140,7 @@ export default function MachineQuickScanModal({ open, onClose, machineInstances,
       <div className="bg-white dark:bg-dk-surface rounded-2xl shadow-2xl dark:shadow-dk-lg w-full max-w-md flex flex-col overflow-hidden">
         <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 dark:border-dk-border">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-indigo-100 text-indigo-600 dark:text-dk-accent-text flex items-center justify-center">
+            <div className="w-8 h-8 rounded-lg bg-indigo-100 text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text flex items-center justify-center">
               <ScanLine className="w-4 h-4" />
             </div>
             <h2 className="text-sm font-black text-slate-900 dark:text-dk-text tracking-tight">{tx(lang, { fr: 'Identifier une machine', ar: 'تحديد آلة', en: 'Identify a machine', es: 'Identificar una máquina', pt: 'Identificar uma máquina', tr: 'Bir makineyi tanımla' })}</h2>
@@ -181,7 +181,7 @@ export default function MachineQuickScanModal({ open, onClose, machineInstances,
                   <button
                     onClick={() => photoRef.current?.click()}
                     disabled={scanning}
-                    className="flex items-center justify-center gap-2 w-full py-3 rounded-xl border-2 border-dashed border-indigo-200 bg-indigo-50 dark:bg-dk-accent/20 text-indigo-600 dark:text-dk-accent-text text-[11px] font-black uppercase tracking-widest hover:bg-indigo-100 transition-colors disabled:opacity-50"
+                    className="flex items-center justify-center gap-2 w-full py-3 rounded-xl border-2 border-dashed border-indigo-200 bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text text-[11px] font-black uppercase tracking-widest hover:bg-indigo-100 transition-colors disabled:opacity-50"
                   >
                     <Camera className="w-4 h-4" />
                     {scanning ? tx(lang, { fr: 'Décodage...', ar: 'جارٍ فك الترميز...', en: 'Decoding...', es: 'Descodificando...', pt: 'A descodificar...', tr: 'Kod çözülüyor...' }) : tx(lang, { fr: 'Prendre une photo du QR', ar: 'التقط صورة لرمز QR', en: 'Take a QR photo', es: 'Tomar una foto del QR', pt: 'Tirar uma foto do QR', tr: 'QR fotoğrafı çek' })}
@@ -200,7 +200,7 @@ export default function MachineQuickScanModal({ open, onClose, machineInstances,
               )}
 
               {identifyError && (
-                <div className="flex items-center gap-2 p-3 rounded-xl bg-rose-50 dark:bg-rose-950/30 border border-rose-100 text-rose-600 text-xs font-bold">
+                <div className="flex items-center gap-2 p-3 rounded-xl bg-rose-50 dark:bg-rose-900/30 dark:bg-rose-950/30 border border-rose-100 text-rose-600 dark:text-rose-400 text-xs font-bold">
                   <AlertTriangle className="w-3.5 h-3.5 shrink-0" /> {identifyError}
                 </div>
               )}
@@ -282,7 +282,7 @@ export default function MachineQuickScanModal({ open, onClose, machineInstances,
 
           {done && (
             <div className="flex flex-col items-center justify-center gap-3 py-6">
-              <div className="w-12 h-12 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center">
+              <div className="w-12 h-12 rounded-full bg-emerald-100 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
                 <Check className="w-6 h-6" />
               </div>
               <div className="text-sm font-black text-slate-900 dark:text-dk-text">{tx(lang, { fr: 'Action enregistrée', ar: 'تم حفظ الإجراء', en: 'Action saved', es: 'Acción guardada', pt: 'Ação guardada', tr: 'İşlem kaydedildi' })}</div>

@@ -208,7 +208,7 @@ export default function MaterialArrivalTimeline({
         return (
             <div className={`p-4 rounded-xl bg-amber-500/10 border border-amber-500/20 text-slate-700 dark:text-dk-text-soft space-y-2 ${className}`}>
                 <div className="flex items-center gap-2 text-[12px] font-bold text-amber-800">
-                    <AlertTriangle className="h-4 w-4 shrink-0 text-amber-600" />
+                    <AlertTriangle className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
                     {tx(lang, {fr:"Modèle introuvable dans la bibliothèque",ar:"النموذج غير موجود في المكتبة",en:"Model not found in library",es:"Modelo no encontrado en biblioteca",pt:"Modelo não encontrado na biblioteca",tr:"Kütüphanede model bulunamadı"})}
                 </div>
                 <p className="text-[11px] leading-normal text-amber-700 font-medium">
@@ -239,7 +239,7 @@ export default function MaterialArrivalTimeline({
                 </div>
 
                 {actionError && (
-                    <div className="flex items-start gap-1.5 rounded-lg bg-red-50 p-2.5 text-[11px] text-red-800 border border-red-100">
+                    <div className="flex items-start gap-1.5 rounded-lg bg-red-50 dark:bg-red-900/30 p-2.5 text-[11px] text-red-800 border border-red-100">
                         <AlertCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
                         <div>{actionError}</div>
                     </div>
@@ -248,7 +248,7 @@ export default function MaterialArrivalTimeline({
                 {reservations.length > 0 ? (
                     <div className="space-y-3">
                         <div className="flex items-start gap-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20 backdrop-blur-sm p-2.5 text-[11px] text-emerald-800">
-                            <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600 mt-0.5" />
+                            <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400 mt-0.5" />
                             <div>
                                 <span className="font-bold">{tx(lang, {fr:"Stock réservé avec succès :",ar:"تم حجز المخزون بنجاح:",en:"Stock reserved successfully:",es:"Stock reservado con éxito:",pt:"Estoque reservado com sucesso:",tr:"Stok başarıyla rezerve edildi:"})}</span>
                                 <p className="mt-0.5 text-slate-600 dark:text-dk-text-soft">Ces matières sont verrouillées pour cet OF. Vous pouvez les déduire physiquement lors du lancement de la production.</p>
@@ -424,7 +424,7 @@ export default function MaterialArrivalTimeline({
 
             <div className="overflow-hidden rounded-xl border border-white/20 bg-white dark:bg-dk-surface/30 backdrop-blur-md shadow-sm">
                 <div className="flex items-center gap-2 border-b border-white/10 bg-white dark:bg-dk-surface/40 px-3 py-2 backdrop-blur-sm">
-                    <Package className="h-3.5 w-3.5 text-amber-600" aria-hidden />
+                    <Package className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" aria-hidden />
                     <span className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-dk-muted">
                         ETA par matière ({launchYmd ? plan.rows.length : lines.length})
                     </span>
@@ -453,7 +453,7 @@ export default function MaterialArrivalTimeline({
                                         <td className="max-w-[140px] truncate px-3 py-2 font-semibold text-slate-800 dark:text-dk-text">
                                             {row.name}
                                             {!row.matched && catalogProducts.length > 0 && (
-                                                <span className="ml-1 text-[9px] font-normal text-amber-600" title="Pas de correspondance catalogue">
+                                                <span className="ml-1 text-[9px] font-normal text-amber-600 dark:text-amber-400" title="Pas de correspondance catalogue">
                                                     ○
                                                 </span>
                                             )}

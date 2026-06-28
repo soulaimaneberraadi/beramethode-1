@@ -146,7 +146,7 @@ export default function SuiviEffectifsModal({ open, suivi, onClose, onConfirm }:
                     </p>
                     <div className="space-y-2">
                         {ROLE_KEYS.map((key, idx) => (
-                            <div key={key} className={`rounded-xl border p-2.5 space-y-1.5 ${isDark ? 'border-dk-border bg-dk-bg/80' : 'border-slate-100 dark:border-dk-border bg-slate-50/80'}`}>
+                            <div key={key} className={`rounded-xl border p-2.5 space-y-1.5 ${isDark ? 'border-dk-border bg-dk-bg/80' : 'border-slate-100 dark:border-dk-border bg-slate-50 dark:bg-dk-bg/80'}`}>
                                 <label className={`block text-[10px] font-black uppercase tracking-wider ${isDark ? 'text-dk-muted' : 'text-slate-500 dark:text-dk-muted'}`}>
                                     {ROLE_LABELS[key]}
                                 </label>
@@ -170,7 +170,7 @@ export default function SuiviEffectifsModal({ open, suivi, onClose, onConfirm }:
                                     />
                                     <button
                                         type="button"
-                                        className="text-[10px] font-bold text-rose-600 hover:underline shrink-0"
+                                        className="text-[10px] font-bold text-rose-600 dark:text-rose-400 hover:underline shrink-0"
                                         onClick={() => resetRole(key)}
                                     >
                                         {tx(lang, {fr:"Effacer",ar:"مسح",en:"Clear",es:"Limpiar",pt:"Limpar",tr:"Temizle"})}
@@ -180,7 +180,7 @@ export default function SuiviEffectifsModal({ open, suivi, onClose, onConfirm }:
                         ))}
                     </div>
                 </div>
-                <div className={`flex items-center justify-end gap-2 border-t px-4 py-3 ${isDark ? 'border-dk-border bg-dk-bg/80' : 'border-slate-100 dark:border-dk-border bg-slate-50/80'}`}>
+                <div className={`flex items-center justify-end gap-2 border-t px-4 py-3 ${isDark ? 'border-dk-border bg-dk-bg/80' : 'border-slate-100 dark:border-dk-border bg-slate-50 dark:bg-dk-bg/80'}`}>
                     <button
                         type="button"
                         onClick={onClose}

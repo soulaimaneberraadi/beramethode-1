@@ -66,9 +66,9 @@ export default function SaasUIDemo() {
       align: 'center',
       render: (v: string) => {
         const colors: Record<string, string> = {
-          OK: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-300 dark:border-emerald-700',
-          PANNE: 'bg-red-50 text-red-600 border-red-200 dark:bg-red-900/30 dark:text-red-300 dark:border-red-700',
-          MAINT: 'bg-amber-50 text-amber-600 border-amber-200 dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-700',
+          OK: 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-300 dark:border-emerald-700',
+          PANNE: 'bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 border-red-200 dark:bg-red-900/30 dark:text-red-300 dark:border-red-700',
+          MAINT: 'bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 border-amber-200 dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-700',
         };
         return (
           <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium border ${colors[v] || ''}`}>
@@ -81,7 +81,7 @@ export default function SaasUIDemo() {
   ];
 
   return (
-    <div className="min-h-screen bg-slate-50 p-4 sm:p-6 lg:p-8 space-y-6 max-w-7xl mx-auto dark:bg-dk-bg">
+    <div className="min-h-screen bg-slate-50 dark:bg-dk-bg p-4 sm:p-6 lg:p-8 space-y-6 max-w-7xl mx-auto dark:bg-dk-bg">
       {/* ─── Page Header ─── */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>

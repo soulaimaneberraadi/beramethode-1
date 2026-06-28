@@ -254,7 +254,7 @@ const OrderSimulation: React.FC<OrderSimulationProps> = ({
                 <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => setConfirmModal({ open: false, qty: '' })}>
                     <div className="bg-white dark:bg-dk-surface rounded-lg border border-slate-200 dark:border-dk-border shadow-sm w-full max-w-sm overflow-hidden animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
                         <div className="px-5 h-12 border-b border-slate-100 dark:border-dk-border flex items-center gap-2">
-                            <CheckCircle className="w-4 h-4 text-emerald-600" strokeWidth={1.75} />
+                            <CheckCircle className="w-4 h-4 text-emerald-600 dark:text-emerald-400" strokeWidth={1.75} />
                             <div>
                                 <h3 className="text-[13px] font-semibold text-slate-900 dark:text-dk-text tracking-tight">{tx(lang,{fr:'Confirmer réception',ar:'تأكيد الاستلام',en:'Confirm reception',es:'Confirmar recepción',pt:'Confirmar receção',tr:'Teslim almayı onayla'})}</h3>
                                 <p className="text-[11px] text-slate-400 dark:text-dk-muted">{confirmModal.mat.name}</p>
@@ -267,7 +267,7 @@ const OrderSimulation: React.FC<OrderSimulationProps> = ({
                                     type="number" min="0" step="0.01" autoFocus
                                     value={confirmModal.qty}
                                     onChange={(e) => setConfirmModal(c => ({ ...c, qty: e.target.value }))}
-                                    className="w-full h-9 px-3 bg-slate-50/60 hover:bg-slate-50 dark:hover:bg-dk-elevated/60 focus:bg-white border border-slate-200 dark:border-dk-border focus:border-slate-300 rounded-md text-[13px] font-semibold text-slate-700 dark:text-dk-text-soft focus:ring-2 focus:ring-slate-100 outline-none transition-all tabular-nums"
+                                    className="w-full h-9 px-3 bg-slate-50 dark:bg-dk-bg/60 hover:bg-slate-50 dark:hover:bg-dk-elevated/60 focus:bg-white border border-slate-200 dark:border-dk-border focus:border-slate-300 rounded-md text-[13px] font-semibold text-slate-700 dark:text-dk-text-soft focus:ring-2 focus:ring-slate-100 outline-none transition-all tabular-nums"
                                 />
                                 <p className="text-[10.5px] text-slate-400 dark:text-dk-muted mt-1.5">
                                     {tx(lang,{fr:'Besoin',ar:'الاحتياج',en:'Need',es:'Necesidad',pt:'Necessidade',tr:'İhtiyaç'})} : {fmt(confirmModal.mat.buyQty)} {confirmModal.mat.unit}. {tx(lang,{fr:'La quantité confirmée s\'ajoute au stock et lève « En attente » (BR pour le Planning).',ar:'الكمية المؤكدة تضاف إلى المخزون وترفع "قيد الانتظار" (أمر الإنتاج للتخطيط).',en:'The confirmed quantity adds to stock and clears "Pending" (BR for Planning).',es:'La cantidad confirmada se añade al stock y levanta "Pendiente" (BR para Planificación).',pt:'A quantidade confirmada é adicionada ao stock e levanta "Pendente" (BR para o Planeamento).',tr:'Onaylanan miktar stoğa eklenir ve "Beklemede" durumunu kaldırır (Planlama için BR).'})}
@@ -313,22 +313,22 @@ const OrderSimulation: React.FC<OrderSimulationProps> = ({
                             </div>
                             <div>
                                 <label className="block text-[10px] font-bold text-slate-500 dark:text-dk-muted uppercase mb-0.5">{tx(lang,{fr:'Désignation / Nom *',ar:'التسمية / الاسم *',en:'Designation / Name *',es:'Designación / Nombre *',pt:'Designação / Nome *',tr:'Tanım / Ad *'})}</label>
-                                <input type="text" value={quickAddForm.nom || ''} onChange={(e) => setQuickAddForm({ ...quickAddForm, nom: e.target.value })} className="w-full rounded px-1.5 py-1 text-[12px] outline-none transition-all focus:ring-1 focus:ring-slate-100 bg-slate-50 border border-slate-200 dark:border-dk-border text-slate-900 dark:text-dk-text focus:bg-white focus:border-slate-300 font-bold" placeholder={tx(lang,{fr:'Ex: Tissu Denim 12oz',ar:'مثال: قماش دنيم 12oz',en:'Ex: Denim Fabric 12oz',es:'Ej: Tela Denim 12oz',pt:'Ex: Tecido Denim 12oz',tr:'Örn: Denim Kumaş 12oz'})} />
+                                <input type="text" value={quickAddForm.nom || ''} onChange={(e) => setQuickAddForm({ ...quickAddForm, nom: e.target.value })} className="w-full rounded px-1.5 py-1 text-[12px] outline-none transition-all focus:ring-1 focus:ring-slate-100 bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border text-slate-900 dark:text-dk-text focus:bg-white focus:border-slate-300 font-bold" placeholder={tx(lang,{fr:'Ex: Tissu Denim 12oz',ar:'مثال: قماش دنيم 12oz',en:'Ex: Denim Fabric 12oz',es:'Ej: Tela Denim 12oz',pt:'Ex: Tecido Denim 12oz',tr:'Örn: Denim Kumaş 12oz'})} />
                             </div>
                             <div className="flex gap-3">
                                 <div className="flex-1">
                                     <label className="block text-[10px] font-bold text-slate-500 dark:text-dk-muted uppercase mb-0.5">{tx(lang,{fr:'Référence',ar:'المرجع',en:'Reference',es:'Referencia',pt:'Referência',tr:'Referans'})}</label>
-                                    <input type="text" value={quickAddForm.reference || ''} onChange={(e) => setQuickAddForm({ ...quickAddForm, reference: e.target.value })} className="w-full rounded px-1.5 py-1 text-[12px] outline-none transition-all focus:ring-1 focus:ring-slate-100 bg-slate-50 border border-slate-200 dark:border-dk-border text-slate-900 dark:text-dk-text focus:bg-white focus:border-slate-300" placeholder={tx(lang,{fr:'Ex: REF-001',ar:'مثال: REF-001',en:'Ex: REF-001',es:'Ej: REF-001',pt:'Ex: REF-001',tr:'Örn: REF-001'})} />
+                                    <input type="text" value={quickAddForm.reference || ''} onChange={(e) => setQuickAddForm({ ...quickAddForm, reference: e.target.value })} className="w-full rounded px-1.5 py-1 text-[12px] outline-none transition-all focus:ring-1 focus:ring-slate-100 bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border text-slate-900 dark:text-dk-text focus:bg-white focus:border-slate-300" placeholder={tx(lang,{fr:'Ex: REF-001',ar:'مثال: REF-001',en:'Ex: REF-001',es:'Ej: REF-001',pt:'Ex: REF-001',tr:'Örn: REF-001'})} />
                                 </div>
                                 <div className="flex-1">
                                     <label className="block text-[10px] font-bold text-slate-500 dark:text-dk-muted uppercase mb-0.5">{tx(lang,{fr:'Catégorie',ar:'الفئة',en:'Category',es:'Categoría',pt:'Categoria',tr:'Kategori'})}</label>
-                                    <select value={quickAddForm.categorie || 'tissu'} onChange={(e) => setQuickAddForm({ ...quickAddForm, categorie: e.target.value })} className="w-full rounded px-1.5 py-1 text-[12px] outline-none transition-all focus:ring-1 focus:ring-slate-100 bg-slate-50 border border-slate-200 dark:border-dk-border text-slate-900 dark:text-dk-text focus:bg-white focus:border-slate-300">
+                                    <select value={quickAddForm.categorie || 'tissu'} onChange={(e) => setQuickAddForm({ ...quickAddForm, categorie: e.target.value })} className="w-full rounded px-1.5 py-1 text-[12px] outline-none transition-all focus:ring-1 focus:ring-slate-100 bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border text-slate-900 dark:text-dk-text focus:bg-white focus:border-slate-300">
                                         {['tissu', 'fil', 'bouton', 'fermeture', 'etiquette', 'emballage', 'autre'].map(c => <option key={c} value={c}>{c}</option>)}
                                     </select>
                                 </div>
                                 <div className="w-1/3">
                                     <label className="block text-[10px] font-bold text-slate-500 dark:text-dk-muted uppercase mb-0.5">{tx(lang,{fr:'Unité',ar:'الوحدة',en:'Unit',es:'Unidad',pt:'Unidade',tr:'Birim'})}</label>
-                                    <select value={quickAddForm.unite || 'm'} onChange={(e) => setQuickAddForm({ ...quickAddForm, unite: e.target.value })} className="w-full rounded px-1.5 py-1 text-[12px] outline-none transition-all focus:ring-1 focus:ring-slate-100 bg-slate-50 border border-slate-200 dark:border-dk-border text-slate-900 dark:text-dk-text focus:bg-white focus:border-slate-300">
+                                    <select value={quickAddForm.unite || 'm'} onChange={(e) => setQuickAddForm({ ...quickAddForm, unite: e.target.value })} className="w-full rounded px-1.5 py-1 text-[12px] outline-none transition-all focus:ring-1 focus:ring-slate-100 bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border text-slate-900 dark:text-dk-text focus:bg-white focus:border-slate-300">
                                         {['m', 'kg', 'piece', 'cone', 'boite'].map(c => <option key={c} value={c}>{c}</option>)}
                                     </select>
                                 </div>
@@ -336,20 +336,20 @@ const OrderSimulation: React.FC<OrderSimulationProps> = ({
                             <div className="flex gap-3">
                                 <div className="flex-1">
                                     <label className="block text-[10px] font-bold text-slate-500 dark:text-dk-muted uppercase mb-0.5">{tx(lang,{fr:'Prix U. (DH)',ar:'السعر (درهم)',en:'Unit price (MAD)',es:'Precio U. (MAD)',pt:'Preço U. (MAD)',tr:'Birim fiyat (MAD)'})}</label>
-                                    <input type="number" min="0" step="0.01" value={quickAddForm.prixUnitaire || ''} onChange={(e) => setQuickAddForm({ ...quickAddForm, prixUnitaire: Number(e.target.value) })} className="w-full rounded px-1.5 py-1 text-[12px] outline-none transition-all focus:ring-1 focus:ring-slate-100 bg-slate-50 border border-slate-200 dark:border-dk-border text-slate-900 dark:text-dk-text focus:bg-white focus:border-slate-300 text-[#2149C1] font-semibold" />
+                                    <input type="number" min="0" step="0.01" value={quickAddForm.prixUnitaire || ''} onChange={(e) => setQuickAddForm({ ...quickAddForm, prixUnitaire: Number(e.target.value) })} className="w-full rounded px-1.5 py-1 text-[12px] outline-none transition-all focus:ring-1 focus:ring-slate-100 bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border text-slate-900 dark:text-dk-text focus:bg-white focus:border-slate-300 text-[#2149C1] font-semibold" />
                                 </div>
                                 <div className="flex-1">
                                     <label className="block text-[10px] font-bold text-slate-500 dark:text-dk-muted uppercase mb-0.5">{tx(lang,{fr:'Stock Initial',ar:'المخزون الأولي',en:'Initial stock',es:'Stock inicial',pt:'Stock inicial',tr:'Başlangıç stoğu'})}</label>
-                                    <input type="number" min="0" value={quickAddForm.stockActuel || ''} onChange={(e) => setQuickAddForm({ ...quickAddForm, stockActuel: Number(e.target.value) })} className="w-full rounded px-1.5 py-1 text-[12px] outline-none transition-all focus:ring-1 focus:ring-slate-100 bg-slate-50 border border-slate-200 dark:border-dk-border text-slate-900 dark:text-dk-text focus:bg-white focus:border-slate-300" />
+                                    <input type="number" min="0" value={quickAddForm.stockActuel || ''} onChange={(e) => setQuickAddForm({ ...quickAddForm, stockActuel: Number(e.target.value) })} className="w-full rounded px-1.5 py-1 text-[12px] outline-none transition-all focus:ring-1 focus:ring-slate-100 bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border text-slate-900 dark:text-dk-text focus:bg-white focus:border-slate-300" />
                                 </div>
                             </div>
                             <div className="pt-2 border-t border-slate-100 dark:border-dk-border">
                                 <label className="block text-[10px] font-bold text-slate-500 dark:text-dk-muted uppercase mb-0.5">{tx(lang,{fr:'Fournisseur',ar:'المورد',en:'Supplier',es:'Proveedor',pt:'Fornecedor',tr:'Tedarikçi'})}</label>
-                                <input type="text" value={quickAddForm.fournisseurNom || ''} onChange={(e) => setQuickAddForm({ ...quickAddForm, fournisseurNom: e.target.value })} className="w-full rounded px-1.5 py-1 text-[12px] outline-none transition-all focus:ring-1 focus:ring-slate-100 bg-slate-50 border border-slate-200 dark:border-dk-border text-slate-900 dark:text-dk-text focus:bg-white focus:border-slate-300" placeholder={tx(lang,{fr:'Nom du fournisseur',ar:'اسم المورد',en:'Supplier name',es:'Nombre del proveedor',pt:'Nome do fornecedor',tr:'Tedarikçi adı'})} />
+                                <input type="text" value={quickAddForm.fournisseurNom || ''} onChange={(e) => setQuickAddForm({ ...quickAddForm, fournisseurNom: e.target.value })} className="w-full rounded px-1.5 py-1 text-[12px] outline-none transition-all focus:ring-1 focus:ring-slate-100 bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border text-slate-900 dark:text-dk-text focus:bg-white focus:border-slate-300" placeholder={tx(lang,{fr:'Nom du fournisseur',ar:'اسم المورد',en:'Supplier name',es:'Nombre del proveedor',pt:'Nome do fornecedor',tr:'Tedarikçi adı'})} />
                             </div>
                             <div>
                                 <label className="block text-[10px] font-bold text-slate-500 dark:text-dk-muted uppercase mb-0.5">{tx(lang,{fr:'Délai Livraison (Jours)',ar:'مدة التسليم (أيام)',en:'Delivery time (Days)',es:'Plazo de entrega (días)',pt:'Prazo de entrega (dias)',tr:'Teslim süresi (Gün)'})}</label>
-                                <input type="number" min="0" value={quickAddForm.fournisseurDelaiLivraisonJours || ''} onChange={(e) => setQuickAddForm({ ...quickAddForm, fournisseurDelaiLivraisonJours: Number(e.target.value) })} className="w-full rounded px-1.5 py-1 text-[12px] outline-none transition-all focus:ring-1 focus:ring-slate-100 bg-slate-50 border border-slate-200 dark:border-dk-border text-slate-900 dark:text-dk-text focus:bg-white focus:border-slate-300" placeholder={tx(lang,{fr:'Ex: 14',ar:'مثال: 14',en:'Ex: 14',es:'Ej: 14',pt:'Ex: 14',tr:'Örn: 14'})} />
+                                <input type="number" min="0" value={quickAddForm.fournisseurDelaiLivraisonJours || ''} onChange={(e) => setQuickAddForm({ ...quickAddForm, fournisseurDelaiLivraisonJours: Number(e.target.value) })} className="w-full rounded px-1.5 py-1 text-[12px] outline-none transition-all focus:ring-1 focus:ring-slate-100 bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border text-slate-900 dark:text-dk-text focus:bg-white focus:border-slate-300" placeholder={tx(lang,{fr:'Ex: 14',ar:'مثال: 14',en:'Ex: 14',es:'Ej: 14',pt:'Ex: 14',tr:'Örn: 14'})} />
                             </div>
                         </div>
                         <div className="mt-4 pt-3 border-t border-slate-100 dark:border-dk-border flex justify-end gap-2">
@@ -372,7 +372,7 @@ const OrderSimulation: React.FC<OrderSimulationProps> = ({
 
                 <div className="flex gap-2">
                     {/* Waste Input */}
-                    <div className={`flex items-center gap-2 h-8 rounded-md px-2.5 border transition-all focus-within:ring-2 focus-within:ring-slate-100 ${darkMode ? 'bg-gray-900 border-gray-700' : 'bg-slate-50/60 border-slate-200 dark:border-dk-border'}`}>
+                    <div className={`flex items-center gap-2 h-8 rounded-md px-2.5 border transition-all focus-within:ring-2 focus-within:ring-slate-100 ${darkMode ? 'bg-gray-900 border-gray-700' : 'bg-slate-50 dark:bg-dk-bg/60 border-slate-200 dark:border-dk-border'}`}>
                         <span className={`text-[11px] font-medium ${textSecondary}`}>{t.waste}</span>
                         <div className="h-4 w-px bg-slate-200 dark:bg-gray-700"></div>
                         <NumberInput
@@ -387,7 +387,7 @@ const OrderSimulation: React.FC<OrderSimulationProps> = ({
                     {/* Qté Totale = quantité RÉELLE de la commande (somme du tableau de
                         répartition). Verrouillée : on ne peut pas la modifier à la main
                         pour que le coût reste toujours basé sur la vraie commande. */}
-                    <div className={`flex items-center gap-2 h-8 rounded-md px-2.5 border ${darkMode ? 'bg-gray-900 border-gray-700' : 'bg-slate-50/60 border-slate-200 dark:border-dk-border'}`} title={tx(lang,{fr:'Quantité de la commande (verrouillée — définie par le tableau de répartition)',ar:'كمية الطلب (مقفلة — محددة بجدول التوزيع)',en:'Order quantity (locked — defined by the distribution table)',es:'Cantidad del pedido (bloqueada — definida por la tabla de distribución)',pt:'Quantidade da encomenda (bloqueada — definida pela tabela de distribuição)',tr:'Sipariş miktarı (kilitli — dağıtım tablosu tarafından belirlenir)'})}>
+                    <div className={`flex items-center gap-2 h-8 rounded-md px-2.5 border ${darkMode ? 'bg-gray-900 border-gray-700' : 'bg-slate-50 dark:bg-dk-bg/60 border-slate-200 dark:border-dk-border'}`} title={tx(lang,{fr:'Quantité de la commande (verrouillée — définie par le tableau de répartition)',ar:'كمية الطلب (مقفلة — محددة بجدول التوزيع)',en:'Order quantity (locked — defined by the distribution table)',es:'Cantidad del pedido (bloqueada — definida por la tabla de distribución)',pt:'Quantidade da encomenda (bloqueada — definida pela tabela de distribuição)',tr:'Sipariş miktarı (kilitli — dağıtım tablosu tarafından belirlenir)'})}>
                         <span className={`text-[11px] font-medium ${textSecondary}`}>{tx(lang,{fr:'Qté Totale',ar:'الكمية الإجمالية',en:'Total Qty',es:'Cant. Total',pt:'Qtd Total',tr:'Toplam Miktar'})}</span>
                         <div className="h-4 w-px bg-slate-200 dark:bg-gray-700"></div>
                         <span className={`w-14 text-center text-[13px] font-semibold tabular-nums ${darkMode ? 'text-slate-200' : 'text-slate-900 dark:text-dk-text'}`}>
@@ -402,7 +402,7 @@ const OrderSimulation: React.FC<OrderSimulationProps> = ({
 
                 {/* Purchasing Table */}
                 <div className={`rounded-lg border overflow-hidden ${darkMode ? 'bg-gray-900 border-gray-700' : 'bg-white dark:bg-dk-surface border-slate-200 dark:border-dk-border'}`}>
-                    <div className={`px-4 h-9 flex items-center text-[11px] font-medium uppercase tracking-wide border-b ${darkMode ? 'bg-gray-800 text-slate-400 dark:text-dk-muted border-gray-700' : 'bg-slate-50/60 text-slate-500 dark:text-dk-muted border-slate-100 dark:border-dk-border'}`}>
+                    <div className={`px-4 h-9 flex items-center text-[11px] font-medium uppercase tracking-wide border-b ${darkMode ? 'bg-gray-800 text-slate-400 dark:text-dk-muted border-gray-700' : 'bg-slate-50 dark:bg-dk-bg/60 text-slate-500 dark:text-dk-muted border-slate-100 dark:border-dk-border'}`}>
                         {tx(lang,{fr:'Détail des Achats (Matière Première)',ar:'تفاصيل المشتريات (المواد الخام)',en:'Purchase details (Raw materials)',es:'Detalle de compras (Materia prima)',pt:'Detalhe das compras (Matéria-prima)',tr:'Satın alma detayı (Hammadde)'})}
                     </div>
                     <div className="md:overflow-x-auto">
@@ -412,9 +412,9 @@ const OrderSimulation: React.FC<OrderSimulationProps> = ({
                                 <th className="px-4 py-2.5 text-left font-medium">{t.matName}</th>
                                 <th className="px-4 py-2.5 text-center font-medium">{t.price}</th>
                                 <th className="px-4 py-2.5 text-center font-medium">{tx(lang,{fr:'Besoin Total',ar:'الاحتياج الإجمالي',en:'Total need',es:'Necesidad total',pt:'Necessidade total',tr:'Toplam ihtiyaç'})}</th>
-                                <th className="px-4 py-2.5 text-center font-medium border-l border-slate-100 dark:border-dk-border bg-slate-50/40">{tx(lang,{fr:'En Stock',ar:'في المخزون',en:'In Stock',es:'En Stock',pt:'Em Stock',tr:'Stokta'})}</th>
-                                <th className="px-4 py-2.5 text-center font-medium bg-slate-50/40">{tx(lang,{fr:'Manque',ar:'النقص',en:'Shortage',es:'Déficit',pt:'Falta',tr:'Eksiklik'})}</th>
-                                <th className="px-4 py-2.5 text-center font-medium bg-slate-50/40">{tx(lang,{fr:'Fournisseur / Délais',ar:'المورد / المهل',en:'Supplier / Lead times',es:'Proveedor / Plazos',pt:'Fornecedor / Prazos',tr:'Tedarikçi / Teslim süreleri'})}</th>
+                                <th className="px-4 py-2.5 text-center font-medium border-l border-slate-100 dark:border-dk-border bg-slate-50 dark:bg-dk-bg/40">{tx(lang,{fr:'En Stock',ar:'في المخزون',en:'In Stock',es:'En Stock',pt:'Em Stock',tr:'Stokta'})}</th>
+                                <th className="px-4 py-2.5 text-center font-medium bg-slate-50 dark:bg-dk-bg/40">{tx(lang,{fr:'Manque',ar:'النقص',en:'Shortage',es:'Déficit',pt:'Falta',tr:'Eksiklik'})}</th>
+                                <th className="px-4 py-2.5 text-center font-medium bg-slate-50 dark:bg-dk-bg/40">{tx(lang,{fr:'Fournisseur / Délais',ar:'المورد / المهل',en:'Supplier / Lead times',es:'Proveedor / Plazos',pt:'Fornecedor / Prazos',tr:'Tedarikçi / Teslim süreleri'})}</th>
                                 <th className="px-4 py-2.5 text-right font-medium text-slate-700 dark:text-dk-text-soft border-l border-slate-100 dark:border-dk-border">{t.total}</th>
                             </tr>
                         </thead>
@@ -450,11 +450,11 @@ const OrderSimulation: React.FC<OrderSimulationProps> = ({
                                                     {fmt(m.qtyToBuy)} {m.unit}
                                                 </span>
                                             </td>
-                                            <td className={`flex md:table-cell items-center justify-between px-4 py-1.5 md:py-3 md:text-center md:border-l ${originalStockActuel > 0 ? 'text-emerald-600' : 'text-slate-400 dark:text-dk-muted'} font-bold md:bg-slate-50/30`}>
+                                            <td className={`flex md:table-cell items-center justify-between px-4 py-1.5 md:py-3 md:text-center md:border-l ${originalStockActuel > 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400 dark:text-dk-muted'} font-bold md:bg-slate-50/30`}>
                                                 <span className="md:hidden text-[10px] font-semibold uppercase tracking-wide text-slate-400 dark:text-dk-muted">{tx(lang,{fr:'En Stock',ar:'في المخزون',en:'In Stock',es:'En Stock',pt:'Em Stock',tr:'Stokta'})}</span>
                                                 <span>{fmt(originalStockActuel)} {m.unit}</span>
                                             </td>
-                                            <td className={`flex md:table-cell items-center justify-between px-4 py-1.5 md:py-3 md:text-center font-bold md:bg-slate-50/30 ${hasAlert ? 'text-rose-600' : 'text-slate-300 dark:text-dk-muted'}`}>
+                                            <td className={`flex md:table-cell items-center justify-between px-4 py-1.5 md:py-3 md:text-center font-bold md:bg-slate-50/30 ${hasAlert ? 'text-rose-600 dark:text-rose-400' : 'text-slate-300 dark:text-dk-muted'}`}>
                                                 <span className="md:hidden text-[10px] font-semibold uppercase tracking-wide text-slate-400 dark:text-dk-muted">{tx(lang,{fr:'Manque',ar:'النقص',en:'Shortage',es:'Déficit',pt:'Falta',tr:'Eksiklik'})}</span>
                                                 <div className="flex flex-row md:flex-col items-center justify-end md:justify-center gap-1">
                                                     <div className="flex items-center gap-1">
@@ -487,21 +487,21 @@ const OrderSimulation: React.FC<OrderSimulationProps> = ({
                                             </td>
                                         </tr>
                                         {rowSubs.map((sub, idx) => (
-                                            <tr key={`${m.id}-sub-${idx}`} className="block md:table-row bg-amber-50/60 border border-dashed md:border-0 md:border-t border-amber-200 rounded-xl md:rounded-none mb-3 md:mb-0 p-2 md:p-0">
+                                            <tr key={`${m.id}-sub-${idx}`} className="block md:table-row bg-amber-50 dark:bg-amber-900/30/60 border border-dashed md:border-0 md:border-t border-amber-200 rounded-xl md:rounded-none mb-3 md:mb-0 p-2 md:p-0">
                                                 <td className="block md:table-cell px-4 py-2 text-[11px] text-amber-800 flex items-center gap-2 font-bold">
                                                     <div className="w-3 h-3 border-l-2 border-b-2 border-amber-400 md:ml-4 rounded-bl"></div>
                                                     {tx(lang,{fr:'Substitut',ar:'بديل',en:'Substitute',es:'Sustituto',pt:'Substituto',tr:'Yedek'})}: {sub.subName}
                                                 </td>
-                                                <td className="hidden md:table-cell px-4 py-2 text-center text-amber-600/70">—</td>
-                                                <td className="flex md:table-cell items-center justify-between px-4 py-1.5 md:py-2 md:text-center font-bold text-amber-600">
+                                                <td className="hidden md:table-cell px-4 py-2 text-center text-amber-600 dark:text-amber-400/70">—</td>
+                                                <td className="flex md:table-cell items-center justify-between px-4 py-1.5 md:py-2 md:text-center font-bold text-amber-600 dark:text-amber-400">
                                                     <span className="md:hidden text-[10px] font-semibold uppercase tracking-wide text-amber-700/60">{tx(lang,{fr:'Besoin Total',ar:'الاحتياج الإجمالي',en:'Total Need',es:'Necesidad Total',pt:'Necessidade Total',tr:'Toplam İhtiyaç'})}</span>
                                                     <span>+{fmt(sub.qty)} {m.unit}</span>
                                                 </td>
-                                                <td className="hidden md:table-cell px-4 py-2 border-l bg-slate-50/10"></td>
-                                                <td className="hidden md:table-cell px-4 py-2 bg-slate-50/10"></td>
-                                                <td className="hidden md:table-cell px-4 py-2 bg-slate-50/10"></td>
+                                                <td className="hidden md:table-cell px-4 py-2 border-l bg-slate-50 dark:bg-dk-bg/10"></td>
+                                                <td className="hidden md:table-cell px-4 py-2 bg-slate-50 dark:bg-dk-bg/10"></td>
+                                                <td className="hidden md:table-cell px-4 py-2 bg-slate-50 dark:bg-dk-bg/10"></td>
                                                 <td className="flex md:table-cell items-center justify-end px-4 py-1.5 md:py-2 md:border-l md:text-right">
-                                                    <button onClick={() => setSubstitutes(prev => prev.filter(x => x !== sub))} className="text-[10px] font-bold text-rose-500 hover:text-rose-700 px-2 py-0.5 bg-rose-50 hover:bg-rose-100 rounded transition-colors shadow-sm">{tx(lang,{fr:'Retirer',ar:'إزالة',en:'Remove',es:'Retirar',pt:'Remover',tr:'Kaldır'})}</button>
+                                                    <button onClick={() => setSubstitutes(prev => prev.filter(x => x !== sub))} className="text-[10px] font-bold text-rose-500 hover:text-rose-700 px-2 py-0.5 bg-rose-50 dark:bg-rose-900/30 hover:bg-rose-100 rounded transition-colors shadow-sm">{tx(lang,{fr:'Retirer',ar:'إزالة',en:'Remove',es:'Retirar',pt:'Remover',tr:'Kaldır'})}</button>
                                                 </td>
                                             </tr>
                                         ))}
@@ -518,7 +518,7 @@ const OrderSimulation: React.FC<OrderSimulationProps> = ({
                     <div className={`rounded-lg border overflow-hidden ${darkMode ? 'bg-gray-900 border-gray-700' : 'bg-white dark:bg-dk-surface border-slate-200 dark:border-dk-border'}`}>
                         <button
                             onClick={() => setShowPididoBreakdown(!showPididoBreakdown)}
-                            className={`w-full px-4 h-9 flex items-center justify-between text-[11px] font-medium uppercase tracking-wide border-b ${darkMode ? 'bg-gray-800 text-slate-400 dark:text-dk-muted border-gray-700' : 'bg-slate-50/60 text-slate-500 dark:text-dk-muted border-slate-100 dark:border-dk-border'}`}
+                            className={`w-full px-4 h-9 flex items-center justify-between text-[11px] font-medium uppercase tracking-wide border-b ${darkMode ? 'bg-gray-800 text-slate-400 dark:text-dk-muted border-gray-700' : 'bg-slate-50 dark:bg-dk-bg/60 text-slate-500 dark:text-dk-muted border-slate-100 dark:border-dk-border'}`}
                         >
                             <span className="flex items-center gap-2">
                                 <Palette className="w-3.5 h-3.5" strokeWidth={1.75} />
@@ -578,19 +578,19 @@ const OrderSimulation: React.FC<OrderSimulationProps> = ({
                                                             </td>
                                                             <td className="px-2 py-1.5 text-center">
                                                                 {m.isDelivered ? (
-                                                                    <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">
+                                                                    <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/30 px-2 py-0.5 rounded-full">
                                                                         <CheckCircle className="w-3 h-3" /> {tx(lang,{fr:'Stock OK',ar:'المخزون كافٍ',en:'Stock OK',es:'Stock OK',pt:'Stock OK',tr:'Stok Tam'})}
                                                                     </span>
                                                                 ) : m.isPartial ? (
                                                                     <span className="inline-flex flex-col items-center gap-0.5">
-                                                                        <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full">
+                                                                        <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30 px-2 py-0.5 rounded-full">
                                                                             <AlertTriangle className="w-3 h-3" /> {tx(lang,{fr:'Partiel',ar:'جزئي',en:'Partial',es:'Parcial',pt:'Parcial',tr:'Kısmi'})}
                                                                         </span>
-                                                                        <span className="text-[9px] text-amber-600/80 font-medium">{tx(lang,{fr:`couvre ${fmt(m.piecesCouvertes)} pcs · manque ${fmt(m.manque)} ${m.unit}`,ar:`يغطي ${fmt(m.piecesCouvertes)} قطعة · نقص ${fmt(m.manque)} ${m.unit}`,en:`covers ${fmt(m.piecesCouvertes)} pcs · shortage ${fmt(m.manque)} ${m.unit}`,es:`cubre ${fmt(m.piecesCouvertes)} pcs · déficit ${fmt(m.manque)} ${m.unit}`,pt:`cobre ${fmt(m.piecesCouvertes)} pcs · falta ${fmt(m.manque)} ${m.unit}`,tr:`${fmt(m.piecesCouvertes)} adet kapsar · eksiklik ${fmt(m.manque)} ${m.unit}`})}</span>
+                                                                        <span className="text-[9px] text-amber-600 dark:text-amber-400/80 font-medium">{tx(lang,{fr:`couvre ${fmt(m.piecesCouvertes)} pcs · manque ${fmt(m.manque)} ${m.unit}`,ar:`يغطي ${fmt(m.piecesCouvertes)} قطعة · نقص ${fmt(m.manque)} ${m.unit}`,en:`covers ${fmt(m.piecesCouvertes)} pcs · shortage ${fmt(m.manque)} ${m.unit}`,es:`cubre ${fmt(m.piecesCouvertes)} pcs · déficit ${fmt(m.manque)} ${m.unit}`,pt:`cobre ${fmt(m.piecesCouvertes)} pcs · falta ${fmt(m.manque)} ${m.unit}`,tr:`${fmt(m.piecesCouvertes)} adet kapsar · eksiklik ${fmt(m.manque)} ${m.unit}`})}</span>
                                                                     </span>
                                                                 ) : (
                                                                     <span className="inline-flex flex-col items-center gap-0.5">
-                                                                        <span className="inline-flex items-center gap-1 text-[10px] font-bold text-rose-600 bg-rose-50 px-2 py-0.5 rounded-full">
+                                                                        <span className="inline-flex items-center gap-1 text-[10px] font-bold text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-900/30 px-2 py-0.5 rounded-full">
                                                                             <Clock className="w-3 h-3" /> {tx(lang,{fr:'En attente',ar:'قيد الانتظار',en:'Pending',es:'Pendiente',pt:'Pendente',tr:'Beklemede'})}
                                                                         </span>
                                                                         <span className="text-[9px] text-rose-500/80 font-medium">{tx(lang,{fr:`manque ${fmt(m.manque)} ${m.unit}`,ar:`نقص ${fmt(m.manque)} ${m.unit}`,en:`shortage ${fmt(m.manque)} ${m.unit}`,es:`déficit ${fmt(m.manque)} ${m.unit}`,pt:`falta ${fmt(m.manque)} ${m.unit}`,tr:`eksiklik ${fmt(m.manque)} ${m.unit}`})}</span>
@@ -603,7 +603,7 @@ const OrderSimulation: React.FC<OrderSimulationProps> = ({
                                                                     {!m.isDelivered && modelId && (
                                                                         <button
                                                                             onClick={(e) => { e.stopPropagation(); setConfirmModal({ open: true, mat: m, qty: String(Math.round(m.buyQty)) }); }}
-                                                                            className="inline-flex items-center gap-1 text-[10px] font-medium text-emerald-700 border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 h-6 px-2 rounded-md transition-colors whitespace-nowrap"
+                                                                            className="inline-flex items-center gap-1 text-[10px] font-medium text-emerald-700 border border-emerald-200 bg-emerald-50 dark:bg-emerald-900/30 hover:bg-emerald-100 h-6 px-2 rounded-md transition-colors whitespace-nowrap"
                                                                             title={tx(lang,{fr:'Confirmer la réception → ajoute au stock',ar:'تأكيد الاستلام → يضاف إلى المخزون',en:'Confirm reception → adds to stock',es:'Confirmar recepción → añade al stock',pt:'Confirmar receção → adiciona ao stock',tr:'Teslim almayı onayla → stoğa ekler'})}
                                                                         >
                                                                             <CheckCircle className="w-3 h-3" /> {tx(lang,{fr:'Reçu',ar:'تم الاستلام',en:'Received',es:'Recibido',pt:'Recebido',tr:'Teslim Alındı'})}

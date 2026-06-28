@@ -944,8 +944,8 @@ export default function CostCalculator({
     const bgCardHeader = darkMode ? 'bg-dk-surface border-dk-border' : 'bg-white dark:bg-dk-surface border-slate-100 dark:border-dk-border';
     const textPrimary = darkMode ? 'text-dk-text' : 'text-slate-800 dark:text-dk-text';
     const textSecondary = darkMode ? 'text-dk-muted' : 'text-slate-500 dark:text-dk-muted';
-    const inputBg = darkMode ? 'bg-dk-bg border-dk-border text-dk-text' : 'bg-slate-50/60 border-slate-200 dark:border-dk-border text-slate-900 dark:text-dk-text';
-    const tableHeader = 'bg-slate-50/60 text-slate-500 dark:text-dk-muted';
+    const inputBg = darkMode ? 'bg-dk-bg border-dk-border text-dk-text' : 'bg-slate-50 dark:bg-dk-bg/60 border-slate-200 dark:border-dk-border text-slate-900 dark:text-dk-text';
+    const tableHeader = 'bg-slate-50 dark:bg-dk-bg/60 text-slate-500 dark:text-dk-muted';
     const tableRowHover = 'hover:bg-slate-50/50';
 
     return (
@@ -1060,7 +1060,7 @@ export default function CostCalculator({
                         <h1 className={`text-[13px] sm:text-[15px] font-semibold tracking-tight text-slate-900 dark:text-dk-text`}>{tx(lang,{fr:'Fiche de Coût',ar:'بطاقة التكلفة',en:'Cost Sheet',es:'Hoja de Costo',pt:'Ficha de Custo',tr:'Maliyet Fişi'})}</h1>
                         <span className="text-[10px] sm:text-[12px] text-slate-400 dark:text-dk-muted">{tx(lang,{fr:'Prix & marges',ar:'السعر والهوامش',en:'Price & margins',es:'Precio y márgenes',pt:'Preço e margens',tr:'Fiyat ve marjlar'})}</span>
                         {ficheData.typeMarche === 'Export' && (
-                            <span className="inline-flex items-center gap-1 bg-amber-50 text-amber-700 border border-amber-200 text-[9px] sm:text-[10px] px-1.5 sm:px-2 py-0.5 rounded font-medium">
+                            <span className="inline-flex items-center gap-1 bg-amber-50 dark:bg-amber-900/30 text-amber-700 border border-amber-200 text-[9px] sm:text-[10px] px-1.5 sm:px-2 py-0.5 rounded font-medium">
                                 Export · Main d'œuvre seule
                             </span>
                         )}
@@ -1215,7 +1215,7 @@ export default function CostCalculator({
                                 <div className="p-5 flex flex-col md:flex-row gap-6">
                                     <div className="flex-1 flex flex-col">
                                         <h4 className="text-[11px] font-medium text-slate-500 dark:text-dk-muted mb-3">Simulateur de Marge</h4>
-                                        <div className="bg-slate-50/60 p-4 rounded-md border border-slate-200 dark:border-dk-border">
+                                        <div className="bg-slate-50 dark:bg-dk-bg/60 p-4 rounded-md border border-slate-200 dark:border-dk-border">
                                             <div className="flex justify-between items-center mb-2.5">
                                                 <span className="text-[12px] text-slate-600 dark:text-dk-text-soft">Marge Atelier ciblée</span>
                                                 <span className="text-[15px] font-semibold text-slate-900 dark:text-dk-text tabular-nums">{settings.marginAtelier}%</span>
@@ -1270,14 +1270,14 @@ export default function CostCalculator({
 
                     <div className="w-full">
                         <div className={`rounded-lg border overflow-hidden flex flex-col bg-white dark:bg-dk-surface border-slate-200 dark:border-dk-border`}>
-                            <div className={`p-1.5 border-b flex gap-1 bg-slate-50/60 border-slate-100 dark:border-dk-border print:hidden`}>
+                            <div className={`p-1.5 border-b flex gap-1 bg-slate-50 dark:bg-dk-bg/60 border-slate-100 dark:border-dk-border print:hidden`}>
                                 <button onClick={() => setViewMode('ticket')} className={`flex-1 flex items-center justify-center gap-1.5 h-8 rounded-md text-[12px] font-medium transition-all ${viewMode === 'ticket' ? 'bg-white dark:bg-dk-surface text-slate-900 dark:text-dk-text shadow-[0_1px_2px_rgba(15,23,42,0.06)]' : `text-slate-500 hover:text-slate-700`}`}><Receipt className="w-3.5 h-3.5" strokeWidth={1.75} /> {t.viewTicket}</button>
                                 <button onClick={() => setViewMode('a4')} className={`flex-1 flex items-center justify-center gap-1.5 h-8 rounded-md text-[12px] font-medium transition-all ${viewMode === 'a4' ? 'bg-white dark:bg-dk-surface text-slate-900 dark:text-dk-text shadow-[0_1px_2px_rgba(15,23,42,0.06)]' : `text-slate-500 hover:text-slate-700`}`}><FileText className="w-3.5 h-3.5" strokeWidth={1.75} /> Export Fiche A4 ({t.viewDoc})</button>
                             </div>
 
                             {viewMode === 'ticket' && (
                                 <>
-                                    <div className={`px-5 h-12 border-b flex justify-between items-center bg-slate-50/60 border-slate-100 dark:border-dk-border print:hidden`}>
+                                    <div className={`px-5 h-12 border-b flex justify-between items-center bg-slate-50 dark:bg-dk-bg/60 border-slate-100 dark:border-dk-border print:hidden`}>
                                         <h2 className={`text-[13px] font-semibold text-slate-900 dark:text-dk-text`}>{tx(lang,{fr:'Ticket de Coût',ar:'تذكرة التكلفة',en:'Cost Ticket',es:'Ticket de Costo',pt:'Ticket de Custo',tr:'Maliyet Fişi'})}</h2>
                                         <div className="flex gap-1.5">
                                             <button onClick={() => setShowPdfModal(true)} className="inline-flex items-center gap-1.5 h-8 px-3 text-[12px] font-medium rounded-md bg-slate-900 hover:bg-slate-800 text-white transition-colors" title={tx(lang,{fr:'Exporter (PDF) ou imprimer le ticket',ar:'تصدير (PDF) أو طباعة التذكرة',en:'Export (PDF) or print the ticket',es:'Exportar (PDF) o imprimir el ticket',pt:'Exportar (PDF) ou imprimir o ticket',tr:'Dışa aktar (PDF) veya fişi yazdır'})}><FileDown className="w-3.5 h-3.5" strokeWidth={1.75} /> {tx(lang,{fr:'Exporter / Imprimer',ar:'تصدير / طباعة',en:'Export / Print',es:'Exportar / Imprimir',pt:'Exportar / Imprimir',tr:'Dışa Aktar / Yazdır'})}</button>
@@ -1300,7 +1300,7 @@ export default function CostCalculator({
 
                             {viewMode === 'a4' && (
                                 <>
-                                    <div className={`px-5 h-12 border-b flex justify-between items-center bg-slate-50/60 border-slate-100 dark:border-dk-border print:hidden`}>
+                                    <div className={`px-5 h-12 border-b flex justify-between items-center bg-slate-50 dark:bg-dk-bg/60 border-slate-100 dark:border-dk-border print:hidden`}>
                                         <h2 className={`text-[13px] font-semibold text-slate-900 dark:text-dk-text`}>Fiche de Coût A4</h2>
                                         <div className="flex items-center gap-2">
                                              {mainTotalPages > 1 && (

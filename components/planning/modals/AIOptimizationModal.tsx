@@ -136,12 +136,12 @@ export default function AIOptimizationModal({
             )}
 
             {error && (
-                <div className="rounded-lg border border-red-100 dark:border-red-900/30 bg-red-50/50 dark:bg-red-900/10 p-4 space-y-2">
+                <div className="rounded-lg border border-red-100 dark:border-red-900/30 bg-red-50 dark:bg-red-900/30/50 dark:bg-red-900/10 p-4 space-y-2">
                     <div className="flex items-center gap-2 text-red-700 dark:text-red-400">
                         <AlertTriangle className="w-4 h-4 shrink-0" />
                         <span className="text-[12px] font-semibold">{tx(lang,{fr:'Une erreur est survenue',ar:'حدث خطأ',en:'An error occurred',es:'Ocurrió un error',pt:'Ocorreu um erro',tr:'Bir hata oluştu'})}</span>
                     </div>
-                    <p className="text-[12px] text-red-600 dark:text-red-300 leading-relaxed">{error}</p>
+                    <p className="text-[12px] text-red-600 dark:text-red-400 dark:text-red-300 leading-relaxed">{error}</p>
                 </div>
             )}
 

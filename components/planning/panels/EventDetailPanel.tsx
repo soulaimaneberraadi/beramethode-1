@@ -19,9 +19,9 @@ const getExtendedStatusMeta = (status: string | undefined, lang: string) => {
             label: 'Proc. Externe',
             dot: 'bg-amber-500',
             text: 'text-amber-700',
-            bg: 'bg-amber-50',
+            bg: 'bg-amber-50 dark:bg-amber-900/30',
             border: 'border-amber-200/50',
-            softBg: 'bg-amber-50/60',
+            softBg: 'bg-amber-50 dark:bg-amber-900/30/60',
         };
     }
     if (status === 'BLOCKED_STOCK') {
@@ -29,9 +29,9 @@ const getExtendedStatusMeta = (status: string | undefined, lang: string) => {
             label: tx(lang, {fr:'Bloqué stock',ar:'مخزون محجوب',en:'Blocked stock',es:'Stock bloqueado',pt:'Stock bloqueado',tr:'Bloke stok'}),
             dot: 'bg-red-500',
             text: 'text-red-700',
-            bg: 'bg-red-50',
+            bg: 'bg-red-50 dark:bg-red-900/30',
             border: 'border-red-200',
-            softBg: 'bg-red-50/60',
+            softBg: 'bg-red-50 dark:bg-red-900/30/60',
         };
     }
     const ws = toWorkStatus(status);
@@ -461,7 +461,7 @@ export default function EventDetailPanel({
                 {/* Subcontracting details block */}
                 {event.isSubcontracted && (
                     <section className="px-6 py-4 border-b border-white/20 bg-indigo-500/5 dark:bg-indigo-900/10 border-t border-white/20 backdrop-blur-xs">
-                        <div className="text-[10px] font-extrabold text-indigo-600 dark:text-dk-accent-text dark:text-indigo-400 uppercase tracking-widest mb-3">{tx(lang, { fr: 'Sous-traitance', ar: 'مقاولة من الباطن', en: 'Subcontracting', es: 'Subcontratación', pt: 'Subcontratação', tr: 'Taşeron' })}</div>
+                        <div className="text-[10px] font-extrabold text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text dark:text-indigo-400 uppercase tracking-widest mb-3">{tx(lang, { fr: 'Sous-traitance', ar: 'مقاولة من الباطن', en: 'Subcontracting', es: 'Subcontratación', pt: 'Subcontratação', tr: 'Taşeron' })}</div>
                         <div className="space-y-2.5">
                             <div className="flex items-center justify-between text-[12px]">
                                 <span className="text-slate-500 dark:text-dk-muted font-medium">{tx(lang, { fr: 'Sous-traitant :', ar: 'المقاول من الباطن:', en: 'Subcontractor:', es: 'Subcontratista:', pt: 'Subcontratado:', tr: 'Taşeron:' })}</span>

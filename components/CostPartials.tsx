@@ -62,7 +62,7 @@ export const MaterialsList = ({
           <tfoot className="bg-slate-50 dark:bg-dk-bg border-t border-slate-200 dark:border-dk-border font-bold text-slate-700 dark:text-dk-text-soft">
             <tr>
               <td colSpan={3} className="px-4 py-2 text-right text-xs uppercase">{t.totalMat}:</td>
-              <td className="px-4 py-2 text-right bg-emerald-50 text-emerald-700 border-l border-emerald-100">{fmt(totalMaterials)} {currency}</td>
+              <td className="px-4 py-2 text-right bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 border-l border-emerald-100">{fmt(totalMaterials)} {currency}</td>
               <td></td>
             </tr>
           </tfoot>
@@ -79,20 +79,20 @@ export const OrderSimulation = ({
   const totalProjectCost = totalPurchasingMatCost + (laborCost * orderQty);
   return (
     <div className="bg-white dark:bg-dk-surface rounded-xl border border-indigo-100 shadow-sm overflow-hidden">
-      <div className="px-4 py-3 border-b border-indigo-100 bg-indigo-50 dark:bg-dk-accent/20/50 flex flex-col sm:flex-row justify-between items-center gap-3">
+      <div className="px-4 py-3 border-b border-indigo-100 bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20/50 flex flex-col sm:flex-row justify-between items-center gap-3">
         <div className="flex items-center gap-2">
-          <TrendingUp className="w-4 h-4 text-indigo-600 dark:text-dk-accent-text" />
+          <TrendingUp className="w-4 h-4 text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text" />
           <h2 className="font-bold text-indigo-900 text-sm">{t.needs}</h2>
         </div>
         <div className="flex gap-3">
           <div className="flex items-center gap-2 bg-white dark:bg-dk-surface px-2 py-1 rounded border border-indigo-100 shadow-sm">
             <span className="text-[10px] font-bold text-slate-400 dark:text-dk-muted uppercase">{t.waste}</span>
-            <input type="number" min="0" value={wasteRate} onChange={(e) => setWasteRate(Math.max(0, parseFloat(e.target.value) || 0))} className="w-10 text-center font-bold text-indigo-600 dark:text-dk-accent-text outline-none text-xs" />
+            <input type="number" min="0" value={wasteRate} onChange={(e) => setWasteRate(Math.max(0, parseFloat(e.target.value) || 0))} className="w-10 text-center font-bold text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text outline-none text-xs" />
             <Percent className="w-3 h-3 text-indigo-400" />
           </div>
           <div className="flex items-center gap-2 bg-white dark:bg-dk-surface px-2 py-1 rounded border border-indigo-100 shadow-sm">
             <span className="text-[10px] font-bold text-slate-400 dark:text-dk-muted uppercase">{t.orderQty}</span>
-            <input type="number" min="1" value={orderQty} onChange={(e) => setOrderQty(Math.max(1, parseInt(e.target.value) || 0))} className="w-14 text-center font-bold text-indigo-600 dark:text-dk-accent-text outline-none text-xs" />
+            <input type="number" min="1" value={orderQty} onChange={(e) => setOrderQty(Math.max(1, parseInt(e.target.value) || 0))} className="w-14 text-center font-bold text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text outline-none text-xs" />
             <ShoppingCart className="w-3 h-3 text-indigo-400" />
           </div>
         </div>
@@ -105,7 +105,7 @@ export const OrderSimulation = ({
                 <tr>
                   <th className="px-3 py-2 text-left">{t.matName}</th>
                   <th className="px-3 py-2 text-center">{t.price}</th>
-                  <th className="px-3 py-2 text-center font-bold text-indigo-600 dark:text-dk-accent-text">{t.qtyToBuy}</th>
+                  <th className="px-3 py-2 text-center font-bold text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text">{t.qtyToBuy}</th>
                   <th className="px-3 py-2 text-right">{t.totalLine}</th>
                 </tr>
               </thead>
@@ -114,7 +114,7 @@ export const OrderSimulation = ({
                   <tr key={m.id} className="hover:bg-slate-50 dark:hover:bg-dk-elevated/60">
                     <td className="px-3 py-1.5 font-medium text-slate-700 dark:text-dk-text-soft">{m.name}</td>
                     <td className="px-3 py-1.5 text-center text-slate-500 dark:text-dk-muted">{m.unitPrice}</td>
-                    <td className="px-3 py-1.5 text-center font-bold text-indigo-700 dark:text-dk-accent-text bg-indigo-50 dark:bg-dk-accent/20/50">{fmt(m.qtyToBuy)} {m.unit}</td>
+                    <td className="px-3 py-1.5 text-center font-bold text-indigo-700 dark:text-dk-accent-text bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20/50">{fmt(m.qtyToBuy)} {m.unit}</td>
                     <td className="px-3 py-1.5 text-right font-bold text-slate-700 dark:text-dk-text-soft">{fmt(m.lineCost)} {currency}</td>
                   </tr>
                 ))}
@@ -126,14 +126,14 @@ export const OrderSimulation = ({
             <div className="p-3 rounded-lg border border-slate-200 dark:border-dk-border bg-slate-50 dark:bg-dk-bg flex flex-col justify-between">
                 <span className="text-[10px] font-bold text-slate-400 dark:text-dk-muted uppercase">{t.realBudget}</span>
                 <div className="flex items-center justify-between mt-1">
-                     <span className="text-xl font-bold text-emerald-600">{fmt(totalPurchasingMatCost)} <span className="text-xs">{currency}</span></span>
+                     <span className="text-xl font-bold text-emerald-600 dark:text-emerald-400">{fmt(totalPurchasingMatCost)} <span className="text-xs">{currency}</span></span>
                      <Banknote className="w-4 h-4 text-emerald-400" />
                 </div>
             </div>
             <div className="p-3 rounded-lg border border-slate-200 dark:border-dk-border bg-slate-50 dark:bg-dk-bg flex flex-col justify-between">
                 <span className="text-[10px] font-bold text-slate-400 dark:text-dk-muted uppercase">{t.laborCost} (Total)</span>
                 <div className="flex items-center justify-between mt-1">
-                     <span className="text-xl font-bold text-blue-600">{fmt(laborCost * orderQty)} <span className="text-xs">{currency}</span></span>
+                     <span className="text-xl font-bold text-blue-600 dark:text-blue-400">{fmt(laborCost * orderQty)} <span className="text-xs">{currency}</span></span>
                      <Clock className="w-4 h-4 text-blue-400" />
                 </div>
             </div>

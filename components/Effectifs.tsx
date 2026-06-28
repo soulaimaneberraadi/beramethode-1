@@ -1,4 +1,4 @@
-﻿import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { Users, ChevronDown, UserCog, Factory, Plus, Trash2, Check, X, Settings2, LayoutGrid, Globe, EyeOff, Eye, ChevronLeft, ChevronRight, Calculator, TrendingUp, TrendingDown, Activity, CalendarDays, MessageSquare, Sparkles, FileDown } from 'lucide-react';
 import { tx } from '../lib/i18n';
 import { useLang } from '../src/context/LanguageContext';
@@ -127,7 +127,7 @@ const EditableText = ({ value, onSave, className, textClassName, autoWidth, minW
       onChange={e => setVal(e.target.value)}
       onBlur={() => onSave(val)}
       onKeyDown={e => { if (e.key === 'Enter') { e.currentTarget.blur(); } }}
-      className={`bg-amber-50/50 border border-amber-200 hover:border-amber-300 focus:bg-amber-50 focus:border-amber-400 rounded px-2 py-0.5 outline-none focus:ring-2 ring-amber-500/20 transition-all ${autoWidth || minWidth ? '' : 'w-full'} ${textClassName || className}`}
+      className={`bg-amber-50 dark:bg-amber-900/30/50 border border-amber-200 hover:border-amber-300 focus:bg-amber-50 focus:border-amber-400 rounded px-2 py-0.5 outline-none focus:ring-2 ring-amber-500/20 transition-all ${autoWidth || minWidth ? '' : 'w-full'} ${textClassName || className}`}
       style={computedStyle}
     />
   );
@@ -876,7 +876,7 @@ export default function Effectifs({
           <div className="flex items-center gap-3">
             <div className="w-3 h-3 rounded-full bg-indigo-500"></div>
             <span className="font-semibold text-slate-700 dark:text-dk-text-soft">{tx(lang,{fr:'Total:',ar:'المجموع:',en:'Total:',es:'Total:',pt:'Total:',tr:'Toplam:'})}</span>
-             <span className="font-black text-indigo-600 dark:text-dk-accent-text text-lg">{payload[0].value} <span className="text-xs font-medium text-slate-400 dark:text-dk-muted">{tx(lang,{fr:'employés',ar:'موظف',en:'employees',es:'empleados',pt:'funcionários',tr:'çalışan'})}</span></span>
+             <span className="font-black text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text text-lg">{payload[0].value} <span className="text-xs font-medium text-slate-400 dark:text-dk-muted">{tx(lang,{fr:'employés',ar:'موظف',en:'employees',es:'empleados',pt:'funcionários',tr:'çalışan'})}</span></span>
           </div>
         </div>
       );
@@ -1022,7 +1022,7 @@ export default function Effectifs({
         {/* HEADER & FILTERS — ultra-compact téléphone */}
         <div className="flex flex-col lg:flex-row lg:justify-between lg:items-center gap-1.5 sm:gap-4 min-w-0">
           <div className="flex items-center gap-1.5 sm:gap-3 min-w-0">
-            <div className="p-1.5 sm:p-3 bg-indigo-100 text-indigo-600 dark:text-dk-accent-text rounded-md sm:rounded-xl shadow-sm shrink-0">
+            <div className="p-1.5 sm:p-3 bg-indigo-100 text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text rounded-md sm:rounded-xl shadow-sm shrink-0">
               <Users className="w-3.5 h-3.5 sm:w-6 sm:h-6" />
             </div>
             <div className="min-w-0 flex-1">
@@ -1044,7 +1044,7 @@ export default function Effectifs({
                 role="tab"
                 aria-selected={activeTab === 'grid'}
                 onClick={() => setActiveTab('grid')}
-                className={`flex-1 sm:flex-none px-1.5 py-1 sm:px-6 sm:py-2.5 rounded sm:rounded-lg text-[10px] sm:text-sm font-bold flex items-center justify-center gap-0.5 sm:gap-2 transition-all duration-300 ${activeTab === 'grid' ? 'bg-white dark:bg-dk-surface text-indigo-600 dark:text-dk-accent-text shadow-sm ring-1 ring-slate-200' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'}`}
+                className={`flex-1 sm:flex-none px-1.5 py-1 sm:px-6 sm:py-2.5 rounded sm:rounded-lg text-[10px] sm:text-sm font-bold flex items-center justify-center gap-0.5 sm:gap-2 transition-all duration-300 ${activeTab === 'grid' ? 'bg-white dark:bg-dk-surface text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text shadow-sm ring-1 ring-slate-200' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'}`}
               >
                  <LayoutGrid className="w-3 h-3 sm:w-4 sm:h-4 shrink-0" aria-hidden /> {tx(lang,{fr:'Saisie',ar:'إدخال',en:'Entry',es:'Ingreso',pt:'Entrada',tr:'Giriş'})}
               </button>
@@ -1053,7 +1053,7 @@ export default function Effectifs({
                 role="tab"
                 aria-selected={activeTab === 'analytics'}
                 onClick={() => setActiveTab('analytics')}
-                className={`flex-1 sm:flex-none px-1.5 py-1 sm:px-6 sm:py-2.5 rounded sm:rounded-lg text-[10px] sm:text-sm font-bold flex items-center justify-center gap-0.5 sm:gap-2 transition-all duration-300 ${activeTab === 'analytics' ? 'bg-white dark:bg-dk-surface text-indigo-600 dark:text-dk-accent-text shadow-sm ring-1 ring-slate-200' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'}`}
+                className={`flex-1 sm:flex-none px-1.5 py-1 sm:px-6 sm:py-2.5 rounded sm:rounded-lg text-[10px] sm:text-sm font-bold flex items-center justify-center gap-0.5 sm:gap-2 transition-all duration-300 ${activeTab === 'analytics' ? 'bg-white dark:bg-dk-surface text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text shadow-sm ring-1 ring-slate-200' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'}`}
               >
                  <Activity className="w-3 h-3 sm:w-4 sm:h-4 shrink-0" aria-hidden /> {tx(lang,{fr:'Analytique',ar:'تحليلي',en:'Analytics',es:'Analítica',pt:'Analítica',tr:'Analitik'})}
               </button>
@@ -1064,7 +1064,7 @@ export default function Effectifs({
                 type="button"
                 onClick={onOpenGestionRH}
                  aria-label={tx(lang,{fr:'Gestion RH détaillée',ar:'إدارة الموارد البشرية المفصلة',en:'Detailed HR management',es:'Gestión de RRHH detallada',pt:'Gestão de RH detalhada',tr:'Detaylı İK yönetimi'})}
-                className="px-2 py-1 sm:px-4 sm:py-2 bg-sky-50 text-sky-600 hover:bg-sky-100 font-bold rounded-md sm:rounded-xl flex items-center justify-center sm:justify-start gap-1 sm:gap-2 transition-colors shadow-sm text-[10px] sm:text-sm w-full sm:w-auto shrink-0"
+                className="px-2 py-1 sm:px-4 sm:py-2 bg-sky-50 dark:bg-sky-900/30 text-sky-600 dark:text-sky-400 hover:bg-sky-100 font-bold rounded-md sm:rounded-xl flex items-center justify-center sm:justify-start gap-1 sm:gap-2 transition-colors shadow-sm text-[10px] sm:text-sm w-full sm:w-auto shrink-0"
               >
                 <UserCog className="w-3 h-3 sm:w-4 sm:h-4 shrink-0" aria-hidden />
                  <span className="sm:hidden">{tx(lang,{fr:'RH',ar:'الموارد البشرية',en:'HR',es:'RRHH',pt:'RH',tr:'İK'})}</span>
@@ -1078,7 +1078,7 @@ export default function Effectifs({
               disabled={exportingPointage}
                aria-label={tx(lang,{fr:'Exporter pointage mensuel Excel',ar:'تصدير كشف الحضور الشهري Excel',en:'Export monthly attendance Excel',es:'Exportar registro mensual Excel',pt:'Exportar ponto mensal Excel',tr:'Aylık puantajı Excel\'e aktar'})}
                title={tx(lang,{fr:`Exporter pointage ${selectedDate.slice(0, 7)}${selectedChain !== 'Toutes les chaines' ? ` — ${selectedChain}` : ''}`,ar:`تصدير كشف الحضور ${selectedDate.slice(0, 7)}${selectedChain !== 'Toutes les chaines' ? ` — ${selectedChain}` : ''}`,en:`Export attendance ${selectedDate.slice(0, 7)}${selectedChain !== 'Toutes les chaines' ? ` — ${selectedChain}` : ''}`,es:`Exportar registro ${selectedDate.slice(0, 7)}${selectedChain !== 'Toutes les chaines' ? ` — ${selectedChain}` : ''}`,pt:`Exportar ponto ${selectedDate.slice(0, 7)}${selectedChain !== 'Toutes les chaines' ? ` — ${selectedChain}` : ''}`,tr:`Puantajı dışa aktar ${selectedDate.slice(0, 7)}${selectedChain !== 'Toutes les chaines' ? ` — ${selectedChain}` : ''}`})}
-              className="px-2 py-1 sm:px-4 sm:py-2 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 disabled:opacity-50 font-bold rounded-md sm:rounded-xl flex items-center justify-center sm:justify-start gap-1 sm:gap-2 transition-colors shadow-sm text-[10px] sm:text-sm w-full sm:w-auto shrink-0"
+              className="px-2 py-1 sm:px-4 sm:py-2 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 hover:bg-emerald-100 disabled:opacity-50 font-bold rounded-md sm:rounded-xl flex items-center justify-center sm:justify-start gap-1 sm:gap-2 transition-colors shadow-sm text-[10px] sm:text-sm w-full sm:w-auto shrink-0"
             >
               <FileDown className="w-3 h-3 sm:w-4 sm:h-4 shrink-0" aria-hidden />
               <span className="sm:hidden">{exportingPointage ? '…' : tx(lang,{fr:'Excel',ar:'Excel',en:'Excel',es:'Excel',pt:'Excel',tr:'Excel'})}</span>
@@ -1143,7 +1143,7 @@ export default function Effectifs({
                   title={gridRoleToolsOpen || isEditMode || isAddingRole ? tx(lang,{fr:'Masquer les actions rôles / salles',ar:'إخفاء إجراءات الأدوار / القاعات',en:'Hide role/room actions',es:'Ocultar acciones de roles/salas',pt:'Ocultar ações de funções/salas',tr:'Rol/oda işlemlerini gizle'}) : tx(lang,{fr:'Afficher les actions rôles / salles',ar:'إظهار إجراءات الأدوار / القاعات',en:'Show role/room actions',es:'Mostrar acciones de roles/salas',pt:'Mostrar ações de funções/salas',tr:'Rol/oda işlemlerini göster'})}
                   className={`flex w-full items-center justify-between gap-2 rounded-lg sm:rounded-xl border px-2.5 py-1.5 text-[11px] font-bold shadow-sm transition-colors sm:justify-center sm:gap-2 sm:px-3 sm:py-2 sm:text-sm ${
                     gridRoleToolsOpen || isEditMode || isAddingRole
-                      ? 'border-indigo-200 bg-indigo-50 dark:bg-dk-accent/20 text-indigo-800'
+                      ? 'border-indigo-200 bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 text-indigo-800'
                       : 'border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface text-slate-700 dark:text-dk-text-soft hover:bg-slate-50 dark:hover:bg-dk-elevated/60'
                   }`}
                 >
@@ -1160,7 +1160,7 @@ export default function Effectifs({
 
                 {(gridRoleToolsOpen || isEditMode || isAddingRole) && (
                   <div
-                    className="flex w-full flex-col overflow-hidden rounded-xl border border-slate-200 dark:border-dk-border bg-slate-50/90 shadow-sm divide-y divide-slate-200 dark:divide-dk-border sm:flex-row sm:divide-x sm:divide-y-0"
+                    className="flex w-full flex-col overflow-hidden rounded-xl border border-slate-200 dark:border-dk-border bg-slate-50 dark:bg-dk-bg/90 shadow-sm divide-y divide-slate-200 dark:divide-dk-border sm:flex-row sm:divide-x sm:divide-y-0"
                     role="group"
                     aria-label={tx(lang,{fr:'Configurer les rôles et créer un rôle',ar:'تكوين الأدوار وإنشاء دور',en:'Configure roles and create a role',es:'Configurar roles y crear un rol',pt:'Configurar funções e criar uma função',tr:'Rolleri yapılandır ve rol oluştur'})}
                   >
@@ -1202,7 +1202,7 @@ export default function Effectifs({
 
         {/* EDIT CONFIG PANEL */}
         {isEditMode && (
-          <div className="bg-amber-50/50 border border-amber-200 rounded-2xl p-5 shadow-sm mb-2 flex flex-col gap-6">
+          <div className="bg-amber-50 dark:bg-amber-900/30/50 border border-amber-200 rounded-2xl p-5 shadow-sm mb-2 flex flex-col gap-6">
             <div>
               <div className="flex items-center justify-between mb-4">
                 <h3 className="font-bold text-amber-900 flex items-center gap-2"><LayoutGrid className="w-4 h-4"/> {tx(lang,{fr:'Gestion des Répartitions Personnalisées',ar:'إدارة التقسيمات المخصصة',en:'Custom Partitions Management',es:'Gestión de Distribuciones Personalizadas',pt:'Gestão de Partições Personalizadas',tr:'Özel Bölüm Yönetimi'})}</h3>
@@ -1228,7 +1228,7 @@ export default function Effectifs({
                     
                     <div className="flex flex-wrap gap-2 items-center">
                       {partition.items.map(item => (
-                        <div key={item.id} className="bg-amber-50 border border-amber-200 px-2 py-1.5 rounded-lg text-sm font-bold text-amber-800 flex items-center gap-1 group">
+                        <div key={item.id} className="bg-amber-50 dark:bg-amber-900/30 border border-amber-200 px-2 py-1.5 rounded-lg text-sm font-bold text-amber-800 flex items-center gap-1 group">
                           <EditableText 
                             value={item.name}
                             onSave={(val) => handleRenamePartitionItem(partition.id, item.id, val)}
@@ -1246,7 +1246,7 @@ export default function Effectifs({
                           value={newItemNames[partition.id] || ''} 
                           onChange={e => setNewItemNames({...newItemNames, [partition.id]: e.target.value})}
                           placeholder={tx(lang,{fr:'Nouvel élément...',ar:'عنصر جديد...',en:'New item...',es:'Nuevo elemento...',pt:'Novo elemento...',tr:'Yeni öğe...'})}
-                          className="px-3 py-1.5 rounded-lg border border-amber-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 w-36 bg-amber-50 placeholder-amber-400/70 text-amber-900"
+                          className="px-3 py-1.5 rounded-lg border border-amber-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 w-36 bg-amber-50 dark:bg-amber-900/30 placeholder-amber-400/70 text-amber-900"
                           onKeyDown={e => e.key === 'Enter' && handleAddPartitionItem(partition.id)}
                         />
                         <button onClick={() => handleAddPartitionItem(partition.id)} disabled={!newItemNames[partition.id]?.trim()} className="p-1.5 bg-amber-200 text-amber-800 rounded-lg hover:bg-amber-300 disabled:opacity-50 transition-colors">
@@ -1271,7 +1271,7 @@ export default function Effectifs({
         )}
 
         {isAddingRole && (
-          <div className="px-5 py-4 bg-indigo-50 dark:bg-dk-accent/20/50 border border-indigo-100 rounded-2xl flex flex-wrap items-end gap-4 shadow-sm mb-4">
+          <div className="px-5 py-4 bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20/50 border border-indigo-100 rounded-2xl flex flex-wrap items-end gap-4 shadow-sm mb-4">
             <div>
               <label className="block text-xs font-bold text-indigo-800 mb-1">{tx(lang,{fr:'Catégorie',ar:'الفئة',en:'Category',es:'Categoría',pt:'Categoria',tr:'Kategori'})}</label>
               <div className="flex gap-2">
@@ -1338,12 +1338,12 @@ export default function Effectifs({
 
           return (
             <div key={category} className={`bg-white dark:bg-dk-surface border ${config.isHidden ? 'border-slate-200 dark:border-dk-border/50 opacity-75' : 'border-slate-200 dark:border-dk-border'} shadow-sm rounded-2xl flex flex-col w-full`}>
-              <div className="px-5 py-4 border-b border-slate-100 dark:border-dk-border bg-slate-50/50 flex flex-wrap gap-4 justify-between items-center">
+              <div className="px-5 py-4 border-b border-slate-100 dark:border-dk-border bg-slate-50 dark:bg-dk-bg/50 flex flex-wrap gap-4 justify-between items-center">
                 <div className="flex items-center gap-3 flex-shrink-0">
                   {isEditMode && (
                     <button 
                       onClick={() => toggleCategoryVisibility(category)}
-                      className={`p-1.5 rounded-lg transition-colors ${config.isHidden ? 'bg-slate-200 text-slate-500 dark:text-dk-muted' : 'bg-indigo-100 text-indigo-600 dark:text-dk-accent-text hover:bg-indigo-200'}`}
+                      className={`p-1.5 rounded-lg transition-colors ${config.isHidden ? 'bg-slate-200 text-slate-500 dark:text-dk-muted' : 'bg-indigo-100 text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text hover:bg-indigo-200'}`}
                       title={config.isHidden ? tx(lang,{fr:'Afficher cette catégorie',ar:'إظهار هذه الفئة',en:'Show this category',es:'Mostrar esta categoría',pt:'Mostrar esta categoria',tr:'Bu kategoriyi göster'}) : tx(lang,{fr:'Masquer cette catégorie',ar:'إخفاء هذه الفئة',en:'Hide this category',es:'Ocultar esta categoría',pt:'Ocultar esta categoria',tr:'Bu kategoriyi gizle'})}
                     >
                       {config.isHidden ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -1360,7 +1360,7 @@ export default function Effectifs({
                       {config.isHidden && <span className="text-xs font-normal text-slate-500 dark:text-dk-muted">{tx(lang,{fr:'(Masquée)',ar:'(مخفي)',en:'(Hidden)',es:'(Oculto)',pt:'(Oculta)',tr:'(Gizli)'})}</span>}
                       <button 
                         onClick={() => handleDeleteCategory(category)}
-                        className="p-1.5 ml-2 rounded-lg transition-colors bg-red-50 text-red-500 hover:bg-red-100 hover:text-red-600"
+                        className="p-1.5 ml-2 rounded-lg transition-colors bg-red-50 dark:bg-red-900/30 text-red-500 hover:bg-red-100 hover:text-red-600"
                         title={tx(lang,{fr:'Supprimer cette catégorie',ar:'حذف هذه الفئة',en:'Delete this category',es:'Eliminar esta categoría',pt:'Eliminar esta categoria',tr:'Bu kategoriyi sil'})}
                       >
                         <Trash2 className="w-4 h-4" />
@@ -1428,7 +1428,7 @@ export default function Effectifs({
                           }}
                           className={`relative px-2 py-2 sm:px-4 sm:py-3 font-bold text-center text-xs sm:text-sm min-w-[4.5rem] sm:min-w-[6rem] cursor-context-menu ${
                             c.type === 'custom' && c.isHistorical
-                              ? 'bg-amber-50/95 text-amber-950 border-l border-amber-200/80'
+                              ? 'bg-amber-50 dark:bg-amber-900/30/95 text-amber-950 border-l border-amber-200/80'
                               : 'text-slate-800 dark:text-dk-text'
                           }`}
                         >
@@ -1456,7 +1456,7 @@ export default function Effectifs({
                                 </span>
                               );
                             })()}
-                            <span className="text-xs font-medium text-indigo-500 bg-indigo-50 dark:bg-dk-accent/20 px-2 py-0.5 rounded-full">
+                            <span className="text-xs font-medium text-indigo-500 bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 px-2 py-0.5 rounded-full">
                               {calculateTotalForCol(c.id, c.type, category)}
                             </span>
                           </div>
@@ -1488,21 +1488,21 @@ export default function Effectifs({
                             <div className="flex items-center gap-1">
                               <button 
                                 onClick={() => handleToggleCalculated(row.id)}
-                                className={`p-1.5 rounded-lg transition-colors ${row.isCalculated !== false ? 'text-emerald-600 bg-emerald-100 hover:bg-emerald-200' : 'text-slate-400 dark:text-dk-muted bg-slate-100 dark:bg-dk-elevated hover:bg-slate-200'}`}
+                                className={`p-1.5 rounded-lg transition-colors ${row.isCalculated !== false ? 'text-emerald-600 dark:text-emerald-400 bg-emerald-100 hover:bg-emerald-200' : 'text-slate-400 dark:text-dk-muted bg-slate-100 dark:bg-dk-elevated hover:bg-slate-200'}`}
                                 title={row.isCalculated !== false ? tx(lang,{fr:'Inclus dans le calcul de rendement',ar:'مشمول في حساب الإنتاجية',en:'Included in yield calculation',es:'Incluido en el cálculo de rendimiento',pt:'Incluído no cálculo de rendimento',tr:'Verim hesaplamasına dahil'}) : tx(lang,{fr:'Exclu du calcul de rendement',ar:'مستبعد من حساب الإنتاجية',en:'Excluded from yield calculation',es:'Excluido del cálculo de rendimiento',pt:'Excluído do cálculo de rendimento',tr:'Verim hesaplamasından hariç'})}
                               >
                                 <Calculator className="w-4 h-4" />
                               </button>
                               <button 
                                 onClick={() => toggleArchiveRole(row.id)}
-                                className={`p-1.5 rounded-lg transition-colors ${row.isArchived ? 'bg-slate-200 text-slate-500 dark:text-dk-muted' : 'bg-red-50 text-red-600 hover:bg-red-100'}`}
+                                className={`p-1.5 rounded-lg transition-colors ${row.isArchived ? 'bg-slate-200 text-slate-500 dark:text-dk-muted' : 'bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 hover:bg-red-100'}`}
                                 title={row.isArchived ? tx(lang,{fr:'Restaurer ce rôle',ar:'استعادة هذا الدور',en:'Restore this role',es:'Restaurar este rol',pt:'Restaurar esta função',tr:'Bu rolü geri yükle'}) : tx(lang,{fr:'Masquer ce rôle',ar:'إخفاء هذا الدور',en:'Hide this role',es:'Ocultar este rol',pt:'Ocultar esta função',tr:'Bu rolü gizle'})}
                               >
                                 {row.isArchived ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                               </button>
                               <button 
                                 onClick={() => handleDeleteRole(row.id)}
-                                className="p-1.5 rounded-lg transition-colors bg-red-50 text-red-500 hover:bg-red-100 hover:text-red-600"
+                                className="p-1.5 rounded-lg transition-colors bg-red-50 dark:bg-red-900/30 text-red-500 hover:bg-red-100 hover:text-red-600"
                                 title={tx(lang,{fr:'Supprimer définitivement',ar:'حذف نهائي',en:'Delete permanently',es:'Eliminar permanentemente',pt:'Eliminar permanentemente',tr:'Kalıcı olarak sil'})}
                               >
                                 <Trash2 className="w-4 h-4" />
@@ -1515,7 +1515,7 @@ export default function Effectifs({
                           return (
                             <td
                               key={`${row.id}-${c.id}`}
-                              className={`px-2 py-2 text-center ${c.type === 'custom' && c.isHistorical ? 'bg-amber-50/50' : ''}`}
+                              className={`px-2 py-2 text-center ${c.type === 'custom' && c.isHistorical ? 'bg-amber-50 dark:bg-amber-900/30/50' : ''}`}
                             >
                               <input
                                 type="number"
@@ -1538,7 +1538,7 @@ export default function Effectifs({
                             </td>
                           );
                         })}
-                        <td className="px-4 py-3 text-center font-black text-indigo-600 dark:text-dk-accent-text bg-slate-100/50">
+                        <td className="px-4 py-3 text-center font-black text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text bg-slate-100/50">
                           {totalRow}
                         </td>
                       </tr>
@@ -1698,7 +1698,7 @@ export default function Effectifs({
                   <div className="mb-2 flex flex-col gap-2 sm:mb-5 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
                     <div className="min-w-0">
                       <span className="mb-1 inline-flex items-center gap-1 rounded-full bg-indigo-600 dark:bg-dk-accent/10 px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.12em] text-indigo-700 dark:text-dk-accent-text ring-1 ring-indigo-500/15 sm:mb-2 sm:gap-1.5 sm:px-2.5 sm:py-1 sm:text-[10px] sm:tracking-[0.14em]">
-                        <Sparkles className="h-2.5 w-2.5 shrink-0 text-indigo-600 dark:text-dk-accent-text sm:h-3 sm:w-3" aria-hidden />
+                        <Sparkles className="h-2.5 w-2.5 shrink-0 text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text sm:h-3 sm:w-3" aria-hidden />
                         {tx(lang,{fr:'Veille & notes',ar:'مراقبة وملاحظات',en:'Monitoring & notes',es:'Vigilancia y notas',pt:'Vigilância e notas',tr:'İzleme ve notlar'})}
                       </span>
                       <h3 className="flex items-center gap-2 text-base font-black tracking-tight text-slate-900 dark:text-dk-text sm:gap-3 sm:text-xl">
@@ -1869,7 +1869,7 @@ export default function Effectifs({
                         <tr key={chain} className="hover:bg-slate-50 dark:hover:bg-dk-elevated/60 transition-colors">
                           <td className="px-6 py-4 font-bold text-slate-800 dark:text-dk-text">{getChainLabel(chain)}</td>
                           <td className="px-6 py-4 text-center">
-                            <span className="inline-flex items-center justify-center px-3 py-1 rounded-full bg-indigo-50 dark:bg-dk-accent/20 text-indigo-700 dark:text-dk-accent-text font-bold">
+                            <span className="inline-flex items-center justify-center px-3 py-1 rounded-full bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 text-indigo-700 dark:text-dk-accent-text font-bold">
                               {val}
                             </span>
                           </td>

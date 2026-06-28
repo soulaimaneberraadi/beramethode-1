@@ -77,7 +77,7 @@ export default function Modal({ open, onClose, title, subtitle, children, footer
                 </header>
                 <div className={`${isMobile ? 'px-5 pb-4' : 'px-6 pb-5'} overflow-y-auto flex-1 min-h-0`}>{children}</div>
                 {footer && (
-                    <footer className={`${isMobile ? 'px-5 py-3' : 'px-6 py-3'} border-t border-slate-100 dark:border-dk-border bg-slate-50/40 dark:bg-dk-bg flex items-center justify-end gap-2 shrink-0`}>
+                    <footer className={`${isMobile ? 'px-5 py-3' : 'px-6 py-3'} border-t border-slate-100 dark:border-dk-border bg-slate-50 dark:bg-dk-bg/40 dark:bg-dk-bg flex items-center justify-end gap-2 shrink-0`}>
                         {footer}
                     </footer>
                 )}

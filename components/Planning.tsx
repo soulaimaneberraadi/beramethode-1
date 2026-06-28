@@ -1054,7 +1054,7 @@ export default function Planning({
                 )}
 
                 {view === 'simulation' && (
-                    <div className="absolute inset-0 overflow-auto bg-slate-50/30 dark:bg-dk-bg/40">
+                    <div className="absolute inset-0 overflow-auto bg-slate-50 dark:bg-dk-bg/30 dark:bg-dk-bg/40">
                         <ProductionSimulation
                             models={models}
                             chains={chains}
@@ -1294,8 +1294,8 @@ export default function Planning({
 
             {multiIds.size > 0 && (
                 <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 bg-white dark:bg-dk-surface text-slate-800 dark:text-dk-text border border-slate-200/85 dark:border-dk-border rounded-xl shadow-2xl flex items-stretch overflow-hidden animate-[planning-fade-up_180ms_ease-out]">
-                    <div className="flex items-center gap-2 px-4 py-2.5 border-r border-slate-150 dark:border-dk-border bg-slate-50/85 dark:bg-dk-bg/50">
-                        <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-indigo-50 dark:bg-dk-accent/20 dark:bg-indigo-900/40 text-indigo-700 dark:text-dk-accent-text dark:text-indigo-300 text-[11px] font-black tabular-nums">{multiIds.size}</span>
+                    <div className="flex items-center gap-2 px-4 py-2.5 border-r border-slate-150 dark:border-dk-border bg-slate-50 dark:bg-dk-bg/85 dark:bg-dk-bg/50">
+                        <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 dark:bg-indigo-900/40 text-indigo-700 dark:text-dk-accent-text dark:text-indigo-300 text-[11px] font-black tabular-nums">{multiIds.size}</span>
                         <span className="text-[12px] font-bold text-slate-700 dark:text-dk-text">{tx(lang, {
                             fr: `sélectionné${multiIds.size > 1 ? 's' : ''}`,
                             ar: 'محدد',
@@ -1379,7 +1379,7 @@ export default function Planning({
                     <button
                         type="button"
                         onClick={handleBulkDelete}
-                        className="px-3 text-[12px] font-bold text-red-600 hover:bg-red-50 hover:text-red-700 transition-all duration-200 active:scale-95 border-r border-slate-150"
+                        className="px-3 text-[12px] font-bold text-red-600 dark:text-red-400 hover:bg-red-50 hover:text-red-700 transition-all duration-200 active:scale-95 border-r border-slate-150"
                     >
                         {tx(lang, {
                             fr: "Supprimer",
@@ -1499,7 +1499,7 @@ export default function Planning({
 
             {toastMessage && (
                 <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] flex items-center gap-3 px-5 py-3.5 rounded-2xl shadow-xl border bg-white dark:bg-dk-surface border-slate-100 dark:border-dk-border animate-[planning-fade-up_150ms_ease-out]">
-                    <div className={`p-1 rounded-full ${toastMessage.type === 'success' ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600'}`}>
+                    <div className={`p-1 rounded-full ${toastMessage.type === 'success' ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400' : 'bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400'}`}>
                         {toastMessage.type === 'success' ? <Check className="w-4 h-4" /> : <AlertCircle className="w-4 h-4" />}
                     </div>
                     <span className="text-xs font-bold text-slate-800 dark:text-dk-text">{toastMessage.text}</span>

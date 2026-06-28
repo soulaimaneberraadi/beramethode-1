@@ -120,15 +120,15 @@ const CostSanityCheck: React.FC<CostSanityCheckProps> = ({
     const [open, setOpen] = useState(false);
 
     return (
-        <div className={`rounded-lg border overflow-hidden ${allOk ? 'border-emerald-200 bg-emerald-50/40' : 'border-amber-300 bg-amber-50/50'}`}>
+        <div className={`rounded-lg border overflow-hidden ${allOk ? 'border-emerald-200 bg-emerald-50 dark:bg-emerald-900/30/40' : 'border-amber-300 bg-amber-50 dark:bg-amber-900/30/50'}`}>
             <button
                 onClick={() => setOpen(o => !o)}
                 className="w-full px-4 h-11 flex items-center justify-between"
             >
                 <div className="flex items-center gap-2">
                     {allOk
-                        ? <ShieldCheck className="w-4 h-4 text-emerald-600" strokeWidth={2} />
-                        : <ShieldAlert className="w-4 h-4 text-amber-600" strokeWidth={2} />}
+                        ? <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400" strokeWidth={2} />
+                        : <ShieldAlert className="w-4 h-4 text-amber-600 dark:text-amber-400" strokeWidth={2} />}
                     <span className={`text-[13px] font-semibold ${allOk ? 'text-emerald-800' : 'text-amber-800'}`}>
                         {allOk ? tx(lang, {fr:'Vérification : tous les calculs sont cohérents', ar:'التحقق: جميع الحسابات متسقة', en:'Verification: all calculations are consistent', es:'Verificación: todos los cálculos son coherentes', pt:'Verificação: todos os cálculos são consistentes', tr:'Doğrulama: tüm hesaplamalar tutarlı'}) : tx(lang, {fr:`Vérification : ${warnings} point(s) à corriger`, ar:`التحقق: ${warnings} نقطة/نقاط للتصحيح`, en:`Verification: ${warnings} point(s) to fix`, es:`Verificación: ${warnings} punto(s) a corregir`, pt:`Verificação: ${warnings} ponto(s) a corrigir`, tr:`Doğrulama: ${warnings} düzeltilecek nokta`})}
                     </span>

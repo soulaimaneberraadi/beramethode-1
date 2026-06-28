@@ -65,7 +65,7 @@ import { useLang } from '../src/context/LanguageContext';
 
 // --- GROUP COLOR PALETTE (HIGH CONTRAST ALTERNATING) ---
 const GROUP_COLORS = [
-  { bg: 'bg-indigo-50 dark:bg-dk-accent/20 dark:bg-indigo-900/30', border: 'border-indigo-500', text: 'text-indigo-700 dark:text-dk-accent-text dark:text-indigo-300' },
+  { bg: 'bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 dark:bg-indigo-900/30', border: 'border-indigo-500', text: 'text-indigo-700 dark:text-dk-accent-text dark:text-indigo-300' },
   { bg: 'bg-orange-50 dark:bg-orange-900/30', border: 'border-orange-500', text: 'text-orange-700 dark:text-orange-300' },
   { bg: 'bg-emerald-50 dark:bg-emerald-900/30', border: 'border-emerald-500', text: 'text-emerald-700 dark:text-emerald-300' },
   { bg: 'bg-rose-50 dark:bg-rose-900/30', border: 'border-rose-500', text: 'text-rose-700 dark:text-rose-300' },
@@ -80,7 +80,7 @@ const GROUP_COLORS = [
 ];
 
 const POSTE_COLORS = [
-  { name: 'indigo', bg: 'bg-indigo-50 dark:bg-dk-accent/20 dark:bg-indigo-900/30', border: 'border-indigo-200 dark:border-indigo-800', text: 'text-indigo-700 dark:text-dk-accent-text dark:text-indigo-300', badge: 'bg-indigo-100 dark:bg-indigo-900/50', badgeText: 'text-indigo-800 dark:text-indigo-200', fill: '#6366f1' },
+  { name: 'indigo', bg: 'bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 dark:bg-indigo-900/30', border: 'border-indigo-200 dark:border-indigo-800', text: 'text-indigo-700 dark:text-dk-accent-text dark:text-indigo-300', badge: 'bg-indigo-100 dark:bg-indigo-900/50', badgeText: 'text-indigo-800 dark:text-indigo-200', fill: '#6366f1' },
   { name: 'orange', bg: 'bg-orange-50 dark:bg-orange-900/30', border: 'border-orange-200 dark:border-orange-800', text: 'text-orange-700 dark:text-orange-300', badge: 'bg-orange-100 dark:bg-orange-900/50', badgeText: 'text-orange-800 dark:text-orange-200', fill: '#f97316' },
   { name: 'emerald', bg: 'bg-emerald-50 dark:bg-emerald-900/30', border: 'border-emerald-200 dark:border-emerald-800', text: 'text-emerald-700 dark:text-emerald-300', badge: 'bg-emerald-100 dark:bg-emerald-900/50', badgeText: 'text-emerald-800 dark:text-emerald-200', fill: '#10b981' },
   { name: 'rose', bg: 'bg-rose-50 dark:bg-rose-900/30', border: 'border-rose-200 dark:border-rose-800', text: 'text-rose-700 dark:text-rose-300', badge: 'bg-rose-100 dark:bg-rose-900/50', badgeText: 'text-rose-800 dark:text-rose-200', fill: '#f43f5e' },
@@ -1787,7 +1787,7 @@ export default function Gamme({
       
        {/* 1. SINGLE ROW HEADER - RESPONSIVE (UNCHANGED) */}
        <div className="bg-white dark:bg-dk-surface rounded-xl border border-slate-200 dark:border-dk-border shadow-sm mb-4 p-2 flex flex-nowrap items-center gap-2 overflow-x-auto no-scrollbar">
-            <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-50 dark:bg-dk-elevated/60 rounded-lg border border-slate-100 dark:border-dk-border shrink-0">
+            <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-50 dark:bg-dk-bg dark:bg-dk-elevated/60 rounded-lg border border-slate-100 dark:border-dk-border shrink-0">
                 <div className="flex flex-col items-center border-r border-slate-200 dark:border-dk-border pr-3 mr-3">
                     <span className="text-[9px] font-bold text-slate-400 dark:text-dk-muted uppercase">{tx(lang,{fr:'Ouvriers',ar:'عمال',en:'Workers',es:'Obreros',pt:'Trabalhadores',tr:'İşçiler'})}</span>
                     <input 
@@ -1818,7 +1818,7 @@ export default function Gamme({
                 </div>
             </div>
 
-            <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-50/50 dark:bg-emerald-900/20 rounded-lg border border-emerald-100 dark:border-emerald-900/30 shrink-0">
+            <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-50 dark:bg-emerald-900/30/50 dark:bg-emerald-900/20 rounded-lg border border-emerald-100 dark:border-emerald-900/30 shrink-0">
                 <div className="flex flex-col items-center border-r border-emerald-100 dark:border-emerald-900/30 pr-3 mr-3">
                     <span className="text-[9px] font-bold text-emerald-600 dark:text-emerald-400 uppercase flex items-center gap-1"><Zap className="w-3 h-3" />{tx(lang,{fr:'BF (s)',ar:'BF (ث)',en:'BF (s)',es:'BF (s)',pt:'BF (s)',tr:'BF (s)'})}</span>
                     <span className="font-black text-emerald-700 dark:text-emerald-300 text-sm">{(bf * 60).toFixed(1)}</span>
@@ -1829,14 +1829,14 @@ export default function Gamme({
                 </div>
             </div>
 
-            <div className="flex flex-col items-center px-3 py-1.5 bg-orange-50/50 dark:bg-orange-900/20 rounded-lg border border-orange-100 dark:border-orange-900/30 shrink-0">
+            <div className="flex flex-col items-center px-3 py-1.5 bg-orange-50 dark:bg-orange-900/30/50 dark:bg-orange-900/20 rounded-lg border border-orange-100 dark:border-orange-900/30 shrink-0">
                 <span className="text-[9px] font-bold text-orange-400 dark:text-orange-300 uppercase">{tx(lang,{fr:'P/H (100%)',ar:'P/H (100%)',en:'P/H (100%)',es:'P/H (100%)',pt:'P/H (100%)',tr:'P/H (100%)'})}</span>
                 <span className="font-black text-orange-500 dark:text-orange-300 text-sm leading-none mt-1">
                     {Math.round((tempsArticle > 0 && presenceTime > 0) ? ((presenceTime * numWorkers) / tempsArticle) / (presenceTime / 60) : 0)}
                 </span>
             </div>
 
-            <div className="flex items-center gap-3 px-3 py-1.5 bg-slate-50/50 dark:bg-dk-elevated/60 rounded-lg border border-slate-100 dark:border-dk-border shrink-0">
+            <div className="flex items-center gap-3 px-3 py-1.5 bg-slate-50 dark:bg-dk-bg/50 dark:bg-dk-elevated/60 rounded-lg border border-slate-100 dark:border-dk-border shrink-0">
                 <div className="flex flex-col items-center border-r border-slate-200 dark:border-dk-border pr-3 mr-1">
                     <span className="text-[9px] font-bold text-slate-400 dark:text-dk-muted uppercase">{tx(lang,{fr:'P/J',ar:'P/J',en:'P/D',es:'P/D',pt:'P/D',tr:'P/G'})}</span>
                     <span className="font-black text-slate-700 dark:text-dk-text text-sm leading-none mt-1">
@@ -1851,7 +1851,7 @@ export default function Gamme({
                 </div>
             </div>
 
-            <div className="flex flex-col items-center px-3 py-1.5 bg-indigo-50 dark:bg-dk-accent/20/50 dark:bg-indigo-900/20 rounded-lg border border-indigo-100 dark:border-indigo-900/30 shrink-0">
+            <div className="flex flex-col items-center px-3 py-1.5 bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20/50 dark:bg-indigo-900/20 rounded-lg border border-indigo-100 dark:border-indigo-900/30 shrink-0">
                 <span className="text-[9px] font-bold text-indigo-400 dark:text-indigo-300 uppercase">{tx(lang,{fr:'% Rendu',ar:'% إنتاجية',en:'% Yield',es:'% Rendim.',pt:'% Rendim.',tr:'% Verim'})}</span>
                 <div className="flex items-baseline gap-0.5">
                     <input 
@@ -1862,7 +1862,7 @@ export default function Gamme({
                           const nextEfficiency = Math.max(1, Math.min(100, Number(e.target.value)));
                           setEfficiency(nextEfficiency);
                         }} 
-                        className="w-8 text-center bg-transparent font-black text-indigo-600 dark:text-dk-accent-text dark:text-indigo-300 outline-none text-sm border-b border-indigo-200 dark:border-indigo-800 p-0" 
+                        className="w-8 text-center bg-transparent font-black text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text dark:text-indigo-300 outline-none text-sm border-b border-indigo-200 dark:border-indigo-800 p-0" 
                     />
                     <span className="text-[10px] font-bold text-indigo-400 dark:text-indigo-300">{tx(lang,{fr:'%',ar:'%',en:'%',es:'%',pt:'%',tr:'%'})}</span>
                 </div>
@@ -1904,7 +1904,7 @@ export default function Gamme({
         {pendingLinkTarget && targetOpInfo && createPortal(
             <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-[9999] bg-white dark:bg-dk-surface border border-emerald-200 dark:border-emerald-900/30 pl-4 pr-1.5 py-1.5 rounded-full shadow-2xl flex items-center gap-4 animate-in slide-in-from-bottom-5 duration-300 min-w-[320px]">
                 <div className="flex items-center gap-3">
-                    <div className="p-1.5 bg-emerald-100 dark:bg-emerald-900/50 rounded-full text-emerald-600 dark:text-emerald-300">
+                    <div className="p-1.5 bg-emerald-100 dark:bg-emerald-900/50 rounded-full text-emerald-600 dark:text-emerald-400 dark:text-emerald-300">
                         <LinkIcon className="w-4 h-4" />
                     </div>
                     <div className="flex flex-col">
@@ -1939,8 +1939,8 @@ export default function Gamme({
         {guideFeedback && createPortal(
             <div className={`fixed top-24 right-4 sm:right-6 z-[9999] rounded-2xl border px-4 py-3 shadow-2xl backdrop-blur-sm max-w-sm animate-in fade-in slide-in-from-top-2 duration-200 ${
                 guideFeedback.tone === 'warning'
-                  ? 'bg-rose-50/95 dark:bg-rose-900/40 border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300'
-                  : 'bg-emerald-50/95 dark:bg-emerald-900/40 border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300'
+                  ? 'bg-rose-50 dark:bg-rose-900/30/95 dark:bg-rose-900/40 border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300'
+                  : 'bg-emerald-50 dark:bg-emerald-900/30/95 dark:bg-emerald-900/40 border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300'
             }`}>
                 <div className="flex items-start gap-2">
                     <AlertTriangle className={`w-4 h-4 mt-0.5 shrink-0 ${guideFeedback.tone === 'warning' ? 'text-rose-500 dark:text-rose-400' : 'text-emerald-500 dark:text-emerald-400'}`} />
@@ -1954,7 +1954,7 @@ export default function Gamme({
         {isSelectionMode && !isLinkingMode && createPortal(
             <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-[9999] bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border pl-4 pr-1.5 py-1.5 rounded-full shadow-2xl flex items-center gap-4 animate-in slide-in-from-bottom-5 duration-300 min-w-[220px]">
                 <div className="flex items-center gap-2">
-                    <div className="p-1.5 bg-indigo-100 dark:bg-indigo-900/50 rounded-full text-indigo-600 dark:text-dk-accent-text dark:text-indigo-300">
+                    <div className="p-1.5 bg-indigo-100 dark:bg-indigo-900/50 rounded-full text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text dark:text-indigo-300">
                         <CheckSquare className="w-4 h-4" />
                     </div>
                     <span className="text-xs font-bold text-slate-700 dark:text-dk-text">{tx(lang,{fr:'Mode Sélection',ar:'وضع التحديد',en:'Selection Mode',es:'Modo Selección',pt:'Modo Seleção',tr:'Seçim Modu'})} {selectedOpIds.length > 0 && `(${selectedOpIds.length})`}</span>
@@ -1991,7 +1991,7 @@ export default function Gamme({
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 w-full sm:w-auto sm:flex-1 sm:min-w-0 sm:justify-end sm:flex-nowrap">
              
              {/* Guide Factors & Fabric */}
-             <div className="flex items-center justify-between gap-1.5 px-2 py-1.5 bg-slate-50 dark:bg-dk-elevated/60 rounded-lg border border-slate-200 dark:border-dk-border w-full sm:w-auto">
+             <div className="flex items-center justify-between gap-1.5 px-2 py-1.5 bg-slate-50 dark:bg-dk-bg dark:bg-dk-elevated/60 rounded-lg border border-slate-200 dark:border-dk-border w-full sm:w-auto">
                   <label className="text-[10px] font-bold text-slate-400 dark:text-dk-muted uppercase whitespace-nowrap mr-1">{tx(lang,{fr:'F.Guide:',ar:'م.Guide:',en:'G.Factor:',es:'F.Guía:',pt:'F.Guia:',tr:'R.Faktör:'})}</label>
                  <div className="relative">
                       <select 
@@ -2036,7 +2036,7 @@ export default function Gamme({
 
                   <button 
                     onClick={() => setShowLength(prev => !prev)}
-                    className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-xs font-bold bg-indigo-50 dark:bg-dk-accent/20 dark:bg-indigo-900/30 text-indigo-700 dark:text-dk-accent-text dark:text-indigo-300 border border-indigo-100 dark:border-indigo-800 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-colors whitespace-nowrap"
+                    className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-xs font-bold bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 dark:bg-indigo-900/30 text-indigo-700 dark:text-dk-accent-text dark:text-indigo-300 border border-indigo-100 dark:border-indigo-800 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-colors whitespace-nowrap"
                   >
                     <Ruler className="w-4 h-4" />
                      <span className="hidden sm:inline">{showLength ? tx(lang,{fr:'Masquer L',ar:'إخفاء L',en:'Hide L',es:'Ocultar L',pt:'Ocultar L',tr:'L Gizle'}) : tx(lang,{fr:'Afficher L',ar:'إظهار L',en:'Show L',es:'Mostrar L',pt:'Mostrar L',tr:'L Göster'})}</span>
@@ -2102,7 +2102,7 @@ export default function Gamme({
                 <th className="py-4 px-4 w-40 font-bold text-[11px] uppercase tracking-wider text-slate-400 dark:text-dk-muted sticky top-0 bg-white dark:bg-dk-surface z-30 border-b border-slate-100 dark:border-dk-border">{tx(lang,{fr:'Machine',ar:'آلة',en:'Machine',es:'Máquina',pt:'Máquina',tr:'Makine'})}</th>
                 <th className="py-4 px-4 w-24 text-center font-bold text-[11px] uppercase tracking-wider text-slate-400 dark:text-dk-muted sticky top-0 bg-white dark:bg-dk-surface z-30 border-b border-slate-100 dark:border-dk-border">{tx(lang,{fr:'F. Guide',ar:'م. دليل',en:'G. Factor',es:'F. Guía',pt:'F. Guia',tr:'R. Faktör'})}</th>
                 {showLength && (
-                  <th className="py-4 px-4 w-20 text-center font-bold text-[11px] uppercase tracking-wider text-indigo-600 dark:text-dk-accent-text dark:text-indigo-400 sticky top-0 bg-white dark:bg-dk-surface z-30 border-b border-slate-100 dark:border-dk-border">{tx(lang,{fr:'L / Qté',ar:'L / كم',en:'L / Qty',es:'L / Cant',pt:'L / Qtd',tr:'L / Mikt'})}</th>
+                  <th className="py-4 px-4 w-20 text-center font-bold text-[11px] uppercase tracking-wider text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text dark:text-indigo-400 sticky top-0 bg-white dark:bg-dk-surface z-30 border-b border-slate-100 dark:border-dk-border">{tx(lang,{fr:'L / Qté',ar:'L / كم',en:'L / Qty',es:'L / Cant',pt:'L / Qtd',tr:'L / Mikt'})}</th>
                 )}
                 <th className="py-4 px-4 w-24 text-center font-bold text-[11px] uppercase tracking-wider text-orange-600 dark:text-orange-400 sticky top-0 bg-white dark:bg-dk-surface z-30 border-b border-slate-100 dark:border-dk-border">{tx(lang,{fr:'Guide',ar:'دليل',en:'Guide',es:'Guía',pt:'Guia',tr:'Kılavuz'})}</th>
                 <th className="py-4 px-4 w-24 text-center font-bold text-[11px] uppercase tracking-wider text-emerald-600 dark:text-emerald-400 sticky top-0 bg-white dark:bg-dk-surface z-30 border-b border-slate-100 dark:border-dk-border">{tx(lang,{fr:'CHRONO',ar:'CHRONO',en:'CHRONO',es:'CHRONO',pt:'CHRONO',tr:'CHRONO'})}</th>
@@ -2127,7 +2127,7 @@ export default function Gamme({
                 const isForced = op.forcedTime !== undefined && op.forcedTime !== null;
                 const chronoInputClass = isForced 
                     ? "bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800 focus:border-purple-500 focus:bg-purple-100 dark:focus:bg-purple-900/50 font-black shadow-sm"
-                    : (isMachine ? 'bg-slate-50 dark:bg-dk-surface text-slate-600 dark:text-dk-text border-slate-200 dark:border-dk-border focus:bg-white dark:focus:bg-dk-elevated focus:border-indigo-300' : 'bg-emerald-50/40 dark:bg-emerald-900/20 border-emerald-100 dark:border-emerald-900/30 text-emerald-700 dark:text-emerald-300 focus:border-emerald-500 focus:bg-white dark:focus:bg-dk-surface');
+                    : (isMachine ? 'bg-slate-50 dark:bg-dk-bg dark:bg-dk-surface text-slate-600 dark:text-dk-text border-slate-200 dark:border-dk-border focus:bg-white dark:focus:bg-dk-elevated focus:border-indigo-300' : 'bg-emerald-50 dark:bg-emerald-900/30/40 dark:bg-emerald-900/20 border-emerald-100 dark:border-emerald-900/30 text-emerald-700 dark:text-emerald-300 focus:border-emerald-500 focus:bg-white dark:focus:bg-dk-surface');
 
                 const currentGuide = op.guideFactor ?? 1.1;
                 const assignedGuideName = op.guideName || (op.guideId ? guides.find(g => g.id === op.guideId)?.name : '') || '';
@@ -2167,7 +2167,7 @@ export default function Gamme({
                 const incomingDisplayId = maxIndexOp ? getOpDisplayId(maxIndexOp.id) : null;
 
                 // Side Logic styling
-                let sideBadgeClass = "text-slate-300 dark:text-dk-muted bg-slate-50 dark:bg-dk-elevated/60 border-slate-200 dark:border-dk-border hover:bg-slate-100 dark:hover:bg-dk-elevated hover:text-slate-500 dark:hover:text-dk-text";
+                let sideBadgeClass = "text-slate-300 dark:text-dk-muted bg-slate-50 dark:bg-dk-bg dark:bg-dk-elevated/60 border-slate-200 dark:border-dk-border hover:bg-slate-100 dark:hover:bg-dk-elevated hover:text-slate-500 dark:hover:text-dk-text";
                 let sideText = "-";
                 if (op.side === 'G') {
                     sideBadgeClass = "bg-sky-50 dark:bg-sky-900/30 text-sky-700 dark:text-sky-300 border-sky-200 dark:border-sky-800 font-bold hover:bg-sky-100 dark:hover:bg-sky-900/50";
@@ -2226,7 +2226,7 @@ export default function Gamme({
                                 <button
                                     type="button"
                                     onClick={(e) => { e.stopPropagation(); setPhotoPreview({ src: op.photo!, title: `Op. ${getDisplayIndex(op, index)} — ${op.description || ''}` }); }}
-                                    className="relative w-9 h-9 shrink-0 rounded-lg overflow-hidden border border-slate-200 dark:border-dk-border shadow-sm bg-slate-50 dark:bg-dk-elevated/60 group/photo"
+                                    className="relative w-9 h-9 shrink-0 rounded-lg overflow-hidden border border-slate-200 dark:border-dk-border shadow-sm bg-slate-50 dark:bg-dk-bg dark:bg-dk-elevated/60 group/photo"
                                     title={tx(lang,{fr:'Voir la photo',ar:'عرض الصورة',en:'View photo',es:'Ver foto',pt:'Ver foto',tr:'Fotoğrafı gör'})}
                                 >
                                     <img src={op.photo} alt="" className="w-full h-full object-cover" />
@@ -2249,7 +2249,7 @@ export default function Gamme({
                                         {getDisplayIndex(op, index)}
                                     </span>
                                 ) : (
-                                    <span className={`font-mono text-xs font-bold inline-flex items-center justify-center min-w-[2rem] h-8 px-2 rounded-lg ${hasGroup && groupStyle ? groupStyle.text : 'text-indigo-600 dark:text-dk-accent-text dark:text-indigo-400'} group-hover:text-emerald-600 dark:group-hover:text-emerald-400`}>
+                                    <span className={`font-mono text-xs font-bold inline-flex items-center justify-center min-w-[2rem] h-8 px-2 rounded-lg ${hasGroup && groupStyle ? groupStyle.text : 'text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text dark:text-indigo-400'} group-hover:text-emerald-600 dark:group-hover:text-emerald-400`}>
                                         {getDisplayIndex(op, index)}
                                     </span>
                                 )}
@@ -2338,7 +2338,7 @@ export default function Gamme({
                                   <div className="flex items-center gap-1 mt-1.5 group/flux">
                                       <div className="relative flex items-center">
                                           <CornerDownRight className="w-3 h-3 text-blue-400 -ml-0.5 mr-1" />
-                                          <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200 shadow-sm hover:bg-blue-100 transition-colors">
+                                          <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded bg-blue-50 dark:bg-blue-900/30 text-blue-700 border border-blue-200 shadow-sm hover:bg-blue-100 transition-colors">
                                               {tx(lang,{fr:'Vers N°',ar:'إلى رقم',en:'To No.',es:'Hacia N°',pt:'Para N°',tr:"No.'ya"})} {getOpDisplayId(op.targetOperationId)}
                                               <button 
                                                 onClick={(e) => { e.stopPropagation(); clearFlux(op.id); }}
@@ -2361,7 +2361,7 @@ export default function Gamme({
                           suggestions={machineSuggestions}
                           value={machineValue}
                           onChange={(val) => handleMachineChange(op.id, val)}
-                          className={`w-full bg-slate-100/50 border border-slate-200 dark:border-dk-border rounded-lg px-2 py-2 text-xs outline-none focus:border-emerald-500 focus:bg-white transition-all placeholder:text-slate-400 ${shouldHighlightMachine ? 'text-rose-600 font-bold border-rose-300 bg-rose-50/70 ring-1 ring-rose-100' : 'text-slate-700 dark:text-dk-text-soft'}`}
+                          className={`w-full bg-slate-100/50 border border-slate-200 dark:border-dk-border rounded-lg px-2 py-2 text-xs outline-none focus:border-emerald-500 focus:bg-white transition-all placeholder:text-slate-400 ${shouldHighlightMachine ? 'text-rose-600 dark:text-rose-400 font-bold border-rose-300 bg-rose-50 dark:bg-rose-900/30/70 ring-1 ring-rose-100' : 'text-slate-700 dark:text-dk-text-soft'}`}
                           placeholder={tx(lang,{fr:'Mac',ar:'آلة',en:'Mach',es:'Máq',pt:'Máq',tr:'Mak'})}
                           containerClassName="w-full"
                           disabled={isLinkingMode}
@@ -2398,8 +2398,8 @@ export default function Gamme({
                             disabled={isLinkingMode}
                             className={`w-full border rounded-lg px-1 py-2 text-center text-xs font-mono font-bold outline-none transition-all ${
                                 isCounterMachine 
-                                ? 'bg-amber-50 text-amber-700 border-amber-200 focus:border-amber-400' 
-                                : 'bg-indigo-50 dark:bg-dk-accent/20/30 text-indigo-700 dark:text-dk-accent-text border-indigo-100 focus:border-indigo-500'
+                                ? 'bg-amber-50 dark:bg-amber-900/30 text-amber-700 border-amber-200 focus:border-amber-400' 
+                                : 'bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20/30 text-indigo-700 dark:text-dk-accent-text border-indigo-100 focus:border-indigo-500'
                             }`}
                             placeholder={isCounterMachine ? tx(lang,{fr:'Qté',ar:'كم',en:'Qty',es:'Cant',pt:'Qtd',tr:'Mikt'}) : "-"}
                           />
@@ -2416,7 +2416,7 @@ export default function Gamme({
                                 disabled={isLinkingMode}
                                 className={`w-full px-2 py-1.5 rounded-lg border text-xs font-bold outline-none transition-all pr-5 ${
                                     assignedGuideName 
-                                    ? 'bg-orange-50 border-orange-200 text-orange-700 focus:ring-1 focus:ring-orange-300' 
+                                    ? 'bg-orange-50 dark:bg-orange-900/30 border-orange-200 text-orange-700 focus:ring-1 focus:ring-orange-300' 
                                     : 'bg-white dark:bg-dk-surface border-dashed border-slate-200 dark:border-dk-border text-slate-500 dark:text-dk-muted hover:border-orange-300 focus:border-orange-400'
                                 }`}
                             />
@@ -2489,7 +2489,7 @@ export default function Gamme({
                 <td colSpan={(isSelectionMode || isLinkingMode ? 1 : 0) + (showLength ? 9 : 8)} className="py-3 px-4">
                   
                   {operations.length === 0 && (
-                      <div className="flex flex-col items-center justify-center py-8 text-slate-400 dark:text-dk-muted border-2 border-dashed border-slate-200 dark:border-dk-border rounded-xl mb-4 bg-slate-50/50">
+                      <div className="flex flex-col items-center justify-center py-8 text-slate-400 dark:text-dk-muted border-2 border-dashed border-slate-200 dark:border-dk-border rounded-xl mb-4 bg-slate-50 dark:bg-dk-bg/50">
                           <p className="text-sm font-medium">{tx(lang,{fr:'La gamme est vide.',ar:'التسلسل فارغ.',en:'The routing is empty.',es:'La gama está vacía.',pt:'A gama está vazia.',tr:'Rota boş.'})}</p>
                       </div>
                   )}
@@ -2560,9 +2560,9 @@ export default function Gamme({
                         </div>
                         
                         <div className={`text-xs p-2.5 rounded-xl border text-center ${
-                            (fabricDraft || fabricSettings).selected === 'easy' ? 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-100 dark:border-emerald-800 text-emerald-600 dark:text-emerald-400' :
-                            (fabricDraft || fabricSettings).selected === 'medium' ? 'bg-orange-50 dark:bg-orange-900/20 border-orange-100 dark:border-orange-800 text-orange-600 dark:text-orange-400' :
-                            'bg-rose-50 dark:bg-rose-900/20 border-rose-100 dark:border-rose-800 text-rose-600 dark:text-rose-400'
+                            (fabricDraft || fabricSettings).selected === 'easy' ? 'bg-emerald-50 dark:bg-emerald-900/30 dark:bg-emerald-900/20 border-emerald-100 dark:border-emerald-800 text-emerald-600 dark:text-emerald-400' :
+                            (fabricDraft || fabricSettings).selected === 'medium' ? 'bg-orange-50 dark:bg-orange-900/30 dark:bg-orange-900/20 border-orange-100 dark:border-orange-800 text-orange-600 dark:text-orange-400' :
+                            'bg-rose-50 dark:bg-rose-900/30 dark:bg-rose-900/20 border-rose-100 dark:border-rose-800 text-rose-600 dark:text-rose-400'
                         }`}>
                             <span className="font-bold mr-1">{tx(lang,{fr:'Exemples:',ar:'أمثلة:',en:'Examples:',es:'Ejemplos:',pt:'Exemplos:',tr:'Örnekler:'})}</span>
                             {tx(lang,(() => { const lvl = (fabricDraft || fabricSettings).selected; return {fr: FABRIC_LEVEL_EXAMPLES[lvl], ar: lvl === 'easy' ? 'قطن، بوبلين، جيرسي ثابت' : lvl === 'medium' ? 'دنيم، قطيفة، تريكو خفيف' : 'حرير، شيفون، جلد، ساتان', en: lvl === 'easy' ? 'Cotton, Poplin, Stable Jersey' : lvl === 'medium' ? 'Denim, Velvet, Light Knit' : 'Silk, Chiffon, Leather, Satin', es: lvl === 'easy' ? 'Algodón, Popelina, Jersey estable' : lvl === 'medium' ? 'Denim, Terciopelo, Punto ligero' : 'Seda, Gasilla, Cuero, Satén', pt: lvl === 'easy' ? 'Algodão, Popeline, Jersey estável' : lvl === 'medium' ? 'Denim, Veludo, Malha leve' : 'Seda, Mousseline, Couro, Cetim', tr: lvl === 'easy' ? 'Pamuk, Poplin, Stabil Jersey' : lvl === 'medium' ? 'Denim, Kadife, Hafif Örgü' : 'İpek, Şifon, Deri, Saten'}; })())}
@@ -2596,7 +2596,7 @@ export default function Gamme({
                                     const selectedLevel = (fabricDraft || fabricSettings).selected;
                                     updateFabricValue(selectedLevel, FABRIC_LEVEL_SUGGESTED_SECONDS[selectedLevel]);
                                 }}
-                                className="text-[10px] font-bold px-2 py-1 rounded-md border border-indigo-100 dark:border-indigo-800 bg-indigo-50 dark:bg-dk-accent/20 dark:bg-indigo-900/30 text-indigo-600 dark:text-dk-accent-text dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-colors"
+                                className="text-[10px] font-bold px-2 py-1 rounded-md border border-indigo-100 dark:border-indigo-800 bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-colors"
                                 title={tx(lang,{fr:'Appliquer la valeur recommandee pour ce niveau',ar:'تطبيق القيمة الموصى بها لهذا المستوى',en:'Apply recommended value for this level',es:'Aplicar valor recomendado para este nivel',pt:'Aplicar valor recomendado para este nível',tr:'Bu seviye için önerilen değeri uygula'})}
                             >
                                 {tx(lang,{fr:'Valeur recommandee',ar:'القيمة الموصى بها',en:'Recommended value',es:'Valor recomendado',pt:'Valor recomendado',tr:'Önerilen değer'})}
@@ -2665,7 +2665,7 @@ export default function Gamme({
                             disabled={!setGuides}
                             className={`px-2.5 py-1.5 rounded-lg border text-[11px] font-bold transition-colors ${
                                 !setGuides
-                                  ? 'opacity-40 cursor-not-allowed bg-slate-50 dark:bg-dk-elevated/60 border-slate-200 dark:border-dk-border text-slate-400 dark:text-dk-muted'
+                                  ? 'opacity-40 cursor-not-allowed bg-slate-50 dark:bg-dk-bg dark:bg-dk-elevated/60 border-slate-200 dark:border-dk-border text-slate-400 dark:text-dk-muted'
                                   : 'bg-orange-50 dark:bg-orange-900/30 border-orange-200 dark:border-orange-800 text-orange-700 dark:text-orange-300 hover:bg-orange-100 dark:hover:bg-orange-900/50'
                             }`}
                             title={setGuides ? tx(lang,{fr:'Ajouter rapidement un guide depuis cette fenetre',ar:'إضافة دليل بسرعة من هذه النافذة',en:'Quickly add a guide from this window',es:'Añadir rápidamente una guía desde esta ventana',pt:'Adicionar rapidamente um guia desta janela',tr:'Bu pencereden hızlıca kılavuz ekle'}) : tx(lang,{fr:'Ajout guide indisponible ici',ar:'إضافة دليل غير متاحة هنا',en:'Guide addition unavailable here',es:'Adición de guía no disponible aquí',pt:'Adição de guia indisponível aqui',tr:'Kılavuz ekleme burada mevcut değil'})}
@@ -2709,7 +2709,7 @@ export default function Gamme({
                                     key={guide.id}
                                     type="button"
                                     onClick={() => assignGuide(showGuideModal.opId, guide)}
-                                    className="px-2 py-1 rounded-full text-[10px] font-bold border border-indigo-200 dark:border-indigo-800 bg-indigo-50 dark:bg-dk-accent/20 dark:bg-indigo-900/30 text-indigo-700 dark:text-dk-accent-text dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-colors"
+                                    className="px-2 py-1 rounded-full text-[10px] font-bold border border-indigo-200 dark:border-indigo-800 bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 dark:bg-indigo-900/30 text-indigo-700 dark:text-dk-accent-text dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-colors"
                                     title={tx(lang,{fr:'Guide frequent pour cette machine',ar:'دليل متكرر لهذه الآلة',en:'Frequent guide for this machine',es:'Guía frecuente para esta máquina',pt:'Guia frequente para esta máquina',tr:'Bu makine için sık kullanılan kılavuz'})}
                                 >
                                     {guide.name}
@@ -2722,7 +2722,7 @@ export default function Gamme({
                         <button
                             type="button"
                             onClick={() => assignGuide(showGuideModal.opId, guideModalSuggestion.guide)}
-                            className="mt-2 w-full text-left px-3 py-2.5 rounded-xl border border-emerald-200 dark:border-emerald-900/30 bg-emerald-50 dark:bg-emerald-900/20 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 transition-colors"
+                            className="mt-2 w-full text-left px-3 py-2.5 rounded-xl border border-emerald-200 dark:border-emerald-900/30 bg-emerald-50 dark:bg-emerald-900/30 dark:bg-emerald-900/20 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 transition-colors"
                         >
                             <p className="text-[10px] uppercase tracking-wide font-black text-emerald-600 dark:text-emerald-400">{tx(lang,{fr:'Suggestion apprise',ar:'اقتراح متعلم',en:'Learned suggestion',es:'Sugerencia aprendida',pt:'Sugestão aprendida',tr:'Öğrenilen öneri'})}</p>
                             <p className="text-sm font-bold text-emerald-800 dark:text-emerald-200">{guideModalSuggestion.guide.name}</p>
@@ -2741,14 +2741,14 @@ export default function Gamme({
                                         if (guideCreateErrors.name) setGuideCreateErrors(prev => ({ ...prev, name: false }));
                                     }}
                                     placeholder={tx(lang,{fr:'Nom guide*',ar:'اسم الدليل*',en:'Guide name*',es:'Nombre guía*',pt:'Nome guia*',tr:'Kılavuz adı*'})}
-                                    className={`w-full px-2.5 py-2 rounded-lg text-xs outline-none transition-all ${guideCreateErrors.name ? 'border border-rose-300 dark:border-rose-800 bg-rose-50 dark:bg-rose-900/20' : 'border border-slate-200 dark:border-dk-border bg-slate-50 dark:bg-dk-surface focus:border-orange-400'} text-slate-700 dark:text-dk-text`}
+                                    className={`w-full px-2.5 py-2 rounded-lg text-xs outline-none transition-all ${guideCreateErrors.name ? 'border border-rose-300 dark:border-rose-800 bg-rose-50 dark:bg-rose-900/30 dark:bg-rose-900/20' : 'border border-slate-200 dark:border-dk-border bg-slate-50 dark:bg-dk-bg dark:bg-dk-surface focus:border-orange-400'} text-slate-700 dark:text-dk-text`}
                                 />
                                 <input
                                     type="text"
                                     value={quickGuideDraft.category || ''}
                                     onChange={(e) => setQuickGuideDraft(prev => ({ ...prev, category: e.target.value }))}
                                     placeholder={tx(lang,{fr:'Categorie',ar:'فئة',en:'Category',es:'Categoría',pt:'Categoria',tr:'Kategori'})}
-                                    className="w-full px-2.5 py-2 rounded-lg text-xs outline-none border border-slate-200 dark:border-dk-border bg-slate-50 dark:bg-dk-surface focus:border-orange-400 transition-all text-slate-700 dark:text-dk-text"
+                                    className="w-full px-2.5 py-2 rounded-lg text-xs outline-none border border-slate-200 dark:border-dk-border bg-slate-50 dark:bg-dk-bg dark:bg-dk-surface focus:border-orange-400 transition-all text-slate-700 dark:text-dk-text"
                                 />
                             </div>
                             <input
@@ -2759,14 +2759,14 @@ export default function Gamme({
                                     if (guideCreateErrors.machineType) setGuideCreateErrors(prev => ({ ...prev, machineType: false }));
                                 }}
                                 placeholder={tx(lang,{fr:'Machine cible*',ar:'الآلة المستهدفة*',en:'Target machine*',es:'Máquina objetivo*',pt:'Máquina alvo*',tr:'Hedef makine*'})}
-                                className={`w-full px-2.5 py-2 rounded-lg text-xs outline-none transition-all ${guideCreateErrors.machineType ? 'border border-rose-300 dark:border-rose-800 bg-rose-50 dark:bg-rose-900/20' : 'border border-slate-200 dark:border-dk-border bg-slate-50 dark:bg-dk-surface focus:border-orange-400'} text-slate-700 dark:text-dk-text`}
+                                className={`w-full px-2.5 py-2 rounded-lg text-xs outline-none transition-all ${guideCreateErrors.machineType ? 'border border-rose-300 dark:border-rose-800 bg-rose-50 dark:bg-rose-900/30 dark:bg-rose-900/20' : 'border border-slate-200 dark:border-dk-border bg-slate-50 dark:bg-dk-bg dark:bg-dk-surface focus:border-orange-400'} text-slate-700 dark:text-dk-text`}
                             />
                             <input
                                 type="text"
                                 value={quickGuideDraft.description || ''}
                                 onChange={(e) => setQuickGuideDraft(prev => ({ ...prev, description: e.target.value }))}
                                 placeholder={tx(lang,{fr:'Description rapide',ar:'وصف سريع',en:'Quick description',es:'Descripción rápida',pt:'Descrição rápida',tr:'Hızlı açıklama'})}
-                                className="w-full px-2.5 py-2 rounded-lg text-xs outline-none border border-slate-200 dark:border-dk-border bg-slate-50 dark:bg-dk-surface focus:border-orange-400 transition-all text-slate-700 dark:text-dk-text"
+                                className="w-full px-2.5 py-2 rounded-lg text-xs outline-none border border-slate-200 dark:border-dk-border bg-slate-50 dark:bg-dk-bg dark:bg-dk-surface focus:border-orange-400 transition-all text-slate-700 dark:text-dk-text"
                             />
                             {(guideCreateErrors.name || guideCreateErrors.machineType) && (
                                 <p className="text-[10px] font-bold text-rose-600 dark:text-rose-400">{tx(lang,{fr:'Nom guide et machine sont obligatoires.',ar:'اسم الدليل والآلة إجباريان.',en:'Guide name and machine are required.',es:'Nombre de guía y máquina son obligatorios.',pt:'Nome do guia e máquina são obrigatórios.',tr:'Kılavuz adı ve makine zorunludur.'})}</p>
@@ -2838,7 +2838,7 @@ export default function Gamme({
             <div className="overflow-y-auto overflow-x-hidden custom-scrollbar flex-1 py-1">
             {isSelectionMode && selectedOpIds.length > 0 && !selectedOpIds.includes(contextMenu.opId!) && (
                 <>
-                    <button onClick={() => handleContextAction('targetThis')} className="w-full text-left px-4 py-3 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 flex items-center gap-2.5 transition-all group text-emerald-700 dark:text-emerald-300 bg-emerald-50/50 dark:bg-emerald-900/20 hover:translate-x-0.5">
+                    <button onClick={() => handleContextAction('targetThis')} className="w-full text-left px-4 py-3 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 flex items-center gap-2.5 transition-all group text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-900/30/50 dark:bg-emerald-900/20 hover:translate-x-0.5">
                         <ArrowLeftToLine className="w-4 h-4 text-emerald-600 dark:text-emerald-400" /> 
                         <span>🏁 {tx(lang,{fr:'Lier la sélection ici (Flux)',ar:'ربط التحديد هنا (تدفق)',en:'Link selection here (Flow)',es:'Enlazar selección aquí (Flujo)',pt:'Vincular seleção aqui (Fluxo)',tr:'Seçimi buraya bağla (Akış)'})}</span>
                     </button>
@@ -2849,7 +2849,7 @@ export default function Gamme({
             {isPartOfGroup && (
                 <>
                     <button onClick={() => handleContextAction('selectGroup')} className="w-full text-left px-4 py-2.5 hover:bg-indigo-50 dark:bg-dk-accent/20 dark:hover:bg-indigo-900/30 flex items-center gap-2.5 transition-all group hover:translate-x-0.5">
-                        <Layers className="w-4 h-4 text-indigo-600 dark:text-dk-accent-text dark:text-indigo-400" /> 
+                        <Layers className="w-4 h-4 text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text dark:text-indigo-400" /> 
                         <span>{tx(lang,{fr:'Sélectionner Groupe',ar:'تحديد مجموعة',en:'Select Group',es:'Seleccionar Grupo',pt:'Selecionar Grupo',tr:'Grubu Seç'})}</span>
                     </button>
                     <div className="h-px bg-slate-100 dark:bg-dk-border my-1 mx-2"></div>
@@ -2863,7 +2863,7 @@ export default function Gamme({
             <div className="h-px bg-slate-100 dark:bg-dk-border my-1 mx-2"></div>
 
             <button onClick={() => handleContextAction('select')} className="w-full text-left px-4 py-2.5 hover:bg-indigo-50 dark:bg-dk-accent/20 dark:hover:bg-indigo-900/30 flex items-center gap-2.5 transition-all group hover:translate-x-0.5">
-                <CheckSquare className={`w-4 h-4 ${selectedOpIds.includes(contextMenu.opId!) ? 'text-indigo-600 dark:text-dk-accent-text dark:text-indigo-400' : 'text-slate-400 dark:text-dk-muted'}`} /> 
+                <CheckSquare className={`w-4 h-4 ${selectedOpIds.includes(contextMenu.opId!) ? 'text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text dark:text-indigo-400' : 'text-slate-400 dark:text-dk-muted'}`} /> 
                 <span>{selectedOpIds.includes(contextMenu.opId!) ? tx(lang,{fr:'Désélectionner',ar:'إلغاء التحديد',en:'Deselect',es:'Deseleccionar',pt:'Desmarcar',tr:'Seçimi kaldır'}) : tx(lang,{fr:'Sélectionner',ar:'تحديد',en:'Select',es:'Seleccionar',pt:'Selecionar',tr:'Seç'})}</span>
             </button>
             <div className="h-px bg-slate-100 dark:bg-dk-border my-1 mx-2"></div>
@@ -3036,7 +3036,7 @@ export default function Gamme({
           }}
           className="w-52 rounded-2xl border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface shadow-2xl shadow-slate-300/50 dark:shadow-black/30 ring-1 ring-black/5 overflow-hidden animate-in fade-in zoom-in-95 duration-100"
         >
-          <div className="px-3 py-2 border-b border-slate-100 dark:border-dk-border bg-slate-50 dark:bg-dk-elevated/60 text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-dk-muted">
+          <div className="px-3 py-2 border-b border-slate-100 dark:border-dk-border bg-slate-50 dark:bg-dk-bg dark:bg-dk-elevated/60 text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-dk-muted">
             {tx(lang,{fr:"Photo de l'opération",ar:'صورة العملية',en:'Operation Photo',es:'Foto de la operación',pt:'Foto da operação',tr:'İşlem Fotoğrafı'})}
           </div>
           <button
@@ -3044,7 +3044,7 @@ export default function Gamme({
             onClick={() => triggerPhotoInput('camera')}
             className="w-full flex items-center gap-3 px-3 py-2.5 text-sm font-bold text-slate-700 dark:text-dk-text hover:bg-indigo-50 dark:bg-dk-accent/20 dark:hover:bg-indigo-900/30 hover:text-indigo-700 dark:text-dk-accent-text dark:hover:text-indigo-300 transition-colors"
           >
-            <span className="bg-indigo-100 dark:bg-indigo-900/50 text-indigo-600 dark:text-dk-accent-text dark:text-indigo-300 p-1.5 rounded-lg"><Camera className="w-4 h-4" /></span>
+            <span className="bg-indigo-100 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text dark:text-indigo-300 p-1.5 rounded-lg"><Camera className="w-4 h-4" /></span>
             {tx(lang,{fr:'Prendre une photo',ar:'التقاط صورة',en:'Take a photo',es:'Tomar una foto',pt:'Tirar uma foto',tr:'Fotoğraf çek'})}
           </button>
           <button
@@ -3052,7 +3052,7 @@ export default function Gamme({
             onClick={() => triggerPhotoInput('gallery')}
             className="w-full flex items-center gap-3 px-3 py-2.5 text-sm font-bold text-slate-700 dark:text-dk-text hover:bg-indigo-50 dark:bg-dk-accent/20 dark:hover:bg-indigo-900/30 hover:text-indigo-700 dark:text-dk-accent-text dark:hover:text-indigo-300 transition-colors"
           >
-            <span className="bg-emerald-100 dark:bg-emerald-900/50 text-emerald-600 dark:text-emerald-300 p-1.5 rounded-lg"><ImageIcon className="w-4 h-4" /></span>
+            <span className="bg-emerald-100 dark:bg-emerald-900/50 text-emerald-600 dark:text-emerald-400 dark:text-emerald-300 p-1.5 rounded-lg"><ImageIcon className="w-4 h-4" /></span>
             {tx(lang,{fr:'Choisir depuis la galerie',ar:'اختيار من المعرض',en:'Choose from gallery',es:'Elegir desde la galería',pt:'Escolher da galeria',tr:'Galeriden seç'})}
           </button>
           {photoMenu.hasPhoto && (
@@ -3061,7 +3061,7 @@ export default function Gamme({
               onClick={() => { setOperationPhoto(photoMenu.opId, undefined); setPhotoMenu(null); }}
               className="w-full flex items-center gap-3 px-3 py-2.5 text-sm font-bold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-900/30 transition-colors border-t border-slate-100 dark:border-dk-border"
             >
-              <span className="bg-rose-100 dark:bg-rose-900/50 text-rose-600 dark:text-rose-300 p-1.5 rounded-lg"><Trash className="w-4 h-4" /></span>
+              <span className="bg-rose-100 dark:bg-rose-900/50 text-rose-600 dark:text-rose-400 dark:text-rose-300 p-1.5 rounded-lg"><Trash className="w-4 h-4" /></span>
               {tx(lang,{fr:'Supprimer la photo',ar:'حذف الصورة',en:'Delete photo',es:'Eliminar foto',pt:'Excluir foto',tr:'Fotoğrafı sil'})}
             </button>
           )}

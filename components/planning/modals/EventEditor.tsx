@@ -523,7 +523,7 @@ export default function EventEditor({ open, mode, initial, models, chains, plann
                     <div className="space-y-3">
                         <div className="rounded-lg border border-white/25 dark:border-dk-border/30 bg-white/40 dark:bg-dk-surface/40 backdrop-blur-md p-3 shadow-sm">
                             <div className="flex items-center gap-1.5 mb-2">
-                                <Layers className="w-3.5 h-3.5 text-indigo-600 dark:text-dk-accent-text" />
+                                <Layers className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text" />
                                 <span className="text-[11px] font-semibold text-slate-700 dark:text-dk-text-soft">{tx(lang,{fr:'Pididos du modèle — choisis ceux à lancer',ar:'Pididos الخاصة بالموديل — اختر ما تريد إطلاقه',en:'Model Pididos — choose which to launch',es:'Pididos del modelo — elige los que lanzar',pt:'Pididos do modelo — escolha os que lançar',tr:'Model Pididoları — başlatılacakları seç'})}</span>
                             </div>
                             <div className="flex flex-wrap gap-2">
@@ -542,7 +542,7 @@ export default function EventEditor({ open, mode, initial, models, chains, plann
                                             key={lot.id}
                                             type="button"
                                             onClick={() => toggleLot(lot.id)}
-                                            className={`inline-flex items-center gap-1.5 h-8 px-2.5 rounded-md border text-[12px] font-medium transition-colors ${active ? 'border-indigo-300 bg-indigo-50 dark:bg-dk-accent/20 text-indigo-800' : 'border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface text-slate-600 dark:text-dk-muted hover:bg-slate-50 dark:hover:bg-dk-elevated/60'}`}
+                                            className={`inline-flex items-center gap-1.5 h-8 px-2.5 rounded-md border text-[12px] font-medium transition-colors ${active ? 'border-indigo-300 bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 text-indigo-800' : 'border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface text-slate-600 dark:text-dk-muted hover:bg-slate-50 dark:hover:bg-dk-elevated/60'}`}
                                         >
                                             <span 
                                                 className="w-2.5 h-2.5 rounded-full border border-slate-300 dark:border-dk-muted" 
@@ -551,7 +551,7 @@ export default function EventEditor({ open, mode, initial, models, chains, plann
                                             <span className="truncate max-w-[150px] font-semibold">{suffix}</span>
                                             <span className="tabular-nums text-slate-400 dark:text-dk-muted font-bold">{qty} {tx(lang,{fr:'pcs',ar:'قطعة',en:'pcs',es:'uds',pt:'pcs',tr:'adet'})}</span>
                                             <span className="text-[11px]" title={matAv.label}>{matAv.emoji}</span>
-                                            {active && <Check className="w-3.5 h-3.5 text-indigo-600 dark:text-dk-accent-text" />}
+                                            {active && <Check className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text" />}
                                         </button>
                                     );
                                 })}
@@ -617,11 +617,11 @@ export default function EventEditor({ open, mode, initial, models, chains, plann
                                             <div className="flex justify-between items-center">
                                                 <span>{tx(lang,{fr:'Arrivée prévue :',ar:'الوصول المتوقع :',en:'Expected arrival:',es:'Llegada prevista:',pt:'Chegada prevista:',tr:'Beklenen varış:'})}</span>
                                                 {activeLot.fournisseurDate ? (
-                                                    <span className="font-mono text-indigo-700 dark:text-dk-accent-text font-bold bg-indigo-50 dark:bg-dk-accent/20 px-1.5 py-0.5 rounded border border-indigo-150">
+                                                    <span className="font-mono text-indigo-700 dark:text-dk-accent-text font-bold bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 px-1.5 py-0.5 rounded border border-indigo-150">
                                                         {activeLot.fournisseurDate.split('T')[0]}
                                                     </span>
                                                 ) : (
-                                                    <span className="text-amber-600 italic font-medium">{tx(lang,{fr:'Non définie',ar:'غير محددة',en:'Not defined',es:'No definida',pt:'Não definida',tr:'Tanımlanmamış'})}</span>
+                                                    <span className="text-amber-600 dark:text-amber-400 italic font-medium">{tx(lang,{fr:'Non définie',ar:'غير محددة',en:'Not defined',es:'No definida',pt:'Não definida',tr:'Tanımlanmamış'})}</span>
                                                 )}
                                             </div>
                                         </div>
@@ -657,7 +657,7 @@ export default function EventEditor({ open, mode, initial, models, chains, plann
                     pididoOptions.length > 0 && (
                         <div className="rounded-lg border border-white/25 dark:border-dk-border/30 bg-white/40 dark:bg-dk-surface/40 backdrop-blur-md p-3 shadow-sm">
                             <div className="flex items-center gap-1.5 mb-2">
-                                <Palette className="w-3.5 h-3.5 text-indigo-600 dark:text-dk-accent-text" />
+                                <Palette className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text" />
                                 <span className="text-[11px] font-semibold text-slate-700 dark:text-dk-text-soft">{tx(lang,{fr:'Pididos du modèle — choisis ceux à lancer',ar:'Pididos الخاصة بالموديل — اختر ما تريد إطلاقه',en:'Model Pididos — choose which to launch',es:'Pididos del modelo — elige los que lanzar',pt:'Pididos do modelo — escolha os que lançar',tr:'Model Pididoları — başlatılacakları seç'})}</span>
                             </div>
                             <div className="flex flex-wrap gap-2">
@@ -669,12 +669,12 @@ export default function EventEditor({ open, mode, initial, models, chains, plann
                                             key={p.id}
                                             type="button"
                                             onClick={() => togglePidido(p.id)}
-                                            className={`inline-flex items-center gap-1.5 h-8 px-2.5 rounded-md border text-[12px] font-medium transition-colors ${active ? 'border-indigo-300 bg-indigo-50 dark:bg-dk-accent/20 text-indigo-800' : 'border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface text-slate-600 dark:text-dk-muted hover:bg-slate-50 dark:hover:bg-dk-elevated/60'}`}
+                                            className={`inline-flex items-center gap-1.5 h-8 px-2.5 rounded-md border text-[12px] font-medium transition-colors ${active ? 'border-indigo-300 bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 text-indigo-800' : 'border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface text-slate-600 dark:text-dk-muted hover:bg-slate-50 dark:hover:bg-dk-elevated/60'}`}
                                         >
                                             <span className={`w-2.5 h-2.5 rounded-full border border-slate-300 dark:border-dk-muted ${hex ? '' : 'bg-slate-300'}`} style={hex ? { backgroundColor: hex } : undefined} />
                                             <span className="truncate max-w-[110px]">{p.name}</span>
                                             <span className="tabular-nums text-slate-400 dark:text-dk-muted">{p.qty}</span>
-                                            {active && <Check className="w-3.5 h-3.5 text-indigo-600 dark:text-dk-accent-text" />}
+                                            {active && <Check className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text" />}
                                         </button>
                                     );
                                 })}
@@ -724,7 +724,7 @@ export default function EventEditor({ open, mode, initial, models, chains, plann
                                 type="checkbox"
                                 checked={isLocked}
                                 onChange={(e) => setIsLocked(e.target.checked)}
-                                className="rounded border-slate-300 dark:border-dk-muted text-indigo-600 dark:text-dk-accent-text focus:ring-indigo-500 h-3.5 w-3.5"
+                                className="rounded border-slate-300 dark:border-dk-muted text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text focus:ring-indigo-500 h-3.5 w-3.5"
                             />
                             <span className="text-[11px] font-semibold text-slate-500 dark:text-dk-muted select-none">
                                 {tx(lang,{fr:'Figer la date (ne pas décaler automatiquement)',ar:'تجميد التاريخ (عدم النقل تلقائياً)',en:'Freeze date (do not shift automatically)',es:'Congelar fecha (no desplazar automáticamente)',pt:'Congelar data (não deslocar automaticamente)',tr:'Tarihi dondur (otomatik kaydırma)'})}
@@ -772,15 +772,15 @@ export default function EventEditor({ open, mode, initial, models, chains, plann
                                     type="checkbox"
                                     checked={showDistribution}
                                     onChange={(e) => setShowDistribution(e.target.checked)}
-                                    className="rounded border-slate-300 dark:border-dk-muted text-indigo-600 dark:text-dk-accent-text focus:ring-indigo-500"
+                                    className="rounded border-slate-300 dark:border-dk-muted text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text focus:ring-indigo-500"
                                 />
                                     <span className="text-[12px] font-semibold text-slate-800 dark:text-dk-text flex items-center gap-1.5">
-                                        <Grid3X3 className="w-4 h-4 text-indigo-600 dark:text-dk-accent-text" />
+                                        <Grid3X3 className="w-4 h-4 text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text" />
                                         {tx(lang,{fr:'Répartition (Tailles / Couleurs)',ar:'التوزيع (المقاسات / الألوان)',en:'Distribution (Sizes / Colors)',es:'Distribución (Tallas / Colores)',pt:'Distribuição (Tamanhos / Cores)',tr:'Dağılım (Bedenler / Renkler)'})}
                                     </span>
                             </label>
                             {showDistribution && (
-                                    <span className="text-[11px] font-bold text-indigo-600 dark:text-dk-accent-text bg-indigo-50 dark:bg-dk-accent/20 px-2 py-1 rounded-md">
+                                    <span className="text-[11px] font-bold text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 px-2 py-1 rounded-md">
                                         {tx(lang,{fr:'Total:',ar:'المجموع:',en:'Total:',es:'Total:',pt:'Total:',tr:'Toplam:'})} {calculatedTotal} pcs
                                     </span>
                             )}
@@ -839,7 +839,7 @@ export default function EventEditor({ open, mode, initial, models, chains, plann
                                                                     />
                                                                 </td>
                                                             ))}
-                                                            <td className="px-4 py-2 text-center bg-indigo-50 dark:bg-dk-accent/20/30">
+                                                            <td className="px-4 py-2 text-center bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20/30">
                                                                 <span className="text-[13px] font-bold text-indigo-700 dark:text-dk-accent-text tabular-nums">
                                                                     {colorTotal}
                                                                 </span>
@@ -880,10 +880,10 @@ export default function EventEditor({ open, mode, initial, models, chains, plann
                             <div className="mt-4 space-y-4">
                                 <div className="flex items-center justify-between">
                                         <span className="text-[12px] font-semibold text-indigo-800 flex items-center gap-1.5">
-                                        <Truck className="w-4 h-4 text-indigo-600 dark:text-dk-accent-text" />
+                                        <Truck className="w-4 h-4 text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text" />
                                         {tx(lang,{fr:'Répartition Sous-traitance',ar:'توزيع المقاولة من الباطن',en:'Subcontracting Distribution',es:'Distribución Subcontratación',pt:'Distribuição Subcontratação',tr:'Taşeron Dağılımı'})}
                                     </span>
-                                    <span className="text-[11px] font-bold text-indigo-600 dark:text-dk-accent-text bg-indigo-50 dark:bg-dk-accent/20 px-2 py-1 rounded-md">
+                                    <span className="text-[11px] font-bold text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 px-2 py-1 rounded-md">
                                         {tx(lang,{fr:'Total sous-traité:',ar:'الإجمالي المقاول من الباطن:',en:'Subcontracted Total:',es:'Total subcontratado:',pt:'Total subcontratado:',tr:'Taşeron Toplamı:'})} {calculatedSubcontractTotal} pcs
                                     </span>
                                 </div>
@@ -934,7 +934,7 @@ export default function EventEditor({ open, mode, initial, models, chains, plann
                                                                     />
                                                                 </td>
                                                             ))}
-                                                            <td className="px-4 py-2 text-center bg-indigo-50 dark:bg-dk-accent/20/30">
+                                                            <td className="px-4 py-2 text-center bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20/30">
                                                                 <span className="text-[13px] font-bold text-indigo-700 dark:text-dk-accent-text tabular-nums">
                                                                     {colorTotal}
                                                                 </span>
@@ -975,10 +975,10 @@ export default function EventEditor({ open, mode, initial, models, chains, plann
                             <div className="mt-4 space-y-4">
                                 <div className="flex items-center justify-between">
                                     <span className="text-[12px] font-semibold text-emerald-800 flex items-center gap-1.5">
-                                        <Package className="w-4 h-4 text-emerald-600" />
+                                        <Package className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                                         {tx(lang,{fr:'Reste en Production Interne (Chaîne)',ar:'المتبقي في الإنتاج الداخلي (الخط)',en:'Remaining In-House Production (Line)',es:'Restante en Producción Interna (Línea)',pt:'Restante em Produção Interna (Linha)',tr:'İç Üretimde Kalan (Hat)'})}
                                     </span>
-                                    <span className="text-[11px] font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-md">
+                                    <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/30 px-2 py-1 rounded-md">
                                         {tx(lang,{fr:'Reste interne:',ar:'المتبقي داخلياً:',en:'Internal Remaining:',es:'Restante interno:',pt:'Restante interno:',tr:'İç Kalan:'})} {Math.max(0, calculatedTotal - calculatedSubcontractTotal)} pcs
                                     </span>
                                 </div>
@@ -987,7 +987,7 @@ export default function EventEditor({ open, mode, initial, models, chains, plann
                                         <table className="w-full text-sm">
                                             <thead>
                                                 <tr className="bg-emerald-500/10 border-b border-emerald-500/20 backdrop-blur-sm">
-                                                    <th className="px-4 py-3 text-left text-[11px] font-bold text-emerald-800 uppercase tracking-wider sticky left-0 bg-emerald-50/90 backdrop-blur-md border-r border-emerald-500/10 z-10">
+                                                    <th className="px-4 py-3 text-left text-[11px] font-bold text-emerald-800 uppercase tracking-wider sticky left-0 bg-emerald-50 dark:bg-emerald-900/30/90 backdrop-blur-md border-r border-emerald-500/10 z-10">
                                                         {tx(lang,{fr:'Couleur \\ Taille',ar:'اللون \\ المقاس',en:'Color \\ Size',es:'Color \\ Talla',pt:'Cor \\ Tamanho',tr:'Renk \\ Beden'})}
                                                     </th>
                                                     {sizes.map(size => (
@@ -1007,7 +1007,7 @@ export default function EventEditor({ open, mode, initial, models, chains, plann
                                                     const colorTotal = Math.max(0, colorTotalTotal - colorSubTotal);
                                                     return (
                                                         <tr key={`${color.id}-${cIdx}`} className="hover:bg-white/50 transition-colors">
-                                                            <td className="px-4 py-2 sticky left-0 bg-emerald-50/95 backdrop-blur-md z-10 border-r border-emerald-500/20">
+                                                            <td className="px-4 py-2 sticky left-0 bg-emerald-50 dark:bg-emerald-900/30/95 backdrop-blur-md z-10 border-r border-emerald-500/20">
                                                                 <div className="flex items-center gap-2">
                                                                     <div 
                                                                         className="w-3 h-3 rounded-full border border-slate-300 dark:border-dk-muted shadow-sm" 
@@ -1028,7 +1028,7 @@ export default function EventEditor({ open, mode, initial, models, chains, plann
                                                                     </td>
                                                                 );
                                                             })}
-                                                            <td className="px-4 py-2 text-center bg-emerald-50/50">
+                                                            <td className="px-4 py-2 text-center bg-emerald-50 dark:bg-emerald-900/30/50">
                                                                 <span className="text-[13px] font-bold text-emerald-700 tabular-nums">
                                                                     {colorTotal}
                                                                 </span>
@@ -1039,7 +1039,7 @@ export default function EventEditor({ open, mode, initial, models, chains, plann
                                             </tbody>
                                             <tfoot>
                                                 <tr className="bg-emerald-500/20 border-t border-emerald-500/35 backdrop-blur-sm">
-                                                    <td className="px-4 py-3 text-right text-[11px] font-bold text-emerald-800 uppercase sticky left-0 bg-emerald-50/95 backdrop-blur-md border-r border-emerald-500/20 z-10">
+                                                    <td className="px-4 py-3 text-right text-[11px] font-bold text-emerald-800 uppercase sticky left-0 bg-emerald-50 dark:bg-emerald-900/30/95 backdrop-blur-md border-r border-emerald-500/20 z-10">
                                                         Total
                                                     </td>
                                                     {sizes.map(size => {
@@ -1076,7 +1076,7 @@ export default function EventEditor({ open, mode, initial, models, chains, plann
                             type="checkbox"
                             checked={isSubcontracted}
                             onChange={(e) => setIsSubcontracted(e.target.checked)}
-                            className="rounded border-slate-300 dark:border-dk-muted text-indigo-600 dark:text-dk-accent-text focus:ring-indigo-500"
+                            className="rounded border-slate-300 dark:border-dk-muted text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text focus:ring-indigo-500"
                         />
                         <span className="text-[12px] font-medium text-slate-700 dark:text-dk-text-soft">{tx(lang,{fr:'En sous-traitance',ar:'مقاولة من الباطن',en:'Subcontracted',es:'Subcontratado',pt:'Subcontratado',tr:'Taşeron'})}</span>
                     </label>
@@ -1084,7 +1084,7 @@ export default function EventEditor({ open, mode, initial, models, chains, plann
                     {isSubcontracted && (
                         <div className="mt-4 p-4 bg-white/40 dark:bg-dk-surface/40 backdrop-blur-md border border-white/20 dark:border-dk-border/20 rounded-xl space-y-4 shadow-sm animate-[planning-slide-in-right_150ms_ease-out]">
                             <h4 className="text-[12px] font-bold text-slate-800 dark:text-dk-text flex items-center gap-1.5 border-b border-slate-100 dark:border-dk-border pb-2">
-                                <Truck className="w-4 h-4 text-indigo-600 dark:text-dk-accent-text" />
+                                <Truck className="w-4 h-4 text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text" />
                                 {tx(lang,{fr:'Détails du Partenaire Sous-traitant',ar:'تفاصيل شريك المقاولة من الباطن',en:'Subcontractor Partner Details',es:'Detalles del Socio Subcontratista',pt:'Detalhes do Parceiro Subcontratado',tr:'Taşeron Ortak Detayları'})}
                             </h4>
                             
@@ -1166,7 +1166,7 @@ export default function EventEditor({ open, mode, initial, models, chains, plann
 
                 {/* Validation */}
                 {draftIssues.length > 0 && (
-                    <div className="rounded-lg bg-amber-50/40 border border-amber-100 p-3 space-y-1.5">
+                    <div className="rounded-lg bg-amber-50 dark:bg-amber-900/30/40 border border-amber-100 p-3 space-y-1.5">
                         <div className="flex items-center gap-1.5 text-[11px] font-medium text-amber-800">
                             <AlertTriangle className="w-3 h-3" strokeWidth={2} />
                             {draftIssues.length} {tx(lang,{fr:'point',ar:'نقطة',en:'point',es:'punto',pt:'ponto',tr:'nokta'})}{draftIssues.length > 1 ? 's' : ''} {tx(lang,{fr:"d'attention",ar:"تحتاج انتباهاً",en:"requires attention",es:"de atención",pt:"de atenção",tr:"dikkat gerektiriyor"})}

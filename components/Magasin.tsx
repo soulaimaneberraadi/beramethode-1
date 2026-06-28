@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
     Package, Plus, Trash2, Search, Edit2, Save, X, ArrowDownCircle, ArrowUpCircle,
     AlertTriangle, Phone, Mail, Building2, LinkIcon, Layers, History, Barcode,
@@ -188,7 +188,7 @@ function ProductModal({ item, onSave, onClose }: { item?: MagasinProduct; onSave
                         <div><Lbl t={tx(lang,{fr:'Prix u. par défaut',ar:'السعر الافتراضي للوحدة',en:'Default unit price',es:'Precio unitario por defecto',pt:'Preço unitário padrão',tr:'Varsayılan birim fiyatı'})} /><input className={inp} type="number" min="0" step="0.01" value={f.prixUnitaire || ''} onChange={e => set('prixUnitaire', Math.max(0, +e.target.value.replace(/-/g, '') || 0))} /></div>
                         <div>
                             <div className="flex items-center gap-2 mb-1 cursor-pointer" onClick={() => { setHasAlerte(!hasAlerte); if (hasAlerte) set('stockAlerte', 0); }}>
-                                <input type="checkbox" className="w-4 h-4 text-indigo-600 dark:text-dk-accent-text dark:text-indigo-300 rounded cursor-pointer" checked={hasAlerte} readOnly />
+                                <input type="checkbox" className="w-4 h-4 text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text dark:text-indigo-300 rounded cursor-pointer" checked={hasAlerte} readOnly />
                                 <label className="text-xs font-bold text-slate-500 dark:text-dk-muted uppercase tracking-wide cursor-pointer">{tx(lang,{fr:'Seuil de réappro.',ar:'حد إعادة التموين',en:'Reorder threshold',es:'Umbral de reaprovisionamiento',pt:'Limite de reabastecimento',tr:'Yeniden sipariş eşiği'})}</label>
                             </div>
                             <input className={`${inp} ${!hasAlerte ? 'opacity-50 cursor-not-allowed bg-slate-100 dark:bg-dk-elevated/60' : ''}`} type="number" min="0" disabled={!hasAlerte} value={f.stockAlerte || ''} onChange={e => set('stockAlerte', Math.max(0, +e.target.value.replace(/-/g, '') || 0))} />
@@ -328,7 +328,7 @@ function BonCommandeModal({
                                             <td className="p-3 font-bold text-slate-700 dark:text-dk-text">{l.productNom}</td>
                                             <td className="p-3 text-right"><input type="number" min="0" className="w-20 border rounded px-2 py-1 text-right text-sm font-bold bg-slate-50 dark:bg-dk-bg" value={l.quantite} onChange={e => { const val = parseFloat(e.target.value.replace(/-/g, '')) || 0; const mathMaxVal = Math.max(0, val); const nl = bc.lignes.map(x => x.id === l.id ? { ...x, quantite: mathMaxVal } : x); setBc({ ...bc, lignes: nl, total: calcTotal(nl) }); }} /></td>
                                             <td className="p-3 text-right"><input type="number" min="0" className="w-24 border rounded px-2 py-1 text-right text-sm font-bold bg-slate-50 dark:bg-dk-bg" value={l.prixUnitaire || 0} onChange={e => { const val = parseFloat(e.target.value.replace(/-/g, '')) || 0; const mathMaxVal = Math.max(0, val); const nl = bc.lignes.map(x => x.id === l.id ? { ...x, prixUnitaire: mathMaxVal } : x); setBc({ ...bc, lignes: nl, total: calcTotal(nl) }); }} /> DH</td>
-                                            <td className="p-3 text-right font-black text-indigo-600 dark:text-dk-accent-text dark:text-indigo-300">{(l.quantite * (l.prixUnitaire || 0)).toLocaleString()} DH</td>
+                                            <td className="p-3 text-right font-black text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text dark:text-indigo-300">{(l.quantite * (l.prixUnitaire || 0)).toLocaleString()} DH</td>
                                             <td className="p-3 pr-4 text-right"><button onClick={() => rmLine(l.id)} className="text-slate-400 dark:text-dk-muted hover:text-rose-500 dark:text-rose-300 p-1"><Trash2 className="w-4 h-4" /></button></td>
                                         </tr>
                                     ))}
@@ -490,7 +490,7 @@ function InvoiceSettingsModal({ template, onSave, onClose }: { template: Invoice
                         </div>
                     </div>
                     <div className="text-right">
-                        {s.showDocumentNumber && <div className="font-black text-amber-600 dark:text-amber-300" style={{ fontSize: '7px' }}>BL-2025-A1B2C3</div>}
+                        {s.showDocumentNumber && <div className="font-black text-amber-600 dark:text-amber-400 dark:text-amber-300" style={{ fontSize: '7px' }}>BL-2025-A1B2C3</div>}
                         {s.showDateDocument && <div className="text-slate-400 dark:text-dk-muted" style={{ fontSize: '5.5px' }}>{new Date().toLocaleDateString('fr-FR')}</div>}
                     </div>
                 </div>
@@ -629,7 +629,7 @@ function InvoiceSettingsModal({ template, onSave, onClose }: { template: Invoice
                                             title={tab.label}
                                             className={`relative w-10 h-10 flex flex-col items-center justify-center rounded-xl transition-all duration-200 group ${
                                                 isActive
-                                                    ? 'bg-white dark:bg-dk-surface shadow-sm border border-slate-200 dark:border-dk-border/60 text-amber-600 dark:text-amber-300'
+                                                    ? 'bg-white dark:bg-dk-surface shadow-sm border border-slate-200 dark:border-dk-border/60 text-amber-600 dark:text-amber-400 dark:text-amber-300'
                                                     : 'text-slate-400 dark:text-dk-muted hover:text-slate-600 hover:bg-white'
                                             }`}
                                         >
@@ -661,7 +661,7 @@ function InvoiceSettingsModal({ template, onSave, onClose }: { template: Invoice
                                                             <img src={s.logo} className="w-full h-full object-contain" />
                                                         </div>
                                                         <div className="flex items-center justify-center gap-2">
-                                                            <label className="cursor-pointer px-3 py-1.5 bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-300 rounded-lg text-xs font-bold hover:bg-amber-100 dark:bg-amber-900/40 transition-colors">
+                                                            <label className="cursor-pointer px-3 py-1.5 bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 dark:text-amber-300 rounded-lg text-xs font-bold hover:bg-amber-100 dark:bg-amber-900/40 transition-colors">
                                                                 {tx(lang,{fr:'Changer',ar:'تغيير',en:'Change',es:'Cambiar',pt:'Alterar',tr:'Değiştir'})}
                                                                 <input type="file" accept="image/*" onChange={handleLogo} className="hidden" />
                                                             </label>
@@ -675,7 +675,7 @@ function InvoiceSettingsModal({ template, onSave, onClose }: { template: Invoice
                                                         <div className="w-16 h-16 mx-auto rounded-2xl bg-slate-100 dark:bg-dk-elevated/60 group-hover:bg-amber-50 dark:bg-amber-900/30 flex items-center justify-center transition-colors">
                                                             <Image className="w-7 h-7 text-slate-300 dark:text-dk-muted group-hover:text-amber-400 dark:text-amber-300 transition-colors" />
                                                         </div>
-                                                        <p className="text-sm font-bold text-slate-500 dark:text-dk-muted">{tx(lang,{fr:'Glissez ou ',ar:'اسحب أو ',en:'Drag or ',es:'Arrastre o ',pt:'Arraste ou ',tr:'Sürükleyin veya '})}<span className="text-amber-600 dark:text-amber-300 underline">{tx(lang,{fr:'parcourir',ar:'تصفح',en:'browse',es:'explorar',pt:'procurar',tr:'gözat'})}</span></p>
+                                                        <p className="text-sm font-bold text-slate-500 dark:text-dk-muted">{tx(lang,{fr:'Glissez ou ',ar:'اسحب أو ',en:'Drag or ',es:'Arrastre o ',pt:'Arraste ou ',tr:'Sürükleyin veya '})}<span className="text-amber-600 dark:text-amber-400 dark:text-amber-300 underline">{tx(lang,{fr:'parcourir',ar:'تصفح',en:'browse',es:'explorar',pt:'procurar',tr:'gözat'})}</span></p>
                                                         <p className="text-[10px] text-slate-300 dark:text-dk-muted">{tx(lang,{fr:'PNG, JPG, SVG - Max 2 Mo',ar:'PNG, JPG, SVG - 2 ميغابايت كحد أقصى',en:'PNG, JPG, SVG - Max 2 MB',es:'PNG, JPG, SVG - Máx 2 MB',pt:'PNG, JPG, SVG - Máx 2 MB',tr:'PNG, JPG, SVG - Maks 2 MB'})}</p>
                                                         <input type="file" accept="image/*" onChange={handleLogo} className="hidden" />
                                                     </label>
@@ -736,7 +736,7 @@ function InvoiceSettingsModal({ template, onSave, onClose }: { template: Invoice
                                                     { key: 'if_number' as keyof InvoiceTemplate, label: 'IF', ph: '12345678' },
                                                 ].map(f => (
                                                     <div key={f.key} className="bg-amber-50 dark:bg-amber-900/30/30 rounded-xl p-3 border border-amber-100 dark:border-amber-800/50/40">
-                                                        <label className="text-[10px] font-black text-amber-600 dark:text-amber-300 uppercase tracking-widest flex items-center gap-1"><Hash className="w-3 h-3" /> {f.label}</label>
+                                                        <label className="text-[10px] font-black text-amber-600 dark:text-amber-400 dark:text-amber-300 uppercase tracking-widest flex items-center gap-1"><Hash className="w-3 h-3" /> {f.label}</label>
                                                         <input className={invInp} value={s[f.key] as string} onChange={e => setS(p => ({ ...p, [f.key]: e.target.value }))} placeholder={f.ph} />
                                                     </div>
                                                 ))}
@@ -976,7 +976,7 @@ function InvoicePrinter({ mvt, product, template, onClose, t, lang }: { mvt: Mou
                                     <p className="font-black text-slate-800 dark:text-dk-text">
                                         {isSortie ? (mvt.chaineId || t('Atelier / Production')) : (mvt.fournisseurId || '—')}
                                     </p>
-                                    {mvt.modeleRef    && <p className="text-xs text-indigo-600 dark:text-dk-accent-text dark:text-indigo-300 font-bold mt-1">{t('Réf. OF :')} {mvt.modeleRef}</p>}
+                                    {mvt.modeleRef    && <p className="text-xs text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text dark:text-indigo-300 font-bold mt-1">{t('Réf. OF :')} {mvt.modeleRef}</p>}
                                     {mvt.operateurNom && <p className="text-xs text-slate-500 dark:text-dk-muted mt-1">{t('Responsable :')} {mvt.operateurNom}</p>}
                                 </div>
                             </div>
@@ -1007,7 +1007,7 @@ function InvoicePrinter({ mvt, product, template, onClose, t, lang }: { mvt: Mou
                                                 <div className="font-black text-slate-800 dark:text-dk-text">{product?.designation || t('Article')}</div>
                                                 {(mvt.bain || mvt.notes) && (
                                                     <div className="text-xs text-slate-400 dark:text-dk-muted mt-1 space-y-0.5">
-                                                        {mvt.bain  && <span className={`inline-block bg-indigo-50 dark:bg-dk-accent/20 dark:bg-indigo-900/30 text-indigo-600 dark:text-dk-accent-text dark:text-indigo-300 px-2 py-0.5 rounded ${lang==='ar'?'ml-2':'mr-2'} font-bold`}>{t('Bain:')} {mvt.bain}</span>}
+                                                        {mvt.bain  && <span className={`inline-block bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text dark:text-indigo-300 px-2 py-0.5 rounded ${lang==='ar'?'ml-2':'mr-2'} font-bold`}>{t('Bain:')} {mvt.bain}</span>}
                                                         {mvt.notes && <span className="italic">{mvt.notes}</span>}
                                                     </div>
                                                 )}
@@ -1052,7 +1052,7 @@ function InvoicePrinter({ mvt, product, template, onClose, t, lang }: { mvt: Mou
                         {/* === NOTES === */}
                         {template.showNotesSection && mvt.notes && (
                             <div className="mb-8 p-4 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800 rounded-xl">
-                                <p className="text-xs font-black text-amber-600 dark:text-amber-300 uppercase tracking-wide mb-1">{tx(lang,{fr:'Notes / Observations',ar:'ملاحظات',en:'Notes / Remarks',es:'Notas / Observaciones',pt:'Notas / Observações',tr:'Notlar'})}</p>
+                                <p className="text-xs font-black text-amber-600 dark:text-amber-400 dark:text-amber-300 uppercase tracking-wide mb-1">{tx(lang,{fr:'Notes / Observations',ar:'ملاحظات',en:'Notes / Remarks',es:'Notas / Observaciones',pt:'Notas / Observações',tr:'Notlar'})}</p>
                                 <p className="text-sm text-amber-800 dark:text-amber-200 italic">{mvt.notes}</p>
                             </div>
                         )}
@@ -1412,7 +1412,7 @@ function CustomProductSelect({ value, onChange, products, lots, t }: any) {
                 
                 <div className="flex items-center gap-2">
                     {selected && (
-                        <span className="text-indigo-600 dark:text-dk-accent-text dark:text-indigo-300 text-[10px] uppercase tracking-widest whitespace-nowrap bg-indigo-50 dark:bg-dk-accent/20 dark:bg-indigo-900/30 px-2 py-0.5 rounded-md font-black">
+                        <span className="text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text dark:text-indigo-300 text-[10px] uppercase tracking-widest whitespace-nowrap bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 dark:bg-indigo-900/30 px-2 py-0.5 rounded-md font-black">
                             {t("Stock:")} {stockQty(lots, selected.id).toFixed(1)} {selected.unite}
                         </span>
                     )}
@@ -1948,7 +1948,7 @@ export default function Magasin({ models = [], planningEvents = [], settings }: 
                         {aiEnabled ? <Sparkles className="w-4 h-4" /> : <Power className="w-4 h-4" />} IA: {aiEnabled ? 'ON' : 'OFF'}
                     </button>
                     <div className="px-4 py-1.5 border rounded-xl bg-slate-50 dark:bg-dk-bg text-center flex flex-col items-end"><div className="text-[10px] font-black text-slate-400 dark:text-dk-muted uppercase">{t('Valeur')}</div><div className="font-black text-slate-700 dark:text-dk-text text-sm leading-tight">{lots.reduce((s, l) => s + (l.quantiteRestante * l.prixUnitaire), 0).toLocaleString()} DH</div></div>
-                    {alertes.length > 0 && <button onClick={() => setTab('alertes')} className="px-3 py-1.5 border border-red-200 dark:border-red-800 bg-red-50 text-center rounded-xl cursor-pointer hover:bg-red-100 dark:bg-red-900/40 flex flex-col items-end"><div className="text-[10px] font-black text-red-500 dark:text-red-300 uppercase flex items-center gap-1 justify-center"><AlertTriangle className="w-3 h-3" /> {t('Urgences')}</div><div className="font-black text-red-600 dark:text-red-300 text-sm leading-tight">{alertes.length}</div></button>}
+                    {alertes.length > 0 && <button onClick={() => setTab('alertes')} className="px-3 py-1.5 border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/30 text-center rounded-xl cursor-pointer hover:bg-red-100 dark:bg-red-900/40 flex flex-col items-end"><div className="text-[10px] font-black text-red-500 dark:text-red-300 uppercase flex items-center gap-1 justify-center"><AlertTriangle className="w-3 h-3" /> {t('Urgences')}</div><div className="font-black text-red-600 dark:text-red-400 dark:text-red-300 text-sm leading-tight">{alertes.length}</div></button>}
                 </div>
             </div>
 
@@ -1971,7 +1971,7 @@ export default function Magasin({ models = [], planningEvents = [], settings }: 
                     { i: 'factures', l: 'Factures & BL', ic: FileText, b: mvts.filter(m => m.pieceJointe || m.documentRef).length },
                     { i: 'stockPF', l: 'Stock Produit Fini', ic: Package, b: finishedGoods.filter(fg => fg.statut === 'disponible').length }
                 ].map(tObj => (
-                    <button key={tObj.i} onClick={() => setTab(tObj.i as any)} className={`py-3 text-sm font-bold flex items-center gap-2 relative transition-colors whitespace-nowrap ${tab === tObj.i ? 'text-indigo-600 dark:text-dk-accent-text dark:text-indigo-300' : 'text-slate-500 dark:text-dk-muted hover:text-slate-800'}`}>
+                    <button key={tObj.i} onClick={() => setTab(tObj.i as any)} className={`py-3 text-sm font-bold flex items-center gap-2 relative transition-colors whitespace-nowrap ${tab === tObj.i ? 'text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text dark:text-indigo-300' : 'text-slate-500 dark:text-dk-muted hover:text-slate-800'}`}>
                         <tObj.ic className="w-4 h-4" />{t(tObj.l)} {!!tObj.b && <span className="bg-red-500 dark:bg-red-700 text-white rounded-full px-1.5 py-0.5 text-[10px]">{tObj.b}</span>}
                         {tab === tObj.i && <div className="absolute bottom-0 inset-x-0 h-1 bg-indigo-600 dark:bg-dk-accent dark:bg-indigo-700 rounded-t-full" />}
                     </button>
@@ -1987,8 +1987,8 @@ export default function Magasin({ models = [], planningEvents = [], settings }: 
                         {/* TOP STATS */}
                         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                             <div className="bg-white dark:bg-dk-surface rounded-2xl p-5 border border-slate-200 dark:border-dk-border shadow-sm flex items-center gap-4">
-                                <div className="w-12 h-12 rounded-xl bg-indigo-50 dark:bg-dk-accent/20 dark:bg-indigo-900/30 flex items-center justify-center shrink-0">
-                                    <Package className="w-6 h-6 text-indigo-600 dark:text-dk-accent-text dark:text-indigo-300" />
+                                <div className="w-12 h-12 rounded-xl bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 dark:bg-indigo-900/30 flex items-center justify-center shrink-0">
+                                    <Package className="w-6 h-6 text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text dark:text-indigo-300" />
                                 </div>
                                 <div>
                                     <p className="text-sm font-bold text-slate-500 dark:text-dk-muted">{t('Total Références')}</p>
@@ -1997,7 +1997,7 @@ export default function Magasin({ models = [], planningEvents = [], settings }: 
                             </div>
                             <div className="bg-white dark:bg-dk-surface rounded-2xl p-5 border border-slate-200 dark:border-dk-border shadow-sm flex items-center gap-4">
                                 <div className="w-12 h-12 rounded-xl bg-emerald-50 dark:bg-emerald-900/30 flex items-center justify-center shrink-0">
-                                    <TrendingUp className="w-6 h-6 text-emerald-600 dark:text-emerald-300" />
+                                    <TrendingUp className="w-6 h-6 text-emerald-600 dark:text-emerald-400 dark:text-emerald-300" />
                                 </div>
                                 <div>
                                     <p className="text-sm font-bold text-slate-500 dark:text-dk-muted">{t('Valeur Globale (CUMP)')}</p>
@@ -2009,16 +2009,16 @@ export default function Magasin({ models = [], planningEvents = [], settings }: 
                             </div>
                             <div className="bg-white dark:bg-dk-surface rounded-2xl p-5 border border-slate-200 dark:border-dk-border shadow-sm flex items-center gap-4">
                                 <div className="w-12 h-12 rounded-xl bg-rose-50 dark:bg-rose-900/30 flex items-center justify-center shrink-0">
-                                    <AlertTriangle className="w-6 h-6 text-rose-600 dark:text-rose-300" />
+                                    <AlertTriangle className="w-6 h-6 text-rose-600 dark:text-rose-400 dark:text-rose-300" />
                                 </div>
                                 <div>
                                     <p className="text-sm font-bold text-slate-500 dark:text-dk-muted">{t('Alerte Rupture')}</p>
-                                    <p className="text-2xl font-black text-rose-600 dark:text-rose-300">{alertCount}</p>
+                                    <p className="text-2xl font-black text-rose-600 dark:text-rose-400 dark:text-rose-300">{alertCount}</p>
                                 </div>
                             </div>
                             <div className="bg-white dark:bg-dk-surface rounded-2xl p-5 border border-slate-200 dark:border-dk-border shadow-sm flex items-center gap-4">
                                 <div className="w-12 h-12 rounded-xl bg-blue-50 dark:bg-blue-900/30 flex items-center justify-center shrink-0">
-                                    <Activity className="w-6 h-6 text-blue-600 dark:text-blue-300" />
+                                    <Activity className="w-6 h-6 text-blue-600 dark:text-blue-400 dark:text-blue-300" />
                                 </div>
                                 <div>
                                     <p className="text-sm font-bold text-slate-500 dark:text-dk-muted">{t('Mouvements (7j)')}</p>
@@ -2054,7 +2054,7 @@ export default function Magasin({ models = [], planningEvents = [], settings }: 
                                         <h3 className="font-black text-slate-800 dark:text-dk-text text-lg flex items-center gap-2"><Send className="w-5 h-5 text-indigo-500 dark:text-indigo-300" /> {t('Anticipation Production')}</h3>
                                         <p className="text-[11px] font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest mt-1">{t('Préparation des Modèles Imminents')}</p>
                                     </div>
-                                    <span className="bg-indigo-50 dark:bg-dk-accent/20 dark:bg-indigo-900/30 text-indigo-600 dark:text-dk-accent-text dark:text-indigo-300 text-xs font-bold px-3 py-1 rounded-full">{upcomingEvents.length} OF Prévus</span>
+                                    <span className="bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text dark:text-indigo-300 text-xs font-bold px-3 py-1 rounded-full">{upcomingEvents.length} OF Prévus</span>
                                 </div>
 
                                 {upcomingEvents.length === 0 ? (
@@ -2090,7 +2090,7 @@ export default function Magasin({ models = [], planningEvents = [], settings }: 
                                                         <div className="flex-1 min-w-0">
                                                             <div className="text-[10px] font-bold text-slate-400 dark:text-dk-muted mb-1">{new Date(evt.dateLancement).toLocaleDateString('fr-FR')} • {evt.chaineId}</div>
                                                             <h4 className="font-black text-sm text-slate-800 dark:text-dk-text leading-tight truncate" title={modelName}>{modelName}</h4>
-                                                            <div className="text-xs font-bold text-indigo-600 dark:text-dk-accent-text dark:text-indigo-300 mt-1">{evt.qteTotal.toLocaleString()} pcs</div>
+                                                            <div className="text-xs font-bold text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text dark:text-indigo-300 mt-1">{evt.qteTotal.toLocaleString()} pcs</div>
                                                         </div>
                                                     </div>
 
@@ -2098,7 +2098,7 @@ export default function Magasin({ models = [], planningEvents = [], settings }: 
                                                         <p className="text-[10px] uppercase font-bold text-slate-400 dark:text-dk-muted">{t('Besoins / Fournitures')}</p>
                                                         <div className="flex justify-between items-center text-xs">
                                                             <span className="text-slate-600 dark:text-dk-text-soft font-medium">{t('Tissu requis')}</span>
-                                                            <span className={`font-black ${isTissuSuffisant ? 'text-slate-800 dark:text-dk-text' : 'text-red-600 dark:text-red-300'}`}>~{fabricNeeded.toLocaleString()} m</span>
+                                                            <span className={`font-black ${isTissuSuffisant ? 'text-slate-800 dark:text-dk-text' : 'text-red-600 dark:text-red-400 dark:text-red-300'}`}>~{fabricNeeded.toLocaleString()} m</span>
                                                         </div>
                                                         <div className="flex justify-between items-center text-xs">
                                                             <span className="text-slate-600 dark:text-dk-text-soft font-medium">{t('Accessoires')}</span>
@@ -2119,7 +2119,7 @@ export default function Magasin({ models = [], planningEvents = [], settings }: 
                             <div className="bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border shadow-sm overflow-hidden flex flex-col">
                                 <div className="px-6 py-4 border-b border-slate-100 dark:border-dk-border/60 flex justify-between items-center">
                                     <h3 className="font-bold text-slate-800 dark:text-dk-text flex items-center gap-2"><ArrowDownCircle className="w-4 h-4 text-emerald-500 dark:text-emerald-300" /> {t('Approvisionnements en Transit')}</h3>
-                                    <button onClick={() => setTab('commandes')} className="text-[10px] uppercase font-black tracking-widest text-emerald-600 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-900/30 px-2 py-1 rounded hover:bg-emerald-100 dark:bg-emerald-900/40 transition-colors">{t('Gérer')}</button>
+                                    <button onClick={() => setTab('commandes')} className="text-[10px] uppercase font-black tracking-widest text-emerald-600 dark:text-emerald-400 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-900/30 px-2 py-1 rounded hover:bg-emerald-100 dark:bg-emerald-900/40 transition-colors">{t('Gérer')}</button>
                                 </div>
                                 <div className="p-0 flex-1">
                                     {commandes.filter(c => c.statut === 'envoye' || c.statut === 'valide').length === 0 ? (
@@ -2129,12 +2129,12 @@ export default function Magasin({ models = [], planningEvents = [], settings }: 
                                             {commandes.filter(c => c.statut === 'envoye' || c.statut === 'valide').map(c => (
                                                 <li key={c.id} className="p-4 hover:bg-slate-50 dark:hover:bg-dk-elevated/60 flex items-center gap-4">
                                                     <div className="w-10 h-10 rounded-full bg-emerald-100 dark:bg-emerald-900/40 flex items-center justify-center shrink-0">
-                                                        <FileText className="w-5 h-5 text-emerald-600 dark:text-emerald-300" />
+                                                        <FileText className="w-5 h-5 text-emerald-600 dark:text-emerald-400 dark:text-emerald-300" />
                                                     </div>
                                                     <div className="flex-1 min-w-0">
                                                         <div className="flex justify-between items-baseline mb-1">
                                                             <p className="font-black text-slate-800 dark:text-dk-text text-sm">{c.numero}</p>
-                                                            <span className="text-[10px] font-black text-emerald-600 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-900/30 px-2 py-0.5 rounded uppercase">{t(c.statut)}</span>
+                                                            <span className="text-[10px] font-black text-emerald-600 dark:text-emerald-400 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-900/30 px-2 py-0.5 rounded uppercase">{t(c.statut)}</span>
                                                         </div>
                                                         <p className="text-xs font-bold text-slate-500 dark:text-dk-muted truncate">{t('Chez')} {c.fournisseurNom} • {c.lignes.length} {t('articles')}</p>
                                                         {c.dateLivraisonPrevue && <p className="text-[10px] text-slate-400 dark:text-dk-muted mt-1">{t('Livraison prévue :')} {new Date(c.dateLivraisonPrevue).toLocaleDateString()}</p>}
@@ -2153,7 +2153,7 @@ export default function Magasin({ models = [], planningEvents = [], settings }: 
                                         <h3 className="font-bold text-slate-800 dark:text-dk-text flex items-center gap-2"><History className="w-4 h-4 text-indigo-500 dark:text-indigo-300" /> {t('Derniers Mouvements')}</h3>
                                         <p className="text-xs text-slate-400 dark:text-dk-muted mt-1">{t('Cliquez sur une ligne pour voir le produit, le stock et son historique complet.')}</p>
                                     </div>
-                                    <button onClick={() => setTab('tracabilite')} className="text-xs font-bold text-indigo-600 dark:text-dk-accent-text dark:text-indigo-300 hover:text-indigo-800 dark:text-indigo-200 flex items-center gap-1">{t('Voir tout')}</button>
+                                    <button onClick={() => setTab('tracabilite')} className="text-xs font-bold text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text dark:text-indigo-300 hover:text-indigo-800 dark:text-indigo-200 flex items-center gap-1">{t('Voir tout')}</button>
                                 </div>
                                 <div className="p-0 overflow-x-auto">
                                     {mvts.length === 0 ? <p className="p-6 text-center text-sm font-medium text-slate-400 dark:text-dk-muted">{t('Aucun mouvement enregistré.')}</p> : (
@@ -2176,7 +2176,7 @@ export default function Magasin({ models = [], planningEvents = [], settings }: 
                                                             </td>
                                                             <td className="p-3 font-bold text-slate-700 dark:text-dk-text">{prod?.designation || t('Inconnu')}</td>
                                                             <td className="p-3 text-right text-slate-600 dark:text-dk-text-soft font-bold">{prod ? `${prodStock.toFixed(1)} ${prod.unite}` : '-'}</td>
-                                                            <td className={`p-3 pr-6 text-right font-black ${m.type === 'entree' || m.type === 'retour_atelier' ? 'text-emerald-600 dark:text-emerald-300' : m.type === 'sortie' || m.type === 'rebut' ? 'text-rose-600 dark:text-rose-300' : 'text-amber-500 dark:text-amber-300'}`}>{m.type === 'sortie' || m.type === 'rebut' ? '-' : '+'}{m.quantite}</td>
+                                                            <td className={`p-3 pr-6 text-right font-black ${m.type === 'entree' || m.type === 'retour_atelier' ? 'text-emerald-600 dark:text-emerald-400 dark:text-emerald-300' : m.type === 'sortie' || m.type === 'rebut' ? 'text-rose-600 dark:text-rose-400 dark:text-rose-300' : 'text-amber-500 dark:text-amber-300'}`}>{m.type === 'sortie' || m.type === 'rebut' ? '-' : '+'}{m.quantite}</td>
                                                         </tr>
                                                     );
                                                 })}
@@ -2221,7 +2221,7 @@ export default function Magasin({ models = [], planningEvents = [], settings }: 
                                                         <span className="text-xs bg-slate-100 dark:bg-dk-elevated/60 text-slate-600 dark:text-dk-text-soft px-2 py-0.5 rounded font-bold">{d.demandeur}</span>
                                                     </div>
                                                     <h3 className="font-black text-lg text-slate-800 dark:text-dk-text">{d.produitDesignation || t('Produit Inconnu')}</h3>
-                                                    <div className="text-sm text-slate-500 dark:text-dk-muted font-bold mt-1">{t('Pour Ordre de Fab:')} <span className="text-indigo-600 dark:text-dk-accent-text dark:text-indigo-300">{d.modelId}</span></div>
+                                                    <div className="text-sm text-slate-500 dark:text-dk-muted font-bold mt-1">{t('Pour Ordre de Fab:')} <span className="text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text dark:text-indigo-300">{d.modelId}</span></div>
                                                     {d.notes && <div className="mt-2 text-xs bg-amber-50 dark:bg-amber-900/30 text-amber-800 dark:text-amber-200 p-2 rounded-lg italic">"{d.notes}"</div>}
                                                 </div>
 
@@ -2229,7 +2229,7 @@ export default function Magasin({ models = [], planningEvents = [], settings }: 
                                                     <div className="bg-slate-100 dark:bg-dk-elevated/60 rounded-2xl p-4 flex gap-6 text-center shadow-inner">
                                                         <div><div className="text-[10px] font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest mb-1">{t('Demandé')}</div><div className="font-black text-2xl text-slate-800 dark:text-dk-text">{d.quantiteDemandee} <span className="text-sm font-medium">{p?.unite}</span></div></div>
                                                         <div className="w-px bg-slate-200 dark:bg-dk-border" />
-                                                        <div><div className="text-[10px] font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest mb-1">{t('En Stock')}</div><div className={`font-black text-2xl ${st >= d.quantiteDemandee ? 'text-emerald-600 dark:text-emerald-300' : 'text-rose-600 dark:text-rose-300'}`}>{st.toFixed(0)} <span className="text-sm font-medium">{p?.unite}</span></div></div>
+                                                        <div><div className="text-[10px] font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest mb-1">{t('En Stock')}</div><div className={`font-black text-2xl ${st >= d.quantiteDemandee ? 'text-emerald-600 dark:text-emerald-400 dark:text-emerald-300' : 'text-rose-600 dark:text-rose-400 dark:text-rose-300'}`}>{st.toFixed(0)} <span className="text-sm font-medium">{p?.unite}</span></div></div>
                                                     </div>
 
                                                     {d.statut === 'attente' && (
@@ -2301,7 +2301,7 @@ export default function Magasin({ models = [], planningEvents = [], settings }: 
                                                                  setDetailInitialTab('supplier');
                                                                  setDetailStartEditing(true);
                                                              }}
-                                                             className="text-[10px] font-bold bg-indigo-50 dark:bg-dk-accent/20 dark:bg-indigo-900/30 text-indigo-700 dark:text-dk-accent-text dark:text-indigo-300 px-2 py-0.5 rounded-md flex items-center gap-1 h-6 cursor-pointer hover:bg-indigo-100 dark:bg-indigo-900/40"
+                                                             className="text-[10px] font-bold bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 dark:bg-indigo-900/30 text-indigo-700 dark:text-dk-accent-text dark:text-indigo-300 px-2 py-0.5 rounded-md flex items-center gap-1 h-6 cursor-pointer hover:bg-indigo-100 dark:bg-indigo-900/40"
                                                              title="Modifier le fournisseur"
                                                          >
                                                              <Building2 className="w-3 h-3" />
@@ -2379,7 +2379,7 @@ export default function Magasin({ models = [], planningEvents = [], settings }: 
                             </div>
                             <button
                                 onClick={() => setShowInvoiceSettings(true)}
-                                className="flex items-center gap-2 px-4 py-2.5 border-2 border-indigo-200 dark:border-indigo-800 text-indigo-600 dark:text-dk-accent-text dark:text-indigo-300 hover:bg-indigo-50 dark:bg-dk-accent/20 dark:bg-indigo-900/30 rounded-xl font-black text-sm transition-all group"
+                                className="flex items-center gap-2 px-4 py-2.5 border-2 border-indigo-200 dark:border-indigo-800 text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text dark:text-indigo-300 hover:bg-indigo-50 dark:bg-dk-accent/20 dark:bg-indigo-900/30 rounded-xl font-black text-sm transition-all group"
                                 title={t('Configurer le modèle Facture / Bon de Livraison')}
                             >
                                 <FileText className="w-4 h-4 group-hover:scale-110 transition-transform" />
@@ -2394,7 +2394,7 @@ export default function Magasin({ models = [], planningEvents = [], settings }: 
                             <div className="bg-white dark:bg-dk-surface rounded-2xl border shadow-sm">
                                 <div className="grid grid-cols-3 divide-x divide-y border-b text-xs sm:text-sm">
                                     <button onClick={() => setBMode('entree')} className={`col-span-1 p-3 font-black flex flex-col gap-1 items-center justify-center ${bMode === 'entree' ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300' : 'text-slate-500 dark:text-dk-muted hover:bg-slate-50 dark:hover:bg-dk-elevated/60'}`}><ArrowDownCircle className="w-5 h-5" /> {t('Entrée')}</button>
-                                    <button onClick={() => setBMode('sortie')} className={`col-span-1 p-3 font-black flex flex-col gap-1 items-center justify-center ${bMode === 'sortie' ? 'bg-indigo-50 dark:bg-dk-accent/20 dark:bg-indigo-900/30 text-indigo-700 dark:text-dk-accent-text dark:text-indigo-300' : 'text-slate-500 dark:text-dk-muted hover:bg-slate-50 dark:hover:bg-dk-elevated/60'}`}><ArrowUpCircle className="w-5 h-5" /> {t('Sortie')}</button>
+                                    <button onClick={() => setBMode('sortie')} className={`col-span-1 p-3 font-black flex flex-col gap-1 items-center justify-center ${bMode === 'sortie' ? 'bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 dark:bg-indigo-900/30 text-indigo-700 dark:text-dk-accent-text dark:text-indigo-300' : 'text-slate-500 dark:text-dk-muted hover:bg-slate-50 dark:hover:bg-dk-elevated/60'}`}><ArrowUpCircle className="w-5 h-5" /> {t('Sortie')}</button>
                                     <button onClick={() => setBMode('regularisation')} className={`col-span-1 p-3 font-black flex flex-col gap-1 items-center justify-center border-t md:border-t-0 md:border-l ${bMode === 'regularisation' ? 'bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300' : 'text-slate-500 dark:text-dk-muted hover:bg-slate-50 dark:hover:bg-dk-elevated/60'}`}><Scale className="w-5 h-5" /> {t('Inventaire')}</button>
                                     <button onClick={() => setBMode('retour_atelier')} className={`col-span-1 p-3 font-black flex flex-col gap-1 items-center justify-center border-t border-slate-200 dark:border-dk-border ${bMode === 'retour_atelier' ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300' : 'text-slate-500 dark:text-dk-muted hover:bg-slate-50 dark:hover:bg-dk-elevated/60'}`}><RefreshCw className="w-5 h-5" /> {t('Retour')}</button>
                                     <button onClick={() => setBMode('rebut')} className={`col-span-1 p-3 font-black flex flex-col gap-1 items-center justify-center border-t border-slate-200 dark:border-dk-border ${bMode === 'rebut' ? 'bg-rose-50 dark:bg-rose-900/30 text-rose-700 dark:text-rose-300' : 'text-slate-500 dark:text-dk-muted hover:bg-slate-50 dark:hover:bg-dk-elevated/60'}`}><Trash2 className="w-5 h-5" /> {t('Déchets')}</button>
@@ -2416,7 +2416,7 @@ export default function Magasin({ models = [], planningEvents = [], settings }: 
                                                 </div>
                                                 <button onClick={() => setScannerMode(!scannerMode)} className={`px-4 rounded-xl border-2 font-black transition-colors ${scannerMode ? 'bg-indigo-600 dark:bg-dk-accent dark:bg-indigo-700 border-indigo-600 dark:border-indigo-800 text-white' : 'bg-white dark:bg-dk-surface text-slate-600 dark:text-dk-text-soft hover:border-slate-300 dark:border-dk-border'}`}><Barcode className="w-5 h-5" /></button>
                                             </div>
-                                            {scannerMode && <div className="p-3 bg-indigo-50 dark:bg-dk-accent/20 dark:bg-indigo-900/30 border border-indigo-200 dark:border-indigo-800 rounded-xl animate-pulse"><input autoFocus placeholder={t("Flashez le code-barres...")} className="w-full bg-transparent text-center font-black outline-none" onChange={handleScan} /></div>}
+                                            {scannerMode && <div className="p-3 bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 dark:bg-indigo-900/30 border border-indigo-200 dark:border-indigo-800 rounded-xl animate-pulse"><input autoFocus placeholder={t("Flashez le code-barres...")} className="w-full bg-transparent text-center font-black outline-none" onChange={handleScan} /></div>}
 
                                             {bureauProduct && (
                                                 <div className="space-y-4">
@@ -2481,7 +2481,7 @@ export default function Magasin({ models = [], planningEvents = [], settings }: 
                                             {lots.filter(l => l.productId === bPid && l.quantiteRestante > 0).map((l, i) => (
                                                 <div key={l.id} className="p-3 flex justify-between items-center">
                                                     <div><div className="font-bold text-slate-700 dark:text-dk-text">{new Date(l.dateEntree).toLocaleDateString()}</div><div className="text-xs text-slate-400 dark:text-dk-muted">{l.fournisseur || '—'} {l.numBain && <span className="bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-dk-accent-text dark:text-indigo-300 px-1 ml-1 rounded">{t("Bain:")} {l.numBain}</span>}</div></div>
-                                                    <div className="text-right font-black text-emerald-600 dark:text-emerald-300 text-lg">{l.quantiteRestante.toFixed(1)}</div>
+                                                    <div className="text-right font-black text-emerald-600 dark:text-emerald-400 dark:text-emerald-300 text-lg">{l.quantiteRestante.toFixed(1)}</div>
                                                 </div>
                                             ))}
                                             {lots.filter(l => l.productId === bPid && l.quantiteRestante > 0).length === 0 && <div className="p-4 text-center text-slate-400 dark:text-dk-muted font-bold">{t("Aucun lot disponible.")}</div>}
@@ -2498,13 +2498,13 @@ export default function Magasin({ models = [], planningEvents = [], settings }: 
                                     <div className="flex-1 overflow-y-auto divide-y max-h-[300px]">
                                         {mvts.map(m => (
                                             <div key={m.id} className="p-3 flex gap-3 text-sm">
-                                                <div className={`mt-0.5 w-6 h-6 rounded flex items-center justify-center shrink-0 ${m.type === 'entree' ? 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-300' : m.type === 'sortie' ? 'bg-rose-100 dark:bg-rose-900/40 text-rose-600 dark:text-rose-300' : 'bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-300'}`}>{m.type === 'entree' ? <TrendingDown className="w-3 h-3" /> : m.type === 'sortie' ? <TrendingUp className="w-3 h-3" /> : <Scale className="w-3 h-3" />}</div>
+                                                <div className={`mt-0.5 w-6 h-6 rounded flex items-center justify-center shrink-0 ${m.type === 'entree' ? 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400 dark:text-emerald-300' : m.type === 'sortie' ? 'bg-rose-100 dark:bg-rose-900/40 text-rose-600 dark:text-rose-400 dark:text-rose-300' : 'bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400 dark:text-amber-300'}`}>{m.type === 'entree' ? <TrendingDown className="w-3 h-3" /> : m.type === 'sortie' ? <TrendingUp className="w-3 h-3" /> : <Scale className="w-3 h-3" />}</div>
                                                 <div className="flex-1">
                                                     <div className="flex justify-between font-bold">
                                                         <span className="truncate pr-2">{products.find(p => p.id === m.productId)?.designation || t('Inconnu')}</span>
                                                         <div className="flex gap-2 items-center">
                                                             {m.pieceJointe && <button title={t("Voir Document")} onClick={() => { const win = window.open(); if (win) win.document.write(`<img src="${m.pieceJointe}" style="max-width:100%"/>`); }} className="hover:bg-slate-100 p-0.5 rounded text-indigo-500 dark:text-indigo-300"><Paperclip className="w-3.5 h-3.5" /></button>}
-                                                            <span className={m.type === 'entree' ? 'text-emerald-600 dark:text-emerald-300' : m.type === 'sortie' ? 'text-rose-600 dark:text-rose-300' : 'text-amber-600 dark:text-amber-300'}>{m.type === 'sortie' ? '-' : '+'}{m.quantite}</span>
+                                                            <span className={m.type === 'entree' ? 'text-emerald-600 dark:text-emerald-400 dark:text-emerald-300' : m.type === 'sortie' ? 'text-rose-600 dark:text-rose-400 dark:text-rose-300' : 'text-amber-600 dark:text-amber-400 dark:text-amber-300'}>{m.type === 'sortie' ? '-' : '+'}{m.quantite}</span>
                                                         </div>
                                                     </div>
                                                     <div className="flex justify-between mt-1 items-end">
@@ -2541,7 +2541,7 @@ export default function Magasin({ models = [], planningEvents = [], settings }: 
                             <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
                                 {commandes.map(c => (
                                     <div key={c.id} className="bg-white dark:bg-dk-surface rounded-2xl border shadow-sm overflow-hidden flex flex-col relative group">
-                                        <div className={`h-1.5 w-full ${c.statut === 'brouillon' ? 'bg-slate-300 dark:bg-dk-elevated' : c.statut === 'envoye' ? 'bg-amber-400 dark:bg-amber-800' : c.statut === 'valide' ? 'bg-indigo-50 dark:bg-dk-accent/20 dark:bg-indigo-900/300' : 'bg-emerald-50 dark:bg-emerald-900/300'}`} />
+                                        <div className={`h-1.5 w-full ${c.statut === 'brouillon' ? 'bg-slate-300 dark:bg-dk-elevated' : c.statut === 'envoye' ? 'bg-amber-400 dark:bg-amber-800' : c.statut === 'valide' ? 'bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 dark:bg-indigo-900/300' : 'bg-emerald-50 dark:bg-emerald-900/300'}`} />
                                         <div className="p-5 flex-1 space-y-4">
                                             <div className="flex justify-between items-start">
                                                 <div>
@@ -2575,7 +2575,7 @@ export default function Magasin({ models = [], planningEvents = [], settings }: 
                         <div className="bg-white dark:bg-dk-surface p-6 rounded-3xl border shadow-sm">
                             <div className="flex items-center justify-between gap-4 mb-4">
                                 <div className="flex items-center gap-3">
-                                    <div className="w-12 h-12 bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-300 rounded-2xl flex items-center justify-center"><RefreshCw className="w-6 h-6" /></div>
+                                    <div className="w-12 h-12 bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400 dark:text-emerald-300 rounded-2xl flex items-center justify-center"><RefreshCw className="w-6 h-6" /></div>
                                     <div>
                                         <h2 className="text-2xl font-black text-slate-800 dark:text-dk-text">{t('Inventaire Tournant')}</h2>
                                     </div>
@@ -2619,7 +2619,7 @@ export default function Magasin({ models = [], planningEvents = [], settings }: 
                                                     </div>
                                                     <div className="w-px h-8 bg-slate-200 dark:bg-dk-border" />
                                                     <div>
-                                                        <div className="text-[10px] font-bold text-emerald-600 dark:text-emerald-300 uppercase tracking-widest mb-1">{t('Comptage Réel')}</div>
+                                                        <div className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 dark:text-emerald-300 uppercase tracking-widest mb-1">{t('Comptage Réel')}</div>
                                                         <input autoFocus={idx === 0} type="number" className="w-24 border-2 border-emerald-200 dark:border-emerald-800 rounded-lg px-2 py-1 text-center font-black text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-900/30 focus:outline-none focus:border-emerald-500" placeholder="0" value={item.qty} onChange={e => {
                                                             const n = [...invSession.items];
                                                             n[idx].qty = e.target.value;
@@ -2702,8 +2702,8 @@ export default function Magasin({ models = [], planningEvents = [], settings }: 
                                                     <div className="p-4 space-y-3">
                                                         <div className="font-black text-slate-800 dark:text-dk-text text-lg leading-tight mt-2 pr-4">{p.designation}</div>
                                                         <div className="text-xs text-slate-400 dark:text-dk-muted font-mono">{p.reference}</div>
-                                                        <div className="bg-slate-50 dark:bg-dk-bg rounded-xl p-3 border border-slate-100 dark:border-dk-border/60"><div className="text-[10px] uppercase font-bold text-slate-400 dark:text-dk-muted">{t('Stock Actuel')}</div><div className="text-2xl font-black text-red-600 dark:text-red-300">{st.toFixed(1)} <span className="text-sm">{p.unite}</span></div><div className="text-xs text-slate-400 dark:text-dk-muted mt-1">{t('Seuil:')} {p.stockAlerte} {p.unite}</div></div>
-                                                        {p.fournisseurNom && <div className="text-xs font-bold text-slate-600 dark:text-dk-text-soft p-2 bg-indigo-50 dark:bg-dk-accent/20 dark:bg-indigo-900/30 rounded-lg flex items-center gap-1 border border-indigo-100 dark:border-indigo-800/50"><Phone className="w-3 h-3 text-indigo-400 dark:text-indigo-300" /> {p.fournisseurNom}</div>}
+                                                        <div className="bg-slate-50 dark:bg-dk-bg rounded-xl p-3 border border-slate-100 dark:border-dk-border/60"><div className="text-[10px] uppercase font-bold text-slate-400 dark:text-dk-muted">{t('Stock Actuel')}</div><div className="text-2xl font-black text-red-600 dark:text-red-400 dark:text-red-300">{st.toFixed(1)} <span className="text-sm">{p.unite}</span></div><div className="text-xs text-slate-400 dark:text-dk-muted mt-1">{t('Seuil:')} {p.stockAlerte} {p.unite}</div></div>
+                                                        {p.fournisseurNom && <div className="text-xs font-bold text-slate-600 dark:text-dk-text-soft p-2 bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 dark:bg-indigo-900/30 rounded-lg flex items-center gap-1 border border-indigo-100 dark:border-indigo-800/50"><Phone className="w-3 h-3 text-indigo-400 dark:text-indigo-300" /> {p.fournisseurNom}</div>}
                                                         <button onClick={() => { setTab('bureau'); setBPid(p.id); setBMode('entree'); }} className="w-full py-2 bg-slate-800 dark:bg-dk-elevated hover:bg-slate-700 text-white font-bold text-sm rounded-xl transition-colors">{t('Approvisionner')}</button>
                                                     </div>
                                                 </div>
@@ -2738,7 +2738,7 @@ export default function Magasin({ models = [], planningEvents = [], settings }: 
                                                     </div>
                                                     <div className="flex-1">
                                                         <h4 className="font-black text-slate-800 dark:text-dk-text text-lg leading-tight">{mn.model.meta_data.nom_modele}</h4>
-                                                        <p className="text-xs font-bold text-slate-500 dark:text-dk-muted">{t('Objectif:')} <span className="text-indigo-600 dark:text-dk-accent-text dark:text-indigo-300">{mn.model.meta_data.quantity || 0} {t('pcs')}</span></p>
+                                                        <p className="text-xs font-bold text-slate-500 dark:text-dk-muted">{t('Objectif:')} <span className="text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text dark:text-indigo-300">{mn.model.meta_data.quantity || 0} {t('pcs')}</span></p>
                                                     </div>
                                                 </div>
                                                 <div className="p-4 space-y-4">
@@ -2759,7 +2759,7 @@ export default function Magasin({ models = [], planningEvents = [], settings }: 
                                                                     </div>
                                                                     <div className="bg-white dark:bg-dk-surface rounded-lg p-2 border border-slate-100 dark:border-dk-border/60">
                                                                         <div className="text-[10px] text-slate-400 dark:text-dk-muted font-bold uppercase">{t('En Magasin')}</div>
-                                                                        <div className="font-black text-rose-600 dark:text-rose-300">{s.stock} {s.unit}</div>
+                                                                        <div className="font-black text-rose-600 dark:text-rose-400 dark:text-rose-300">{s.stock} {s.unit}</div>
                                                                     </div>
                                                                 </div>
 
@@ -2767,7 +2767,7 @@ export default function Magasin({ models = [], planningEvents = [], settings }: 
                                                                 <div className="mt-2 text-xs">
                                                                     {planB ? (
                                                                         <div className="bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-100 dark:border-emerald-800/50 text-emerald-800 p-2.5 rounded-xl flex gap-2 items-start">
-                                                                            <RefreshCw className="w-4 h-4 shrink-0 text-emerald-600 dark:text-emerald-300 mt-0.5" />
+                                                                            <RefreshCw className="w-4 h-4 shrink-0 text-emerald-600 dark:text-emerald-400 dark:text-emerald-300 mt-0.5" />
                                                                             <div>
                                                                                 <span className="font-black block text-emerald-700 dark:text-emerald-300">{t('Suggestion Plan B :')}</span>
                                                                                 {t('Remplacer par')} <strong>{planB.designation}</strong> ({t('En stock:')} {stockQty(lots, planB.id).toFixed(1)} {planB.unite})
@@ -2775,7 +2775,7 @@ export default function Magasin({ models = [], planningEvents = [], settings }: 
                                                                         </div>
                                                                     ) : (
                                                                         <div className="bg-orange-50 dark:bg-orange-900/30 border border-orange-100 dark:border-orange-800/50 text-orange-800 p-2.5 rounded-xl flex gap-2 items-start">
-                                                                            <AlertTriangle className="w-4 h-4 shrink-0 text-orange-600 dark:text-orange-300 mt-0.5" />
+                                                                            <AlertTriangle className="w-4 h-4 shrink-0 text-orange-600 dark:text-orange-400 dark:text-orange-300 mt-0.5" />
                                                                             <div>
                                                                                 <span className="font-black block text-orange-700 dark:text-orange-300">{t('Action requise :')}</span>
                                                                                 {t('Aucune alternative (Plan B) trouvée en stock. Achat nécessaire.')}
@@ -2811,7 +2811,7 @@ export default function Magasin({ models = [], planningEvents = [], settings }: 
                             <div className="bg-white dark:bg-dk-surface rounded-3xl border shadow-sm p-6">
                                 <h3 className="text-lg font-black text-slate-800 dark:text-dk-text mb-4 flex items-center gap-2"><Trash2 className="w-5 h-5 text-rose-500 dark:text-rose-300" /> {t('Chutes de Coupe (Tissu)')}</h3>
                                 <div className="bg-rose-50 dark:bg-rose-900/30 border border-rose-100 dark:border-rose-800/50 rounded-2xl p-6 text-center mb-6">
-                                    <div className="text-4xl font-black text-rose-600 dark:text-rose-300 mb-2">345 <span className="text-lg">kg</span></div>
+                                    <div className="text-4xl font-black text-rose-600 dark:text-rose-400 dark:text-rose-300 mb-2">345 <span className="text-lg">kg</span></div>
                                     <p className="text-sm font-bold text-rose-800 dark:text-rose-200">{t('Volume total de déchets accumulés ce mois.')}</p>
                                 </div>
                                 <div className="space-y-4">
@@ -2825,11 +2825,11 @@ export default function Magasin({ models = [], planningEvents = [], settings }: 
                                                 <p className="text-sm font-black text-slate-800 dark:text-dk-text">{d.m}</p>
                                                 <p className="text-[10px] font-bold text-slate-400 dark:text-dk-muted">{d.date} • {d.src}</p>
                                             </div>
-                                            <span className="font-black text-rose-600 dark:text-rose-300 bg-rose-50 dark:bg-rose-900/30 px-2 py-1 rounded">{d.q}</span>
+                                            <span className="font-black text-rose-600 dark:text-rose-400 dark:text-rose-300 bg-rose-50 dark:bg-rose-900/30 px-2 py-1 rounded">{d.q}</span>
                                         </div>
                                     ))}
                                 </div>
-                                <button onClick={() => alert(t("Opération de recyclage confirmée. Le lot a été déduit du compte de valorisation."))} className="w-full mt-6 py-3 border-2 border-dashed border-rose-200 dark:border-rose-800 text-rose-600 dark:text-rose-300 font-bold rounded-xl hover:bg-rose-50 dark:bg-rose-900/30 transition-colors text-sm">
+                                <button onClick={() => alert(t("Opération de recyclage confirmée. Le lot a été déduit du compte de valorisation."))} className="w-full mt-6 py-3 border-2 border-dashed border-rose-200 dark:border-rose-800 text-rose-600 dark:text-rose-400 dark:text-rose-300 font-bold rounded-xl hover:bg-rose-50 dark:bg-rose-900/30 transition-colors text-sm">
                                     {t('Revendre / Recycler le lot (345 kg)')}
                                 </button>
                             </div>
@@ -2838,7 +2838,7 @@ export default function Magasin({ models = [], planningEvents = [], settings }: 
                             <div className="bg-white dark:bg-dk-surface rounded-3xl border shadow-sm p-6 flex flex-col">
                                 <h3 className="text-lg font-black text-slate-800 dark:text-dk-text mb-4 flex items-center gap-2"><ArrowLeft className="w-5 h-5 text-blue-500 dark:text-blue-300" /> {t('Surplus Fournitures (À revendre)')}</h3>
                                 <div className="bg-blue-50 dark:bg-blue-900/30 border border-blue-100 dark:border-blue-800/50 rounded-2xl p-6 text-center mb-6">
-                                    <div className="text-4xl font-black text-blue-600 dark:text-blue-300 mb-2">1,250 <span className="text-lg">DH</span></div>
+                                    <div className="text-4xl font-black text-blue-600 dark:text-blue-400 dark:text-blue-300 mb-2">1,250 <span className="text-lg">DH</span></div>
                                     <p className="text-sm font-bold text-blue-800 dark:text-blue-200">{t('Valeur estimée du surplus dormant revendable.')}</p>
                                 </div>
 
@@ -2854,7 +2854,7 @@ export default function Magasin({ models = [], planningEvents = [], settings }: 
                                                 <p className="text-xs font-black text-slate-800 dark:text-dk-text leading-tight mb-2 pr-6">{s.p}</p>
                                                 <div className="flex justify-between items-end">
                                                     <div>
-                                                        <p className="text-lg font-black text-blue-600 dark:text-blue-300">{s.q} <span className="text-[10px] text-blue-400 dark:text-blue-300">{s.u}</span></p>
+                                                        <p className="text-lg font-black text-blue-600 dark:text-blue-400 dark:text-blue-300">{s.q} <span className="text-[10px] text-blue-400 dark:text-blue-300">{s.u}</span></p>
                                                     </div>
                                                     <p className="text-xs font-bold text-slate-500 dark:text-dk-muted">{s.val} DH</p>
                                                 </div>
@@ -2912,9 +2912,9 @@ export default function Magasin({ models = [], planningEvents = [], settings }: 
                                                     </div>
                                                     <h4 className="font-black text-slate-800 dark:text-dk-text text-base">{pName}</h4>
                                                     <div className="flex flex-wrap gap-2 mt-2">
-                                                        <span className="text-xs font-black text-slate-600 dark:text-dk-text-soft bg-slate-100 dark:bg-dk-elevated/60 px-2 py-1 rounded">{t('Qté:')} <span className={m.type === 'entree' || m.type === 'retour_atelier' ? 'text-emerald-600 dark:text-emerald-300' : m.type === 'sortie' || m.type === 'rebut' ? 'text-rose-600 dark:text-rose-300' : 'text-amber-500 dark:text-amber-300'}>{m.type === 'sortie' || m.type === 'rebut' ? '-' : '+'}{m.quantite}</span></span>
-                                                        {m.modeleRef && <span className="text-xs font-black text-indigo-600 dark:text-dk-accent-text dark:text-indigo-300 bg-indigo-50 dark:bg-dk-accent/20 dark:bg-indigo-900/30 px-2 py-1 rounded">{t('OF:')} {m.modeleRef}</span>}
-                                                        {m.bain && <span className="text-xs font-black text-purple-600 dark:text-purple-300 bg-purple-50 dark:bg-purple-900/30 px-2 py-1 rounded">{t('Bain:')} {m.bain}</span>}
+                                                        <span className="text-xs font-black text-slate-600 dark:text-dk-text-soft bg-slate-100 dark:bg-dk-elevated/60 px-2 py-1 rounded">{t('Qté:')} <span className={m.type === 'entree' || m.type === 'retour_atelier' ? 'text-emerald-600 dark:text-emerald-400 dark:text-emerald-300' : m.type === 'sortie' || m.type === 'rebut' ? 'text-rose-600 dark:text-rose-400 dark:text-rose-300' : 'text-amber-500 dark:text-amber-300'}>{m.type === 'sortie' || m.type === 'rebut' ? '-' : '+'}{m.quantite}</span></span>
+                                                        {m.modeleRef && <span className="text-xs font-black text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 dark:bg-indigo-900/30 px-2 py-1 rounded">{t('OF:')} {m.modeleRef}</span>}
+                                                        {m.bain && <span className="text-xs font-black text-purple-600 dark:text-purple-400 dark:text-purple-300 bg-purple-50 dark:bg-purple-900/30 px-2 py-1 rounded">{t('Bain:')} {m.bain}</span>}
                                                         {m.chaineId && <span className="text-xs font-bold text-slate-500 dark:text-dk-muted bg-slate-50 dark:bg-dk-bg border px-2 py-1 rounded">{t('Chaîne:')} {m.chaineId}</span>}
                                                         {m.fournisseurId && <span className="text-xs font-bold text-slate-500 dark:text-dk-muted bg-slate-50 dark:bg-dk-bg border px-2 py-1 rounded">{t('Frs:')} {m.fournisseurId}</span>}
                                                     </div>
@@ -3024,7 +3024,7 @@ export default function Magasin({ models = [], planningEvents = [], settings }: 
                                                                 {/* Overlay on hover */}
                                                                 <div className="absolute inset-0 bg-indigo-600 dark:bg-dk-accent dark:bg-indigo-700/0 group-hover:bg-indigo-600 dark:hover:bg-dk-accent dark:bg-indigo-700/10 transition-colors flex items-center justify-center">
                                                                     <div className="opacity-0 group-hover:opacity-100 transition-opacity bg-white dark:bg-dk-surface/90 backdrop-blur rounded-xl px-3 py-2 shadow-lg flex items-center gap-2">
-                                                                        <Printer className="w-4 h-4 text-indigo-600 dark:text-dk-accent-text dark:text-indigo-300" />
+                                                                        <Printer className="w-4 h-4 text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text dark:text-indigo-300" />
                                                                         <span className="text-xs font-black text-indigo-700 dark:text-dk-accent-text dark:text-indigo-300">{t('Imprimer')}</span>
                                                                     </div>
                                                                 </div>
@@ -3039,7 +3039,7 @@ export default function Magasin({ models = [], planningEvents = [], settings }: 
                                                                 <div className="text-[10px] text-slate-400 dark:text-dk-muted font-bold mt-1 font-mono">{docNum}</div>
                                                                 <div className="flex justify-between items-center mt-2">
                                                                     <span className="text-[10px] text-slate-400 dark:text-dk-muted font-bold">{new Date(m.date).toLocaleDateString('fr-MA', { day: '2-digit', month: 'short' })}</span>
-                                                                    <span className={`text-xs font-black ${isSortie ? 'text-rose-600 dark:text-rose-300' : 'text-emerald-600 dark:text-emerald-300'}`}>
+                                                                    <span className={`text-xs font-black ${isSortie ? 'text-rose-600 dark:text-rose-400 dark:text-rose-300' : 'text-emerald-600 dark:text-emerald-400 dark:text-emerald-300'}`}>
                                                                         {isSortie ? '-' : '+'}{m.quantite}
                                                                     </span>
                                                                 </div>
@@ -3064,8 +3064,8 @@ export default function Magasin({ models = [], planningEvents = [], settings }: 
                         {/* KPI Cards */}
                         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                             <div className="bg-white dark:bg-dk-surface rounded-2xl p-5 border border-slate-200 dark:border-dk-border shadow-sm flex items-center gap-4">
-                                <div className="w-12 h-12 rounded-xl bg-indigo-50 dark:bg-dk-accent/20 dark:bg-indigo-900/30 flex items-center justify-center shrink-0">
-                                    <Package className="w-6 h-6 text-indigo-600 dark:text-dk-accent-text dark:text-indigo-300" />
+                                <div className="w-12 h-12 rounded-xl bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 dark:bg-indigo-900/30 flex items-center justify-center shrink-0">
+                                    <Package className="w-6 h-6 text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text dark:text-indigo-300" />
                                 </div>
                                 <div>
                                     <p className="text-sm font-bold text-slate-500 dark:text-dk-muted">{t('Total Modèles')}</p>
@@ -3074,29 +3074,29 @@ export default function Magasin({ models = [], planningEvents = [], settings }: 
                             </div>
                             <div className="bg-white dark:bg-dk-surface rounded-2xl p-5 border border-slate-200 dark:border-dk-border shadow-sm flex items-center gap-4">
                                 <div className="w-12 h-12 rounded-xl bg-emerald-50 dark:bg-emerald-900/30 flex items-center justify-center shrink-0">
-                                    <CheckCircle className="w-6 h-6 text-emerald-600 dark:text-emerald-300" />
+                                    <CheckCircle className="w-6 h-6 text-emerald-600 dark:text-emerald-400 dark:text-emerald-300" />
                                 </div>
                                 <div>
                                     <p className="text-sm font-bold text-slate-500 dark:text-dk-muted">{t('Disponible')}</p>
-                                    <p className="text-2xl font-black text-emerald-600 dark:text-emerald-300">{finishedGoods.filter(fg => fg.statut === 'disponible').reduce((s, fg) => s + fg.quantiteRestante, 0).toLocaleString()}</p>
+                                    <p className="text-2xl font-black text-emerald-600 dark:text-emerald-400 dark:text-emerald-300">{finishedGoods.filter(fg => fg.statut === 'disponible').reduce((s, fg) => s + fg.quantiteRestante, 0).toLocaleString()}</p>
                                 </div>
                             </div>
                             <div className="bg-white dark:bg-dk-surface rounded-2xl p-5 border border-slate-200 dark:border-dk-border shadow-sm flex items-center gap-4">
                                 <div className="w-12 h-12 rounded-xl bg-amber-50 dark:bg-amber-900/30 flex items-center justify-center shrink-0">
-                                    <Send className="w-6 h-6 text-amber-600 dark:text-amber-300" />
+                                    <Send className="w-6 h-6 text-amber-600 dark:text-amber-400 dark:text-amber-300" />
                                 </div>
                                 <div>
                                     <p className="text-sm font-bold text-slate-500 dark:text-dk-muted">{t('Expédié')}</p>
-                                    <p className="text-2xl font-black text-amber-600 dark:text-amber-300">{finishedGoods.reduce((s, fg) => s + fg.quantiteExpediee, 0).toLocaleString()}</p>
+                                    <p className="text-2xl font-black text-amber-600 dark:text-amber-400 dark:text-amber-300">{finishedGoods.reduce((s, fg) => s + fg.quantiteExpediee, 0).toLocaleString()}</p>
                                 </div>
                             </div>
                             <div className="bg-white dark:bg-dk-surface rounded-2xl p-5 border border-slate-200 dark:border-dk-border shadow-sm flex items-center gap-4">
                                 <div className="w-12 h-12 rounded-xl bg-rose-50 dark:bg-rose-900/30 flex items-center justify-center shrink-0">
-                                    <AlertTriangle className="w-6 h-6 text-rose-600 dark:text-rose-300" />
+                                    <AlertTriangle className="w-6 h-6 text-rose-600 dark:text-rose-400 dark:text-rose-300" />
                                 </div>
                                 <div>
                                     <p className="text-sm font-bold text-slate-500 dark:text-dk-muted">{t('Défauts')}</p>
-                                    <p className="text-2xl font-black text-rose-600 dark:text-rose-300">{finishedGoods.reduce((s, fg) => s + fg.quantiteDefaut, 0).toLocaleString()}</p>
+                                    <p className="text-2xl font-black text-rose-600 dark:text-rose-400 dark:text-rose-300">{finishedGoods.reduce((s, fg) => s + fg.quantiteDefaut, 0).toLocaleString()}</p>
                                 </div>
                             </div>
                         </div>
@@ -3164,16 +3164,16 @@ export default function Magasin({ models = [], planningEvents = [], settings }: 
                                                             <span className="font-black text-slate-800 dark:text-dk-text">{fg.quantiteProduite}</span>
                                                         </td>
                                                         <td className="p-3 text-center">
-                                                            <span className={`font-black ${fg.quantiteDefaut > 0 ? 'text-rose-600 dark:text-rose-300' : 'text-slate-400 dark:text-dk-muted'}`}>
+                                                            <span className={`font-black ${fg.quantiteDefaut > 0 ? 'text-rose-600 dark:text-rose-400 dark:text-rose-300' : 'text-slate-400 dark:text-dk-muted'}`}>
                                                                 {fg.quantiteDefaut}
                                                             </span>
                                                         </td>
                                                         <td className="p-3 text-center">
-                                                            <span className="font-black text-amber-600 dark:text-amber-300">{fg.quantiteExpediee}</span>
+                                                            <span className="font-black text-amber-600 dark:text-amber-400 dark:text-amber-300">{fg.quantiteExpediee}</span>
                                                         </td>
                                                         <td className="p-3 text-center">
                                                             <div className="flex flex-col items-center">
-                                                                <span className={`font-black ${fg.quantiteRestante > 0 ? 'text-emerald-600 dark:text-emerald-300' : 'text-slate-400 dark:text-dk-muted'}`}>
+                                                                <span className={`font-black ${fg.quantiteRestante > 0 ? 'text-emerald-600 dark:text-emerald-400 dark:text-emerald-300' : 'text-slate-400 dark:text-dk-muted'}`}>
                                                                     {fg.quantiteRestante}
                                                                 </span>
                                                                 <div className="w-16 h-1.5 bg-slate-100 dark:bg-dk-elevated/60 rounded-full mt-1 overflow-hidden">
@@ -3325,11 +3325,11 @@ export default function Magasin({ models = [], planningEvents = [], settings }: 
                     <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-[1000] p-4">
                         <div className="bg-white dark:bg-dk-surface rounded-3xl shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-200">
                              <div className="p-6">
-                                 <h3 className="text-xl font-black text-rose-600 dark:text-rose-300 flex items-center gap-2 mb-2">
+                                 <h3 className="text-xl font-black text-rose-600 dark:text-rose-400 dark:text-rose-300 flex items-center gap-2 mb-2">
                                      <AlertTriangle className="w-6 h-6" /> Conflit de Réservation
                                  </h3>
                                  <p className="text-slate-600 dark:text-dk-text-soft">
-                                     Le stock total est de <b className="text-slate-800 dark:text-dk-text">{conflictData.st}</b>, mais il ne reste que <b className="text-indigo-600 dark:text-dk-accent-text dark:text-indigo-300">{conflictData.avail}</b> unités disponibles (le reste est déjà réservé).
+                                     Le stock total est de <b className="text-slate-800 dark:text-dk-text">{conflictData.st}</b>, mais il ne reste que <b className="text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text dark:text-indigo-300">{conflictData.avail}</b> unités disponibles (le reste est déjà réservé).
                                  </p>
                                  <div className="mt-8 flex flex-col gap-3">
                                      <button onClick={() => {
@@ -3375,7 +3375,7 @@ export default function Magasin({ models = [], planningEvents = [], settings }: 
                                 <div className="flex gap-4">
                                     <div className="flex items-center gap-2 text-xs font-bold text-slate-500 dark:text-dk-muted"><div className="w-3 h-3 rounded bg-slate-100 dark:bg-dk-elevated/60"></div> {t('Vide')}</div>
                                     <div className="flex items-center gap-2 text-xs font-bold text-slate-500 dark:text-dk-muted"><div className="w-3 h-3 rounded bg-indigo-200 dark:bg-indigo-900/50"></div> {t('Moyen')}</div>
-                                    <div className="flex items-center gap-2 text-xs font-bold text-slate-500 dark:text-dk-muted"><div className="w-3 h-3 rounded bg-indigo-50 dark:bg-dk-accent/20 dark:bg-indigo-900/300"></div> {t('Dense')}</div>
+                                    <div className="flex items-center gap-2 text-xs font-bold text-slate-500 dark:text-dk-muted"><div className="w-3 h-3 rounded bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 dark:bg-indigo-900/300"></div> {t('Dense')}</div>
                                 </div>
                             </div>
 
@@ -3391,11 +3391,11 @@ export default function Magasin({ models = [], planningEvents = [], settings }: 
                                         const isMedium = d.totalStock > 1000;
                                         return (
                                             <div key={r} onClick={() => setSearch(`^${r}`)} className={`cursor-pointer transition-transform hover:scale-105 group relative mt-10 mb-10 bg-white dark:bg-dk-surface rounded-2xl border-4 ${isDense ? 'border-indigo-500 dark:border-indigo-800 shadow-lg shadow-indigo-200 dark:shadow-indigo-900/30' : isMedium ? 'border-indigo-300 dark:border-indigo-800 shadow-md' : 'border-slate-300 dark:border-dk-border'} flex flex-col overflow-hidden h-64`}>
-                                                <div className={`p-2 text-center text-white font-black text-lg ${isDense ? 'bg-indigo-50 dark:bg-dk-accent/20 dark:bg-indigo-900/300' : isMedium ? 'bg-indigo-400 dark:bg-indigo-800' : 'bg-slate-400 dark:bg-dk-muted'}`}>{t('Rayon')} {r}</div>
+                                                <div className={`p-2 text-center text-white font-black text-lg ${isDense ? 'bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 dark:bg-indigo-900/300' : isMedium ? 'bg-indigo-400 dark:bg-indigo-800' : 'bg-slate-400 dark:bg-dk-muted'}`}>{t('Rayon')} {r}</div>
                                                 <div className="p-4 flex-1 flex flex-col justify-center text-center bg-[radial-gradient(#e5e7eb_1px,transparent_1px)] [background-size:16px_16px]">
                                                     <div className="text-3xl font-black text-slate-800 dark:text-dk-text">{d.items.length} <span className="text-sm text-slate-500 dark:text-dk-muted font-bold block">{t('Réf. Uniques')}</span></div>
                                                     <div className="mt-4 text-xs font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest">{t('Stock Total')}</div>
-                                                    <div className={`font-black text-xl ${isDense ? 'text-indigo-600 dark:text-dk-accent-text dark:text-indigo-300' : 'text-slate-600 dark:text-dk-text-soft'}`}>{d.totalStock.toLocaleString()}</div>
+                                                    <div className={`font-black text-xl ${isDense ? 'text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text dark:text-indigo-300' : 'text-slate-600 dark:text-dk-text-soft'}`}>{d.totalStock.toLocaleString()}</div>
                                                 </div>
                                             </div>
                                         );
@@ -3410,11 +3410,11 @@ export default function Magasin({ models = [], planningEvents = [], settings }: 
                                             return (
                                                 <div key={p.id} className="p-3 bg-slate-50 dark:bg-dk-bg rounded-xl border border-slate-100 dark:border-dk-border/60 hover:border-indigo-200 dark:border-indigo-800 transition-colors">
                                                     <div className="flex justify-between items-start">
-                                                        <span className="text-xs font-black text-indigo-600 dark:text-dk-accent-text dark:text-indigo-300 bg-indigo-50 dark:bg-dk-accent/20 dark:bg-indigo-900/30 px-2 py-0.5 rounded border border-indigo-100 dark:border-indigo-800/50">{p.emplacement || t('Non Défini')}</span>
+                                                        <span className="text-xs font-black text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 dark:bg-indigo-900/30 px-2 py-0.5 rounded border border-indigo-100 dark:border-indigo-800/50">{p.emplacement || t('Non Défini')}</span>
                                                         <span className="text-[10px] font-bold text-slate-400 dark:text-dk-muted">{p.reference}</span>
                                                     </div>
                                                     <div className="font-bold text-slate-800 dark:text-dk-text text-sm mt-1 leading-tight">{p.designation}</div>
-                                                    <div className="text-xs font-black text-slate-500 dark:text-dk-muted mt-2">{t('Dispo:')} <span className={st === 0 ? 'text-red-500 dark:text-red-300' : 'text-emerald-600 dark:text-emerald-300'}>{st} {p.unite}</span></div>
+                                                    <div className="text-xs font-black text-slate-500 dark:text-dk-muted mt-2">{t('Dispo:')} <span className={st === 0 ? 'text-red-500 dark:text-red-300' : 'text-emerald-600 dark:text-emerald-400 dark:text-emerald-300'}>{st} {p.unite}</span></div>
                                                 </div>
                                             );
                                         })}
@@ -3454,10 +3454,10 @@ export default function Magasin({ models = [], planningEvents = [], settings }: 
                                 {suppliersData.map(s => (
                                     <div key={s.name} className="bg-white dark:bg-dk-surface p-6 rounded-3xl border border-slate-200 dark:border-dk-border shadow-sm hover:shadow-md hover:border-indigo-200 dark:border-indigo-800 transition-all group">
                                         <div className="flex justify-between items-start mb-6">
-                                            <div className="w-12 h-12 bg-indigo-50 dark:bg-dk-accent/20 dark:bg-indigo-900/30 rounded-2xl flex items-center justify-center group-hover:bg-indigo-600 dark:hover:bg-dk-accent dark:bg-indigo-700 transition-colors">
-                                                <Building2 className="w-6 h-6 text-indigo-600 dark:text-dk-accent-text dark:text-indigo-300 group-hover:text-white transition-colors" />
+                                            <div className="w-12 h-12 bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 dark:bg-indigo-900/30 rounded-2xl flex items-center justify-center group-hover:bg-indigo-600 dark:hover:bg-dk-accent dark:bg-indigo-700 transition-colors">
+                                                <Building2 className="w-6 h-6 text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text dark:text-indigo-300 group-hover:text-white transition-colors" />
                                             </div>
-                                            <div className={`px-4 py-2 rounded-xl text-lg font-black border-2 border-dashed ${s.score >= 85 ? 'border-emerald-200 dark:border-emerald-800 text-emerald-600 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-900/30' : s.score >= 70 ? 'border-amber-200 dark:border-amber-800 text-amber-600 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/30' : 'border-rose-200 dark:border-rose-800 text-rose-600 dark:text-rose-300 bg-rose-50 dark:bg-rose-900/30'}`}>
+                                            <div className={`px-4 py-2 rounded-xl text-lg font-black border-2 border-dashed ${s.score >= 85 ? 'border-emerald-200 dark:border-emerald-800 text-emerald-600 dark:text-emerald-400 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-900/30' : s.score >= 70 ? 'border-amber-200 dark:border-amber-800 text-amber-600 dark:text-amber-400 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/30' : 'border-rose-200 dark:border-rose-800 text-rose-600 dark:text-rose-400 dark:text-rose-300 bg-rose-50 dark:bg-rose-900/30'}`}>
                                                 {s.score}/100
                                             </div>
                                         </div>
@@ -3682,7 +3682,7 @@ export default function Magasin({ models = [], planningEvents = [], settings }: 
                                     </div>
 
                                     <div className="flex items-center gap-2 pt-2 border-t">
-                                        <input type="checkbox" id="autoAddStock" checked={brAutoAddStock} onChange={e => setBrAutoAddStock(e.target.checked)} className="w-4 h-4 text-indigo-600 dark:text-dk-accent-text dark:text-indigo-300 rounded cursor-pointer" />
+                                        <input type="checkbox" id="autoAddStock" checked={brAutoAddStock} onChange={e => setBrAutoAddStock(e.target.checked)} className="w-4 h-4 text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text dark:text-indigo-300 rounded cursor-pointer" />
                                         <label htmlFor="autoAddStock" className="text-xs font-bold text-slate-600 dark:text-dk-text-soft cursor-pointer">{tx(lang,{fr:'Incrémenter automatiquement le stock WMS',ar:'زيادة المخزون تلقائياً في WMS',en:'Auto-increment WMS stock',es:'Incrementar automáticamente el stock WMS',pt:'Incrementar automaticamente o stock WMS',tr:'WMS stokunu otomatik artır'})}</label>
                                     </div>
 
@@ -3929,7 +3929,7 @@ export default function Magasin({ models = [], planningEvents = [], settings }: 
                                                                         </div>
                                                                         <div>
                                                                             <span className="block text-[9px] font-bold text-slate-400 dark:text-dk-muted uppercase">Surplus</span>
-                                                                            <span className={`font-black ${surplus > 0 ? 'text-emerald-600 dark:text-emerald-300' : 'text-slate-500 dark:text-dk-muted'}`}>{surplus.toLocaleString()}</span>
+                                                                            <span className={`font-black ${surplus > 0 ? 'text-emerald-600 dark:text-emerald-400 dark:text-emerald-300' : 'text-slate-500 dark:text-dk-muted'}`}>{surplus.toLocaleString()}</span>
                                                                         </div>
                                                                     </div>
                                                                 </div>
@@ -3940,7 +3940,7 @@ export default function Magasin({ models = [], planningEvents = [], settings }: 
                                                                             setSurplusModal({ open: true, eventId: ev.id, materialName: r.materialName, surplusQty: surplus, isTemykou: true });
                                                                             setSurplusActionType('transfer');
                                                                             setSurplusTargetEventId('');
-                                                                        }} className="flex-1 py-1.5 bg-indigo-50 dark:bg-dk-accent/20 dark:bg-indigo-900/30 hover:bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-dk-accent-text dark:text-indigo-300 font-bold text-xs rounded transition-colors uppercase tracking-wider">
+                                                                        }} className="flex-1 py-1.5 bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 dark:bg-indigo-900/30 hover:bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-dk-accent-text dark:text-indigo-300 font-bold text-xs rounded transition-colors uppercase tracking-wider">
                                                                             Transférer
                                                                         </button>
                                                                         <button onClick={() => {
@@ -3990,8 +3990,8 @@ export default function Magasin({ models = [], planningEvents = [], settings }: 
                                             </button>
                                         </div>
                                         <div className="text-sm font-bold text-slate-600 dark:text-dk-text-soft mb-4 bg-slate-50 dark:bg-dk-bg p-3 rounded-xl border">
-                                            <div className="flex justify-between"><span>Fourniture :</span> <span className="text-indigo-600 dark:text-dk-accent-text dark:text-indigo-300">{surplusModal.materialName}</span></div>
-                                            <div className="flex justify-between mt-1"><span>{tx(lang,{fr:'Quantité surplus :',ar:'كمية الفائض :',en:'Surplus quantity :',es:'Cantidad sobrante :',pt:'Quantidade excedente :',tr:'Fazla miktar :'})}</span> <span className="text-emerald-600 dark:text-emerald-300">{surplusModal.surplusQty?.toLocaleString()}</span></div>
+                                            <div className="flex justify-between"><span>Fourniture :</span> <span className="text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text dark:text-indigo-300">{surplusModal.materialName}</span></div>
+                                            <div className="flex justify-between mt-1"><span>{tx(lang,{fr:'Quantité surplus :',ar:'كمية الفائض :',en:'Surplus quantity :',es:'Cantidad sobrante :',pt:'Quantidade excedente :',tr:'Fazla miktar :'})}</span> <span className="text-emerald-600 dark:text-emerald-400 dark:text-emerald-300">{surplusModal.surplusQty?.toLocaleString()}</span></div>
                                         </div>
 
                                         <div className="space-y-4">

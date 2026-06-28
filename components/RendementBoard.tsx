@@ -134,7 +134,7 @@ export default function RendementBoard({ models, planningEvents, suivis, setting
                 {tab === 'jour' && (
                     <div className="bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border overflow-hidden">
                         <table className="w-full text-sm">
-                            <thead className="bg-slate-50 dark:bg-dk-elevated text-slate-500 dark:text-dk-muted text-[11px] uppercase">
+                            <thead className="bg-slate-50 dark:bg-dk-bg dark:bg-dk-elevated text-slate-500 dark:text-dk-muted text-[11px] uppercase">
                                 <tr>
                                     <th className="px-4 py-3 text-left">{tx(lang, { fr: 'Date', ar: 'التاريخ', en: 'Date', es: 'Fecha', pt: 'Data', tr: 'Tarih' })}</th>
                                     <th className="px-4 py-3 text-left">{tx(lang, { fr: 'Chaîne', ar: 'الخط', en: 'Line', es: 'Cadena', pt: 'Linha', tr: 'Hat' })}</th>
@@ -164,7 +164,7 @@ export default function RendementBoard({ models, planningEvents, suivis, setting
                 {tab === 'modele' && (
                     <div className="bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border overflow-x-auto">
                         <table className="w-full min-w-[640px] text-sm">
-                            <thead className="bg-slate-50 dark:bg-dk-elevated text-slate-500 dark:text-dk-muted text-[11px] uppercase">
+                            <thead className="bg-slate-50 dark:bg-dk-bg dark:bg-dk-elevated text-slate-500 dark:text-dk-muted text-[11px] uppercase">
                                 <tr>
                                     <th className="px-4 py-3 text-left">{tx(lang, { fr: 'Modèle', ar: 'النموذج', en: 'Model', es: 'Modelo', pt: 'Modelo', tr: 'Model' })}</th>
                                     <th className="px-4 py-3 text-right">SAM</th>
@@ -196,7 +196,7 @@ export default function RendementBoard({ models, planningEvents, suivis, setting
                 {tab === 'poste' && (
                     <div className="bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border overflow-x-auto">
                         <table className="w-full min-w-[480px] text-sm">
-                            <thead className="bg-slate-50 dark:bg-dk-elevated text-slate-500 dark:text-dk-muted text-[11px] uppercase">
+                            <thead className="bg-slate-50 dark:bg-dk-bg dark:bg-dk-elevated text-slate-500 dark:text-dk-muted text-[11px] uppercase">
                                 <tr>
                                     <th className="px-4 py-3 text-left">{tx(lang, { fr: 'Poste', ar: 'المحطة', en: 'Station', es: 'Puesto', pt: 'Posto', tr: 'İstasyon' })}</th>
                                     <th className="px-4 py-3 text-left">{tx(lang, { fr: 'Modèle', ar: 'النموذج', en: 'Model', es: 'Modelo', pt: 'Modelo', tr: 'Model' })}</th>
@@ -237,7 +237,7 @@ export default function RendementBoard({ models, planningEvents, suivis, setting
                         </div>
                         <div className="bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border overflow-x-auto">
                             <table className="w-full min-w-[480px] text-sm">
-                                <thead className="bg-slate-50 dark:bg-dk-elevated text-slate-500 dark:text-dk-muted text-[11px] uppercase">
+                                <thead className="bg-slate-50 dark:bg-dk-bg dark:bg-dk-elevated text-slate-500 dark:text-dk-muted text-[11px] uppercase">
                                     <tr>
                                         <th className="px-4 py-3 text-left">{tx(lang, { fr: 'Machine', ar: 'الآلة', en: 'Machine', es: 'Máquina', pt: 'Máquina', tr: 'Makine' })}</th>
                                         <th className="px-4 py-3 text-right">{tx(lang, { fr: 'Nb Ops', ar: 'عدد العمليات', en: 'Nb Ops', es: 'N.º Ops', pt: 'N.º Ops', tr: 'İşlem Sayısı' })}</th>

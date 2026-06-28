@@ -116,7 +116,7 @@ const ModelInfo: React.FC<ModelInfoProps> = ({
                             type="text"
                             value={productName}
                             onChange={(e) => setProductName(e.target.value)}
-                            className="w-full h-9 px-3 bg-slate-50/60 hover:bg-slate-50 dark:hover:bg-dk-elevated/60 focus:bg-white border border-slate-200 dark:border-dk-border focus:border-slate-300 rounded-md text-[13px] font-medium text-slate-700 dark:text-dk-text-soft focus:ring-2 focus:ring-slate-100 outline-none transition-all"
+                            className="w-full h-9 px-3 bg-slate-50 dark:bg-dk-bg/60 hover:bg-slate-50 dark:hover:bg-dk-elevated/60 focus:bg-white border border-slate-200 dark:border-dk-border focus:border-slate-300 rounded-md text-[13px] font-medium text-slate-700 dark:text-dk-text-soft focus:ring-2 focus:ring-slate-100 outline-none transition-all"
                             placeholder="Ex: 76-34-tf"
                         />
                     </div>
@@ -155,7 +155,7 @@ const ModelInfo: React.FC<ModelInfoProps> = ({
                                     step="0.01"
                                     value={baseTime}
                                     onValueChange={(n) => setBaseTime(n)}
-                                    className="w-full h-9 pl-9 pr-3 bg-slate-50/60 hover:bg-slate-50 dark:hover:bg-dk-elevated/60 focus:bg-white border border-slate-200 dark:border-dk-border focus:border-slate-300 rounded-md text-[13px] font-semibold text-slate-700 dark:text-dk-text-soft focus:ring-2 focus:ring-slate-100 outline-none transition-all tabular-nums"
+                                    className="w-full h-9 pl-9 pr-3 bg-slate-50 dark:bg-dk-bg/60 hover:bg-slate-50 dark:hover:bg-dk-elevated/60 focus:bg-white border border-slate-200 dark:border-dk-border focus:border-slate-300 rounded-md text-[13px] font-semibold text-slate-700 dark:text-dk-text-soft focus:ring-2 focus:ring-slate-100 outline-none transition-all tabular-nums"
                                 />
                                 <Clock className="w-3.5 h-3.5 text-slate-400 dark:text-dk-muted absolute left-3 top-1/2 -translate-y-1/2" strokeWidth={1.75} />
                             </div>
@@ -174,7 +174,7 @@ const ModelInfo: React.FC<ModelInfoProps> = ({
                                         step="0.01"
                                         value={tempSettings.costMinute}
                                         onChange={handleTempSettingChange}
-                                        className="w-full h-9 pl-9 pr-3 bg-slate-50/60 hover:bg-slate-50 dark:hover:bg-dk-elevated/60 focus:bg-white border border-slate-200 dark:border-dk-border focus:border-slate-300 rounded-md text-[13px] font-semibold text-slate-700 dark:text-dk-text-soft focus:ring-2 focus:ring-slate-100 outline-none transition-all tabular-nums"
+                                        className="w-full h-9 pl-9 pr-3 bg-slate-50 dark:bg-dk-bg/60 hover:bg-slate-50 dark:hover:bg-dk-elevated/60 focus:bg-white border border-slate-200 dark:border-dk-border focus:border-slate-300 rounded-md text-[13px] font-semibold text-slate-700 dark:text-dk-text-soft focus:ring-2 focus:ring-slate-100 outline-none transition-all tabular-nums"
                                     />
                                     <Coins className="w-3.5 h-3.5 text-slate-400 dark:text-dk-muted absolute left-3 top-1/2 -translate-y-1/2" strokeWidth={1.75} />
                                 </div>
@@ -190,7 +190,7 @@ const ModelInfo: React.FC<ModelInfoProps> = ({
                     </div>
 
                     {/* Cut & Pack Rates - Compact Style */}
-                    <div className="flex flex-wrap items-center gap-2 sm:gap-3 p-2.5 sm:p-3 bg-slate-50/60 border border-slate-200 dark:border-dk-border rounded-md">
+                    <div className="flex flex-wrap items-center gap-2 sm:gap-3 p-2.5 sm:p-3 bg-slate-50 dark:bg-dk-bg/60 border border-slate-200 dark:border-dk-border rounded-md">
                         <div className="flex items-center gap-1.5 sm:gap-2">
                             <Scissors className="w-3.5 h-3.5 text-slate-400 dark:text-dk-muted" strokeWidth={1.75} />
                             <span className="text-[10px] sm:text-[11px] font-medium text-slate-500 dark:text-dk-muted">{tx(lang, {fr:"Coupe (%)",ar:"القص (%)",en:"Cutting (%)",es:"Corte (%)",pt:"Corte (%)",tr:"Kesim (%)"})}</span>
@@ -226,7 +226,7 @@ const ModelInfo: React.FC<ModelInfoProps> = ({
                     </div>
 
                     {/* Cost Breakdown - Visual */}
-                    <div className="p-3 sm:p-4 bg-slate-50/60 border border-slate-200 dark:border-dk-border rounded-md">
+                    <div className="p-3 sm:p-4 bg-slate-50 dark:bg-dk-bg/60 border border-slate-200 dark:border-dk-border rounded-md">
                         <h4 className="text-[10px] sm:text-[11px] font-medium text-slate-500 dark:text-dk-muted mb-2 sm:mb-3">
                             {tx(lang, {fr:"Répartition du Temps",ar:"توزيع الوقت",en:"Time distribution",es:"Distribución del tiempo",pt:"Distribuição do tempo",tr:"Süre dağılımı"})}
                         </h4>
@@ -275,7 +275,7 @@ const ModelInfo: React.FC<ModelInfoProps> = ({
                         className={`relative w-full h-[320px] sm:h-[320px] rounded-md border border-dashed transition-all duration-300 flex flex-col items-center justify-center overflow-hidden cursor-pointer
                             ${darkMode
                                 ? 'border-gray-600 bg-gray-800/50 hover:bg-gray-800 hover:border-slate-500'
-                                : 'border-slate-300 bg-slate-50/60 hover:bg-slate-50 dark:hover:bg-dk-elevated/60 hover:border-slate-400'
+                                : 'border-slate-300 bg-slate-50 dark:bg-dk-bg/60 hover:bg-slate-50 dark:hover:bg-dk-elevated/60 hover:border-slate-400'
                             }`}
                         onMouseEnter={() => setIsImageHovered(true)}
                         onMouseLeave={() => setIsImageHovered(false)}

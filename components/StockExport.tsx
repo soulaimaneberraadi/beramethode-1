@@ -653,7 +653,7 @@ export default function StockExport({ models, suivis, planningEvents = [], setMo
                     {/* Title + Nouveau Modèle */}
                     <div className="flex items-center justify-between gap-2 min-w-0 w-full md:w-auto">
                         <div className="flex items-center gap-2 min-w-0">
-                            <PackageCheck className="w-5 h-5 md:w-6 md:h-6 text-emerald-600 shrink-0" />
+                            <PackageCheck className="w-5 h-5 md:w-6 md:h-6 text-emerald-600 dark:text-emerald-400 shrink-0" />
                             <h1 className="text-lg md:text-2xl font-black text-slate-800 dark:text-dk-text tracking-tight truncate">{tx(lang, {fr:"Suivi Emballage & Dépôt",ar:"متابعة التغليف والمستودع",en:"Packaging & Warehouse Tracking",es:"Seguimiento de Embalaje y Almacén",pt:"Acompanhamento de Embalagem e Depósito",tr:"Paketleme ve Depo Takibi"})}</h1>
                         </div>
                         {setCurrentView && (
@@ -684,7 +684,7 @@ export default function StockExport({ models, suivis, planningEvents = [], setMo
                         </div>
 
                         {activeTab !== 'complet' && (
-                            <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-100 rounded-xl px-2 md:px-3 py-1.5 text-emerald-700 shrink-0">
+                            <div className="flex items-center gap-2 bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-100 rounded-xl px-2 md:px-3 py-1.5 text-emerald-700 shrink-0">
                                 <Calendar className="w-4 h-4 shrink-0" />
                                 <input
                                     type="date"
@@ -768,9 +768,9 @@ export default function StockExport({ models, suivis, planningEvents = [], setMo
                     const atRiskModels = filteredModels.filter(m => getModelCadence(m).atRisk);
                     if (atRiskModels.length === 0) return null;
                     return (
-                        <div className="bg-rose-50 border border-rose-200 rounded-2xl p-3 md:p-4 shadow-sm">
+                        <div className="bg-rose-50 dark:bg-rose-900/30 border border-rose-200 rounded-2xl p-3 md:p-4 shadow-sm">
                             <div className="flex items-center gap-2 mb-2 md:mb-3">
-                                <AlertCircle className="w-5 h-5 text-rose-600 shrink-0" />
+                                <AlertCircle className="w-5 h-5 text-rose-600 dark:text-rose-400 shrink-0" />
                                 <span className="font-black text-sm text-rose-800">{atRiskModels.length} {tx(lang,{fr:"modèle(s) à risque",ar:"موديل(ات) معرضة للخطر",en:"model(s) at risk",es:"modelo(s) en riesgo",pt:"modelo(s) em risco",tr:"risk altındaki model(ler)"})}</span>
                             </div>
                             <div className="space-y-1.5 mb-3">
@@ -869,7 +869,7 @@ export default function StockExport({ models, suivis, planningEvents = [], setMo
                                                     <div className="font-black text-slate-800 dark:text-dk-text text-sm truncate">{activeModel.meta_data?.nom_modele || tx(lang,{fr:"Sans Nom",ar:"بدون اسم",en:"Unnamed",es:"Sin Nombre",pt:"Sem Nome",tr:"İsimsiz"})}</div>
                                                     <div className="text-[11px] text-slate-500 dark:text-dk-muted font-bold flex flex-wrap gap-x-2">
                                                         <span>{tx(lang,{fr:"Réf:",ar:"المرجع:",en:"Ref:",es:"Ref:",pt:"Ref:",tr:"Ref:"})} {activeModel.meta_data?.reference || 'N/A'}</span>
-                                                        <span className="text-emerald-600">{getModelChaine(activeModel)}</span>
+                                                        <span className="text-emerald-600 dark:text-emerald-400">{getModelChaine(activeModel)}</span>
                                                         <span>{activeModel.ficheData?.client || tx(lang,{fr:"Client Divers",ar:"عميل متنوع",en:"Various Client",es:"Cliente Varios",pt:"Cliente Diversos",tr:"Çeşitli Müşteri"})}</span>
                                                     </div>
                                                 </div>
@@ -884,7 +884,7 @@ export default function StockExport({ models, suivis, planningEvents = [], setMo
                                                             <button
                                                                 key={m.id}
                                                                 onClick={() => { setActiveModelId(m.id); setModelPickerOpen(false); }}
-                                                                className={`w-full flex items-center gap-3 px-3 py-2 hover:bg-slate-50 dark:hover:bg-dk-elevated/60 text-left transition-colors ${m.id === activeModel.id ? 'bg-emerald-50' : ''}`}
+                                                                className={`w-full flex items-center gap-3 px-3 py-2 hover:bg-slate-50 dark:hover:bg-dk-elevated/60 text-left transition-colors ${m.id === activeModel.id ? 'bg-emerald-50 dark:bg-emerald-900/30' : ''}`}
                                                             >
                                                                 <div className="w-9 h-9 rounded-lg bg-slate-100 dark:bg-dk-elevated border border-slate-200 dark:border-dk-border overflow-hidden flex items-center justify-center shrink-0">
                                                                     {m.image ? <img src={m.image} className="w-full h-full object-cover" alt="" /> : <Package className="w-4 h-4 text-slate-300 dark:text-dk-muted" />}
@@ -902,9 +902,9 @@ export default function StockExport({ models, suivis, planningEvents = [], setMo
 
                                         <div className="grid grid-cols-2 md:grid-cols-4 gap-1.5 md:gap-2">
                                             <div className="bg-slate-50 dark:bg-dk-bg rounded-xl p-2 md:p-3 text-center"><p className="text-[9px] md:text-[10px] font-bold text-slate-500 dark:text-dk-muted">{tx(lang,{fr:"Cible (OF)",ar:"الهدف (أمر التصنيع)",en:"Target (OF)",es:"Objetivo (OF)",pt:"Alvo (OF)",tr:"Hedef (OF)"})}</p><p className="text-base md:text-lg font-black text-slate-800 dark:text-dk-text">{agg.totalExpected.toLocaleString()}</p></div>
-                                            <div className="bg-emerald-50 rounded-xl p-2 md:p-3 text-center"><p className="text-[9px] md:text-[10px] font-bold text-emerald-600">{tx(lang,{fr:"Total du jour",ar:"إجمالي اليوم",en:"Day Total",es:"Total del día",pt:"Total do dia",tr:"Gün Toplamı"})}</p><p className="text-base md:text-lg font-black text-emerald-700">{dayTotal.toLocaleString()}</p></div>
-                                            <div className="bg-indigo-50 dark:bg-dk-accent/20 rounded-xl p-2 md:p-3 text-center"><p className="text-[9px] md:text-[10px] font-bold text-indigo-600 dark:text-dk-accent-text">{activeTab === 'finition' ? tx(lang,{fr:"Cumul fini",ar:"الإجمالي النهائي",en:"Finished Total",es:"Total Terminado",pt:"Total Acabado",tr:"Bitmiş Toplam"}) : tx(lang,{fr:"Cumul dépôt",ar:"إجمالي المستودع",en:"Deposit Total",es:"Total Depósito",pt:"Total Depósito",tr:"Depo Toplamı"})}</p><p className="text-base md:text-lg font-black text-indigo-700 dark:text-dk-accent-text">{cumul.toLocaleString()}</p></div>
-                                            <div className="bg-amber-50 rounded-xl p-2 md:p-3 text-center"><p className="text-[9px] md:text-[10px] font-bold text-amber-600">{tx(lang,{fr:"Reste à produire",ar:"المتبقي للإنتاج",en:"Remaining to Produce",es:"Restante por Producir",pt:"Restante por Produzir",tr:"Üretilecek Kalan"})}</p><p className="text-base md:text-lg font-black text-amber-700">{reste.toLocaleString()}</p></div>
+                                            <div className="bg-emerald-50 dark:bg-emerald-900/30 rounded-xl p-2 md:p-3 text-center"><p className="text-[9px] md:text-[10px] font-bold text-emerald-600 dark:text-emerald-400">{tx(lang,{fr:"Total du jour",ar:"إجمالي اليوم",en:"Day Total",es:"Total del día",pt:"Total do dia",tr:"Gün Toplamı"})}</p><p className="text-base md:text-lg font-black text-emerald-700">{dayTotal.toLocaleString()}</p></div>
+                                            <div className="bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 rounded-xl p-2 md:p-3 text-center"><p className="text-[9px] md:text-[10px] font-bold text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text">{activeTab === 'finition' ? tx(lang,{fr:"Cumul fini",ar:"الإجمالي النهائي",en:"Finished Total",es:"Total Terminado",pt:"Total Acabado",tr:"Bitmiş Toplam"}) : tx(lang,{fr:"Cumul dépôt",ar:"إجمالي المستودع",en:"Deposit Total",es:"Total Depósito",pt:"Total Depósito",tr:"Depo Toplamı"})}</p><p className="text-base md:text-lg font-black text-indigo-700 dark:text-dk-accent-text">{cumul.toLocaleString()}</p></div>
+                                            <div className="bg-amber-50 dark:bg-amber-900/30 rounded-xl p-2 md:p-3 text-center"><p className="text-[9px] md:text-[10px] font-bold text-amber-600 dark:text-amber-400">{tx(lang,{fr:"Reste à produire",ar:"المتبقي للإنتاج",en:"Remaining to Produce",es:"Restante por Producir",pt:"Restante por Produzir",tr:"Üretilecek Kalan"})}</p><p className="text-base md:text-lg font-black text-amber-700">{reste.toLocaleString()}</p></div>
                                         </div>
 
                                         <div className="overflow-x-auto border border-slate-200 dark:border-dk-border rounded-xl">
@@ -913,7 +913,7 @@ export default function StockExport({ models, suivis, planningEvents = [], setMo
                                                     <tr className="bg-slate-50 dark:bg-dk-bg border-b border-slate-200 dark:border-dk-border text-[10px] uppercase tracking-wider text-slate-500 dark:text-dk-muted font-black">
                                                             <th className="p-2 md:p-3 lg:px-6">{tx(lang,{fr:"H",ar:"س",en:"H",es:"H",pt:"H",tr:"S"})}</th>
                                                             {cols.map(c => <th key={c} className="p-2 md:p-3 lg:px-6 text-center">{c}</th>)}
-                                                            <th className="p-2 md:p-3 lg:px-6 text-center bg-indigo-50 dark:bg-dk-accent/20/40 text-indigo-700 dark:text-dk-accent-text">{tx(lang,{fr:"Tot",ar:"المجموع",en:"Tot",es:"Tot",pt:"Tot",tr:"Top"})}</th>
+                                                            <th className="p-2 md:p-3 lg:px-6 text-center bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20/40 text-indigo-700 dark:text-dk-accent-text">{tx(lang,{fr:"Tot",ar:"المجموع",en:"Tot",es:"Tot",pt:"Tot",tr:"Top"})}</th>
                                                     </tr>
                                                 </thead>
                                                 <tbody>
@@ -929,7 +929,7 @@ export default function StockExport({ models, suivis, planningEvents = [], setMo
                                                                             value={getHourlyValue(activeModel, key, c)}
                                                                             onChange={(e) => handleUpdateHourly(activeModel, key, c, Math.max(0, parseInt(e.target.value) || 0))}
                                                                             placeholder="0"
-                                                                            className="w-14 md:w-20 lg:w-24 mx-auto block text-center font-bold text-sm bg-slate-50 border border-slate-200 dark:border-dk-border rounded-lg py-2 focus:bg-white focus:border-emerald-500 outline-none transition-all"
+                                                                            className="w-14 md:w-20 lg:w-24 mx-auto block text-center font-bold text-sm bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-lg py-2 focus:bg-white focus:border-emerald-500 outline-none transition-all"
                                                                         />
                                                                     </td>
                                                                 ))}
@@ -953,7 +953,7 @@ export default function StockExport({ models, suivis, planningEvents = [], setMo
                                         {sizes.length > 0 && (
                                             <div>
                                                 <p className="text-[10px] md:text-[11px] font-black text-slate-500 dark:text-dk-muted uppercase tracking-wider mb-1.5 md:mb-2 flex items-center gap-1.5">
-                                                    <Layers className="w-3.5 h-3.5 text-emerald-600" /> {tx(lang,{fr:"Détail par taille",ar:"التفاصيل حسب المقاس",en:"Detail by Size",es:"Detalle por Talla",pt:"Detalhe por Tamanho",tr:"Beden Detayı"})}
+                                                    <Layers className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" /> {tx(lang,{fr:"Détail par taille",ar:"التفاصيل حسب المقاس",en:"Detail by Size",es:"Detalle por Talla",pt:"Detalhe por Tamanho",tr:"Beden Detayı"})}
                                                 </p>
                                                 <div className="overflow-x-auto border border-slate-200 dark:border-dk-border rounded-xl">
                                                     <table className="w-full lg:w-auto lg:min-w-[520px] lg:mx-auto text-left border-collapse text-xs">
@@ -1011,10 +1011,10 @@ export default function StockExport({ models, suivis, planningEvents = [], setMo
                                             <span className="hidden md:inline">{tx(lang,{fr:"Tailles —",ar:"المقاسات —",en:"Sizes —",es:"Tallas —",pt:"Tamanhos —",tr:"Bedenler —"})} {activeTab === 'finition' ? tx(lang,{fr:"sortie finition",ar:"مخرجات التشطيب",en:"finishing output",es:"salida acabado",pt:"saída acabamento",tr:"bitirme çıktısı"}) : tx(lang,{fr:"reçu dépôt",ar:"الوارد للمستودع",en:"received at deposit",es:"recibido depósito",pt:"recebido depósito",tr:"depoya alınan"})}</span>
                                             <span className="md:hidden">{tx(lang,{fr:"Tailles",ar:"المقاسات",en:"Sizes",es:"Tallas",pt:"Tamanhos",tr:"Bedenler"})}</span>
                                         </th>
-                                        {activeTab === 'finition' && <th className="p-3 text-center bg-rose-50/40 text-rose-700">{tx(lang,{fr:"Défauts",ar:"العيوب",en:"Defects",es:"Defectos",pt:"Defeitos",tr:"Kusurlar"})}</th>}
-                                        <th className="p-3 text-center bg-amber-50/40 text-amber-700">WIP</th>
-                                        <th className="p-3 text-center bg-indigo-50 dark:bg-dk-accent/20/40 text-indigo-700 dark:text-dk-accent-text">{activeTab === 'finition' ? tx(lang,{fr:"Cumul",ar:"الإجمالي",en:"Total",es:"Acumulado",pt:"Acumulado",tr:"Toplam"}) : tx(lang,{fr:"Dépôt",ar:"المستودع",en:"Deposit",es:"Depósito",pt:"Depósito",tr:"Depo"})}</th>
-                                        <th className="p-3 text-center bg-emerald-50/40 text-emerald-700">{tx(lang,{fr:"Reste",ar:"المتبقي",en:"Remaining",es:"Restante",pt:"Restante",tr:"Kalan"})}</th>
+                                        {activeTab === 'finition' && <th className="p-3 text-center bg-rose-50 dark:bg-rose-900/30/40 text-rose-700">{tx(lang,{fr:"Défauts",ar:"العيوب",en:"Defects",es:"Defectos",pt:"Defeitos",tr:"Kusurlar"})}</th>}
+                                        <th className="p-3 text-center bg-amber-50 dark:bg-amber-900/30/40 text-amber-700">WIP</th>
+                                        <th className="p-3 text-center bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20/40 text-indigo-700 dark:text-dk-accent-text">{activeTab === 'finition' ? tx(lang,{fr:"Cumul",ar:"الإجمالي",en:"Total",es:"Acumulado",pt:"Acumulado",tr:"Toplam"}) : tx(lang,{fr:"Dépôt",ar:"المستودع",en:"Deposit",es:"Depósito",pt:"Depósito",tr:"Depo"})}</th>
+                                        <th className="p-3 text-center bg-emerald-50 dark:bg-emerald-900/30/40 text-emerald-700">{tx(lang,{fr:"Reste",ar:"المتبقي",en:"Remaining",es:"Restante",pt:"Restante",tr:"Kalan"})}</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -1056,7 +1056,7 @@ export default function StockExport({ models, suivis, planningEvents = [], setMo
                                                                             else handleUpdateEmballage(model, sz, 'depot', v);
                                                                         }}
                                                                         placeholder="0"
-                                                                        className="w-12 md:w-14 text-center font-bold text-xs bg-slate-50 border border-slate-200 dark:border-dk-border rounded-lg py-2 md:py-1 focus:bg-white focus:border-emerald-500 outline-none transition-all"
+                                                                        className="w-12 md:w-14 text-center font-bold text-xs bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-lg py-2 md:py-1 focus:bg-white focus:border-emerald-500 outline-none transition-all"
                                                                     />
                                                                 </div>
                                                             ))}
@@ -1064,30 +1064,30 @@ export default function StockExport({ models, suivis, planningEvents = [], setMo
                                                     )}
                                                 </td>
                                                 {activeTab === 'finition' && (
-                                                    <td className="p-2 text-center bg-rose-50/20">
+                                                    <td className="p-2 text-center bg-rose-50 dark:bg-rose-900/30/20">
                                                         <input
                                                             type="number"
                                                             value={getDefautsToday(model)}
                                                             onChange={(e) => handleUpdateDefauts(model, Math.max(0, parseInt(e.target.value) || 0))}
                                                             placeholder="0"
-                                                            className="w-12 md:w-14 text-center font-bold text-xs bg-rose-50/50 border border-rose-100 rounded-lg py-2 md:py-1 focus:bg-white focus:border-rose-400 outline-none transition-all text-rose-700"
+                                                            className="w-12 md:w-14 text-center font-bold text-xs bg-rose-50 dark:bg-rose-900/30/50 border border-rose-100 rounded-lg py-2 md:py-1 focus:bg-white focus:border-rose-400 outline-none transition-all text-rose-700"
                                                         />
                                                         {getModelDefauts(model) > 0 && (
                                                             <div className="text-[9px] text-rose-500 font-bold mt-0.5">{tx(lang,{fr:"cumul",ar:"الإجمالي",en:"total",es:"acum.",pt:"acum.",tr:"toplam"})} {getModelDefauts(model).toLocaleString()}</div>
                                                         )}
                                                     </td>
                                                 )}
-                                                <td className="p-3 text-center font-bold text-amber-600 bg-amber-50/20">{wip.toLocaleString()}</td>
-                                                <td className="p-3 text-center font-black text-sm text-indigo-700 dark:text-dk-accent-text bg-indigo-50 dark:bg-dk-accent/20/30">{cumul.toLocaleString()}</td>
-                                                <td className="p-3 text-center bg-emerald-50/30">
+                                                <td className="p-3 text-center font-bold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30/20">{wip.toLocaleString()}</td>
+                                                <td className="p-3 text-center font-black text-sm text-indigo-700 dark:text-dk-accent-text bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20/30">{cumul.toLocaleString()}</td>
+                                                <td className="p-3 text-center bg-emerald-50 dark:bg-emerald-900/30/30">
                                                     <div className={`font-black text-sm ${atRisk ? 'text-rose-700' : 'text-emerald-700'}`}>{reste.toLocaleString()} pcs</div>
                                                     {days !== null && (
-                                                        <div className={`text-[10px] font-bold ${days < 0 ? 'text-rose-600' : (atRisk || tight) ? 'text-amber-600' : 'text-slate-500 dark:text-dk-muted'}`}>
+                                                        <div className={`text-[10px] font-bold ${days < 0 ? 'text-rose-600 dark:text-rose-400' : (atRisk || tight) ? 'text-amber-600 dark:text-amber-400' : 'text-slate-500 dark:text-dk-muted'}`}>
                                                             {reste === 0 ? tx(lang,{fr:"✓ Complet",ar:"✓ مكتمل",en:"✓ Complete",es:"✓ Completo",pt:"✓ Completo",tr:"✓ Tamamlandı"}) : days < 0 ? `${Math.abs(days)} ${tx(lang,{fr:"j de retard",ar:"أيام تأخير",en:"days late",es:"días de retraso",pt:"dias de atraso",tr:"gün gecikme"})}` : days === 0 ? tx(lang,{fr:"Aujourd'hui",ar:"اليوم",en:"Today",es:"Hoy",pt:"Hoje",tr:"Bugün"}) : `${days} ${tx(lang,{fr:"jours restants",ar:"أيام متبقية",en:"days remaining",es:"días restantes",pt:"dias restantes",tr:"gün kalan"})}`}
                                                         </div>
                                                     )}
                                                     {reste > 0 && cad.cadenceRequise > 0 && (
-                                                        <div className="text-[10px] font-bold text-indigo-600 dark:text-dk-accent-text">≈ {cad.cadenceRequise.toLocaleString()} {tx(lang,{fr:"pcs/j requis",ar:"قطعة/يوم مطلوب",en:"pcs/d required",es:"pcs/d requerido",pt:"pcs/d necessário",tr:"adet/gün gerekli"})}</div>
+                                                        <div className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text">≈ {cad.cadenceRequise.toLocaleString()} {tx(lang,{fr:"pcs/j requis",ar:"قطعة/يوم مطلوب",en:"pcs/d required",es:"pcs/d requerido",pt:"pcs/d necessário",tr:"adet/gün gerekli"})}</div>
                                                     )}
                                                 </td>
                                             </tr>
@@ -1116,7 +1116,7 @@ export default function StockExport({ models, suivis, planningEvents = [], setMo
                                                 {filteredModels.reduce((acc, m) => acc + getModelDefauts(m), 0).toLocaleString()}
                                             </td>
                                         )}
-                                        <td className="p-3 text-center text-amber-600">
+                                        <td className="p-3 text-center text-amber-600 dark:text-amber-400">
                                             {filteredModels.reduce((acc, m) => {
                                                 const a = getModelAggregations(m);
                                                 const sizesM = m.ficheData?.sizes || m.meta_data?.sizes || [];
@@ -1177,7 +1177,7 @@ export default function StockExport({ models, suivis, planningEvents = [], setMo
 
                                         return (
                                             <React.Fragment key={model.id}>
-                                                <tr className={`border-b border-slate-100 dark:border-dk-border hover:bg-slate-50/50 transition-colors ${isExpanded ? 'bg-slate-50/20' : ''}`}>
+                                                <tr className={`border-b border-slate-100 dark:border-dk-border hover:bg-slate-50/50 transition-colors ${isExpanded ? 'bg-slate-50 dark:bg-dk-bg/20' : ''}`}>
                                                     <td className="p-3 md:p-4 text-center sticky left-0 bg-white dark:bg-dk-surface z-10">
                                                         <button 
                                                             onClick={() => setExpandedModelId(isExpanded ? null : model.id)}
@@ -1225,7 +1225,7 @@ export default function StockExport({ models, suivis, planningEvents = [], setMo
                                                             <td className="p-3 md:p-4 font-bold text-xs text-slate-600 dark:text-dk-text-soft text-center hidden lg:table-cell">
                                                                 {agg.unitPrice.toFixed(2)}
                                                             </td>
-                                                            <td className="p-3 md:p-4 font-black text-xs text-emerald-700 bg-emerald-50/30 text-center hidden lg:table-cell">
+                                                            <td className="p-3 md:p-4 font-black text-xs text-emerald-700 bg-emerald-50 dark:bg-emerald-900/30/30 text-center hidden lg:table-cell">
                                                                 {agg.stockValue.toLocaleString()}
                                                             </td>
                                                         </>
@@ -1241,9 +1241,9 @@ export default function StockExport({ models, suivis, planningEvents = [], setMo
                                                         ) : (
                                                             <span className={`inline-flex items-center px-1.5 md:px-2 py-0.5 rounded-full text-[9px] md:text-[10px] font-black ${
                                                                 agg.totalDepotIn >= agg.totalExpected && agg.totalExpected > 0
-                                                                    ? 'bg-emerald-50 text-emerald-700 border border-emerald-250'
+                                                                    ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 border border-emerald-250'
                                                                     : agg.totalDepotIn > 0 
-                                                                        ? 'bg-amber-50 text-amber-700 border border-amber-250'
+                                                                        ? 'bg-amber-50 dark:bg-amber-900/30 text-amber-700 border border-amber-250'
                                                                         : 'bg-slate-50 dark:bg-dk-bg text-slate-605 border border-slate-200 dark:border-dk-border'
                                                             }`}>
                                                                 {agg.totalDepotIn >= agg.totalExpected && agg.totalExpected > 0 ? tx(lang,{fr:"Complet au Dépôt",ar:"مكتمل في المستودع",en:"Complete at Deposit",es:"Completo en Depósito",pt:"Completo no Depósito",tr:"Depoda Tamamlandı"}) :
@@ -1265,12 +1265,12 @@ export default function StockExport({ models, suivis, planningEvents = [], setMo
                                                 </tr>
 
                                                 {isExpanded && (
-                                                    <tr className="bg-slate-50/60">
+                                                    <tr className="bg-slate-50 dark:bg-dk-bg/60">
                                                         <td colSpan={11} className="p-4 md:p-6 border-b border-slate-200 dark:border-dk-border">
                                                             <div className="bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border shadow-sm overflow-hidden">
                                                                 <div className="px-3 md:px-4 py-2.5 md:py-3 bg-slate-50 dark:bg-dk-bg border-b border-slate-200 dark:border-dk-border flex items-center justify-between">
                                                                     <span className="text-[10px] md:text-xs font-black text-slate-700 dark:text-dk-text-soft tracking-wider flex items-center gap-1.5">
-                                                                    <Layers className="w-4 h-4 text-emerald-600" />
+                                                                    <Layers className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                                                                     {tx(lang,{fr:"Détails de Complétion Globale par Taille",ar:"تفاصيل الإنجاز الكلي حسب المقاس",en:"Global Completion Details by Size",es:"Detalles de Finalización Global por Talla",pt:"Detalhes de Conclusão Global por Tamanho",tr:"Beden Bazında Genel Tamamlanma Detayları"})}
                                                                 </span>
                                                                 {agg.isShipped && (
@@ -1354,8 +1354,8 @@ export default function StockExport({ models, suivis, planningEvents = [], setMo
 
                                                                                         <td className="p-3 text-center">
                                                                                             <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-black ${
-                                                                                                status === 'Clôturé' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' :
-                                                                                                status === 'En cours' ? 'bg-amber-50 text-amber-700 border border-amber-200' :
+                                                                                                status === 'Clôturé' ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 border border-emerald-200' :
+                                                                                                status === 'En cours' ? 'bg-amber-50 dark:bg-amber-900/30 text-amber-700 border border-amber-200' :
                                                                                                 'bg-slate-50 dark:bg-dk-bg text-slate-600 dark:text-dk-text-soft border border-slate-200 dark:border-dk-border'
                                                                                             }`}>
                                                                                                 {status === 'Clôturé' ? '✅ ' + tx(lang,{fr:"Clôturé",ar:"مغلق",en:"Closed",es:"Cerrado",pt:"Fechado",tr:"Kapatıldı"}) :
@@ -1374,7 +1374,7 @@ export default function StockExport({ models, suivis, planningEvents = [], setMo
 
                                                                                 {activeTab === 'complet' && (
                                                                                     <>
-                                                                                        <td className="p-3 text-right text-indigo-600 dark:text-dk-accent-text">{agg.totalDepotIn.toLocaleString()} pcs</td>
+                                                                                        <td className="p-3 text-right text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text">{agg.totalDepotIn.toLocaleString()} pcs</td>
                                                                                         <td className="p-3 text-right text-slate-550">{Math.max(0, agg.totalExpected - agg.totalDepotIn).toLocaleString()} pcs</td>
                                                                                         <td className="p-3 text-center">
                                                                                             <div className="flex items-center justify-center gap-2">

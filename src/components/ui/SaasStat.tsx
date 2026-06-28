@@ -37,12 +37,12 @@ const variantConfig: Record<
   danger: {
     dot: 'bg-red-500',
     icon: 'text-red-500 dark:text-red-400',
-    value: 'text-red-600 dark:text-red-300',
+    value: 'text-red-600 dark:text-red-400 dark:text-red-300',
   },
   warning: {
     dot: 'bg-amber-500',
     icon: 'text-amber-500 dark:text-amber-400',
-    value: 'text-amber-600 dark:text-amber-300',
+    value: 'text-amber-600 dark:text-amber-400 dark:text-amber-300',
   },
   info: {
     dot: 'bg-[#2149C1] dark:bg-dk-accent',
@@ -126,7 +126,7 @@ export default function SaasStat({
         <div
           className={`
             w-8 h-8 rounded-md flex items-center justify-center shrink-0
-            bg-slate-50 border border-slate-100 dark:bg-dk-bg dark:border-dk-border
+            bg-slate-50 dark:bg-dk-bg border border-slate-100 dark:bg-dk-bg dark:border-dk-border
           `}
         >
           <Icon className={`w-4 h-4 ${colors.icon}`} strokeWidth={1.75} />
@@ -185,7 +185,7 @@ export function SaasStatGrid({
     <div
       className={`
         grid ${gridCols[cols]} gap-4
-        p-4 bg-slate-50/60 rounded-lg border border-slate-100 dark:bg-dk-bg/60 dark:border-dk-border
+        p-4 bg-slate-50 dark:bg-dk-bg/60 rounded-lg border border-slate-100 dark:bg-dk-bg/60 dark:border-dk-border
         ${className}
       `}
     >

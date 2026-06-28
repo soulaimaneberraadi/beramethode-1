@@ -141,7 +141,7 @@ export default function Signup({ onSwitch, onGuest }: { onSwitch: () => void; on
           {/* Animated Logo & Brand */}
           <div className="flex flex-col items-center mb-8">
             <h1 className="select-none text-3xl font-extrabold tracking-tight text-slate-900 dark:text-dk-text">
-              BERA<span className="text-emerald-600">METHODE</span>
+              BERA<span className="text-emerald-600 dark:text-emerald-400">METHODE</span>
             </h1>
             
             <span className="text-[10px] font-semibold uppercase tracking-[0.2em] mt-1.5 text-slate-500 dark:text-dk-muted">
@@ -159,7 +159,7 @@ export default function Signup({ onSwitch, onGuest }: { onSwitch: () => void; on
 
         {/* Email confirmation pending screen */}
         {confirmationSent && (
-          <motion.div variants={itemVariants} className="mt-8 text-center p-6 rounded-2xl bg-emerald-50/50 border border-emerald-100/80 space-y-4 dark:bg-emerald-900/20 dark:border-emerald-800/50">
+          <motion.div variants={itemVariants} className="mt-8 text-center p-6 rounded-2xl bg-emerald-50 dark:bg-emerald-900/30/50 border border-emerald-100/80 space-y-4 dark:bg-emerald-900/20 dark:border-emerald-800/50">
             <div className="w-16 h-16 mx-auto rounded-full bg-emerald-100 flex items-center justify-center dark:bg-emerald-900/40">
               <Mail className="w-8 h-8 text-emerald-600 dark:text-emerald-400" />
             </div>
@@ -187,7 +187,7 @@ export default function Signup({ onSwitch, onGuest }: { onSwitch: () => void; on
               <input
                 type="text"
                 required
-                className="w-full pl-11 pr-4 py-4 rounded-xl border border-slate-200 text-slate-900 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 bg-slate-50/50 focus:bg-white placeholder-slate-400 sm:text-sm transition-all duration-200 shadow-sm dark:border-dk-border dark:text-dk-text dark:bg-dk-bg/60 dark:focus:bg-dk-surface dark:placeholder:text-dk-muted"
+                className="w-full pl-11 pr-4 py-4 rounded-xl border border-slate-200 text-slate-900 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 bg-slate-50 dark:bg-dk-bg/50 focus:bg-white placeholder-slate-400 sm:text-sm transition-all duration-200 shadow-sm dark:border-dk-border dark:text-dk-text dark:bg-dk-bg/60 dark:focus:bg-dk-surface dark:placeholder:text-dk-muted"
                 placeholder={tx(lang, {fr:'Nom complet',ar:'الاسم الكامل',en:'Full Name',es:'Nombre completo',pt:'Nome completo',tr:'Ad Soyad'})}
                 value={name}
                 onChange={(e) => setName(e.target.value)}
@@ -200,7 +200,7 @@ export default function Signup({ onSwitch, onGuest }: { onSwitch: () => void; on
               <input
                 type="email"
                 required
-                className="w-full pl-11 pr-4 py-4 rounded-xl border border-slate-200 text-slate-900 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 bg-slate-50/50 focus:bg-white placeholder-slate-400 sm:text-sm transition-all duration-200 shadow-sm dark:border-dk-border dark:text-dk-text dark:bg-dk-bg/60 dark:focus:bg-dk-surface dark:placeholder:text-dk-muted"
+                className="w-full pl-11 pr-4 py-4 rounded-xl border border-slate-200 text-slate-900 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 bg-slate-50 dark:bg-dk-bg/50 focus:bg-white placeholder-slate-400 sm:text-sm transition-all duration-200 shadow-sm dark:border-dk-border dark:text-dk-text dark:bg-dk-bg/60 dark:focus:bg-dk-surface dark:placeholder:text-dk-muted"
                 placeholder={tx(lang, {fr:'Adresse email',ar:'البريد الإلكتروني',en:'Email address',es:'Correo electrónico',pt:'Endereço de email',tr:'E-posta adresi'})}
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -213,7 +213,7 @@ export default function Signup({ onSwitch, onGuest }: { onSwitch: () => void; on
               <input
                 type="password"
                 required
-                className="w-full pl-11 pr-4 py-4 rounded-xl border border-slate-200 text-slate-900 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 bg-slate-50/50 focus:bg-white placeholder-slate-400 sm:text-sm transition-all duration-200 shadow-sm dark:border-dk-border dark:text-dk-text dark:bg-dk-bg/60 dark:focus:bg-dk-surface dark:placeholder:text-dk-muted"
+                className="w-full pl-11 pr-4 py-4 rounded-xl border border-slate-200 text-slate-900 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 bg-slate-50 dark:bg-dk-bg/50 focus:bg-white placeholder-slate-400 sm:text-sm transition-all duration-200 shadow-sm dark:border-dk-border dark:text-dk-text dark:bg-dk-bg/60 dark:focus:bg-dk-surface dark:placeholder:text-dk-muted"
                 placeholder={tx(lang, {fr:'Mot de passe',ar:'كلمة المرور',en:'Password',es:'Contraseña',pt:'Senha',tr:'Şifre'})}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
@@ -229,7 +229,7 @@ export default function Signup({ onSwitch, onGuest }: { onSwitch: () => void; on
                 exit={{ opacity: 0, height: 0 }}
                 className="overflow-hidden"
               >
-                <div className="p-3 rounded-xl text-sm text-center font-medium border bg-red-50 border-red-100 text-red-600 dark:bg-red-900/30 dark:border-red-800 dark:text-red-300">
+                <div className="p-3 rounded-xl text-sm text-center font-medium border bg-red-50 dark:bg-red-900/30 border-red-100 text-red-600 dark:text-red-400 dark:bg-red-900/30 dark:border-red-800 dark:text-red-300">
                   {error}
                 </div>
               </motion.div>
@@ -297,7 +297,7 @@ export default function Signup({ onSwitch, onGuest }: { onSwitch: () => void; on
             {tx(lang, {fr:'Vous avez déjà un compte ?',ar:'هل لديك حساب بالفعل؟',en:'Already have an account?',es:'¿Ya tienes una cuenta?',pt:'Já tem uma conta?',tr:'Zaten hesabınız var mı?'})}{' '}
             <button 
               onClick={onSwitch} 
-              className="font-bold transition-colors hover:underline decoration-2 underline-offset-4 text-emerald-600 hover:text-emerald-500"
+              className="font-bold transition-colors hover:underline decoration-2 underline-offset-4 text-emerald-600 dark:text-emerald-400 hover:text-emerald-500"
             >
               {tx(lang, {fr:'Se connecter',ar:'تسجيل الدخول',en:'Sign in',es:'Iniciar sesión',pt:'Entrar',tr:'Giriş yap'})}
             </button>

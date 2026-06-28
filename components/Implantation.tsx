@@ -138,18 +138,18 @@ interface ImplantationProps {
 }
 
 const GROUP_COLORS = [
-    { bg: 'bg-indigo-50 dark:bg-dk-accent/20', border: 'border-indigo-500', text: 'text-indigo-700 dark:text-dk-accent-text' },
-    { bg: 'bg-orange-50', border: 'border-orange-500', text: 'text-orange-700' },
-    { bg: 'bg-emerald-50', border: 'border-emerald-500', text: 'text-emerald-700' },
-    { bg: 'bg-rose-50', border: 'border-rose-500', text: 'text-rose-700' },
-    { bg: 'bg-cyan-50', border: 'border-cyan-500', text: 'text-cyan-700' },
-    { bg: 'bg-amber-50', border: 'border-amber-500', text: 'text-amber-700' },
+    { bg: 'bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20', border: 'border-indigo-500', text: 'text-indigo-700 dark:text-dk-accent-text' },
+    { bg: 'bg-orange-50 dark:bg-orange-900/30', border: 'border-orange-500', text: 'text-orange-700' },
+    { bg: 'bg-emerald-50 dark:bg-emerald-900/30', border: 'border-emerald-500', text: 'text-emerald-700' },
+    { bg: 'bg-rose-50 dark:bg-rose-900/30', border: 'border-rose-500', text: 'text-rose-700' },
+    { bg: 'bg-cyan-50 dark:bg-cyan-900/30', border: 'border-cyan-500', text: 'text-cyan-700' },
+    { bg: 'bg-amber-50 dark:bg-amber-900/30', border: 'border-amber-500', text: 'text-amber-700' },
     { bg: 'bg-violet-50', border: 'border-violet-500', text: 'text-violet-700' },
-    { bg: 'bg-lime-50', border: 'border-lime-500', text: 'text-lime-700' },
+    { bg: 'bg-lime-50 dark:bg-lime-900/30', border: 'border-lime-500', text: 'text-lime-700' },
     { bg: 'bg-fuchsia-50', border: 'border-fuchsia-500', text: 'text-fuchsia-700' },
-    { bg: 'bg-teal-50', border: 'border-teal-500', text: 'text-teal-700' },
-    { bg: 'bg-red-50', border: 'border-red-500', text: 'text-red-700' },
-    { bg: 'bg-sky-50', border: 'border-sky-500', text: 'text-sky-700' },
+    { bg: 'bg-teal-50 dark:bg-teal-900/30', border: 'border-teal-500', text: 'text-teal-700' },
+    { bg: 'bg-red-50 dark:bg-red-900/30', border: 'border-red-500', text: 'text-red-700' },
+    { bg: 'bg-sky-50 dark:bg-sky-900/30', border: 'border-sky-500', text: 'text-sky-700' },
 ];
 
 const getGroupStyle = (groupId: string) => {
@@ -163,24 +163,24 @@ const getGroupStyle = (groupId: string) => {
 };
 
 const POSTE_COLORS = [
-    { name: 'indigo', bg: 'bg-indigo-50 dark:bg-dk-accent/20', border: 'border-indigo-200', text: 'text-indigo-700 dark:text-dk-accent-text', badge: 'bg-indigo-100', fill: '#6366f1', badgeText: 'text-indigo-800' },
-    { name: 'orange', bg: 'bg-orange-50', border: 'border-orange-200', text: 'text-orange-700', badge: 'bg-orange-100', fill: '#f97316', badgeText: 'text-orange-800' },
-    { name: 'emerald', bg: 'bg-emerald-50', border: 'border-emerald-200', text: 'text-emerald-700', badge: 'bg-emerald-100', fill: '#10b981', badgeText: 'text-emerald-800' },
-    { name: 'rose', bg: 'bg-rose-50', border: 'border-rose-200', text: 'text-rose-700', badge: 'bg-rose-100', fill: '#f43f5e', badgeText: 'text-rose-800' },
-    { name: 'cyan', bg: 'bg-cyan-50', border: 'border-cyan-200', text: 'text-cyan-700', badge: 'bg-cyan-100', fill: '#06b6d4', badgeText: 'text-cyan-800' },
-    { name: 'amber', bg: 'bg-amber-50', border: 'border-amber-200', text: 'text-amber-700', badge: 'bg-amber-100', fill: '#f59e0b', badgeText: 'text-amber-800' },
+    { name: 'indigo', bg: 'bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20', border: 'border-indigo-200', text: 'text-indigo-700 dark:text-dk-accent-text', badge: 'bg-indigo-100', fill: '#6366f1', badgeText: 'text-indigo-800' },
+    { name: 'orange', bg: 'bg-orange-50 dark:bg-orange-900/30', border: 'border-orange-200', text: 'text-orange-700', badge: 'bg-orange-100', fill: '#f97316', badgeText: 'text-orange-800' },
+    { name: 'emerald', bg: 'bg-emerald-50 dark:bg-emerald-900/30', border: 'border-emerald-200', text: 'text-emerald-700', badge: 'bg-emerald-100', fill: '#10b981', badgeText: 'text-emerald-800' },
+    { name: 'rose', bg: 'bg-rose-50 dark:bg-rose-900/30', border: 'border-rose-200', text: 'text-rose-700', badge: 'bg-rose-100', fill: '#f43f5e', badgeText: 'text-rose-800' },
+    { name: 'cyan', bg: 'bg-cyan-50 dark:bg-cyan-900/30', border: 'border-cyan-200', text: 'text-cyan-700', badge: 'bg-cyan-100', fill: '#06b6d4', badgeText: 'text-cyan-800' },
+    { name: 'amber', bg: 'bg-amber-50 dark:bg-amber-900/30', border: 'border-amber-200', text: 'text-amber-700', badge: 'bg-amber-100', fill: '#f59e0b', badgeText: 'text-amber-800' },
     { name: 'violet', bg: 'bg-violet-50', border: 'border-violet-200', text: 'text-violet-700', badge: 'bg-violet-100', fill: '#8b5cf6', badgeText: 'text-violet-800' },
-    { name: 'lime', bg: 'bg-lime-50', border: 'border-lime-200', text: 'text-lime-700', badge: 'bg-lime-100', fill: '#84cc16', badgeText: 'text-lime-800' },
+    { name: 'lime', bg: 'bg-lime-50 dark:bg-lime-900/30', border: 'border-lime-200', text: 'text-lime-700', badge: 'bg-lime-100', fill: '#84cc16', badgeText: 'text-lime-800' },
     { name: 'fuchsia', bg: 'bg-fuchsia-50', border: 'border-fuchsia-200', text: 'text-fuchsia-700', badge: 'bg-fuchsia-100', fill: '#d946ef', badgeText: 'text-fuchsia-800' },
-    { name: 'teal', bg: 'bg-teal-50', border: 'border-teal-200', text: 'text-teal-700', badge: 'bg-teal-100', fill: '#14b8a6', badgeText: 'text-teal-800' },
-    { name: 'red', bg: 'bg-red-50', border: 'border-red-200', text: 'text-red-700', badge: 'bg-red-100', fill: '#ef4444', badgeText: 'text-red-800' },
-    { name: 'sky', bg: 'bg-sky-50', border: 'border-sky-200', text: 'text-sky-700', badge: 'bg-sky-100', fill: '#0ea5e9', badgeText: 'text-sky-800' },
+    { name: 'teal', bg: 'bg-teal-50 dark:bg-teal-900/30', border: 'border-teal-200', text: 'text-teal-700', badge: 'bg-teal-100', fill: '#14b8a6', badgeText: 'text-teal-800' },
+    { name: 'red', bg: 'bg-red-50 dark:bg-red-900/30', border: 'border-red-200', text: 'text-red-700', badge: 'bg-red-100', fill: '#ef4444', badgeText: 'text-red-800' },
+    { name: 'sky', bg: 'bg-sky-50 dark:bg-sky-900/30', border: 'border-sky-200', text: 'text-sky-700', badge: 'bg-sky-100', fill: '#0ea5e9', badgeText: 'text-sky-800' },
 ];
 
 const SPECIAL_COLORS = {
-    controle: { name: 'orange', bg: 'bg-orange-50', border: 'border-orange-200', text: 'text-orange-700', fill: '#f97316', badge: 'bg-orange-100', badgeText: 'text-orange-800' },
+    controle: { name: 'orange', bg: 'bg-orange-50 dark:bg-orange-900/30', border: 'border-orange-200', text: 'text-orange-700', fill: '#f97316', badge: 'bg-orange-100', badgeText: 'text-orange-800' },
     fer: { name: 'rose', bg: 'bg-rose-100', border: 'border-rose-300', text: 'text-rose-800', fill: '#e11d48', badge: 'bg-rose-200', badgeText: 'text-rose-900' },
-    finition: { name: 'purple', bg: 'bg-purple-50', border: 'border-purple-200', text: 'text-purple-700', fill: '#a855f7', badge: 'bg-purple-100', badgeText: 'text-purple-800' },
+    finition: { name: 'purple', bg: 'bg-purple-50 dark:bg-purple-900/30', border: 'border-purple-200', text: 'text-purple-700', fill: '#a855f7', badge: 'bg-purple-100', badgeText: 'text-purple-800' },
     vide: { name: 'vide', bg: 'bg-transparent', border: 'border-slate-300 border-2 border-dashed', text: 'text-slate-400 dark:text-dk-muted', fill: 'transparent', badge: 'bg-slate-100 dark:bg-dk-elevated', badgeText: 'text-slate-500 dark:text-dk-muted' },
 };
 
@@ -2594,13 +2594,13 @@ export default function Implantation({
 
     const renderStationCard = (station: Workstation, isGrid = false, isMini = false) => {
         const color = station.color; const isVide = station.machine === 'VIDE'; const timeInSeconds = Math.round(station.totalTime * 60); const hasNotes = station.notes && station.notes.trim().length > 0; const hasOperator = station.operatorName && station.operatorName.trim().length > 0; const isOverridden = station.timeOverride !== undefined; const mySimIndex = station.index - 1; const isActive = !isMini && simStep === mySimIndex; const isPassed = simStep > mySimIndex; const isControl = station.machine.toUpperCase().includes('CONTROLE'); const isFer = station.machine.toUpperCase().includes('FER') || station.machine.toUpperCase().includes('REPASSAGE'); const isFinition = station.machine.toUpperCase().includes('FINITION'); const isBroken = station.notes?.includes('#PANNE');
-        let bodyBgClass = 'bg-white dark:bg-dk-surface/10 backdrop-blur-sm'; if (isControl) bodyBgClass = 'bg-orange-50/30 backdrop-blur-sm'; if (isFer) bodyBgClass = 'bg-rose-50/30 backdrop-blur-sm'; if (isFinition) bodyBgClass = 'bg-purple-50/30 backdrop-blur-sm'; const isSpecial = isControl || isFer || isFinition;
-        const isFeeder = station.isFeeder; if (isFeeder) bodyBgClass = 'bg-blue-50/60';
+        let bodyBgClass = 'bg-white dark:bg-dk-surface/10 backdrop-blur-sm'; if (isControl) bodyBgClass = 'bg-orange-50 dark:bg-orange-900/30/30 backdrop-blur-sm'; if (isFer) bodyBgClass = 'bg-rose-50 dark:bg-rose-900/30/30 backdrop-blur-sm'; if (isFinition) bodyBgClass = 'bg-purple-50 dark:bg-purple-900/30/30 backdrop-blur-sm'; const isSpecial = isControl || isFer || isFinition;
+        const isFeeder = station.isFeeder; if (isFeeder) bodyBgClass = 'bg-blue-50 dark:bg-blue-900/30/60';
         const isSwapSource = swapSourceId === station.id; const isSwapTarget = swapSourceId && swapSourceId !== station.id; const isLinkSource = linkSource === station.id; const isLinkTargetCandidate = isLinking && linkSource && linkSource !== station.id;
         const cardHeightClass = isGrid ? 'min-h-[140px]' : (isMini ? 'min-h-[80px]' : 'h-full min-h-[140px]'); const cardWidthClass = isMini ? 'w-full' : (isGrid ? 'w-full' : 'w-44 sm:w-48 shrink-0');
 
         // Dynamic styles based on Saturation: Red (>tolerance%), Amber (100%-tolerance%), Green (50%-100%), Grey (<50%)
-        let satBadgeClass = 'bg-emerald-50 text-emerald-500';
+        let satBadgeClass = 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-500';
         let satProgressClass = isActive ? 'bg-emerald-400' : (isFer ? 'bg-rose-500' : (isControl ? 'bg-orange-500' : (isFinition ? 'bg-purple-500' : color.fill)));
         if (station.saturation > tolerance) {
             satBadgeClass = 'bg-rose-100 text-rose-700 border border-rose-200';
@@ -2681,19 +2681,19 @@ export default function Implantation({
                 onMouseEnter={() => !isMini && setHoveredStationIndex(station.index)}
                 onMouseLeave={() => !isMini && setHoveredStationIndex(null)}
                 style={opacityStyle}
-                className={`relative rounded-xl overflow-hidden group shadow-[0_4px_16px_rgb(0,0,0,0.03)] z-10 ${cardWidthClass} ${cardHeightClass} ${canEdit && isManualMode && !isLinking && layoutType !== 'free' && !isSpacePressed ? 'hover:-translate-y-1 hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)]' : ''} ${cursorClass} ${isActive ? 'ring-4 ring-emerald-400 border-emerald-500 scale-105 shadow-xl z-20' : isLinkSource ? 'ring-4 ring-indigo-500 border-indigo-600 scale-105 shadow-xl z-20 animate-pulse' : isLinkTargetCandidate ? 'cursor-pointer hover:ring-4 hover:ring-indigo-300 hover:border-indigo-400' : isSwapSource ? 'ring-4 ring-indigo-500 border-indigo-600 scale-105 shadow-xl z-20' : isSwapTarget ? 'cursor-pointer hover:ring-4 hover:ring-indigo-300 hover:border-indigo-400' : isPassed ? 'border-emerald-200 opacity-90' : (isMini ? color.border : color.border)} ${isBroken ? 'ring-2 ring-rose-500 border-rose-600 bg-rose-50/90' : ''} ${miniCardStyle} ${hoverTraceClass} transition-all duration-300 flex flex-col select-none`}
+                className={`relative rounded-xl overflow-hidden group shadow-[0_4px_16px_rgb(0,0,0,0.03)] z-10 ${cardWidthClass} ${cardHeightClass} ${canEdit && isManualMode && !isLinking && layoutType !== 'free' && !isSpacePressed ? 'hover:-translate-y-1 hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)]' : ''} ${cursorClass} ${isActive ? 'ring-4 ring-emerald-400 border-emerald-500 scale-105 shadow-xl z-20' : isLinkSource ? 'ring-4 ring-indigo-500 border-indigo-600 scale-105 shadow-xl z-20 animate-pulse' : isLinkTargetCandidate ? 'cursor-pointer hover:ring-4 hover:ring-indigo-300 hover:border-indigo-400' : isSwapSource ? 'ring-4 ring-indigo-500 border-indigo-600 scale-105 shadow-xl z-20' : isSwapTarget ? 'cursor-pointer hover:ring-4 hover:ring-indigo-300 hover:border-indigo-400' : isPassed ? 'border-emerald-200 opacity-90' : (isMini ? color.border : color.border)} ${isBroken ? 'ring-2 ring-rose-500 border-rose-600 bg-rose-50 dark:bg-rose-900/30/90' : ''} ${miniCardStyle} ${hoverTraceClass} transition-all duration-300 flex flex-col select-none`}
             >
                 <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${isActive ? 'bg-emerald-500' : (isBroken ? 'bg-rose-500' : color.fill)}`}></div>
-                <div className={`px-2 pl-3 py-1.5 flex justify-between items-center ${isActive ? 'bg-emerald-500/90 ' : (isPassed ? 'bg-emerald-50/90 ' : (isMini ? color.bg : color.bg + '/90 '))} border-b ${isActive ? 'border-emerald-600' : color.border} transition-colors duration-500 relative`}>
+                <div className={`px-2 pl-3 py-1.5 flex justify-between items-center ${isActive ? 'bg-emerald-500/90 ' : (isPassed ? 'bg-emerald-50 dark:bg-emerald-900/30/90 ' : (isMini ? color.bg : color.bg + '/90 '))} border-b ${isActive ? 'border-emerald-600' : color.border} transition-colors duration-500 relative`}>
                     {isOverridden && <div className="absolute top-1 right-1 w-2 h-2 rounded-full bg-purple-500 ring-1 ring-white animate-pulse" title={tx(lang,{fr:'Temps Forcé',ar:'وقت إجباري',en:'Forced Time',es:'Tiempo Forzado',pt:'Tempo Forçado',tr:'Zorunlu Süre'})}></div>}
-                    {isBroken && <div className="absolute top-1 right-3 w-3 h-3 text-rose-600 animate-pulse"><AlertTriangle className="w-3 h-3 fill-current" /></div>}
+                    {isBroken && <div className="absolute top-1 right-3 w-3 h-3 text-rose-600 dark:text-rose-400 animate-pulse"><AlertTriangle className="w-3 h-3 fill-current" /></div>}
                     <div className="flex items-center gap-1.5">
                         {!isMini && (
                             <span className="text-[9px] font-black bg-slate-900/10 text-slate-800 dark:text-dk-text px-1 py-0.5 rounded mr-0.5">
                                 #{station.index}
                             </span>
                         )}
-                        <span className={`text-[10px] font-black ${isActive ? 'text-emerald-600 bg-white dark:bg-dk-surface/60' : color.text} w-5 h-5 flex items-center justify-center bg-white dark:bg-dk-surface/40 rounded-md shadow-sm border border-black/5`}> {station.name.replace('P', '').split('.')[0]} </span>
+                        <span className={`text-[10px] font-black ${isActive ? 'text-emerald-600 dark:text-emerald-400 bg-white dark:bg-dk-surface/60' : color.text} w-5 h-5 flex items-center justify-center bg-white dark:bg-dk-surface/40 rounded-md shadow-sm border border-black/5`}> {station.name.replace('P', '').split('.')[0]} </span>
                         <span className={`text-[9px] font-black uppercase truncate max-w-[80px] ${isActive ? 'text-white' : color.text}`} title={station.name}> {station.machine} </span>
                     </div>
 
@@ -2740,14 +2740,14 @@ export default function Implantation({
 
                     {!isMini && (<div className="flex items-center gap-0.5"> {isFeeder && <div title={`${tx(lang,{fr:'Alimente',ar:'تغذية',en:'Feeds',es:'Alimenta',pt:'Alimenta',tr:'Besler'})}: ${station.targetStationName || tx(lang,{fr:'Poste Suivant',ar:'المحطة التالية',en:'Next Station',es:'Siguiente Puesto',pt:'Próximo Posto',tr:'Sonraki İstasyon'})}`}><GitMerge className={`w-3 h-3 ${isActive ? 'text-white' : 'text-blue-500'}`} /></div>} {hasOperator && <div title={station.operatorName}><User className={`w-3 h-3 ${isActive ? 'text-white' : 'text-slate-400 dark:text-dk-muted'}`} /></div>} {hasNotes && <div title={tx(lang,{fr:'Notes',ar:'ملاحظات',en:'Notes',es:'Notas',pt:'Notas',tr:'Notlar'})}><FileText className={`w-3 h-3 ${isActive ? 'text-yellow-300' : 'text-amber-400'}`} /></div>} </div>)}
                 </div>
-                <div className={`p-2 pl-3 flex-1 flex flex-col justify-between gap-1 ${isMini ? 'bg-transparent' : bodyBgClass}`}> {station.groups && station.groups.length > 0 && !isMini && (<div className="flex flex-wrap gap-1 mb-1"> {station.groups.slice(0, 2).map(grp => (<span key={grp} className="text-[7px] font-black uppercase text-indigo-600 dark:text-dk-accent-text bg-indigo-100 px-1 py-0.5 rounded border border-indigo-200 truncate max-w-full"> {grp} </span>))} {station.groups.length > 2 && <span className="text-[7px] text-slate-400 dark:text-dk-muted">+{station.groups.length - 2}</span>} </div>)} <div className="space-y-1"> {station.operations.length > 0 ? (<> {station.operations.slice(0, isMini ? 100 : 3).map((op, i) => { const groupStyle = op.groupId ? getGroupStyle(op.groupId) : null; return (<div key={i} className={`flex justify-between items-center gap-1.5 py-0.5 ${groupStyle && isMini ? groupStyle.bg + ' px-1.5 rounded-md -mx-1.5 my-0.5 border border-transparent hover:border-indigo-200' : ''}`}> <span className={`font-mono text-[9px] font-bold px-1 rounded border shrink-0 ${groupStyle && isMini ? 'bg-transparent border-transparent ' + groupStyle.text : 'bg-transparent text-slate-400 dark:text-dk-muted border-slate-200 dark:border-dk-border'}`}> {op.order} </span> <div className={`text-[9px] font-bold leading-tight line-clamp-2 flex-1 ${groupStyle && isMini ? groupStyle.text : 'text-slate-600 dark:text-dk-text-soft'}`} title={op.description}> {op.description} </div> {groupStyle && isMini && <LinkIcon className={`w-2.5 h-2.5 shrink-0 ${groupStyle.text}`} />} </div>) })} {station.operations.length > (isMini ? 100 : 3) && <div className="text-[8px] text-slate-400 dark:text-dk-muted italic font-medium">... +{station.operations.length - (isMini ? 100 : 3)}</div>} </>) : (<div className={`text-[9px] italic flex items-center justify-center ${isMini ? 'h-8' : 'h-12'} ${isOverridden ? 'text-purple-500 font-bold' : (isSpecial ? 'text-slate-400 dark:text-dk-muted/70' : 'text-slate-300 dark:text-dk-muted')}`}> {isOverridden ? tx(lang,{fr:'Temps Forcé',ar:'وقت إجباري',en:'Forced Time',es:'Tiempo Forzado',pt:'Tempo Forçado',tr:'Zorunlu Süre'}) : tx(lang,{fr:'Vide',ar:'فارغ',en:'Empty',es:'Vacío',pt:'Vazio',tr:'Boş'})} </div>)} </div> <div className="flex items-center justify-between mt-auto pt-1.5 border-t border-slate-100 dark:border-dk-border"> <div className="flex flex-col"> <span className="text-[7px] font-bold text-slate-400 dark:text-dk-muted uppercase tracking-wider">{tx(lang,{fr:'Total',ar:'الإجمالي',en:'Total',es:'Total',pt:'Total',tr:'Toplam'})}</span> <span className={`text-sm font-bold ${isActive ? 'text-emerald-600' : (isOverridden ? 'text-purple-600' : color.text)}`}>{timeInSeconds}s</span> </div> <div className="flex flex-col items-end"> <span className="text-[7px] font-bold text-slate-400 dark:text-dk-muted uppercase tracking-wider">Sat.</span> <div className="flex items-center gap-1"> {station.operators > 1 && <span className={`text-[9px] font-black px-1 rounded bg-amber-100 text-amber-700`}>x{station.operators}</span>} <span className={`text-[9px] font-black ${satBadgeClass}`}>{Math.round(station.saturation)}%</span> </div> </div> </div> </div> <div className="absolute bottom-0 left-0 h-1 bg-slate-200 w-full"> <div className={`h-full ${!satProgressClass.startsWith('#') ? satProgressClass : ''}`} style={{ width: `${Math.min(station.saturation, 100)}%`, backgroundColor: satProgressClass.startsWith('#') ? satProgressClass : undefined }}></div> </div> </div>
+                <div className={`p-2 pl-3 flex-1 flex flex-col justify-between gap-1 ${isMini ? 'bg-transparent' : bodyBgClass}`}> {station.groups && station.groups.length > 0 && !isMini && (<div className="flex flex-wrap gap-1 mb-1"> {station.groups.slice(0, 2).map(grp => (<span key={grp} className="text-[7px] font-black uppercase text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text bg-indigo-100 px-1 py-0.5 rounded border border-indigo-200 truncate max-w-full"> {grp} </span>))} {station.groups.length > 2 && <span className="text-[7px] text-slate-400 dark:text-dk-muted">+{station.groups.length - 2}</span>} </div>)} <div className="space-y-1"> {station.operations.length > 0 ? (<> {station.operations.slice(0, isMini ? 100 : 3).map((op, i) => { const groupStyle = op.groupId ? getGroupStyle(op.groupId) : null; return (<div key={i} className={`flex justify-between items-center gap-1.5 py-0.5 ${groupStyle && isMini ? groupStyle.bg + ' px-1.5 rounded-md -mx-1.5 my-0.5 border border-transparent hover:border-indigo-200' : ''}`}> <span className={`font-mono text-[9px] font-bold px-1 rounded border shrink-0 ${groupStyle && isMini ? 'bg-transparent border-transparent ' + groupStyle.text : 'bg-transparent text-slate-400 dark:text-dk-muted border-slate-200 dark:border-dk-border'}`}> {op.order} </span> <div className={`text-[9px] font-bold leading-tight line-clamp-2 flex-1 ${groupStyle && isMini ? groupStyle.text : 'text-slate-600 dark:text-dk-text-soft'}`} title={op.description}> {op.description} </div> {groupStyle && isMini && <LinkIcon className={`w-2.5 h-2.5 shrink-0 ${groupStyle.text}`} />} </div>) })} {station.operations.length > (isMini ? 100 : 3) && <div className="text-[8px] text-slate-400 dark:text-dk-muted italic font-medium">... +{station.operations.length - (isMini ? 100 : 3)}</div>} </>) : (<div className={`text-[9px] italic flex items-center justify-center ${isMini ? 'h-8' : 'h-12'} ${isOverridden ? 'text-purple-500 font-bold' : (isSpecial ? 'text-slate-400 dark:text-dk-muted/70' : 'text-slate-300 dark:text-dk-muted')}`}> {isOverridden ? tx(lang,{fr:'Temps Forcé',ar:'وقت إجباري',en:'Forced Time',es:'Tiempo Forzado',pt:'Tempo Forçado',tr:'Zorunlu Süre'}) : tx(lang,{fr:'Vide',ar:'فارغ',en:'Empty',es:'Vacío',pt:'Vazio',tr:'Boş'})} </div>)} </div> <div className="flex items-center justify-between mt-auto pt-1.5 border-t border-slate-100 dark:border-dk-border"> <div className="flex flex-col"> <span className="text-[7px] font-bold text-slate-400 dark:text-dk-muted uppercase tracking-wider">{tx(lang,{fr:'Total',ar:'الإجمالي',en:'Total',es:'Total',pt:'Total',tr:'Toplam'})}</span> <span className={`text-sm font-bold ${isActive ? 'text-emerald-600 dark:text-emerald-400' : (isOverridden ? 'text-purple-600 dark:text-purple-400' : color.text)}`}>{timeInSeconds}s</span> </div> <div className="flex flex-col items-end"> <span className="text-[7px] font-bold text-slate-400 dark:text-dk-muted uppercase tracking-wider">Sat.</span> <div className="flex items-center gap-1"> {station.operators > 1 && <span className={`text-[9px] font-black px-1 rounded bg-amber-100 text-amber-700`}>x{station.operators}</span>} <span className={`text-[9px] font-black ${satBadgeClass}`}>{Math.round(station.saturation)}%</span> </div> </div> </div> </div> <div className="absolute bottom-0 left-0 h-1 bg-slate-200 w-full"> <div className={`h-full ${!satProgressClass.startsWith('#') ? satProgressClass : ''}`} style={{ width: `${Math.min(station.saturation, 100)}%`, backgroundColor: satProgressClass.startsWith('#') ? satProgressClass : undefined }}></div> </div> </div>
         );
     };
 
     return (
         <div className="flex flex-col h-full gap-2 relative">
             {/* ... (Header Stats - Hidden in ReadOnly) ... */}
-            {!readOnly && (<div className="bg-slate-50/80 rounded-xl border-2 border-slate-200 dark:border-dk-border shadow-sm mb-2 p-2 flex flex-nowrap items-center gap-2 overflow-x-auto no-scrollbar shrink-0">
+            {!readOnly && (<div className="bg-slate-50 dark:bg-dk-bg/80 rounded-xl border-2 border-slate-200 dark:border-dk-border shadow-sm mb-2 p-2 flex flex-nowrap items-center gap-2 overflow-x-auto no-scrollbar shrink-0">
                 {/* OUVRIERS / HEURES */}
                 <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-50 dark:bg-dk-bg rounded-lg border border-slate-100 dark:border-dk-border shrink-0">
                     <div className="flex flex-col items-center border-r border-slate-200 dark:border-dk-border pr-3 mr-3">
@@ -2774,25 +2774,25 @@ export default function Implantation({
                 </div>
 
                 {/* BF / MIN TOTALES */}
-                <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-50/50 rounded-lg border border-emerald-100 shrink-0">
+                <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-50 dark:bg-emerald-900/30/50 rounded-lg border border-emerald-100 shrink-0">
                     <div className="flex flex-col items-center border-r border-emerald-100 pr-3 mr-3">
-                        <span className="text-[9px] font-bold text-emerald-600 uppercase flex items-center gap-1"><Zap className="w-3 h-3" /> BF (s)</span>
+                        <span className="text-[9px] font-bold text-emerald-600 dark:text-emerald-400 uppercase flex items-center gap-1"><Zap className="w-3 h-3" /> BF (s)</span>
                         <span className="font-black text-emerald-700 text-sm">{(bf * 60).toFixed(1)}</span>
                     </div>
                     <div className="flex flex-col items-center">
-                        <span className="text-[9px] font-bold text-emerald-600 uppercase">{tx(lang,{fr:'Min Tot.',ar:'إجمالي الدقائق',en:'Min Total',es:'Min Total',pt:'Min Total',tr:'Toplam Dak'})}</span>
+                        <span className="text-[9px] font-bold text-emerald-600 dark:text-emerald-400 uppercase">{tx(lang,{fr:'Min Tot.',ar:'إجمالي الدقائق',en:'Min Total',es:'Min Total',pt:'Min Total',tr:'Toplam Dak'})}</span>
                         <span className="font-black text-emerald-700 text-sm">{presenceTime}</span>
                     </div>
                 </div>
 
                 {/* P/H 100% */}
-                <div className="flex flex-col items-center px-3 py-1.5 bg-orange-50/50 rounded-lg border border-orange-100 shrink-0">
+                <div className="flex flex-col items-center px-3 py-1.5 bg-orange-50 dark:bg-orange-900/30/50 rounded-lg border border-orange-100 shrink-0">
                     <span className="text-[9px] font-bold text-orange-400 uppercase">P/H (100%)</span>
                     <span className="font-black text-orange-500 text-sm leading-none mt-1">{Math.round(prodHour100)}</span>
                 </div>
 
                 {/* TARGETS */}
-                <div className="flex items-center gap-3 px-3 py-1.5 bg-slate-50/50 rounded-lg border border-slate-100 dark:border-dk-border shrink-0">
+                <div className="flex items-center gap-3 px-3 py-1.5 bg-slate-50 dark:bg-dk-bg/50 rounded-lg border border-slate-100 dark:border-dk-border shrink-0">
                     <div className="flex flex-col items-center border-r border-slate-200 dark:border-dk-border pr-3 mr-1">
                         <span className="text-[9px] font-bold text-slate-400 dark:text-dk-muted uppercase">P/J</span>
                         <span className="font-black text-slate-700 dark:text-dk-text-soft text-sm leading-none mt-1">
@@ -2808,7 +2808,7 @@ export default function Implantation({
                 </div>
 
                 {/* RENDU */}
-                <div className="flex flex-col items-center px-3 py-1.5 bg-indigo-50 dark:bg-dk-accent/20/50 rounded-lg border border-indigo-100 shrink-0">
+                <div className="flex flex-col items-center px-3 py-1.5 bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20/50 rounded-lg border border-indigo-100 shrink-0">
                     <span className="text-[9px] font-bold text-indigo-400 uppercase">{tx(lang,{fr:'% Rendu',ar:'% الإنتاجية',en:'% Yield',es:'% Rendimiento',pt:'% Rendimento',tr:'% Verim'})}</span>
                     <div className="flex items-baseline gap-0.5">
                         <input
@@ -2816,7 +2816,7 @@ export default function Implantation({
                             min="1" max="100"
                             value={efficiency}
                             onChange={(e) => setEfficiency(Math.max(1, Math.min(100, Number(e.target.value))))}
-                            className="w-8 text-center bg-transparent font-black text-indigo-600 dark:text-dk-accent-text outline-none text-sm border-b border-indigo-200 p-0"
+                            className="w-8 text-center bg-transparent font-black text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text outline-none text-sm border-b border-indigo-200 p-0"
                         />
                         <span className="text-[10px] font-bold text-indigo-400">%</span>
                     </div>
@@ -2824,7 +2824,7 @@ export default function Implantation({
 
                 {/* TOLÉRANCE SATURATION */}
                 {setFicheData && (
-                    <div className="flex flex-col items-center px-3 py-1.5 bg-rose-50/50 rounded-lg border border-rose-100 shrink-0">
+                    <div className="flex flex-col items-center px-3 py-1.5 bg-rose-50 dark:bg-rose-900/30/50 rounded-lg border border-rose-100 shrink-0">
                         <span className="text-[9px] font-bold text-rose-400 uppercase">{tx(lang,{fr:'Tolérance',ar:'التسامح',en:'Tolerance',es:'Tolerancia',pt:'Tolerância',tr:'Tolerans'})}</span>
                         <div className="flex items-baseline gap-0.5">
                             <input
@@ -2832,7 +2832,7 @@ export default function Implantation({
                                 min="50" max="200"
                                 value={tolerance}
                                 onChange={(e) => setFicheData(prev => ({ ...prev, toleranceSaturation: Math.max(50, Math.min(200, Number(e.target.value))) }))}
-                                className="w-10 text-center bg-transparent font-black text-rose-600 outline-none text-sm border-b border-rose-200 p-0"
+                                className="w-10 text-center bg-transparent font-black text-rose-600 dark:text-rose-400 outline-none text-sm border-b border-rose-200 p-0"
                             />
                             <span className="text-[10px] font-bold text-rose-400">%</span>
                         </div>
@@ -2847,8 +2847,8 @@ export default function Implantation({
                         return (
                             <>
                                 {prepMin > 0 && (
-                                    <div className="px-3 py-1.5 bg-amber-50 rounded-lg border border-amber-200 flex flex-col items-end">
-                                        <span className="text-[9px] font-bold text-amber-600 uppercase">{tx(lang,{fr:'Préparation',ar:'تحضير',en:'Preparation',es:'Preparación',pt:'Preparação',tr:'Hazırlık'})}</span>
+                                    <div className="px-3 py-1.5 bg-amber-50 dark:bg-amber-900/30 rounded-lg border border-amber-200 flex flex-col items-end">
+                                        <span className="text-[9px] font-bold text-amber-600 dark:text-amber-400 uppercase">{tx(lang,{fr:'Préparation',ar:'تحضير',en:'Preparation',es:'Preparación',pt:'Preparação',tr:'Hazırlık'})}</span>
                                         <div className="flex items-center gap-2">
                                             <span className="font-black text-amber-700 text-lg leading-none">{prepMin.toFixed(2)}</span>
                                             {preparationMetrics?.hourly && <span className="text-[10px] bg-amber-200/50 px-1 rounded text-amber-800 font-bold">Obj: {preparationMetrics.hourly}/h</span>}
@@ -2856,8 +2856,8 @@ export default function Implantation({
                                     </div>
                                 )}
                                 {montMin > 0 && (
-                                    <div className="px-3 py-1.5 bg-sky-50 rounded-lg border border-sky-200 flex flex-col items-end">
-                                        <span className="text-[9px] font-bold text-sky-600 uppercase">{tx(lang,{fr:'Montage',ar:'تجميع',en:'Assembly',es:'Montaje',pt:'Montagem',tr:'Montaj'})}</span>
+                                    <div className="px-3 py-1.5 bg-sky-50 dark:bg-sky-900/30 rounded-lg border border-sky-200 flex flex-col items-end">
+                                        <span className="text-[9px] font-bold text-sky-600 dark:text-sky-400 uppercase">{tx(lang,{fr:'Montage',ar:'تجميع',en:'Assembly',es:'Montaje',pt:'Montagem',tr:'Montaj'})}</span>
                                         <div className="flex items-center gap-2">
                                             <span className="font-black text-sky-700 text-lg leading-none">{montMin.toFixed(2)}</span>
                                             {montageMetrics?.hourly && <span className="text-[10px] bg-sky-200/50 px-1 rounded text-sky-800 font-bold">Obj: {montageMetrics.hourly}/h</span>}
@@ -2883,7 +2883,7 @@ export default function Implantation({
                     {/* TOOLBAR & CONTROLS (Hidden in ReadOnly) */}
                     {!readOnly && (
                         <>
-                            <div className="bg-slate-50/80 rounded-2xl border-2 border-slate-200 dark:border-dk-border shadow-sm p-2.5 flex flex-wrap items-center gap-2 shrink-0 z-30 mb-2 mt-4 relative">
+                            <div className="bg-slate-50 dark:bg-dk-bg/80 rounded-2xl border-2 border-slate-200 dark:border-dk-border shadow-sm p-2.5 flex flex-wrap items-center gap-2 shrink-0 z-30 mb-2 mt-4 relative">
                                 {/* Mode Toggle */}
                                 <div className="flex bg-slate-100 dark:bg-dk-elevated p-0.5 rounded-lg border border-slate-200 dark:border-dk-border">
                                     <button onClick={activateAutoMode} className={`flex items-center justify-center px-3 py-1.5 rounded-md font-bold transition-all text-xs ${!isManualMode ? 'bg-emerald-500 text-white shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}>
@@ -2956,7 +2956,7 @@ export default function Implantation({
                                 <div className="w-px h-7 bg-slate-200" />
                                 <div className="flex items-center gap-1.5 px-2.5 py-1 bg-slate-50 dark:bg-dk-bg rounded-lg border border-slate-200 dark:border-dk-border text-[10px] font-black text-slate-500 dark:text-dk-muted uppercase tracking-wide">
                                     <Layers className="w-3.5 h-3.5" />
-                                    <span className="text-indigo-600 dark:text-dk-accent-text">{workstations.filter(s => s.machine !== 'VIDE').length}</span>
+                                    <span className="text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text">{workstations.filter(s => s.machine !== 'VIDE').length}</span>
                                     <span>{tx(lang,{fr:'postes',ar:'محطات',en:'stations',es:'puestos',pt:'postos',tr:'istasyon'})}</span>
                                     {isManualMode && waitingStations.length > 0 && (
                                         <span className="text-amber-500 ml-0.5">({waitingStations.length} {tx(lang,{fr:'en attente',ar:'بالانتظار',en:'waiting',es:'en espera',pt:'à espera',tr:'bekleyen'})})</span>
@@ -2998,7 +2998,7 @@ export default function Implantation({
                                     <div className="w-px h-7 bg-slate-200" />
 
                                     {/* Impression / PDF : document TABLEAU (fenêtre d'impression du navigateur). */}
-                                    <button onClick={() => setPrintOrientationModal(true)} className="px-3 py-1.5 bg-slate-50 rounded-lg flex items-center gap-1.5 hover:text-indigo-600 dark:text-dk-accent-text hover:bg-indigo-50 dark:bg-dk-accent/20 border border-slate-200 dark:border-dk-border transition-colors text-slate-600 dark:text-dk-text-soft text-xs font-bold whitespace-nowrap">
+                                    <button onClick={() => setPrintOrientationModal(true)} className="px-3 py-1.5 bg-slate-50 dark:bg-dk-bg rounded-lg flex items-center gap-1.5 hover:text-indigo-600 dark:text-dk-accent-text hover:bg-indigo-50 dark:bg-dk-accent/20 border border-slate-200 dark:border-dk-border transition-colors text-slate-600 dark:text-dk-text-soft text-xs font-bold whitespace-nowrap">
                                         <Printer className="w-3.5 h-3.5" /> {tx(lang,{fr:'Imprimer',ar:'طباعة',en:'Print',es:'Imprimir',pt:'Imprimir',tr:'Yazdır'})}
                                     </button>
                                     {onSave && (
@@ -3043,19 +3043,19 @@ export default function Implantation({
 
                             {/* 2. ZONES INDICATOR */}
                             <div className="bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl p-1.5 flex items-center gap-1 overflow-x-auto text-[10px] font-bold uppercase text-slate-400 dark:text-dk-muted shadow-inner shrink-0 mb-1">
-                                <div className="flex items-center gap-2 px-2 py-0.5 bg-slate-50 dark:bg-dk-bg rounded-lg border border-slate-200 dark:border-dk-border opacity-60 shrink-0"><Package className="w-3 h-3 text-slate-400 dark:text-dk-muted" /> {tx(lang,{fr:'Stock Tissu',ar:'مخزون القماش',en:'Fabric Stock',es:'Stock de Tela',pt:'Estoque de Tecido',tr:'Kumaş Stoku'})}</div><ArrowRight className="w-3 h-3 text-slate-300 dark:text-dk-muted shrink-0" /><div className="flex items-center gap-2 px-2 py-0.5 bg-slate-50 dark:bg-dk-bg rounded-lg border border-slate-200 dark:border-dk-border opacity-60 shrink-0"><Scissors className="w-3 h-3 text-slate-400 dark:text-dk-muted" /> {tx(lang,{fr:'Coupe & Prep',ar:'قص وتحضير',en:'Cutting & Prep',es:'Corte y Prep',pt:'Corte e Prep',tr:'Kesim ve Hazırlık'})}</div><ArrowRight className="w-3 h-3 text-emerald-400 shrink-0" /><div className="flex items-center gap-2 px-2 py-0.5 bg-emerald-50 rounded-lg border border-emerald-200 text-emerald-700 shadow-sm shrink-0"><Layers className="w-3 h-3" /> {tx(lang,{fr:'Montage (Atelier)',ar:'تجميع (ورشة)',en:'Assembly (Workshop)',es:'Montaje (Taller)',pt:'Montagem (Oficina)',tr:'Montaj (Atölye)'})}</div><ArrowRight className="w-3 h-3 text-emerald-400 shrink-0" />
+                                <div className="flex items-center gap-2 px-2 py-0.5 bg-slate-50 dark:bg-dk-bg rounded-lg border border-slate-200 dark:border-dk-border opacity-60 shrink-0"><Package className="w-3 h-3 text-slate-400 dark:text-dk-muted" /> {tx(lang,{fr:'Stock Tissu',ar:'مخزون القماش',en:'Fabric Stock',es:'Stock de Tela',pt:'Estoque de Tecido',tr:'Kumaş Stoku'})}</div><ArrowRight className="w-3 h-3 text-slate-300 dark:text-dk-muted shrink-0" /><div className="flex items-center gap-2 px-2 py-0.5 bg-slate-50 dark:bg-dk-bg rounded-lg border border-slate-200 dark:border-dk-border opacity-60 shrink-0"><Scissors className="w-3 h-3 text-slate-400 dark:text-dk-muted" /> {tx(lang,{fr:'Coupe & Prep',ar:'قص وتحضير',en:'Cutting & Prep',es:'Corte y Prep',pt:'Corte e Prep',tr:'Kesim ve Hazırlık'})}</div><ArrowRight className="w-3 h-3 text-emerald-400 shrink-0" /><div className="flex items-center gap-2 px-2 py-0.5 bg-emerald-50 dark:bg-emerald-900/30 rounded-lg border border-emerald-200 text-emerald-700 shadow-sm shrink-0"><Layers className="w-3 h-3" /> {tx(lang,{fr:'Montage (Atelier)',ar:'تجميع (ورشة)',en:'Assembly (Workshop)',es:'Montaje (Taller)',pt:'Montagem (Oficina)',tr:'Montaj (Atölye)'})}</div><ArrowRight className="w-3 h-3 text-emerald-400 shrink-0" />
                                 <div className="flex items-center gap-3">
                                     {swapControlFinition ? (
                                         <>
-                                            <SpecialZoneControl label={tx(lang,{fr:'Contrôle',ar:'مراقبة',en:'Inspection',es:'Control',pt:'Controle',tr:'Kontrol'})} type="CONTROLE" icon={Eye} color={{ bg: 'bg-orange-50', border: 'border-orange-200', text: 'text-orange-700', hoverBg: 'hover:bg-orange-100' }} currentCount={postes?.filter(p => p.machine.toUpperCase().includes('CONTROLE')).length || 0} onAdd={handleAddSpecial} onRemove={handleRemoveSpecial} />
+                                            <SpecialZoneControl label={tx(lang,{fr:'Contrôle',ar:'مراقبة',en:'Inspection',es:'Control',pt:'Controle',tr:'Kontrol'})} type="CONTROLE" icon={Eye} color={{ bg: 'bg-orange-50 dark:bg-orange-900/30', border: 'border-orange-200', text: 'text-orange-700', hoverBg: 'hover:bg-orange-100' }} currentCount={postes?.filter(p => p.machine.toUpperCase().includes('CONTROLE')).length || 0} onAdd={handleAddSpecial} onRemove={handleRemoveSpecial} />
                                             <button onClick={handleSwapZones} className="p-1 hover:bg-slate-200 rounded-full transition-colors shrink-0 transform active:rotate-180 duration-300" title={tx(lang,{fr:'Inverser ordre',ar:'عكس الترتيب',en:'Reverse Order',es:'Invertir Orden',pt:'Inverter Ordem',tr:'Sırayı Ters Çevir'})}><ArrowRightLeft className="w-3 h-3 text-slate-400 dark:text-dk-muted" /></button>
-                                            <SpecialZoneControl label={tx(lang,{fr:'Finition',ar:'تشطيب',en:'Finishing',es:'Acabado',pt:'Acabamento',tr:'Bitirme'})} type="FINITION" icon={Sparkles} color={{ bg: 'bg-purple-50', border: 'border-purple-200', text: 'text-purple-700', hoverBg: 'hover:bg-purple-100' }} currentCount={postes?.filter(p => p.machine.toUpperCase().includes('FINITION')).length || 0} onAdd={handleAddSpecial} onRemove={handleRemoveSpecial} />
+                                            <SpecialZoneControl label={tx(lang,{fr:'Finition',ar:'تشطيب',en:'Finishing',es:'Acabado',pt:'Acabamento',tr:'Bitirme'})} type="FINITION" icon={Sparkles} color={{ bg: 'bg-purple-50 dark:bg-purple-900/30', border: 'border-purple-200', text: 'text-purple-700', hoverBg: 'hover:bg-purple-100' }} currentCount={postes?.filter(p => p.machine.toUpperCase().includes('FINITION')).length || 0} onAdd={handleAddSpecial} onRemove={handleRemoveSpecial} />
                                         </>
                                     ) : (
                                         <>
-                                            <SpecialZoneControl label={tx(lang,{fr:'Finition',ar:'تشطيب',en:'Finishing',es:'Acabado',pt:'Acabamento',tr:'Bitirme'})} type="FINITION" icon={Sparkles} color={{ bg: 'bg-purple-50', border: 'border-purple-200', text: 'text-purple-700', hoverBg: 'hover:bg-purple-100' }} currentCount={postes?.filter(p => p.machine.toUpperCase().includes('FINITION')).length || 0} onAdd={handleAddSpecial} onRemove={handleRemoveSpecial} />
+                                            <SpecialZoneControl label={tx(lang,{fr:'Finition',ar:'تشطيب',en:'Finishing',es:'Acabado',pt:'Acabamento',tr:'Bitirme'})} type="FINITION" icon={Sparkles} color={{ bg: 'bg-purple-50 dark:bg-purple-900/30', border: 'border-purple-200', text: 'text-purple-700', hoverBg: 'hover:bg-purple-100' }} currentCount={postes?.filter(p => p.machine.toUpperCase().includes('FINITION')).length || 0} onAdd={handleAddSpecial} onRemove={handleRemoveSpecial} />
                                             <button onClick={handleSwapZones} className="p-1 hover:bg-slate-200 rounded-full transition-colors shrink-0 transform active:rotate-180 duration-300" title={tx(lang,{fr:'Inverser ordre',ar:'عكس الترتيب',en:'Reverse Order',es:'Invertir Orden',pt:'Inverter Ordem',tr:'Sırayı Ters Çevir'})}><ArrowRightLeft className="w-3 h-3 text-slate-400 dark:text-dk-muted" /></button>
-                                            <SpecialZoneControl label={tx(lang,{fr:'Contrôle',ar:'مراقبة',en:'Inspection',es:'Control',pt:'Controle',tr:'Kontrol'})} type="CONTROLE" icon={Eye} color={{ bg: 'bg-orange-50', border: 'border-orange-200', text: 'text-orange-700', hoverBg: 'hover:bg-orange-100' }} currentCount={postes?.filter(p => p.machine.toUpperCase().includes('CONTROLE')).length || 0} onAdd={handleAddSpecial} onRemove={handleRemoveSpecial} />
+                                            <SpecialZoneControl label={tx(lang,{fr:'Contrôle',ar:'مراقبة',en:'Inspection',es:'Control',pt:'Controle',tr:'Kontrol'})} type="CONTROLE" icon={Eye} color={{ bg: 'bg-orange-50 dark:bg-orange-900/30', border: 'border-orange-200', text: 'text-orange-700', hoverBg: 'hover:bg-orange-100' }} currentCount={postes?.filter(p => p.machine.toUpperCase().includes('CONTROLE')).length || 0} onAdd={handleAddSpecial} onRemove={handleRemoveSpecial} />
                                         </>
                                     )}
                                 </div>
@@ -3089,7 +3089,7 @@ export default function Implantation({
                                     {!isSidebarOpen && (
                                         <button
                                             onClick={() => setIsSidebarOpen(true)}
-                                            className="lg:hidden absolute top-4 left-4 z-20 bg-slate-50 dark:bg-dk-bg p-2 rounded-lg shadow-md border border-slate-200 dark:border-dk-border text-indigo-600 dark:text-dk-accent-text"
+                                            className="lg:hidden absolute top-4 left-4 z-20 bg-slate-50 dark:bg-dk-bg p-2 rounded-lg shadow-md border border-slate-200 dark:border-dk-border text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text"
                                         >
                                             <Menu className="w-5 h-5" />
                                         </button>
@@ -3297,7 +3297,7 @@ export default function Implantation({
                                                                             </div>
                                                                         </div>
                                                                     ) : shape === 'zone' ? (
-                                                                        <div className="w-48 h-32 border-2 border-dashed border-indigo-300 bg-indigo-50 dark:bg-dk-accent/20/30 rounded-xl flex items-center justify-center pointer-events-none">
+                                                                        <div className="w-48 h-32 border-2 border-dashed border-indigo-300 bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20/30 rounded-xl flex items-center justify-center pointer-events-none">
                                                                             <span className="text-xs font-bold text-indigo-400 uppercase tracking-widest">{tx(lang,{fr:'Zone',ar:'منطقة',en:'Zone',es:'Zona',pt:'Zona',tr:'Bölge'})} {st.name}</span>
                                                                         </div>
                                                                     ) : (
@@ -3324,7 +3324,7 @@ export default function Implantation({
                                                 if (section.theme === 'sky') { bgClass = "bg-sky-600/80"; borderClass = "border-sky-500"; }
 
                                                 return (
-                                                    <div key={section.id} className="relative w-full border-2 border-dashed border-slate-200 dark:border-dk-border rounded-3xl p-8 bg-slate-50/50 mb-6 shadow-sm flex flex-col items-center">
+                                                    <div key={section.id} className="relative w-full border-2 border-dashed border-slate-200 dark:border-dk-border rounded-3xl p-8 bg-slate-50 dark:bg-dk-bg/50 mb-6 shadow-sm flex flex-col items-center">
                                                         <div className={`absolute -top-4 left-6 ${bgClass} backdrop-blur-md text-white px-5 py-1.5 rounded-xl text-xs font-black shadow-lg uppercase tracking-widest border border-white/20 z-20 flex gap-2 items-center`}>
                                                             {section.name}
                                                             {section.hourly && <span className="bg-white dark:bg-dk-surface/20 px-2 py-0.5 rounded text-[10px]">Obj: {section.hourly} p/h</span>}
@@ -3458,7 +3458,7 @@ export default function Implantation({
                                                 let arrowColor = section.theme === 'amber' ? "#f59e0b" : section.theme === 'sky' ? "#0ea5e9" : "#818cf8";
 
                                                 return (
-                                                    <div key={section.id} className="relative mt-4 flex flex-col w-full border-2 border-dashed border-slate-200 dark:border-dk-border rounded-3xl p-6 bg-slate-50/50 mb-6 shadow-sm">
+                                                    <div key={section.id} className="relative mt-4 flex flex-col w-full border-2 border-dashed border-slate-200 dark:border-dk-border rounded-3xl p-6 bg-slate-50 dark:bg-dk-bg/50 mb-6 shadow-sm">
                                                         <div className={`absolute -top-4 left-6 ${bgClass} backdrop-blur-md text-white px-5 py-1.5 rounded-xl text-xs font-black shadow-lg uppercase tracking-widest border border-white/20 z-20 flex gap-2 items-center`}>
                                                             {section.name}
                                                             {section.hourly && <span className="bg-white dark:bg-dk-surface/20 px-2 py-0.5 rounded text-[10px]">Obj: {section.hourly} p/h</span>}
@@ -3577,7 +3577,7 @@ export default function Implantation({
                                                 if (section.theme === 'sky') { bgClass = "bg-sky-600"; borderClass = "border-sky-500"; }
 
                                                 return (
-                                                    <div key={section.id} className="relative mt-4 flex flex-col bg-slate-50/80 rounded-3xl border-2 border-slate-200 dark:border-dk-border p-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)] mb-6">
+                                                    <div key={section.id} className="relative mt-4 flex flex-col bg-slate-50 dark:bg-dk-bg/80 rounded-3xl border-2 border-slate-200 dark:border-dk-border p-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)] mb-6">
                                                         <div className={`absolute -top-4 left-6 ${bgClass} text-white px-5 py-1.5 rounded-xl text-xs font-black shadow-lg uppercase tracking-widest border border-white/20 flex gap-2 items-center z-20`}>
                                                             {section.name}
                                                             {section.hourly && <span className="bg-white dark:bg-dk-surface/20 px-2 py-0.5 rounded text-[10px]">Obj: {section.hourly} p/h</span>}
@@ -3712,7 +3712,7 @@ export default function Implantation({
                                 <div className="flex-1 overflow-y-auto p-2 custom-scrollbar">
                                     <table className="w-full text-left border-collapse"><tbody>{machinesSummary.counts.map(([name, count]) => (<tr key={name} className="border-b border-slate-50 hover:bg-slate-50 dark:hover:bg-dk-elevated/60"><td className="py-2 px-3 text-xs font-medium text-slate-600 dark:text-dk-text-soft">{name}</td><td className="py-2 px-3 text-right"><span className="inline-flex items-center justify-center bg-slate-100 dark:bg-dk-elevated text-slate-700 dark:text-dk-text-soft font-bold text-[10px] px-2 py-0.5 rounded-full min-w-[24px]">{count}</span></td></tr>))}</tbody></table>
                                 </div>
-                                <div className="p-4 bg-slate-50 dark:bg-dk-bg border-t border-slate-100 dark:border-dk-border relative"><div className="flex justify-between items-center"><span className="text-xs font-bold text-slate-500 dark:text-dk-muted uppercase">{tx(lang,{fr:'Total Postes',ar:'إجمالي المحطات',en:'Total Stations',es:'Total Puestos',pt:'Total Postos',tr:'Toplam İstasyon'})}</span><span className="text-lg font-black text-indigo-600 dark:text-dk-accent-text">{machinesSummary.total}</span></div><div onMouseDown={startResizeMat} className="absolute bottom-0 right-0 w-6 h-6 cursor-nwse-resize flex items-center justify-center opacity-50 hover:opacity-100"><Scaling className="w-4 h-4 text-slate-400 dark:text-dk-muted rotate-90" /></div></div>
+                                <div className="p-4 bg-slate-50 dark:bg-dk-bg border-t border-slate-100 dark:border-dk-border relative"><div className="flex justify-between items-center"><span className="text-xs font-bold text-slate-500 dark:text-dk-muted uppercase">{tx(lang,{fr:'Total Postes',ar:'إجمالي المحطات',en:'Total Stations',es:'Total Puestos',pt:'Total Postos',tr:'Toplam İstasyon'})}</span><span className="text-lg font-black text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text">{machinesSummary.total}</span></div><div onMouseDown={startResizeMat} className="absolute bottom-0 right-0 w-6 h-6 cursor-nwse-resize flex items-center justify-center opacity-50 hover:opacity-100"><Scaling className="w-4 h-4 text-slate-400 dark:text-dk-muted rotate-90" /></div></div>
                             </div>
                         )}
                     </div>
@@ -3777,13 +3777,13 @@ export default function Implantation({
                                     </button>
                                     <button
                                         onClick={() => resolveSectionTransferDialog('set-prep')}
-                                        className="px-3 py-2 rounded-lg text-xs font-bold border border-amber-200 text-amber-700 bg-amber-50 hover:bg-amber-100"
+                                        className="px-3 py-2 rounded-lg text-xs font-bold border border-amber-200 text-amber-700 bg-amber-50 dark:bg-amber-900/30 hover:bg-amber-100"
                                     >
                                         {tx(lang,{fr:'Classer Prépa',ar:'تصنيف كتحضير',en:'Classify as Prep',es:'Clasificar como Prep',pt:'Classificar como Prep',tr:'Hazırlık Olarak Sınıflandır'})}
                                     </button>
                                     <button
                                         onClick={() => resolveSectionTransferDialog('set-montage')}
-                                        className="px-3 py-2 rounded-lg text-xs font-bold border border-sky-200 text-sky-700 bg-sky-50 hover:bg-sky-100"
+                                        className="px-3 py-2 rounded-lg text-xs font-bold border border-sky-200 text-sky-700 bg-sky-50 dark:bg-sky-900/30 hover:bg-sky-100"
                                     >
                                         {tx(lang,{fr:'Classer Montage',ar:'تصنيف كتجميع',en:'Classify as Assembly',es:'Clasificar como Montaje',pt:'Classificar como Montagem',tr:'Montaj Olarak Sınıflandır'})}
                                     </button>
@@ -3791,7 +3791,7 @@ export default function Implantation({
                             ) : (
                                 <button
                                     onClick={() => resolveSectionTransferDialog('confirm-target')}
-                                    className="px-3 py-2 rounded-lg text-xs font-bold border border-indigo-200 text-indigo-700 dark:text-dk-accent-text bg-indigo-50 dark:bg-dk-accent/20 hover:bg-indigo-100"
+                                    className="px-3 py-2 rounded-lg text-xs font-bold border border-indigo-200 text-indigo-700 dark:text-dk-accent-text bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 hover:bg-indigo-100"
                                 >
                                     {tx(lang,{fr:'OK déplacer',ar:'موافق نقل',en:'OK Move',es:'OK mover',pt:'OK mover',tr:'Tamam Taşı'})}
                                 </button>
@@ -3843,7 +3843,7 @@ export default function Implantation({
                                         placeholder={tx(lang,{fr:'T. Forcé',ar:'وقت إجباري',en:'Forced Time',es:'T. Forzado',pt:'T. Forçado',tr:'Zorunlu Süre'})}
                                         value={editModal.data.timeOverride !== undefined ? Math.round(editModal.data.timeOverride * 60) : ''}
                                         onChange={(e) => { const val = e.target.value === '' ? undefined : Number(e.target.value); saveStationMetadata({ timeOverride: val !== undefined ? val / 60 : undefined }); }}
-                                        className="pl-7 pr-2 py-1.5 text-xs font-bold rounded-lg border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface/80 focus:bg-white focus:border-purple-400 outline-none w-24 text-purple-600 placeholder:text-slate-400"
+                                        className="pl-7 pr-2 py-1.5 text-xs font-bold rounded-lg border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface/80 focus:bg-white focus:border-purple-400 outline-none w-24 text-purple-600 dark:text-purple-400 placeholder:text-slate-400"
                                         title={tx(lang,{fr:'Forcer temps poste (sec)',ar:'فرض وقت المحطة (ثانية)',en:'Force station time (sec)',es:'Forzar tiempo de puesto (seg)',pt:'Forçar tempo de posto (seg)',tr:'İstasyon süresini zorla (sn)'})}
                                     />
                                 </div>
@@ -3860,7 +3860,7 @@ export default function Implantation({
                                         <th className="py-3 px-4 w-40 border-b border-slate-200 dark:border-dk-border">{tx(lang,{fr:'Machine',ar:'آلة',en:'Machine',es:'Máquina',pt:'Máquina',tr:'Makine'})}</th>
                                         <th className="py-3 px-4 w-20 text-center border-b border-slate-200 dark:border-dk-border">{tx(lang,{fr:'L / Qté',ar:'الطول / الكمية',en:'L / Qty',es:'L / Cant',pt:'L / Qtd',tr:'U / Mkt'})}</th>
                                         <th className="py-3 px-4 w-20 text-center border-b border-slate-200 dark:border-dk-border">F.Guide</th>
-                                        <th className="py-3 px-4 w-24 text-center border-b border-slate-200 dark:border-dk-border text-emerald-600">{tx(lang,{fr:'Temps',ar:'الوقت',en:'Time',es:'Tiempo',pt:'Tempo',tr:'Süre'})}</th>
+                                        <th className="py-3 px-4 w-24 text-center border-b border-slate-200 dark:border-dk-border text-emerald-600 dark:text-emerald-400">{tx(lang,{fr:'Temps',ar:'الوقت',en:'Time',es:'Tiempo',pt:'Tempo',tr:'Süre'})}</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-100 text-sm">
@@ -3883,7 +3883,7 @@ export default function Implantation({
                                                         suggestions={machines.map(m => m.name)}
                                                         value={op.machineName || ''}
                                                         onChange={(val) => handleUpdateOperation(op.id, 'machineName', val)}
-                                                        className="w-full bg-slate-50 border border-slate-200 dark:border-dk-border rounded px-2 py-1 text-xs font-bold text-slate-600 dark:text-dk-text-soft outline-none focus:border-indigo-400 focus:bg-white transition-all uppercase"
+                                                        className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded px-2 py-1 text-xs font-bold text-slate-600 dark:text-dk-text-soft outline-none focus:border-indigo-400 focus:bg-white transition-all uppercase"
                                                         placeholder="MAC"
                                                     />
                                                 </td>
@@ -3907,14 +3907,14 @@ export default function Implantation({
                                                         ))}
                                                     </select>
                                                 </td>
-                                                <td className="py-2 px-2 text-center bg-slate-50/50">
+                                                <td className="py-2 px-2 text-center bg-slate-50 dark:bg-dk-bg/50">
                                                     <div className="relative">
                                                         <input
                                                             type="number"
                                                             step="0.01"
                                                             value={Math.round((op.time || 0) * 60)}
                                                             readOnly
-                                                            className={`w-full text-center font-bold outline-none bg-transparent ${isForced ? 'text-purple-600' : 'text-emerald-600'}`}
+                                                            className={`w-full text-center font-bold outline-none bg-transparent ${isForced ? 'text-purple-600 dark:text-purple-400' : 'text-emerald-600 dark:text-emerald-400'}`}
                                                             disabled
                                                         />
                                                         <span className="text-[9px] text-slate-400 dark:text-dk-muted absolute right-0 top-1/2 -translate-y-1/2">s</span>
@@ -3934,7 +3934,7 @@ export default function Implantation({
                                 <tfoot className="bg-slate-50 dark:bg-dk-bg border-t border-slate-200 dark:border-dk-border">
                                     <tr>
                                         <td colSpan={5} className="py-3 px-4 text-right font-bold text-xs uppercase text-slate-500 dark:text-dk-muted">{tx(lang,{fr:'Total Poste:',ar:'إجمالي المحطة:',en:'Station Total:',es:'Total Puesto:',pt:'Total Posto:',tr:'İstasyon Toplamı:'})}</td>
-                                        <td className="py-3 px-4 text-center font-black text-emerald-700 bg-emerald-50 border-l border-emerald-100">
+                                        <td className="py-3 px-4 text-center font-black text-emerald-700 bg-emerald-50 dark:bg-emerald-900/30 border-l border-emerald-100">
                                             {Math.round(modalOps.reduce((sum, op) => sum + (op.time || 0), 0) * 60)}s
                                         </td>
                                     </tr>
@@ -3944,7 +3944,7 @@ export default function Implantation({
                         {/* FOOTER ACTIONS - WITH DELETE CONFIRMATION */}
                         <div className="p-4 bg-white dark:bg-dk-surface border-t border-slate-200 dark:border-dk-border flex justify-between gap-3 shrink-0 transition-all">
                             {showDeleteConfirm ? (
-                                <div className="flex items-center justify-between w-full bg-rose-50 p-2 rounded-lg border border-rose-100 animate-in fade-in slide-in-from-bottom-2">
+                                <div className="flex items-center justify-between w-full bg-rose-50 dark:bg-rose-900/30 p-2 rounded-lg border border-rose-100 animate-in fade-in slide-in-from-bottom-2">
                                     <div className="flex items-center gap-2 text-rose-700 font-bold text-xs px-2">
                                         <AlertTriangle className="w-4 h-4" />
                                         <span>{tx(lang,{fr:'Êtes-vous sûr de vouloir supprimer ce poste ?',ar:'هل أنت متأكد من حذف هذه المحطة؟',en:'Are you sure you want to delete this station?',es:'¿Está seguro de eliminar este puesto?',pt:'Tem certeza que deseja excluir este posto?',tr:'Bu istasyonu silmek istediğinize emin misiniz?'})}</span>
@@ -4014,11 +4014,11 @@ export default function Implantation({
                     <button onClick={() => handleContextAction('insert')} className="w-full text-left px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-dk-elevated/60 flex items-center gap-2 transition-colors"><Plus className="w-3.5 h-3.5 text-emerald-500" /> {tx(lang,{fr:'Insérer Vide',ar:'إدراج فارغ',en:'Insert Empty',es:'Insertar Vacío',pt:'Inserir Vazio',tr:'Boş Ekle'})}</button>
 
                     {isManualMode ? (
-                        <button onClick={() => handleContextAction('delete')} className="w-full text-left px-4 py-2.5 hover:bg-amber-50 text-amber-600 flex items-center gap-2 transition-colors font-bold">
+                        <button onClick={() => handleContextAction('delete')} className="w-full text-left px-4 py-2.5 hover:bg-amber-50 text-amber-600 dark:text-amber-400 flex items-center gap-2 transition-colors font-bold">
                             <LogOut className="w-3.5 h-3.5" /> {tx(lang,{fr:'Retirer du plan',ar:'إزالة من الخطة',en:'Remove from Plan',es:'Quitar del Plan',pt:'Remover do Plano',tr:'Plandan Kaldır'})}
                         </button>
                     ) : (
-                        <button onClick={() => handleContextAction('delete')} className="w-full text-left px-4 py-2.5 hover:bg-rose-50 text-rose-600 flex items-center gap-2 transition-colors">
+                        <button onClick={() => handleContextAction('delete')} className="w-full text-left px-4 py-2.5 hover:bg-rose-50 text-rose-600 dark:text-rose-400 flex items-center gap-2 transition-colors">
                             <Trash2 className="w-3.5 h-3.5" /> {tx(lang,{fr:'Supprimer',ar:'حذف',en:'Delete',es:'Eliminar',pt:'Excluir',tr:'Sil'})}
                         </button>
                     )}
@@ -4078,7 +4078,7 @@ export default function Implantation({
                                     setPrintOrientationModal(false);
                                     printPlanTable('landscape');
                                 }} 
-                                className="w-full py-3 px-4 rounded-xl border-2 border-indigo-100 bg-indigo-50 dark:bg-dk-accent/20/50 text-indigo-700 dark:text-dk-accent-text font-bold hover:bg-indigo-50 dark:bg-dk-accent/20 hover:border-indigo-200 transition-colors text-xs flex items-center justify-between"
+                                className="w-full py-3 px-4 rounded-xl border-2 border-indigo-100 bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20/50 text-indigo-700 dark:text-dk-accent-text font-bold hover:bg-indigo-50 dark:bg-dk-accent/20 hover:border-indigo-200 transition-colors text-xs flex items-center justify-between"
                             >
                                 <span className="flex flex-col items-start text-left">
                                     <span className="font-black text-sm">{tx(lang,{fr:'Paysage (Horizontal)',ar:'أفقي',en:'Landscape (Horizontal)',es:'Horizontal (Paisaje)',pt:'Paisagem (Horizontal)',tr:'Yatay'})}</span>
@@ -4091,7 +4091,7 @@ export default function Implantation({
                                     setPrintOrientationModal(false);
                                     printPlanTable('portrait');
                                 }} 
-                                className="w-full py-3 px-4 rounded-xl border-2 border-slate-100 dark:border-dk-border bg-slate-50/50 text-slate-700 dark:text-dk-text-soft font-bold hover:bg-slate-50 dark:hover:bg-dk-elevated/60 hover:border-slate-200 transition-colors text-xs flex items-center justify-between"
+                                className="w-full py-3 px-4 rounded-xl border-2 border-slate-100 dark:border-dk-border bg-slate-50 dark:bg-dk-bg/50 text-slate-700 dark:text-dk-text-soft font-bold hover:bg-slate-50 dark:hover:bg-dk-elevated/60 hover:border-slate-200 transition-colors text-xs flex items-center justify-between"
                             >
                                 <span className="flex flex-col items-start text-left">
                                     <span className="font-black text-sm">{tx(lang,{fr:'Portrait (Vertical)',ar:'عمودي',en:'Portrait (Vertical)',es:'Vertical (Retrato)',pt:'Retrato (Vertical)',tr:'Dikey'})}</span>
@@ -4129,7 +4129,7 @@ export default function Implantation({
                                             <div className="text-[10px] text-slate-400 dark:text-dk-muted">{new Date(layout.date).toLocaleDateString()} • {layout.postes.length} {tx(lang,{fr:'éléments',ar:'عناصر',en:'items',es:'elementos',pt:'elementos',tr:'öğeler'})}</div>
                                         </div>
                                         <div className="flex items-center gap-2">
-                                            <button onClick={() => handleLoadTemplate(layout)} className="px-3 py-1.5 bg-indigo-50 dark:bg-dk-accent/20 text-indigo-600 dark:text-dk-accent-text rounded-lg text-xs font-bold hover:bg-indigo-100 transition-colors">{tx(lang,{fr:'Charger',ar:'تحميل',en:'Load',es:'Cargar',pt:'Carregar',tr:'Yükle'})}</button>
+                                            <button onClick={() => handleLoadTemplate(layout)} className="px-3 py-1.5 bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text rounded-lg text-xs font-bold hover:bg-indigo-100 transition-colors">{tx(lang,{fr:'Charger',ar:'تحميل',en:'Load',es:'Cargar',pt:'Carregar',tr:'Yükle'})}</button>
                                             <button onClick={() => handleDeleteTemplate(layout.id)} className="p-1.5 text-slate-300 dark:text-dk-muted hover:text-rose-500 rounded transition-colors"><Trash2 className="w-4 h-4" /></button>
                                         </div>
                                     </div>
@@ -4146,7 +4146,7 @@ export default function Implantation({
                     <div className="bg-white dark:bg-dk-surface rounded-2xl shadow-2xl w-full max-w-md relative overflow-hidden animate-in fade-in zoom-in-95 duration-200 border border-slate-100 dark:border-dk-border p-6 flex flex-col">
                         <div className="flex justify-between items-center mb-5 pb-3 border-b border-slate-100 dark:border-dk-border">
                             <h3 className="font-bold text-slate-800 dark:text-dk-text text-lg flex items-center gap-2">
-                                <Printer className="w-5 h-5 text-indigo-600 dark:text-dk-accent-text" />
+                                <Printer className="w-5 h-5 text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text" />
                                 {tx(lang,{fr:"Options d'export PDF",ar:'خيارات تصدير PDF',en:'PDF Export Options',es:'Opciones de exportación PDF',pt:'Opções de exportação PDF',tr:'PDF Dışa Aktarma Seçenekleri'})}
                             </h3>
                             <button onClick={() => setShowExportOptions(false)} className="text-slate-400 hover:text-slate-600 transition-colors">
@@ -4164,7 +4164,7 @@ export default function Implantation({
                                         onClick={() => setExportSettings({ ...exportSettings, pageSize: 'single' })}
                                         className={`p-3 rounded-xl border-2 transition-all flex flex-col items-center gap-1.5 text-center ${
                                             exportSettings.pageSize === 'single'
-                                                ? 'border-indigo-600 bg-indigo-50 dark:bg-dk-accent/20/30 text-indigo-700 dark:text-dk-accent-text font-bold'
+                                                ? 'border-indigo-600 bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20/30 text-indigo-700 dark:text-dk-accent-text font-bold'
                                                 : 'border-slate-200 dark:border-dk-border hover:border-slate-300 text-slate-500 hover:text-slate-700'
                                         }`}
                                     >
@@ -4176,7 +4176,7 @@ export default function Implantation({
                                         onClick={() => setExportSettings({ ...exportSettings, pageSize: 'a4' })}
                                         className={`p-3 rounded-xl border-2 transition-all flex flex-col items-center gap-1.5 text-center ${
                                             exportSettings.pageSize === 'a4'
-                                                ? 'border-indigo-600 bg-indigo-50 dark:bg-dk-accent/20/30 text-indigo-700 dark:text-dk-accent-text font-bold'
+                                                ? 'border-indigo-600 bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20/30 text-indigo-700 dark:text-dk-accent-text font-bold'
                                                 : 'border-slate-200 dark:border-dk-border hover:border-slate-300 text-slate-500 hover:text-slate-700'
                                         }`}
                                     >
@@ -4195,7 +4195,7 @@ export default function Implantation({
                                         type="checkbox"
                                         checked={exportSettings.header}
                                         onChange={(e) => setExportSettings({ ...exportSettings, header: e.target.checked })}
-                                        className="mt-0.5 rounded border-slate-300 text-indigo-600 dark:text-dk-accent-text focus:ring-indigo-500"
+                                        className="mt-0.5 rounded border-slate-300 text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text focus:ring-indigo-500"
                                     />
                                     <div className="flex flex-col">
                                         <span className="text-xs font-bold text-slate-700 dark:text-dk-text-soft">{tx(lang,{fr:'En-tête de document',ar:'رأس المستند',en:'Document Header',es:'Encabezado de documento',pt:'Cabeçalho do documento',tr:'Belge Başlığı'})}</span>
@@ -4208,7 +4208,7 @@ export default function Implantation({
                                         type="checkbox"
                                         checked={exportSettings.stats}
                                         onChange={(e) => setExportSettings({ ...exportSettings, stats: e.target.checked })}
-                                        className="mt-0.5 rounded border-slate-300 text-indigo-600 dark:text-dk-accent-text focus:ring-indigo-500"
+                                        className="mt-0.5 rounded border-slate-300 text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text focus:ring-indigo-500"
                                     />
                                     <div className="flex flex-col">
                                         <span className="text-xs font-bold text-slate-700 dark:text-dk-text-soft">{tx(lang,{fr:'Statistiques globales',ar:'إحصائيات عامة',en:'Global Statistics',es:'Estadísticas globales',pt:'Estatísticas globais',tr:'Genel İstatistikler'})}</span>
@@ -4221,7 +4221,7 @@ export default function Implantation({
                                         type="checkbox"
                                         checked={exportSettings.machines}
                                         onChange={(e) => setExportSettings({ ...exportSettings, machines: e.target.checked })}
-                                        className="mt-0.5 rounded border-slate-300 text-indigo-600 dark:text-dk-accent-text focus:ring-indigo-500"
+                                        className="mt-0.5 rounded border-slate-300 text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text focus:ring-indigo-500"
                                     />
                                     <div className="flex flex-col">
                                         <span className="text-xs font-bold text-slate-700 dark:text-dk-text-soft">{tx(lang,{fr:'Résumé matériel / machines',ar:'ملخص المعدات / الآلات',en:'Equipment / Machine Summary',es:'Resumen de equipo / máquinas',pt:'Resumo de equipamento / máquinas',tr:'Ekipman / Makine Özeti'})}</span>

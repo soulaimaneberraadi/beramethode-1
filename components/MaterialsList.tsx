@@ -48,7 +48,7 @@ const MaterialsList: React.FC<MaterialsListProps> = ({
 }) => {
     const { lang } = useLang();
     const optionStyle = darkMode ? { backgroundColor: '#1f2937', color: 'white' } : {};
-    const inputCls = `w-full rounded px-1.5 py-1 text-[12px] outline-none transition-all focus:ring-1 focus:ring-slate-100 ${darkMode ? 'bg-gray-700 text-white border-gray-600 focus:bg-gray-600' : 'bg-slate-50 border-slate-200 dark:border-dk-border text-slate-900 dark:text-dk-text focus:bg-white focus:border-slate-300'} border`;
+    const inputCls = `w-full rounded px-1.5 py-1 text-[12px] outline-none transition-all focus:ring-1 focus:ring-slate-100 ${darkMode ? 'bg-gray-700 text-white border-gray-600 focus:bg-gray-600' : 'bg-slate-50 dark:bg-dk-bg border-slate-200 dark:border-dk-border text-slate-900 dark:text-dk-text focus:bg-white focus:border-slate-300'} border`;
 
     const [magasinData, setMagasinData] = useState<MagasinItem[]>([]);
     const [focusedRow, setFocusedRow] = useState<number | null>(null);
@@ -238,7 +238,7 @@ const MaterialsList: React.FC<MaterialsListProps> = ({
                 {/* Desktop: Compact Table */}
                 <div className="hidden md:block overflow-x-auto">
                     <table className="w-full text-left text-[12px] border-collapse">
-                        <thead className={`uppercase text-[9px] tracking-wide ${darkMode ? 'bg-gray-800 text-gray-400 dark:text-dk-muted border-gray-700' : 'bg-slate-50/80 text-slate-500 dark:text-dk-muted border-slate-100 dark:border-dk-border'} border-b`}>
+                        <thead className={`uppercase text-[9px] tracking-wide ${darkMode ? 'bg-gray-800 text-gray-400 dark:text-dk-muted border-gray-700' : 'bg-slate-50 dark:bg-dk-bg/80 text-slate-500 dark:text-dk-muted border-slate-100 dark:border-dk-border'} border-b`}>
                             <tr>
                                 <th className="px-3 py-1.5 font-medium w-[28%]">{t.matName}</th>
                                 <th className="px-3 py-1.5 font-medium w-[12%] text-center">{t.price} ({currency})</th>
@@ -269,7 +269,7 @@ const MaterialsList: React.FC<MaterialsListProps> = ({
                                 </td></tr>
                             )}
                         </tbody>
-                        <tfoot className={`${darkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-slate-50/80 border-slate-100 dark:border-dk-border text-slate-800 dark:text-dk-text'} border-t`}>
+                        <tfoot className={`${darkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-slate-50 dark:bg-dk-bg/80 border-slate-100 dark:border-dk-border text-slate-800 dark:text-dk-text'} border-t`}>
                             <tr>
                                 <td colSpan={3} className="px-3 py-1.5 text-[10px] font-medium uppercase tracking-wide text-slate-500 dark:text-dk-muted text-right">{t.totalMat || tx(lang, {fr:'Total Matière',ar:'إجمالي المواد',en:'Total Material',es:'Total Material',pt:'Total Material',tr:'Toplam Malzeme'})}</td>
                                 <td className="px-3 py-1.5 text-right">
@@ -304,7 +304,7 @@ const MaterialsList: React.FC<MaterialsListProps> = ({
                         </div>
                     )}
                     {/* Mobile Total */}
-                    <div className={`px-3 py-2 border-t ${darkMode ? 'border-gray-700 bg-gray-800' : 'border-slate-100 dark:border-dk-border bg-slate-50/80'} flex items-center justify-between`}>
+                    <div className={`px-3 py-2 border-t ${darkMode ? 'border-gray-700 bg-gray-800' : 'border-slate-100 dark:border-dk-border bg-slate-50 dark:bg-dk-bg/80'} flex items-center justify-between`}>
                         <span className="text-[10px] font-medium uppercase tracking-wide text-slate-500 dark:text-dk-muted">{t.totalMat || tx(lang, {fr:'Total Matière',ar:'إجمالي المواد',en:'Total Material',es:'Total Material',pt:'Total Material',tr:'Toplam Malzeme'})}</span>
                         <span className="text-[13px] font-semibold tabular-nums text-slate-900 dark:text-dk-text">{fmt(totalMaterials)} <span className="text-[9px] font-normal text-slate-400 dark:text-dk-muted">{currency}</span></span>
                     </div>
@@ -392,7 +392,7 @@ const MaterialRow: React.FC<MaterialRowProps> = ({
                                             </div>
                                             <div className="flex justify-between items-center mt-0.5">
                                                 <span className="text-[9px] text-slate-400 dark:text-dk-muted">{m.reference || '—'}</span>
-                                                <span className={`text-[9px] font-bold ${(m.stockActuel || 0) === 0 ? 'text-red-500' : 'text-emerald-600'}`}>{tx(lang, {fr:'Stock: ',ar:'المخزون: ',en:'Stock: ',es:'Stock: ',pt:'Stock: ',tr:'Stok: '})}{m.stockActuel || 0}</span>
+                                                <span className={`text-[9px] font-bold ${(m.stockActuel || 0) === 0 ? 'text-red-500' : 'text-emerald-600 dark:text-emerald-400'}`}>{tx(lang, {fr:'Stock: ',ar:'المخزون: ',en:'Stock: ',es:'Stock: ',pt:'Stock: ',tr:'Stok: '})}{m.stockActuel || 0}</span>
                                             </div>
                                         </div>
                                     )) : (
@@ -417,7 +417,7 @@ const MaterialRow: React.FC<MaterialRowProps> = ({
                                     <div className="flex-1 min-w-0">
                                         <div className="flex items-center gap-1">
                                             <span className="font-bold text-slate-700 dark:text-dk-text-soft truncate">{mMatch.reference || '—'}</span>
-                                            <span className={`px-1 py-0.5 rounded text-[8px] font-semibold ${(mMatch.stockActuel || 0) === 0 ? 'bg-red-100 text-red-600' : 'bg-emerald-100 text-emerald-600'}`}>
+                                            <span className={`px-1 py-0.5 rounded text-[8px] font-semibold ${(mMatch.stockActuel || 0) === 0 ? 'bg-red-100 text-red-600 dark:text-red-400' : 'bg-emerald-100 text-emerald-600 dark:text-emerald-400'}`}>
                                                 {mMatch.stockActuel || 0} {mMatch.unite}
                                             </span>
                                         </div>
@@ -465,9 +465,9 @@ const MaterialRow: React.FC<MaterialRowProps> = ({
 
                     {/* Row 3: Bobine details (collapsible) */}
                     {isBobine && bobineOpen && (
-                        <div className={`p-2 rounded-lg border mt-1.5 animate-in fade-in duration-150 ${darkMode ? 'bg-blue-900/20 border-blue-800' : 'bg-blue-50 border-blue-100'}`}>
+                        <div className={`p-2 rounded-lg border mt-1.5 animate-in fade-in duration-150 ${darkMode ? 'bg-blue-900/20 border-blue-800' : 'bg-blue-50 dark:bg-blue-900/30 border-blue-100'}`}>
                             <div className="flex items-center gap-1.5">
-                                <span className="text-[9px] text-blue-600 font-bold shrink-0">{tx(lang, {fr:'Fil(m):',ar:'الخيط (م):',en:'Thread(m):',es:'Hilo(m):',pt:'Fio(m):',tr:'İplik(m):'})}</span>
+                                <span className="text-[9px] text-blue-600 dark:text-blue-400 font-bold shrink-0">{tx(lang, {fr:'Fil(m):',ar:'الخيط (م):',en:'Thread(m):',es:'Hilo(m):',pt:'Fio(m):',tr:'İplik(m):'})}</span>
                                 <input type="number" min="0" placeholder={tx(lang, {fr:"Métrage",ar:"الطول بالأمتار",en:"Length (m)",es:"Metraje",pt:"Metragem",tr:"Uzunluk (m)"})} value={item.threadMeters || ''}
                                     onChange={(e) => updateMaterial(item.id, 'threadMeters', e.target.value)}
                                     className={`flex-1 text-[11px] font-mono border rounded px-1 outline-none text-center h-6 ${darkMode ? 'bg-gray-800 border-gray-600 text-white' : 'bg-white dark:bg-dk-surface border-blue-200 text-slate-700 dark:text-dk-text-soft'}`} />
@@ -598,7 +598,7 @@ const MaterialRow: React.FC<MaterialRowProps> = ({
                                 </div>
                                 <div className="text-right shrink-0 ml-2">
                                     <span className="font-bold text-[10px] text-[#2149C1] bg-slate-100 dark:bg-dk-elevated px-1.5 py-0.5 rounded">{(m.prixUnitaire || 0).toFixed(2)}</span>
-                                    <span className={`ml-1 text-[9px] font-bold ${(m.stockActuel || 0) === 0 ? 'text-red-500' : 'text-emerald-600'}`}>{m.stockActuel || 0}</span>
+                                    <span className={`ml-1 text-[9px] font-bold ${(m.stockActuel || 0) === 0 ? 'text-red-500' : 'text-emerald-600 dark:text-emerald-400'}`}>{m.stockActuel || 0}</span>
                                 </div>
                             </div>
                         )) : (
@@ -618,7 +618,7 @@ const MaterialRow: React.FC<MaterialRowProps> = ({
                 {mMatch && !focusedRow && (
                     <div className="mt-1 flex items-center gap-1.5 text-[9px] text-slate-500 dark:text-dk-muted">
                         <span className="px-1 py-0.5 rounded bg-slate-100 dark:bg-dk-elevated font-bold">{mMatch.reference || '—'}</span>
-                        <span className={`px-1 py-0.5 rounded font-bold ${(mMatch.stockActuel || 0) === 0 ? 'bg-red-100 text-red-600' : 'bg-emerald-100 text-emerald-600'}`}>
+                        <span className={`px-1 py-0.5 rounded font-bold ${(mMatch.stockActuel || 0) === 0 ? 'bg-red-100 text-red-600 dark:text-red-400' : 'bg-emerald-100 text-emerald-600 dark:text-emerald-400'}`}>
                             Stock: {mMatch.stockActuel || 0} {mMatch.unite}
                         </span>
                     </div>
@@ -632,7 +632,7 @@ const MaterialRow: React.FC<MaterialRowProps> = ({
                                 if (!col) return null;
                                 const hex = col.id?.startsWith('#') ? col.id : null;
                                 return (
-                                    <span key={cid} className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-indigo-50 dark:bg-dk-accent/20 text-indigo-700 dark:text-dk-accent-text text-[9px] font-semibold border border-indigo-100">
+                                    <span key={cid} className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 text-indigo-700 dark:text-dk-accent-text text-[9px] font-semibold border border-indigo-100">
                                         {hex && <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: hex }} />}
                                         {col.name}
                                     </span>
@@ -644,7 +644,7 @@ const MaterialRow: React.FC<MaterialRowProps> = ({
                         ) : null}
                         {item.scope?.sizes?.length ? (
                             item.scope.sizes.map(si => (
-                                <span key={si} className="inline-flex items-center px-1.5 py-0.5 rounded-full bg-amber-50 text-amber-700 text-[9px] font-semibold border border-amber-100">
+                                <span key={si} className="inline-flex items-center px-1.5 py-0.5 rounded-full bg-amber-50 dark:bg-amber-900/30 text-amber-700 text-[9px] font-semibold border border-amber-100">
                                     {scopeSizes[si] ?? si}
                                 </span>
                             ))
@@ -682,9 +682,9 @@ const MaterialRow: React.FC<MaterialRowProps> = ({
                 </div>
                 {/* Bobine details (collapsible) */}
                 {isBobine && bobineOpen && (
-                    <div className={`mt-1.5 p-2 rounded border animate-in fade-in duration-150 ${darkMode ? 'bg-blue-900/20 border-blue-800' : 'bg-blue-50 border-blue-100'}`}>
+                    <div className={`mt-1.5 p-2 rounded border animate-in fade-in duration-150 ${darkMode ? 'bg-blue-900/20 border-blue-800' : 'bg-blue-50 dark:bg-blue-900/30 border-blue-100'}`}>
                         <div className="flex items-center gap-1.5">
-                            <span className="text-[9px] text-blue-600 font-bold shrink-0">{tx(lang, {fr:'Fil(m):',ar:'الخيط (م):',en:'Thread(m):',es:'Hilo(m):',pt:'Fio(m):',tr:'İplik(m):'})}</span>
+                            <span className="text-[9px] text-blue-600 dark:text-blue-400 font-bold shrink-0">{tx(lang, {fr:'Fil(m):',ar:'الخيط (م):',en:'Thread(m):',es:'Hilo(m):',pt:'Fio(m):',tr:'İplik(m):'})}</span>
                             <input type="number" min="0" placeholder={tx(lang, {fr:'Métrage',ar:'الطول بالأمتار',en:'Length (m)',es:'Metraje',pt:'Metragem',tr:'Uzunluk (m)'})} value={item.threadMeters || ''}
                                 onChange={(e) => updateMaterial(item.id, 'threadMeters', e.target.value)}
                                 className={`flex-1 text-[10px] font-mono border rounded px-1 outline-none text-center h-5 ${darkMode ? 'bg-gray-800 border-gray-600 text-white' : 'bg-white dark:bg-dk-surface border-blue-200 text-slate-700 dark:text-dk-text-soft'}`} />

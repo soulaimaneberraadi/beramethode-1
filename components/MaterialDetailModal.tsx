@@ -39,9 +39,9 @@ const MaterialDetailModal: React.FC<MaterialDetailModalProps> = ({
     const piecesCouvertes = st.piecesCouvertes;
 
     const getStatus = () => {
-        if (isDelivered) return { label: tx(lang, {fr:'En stock', ar:'متوفر بالمخزون', en:'In stock', es:'En stock', pt:'Em stock', tr:'Stokta'}), icon: CheckCircle, color: 'text-emerald-700', bg: 'bg-emerald-50', border: 'border-emerald-200' };
-        if (isPartial) return { label: tx(lang, {fr:'Stock partiel', ar:'مخزون جزئي', en:'Partial stock', es:'Stock parcial', pt:'Stock parcial', tr:'Kısmi stok'}), icon: AlertTriangle, color: 'text-amber-700', bg: 'bg-amber-50', border: 'border-amber-200' };
-        return { label: tx(lang, {fr:'En attente', ar:'قيد الانتظار', en:'Pending', es:'Pendiente', pt:'Pendente', tr:'Beklemede'}), icon: Clock, color: 'text-rose-700', bg: 'bg-rose-50', border: 'border-rose-200' };
+        if (isDelivered) return { label: tx(lang, {fr:'En stock', ar:'متوفر بالمخزون', en:'In stock', es:'En stock', pt:'Em stock', tr:'Stokta'}), icon: CheckCircle, color: 'text-emerald-700', bg: 'bg-emerald-50 dark:bg-emerald-900/30', border: 'border-emerald-200' };
+        if (isPartial) return { label: tx(lang, {fr:'Stock partiel', ar:'مخزون جزئي', en:'Partial stock', es:'Stock parcial', pt:'Stock parcial', tr:'Kısmi stok'}), icon: AlertTriangle, color: 'text-amber-700', bg: 'bg-amber-50 dark:bg-amber-900/30', border: 'border-amber-200' };
+        return { label: tx(lang, {fr:'En attente', ar:'قيد الانتظار', en:'Pending', es:'Pendiente', pt:'Pendente', tr:'Beklemede'}), icon: Clock, color: 'text-rose-700', bg: 'bg-rose-50 dark:bg-rose-900/30', border: 'border-rose-200' };
     };
 
     const status = getStatus();
@@ -86,11 +86,11 @@ const MaterialDetailModal: React.FC<MaterialDetailModalProps> = ({
                     </div>
 
                     <div className="grid grid-cols-2 gap-2.5 sm:gap-3">
-                        <div className="bg-slate-50/60 rounded-md p-3 border border-slate-200 dark:border-dk-border">
+                        <div className="bg-slate-50 dark:bg-dk-bg/60 rounded-md p-3 border border-slate-200 dark:border-dk-border">
                             <span className="text-[10px] font-medium text-slate-500 dark:text-dk-muted uppercase tracking-wider block mb-1">{tx(lang, {fr:'Prix Unitaire HT', ar:'السعر الوحدوي HT', en:'Unit Price HT', es:'Precio Unitario HT', pt:'Preço Unitário HT', tr:'Birim Fiyat HT'})}</span>
                             <span className="text-[15px] font-semibold text-slate-900 dark:text-dk-text tabular-nums">{fmt(material.unitPrice)} <span className="text-[11px] font-normal text-slate-400 dark:text-dk-muted">{currency}</span></span>
                         </div>
-                        <div className="bg-slate-50/60 rounded-md p-3 border border-slate-200 dark:border-dk-border">
+                        <div className="bg-slate-50 dark:bg-dk-bg/60 rounded-md p-3 border border-slate-200 dark:border-dk-border">
                             <span className="text-[10px] font-medium text-slate-500 dark:text-dk-muted uppercase tracking-wider block mb-1">{tx(lang, {fr:'Quantité à acheter', ar:'الكمية المطلوب شراؤها', en:'Quantity to buy', es:'Cantidad a comprar', pt:'Quantidade a comprar', tr:'Satın alınacak miktar'})}</span>
                             <span className="text-[15px] font-semibold text-slate-900 dark:text-dk-text tabular-nums">{fmt(material.qtyToBuy)} <span className="text-[11px] font-normal text-slate-400 dark:text-dk-muted">{material.unit}</span></span>
                         </div>
@@ -99,7 +99,7 @@ const MaterialDetailModal: React.FC<MaterialDetailModalProps> = ({
                             <span className="text-[15px] font-semibold text-[#2149C1] tabular-nums">{fmt(material.lineCost)} <span className="text-[11px] font-normal text-[#2149C1]/60">{currency}</span></span>
                         </div>
                         {material.pieces !== undefined && (
-                            <div className="bg-slate-50/60 rounded-md p-3 border border-slate-200 dark:border-dk-border">
+                            <div className="bg-slate-50 dark:bg-dk-bg/60 rounded-md p-3 border border-slate-200 dark:border-dk-border">
                                 <span className="text-[10px] font-medium text-slate-500 dark:text-dk-muted uppercase tracking-wider block mb-1">{tx(lang, {fr:'Pièces concernées', ar:'القطع المعنية', en:'Pieces concerned', es:'Piezas concernidas', pt:'Peças concernidas', tr:'İlgili parçalar'})}</span>
                                 <span className="text-[15px] font-semibold text-slate-900 dark:text-dk-text tabular-nums">{fmt(material.pieces)} <span className="text-[11px] font-normal text-slate-400 dark:text-dk-muted">pcs</span></span>
                             </div>
