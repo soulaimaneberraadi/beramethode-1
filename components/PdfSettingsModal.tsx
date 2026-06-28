@@ -195,7 +195,7 @@ const PdfSettingsModal: React.FC<PdfSettingsModalProps> = ({
         <div className={`fixed inset-0 z-[110] flex justify-center bg-slate-900/70 backdrop-blur-md animate-in fade-in duration-200 ${isExpanded ? '' : 'items-end md:items-center md:p-4'}`}>
 
             <div
-                className={`shadow-2xl overflow-hidden flex flex-col ${darkMode ? 'bg-gray-900 border border-gray-700' : 'bg-white'} ${
+                className={`shadow-2xl overflow-hidden flex flex-col ${darkMode ? 'bg-gray-900 border border-gray-700' : 'bg-white dark:bg-dk-surface'} ${
                     isExpanded
                         ? 'w-full h-full'
                         : 'w-full max-h-[92vh] rounded-t-2xl md:rounded-2xl md:w-[95vw] md:h-[90vh] md:max-w-6xl md:max-h-[90vh]'
@@ -213,13 +213,13 @@ const PdfSettingsModal: React.FC<PdfSettingsModalProps> = ({
                 )}
 
                 <div
-                    className={`px-4 py-3 border-b flex justify-between items-center shrink-0 md:touch-auto touch-none ${darkMode ? 'border-gray-700' : 'border-slate-200'}`}
+                    className={`px-4 py-3 border-b flex justify-between items-center shrink-0 md:touch-auto touch-none ${darkMode ? 'border-gray-700' : 'border-slate-200 dark:border-dk-border'}`}
                     {...dragHandlers}
                 >
                     <div className="flex items-center gap-2 min-w-0">
                         <button
                             onClick={() => { if (isExpanded) setIsExpanded(false); else setShowPdfModal(false); }}
-                            className={`p-1.5 rounded-lg transition shrink-0 ${darkMode ? 'hover:bg-gray-700 text-gray-300' : 'hover:bg-slate-100 text-slate-500'}`}
+                            className={`p-1.5 rounded-lg transition shrink-0 ${darkMode ? 'hover:bg-gray-700 text-gray-300 dark:text-dk-muted' : 'hover:bg-slate-100 text-slate-500 dark:text-dk-muted'}`}
                             title={_({fr:'Retour',ar:'رجوع',en:'Back',es:'Volver',pt:'Voltar',tr:'Geri'})}
                             aria-label={_({fr:'Retour',ar:'رجوع',en:'Back',es:'Volver',pt:'Voltar',tr:'Geri'})}
                         >
@@ -229,20 +229,20 @@ const PdfSettingsModal: React.FC<PdfSettingsModalProps> = ({
                             <FileText className="w-4 h-4 text-white" />
                         </div>
                         <div className="min-w-0">
-                            <h3 className={`font-bold text-sm truncate ${darkMode ? 'text-white' : 'text-slate-800'}`}>{isTicket ? _({fr:'Paramètres Ticket',ar:'إعدادات التذكرة',en:'Ticket Settings',es:'Configuración de Ticket',pt:'Configurações do Ticket',tr:'Bilet Ayarları'}) : isCompact ? _({fr:'Fiche Compacte',ar:'بطاقة مضغوطة',en:'Compact Sheet',es:'Ficha Compacta',pt:'Ficha Compacta',tr:'Kompakt Kart'}) : t.pdfSettings}</h3>
-                            <p className={`text-[10px] truncate ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>{isTicket ? _({fr:'Format personnalisé',ar:'تنسيق مخصص',en:'Custom format',es:'Formato personalizado',pt:'Formato personalizado',tr:'Özel format'}) : isCompact ? _({fr:'Format A4 compact',ar:'تنسيق A4 مضغوط',en:'Compact A4 format',es:'Formato A4 compacto',pt:'Formato A4 compacto',tr:'Kompakt A4 formatı'}) : _({fr:'Mise en page PDF',ar:'تخطيط PDF',en:'PDF layout',es:'Diseño PDF',pt:'Layout PDF',tr:'PDF düzeni'})}</p>
+                            <h3 className={`font-bold text-sm truncate ${darkMode ? 'text-white' : 'text-slate-800 dark:text-dk-text'}`}>{isTicket ? _({fr:'Paramètres Ticket',ar:'إعدادات التذكرة',en:'Ticket Settings',es:'Configuración de Ticket',pt:'Configurações do Ticket',tr:'Bilet Ayarları'}) : isCompact ? _({fr:'Fiche Compacte',ar:'بطاقة مضغوطة',en:'Compact Sheet',es:'Ficha Compacta',pt:'Ficha Compacta',tr:'Kompakt Kart'}) : t.pdfSettings}</h3>
+                            <p className={`text-[10px] truncate ${darkMode ? 'text-gray-400 dark:text-dk-muted' : 'text-slate-500 dark:text-dk-muted'}`}>{isTicket ? _({fr:'Format personnalisé',ar:'تنسيق مخصص',en:'Custom format',es:'Formato personalizado',pt:'Formato personalizado',tr:'Özel format'}) : isCompact ? _({fr:'Format A4 compact',ar:'تنسيق A4 مضغوط',en:'Compact A4 format',es:'Formato A4 compacto',pt:'Formato A4 compacto',tr:'Kompakt A4 formatı'}) : _({fr:'Mise en page PDF',ar:'تخطيط PDF',en:'PDF layout',es:'Diseño PDF',pt:'Layout PDF',tr:'PDF düzeni'})}</p>
                         </div>
                     </div>
                     <div className="flex items-center gap-1 shrink-0">
                         <button
                             onClick={() => setIsExpanded(e => !e)}
-                            className={`p-1.5 rounded-lg transition ${darkMode ? 'hover:bg-gray-700 text-gray-400' : 'hover:bg-slate-100 text-slate-500'}`}
+                            className={`p-1.5 rounded-lg transition ${darkMode ? 'hover:bg-gray-700 text-gray-400 dark:text-dk-muted' : 'hover:bg-slate-100 text-slate-500 dark:text-dk-muted'}`}
                             title={isExpanded ? _({fr:'Réduire',ar:'تصغير',en:'Reduce',es:'Reducir',pt:'Reduzir',tr:'Küçült'}) : _({fr:'Agrandir (plein écran)',ar:'تكبير (ملء الشاشة)',en:'Expand (full screen)',es:'Ampliar (pantalla completa)',pt:'Expandir (tela cheia)',tr:'Büyüt (tam ekran)'})}
                             aria-label={isExpanded ? _({fr:'Réduire',ar:'تصغير',en:'Reduce',es:'Reducir',pt:'Reduzir',tr:'Küçült'}) : _({fr:'Agrandir',ar:'تكبير',en:'Expand',es:'Ampliar',pt:'Expandir',tr:'Büyüt'})}
                         >
                             {isExpanded ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
                         </button>
-                        <button onClick={() => setShowPdfModal(false)} className={`p-1.5 rounded-lg transition ${darkMode ? 'hover:bg-gray-700 text-gray-400' : 'hover:bg-slate-200 text-slate-500'}`} aria-label={_({fr:'Fermer',ar:'إغلاق',en:'Close',es:'Cerrar',pt:'Fechar',tr:'Kapat'})}>
+                        <button onClick={() => setShowPdfModal(false)} className={`p-1.5 rounded-lg transition ${darkMode ? 'hover:bg-gray-700 text-gray-400 dark:text-dk-muted' : 'hover:bg-slate-200 text-slate-500 dark:text-dk-muted'}`} aria-label={_({fr:'Fermer',ar:'إغلاق',en:'Close',es:'Cerrar',pt:'Fechar',tr:'Kapat'})}>
                             <X className="w-4 h-4" />
                         </button>
                     </div>
@@ -250,13 +250,13 @@ const PdfSettingsModal: React.FC<PdfSettingsModalProps> = ({
 
                 <div className="flex-1 min-h-0 flex flex-col md:flex-row">
 
-                <div className={`order-2 md:order-1 w-full md:w-72 flex-1 md:flex-shrink-0 min-h-0 flex flex-col ${darkMode ? 'bg-gray-800 md:border-r border-gray-700' : 'bg-slate-50 md:border-r border-slate-200'}`}>
+                <div className={`order-2 md:order-1 w-full md:w-72 flex-1 md:flex-shrink-0 min-h-0 flex flex-col ${darkMode ? 'bg-gray-800 md:border-r border-gray-700' : 'bg-slate-50 dark:bg-dk-bg md:border-r border-slate-200 dark:border-dk-border'}`}>
 
                     <div className="flex-1 overflow-y-auto p-4 space-y-5">
 
                         {!isTicket && (
                         <section>
-                            <label className={`block text-[10px] font-bold uppercase tracking-wider mb-2 ${darkMode ? 'text-gray-500' : 'text-slate-500'}`}>
+                            <label className={`block text-[10px] font-bold uppercase tracking-wider mb-2 ${darkMode ? 'text-gray-500 dark:text-dk-muted' : 'text-slate-500 dark:text-dk-muted'}`}>
                                 {_({fr:'Orientation',ar:'الاتجاه',en:'Orientation',es:'Orientación',pt:'Orientação',tr:'Yönlendirme'})}
                             </label>
                             <div className="grid grid-cols-2 gap-2">
@@ -265,8 +265,8 @@ const PdfSettingsModal: React.FC<PdfSettingsModalProps> = ({
                                     className={`relative p-2.5 rounded-lg border-2 transition-all flex flex-col items-center gap-1.5 ${pdfSettings.orientation === 'portrait'
                                             ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400'
                                             : darkMode
-                                            ? 'border-gray-700 bg-gray-900 text-gray-400 hover:border-gray-600'
-                                            : 'border-slate-200 bg-white text-slate-500 hover:border-slate-300'
+                                            ? 'border-gray-700 bg-gray-900 text-gray-400 dark:text-dk-muted hover:border-gray-600'
+                                            : 'border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface text-slate-500 dark:text-dk-muted hover:border-slate-300'
                                         }`}
                                 >
                                     <div className="w-6 h-8 border-2 border-current rounded-sm"></div>
@@ -282,8 +282,8 @@ const PdfSettingsModal: React.FC<PdfSettingsModalProps> = ({
                                     className={`relative p-2.5 rounded-lg border-2 transition-all flex flex-col items-center gap-1.5 ${pdfSettings.orientation === 'landscape'
                                             ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400'
                                             : darkMode
-                                            ? 'border-gray-700 bg-gray-900 text-gray-400 hover:border-gray-600'
-                                            : 'border-slate-200 bg-white text-slate-500 hover:border-slate-300'
+                                            ? 'border-gray-700 bg-gray-900 text-gray-400 dark:text-dk-muted hover:border-gray-600'
+                                            : 'border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface text-slate-500 dark:text-dk-muted hover:border-slate-300'
                                         }`}
                                 >
                                     <div className="w-8 h-6 border-2 border-current rounded-sm"></div>
@@ -300,13 +300,13 @@ const PdfSettingsModal: React.FC<PdfSettingsModalProps> = ({
 
                         {isTicket && setTicketSize && (
                         <section>
-                            <label className={`block text-[10px] font-bold uppercase tracking-wider mb-2 ${darkMode ? 'text-gray-500' : 'text-slate-500'}`}>
+                            <label className={`block text-[10px] font-bold uppercase tracking-wider mb-2 ${darkMode ? 'text-gray-500 dark:text-dk-muted' : 'text-slate-500 dark:text-dk-muted'}`}>
                                 {_({fr:'Dimensions (mm)',ar:'الأبعاد (مم)',en:'Dimensions (mm)',es:'Dimensiones (mm)',pt:'Dimensões (mm)',tr:'Boyutlar (mm)'})}
                             </label>
                             <div className="grid grid-cols-2 gap-2">
                                 {([['width', 'Largeur'], ['height', 'Hauteur']] as const).map(([key, lbl]) => (
-                                    <div key={key} className={`rounded-lg border px-2.5 py-1.5 ${darkMode ? 'border-gray-700 bg-gray-900' : 'border-slate-200 bg-white'}`}>
-                                        <span className={`block text-[9px] font-semibold uppercase tracking-wide ${darkMode ? 'text-gray-500' : 'text-slate-400'}`}>{_(key === 'width' ? {fr:'Largeur',ar:'العرض',en:'Width',es:'Ancho',pt:'Largura',tr:'Genişlik'} : {fr:'Hauteur',ar:'الارتفاع',en:'Height',es:'Alto',pt:'Altura',tr:'Yükseklik'})}</span>
+                                    <div key={key} className={`rounded-lg border px-2.5 py-1.5 ${darkMode ? 'border-gray-700 bg-gray-900' : 'border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface'}`}>
+                                        <span className={`block text-[9px] font-semibold uppercase tracking-wide ${darkMode ? 'text-gray-500 dark:text-dk-muted' : 'text-slate-400 dark:text-dk-muted'}`}>{_(key === 'width' ? {fr:'Largeur',ar:'العرض',en:'Width',es:'Ancho',pt:'Largura',tr:'Genişlik'} : {fr:'Hauteur',ar:'الارتفاع',en:'Height',es:'Alto',pt:'Altura',tr:'Yükseklik'})}</span>
                                         <div className="flex items-center gap-1">
                                             <input
                                                 type="number" min={20} max={2000}
@@ -315,10 +315,10 @@ const PdfSettingsModal: React.FC<PdfSettingsModalProps> = ({
                                                     const v = Math.max(20, Math.min(2000, Math.round(Number(e.target.value) || 0)));
                                                     setTicketSize(s => ({ ...s, [key]: v }));
                                                 }}
-                                                className={`w-full text-sm font-bold tabular-nums bg-transparent outline-none ${darkMode ? 'text-slate-200' : 'text-slate-800'}`}
+                                                className={`w-full text-sm font-bold tabular-nums bg-transparent outline-none ${darkMode ? 'text-slate-200' : 'text-slate-800 dark:text-dk-text'}`}
                                                 aria-label={_(key === 'width' ? {fr:'Largeur du ticket en mm',ar:'عرض التذكرة بالملم',en:'Ticket width in mm',es:'Ancho del ticket en mm',pt:'Largura do ticket em mm',tr:'Bilet genişliği (mm)'} : {fr:'Hauteur du ticket en mm',ar:'ارتفاع التذكرة بالملم',en:'Ticket height in mm',es:'Alto del ticket en mm',pt:'Altura do ticket em mm',tr:'Bilet yüksekliği (mm)'})}
                                             />
-                                            <span className="text-[10px] text-slate-400">mm</span>
+                                            <span className="text-[10px] text-slate-400 dark:text-dk-muted">mm</span>
                                         </div>
                                     </div>
                                 ))}
@@ -333,7 +333,7 @@ const PdfSettingsModal: React.FC<PdfSettingsModalProps> = ({
                                         key={lbl}
                                         type="button"
                                         onClick={() => setTicketSize(val)}
-                                        className={`px-2 py-1 rounded-md text-[10px] font-semibold border transition-colors ${darkMode ? 'border-gray-700 text-gray-300 hover:bg-gray-700' : 'border-slate-200 text-slate-600 hover:bg-slate-100'}`}
+                                        className={`px-2 py-1 rounded-md text-[10px] font-semibold border transition-colors ${darkMode ? 'border-gray-700 text-gray-300 dark:text-dk-muted hover:bg-gray-700' : 'border-slate-200 dark:border-dk-border text-slate-600 dark:text-dk-text-soft hover:bg-slate-100'}`}
                                     >
                                         {lbl}
                                     </button>
@@ -343,19 +343,19 @@ const PdfSettingsModal: React.FC<PdfSettingsModalProps> = ({
                         )}
 
                         <section>
-                            <label className={`block text-[10px] font-bold uppercase tracking-wider mb-2 ${darkMode ? 'text-gray-500' : 'text-slate-500'}`}>
+                            <label className={`block text-[10px] font-bold uppercase tracking-wider mb-2 ${darkMode ? 'text-gray-500 dark:text-dk-muted' : 'text-slate-500 dark:text-dk-muted'}`}>
                                 {_({fr:'Couleurs',ar:'الألوان',en:'Colors',es:'Colores',pt:'Cores',tr:'Renkler'})}
                             </label>
-                            <div className={`flex rounded-lg p-1 ${darkMode ? 'bg-gray-900' : 'bg-slate-100'}`}>
+                            <div className={`flex rounded-lg p-1 ${darkMode ? 'bg-gray-900' : 'bg-slate-100 dark:bg-dk-elevated'}`}>
                                 <button
                                     onClick={() => setPdfSettings({ ...pdfSettings, colorMode: 'color' })}
                                     className={`flex-1 py-1.5 text-[10px] font-bold rounded-md flex items-center justify-center gap-1.5 transition-all ${pdfSettings.colorMode === 'color'
                                             ? darkMode
                                                 ? 'bg-gray-700 text-purple-400 shadow-sm'
-                                                : 'bg-white text-purple-600 shadow-sm'
+                                                : 'bg-white dark:bg-dk-surface text-purple-600 shadow-sm'
                                             : darkMode
-                                            ? 'text-gray-400'
-                                            : 'text-slate-500'
+                                            ? 'text-gray-400 dark:text-dk-muted'
+                                            : 'text-slate-500 dark:text-dk-muted'
                                         }`}
                                 >
                                     <Palette className="w-3 h-3" /> {_({fr:'Couleur',ar:'ملون',en:'Color',es:'Color',pt:'Cor',tr:'Renkli'})}
@@ -365,10 +365,10 @@ const PdfSettingsModal: React.FC<PdfSettingsModalProps> = ({
                                     className={`flex-1 py-1.5 text-[10px] font-bold rounded-md flex items-center justify-center gap-1.5 transition-all ${pdfSettings.colorMode === 'grayscale'
                                             ? darkMode
                                                 ? 'bg-gray-700 text-white shadow-sm'
-                                                : 'bg-white text-slate-800 shadow-sm'
+                                                : 'bg-white dark:bg-dk-surface text-slate-800 dark:text-dk-text shadow-sm'
                                             : darkMode
-                                            ? 'text-gray-400'
-                                            : 'text-slate-500'
+                                            ? 'text-gray-400 dark:text-dk-muted'
+                                            : 'text-slate-500 dark:text-dk-muted'
                                         }`}
                                 >
                                     <div className="w-3 h-3 rounded-full bg-gradient-to-tr from-black to-white border border-gray-300"></div> {_({fr:'N&B',ar:'أبيض وأسود',en:'B&W',es:'ByN',pt:'P&B',tr:'S&B'})}
@@ -378,7 +378,7 @@ const PdfSettingsModal: React.FC<PdfSettingsModalProps> = ({
 
                         <section>
                             <div className="flex justify-between items-center mb-2">
-                                <label className={`block text-[10px] font-bold uppercase tracking-wider ${darkMode ? 'text-gray-500' : 'text-slate-500'}`}>
+                                <label className={`block text-[10px] font-bold uppercase tracking-wider ${darkMode ? 'text-gray-500 dark:text-dk-muted' : 'text-slate-500 dark:text-dk-muted'}`}>
                                     {_({fr:'Échelle',ar:'المقياس',en:'Scale',es:'Escala',pt:'Escala',tr:'Ölçek'})}
                                 </label>
                                 <span className={`text-[10px] font-mono font-bold px-1.5 py-0.5 rounded ${darkMode ? 'bg-blue-900/30 text-blue-400' : 'bg-blue-100 text-blue-600'}`}>
@@ -388,7 +388,7 @@ const PdfSettingsModal: React.FC<PdfSettingsModalProps> = ({
                             <div className="flex items-center gap-2">
                                 <button
                                     onClick={() => setPdfSettings(p => ({ ...p, scale: Math.max(0.5, p.scale - 0.1) }))}
-                                    className={`p-1.5 rounded-md border transition active:scale-95 ${darkMode ? 'border-gray-600 hover:bg-gray-700 text-gray-400' : 'border-slate-200 hover:bg-white text-slate-500'}`}
+                                    className={`p-1.5 rounded-md border transition active:scale-95 ${darkMode ? 'border-gray-600 hover:bg-gray-700 text-gray-400 dark:text-dk-muted' : 'border-slate-200 dark:border-dk-border hover:bg-white text-slate-500 dark:text-dk-muted'}`}
                                 >
                                     <Minus className="w-3 h-3" />
                                 </button>
@@ -403,7 +403,7 @@ const PdfSettingsModal: React.FC<PdfSettingsModalProps> = ({
                                 />
                                 <button
                                     onClick={() => setPdfSettings(p => ({ ...p, scale: Math.min(1.5, p.scale + 0.1) }))}
-                                    className={`p-1.5 rounded-md border transition active:scale-95 ${darkMode ? 'border-gray-600 hover:bg-gray-700 text-gray-400' : 'border-slate-200 hover:bg-white text-slate-500'}`}
+                                    className={`p-1.5 rounded-md border transition active:scale-95 ${darkMode ? 'border-gray-600 hover:bg-gray-700 text-gray-400 dark:text-dk-muted' : 'border-slate-200 dark:border-dk-border hover:bg-white text-slate-500 dark:text-dk-muted'}`}
                                 >
                                     <Plus className="w-3 h-3" />
                                 </button>
@@ -412,7 +412,7 @@ const PdfSettingsModal: React.FC<PdfSettingsModalProps> = ({
 
                         {pdfSections && setPdfSections && (
                             <section>
-                                <label className={`block text-[10px] font-bold uppercase tracking-wider mb-2 ${darkMode ? 'text-gray-500' : 'text-slate-500'}`}>
+                                <label className={`block text-[10px] font-bold uppercase tracking-wider mb-2 ${darkMode ? 'text-gray-500 dark:text-dk-muted' : 'text-slate-500 dark:text-dk-muted'}`}>
                                     {_({fr:'Sections à afficher',ar:'الأقسام المراد عرضها',en:'Sections to show',es:'Secciones a mostrar',pt:'Secções a mostrar',tr:'Gösterilecek bölümler'})}
                                 </label>
                                 <div className="space-y-1.5">
@@ -424,14 +424,14 @@ const PdfSettingsModal: React.FC<PdfSettingsModalProps> = ({
                                         ['notes', _({fr:'Notes & signatures',ar:'ملاحظات وتوقيعات',en:'Notes & signatures',es:'Notas y firmas',pt:'Notas e assinaturas',tr:'Notlar ve imzalar'})],
                                     ] as const).map(([key, label]) => (
                                         <label key={key} className="flex items-center justify-between gap-2 cursor-pointer select-none">
-                                            <span className={`text-[11px] font-medium ${darkMode ? 'text-gray-300' : 'text-slate-600'}`}>{label}</span>
+                                            <span className={`text-[11px] font-medium ${darkMode ? 'text-gray-300 dark:text-dk-muted' : 'text-slate-600 dark:text-dk-text-soft'}`}>{label}</span>
                                             <button
                                                 type="button"
                                                 onClick={() => setPdfSections(p => ({ ...p, [key]: !p[key] }))}
                                                 className={`relative w-8 h-4 rounded-full transition-colors shrink-0 ${pdfSections[key] ? 'bg-blue-500' : darkMode ? 'bg-gray-600' : 'bg-slate-300'}`}
                                                 aria-pressed={pdfSections[key]}
                                             >
-                                                <span className={`absolute top-0.5 w-3 h-3 rounded-full bg-white shadow transition-all ${pdfSections[key] ? 'left-[18px]' : 'left-0.5'}`} />
+                                                <span className={`absolute top-0.5 w-3 h-3 rounded-full bg-white dark:bg-dk-surface shadow transition-all ${pdfSections[key] ? 'left-[18px]' : 'left-0.5'}`} />
                                             </button>
                                         </label>
                                     ))}
@@ -452,12 +452,12 @@ const PdfSettingsModal: React.FC<PdfSettingsModalProps> = ({
                         </section>
                     </div>
 
-                    <div className={`p-3 border-t ${darkMode ? 'border-gray-700' : 'border-slate-200'}`}>
+                    <div className={`p-3 border-t ${darkMode ? 'border-gray-700' : 'border-slate-200 dark:border-dk-border'}`}>
                         <button
                             onClick={() => generatePDF('save')}
                             disabled={!isLibLoaded || isGeneratingPdf}
                             className={`w-full py-3 rounded-lg font-bold text-sm flex items-center justify-center gap-2 transition-all active:scale-[0.98] ${isGeneratingPdf
-                                    ? 'bg-slate-300 text-slate-500 cursor-not-allowed'
+                                    ? 'bg-slate-300 text-slate-500 dark:text-dk-muted cursor-not-allowed'
                                     : 'bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white shadow-md'
                                 }`}
                         >
@@ -477,7 +477,7 @@ const PdfSettingsModal: React.FC<PdfSettingsModalProps> = ({
                             {onPrint && (
                                 <button
                                     onClick={onPrint}
-                                    className={`py-2.5 rounded-lg font-bold text-sm flex items-center justify-center gap-2 transition-all active:scale-[0.98] border ${darkMode ? 'bg-gray-800 border-gray-600 text-gray-100 hover:bg-gray-700' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'}`}
+                                    className={`py-2.5 rounded-lg font-bold text-sm flex items-center justify-center gap-2 transition-all active:scale-[0.98] border ${darkMode ? 'bg-gray-800 border-gray-600 text-gray-100 hover:bg-gray-700' : 'bg-white dark:bg-dk-surface border-slate-200 dark:border-dk-border text-slate-700 dark:text-dk-text-soft hover:bg-slate-50 dark:hover:bg-dk-elevated/60'}`}
                                 >
                                     <Printer className="w-4 h-4" />
                                     <span>{_({fr:'Imprimer',ar:'طباعة',en:'Print',es:'Imprimir',pt:'Imprimir',tr:'Yazdır'})}</span>
@@ -486,7 +486,7 @@ const PdfSettingsModal: React.FC<PdfSettingsModalProps> = ({
                             {onExcel && !isTicket && (
                                 <button
                                     onClick={onExcel}
-                                    className={`py-2.5 rounded-lg font-bold text-sm flex items-center justify-center gap-2 transition-all active:scale-[0.98] border ${darkMode ? 'bg-gray-800 border-gray-600 text-gray-100 hover:bg-gray-700' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'}`}
+                                    className={`py-2.5 rounded-lg font-bold text-sm flex items-center justify-center gap-2 transition-all active:scale-[0.98] border ${darkMode ? 'bg-gray-800 border-gray-600 text-gray-100 hover:bg-gray-700' : 'bg-white dark:bg-dk-surface border-slate-200 dark:border-dk-border text-slate-700 dark:text-dk-text-soft hover:bg-slate-50 dark:hover:bg-dk-elevated/60'}`}
                                 >
                                     <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
                                     <span>{_({fr:'Excel',ar:'Excel',en:'Excel',es:'Excel',pt:'Excel',tr:'Excel'})}</span>
@@ -501,23 +501,23 @@ const PdfSettingsModal: React.FC<PdfSettingsModalProps> = ({
                     </div>
                 </div>
 
-                <div className={`order-1 md:order-2 flex-shrink-0 h-[52vh] md:h-auto md:flex-1 relative overflow-hidden flex flex-col ${darkMode ? 'bg-gray-950' : 'bg-slate-100'}`}>
+                <div className={`order-1 md:order-2 flex-shrink-0 h-[52vh] md:h-auto md:flex-1 relative overflow-hidden flex flex-col ${darkMode ? 'bg-gray-950' : 'bg-slate-100 dark:bg-dk-elevated'}`}>
 
-                    <div className="absolute top-3 left-1/2 -translate-x-1/2 z-10 flex items-center gap-0.5 px-1.5 py-1 rounded-full shadow-md border bg-white/90 backdrop-blur-sm border-slate-200">
-                        <div className="px-2 py-0.5 text-[10px] font-bold flex items-center gap-1.5 border-r border-slate-200">
+                    <div className="absolute top-3 left-1/2 -translate-x-1/2 z-10 flex items-center gap-0.5 px-1.5 py-1 rounded-full shadow-md border bg-white dark:bg-dk-surface/90 backdrop-blur-sm border-slate-200 dark:border-dk-border">
+                        <div className="px-2 py-0.5 text-[10px] font-bold flex items-center gap-1.5 border-r border-slate-200 dark:border-dk-border">
                             <Layout className="w-3 h-3 text-blue-500" />
-                            <span className="text-slate-700">{isTicket ? _({fr:'Ticket',ar:'تذكرة',en:'Ticket',es:'Ticket',pt:'Ticket',tr:'Bilet'}) : isCompact ? _({fr:'Compact',ar:'مضغوط',en:'Compact',es:'Compacto',pt:'Compacto',tr:'Kompakt'}) : 'A4'}</span>
+                            <span className="text-slate-700 dark:text-dk-text-soft">{isTicket ? _({fr:'Ticket',ar:'تذكرة',en:'Ticket',es:'Ticket',pt:'Ticket',tr:'Bilet'}) : isCompact ? _({fr:'Compact',ar:'مضغوط',en:'Compact',es:'Compacto',pt:'Compacto',tr:'Kompakt'}) : 'A4'}</span>
                         </div>
-                        <button onClick={() => setPreviewZoom(z => clampZoom(z - 0.25))} disabled={previewZoom <= 1} className="p-1 rounded-full hover:bg-slate-100 text-slate-500 disabled:opacity-30 transition" title={_({fr:'Dézoomer',ar:'تصغير',en:'Zoom out',es:'Alejar',pt:'Afastar',tr:'Uzaklaştır'})} aria-label={_({fr:'Dézoomer',ar:'تصغير',en:'Zoom out',es:'Alejar',pt:'Afastar',tr:'Uzaklaştır'})}>
+                        <button onClick={() => setPreviewZoom(z => clampZoom(z - 0.25))} disabled={previewZoom <= 1} className="p-1 rounded-full hover:bg-slate-100 text-slate-500 dark:text-dk-muted disabled:opacity-30 transition" title={_({fr:'Dézoomer',ar:'تصغير',en:'Zoom out',es:'Alejar',pt:'Afastar',tr:'Uzaklaştır'})} aria-label={_({fr:'Dézoomer',ar:'تصغير',en:'Zoom out',es:'Alejar',pt:'Afastar',tr:'Uzaklaştır'})}>
                             <Minus className="w-3 h-3" />
                         </button>
-                        <button onClick={() => setPreviewZoom(1)} className="px-1 text-[10px] font-mono font-bold text-slate-600 hover:text-blue-600 transition min-w-[36px] text-center" title={_({fr:'Réinitialiser le zoom',ar:'إعادة تعيين التكبير',en:'Reset zoom',es:'Restablecer zoom',pt:'Redefinir zoom',tr:'Yakınlaştırmayı sıfırla'})}>
+                        <button onClick={() => setPreviewZoom(1)} className="px-1 text-[10px] font-mono font-bold text-slate-600 dark:text-dk-text-soft hover:text-blue-600 transition min-w-[36px] text-center" title={_({fr:'Réinitialiser le zoom',ar:'إعادة تعيين التكبير',en:'Reset zoom',es:'Restablecer zoom',pt:'Redefinir zoom',tr:'Yakınlaştırmayı sıfırla'})}>
                             {Math.round(previewZoom * 100)}%
                         </button>
-                        <button onClick={() => setPreviewZoom(z => clampZoom(z + 0.25))} disabled={previewZoom >= 4} className="p-1 rounded-full hover:bg-slate-100 text-slate-500 disabled:opacity-30 transition" title={_({fr:'Zoomer',ar:'تكبير',en:'Zoom in',es:'Acercar',pt:'Aproximar',tr:'Yakınlaştır'})} aria-label={_({fr:'Zoomer',ar:'تكبير',en:'Zoom in',es:'Acercar',pt:'Aproximar',tr:'Yakınlaştır'})}>
+                        <button onClick={() => setPreviewZoom(z => clampZoom(z + 0.25))} disabled={previewZoom >= 4} className="p-1 rounded-full hover:bg-slate-100 text-slate-500 dark:text-dk-muted disabled:opacity-30 transition" title={_({fr:'Zoomer',ar:'تكبير',en:'Zoom in',es:'Acercar',pt:'Aproximar',tr:'Yakınlaştır'})} aria-label={_({fr:'Zoomer',ar:'تكبير',en:'Zoom in',es:'Acercar',pt:'Aproximar',tr:'Yakınlaştır'})}>
                             <Plus className="w-3 h-3" />
                         </button>
-                        <span className="hidden md:inline px-2 py-0.5 text-[10px] font-mono text-slate-400 border-l border-slate-200">
+                        <span className="hidden md:inline px-2 py-0.5 text-[10px] font-mono text-slate-400 dark:text-dk-muted border-l border-slate-200 dark:border-dk-border">
                             {isTicket ? `${ticketSize.width} × ${ticketSize.height}mm` : isCompact ? _({fr:'A4 Compact',ar:'A4 مضغوط',en:'Compact A4',es:'A4 Compacto',pt:'A4 Compacto',tr:'Kompakt A4'}) : `${paperWidth} × ${paperHeight}px`}
                         </span>
                     </div>
@@ -556,7 +556,7 @@ const PdfSettingsModal: React.FC<PdfSettingsModalProps> = ({
                                         transformOrigin: 'top left',
                                         boxShadow: '0 20px 40px -10px rgba(0, 0, 0, 0.2)'
                                     }}
-                                    className={`bg-white overflow-hidden ${pdfSettings.colorMode === 'grayscale' ? 'grayscale' : ''} active-page-${activePage}`}
+                                    className={`bg-white dark:bg-dk-surface overflow-hidden ${pdfSettings.colorMode === 'grayscale' ? 'grayscale' : ''} active-page-${activePage}`}
                                 >
                                     <div className="w-full h-full pointer-events-none select-none">
                                         {children}

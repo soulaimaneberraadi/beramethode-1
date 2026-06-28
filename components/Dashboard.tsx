@@ -74,7 +74,7 @@ const KpiCard = React.memo(function KpiCard({ kpi, showLoading, onNavigateModule
       </div>
       {onNavigateModule && (
         <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-slate-100 dark:bg-dk-elevated/60 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-200 group-hover:bg-indigo-100 shrink-0">
-          <ChevronRight className="w-3 h-3 sm:w-4 sm:h-4 text-slate-400 dark:text-dk-muted group-hover:text-indigo-600" aria-hidden />
+          <ChevronRight className="w-3 h-3 sm:w-4 sm:h-4 text-slate-400 dark:text-dk-muted group-hover:text-indigo-600 dark:text-dk-accent-text" aria-hidden />
         </div>
       )}
     </>
@@ -95,7 +95,7 @@ function useDashboardKpis(liveKPIs: any, activeModelsCount: number, totalEffecti
     const stockVal = liveKPIs?.stock?.valeur_totale != null ? `${(liveKPIs.stock.valeur_totale / 1000).toFixed(1)}k` : '—';
     const avancesVal = liveKPIs?.rh?.avances_encours != null ? `${(liveKPIs.rh.avances_encours / 1000).toFixed(1)}k` : '—';
     return [
-      { key: 'of', label: tx(lang, { fr: 'OF En Cours', ar: 'أوامر الإنتاج الجارية', en: 'OF In Progress', es: 'OF En Curso', pt: 'OF Em Andamento', tr: 'Devam Eden OF' }), value: liveKPIs?.planning?.en_cours ?? '—', sub: tx(lang, { fr: `${liveKPIs?.planning?.avancement ?? 0}% avancement`, ar: `${liveKPIs?.planning?.avancement ?? 0}% تقدّم`, en: `${liveKPIs?.planning?.avancement ?? 0}% progress`, es: `${liveKPIs?.planning?.avancement ?? 0}% avance`, pt: `${liveKPIs?.planning?.avancement ?? 0}% progresso`, tr: `${liveKPIs?.planning?.avancement ?? 0}% ilerleme` }), icon: Factory, iconBg: 'bg-indigo-50', iconColor: 'text-indigo-600', nav: 'planning' as DashboardNavTarget, valueFromApi: true, sparkData: liveKPIs?.charts?.spark_ofs || [], sparkColor: '#6366f1' },
+      { key: 'of', label: tx(lang, { fr: 'OF En Cours', ar: 'أوامر الإنتاج الجارية', en: 'OF In Progress', es: 'OF En Curso', pt: 'OF Em Andamento', tr: 'Devam Eden OF' }), value: liveKPIs?.planning?.en_cours ?? '—', sub: tx(lang, { fr: `${liveKPIs?.planning?.avancement ?? 0}% avancement`, ar: `${liveKPIs?.planning?.avancement ?? 0}% تقدّم`, en: `${liveKPIs?.planning?.avancement ?? 0}% progress`, es: `${liveKPIs?.planning?.avancement ?? 0}% avance`, pt: `${liveKPIs?.planning?.avancement ?? 0}% progresso`, tr: `${liveKPIs?.planning?.avancement ?? 0}% ilerleme` }), icon: Factory, iconBg: 'bg-indigo-50 dark:bg-dk-accent/20', iconColor: 'text-indigo-600 dark:text-dk-accent-text', nav: 'planning' as DashboardNavTarget, valueFromApi: true, sparkData: liveKPIs?.charts?.spark_ofs || [], sparkColor: '#6366f1' },
       { key: 'eff-rh', label: tx(lang, { fr: 'Effectif Actif', ar: 'العمالة النشطة', en: 'Active Workforce', es: 'Plantilla Activa', pt: 'Efetivo Ativo', tr: 'Aktif Personel' }), value: liveKPIs?.effectifs?.total ?? '—', sub: tx(lang, { fr: `${liveKPIs?.effectifs?.presents ?? 0} présents`, ar: `${liveKPIs?.effectifs?.presents ?? 0} حاضرون`, en: `${liveKPIs?.effectifs?.presents ?? 0} present`, es: `${liveKPIs?.effectifs?.presents ?? 0} presentes`, pt: `${liveKPIs?.effectifs?.presents ?? 0} presentes`, tr: `${liveKPIs?.effectifs?.presents ?? 0} mevcut` }), icon: Users, iconBg: 'bg-emerald-50', iconColor: 'text-emerald-600', nav: 'effectifs' as DashboardNavTarget, valueFromApi: true, sparkData: liveKPIs?.charts?.spark_presence || [], sparkColor: '#10b981' },
       { key: 'stock', label: tx(lang, { fr: 'Valeur Stock', ar: 'قيمة المخزون', en: 'Stock Value', es: 'Valor de Stock', pt: 'Valor de Estoque', tr: 'Stok Değeri' }), value: stockVal, sub: tx(lang, { fr: `${liveKPIs?.stock?.nb_alertes ?? 0} alerte(s)`, ar: `${liveKPIs?.stock?.nb_alertes ?? 0} تنبيه`, en: `${liveKPIs?.stock?.nb_alertes ?? 0} alert(s)`, es: `${liveKPIs?.stock?.nb_alertes ?? 0} alerta(s)`, pt: `${liveKPIs?.stock?.nb_alertes ?? 0} alerta(s)`, tr: `${liveKPIs?.stock?.nb_alertes ?? 0} uyarı` }), icon: Package, iconBg: 'bg-amber-50', iconColor: 'text-amber-600', nav: 'magasin' as DashboardNavTarget, valueFromApi: true, sparkData: (liveKPIs?.charts?.mouvements_7j || []).map((m:any) => ({ value: m.total_entrees })), sparkColor: '#f59e0b' },
       { key: 'avances', label: tx(lang, { fr: 'Avances', ar: 'السلفات', en: 'Advances', es: 'Anticipos', pt: 'Adiantamentos', tr: 'Avanslar' }), value: avancesVal, sub: tx(lang, { fr: `${liveKPIs?.rh?.demandes_attente ?? 0} demande(s)`, ar: `${liveKPIs?.rh?.demandes_attente ?? 0} طلب`, en: `${liveKPIs?.rh?.demandes_attente ?? 0} request(s)`, es: `${liveKPIs?.rh?.demandes_attente ?? 0} solicitud(es)`, pt: `${liveKPIs?.rh?.demandes_attente ?? 0} pedido(s)`, tr: `${liveKPIs?.rh?.demandes_attente ?? 0} talep` }), icon: DollarSign, iconBg: 'bg-violet-50', iconColor: 'text-violet-600', nav: 'effectifs' as DashboardNavTarget, valueFromApi: true, sparkData: [], sparkColor: '#8b5cf6' },
@@ -467,11 +467,11 @@ export default function Dashboard({ models, suivis, planningEvents, settings, se
                 <div className="px-3 sm:px-4 md:px-5 py-3 sm:py-4 bg-gradient-to-r from-slate-50 to-white border-b border-slate-100 dark:border-dk-border flex items-center justify-between">
                   <div className="flex items-center gap-2 sm:gap-2.5">
                     <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-indigo-100 flex items-center justify-center">
-                      <ListTodo className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-indigo-600" />
+                      <ListTodo className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-indigo-600 dark:text-dk-accent-text" />
                     </div>
                     <h2 className="font-bold text-slate-800 dark:text-dk-text text-xs sm:text-sm">{tx(lang, { fr: 'Tâches', ar: 'المهام', en: 'Tasks', es: 'Tareas', pt: 'Tarefas', tr: 'Görevler' })}</h2>
                   </div>
-                  <span className="text-[10px] sm:text-xs font-bold px-2 sm:px-2.5 py-1 rounded-full bg-indigo-100 text-indigo-700">{pendingTasks.length} {tx(lang, { fr: 'en attente', ar: 'قيد الانتظار', en: 'pending', es: 'pendiente(s)', pt: 'pendente(s)', tr: 'beklemede' })}</span>
+                  <span className="text-[10px] sm:text-xs font-bold px-2 sm:px-2.5 py-1 rounded-full bg-indigo-100 text-indigo-700 dark:text-dk-accent-text">{pendingTasks.length} {tx(lang, { fr: 'en attente', ar: 'قيد الانتظار', en: 'pending', es: 'pendiente(s)', pt: 'pendente(s)', tr: 'beklemede' })}</span>
                 </div>
                 <div className="p-3 sm:p-4 md:p-5 flex-1 flex flex-col">
                   <p className="text-[10px] sm:text-xs text-slate-400 dark:text-dk-muted mb-3 sm:mb-4 font-medium hidden sm:block">{tx(lang, { fr: "Aujourd'hui et retards. Cliquez pour ouvrir l'Agenda.", ar: 'اليوم والمتأخرات. اضغط لفتح الأجندة.', en: "Today and overdue. Click to open the Agenda.", es: 'Hoy y atrasos. Haga clic para abrir la Agenda.', pt: 'Hoje e atrasos. Clique para abrir a Agenda.', tr: 'Bugün ve geciken görevler. Ajandayı açmak için tıklayın.' })}</p>
@@ -529,7 +529,7 @@ export default function Dashboard({ models, suivis, planningEvents, settings, se
                       const isToday = day === new Date().getDate();
                       return (
                         <div key={i} className={`relative rounded-lg sm:rounded-xl border flex items-center justify-center text-[10px] sm:text-xs font-medium py-1.5 sm:py-2 transition-all duration-200
-                          ${isToday ? 'border-indigo-500 bg-gradient-to-br from-indigo-500 to-indigo-600 text-white font-bold shadow-md sm:shadow-lg shadow-indigo-500/30 scale-105' : 'border-slate-100 dark:border-dk-border hover:border-slate-200 dark:border-dk-border'}
+                          ${isToday ? 'border-indigo-500 bg-gradient-to-br from-indigo-500 to-indigo-600 text-white font-bold shadow-md sm:shadow-lg shadow-indigo-500/30 scale-105' : 'border-slate-100 dark:border-dk-border hover:border-slate-200'}
                           ${hasProd && !isToday ? 'bg-emerald-50 text-emerald-700 border-emerald-200/60 font-bold' : ''}
                         `}>
                           {day}
@@ -551,7 +551,7 @@ export default function Dashboard({ models, suivis, planningEvents, settings, se
               <div className="px-3 sm:px-4 md:px-5 py-3 sm:py-4 bg-gradient-to-r from-slate-50 to-white border-b border-slate-100 dark:border-dk-border flex items-center justify-between flex-wrap gap-2 sm:gap-3">
                 <div className="flex items-center gap-2 sm:gap-2.5">
                   <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-indigo-100 flex items-center justify-center">
-                    <TrendingUp className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-indigo-600" />
+                    <TrendingUp className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-indigo-600 dark:text-dk-accent-text" />
                   </div>
                   <h2 className="font-bold text-slate-800 dark:text-dk-text text-xs sm:text-sm">{tx(lang, { fr: 'Évolution Production', ar: 'تطور الإنتاج', en: 'Production Trend', es: 'Evolución de Producción', pt: 'Evolução da Produção', tr: 'Üretim Trendi' })}</h2>
                 </div>
@@ -592,7 +592,7 @@ export default function Dashboard({ models, suivis, planningEvents, settings, se
             <div className="bg-white dark:bg-dk-surface rounded-xl sm:rounded-2xl border border-slate-200 dark:border-dk-border/80 shadow-sm overflow-hidden">
               <div className="px-3 sm:px-4 md:px-5 py-3 sm:py-4 bg-gradient-to-r from-slate-50 to-white border-b border-slate-100 dark:border-dk-border flex items-center gap-2 sm:gap-2.5">
                 <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-indigo-100 flex items-center justify-center">
-                  <Activity className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-indigo-600" />
+                  <Activity className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-indigo-600 dark:text-dk-accent-text" />
                 </div>
                 <h2 className="font-bold text-slate-800 dark:text-dk-text text-xs sm:text-sm">{tx(lang, { fr: 'Rendement Chaînes', ar: 'مردودية الخطوط', en: 'Line Efficiency', es: 'Rendimiento de Líneas', pt: 'Rendimento das Linhas', tr: 'Hat Verimliliği' })}</h2>
               </div>
@@ -662,7 +662,7 @@ export default function Dashboard({ models, suivis, planningEvents, settings, se
             <div className="h-1.5 w-full bg-gradient-to-r from-amber-400 to-orange-500" />
             <div className="p-4 sm:p-6 border-b border-slate-100 dark:border-dk-border flex justify-between items-center">
               <h3 className="font-bold text-slate-800 dark:text-dk-text text-base sm:text-lg">{tx(lang, { fr: "Motif d'annulation", ar: 'سبب الإلغاء', en: 'Cancellation reason', es: 'Motivo de cancelación', pt: 'Motivo do cancelamento', tr: 'İptal nedeni' })}</h3>
-              <button onClick={() => { setSkipReasonModal(null); setSkipReasonText(''); }} className="p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-dk-elevated/60 text-slate-400 dark:text-dk-muted hover:text-slate-600 dark:text-dk-text-soft transition-colors">
+              <button onClick={() => { setSkipReasonModal(null); setSkipReasonText(''); }} className="p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-dk-elevated/60 text-slate-400 dark:text-dk-muted hover:text-slate-600 transition-colors">
                 <AlertTriangle className="w-5 h-5 opacity-0" />
               </button>
             </div>

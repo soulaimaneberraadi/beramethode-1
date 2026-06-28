@@ -35,8 +35,8 @@ export default function ViewSwitcher({ value, onChange }: Props) {
                     onClick={() => onChange(id)}
                     className={`px-3 py-1 rounded-lg text-[10px] font-bold transition-all duration-200 active:scale-95 ${
                         value === id
-                            ? 'bg-white dark:bg-slate-700 text-indigo-650 dark:text-indigo-300 shadow-[0_2px_8px_rgba(99,102,241,0.12)] ring-1 ring-slate-200/30 dark:ring-slate-600/40'
-                            : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-100 hover:bg-white/40 dark:hover:bg-slate-700/40'
+                            ? 'bg-white dark:bg-slate-700 text-indigo-650 dark:text-dk-accent-text dark:text-indigo-300 shadow-[0_2px_8px_rgba(99,102,241,0.12)] ring-1 ring-slate-200/30 dark:ring-slate-600/40'
+                            : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-100 hover:bg-white dark:hover:bg-slate-700/40'
                     }`}
                 >
                     {tx(lang, VIEW_LABEL_TX[label])}

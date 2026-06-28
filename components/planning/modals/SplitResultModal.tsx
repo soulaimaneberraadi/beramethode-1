@@ -70,14 +70,14 @@ export default function SplitResultModal({ open, originalEvent, newEvents, model
                     {/* Arrow */}
                     <div className="flex flex-col items-center gap-1">
                         <Split className="w-5 h-5 text-indigo-500 dark:text-indigo-400" />
-                        <div className="text-[9px] font-bold text-indigo-600 dark:text-indigo-400">{tx(lang,{fr:'SPLIT',ar:'تقسيم',en:'SPLIT',es:'DIVIDIR',pt:'DIVIDIR',tr:'BÖL'})}</div>
+                        <div className="text-[9px] font-bold text-indigo-600 dark:text-dk-accent-text dark:text-indigo-400">{tx(lang,{fr:'SPLIT',ar:'تقسيم',en:'SPLIT',es:'DIVIDIR',pt:'DIVIDIR',tr:'BÖL'})}</div>
                     </div>
 
                     {/* After */}
-                    <div className="flex-1 bg-indigo-50 dark:bg-indigo-900/20 rounded-xl p-3 text-center border border-indigo-200 dark:border-indigo-800">
+                    <div className="flex-1 bg-indigo-50 dark:bg-dk-accent/20 dark:bg-indigo-900/20 rounded-xl p-3 text-center border border-indigo-200 dark:border-indigo-800">
                         <div className="text-[10px] font-bold text-indigo-500 dark:text-indigo-400 uppercase tracking-wider mb-1">{tx(lang,{fr:'Après',ar:'بعد',en:'After',es:'Después',pt:'Depois',tr:'Sonra'})}</div>
                         <div className="text-[20px] font-black text-indigo-900 dark:text-indigo-300 tabular-nums">{originalQty}</div>
-                        <div className="text-[10px] text-indigo-600 dark:text-indigo-400">{tx(lang,{fr:'pcs total',ar:'إجمالي القطع',en:'pcs total',es:'pcs total',pt:'pcs total',tr:'toplam adet'})}</div>
+                        <div className="text-[10px] text-indigo-600 dark:text-dk-accent-text dark:text-indigo-400">{tx(lang,{fr:'pcs total',ar:'إجمالي القطع',en:'pcs total',es:'pcs total',pt:'pcs total',tr:'toplam adet'})}</div>
                     </div>
                 </div>
 
@@ -127,13 +127,13 @@ export default function SplitResultModal({ open, originalEvent, newEvents, model
                     const newDds = evDeadlineYmd(newEv);
 
                     return (
-                        <div key={newEv.id} className="bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800 rounded-xl p-4 space-y-3">
+                        <div key={newEv.id} className="bg-indigo-50 dark:bg-dk-accent/20 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800 rounded-xl p-4 space-y-3">
                             <div className="flex items-center gap-2">
                                 <div className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold text-white bg-indigo-500">
                                     {idx + 2}
                                 </div>
                                 <div className="text-[12px] font-bold text-indigo-900 dark:text-indigo-300">{tx(lang,{fr:'Nouvel ordre',ar:'طلب جديد',en:'New order',es:'Nuevo pedido',pt:'Novo pedido',tr:'Yeni sipariş'})}</div>
-                                <div className="ml-auto px-2 py-0.5 bg-indigo-200 dark:bg-indigo-800 rounded-full text-[10px] font-bold text-indigo-700 dark:text-indigo-300">
+                                <div className="ml-auto px-2 py-0.5 bg-indigo-200 dark:bg-indigo-800 rounded-full text-[10px] font-bold text-indigo-700 dark:text-dk-accent-text dark:text-indigo-300">
                                     {tx(lang,{fr:'NOUVEAU',ar:'جديد',en:'NEW',es:'NUEVO',pt:'NOVO',tr:'YENİ'})}
                                 </div>
                             </div>
@@ -185,7 +185,7 @@ export default function SplitResultModal({ open, originalEvent, newEvents, model
                         {newEvents.map((newEv, idx) => (
                             <div key={newEv.id} className="flex items-center gap-1.5">
                                 <div className="w-3 h-3 rounded bg-indigo-500" />
-                                <span className="text-indigo-600 dark:text-indigo-400">{tx(lang,{fr:'Nouveau',ar:'جديد',en:'New',es:'Nuevo',pt:'Novo',tr:'Yeni'})} {idx + 1}: <span className="font-bold">{evQty(newEv)} pcs</span></span>
+                                <span className="text-indigo-600 dark:text-dk-accent-text dark:text-indigo-400">{tx(lang,{fr:'Nouveau',ar:'جديد',en:'New',es:'Nuevo',pt:'Novo',tr:'Yeni'})} {idx + 1}: <span className="font-bold">{evQty(newEv)} pcs</span></span>
                             </div>
                         ))}
                     </div>

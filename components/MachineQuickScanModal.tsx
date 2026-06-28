@@ -140,12 +140,12 @@ export default function MachineQuickScanModal({ open, onClose, machineInstances,
       <div className="bg-white dark:bg-dk-surface rounded-2xl shadow-2xl dark:shadow-dk-lg w-full max-w-md flex flex-col overflow-hidden">
         <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 dark:border-dk-border">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-indigo-100 text-indigo-600 flex items-center justify-center">
+            <div className="w-8 h-8 rounded-lg bg-indigo-100 text-indigo-600 dark:text-dk-accent-text flex items-center justify-center">
               <ScanLine className="w-4 h-4" />
             </div>
-            <h2 className="text-sm font-black text-slate-900 tracking-tight">{tx(lang, { fr: 'Identifier une machine', ar: 'تحديد آلة', en: 'Identify a machine', es: 'Identificar una máquina', pt: 'Identificar uma máquina', tr: 'Bir makineyi tanımla' })}</h2>
+            <h2 className="text-sm font-black text-slate-900 dark:text-dk-text tracking-tight">{tx(lang, { fr: 'Identifier une machine', ar: 'تحديد آلة', en: 'Identify a machine', es: 'Identificar una máquina', pt: 'Identificar uma máquina', tr: 'Bir makineyi tanımla' })}</h2>
           </div>
-          <button onClick={handleClose} className="w-7 h-7 rounded-lg hover:bg-slate-100 dark:hover:bg-dk-hover text-slate-400 dark:text-dk-text-muted hover:text-slate-700 dark:text-dk-text flex items-center justify-center transition-colors">
+          <button onClick={handleClose} className="w-7 h-7 rounded-lg hover:bg-slate-100 dark:hover:bg-dk-hover text-slate-400 dark:text-dk-text-muted hover:text-slate-700 flex items-center justify-center transition-colors">
             <X className="w-4 h-4" />
           </button>
         </div>
@@ -155,8 +155,8 @@ export default function MachineQuickScanModal({ open, onClose, machineInstances,
           {!identified && (
             <>
               <div className="flex rounded-xl border border-slate-200 dark:border-dk-border overflow-hidden text-[11px] font-black uppercase tracking-widest">
-                <button onClick={() => setTab('mat')} className={`flex-1 py-2 transition-colors ${tab === 'mat' ? 'bg-indigo-600 text-white' : 'bg-slate-50 text-slate-500 dark:text-dk-text-muted hover:bg-slate-100 dark:hover:bg-dk-hover'}`}>{tx(lang, { fr: 'Matricule', ar: 'الرقم التسلسلي', en: 'Serial number', es: 'Matrícula', pt: 'Matrícula', tr: 'Seri numarası' })}</button>
-                <button onClick={() => setTab('qr')} className={`flex-1 py-2 transition-colors ${tab === 'qr' ? 'bg-indigo-600 text-white' : 'bg-slate-50 text-slate-500 dark:text-dk-text-muted hover:bg-slate-100 dark:hover:bg-dk-hover'}`}>
+                <button onClick={() => setTab('mat')} className={`flex-1 py-2 transition-colors ${tab === 'mat' ? 'bg-indigo-600 dark:bg-dk-accent text-white' : 'bg-slate-50 dark:bg-dk-bg text-slate-500 dark:text-dk-text-muted hover:bg-slate-100 dark:hover:bg-dk-hover'}`}>{tx(lang, { fr: 'Matricule', ar: 'الرقم التسلسلي', en: 'Serial number', es: 'Matrícula', pt: 'Matrícula', tr: 'Seri numarası' })}</button>
+                <button onClick={() => setTab('qr')} className={`flex-1 py-2 transition-colors ${tab === 'qr' ? 'bg-indigo-600 dark:bg-dk-accent text-white' : 'bg-slate-50 dark:bg-dk-bg text-slate-500 dark:text-dk-text-muted hover:bg-slate-100 dark:hover:bg-dk-hover'}`}>
                   <span className="flex items-center justify-center gap-1"><QrCode className="w-3 h-3" /> {tx(lang, { fr: 'Photo QR', ar: 'صورة QR', en: 'QR Photo', es: 'Foto QR', pt: 'Foto QR', tr: 'QR Fotoğraf' })}</span>
                 </button>
               </div>
@@ -169,9 +169,9 @@ export default function MachineQuickScanModal({ open, onClose, machineInstances,
                     onChange={e => setMatInput(e.target.value)}
                     onKeyDown={e => e.key === 'Enter' && handleIdentify()}
                     placeholder={tx(lang, { fr: 'Ex: MAC-3602', ar: 'مثال: MAC-3602', en: 'Ex: MAC-3602', es: 'Ej: MAC-3602', pt: 'Ex: MAC-3602', tr: 'Örn: MAC-3602' })}
-                    className="flex-1 rounded-xl border border-slate-200 dark:border-dk-border bg-slate-50 px-3 py-2 text-sm font-bold text-slate-800 dark:text-dk-text outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
+                    className="flex-1 rounded-xl border border-slate-200 dark:border-dk-border bg-slate-50 dark:bg-dk-bg px-3 py-2 text-sm font-bold text-slate-800 dark:text-dk-text outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
                   />
-                  <button onClick={handleIdentify} className="px-4 py-2 bg-indigo-600 text-white text-[11px] font-black rounded-xl hover:bg-indigo-700 transition-colors">
+                  <button onClick={handleIdentify} className="px-4 py-2 bg-indigo-600 dark:bg-dk-accent text-white text-[11px] font-black rounded-xl hover:bg-indigo-700 dark:hover:bg-dk-accent-hover transition-colors">
                     {tx(lang, { fr: 'Chercher', ar: 'بحث', en: 'Search', es: 'Buscar', pt: 'Procurar', tr: 'Ara' })}
                   </button>
                 </div>
@@ -181,7 +181,7 @@ export default function MachineQuickScanModal({ open, onClose, machineInstances,
                   <button
                     onClick={() => photoRef.current?.click()}
                     disabled={scanning}
-                    className="flex items-center justify-center gap-2 w-full py-3 rounded-xl border-2 border-dashed border-indigo-200 bg-indigo-50 text-indigo-600 text-[11px] font-black uppercase tracking-widest hover:bg-indigo-100 transition-colors disabled:opacity-50"
+                    className="flex items-center justify-center gap-2 w-full py-3 rounded-xl border-2 border-dashed border-indigo-200 bg-indigo-50 dark:bg-dk-accent/20 text-indigo-600 dark:text-dk-accent-text text-[11px] font-black uppercase tracking-widest hover:bg-indigo-100 transition-colors disabled:opacity-50"
                   >
                     <Camera className="w-4 h-4" />
                     {scanning ? tx(lang, { fr: 'Décodage...', ar: 'جارٍ فك الترميز...', en: 'Decoding...', es: 'Descodificando...', pt: 'A descodificar...', tr: 'Kod çözülüyor...' }) : tx(lang, { fr: 'Prendre une photo du QR', ar: 'التقط صورة لرمز QR', en: 'Take a QR photo', es: 'Tomar una foto del QR', pt: 'Tirar uma foto do QR', tr: 'QR fotoğrafı çek' })}
@@ -191,9 +191,9 @@ export default function MachineQuickScanModal({ open, onClose, machineInstances,
                     onChange={e => setQrText(e.target.value)}
                     placeholder={tx(lang, { fr: 'Ou collez le contenu du QR ici...', ar: 'أو الصق محتوى QR هنا...', en: 'Or paste the QR content here...', es: 'O pegue el contenido del QR aquí...', pt: 'Ou cole o conteúdo do QR aqui...', tr: 'Veya QR içeriğini buraya yapıştırın...' })}
                     rows={3}
-                    className="rounded-xl border border-slate-200 dark:border-dk-border bg-slate-50 px-3 py-2 text-xs font-mono text-slate-700 dark:text-dk-text outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 resize-none"
+                    className="rounded-xl border border-slate-200 dark:border-dk-border bg-slate-50 dark:bg-dk-bg px-3 py-2 text-xs font-mono text-slate-700 dark:text-dk-text outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 resize-none"
                   />
-                  <button onClick={handleIdentify} className="py-2 bg-indigo-600 text-white text-[11px] font-black rounded-xl hover:bg-indigo-700 transition-colors">
+                  <button onClick={handleIdentify} className="py-2 bg-indigo-600 dark:bg-dk-accent text-white text-[11px] font-black rounded-xl hover:bg-indigo-700 dark:hover:bg-dk-accent-hover transition-colors">
                     {tx(lang, { fr: 'Identifier', ar: 'تحديد', en: 'Identify', es: 'Identificar', pt: 'Identificar', tr: 'Tanımla' })}
                   </button>
                 </div>
@@ -209,19 +209,19 @@ export default function MachineQuickScanModal({ open, onClose, machineInstances,
 
           {identified && !done && (
             <>
-              <div className="rounded-xl border border-slate-200 dark:border-dk-border bg-slate-50 p-4 flex items-center gap-3">
-                <div className="w-10 h-10 rounded-lg bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border flex items-center justify-center shrink-0 text-slate-300">
+              <div className="rounded-xl border border-slate-200 dark:border-dk-border bg-slate-50 dark:bg-dk-bg p-4 flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border flex items-center justify-center shrink-0 text-slate-300 dark:text-dk-muted">
                   <Wrench className="w-5 h-5" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="font-black text-slate-900 text-sm truncate">{inst?.matricule || inst?.id}</div>
+                  <div className="font-black text-slate-900 dark:text-dk-text text-sm truncate">{inst?.matricule || inst?.id}</div>
                   <div className="text-[10px] font-bold text-slate-400 dark:text-dk-text-muted uppercase tracking-widest mt-0.5">{cls?.name || inst?.classId} {inst?.brand ? `· ${inst.brand}` : ''}</div>
                   {currentChain && <div className="text-[10px] text-indigo-500 font-bold mt-0.5">{currentChain.name}</div>}
                 </div>
                 <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-lg border ${STATUS_COLOR[statusKey] || STATUS_COLOR['OK']}`}>
                   {tx(lang, { fr: STATUS_LABEL[statusKey] || statusKey, ar: statusKey === 'PANNE' ? 'عطل' : statusKey === 'MAINT' ? 'صيانة' : statusKey, en: STATUS_LABEL[statusKey] || statusKey, es: statusKey === 'PANNE' ? 'Avería' : statusKey === 'MAINT' ? 'Mantenimiento' : statusKey, pt: statusKey === 'PANNE' ? 'Avaria' : statusKey === 'MAINT' ? 'Manutenção' : statusKey, tr: statusKey === 'PANNE' ? 'Arıza' : statusKey === 'MAINT' ? 'Bakım' : statusKey })}
                 </span>
-                <button onClick={() => { setIdentified(null); setAction(null); }} className="text-slate-300 hover:text-slate-600 dark:text-dk-text-secondary transition-colors ml-1">
+                <button onClick={() => { setIdentified(null); setAction(null); }} className="text-slate-300 hover:text-slate-600 transition-colors ml-1">
                   <X className="w-3.5 h-3.5" />
                 </button>
               </div>
@@ -242,7 +242,7 @@ export default function MachineQuickScanModal({ open, onClose, machineInstances,
                 <select
                   value={newChainId}
                   onChange={e => setNewChainId(e.target.value)}
-                  className="rounded-xl border border-slate-200 dark:border-dk-border bg-slate-50 px-3 py-2 text-sm font-bold text-slate-800 dark:text-dk-text outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
+                  className="rounded-xl border border-slate-200 dark:border-dk-border bg-slate-50 dark:bg-dk-bg px-3 py-2 text-sm font-bold text-slate-800 dark:text-dk-text outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
                 >
                   <option value="">{tx(lang, { fr: '— Chaîne de destination —', ar: '— سلسلة الوجهة —', en: '— Destination chain —', es: '— Cadena de destino —', pt: '— Linha de destino —', tr: '— Hedef hat —' })}</option>
                   {chains.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
@@ -255,7 +255,7 @@ export default function MachineQuickScanModal({ open, onClose, machineInstances,
                   onChange={e => setDetails(e.target.value)}
                   placeholder={tx(lang, { fr: 'Détails / motif (optionnel)...', ar: 'تفاصيل / سبب (اختياري)...', en: 'Details / reason (optional)...', es: 'Detalles / motivo (opcional)...', pt: 'Detalhes / motivo (opcional)...', tr: 'Detaylar / sebep (isteğe bağlı)...' })}
                   rows={2}
-                  className="rounded-xl border border-slate-200 dark:border-dk-border bg-slate-50 px-3 py-2 text-sm text-slate-700 dark:text-dk-text outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 resize-none"
+                  className="rounded-xl border border-slate-200 dark:border-dk-border bg-slate-50 dark:bg-dk-bg px-3 py-2 text-sm text-slate-700 dark:text-dk-text outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 resize-none"
                 />
               )}
 
@@ -264,7 +264,7 @@ export default function MachineQuickScanModal({ open, onClose, machineInstances,
                   value={actorName}
                   onChange={e => setActorName(e.target.value)}
                   placeholder={tx(lang, { fr: 'Votre nom...', ar: 'اسمك...', en: 'Your name...', es: 'Su nombre...', pt: 'O seu nome...', tr: 'Adınız...' })}
-                  className="rounded-xl border border-slate-200 dark:border-dk-border bg-slate-50 px-3 py-2 text-sm font-bold text-slate-800 dark:text-dk-text outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
+                  className="rounded-xl border border-slate-200 dark:border-dk-border bg-slate-50 dark:bg-dk-bg px-3 py-2 text-sm font-bold text-slate-800 dark:text-dk-text outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
                 />
               )}
 
@@ -272,7 +272,7 @@ export default function MachineQuickScanModal({ open, onClose, machineInstances,
                 <button
                   onClick={handleConfirm}
                   disabled={action === 'TRANSFER' && !newChainId}
-                  className="w-full py-2.5 bg-indigo-600 text-white text-[11px] font-black rounded-xl hover:bg-indigo-700 transition-colors disabled:opacity-40 flex items-center justify-center gap-2"
+                  className="w-full py-2.5 bg-indigo-600 dark:bg-dk-accent text-white text-[11px] font-black rounded-xl hover:bg-indigo-700 dark:hover:bg-dk-accent-hover transition-colors disabled:opacity-40 flex items-center justify-center gap-2"
                 >
                   <Check className="w-3.5 h-3.5" /> {tx(lang, { fr: 'Confirmer', ar: 'تأكيد', en: 'Confirm', es: 'Confirmar', pt: 'Confirmar', tr: 'Onayla' })}
                 </button>
@@ -285,7 +285,7 @@ export default function MachineQuickScanModal({ open, onClose, machineInstances,
               <div className="w-12 h-12 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center">
                 <Check className="w-6 h-6" />
               </div>
-              <div className="text-sm font-black text-slate-900">{tx(lang, { fr: 'Action enregistrée', ar: 'تم حفظ الإجراء', en: 'Action saved', es: 'Acción guardada', pt: 'Ação guardada', tr: 'İşlem kaydedildi' })}</div>
+              <div className="text-sm font-black text-slate-900 dark:text-dk-text">{tx(lang, { fr: 'Action enregistrée', ar: 'تم حفظ الإجراء', en: 'Action saved', es: 'Acción guardada', pt: 'Ação guardada', tr: 'İşlem kaydedildi' })}</div>
               <div className="text-xs text-slate-400 dark:text-dk-text-muted">{tx(lang, { fr: 'L\'historique a été mis à jour.', ar: 'تم تحديث السجل.', en: 'The history has been updated.', es: 'El historial ha sido actualizado.', pt: 'O histórico foi atualizado.', tr: 'Geçmiş güncellendi.' })}</div>
             </div>
           )}

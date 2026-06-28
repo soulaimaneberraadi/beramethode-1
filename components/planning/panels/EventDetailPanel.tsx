@@ -271,7 +271,7 @@ export default function EventDetailPanel({
                         <button
                             type="button"
                             onClick={() => setIsExpanded(e => !e)}
-                            className="p-1 rounded-xl text-slate-400 dark:text-dk-muted hover:text-slate-700 dark:hover:text-dk-text hover:bg-slate-100/70 dark:hover:bg-dk-elevated/60 border border-transparent hover:border-slate-200/30 dark:hover:border-dk-border/30 transition-all duration-200 active:scale-95 shadow-sm"
+                            className="p-1 rounded-xl text-slate-400 dark:text-dk-muted hover:text-slate-700 dark:hover:text-dk-text hover:bg-slate-100/70 dark:hover:bg-dk-elevated/60 border border-transparent hover:border-slate-200 dark:hover:border-dk-border/30 transition-all duration-200 active:scale-95 shadow-sm"
                             aria-label={isExpanded ? tx(lang, { fr: 'Réduire', ar: 'تصغير', en: 'Minimize', es: 'Reducir', pt: 'Reduzir', tr: 'Küçült' }) : tx(lang, { fr: 'Agrandir', ar: 'تكبير', en: 'Maximize', es: 'Ampliar', pt: 'Ampliar', tr: 'Büyüt' })}
                         >
                             {isExpanded ? <Minimize2 className="w-4 h-4" strokeWidth={2} /> : <Maximize2 className="w-4 h-4" strokeWidth={2} />}
@@ -280,7 +280,7 @@ export default function EventDetailPanel({
                     <button
                         type="button"
                         onClick={onClose}
-                        className="p-1 rounded-xl text-slate-400 dark:text-dk-muted hover:text-slate-700 dark:hover:text-dk-text hover:bg-slate-100/70 dark:hover:bg-dk-elevated/60 border border-transparent hover:border-slate-200/30 dark:hover:border-dk-border/30 transition-all duration-200 active:scale-95 shadow-sm"
+                        className="p-1 rounded-xl text-slate-400 dark:text-dk-muted hover:text-slate-700 dark:hover:text-dk-text hover:bg-slate-100/70 dark:hover:bg-dk-elevated/60 border border-transparent hover:border-slate-200 dark:hover:border-dk-border/30 transition-all duration-200 active:scale-95 shadow-sm"
                         aria-label={tx(lang, { fr: 'Fermer', ar: 'إغلاق', en: 'Close', es: 'Cerrar', pt: 'Fechar', tr: 'Kapat' })}
                     >
                         <X className="w-4 h-4" strokeWidth={2} />
@@ -308,7 +308,7 @@ export default function EventDetailPanel({
                         <span className={`w-1.5 h-1.5 rounded-full ${wsMeta.dot}`} />
                         {wsMeta.label}
                     </span>
-                    <span className="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-xl text-[11px] font-bold bg-slate-100/60 text-slate-650 border border-slate-200/30">
+                    <span className="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-xl text-[11px] font-bold bg-slate-100/60 text-slate-650 border border-slate-200 dark:border-dk-border/30">
                         <span className={`w-1.5 h-1.5 rounded-full ${delayMeta.dot}`} />
                         {delayMeta.label}
                     </span>
@@ -318,7 +318,7 @@ export default function EventDetailPanel({
                         className={`inline-flex items-center gap-1 h-6 px-2.5 rounded-xl text-[10px] font-bold uppercase tracking-wider transition-all border ${
                             event.status === 'BLOCKED_STOCK'
                                 ? 'bg-amber-100 text-amber-800 border-amber-200 hover:bg-amber-200 shadow-sm active:scale-95'
-                                : 'bg-white text-slate-650 border-slate-200/60 hover:bg-amber-50 hover:text-amber-700 hover:border-amber-200 shadow-sm active:scale-95'
+                                : 'bg-white dark:bg-dk-surface text-slate-650 border-slate-200 dark:border-dk-border/60 hover:bg-amber-50 hover:text-amber-700 hover:border-amber-200 shadow-sm active:scale-95'
                         }`}
                     >
                         {event.status === 'BLOCKED_STOCK' ? tx(lang, { fr: '▶ Reprendre', ar: '▶ استئناف', en: '▶ Resume', es: '▶ Reanudar', pt: '▶ Retomar', tr: '▶ Devam' }) : tx(lang, { fr: '⏸ En Pause', ar: '⏸ إيقاف مؤقت', en: '⏸ Pause', es: '⏸ Pausa', pt: '⏸ Pausa', tr: '⏸ Duraklat' })}
@@ -336,8 +336,8 @@ export default function EventDetailPanel({
                             onClick={() => setTab(t)}
                             className={`flex-1 h-7 text-[11px] font-bold rounded-lg transition-all duration-200 active:scale-95 ${
                                     tab === t
-                                        ? 'bg-white/80 dark:bg-dk-elevated/80 text-indigo-650 dark:text-indigo-400 shadow-[0_2px_6px_rgba(99,102,241,0.08)]'
-                                        : 'text-slate-500 dark:text-dk-muted hover:text-slate-800 dark:hover:text-dk-text hover:bg-white/40 dark:hover:bg-dk-elevated/40'
+                                        ? 'bg-white/80 dark:bg-dk-elevated/80 text-indigo-650 dark:text-dk-accent-text dark:text-indigo-400 shadow-[0_2px_6px_rgba(99,102,241,0.08)]'
+                                        : 'text-slate-500 dark:text-dk-muted hover:text-slate-800 dark:hover:text-dk-text hover:bg-white dark:hover:bg-dk-elevated/40'
                             }`}
                         >
                             {t === 'details' ? tx(lang, { fr: 'Détails', ar: 'تفاصيل', en: 'Details', es: 'Detalles', pt: 'Detalhes', tr: 'Detaylar' }) : t === 'activity' ? tx(lang, { fr: 'Activité', ar: 'النشاط', en: 'Activity', es: 'Actividad', pt: 'Atividade', tr: 'Aktivite' }) : t === 'notes' ? tx(lang, { fr: 'Notes', ar: 'ملاحظات', en: 'Notes', es: 'Notas', pt: 'Notas', tr: 'Notlar' }) : tx(lang, { fr: 'Matières', ar: 'المواد', en: 'Materials', es: 'Materiales', pt: 'Materiais', tr: 'Malzemeler' })}
@@ -368,7 +368,7 @@ export default function EventDetailPanel({
                         <span className="text-[10px] font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest">{tx(lang, { fr: 'Progression', ar: 'التقدم', en: 'Progress', es: 'Progreso', pt: 'Progresso', tr: 'İlerleme' })}</span>
                         <span className="text-[18px] font-extrabold text-slate-900 dark:text-dk-text tabular-nums tracking-tight">{progress}<span className="text-[12px] text-slate-400 dark:text-dk-muted ml-0.5">%</span></span>
                     </div>
-                    <div className="h-1.5 bg-white/40 rounded-full overflow-hidden mb-2 border border-white/20 shadow-inner">
+                    <div className="h-1.5 bg-white dark:bg-dk-surface/40 rounded-full overflow-hidden mb-2 border border-white/20 shadow-inner">
                         <div className="h-full rounded-full transition-[width] duration-300" style={{ width: `${progress}%`, background: accent }} />
                     </div>
                     <div className="text-[12px] text-slate-550 tabular-nums mb-3 font-medium">
@@ -401,7 +401,7 @@ export default function EventDetailPanel({
                                 <button
                                     type="button"
                                     onClick={() => { setQuickAddOpen(false); setQuickAddVal(0); }}
-                                    className="h-7.5 px-3 text-[11px] font-bold text-slate-500 hover:bg-slate-100 rounded-lg transition-all duration-200 active:scale-95"
+                                    className="h-7.5 px-3 text-[11px] font-bold text-slate-500 dark:text-dk-muted hover:bg-slate-100 rounded-lg transition-all duration-200 active:scale-95"
                                 >
                                     {tx(lang, { fr: 'Annuler', ar: 'إلغاء', en: 'Cancel', es: 'Cancelar', pt: 'Cancelar', tr: 'İptal' })}
                                 </button>
@@ -410,9 +410,9 @@ export default function EventDetailPanel({
                             <button
                                 type="button"
                                 onClick={() => setQuickAddOpen(true)}
-                                className="h-7.5 px-3 text-[11px] font-bold text-slate-650 hover:text-slate-900 hover:bg-white/80 border border-slate-200/50 hover:border-slate-300 rounded-lg shadow-sm transition-all duration-200 active:scale-95 inline-flex items-center gap-1.5"
+                                className="h-7.5 px-3 text-[11px] font-bold text-slate-650 hover:text-slate-900 hover:bg-white border border-slate-200 dark:border-dk-border/50 hover:border-slate-300 rounded-lg shadow-sm transition-all duration-200 active:scale-95 inline-flex items-center gap-1.5"
                             >
-                                <Plus className="w-3.5 h-3.5 text-slate-500" strokeWidth={2.25} />
+                                <Plus className="w-3.5 h-3.5 text-slate-500 dark:text-dk-muted" strokeWidth={2.25} />
                                 {tx(lang, { fr: 'Ajouter une production', ar: 'إضافة إنتاج', en: 'Add production', es: 'Añadir producción', pt: 'Adicionar produção', tr: 'Üretim ekle' })}
                             </button>
                         )
@@ -461,7 +461,7 @@ export default function EventDetailPanel({
                 {/* Subcontracting details block */}
                 {event.isSubcontracted && (
                     <section className="px-6 py-4 border-b border-white/20 bg-indigo-500/5 dark:bg-indigo-900/10 border-t border-white/20 backdrop-blur-xs">
-                        <div className="text-[10px] font-extrabold text-indigo-600 dark:text-indigo-400 uppercase tracking-widest mb-3">{tx(lang, { fr: 'Sous-traitance', ar: 'مقاولة من الباطن', en: 'Subcontracting', es: 'Subcontratación', pt: 'Subcontratação', tr: 'Taşeron' })}</div>
+                        <div className="text-[10px] font-extrabold text-indigo-600 dark:text-dk-accent-text dark:text-indigo-400 uppercase tracking-widest mb-3">{tx(lang, { fr: 'Sous-traitance', ar: 'مقاولة من الباطن', en: 'Subcontracting', es: 'Subcontratación', pt: 'Subcontratação', tr: 'Taşeron' })}</div>
                         <div className="space-y-2.5">
                             <div className="flex items-center justify-between text-[12px]">
                                 <span className="text-slate-500 dark:text-dk-muted font-medium">{tx(lang, { fr: 'Sous-traitant :', ar: 'المقاول من الباطن:', en: 'Subcontractor:', es: 'Subcontratista:', pt: 'Subcontratado:', tr: 'Taşeron:' })}</span>
@@ -470,7 +470,7 @@ export default function EventDetailPanel({
                             {event.subcontractorPhone && (
                                 <div className="flex items-center justify-between text-[12px]">
                                     <span className="text-slate-500 dark:text-dk-muted font-medium">{tx(lang, { fr: 'Téléphone :', ar: 'الهاتف:', en: 'Phone:', es: 'Teléfono:', pt: 'Telefone:', tr: 'Telefon:' })}</span>
-                                    <a href={`tel:${event.subcontractorPhone}`} className="font-bold text-indigo-650 dark:text-indigo-400 hover:underline">{event.subcontractorPhone}</a>
+                                    <a href={`tel:${event.subcontractorPhone}`} className="font-bold text-indigo-650 dark:text-dk-accent-text dark:text-indigo-400 hover:underline">{event.subcontractorPhone}</a>
                                 </div>
                             )}
                             {event.subcontractorRating !== undefined && (
@@ -502,7 +502,7 @@ export default function EventDetailPanel({
                                     </div>
                                     <div className="flex items-center justify-between text-[12px] pt-1 border-t border-slate-200/40 dark:border-dk-border/40">
                                         <span className="font-bold text-slate-700 dark:text-dk-text-soft">{tx(lang, { fr: 'Coût total :', ar: 'التكلفة الإجمالية:', en: 'Total cost:', es: 'Coste total:', pt: 'Custo total:', tr: 'Toplam maliyet:' })}</span>
-                                        <span className="font-extrabold text-indigo-700 dark:text-indigo-400 font-mono">{(evQty(event) * event.subcontractPricePerPiece).toFixed(2)} DH</span>
+                                        <span className="font-extrabold text-indigo-700 dark:text-dk-accent-text dark:text-indigo-400 font-mono">{(evQty(event) * event.subcontractPricePerPiece).toFixed(2)} DH</span>
                                     </div>
                                 </>
                             )}
@@ -565,10 +565,10 @@ export default function EventDetailPanel({
                                     className={`h-8 px-2.5 rounded-lg text-[11px] font-bold transition-all duration-200 active:scale-95 flex items-center gap-1.5 ${
                                         isActive
                                             ? 'bg-slate-900 dark:bg-dk-accent text-white dark:text-dk-accent-text shadow-md'
-                                            : 'bg-slate-100/50 dark:bg-dk-elevated/30 text-slate-700 dark:text-dk-text-soft hover:bg-white dark:hover:bg-dk-surface border border-transparent hover:border-slate-200/30 dark:hover:border-dk-border/30'
+                                            : 'bg-slate-100/50 dark:bg-dk-elevated/30 text-slate-700 dark:text-dk-text-soft hover:bg-white dark:hover:bg-dk-surface border border-transparent hover:border-slate-200 dark:hover:border-dk-border/30'
                                     }`}
                                 >
-                                    <span className={`w-1.5 h-1.5 rounded-full ${isActive ? 'bg-white/80' : meta.dot}`} />
+                                    <span className={`w-1.5 h-1.5 rounded-full ${isActive ? 'bg-white dark:bg-dk-surface/80' : meta.dot}`} />
                                     {meta.label}
                                 </button>
                             );
@@ -608,7 +608,7 @@ export default function EventDetailPanel({
                             value={notes || ''}
                             onChange={(e) => onNotesChange?.(e.target.value)}
                             placeholder={tx(lang, { fr: 'Ajoutez des notes pour cet ordre… (visible uniquement par vous)', ar: 'أضف ملاحظات لهذا الأمر… (مرئي لك فقط)', en: 'Add notes for this order… (visible only to you)', es: 'Añada notas para esta orden… (visible solo para usted)', pt: 'Adicione notas para esta ordem… (visível apenas para si)', tr: 'Bu sipariş için not ekleyin… (yalnızca size görünür)' })}
-                            className="w-full min-h-[180px] p-3 text-[13px] text-slate-800 dark:text-dk-text placeholder:text-slate-450 dark:placeholder:text-dk-muted bg-white/30 dark:bg-dk-surface/30 border border-white/20 dark:border-dk-border/20 focus:bg-white/85 dark:focus:bg-dk-surface/85 focus:border-indigo-500/25 focus:ring-4 focus:ring-indigo-500/10 rounded-xl outline-none resize-y transition-all duration-200 backdrop-blur-sm"
+                            className="w-full min-h-[180px] p-3 text-[13px] text-slate-800 dark:text-dk-text placeholder:text-slate-450 dark:placeholder:text-dk-muted bg-white/30 dark:bg-dk-surface/30 border border-white/20 dark:border-dk-border/20 focus:bg-white dark:focus:bg-dk-surface/85 focus:border-indigo-500/25 focus:ring-4 focus:ring-indigo-500/10 rounded-xl outline-none resize-y transition-all duration-200 backdrop-blur-sm"
                         />
                         <p className="text-[10px] text-slate-400 dark:text-dk-muted font-bold mt-2">
                             {tx(lang, { fr: 'Enregistré automatiquement en local', ar: 'يُحفظ تلقائياً محلياً', en: 'Auto-saved locally', es: 'Guardado automáticamente en local', pt: 'Guardado automaticamente localmente', tr: 'Otomatik olarak yerel olarak kaydedildi' })}

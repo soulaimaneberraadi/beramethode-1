@@ -217,8 +217,8 @@ export default function Atelier({ models, planningEvents, suivis, settings, hand
                                 </div>
                             </div>
                             <div className="bg-white dark:bg-dk-surface rounded-2xl p-5 border border-slate-200 dark:border-dk-border shadow-sm flex items-center gap-4">
-                                <div className="w-12 h-12 rounded-xl bg-indigo-50 dark:bg-indigo-900/30 flex items-center justify-center shrink-0">
-                                    <Package className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />
+                                <div className="w-12 h-12 rounded-xl bg-indigo-50 dark:bg-dk-accent/20 dark:bg-indigo-900/30 flex items-center justify-center shrink-0">
+                                    <Package className="w-6 h-6 text-indigo-600 dark:text-dk-accent-text dark:text-indigo-400" />
                                 </div>
                                 <div>
                                     <p className="text-sm font-bold text-slate-500 dark:text-dk-text-soft">{tx(lang, { fr: 'Total Pièces Prévues', ar: 'إجمالي القطع المخططة', en: 'Total Planned Pieces', es: 'Total Piezas Previstas', pt: 'Total de Peças Previstas', tr: 'Toplam Planlanan Parça' })}</p>
@@ -267,7 +267,7 @@ export default function Atelier({ models, planningEvents, suivis, settings, hand
                                                         )}
                                                     </div>
                                                     <div>
-                                                        <div className="text-[10px] bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 font-black px-2 py-0.5 rounded uppercase inline-block mb-1">
+                                                        <div className="text-[10px] bg-indigo-50 dark:bg-dk-accent/20 dark:bg-indigo-900/30 text-indigo-700 dark:text-dk-accent-text dark:text-indigo-300 font-black px-2 py-0.5 rounded uppercase inline-block mb-1">
                                                             {settings.chainNames?.[evt.chaineId] || evt.chaineId}
                                                         </div>
                                                         <h4 className="font-black text-lg text-slate-800 dark:text-dk-text leading-tight">{mName}</h4>
@@ -379,7 +379,7 @@ export default function Atelier({ models, planningEvents, suivis, settings, hand
                                     <div className="pt-4">
                                         <button
                                             onClick={handleSendDemande}
-                                            className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-black py-4 rounded-xl transition-all shadow-lg shadow-indigo-200 dark:shadow-indigo-900/30 flex items-center justify-center gap-2"
+                                            className="w-full bg-indigo-600 dark:bg-dk-accent hover:bg-indigo-700 dark:hover:bg-dk-accent-hover text-white font-black py-4 rounded-xl transition-all shadow-lg shadow-indigo-200 dark:shadow-indigo-900/30 flex items-center justify-center gap-2"
                                         >
                                             <Send className="w-5 h-5" /> {tx(lang, { fr: 'Envoyer la Demande au Magasin', ar: 'إرسال الطلب إلى المخزن', en: 'Send Request to Warehouse', es: 'Enviar Solicitud al Almacén', pt: 'Enviar Pedido ao Armazém', tr: 'Talebi Depoya Gönder' })}
                                         </button>
@@ -446,7 +446,7 @@ export default function Atelier({ models, planningEvents, suivis, settings, hand
                                         </div>
                                     </div>
 
-                                    <div className="p-6 bg-indigo-50 dark:bg-indigo-900/20 rounded-2xl border border-indigo-100 dark:border-indigo-900/30">
+                                    <div className="p-6 bg-indigo-50 dark:bg-dk-accent/20 dark:bg-indigo-900/20 rounded-2xl border border-indigo-100 dark:border-indigo-900/30">
                                         <h3 className="font-black text-indigo-800 dark:text-indigo-300 text-sm mb-4 uppercase tracking-widest flex items-center gap-2">
                                             <Clock className="w-4 h-4" /> {tx(lang, { fr: 'Durée de Production Réelle', ar: 'مدة الإنتاج الفعلية', en: 'Actual Production Duration', es: 'Duración Real de Producción', pt: 'Duração Real de Produção', tr: 'Gerçek Üretim Süresi' })}
                                         </h3>
@@ -456,9 +456,9 @@ export default function Atelier({ models, planningEvents, suivis, settings, hand
                                                 value={heuresProduction || ''}
                                                 onChange={e => setHeuresProduction(parseInt(e.target.value) || 0)}
                                                 placeholder={tx(lang, { fr: 'Ex: 48', ar: 'مثال: 48', en: 'E.g.: 48', es: 'Ej: 48', pt: 'Ex: 48', tr: 'Örn: 48' })}
-                                                className="bg-white dark:bg-dk-surface border border-indigo-200 dark:border-indigo-900/30 rounded-xl px-4 py-2 font-black text-indigo-700 dark:text-indigo-300 w-32 outline-none text-center text-xl"
+                                                className="bg-white dark:bg-dk-surface border border-indigo-200 dark:border-indigo-900/30 rounded-xl px-4 py-2 font-black text-indigo-700 dark:text-dk-accent-text dark:text-indigo-300 w-32 outline-none text-center text-xl"
                                             />
-                                            <span className="font-bold text-indigo-600 dark:text-indigo-400">{tx(lang, { fr: 'Heures de travail (par O. direct)', ar: 'ساعات العمل (يدوي مباشر)', en: 'Work hours (direct labor)', es: 'Horas de trabajo (mano de obra directa)', pt: 'Horas de trabalho (mão de obra direta)', tr: 'Çalışma saatleri (doğrudan işçilik)' })}</span>
+                                            <span className="font-bold text-indigo-600 dark:text-dk-accent-text dark:text-indigo-400">{tx(lang, { fr: 'Heures de travail (par O. direct)', ar: 'ساعات العمل (يدوي مباشر)', en: 'Work hours (direct labor)', es: 'Horas de trabajo (mano de obra directa)', pt: 'Horas de trabalho (mão de obra direta)', tr: 'Çalışma saatleri (doğrudan işçilik)' })}</span>
                                         </div>
                                     </div>
 

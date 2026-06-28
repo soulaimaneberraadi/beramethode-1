@@ -179,7 +179,7 @@ export default function MachineExitModal({
               <PackageMinus className="w-5 h-5" aria-hidden />
             </div>
             <div className="min-w-0">
-              <h2 id="machine-exit-title" className="text-base font-black text-slate-900 truncate">
+              <h2 id="machine-exit-title" className="text-base font-black text-slate-900 dark:text-dk-text truncate">
                 {tx(lang,{fr:'Retirer du parc',ar:'إزالة من الأسطول',en:'Remove from fleet',es:'Retirar del parque',pt:'Retirar do parque',tr:'Filodan çıkar'})}
               </h2>
               <p className="text-[10px] font-bold text-slate-500 dark:text-dk-text-muted uppercase tracking-tight">
@@ -293,7 +293,7 @@ export default function MachineExitModal({
                 type="button"
                 onClick={() => setConfirmMode('MAT')}
                 className={`flex-1 py-2 text-[10px] font-black uppercase tracking-tight ${
-                  confirmMode === 'MAT' ? 'bg-indigo-600 text-white' : 'text-slate-500 dark:text-dk-text-muted hover:bg-slate-50 dark:hover:bg-dk-hover'
+                  confirmMode === 'MAT' ? 'bg-indigo-600 dark:bg-dk-accent text-white' : 'text-slate-500 dark:text-dk-text-muted hover:bg-slate-50 dark:hover:bg-dk-hover'
                 }`}
               >
                 {tx(lang,{fr:'Matricule / ID',ar:'رقم الآلة / المعرف',en:'Registration / ID',es:'Matrícula / ID',pt:'Matrícula / ID',tr:'Kayıt No / Kimlik'})}
@@ -302,7 +302,7 @@ export default function MachineExitModal({
                 type="button"
                 onClick={() => setConfirmMode('QR')}
                 className={`flex-1 py-2 text-[10px] font-black uppercase tracking-tight ${
-                  confirmMode === 'QR' ? 'bg-indigo-600 text-white' : 'text-slate-500 dark:text-dk-text-muted hover:bg-slate-50 dark:hover:bg-dk-hover'
+                  confirmMode === 'QR' ? 'bg-indigo-600 dark:bg-dk-accent text-white' : 'text-slate-500 dark:text-dk-text-muted hover:bg-slate-50 dark:hover:bg-dk-hover'
                 }`}
               >
                 {tx(lang,{fr:'Contenu QR',ar:'محتوى QR',en:'QR content',es:'Contenido QR',pt:'Conteúdo QR',tr:'QR içeriği'})}
@@ -347,7 +347,7 @@ export default function MachineExitModal({
                       className="absolute inset-0 z-10 h-full w-full cursor-pointer opacity-0"
                       aria-label={tx(lang,{fr:'Prendre une photo du QR (appareil photo)',ar:'التقاط صورة QR (كاميرا)',en:'Take a QR photo (camera)',es:'Tomar una foto del QR (cámara)',pt:'Tirar uma foto do QR (câmara)',tr:'QR fotoğrafı çek (kamera)'})}
                     />
-                    <Camera className="w-4 h-4 text-indigo-600 pointer-events-none shrink-0" aria-hidden />
+                    <Camera className="w-4 h-4 text-indigo-600 dark:text-dk-accent-text pointer-events-none shrink-0" aria-hidden />
                     <span className="pointer-events-none">{decodeBusy ? tx(lang,{fr:'Décodage…',ar:'فك الترميز…',en:'Decoding…',es:'Decodificando…',pt:'A descodificar…',tr:'Kod çözülüyor…'}) : tx(lang,{fr:'Photo / fichier QR',ar:'صورة / ملف QR',en:'QR photo / file',es:'Foto / archivo QR',pt:'Foto / ficheiro QR',tr:'QR fotoğrafı / dosyası'})}</span>
                   </label>
                   <span className="text-[10px] font-bold text-slate-400 dark:text-dk-text-muted self-center flex items-center gap-1">

@@ -1233,7 +1233,7 @@ export default function Planning({
                         onClick={() => { setSoloChainId(prev => prev === chainCtxMenu.chainId ? null : chainCtxMenu.chainId); setChainCtxMenu(null); }}
                         className="w-full flex items-center gap-2.5 px-3 py-2 text-[12px] text-slate-700 dark:text-dk-text hover:bg-slate-50 dark:hover:bg-dk-elevated/60 transition-colors"
                     >
-                        <Eye className="w-3.5 h-3.5 text-slate-400" />
+                        <Eye className="w-3.5 h-3.5 text-slate-400 dark:text-dk-muted" />
                         {soloChainId === chainCtxMenu.chainId 
                             ? tx(lang, {
                                 fr: 'Désactiver isolation',
@@ -1278,7 +1278,7 @@ export default function Planning({
                             onClick={() => { setSoloChainId(null); setChainCtxMenu(null); }}
                             className="w-full flex items-center gap-2.5 px-3 py-2 text-[12px] text-slate-500 dark:text-dk-muted hover:bg-slate-50 dark:hover:bg-dk-elevated/60 transition-colors border-t border-slate-100 dark:border-dk-border"
                         >
-                            <XIcon className="w-3.5 h-3.5 text-slate-400" />
+                            <XIcon className="w-3.5 h-3.5 text-slate-400 dark:text-dk-muted" />
                             {tx(lang, {
                                 fr: 'Tout afficher',
                                 ar: 'عرض الكل',
@@ -1295,7 +1295,7 @@ export default function Planning({
             {multiIds.size > 0 && (
                 <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 bg-white dark:bg-dk-surface text-slate-800 dark:text-dk-text border border-slate-200/85 dark:border-dk-border rounded-xl shadow-2xl flex items-stretch overflow-hidden animate-[planning-fade-up_180ms_ease-out]">
                     <div className="flex items-center gap-2 px-4 py-2.5 border-r border-slate-150 dark:border-dk-border bg-slate-50/85 dark:bg-dk-bg/50">
-                        <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-indigo-50 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 text-[11px] font-black tabular-nums">{multiIds.size}</span>
+                        <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-indigo-50 dark:bg-dk-accent/20 dark:bg-indigo-900/40 text-indigo-700 dark:text-dk-accent-text dark:text-indigo-300 text-[11px] font-black tabular-nums">{multiIds.size}</span>
                         <span className="text-[12px] font-bold text-slate-700 dark:text-dk-text">{tx(lang, {
                             fr: `sélectionné${multiIds.size > 1 ? 's' : ''}`,
                             ar: 'محدد',
@@ -1319,7 +1319,7 @@ export default function Planning({
                             tr: "Buraya taşı…"
                         })}</option>
                         {chains.map(c => (
-                            <option key={c.id} value={c.id} className="text-slate-800">{c.name}</option>
+                            <option key={c.id} value={c.id} className="text-slate-800 dark:text-dk-text">{c.name}</option>
                         ))}
                     </select>
                     <select
@@ -1393,7 +1393,7 @@ export default function Planning({
                     <button
                         type="button"
                         onClick={() => setMultiIds(new Set())}
-                        className="px-3.5 flex items-center justify-center text-slate-450 hover:bg-slate-50 hover:text-slate-700 transition-all duration-200 active:scale-95"
+                        className="px-3.5 flex items-center justify-center text-slate-450 hover:bg-slate-50 dark:hover:bg-dk-elevated/60 hover:text-slate-700 transition-all duration-200 active:scale-95"
                         aria-label={tx(lang, {
                             fr: "Annuler la sélection",
                             ar: "إلغاء التحديد",
@@ -1498,11 +1498,11 @@ export default function Planning({
             )}
 
             {toastMessage && (
-                <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] flex items-center gap-3 px-5 py-3.5 rounded-2xl shadow-xl border bg-white border-slate-100 animate-[planning-fade-up_150ms_ease-out]">
+                <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] flex items-center gap-3 px-5 py-3.5 rounded-2xl shadow-xl border bg-white dark:bg-dk-surface border-slate-100 dark:border-dk-border animate-[planning-fade-up_150ms_ease-out]">
                     <div className={`p-1 rounded-full ${toastMessage.type === 'success' ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600'}`}>
                         {toastMessage.type === 'success' ? <Check className="w-4 h-4" /> : <AlertCircle className="w-4 h-4" />}
                     </div>
-                    <span className="text-xs font-bold text-slate-800">{toastMessage.text}</span>
+                    <span className="text-xs font-bold text-slate-800 dark:text-dk-text">{toastMessage.text}</span>
                 </div>
             )}
         </div>

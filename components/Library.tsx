@@ -215,7 +215,7 @@ export default function Library({
                                 onClick={handleSyncPhotos}
                                 disabled={syncPhotoStatus === 'syncing'}
                                 title={tx(lang, { fr: "Resynchroniser les photos des modèles vers le cloud", ar: "إعادة مزامنة صور النماذج مع السحابة", en: "Resync model photos to the cloud", es: "Resincronizar las fotos de los modelos con la nube", pt: "Ressincronizar as fotos dos modelos com a nuvem", tr: "Model fotoğraflarını buluta yeniden senkronize et" })}
-                                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold border transition-all active:scale-95 ${syncPhotoStatus === 'done' ? 'bg-emerald-500 text-white border-emerald-500' : syncPhotoStatus === 'error' ? 'bg-red-500 text-white border-red-500' : 'bg-indigo-50 dark:bg-dk-elevated text-indigo-700 dark:text-dk-accent border-indigo-200 dark:border-dk-border hover:bg-indigo-100 dark:hover:bg-dk-elevated'}`}
+                                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold border transition-all active:scale-95 ${syncPhotoStatus === 'done' ? 'bg-emerald-500 text-white border-emerald-500' : syncPhotoStatus === 'error' ? 'bg-red-500 text-white border-red-500' : 'bg-indigo-50 dark:bg-dk-accent/20 dark:bg-dk-elevated text-indigo-700 dark:text-dk-accent-text dark:text-dk-accent border-indigo-200 dark:border-dk-border hover:bg-indigo-100 dark:hover:bg-dk-elevated'}`}
                             >
                                 {syncPhotoStatus === 'syncing' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : syncPhotoStatus === 'done' ? <CheckCircle2 className="w-3.5 h-3.5" /> : <UploadCloud className="w-3.5 h-3.5" />}
                                 <span className="hidden sm:inline">
@@ -256,14 +256,14 @@ export default function Library({
                         <div className="flex bg-slate-100 dark:bg-dk-elevated rounded-lg p-0.5 border border-slate-200 dark:border-dk-border">
                             <button
                                 onClick={() => setViewMode('grid')}
-                                className={`p-1.5 rounded-md transition-all ${viewMode === 'grid' ? 'bg-white dark:bg-dk-surface shadow-sm dark:shadow-dk-elevated text-indigo-600 dark:text-dk-accent' : 'text-slate-400 dark:text-dk-muted hover:text-slate-600 dark:hover:text-dk-text-soft'}`}
+                                className={`p-1.5 rounded-md transition-all ${viewMode === 'grid' ? 'bg-white dark:bg-dk-surface shadow-sm dark:shadow-dk-elevated text-indigo-600 dark:text-dk-accent-text dark:text-dk-accent' : 'text-slate-400 dark:text-dk-muted hover:text-slate-600 dark:hover:text-dk-text-soft'}`}
                                 title={tx(lang, { fr: "Vue Grille", ar: "عرض الشبكة", en: "Grid View", es: "Vista de Cuadrícula", pt: "Visualização em Grade", tr: "Izgara Görünümü" })}
                             >
                                 <LayoutGrid className="w-3.5 h-3.5" />
                             </button>
                             <button
                                 onClick={() => setViewMode('list')}
-                                className={`p-1.5 rounded-md transition-all ${viewMode === 'list' ? 'bg-white dark:bg-dk-surface shadow-sm dark:shadow-dk-elevated text-indigo-600 dark:text-dk-accent' : 'text-slate-400 dark:text-dk-muted hover:text-slate-600 dark:hover:text-dk-text-soft'}`}
+                                className={`p-1.5 rounded-md transition-all ${viewMode === 'list' ? 'bg-white dark:bg-dk-surface shadow-sm dark:shadow-dk-elevated text-indigo-600 dark:text-dk-accent-text dark:text-dk-accent' : 'text-slate-400 dark:text-dk-muted hover:text-slate-600 dark:hover:text-dk-text-soft'}`}
                                 title={tx(lang, { fr: "Vue Liste", ar: "عرض القائمة", en: "List View", es: "Vista de Lista", pt: "Visualização em Lista", tr: "Liste Görünümü" })}
                             >
                                 <ListIcon className="w-3.5 h-3.5" />
@@ -312,7 +312,7 @@ export default function Library({
                                         onContextMenu={(e) => { e.preventDefault(); setContextMenu({ x: e.pageX, y: e.pageY, modelId: model.id }); }}
                                         className="group bg-white dark:bg-dk-surface rounded-xl border border-slate-200 dark:border-dk-border shadow-sm dark:shadow-dk-elevated hover:shadow-md dark:hover:shadow-dk-elevated hover:border-indigo-300 dark:hover:border-dk-accent hover:-translate-y-1 transition-all duration-200 cursor-pointer overflow-hidden flex flex-col h-full"
                                     >
-                                        <div className="aspect-[4/3] bg-slate-50 dark:bg-dk-bg border-b border-slate-100 dark:border-dk-border flex items-center justify-center group-hover:bg-indigo-50/20 dark:group-hover:bg-dk-elevated/20 transition-colors relative overflow-hidden">
+                                        <div className="aspect-[4/3] bg-slate-50 dark:bg-dk-bg border-b border-slate-100 dark:border-dk-border flex items-center justify-center group-hover:bg-indigo-50 dark:bg-dk-accent/20/20 dark:group-hover:bg-dk-elevated/20 transition-colors relative overflow-hidden">
                                             {model.image ? (
                                                 <img src={model.image} alt={model.meta_data.nom_modele} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
                                             ) : (
@@ -326,7 +326,7 @@ export default function Library({
                                             <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity z-10 flex gap-2">
                                                 <button
                                                     onClick={(e) => { e.stopPropagation(); setContextMenu({ x: e.pageX, y: e.pageY, modelId: model.id }); }}
-                                                    className="p-1.5 bg-white/90 dark:bg-dk-surface/90 backdrop-blur-sm rounded-full shadow-sm dark:shadow-dk-elevated text-slate-600 dark:text-dk-text-soft hover:text-indigo-600 dark:hover:text-dk-accent hover:bg-white dark:hover:bg-dk-surface"
+                                                    className="p-1.5 bg-white/90 dark:bg-dk-surface/90 backdrop-blur-sm rounded-full shadow-sm dark:shadow-dk-elevated text-slate-600 dark:text-dk-text-soft hover:text-indigo-600 dark:text-dk-accent-text dark:hover:text-dk-accent hover:bg-white dark:hover:bg-dk-surface"
                                                 >
                                                     <MoreVertical className="w-4 h-4" />
                                                 </button>
@@ -355,7 +355,7 @@ export default function Library({
                                                         <h3 className="font-bold text-slate-800 dark:text-dk-text text-sm truncate flex-1" title={model.meta_data.nom_modele}>
                                                             {model.meta_data.nom_modele}
                                                         </h3>
-                                                        <span className="shrink-0 text-[9px] font-black text-indigo-600 dark:text-dk-accent bg-indigo-50 dark:bg-dk-elevated border border-indigo-100 dark:border-dk-border px-1.5 py-0.5 rounded-md tracking-wide">
+                                                        <span className="shrink-0 text-[9px] font-black text-indigo-600 dark:text-dk-accent-text dark:text-dk-accent bg-indigo-50 dark:bg-dk-accent/20 dark:bg-dk-elevated border border-indigo-100 dark:border-dk-border px-1.5 py-0.5 rounded-md tracking-wide">
                                                             {getModelAbbrev(model)}
                                                         </span>
                                                     </div>
@@ -433,7 +433,7 @@ export default function Library({
                                         </div>
                                         <button
                                             onClick={(e) => { e.stopPropagation(); setContextMenu({ x: e.pageX, y: e.pageY, modelId: model.id }); }}
-                                            className="p-2 hover:bg-slate-100 dark:hover:bg-dk-elevated rounded-full text-slate-400 dark:text-dk-muted hover:text-indigo-600 dark:hover:text-dk-accent transition-colors opacity-0 group-hover:opacity-100"
+                                            className="p-2 hover:bg-slate-100 dark:hover:bg-dk-elevated rounded-full text-slate-400 dark:text-dk-muted hover:text-indigo-600 dark:text-dk-accent-text dark:hover:text-dk-accent transition-colors opacity-0 group-hover:opacity-100"
                                         >
                                             <MoreVertical className="w-4 h-4" />
                                         </button>
@@ -471,7 +471,7 @@ export default function Library({
                             <button
                                 type="button"
                                 onClick={() => { onLoadModel(activeModel); setContextMenu(null); }}
-                                className="w-full text-left px-4 py-2.5 text-xs font-bold text-slate-700 dark:text-dk-text hover:bg-indigo-50 dark:hover:bg-dk-elevated hover:text-indigo-600 dark:hover:text-dk-accent flex items-center gap-3 transition-colors"
+                                className="w-full text-left px-4 py-2.5 text-xs font-bold text-slate-700 dark:text-dk-text hover:bg-indigo-50 dark:bg-dk-accent/20 dark:hover:bg-dk-elevated hover:text-indigo-600 dark:text-dk-accent-text dark:hover:text-dk-accent flex items-center gap-3 transition-colors"
                             >
                                 <FolderOpen className="w-4 h-4" /> {tx(lang, { fr: "Ouvrir dans l'Atelier / Méthodes", ar: "فتح في الورشة / المناهج", en: "Open in Workshop / Methods", es: "Abrir en Taller / Métodos", pt: "Abrir em Ateliê / Métodos", tr: "Atölye / Yöntemlerde Aç" })}
                             </button>
@@ -498,13 +498,13 @@ export default function Library({
                                 <button
                                     type="button"
                                     onClick={() => { onStartSuivi(activeModel); setContextMenu(null); }}
-                                    className="w-full text-left px-4 py-2 text-xs font-bold text-slate-700 dark:text-dk-text hover:bg-indigo-50 dark:hover:bg-dk-elevated hover:text-indigo-600 dark:hover:text-dk-accent flex items-center gap-3 transition-colors"
+                                    className="w-full text-left px-4 py-2 text-xs font-bold text-slate-700 dark:text-dk-text hover:bg-indigo-50 dark:bg-dk-accent/20 dark:hover:bg-dk-elevated hover:text-indigo-600 dark:text-dk-accent-text dark:hover:text-dk-accent flex items-center gap-3 transition-colors"
                                 >
                                     <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 3v18h18"/><path d="M7 14l4-4 4 4 5-5"/></svg>
                                     {tx(lang, { fr: "Lancer Suivi", ar: "بدء المتابعة", en: "Start Tracking", es: "Iniciar Seguimiento", pt: "Iniciar Acompanhamento", tr: "Takibi Başlat" })}
                                 </button>
                             )}
-                            <div className="h-px bg-slate-100 dark:border-dk-border my-1"></div>
+                            <div className="h-px bg-slate-100 dark:bg-dk-elevated dark:border-dk-border my-1"></div>
                             <button
                                 type="button"
                                 onClick={() => handleRenameStart(activeModel)}
@@ -533,7 +533,7 @@ export default function Library({
                             >
                                 <Download className="w-4 h-4" /> {tx(lang, { fr: "Exporter (JSON)", ar: "تصدير (JSON)", en: "Export (JSON)", es: "Exportar (JSON)", pt: "Exportar (JSON)", tr: "Dışa Aktar (JSON)" })}
                             </button>
-                            <div className="h-px bg-slate-100 dark:border-dk-border my-1"></div>
+                            <div className="h-px bg-slate-100 dark:bg-dk-elevated dark:border-dk-border my-1"></div>
                             <button
                                 type="button"
                                 onClick={() => { setDeleteConfirm({ id: activeModel.id, name: activeModel.meta_data?.nom_modele || '' }); setContextMenu(null); }}

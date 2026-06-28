@@ -939,13 +939,13 @@ export default function CostCalculator({
         }
     };
 
-    const bgMain = 'bg-gray-50';
-    const bgCard = darkMode ? 'bg-dk-surface border-dk-border transition-colors' : 'bg-white border-slate-200 transition-colors';
-    const bgCardHeader = darkMode ? 'bg-dk-surface border-dk-border' : 'bg-white border-slate-100';
-    const textPrimary = darkMode ? 'text-dk-text' : 'text-slate-800';
-    const textSecondary = darkMode ? 'text-dk-muted' : 'text-slate-500';
-    const inputBg = darkMode ? 'bg-dk-bg border-dk-border text-dk-text' : 'bg-slate-50/60 border-slate-200 text-slate-900';
-    const tableHeader = 'bg-slate-50/60 text-slate-500';
+    const bgMain = 'bg-gray-50 dark:bg-dk-bg';
+    const bgCard = darkMode ? 'bg-dk-surface border-dk-border transition-colors' : 'bg-white dark:bg-dk-surface border-slate-200 dark:border-dk-border transition-colors';
+    const bgCardHeader = darkMode ? 'bg-dk-surface border-dk-border' : 'bg-white dark:bg-dk-surface border-slate-100 dark:border-dk-border';
+    const textPrimary = darkMode ? 'text-dk-text' : 'text-slate-800 dark:text-dk-text';
+    const textSecondary = darkMode ? 'text-dk-muted' : 'text-slate-500 dark:text-dk-muted';
+    const inputBg = darkMode ? 'bg-dk-bg border-dk-border text-dk-text' : 'bg-slate-50/60 border-slate-200 dark:border-dk-border text-slate-900 dark:text-dk-text';
+    const tableHeader = 'bg-slate-50/60 text-slate-500 dark:text-dk-muted';
     const tableRowHover = 'hover:bg-slate-50/50';
 
     return (
@@ -1014,14 +1014,14 @@ export default function CostCalculator({
                     // remplir la largeur du ticket → information proportionnelle à la taille.
                     <div style={{ width: TICKET_BASE_W, transformOrigin: 'top left', transform: `scale(${ticketContentScale})` }}>
                         {/* Cible de capture PDF : contenu non transformé, largeur de référence. */}
-                        <div ref={docRefTicket} style={{ width: TICKET_BASE_W }} className="bg-white">
+                        <div ref={docRefTicket} style={{ width: TICKET_BASE_W }} className="bg-white dark:bg-dk-surface">
                             <TicketView
                                 t={t} currency={currency} darkMode={false}
                                 productName={productName} displayDate={displayDate}
                                 totalMaterials={totalMaterials} totalTime={totalTime}
                                 laborCost={laborCost} costPrice={costPrice}
                                 settings={settings} productImage={productImage}
-                                textPrimary={'text-slate-800'} textSecondary={'text-slate-500'}
+                                textPrimary={'text-slate-800 dark:text-dk-text'} textSecondary={'text-slate-500 dark:text-dk-muted'}
                                 materials={materials} cutTime={cutTime} packTime={packTime}
                                 sellPriceHT={sellPriceHT} sellPriceTTC={sellPriceTTC}
                                 boutiquePrice={boutiquePrice}
@@ -1054,11 +1054,11 @@ export default function CostCalculator({
                 )}
             </PdfSettingsModal>
 
-            <div className={`w-full mx-auto mb-3 sm:mb-5 flex flex-col md:flex-row justify-between items-start sm:items-center bg-white px-3 sm:px-5 h-auto md:h-14 py-2.5 sm:py-3 md:py-0 rounded-lg border border-slate-200 gap-2 sm:gap-3 print:hidden`}>
+            <div className={`w-full mx-auto mb-3 sm:mb-5 flex flex-col md:flex-row justify-between items-start sm:items-center bg-white dark:bg-dk-surface px-3 sm:px-5 h-auto md:h-14 py-2.5 sm:py-3 md:py-0 rounded-lg border border-slate-200 dark:border-dk-border gap-2 sm:gap-3 print:hidden`}>
                 <div className="flex items-center gap-2 sm:gap-3 self-start md:self-center">
                     <div className="flex items-baseline gap-1.5 sm:gap-2.5">
-                        <h1 className={`text-[13px] sm:text-[15px] font-semibold tracking-tight text-slate-900`}>{tx(lang,{fr:'Fiche de Coût',ar:'بطاقة التكلفة',en:'Cost Sheet',es:'Hoja de Costo',pt:'Ficha de Custo',tr:'Maliyet Fişi'})}</h1>
-                        <span className="text-[10px] sm:text-[12px] text-slate-400">{tx(lang,{fr:'Prix & marges',ar:'السعر والهوامش',en:'Price & margins',es:'Precio y márgenes',pt:'Preço e margens',tr:'Fiyat ve marjlar'})}</span>
+                        <h1 className={`text-[13px] sm:text-[15px] font-semibold tracking-tight text-slate-900 dark:text-dk-text`}>{tx(lang,{fr:'Fiche de Coût',ar:'بطاقة التكلفة',en:'Cost Sheet',es:'Hoja de Costo',pt:'Ficha de Custo',tr:'Maliyet Fişi'})}</h1>
+                        <span className="text-[10px] sm:text-[12px] text-slate-400 dark:text-dk-muted">{tx(lang,{fr:'Prix & marges',ar:'السعر والهوامش',en:'Price & margins',es:'Precio y márgenes',pt:'Preço e margens',tr:'Fiyat ve marjlar'})}</span>
                         {ficheData.typeMarche === 'Export' && (
                             <span className="inline-flex items-center gap-1 bg-amber-50 text-amber-700 border border-amber-200 text-[9px] sm:text-[10px] px-1.5 sm:px-2 py-0.5 rounded font-medium">
                                 Export · Main d'œuvre seule
@@ -1072,13 +1072,13 @@ export default function CostCalculator({
                         <div className="inline-flex p-0.5 bg-slate-100/60 rounded-md" title="Source du temps de couture">
                             <button
                                 onClick={() => setTimeSource('gamme')}
-                                className={`px-2 sm:px-2.5 h-6 sm:h-7 text-[10px] sm:text-[11px] font-medium rounded transition-all ${timeSource === 'gamme' ? 'bg-white text-slate-900 shadow-[0_1px_2px_rgba(15,23,42,0.06)]' : 'text-slate-500 hover:text-slate-700'}`}
+                                className={`px-2 sm:px-2.5 h-6 sm:h-7 text-[10px] sm:text-[11px] font-medium rounded transition-all ${timeSource === 'gamme' ? 'bg-white dark:bg-dk-surface text-slate-900 dark:text-dk-text shadow-[0_1px_2px_rgba(15,23,42,0.06)]' : 'text-slate-500 hover:text-slate-700'}`}
                             >
                                 Gamme ({initialTotalTime} min)
                             </button>
                             <button
                                 onClick={() => setTimeSource('chrono')}
-                                className={`px-2 sm:px-2.5 h-6 sm:h-7 text-[10px] sm:text-[11px] font-medium rounded transition-all inline-flex items-center gap-1 ${timeSource === 'chrono' ? 'bg-white text-slate-900 shadow-[0_1px_2px_rgba(15,23,42,0.06)]' : 'text-slate-500 hover:text-slate-700'}`}
+                                className={`px-2 sm:px-2.5 h-6 sm:h-7 text-[10px] sm:text-[11px] font-medium rounded transition-all inline-flex items-center gap-1 ${timeSource === 'chrono' ? 'bg-white dark:bg-dk-surface text-slate-900 dark:text-dk-text shadow-[0_1px_2px_rgba(15,23,42,0.06)]' : 'text-slate-500 hover:text-slate-700'}`}
                             >
                                 <Clock className="w-2.5 h-2.5 sm:w-3 sm:h-3" strokeWidth={1.75} /> Chrono ({chronoTotalTime} min)
                             </button>
@@ -1119,13 +1119,13 @@ export default function CostCalculator({
                         <div className="flex justify-end gap-2">
                             <button
                                 onClick={() => setShowSousTraitance(true)}
-                                className={`inline-flex items-center gap-1.5 h-8 px-3 rounded-md border text-[12px] font-medium transition-colors ${stActive ? 'border-slate-900 bg-slate-900 text-white hover:bg-slate-800' : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-700'}`}
+                                className={`inline-flex items-center gap-1.5 h-8 px-3 rounded-md border text-[12px] font-medium transition-colors ${stActive ? 'border-slate-900 bg-slate-900 text-white hover:bg-slate-800' : 'border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface hover:bg-slate-50 dark:hover:bg-dk-elevated/60 text-slate-700 dark:text-dk-text-soft'}`}
                                 title={tx(lang, {fr: "Confier ce modèle à un sous-traitant à prix fixe / pièce", ar: "تكليف هذا الموديل لمقاول من الباطن بسعر ثابت / للقطعة", en: "Assign this model to a subcontractor at a fixed price / per piece", es: "Confiar este modelo a un subcontratista a precio fijo / por pieza", pt: "Confiar este modelo a um subcontratante a preço fixo / por peça", tr: "Bu modeli bir taşerona sabit fiyat / parça başına devret"})}
                             >
                                 <Factory className="w-3.5 h-3.5" strokeWidth={1.75} />
                                 {tx(lang,{fr:'Sous-traitance',ar:'المقاولة من الباطن',en:'Subcontracting',es:'Subcontratación',pt:'Subcontratação',tr:'Taşeronluk'})}
                                 {stActive && (
-                                    <span className="bg-white/20 px-1.5 py-0.5 rounded text-[11px] font-medium">
+                                    <span className="bg-white dark:bg-dk-surface/20 px-1.5 py-0.5 rounded text-[11px] font-medium">
                                         {st?.mode === 'complet' ? tx(lang,{fr:'Tout compris',ar:'كل شيء شامل',en:'All inclusive',es:'Todo incluido',pt:'Tudo incluído',tr:'Her şey dahil'}) : tx(lang,{fr:'Façon',ar:'التفصيل',en:'CMT only',es:'Solo confección',pt:'Apenas confeção',tr:'Sadece dikiş'})}
                                     </span>
                                 )}
@@ -1138,7 +1138,7 @@ export default function CostCalculator({
                                     <Scissors className="w-3.5 h-3.5" strokeWidth={1.75} />
                                     Calcul Fil
                                     {operations.length > 0 && (
-                                        <span className="bg-white/15 px-1.5 py-0.5 rounded text-[11px] font-medium tabular-nums">
+                                        <span className="bg-white dark:bg-dk-surface/15 px-1.5 py-0.5 rounded text-[11px] font-medium tabular-nums">
                                             {operations.length} op.
                                         </span>
                                     )}
@@ -1165,7 +1165,7 @@ export default function CostCalculator({
                                 <div className="flex justify-end">
                                     <button
                                         onClick={() => setShowMaterialAssign(true)}
-                                        className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-[12px] font-medium transition-colors"
+                                        className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface hover:bg-slate-50 dark:hover:bg-dk-elevated/60 text-slate-700 dark:text-dk-text-soft text-[12px] font-medium transition-colors"
                                         title={tx(lang, {fr: "Affecter les matières à des couleurs / tailles précises", ar: "تخصيص المواد لألوان/مقاسات محددة", en: "Assign materials to specific colors / sizes", es: "Asignar materiales a colores / tallas específicas", pt: "Atribuir materiais a cores / tamanhos específicos", tr: "Malzemeleri belirli renklere/boylara ata"})}
                                     >
                                         <SlidersHorizontal className="w-3.5 h-3.5" strokeWidth={1.75} />
@@ -1202,23 +1202,23 @@ export default function CostCalculator({
                             />
 
                             {/* ADVANCED: Margin Simulator & Chart */}
-                            <div className="bg-white rounded-lg border border-slate-200 flex flex-col overflow-hidden">
-                                <div className="px-5 h-12 border-b border-slate-100 flex items-center justify-between">
+                            <div className="bg-white dark:bg-dk-surface rounded-lg border border-slate-200 dark:border-dk-border flex flex-col overflow-hidden">
+                                <div className="px-5 h-12 border-b border-slate-100 dark:border-dk-border flex items-center justify-between">
                                     <div className="flex items-center gap-2">
-                                        <SlidersHorizontal className="w-4 h-4 text-slate-400" strokeWidth={1.75} />
+                                        <SlidersHorizontal className="w-4 h-4 text-slate-400 dark:text-dk-muted" strokeWidth={1.75} />
                                         <div>
-                                            <h3 className="text-[13px] font-semibold text-slate-900 tracking-tight">Analyse &amp; Simulation</h3>
-                                            <p className="text-[11px] text-slate-400">Marge &amp; répartition</p>
+                                            <h3 className="text-[13px] font-semibold text-slate-900 dark:text-dk-text tracking-tight">Analyse &amp; Simulation</h3>
+                                            <p className="text-[11px] text-slate-400 dark:text-dk-muted">Marge &amp; répartition</p>
                                         </div>
                                     </div>
                                 </div>
                                 <div className="p-5 flex flex-col md:flex-row gap-6">
                                     <div className="flex-1 flex flex-col">
-                                        <h4 className="text-[11px] font-medium text-slate-500 mb-3">Simulateur de Marge</h4>
-                                        <div className="bg-slate-50/60 p-4 rounded-md border border-slate-200">
+                                        <h4 className="text-[11px] font-medium text-slate-500 dark:text-dk-muted mb-3">Simulateur de Marge</h4>
+                                        <div className="bg-slate-50/60 p-4 rounded-md border border-slate-200 dark:border-dk-border">
                                             <div className="flex justify-between items-center mb-2.5">
-                                                <span className="text-[12px] text-slate-600">Marge Atelier ciblée</span>
-                                                <span className="text-[15px] font-semibold text-slate-900 tabular-nums">{settings.marginAtelier}%</span>
+                                                <span className="text-[12px] text-slate-600 dark:text-dk-text-soft">Marge Atelier ciblée</span>
+                                                <span className="text-[15px] font-semibold text-slate-900 dark:text-dk-text tabular-nums">{settings.marginAtelier}%</span>
                                             </div>
                                             <input
                                                 type="range"
@@ -1227,15 +1227,15 @@ export default function CostCalculator({
                                                 onChange={handleMarginChange}
                                                 className="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-slate-900"
                                             />
-                                            <div className="flex justify-between items-center mt-4 pt-3 border-t border-slate-200">
-                                                <span className="text-[12px] text-slate-500">Prix de Vente HT simulé</span>
-                                                <span className="text-[15px] font-semibold text-slate-900 tabular-nums">{fmt(sellPriceHT)} <span className="text-[11px] font-normal text-slate-400">{currency}</span></span>
+                                            <div className="flex justify-between items-center mt-4 pt-3 border-t border-slate-200 dark:border-dk-border">
+                                                <span className="text-[12px] text-slate-500 dark:text-dk-muted">Prix de Vente HT simulé</span>
+                                                <span className="text-[15px] font-semibold text-slate-900 dark:text-dk-text tabular-nums">{fmt(sellPriceHT)} <span className="text-[11px] font-normal text-slate-400 dark:text-dk-muted">{currency}</span></span>
                                             </div>
                                         </div>
                                     </div>
 
                                     <div className="w-44 h-44 shrink-0 flex flex-col relative">
-                                        <h4 className="text-[11px] font-medium text-slate-500 text-center absolute -top-1 left-0 right-0 z-10">{tx(lang,{fr:'Répartition Coût (PR)',ar:'توزيع التكلفة (س ت)',en:'Cost Breakdown (CP)',es:'Desglose de Costo (PC)',pt:'Repartição de Custo (CP)',tr:'Maliyet Dağılımı (MF)'})}</h4>
+                                        <h4 className="text-[11px] font-medium text-slate-500 dark:text-dk-muted text-center absolute -top-1 left-0 right-0 z-10">{tx(lang,{fr:'Répartition Coût (PR)',ar:'توزيع التكلفة (س ت)',en:'Cost Breakdown (CP)',es:'Desglose de Costo (PC)',pt:'Repartição de Custo (CP)',tr:'Maliyet Dağılımı (MF)'})}</h4>
                                         {totalMaterials > 0 || laborCost > 0 ? (
                                             <ResponsiveChart>
                                                 <PieChart>
@@ -1247,7 +1247,7 @@ export default function CostCalculator({
                                                 </PieChart>
                                             </ResponsiveChart>
                                         ) : (
-                                            <div className="w-full h-full flex items-center justify-center text-xs text-slate-400 font-medium">{tx(lang,{fr:'Aucune donnée',ar:'لا توجد بيانات',en:'No data',es:'Sin datos',pt:'Sem dados',tr:'Veri yok'})}</div>
+                                            <div className="w-full h-full flex items-center justify-center text-xs text-slate-400 dark:text-dk-muted font-medium">{tx(lang,{fr:'Aucune donnée',ar:'لا توجد بيانات',en:'No data',es:'Sin datos',pt:'Sem dados',tr:'Veri yok'})}</div>
                                         )}
                                     </div>
                                 </div>
@@ -1269,16 +1269,16 @@ export default function CostCalculator({
                     </div>
 
                     <div className="w-full">
-                        <div className={`rounded-lg border overflow-hidden flex flex-col bg-white border-slate-200`}>
-                            <div className={`p-1.5 border-b flex gap-1 bg-slate-50/60 border-slate-100 print:hidden`}>
-                                <button onClick={() => setViewMode('ticket')} className={`flex-1 flex items-center justify-center gap-1.5 h-8 rounded-md text-[12px] font-medium transition-all ${viewMode === 'ticket' ? 'bg-white text-slate-900 shadow-[0_1px_2px_rgba(15,23,42,0.06)]' : `text-slate-500 hover:text-slate-700`}`}><Receipt className="w-3.5 h-3.5" strokeWidth={1.75} /> {t.viewTicket}</button>
-                                <button onClick={() => setViewMode('a4')} className={`flex-1 flex items-center justify-center gap-1.5 h-8 rounded-md text-[12px] font-medium transition-all ${viewMode === 'a4' ? 'bg-white text-slate-900 shadow-[0_1px_2px_rgba(15,23,42,0.06)]' : `text-slate-500 hover:text-slate-700`}`}><FileText className="w-3.5 h-3.5" strokeWidth={1.75} /> Export Fiche A4 ({t.viewDoc})</button>
+                        <div className={`rounded-lg border overflow-hidden flex flex-col bg-white dark:bg-dk-surface border-slate-200 dark:border-dk-border`}>
+                            <div className={`p-1.5 border-b flex gap-1 bg-slate-50/60 border-slate-100 dark:border-dk-border print:hidden`}>
+                                <button onClick={() => setViewMode('ticket')} className={`flex-1 flex items-center justify-center gap-1.5 h-8 rounded-md text-[12px] font-medium transition-all ${viewMode === 'ticket' ? 'bg-white dark:bg-dk-surface text-slate-900 dark:text-dk-text shadow-[0_1px_2px_rgba(15,23,42,0.06)]' : `text-slate-500 hover:text-slate-700`}`}><Receipt className="w-3.5 h-3.5" strokeWidth={1.75} /> {t.viewTicket}</button>
+                                <button onClick={() => setViewMode('a4')} className={`flex-1 flex items-center justify-center gap-1.5 h-8 rounded-md text-[12px] font-medium transition-all ${viewMode === 'a4' ? 'bg-white dark:bg-dk-surface text-slate-900 dark:text-dk-text shadow-[0_1px_2px_rgba(15,23,42,0.06)]' : `text-slate-500 hover:text-slate-700`}`}><FileText className="w-3.5 h-3.5" strokeWidth={1.75} /> Export Fiche A4 ({t.viewDoc})</button>
                             </div>
 
                             {viewMode === 'ticket' && (
                                 <>
-                                    <div className={`px-5 h-12 border-b flex justify-between items-center bg-slate-50/60 border-slate-100 print:hidden`}>
-                                        <h2 className={`text-[13px] font-semibold text-slate-900`}>{tx(lang,{fr:'Ticket de Coût',ar:'تذكرة التكلفة',en:'Cost Ticket',es:'Ticket de Costo',pt:'Ticket de Custo',tr:'Maliyet Fişi'})}</h2>
+                                    <div className={`px-5 h-12 border-b flex justify-between items-center bg-slate-50/60 border-slate-100 dark:border-dk-border print:hidden`}>
+                                        <h2 className={`text-[13px] font-semibold text-slate-900 dark:text-dk-text`}>{tx(lang,{fr:'Ticket de Coût',ar:'تذكرة التكلفة',en:'Cost Ticket',es:'Ticket de Costo',pt:'Ticket de Custo',tr:'Maliyet Fişi'})}</h2>
                                         <div className="flex gap-1.5">
                                             <button onClick={() => setShowPdfModal(true)} className="inline-flex items-center gap-1.5 h-8 px-3 text-[12px] font-medium rounded-md bg-slate-900 hover:bg-slate-800 text-white transition-colors" title={tx(lang,{fr:'Exporter (PDF) ou imprimer le ticket',ar:'تصدير (PDF) أو طباعة التذكرة',en:'Export (PDF) or print the ticket',es:'Exportar (PDF) o imprimir el ticket',pt:'Exportar (PDF) ou imprimir o ticket',tr:'Dışa aktar (PDF) veya fişi yazdır'})}><FileDown className="w-3.5 h-3.5" strokeWidth={1.75} /> {tx(lang,{fr:'Exporter / Imprimer',ar:'تصدير / طباعة',en:'Export / Print',es:'Exportar / Imprimir',pt:'Exportar / Imprimir',tr:'Dışa Aktar / Yazdır'})}</button>
                                         </div>
@@ -1300,8 +1300,8 @@ export default function CostCalculator({
 
                             {viewMode === 'a4' && (
                                 <>
-                                    <div className={`px-5 h-12 border-b flex justify-between items-center bg-slate-50/60 border-slate-100 print:hidden`}>
-                                        <h2 className={`text-[13px] font-semibold text-slate-900`}>Fiche de Coût A4</h2>
+                                    <div className={`px-5 h-12 border-b flex justify-between items-center bg-slate-50/60 border-slate-100 dark:border-dk-border print:hidden`}>
+                                        <h2 className={`text-[13px] font-semibold text-slate-900 dark:text-dk-text`}>Fiche de Coût A4</h2>
                                         <div className="flex items-center gap-2">
                                              {mainTotalPages > 1 && (
                                                  <div className="flex items-center gap-2 px-3 py-1 bg-slate-900/95 text-white rounded-full border border-slate-800 shadow-md">
@@ -1331,7 +1331,7 @@ export default function CostCalculator({
                                      </div>
 
                                      <div 
-                                         className={`bg-slate-100 p-3 sm:p-8 overflow-hidden active-page-${mainActivePage}`}
+                                         className={`bg-slate-100 dark:bg-dk-elevated p-3 sm:p-8 overflow-hidden active-page-${mainActivePage}`}
                                          onTouchStart={onMainTouchStart}
                                          onTouchEnd={onMainTouchEnd}
                                      >
@@ -1368,7 +1368,7 @@ export default function CostCalculator({
             {/* Confirm Modal */}
             {confirmDialog.isOpen && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center p-2 sm:p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-200">
-                    <div className="bg-white rounded-2xl shadow-xl w-full max-w-md sm:max-w-lg overflow-hidden animate-in zoom-in-95 duration-200">
+                    <div className="bg-white dark:bg-dk-surface rounded-2xl shadow-xl w-full max-w-md sm:max-w-lg overflow-hidden animate-in zoom-in-95 duration-200">
                         <div className="p-6">
                             <div className="flex items-start gap-4">
                                 <div className={`p-3 rounded-full shrink-0 ${
@@ -1381,16 +1381,16 @@ export default function CostCalculator({
                                      <AlertTriangle className="w-6 h-6" />}
                                 </div>
                                 <div>
-                                    <h3 className="text-lg font-bold text-slate-900 mb-2">{confirmDialog.title}</h3>
-                                    <p className="text-slate-600 text-sm leading-relaxed">{confirmDialog.message}</p>
+                                    <h3 className="text-lg font-bold text-slate-900 dark:text-dk-text mb-2">{confirmDialog.title}</h3>
+                                    <p className="text-slate-600 dark:text-dk-text-soft text-sm leading-relaxed">{confirmDialog.message}</p>
                                 </div>
                             </div>
                         </div>
-                        <div className="bg-slate-50 px-4 sm:px-6 py-4 flex flex-col sm:flex-row justify-end gap-3 border-t border-slate-100">
+                        <div className="bg-slate-50 dark:bg-dk-bg px-4 sm:px-6 py-4 flex flex-col sm:flex-row justify-end gap-3 border-t border-slate-100 dark:border-dk-border">
                             {!confirmDialog.hideCancel && (
                                 <button
                                     onClick={() => setConfirmDialog(prev => ({ ...prev, isOpen: false }))}
-                                    className="px-4 py-2.5 font-bold text-slate-600 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors w-full sm:w-auto"
+                                    className="px-4 py-2.5 font-bold text-slate-600 dark:text-dk-text-soft bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-xl hover:bg-slate-50 dark:hover:bg-dk-elevated/60 transition-colors w-full sm:w-auto"
                                 >
                                     {tx(lang, {fr: "Annuler", ar: "إلغاء", en: "Cancel", es: "Cancelar", pt: "Cancelar", tr: "İptal"})}
                                 </button>

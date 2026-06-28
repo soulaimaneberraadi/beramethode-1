@@ -30,7 +30,7 @@ export default function TimelineGrid({
     const grid = useSuiviGrid({ date, chainIds, hourKeys: keys, suivis, planningEvents });
 
     return (
-        <div className="flex-1 overflow-auto bg-white">
+        <div className="flex-1 overflow-auto bg-white dark:bg-dk-surface">
             <div className="min-w-fit">
                 <TimelineHeader
                     hours={hours}
@@ -40,7 +40,7 @@ export default function TimelineGrid({
                 />
 
                 {chainIds.length === 0 ? (
-                    <div className="px-6 py-20 text-center text-[12px] text-slate-400">
+                    <div className="px-6 py-20 text-center text-[12px] text-slate-400 dark:text-dk-muted">
                         {tx(lang, {fr:"Aucune chaîne configurée. Ajoutez une chaîne dans Configuration.",ar:"لا توجد خطوط إنتاج مكونة. أضف خط إنتاج في الإعدادات.",en:"No lines configured. Add a line in Configuration.",es:"Ninguna línea configurada. Añada una línea en Configuración.",pt:"Nenhuma linha configurada. Adicione uma linha na Configuração.",tr:"Yapılandırılmış hat yok. Yapılandırmaya bir hat ekleyin."})}
                     </div>
                 ) : (

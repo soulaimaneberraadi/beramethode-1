@@ -238,7 +238,7 @@ function GanttRow({
                     <div className="flex flex-col items-center justify-center gap-1">
                         <span className={`w-2 h-2 rounded-full ${loadColor}`} />
                         <span className={`text-[12px] font-black tabular-nums leading-none ${
-                            isSolo ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-700 dark:text-dk-text-soft'
+                            isSolo ? 'text-indigo-600 dark:text-dk-accent-text dark:text-indigo-400' : 'text-slate-700 dark:text-dk-text-soft'
                         }`}>
                             {chainShort}
                         </span>
@@ -261,17 +261,17 @@ function GanttRow({
                                             />
                                             {evModelName(activeEventToday, models)}
                                         </span>
-                                        <span className="tabular-nums text-slate-500 font-medium pl-2.5">
+                                        <span className="tabular-nums text-slate-500 dark:text-dk-muted font-medium pl-2.5">
                                             {tx(lang, { fr: 'Reste', ar: 'المتبقي', en: 'Left', es: 'Restante', pt: 'Restante', tr: 'Kalan' })} {100 - evProgressPct(activeEventToday)}%
                                         </span>
                                     </>
                                 ) : (
                                     <>
-                                        <span className="font-medium text-slate-400 truncate flex items-center gap-1">
+                                        <span className="font-medium text-slate-400 dark:text-dk-muted truncate flex items-center gap-1">
                                             <span className="w-1.5 h-1.5 rounded-full shrink-0 bg-transparent" />
                                             {chain.capacityPerDay} pcs/j
                                         </span>
-                                        <span className="tabular-nums text-slate-400 font-medium pl-2.5">
+                                        <span className="tabular-nums text-slate-400 dark:text-dk-muted font-medium pl-2.5">
                                             {tx(lang, { fr: 'Rendement', ar: 'الإنتاجية', en: 'Yield', es: 'Rendimiento', pt: 'Rendimento', tr: 'Verim' })} {effPct}%
                                         </span>
                                     </>
@@ -339,7 +339,7 @@ function GanttRow({
                                 title={tooltip}
                                 className={`border-r border-slate-50 dark:border-dk-border/30 last:border-r-0 transition-colors ${
                                     isWeekend ? 'bg-slate-50/40 dark:bg-dk-bg/60' : ''
-                                } ${isDragOver ? '!bg-slate-100 dark:!bg-dk-elevated' : ''}`}
+                                } ${isDragOver ? '!bg-slate-100 dark:bg-dk-elevated dark:!bg-dk-elevated' : ''}`}
                                 style={cellStyle}
                             />
                         );

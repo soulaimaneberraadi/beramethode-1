@@ -33,11 +33,11 @@ export default function DragPreview({
             style={{ left: x + 16, top: y + 16, animation: 'planning-fade-in 80ms ease-out' }}
         >
             <div className="bg-slate-900 text-white rounded-md shadow-[0_4px_16px_rgba(0,0,0,0.2)] px-3 py-2 min-w-[180px]">
-                <div className="text-[10px] uppercase tracking-wider text-slate-400 mb-1">{chainName}</div>
+                <div className="text-[10px] uppercase tracking-wider text-slate-400 dark:text-dk-muted mb-1">{chainName}</div>
                 <div className="flex items-center gap-1.5 text-[11px] mb-1">
-                    <Calendar className="w-3 h-3 text-slate-300" strokeWidth={1.75} />
+                    <Calendar className="w-3 h-3 text-slate-300 dark:text-dk-muted" strokeWidth={1.75} />
                     <span className="tabular-nums">{fmtShort(startDate)}</span>
-                    <span className="text-slate-500">→</span>
+                    <span className="text-slate-500 dark:text-dk-muted">→</span>
                     <span className="tabular-nums">{fmtShort(endDate)}</span>
                 </div>
                 {warnings.length > 0 && (

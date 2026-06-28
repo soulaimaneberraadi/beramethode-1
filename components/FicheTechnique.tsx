@@ -514,8 +514,8 @@ export default function FicheTechnique({
             }),
             Icon: CheckCircle2,
             dot: 'bg-slate-500',
-            text: 'text-slate-700',
-            iconColor: 'text-slate-500',
+            text: 'text-slate-700 dark:text-dk-text-soft',
+            iconColor: 'text-slate-500 dark:text-dk-muted',
             ring: ''
         },
     ];
@@ -612,17 +612,17 @@ export default function FicheTechnique({
                     </div>
                             </div>
                             <div className="space-y-1">
-                                <label className="text-xs font-bold text-slate-400 uppercase ml-1">{pt.modelRef}</label>
+                                <label className="text-xs font-bold text-slate-400 dark:text-dk-muted uppercase ml-1">{pt.modelRef}</label>
                                 <div className={`flex items-center gap-3 rounded-xl px-3 py-2.5 transition-all ${articleNameError 
                                     ? 'bg-rose-50 border-2 border-rose-300 focus-within:ring-2 focus-within:ring-rose-100' 
-                                    : 'bg-slate-50 border border-slate-200 focus-within:ring-2 focus-within:ring-indigo-100 focus-within:border-indigo-400'}`}>
-                                    <Hash className={`w-4 h-4 ${articleNameError ? 'text-rose-500' : 'text-slate-400'}`} />
+                                    : 'bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border focus-within:ring-2 focus-within:ring-indigo-100 focus-within:border-indigo-400'}`}>
+                                    <Hash className={`w-4 h-4 ${articleNameError ? 'text-rose-500' : 'text-slate-400 dark:text-dk-muted'}`} />
                                     <input
                                         type="text"
                                         value={articleName}
                                         onChange={(e) => setArticleName(e.target.value)}
                                         placeholder={pt.modelPlaceholder}
-                                        className="w-full bg-transparent text-sm font-bold text-slate-700 outline-none placeholder:text-slate-300"
+                                        className="w-full bg-transparent text-sm font-bold text-slate-700 dark:text-dk-text-soft outline-none placeholder:text-slate-300"
                                     />
                                 </div>
                             </div>
@@ -630,29 +630,29 @@ export default function FicheTechnique({
                             {/* Category Field (Optional) */}
                             <div className="space-y-1">
                                 <div className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-0.5 ml-1">
-                                    <label className="text-xs font-bold text-slate-400 uppercase">{pt.category}</label>
-                                    <span className="text-[10px] font-bold uppercase tracking-wide text-slate-400">{pt.optional}</span>
+                                    <label className="text-xs font-bold text-slate-400 dark:text-dk-muted uppercase">{pt.category}</label>
+                                    <span className="text-[10px] font-bold uppercase tracking-wide text-slate-400 dark:text-dk-muted">{pt.optional}</span>
                                 </div>
-                                <div className="flex items-center gap-3 rounded-xl px-3 py-2.5 transition-all bg-slate-50 border border-slate-200 focus-within:ring-2 focus-within:ring-indigo-100 focus-within:border-indigo-400">
-                                    <LayoutGrid className="w-4 h-4 text-slate-400" />
+                                <div className="flex items-center gap-3 rounded-xl px-3 py-2.5 transition-all bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border focus-within:ring-2 focus-within:ring-indigo-100 focus-within:border-indigo-400">
+                                    <LayoutGrid className="w-4 h-4 text-slate-400 dark:text-dk-muted" />
                                     <ExcelInput
                                         suggestions={["T-Shirt", "Polo", "Chemise", "Pantalon", "Robe", "Veste", "Sweat", "Short", "Jupe", "Pyjama", "Sous-vêtement"]}
                                         value={data.category || ''}
                                         onChange={(val) => handleChange('category', val)}
                                         placeholder={pt.categoryPlaceholder}
-                                        className="w-full bg-transparent text-sm font-bold text-slate-700 outline-none placeholder:text-slate-300"
+                                        className="w-full bg-transparent text-sm font-bold text-slate-700 dark:text-dk-text-soft outline-none placeholder:text-slate-300"
                                     />
                                 </div>
                             </div>
 
                             {/* Suivi metadata: Kisba (Coupe) / Hala (Statut) */}
                             <div className="space-y-1 md:col-span-2">
-                                <label className="text-xs font-bold text-slate-400 uppercase ml-1">{pt.suiviLabel}</label>
+                                <label className="text-xs font-bold text-slate-400 dark:text-dk-muted uppercase ml-1">{pt.suiviLabel}</label>
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                                     <select
                                         value={data.kisba || ''}
                                         onChange={(e) => handleChange('kisba', e.target.value)}
-                                        className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm font-bold text-slate-700 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
+                                        className="bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2.5 text-sm font-bold text-slate-700 dark:text-dk-text-soft outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
                                     >
                                         <option value="">{pt.kisbaPlaceholder}</option>
                                         <option value="COUPE">{tx(lang, {
@@ -691,7 +691,7 @@ export default function FicheTechnique({
                                     <select
                                         value={data.hala || ''}
                                         onChange={(e) => handleChange('hala', e.target.value)}
-                                        className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm font-bold text-slate-700 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
+                                        className="bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2.5 text-sm font-bold text-slate-700 dark:text-dk-text-soft outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
                                     >
                                         <option value="">{pt.halaPlaceholder}</option>
                                         <option value="EN_COURS">{tx(lang, {
@@ -865,8 +865,8 @@ export default function FicheTechnique({
 
                     {/* PLANNING & RISK CONTROLS CARD */}
                     <div className="bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border shadow-sm overflow-hidden">
-                        <div className="bg-indigo-50/50 dark:bg-indigo-900/20 px-4 sm:px-6 py-3 border-b border-indigo-100 dark:border-indigo-900/30 flex items-center gap-2">
-                            <TrendingUp className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                        <div className="bg-indigo-50 dark:bg-dk-accent/20/50 dark:bg-indigo-900/20 px-4 sm:px-6 py-3 border-b border-indigo-100 dark:border-indigo-900/30 flex items-center gap-2">
+                            <TrendingUp className="w-4 h-4 text-indigo-600 dark:text-dk-accent-text dark:text-indigo-400" />
                             <h3 className="font-bold text-indigo-800 dark:text-indigo-300 text-sm uppercase tracking-wide">
                                 {tx(lang, {fr: "Contrôles de Planification & Risques",ar: "مراقبة التخطيط والمخاطر",en: "Planning & Risk Controls",es: "Controles de planificación y riesgos",pt: "Controlos de planeamento e riscos",tr: "Planlama ve Risk Kontrolleri"})}
                             </h3>
@@ -878,7 +878,7 @@ export default function FicheTechnique({
                                 <div className="space-y-2">
                                     <div className="flex justify-between items-center">
                                         <label className="text-xs font-bold text-slate-400 dark:text-dk-muted uppercase ml-1">{tx(lang, {fr: "Facteur de Planning",ar: "عامل التخطيط",en: "Planning Factor",es: "Factor de planificación",pt: "Fator de planeamento",tr: "Planlama Faktörü"})}</label>
-                                        <span className="text-xs font-black text-indigo-600 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-900/30 px-2 py-0.5 rounded">{data.facteurPlanning !== undefined ? data.facteurPlanning : 60}%</span>
+                                        <span className="text-xs font-black text-indigo-600 dark:text-dk-accent-text dark:text-indigo-300 bg-indigo-50 dark:bg-dk-accent/20 dark:bg-indigo-900/30 px-2 py-0.5 rounded">{data.facteurPlanning !== undefined ? data.facteurPlanning : 60}%</span>
                                     </div>
                                     <div className="flex items-center gap-4">
                                         <input
@@ -896,7 +896,7 @@ export default function FicheTechnique({
                                             max="200"
                                             value={data.facteurPlanning !== undefined ? data.facteurPlanning : 60}
                                             onChange={(e) => handleChange('facteurPlanning', Math.max(10, Math.min(200, Number(e.target.value))))}
-                                            className="w-16 text-center text-sm font-bold text-indigo-700 dark:text-indigo-300 bg-slate-50 dark:bg-dk-elevated/60 border border-slate-200 dark:border-dk-border rounded-lg py-1 outline-none"
+                                            className="w-16 text-center text-sm font-bold text-indigo-700 dark:text-dk-accent-text dark:text-indigo-300 bg-slate-50 dark:bg-dk-elevated/60 border border-slate-200 dark:border-dk-border rounded-lg py-1 outline-none"
                                         />
                                     </div>
                                     <p className="text-[10px] text-slate-400 dark:text-dk-muted leading-tight">{tx(lang, {fr: "Coefficient d'ajustement de la performance pour le calcul des dates de fin (Default: 60%).",ar: "معامل تعديل الأداء لحساب تواريخ الانتهاء (افتراضي: 60%).",en: "Performance adjustment coefficient for calculating end dates (Default: 60%).",es: "Coeficiente de ajuste de rendimiento para calcular las fechas de finalización (Predeterminado: 60%).",pt: "Coeficiente de ajuste do desempenho para o cálculo das datas de fim (Predefinido: 60%).",tr: "Bitiş tarihlerinin hesaplanması için performance düzeltme katsayısı (Varsayılan: %60)."})}</p>
@@ -943,7 +943,7 @@ export default function FicheTechnique({
                                     />
                                     <p className="text-[10px] text-slate-400 dark:text-dk-muted leading-tight">{tx(lang, {fr: "Statut opérationnel du modèle dans l'atelier.",ar: "الحالة التشغيلية للموديل في الورشة.",en: "Operational status of the model in the workshop.",es: "Estado operativo del modelo en el taller.",pt: "Estado operacional do modelo na oficina.",tr: "Atölyedeki modelin operasyonel durumu."})}</p>
                                     {statutSyncMsg && (
-                                        <div className="mt-1 inline-flex items-center gap-1.5 rounded-md bg-indigo-50 dark:bg-indigo-900/30 border border-indigo-100 dark:border-indigo-800 px-2 py-1 text-[10px] font-bold text-indigo-600 dark:text-indigo-300 animate-in fade-in slide-in-from-bottom-1">
+                                        <div className="mt-1 inline-flex items-center gap-1.5 rounded-md bg-indigo-50 dark:bg-dk-accent/20 dark:bg-indigo-900/30 border border-indigo-100 dark:border-indigo-800 px-2 py-1 text-[10px] font-bold text-indigo-600 dark:text-dk-accent-text dark:text-indigo-300 animate-in fade-in slide-in-from-bottom-1">
                                             <CheckCircle2 className="w-3 h-3" /> {statutSyncMsg}
                                         </div>
                                     )}
@@ -1005,7 +1005,7 @@ export default function FicheTechnique({
                             </div>
                             <button
                                 onClick={() => frontInputRef.current?.click()}
-                                className="absolute top-2 right-2 z-10 flex items-center gap-1 rounded-full bg-indigo-500 px-2 py-1 text-[9px] font-bold text-white shadow-md transition-all hover:bg-indigo-600 hover:shadow-lg active:scale-95"
+                                className="absolute top-2 right-2 z-10 flex items-center gap-1 rounded-full bg-indigo-500 px-2 py-1 text-[9px] font-bold text-white shadow-md transition-all hover:bg-indigo-600 dark:hover:bg-dk-accent hover:shadow-lg active:scale-95"
                             >
                                 <Upload className="w-2.5 h-2.5" />
                                 {tx(lang, { fr: 'Photo', ar: 'صورة', en: 'Photo', es: 'Foto', pt: 'Foto', tr: 'Fotoğraf' })}
@@ -1050,7 +1050,7 @@ export default function FicheTechnique({
                             </div>
                             <button
                                 onClick={() => backInputRef.current?.click()}
-                                className="absolute top-2 right-2 z-10 flex items-center gap-1 rounded-full bg-indigo-500 px-2 py-1 text-[9px] font-bold text-white shadow-md transition-all hover:bg-indigo-600 hover:shadow-lg active:scale-95"
+                                className="absolute top-2 right-2 z-10 flex items-center gap-1 rounded-full bg-indigo-500 px-2 py-1 text-[9px] font-bold text-white shadow-md transition-all hover:bg-indigo-600 dark:hover:bg-dk-accent hover:shadow-lg active:scale-95"
                             >
                                 <Upload className="w-2.5 h-2.5" />
                                 {tx(lang, { fr: 'Photo', ar: 'صورة', en: 'Photo', es: 'Foto', pt: 'Foto', tr: 'Fotoğraf' })}
@@ -1108,7 +1108,7 @@ export default function FicheTechnique({
                                     onSectionSplitChange?.(enabled);
                                 }}
                             />
-                            <div className="w-11 h-6 bg-slate-200 dark:bg-dk-elevated peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 dark:after:border-dk-border after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                            <div className="w-11 h-6 bg-slate-200 dark:bg-dk-elevated peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 dark:after:border-dk-border after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600 dark:bg-dk-accent"></div>
                         </label>
                     </div>
 

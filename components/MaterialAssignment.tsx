@@ -76,8 +76,8 @@ const MaterialAssignment: React.FC<MaterialAssignmentProps> = ({
             type="button"
             onClick={onClick}
             className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium transition-all duration-150 ${active
-                ? 'bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200'
-                : 'bg-slate-50 text-slate-500 hover:bg-slate-100 hover:text-slate-700'}`}
+                ? 'bg-indigo-50 dark:bg-dk-accent/20 text-indigo-700 dark:text-dk-accent-text ring-1 ring-indigo-200'
+                : 'bg-slate-50 dark:bg-dk-bg text-slate-500 hover:bg-slate-100 hover:text-slate-700'}`}
         >
             {hex && <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: hex }} />}
             {children}
@@ -87,7 +87,7 @@ const MaterialAssignment: React.FC<MaterialAssignmentProps> = ({
 
     const FilterSelect = ({ value, onChange, children }: { value: string; onChange: (v: string) => void; children: React.ReactNode }) => (
         <select value={value} onChange={e => onChange(e.target.value)}
-            className="h-9 px-3 text-[12px] bg-white border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-300 transition-all cursor-pointer appearance-none pr-7 bg-no-repeat bg-[right_0.5rem_center] bg-[length:1rem]"
+            className="h-9 px-3 text-[12px] bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-lg outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-300 transition-all cursor-pointer appearance-none pr-7 bg-no-repeat bg-[right_0.5rem_center] bg-[length:1rem]"
             style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='%2394a3b8'%3E%3Cpath fill-rule='evenodd' d='M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z' clip-rule='evenodd'/%3E%3C/svg%3E")` }}>
             {children}
         </select>
@@ -95,17 +95,17 @@ const MaterialAssignment: React.FC<MaterialAssignmentProps> = ({
 
     return (
         <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-slate-950/30 backdrop-blur-sm p-0 md:p-4">
-            <div className="bg-white w-full max-h-[92vh] md:max-w-3xl md:max-h-[88vh] rounded-t-2xl md:rounded-2xl shadow-2xl overflow-hidden flex flex-col animate-in fade-in slide-in-from-bottom-4 duration-200">
+            <div className="bg-white dark:bg-dk-surface w-full max-h-[92vh] md:max-w-3xl md:max-h-[88vh] rounded-t-2xl md:rounded-2xl shadow-2xl overflow-hidden flex flex-col animate-in fade-in slide-in-from-bottom-4 duration-200">
 
                 {/* Header — Clean flat */}
-                <div className="px-6 py-4 flex items-center justify-between shrink-0 border-b border-slate-100">
+                <div className="px-6 py-4 flex items-center justify-between shrink-0 border-b border-slate-100 dark:border-dk-border">
                     <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-xl bg-indigo-50 flex items-center justify-center">
-                            <Package className="w-4.5 h-4.5 text-indigo-600" />
+                        <div className="w-9 h-9 rounded-xl bg-indigo-50 dark:bg-dk-accent/20 flex items-center justify-center">
+                            <Package className="w-4.5 h-4.5 text-indigo-600 dark:text-dk-accent-text" />
                         </div>
                         <div>
-                            <h2 className="text-slate-900 font-semibold text-[15px] leading-tight">Affectation des Matières</h2>
-                            <p className="text-slate-400 text-[11px] mt-0.5">Quelle matière entre dans quelle couleur / taille</p>
+                            <h2 className="text-slate-900 dark:text-dk-text font-semibold text-[15px] leading-tight">Affectation des Matières</h2>
+                            <p className="text-slate-400 dark:text-dk-muted text-[11px] mt-0.5">Quelle matière entre dans quelle couleur / taille</p>
                         </div>
                     </div>
                     <button onClick={onClose}
@@ -115,13 +115,13 @@ const MaterialAssignment: React.FC<MaterialAssignmentProps> = ({
                 </div>
 
                 {/* Filters — Minimal bar */}
-                <div className="px-5 py-3 border-b border-slate-100 bg-white flex flex-wrap items-center gap-2 shrink-0">
+                <div className="px-5 py-3 border-b border-slate-100 dark:border-dk-border bg-white dark:bg-dk-surface flex flex-wrap items-center gap-2 shrink-0">
                     <div className="relative flex-1 min-w-[180px]">
-                        <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                        <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-dk-muted" />
                         <input
                             value={query} onChange={e => setQuery(e.target.value)}
                             placeholder={tx(lang, {fr:'Rechercher une matière…',ar:'بحث عن مادة…',en:'Search for a material…',es:'Buscar un material…',pt:'Procurar um material…',tr:'Malzeme ara…'})}
-                            className="w-full h-9 pl-9 pr-3 text-[12px] bg-slate-50 border border-slate-200 rounded-lg outline-none focus:bg-white focus:ring-2 focus:ring-indigo-100 focus:border-indigo-300 transition-all placeholder:text-slate-400"
+                            className="w-full h-9 pl-9 pr-3 text-[12px] bg-slate-50 border border-slate-200 dark:border-dk-border rounded-lg outline-none focus:bg-white focus:ring-2 focus:ring-indigo-100 focus:border-indigo-300 transition-all placeholder:text-slate-400"
                         />
                     </div>
                     <FilterSelect value={unitFilter || ''} onChange={v => setUnitFilter(v || null)}>
@@ -147,7 +147,7 @@ const MaterialAssignment: React.FC<MaterialAssignmentProps> = ({
                 {/* Materials List */}
                 <div className="flex-1 overflow-y-auto px-5 py-4 space-y-2">
                     {filtered.length === 0 && (
-                        <div className="text-center text-slate-400 text-[13px] py-12">
+                        <div className="text-center text-slate-400 dark:text-dk-muted text-[13px] py-12">
                             <Package className="w-8 h-8 mx-auto mb-2 opacity-30" />
                             Aucune matière ne correspond aux filtres.
                         </div>
@@ -159,27 +159,27 @@ const MaterialAssignment: React.FC<MaterialAssignmentProps> = ({
                         return (
                             <div key={m.id}
                                 className={`border rounded-xl p-4 transition-all duration-150 ${isAssigned
-                                    ? 'border-indigo-100 bg-indigo-50/30'
-                                    : 'border-slate-100 bg-white hover:border-slate-200'}`}>
+                                    ? 'border-indigo-100 bg-indigo-50 dark:bg-dk-accent/20/30'
+                                    : 'border-slate-100 dark:border-dk-border bg-white dark:bg-dk-surface hover:border-slate-200'}`}>
 
                                 {/* Material Header */}
                                 <div className="flex items-center justify-between gap-3 mb-3">
                                     <div className="min-w-0 flex-1">
                                         <div className="flex items-center gap-2">
-                                            <span className="font-semibold text-slate-800 text-[13px] truncate">{m.name || '—'}</span>
+                                            <span className="font-semibold text-slate-800 dark:text-dk-text text-[13px] truncate">{m.name || '—'}</span>
                                             {isAssigned && (
-                                                <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md bg-indigo-100 text-indigo-700 text-[9px] font-bold uppercase tracking-wide">
+                                                <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md bg-indigo-100 text-indigo-700 dark:text-dk-accent-text text-[9px] font-bold uppercase tracking-wide">
                                                     <Layers className="w-2.5 h-2.5" /> Scope
                                                 </span>
                                             )}
                                         </div>
-                                        <div className="text-[11px] text-slate-400 mt-0.5">
-                                            {fmt(m.qty)} {m.unit} / pièce · s'applique à <span className="font-medium text-slate-600">{fmt(scopeQty(m))}</span> pièces
+                                        <div className="text-[11px] text-slate-400 dark:text-dk-muted mt-0.5">
+                                            {fmt(m.qty)} {m.unit} / pièce · s'applique à <span className="font-medium text-slate-600 dark:text-dk-text-soft">{fmt(scopeQty(m))}</span> pièces
                                         </div>
                                     </div>
                                     {isAssigned && (
                                         <button onClick={() => resetMaterial(m)}
-                                            className="text-[10px] font-medium text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 px-2 py-1 rounded-md transition-colors shrink-0">
+                                            className="text-[10px] font-medium text-slate-400 hover:text-indigo-600 dark:text-dk-accent-text hover:bg-indigo-50 dark:bg-dk-accent/20 px-2 py-1 rounded-md transition-colors shrink-0">
                                             {tx(lang, {fr:'Réinitialiser',ar:'إعادة تعيين',en:'Reset',es:'Restablecer',pt:'Repor',tr:'Sıfırla'})}
                                         </button>
                                     )}
@@ -188,7 +188,7 @@ const MaterialAssignment: React.FC<MaterialAssignmentProps> = ({
                                 {/* Colors */}
                                 {colors.length > 0 && (
                                     <div className="mb-2.5">
-                                        <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
+                                        <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-400 dark:text-dk-muted mb-1.5">
                                             <Palette className="w-3 h-3" /> Couleurs
                                         </div>
                                         <div className="flex flex-wrap gap-1.5">
@@ -205,7 +205,7 @@ const MaterialAssignment: React.FC<MaterialAssignmentProps> = ({
                                 {/* Sizes */}
                                 {sizes.length > 0 && (
                                     <div>
-                                        <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
+                                        <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-400 dark:text-dk-muted mb-1.5">
                                             <Ruler className="w-3 h-3" /> Tailles
                                         </div>
                                         <div className="flex flex-wrap gap-1.5">
@@ -222,8 +222,8 @@ const MaterialAssignment: React.FC<MaterialAssignmentProps> = ({
                 </div>
 
                 {/* Footer — Clean */}
-                <div className="px-5 py-3 border-t border-slate-100 bg-white flex items-center justify-between shrink-0">
-                    <span className="text-[11px] text-slate-400 flex items-center gap-1.5">
+                <div className="px-5 py-3 border-t border-slate-100 dark:border-dk-border bg-white dark:bg-dk-surface flex items-center justify-between shrink-0">
+                    <span className="text-[11px] text-slate-400 dark:text-dk-muted flex items-center gap-1.5">
                         <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
                         Les changements sont appliqués en direct
                     </span>

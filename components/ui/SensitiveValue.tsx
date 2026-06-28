@@ -25,7 +25,7 @@ export default function SensitiveValue({
   const { canField } = usePermissions();
   if (canField(field, 'view')) return <>{children}</>;
   return (
-    <span className="inline-flex items-center gap-1 text-slate-400" title={tx(lang, { fr: 'Information masquée selon vos permissions', ar: 'معلومات مخفية حسب صلاحياتك' })}>
+    <span className="inline-flex items-center gap-1 text-slate-400 dark:text-dk-muted" title={tx(lang, { fr: 'Information masquée selon vos permissions', ar: 'معلومات مخفية حسب صلاحياتك' })}>
       <Lock size={12} strokeWidth={1.75} />
       {placeholder ?? '•••'}
     </span>

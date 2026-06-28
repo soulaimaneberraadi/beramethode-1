@@ -66,20 +66,20 @@ export default function CardsView({ events, models, onSelectEvent, onEditEvent }
                     const items = grouped[col.status];
                     const meta = STATUS_META[col.status];
                     return (
-                        <div key={col.status} className="bg-white rounded-xl border border-slate-100 flex flex-col min-h-[200px]">
+                        <div key={col.status} className="bg-white dark:bg-dk-surface rounded-xl border border-slate-100 dark:border-dk-border flex flex-col min-h-[200px]">
                             {/* Column header */}
-                            <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
+                            <div className="px-4 py-3 border-b border-slate-100 dark:border-dk-border flex items-center justify-between">
                                 <div className="flex items-center gap-2">
                                     <span className={`w-1.5 h-1.5 rounded-full ${meta.dot}`} />
-                                    <span className="text-[12px] font-semibold text-slate-900">{col.label}</span>
+                                    <span className="text-[12px] font-semibold text-slate-900 dark:text-dk-text">{col.label}</span>
                                 </div>
-                                <span className="text-[11px] text-slate-400 tabular-nums">{items.length}</span>
+                                <span className="text-[11px] text-slate-400 dark:text-dk-muted tabular-nums">{items.length}</span>
                             </div>
 
                             {/* Cards */}
                             <div className="p-2 space-y-2 flex-1">
                                 {items.length === 0 && (
-                                    <div className="text-center text-[11px] text-slate-400 py-8">
+                                    <div className="text-center text-[11px] text-slate-400 dark:text-dk-muted py-8">
                                         {tx(lang, { fr: 'Aucun ordre', ar: 'لا يوجد أمر', en: 'No orders', es: 'Sin órdenes', pt: 'Nenhum pedido', tr: 'Sipariş yok' })}
                                     </div>
                                 )}
@@ -126,8 +126,8 @@ function EventCard({
             onDoubleClick={onDoubleClick}
             className={`group w-full text-left hover:shadow-[0_2px_8px_rgba(15,23,42,0.04)] rounded-lg p-3 transition-all ${
                 isSub
-                    ? 'bg-indigo-50/10 border border-dashed border-indigo-400 hover:border-indigo-500'
-                    : 'bg-white border border-slate-100 hover:border-slate-200'
+                    ? 'bg-indigo-50 dark:bg-dk-accent/20/10 border border-dashed border-indigo-400 hover:border-indigo-500'
+                    : 'bg-white dark:bg-dk-surface border border-slate-100 dark:border-dk-border hover:border-slate-200'
             }`}
         >
             <div className="flex items-start gap-2.5 mb-2">
@@ -138,11 +138,11 @@ function EventCard({
                     <div className="flex items-center justify-between gap-1.5 mb-0.5">
                         <div className="flex items-center gap-1.5 min-w-0">
                             <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: getClientColor(client) }} title={`Client: ${client}`} />
-                            <span className="text-[10px] text-slate-500 truncate">{client}</span>
+                            <span className="text-[10px] text-slate-500 dark:text-dk-muted truncate">{client}</span>
                         </div>
                         <div className="flex items-center gap-1 shrink-0">
                             {chainLabel && (
-                                <span className="text-[8px] font-bold uppercase px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 tabular-nums" title={event.chaineId}>
+                                <span className="text-[8px] font-bold uppercase px-1.5 py-0.5 rounded bg-slate-100 dark:bg-dk-elevated text-slate-500 dark:text-dk-muted tabular-nums" title={event.chaineId}>
                                     {chainLabel}
                                 </span>
                             )}
@@ -150,16 +150,16 @@ function EventCard({
                                 <span className={`text-[8px] font-black uppercase px-1.5 py-0.25 rounded ${
                                     event.subcontractStatus === 'COMPLETED' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' :
                                     event.subcontractStatus === 'SENT' ? 'bg-blue-50 text-blue-700 border border-blue-200' :
-                                    'bg-slate-50 text-slate-600 border border-slate-200'
+                                    'bg-slate-50 dark:bg-dk-bg text-slate-600 dark:text-dk-text-soft border border-slate-200 dark:border-dk-border'
                                 }`} title={event.subcontractorName}>
                                     {event.subcontractStatus || 'PENDING'}
                                 </span>
                             )}
                         </div>
                     </div>
-                    <div className="text-[12px] font-semibold text-slate-900 truncate">{modelName}</div>
+                    <div className="text-[12px] font-semibold text-slate-900 dark:text-dk-text truncate">{modelName}</div>
                     {isSub && event.subcontractorName && (
-                        <div className="text-[9px] text-indigo-600 font-medium truncate mt-0.5">
+                        <div className="text-[9px] text-indigo-600 dark:text-dk-accent-text font-medium truncate mt-0.5">
                             {tx(lang, { fr: 'S-T:', ar: 'م ب:', en: 'Sub:', es: 'Sub:', pt: 'Sub:', tr: 'Taş:' })} {event.subcontractorName}
                         </div>
                     )}
@@ -168,14 +168,14 @@ function EventCard({
 
             <div className="space-y-2">
                 <div className="flex items-center justify-between text-[10px]">
-                    <span className="text-slate-400 tabular-nums">{qty} pcs</span>
-                    <span className="text-slate-700 font-medium tabular-nums">{progress}%</span>
+                    <span className="text-slate-400 dark:text-dk-muted tabular-nums">{qty} pcs</span>
+                    <span className="text-slate-700 dark:text-dk-text-soft font-medium tabular-nums">{progress}%</span>
                 </div>
-                <div className="h-1 bg-slate-100 rounded-full overflow-hidden">
+                <div className="h-1 bg-slate-100 dark:bg-dk-elevated rounded-full overflow-hidden">
                     <div className="h-full rounded-full transition-[width]" style={{ width: `${progress}%`, background: accent }} />
                 </div>
 
-                <div className="flex items-center justify-between text-[10px] text-slate-500 pt-1">
+                <div className="flex items-center justify-between text-[10px] text-slate-500 dark:text-dk-muted pt-1">
                     <div className="flex items-center gap-1">
                         <Calendar className="w-2.5 h-2.5" strokeWidth={1.75} />
                         <span className="tabular-nums">{fmtShort(evStartYmd(event))}</span>

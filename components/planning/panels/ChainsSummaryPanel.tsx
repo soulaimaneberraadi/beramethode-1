@@ -36,7 +36,7 @@ export default function ChainsSummaryPanel({
 
     const effStyle = (eff: number) =>
         eff >= 1.1 ? 'text-emerald-600' :
-        eff >= 0.9 ? 'text-slate-500' :
+        eff >= 0.9 ? 'text-slate-500 dark:text-dk-muted' :
         eff >= 0.7 ? 'text-amber-600' :
         'text-red-500';
 
@@ -75,7 +75,7 @@ export default function ChainsSummaryPanel({
                     <span className="text-[9px] font-black text-slate-400 dark:text-dk-muted">·</span>
                     <span className="text-[10px] font-bold text-slate-500 dark:text-dk-text-soft">{chains.length}</span>
                     {soloChainId && (
-                        <span className="ml-2 text-[10px] font-medium text-indigo-500 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/30 border border-indigo-100 dark:border-indigo-800 px-2 py-0.5 rounded-full">
+                        <span className="ml-2 text-[10px] font-medium text-indigo-500 dark:text-indigo-400 bg-indigo-50 dark:bg-dk-accent/20 dark:bg-indigo-900/30 border border-indigo-100 dark:border-indigo-800 px-2 py-0.5 rounded-full">
                             {soloChainId}
                         </span>
                     )}
@@ -115,13 +115,13 @@ export default function ChainsSummaryPanel({
                                 onContextMenu={e => handleRightClick(e, chain.id)}
                                 className={`shrink-0 flex flex-col justify-center gap-0.5 px-4 py-2 text-left transition-colors min-w-[120px] ${
                                     isSolo
-                                        ? 'bg-indigo-50 dark:bg-indigo-900/20 border-b-2 border-b-indigo-500'
+                                        ? 'bg-indigo-50 dark:bg-dk-accent/20 dark:bg-indigo-900/20 border-b-2 border-b-indigo-500'
                                         : 'hover:bg-slate-50/60 dark:hover:bg-dk-elevated/60 border-b-2 border-b-transparent'
                                 }`}
                             >
                                 <div className="flex items-center gap-1.5">
                                     <span className={`w-1.5 h-1.5 rounded-full ${dotColor(chain.efficiency)}`} />
-                                    <span className={`text-[11px] font-semibold truncate ${isSolo ? 'text-indigo-700 dark:text-indigo-400' : 'text-slate-800 dark:text-dk-text'}`}>
+                                    <span className={`text-[11px] font-semibold truncate ${isSolo ? 'text-indigo-700 dark:text-dk-accent-text dark:text-indigo-400' : 'text-slate-800 dark:text-dk-text'}`}>
                                         {chain.name}
                                     </span>
                                 </div>

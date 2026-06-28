@@ -38,7 +38,7 @@ export default function PlanningCardsView({
 
     if (planningEvents.length === 0) {
         return (
-            <div className="flex-1 flex flex-col items-center justify-center p-8 text-center text-gray-500">
+            <div className="flex-1 flex flex-col items-center justify-center p-8 text-center text-gray-500 dark:text-dk-muted">
                 <Layers className="w-12 h-12 mb-4 opacity-20" />
                 <p>{tx(lang,{fr:"Aucun ordre planifié pour l'instant.",ar:"لا توجد أوامر مخططة حالياً",en:"No orders planned yet.",es:"Ninguna orden planificada aún.",pt:"Nenhuma ordem planejada ainda.",tr:"Henüz planlanmış emir yok."})}</p>
                 <p className="text-sm mt-2">{tx(lang,{fr:"Glissez un modèle depuis la bibliothèque ou cliquez sur Planifier.",ar:"اسحب نموذجاً من المكتبة أو انقر على تخطيط.",en:"Drag a model from the library or click Schedule.",es:"Arrastre un modelo desde la biblioteca o haga clic en Planificar.",pt:"Arraste um modelo da biblioteca ou clique em Planejar.",tr:"Kütüphaneden bir model sürükleyin veya Planla'ya tıklayın."})}</p>
@@ -72,14 +72,14 @@ export default function PlanningCardsView({
                                         {name}
                                         {risk && <AlertTriangle className="w-4 h-4 text-red-500" />}
                                     </h3>
-                                    {client && <p className="text-xs text-gray-500 mt-1">{client}</p>}
+                                    {client && <p className="text-xs text-gray-500 dark:text-dk-muted mt-1">{client}</p>}
                                 </div>
                                 <span className={`text-[10px] font-bold px-2 py-1 rounded-full ${cfg.bg} ${cfg.border} text-gray-200 border`}>
                                     {cfg.label}
                                 </span>
                             </div>
 
-                            <div className="space-y-2 mb-4 text-sm text-gray-400">
+                            <div className="space-y-2 mb-4 text-sm text-gray-400 dark:text-dk-muted">
                                 <div className="flex justify-between">
                                     <span className="flex items-center gap-1.5"><Layers className="w-3.5 h-3.5" /> {tx(lang, {fr:"Ligne",ar:"خط",en:"Line",es:"Línea",pt:"Linha",tr:"Hat"})}</span>
                                     <span className="font-semibold text-gray-200">{chaine?.name || ev.chaineId}</span>
@@ -100,8 +100,8 @@ export default function PlanningCardsView({
 
                             <div className="mt-auto pt-3 border-t border-gray-800">
                                 <div className="flex justify-between text-xs mb-1.5 font-semibold">
-                                    <span className="text-gray-400">{prod} / {qty} <span className="text-gray-600">pcs</span></span>
-                                    <span className="text-gray-300">{progress}%</span>
+                                    <span className="text-gray-400 dark:text-dk-muted">{prod} / {qty} <span className="text-gray-600 dark:text-dk-text-soft">pcs</span></span>
+                                    <span className="text-gray-300 dark:text-dk-muted">{progress}%</span>
                                 </div>
                                 <div className="h-1.5 bg-gray-800 rounded-full overflow-hidden">
                                     <div className={`h-full ${cfg.bar} transition-all`} style={{ width: `${progress}%` }} />

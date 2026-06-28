@@ -36,14 +36,14 @@ export default function DateRangePicker({ from, to, onChange, settings, classNam
             <div className="flex gap-2 text-xs font-bold">
                 <button
                     type="button"
-                    className={`rounded-lg px-3 py-1 ${picking === 'from' ? 'bg-emerald-700 text-white' : 'bg-slate-100 text-slate-600'}`}
+                    className={`rounded-lg px-3 py-1 ${picking === 'from' ? 'bg-emerald-700 text-white' : 'bg-slate-100 dark:bg-dk-elevated text-slate-600 dark:text-dk-text-soft'}`}
                     onClick={() => setPicking('from')}
                 >
                     Début {from || '—'}
                 </button>
                 <button
                     type="button"
-                    className={`rounded-lg px-3 py-1 ${picking === 'to' ? 'bg-emerald-700 text-white' : 'bg-slate-100 text-slate-600'}`}
+                    className={`rounded-lg px-3 py-1 ${picking === 'to' ? 'bg-emerald-700 text-white' : 'bg-slate-100 dark:bg-dk-elevated text-slate-600 dark:text-dk-text-soft'}`}
                     onClick={() => setPicking('to')}
                 >
                     Fin {to || '—'}

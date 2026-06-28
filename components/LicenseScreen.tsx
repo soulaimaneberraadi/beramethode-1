@@ -49,7 +49,7 @@ export default function LicenseScreen({ onValidated }: { onValidated: () => void
         <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4 relative overflow-hidden" dir="ltr">
             {/* Background elements */}
             <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-emerald-600/20 rounded-full blur-[120px]"></div>
-            <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-indigo-600/20 rounded-full blur-[120px]"></div>
+            <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-indigo-600 dark:bg-dk-accent/20 rounded-full blur-[120px]"></div>
 
             <div className="max-w-md w-full relative z-10 backdrop-blur-xl bg-slate-800/50 p-8 rounded-3xl border border-slate-700 shadow-2xl">
                 <div className="flex flex-col items-center justify-center text-center mb-8">
@@ -57,15 +57,15 @@ export default function LicenseScreen({ onValidated }: { onValidated: () => void
                         <Lock className="w-8 h-8 text-emerald-400" />
                     </div>
                     <h1 className="text-2xl font-black text-white tracking-tight">{tx(lang, {fr:"BERA",ar:"BERA",en:"BERA",es:"BERA",pt:"BERA",tr:"BERA"})}<span className="text-emerald-400">{tx(lang, {fr:"METHODE",ar:"METHODE",en:"METHODE",es:"METHODE",pt:"METHODE",tr:"METHODE"})}</span> V1</h1>
-                    <p className="text-slate-400 text-sm mt-2">{tx(lang, {fr:"Activation du système requise",ar:"تفعيل النظام مطلوب",en:"System activation required",es:"Activación del sistema requerida",pt:"Ativação do sistema necessária",tr:"Sistem aktivasyonu gerekli"})}</p>
+                    <p className="text-slate-400 dark:text-dk-muted text-sm mt-2">{tx(lang, {fr:"Activation du système requise",ar:"تفعيل النظام مطلوب",en:"System activation required",es:"Activación del sistema requerida",pt:"Ativação do sistema necessária",tr:"Sistem aktivasyonu gerekli"})}</p>
                 </div>
 
                 <div className="space-y-6">
                     <div>
-                        <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">{tx(lang, {fr:"Clé de Licence (License Key)",ar:"مفتاح الترخيص",en:"License Key",es:"Clave de Licencia",pt:"Chave de Licença",tr:"Lisans Anahtarı"})}</label>
+                        <label className="block text-xs font-bold text-slate-400 dark:text-dk-muted uppercase tracking-wider mb-2">{tx(lang, {fr:"Clé de Licence (License Key)",ar:"مفتاح الترخيص",en:"License Key",es:"Clave de Licencia",pt:"Chave de Licença",tr:"Lisans Anahtarı"})}</label>
                         <div className="relative">
                             <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                                <Key className="h-5 w-5 text-slate-500" />
+                                <Key className="h-5 w-5 text-slate-500 dark:text-dk-muted" />
                             </div>
                             <input
                                 type="text"
@@ -92,7 +92,7 @@ export default function LicenseScreen({ onValidated }: { onValidated: () => void
                     </button>
                 </div>
 
-                <div className="mt-8 text-center flex items-center justify-center gap-2 text-slate-500 text-xs">
+                <div className="mt-8 text-center flex items-center justify-center gap-2 text-slate-500 dark:text-dk-muted text-xs">
                     <ShieldCheck className="w-4 h-4" />
                     <span>{tx(lang, {fr:"Système de vérification hors-ligne cryptographiquement sécurisé",ar:"نظام تحقق غير متصل مشفر بأمان",en:"Cryptographically secured offline verification system",es:"Sistema de verificación fuera de línea criptográficamente seguro",pt:"Sistema de verificação offline criptograficamente seguro",tr:"Kriptografik olarak güvenli çevrimdışı doğrulama sistemi"})}</span>
                 </div>

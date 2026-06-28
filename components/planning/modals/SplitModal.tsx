@@ -241,27 +241,27 @@ export default function SplitModal({ open, event, models, onClose, onSubmit }: P
         >
             <div className="space-y-4">
                 {/* Model preview */}
-                <div className="flex items-center gap-3 bg-slate-50 rounded-xl p-3">
+                <div className="flex items-center gap-3 bg-slate-50 dark:bg-dk-bg rounded-xl p-3">
                     <div className="w-12 h-12 rounded-lg flex items-center justify-center text-lg font-black text-white shadow-sm" style={{ background: color }}>
                         {client[0]?.toUpperCase() || '?'}
                     </div>
                     <div className="flex-1">
-                        <div className="text-[13px] font-semibold text-slate-900">{modelName}</div>
-                        <div className="text-[11px] text-slate-500">{client}</div>
+                        <div className="text-[13px] font-semibold text-slate-900 dark:text-dk-text">{modelName}</div>
+                        <div className="text-[11px] text-slate-500 dark:text-dk-muted">{client}</div>
                     </div>
                     <div className="text-right">
-                        <div className="text-[18px] font-black text-slate-900 tabular-nums">{total}</div>
-                        <div className="text-[10px] text-slate-500">{tx(lang,{fr:'pcs total',ar:'إجمالي القطع',en:'pcs total',es:'pcs total',pt:'pcs total',tr:'toplam adet'})}</div>
+                        <div className="text-[18px] font-black text-slate-900 dark:text-dk-text tabular-nums">{total}</div>
+                        <div className="text-[10px] text-slate-500 dark:text-dk-muted">{tx(lang,{fr:'pcs total',ar:'إجمالي القطع',en:'pcs total',es:'pcs total',pt:'pcs total',tr:'toplam adet'})}</div>
                     </div>
                 </div>
 
                 {/* Mode switcher */}
-                <div className="flex bg-slate-100 p-1 rounded-xl">
+                <div className="flex bg-slate-100 dark:bg-dk-elevated p-1 rounded-xl">
                     <button
                         type="button"
                         onClick={() => setMode('simple')}
                         className={`flex-1 py-2 text-[12px] font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 ${
-                            mode === 'simple' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                            mode === 'simple' ? 'bg-white dark:bg-dk-surface text-slate-900 dark:text-dk-text shadow-sm' : 'text-slate-500 hover:text-slate-700'
                         }`}
                     >
                         <Scissors className="w-3.5 h-3.5" />
@@ -271,7 +271,7 @@ export default function SplitModal({ open, event, models, onClose, onSubmit }: P
                         type="button"
                         onClick={() => setMode('lots')}
                         className={`flex-1 py-2 text-[12px] font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 ${
-                            mode === 'lots' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                            mode === 'lots' ? 'bg-white dark:bg-dk-surface text-slate-900 dark:text-dk-text shadow-sm' : 'text-slate-500 hover:text-slate-700'
                         }`}
                     >
                         <Package className="w-3.5 h-3.5" />
@@ -282,7 +282,7 @@ export default function SplitModal({ open, event, models, onClose, onSubmit }: P
                 {mode === 'simple' ? (
                     <>
                         {/* Simple split */}
-                        <div className="text-[13px] text-slate-600">
+                        <div className="text-[13px] text-slate-600 dark:text-dk-text-soft">
                             {tx(lang,{fr:'Quantité à transférer vers un nouvel ordre :',ar:'الكمية المراد نقلها إلى طلب جديد:',en:'Quantity to transfer to a new order:',es:'Cantidad a transferir a un nuevo pedido:',pt:'Quantidade a transferir para um novo pedido:',tr:'Yeni siparişe aktarılacak miktar:'})}
                         </div>
 
@@ -329,7 +329,7 @@ export default function SplitModal({ open, event, models, onClose, onSubmit }: P
                 ) : (
                     <>
                         {/* Lots mode */}
-                        <div className="text-[13px] text-slate-600">
+                        <div className="text-[13px] text-slate-600 dark:text-dk-text-soft">
                             Divisez la commande en lots selon les livraisons client :
                         </div>
 
@@ -341,14 +341,14 @@ export default function SplitModal({ open, event, models, onClose, onSubmit }: P
                                     Reste à attribuer par taille/couleur
                                 </div>
                                 <div className="overflow-x-auto border border-slate-150 rounded-lg">
-                                    <table className="w-full text-[11px] bg-white">
+                                    <table className="w-full text-[11px] bg-white dark:bg-dk-surface">
                                         <thead>
-                                            <tr className="bg-slate-50 border-b border-slate-150">
-                                                <th className="px-2 py-1.5 text-left text-slate-500 font-semibold sticky left-0 bg-slate-50">Couleur</th>
+                                            <tr className="bg-slate-50 dark:bg-dk-bg border-b border-slate-150">
+                                                <th className="px-2 py-1.5 text-left text-slate-500 dark:text-dk-muted font-semibold sticky left-0 bg-slate-50 dark:bg-dk-bg">Couleur</th>
                                                 {sizes.map(s => (
-                                                    <th key={s} className="px-2 py-1.5 text-center text-slate-500 font-semibold min-w-[50px]">{s}</th>
+                                                    <th key={s} className="px-2 py-1.5 text-center text-slate-500 dark:text-dk-muted font-semibold min-w-[50px]">{s}</th>
                                                 ))}
-                                                <th className="px-2 py-1.5 text-center font-bold text-slate-700 bg-slate-100">Total</th>
+                                                <th className="px-2 py-1.5 text-center font-bold text-slate-700 dark:text-dk-text-soft bg-slate-100 dark:bg-dk-elevated">Total</th>
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-slate-100">
@@ -356,19 +356,19 @@ export default function SplitModal({ open, event, models, onClose, onSubmit }: P
                                                 const rowRemaining = Object.values(remainingDistribution[color.id] || {}).reduce((s, q) => s + q, 0);
                                                 return (
                                                     <tr key={`${color.id}-${cIdx}`} className="hover:bg-slate-50/50">
-                                                        <td className="px-2 py-1.5 sticky left-0 bg-white border-r border-slate-100 flex items-center gap-1.5">
+                                                        <td className="px-2 py-1.5 sticky left-0 bg-white dark:bg-dk-surface border-r border-slate-100 dark:border-dk-border flex items-center gap-1.5">
                                                             <div className="w-2.5 h-2.5 rounded-full border border-slate-300" style={{ background: color.id }} />
                                                             <span className="truncate max-w-[80px] text-slate-750 font-medium">{color.name}</span>
                                                         </td>
                                                         {sizes.map(size => {
                                                             const qtyVal = remainingDistribution[color.id]?.[size] ?? 0;
                                                             return (
-                                                                <td key={size} className={`px-2 py-1.5 text-center font-mono tabular-nums ${qtyVal < 0 ? 'text-red-655 bg-red-50 font-bold' : qtyVal === 0 ? 'text-slate-300' : 'text-slate-650 font-semibold'}`}>
+                                                                <td key={size} className={`px-2 py-1.5 text-center font-mono tabular-nums ${qtyVal < 0 ? 'text-red-655 bg-red-50 font-bold' : qtyVal === 0 ? 'text-slate-300 dark:text-dk-muted' : 'text-slate-650 font-semibold'}`}>
                                                                     {qtyVal}
                                                                 </td>
                                                             );
                                                         })}
-                                                        <td className={`px-2 py-1.5 text-center font-bold font-mono ${rowRemaining < 0 ? 'text-red-700 bg-red-100' : rowRemaining === 0 ? 'text-slate-400' : 'text-indigo-650'}`}>
+                                                        <td className={`px-2 py-1.5 text-center font-bold font-mono ${rowRemaining < 0 ? 'text-red-700 bg-red-100' : rowRemaining === 0 ? 'text-slate-400 dark:text-dk-muted' : 'text-indigo-650 dark:text-dk-accent-text'}`}>
                                                             {rowRemaining}
                                                         </td>
                                                     </tr>
@@ -383,7 +383,7 @@ export default function SplitModal({ open, event, models, onClose, onSubmit }: P
                         {/* Lots list */}
                         <div className="space-y-3 max-h-[300px] overflow-y-auto pr-1">
                             {lots.map((lot, idx) => (
-                                <div key={lot.id} className="bg-slate-50 border border-slate-200 rounded-xl p-3 space-y-2.5">
+                                <div key={lot.id} className="bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl p-3 space-y-2.5">
                                     <div className="flex items-center justify-between">
                                         <div className="flex items-center gap-2">
                                             <div className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold text-white shadow-sm" style={{ background: color }}>
@@ -393,14 +393,14 @@ export default function SplitModal({ open, event, models, onClose, onSubmit }: P
                                                 type="text"
                                                 value={lot.label}
                                                 onChange={(e) => updateLot(lot.id, 'label', e.target.value)}
-                                                className="text-[12px] font-bold text-slate-900 bg-transparent outline-none w-32 border-b border-transparent focus:border-slate-350"
+                                                className="text-[12px] font-bold text-slate-900 dark:text-dk-text bg-transparent outline-none w-32 border-b border-transparent focus:border-slate-350"
                                                 placeholder="Nom du lot"
                                             />
                                         </div>
                                         <button
                                             type="button"
                                             onClick={() => removeLot(lot.id)}
-                                            className="p-1 text-slate-400 hover:text-red-500 transition-colors"
+                                            className="p-1 text-slate-400 dark:text-dk-muted hover:text-red-500 transition-colors"
                                         >
                                             <Minus className="w-3.5 h-3.5" />
                                         </button>
@@ -408,33 +408,33 @@ export default function SplitModal({ open, event, models, onClose, onSubmit }: P
 
                                     <div className="grid grid-cols-3 gap-2">
                                         <div>
-                                            <label className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Quantité</label>
+                                            <label className="text-[9px] font-bold text-slate-500 dark:text-dk-muted uppercase tracking-wider">Quantité</label>
                                             <input
                                                 type="number"
                                                 value={lot.quantity || ''}
                                                 onChange={(e) => updateLot(lot.id, 'quantity', Number(e.target.value) || 0)}
-                                                className={`w-full h-8 px-2 text-[12px] font-mono tabular-nums bg-white border border-slate-200 rounded-md outline-none ${
-                                                    hasGrid ? 'opacity-75 cursor-not-allowed bg-slate-100 font-bold text-indigo-700' : ''
+                                                className={`w-full h-8 px-2 text-[12px] font-mono tabular-nums bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-md outline-none ${
+                                                    hasGrid ? 'opacity-75 cursor-not-allowed bg-slate-100 dark:bg-dk-elevated font-bold text-indigo-700 dark:text-dk-accent-text' : ''
                                                 }`}
                                                 min={0}
                                                 readOnly={hasGrid}
                                             />
                                         </div>
                                         <div>
-                                            <label className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Livraison</label>
+                                            <label className="text-[9px] font-bold text-slate-500 dark:text-dk-muted uppercase tracking-wider">Livraison</label>
                                             <input
                                                 type="date"
                                                 value={lot.deliveryDate}
                                                 onChange={(e) => updateLot(lot.id, 'deliveryDate', e.target.value)}
-                                                className="w-full h-8 px-2 text-[11px] bg-white border border-slate-200 rounded-md outline-none"
+                                                className="w-full h-8 px-2 text-[11px] bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-md outline-none"
                                             />
                                         </div>
                                         <div>
-                                            <label className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Statut</label>
+                                            <label className="text-[9px] font-bold text-slate-500 dark:text-dk-muted uppercase tracking-wider">Statut</label>
                                             <select
                                                 value={lot.status}
                                                 onChange={(e) => updateLot(lot.id, 'status', e.target.value)}
-                                                className="w-full h-8 px-2 text-[11px] bg-white border border-slate-200 rounded-md outline-none"
+                                                className="w-full h-8 px-2 text-[11px] bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-md outline-none"
                                             >
                                                 <option value="PENDING">En attente</option>
                                                 <option value="READY">Prêt</option>
@@ -449,30 +449,30 @@ export default function SplitModal({ open, event, models, onClose, onSubmit }: P
                                             <button
                                                 type="button"
                                                 onClick={() => setExpandedLotId(expandedLotId === lot.id ? null : lot.id)}
-                                                className="w-full flex items-center justify-between py-1.5 px-2.5 bg-white border border-slate-200 rounded-lg text-[11px] font-bold text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition-all shadow-sm"
+                                                className="w-full flex items-center justify-between py-1.5 px-2.5 bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-lg text-[11px] font-bold text-slate-700 hover:bg-slate-50 dark:hover:bg-dk-elevated/60 hover:text-slate-900 transition-all shadow-sm"
                                             >
                                                 <span className="flex items-center gap-1.5">
                                                     <Grid3X3 className="w-3.5 h-3.5 text-indigo-500" />
                                                     Répartition Tailles / Couleurs
                                                 </span>
                                                 {expandedLotId === lot.id ? (
-                                                    <ChevronUp className="w-3.5 h-3.5 text-slate-500" />
+                                                    <ChevronUp className="w-3.5 h-3.5 text-slate-500 dark:text-dk-muted" />
                                                 ) : (
-                                                    <ChevronDown className="w-3.5 h-3.5 text-slate-500" />
+                                                    <ChevronDown className="w-3.5 h-3.5 text-slate-500 dark:text-dk-muted" />
                                                 )}
                                             </button>
 
                                             {expandedLotId === lot.id && (
-                                                <div className="border border-slate-150 rounded-lg overflow-hidden bg-white mt-1.5 p-1.5 animate-[planning-slide-in-right_150ms_ease-out]">
+                                                <div className="border border-slate-150 rounded-lg overflow-hidden bg-white dark:bg-dk-surface mt-1.5 p-1.5 animate-[planning-slide-in-right_150ms_ease-out]">
                                                     <div className="overflow-x-auto">
                                                         <table className="w-full text-[10px]">
                                                             <thead>
-                                                                <tr className="bg-slate-50 border-b border-slate-200">
-                                                                    <th className="px-2 py-1 text-left text-slate-500 font-semibold sticky left-0 bg-slate-50">Couleur</th>
+                                                                <tr className="bg-slate-50 dark:bg-dk-bg border-b border-slate-200 dark:border-dk-border">
+                                                                    <th className="px-2 py-1 text-left text-slate-500 dark:text-dk-muted font-semibold sticky left-0 bg-slate-50 dark:bg-dk-bg">Couleur</th>
                                                                     {sizes.map(s => (
-                                                                        <th key={s} className="px-1 py-1 text-center text-slate-500 font-semibold min-w-[45px]">{s}</th>
+                                                                        <th key={s} className="px-1 py-1 text-center text-slate-500 dark:text-dk-muted font-semibold min-w-[45px]">{s}</th>
                                                                     ))}
-                                                                    <th className="px-2 py-1 text-center font-bold text-slate-700 bg-slate-100">Total</th>
+                                                                    <th className="px-2 py-1 text-center font-bold text-slate-700 dark:text-dk-text-soft bg-slate-100 dark:bg-dk-elevated">Total</th>
                                                                 </tr>
                                                             </thead>
                                                             <tbody className="divide-y divide-slate-100">
@@ -481,7 +481,7 @@ export default function SplitModal({ open, event, models, onClose, onSubmit }: P
                                                                     const colorTotal = Object.values(colorMap).reduce((s, q) => s + q, 0);
                                                                     return (
                                                                         <tr key={`${color.id}-${cIdx}`} className="hover:bg-slate-50/30">
-                                                                            <td className="px-2 py-1 sticky left-0 bg-white border-r border-slate-100 flex items-center gap-1">
+                                                                            <td className="px-2 py-1 sticky left-0 bg-white dark:bg-dk-surface border-r border-slate-100 dark:border-dk-border flex items-center gap-1">
                                                                                 <div className="w-2.5 h-2.5 rounded-full border border-slate-350" style={{ background: color.id }} />
                                                                                 <span className="truncate max-w-[60px] text-slate-750 font-medium">{color.name}</span>
                                                                             </td>
@@ -495,12 +495,12 @@ export default function SplitModal({ open, event, models, onClose, onSubmit }: P
                                                                                             value={val || ''}
                                                                                             onChange={(e) => updateLotDistribution(lot.id, color.id, size, Number(e.target.value) || 0)}
                                                                                             placeholder="0"
-                                                                                            className="w-full h-6 px-1 text-center text-[10px] font-mono tabular-nums bg-slate-50 border border-slate-200 rounded outline-none focus:border-indigo-400 focus:bg-white transition-all"
+                                                                                            className="w-full h-6 px-1 text-center text-[10px] font-mono tabular-nums bg-slate-50 border border-slate-200 dark:border-dk-border rounded outline-none focus:border-indigo-400 focus:bg-white transition-all"
                                                                                         />
                                                                                     </td>
                                                                                 );
                                                                             })}
-                                                                            <td className="px-2 py-1 text-center font-bold font-mono text-indigo-650 bg-indigo-50/20">
+                                                                            <td className="px-2 py-1 text-center font-bold font-mono text-indigo-650 dark:text-dk-accent-text bg-indigo-50 dark:bg-dk-accent/20/20">
                                                                                 {colorTotal}
                                                                             </td>
                                                                         </tr>
@@ -521,7 +521,7 @@ export default function SplitModal({ open, event, models, onClose, onSubmit }: P
                         <button
                             type="button"
                             onClick={addLot}
-                            className="w-full py-2 border-2 border-dashed border-slate-300 dark:border-dk-border rounded-xl text-[12px] font-semibold text-slate-500 dark:text-dk-muted hover:border-indigo-400 hover:text-indigo-650 hover:bg-slate-50/30 dark:hover:bg-dk-elevated/30 transition-all flex items-center justify-center gap-1.5"
+                            className="w-full py-2 border-2 border-dashed border-slate-300 dark:border-dk-border rounded-xl text-[12px] font-semibold text-slate-500 dark:text-dk-muted hover:border-indigo-400 hover:text-indigo-650 dark:text-dk-accent-text hover:bg-slate-50/30 dark:hover:bg-dk-elevated/30 transition-all flex items-center justify-center gap-1.5"
                         >
                             <Plus className="w-3.5 h-3.5" />
                             Ajouter un lot

@@ -316,7 +316,7 @@ export default function ModelSelector({
                                 <button
                                     type="button"
                                     onClick={() => setSearch('')}
-                                    className="absolute right-3 top-1/2 -translate-y-1/2 p-0.5 text-slate-400 dark:text-dk-muted hover:text-slate-700 dark:text-dk-text-soft"
+                                    className="absolute right-3 top-1/2 -translate-y-1/2 p-0.5 text-slate-400 dark:text-dk-muted hover:text-slate-700"
                                     aria-label="Effacer"
                                 >
                                     <X className="w-3.5 h-3.5" />
@@ -340,8 +340,8 @@ export default function ModelSelector({
                                     <button
                                         type="button"
                                         onClick={() => { setSortBy('default'); setShowSortMenu(false); }}
-                                        className={`w-full px-3 py-2 text-left text-[12px] hover:bg-slate-50 dark:hover:bg-dk-elevated/60 dark:bg-dk-bg transition-colors flex items-center gap-2 ${
-                                            sortBy === 'default' ? 'bg-indigo-50 text-indigo-700 font-medium' : ''
+                                        className={`w-full px-3 py-2 text-left text-[12px] hover:bg-slate-50 dark:hover:bg-dk-elevated/60 transition-colors flex items-center gap-2 ${
+                                            sortBy === 'default' ? 'bg-indigo-50 dark:bg-dk-accent/20 text-indigo-700 dark:text-dk-accent-text font-medium' : ''
                                         }`}
                                     >
                                         {sortBy === 'default' && <CheckCircle2 className="w-3.5 h-3.5" />}
@@ -350,8 +350,8 @@ export default function ModelSelector({
                                     <button
                                         type="button"
                                         onClick={() => { setSortBy('name-asc'); setShowSortMenu(false); }}
-                                        className={`w-full px-3 py-2 text-left text-[12px] hover:bg-slate-50 dark:hover:bg-dk-elevated/60 dark:bg-dk-bg transition-colors flex items-center gap-2 ${
-                                            sortBy === 'name-asc' ? 'bg-indigo-50 text-indigo-700 font-medium' : ''
+                                        className={`w-full px-3 py-2 text-left text-[12px] hover:bg-slate-50 dark:hover:bg-dk-elevated/60 transition-colors flex items-center gap-2 ${
+                                            sortBy === 'name-asc' ? 'bg-indigo-50 dark:bg-dk-accent/20 text-indigo-700 dark:text-dk-accent-text font-medium' : ''
                                         }`}
                                     >
                                         {sortBy === 'name-asc' && <CheckCircle2 className="w-3.5 h-3.5" />}
@@ -360,8 +360,8 @@ export default function ModelSelector({
                                     <button
                                         type="button"
                                         onClick={() => { setSortBy('name-desc'); setShowSortMenu(false); }}
-                                        className={`w-full px-3 py-2 text-left text-[12px] hover:bg-slate-50 dark:hover:bg-dk-elevated/60 dark:bg-dk-bg transition-colors flex items-center gap-2 ${
-                                            sortBy === 'name-desc' ? 'bg-indigo-50 text-indigo-700 font-medium' : ''
+                                        className={`w-full px-3 py-2 text-left text-[12px] hover:bg-slate-50 dark:hover:bg-dk-elevated/60 transition-colors flex items-center gap-2 ${
+                                            sortBy === 'name-desc' ? 'bg-indigo-50 dark:bg-dk-accent/20 text-indigo-700 dark:text-dk-accent-text font-medium' : ''
                                         }`}
                                     >
                                         {sortBy === 'name-desc' && <CheckCircle2 className="w-3.5 h-3.5" />}
@@ -371,8 +371,8 @@ export default function ModelSelector({
                                     <button
                                         type="button"
                                         onClick={() => { setSortBy('sam-asc'); setShowSortMenu(false); }}
-                                        className={`w-full px-3 py-2 text-left text-[12px] hover:bg-slate-50 dark:hover:bg-dk-elevated/60 dark:bg-dk-bg transition-colors flex items-center gap-2 ${
-                                            sortBy === 'sam-asc' ? 'bg-indigo-50 text-indigo-700 font-medium' : ''
+                                        className={`w-full px-3 py-2 text-left text-[12px] hover:bg-slate-50 dark:hover:bg-dk-elevated/60 transition-colors flex items-center gap-2 ${
+                                            sortBy === 'sam-asc' ? 'bg-indigo-50 dark:bg-dk-accent/20 text-indigo-700 dark:text-dk-accent-text font-medium' : ''
                                         }`}
                                     >
                                         {sortBy === 'sam-asc' && <CheckCircle2 className="w-3.5 h-3.5" />}
@@ -381,8 +381,8 @@ export default function ModelSelector({
                                     <button
                                         type="button"
                                         onClick={() => { setSortBy('sam-desc'); setShowSortMenu(false); }}
-                                        className={`w-full px-3 py-2 text-left text-[12px] hover:bg-slate-50 dark:hover:bg-dk-elevated/60 dark:bg-dk-bg transition-colors flex items-center gap-2 ${
-                                            sortBy === 'sam-desc' ? 'bg-indigo-50 text-indigo-700 font-medium' : ''
+                                        className={`w-full px-3 py-2 text-left text-[12px] hover:bg-slate-50 dark:hover:bg-dk-elevated/60 transition-colors flex items-center gap-2 ${
+                                            sortBy === 'sam-desc' ? 'bg-indigo-50 dark:bg-dk-accent/20 text-indigo-700 dark:text-dk-accent-text font-medium' : ''
                                         }`}
                                     >
                                         {sortBy === 'sam-desc' && <CheckCircle2 className="w-3.5 h-3.5" />}
@@ -391,8 +391,8 @@ export default function ModelSelector({
                                     <button
                                         type="button"
                                         onClick={() => { setSortBy('pcs-desc'); setShowSortMenu(false); }}
-                                        className={`w-full px-3 py-2 text-left text-[12px] hover:bg-slate-50 dark:hover:bg-dk-elevated/60 dark:bg-dk-bg transition-colors flex items-center gap-2 ${
-                                            sortBy === 'pcs-desc' ? 'bg-indigo-50 text-indigo-700 font-medium' : ''
+                                        className={`w-full px-3 py-2 text-left text-[12px] hover:bg-slate-50 dark:hover:bg-dk-elevated/60 transition-colors flex items-center gap-2 ${
+                                            sortBy === 'pcs-desc' ? 'bg-indigo-50 dark:bg-dk-accent/20 text-indigo-700 dark:text-dk-accent-text font-medium' : ''
                                         }`}
                                     >
                                         {sortBy === 'pcs-desc' && <CheckCircle2 className="w-3.5 h-3.5" />}
@@ -402,8 +402,8 @@ export default function ModelSelector({
                                     <button
                                         type="button"
                                         onClick={() => { setSortBy('client'); setShowSortMenu(false); }}
-                                        className={`w-full px-3 py-2 text-left text-[12px] hover:bg-slate-50 dark:hover:bg-dk-elevated/60 dark:bg-dk-bg transition-colors flex items-center gap-2 ${
-                                            sortBy === 'client' ? 'bg-indigo-50 text-indigo-700 font-medium' : ''
+                                        className={`w-full px-3 py-2 text-left text-[12px] hover:bg-slate-50 dark:hover:bg-dk-elevated/60 transition-colors flex items-center gap-2 ${
+                                            sortBy === 'client' ? 'bg-indigo-50 dark:bg-dk-accent/20 text-indigo-700 dark:text-dk-accent-text font-medium' : ''
                                         }`}
                                     >
                                         {sortBy === 'client' && <CheckCircle2 className="w-3.5 h-3.5" />}
@@ -430,8 +430,8 @@ export default function ModelSelector({
                                         key={m.id}
                                         type="button"
                                         onClick={() => handleSelect(m.id)}
-                                        className={`w-full px-3 py-2.5 flex items-center gap-3 text-left hover:bg-slate-50 dark:hover:bg-dk-elevated/60 dark:bg-dk-bg transition-colors ${
-                                            isSelected ? 'bg-indigo-50/70' : ''
+                                        className={`w-full px-3 py-2.5 flex items-center gap-3 text-left hover:bg-slate-50 dark:hover:bg-dk-elevated/60 transition-colors ${
+                                            isSelected ? 'bg-indigo-50 dark:bg-dk-accent/20/70' : ''
                                         }`}
                                     >
                                         {mThumb ? (
@@ -477,7 +477,7 @@ export default function ModelSelector({
             {selected && metrics && (
                 <div className="mt-3 rounded-xl border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface overflow-hidden">
                     {/* Production stat bar (FicheTechnique style) */}
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-px bg-slate-100">
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-px bg-slate-100 dark:bg-dk-elevated">
                         <StatCell label="BF (s)" value={metrics.bfSeconds.toFixed(1)} accent="emerald" hint="Bottleneck" />
                         <StatCell label="Min Tot." value={String(metrics.minTotal)} accent="emerald" hint={`${workingHoursPerDay}h/j`} />
                         <StatCell label="P/H" value={String(metrics.pcsPerHourEff)} accent="indigo" hint={`100% : ${metrics.pcsPerHour}`} />
@@ -519,7 +519,7 @@ function StatCell({
     label, value, accent, hint,
 }: { label: string; value: string; accent: 'indigo' | 'emerald'; hint?: string }) {
     const cls = accent === 'indigo'
-        ? 'bg-indigo-50/40 text-indigo-700'
+        ? 'bg-indigo-50 dark:bg-dk-accent/20/40 text-indigo-700 dark:text-dk-accent-text'
         : 'bg-emerald-50/40 text-emerald-700';
     const hintCls = accent === 'indigo' ? 'text-indigo-500/80' : 'text-emerald-600/80';
     return (

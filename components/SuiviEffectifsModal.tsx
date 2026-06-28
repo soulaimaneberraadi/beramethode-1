@@ -121,11 +121,11 @@ export default function SuiviEffectifsModal({ open, suivi, onClose, onConfirm }:
             }}
         >
             <div
-                className={`w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl border shadow-2xl ${isDark ? 'border-dk-border bg-dk-surface' : 'border-slate-200 bg-white'}`}
+                className={`w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl border shadow-2xl ${isDark ? 'border-dk-border bg-dk-surface' : 'border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface'}`}
                 onMouseDown={e => e.stopPropagation()}
             >
-                <div className={`flex items-center justify-between gap-3 border-b px-4 py-3 ${isDark ? 'border-dk-border' : 'border-slate-100'}`}>
-                    <h2 id="suivi-effectifs-title" className={`text-sm font-black tracking-tight ${isDark ? 'text-dk-text' : 'text-slate-800'}`}>
+                <div className={`flex items-center justify-between gap-3 border-b px-4 py-3 ${isDark ? 'border-dk-border' : 'border-slate-100 dark:border-dk-border'}`}>
+                    <h2 id="suivi-effectifs-title" className={`text-sm font-black tracking-tight ${isDark ? 'text-dk-text' : 'text-slate-800 dark:text-dk-text'}`}>
                         {tx(lang, {fr:"Effectifs (AJANIF)",ar:"الموارد (AJANIF)",en:"Staff (AJANIF)",es:"Efectivos (AJANIF)",pt:"Efetivos (AJANIF)",tr:"Personel (AJANIF)"})}
                     </h2>
                     <button
@@ -138,16 +138,16 @@ export default function SuiviEffectifsModal({ open, suivi, onClose, onConfirm }:
                     </button>
                 </div>
                 <div className="px-4 py-3 space-y-3 text-xs">
-                    <p className={`font-medium ${isDark ? 'text-dk-muted' : 'text-slate-500'}`}>
-                        {tx(lang, {fr:"Date",ar:"التاريخ",en:"Date",es:"Fecha",pt:"Data",tr:"Tarih"})} <span className={`font-mono font-bold ${isDark ? 'text-dk-text' : 'text-slate-700'}`}>{draft.date}</span>
+                    <p className={`font-medium ${isDark ? 'text-dk-muted' : 'text-slate-500 dark:text-dk-muted'}`}>
+                        {tx(lang, {fr:"Date",ar:"التاريخ",en:"Date",es:"Fecha",pt:"Data",tr:"Tarih"})} <span className={`font-mono font-bold ${isDark ? 'text-dk-text' : 'text-slate-700 dark:text-dk-text-soft'}`}>{draft.date}</span>
                         {' · '}
-                        <span className={isDark ? 'text-dk-muted' : 'text-slate-400'}>{tx(lang, {fr:"Tot M (aperçu) :",ar:"المجموع (نظرة عامة):",en:"Tot M (preview):",es:"Total M (vista previa):",pt:"Total M (prévia):",tr:"Top M (ön izleme):"})}</span>{' '}
+                        <span className={isDark ? 'text-dk-muted' : 'text-slate-400 dark:text-dk-muted'}>{tx(lang, {fr:"Tot M (aperçu) :",ar:"المجموع (نظرة عامة):",en:"Tot M (preview):",es:"Total M (vista previa):",pt:"Total M (prévia):",tr:"Top M (ön izleme):"})}</span>{' '}
                         <span className="font-black text-emerald-700">{totalPreview}</span>
                     </p>
                     <div className="space-y-2">
                         {ROLE_KEYS.map((key, idx) => (
-                            <div key={key} className={`rounded-xl border p-2.5 space-y-1.5 ${isDark ? 'border-dk-border bg-dk-bg/80' : 'border-slate-100 bg-slate-50/80'}`}>
-                                <label className={`block text-[10px] font-black uppercase tracking-wider ${isDark ? 'text-dk-muted' : 'text-slate-500'}`}>
+                            <div key={key} className={`rounded-xl border p-2.5 space-y-1.5 ${isDark ? 'border-dk-border bg-dk-bg/80' : 'border-slate-100 dark:border-dk-border bg-slate-50/80'}`}>
+                                <label className={`block text-[10px] font-black uppercase tracking-wider ${isDark ? 'text-dk-muted' : 'text-slate-500 dark:text-dk-muted'}`}>
                                     {ROLE_LABELS[key]}
                                 </label>
                                 <div className="flex flex-wrap gap-2 items-center">
@@ -156,14 +156,14 @@ export default function SuiviEffectifsModal({ open, suivi, onClose, onConfirm }:
                                         type="number"
                                         min={0}
                                         step={1}
-                                        className={`w-20 shrink-0 rounded-lg border px-2 py-1.5 font-bold ${isDark ? 'border-dk-border bg-dk-bg text-dk-text' : 'border-slate-200 text-slate-800'}`}
+                                        className={`w-20 shrink-0 rounded-lg border px-2 py-1.5 font-bold ${isDark ? 'border-dk-border bg-dk-bg text-dk-text' : 'border-slate-200 dark:border-dk-border text-slate-800 dark:text-dk-text'}`}
                                         placeholder="—"
                                         value={draft[key] == null ? '' : String(draft[key])}
                                         onChange={e => setNum(key, e.target.value)}
                                     />
                                     <input
                                         type="text"
-                                        className={`min-w-[120px] flex-1 rounded-lg border px-2 py-1.5 font-medium ${isDark ? 'border-dk-border bg-dk-bg text-dk-text' : 'border-slate-200 text-slate-700'}`}
+                                        className={`min-w-[120px] flex-1 rounded-lg border px-2 py-1.5 font-medium ${isDark ? 'border-dk-border bg-dk-bg text-dk-text' : 'border-slate-200 dark:border-dk-border text-slate-700 dark:text-dk-text-soft'}`}
                                         placeholder="Tag (ex. OVR)"
                                         value={draft.effectifRoleTags?.[key] ?? ''}
                                         onChange={e => setTag(key, e.target.value)}
@@ -180,18 +180,18 @@ export default function SuiviEffectifsModal({ open, suivi, onClose, onConfirm }:
                         ))}
                     </div>
                 </div>
-                <div className={`flex items-center justify-end gap-2 border-t px-4 py-3 ${isDark ? 'border-dk-border bg-dk-bg/80' : 'border-slate-100 bg-slate-50/80'}`}>
+                <div className={`flex items-center justify-end gap-2 border-t px-4 py-3 ${isDark ? 'border-dk-border bg-dk-bg/80' : 'border-slate-100 dark:border-dk-border bg-slate-50/80'}`}>
                     <button
                         type="button"
                         onClick={onClose}
-                        className={`px-4 py-2 rounded-xl text-xs font-bold ${isDark ? 'text-dk-muted hover:bg-dk-bg' : 'text-slate-600 hover:bg-slate-200/80'}`}
+                        className={`px-4 py-2 rounded-xl text-xs font-bold ${isDark ? 'text-dk-muted hover:bg-dk-bg' : 'text-slate-600 dark:text-dk-text-soft hover:bg-slate-200/80'}`}
                     >
                         {tx(lang, {fr:"Annuler",ar:"إلغاء",en:"Cancel",es:"Cancelar",pt:"Cancelar",tr:"İptal"})}
                     </button>
                     <button
                         type="button"
                         onClick={handleConfirm}
-                        className="px-4 py-2 rounded-xl text-xs font-black bg-indigo-600 text-white hover:bg-indigo-700 shadow-sm"
+                        className="px-4 py-2 rounded-xl text-xs font-black bg-indigo-600 dark:bg-dk-accent text-white hover:bg-indigo-700 dark:hover:bg-dk-accent-hover shadow-sm"
                     >
                         {tx(lang, {fr:"Confirmer",ar:"تأكيد",en:"Confirm",es:"Confirmar",pt:"Confirmar",tr:"Onayla"})}
                     </button>

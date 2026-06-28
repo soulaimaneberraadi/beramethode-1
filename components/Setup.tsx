@@ -104,7 +104,7 @@ function StepDot({ n, step }: { n: Step; step: Step }) {
             ? 'bg-emerald-500 text-white'
             : step === n
             ? 'bg-slate-800 text-white'
-            : 'bg-slate-100 text-slate-400 border border-slate-200'
+            : 'bg-slate-100 dark:bg-dk-elevated text-slate-400 dark:text-dk-muted border border-slate-200 dark:border-dk-border'
         }`}
       >
         {step > n ? <CheckCircle2 className="w-4 h-4" /> : n}
@@ -135,7 +135,7 @@ function Field({
   const effectiveType = isPassword && show ? 'text' : type;
   return (
     <div className="flex flex-col gap-1">
-      <label className="text-xs font-semibold text-slate-600 uppercase tracking-wide">{label}</label>
+      <label className="text-xs font-semibold text-slate-600 dark:text-dk-text-soft uppercase tracking-wide">{label}</label>
       <div className="relative">
         <input
           type={effectiveType}
@@ -144,7 +144,7 @@ function Field({
           placeholder={placeholder}
           autoComplete={autoComplete}
           required={required}
-          className={`w-full px-3.5 py-2.5 rounded-xl border bg-white text-slate-800 text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:border-transparent transition ${error ? 'border-red-300 focus:ring-red-400' : 'border-slate-200 focus:ring-emerald-400'} ${isPassword ? 'pr-11' : ''}`}
+          className={`w-full px-3.5 py-2.5 rounded-xl border bg-white dark:bg-dk-surface text-slate-800 dark:text-dk-text text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:border-transparent transition ${error ? 'border-red-300 focus:ring-red-400' : 'border-slate-200 dark:border-dk-border focus:ring-emerald-400'} ${isPassword ? 'pr-11' : ''}`}
         />
         {isPassword && (
           <button
@@ -164,7 +164,7 @@ function Field({
           {error}
         </p>
       ) : hint ? (
-        <p className="text-[11px] text-slate-400">{hint}</p>
+        <p className="text-[11px] text-slate-400 dark:text-dk-muted">{hint}</p>
       ) : null}
     </div>
   );
@@ -229,7 +229,7 @@ function Seg<T extends string | number>({
 }) {
   return (
     <div className="flex flex-col gap-1.5">
-      <label className="text-xs font-semibold text-slate-600 uppercase tracking-wide">{label}</label>
+      <label className="text-xs font-semibold text-slate-600 dark:text-dk-text-soft uppercase tracking-wide">{label}</label>
       <div className="flex gap-1.5 flex-wrap">
         {options.map((o) => {
           const active = value === o.v;
@@ -242,10 +242,10 @@ function Seg<T extends string | number>({
               onClick={() => { if (!o.disabled) onChange(o.v); }}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
                 o.disabled
-                  ? 'bg-slate-50 text-slate-300 border-slate-100 cursor-not-allowed'
+                  ? 'bg-slate-50 dark:bg-dk-bg text-slate-300 dark:text-dk-muted border-slate-100 dark:border-dk-border cursor-not-allowed'
                   : active
                   ? 'bg-emerald-600 text-white border-emerald-600'
-                  : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'
+                  : 'bg-white dark:bg-dk-surface text-slate-600 dark:text-dk-text-soft border-slate-200 dark:border-dk-border hover:border-slate-300'
               }`}
             >
               {Icon && <Icon className="w-3.5 h-3.5" />}
@@ -536,7 +536,7 @@ export default function Setup({ onComplete }: Props) {
               transition={{ duration: 4.5, repeat: Infinity, ease: 'easeInOut' }}
             />
             <h1 className="relative text-3xl font-black tracking-tight mb-1">
-              <span className={`${isDark ? 'text-dk-text' : 'text-slate-900'}`}>BERA</span>
+              <span className={`${isDark ? 'text-dk-text' : 'text-slate-900 dark:text-dk-text'}`}>BERA</span>
               {/* Bascule de lumière qui traverse doucement « METHODE ». */}
               <motion.span
                 className="bg-clip-text text-transparent"
@@ -552,11 +552,11 @@ export default function Setup({ onComplete }: Props) {
               </motion.span>
             </h1>
           </div>
-          <p className={`text-sm mt-1 ${isDark ? 'text-dk-muted' : 'text-slate-500'}`}>{tx(lang,{fr:'Configuration initiale',ar:'\u0627\u0644\u062a\u0647\u064a\u0626\u0629 \u0627\u0644\u0623\u0648\u0644\u064a\u0629',en:'Initial setup',es:'Configuraci\u00f3n inicial',pt:'Configura\u00e7\u00e3o inicial',tr:'\u0130lk kurulum'})}</p>
+          <p className={`text-sm mt-1 ${isDark ? 'text-dk-muted' : 'text-slate-500 dark:text-dk-muted'}`}>{tx(lang,{fr:'Configuration initiale',ar:'\u0627\u0644\u062a\u0647\u064a\u0626\u0629 \u0627\u0644\u0623\u0648\u0644\u064a\u0629',en:'Initial setup',es:'Configuraci\u00f3n inicial',pt:'Configura\u00e7\u00e3o inicial',tr:'\u0130lk kurulum'})}</p>
         </div>
 
         {/* Carte principale */}
-        <div dir="ltr" className={`rounded-2xl shadow-sm p-8 ${isDark ? 'bg-dk-surface border border-dk-border' : 'bg-white border border-slate-100'}`}>
+        <div dir="ltr" className={`rounded-2xl shadow-sm p-8 ${isDark ? 'bg-dk-surface border border-dk-border' : 'bg-white dark:bg-dk-surface border border-slate-100 dark:border-dk-border'}`}>
           {/* Indicateur d'étapes */}
           <div className="flex justify-center items-center mb-8">
             <StepDot n={1} step={step} />
@@ -576,11 +576,11 @@ export default function Setup({ onComplete }: Props) {
                 </div>
               </motion.div>
 
-              <motion.h2 variants={welcomeItem} className="text-2xl font-black text-slate-900 tracking-tight mb-2">{tx(lang,{fr:'Bienvenue !',ar:'\u0623\u0647\u0644\u0627 \u0648\u0633\u0647\u0644\u0627 !',en:'Welcome!',es:'\u00a1Bienvenido!',pt:'Bem-vindo!',tr:'Ho\u015f geldiniz!'})}</motion.h2>
-              <motion.p variants={welcomeItem} className="text-sm text-slate-500 leading-relaxed mb-7">
+              <motion.h2 variants={welcomeItem} className="text-2xl font-black text-slate-900 dark:text-dk-text tracking-tight mb-2">{tx(lang,{fr:'Bienvenue !',ar:'\u0623\u0647\u0644\u0627 \u0648\u0633\u0647\u0644\u0627 !',en:'Welcome!',es:'\u00a1Bienvenido!',pt:'Bem-vindo!',tr:'Ho\u015f geldiniz!'})}</motion.h2>
+              <motion.p variants={welcomeItem} className="text-sm text-slate-500 dark:text-dk-muted leading-relaxed mb-7">
                 {tx(lang,{fr:'C\'est la premi\u00e8re fois que vous lancez BERAMETHODE sur cet appareil.',ar:'\u0647\u0630\u0647 \u0647\u064a \u0627\u0644\u0645\u0631\u0629 \u0627\u0644\u0623\u0648\u0644\u0649 \u0627\u0644\u062a\u064a \u062a\u0642\u0648\u0645 \u0641\u064a\u0647\u0627 \u0628\u062a\u0634\u063a\u064a\u0644 BERAMETHODE \u0639\u0644\u0649 \u0647\u0630\u0627 \u0627\u0644\u062c\u0647\u0627\u0632.',en:'This is the first time you launch BERAMETHODE on this device.',es:'Es la primera vez que inicia BERAMETHODE en este dispositivo.',pt:'\u00c9 a primeira vez que inicia o BERAMETHODE neste dispositivo.',tr:'BERAMETHODE\'yi bu cihazda ilk kez ba\u015flat\u0131yorsunuz.'})}
                 <br />
-                {tx(lang,{fr:'Configurons votre espace de travail en ',ar:'\u0644\u0646\u0642\u0645 \u0628\u062a\u0647\u064a\u0626\u0629 \u0645\u0633\u0627\u062d\u0629 \u0627\u0644\u0639\u0645\u0644 \u0641\u064a ',en:'Set up your workspace in ',es:'Configuremos su espacio de trabajo en ',pt:'Vamos configurar o seu espa\u00e7o de trabalho em ',tr:'\u00c7al\u0131\u015fma alan\u0131n\u0131z\u0131 \u015fu kadar ad\u0131mda yap\u0131land\u0131ral\u0131m: '})}<strong className="text-slate-700">{tx(lang,{fr:'4 \u00e9tapes rapides',ar:'4 \u062e\u0637\u0648\u0627\u062a \u0633\u0631\u064a\u0639\u0629',en:'4 quick steps',es:'4 pasos r\u00e1pidos',pt:'4 passos r\u00e1pidos',tr:'4 h\u0131zl\u0131 ad\u0131m'})}</strong>.
+                {tx(lang,{fr:'Configurons votre espace de travail en ',ar:'\u0644\u0646\u0642\u0645 \u0628\u062a\u0647\u064a\u0626\u0629 \u0645\u0633\u0627\u062d\u0629 \u0627\u0644\u0639\u0645\u0644 \u0641\u064a ',en:'Set up your workspace in ',es:'Configuremos su espacio de trabajo en ',pt:'Vamos configurar o seu espa\u00e7o de trabalho em ',tr:'\u00c7al\u0131\u015fma alan\u0131n\u0131z\u0131 \u015fu kadar ad\u0131mda yap\u0131land\u0131ral\u0131m: '})}<strong className="text-slate-700 dark:text-dk-text-soft">{tx(lang,{fr:'4 \u00e9tapes rapides',ar:'4 \u062e\u0637\u0648\u0627\u062a \u0633\u0631\u064a\u0639\u0629',en:'4 quick steps',es:'4 pasos r\u00e1pidos',pt:'4 passos r\u00e1pidos',tr:'4 h\u0131zl\u0131 ad\u0131m'})}</strong>.
               </motion.p>
 
               {/* Étapes numérotées */}
@@ -593,12 +593,12 @@ export default function Setup({ onComplete }: Props) {
               ].map((label, i) => (
                   <li
                     key={i}
-                    className={`flex items-center gap-3 bg-slate-50 rounded-xl px-4 py-3 border border-slate-100 transition-opacity ${
+                    className={`flex items-center gap-3 bg-slate-50 dark:bg-dk-bg rounded-xl px-4 py-3 border border-slate-100 dark:border-dk-border transition-opacity ${
                       i === 0 ? 'opacity-100' : 'opacity-50'
                     }`}
                   >
                     <span className="flex items-center justify-center w-6 h-6 rounded-lg bg-emerald-100 text-emerald-600 text-xs font-bold shrink-0">{i + 1}</span>
-                    <span className="text-sm text-slate-600">{label}</span>
+                    <span className="text-sm text-slate-600 dark:text-dk-text-soft">{label}</span>
                   </li>
                 ))}
               </motion.ul>
@@ -611,7 +611,7 @@ export default function Setup({ onComplete }: Props) {
                   onChange={(e) => setAcceptedTerms(e.target.checked)}
                   className="mt-0.5 w-4 h-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-400"
                 />
-                <span className="text-xs text-slate-600">
+                <span className="text-xs text-slate-600 dark:text-dk-text-soft">
                   {tx(lang,{fr:'J\'ai lu et j\'accepte les ',ar:'\u0644\u0642\u062f \u0642\u0631\u0623\u062a \u0648\u0623\u0648\u0627\u0641\u0642 \u0639\u0644\u0649 ',en:'I have read and accept the ',es:'He le\u00eddo y acepto los ',pt:'Li e aceito os ',tr:'Okudum ve kabul ediyorum: '})}{' '}
                   <button
                     type="button"
@@ -641,8 +641,8 @@ export default function Setup({ onComplete }: Props) {
           {step === 2 && !accountType && (
             <div>
               <div className="mb-6">
-                <h2 className="text-lg font-bold text-slate-800">{tx(lang,{fr:'Type d\'activit\u00e9',ar:'\u0646\u0648\u0639 \u0627\u0644\u0646\u0634\u0627\u0637',en:'Activity type',es:'Tipo de actividad',pt:'Tipo de atividade',tr:'Faaliyet t\u00fcr\u00fc'})}</h2>
-                <p className="text-xs text-slate-500 mt-0.5">{tx(lang,{fr:'S\u00e9lectionnez votre profil pour adapter l\'interface.',ar:'\u0627\u062e\u062a\u0631 \u0645\u0644\u0641\u0643 \u0644\u062a\u0643\u064a\u064a\u0641 \u0627\u0644\u0648\u0627\u062c\u0647\u0629.',en:'Select your profile to adapt the interface.',es:'Seleccione su perfil para adaptar la interfaz.',pt:'Selecione o seu perfil para adaptar a interface.',tr:'Aray\u00fcz\u00fc uyarlamak i\u00e7in profilinizi se\u00e7in.'})}</p>
+                <h2 className="text-lg font-bold text-slate-800 dark:text-dk-text">{tx(lang,{fr:'Type d\'activit\u00e9',ar:'\u0646\u0648\u0639 \u0627\u0644\u0646\u0634\u0627\u0637',en:'Activity type',es:'Tipo de actividad',pt:'Tipo de atividade',tr:'Faaliyet t\u00fcr\u00fc'})}</h2>
+                <p className="text-xs text-slate-500 dark:text-dk-muted mt-0.5">{tx(lang,{fr:'S\u00e9lectionnez votre profil pour adapter l\'interface.',ar:'\u0627\u062e\u062a\u0631 \u0645\u0644\u0641\u0643 \u0644\u062a\u0643\u064a\u064a\u0641 \u0627\u0644\u0648\u0627\u062c\u0647\u0629.',en:'Select your profile to adapt the interface.',es:'Seleccione su perfil para adaptar la interfaz.',pt:'Selecione o seu perfil para adaptar a interface.',tr:'Aray\u00fcz\u00fc uyarlamak i\u00e7in profilinizi se\u00e7in.'})}</p>
               </div>
 
               <div className="space-y-2.5">
@@ -651,14 +651,14 @@ export default function Setup({ onComplete }: Props) {
                     key={type}
                     type="button"
                     onClick={() => setAccountType(type)}
-                    className="w-full text-left p-3.5 border border-slate-200 rounded-xl hover:border-slate-300 hover:bg-slate-50 transition-colors flex items-center gap-3"
+                    className="w-full text-left p-3.5 border border-slate-200 dark:border-dk-border rounded-xl hover:border-slate-300 hover:bg-slate-50 dark:hover:bg-dk-elevated/60 transition-colors flex items-center gap-3"
                   >
                     <div className={`flex items-center justify-center w-10 h-10 rounded-lg shrink-0 ${accent}`}>
                       <Icon className="w-5 h-5" />
                     </div>
                     <div className="min-w-0">
-                      <h4 className="text-sm font-semibold text-slate-800">{title}</h4>
-                      <p className="text-xs text-slate-500 mt-0.5 leading-snug">{desc}</p>
+                      <h4 className="text-sm font-semibold text-slate-800 dark:text-dk-text">{title}</h4>
+                      <p className="text-xs text-slate-500 dark:text-dk-muted mt-0.5 leading-snug">{desc}</p>
                     </div>
                   </button>
                 ))}
@@ -682,12 +682,12 @@ export default function Setup({ onComplete }: Props) {
             <div>
               <div className="mb-6 flex items-start justify-between gap-3">
                 <div>
-                  <h2 className="text-lg font-bold text-slate-800">
+                  <h2 className="text-lg font-bold text-slate-800 dark:text-dk-text">
                     {accountType === 'societe' && tx(lang,{fr:'Votre soci\u00e9t\u00e9',ar:'\u0634\u0631\u0643\u062a\u0643',en:'Your company',es:'Su empresa',pt:'A sua empresa',tr:'\u015eirketiniz'})}
                     {accountType === 'client' && tx(lang,{fr:'Informations client',ar:'\u0645\u0639\u0644\u0648\u0645\u0627\u062a \u0627\u0644\u0639\u0645\u064a\u0644',en:'Client information',es:'Informaci\u00f3n del cliente',pt:'Informa\u00e7\u00f5es do cliente',tr:'M\u00fc\u015fteri bilgileri'})}
                     {accountType === 'personnel' && tx(lang,{fr:'Profil ind\u00e9pendant',ar:'\u0627\u0644\u0645\u0644\u0641 \u0627\u0644\u0645\u0633\u062a\u0642\u0644',en:'Freelance profile',es:'Perfil independiente',pt:'Perfil independente',tr:'Serbest \u00e7al\u0131\u015fan profili'})}
                   </h2>
-                  <p className="text-xs text-slate-500 mt-0.5">{tx(lang,{fr:'Ces informations appara\u00eetront sur vos documents',ar:'\u0633\u062a\u0638\u0647\u0631 \u0647\u0630\u0647 \u0627\u0644\u0645\u0639\u0644\u0648\u0645\u0627\u062a \u0639\u0644\u0649 \u0645\u0633\u062a\u0646\u062f\u0627\u062a\u0643',en:'This information will appear on your documents',es:'Esta informaci\u00f3n aparecer\u00e1 en sus documentos',pt:'Estas informa\u00e7\u00f5es aparecer\u00e3o nos seus documentos',tr:'Bu bilgiler belgelerinizde g\u00f6r\u00fcnecek'})}</p>
+                  <p className="text-xs text-slate-500 dark:text-dk-muted mt-0.5">{tx(lang,{fr:'Ces informations appara\u00eetront sur vos documents',ar:'\u0633\u062a\u0638\u0647\u0631 \u0647\u0630\u0647 \u0627\u0644\u0645\u0639\u0644\u0648\u0645\u0627\u062a \u0639\u0644\u0649 \u0645\u0633\u062a\u0646\u062f\u0627\u062a\u0643',en:'This information will appear on your documents',es:'Esta informaci\u00f3n aparecer\u00e1 en sus documentos',pt:'Estas informa\u00e7\u00f5es aparecer\u00e3o nos seus documentos',tr:'Bu bilgiler belgelerinizde g\u00f6r\u00fcnecek'})}</p>
                 </div>
                 <button
                   type="button"
@@ -699,28 +699,28 @@ export default function Setup({ onComplete }: Props) {
               </div>
 
               {/* Logo — apparaîtra sur les factures & documents */}
-              <div className="flex items-center gap-3 mb-5 p-3 bg-slate-50 border border-slate-100 rounded-xl">
+              <div className="flex items-center gap-3 mb-5 p-3 bg-slate-50 dark:bg-dk-bg border border-slate-100 dark:border-dk-border rounded-xl">
                 <button
                   type="button"
                   onClick={() => logoInputRef.current?.click()}
                   aria-label={tx(lang,{fr:'Choisir le logo',ar:'\u0627\u062e\u062a\u0631 \u0627\u0644\u0634\u0639\u0627\u0631',en:'Choose logo',es:'Elegir logotipo',pt:'Escolher log\u00f3tipo',tr:'Logo se\u00e7'})}
-                  className="group relative w-14 h-14 rounded-xl border-2 border-dashed border-slate-200 hover:border-emerald-400 bg-white hover:bg-emerald-50/40 flex items-center justify-center overflow-hidden transition-colors shrink-0"
+                  className="group relative w-14 h-14 rounded-xl border-2 border-dashed border-slate-200 dark:border-dk-border hover:border-emerald-400 bg-white dark:bg-dk-surface hover:bg-emerald-50/40 flex items-center justify-center overflow-hidden transition-colors shrink-0"
                 >
                   {logo ? (
                     <img src={logo} alt="Logo" className="w-full h-full object-contain p-1" />
                   ) : (
-                    <ImagePlus className="w-5 h-5 text-slate-400 group-hover:text-emerald-500 transition-colors" />
+                    <ImagePlus className="w-5 h-5 text-slate-400 dark:text-dk-muted group-hover:text-emerald-500 transition-colors" />
                   )}
                 </button>
                 <div className="min-w-0">
                   <button
                     type="button"
                     onClick={() => logoInputRef.current?.click()}
-                    className="text-sm font-medium text-slate-700 hover:text-emerald-600 transition-colors"
+                    className="text-sm font-medium text-slate-700 dark:text-dk-text-soft hover:text-emerald-600 transition-colors"
                   >
                     {logo ? tx(lang,{fr:'Changer le logo',ar:'\u062a\u063a\u064a\u064a\u0631 \u0627\u0644\u0634\u0639\u0627\u0631',en:'Change logo',es:'Cambiar logotipo',pt:'Alterar log\u00f3tipo',tr:'Logoyu de\u011fi\u015ftir'}) : tx(lang,{fr:'Ajouter un logo',ar:'\u0625\u0636\u0627\u0641\u0629 \u0634\u0639\u0627\u0631',en:'Add a logo',es:'A\u00f1adir logotipo',pt:'Adicionar log\u00f3tipo',tr:'Logo ekle'})}
                   </button>
-                  <p className="text-xs text-slate-400 mt-0.5">{tx(lang,{fr:'Optionnel \u2014 appara\u00eetra sur vos documents.',ar:'\u0627\u062e\u062a\u064a\u0627\u0631\u064a \u2014 \u0633\u064a\u0638\u0647\u0631 \u0639\u0644\u0649 \u0645\u0633\u062a\u0646\u062f\u0627\u062a\u0643.',en:'Optional \u2014 will appear on your documents.',es:'Opcional \u2014 aparecer\u00e1 en sus documentos.',pt:'Opcional \u2014 aparecer\u00e1 nos seus documentos.',tr:'\u0130ste\u011fe ba\u011fl\u0131 \u2014 belgelerinizde g\u00f6r\u00fcnecek.'})}</p>
+                  <p className="text-xs text-slate-400 dark:text-dk-muted mt-0.5">{tx(lang,{fr:'Optionnel \u2014 appara\u00eetra sur vos documents.',ar:'\u0627\u062e\u062a\u064a\u0627\u0631\u064a \u2014 \u0633\u064a\u0638\u0647\u0631 \u0639\u0644\u0649 \u0645\u0633\u062a\u0646\u062f\u0627\u062a\u0643.',en:'Optional \u2014 will appear on your documents.',es:'Opcional \u2014 aparecer\u00e1 en sus documentos.',pt:'Opcional \u2014 aparecer\u00e1 nos seus documentos.',tr:'\u0130ste\u011fe ba\u011fl\u0131 \u2014 belgelerinizde g\u00f6r\u00fcnecek.'})}</p>
                 </div>
               </div>
 
@@ -748,7 +748,7 @@ export default function Setup({ onComplete }: Props) {
                       value={specialty}
                       onChange={(e) => setSpecialty(e.target.value)}
                       required
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-transparent transition"
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface text-slate-800 dark:text-dk-text text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-transparent transition"
                     >
                       <option value="" disabled>{tx(lang,{fr:'S\u00e9lectionner une sp\u00e9cialit\u00e9\u2026',ar:'\u0627\u062e\u062a\u0631 \u062a\u062e\u0635\u0635\u0627\u064b\u2026',en:'Select a specialty\u2026',es:'Seleccione una especialidad\u2026',pt:'Selecione uma especialidade\u2026',tr:'Bir uzmanl\u0131k se\u00e7in\u2026'})}</option>
                       {SPECIALTIES.map((s) => (
@@ -789,12 +789,12 @@ export default function Setup({ onComplete }: Props) {
                     autoComplete="name"
                   />
                   <div className="flex flex-col gap-1">
-                    <label className="text-xs font-semibold text-slate-600 uppercase tracking-wide">{tx(lang,{fr:'Sp\u00e9cialisation principale',ar:'\u0627\u0644\u062a\u062e\u0635\u0635 \u0627\u0644\u0631\u0626\u064a\u0633\u064a',en:'Main specialization',es:'Especializaci\u00f3n principal',pt:'Especializa\u00e7\u00e3o principal',tr:'Ana uzmanl\u0131k'})}</label>
+                    <label className="text-xs font-semibold text-slate-600 dark:text-dk-text-soft uppercase tracking-wide">{tx(lang,{fr:'Sp\u00e9cialisation principale',ar:'\u0627\u0644\u062a\u062e\u0635\u0635 \u0627\u0644\u0631\u0626\u064a\u0633\u064a',en:'Main specialization',es:'Especializaci\u00f3n principal',pt:'Especializa\u00e7\u00e3o principal',tr:'Ana uzmanl\u0131k'})}</label>
                     <select
                       value={focusArea}
                       onChange={(e) => setFocusArea(e.target.value)}
                       required
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-transparent transition"
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface text-slate-800 dark:text-dk-text text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-transparent transition"
                     >
                       <option value="" disabled>{tx(lang,{fr:'S\u00e9lectionner une sp\u00e9cialisation\u2026',ar:'\u0627\u062e\u062a\u0631 \u062a\u062e\u0635\u0635\u0627\u064b\u2026',en:'Select a specialization\u2026',es:'Seleccione una especializaci\u00f3n\u2026',pt:'Selecione uma especializa\u00e7\u00e3o\u2026',tr:'Bir uzmanl\u0131k se\u00e7in\u2026'})}</option>
                       {FOCUS_AREAS.map((f) => (
@@ -809,7 +809,7 @@ export default function Setup({ onComplete }: Props) {
                 <button
                   type="button"
                   onClick={() => setAccountType(null)}
-                  className="flex-1 py-2.5 px-4 border border-slate-200 text-slate-600 font-semibold rounded-xl hover:bg-slate-50 flex items-center justify-center gap-1.5 transition-colors text-sm"
+                  className="flex-1 py-2.5 px-4 border border-slate-200 dark:border-dk-border text-slate-600 dark:text-dk-text-soft font-semibold rounded-xl hover:bg-slate-50 dark:hover:bg-dk-elevated/60 flex items-center justify-center gap-1.5 transition-colors text-sm"
                 >
                   <ChevronLeft className="w-4 h-4" />
                   {tx(lang,{fr:'Retour',ar:'رجوع',en:'Back',es:'Volver',pt:'Voltar',tr:'Geri'})}
@@ -831,8 +831,8 @@ export default function Setup({ onComplete }: Props) {
           {step === 3 && (
             <form onSubmit={(e) => { e.preventDefault(); handleNext(); }}>
               <div className="mb-6">
-                <h2 className="text-lg font-bold text-slate-800">{tx(lang,{fr:'Compte administrateur',ar:'\u062d\u0633\u0627\u0628 \u0627\u0644\u0645\u0633\u0624\u0648\u0644',en:'Admin account',es:'Cuenta de administrador',pt:'Conta de administrador',tr:'Y\u00f6netici hesab\u0131'})}</h2>
-                <p className="text-xs text-slate-500 mt-0.5">{tx(lang,{fr:'Ce compte aura acc\u00e8s \u00e0 toutes les fonctionnalit\u00e9s',ar:'\u0633\u064a\u0643\u0648\u0646 \u0644\u0647\u0630\u0627 \u0627\u0644\u062d\u0633\u0627\u0628 \u062f\u0633\u062a\u0648\u062d \u0625\u0644\u0649 \u062c\u0645\u064a\u0639 \u0627\u0644\u0648\u0638\u0627\u0626\u0641',en:'This account will have access to all features',es:'Esta cuenta tendr\u00e1 acceso a todas las funciones',pt:'Esta conta ter\u00e1 acesso a todas as funcionalidades',tr:'Bu hesab\u0131n t\u00fcm \u00f6zelliklere eri\u015fimi olacak'})}</p>
+                <h2 className="text-lg font-bold text-slate-800 dark:text-dk-text">{tx(lang,{fr:'Compte administrateur',ar:'\u062d\u0633\u0627\u0628 \u0627\u0644\u0645\u0633\u0624\u0648\u0644',en:'Admin account',es:'Cuenta de administrador',pt:'Conta de administrador',tr:'Y\u00f6netici hesab\u0131'})}</h2>
+                <p className="text-xs text-slate-500 dark:text-dk-muted mt-0.5">{tx(lang,{fr:'Ce compte aura acc\u00e8s \u00e0 toutes les fonctionnalit\u00e9s',ar:'\u0633\u064a\u0643\u0648\u0646 \u0644\u0647\u0630\u0627 \u0627\u0644\u062d\u0633\u0627\u0628 \u062f\u0633\u062a\u0648\u062d \u0625\u0644\u0649 \u062c\u0645\u064a\u0639 \u0627\u0644\u0648\u0638\u0627\u0626\u0641',en:'This account will have access to all features',es:'Esta cuenta tendr\u00e1 acceso a todas las funciones',pt:'Esta conta ter\u00e1 acesso a todas as funcionalidades',tr:'Bu hesab\u0131n t\u00fcm \u00f6zelliklere eri\u015fimi olacak'})}</p>
               </div>
 
               <div className="space-y-4">
@@ -901,7 +901,7 @@ export default function Setup({ onComplete }: Props) {
               )}
 
               {!canProceedStep3 && (
-                <p className="mt-4 text-[11px] text-slate-400 text-center">
+                <p className="mt-4 text-[11px] text-slate-400 dark:text-dk-muted text-center">
                   {tx(lang,{fr:'Renseignez un nom, un e-mail valide et un mot de passe (6+ caractères) identique pour continuer.',ar:'أدخل اسماً وبريداً إلكترونياً صالحاً وكلمة سر (6+ أحرف) متطابقة للمتابعة.',en:'Enter a name, a valid email and a matching password (6+ characters) to continue.',es:'Introduzca un nombre, un correo válido y una contraseña (6+ caracteres) coincidente para continuar.',pt:'Introduza um nome, um e-mail válido e uma palavra-passe (6+ caracteres) correspondente para continuar.',tr:'Devam etmek için bir ad, geçerli bir e-posta ve eşleşen bir şifre (6+ karakter) girin.'})}
                   <br />{tx(lang,{fr:'Le téléphone reste optionnel.',ar:'الهاتف اختياري.',en:'Phone is optional.',es:'El teléfono sigue siendo opcional.',pt:'O telefone continua opcional.',tr:'Telefon isteğe bağlıdır.'})}
                 </p>
@@ -912,7 +912,7 @@ export default function Setup({ onComplete }: Props) {
                   type="button"
                   onClick={handleBack}
                   disabled={loading}
-                  className="flex-1 py-2.5 px-4 border border-slate-200 text-slate-600 font-semibold rounded-xl hover:bg-slate-50 flex items-center justify-center gap-1.5 transition-colors text-sm disabled:opacity-40"
+                  className="flex-1 py-2.5 px-4 border border-slate-200 dark:border-dk-border text-slate-600 dark:text-dk-text-soft font-semibold rounded-xl hover:bg-slate-50 dark:hover:bg-dk-elevated/60 flex items-center justify-center gap-1.5 transition-colors text-sm disabled:opacity-40"
                 >
                   <ChevronLeft className="w-4 h-4" />
                   {tx(lang,{fr:'Retour',ar:'رجوع',en:'Back',es:'Volver',pt:'Voltar',tr:'Geri'})}
@@ -935,8 +935,8 @@ export default function Setup({ onComplete }: Props) {
               <div className="mb-6 flex items-center gap-2">
                 <SlidersHorizontal className="w-4 h-4 text-emerald-600 shrink-0" />
                 <div>
-                  <h2 className="text-lg font-bold text-slate-800">{tx(lang,{fr:'Pr\u00e9f\u00e9rences',ar:'\u0627\u0644\u062a\u0641\u0636\u064a\u0644\u0627\u062a',en:'Preferences',es:'Preferencias',pt:'Prefer\u00eancias',tr:'Tercihler'})}</h2>
-                  <p className="text-xs text-slate-500 mt-0.5">{tx(lang,{fr:'Valeurs par d\u00e9faut \u2014 modifiables \u00e0 tout moment dans Configuration.',ar:'\u0627\u0644\u0642\u064a\u0645 \u0627\u0644\u0627\u0641\u062a\u0631\u0627\u0636\u064a\u0629 \u2014 \u0642\u0627\u0628\u0644\u0629 \u0644\u0644\u062a\u063a\u064a\u064a\u0631 \u0641\u064a \u0623\u064a \u0648\u0642\u062a \u0645\u0646 \u0627\u0644\u0625\u0639\u062f\u0627\u062f\u0627\u062a.',en:'Default values \u2014 can be changed anytime in Settings.',es:'Valores por defecto \u2014 modificables en cualquier momento en Configuraci\u00f3n.',pt:'Valores predefinidos \u2014 alter\u00e1veis a qualquer momento na Configura\u00e7\u00e3o.',tr:'Varsay\u0131lan de\u011ferler \u2014 Ayarlar\'dan her zaman de\u011fi\u015ftirilebilir.'})}</p>
+                  <h2 className="text-lg font-bold text-slate-800 dark:text-dk-text">{tx(lang,{fr:'Pr\u00e9f\u00e9rences',ar:'\u0627\u0644\u062a\u0641\u0636\u064a\u0644\u0627\u062a',en:'Preferences',es:'Preferencias',pt:'Prefer\u00eancias',tr:'Tercihler'})}</h2>
+                  <p className="text-xs text-slate-500 dark:text-dk-muted mt-0.5">{tx(lang,{fr:'Valeurs par d\u00e9faut \u2014 modifiables \u00e0 tout moment dans Configuration.',ar:'\u0627\u0644\u0642\u064a\u0645 \u0627\u0644\u0627\u0641\u062a\u0631\u0627\u0636\u064a\u0629 \u2014 \u0642\u0627\u0628\u0644\u0629 \u0644\u0644\u062a\u063a\u064a\u064a\u0631 \u0641\u064a \u0623\u064a \u0648\u0642\u062a \u0645\u0646 \u0627\u0644\u0625\u0639\u062f\u0627\u062f\u0627\u062a.',en:'Default values \u2014 can be changed anytime in Settings.',es:'Valores por defecto \u2014 modificables en cualquier momento en Configuraci\u00f3n.',pt:'Valores predefinidos \u2014 alter\u00e1veis a qualquer momento na Configura\u00e7\u00e3o.',tr:'Varsay\u0131lan de\u011ferler \u2014 Ayarlar\'dan her zaman de\u011fi\u015ftirilebilir.'})}</p>
                 </div>
               </div>
 
@@ -988,7 +988,7 @@ export default function Setup({ onComplete }: Props) {
                   type="button"
                   onClick={handleBack}
                   disabled={loading}
-                  className="flex-1 py-2.5 px-4 border border-slate-200 text-slate-600 font-semibold rounded-xl hover:bg-slate-50 flex items-center justify-center gap-1.5 transition-colors text-sm disabled:opacity-40"
+                  className="flex-1 py-2.5 px-4 border border-slate-200 dark:border-dk-border text-slate-600 dark:text-dk-text-soft font-semibold rounded-xl hover:bg-slate-50 dark:hover:bg-dk-elevated/60 flex items-center justify-center gap-1.5 transition-colors text-sm disabled:opacity-40"
                 >
                   <ChevronLeft className="w-4 h-4" />
                   {tx(lang,{fr:'Retour',ar:'رجوع',en:'Back',es:'Volver',pt:'Voltar',tr:'Geri'})}
@@ -1024,7 +1024,7 @@ export default function Setup({ onComplete }: Props) {
           )}
         </div>
 
-        <p className={`text-center text-xs mt-4 ${isDark ? 'text-dk-muted' : 'text-slate-400'}`}>
+        <p className={`text-center text-xs mt-4 ${isDark ? 'text-dk-muted' : 'text-slate-400 dark:text-dk-muted'}`}>
           {tx(lang,{fr:'BERAMETHODE \u2014 Syst\u00e8me de gestion textile',ar:'BERAMETHODE \u2014 \u0646\u0638\u0627\u0645 \u0625\u062f\u0627\u0631\u0629 \u0627\u0644\u0645\u0646\u0633\u0648\u062c\u0627\u062a',en:'BERAMETHODE \u2014 Textile management system',es:'BERAMETHODE \u2014 Sistema de gesti\u00f3n textil',pt:'BERAMETHODE \u2014 Sistema de gest\u00e3o t\u00eaxteis',tr:'BERAMETHODE \u2014 Tekstil y\u00f6netim sistemi'})}
         </p>
       </div>
@@ -1041,12 +1041,12 @@ export default function Setup({ onComplete }: Props) {
             animate={{ opacity: 1, scale: 1, y: 0 }}
             transition={{ duration: 0.18, ease: 'easeOut' }}
             onClick={(e) => e.stopPropagation()}
-            className={`w-full max-w-lg max-h-[85vh] flex flex-col rounded-2xl shadow-xl overflow-hidden ${isDark ? 'bg-dk-surface border border-dk-border' : 'bg-white border border-slate-100'}`}
+            className={`w-full max-w-lg max-h-[85vh] flex flex-col rounded-2xl shadow-xl overflow-hidden ${isDark ? 'bg-dk-surface border border-dk-border' : 'bg-white dark:bg-dk-surface border border-slate-100 dark:border-dk-border'}`}
           >
-            <div className={`flex items-center justify-between gap-3 px-5 py-4 border-b ${isDark ? 'border-dk-border' : 'border-slate-100'}`}>
+            <div className={`flex items-center justify-between gap-3 px-5 py-4 border-b ${isDark ? 'border-dk-border' : 'border-slate-100 dark:border-dk-border'}`}>
               <div className="flex items-center gap-2 min-w-0">
                 <ScrollText className="w-4 h-4 text-emerald-600 shrink-0" />
-                <h3 className="text-sm font-bold text-slate-800 truncate">{tx(lang,{fr:'Conditions G\u00e9n\u00e9rales d\'Utilisation',ar:'\u0627\u0644\u0634\u0631\u0648\u0637 \u0627\u0644\u0639\u0627\u0645\u0629 \u0644\u0644\u0627\u0633\u062a\u062e\u062f\u0627\u0645',en:'Terms and Conditions',es:'T\u00e9rminos y Condiciones de Uso',pt:'Termos e Condi\u00e7\u00f5es de Utiliza\u00e7\u00e3o',tr:'Kullan\u0131m \u015eartlar\u0131'})}</h3>
+                <h3 className="text-sm font-bold text-slate-800 dark:text-dk-text truncate">{tx(lang,{fr:'Conditions G\u00e9n\u00e9rales d\'Utilisation',ar:'\u0627\u0644\u0634\u0631\u0648\u0637 \u0627\u0644\u0639\u0627\u0645\u0629 \u0644\u0644\u0627\u0633\u062a\u062e\u062f\u0627\u0645',en:'Terms and Conditions',es:'T\u00e9rminos y Condiciones de Uso',pt:'Termos e Condi\u00e7\u00f5es de Utiliza\u00e7\u00e3o',tr:'Kullan\u0131m \u015eartlar\u0131'})}</h3>
               </div>
               <button
                 type="button"
@@ -1057,20 +1057,20 @@ export default function Setup({ onComplete }: Props) {
                 <X className="w-5 h-5" />
               </button>
             </div>
-            <div className={`overflow-y-auto px-5 py-4 text-xs leading-relaxed space-y-3 ${isDark ? 'text-dk-text' : 'text-slate-600'}`}>
-              <p className="text-[11px] text-slate-400">Version {CGU_VERSION} — {CGU_DATE}</p>
+            <div className={`overflow-y-auto px-5 py-4 text-xs leading-relaxed space-y-3 ${isDark ? 'text-dk-text' : 'text-slate-600 dark:text-dk-text-soft'}`}>
+              <p className="text-[11px] text-slate-400 dark:text-dk-muted">Version {CGU_VERSION} — {CGU_DATE}</p>
               {CGU_SECTIONS.map((s) => (
                 <div key={s.title}>
-                  <h4 className="font-semibold text-slate-700 mb-0.5">{s.title}</h4>
+                  <h4 className="font-semibold text-slate-700 dark:text-dk-text-soft mb-0.5">{s.title}</h4>
                   <p>{s.body}</p>
                 </div>
               ))}
             </div>
-            <div className="flex gap-3 px-5 py-4 border-t border-slate-100">
+            <div className="flex gap-3 px-5 py-4 border-t border-slate-100 dark:border-dk-border">
               <button
                 type="button"
                 onClick={() => setShowTerms(false)}
-                className="flex-1 py-2.5 px-4 border border-slate-200 text-slate-600 font-semibold rounded-xl hover:bg-slate-50 transition-colors text-sm"
+                className="flex-1 py-2.5 px-4 border border-slate-200 dark:border-dk-border text-slate-600 dark:text-dk-text-soft font-semibold rounded-xl hover:bg-slate-50 dark:hover:bg-dk-elevated/60 transition-colors text-sm"
               >
                 {tx(lang,{fr:'Fermer',ar:'إغلاق',en:'Close',es:'Cerrar',pt:'Fechar',tr:'Kapat'})}
               </button>

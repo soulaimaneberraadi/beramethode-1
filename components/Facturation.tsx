@@ -45,14 +45,14 @@ export default function Facturation({ t }: FacturationProps) {
 
     const StatusBadge = ({ status }: { status: string }) => {
         const styles: Record<string, string> = {
-            'BROUILLON': 'bg-gray-100 text-gray-700 border-gray-200',
+            'BROUILLON': 'bg-gray-100 dark:bg-dk-elevated text-gray-700 dark:text-dk-text-soft border-gray-200 dark:border-dk-border',
             'ENVOYEE': 'bg-blue-50 text-blue-700 border-blue-200',
             'PAYEE': 'bg-emerald-50 text-emerald-700 border-emerald-200',
             'PARTIELLEMENT': 'bg-amber-50 text-amber-700 border-amber-200',
             'ANNULEE': 'bg-red-50 text-red-700 border-red-200',
             'ACCEPTE': 'bg-emerald-50 text-emerald-700 border-emerald-200',
             'REFUSE': 'bg-red-50 text-red-700 border-red-200',
-            'PREPARE': 'bg-gray-100 text-gray-700 border-gray-200',
+            'PREPARE': 'bg-gray-100 dark:bg-dk-elevated text-gray-700 dark:text-dk-text-soft border-gray-200 dark:border-dk-border',
             'EXPEDIE': 'bg-blue-50 text-blue-700 border-blue-200',
             'LIVRE': 'bg-emerald-50 text-emerald-700 border-emerald-200',
             'RETOUR': 'bg-red-50 text-red-700 border-red-200'
@@ -71,10 +71,10 @@ export default function Facturation({ t }: FacturationProps) {
         );
 
         return (
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+            <div className="bg-white dark:bg-dk-surface rounded-2xl shadow-sm border border-slate-200 dark:border-dk-border overflow-hidden">
                 <div className="overflow-x-auto">
                     <table className="w-full text-sm text-left">
-                        <thead className="bg-slate-50 border-b border-slate-100 text-slate-500 font-medium">
+                        <thead className="bg-slate-50 dark:bg-dk-bg border-b border-slate-100 dark:border-dk-border text-slate-500 dark:text-dk-muted font-medium">
                             <tr>
                                 <th className="px-6 py-4">{tx(lang,{fr:'N° Document',ar:'رقم المستند',en:'Doc. No.',es:'N.º Doc.',pt:'N.º Doc.',tr:'Belge No.'})}</th>
                                 <th className="px-6 py-4">{activeTab === 'ACHAT' ? tx(lang,{fr:'Fournisseur',ar:'المورد',en:'Supplier',es:'Proveedor',pt:'Fornecedor',tr:'Tedarikçi'}) : tx(lang,{fr:'Client',ar:'العميل',en:'Client',es:'Cliente',pt:'Cliente',tr:'Müşteri'})}</th>
@@ -87,27 +87,27 @@ export default function Facturation({ t }: FacturationProps) {
                         <tbody className="divide-y divide-slate-100">
                             {filtered.length === 0 ? (
                                 <tr>
-                                    <td colSpan={6} className="px-6 py-12 text-center text-slate-400">
+                                    <td colSpan={6} className="px-6 py-12 text-center text-slate-400 dark:text-dk-muted">
                                         <FileText className="w-12 h-12 mx-auto mb-3 opacity-20" />
                                         <p>{tx(lang,{fr:'Aucun document trouvé',ar:'لم يتم العثور على أي مستند',en:'No document found',es:'No se encontró ningún documento',pt:'Nenhum documento encontrado',tr:'Hiçbir belge bulunamadı'})}</p>
                                     </td>
                                 </tr>
                             ) : filtered.map(f => (
                                 <tr key={f.id} className="hover:bg-slate-50/50 transition-colors group">
-                                    <td className="px-6 py-4 font-medium text-slate-900">{f.numero}</td>
-                                    <td className="px-6 py-4 text-slate-600">{f.tiers_nom}</td>
-                                    <td className="px-6 py-4 text-slate-600">
+                                    <td className="px-6 py-4 font-medium text-slate-900 dark:text-dk-text">{f.numero}</td>
+                                    <td className="px-6 py-4 text-slate-600 dark:text-dk-text-soft">{f.tiers_nom}</td>
+                                    <td className="px-6 py-4 text-slate-600 dark:text-dk-text-soft">
                                         {new Date(f.date_facture).toLocaleDateString()}
                                     </td>
-                                    <td className="px-6 py-4 font-semibold text-slate-700">
-                                        {f.total_ttc.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} <span className="text-xs text-slate-400">MAD</span>
+                                    <td className="px-6 py-4 font-semibold text-slate-700 dark:text-dk-text-soft">
+                                        {f.total_ttc.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} <span className="text-xs text-slate-400 dark:text-dk-muted">MAD</span>
                                     </td>
                                     <td className="px-6 py-4">
                                         <StatusBadge status={f.statut} />
                                     </td>
                                     <td className="px-6 py-4 text-right">
                                         <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                            <button className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
+                                            <button className="p-2 text-slate-400 dark:text-dk-muted hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
                                                 <Printer className="w-4 h-4" />
                                             </button>
                                             <button className="p-2 text-slate-400 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors">
@@ -131,10 +131,10 @@ export default function Facturation({ t }: FacturationProps) {
         );
 
         return (
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+            <div className="bg-white dark:bg-dk-surface rounded-2xl shadow-sm border border-slate-200 dark:border-dk-border overflow-hidden">
                 <div className="overflow-x-auto">
                     <table className="w-full text-sm text-left">
-                        <thead className="bg-slate-50 border-b border-slate-100 text-slate-500 font-medium">
+                        <thead className="bg-slate-50 dark:bg-dk-bg border-b border-slate-100 dark:border-dk-border text-slate-500 dark:text-dk-muted font-medium">
                             <tr>
                                 <th className="px-6 py-4">{tx(lang,{fr:'N° BL',ar:'رقم إيصال التسليم',en:'DN No.',es:'N.º Alb.',pt:'N.º GR',tr:'TN No.'})}</th>
                                 <th className="px-6 py-4">{tx(lang,{fr:'Destinataire',ar:'المستلم',en:'Recipient',es:'Destinatario',pt:'Destinatário',tr:'Alıcı'})}</th>
@@ -147,25 +147,25 @@ export default function Facturation({ t }: FacturationProps) {
                         <tbody className="divide-y divide-slate-100">
                             {filtered.length === 0 ? (
                                 <tr>
-                                    <td colSpan={6} className="px-6 py-12 text-center text-slate-400">
+                                    <td colSpan={6} className="px-6 py-12 text-center text-slate-400 dark:text-dk-muted">
                                         <FileCheck2 className="w-12 h-12 mx-auto mb-3 opacity-20" />
                                         <p>{tx(lang,{fr:'Aucun bon de livraison trouvé',ar:'لم يتم العثور على أي إيصال تسليم',en:'No delivery note found',es:'No se encontró ningún albarán',pt:'Nenhuma guia de remessa encontrada',tr:'Hiçbir teslimat notu bulunamadı'})}</p>
                                     </td>
                                 </tr>
                             ) : filtered.map(bl => (
                                 <tr key={bl.id} className="hover:bg-slate-50/50 transition-colors group">
-                                    <td className="px-6 py-4 font-medium text-slate-900">{bl.numero}</td>
-                                    <td className="px-6 py-4 text-slate-600">{bl.tiers_nom}</td>
-                                    <td className="px-6 py-4 text-slate-600">
+                                    <td className="px-6 py-4 font-medium text-slate-900 dark:text-dk-text">{bl.numero}</td>
+                                    <td className="px-6 py-4 text-slate-600 dark:text-dk-text-soft">{bl.tiers_nom}</td>
+                                    <td className="px-6 py-4 text-slate-600 dark:text-dk-text-soft">
                                         {new Date(bl.date_livraison).toLocaleDateString()}
                                     </td>
-                                    <td className="px-6 py-4 text-slate-500">{bl.facture_id || '-'}</td>
+                                    <td className="px-6 py-4 text-slate-500 dark:text-dk-muted">{bl.facture_id || '-'}</td>
                                     <td className="px-6 py-4">
                                         <StatusBadge status={bl.statut} />
                                     </td>
                                     <td className="px-6 py-4 text-right">
                                         <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                            <button className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
+                                            <button className="p-2 text-slate-400 dark:text-dk-muted hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
                                                 <Printer className="w-4 h-4" />
                                             </button>
                                             <button className="p-2 text-slate-400 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors">
@@ -198,7 +198,7 @@ export default function Facturation({ t }: FacturationProps) {
                         </p>
                     </div>
                     <div className="flex items-center gap-3">
-                        <button className="bg-white/10 hover:bg-white/20 text-white px-5 py-2.5 rounded-xl transition-all flex items-center gap-2 font-medium border border-white/10 backdrop-blur-sm">
+                        <button className="bg-white dark:bg-dk-surface/10 hover:bg-white text-white px-5 py-2.5 rounded-xl transition-all flex items-center gap-2 font-medium border border-white/10 backdrop-blur-sm">
                             <Settings className="w-5 h-5" />
                             <span>{tx(lang,{fr:'Paramètres',ar:'الإعدادات',en:'Settings',es:'Ajustes',pt:'Configurações',tr:'Ayarlar'})}</span>
                         </button>
@@ -215,7 +215,7 @@ export default function Facturation({ t }: FacturationProps) {
                 <div className="w-full md:w-64 shrink-0 space-y-2">
                     <button 
                         onClick={() => setActiveTab('VENTE')}
-                        className={`w-full flex items-center justify-between p-4 rounded-2xl transition-all ${activeTab === 'VENTE' ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20' : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-200'}`}
+                        className={`w-full flex items-center justify-between p-4 rounded-2xl transition-all ${activeTab === 'VENTE' ? 'bg-indigo-600 dark:bg-dk-accent text-white shadow-md shadow-indigo-600/20' : 'bg-white dark:bg-dk-surface text-slate-600 dark:text-dk-text-soft hover:bg-slate-50 dark:hover:bg-dk-elevated/60 border border-slate-200 dark:border-dk-border'}`}
                     >
                         <div className="flex items-center gap-3 font-medium">
                             <ArrowRight className="w-5 h-5" />
@@ -226,7 +226,7 @@ export default function Facturation({ t }: FacturationProps) {
                     
                     <button 
                         onClick={() => setActiveTab('ACHAT')}
-                        className={`w-full flex items-center justify-between p-4 rounded-2xl transition-all ${activeTab === 'ACHAT' ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20' : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-200'}`}
+                        className={`w-full flex items-center justify-between p-4 rounded-2xl transition-all ${activeTab === 'ACHAT' ? 'bg-indigo-600 dark:bg-dk-accent text-white shadow-md shadow-indigo-600/20' : 'bg-white dark:bg-dk-surface text-slate-600 dark:text-dk-text-soft hover:bg-slate-50 dark:hover:bg-dk-elevated/60 border border-slate-200 dark:border-dk-border'}`}
                     >
                         <div className="flex items-center gap-3 font-medium">
                             <ArrowRight className="w-5 h-5 rotate-180" />
@@ -237,7 +237,7 @@ export default function Facturation({ t }: FacturationProps) {
 
                     <button 
                         onClick={() => setActiveTab('DEVIS')}
-                        className={`w-full flex items-center justify-between p-4 rounded-2xl transition-all ${activeTab === 'DEVIS' ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20' : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-200'}`}
+                        className={`w-full flex items-center justify-between p-4 rounded-2xl transition-all ${activeTab === 'DEVIS' ? 'bg-indigo-600 dark:bg-dk-accent text-white shadow-md shadow-indigo-600/20' : 'bg-white dark:bg-dk-surface text-slate-600 dark:text-dk-text-soft hover:bg-slate-50 dark:hover:bg-dk-elevated/60 border border-slate-200 dark:border-dk-border'}`}
                     >
                         <div className="flex items-center gap-3 font-medium">
                             <Tag className="w-5 h-5" />
@@ -248,7 +248,7 @@ export default function Facturation({ t }: FacturationProps) {
 
                     <button 
                         onClick={() => setActiveTab('BL')}
-                        className={`w-full flex items-center justify-between p-4 rounded-2xl transition-all ${activeTab === 'BL' ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20' : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-200'}`}
+                        className={`w-full flex items-center justify-between p-4 rounded-2xl transition-all ${activeTab === 'BL' ? 'bg-indigo-600 dark:bg-dk-accent text-white shadow-md shadow-indigo-600/20' : 'bg-white dark:bg-dk-surface text-slate-600 dark:text-dk-text-soft hover:bg-slate-50 dark:hover:bg-dk-elevated/60 border border-slate-200 dark:border-dk-border'}`}
                     >
                         <div className="flex items-center gap-3 font-medium">
                             <FileCheck2 className="w-5 h-5" />
@@ -262,23 +262,23 @@ export default function Facturation({ t }: FacturationProps) {
                     {/* Toolbar */}
                     <div className="flex items-center justify-between gap-4">
                         <div className="relative flex-1 max-w-md">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 dark:text-dk-muted" />
                             <input 
                                 type="text"
                                 placeholder={activeTab === 'ACHAT' ? tx(lang,{fr:'Rechercher un document ou fournisseur...',ar:'ابحث عن مستند أو مورد...',en:'Search document or supplier...',es:'Buscar documento o proveedor...',pt:'Pesquisar documento ou fornecedor...',tr:'Belge veya tedarikçi ara...'}) : tx(lang,{fr:'Rechercher un document ou client...',ar:'ابحث عن مستند أو عميل...',en:'Search document or client...',es:'Buscar documento o cliente...',pt:'Pesquisar documento ou cliente...',tr:'Belge veya müşteri ara...'})}
                                 value={searchTerm}
                                 onChange={e => setSearchTerm(e.target.value)}
-                                className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all placeholder:text-slate-400"
+                                className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 dark:border-dk-border focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all placeholder:text-slate-400"
                             />
                         </div>
-                        <button className="p-2.5 text-slate-500 bg-white border border-slate-200 hover:bg-slate-50 rounded-xl transition-all">
+                        <button className="p-2.5 text-slate-500 dark:text-dk-muted bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border hover:bg-slate-50 dark:hover:bg-dk-elevated/60 rounded-xl transition-all">
                             <Filter className="w-5 h-5" />
                         </button>
                     </div>
 
                     {/* Content Area */}
                     {isLoading ? (
-                        <div className="h-64 flex items-center justify-center bg-white rounded-2xl border border-slate-100 shadow-sm">
+                        <div className="h-64 flex items-center justify-center bg-white dark:bg-dk-surface rounded-2xl border border-slate-100 dark:border-dk-border shadow-sm">
                             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
                         </div>
                     ) : (

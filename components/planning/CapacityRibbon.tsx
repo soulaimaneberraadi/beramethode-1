@@ -21,7 +21,7 @@ export default function CapacityRibbon({ timelineDates, chainId, events, setting
     const { lang } = useLang();
     const cap = getChainDailyCapacity(settings.chainCapacityPerDay, chainId, 1000);
     return (
-        <div className="flex w-full shrink-0 border-b border-slate-200/60 bg-slate-50/80">
+        <div className="flex w-full shrink-0 border-b border-slate-200 dark:border-dk-border/60 bg-slate-50/80">
             {timelineDates.map(date => {
                 const dk = planningLocalDateKey(date);
                 const r = dayLoadRatio(dk, events, chainId, cap);
@@ -33,7 +33,7 @@ export default function CapacityRibbon({ timelineDates, chainId, events, setting
                     <div
                         key={`rib-${chainId}-${dk}`}
                         style={{ width: dayWidth, minWidth: dayWidth }}
-                        className="shrink-0 h-full min-h-[5px] border-r border-slate-200/40"
+                        className="shrink-0 h-full min-h-[5px] border-r border-slate-200 dark:border-dk-border/40"
                         title={tx(lang, { fr: `Charge ${chainId} — ${dk} : ${Math.round(r * 100)}% (${cap} pcs/j)`, ar: `الحمل ${chainId} — ${dk} : ${Math.round(r * 100)}% (${cap} قطعة/ي)`, en: `Load ${chainId} — ${dk} : ${Math.round(r * 100)}% (${cap} pcs/d)`, es: `Carga ${chainId} — ${dk} : ${Math.round(r * 100)}% (${cap} pzas/d)`, pt: `Carga ${chainId} — ${dk} : ${Math.round(r * 100)}% (${cap} pçs/d)`, tr: `Yük ${chainId} — ${dk} : %${Math.round(r * 100)} (${cap} adet/g)` })}
                     >
                         <div className={`h-[5px] w-full ${bg}`} />

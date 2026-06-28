@@ -95,7 +95,7 @@ export default function EmployeeProfile({ employee, tasks, onClose }: EmployeePr
                   <div className="text-center md:text-left">
                     <h3 className="text-3xl font-black text-slate-800 dark:text-dk-text tracking-tight">{employee.fullName}</h3>
                     <div className="flex flex-wrap justify-center md:justify-start items-center gap-3 mt-2">
-                       <span className="text-sm font-bold text-indigo-600 dark:text-dk-accent-text bg-indigo-50 dark:bg-dk-elevated px-3 py-1 rounded-full">{employee.role}</span>
+                       <span className="text-sm font-bold text-indigo-600 dark:text-dk-accent-text bg-indigo-50 dark:bg-dk-accent/20 dark:bg-dk-elevated px-3 py-1 rounded-full">{employee.role}</span>
                        <span className="text-sm font-medium text-slate-400 dark:text-dk-muted">ID: {employee.id}</span>
                        {employee.chaineId && (
                           <span className="text-sm font-bold text-amber-600 bg-amber-50 dark:bg-amber-900/30 px-3 py-1 rounded-full">{tx(lang, {fr:'Chaîne:', ar:'الخط:', en:'Line:', es:'Línea:', pt:'Linha:', tr:'Hat:'})} {employee.chaineId}</span>
@@ -114,7 +114,7 @@ export default function EmployeeProfile({ employee, tasks, onClose }: EmployeePr
                   </div>
                   <div className="bg-white dark:bg-dk-elevated border border-slate-100 dark:border-dk-border shadow-sm rounded-2xl p-4 flex flex-col items-center min-w-[120px]">
                     <span className="text-[10px] font-black uppercase text-slate-400 dark:text-dk-muted tracking-widest mb-1">{tx(lang, {fr:'Activités du Mois', ar:'أنشطة الشهر', en:'Monthly Activities', es:'Actividades del Mes', pt:'Atividades do Mês', tr:'Aylık Aktiviteler'})}</span>
-                    <span className="text-2xl font-black text-indigo-600 leading-none">{data.monthDone}</span>
+                    <span className="text-2xl font-black text-indigo-600 dark:text-dk-accent-text leading-none">{data.monthDone}</span>
                     <span className="text-[10px] font-bold text-slate-400 dark:text-dk-muted mt-1 uppercase tracking-tighter">{tx(lang, {fr:'Tasks Termitées', ar:'المهام المنجزة', en:'Tasks Completed', es:'Tareas Completadas', pt:'Tarefas Concluídas', tr:'Tamamlanan Görevler'})}</span>
                   </div>
                 </div>
@@ -143,7 +143,7 @@ export default function EmployeeProfile({ employee, tasks, onClose }: EmployeePr
                   <h4 className="text-lg font-black text-slate-800 dark:text-dk-text flex items-center gap-2">
                     <AlertCircle className="w-5 h-5 text-indigo-500" /> {tx(lang, {fr:'Missions Actives', ar:'المهام النشطة', en:'Active Missions', es:'Misiones Activas', pt:'Missões Ativas', tr:'Aktif Görevler'})}
                   </h4>
-                  <span className="px-3 py-1 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 text-[10px] font-black rounded-lg uppercase tracking-widest">
+                  <span className="px-3 py-1 bg-indigo-50 dark:bg-dk-accent/20 dark:bg-indigo-900/30 text-indigo-700 dark:text-dk-accent-text dark:text-indigo-300 text-[10px] font-black rounded-lg uppercase tracking-widest">
                     {data.active.length} {tx(lang, {fr:'en cours', ar:'قيد التنفيذ', en:'in progress', es:'en curso', pt:'em andamento', tr:'devam ediyor'})}
                   </span>
                 </div>
@@ -155,13 +155,13 @@ export default function EmployeeProfile({ employee, tasks, onClose }: EmployeePr
                       className="group p-5 rounded-3xl border border-slate-100 dark:border-dk-border bg-slate-50/50 dark:bg-dk-bg/50 hover:bg-white dark:hover:bg-dk-elevated hover:shadow-xl hover:border-indigo-100 dark:hover:border-indigo-800 transition-all"
                       whileHover={{ x: 5 }}
                     >
-                      <p className="text-sm font-black text-slate-800 dark:text-dk-text mb-1 group-hover:text-indigo-600 dark:group-hover:text-dk-accent-text transition-colors">{task.title}</p>
+                      <p className="text-sm font-black text-slate-800 dark:text-dk-text mb-1 group-hover:text-indigo-600 dark:text-dk-accent-text dark:group-hover:text-dk-accent-text transition-colors">{task.title}</p>
                       <p className="text-xs text-slate-500 dark:text-dk-text-soft leading-relaxed mb-4 line-clamp-3">{task.description || '—'}</p>
                       <div className="flex items-center justify-between">
                          <span className="flex items-center gap-1.5 text-[10px] font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest">
                            <Calendar className="w-3 h-3" /> {formatDate(task.createdAt, lang)}
                          </span>
-                         <span className={`px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-tighter ${task.status === 'IN_PROGRESS' ? 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300' : 'bg-slate-200 dark:bg-dk-elevated text-slate-600 dark:text-dk-text-soft'}`}>
+                         <span className={`px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-tighter ${task.status === 'IN_PROGRESS' ? 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-dk-accent-text dark:text-indigo-300' : 'bg-slate-200 dark:bg-dk-elevated text-slate-600 dark:text-dk-text-soft'}`}>
                            {task.status === 'IN_PROGRESS' ? tx(lang, {fr:'En Cours', ar:'قيد التنفيذ', en:'In Progress', es:'En Curso', pt:'Em Andamento', tr:'Devam Ediyor'}) : tx(lang, {fr:'À Faire', ar:'للتنفيذ', en:'To Do', es:'Por Hacer', pt:'A Fazer', tr:'Yapılacak'})}
                          </span>
                       </div>
@@ -225,7 +225,7 @@ export default function EmployeeProfile({ employee, tasks, onClose }: EmployeePr
                  </button>
                  <button 
                   onClick={onClose}
-                  className="px-6 py-2 rounded-xl text-[11px] font-black bg-indigo-600 text-white hover:bg-indigo-700 transition-all shadow-md shadow-indigo-100 dark:shadow-indigo-900/30"
+                  className="px-6 py-2 rounded-xl text-[11px] font-black bg-indigo-600 dark:bg-dk-accent text-white hover:bg-indigo-700 dark:hover:bg-dk-accent-hover transition-all shadow-md shadow-indigo-100 dark:shadow-indigo-900/30"
                  >
                     {tx(lang, {fr:'FERMER', ar:'إغلاق', en:'CLOSE', es:'CERRAR', pt:'FECHAR', tr:'KAPAT'})}
                  </button>

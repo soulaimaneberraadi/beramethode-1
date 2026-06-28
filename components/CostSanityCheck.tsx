@@ -133,11 +133,11 @@ const CostSanityCheck: React.FC<CostSanityCheckProps> = ({
                         {allOk ? tx(lang, {fr:'Vérification : tous les calculs sont cohérents', ar:'التحقق: جميع الحسابات متسقة', en:'Verification: all calculations are consistent', es:'Verificación: todos los cálculos son coherentes', pt:'Verificação: todos os cálculos são consistentes', tr:'Doğrulama: tüm hesaplamalar tutarlı'}) : tx(lang, {fr:`Vérification : ${warnings} point(s) à corriger`, ar:`التحقق: ${warnings} نقطة/نقاط للتصحيح`, en:`Verification: ${warnings} point(s) to fix`, es:`Verificación: ${warnings} punto(s) a corregir`, pt:`Verificação: ${warnings} ponto(s) a corrigir`, tr:`Doğrulama: ${warnings} düzeltilecek nokta`})}
                     </span>
                 </div>
-                {open ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
+                {open ? <ChevronUp className="w-4 h-4 text-slate-400 dark:text-dk-muted" /> : <ChevronDown className="w-4 h-4 text-slate-400 dark:text-dk-muted" />}
             </button>
 
             {open && (
-                <div className={`px-3 pb-3 pt-1 space-y-1 border-t ${isDark ? 'bg-dk-bg/60 border-dk-border' : 'bg-white/60 border-slate-200/60'}`}>
+                <div className={`px-3 pb-3 pt-1 space-y-1 border-t ${isDark ? 'bg-dk-bg/60 border-dk-border' : 'bg-white dark:bg-dk-surface/60 border-slate-200 dark:border-dk-border/60'}`}>
                     {checks.map((c, i) => (
                         <div key={i} className="flex items-start gap-2 px-2 py-1.5 rounded-md">
                             <span className="mt-0.5 shrink-0">
@@ -146,8 +146,8 @@ const CostSanityCheck: React.FC<CostSanityCheckProps> = ({
                                 {c.status === 'info' && <Info className="w-3.5 h-3.5 text-slate-400 dark:text-dk-muted" strokeWidth={2.5} />}
                             </span>
                             <div className="min-w-0">
-                                <div className={`text-[12px] font-medium ${c.status === 'warn' ? 'text-amber-800' : isDark ? 'text-dk-text' : 'text-slate-700'}`}>{c.label}</div>
-                                <div className={`text-[11px] tabular-nums ${isDark ? 'text-dk-muted' : 'text-slate-500'}`}>{c.detail}</div>
+                                <div className={`text-[12px] font-medium ${c.status === 'warn' ? 'text-amber-800' : isDark ? 'text-dk-text' : 'text-slate-700 dark:text-dk-text-soft'}`}>{c.label}</div>
+                                <div className={`text-[11px] tabular-nums ${isDark ? 'text-dk-muted' : 'text-slate-500 dark:text-dk-muted'}`}>{c.detail}</div>
                             </div>
                         </div>
                     ))}

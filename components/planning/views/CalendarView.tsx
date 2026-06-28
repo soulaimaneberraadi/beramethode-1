@@ -144,13 +144,13 @@ export default function CalendarView({ events, models, currentDate, pulseToday, 
                                             type="button"
                                             onClick={() => onSelectEvent(ev.id)}
                                             className={`w-full px-1.5 py-0.5 rounded text-[10px] text-left truncate transition-colors hover:bg-slate-100 dark:hover:bg-dk-elevated/60 flex items-center gap-1.5 ${
-                                                ev.isSubcontracted ? 'border border-dashed border-indigo-400 bg-indigo-50/20 dark:bg-indigo-900/20' : ''
+                                                ev.isSubcontracted ? 'border border-dashed border-indigo-400 bg-indigo-50 dark:bg-dk-accent/20/20 dark:bg-indigo-900/20' : ''
                                             }`}
                                         >
                                             <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: accent }} />
                                             <span className="truncate text-slate-700 dark:text-dk-text-soft">{client}</span>
                                             {ev.isSubcontracted && (
-                                                <span className="text-[7px] font-semibold bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400 px-1 rounded shrink-0">{tx(lang, { fr: 'S-T', ar: 'م ب', en: 'Sub', es: 'Sub', pt: 'Sub', tr: 'Taş' })}</span>
+                                                <span className="text-[7px] font-semibold bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-dk-accent-text dark:text-indigo-400 px-1 rounded shrink-0">{tx(lang, { fr: 'S-T', ar: 'م ب', en: 'Sub', es: 'Sub', pt: 'Sub', tr: 'Taş' })}</span>
                                             )}
                                         </button>
                                     );

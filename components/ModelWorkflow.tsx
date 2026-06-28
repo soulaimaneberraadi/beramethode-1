@@ -357,7 +357,7 @@ export default function ModelWorkflow({
                         disabled={!canUndo}
                         className={`p-1.5 rounded-md transition-all ${!canUndo
                             ? 'text-slate-300 dark:text-dk-muted cursor-not-allowed bg-slate-50 dark:bg-dk-bg'
-                            : 'text-slate-600 dark:text-dk-text-soft hover:bg-white dark:hover:bg-dk-surface hover:text-indigo-600 hover:shadow-sm active:scale-95'
+                            : 'text-slate-600 dark:text-dk-text-soft hover:bg-white dark:hover:bg-dk-surface hover:text-indigo-600 dark:text-dk-accent-text hover:shadow-sm active:scale-95'
                             }`}
                         title={st.undo}
                     >
@@ -368,7 +368,7 @@ export default function ModelWorkflow({
                         disabled={!canRedo}
                         className={`p-1.5 rounded-md transition-all ${!canRedo
                             ? 'text-slate-300 dark:text-dk-muted cursor-not-allowed bg-slate-50 dark:bg-dk-bg'
-                            : 'text-slate-600 dark:text-dk-text-soft hover:bg-white dark:hover:bg-dk-surface hover:text-indigo-600 hover:shadow-sm active:scale-95'
+                            : 'text-slate-600 dark:text-dk-text-soft hover:bg-white dark:hover:bg-dk-surface hover:text-indigo-600 dark:text-dk-accent-text hover:shadow-sm active:scale-95'
                             }`}
                         title={st.redo}
                     >
@@ -389,7 +389,7 @@ export default function ModelWorkflow({
                     {/* Left Scroll Button */}
                     <button
                         onClick={() => scrollSteps('left')}
-                        className="absolute left-0 top-0 bottom-0 z-10 w-8 bg-white/40 dark:bg-dk-surface/40 hover:bg-white/60 dark:hover:bg-dk-surface/60 backdrop-blur-md border-r border-slate-200/50 dark:border-dk-border/50 text-slate-600 dark:text-dk-text-soft hover:text-indigo-600 transition-all duration-200 active:bg-white/80 dark:active:bg-dk-surface/80 opacity-0 group-hover/stepper:opacity-100 flex items-center justify-center"
+                        className="absolute left-0 top-0 bottom-0 z-10 w-8 bg-white/40 dark:bg-dk-surface/40 hover:bg-white dark:hover:bg-dk-surface/60 backdrop-blur-md border-r border-slate-200/50 dark:border-dk-border/50 text-slate-600 dark:text-dk-text-soft hover:text-indigo-600 dark:text-dk-accent-text transition-all duration-200 active:bg-white dark:active:bg-dk-surface/80 opacity-0 group-hover/stepper:opacity-100 flex items-center justify-center"
                         title={tx(lang, { fr: 'Précédent', ar: 'السابق', en: 'Previous', es: 'Anterior', pt: 'Anterior', tr: 'Önceki' })}
                     >
                         <ChevronLeft className="w-4 h-4" />
@@ -409,7 +409,7 @@ export default function ModelWorkflow({
                                         ref={isActive ? activeStepRef : undefined}
                                         onClick={() => navigateTo(step.id)}
                                         className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${isActive
-                                            ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200'
+                                            ? 'bg-indigo-600 dark:bg-dk-accent text-white shadow-md shadow-indigo-200'
                                             : isPast
                                                 ? 'text-emerald-600 bg-emerald-50/50 hover:bg-emerald-100'
                                                 : 'text-slate-400 dark:text-dk-muted hover:text-slate-600 dark:hover:text-dk-text hover:bg-slate-50 dark:hover:bg-dk-bg'
@@ -429,7 +429,7 @@ export default function ModelWorkflow({
                     {/* Right Scroll Button */}
                     <button
                         onClick={() => scrollSteps('right')}
-                        className="absolute right-0 top-0 bottom-0 z-10 w-8 bg-white/40 dark:bg-dk-surface/40 hover:bg-white/60 dark:hover:bg-dk-surface/60 backdrop-blur-md border-l border-slate-200/50 dark:border-dk-border/50 text-slate-600 dark:text-dk-text-soft hover:text-indigo-600 transition-all duration-200 active:bg-white/80 dark:active:bg-dk-surface/80 opacity-0 group-hover/stepper:opacity-100 flex items-center justify-center"
+                        className="absolute right-0 top-0 bottom-0 z-10 w-8 bg-white/40 dark:bg-dk-surface/40 hover:bg-white dark:hover:bg-dk-surface/60 backdrop-blur-md border-l border-slate-200/50 dark:border-dk-border/50 text-slate-600 dark:text-dk-text-soft hover:text-indigo-600 dark:text-dk-accent-text transition-all duration-200 active:bg-white dark:active:bg-dk-surface/80 opacity-0 group-hover/stepper:opacity-100 flex items-center justify-center"
                         title={tx(lang, { fr: 'Suivant', ar: 'التالي', en: 'Next', es: 'Siguiente', pt: 'Próximo', tr: 'İleri' })}
                     >
                         <ChevronRight className="w-4 h-4" />
@@ -464,7 +464,7 @@ export default function ModelWorkflow({
                         onClick={isLastStep ? handleSave : handleLinearNext}
                         className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all shadow-sm ${isLastStep
                             ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-200 hover:shadow-emerald-300'
-                            : 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-indigo-200 hover:shadow-indigo-300'
+                            : 'bg-indigo-600 dark:bg-dk-accent hover:bg-indigo-700 dark:hover:bg-dk-accent-hover text-white shadow-indigo-200 hover:shadow-indigo-300'
                             }`}
                     >
                         <span className="hidden sm:inline">{isLastStep ? st.finish : st.next}</span>

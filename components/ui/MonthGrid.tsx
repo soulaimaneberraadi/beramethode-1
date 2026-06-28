@@ -97,7 +97,7 @@ export default function MonthGrid({
                 >
                     ‹
                 </button>
-                <div className="text-sm font-black text-slate-800">
+                <div className="text-sm font-black text-slate-800 dark:text-dk-text">
                     {tx(lang, MONTHS_TX[mo])} {y}
                 </div>
                 <button
@@ -109,7 +109,7 @@ export default function MonthGrid({
                     ›
                 </button>
             </div>
-            <div className="grid grid-cols-7 gap-0.5 text-center text-[10px] font-bold uppercase tracking-wide text-slate-400">
+            <div className="grid grid-cols-7 gap-0.5 text-center text-[10px] font-bold uppercase tracking-wide text-slate-400 dark:text-dk-muted">
                 {DOW_TX.map((m, i) => (
                     <div key={i} className="py-1">
                         {tx(lang, m)}
@@ -131,7 +131,7 @@ export default function MonthGrid({
                             onClick={() => !dis && onSelectDate(key)}
                             className={[
                                 'h-9 rounded-lg text-xs font-bold transition-colors',
-                                dis ? 'cursor-not-allowed bg-slate-100 text-slate-300' : 'text-slate-800 hover:bg-slate-50',
+                                dis ? 'cursor-not-allowed bg-slate-100 dark:bg-dk-elevated text-slate-300 dark:text-dk-muted' : 'text-slate-800 dark:text-dk-text hover:bg-slate-50 dark:hover:bg-dk-elevated/60',
                                 selected && !dis ? 'bg-emerald-700 text-white hover:bg-emerald-800' : '',
                                 !selected && !dis && isToday ? 'ring-2 ring-emerald-700 ring-offset-1' : '',
                             ].filter(Boolean).join(' ')}

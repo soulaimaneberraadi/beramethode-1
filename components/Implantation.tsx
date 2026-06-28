@@ -138,7 +138,7 @@ interface ImplantationProps {
 }
 
 const GROUP_COLORS = [
-    { bg: 'bg-indigo-50', border: 'border-indigo-500', text: 'text-indigo-700' },
+    { bg: 'bg-indigo-50 dark:bg-dk-accent/20', border: 'border-indigo-500', text: 'text-indigo-700 dark:text-dk-accent-text' },
     { bg: 'bg-orange-50', border: 'border-orange-500', text: 'text-orange-700' },
     { bg: 'bg-emerald-50', border: 'border-emerald-500', text: 'text-emerald-700' },
     { bg: 'bg-rose-50', border: 'border-rose-500', text: 'text-rose-700' },
@@ -163,7 +163,7 @@ const getGroupStyle = (groupId: string) => {
 };
 
 const POSTE_COLORS = [
-    { name: 'indigo', bg: 'bg-indigo-50', border: 'border-indigo-200', text: 'text-indigo-700', badge: 'bg-indigo-100', fill: '#6366f1', badgeText: 'text-indigo-800' },
+    { name: 'indigo', bg: 'bg-indigo-50 dark:bg-dk-accent/20', border: 'border-indigo-200', text: 'text-indigo-700 dark:text-dk-accent-text', badge: 'bg-indigo-100', fill: '#6366f1', badgeText: 'text-indigo-800' },
     { name: 'orange', bg: 'bg-orange-50', border: 'border-orange-200', text: 'text-orange-700', badge: 'bg-orange-100', fill: '#f97316', badgeText: 'text-orange-800' },
     { name: 'emerald', bg: 'bg-emerald-50', border: 'border-emerald-200', text: 'text-emerald-700', badge: 'bg-emerald-100', fill: '#10b981', badgeText: 'text-emerald-800' },
     { name: 'rose', bg: 'bg-rose-50', border: 'border-rose-200', text: 'text-rose-700', badge: 'bg-rose-100', fill: '#f43f5e', badgeText: 'text-rose-800' },
@@ -181,7 +181,7 @@ const SPECIAL_COLORS = {
     controle: { name: 'orange', bg: 'bg-orange-50', border: 'border-orange-200', text: 'text-orange-700', fill: '#f97316', badge: 'bg-orange-100', badgeText: 'text-orange-800' },
     fer: { name: 'rose', bg: 'bg-rose-100', border: 'border-rose-300', text: 'text-rose-800', fill: '#e11d48', badge: 'bg-rose-200', badgeText: 'text-rose-900' },
     finition: { name: 'purple', bg: 'bg-purple-50', border: 'border-purple-200', text: 'text-purple-700', fill: '#a855f7', badge: 'bg-purple-100', badgeText: 'text-purple-800' },
-    vide: { name: 'vide', bg: 'bg-transparent', border: 'border-slate-300 border-2 border-dashed', text: 'text-slate-400', fill: 'transparent', badge: 'bg-slate-100', badgeText: 'text-slate-500' },
+    vide: { name: 'vide', bg: 'bg-transparent', border: 'border-slate-300 border-2 border-dashed', text: 'text-slate-400 dark:text-dk-muted', fill: 'transparent', badge: 'bg-slate-100 dark:bg-dk-elevated', badgeText: 'text-slate-500 dark:text-dk-muted' },
 };
 
 const getPosteColor = (index: number, machineName: string, colorName?: string) => {
@@ -218,9 +218,9 @@ interface Workstation extends Poste {
 
 const DimensionMarkerHorizontal = ({ label }: { label: string }) => (
     <div className="flex flex-col items-center w-full px-2 opacity-70 scale-90">
-        <div className="flex items-center w-full text-[8px] text-slate-500 font-mono font-bold whitespace-nowrap">
+        <div className="flex items-center w-full text-[8px] text-slate-500 dark:text-dk-muted font-mono font-bold whitespace-nowrap">
             <div className="h-1.5 w-px bg-slate-400"></div>
-            <div className="h-px bg-slate-400 flex-1 relative"><span className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-[140%] bg-white px-0.5">{label}</span></div>
+            <div className="h-px bg-slate-400 flex-1 relative"><span className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-[140%] bg-white dark:bg-dk-surface px-0.5">{label}</span></div>
             <div className="h-1.5 w-px bg-slate-400"></div>
         </div>
     </div>
@@ -228,9 +228,9 @@ const DimensionMarkerHorizontal = ({ label }: { label: string }) => (
 
 const DimensionMarkerVertical = ({ label, height = 'h-full' }: { label: string, height?: string }) => (
     <div className={`flex flex-row items-center justify-center ${height} opacity-70 scale-90`}>
-        <div className="flex flex-col items-center h-full text-[8px] text-slate-500 font-mono font-bold whitespace-nowrap">
+        <div className="flex flex-col items-center h-full text-[8px] text-slate-500 dark:text-dk-muted font-mono font-bold whitespace-nowrap">
             <div className="w-1.5 h-px bg-slate-400"></div>
-            <div className="w-px bg-slate-400 flex-1 relative"><span className="absolute top-1/2 left-1/2 -translate-y-1/2 -translate-x-[140%] bg-white py-0.5 rotate-90">{label}</span></div>
+            <div className="w-px bg-slate-400 flex-1 relative"><span className="absolute top-1/2 left-1/2 -translate-y-1/2 -translate-x-[140%] bg-white dark:bg-dk-surface py-0.5 rotate-90">{label}</span></div>
             <div className="w-1.5 h-px bg-slate-400"></div>
         </div>
     </div>
@@ -239,10 +239,10 @@ const DimensionMarkerVertical = ({ label, height = 'h-full' }: { label: string, 
 const SpecialZoneControl = ({ label, type, icon: Icon, color, currentCount, onAdd, onRemove }: any) => (
     <div className={`flex items-center gap-2 px-2 py-0.5 rounded-lg border ${color.bg} ${color.border} shadow-sm transition-colors`}>
         <div className={`flex items-center gap-1 ${color.text}`}><Icon className="w-3 h-3" /><span className="text-[9px] font-bold uppercase">{label}</span></div>
-        <div className="flex items-center bg-white rounded border border-slate-200 overflow-hidden shadow-sm">
-            <button onClick={() => onRemove(type)} className="p-0.5 hover:bg-slate-100 text-slate-400 hover:text-rose-500 transition-colors border-r border-slate-100"><Minus className="w-2.5 h-2.5" /></button>
-            <span className="w-5 text-center text-[9px] font-bold text-slate-700">{currentCount}</span>
-            <button onClick={() => onAdd(type)} className="p-0.5 hover:bg-slate-100 text-slate-400 hover:text-emerald-500 transition-colors"><Plus className="w-2.5 h-2.5" /></button>
+        <div className="flex items-center bg-white dark:bg-dk-surface rounded border border-slate-200 dark:border-dk-border overflow-hidden shadow-sm">
+            <button onClick={() => onRemove(type)} className="p-0.5 hover:bg-slate-100 text-slate-400 dark:text-dk-muted hover:text-rose-500 transition-colors border-r border-slate-100 dark:border-dk-border"><Minus className="w-2.5 h-2.5" /></button>
+            <span className="w-5 text-center text-[9px] font-bold text-slate-700 dark:text-dk-text-soft">{currentCount}</span>
+            <button onClick={() => onAdd(type)} className="p-0.5 hover:bg-slate-100 text-slate-400 dark:text-dk-muted hover:text-emerald-500 transition-colors"><Plus className="w-2.5 h-2.5" /></button>
         </div>
     </div>
 );
@@ -530,11 +530,11 @@ const LinkOverlay = ({
                         <foreignObject x={p.labelX - (60 / zoom)} y={p.labelY - (15 / zoom)} width={120 / zoom} height={30 / zoom} className="overflow-visible">
                             <div className="flex items-center justify-center gap-1 hover:scale-110 transition-transform origin-center" style={{ transform: `scale(${1 / zoom})` }}>
                                 {p.label ? (
-                                    <div onClick={() => onEditLabel(p.id, p.label)} className="bg-white/90  text-slate-700 text-[10px] font-bold px-2 py-1 rounded-lg shadow-md border border-slate-200 whitespace-nowrap cursor-pointer hover:bg-indigo-50 hover:border-indigo-200 max-w-[100px] truncate relative z-50" title={p.label}>{p.label}</div>
+                                    <div onClick={() => onEditLabel(p.id, p.label)} className="bg-white/90  text-slate-700 dark:text-dk-text-soft text-[10px] font-bold px-2 py-1 rounded-lg shadow-md border border-slate-200 dark:border-dk-border whitespace-nowrap cursor-pointer hover:bg-indigo-50 dark:bg-dk-accent/20 hover:border-indigo-200 max-w-[100px] truncate relative z-50" title={p.label}>{p.label}</div>
                                 ) : (
-                                    <button onClick={() => onEditLabel(p.id)} className="bg-white/90  p-1 rounded-full border border-slate-200 shadow-sm opacity-0 group-hover:opacity-100 transition-opacity text-slate-400 hover:text-indigo-500 relative z-50"><MessageSquare className="w-3 h-3" /></button>
+                                    <button onClick={() => onEditLabel(p.id)} className="bg-white dark:bg-dk-surface/90  p-1 rounded-full border border-slate-200 dark:border-dk-border shadow-sm opacity-0 group-hover:opacity-100 transition-opacity text-slate-400 dark:text-dk-muted hover:text-indigo-500 relative z-50"><MessageSquare className="w-3 h-3" /></button>
                                 )}
-                                <button onClick={() => onRemoveLink(p.id)} className="bg-white/90  text-slate-300 p-1 rounded-full border border-slate-200 shadow-sm hover:text-rose-500 hover:bg-rose-50 opacity-0 group-hover:opacity-100 transition-opacity relative z-50"><X className="w-3 h-3" /></button>
+                                <button onClick={() => onRemoveLink(p.id)} className="bg-white dark:bg-dk-surface/90  text-slate-300 dark:text-dk-muted p-1 rounded-full border border-slate-200 dark:border-dk-border shadow-sm hover:text-rose-500 hover:bg-rose-50 opacity-0 group-hover:opacity-100 transition-opacity relative z-50"><X className="w-3 h-3" /></button>
                             </div>
                         </foreignObject>
                     </g>
@@ -2594,7 +2594,7 @@ export default function Implantation({
 
     const renderStationCard = (station: Workstation, isGrid = false, isMini = false) => {
         const color = station.color; const isVide = station.machine === 'VIDE'; const timeInSeconds = Math.round(station.totalTime * 60); const hasNotes = station.notes && station.notes.trim().length > 0; const hasOperator = station.operatorName && station.operatorName.trim().length > 0; const isOverridden = station.timeOverride !== undefined; const mySimIndex = station.index - 1; const isActive = !isMini && simStep === mySimIndex; const isPassed = simStep > mySimIndex; const isControl = station.machine.toUpperCase().includes('CONTROLE'); const isFer = station.machine.toUpperCase().includes('FER') || station.machine.toUpperCase().includes('REPASSAGE'); const isFinition = station.machine.toUpperCase().includes('FINITION'); const isBroken = station.notes?.includes('#PANNE');
-        let bodyBgClass = 'bg-white/10 backdrop-blur-sm'; if (isControl) bodyBgClass = 'bg-orange-50/30 backdrop-blur-sm'; if (isFer) bodyBgClass = 'bg-rose-50/30 backdrop-blur-sm'; if (isFinition) bodyBgClass = 'bg-purple-50/30 backdrop-blur-sm'; const isSpecial = isControl || isFer || isFinition;
+        let bodyBgClass = 'bg-white dark:bg-dk-surface/10 backdrop-blur-sm'; if (isControl) bodyBgClass = 'bg-orange-50/30 backdrop-blur-sm'; if (isFer) bodyBgClass = 'bg-rose-50/30 backdrop-blur-sm'; if (isFinition) bodyBgClass = 'bg-purple-50/30 backdrop-blur-sm'; const isSpecial = isControl || isFer || isFinition;
         const isFeeder = station.isFeeder; if (isFeeder) bodyBgClass = 'bg-blue-50/60';
         const isSwapSource = swapSourceId === station.id; const isSwapTarget = swapSourceId && swapSourceId !== station.id; const isLinkSource = linkSource === station.id; const isLinkTargetCandidate = isLinking && linkSource && linkSource !== station.id;
         const cardHeightClass = isGrid ? 'min-h-[140px]' : (isMini ? 'min-h-[80px]' : 'h-full min-h-[140px]'); const cardWidthClass = isMini ? 'w-full' : (isGrid ? 'w-full' : 'w-44 sm:w-48 shrink-0');
@@ -2609,7 +2609,7 @@ export default function Implantation({
             satBadgeClass = 'bg-amber-100 text-amber-700 border border-amber-200';
             satProgressClass = 'bg-amber-500';
         } else if (station.saturation < 50) {
-            satBadgeClass = 'bg-slate-100 text-slate-500 border border-slate-200';
+            satBadgeClass = 'bg-slate-100 dark:bg-dk-elevated text-slate-500 dark:text-dk-muted border border-slate-200 dark:border-dk-border';
             satProgressClass = 'bg-slate-400';
         }
 
@@ -2628,7 +2628,7 @@ export default function Implantation({
             }
         }
 
-        const miniCardStyle = isMini ? `${color.bg} ${color.border} border-2` : `bg-white/40 backdrop-blur-md border-2 ${color.border}`; const cursorClass = (canEdit && isManualMode && !swapSourceId && !isLinking && !isSpacePressed) ? 'cursor-move' : 'cursor-default';
+        const miniCardStyle = isMini ? `${color.bg} ${color.border} border-2` : `bg-white dark:bg-dk-surface/40 backdrop-blur-md border-2 ${color.border}`; const cursorClass = (canEdit && isManualMode && !swapSourceId && !isLinking && !isSpacePressed) ? 'cursor-move' : 'cursor-default';
 
         if (isVide && !isMini) {
             return (
@@ -2645,14 +2645,14 @@ export default function Implantation({
                     onMouseEnter={() => !isMini && setHoveredStationIndex(station.index)}
                     onMouseLeave={() => !isMini && setHoveredStationIndex(null)}
                     style={opacityStyle}
-                    className={`relative rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 flex flex-col items-center justify-center gap-2 group z-10 transition-all ${(canEdit && isManualMode && !swapSourceId && !isLinking && !isSpacePressed && layoutType !== 'free') ? 'cursor-move' : ''} ${cardWidthClass} ${cardHeightClass} ${isManualMode && !isSpacePressed ? 'hover:bg-indigo-50 hover:border-indigo-300' : ''} ${layoutType === 'free' ? 'cursor-move hover:shadow-lg' : ''} ${hoverTraceClass}`}
+                    className={`relative rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 dark:bg-dk-bg flex flex-col items-center justify-center gap-2 group z-10 transition-all ${(canEdit && isManualMode && !swapSourceId && !isLinking && !isSpacePressed && layoutType !== 'free') ? 'cursor-move' : ''} ${cardWidthClass} ${cardHeightClass} ${isManualMode && !isSpacePressed ? 'hover:bg-indigo-50 dark:bg-dk-accent/20 hover:border-indigo-300' : ''} ${layoutType === 'free' ? 'cursor-move hover:shadow-lg' : ''} ${hoverTraceClass}`}
                 >
-                    <div className="text-[10px] font-bold text-slate-400 uppercase pointer-events-none">{tx(lang,{fr:'Emplacement Vide',ar:'مكان فارغ',en:'Empty Slot',es:'Espacio Vacío',pt:'Espaço Vazio',tr:'Boş Yuva'})}</div>
+                    <div className="text-[10px] font-bold text-slate-400 dark:text-dk-muted uppercase pointer-events-none">{tx(lang,{fr:'Emplacement Vide',ar:'مكان فارغ',en:'Empty Slot',es:'Espacio Vacío',pt:'Espaço Vazio',tr:'Boş Yuva'})}</div>
                     {layoutType === 'free' && (
                         <button
                             onMouseDown={(e) => e.stopPropagation()}
                             onClick={(e) => { e.stopPropagation(); handleRemoveFromCanvas(station.id); }}
-                            className="absolute top-2 right-2 p-1 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                            className="absolute top-2 right-2 p-1 text-slate-300 dark:text-dk-muted hover:text-rose-500 hover:bg-rose-50 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
                         >
                             <X className="w-3 h-3" />
                         </button>
@@ -2689,11 +2689,11 @@ export default function Implantation({
                     {isBroken && <div className="absolute top-1 right-3 w-3 h-3 text-rose-600 animate-pulse"><AlertTriangle className="w-3 h-3 fill-current" /></div>}
                     <div className="flex items-center gap-1.5">
                         {!isMini && (
-                            <span className="text-[9px] font-black bg-slate-900/10 text-slate-800 px-1 py-0.5 rounded mr-0.5">
+                            <span className="text-[9px] font-black bg-slate-900/10 text-slate-800 dark:text-dk-text px-1 py-0.5 rounded mr-0.5">
                                 #{station.index}
                             </span>
                         )}
-                        <span className={`text-[10px] font-black ${isActive ? 'text-emerald-600 bg-white/60' : color.text} w-5 h-5 flex items-center justify-center bg-white/40 rounded-md shadow-sm border border-black/5`}> {station.name.replace('P', '').split('.')[0]} </span>
+                        <span className={`text-[10px] font-black ${isActive ? 'text-emerald-600 bg-white dark:bg-dk-surface/60' : color.text} w-5 h-5 flex items-center justify-center bg-white dark:bg-dk-surface/40 rounded-md shadow-sm border border-black/5`}> {station.name.replace('P', '').split('.')[0]} </span>
                         <span className={`text-[9px] font-black uppercase truncate max-w-[80px] ${isActive ? 'text-white' : color.text}`} title={station.name}> {station.machine} </span>
                     </div>
 
@@ -2729,7 +2729,7 @@ export default function Implantation({
                                 <button
                                     onMouseDown={(e) => e.stopPropagation()}
                                     onClick={(e) => { e.stopPropagation(); handleRemoveFromCanvas(station.id); }}
-                                    className="p-1 rounded-md bg-white/20 hover:bg-rose-100 hover:text-rose-600 text-current transition-colors opacity-0 group-hover:opacity-100 z-50"
+                                    className="p-1 rounded-md bg-white dark:bg-dk-surface/20 hover:bg-rose-100 hover:text-rose-600 text-current transition-colors opacity-0 group-hover:opacity-100 z-50"
                                     title={tx(lang,{fr:'Retirer du plan',ar:'إزالة من الخطة',en:'Remove from Plan',es:'Quitar del Plan',pt:'Remover do Plano',tr:'Plandan Kaldır'})}
                                 >
                                     <X className="w-3 h-3" />
@@ -2738,37 +2738,37 @@ export default function Implantation({
                         </div>
                     )}
 
-                    {!isMini && (<div className="flex items-center gap-0.5"> {isFeeder && <div title={`${tx(lang,{fr:'Alimente',ar:'تغذية',en:'Feeds',es:'Alimenta',pt:'Alimenta',tr:'Besler'})}: ${station.targetStationName || tx(lang,{fr:'Poste Suivant',ar:'المحطة التالية',en:'Next Station',es:'Siguiente Puesto',pt:'Próximo Posto',tr:'Sonraki İstasyon'})}`}><GitMerge className={`w-3 h-3 ${isActive ? 'text-white' : 'text-blue-500'}`} /></div>} {hasOperator && <div title={station.operatorName}><User className={`w-3 h-3 ${isActive ? 'text-white' : 'text-slate-400'}`} /></div>} {hasNotes && <div title={tx(lang,{fr:'Notes',ar:'ملاحظات',en:'Notes',es:'Notas',pt:'Notas',tr:'Notlar'})}><FileText className={`w-3 h-3 ${isActive ? 'text-yellow-300' : 'text-amber-400'}`} /></div>} </div>)}
+                    {!isMini && (<div className="flex items-center gap-0.5"> {isFeeder && <div title={`${tx(lang,{fr:'Alimente',ar:'تغذية',en:'Feeds',es:'Alimenta',pt:'Alimenta',tr:'Besler'})}: ${station.targetStationName || tx(lang,{fr:'Poste Suivant',ar:'المحطة التالية',en:'Next Station',es:'Siguiente Puesto',pt:'Próximo Posto',tr:'Sonraki İstasyon'})}`}><GitMerge className={`w-3 h-3 ${isActive ? 'text-white' : 'text-blue-500'}`} /></div>} {hasOperator && <div title={station.operatorName}><User className={`w-3 h-3 ${isActive ? 'text-white' : 'text-slate-400 dark:text-dk-muted'}`} /></div>} {hasNotes && <div title={tx(lang,{fr:'Notes',ar:'ملاحظات',en:'Notes',es:'Notas',pt:'Notas',tr:'Notlar'})}><FileText className={`w-3 h-3 ${isActive ? 'text-yellow-300' : 'text-amber-400'}`} /></div>} </div>)}
                 </div>
-                <div className={`p-2 pl-3 flex-1 flex flex-col justify-between gap-1 ${isMini ? 'bg-transparent' : bodyBgClass}`}> {station.groups && station.groups.length > 0 && !isMini && (<div className="flex flex-wrap gap-1 mb-1"> {station.groups.slice(0, 2).map(grp => (<span key={grp} className="text-[7px] font-black uppercase text-indigo-600 bg-indigo-100 px-1 py-0.5 rounded border border-indigo-200 truncate max-w-full"> {grp} </span>))} {station.groups.length > 2 && <span className="text-[7px] text-slate-400">+{station.groups.length - 2}</span>} </div>)} <div className="space-y-1"> {station.operations.length > 0 ? (<> {station.operations.slice(0, isMini ? 100 : 3).map((op, i) => { const groupStyle = op.groupId ? getGroupStyle(op.groupId) : null; return (<div key={i} className={`flex justify-between items-center gap-1.5 py-0.5 ${groupStyle && isMini ? groupStyle.bg + ' px-1.5 rounded-md -mx-1.5 my-0.5 border border-transparent hover:border-indigo-200' : ''}`}> <span className={`font-mono text-[9px] font-bold px-1 rounded border shrink-0 ${groupStyle && isMini ? 'bg-transparent border-transparent ' + groupStyle.text : 'bg-transparent text-slate-400 border-slate-200'}`}> {op.order} </span> <div className={`text-[9px] font-bold leading-tight line-clamp-2 flex-1 ${groupStyle && isMini ? groupStyle.text : 'text-slate-600'}`} title={op.description}> {op.description} </div> {groupStyle && isMini && <LinkIcon className={`w-2.5 h-2.5 shrink-0 ${groupStyle.text}`} />} </div>) })} {station.operations.length > (isMini ? 100 : 3) && <div className="text-[8px] text-slate-400 italic font-medium">... +{station.operations.length - (isMini ? 100 : 3)}</div>} </>) : (<div className={`text-[9px] italic flex items-center justify-center ${isMini ? 'h-8' : 'h-12'} ${isOverridden ? 'text-purple-500 font-bold' : (isSpecial ? 'text-slate-400/70' : 'text-slate-300')}`}> {isOverridden ? tx(lang,{fr:'Temps Forcé',ar:'وقت إجباري',en:'Forced Time',es:'Tiempo Forzado',pt:'Tempo Forçado',tr:'Zorunlu Süre'}) : tx(lang,{fr:'Vide',ar:'فارغ',en:'Empty',es:'Vacío',pt:'Vazio',tr:'Boş'})} </div>)} </div> <div className="flex items-center justify-between mt-auto pt-1.5 border-t border-slate-100"> <div className="flex flex-col"> <span className="text-[7px] font-bold text-slate-400 uppercase tracking-wider">{tx(lang,{fr:'Total',ar:'الإجمالي',en:'Total',es:'Total',pt:'Total',tr:'Toplam'})}</span> <span className={`text-sm font-bold ${isActive ? 'text-emerald-600' : (isOverridden ? 'text-purple-600' : color.text)}`}>{timeInSeconds}s</span> </div> <div className="flex flex-col items-end"> <span className="text-[7px] font-bold text-slate-400 uppercase tracking-wider">Sat.</span> <div className="flex items-center gap-1"> {station.operators > 1 && <span className={`text-[9px] font-black px-1 rounded bg-amber-100 text-amber-700`}>x{station.operators}</span>} <span className={`text-[9px] font-black ${satBadgeClass}`}>{Math.round(station.saturation)}%</span> </div> </div> </div> </div> <div className="absolute bottom-0 left-0 h-1 bg-slate-200 w-full"> <div className={`h-full ${!satProgressClass.startsWith('#') ? satProgressClass : ''}`} style={{ width: `${Math.min(station.saturation, 100)}%`, backgroundColor: satProgressClass.startsWith('#') ? satProgressClass : undefined }}></div> </div> </div>
+                <div className={`p-2 pl-3 flex-1 flex flex-col justify-between gap-1 ${isMini ? 'bg-transparent' : bodyBgClass}`}> {station.groups && station.groups.length > 0 && !isMini && (<div className="flex flex-wrap gap-1 mb-1"> {station.groups.slice(0, 2).map(grp => (<span key={grp} className="text-[7px] font-black uppercase text-indigo-600 dark:text-dk-accent-text bg-indigo-100 px-1 py-0.5 rounded border border-indigo-200 truncate max-w-full"> {grp} </span>))} {station.groups.length > 2 && <span className="text-[7px] text-slate-400 dark:text-dk-muted">+{station.groups.length - 2}</span>} </div>)} <div className="space-y-1"> {station.operations.length > 0 ? (<> {station.operations.slice(0, isMini ? 100 : 3).map((op, i) => { const groupStyle = op.groupId ? getGroupStyle(op.groupId) : null; return (<div key={i} className={`flex justify-between items-center gap-1.5 py-0.5 ${groupStyle && isMini ? groupStyle.bg + ' px-1.5 rounded-md -mx-1.5 my-0.5 border border-transparent hover:border-indigo-200' : ''}`}> <span className={`font-mono text-[9px] font-bold px-1 rounded border shrink-0 ${groupStyle && isMini ? 'bg-transparent border-transparent ' + groupStyle.text : 'bg-transparent text-slate-400 dark:text-dk-muted border-slate-200 dark:border-dk-border'}`}> {op.order} </span> <div className={`text-[9px] font-bold leading-tight line-clamp-2 flex-1 ${groupStyle && isMini ? groupStyle.text : 'text-slate-600 dark:text-dk-text-soft'}`} title={op.description}> {op.description} </div> {groupStyle && isMini && <LinkIcon className={`w-2.5 h-2.5 shrink-0 ${groupStyle.text}`} />} </div>) })} {station.operations.length > (isMini ? 100 : 3) && <div className="text-[8px] text-slate-400 dark:text-dk-muted italic font-medium">... +{station.operations.length - (isMini ? 100 : 3)}</div>} </>) : (<div className={`text-[9px] italic flex items-center justify-center ${isMini ? 'h-8' : 'h-12'} ${isOverridden ? 'text-purple-500 font-bold' : (isSpecial ? 'text-slate-400 dark:text-dk-muted/70' : 'text-slate-300 dark:text-dk-muted')}`}> {isOverridden ? tx(lang,{fr:'Temps Forcé',ar:'وقت إجباري',en:'Forced Time',es:'Tiempo Forzado',pt:'Tempo Forçado',tr:'Zorunlu Süre'}) : tx(lang,{fr:'Vide',ar:'فارغ',en:'Empty',es:'Vacío',pt:'Vazio',tr:'Boş'})} </div>)} </div> <div className="flex items-center justify-between mt-auto pt-1.5 border-t border-slate-100 dark:border-dk-border"> <div className="flex flex-col"> <span className="text-[7px] font-bold text-slate-400 dark:text-dk-muted uppercase tracking-wider">{tx(lang,{fr:'Total',ar:'الإجمالي',en:'Total',es:'Total',pt:'Total',tr:'Toplam'})}</span> <span className={`text-sm font-bold ${isActive ? 'text-emerald-600' : (isOverridden ? 'text-purple-600' : color.text)}`}>{timeInSeconds}s</span> </div> <div className="flex flex-col items-end"> <span className="text-[7px] font-bold text-slate-400 dark:text-dk-muted uppercase tracking-wider">Sat.</span> <div className="flex items-center gap-1"> {station.operators > 1 && <span className={`text-[9px] font-black px-1 rounded bg-amber-100 text-amber-700`}>x{station.operators}</span>} <span className={`text-[9px] font-black ${satBadgeClass}`}>{Math.round(station.saturation)}%</span> </div> </div> </div> </div> <div className="absolute bottom-0 left-0 h-1 bg-slate-200 w-full"> <div className={`h-full ${!satProgressClass.startsWith('#') ? satProgressClass : ''}`} style={{ width: `${Math.min(station.saturation, 100)}%`, backgroundColor: satProgressClass.startsWith('#') ? satProgressClass : undefined }}></div> </div> </div>
         );
     };
 
     return (
         <div className="flex flex-col h-full gap-2 relative">
             {/* ... (Header Stats - Hidden in ReadOnly) ... */}
-            {!readOnly && (<div className="bg-slate-50/80 rounded-xl border-2 border-slate-200 shadow-sm mb-2 p-2 flex flex-nowrap items-center gap-2 overflow-x-auto no-scrollbar shrink-0">
+            {!readOnly && (<div className="bg-slate-50/80 rounded-xl border-2 border-slate-200 dark:border-dk-border shadow-sm mb-2 p-2 flex flex-nowrap items-center gap-2 overflow-x-auto no-scrollbar shrink-0">
                 {/* OUVRIERS / HEURES */}
-                <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-50 rounded-lg border border-slate-100 shrink-0">
-                    <div className="flex flex-col items-center border-r border-slate-200 pr-3 mr-3">
-                        <span className="text-[9px] font-bold text-slate-400 uppercase">{tx(lang,{fr:'Ouvriers',ar:'العمال',en:'Workers',es:'Trabajadores',pt:'Trabalhadores',tr:'İşçiler'})}</span>
+                <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-50 dark:bg-dk-bg rounded-lg border border-slate-100 dark:border-dk-border shrink-0">
+                    <div className="flex flex-col items-center border-r border-slate-200 dark:border-dk-border pr-3 mr-3">
+                        <span className="text-[9px] font-bold text-slate-400 dark:text-dk-muted uppercase">{tx(lang,{fr:'Ouvriers',ar:'العمال',en:'Workers',es:'Trabajadores',pt:'Trabalhadores',tr:'İşçiler'})}</span>
                         <input
                             type="number"
                             min="1"
                             value={Math.round(numWorkers)}
                             onChange={(e) => setNumWorkers(Math.max(1, Math.round(Number(e.target.value))))}
-                            className="w-12 text-center bg-transparent font-black text-slate-700 outline-none text-sm p-0"
+                            className="w-12 text-center bg-transparent font-black text-slate-700 dark:text-dk-text-soft outline-none text-sm p-0"
                         />
                     </div>
                     <div className="flex flex-col items-center">
-                        <span className="text-[9px] font-bold text-slate-400 uppercase">{tx(lang,{fr:'Heures',ar:'ساعات',en:'Hours',es:'Horas',pt:'Horas',tr:'Saatler'})}</span>
+                        <span className="text-[9px] font-bold text-slate-400 dark:text-dk-muted uppercase">{tx(lang,{fr:'Heures',ar:'ساعات',en:'Hours',es:'Horas',pt:'Horas',tr:'Saatler'})}</span>
                         <input
                             type="number"
                             min="0"
                             step="0.5"
                             value={presenceTime / 60}
                             onChange={(e) => setPresenceTime(Math.max(0, Number(e.target.value)) * 60)}
-                            className="w-10 text-center bg-transparent font-black text-slate-700 outline-none text-sm p-0"
+                            className="w-10 text-center bg-transparent font-black text-slate-700 dark:text-dk-text-soft outline-none text-sm p-0"
                         />
                     </div>
                 </div>
@@ -2792,23 +2792,23 @@ export default function Implantation({
                 </div>
 
                 {/* TARGETS */}
-                <div className="flex items-center gap-3 px-3 py-1.5 bg-slate-50/50 rounded-lg border border-slate-100 shrink-0">
-                    <div className="flex flex-col items-center border-r border-slate-200 pr-3 mr-1">
-                        <span className="text-[9px] font-bold text-slate-400 uppercase">P/J</span>
-                        <span className="font-black text-slate-700 text-sm leading-none mt-1">
+                <div className="flex items-center gap-3 px-3 py-1.5 bg-slate-50/50 rounded-lg border border-slate-100 dark:border-dk-border shrink-0">
+                    <div className="flex flex-col items-center border-r border-slate-200 dark:border-dk-border pr-3 mr-1">
+                        <span className="text-[9px] font-bold text-slate-400 dark:text-dk-muted uppercase">P/J</span>
+                        <span className="font-black text-slate-700 dark:text-dk-text-soft text-sm leading-none mt-1">
                             {Math.round(prodDayEff)}
                         </span>
                     </div>
                     <div className="flex flex-col items-center">
-                        <span className="text-[9px] font-bold text-slate-400 uppercase">P/H</span>
-                        <span className="font-black text-slate-700 text-sm leading-none mt-1">
+                        <span className="text-[9px] font-bold text-slate-400 dark:text-dk-muted uppercase">P/H</span>
+                        <span className="font-black text-slate-700 dark:text-dk-text-soft text-sm leading-none mt-1">
                             {Math.round(prodHourEff)}
                         </span>
                     </div>
                 </div>
 
                 {/* RENDU */}
-                <div className="flex flex-col items-center px-3 py-1.5 bg-indigo-50/50 rounded-lg border border-indigo-100 shrink-0">
+                <div className="flex flex-col items-center px-3 py-1.5 bg-indigo-50 dark:bg-dk-accent/20/50 rounded-lg border border-indigo-100 shrink-0">
                     <span className="text-[9px] font-bold text-indigo-400 uppercase">{tx(lang,{fr:'% Rendu',ar:'% الإنتاجية',en:'% Yield',es:'% Rendimiento',pt:'% Rendimento',tr:'% Verim'})}</span>
                     <div className="flex items-baseline gap-0.5">
                         <input
@@ -2816,7 +2816,7 @@ export default function Implantation({
                             min="1" max="100"
                             value={efficiency}
                             onChange={(e) => setEfficiency(Math.max(1, Math.min(100, Number(e.target.value))))}
-                            className="w-8 text-center bg-transparent font-black text-indigo-600 outline-none text-sm border-b border-indigo-200 p-0"
+                            className="w-8 text-center bg-transparent font-black text-indigo-600 dark:text-dk-accent-text outline-none text-sm border-b border-indigo-200 p-0"
                         />
                         <span className="text-[10px] font-bold text-indigo-400">%</span>
                     </div>
@@ -2883,9 +2883,9 @@ export default function Implantation({
                     {/* TOOLBAR & CONTROLS (Hidden in ReadOnly) */}
                     {!readOnly && (
                         <>
-                            <div className="bg-slate-50/80 rounded-2xl border-2 border-slate-200 shadow-sm p-2.5 flex flex-wrap items-center gap-2 shrink-0 z-30 mb-2 mt-4 relative">
+                            <div className="bg-slate-50/80 rounded-2xl border-2 border-slate-200 dark:border-dk-border shadow-sm p-2.5 flex flex-wrap items-center gap-2 shrink-0 z-30 mb-2 mt-4 relative">
                                 {/* Mode Toggle */}
-                                <div className="flex bg-slate-100 p-0.5 rounded-lg border border-slate-200">
+                                <div className="flex bg-slate-100 dark:bg-dk-elevated p-0.5 rounded-lg border border-slate-200 dark:border-dk-border">
                                     <button onClick={activateAutoMode} className={`flex items-center justify-center px-3 py-1.5 rounded-md font-bold transition-all text-xs ${!isManualMode ? 'bg-emerald-500 text-white shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}>
                                         {tx(lang,{fr:'Auto',ar:'تلقائي',en:'Auto',es:'Auto',pt:'Auto',tr:'Otomatik'})}
                                     </button>
@@ -2897,13 +2897,13 @@ export default function Implantation({
                                 <div className="w-px h-7 bg-slate-200" />
 
                                 {/* Layout Picker */}
-                                <div className="flex items-center gap-0.5 bg-slate-50 p-0.5 rounded-lg border border-slate-200">
+                                <div className="flex items-center gap-0.5 bg-slate-50 dark:bg-dk-bg p-0.5 rounded-lg border border-slate-200 dark:border-dk-border">
                                     {[
                                         { id: 'line', label: tx(lang,{fr:'2 Lignes',ar:'خطين',en:'2 Lines',es:'2 Líneas',pt:'2 Linhas',tr:'2 Hat'}), icon: Columns },
                                         { id: 'double-zigzag', label: 'Zigzag', icon: ArrowLeftRight },
                                         ...(isManualMode ? [{ id: 'free', label: tx(lang,{fr:'Libre',ar:'حر',en:'Free',es:'Libre',pt:'Livre',tr:'Serbest'}), icon: Move }] : []),
                                     ].map((item) => (
-                                        <button key={item.id} onClick={() => handleLayoutChange(item.id as any)} className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-bold transition-all whitespace-nowrap ${layoutType === item.id ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-500 hover:bg-slate-100 hover:text-indigo-600'}`}>
+                                        <button key={item.id} onClick={() => handleLayoutChange(item.id as any)} className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-bold transition-all whitespace-nowrap ${layoutType === item.id ? 'bg-indigo-600 dark:bg-dk-accent text-white shadow-sm' : 'text-slate-500 hover:bg-slate-100 hover:text-indigo-600 dark:text-dk-accent-text'}`}>
                                             <item.icon className="w-3.5 h-3.5" />
                                             <span className="hidden xl:inline">{item.label}</span>
                                         </button>
@@ -2913,26 +2913,26 @@ export default function Implantation({
                                 <div className="w-px h-7 bg-slate-200" />
 
                                 {/* Zoom Controls */}
-                                <div className="flex items-center gap-0.5 bg-slate-50 p-0.5 rounded-lg border border-slate-200">
-                                    <button onClick={() => setZoom(z => Math.max(0.3, z - 0.1))} className="p-1.5 text-slate-500 hover:text-indigo-600 rounded-md hover:bg-slate-100 transition-colors" title={tx(lang,{fr:'Zoom -',ar:'تصغير',en:'Zoom Out',es:'Alejar',pt:'Reduzir',tr:'Küçült'})}><ZoomOut className="w-3.5 h-3.5" /></button>
-                                    <button onClick={() => setZoom(1)} className="px-2 py-1 text-[10px] font-black text-slate-600 hover:text-indigo-600 rounded-md hover:bg-slate-100 transition-colors min-w-[40px] text-center" title={tx(lang,{fr:'Réinitialiser Zoom',ar:'إعادة تعيين التكبير',en:'Reset Zoom',es:'Restablecer Zoom',pt:'Redefinir Zoom',tr:'Yakınlaştırmayı Sıfırla'})}>{Math.round(zoom * 100)}%</button>
-                                    <button onClick={() => setZoom(z => Math.min(2, z + 0.1))} className="p-1.5 text-slate-500 hover:text-indigo-600 rounded-md hover:bg-slate-100 transition-colors" title={tx(lang,{fr:'Zoom +',ar:'تكبير',en:'Zoom In',es:'Acercar',pt:'Ampliar',tr:'Büyült'})}><ZoomIn className="w-3.5 h-3.5" /></button>
+                                <div className="flex items-center gap-0.5 bg-slate-50 dark:bg-dk-bg p-0.5 rounded-lg border border-slate-200 dark:border-dk-border">
+                                    <button onClick={() => setZoom(z => Math.max(0.3, z - 0.1))} className="p-1.5 text-slate-500 hover:text-indigo-600 dark:text-dk-accent-text rounded-md hover:bg-slate-100 transition-colors" title={tx(lang,{fr:'Zoom -',ar:'تصغير',en:'Zoom Out',es:'Alejar',pt:'Reduzir',tr:'Küçült'})}><ZoomOut className="w-3.5 h-3.5" /></button>
+                                    <button onClick={() => setZoom(1)} className="px-2 py-1 text-[10px] font-black text-slate-600 hover:text-indigo-600 dark:text-dk-accent-text rounded-md hover:bg-slate-100 transition-colors min-w-[40px] text-center" title={tx(lang,{fr:'Réinitialiser Zoom',ar:'إعادة تعيين التكبير',en:'Reset Zoom',es:'Restablecer Zoom',pt:'Redefinir Zoom',tr:'Yakınlaştırmayı Sıfırla'})}>{Math.round(zoom * 100)}%</button>
+                                    <button onClick={() => setZoom(z => Math.min(2, z + 0.1))} className="p-1.5 text-slate-500 hover:text-indigo-600 dark:text-dk-accent-text rounded-md hover:bg-slate-100 transition-colors" title={tx(lang,{fr:'Zoom +',ar:'تكبير',en:'Zoom In',es:'Acercar',pt:'Ampliar',tr:'Büyült'})}><ZoomIn className="w-3.5 h-3.5" /></button>
                                 </div>
 
                                 <div className="w-px h-7 bg-slate-200" />
 
                                 {/* Orientation Controls */}
-                                <div className="flex items-center bg-slate-50 p-0.5 rounded-lg border border-slate-200">
+                                <div className="flex items-center bg-slate-50 dark:bg-dk-bg p-0.5 rounded-lg border border-slate-200 dark:border-dk-border">
                                     <button 
                                         onClick={() => setOrientation('landscape')} 
-                                        className={`px-2.5 py-1.5 rounded-md font-bold transition-all text-xs ${orientation === 'landscape' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-500 hover:text-indigo-600 hover:bg-slate-100'}`}
+                                        className={`px-2.5 py-1.5 rounded-md font-bold transition-all text-xs ${orientation === 'landscape' ? 'bg-indigo-600 dark:bg-dk-accent text-white shadow-sm' : 'text-slate-500 hover:text-indigo-600 dark:text-dk-accent-text hover:bg-slate-100'}`}
                                         title={tx(lang,{fr:'Implantation Horizontale',ar:'تخطيط أفقي',en:'Horizontal Layout',es:'Disposición Horizontal',pt:'Disposição Horizontal',tr:'Yatay Düzen'})}
                                     >
                                         {tx(lang,{fr:'Paysage',ar:'أفقي',en:'Landscape',es:'Horizontal',pt:'Paisagem',tr:'Yatay'})}
                                     </button>
                                     <button 
                                         onClick={() => setOrientation('portrait')} 
-                                        className={`px-2.5 py-1.5 rounded-md font-bold transition-all text-xs ${orientation === 'portrait' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-500 hover:text-indigo-600 hover:bg-slate-100'}`}
+                                        className={`px-2.5 py-1.5 rounded-md font-bold transition-all text-xs ${orientation === 'portrait' ? 'bg-indigo-600 dark:bg-dk-accent text-white shadow-sm' : 'text-slate-500 hover:text-indigo-600 dark:text-dk-accent-text hover:bg-slate-100'}`}
                                         title={tx(lang,{fr:'Implantation Verticale',ar:'تخطيط عمودي',en:'Vertical Layout',es:'Disposición Vertical',pt:'Disposição Vertical',tr:'Dikey Düzen'})}
                                     >
                                         {tx(lang,{fr:'Portrait',ar:'عمودي',en:'Portrait',es:'Vertical',pt:'Retrato',tr:'Dikey'})}
@@ -2954,9 +2954,9 @@ export default function Implantation({
 
                                 {/* Station Counter Badge */}
                                 <div className="w-px h-7 bg-slate-200" />
-                                <div className="flex items-center gap-1.5 px-2.5 py-1 bg-slate-50 rounded-lg border border-slate-200 text-[10px] font-black text-slate-500 uppercase tracking-wide">
+                                <div className="flex items-center gap-1.5 px-2.5 py-1 bg-slate-50 dark:bg-dk-bg rounded-lg border border-slate-200 dark:border-dk-border text-[10px] font-black text-slate-500 dark:text-dk-muted uppercase tracking-wide">
                                     <Layers className="w-3.5 h-3.5" />
-                                    <span className="text-indigo-600">{workstations.filter(s => s.machine !== 'VIDE').length}</span>
+                                    <span className="text-indigo-600 dark:text-dk-accent-text">{workstations.filter(s => s.machine !== 'VIDE').length}</span>
                                     <span>{tx(lang,{fr:'postes',ar:'محطات',en:'stations',es:'puestos',pt:'postos',tr:'istasyon'})}</span>
                                     {isManualMode && waitingStations.length > 0 && (
                                         <span className="text-amber-500 ml-0.5">({waitingStations.length} {tx(lang,{fr:'en attente',ar:'بالانتظار',en:'waiting',es:'en espera',pt:'à espera',tr:'bekleyen'})})</span>
@@ -2968,37 +2968,37 @@ export default function Implantation({
 
                                 {/* Right Actions */}
                                 <div className="flex items-center gap-1.5">
-                                    <button onClick={handleClearPlan} className="p-1.5 rounded-lg bg-slate-50 text-rose-400 border border-slate-200 hover:bg-rose-50 hover:text-rose-600 hover:border-rose-200 transition-colors flex items-center gap-1" title={tx(lang,{fr:'Vider tout le plan (basculer en mode libre)',ar:'تفريغ الخطة (التبديل إلى الوضع الحر)',en:'Clear entire plan (switch to free mode)',es:'Vaciar todo el plan (cambiar a modo libre)',pt:'Limpar todo o plano (mudar para modo livre)',tr:'Tüm planı temizle (serbest moda geç)'})}>
+                                    <button onClick={handleClearPlan} className="p-1.5 rounded-lg bg-slate-50 dark:bg-dk-bg text-rose-400 border border-slate-200 dark:border-dk-border hover:bg-rose-50 hover:text-rose-600 hover:border-rose-200 transition-colors flex items-center gap-1" title={tx(lang,{fr:'Vider tout le plan (basculer en mode libre)',ar:'تفريغ الخطة (التبديل إلى الوضع الحر)',en:'Clear entire plan (switch to free mode)',es:'Vaciar todo el plan (cambiar a modo libre)',pt:'Limpar todo o plano (mudar para modo livre)',tr:'Tüm planı temizle (serbest moda geç)'})}>
                                         <Trash2 className="w-4 h-4" />
                                         <span className="text-[10px] uppercase font-black tracking-wider hidden xl:inline">{tx(lang,{fr:'Vider',ar:'تفريغ',en:'Clear',es:'Vaciar',pt:'Limpar',tr:'Temizle'})}</span>
                                     </button>
                                     {isManualMode && (
-                                        <button onClick={renumberStations} className="p-1.5 rounded-lg bg-slate-50 text-slate-400 border border-slate-200 hover:text-indigo-600 hover:border-indigo-200 transition-colors" title={tx(lang,{fr:'Renuméroter P1, P2, P3...',ar:'إعادة ترقيم P1, P2, P3...',en:'Renumber P1, P2, P3...',es:'Renumerar P1, P2, P3...',pt:'Renumerar P1, P2, P3...',tr:'Yeniden numaralandır P1, P2, P3...'})}>
+                                        <button onClick={renumberStations} className="p-1.5 rounded-lg bg-slate-50 dark:bg-dk-bg text-slate-400 border border-slate-200 dark:border-dk-border hover:text-indigo-600 dark:text-dk-accent-text hover:border-indigo-200 transition-colors" title={tx(lang,{fr:'Renuméroter P1, P2, P3...',ar:'إعادة ترقيم P1, P2, P3...',en:'Renumber P1, P2, P3...',es:'Renumerar P1, P2, P3...',pt:'Renumerar P1, P2, P3...',tr:'Yeniden numaralandır P1, P2, P3...'})}>
                                             <ListOrdered className="w-4 h-4" />
                                         </button>
                                     )}
                                     {isManualMode && (
-                                        <button onClick={restoreGammeOrder} className="p-1.5 rounded-lg bg-slate-50 text-slate-400 border border-slate-200 hover:text-indigo-600 hover:border-indigo-200 transition-colors" title={tx(lang,{fr:'Remettre les postes selon l\'ordre de la gamme',ar:'إعادة ترتيب المحطات حسب تسلسل العملية',en:'Reorder stations by gamme order',es:'Reordenar puestos según orden de gama',pt:'Reordenar postos conforme ordem da gama',tr:'İstasyonları işlem sırasına göre yeniden sırala'})}>
+                                        <button onClick={restoreGammeOrder} className="p-1.5 rounded-lg bg-slate-50 dark:bg-dk-bg text-slate-400 border border-slate-200 dark:border-dk-border hover:text-indigo-600 dark:text-dk-accent-text hover:border-indigo-200 transition-colors" title={tx(lang,{fr:'Remettre les postes selon l\'ordre de la gamme',ar:'إعادة ترتيب المحطات حسب تسلسل العملية',en:'Reorder stations by gamme order',es:'Reordenar puestos según orden de gama',pt:'Reordenar postos conforme ordem da gama',tr:'İstasyonları işlem sırasına göre yeniden sırala'})}>
                                             <ArrowDownToLine className="w-4 h-4" />
                                         </button>
                                     )}
-                                    <button onClick={() => setShowMaterialsPanel(!showMaterialsPanel)} className={`p-1.5 rounded-lg transition-colors ${showMaterialsPanel ? 'bg-indigo-600 text-white' : 'bg-slate-50 text-slate-400 border border-slate-200 hover:text-indigo-600'}`} title={tx(lang,{fr:'Compteur Machines',ar:'عداد الآلات',en:'Machine Counter',es:'Contador de Máquinas',pt:'Contador de Máquinas',tr:'Makine Sayacı'})}>
+                                    <button onClick={() => setShowMaterialsPanel(!showMaterialsPanel)} className={`p-1.5 rounded-lg transition-colors ${showMaterialsPanel ? 'bg-indigo-600 dark:bg-dk-accent text-white' : 'bg-slate-50 dark:bg-dk-bg text-slate-400 border border-slate-200 dark:border-dk-border hover:text-indigo-600 dark:text-dk-accent-text'}`} title={tx(lang,{fr:'Compteur Machines',ar:'عداد الآلات',en:'Machine Counter',es:'Contador de Máquinas',pt:'Contador de Máquinas',tr:'Makine Sayacı'})}>
                                         <Calculator className="w-4 h-4" />
                                     </button>
-                                    <button onClick={() => setShowLoadTemplateModal(true)} className="p-1.5 rounded-lg bg-slate-50 text-slate-400 border border-slate-200 hover:text-indigo-600 transition-colors" title={tx(lang,{fr:'Charger un plan',ar:'تحميل خطة',en:'Load a Plan',es:'Cargar un Plan',pt:'Carregar um Plano',tr:'Plan Yükle'})}>
+                                    <button onClick={() => setShowLoadTemplateModal(true)} className="p-1.5 rounded-lg bg-slate-50 dark:bg-dk-bg text-slate-400 border border-slate-200 dark:border-dk-border hover:text-indigo-600 dark:text-dk-accent-text transition-colors" title={tx(lang,{fr:'Charger un plan',ar:'تحميل خطة',en:'Load a Plan',es:'Cargar un Plan',pt:'Carregar um Plano',tr:'Plan Yükle'})}>
                                         <FolderOpen className="w-4 h-4" />
                                     </button>
-                                    <button onClick={() => setShowSaveTemplateModal(true)} className="p-1.5 rounded-lg bg-slate-50 text-slate-400 border border-slate-200 hover:text-emerald-600 transition-colors" title={tx(lang,{fr:'Sauvegarder le plan',ar:'حفظ الخطة',en:'Save the Plan',es:'Guardar el Plan',pt:'Salvar o Plano',tr:'Planı Kaydet'})}>
+                                    <button onClick={() => setShowSaveTemplateModal(true)} className="p-1.5 rounded-lg bg-slate-50 dark:bg-dk-bg text-slate-400 dark:text-dk-muted border border-slate-200 dark:border-dk-border hover:text-emerald-600 transition-colors" title={tx(lang,{fr:'Sauvegarder le plan',ar:'حفظ الخطة',en:'Save the Plan',es:'Guardar el Plan',pt:'Salvar o Plano',tr:'Planı Kaydet'})}>
                                         <Save className="w-4 h-4" />
                                     </button>
-                                    <button onClick={toggleFullScreen} className="p-1.5 rounded-lg bg-slate-50 text-slate-400 border border-slate-200 hover:text-indigo-600 transition-colors" title={isFullScreen ? tx(lang,{fr:'Quitter plein écran (Esc/F)',ar:'إنهاء وضع ملء الشاشة (Esc/F)',en:'Exit Fullscreen (Esc/F)',es:'Salir de pantalla completa (Esc/F)',pt:'Sair de tela cheia (Esc/F)',tr:'Tam ekrandan çık (Esc/F)'}) : tx(lang,{fr:'Plein écran (F)',ar:'ملء الشاشة (F)',en:'Fullscreen (F)',es:'Pantalla completa (F)',pt:'Tela cheia (F)',tr:'Tam ekran (F)'})}>
+                                    <button onClick={toggleFullScreen} className="p-1.5 rounded-lg bg-slate-50 dark:bg-dk-bg text-slate-400 border border-slate-200 dark:border-dk-border hover:text-indigo-600 dark:text-dk-accent-text transition-colors" title={isFullScreen ? tx(lang,{fr:'Quitter plein écran (Esc/F)',ar:'إنهاء وضع ملء الشاشة (Esc/F)',en:'Exit Fullscreen (Esc/F)',es:'Salir de pantalla completa (Esc/F)',pt:'Sair de tela cheia (Esc/F)',tr:'Tam ekrandan çık (Esc/F)'}) : tx(lang,{fr:'Plein écran (F)',ar:'ملء الشاشة (F)',en:'Fullscreen (F)',es:'Pantalla completa (F)',pt:'Tela cheia (F)',tr:'Tam ekran (F)'})}>
                                         {isFullScreen ? <Minimize className="w-4 h-4" /> : <Maximize className="w-4 h-4" />}
                                     </button>
 
                                     <div className="w-px h-7 bg-slate-200" />
 
                                     {/* Impression / PDF : document TABLEAU (fenêtre d'impression du navigateur). */}
-                                    <button onClick={() => setPrintOrientationModal(true)} className="px-3 py-1.5 bg-slate-50 rounded-lg flex items-center gap-1.5 hover:text-indigo-600 hover:bg-indigo-50 border border-slate-200 transition-colors text-slate-600 text-xs font-bold whitespace-nowrap">
+                                    <button onClick={() => setPrintOrientationModal(true)} className="px-3 py-1.5 bg-slate-50 rounded-lg flex items-center gap-1.5 hover:text-indigo-600 dark:text-dk-accent-text hover:bg-indigo-50 dark:bg-dk-accent/20 border border-slate-200 dark:border-dk-border transition-colors text-slate-600 dark:text-dk-text-soft text-xs font-bold whitespace-nowrap">
                                         <Printer className="w-3.5 h-3.5" /> {tx(lang,{fr:'Imprimer',ar:'طباعة',en:'Print',es:'Imprimir',pt:'Imprimir',tr:'Yazdır'})}
                                     </button>
                                     {onSave && (
@@ -3011,14 +3011,14 @@ export default function Implantation({
 
                             {/* LINKING MODE BANNER */}
                             {isLinking && (
-                                <div className="bg-indigo-600 text-white px-4 py-2 text-xs font-bold flex items-center justify-between shadow-md mb-2 rounded-lg animate-in slide-in-from-top-2 z-20">
+                                <div className="bg-indigo-600 dark:bg-dk-accent text-white px-4 py-2 text-xs font-bold flex items-center justify-between shadow-md mb-2 rounded-lg animate-in slide-in-from-top-2 z-20">
                                     <div className="flex items-center gap-2">
                                         <MousePointerClick className="w-4 h-4 text-indigo-200" />
                                         <span>{tx(lang,{fr:'Mode Liaison',ar:'وضع الربط',en:'Link Mode',es:'Modo Enlace',pt:'Modo Ligação',tr:'Bağlantı Modu'})} : {linkSource ? tx(lang,{fr:'Sélectionnez la destination...',ar:'اختر الوجهة...',en:'Select destination...',es:'Seleccione el destino...',pt:'Selecione o destino...',tr:'Hedefi seçin...'}) : tx(lang,{fr:'Sélectionnez le poste de départ',ar:'اختر محطة البداية',en:'Select the starting station',es:'Seleccione el puesto de inicio',pt:'Selecione o posto de partida',tr:'Başlangıç istasyonunu seçin'})}</span>
                                     </div>
                                     <button
                                         onClick={() => { setIsLinking(false); setLinkSource(null); }}
-                                        className="bg-white/20 hover:bg-white/30 text-white px-3 py-1 rounded-md text-[10px] transition-colors"
+                                        className="bg-white dark:bg-dk-surface/20 hover:bg-white text-white px-3 py-1 rounded-md text-[10px] transition-colors"
                                     >
                                         {tx(lang,{fr:'Terminer',ar:'إنهاء',en:'Finish',es:'Terminar',pt:'Terminar',tr:'Bitir'})}
                                     </button>
@@ -3034,7 +3034,7 @@ export default function Implantation({
                                     </div>
                                     <button
                                         onClick={() => setSwapSourceId(null)}
-                                        className="bg-white/20 hover:bg-white/30 text-white px-3 py-1 rounded-md text-[10px] transition-colors"
+                                        className="bg-white dark:bg-dk-surface/20 hover:bg-white text-white px-3 py-1 rounded-md text-[10px] transition-colors"
                                     >
                                         {tx(lang,{fr:'Annuler',ar:'إلغاء',en:'Cancel',es:'Cancelar',pt:'Cancelar',tr:'İptal'})}
                                     </button>
@@ -3042,24 +3042,24 @@ export default function Implantation({
                             )}
 
                             {/* 2. ZONES INDICATOR */}
-                            <div className="bg-slate-50 border border-slate-200 rounded-xl p-1.5 flex items-center gap-1 overflow-x-auto text-[10px] font-bold uppercase text-slate-400 shadow-inner shrink-0 mb-1">
-                                <div className="flex items-center gap-2 px-2 py-0.5 bg-slate-50 rounded-lg border border-slate-200 opacity-60 shrink-0"><Package className="w-3 h-3 text-slate-400" /> {tx(lang,{fr:'Stock Tissu',ar:'مخزون القماش',en:'Fabric Stock',es:'Stock de Tela',pt:'Estoque de Tecido',tr:'Kumaş Stoku'})}</div><ArrowRight className="w-3 h-3 text-slate-300 shrink-0" /><div className="flex items-center gap-2 px-2 py-0.5 bg-slate-50 rounded-lg border border-slate-200 opacity-60 shrink-0"><Scissors className="w-3 h-3 text-slate-400" /> {tx(lang,{fr:'Coupe & Prep',ar:'قص وتحضير',en:'Cutting & Prep',es:'Corte y Prep',pt:'Corte e Prep',tr:'Kesim ve Hazırlık'})}</div><ArrowRight className="w-3 h-3 text-emerald-400 shrink-0" /><div className="flex items-center gap-2 px-2 py-0.5 bg-emerald-50 rounded-lg border border-emerald-200 text-emerald-700 shadow-sm shrink-0"><Layers className="w-3 h-3" /> {tx(lang,{fr:'Montage (Atelier)',ar:'تجميع (ورشة)',en:'Assembly (Workshop)',es:'Montaje (Taller)',pt:'Montagem (Oficina)',tr:'Montaj (Atölye)'})}</div><ArrowRight className="w-3 h-3 text-emerald-400 shrink-0" />
+                            <div className="bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl p-1.5 flex items-center gap-1 overflow-x-auto text-[10px] font-bold uppercase text-slate-400 dark:text-dk-muted shadow-inner shrink-0 mb-1">
+                                <div className="flex items-center gap-2 px-2 py-0.5 bg-slate-50 dark:bg-dk-bg rounded-lg border border-slate-200 dark:border-dk-border opacity-60 shrink-0"><Package className="w-3 h-3 text-slate-400 dark:text-dk-muted" /> {tx(lang,{fr:'Stock Tissu',ar:'مخزون القماش',en:'Fabric Stock',es:'Stock de Tela',pt:'Estoque de Tecido',tr:'Kumaş Stoku'})}</div><ArrowRight className="w-3 h-3 text-slate-300 dark:text-dk-muted shrink-0" /><div className="flex items-center gap-2 px-2 py-0.5 bg-slate-50 dark:bg-dk-bg rounded-lg border border-slate-200 dark:border-dk-border opacity-60 shrink-0"><Scissors className="w-3 h-3 text-slate-400 dark:text-dk-muted" /> {tx(lang,{fr:'Coupe & Prep',ar:'قص وتحضير',en:'Cutting & Prep',es:'Corte y Prep',pt:'Corte e Prep',tr:'Kesim ve Hazırlık'})}</div><ArrowRight className="w-3 h-3 text-emerald-400 shrink-0" /><div className="flex items-center gap-2 px-2 py-0.5 bg-emerald-50 rounded-lg border border-emerald-200 text-emerald-700 shadow-sm shrink-0"><Layers className="w-3 h-3" /> {tx(lang,{fr:'Montage (Atelier)',ar:'تجميع (ورشة)',en:'Assembly (Workshop)',es:'Montaje (Taller)',pt:'Montagem (Oficina)',tr:'Montaj (Atölye)'})}</div><ArrowRight className="w-3 h-3 text-emerald-400 shrink-0" />
                                 <div className="flex items-center gap-3">
                                     {swapControlFinition ? (
                                         <>
                                             <SpecialZoneControl label={tx(lang,{fr:'Contrôle',ar:'مراقبة',en:'Inspection',es:'Control',pt:'Controle',tr:'Kontrol'})} type="CONTROLE" icon={Eye} color={{ bg: 'bg-orange-50', border: 'border-orange-200', text: 'text-orange-700', hoverBg: 'hover:bg-orange-100' }} currentCount={postes?.filter(p => p.machine.toUpperCase().includes('CONTROLE')).length || 0} onAdd={handleAddSpecial} onRemove={handleRemoveSpecial} />
-                                            <button onClick={handleSwapZones} className="p-1 hover:bg-slate-200 rounded-full transition-colors shrink-0 transform active:rotate-180 duration-300" title={tx(lang,{fr:'Inverser ordre',ar:'عكس الترتيب',en:'Reverse Order',es:'Invertir Orden',pt:'Inverter Ordem',tr:'Sırayı Ters Çevir'})}><ArrowRightLeft className="w-3 h-3 text-slate-400" /></button>
+                                            <button onClick={handleSwapZones} className="p-1 hover:bg-slate-200 rounded-full transition-colors shrink-0 transform active:rotate-180 duration-300" title={tx(lang,{fr:'Inverser ordre',ar:'عكس الترتيب',en:'Reverse Order',es:'Invertir Orden',pt:'Inverter Ordem',tr:'Sırayı Ters Çevir'})}><ArrowRightLeft className="w-3 h-3 text-slate-400 dark:text-dk-muted" /></button>
                                             <SpecialZoneControl label={tx(lang,{fr:'Finition',ar:'تشطيب',en:'Finishing',es:'Acabado',pt:'Acabamento',tr:'Bitirme'})} type="FINITION" icon={Sparkles} color={{ bg: 'bg-purple-50', border: 'border-purple-200', text: 'text-purple-700', hoverBg: 'hover:bg-purple-100' }} currentCount={postes?.filter(p => p.machine.toUpperCase().includes('FINITION')).length || 0} onAdd={handleAddSpecial} onRemove={handleRemoveSpecial} />
                                         </>
                                     ) : (
                                         <>
                                             <SpecialZoneControl label={tx(lang,{fr:'Finition',ar:'تشطيب',en:'Finishing',es:'Acabado',pt:'Acabamento',tr:'Bitirme'})} type="FINITION" icon={Sparkles} color={{ bg: 'bg-purple-50', border: 'border-purple-200', text: 'text-purple-700', hoverBg: 'hover:bg-purple-100' }} currentCount={postes?.filter(p => p.machine.toUpperCase().includes('FINITION')).length || 0} onAdd={handleAddSpecial} onRemove={handleRemoveSpecial} />
-                                            <button onClick={handleSwapZones} className="p-1 hover:bg-slate-200 rounded-full transition-colors shrink-0 transform active:rotate-180 duration-300" title={tx(lang,{fr:'Inverser ordre',ar:'عكس الترتيب',en:'Reverse Order',es:'Invertir Orden',pt:'Inverter Ordem',tr:'Sırayı Ters Çevir'})}><ArrowRightLeft className="w-3 h-3 text-slate-400" /></button>
+                                            <button onClick={handleSwapZones} className="p-1 hover:bg-slate-200 rounded-full transition-colors shrink-0 transform active:rotate-180 duration-300" title={tx(lang,{fr:'Inverser ordre',ar:'عكس الترتيب',en:'Reverse Order',es:'Invertir Orden',pt:'Inverter Ordem',tr:'Sırayı Ters Çevir'})}><ArrowRightLeft className="w-3 h-3 text-slate-400 dark:text-dk-muted" /></button>
                                             <SpecialZoneControl label={tx(lang,{fr:'Contrôle',ar:'مراقبة',en:'Inspection',es:'Control',pt:'Controle',tr:'Kontrol'})} type="CONTROLE" icon={Eye} color={{ bg: 'bg-orange-50', border: 'border-orange-200', text: 'text-orange-700', hoverBg: 'hover:bg-orange-100' }} currentCount={postes?.filter(p => p.machine.toUpperCase().includes('CONTROLE')).length || 0} onAdd={handleAddSpecial} onRemove={handleRemoveSpecial} />
                                         </>
                                     )}
                                 </div>
-                                <ArrowRight className="w-3 h-3 text-slate-300 shrink-0" /><div className="flex items-center gap-2 px-2 py-0.5 bg-slate-50 rounded-lg border border-slate-200 opacity-60 shrink-0"><Truck className="w-3 h-3 text-slate-400" /> {tx(lang,{fr:'Expédition',ar:'شحن',en:'Shipping',es:'Expedición',pt:'Expedição',tr:'Sevkiyat'})}</div>
+                                <ArrowRight className="w-3 h-3 text-slate-300 dark:text-dk-muted shrink-0" /><div className="flex items-center gap-2 px-2 py-0.5 bg-slate-50 dark:bg-dk-bg rounded-lg border border-slate-200 dark:border-dk-border opacity-60 shrink-0"><Truck className="w-3 h-3 text-slate-400 dark:text-dk-muted" /> {tx(lang,{fr:'Expédition',ar:'شحن',en:'Shipping',es:'Expedición',pt:'Expedição',tr:'Sevkiyat'})}</div>
                             </div>
                         </>
                     )}
@@ -3076,11 +3076,11 @@ export default function Implantation({
                                     onClick={() => setIsSidebarOpen(false)}
                                 />
 
-                                <div className={`absolute lg:relative h-full bg-slate-50 border-r border-slate-200 shadow-xl z-30 flex flex-col transition-all duration-300 ease-in-out shrink-0 ${isSidebarOpen ? 'w-72 translate-x-0' : 'w-0 -translate-x-full lg:w-8 lg:translate-x-0'}`}>
+                                <div className={`absolute lg:relative h-full bg-slate-50 dark:bg-dk-bg border-r border-slate-200 dark:border-dk-border shadow-xl z-30 flex flex-col transition-all duration-300 ease-in-out shrink-0 ${isSidebarOpen ? 'w-72 translate-x-0' : 'w-0 -translate-x-full lg:w-8 lg:translate-x-0'}`}>
                                     {/* Toggle Button - Repositioned for Mobile vs Desktop */}
                                     <button
                                         onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-                                        className={`absolute -right-3 top-4 bg-slate-50 border border-slate-200 text-slate-500 rounded-full p-1 shadow-md hover:text-indigo-600 z-50 transition-transform active:scale-95 ${!isSidebarOpen && window.innerWidth < 1024 ? 'hidden' : ''}`}
+                                        className={`absolute -right-3 top-4 bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border text-slate-500 rounded-full p-1 shadow-md hover:text-indigo-600 dark:text-dk-accent-text z-50 transition-transform active:scale-95 ${!isSidebarOpen && window.innerWidth < 1024 ? 'hidden' : ''}`}
                                     >
                                         {isSidebarOpen ? <ChevronLeft className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
                                     </button>
@@ -3089,7 +3089,7 @@ export default function Implantation({
                                     {!isSidebarOpen && (
                                         <button
                                             onClick={() => setIsSidebarOpen(true)}
-                                            className="lg:hidden absolute top-4 left-4 z-20 bg-slate-50 p-2 rounded-lg shadow-md border border-slate-200 text-indigo-600"
+                                            className="lg:hidden absolute top-4 left-4 z-20 bg-slate-50 dark:bg-dk-bg p-2 rounded-lg shadow-md border border-slate-200 dark:border-dk-border text-indigo-600 dark:text-dk-accent-text"
                                         >
                                             <Menu className="w-5 h-5" />
                                         </button>
@@ -3097,9 +3097,9 @@ export default function Implantation({
 
                                     {/* Sidebar Content (Visible when open) */}
                                     <div className={`flex-1 flex flex-col overflow-hidden transition-opacity duration-200 ${isSidebarOpen ? 'opacity-100' : 'opacity-0 pointer-events-none invisible'}`}>
-                                        <div className="p-3 border-b border-slate-200 bg-slate-50">
+                                        <div className="p-3 border-b border-slate-200 dark:border-dk-border bg-slate-50 dark:bg-dk-bg">
                                             <div className="flex justify-between items-center mb-2">
-                                                <h3 className="font-bold text-xs uppercase text-slate-500 flex items-center gap-2">
+                                                <h3 className="font-bold text-xs uppercase text-slate-500 dark:text-dk-muted flex items-center gap-2">
                                                     <Inbox className="w-4 h-4" /> {tx(lang,{fr:'File d\'attente',ar:'قائمة الانتظار',en:'Queue',es:'Cola de espera',pt:'Fila de espera',tr:'Bekleme Sırası'})}
                                                 </h3>
                                                 <span className="text-[10px] font-black bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">{waitingStations.length}</span>
@@ -3107,7 +3107,7 @@ export default function Implantation({
                                             {waitingStations.length > 0 && (
                                                 <button
                                                     onClick={placeAllOnCanvas}
-                                                    className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-indigo-600 text-white rounded-lg text-xs font-bold hover:bg-indigo-700 transition-colors active:scale-[0.98] shadow-sm"
+                                                    className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-indigo-600 dark:bg-dk-accent text-white rounded-lg text-xs font-bold hover:bg-indigo-700 dark:hover:bg-dk-accent-hover transition-colors active:scale-[0.98] shadow-sm"
                                                 >
                                                     <Layers className="w-3.5 h-3.5" /> {tx(lang,{fr:'Tout placer sur le plan',ar:'وضع الكل على الخطة',en:'Place All on Plan',es:'Colocar todo en el plano',pt:'Colocar tudo no plano',tr:'Tümünü Planda Yerleştir'})}
                                                 </button>
@@ -3125,7 +3125,7 @@ export default function Implantation({
                                                 </div>
                                             ))}
                                             {waitingStations.length === 0 && (
-                                                <div className="flex flex-col items-center justify-center py-10 gap-3 text-slate-300">
+                                                <div className="flex flex-col items-center justify-center py-10 gap-3 text-slate-300 dark:text-dk-muted">
                                                     <Check className="w-8 h-8" />
                                                     <span className="text-xs font-bold">{tx(lang,{fr:'Tous les postes sont placés',ar:'جميع المحطات موضوعة',en:'All stations are placed',es:'Todos los puestos están colocados',pt:'Todos os postos estão colocados',tr:'Tüm istasyonlar yerleştirildi'})}</span>
                                                 </div>
@@ -3138,7 +3138,7 @@ export default function Implantation({
                                         <div className="absolute inset-0 flex flex-col items-center pt-16 gap-4 w-full lg:flex hidden">
                                             <Inbox className="w-5 h-5 text-indigo-500" />
                                             <div className="h-full w-full flex justify-center">
-                                                <span className="text-[10px] font-bold uppercase text-slate-400 tracking-widest whitespace-nowrap" style={{ writingMode: 'vertical-rl', textOrientation: 'mixed', transform: 'rotate(180deg)' }}>
+                                                <span className="text-[10px] font-bold uppercase text-slate-400 dark:text-dk-muted tracking-widest whitespace-nowrap" style={{ writingMode: 'vertical-rl', textOrientation: 'mixed', transform: 'rotate(180deg)' }}>
                                                     {tx(lang,{fr:'Gamme d\'attente',ar:'قائمة انتظار العمليات',en:'Waiting Queue',es:'Cola de espera',pt:'Fila de espera',tr:'Bekleme Sırası'})} ({waitingStations.length})
                                                 </span>
                                             </div>
@@ -3149,7 +3149,7 @@ export default function Implantation({
                         )}
 
                         {/* ... (Main Canvas Area with force-scrollbar styles same as before) ... */}
-                        <div className="flex-1 rounded-2xl bg-slate-100 border border-slate-200 shadow-inner relative overflow-hidden flex flex-col transition-all duration-300">
+                        <div className="flex-1 rounded-2xl bg-slate-100 dark:bg-dk-elevated border border-slate-200 dark:border-dk-border shadow-inner relative overflow-hidden flex flex-col transition-all duration-300">
 
                             {/* Injected Styles for Scrollbars */}
                             <style>{`
@@ -3253,7 +3253,7 @@ export default function Implantation({
                                     {layoutType === 'free' && (
                                         <div className={`flex flex-col gap-6 p-6 w-full min-w-max pb-32 ${orientation === 'portrait' ? 'rotate-90 origin-center scale-75 mt-40' : ''}`}>
                                             <div className="relative mt-4 flex flex-col">
-                                                <div className="absolute -top-4 left-6 bg-indigo-600/80 backdrop-blur-md text-white px-5 py-1.5 rounded-xl text-xs font-black shadow-lg uppercase tracking-widest border border-white/20 z-20">{tx(lang,{fr:'Plan Libre',ar:'تخطيط حر',en:'Free Plan',es:'Plano Libre',pt:'Plano Livre',tr:'Serbest Plan'})}</div>
+                                                <div className="absolute -top-4 left-6 bg-indigo-600 dark:bg-dk-accent/80 backdrop-blur-md text-white px-5 py-1.5 rounded-xl text-xs font-black shadow-lg uppercase tracking-widest border border-white/20 z-20">{tx(lang,{fr:'Plan Libre',ar:'تخطيط حر',en:'Free Plan',es:'Plano Libre',pt:'Plano Livre',tr:'Serbest Plan'})}</div>
 
                                                 <div className="relative w-[3000px] h-[2000px] mt-4 overflow-hidden">
                                                     {workstations
@@ -3292,12 +3292,12 @@ export default function Implantation({
                                                                     {shape === 'circle' ? (
                                                                         <div className="w-32 h-32 rounded-full border-4 border-dashed border-slate-300 bg-slate-100/80 flex items-center justify-center shadow-sm pointer-events-none">
                                                                             <div className="text-center">
-                                                                                <div className="text-xs font-bold text-slate-500">{st.name}</div>
-                                                                                <div className="text-[10px] text-slate-400">{st.machine}</div>
+                                                                                <div className="text-xs font-bold text-slate-500 dark:text-dk-muted">{st.name}</div>
+                                                                                <div className="text-[10px] text-slate-400 dark:text-dk-muted">{st.machine}</div>
                                                                             </div>
                                                                         </div>
                                                                     ) : shape === 'zone' ? (
-                                                                        <div className="w-48 h-32 border-2 border-dashed border-indigo-300 bg-indigo-50/30 rounded-xl flex items-center justify-center pointer-events-none">
+                                                                        <div className="w-48 h-32 border-2 border-dashed border-indigo-300 bg-indigo-50 dark:bg-dk-accent/20/30 rounded-xl flex items-center justify-center pointer-events-none">
                                                                             <span className="text-xs font-bold text-indigo-400 uppercase tracking-widest">{tx(lang,{fr:'Zone',ar:'منطقة',en:'Zone',es:'Zona',pt:'Zona',tr:'Bölge'})} {st.name}</span>
                                                                         </div>
                                                                     ) : (
@@ -3318,16 +3318,16 @@ export default function Implantation({
                                                 const topRow = section.stations.filter((_, i) => i % 2 === 0);
                                                 const bottomRow = section.stations.filter((_, i) => i % 2 !== 0);
 
-                                                let bgClass = "bg-indigo-600/80";
+                                                let bgClass = "bg-indigo-600 dark:bg-dk-accent/80";
                                                 let borderClass = "border-indigo-500";
                                                 if (section.theme === 'amber') { bgClass = "bg-amber-600/80"; borderClass = "border-amber-500"; }
                                                 if (section.theme === 'sky') { bgClass = "bg-sky-600/80"; borderClass = "border-sky-500"; }
 
                                                 return (
-                                                    <div key={section.id} className="relative w-full border-2 border-dashed border-slate-200 rounded-3xl p-8 bg-slate-50/50 mb-6 shadow-sm flex flex-col items-center">
+                                                    <div key={section.id} className="relative w-full border-2 border-dashed border-slate-200 dark:border-dk-border rounded-3xl p-8 bg-slate-50/50 mb-6 shadow-sm flex flex-col items-center">
                                                         <div className={`absolute -top-4 left-6 ${bgClass} backdrop-blur-md text-white px-5 py-1.5 rounded-xl text-xs font-black shadow-lg uppercase tracking-widest border border-white/20 z-20 flex gap-2 items-center`}>
                                                             {section.name}
-                                                            {section.hourly && <span className="bg-white/20 px-2 py-0.5 rounded text-[10px]">Obj: {section.hourly} p/h</span>}
+                                                            {section.hourly && <span className="bg-white dark:bg-dk-surface/20 px-2 py-0.5 rounded text-[10px]">Obj: {section.hourly} p/h</span>}
                                                         </div>
 
                                                         <div className="flex flex-col gap-6 pt-4 w-full">
@@ -3346,7 +3346,7 @@ export default function Implantation({
                                                                                     const isAnyHovered = hoveredStationIndex !== null;
                                                                                     
                                                                                     let lineClass = 'w-6 h-1 bg-slate-200';
-                                                                                    let chevronClass = '-ml-2 w-5 h-5 stroke-[3] text-slate-400';
+                                                                                    let chevronClass = '-ml-2 w-5 h-5 stroke-[3] text-slate-400 dark:text-dk-muted';
                                                                                     let opacityClass = 'opacity-60';
                                                                                     
                                                                                     if (isAnyHovered) {
@@ -3400,7 +3400,7 @@ export default function Implantation({
                                                                                     const isAnyHovered = hoveredStationIndex !== null;
                                                                                     
                                                                                     let lineClass = 'w-6 h-1 bg-slate-200';
-                                                                                    let chevronClass = '-mr-2 w-5 h-5 stroke-[3] text-slate-400';
+                                                                                    let chevronClass = '-mr-2 w-5 h-5 stroke-[3] text-slate-400 dark:text-dk-muted';
                                                                                     let opacityClass = 'opacity-60';
                                                                                     
                                                                                     if (isAnyHovered) {
@@ -3437,7 +3437,7 @@ export default function Implantation({
                                             <div className="flex justify-start w-full pl-8 mt-4">
                                                 <div className="flex items-center gap-4 bg-slate-800 text-white px-8 py-4 rounded-2xl shadow-2xl border-4 border-slate-700 hover:scale-105 transition-transform">
                                                     <div className="w-10 h-10 bg-emerald-500 rounded-xl flex items-center justify-center shadow-lg"><Truck className="w-6 h-6 animate-pulse" /></div>
-                                                    <div className="flex flex-col"><span className="text-[10px] uppercase font-black tracking-widest text-slate-400">{tx(lang,{fr:'Terminé',ar:'منتهي',en:'Finished',es:'Terminado',pt:'Terminado',tr:'Bitti'})}</span><span className="text-sm font-black uppercase tracking-widest">{tx(lang,{fr:'EXPÉDITION',ar:'شحن',en:'SHIPPING',es:'EXPEDICIÓN',pt:'EXPEDIÇÃO',tr:'SEVKİYAT'})}</span></div>
+                                                    <div className="flex flex-col"><span className="text-[10px] uppercase font-black tracking-widest text-slate-400 dark:text-dk-muted">{tx(lang,{fr:'Terminé',ar:'منتهي',en:'Finished',es:'Terminado',pt:'Terminado',tr:'Bitti'})}</span><span className="text-sm font-black uppercase tracking-widest">{tx(lang,{fr:'EXPÉDITION',ar:'شحن',en:'SHIPPING',es:'EXPEDICIÓN',pt:'EXPEDIÇÃO',tr:'SEVKİYAT'})}</span></div>
                                                 </div>
                                             </div>
                                         </div>
@@ -3450,7 +3450,7 @@ export default function Implantation({
                                                 const sideA = section.stations.filter((_, i) => i % 2 === 0);
                                                 const sideB = section.stations.filter((_, i) => i % 2 !== 0);
 
-                                                let bgClass = "bg-indigo-600/80";
+                                                let bgClass = "bg-indigo-600 dark:bg-dk-accent/80";
                                                 let borderClassA = "border-indigo-500";
                                                 let borderClassB = "border-orange-500";
                                                 if (section.theme === 'amber') { bgClass = "bg-amber-600/80"; borderClassA = "border-amber-500"; borderClassB = "border-amber-400"; }
@@ -3458,10 +3458,10 @@ export default function Implantation({
                                                 let arrowColor = section.theme === 'amber' ? "#f59e0b" : section.theme === 'sky' ? "#0ea5e9" : "#818cf8";
 
                                                 return (
-                                                    <div key={section.id} className="relative mt-4 flex flex-col w-full border-2 border-dashed border-slate-200 rounded-3xl p-6 bg-slate-50/50 mb-6 shadow-sm">
+                                                    <div key={section.id} className="relative mt-4 flex flex-col w-full border-2 border-dashed border-slate-200 dark:border-dk-border rounded-3xl p-6 bg-slate-50/50 mb-6 shadow-sm">
                                                         <div className={`absolute -top-4 left-6 ${bgClass} backdrop-blur-md text-white px-5 py-1.5 rounded-xl text-xs font-black shadow-lg uppercase tracking-widest border border-white/20 z-20 flex gap-2 items-center`}>
                                                             {section.name}
-                                                            {section.hourly && <span className="bg-white/20 px-2 py-0.5 rounded text-[10px]">Obj: {section.hourly} p/h</span>}
+                                                            {section.hourly && <span className="bg-white dark:bg-dk-surface/20 px-2 py-0.5 rounded text-[10px]">Obj: {section.hourly} p/h</span>}
                                                         </div>
 
                                                         <div className="flex flex-col gap-24 relative w-full pt-8">
@@ -3469,7 +3469,7 @@ export default function Implantation({
                                                                 <div className="flex items-center gap-12 relative z-10 w-full justify-start">
                                                                     {sideA.map((st, i) => (
                                                                         <div key={`sideA-${st.id}`} className="flex items-center gap-12 relative">
-                                                                            <div id={`station-card-${st.id}`} className={`relative group transition-transform hover:scale-[1.02] shadow-sm hover:shadow-xl rounded-xl bg-white border-b-4 ${borderClassA}`}>
+                                                                            <div id={`station-card-${st.id}`} className={`relative group transition-transform hover:scale-[1.02] shadow-sm hover:shadow-xl rounded-xl bg-white dark:bg-dk-surface border-b-4 ${borderClassA}`}>
                                                                                 {renderStationCard(st)}
                                                                             </div>
                                                                             {i < sideB.length && (() => {
@@ -3511,7 +3511,7 @@ export default function Implantation({
                                                                 <div className="flex items-center gap-12 relative z-10 w-full justify-start translate-x-16">
                                                                     {sideB.map((st, i) => (
                                                                         <div key={`sideB-${st.id}`} className="flex items-center gap-12 relative">
-                                                                            <div id={`station-card-${st.id}`} className={`relative group transition-transform hover:scale-[1.02] shadow-sm hover:shadow-xl rounded-xl bg-white border-t-4 ${borderClassB}`}>
+                                                                            <div id={`station-card-${st.id}`} className={`relative group transition-transform hover:scale-[1.02] shadow-sm hover:shadow-xl rounded-xl bg-white dark:bg-dk-surface border-t-4 ${borderClassB}`}>
                                                                                 {renderStationCard(st)}
                                                                             </div>
                                                                             {i + 1 < sideA.length && (() => {
@@ -3558,7 +3558,7 @@ export default function Implantation({
                                             <div className="flex justify-end w-full mt-8 pr-4">
                                                 <div className="flex items-center gap-4 bg-slate-800 text-white px-8 py-4 rounded-2xl shadow-2xl border border-white/20 hover:scale-105 transition-transform">
                                                     <div className="w-10 h-10 bg-emerald-500 rounded-xl flex items-center justify-center shadow-lg"><Truck className="w-6 h-6 animate-pulse" /></div>
-                                                    <div className="flex flex-col"><span className="text-[10px] uppercase font-black tracking-widest text-slate-400">{tx(lang,{fr:'Terminé',ar:'منتهي',en:'Finished',es:'Terminado',pt:'Terminado',tr:'Bitti'})}</span><span className="text-sm font-black uppercase tracking-widest">{tx(lang,{fr:'EXPÉDITION',ar:'شحن',en:'SHIPPING',es:'EXPEDICIÓN',pt:'EXPEDIÇÃO',tr:'SEVKİYAT'})}</span></div>
+                                                    <div className="flex flex-col"><span className="text-[10px] uppercase font-black tracking-widest text-slate-400 dark:text-dk-muted">{tx(lang,{fr:'Terminé',ar:'منتهي',en:'Finished',es:'Terminado',pt:'Terminado',tr:'Bitti'})}</span><span className="text-sm font-black uppercase tracking-widest">{tx(lang,{fr:'EXPÉDITION',ar:'شحن',en:'SHIPPING',es:'EXPEDICIÓN',pt:'EXPEDIÇÃO',tr:'SEVKİYAT'})}</span></div>
                                                 </div>
                                             </div>
                                         </div>
@@ -3571,16 +3571,16 @@ export default function Implantation({
                                                 const topRow = section.stations.filter((_, i) => i % 2 === 0);
                                                 const bottomRow = section.stations.filter((_, i) => i % 2 !== 0);
 
-                                                let bgClass = "bg-indigo-600";
+                                                let bgClass = "bg-indigo-600 dark:bg-dk-accent";
                                                 let borderClass = "border-indigo-500";
                                                 if (section.theme === 'amber') { bgClass = "bg-amber-600"; borderClass = "border-amber-500"; }
                                                 if (section.theme === 'sky') { bgClass = "bg-sky-600"; borderClass = "border-sky-500"; }
 
                                                 return (
-                                                    <div key={section.id} className="relative mt-4 flex flex-col bg-slate-50/80 rounded-3xl border-2 border-slate-200 p-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)] mb-6">
+                                                    <div key={section.id} className="relative mt-4 flex flex-col bg-slate-50/80 rounded-3xl border-2 border-slate-200 dark:border-dk-border p-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)] mb-6">
                                                         <div className={`absolute -top-4 left-6 ${bgClass} text-white px-5 py-1.5 rounded-xl text-xs font-black shadow-lg uppercase tracking-widest border border-white/20 flex gap-2 items-center z-20`}>
                                                             {section.name}
-                                                            {section.hourly && <span className="bg-white/20 px-2 py-0.5 rounded text-[10px]">Obj: {section.hourly} p/h</span>}
+                                                            {section.hourly && <span className="bg-white dark:bg-dk-surface/20 px-2 py-0.5 rounded text-[10px]">Obj: {section.hourly} p/h</span>}
                                                         </div>
 
                                                         <div className="flex flex-col gap-20 pt-8 w-full">
@@ -3600,7 +3600,7 @@ export default function Implantation({
                                                                                     
                                                                                     let lineBg = 'bg-slate-200/40';
                                                                                     let gradientClass = 'bg-gradient-to-r from-transparent via-slate-400 to-transparent';
-                                                                                    let chevronClass = 'text-slate-400';
+                                                                                    let chevronClass = 'text-slate-400 dark:text-dk-muted';
                                                                                     let opacity = 'opacity-80';
                                                                                     
                                                                                     if (isAnyHovered) {
@@ -3619,7 +3619,7 @@ export default function Implantation({
                                                                                         }
                                                                                     }
                                                                                     return (
-                                                                                        <div className={`flex items-center text-slate-400 shrink-0 transition-all duration-300 ${opacity}`}>
+                                                                                        <div className={`flex items-center text-slate-400 dark:text-dk-muted shrink-0 transition-all duration-300 ${opacity}`}>
                                                                                             <div className="relative w-10 h-1.5 flex items-center overflow-hidden rounded-l">
                                                                                                 <div className={`absolute inset-0 transition-colors duration-300 ${lineBg}`}></div>
                                                                                                 <div className={`absolute inset-0 w-full transition-all duration-300 ${gradientClass}`}></div>
@@ -3650,7 +3650,7 @@ export default function Implantation({
                                                                                     
                                                                                     let lineBg = 'bg-slate-200/40';
                                                                                     let gradientClass = 'bg-gradient-to-r from-transparent via-slate-400 to-transparent animate-[pulse_1.5s_ease-in-out_infinite_0.3s]';
-                                                                                    let chevronClass = 'text-slate-400 animate-[pulse_1.5s_ease-in-out_infinite_0.3s]';
+                                                                                    let chevronClass = 'text-slate-400 dark:text-dk-muted animate-[pulse_1.5s_ease-in-out_infinite_0.3s]';
                                                                                     let opacity = 'opacity-80';
                                                                                     
                                                                                     if (isAnyHovered) {
@@ -3669,7 +3669,7 @@ export default function Implantation({
                                                                                         }
                                                                                     }
                                                                                     return (
-                                                                                        <div className={`flex items-center text-slate-400 shrink-0 transition-all duration-300 ${opacity}`}>
+                                                                                        <div className={`flex items-center text-slate-400 dark:text-dk-muted shrink-0 transition-all duration-300 ${opacity}`}>
                                                                                             <div className="relative w-10 h-1.5 flex items-center overflow-hidden rounded-l">
                                                                                                 <div className={`absolute inset-0 transition-colors duration-300 ${lineBg}`}></div>
                                                                                                 <div className={`absolute inset-0 w-full transition-all duration-300 ${gradientClass}`}></div>
@@ -3692,7 +3692,7 @@ export default function Implantation({
                                             <div className="flex justify-end w-full mt-8 pr-4">
                                                 <div className="flex items-center gap-4 bg-slate-800 text-white px-8 py-4 rounded-2xl shadow-2xl border border-white/20 hover:scale-105 transition-transform">
                                                     <div className="w-10 h-10 bg-emerald-500 rounded-xl flex items-center justify-center shadow-lg"><Truck className="w-6 h-6 animate-pulse" /></div>
-                                                    <div className="flex flex-col"><span className="text-[10px] uppercase font-black tracking-widest text-slate-400">{tx(lang,{fr:'Terminé',ar:'منتهي',en:'Finished',es:'Terminado',pt:'Terminado',tr:'Bitti'})}</span><span className="text-sm font-black uppercase tracking-widest">{tx(lang,{fr:'EXPÉDITION',ar:'شحن',en:'SHIPPING',es:'EXPEDICIÓN',pt:'EXPEDIÇÃO',tr:'SEVKİYAT'})}</span></div>
+                                                    <div className="flex flex-col"><span className="text-[10px] uppercase font-black tracking-widest text-slate-400 dark:text-dk-muted">{tx(lang,{fr:'Terminé',ar:'منتهي',en:'Finished',es:'Terminado',pt:'Terminado',tr:'Bitti'})}</span><span className="text-sm font-black uppercase tracking-widest">{tx(lang,{fr:'EXPÉDITION',ar:'شحن',en:'SHIPPING',es:'EXPEDICIÓN',pt:'EXPEDIÇÃO',tr:'SEVKİYAT'})}</span></div>
                                                 </div>
                                             </div>
                                         </div>
@@ -3704,15 +3704,15 @@ export default function Implantation({
 
                         {/* FLOATING MATERIAL PANEL */}
                         {showMaterialsPanel && (
-                            <div className="fixed z-[5010] bg-slate-50 rounded-2xl border border-slate-200 shadow-xl overflow-hidden flex flex-col" style={{ left: matPanel.x, top: matPanel.y, width: matPanel.w, height: matPanel.h }}>
-                                <div onMouseDown={startDragMat} className="p-4 bg-slate-50 border-b border-slate-100 cursor-move select-none flex justify-between items-center">
-                                    <h3 className="font-bold text-slate-700 flex items-center gap-2 text-sm pointer-events-none"><Calculator className="w-4 h-4 text-indigo-500" /> {tx(lang,{fr:'Total Matériel',ar:'إجمالي المعدات',en:'Total Equipment',es:'Total Equipo',pt:'Total Equipamento',tr:'Toplam Ekipman'})}</h3>
+                            <div className="fixed z-[5010] bg-slate-50 dark:bg-dk-bg rounded-2xl border border-slate-200 dark:border-dk-border shadow-xl overflow-hidden flex flex-col" style={{ left: matPanel.x, top: matPanel.y, width: matPanel.w, height: matPanel.h }}>
+                                <div onMouseDown={startDragMat} className="p-4 bg-slate-50 dark:bg-dk-bg border-b border-slate-100 dark:border-dk-border cursor-move select-none flex justify-between items-center">
+                                    <h3 className="font-bold text-slate-700 dark:text-dk-text-soft flex items-center gap-2 text-sm pointer-events-none"><Calculator className="w-4 h-4 text-indigo-500" /> {tx(lang,{fr:'Total Matériel',ar:'إجمالي المعدات',en:'Total Equipment',es:'Total Equipo',pt:'Total Equipamento',tr:'Toplam Ekipman'})}</h3>
                                     <button onClick={() => setShowMaterialsPanel(false)} onMouseDown={(e) => e.stopPropagation()} className="text-slate-400 hover:text-slate-600"><X className="w-4 h-4" /></button>
                                 </div>
                                 <div className="flex-1 overflow-y-auto p-2 custom-scrollbar">
-                                    <table className="w-full text-left border-collapse"><tbody>{machinesSummary.counts.map(([name, count]) => (<tr key={name} className="border-b border-slate-50 hover:bg-slate-50"><td className="py-2 px-3 text-xs font-medium text-slate-600">{name}</td><td className="py-2 px-3 text-right"><span className="inline-flex items-center justify-center bg-slate-100 text-slate-700 font-bold text-[10px] px-2 py-0.5 rounded-full min-w-[24px]">{count}</span></td></tr>))}</tbody></table>
+                                    <table className="w-full text-left border-collapse"><tbody>{machinesSummary.counts.map(([name, count]) => (<tr key={name} className="border-b border-slate-50 hover:bg-slate-50 dark:hover:bg-dk-elevated/60"><td className="py-2 px-3 text-xs font-medium text-slate-600 dark:text-dk-text-soft">{name}</td><td className="py-2 px-3 text-right"><span className="inline-flex items-center justify-center bg-slate-100 dark:bg-dk-elevated text-slate-700 dark:text-dk-text-soft font-bold text-[10px] px-2 py-0.5 rounded-full min-w-[24px]">{count}</span></td></tr>))}</tbody></table>
                                 </div>
-                                <div className="p-4 bg-slate-50 border-t border-slate-100 relative"><div className="flex justify-between items-center"><span className="text-xs font-bold text-slate-500 uppercase">{tx(lang,{fr:'Total Postes',ar:'إجمالي المحطات',en:'Total Stations',es:'Total Puestos',pt:'Total Postos',tr:'Toplam İstasyon'})}</span><span className="text-lg font-black text-indigo-600">{machinesSummary.total}</span></div><div onMouseDown={startResizeMat} className="absolute bottom-0 right-0 w-6 h-6 cursor-nwse-resize flex items-center justify-center opacity-50 hover:opacity-100"><Scaling className="w-4 h-4 text-slate-400 rotate-90" /></div></div>
+                                <div className="p-4 bg-slate-50 dark:bg-dk-bg border-t border-slate-100 dark:border-dk-border relative"><div className="flex justify-between items-center"><span className="text-xs font-bold text-slate-500 dark:text-dk-muted uppercase">{tx(lang,{fr:'Total Postes',ar:'إجمالي المحطات',en:'Total Stations',es:'Total Puestos',pt:'Total Postos',tr:'Toplam İstasyon'})}</span><span className="text-lg font-black text-indigo-600 dark:text-dk-accent-text">{machinesSummary.total}</span></div><div onMouseDown={startResizeMat} className="absolute bottom-0 right-0 w-6 h-6 cursor-nwse-resize flex items-center justify-center opacity-50 hover:opacity-100"><Scaling className="w-4 h-4 text-slate-400 dark:text-dk-muted rotate-90" /></div></div>
                             </div>
                         )}
                     </div>
@@ -3722,7 +3722,7 @@ export default function Implantation({
                 {isFullScreen && (
                     <button
                         onClick={toggleFullScreen}
-                        className="absolute top-6 right-6 z-50 p-3 bg-white/60 backdrop-blur-xl rounded-full shadow-lg border border-slate-200/50 text-slate-500 hover:text-rose-600 hover:bg-white hover:scale-110 active:scale-95 transition-all duration-300 animate-in slide-in-from-top-8 fade-in"
+                        className="absolute top-6 right-6 z-50 p-3 bg-white dark:bg-dk-surface/60 backdrop-blur-xl rounded-full shadow-lg border border-slate-200 dark:border-dk-border/50 text-slate-500 dark:text-dk-muted hover:text-rose-600 hover:bg-white hover:scale-110 active:scale-95 transition-all duration-300 animate-in slide-in-from-top-8 fade-in"
                         title={tx(lang,{fr:'Quitter plein écran (Esc)',ar:'إنهاء ملء الشاشة (Esc)',en:'Exit Fullscreen (Esc)',es:'Salir de pantalla completa (Esc)',pt:'Sair de tela cheia (Esc)',tr:'Tam ekrandan çık (Esc)'})}
                     >
                         <X className="w-5 h-5" />
@@ -3736,11 +3736,11 @@ export default function Implantation({
                         className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
                         onClick={() => resolveSectionTransferDialog('cancel')}
                     />
-                    <div className="relative bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-150">
-                        <div className="px-5 py-4 border-b border-slate-100 bg-slate-50">
-                            <h3 className="text-sm font-black text-slate-800 uppercase tracking-wide">{tx(lang,{fr:'Changement de catégorie poste',ar:'تغيير فئة المحطة',en:'Station Category Change',es:'Cambio de categoría de puesto',pt:'Mudança de categoria de posto',tr:'İstasyon Kategori Değişikliği'})}</h3>
-                            <p className="text-xs text-slate-500 mt-1">
-{tx(lang,{fr:'Poste',ar:'المحطة',en:'Station',es:'Puesto',pt:'Posto',tr:'İstasyon'})} <span className="font-bold text-slate-700">{sectionTransferDialog.posteName}</span> :
+                    <div className="relative bg-white dark:bg-dk-surface rounded-2xl shadow-2xl border border-slate-200 dark:border-dk-border w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+                        <div className="px-5 py-4 border-b border-slate-100 dark:border-dk-border bg-slate-50 dark:bg-dk-bg">
+                            <h3 className="text-sm font-black text-slate-800 dark:text-dk-text uppercase tracking-wide">{tx(lang,{fr:'Changement de catégorie poste',ar:'تغيير فئة المحطة',en:'Station Category Change',es:'Cambio de categoría de puesto',pt:'Mudança de categoria de posto',tr:'İstasyon Kategori Değişikliği'})}</h3>
+                            <p className="text-xs text-slate-500 dark:text-dk-muted mt-1">
+{tx(lang,{fr:'Poste',ar:'المحطة',en:'Station',es:'Puesto',pt:'Posto',tr:'İstasyon'})} <span className="font-bold text-slate-700 dark:text-dk-text-soft">{sectionTransferDialog.posteName}</span> :
                                                 <span className="font-bold"> {SECTION_LABELS[sectionTransferDialog.source]}</span> {tx(lang,{fr:'vers',ar:'إلى',en:'to',es:'a',pt:'para',tr:'→'})}
                                                 <span className="font-bold"> {SECTION_LABELS[sectionTransferDialog.target]}</span>.
                             </p>
@@ -3748,21 +3748,21 @@ export default function Implantation({
 
                         <div className="px-5 py-4 space-y-3">
                             {sectionTransferDialog.mode === 'confirm-transfer' ? (
-                                <p className="text-sm text-slate-600">
+                                <p className="text-sm text-slate-600 dark:text-dk-text-soft">
                                     {tx(lang,{fr:'Voulez-vous déplacer ce poste et reclasser ses opérations en',ar:'هل تريد نقل هذه المحطة وإعادة تصنيف عملياتها إلى',en:'Do you want to move this station and reclassify its operations to',es:'¿Desea mover este puesto y reclasificar sus operaciones a',pt:'Deseja mover este posto e reclassificar suas operações para',tr:'Bu istasyonu taşımak ve işlemlerini şuraya yeniden sınıflandırmak istiyor musunuz'})}
                                     <span className="font-bold"> {SECTION_LABELS[sectionTransferDialog.target]}</span> ?
                                 </p>
                             ) : (
-                                <p className="text-sm text-slate-600">
+                                <p className="text-sm text-slate-600 dark:text-dk-text-soft">
                                     {tx(lang,{fr:'Ce poste touche une zone commune. Choisissez comment il doit être comptabilisé.',ar:'هذه المحطة تمس منطقة مشتركة. اختر كيف يجب أن يتم احتسابها.',en:'This station touches a common zone. Choose how it should be accounted.',es:'Este puesto toca una zona común. Elija cómo debe contabilizarse.',pt:'Este posto toca uma zona comum. Escolha como deve ser contabilizado.',tr:'Bu istasyon ortak bir bölgeye dokunuyor. Nasıl muhasebeleştirileceğini seçin.'})}
                                 </p>
                             )}
                         </div>
 
-                        <div className="px-5 py-4 border-t border-slate-100 bg-slate-50 flex flex-wrap gap-2 justify-end">
+                        <div className="px-5 py-4 border-t border-slate-100 dark:border-dk-border bg-slate-50 dark:bg-dk-bg flex flex-wrap gap-2 justify-end">
                             <button
                                 onClick={() => resolveSectionTransferDialog('cancel')}
-                                className="px-3 py-2 rounded-lg text-xs font-bold border border-slate-200 text-slate-600 bg-white hover:bg-slate-100"
+                                className="px-3 py-2 rounded-lg text-xs font-bold border border-slate-200 dark:border-dk-border text-slate-600 dark:text-dk-text-soft bg-white dark:bg-dk-surface hover:bg-slate-100"
                             >
                                 {tx(lang,{fr:'Annuler',ar:'إلغاء',en:'Cancel',es:'Cancelar',pt:'Cancelar',tr:'İptal'})}
                             </button>
@@ -3771,7 +3771,7 @@ export default function Implantation({
                                 <>
                                     <button
                                         onClick={() => resolveSectionTransferDialog('keep-global')}
-                                        className="px-3 py-2 rounded-lg text-xs font-bold border border-slate-200 text-slate-700 bg-white hover:bg-slate-100"
+                                        className="px-3 py-2 rounded-lg text-xs font-bold border border-slate-200 dark:border-dk-border text-slate-700 dark:text-dk-text-soft bg-white dark:bg-dk-surface hover:bg-slate-100"
                                     >
                                         {tx(lang,{fr:'Garder Zone Commune',ar:'الإبقاء على المنطقة المشتركة',en:'Keep Common Zone',es:'Mantener Zona Común',pt:'Manter Zona Comum',tr:'Ortak Bölgeyi Koru'})}
                                     </button>
@@ -3791,7 +3791,7 @@ export default function Implantation({
                             ) : (
                                 <button
                                     onClick={() => resolveSectionTransferDialog('confirm-target')}
-                                    className="px-3 py-2 rounded-lg text-xs font-bold border border-indigo-200 text-indigo-700 bg-indigo-50 hover:bg-indigo-100"
+                                    className="px-3 py-2 rounded-lg text-xs font-bold border border-indigo-200 text-indigo-700 dark:text-dk-accent-text bg-indigo-50 dark:bg-dk-accent/20 hover:bg-indigo-100"
                                 >
                                     {tx(lang,{fr:'OK déplacer',ar:'موافق نقل',en:'OK Move',es:'OK mover',pt:'OK mover',tr:'Tamam Taşı'})}
                                 </button>
@@ -3808,17 +3808,17 @@ export default function Implantation({
                     {/* BACKDROP */}
                     <div className="absolute inset-0 bg-slate-900/60 " onClick={closeEditModal} />
                     {/* MODAL CONTENT */}
-                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl relative overflow-hidden animate-in fade-in zoom-in-95 duration-200 flex flex-col max-h-[90vh]">
+                    <div className="bg-white dark:bg-dk-surface rounded-2xl shadow-2xl w-full max-w-4xl relative overflow-hidden animate-in fade-in zoom-in-95 duration-200 flex flex-col max-h-[90vh]">
                         {/* DYNAMIC HEADER COLOR */}
                         <div className={`px-6 py-4 border-b flex justify-between items-center shrink-0 ${editModal.color.bg} ${editModal.color.border}`}>
                             {/* ... same header ... */}
                             <div className="flex items-center gap-3">
-                                <div className={`p-2 bg-white rounded-lg shadow-sm border ${editModal.color.border}`}>
+                                <div className={`p-2 bg-white dark:bg-dk-surface rounded-lg shadow-sm border ${editModal.color.border}`}>
                                     <PenTool className={`w-5 h-5 ${editModal.color.text}`} />
                                 </div>
                                 <div>
                                     <h3 className={`font-bold text-lg leading-tight ${editModal.color.text}`}>{tx(lang,{fr:'Modifier Poste',ar:'تعديل المحطة',en:'Edit Station',es:'Modificar Puesto',pt:'Modificar Posto',tr:'İstasyonu Düzenle'})} {editModal.data.name}</h3>
-                                    <p className="text-[10px] uppercase font-bold text-slate-500 opacity-80 flex items-center gap-2">
+                                    <p className="text-[10px] uppercase font-bold text-slate-500 dark:text-dk-muted opacity-80 flex items-center gap-2">
                                         {editModal.data.machine}
                                         <span className="w-px h-3 bg-slate-300"></span>
                                         {modalOps.length} {tx(lang,{fr:'Opérations',ar:'العمليات',en:'Operations',es:'Operaciones',pt:'Operações',tr:'Operasyonlar'})}
@@ -3827,54 +3827,54 @@ export default function Implantation({
                             </div>
                             <div className="flex items-center gap-2 ml-auto mr-4">
                                 <div className="relative group">
-                                    <User className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+                                    <User className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 dark:text-dk-muted" />
                                     <input
                                         type="text"
                                         placeholder={tx(lang,{fr:'Opérateur...',ar:'المشغل...',en:'Operator...',es:'Operador...',pt:'Operador...',tr:'Operatör...'})}
                                         value={editModal.data.operatorName || ''}
                                         onChange={(e) => saveStationMetadata({ operatorName: e.target.value })}
-                                        className="pl-7 pr-2 py-1.5 text-xs font-bold rounded-lg border border-slate-200 bg-white/80 focus:bg-white focus:border-indigo-400 outline-none w-32"
+                                        className="pl-7 pr-2 py-1.5 text-xs font-bold rounded-lg border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface/80 focus:bg-white focus:border-indigo-400 outline-none w-32"
                                     />
                                 </div>
                                 <div className="relative group">
-                                    <Clock className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+                                    <Clock className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 dark:text-dk-muted" />
                                     <input
                                         type="number"
                                         placeholder={tx(lang,{fr:'T. Forcé',ar:'وقت إجباري',en:'Forced Time',es:'T. Forzado',pt:'T. Forçado',tr:'Zorunlu Süre'})}
                                         value={editModal.data.timeOverride !== undefined ? Math.round(editModal.data.timeOverride * 60) : ''}
                                         onChange={(e) => { const val = e.target.value === '' ? undefined : Number(e.target.value); saveStationMetadata({ timeOverride: val !== undefined ? val / 60 : undefined }); }}
-                                        className="pl-7 pr-2 py-1.5 text-xs font-bold rounded-lg border border-slate-200 bg-white/80 focus:bg-white focus:border-purple-400 outline-none w-24 text-purple-600 placeholder:text-slate-400"
+                                        className="pl-7 pr-2 py-1.5 text-xs font-bold rounded-lg border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface/80 focus:bg-white focus:border-purple-400 outline-none w-24 text-purple-600 placeholder:text-slate-400"
                                         title={tx(lang,{fr:'Forcer temps poste (sec)',ar:'فرض وقت المحطة (ثانية)',en:'Force station time (sec)',es:'Forzar tiempo de puesto (seg)',pt:'Forçar tempo de posto (seg)',tr:'İstasyon süresini zorla (sn)'})}
                                     />
                                 </div>
                             </div>
-                            <button onClick={closeEditModal} className={`p-1.5 hover:bg-white/50 rounded-lg transition-colors ${editModal.color.text}`}><X className="w-5 h-5" /></button>
+                            <button onClick={closeEditModal} className={`p-1.5 hover:bg-white rounded-lg transition-colors ${editModal.color.text}`}><X className="w-5 h-5" /></button>
                         </div>
                         {/* SCROLLABLE TABLE BODY */}
-                        <div className="flex-1 overflow-auto custom-scrollbar bg-slate-50 p-4">
-                            <table className="w-full text-left border-collapse bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-                                <thead className="bg-slate-100 text-xs font-bold text-slate-500 uppercase sticky top-0 z-10 shadow-sm">
+                        <div className="flex-1 overflow-auto custom-scrollbar bg-slate-50 dark:bg-dk-bg p-4">
+                            <table className="w-full text-left border-collapse bg-white dark:bg-dk-surface rounded-xl shadow-sm border border-slate-200 dark:border-dk-border overflow-hidden">
+                                <thead className="bg-slate-100 dark:bg-dk-elevated text-xs font-bold text-slate-500 dark:text-dk-muted uppercase sticky top-0 z-10 shadow-sm">
                                     <tr>
-                                        <th className="py-3 px-4 w-12 text-center border-b border-slate-200">{tx(lang,{fr:'N°',ar:'رقم',en:'No.',es:'N°',pt:'N°',tr:'No'})}</th>
-                                        <th className="py-3 px-4 border-b border-slate-200">{tx(lang,{fr:'Description',ar:'الوصف',en:'Description',es:'Descripción',pt:'Descrição',tr:'Açıklama'})}</th>
-                                        <th className="py-3 px-4 w-40 border-b border-slate-200">{tx(lang,{fr:'Machine',ar:'آلة',en:'Machine',es:'Máquina',pt:'Máquina',tr:'Makine'})}</th>
-                                        <th className="py-3 px-4 w-20 text-center border-b border-slate-200">{tx(lang,{fr:'L / Qté',ar:'الطول / الكمية',en:'L / Qty',es:'L / Cant',pt:'L / Qtd',tr:'U / Mkt'})}</th>
-                                        <th className="py-3 px-4 w-20 text-center border-b border-slate-200">F.Guide</th>
-                                        <th className="py-3 px-4 w-24 text-center border-b border-slate-200 text-emerald-600">{tx(lang,{fr:'Temps',ar:'الوقت',en:'Time',es:'Tiempo',pt:'Tempo',tr:'Süre'})}</th>
+                                        <th className="py-3 px-4 w-12 text-center border-b border-slate-200 dark:border-dk-border">{tx(lang,{fr:'N°',ar:'رقم',en:'No.',es:'N°',pt:'N°',tr:'No'})}</th>
+                                        <th className="py-3 px-4 border-b border-slate-200 dark:border-dk-border">{tx(lang,{fr:'Description',ar:'الوصف',en:'Description',es:'Descripción',pt:'Descrição',tr:'Açıklama'})}</th>
+                                        <th className="py-3 px-4 w-40 border-b border-slate-200 dark:border-dk-border">{tx(lang,{fr:'Machine',ar:'آلة',en:'Machine',es:'Máquina',pt:'Máquina',tr:'Makine'})}</th>
+                                        <th className="py-3 px-4 w-20 text-center border-b border-slate-200 dark:border-dk-border">{tx(lang,{fr:'L / Qté',ar:'الطول / الكمية',en:'L / Qty',es:'L / Cant',pt:'L / Qtd',tr:'U / Mkt'})}</th>
+                                        <th className="py-3 px-4 w-20 text-center border-b border-slate-200 dark:border-dk-border">F.Guide</th>
+                                        <th className="py-3 px-4 w-24 text-center border-b border-slate-200 dark:border-dk-border text-emerald-600">{tx(lang,{fr:'Temps',ar:'الوقت',en:'Time',es:'Tiempo',pt:'Tempo',tr:'Süre'})}</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-100 text-sm">
                                     {modalOps.map((op, idx) => {
                                         const isForced = op.forcedTime !== undefined;
                                         return (
-                                            <tr key={op.id} className="hover:bg-slate-50 transition-colors group">
-                                                <td className="py-2 px-2 text-center font-mono text-slate-400 font-bold border-r border-slate-50">{op.order}</td>
+                                            <tr key={op.id} className="hover:bg-slate-50 dark:hover:bg-dk-elevated/60 transition-colors group">
+                                                <td className="py-2 px-2 text-center font-mono text-slate-400 dark:text-dk-muted font-bold border-r border-slate-50">{op.order}</td>
                                                 <td className="py-2 px-2">
                                                     <input
                                                         type="text"
                                                         value={op.description}
                                                         onChange={(e) => handleUpdateOperation(op.id, 'description', e.target.value)}
-                                                        className="w-full bg-transparent outline-none font-medium text-slate-700 placeholder:text-slate-300 focus:bg-white focus:shadow-sm rounded px-2 py-1 transition-all"
+                                                        className="w-full bg-transparent outline-none font-medium text-slate-700 dark:text-dk-text-soft placeholder:text-slate-300 focus:bg-white focus:shadow-sm rounded px-2 py-1 transition-all"
                                                         placeholder={tx(lang,{fr:'Description...',ar:'الوصف...',en:'Description...',es:'Descripción...',pt:'Descrição...',tr:'Açıklama...'})}
                                                     />
                                                 </td>
@@ -3883,7 +3883,7 @@ export default function Implantation({
                                                         suggestions={machines.map(m => m.name)}
                                                         value={op.machineName || ''}
                                                         onChange={(val) => handleUpdateOperation(op.id, 'machineName', val)}
-                                                        className="w-full bg-slate-50 border border-slate-200 rounded px-2 py-1 text-xs font-bold text-slate-600 outline-none focus:border-indigo-400 focus:bg-white transition-all uppercase"
+                                                        className="w-full bg-slate-50 border border-slate-200 dark:border-dk-border rounded px-2 py-1 text-xs font-bold text-slate-600 dark:text-dk-text-soft outline-none focus:border-indigo-400 focus:bg-white transition-all uppercase"
                                                         placeholder="MAC"
                                                     />
                                                 </td>
@@ -3892,7 +3892,7 @@ export default function Implantation({
                                                         type="number"
                                                         value={op.length !== undefined && op.length !== null ? op.length : ''}
                                                         onChange={(e) => handleUpdateOperation(op.id, 'length', Number(e.target.value))}
-                                                        className="w-full text-center bg-transparent outline-none font-mono text-slate-600 focus:bg-white focus:shadow-sm rounded px-1 py-1"
+                                                        className="w-full text-center bg-transparent outline-none font-mono text-slate-600 dark:text-dk-text-soft focus:bg-white focus:shadow-sm rounded px-1 py-1"
                                                         placeholder="-"
                                                     />
                                                 </td>
@@ -3900,7 +3900,7 @@ export default function Implantation({
                                                     <select
                                                         value={op.guideFactor || 1.1}
                                                         onChange={(e) => handleUpdateOperation(op.id, 'guideFactor', Number(e.target.value))}
-                                                        className="bg-transparent outline-none text-xs font-bold text-slate-500 cursor-pointer hover:text-indigo-600 appearance-none text-center w-full"
+                                                        className="bg-transparent outline-none text-xs font-bold text-slate-500 cursor-pointer hover:text-indigo-600 dark:text-dk-accent-text appearance-none text-center w-full"
                                                     >
                                                         {complexityFactors.map(f => (
                                                             <option key={f.id} value={f.value}>{f.value}</option>
@@ -3917,7 +3917,7 @@ export default function Implantation({
                                                             className={`w-full text-center font-bold outline-none bg-transparent ${isForced ? 'text-purple-600' : 'text-emerald-600'}`}
                                                             disabled
                                                         />
-                                                        <span className="text-[9px] text-slate-400 absolute right-0 top-1/2 -translate-y-1/2">s</span>
+                                                        <span className="text-[9px] text-slate-400 dark:text-dk-muted absolute right-0 top-1/2 -translate-y-1/2">s</span>
                                                     </div>
                                                 </td>
                                             </tr>
@@ -3925,15 +3925,15 @@ export default function Implantation({
                                     })}
                                     {modalOps.length === 0 && (
                                         <tr>
-                                            <td colSpan={6} className="py-8 text-center text-slate-400 italic bg-white">
+                                            <td colSpan={6} className="py-8 text-center text-slate-400 dark:text-dk-muted italic bg-white dark:bg-dk-surface">
                                                 {tx(lang,{fr:'Aucune opération assignée. Utilisez le mode Manuel pour ajouter des opérations.',ar:'لا توجد عمليات معينة. استخدم الوضع اليدوي لإضافة عمليات.',en:'No operations assigned. Use Manual mode to add operations.',es:'Ninguna operación asignada. Use el modo Manual para añadir operaciones.',pt:'Nenhuma operação atribuída. Use o modo Manual para adicionar operações.',tr:'Hiçbir operasyon atanmadı. Operasyon eklemek için Manuel modu kullanın.'})}
                                             </td>
                                         </tr>
                                     )}
                                 </tbody>
-                                <tfoot className="bg-slate-50 border-t border-slate-200">
+                                <tfoot className="bg-slate-50 dark:bg-dk-bg border-t border-slate-200 dark:border-dk-border">
                                     <tr>
-                                        <td colSpan={5} className="py-3 px-4 text-right font-bold text-xs uppercase text-slate-500">{tx(lang,{fr:'Total Poste:',ar:'إجمالي المحطة:',en:'Station Total:',es:'Total Puesto:',pt:'Total Posto:',tr:'İstasyon Toplamı:'})}</td>
+                                        <td colSpan={5} className="py-3 px-4 text-right font-bold text-xs uppercase text-slate-500 dark:text-dk-muted">{tx(lang,{fr:'Total Poste:',ar:'إجمالي المحطة:',en:'Station Total:',es:'Total Puesto:',pt:'Total Posto:',tr:'İstasyon Toplamı:'})}</td>
                                         <td className="py-3 px-4 text-center font-black text-emerald-700 bg-emerald-50 border-l border-emerald-100">
                                             {Math.round(modalOps.reduce((sum, op) => sum + (op.time || 0), 0) * 60)}s
                                         </td>
@@ -3942,7 +3942,7 @@ export default function Implantation({
                             </table>
                         </div>
                         {/* FOOTER ACTIONS - WITH DELETE CONFIRMATION */}
-                        <div className="p-4 bg-white border-t border-slate-200 flex justify-between gap-3 shrink-0 transition-all">
+                        <div className="p-4 bg-white dark:bg-dk-surface border-t border-slate-200 dark:border-dk-border flex justify-between gap-3 shrink-0 transition-all">
                             {showDeleteConfirm ? (
                                 <div className="flex items-center justify-between w-full bg-rose-50 p-2 rounded-lg border border-rose-100 animate-in fade-in slide-in-from-bottom-2">
                                     <div className="flex items-center gap-2 text-rose-700 font-bold text-xs px-2">
@@ -3952,7 +3952,7 @@ export default function Implantation({
                                     <div className="flex gap-2">
                                         <button
                                             onClick={() => setShowDeleteConfirm(false)}
-                                            className="px-3 py-1.5 bg-white text-slate-600 border border-slate-200 rounded-lg text-xs font-bold hover:bg-slate-50 transition-colors"
+                                            className="px-3 py-1.5 bg-white dark:bg-dk-surface text-slate-600 dark:text-dk-text-soft border border-slate-200 dark:border-dk-border rounded-lg text-xs font-bold hover:bg-slate-50 dark:hover:bg-dk-elevated/60 transition-colors"
                                         >
                                             {tx(lang,{fr:'Annuler',ar:'إلغاء',en:'Cancel',es:'Cancelar',pt:'Cancelar',tr:'İptal'})}
                                         </button>
@@ -3966,14 +3966,14 @@ export default function Implantation({
                                 </div>
                             ) : (
                                 <>
-                                    <button onClick={() => setShowDeleteConfirm(true)} className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 hover:bg-rose-50 hover:border-rose-200 hover:text-rose-600 rounded-xl text-xs font-bold transition-all shadow-sm text-slate-500">
+                                    <button onClick={() => setShowDeleteConfirm(true)} className="flex items-center gap-2 px-4 py-2.5 bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border hover:bg-rose-50 hover:border-rose-200 hover:text-rose-600 rounded-xl text-xs font-bold transition-all shadow-sm text-slate-500 dark:text-dk-muted">
                                         <Trash2 className="w-4 h-4" />
                                         <span>{tx(lang,{fr:'Supprimer',ar:'حذف',en:'Delete',es:'Eliminar',pt:'Excluir',tr:'Sil'})}</span>
                                     </button>
                                     <div className="flex gap-2">
                                         <button
                                             onClick={() => closeEditModal()}
-                                            className="px-4 py-2.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-600 rounded-xl text-xs font-bold transition-colors"
+                                            className="px-4 py-2.5 bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border hover:bg-slate-50 dark:hover:bg-dk-elevated/60 text-slate-600 dark:text-dk-text-soft rounded-xl text-xs font-bold transition-colors"
                                         >
                                             {tx(lang,{fr:'Fermer',ar:'إغلاق',en:'Close',es:'Cerrar',pt:'Fechar',tr:'Kapat'})}
                                         </button>
@@ -3995,23 +3995,23 @@ export default function Implantation({
             {/* CONTEXT MENU PORTAL */}
             {contextMenu && contextMenu.visible && createPortal(
                 <div
-                    className="absolute z-[9999] bg-white border border-slate-200 rounded-xl shadow-2xl py-1 w-56 text-xs font-medium text-slate-700 animate-in fade-in zoom-in-95 duration-100 origin-top-left overflow-hidden ring-4 ring-slate-100/50"
+                    className="absolute z-[9999] bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-xl shadow-2xl py-1 w-56 text-xs font-medium text-slate-700 dark:text-dk-text-soft animate-in fade-in zoom-in-95 duration-100 origin-top-left overflow-hidden ring-4 ring-slate-100/50"
                     style={{ top: contextMenu.y, left: contextMenu.x }}
                     onClick={(e) => e.stopPropagation()}
                 >
-                    <button onClick={() => handleContextAction('modify')} className="w-full text-left px-4 py-2.5 hover:bg-slate-50 flex items-center gap-2 transition-colors"><PenTool className="w-3.5 h-3.5 text-indigo-500" /> {tx(lang,{fr:'Modifier Poste',ar:'تعديل المحطة',en:'Edit Station',es:'Modificar Puesto',pt:'Modificar Posto',tr:'İstasyonu Düzenle'})}</button>
-                    <button onClick={() => handleContextAction('swap')} className="w-full text-left px-4 py-2.5 hover:bg-slate-50 flex items-center gap-2 transition-colors"><ArrowRightLeft className="w-3.5 h-3.5 text-orange-500" /> {tx(lang,{fr:'Échanger (Swap)',ar:'تبديل',en:'Swap',es:'Intercambiar',pt:'Trocar',tr:'Takas'})}</button>
+                    <button onClick={() => handleContextAction('modify')} className="w-full text-left px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-dk-elevated/60 flex items-center gap-2 transition-colors"><PenTool className="w-3.5 h-3.5 text-indigo-500" /> {tx(lang,{fr:'Modifier Poste',ar:'تعديل المحطة',en:'Edit Station',es:'Modificar Puesto',pt:'Modificar Posto',tr:'İstasyonu Düzenle'})}</button>
+                    <button onClick={() => handleContextAction('swap')} className="w-full text-left px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-dk-elevated/60 flex items-center gap-2 transition-colors"><ArrowRightLeft className="w-3.5 h-3.5 text-orange-500" /> {tx(lang,{fr:'Échanger (Swap)',ar:'تبديل',en:'Swap',es:'Intercambiar',pt:'Trocar',tr:'Takas'})}</button>
                     {layoutType === 'free' && (
                         <>
-                            <div className="h-px bg-slate-100 my-1"></div>
-                            <button onClick={() => handleContextAction('rotate')} className="w-full text-left px-4 py-2.5 hover:bg-slate-50 flex items-center gap-2 transition-colors"><RotateCw className="w-3.5 h-3.5 text-blue-500" /> {tx(lang,{fr:'Rotation (+45°)',ar:'تدوير (+45°)',en:'Rotate (+45°)',es:'Rotación (+45°)',pt:'Rotação (+45°)',tr:'Döndür (+45°)'})}</button>
-                            <div className="px-4 py-1 text-[9px] font-bold text-slate-400 uppercase mt-1">{tx(lang,{fr:'Forme',ar:'الشكل',en:'Shape',es:'Forma',pt:'Forma',tr:'Şekil'})}</div>
-                            <button onClick={() => handleContextAction('shape_rect')} className="w-full text-left px-4 py-2.5 hover:bg-slate-50 flex items-center gap-2 transition-colors"><Square className="w-3.5 h-3.5 text-slate-500" /> {tx(lang,{fr:'Rectangle',ar:'مستطيل',en:'Rectangle',es:'Rectángulo',pt:'Retângulo',tr:'Dikdörtgen'})}</button>
-                            <button onClick={() => handleContextAction('shape_circle')} className="w-full text-left px-4 py-2.5 hover:bg-slate-50 flex items-center gap-2 transition-colors"><Circle className="w-3.5 h-3.5 text-slate-500" /> {tx(lang,{fr:'Cercle / Rond',ar:'دائرة',en:'Circle / Round',es:'Círculo / Redondo',pt:'Círculo / Redondo',tr:'Daire / Yuvarlak'})}</button>
+                            <div className="h-px bg-slate-100 dark:bg-dk-elevated my-1"></div>
+                            <button onClick={() => handleContextAction('rotate')} className="w-full text-left px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-dk-elevated/60 flex items-center gap-2 transition-colors"><RotateCw className="w-3.5 h-3.5 text-blue-500" /> {tx(lang,{fr:'Rotation (+45°)',ar:'تدوير (+45°)',en:'Rotate (+45°)',es:'Rotación (+45°)',pt:'Rotação (+45°)',tr:'Döndür (+45°)'})}</button>
+                            <div className="px-4 py-1 text-[9px] font-bold text-slate-400 dark:text-dk-muted uppercase mt-1">{tx(lang,{fr:'Forme',ar:'الشكل',en:'Shape',es:'Forma',pt:'Forma',tr:'Şekil'})}</div>
+                            <button onClick={() => handleContextAction('shape_rect')} className="w-full text-left px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-dk-elevated/60 flex items-center gap-2 transition-colors"><Square className="w-3.5 h-3.5 text-slate-500 dark:text-dk-muted" /> {tx(lang,{fr:'Rectangle',ar:'مستطيل',en:'Rectangle',es:'Rectángulo',pt:'Retângulo',tr:'Dikdörtgen'})}</button>
+                            <button onClick={() => handleContextAction('shape_circle')} className="w-full text-left px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-dk-elevated/60 flex items-center gap-2 transition-colors"><Circle className="w-3.5 h-3.5 text-slate-500 dark:text-dk-muted" /> {tx(lang,{fr:'Cercle / Rond',ar:'دائرة',en:'Circle / Round',es:'Círculo / Redondo',pt:'Círculo / Redondo',tr:'Daire / Yuvarlak'})}</button>
                         </>
                     )}
-                    <div className="h-px bg-slate-100 my-1"></div>
-                    <button onClick={() => handleContextAction('insert')} className="w-full text-left px-4 py-2.5 hover:bg-slate-50 flex items-center gap-2 transition-colors"><Plus className="w-3.5 h-3.5 text-emerald-500" /> {tx(lang,{fr:'Insérer Vide',ar:'إدراج فارغ',en:'Insert Empty',es:'Insertar Vacío',pt:'Inserir Vazio',tr:'Boş Ekle'})}</button>
+                    <div className="h-px bg-slate-100 dark:bg-dk-elevated my-1"></div>
+                    <button onClick={() => handleContextAction('insert')} className="w-full text-left px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-dk-elevated/60 flex items-center gap-2 transition-colors"><Plus className="w-3.5 h-3.5 text-emerald-500" /> {tx(lang,{fr:'Insérer Vide',ar:'إدراج فارغ',en:'Insert Empty',es:'Insertar Vacío',pt:'Inserir Vazio',tr:'Boş Ekle'})}</button>
 
                     {isManualMode ? (
                         <button onClick={() => handleContextAction('delete')} className="w-full text-left px-4 py-2.5 hover:bg-amber-50 text-amber-600 flex items-center gap-2 transition-colors font-bold">
@@ -4029,15 +4029,15 @@ export default function Implantation({
             {/* FREE MODE BACKGROUND CONTEXT MENU */}
             {freeContextMenu && freeContextMenu.visible && createPortal(
                 <div
-                    className="absolute z-[9999] bg-white border border-slate-200 rounded-xl shadow-2xl py-1 w-56 text-xs font-medium text-slate-700 animate-in fade-in zoom-in-95 duration-100 origin-top-left overflow-hidden ring-4 ring-slate-100/50"
+                    className="absolute z-[9999] bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-xl shadow-2xl py-1 w-56 text-xs font-medium text-slate-700 dark:text-dk-text-soft animate-in fade-in zoom-in-95 duration-100 origin-top-left overflow-hidden ring-4 ring-slate-100/50"
                     style={{ top: freeContextMenu.y, left: freeContextMenu.x }}
                     onClick={(e) => e.stopPropagation()}
                 >
-                    <div className="px-4 py-2 bg-slate-50 border-b border-slate-100 text-[10px] font-bold text-slate-400 uppercase tracking-wider">{tx(lang,{fr:'Ajouter Élément',ar:'إضافة عنصر',en:'Add Element',es:'Añadir Elemento',pt:'Adicionar Elemento',tr:'Öğe Ekle'})}</div>
-                    <button onClick={() => handleAddFreeItem('poste')} className="w-full text-left px-4 py-3 hover:bg-indigo-50 flex items-center gap-3 transition-colors text-indigo-700 font-bold"><Plus className="w-4 h-4" /> {tx(lang,{fr:'Nouveau Poste',ar:'محطة جديدة',en:'New Station',es:'Nuevo Puesto',pt:'Novo Posto',tr:'Yeni İstasyon'})}</button>
-                    <div className="h-px bg-slate-100 my-1"></div>
-                    <button onClick={() => handleAddFreeItem('circle')} className="w-full text-left px-4 py-2.5 hover:bg-slate-50 flex items-center gap-2 transition-colors"><Circle className="w-3.5 h-3.5 text-slate-500" /> {tx(lang,{fr:'Zone Circulaire',ar:'منطقة دائرية',en:'Circular Zone',es:'Zona Circular',pt:'Zona Circular',tr:'Dairesel Bölge'})}</button>
-                    <button onClick={() => handleAddFreeItem('rect')} className="w-full text-left px-4 py-2.5 hover:bg-slate-50 flex items-center gap-2 transition-colors"><BoxSelect className="w-3.5 h-3.5 text-slate-500" /> {tx(lang,{fr:'Zone Rectangulaire',ar:'منطقة مستطيلة',en:'Rectangular Zone',es:'Zona Rectangular',pt:'Zona Retangular',tr:'Dikdörtgen Bölge'})}</button>
+                    <div className="px-4 py-2 bg-slate-50 dark:bg-dk-bg border-b border-slate-100 dark:border-dk-border text-[10px] font-bold text-slate-400 dark:text-dk-muted uppercase tracking-wider">{tx(lang,{fr:'Ajouter Élément',ar:'إضافة عنصر',en:'Add Element',es:'Añadir Elemento',pt:'Adicionar Elemento',tr:'Öğe Ekle'})}</div>
+                    <button onClick={() => handleAddFreeItem('poste')} className="w-full text-left px-4 py-3 hover:bg-indigo-50 dark:bg-dk-accent/20 flex items-center gap-3 transition-colors text-indigo-700 dark:text-dk-accent-text font-bold"><Plus className="w-4 h-4" /> {tx(lang,{fr:'Nouveau Poste',ar:'محطة جديدة',en:'New Station',es:'Nuevo Puesto',pt:'Novo Posto',tr:'Yeni İstasyon'})}</button>
+                    <div className="h-px bg-slate-100 dark:bg-dk-elevated my-1"></div>
+                    <button onClick={() => handleAddFreeItem('circle')} className="w-full text-left px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-dk-elevated/60 flex items-center gap-2 transition-colors"><Circle className="w-3.5 h-3.5 text-slate-500 dark:text-dk-muted" /> {tx(lang,{fr:'Zone Circulaire',ar:'منطقة دائرية',en:'Circular Zone',es:'Zona Circular',pt:'Zona Circular',tr:'Dairesel Bölge'})}</button>
+                    <button onClick={() => handleAddFreeItem('rect')} className="w-full text-left px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-dk-elevated/60 flex items-center gap-2 transition-colors"><BoxSelect className="w-3.5 h-3.5 text-slate-500 dark:text-dk-muted" /> {tx(lang,{fr:'Zone Rectangulaire',ar:'منطقة مستطيلة',en:'Rectangular Zone',es:'Zona Rectangular',pt:'Zona Retangular',tr:'Dikdörtgen Bölge'})}</button>
                 </div>,
                 document.body
             )}
@@ -4046,8 +4046,8 @@ export default function Implantation({
             {showSaveTemplateModal && (
                 <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
                     <div className="absolute inset-0 bg-slate-900/60 " onClick={() => setShowSaveTemplateModal(false)} />
-                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm relative overflow-hidden animate-in fade-in zoom-in-95 duration-200 p-6">
-                        <h3 className="font-bold text-slate-800 text-lg mb-4">{tx(lang,{fr:'Sauvegarder le Gabarit',ar:'حفظ القالب',en:'Save Template',es:'Guardar Plantilla',pt:'Salvar Modelo',tr:'Şablonu Kaydet'})}</h3>
+                    <div className="bg-white dark:bg-dk-surface rounded-2xl shadow-2xl w-full max-w-sm relative overflow-hidden animate-in fade-in zoom-in-95 duration-200 p-6">
+                        <h3 className="font-bold text-slate-800 dark:text-dk-text text-lg mb-4">{tx(lang,{fr:'Sauvegarder le Gabarit',ar:'حفظ القالب',en:'Save Template',es:'Guardar Plantilla',pt:'Salvar Modelo',tr:'Şablonu Kaydet'})}</h3>
                         <input
                             type="text"
                             autoFocus
@@ -4057,8 +4057,8 @@ export default function Implantation({
                             className="w-full border border-slate-300 rounded-xl px-4 py-3 mb-6 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all text-sm font-medium"
                         />
                         <div className="flex gap-3">
-                            <button onClick={() => setShowSaveTemplateModal(false)} className="flex-1 py-2.5 rounded-xl border border-slate-200 font-bold text-slate-600 hover:bg-slate-50 transition-colors text-xs">{tx(lang,{fr:'Annuler',ar:'إلغاء',en:'Cancel',es:'Cancelar',pt:'Cancelar',tr:'İptal'})}</button>
-                            <button onClick={handleSaveTemplate} className="flex-1 py-2.5 rounded-xl bg-indigo-600 text-white font-bold hover:bg-indigo-700 shadow-md shadow-indigo-200 transition-colors text-xs">{tx(lang,{fr:'Enregistrer',ar:'حفظ',en:'Save',es:'Guardar',pt:'Salvar',tr:'Kaydet'})}</button>
+                            <button onClick={() => setShowSaveTemplateModal(false)} className="flex-1 py-2.5 rounded-xl border border-slate-200 dark:border-dk-border font-bold text-slate-600 dark:text-dk-text-soft hover:bg-slate-50 dark:hover:bg-dk-elevated/60 transition-colors text-xs">{tx(lang,{fr:'Annuler',ar:'إلغاء',en:'Cancel',es:'Cancelar',pt:'Cancelar',tr:'İptal'})}</button>
+                            <button onClick={handleSaveTemplate} className="flex-1 py-2.5 rounded-xl bg-indigo-600 dark:bg-dk-accent text-white font-bold hover:bg-indigo-700 dark:hover:bg-dk-accent-hover shadow-md shadow-indigo-200 transition-colors text-xs">{tx(lang,{fr:'Enregistrer',ar:'حفظ',en:'Save',es:'Guardar',pt:'Salvar',tr:'Kaydet'})}</button>
                         </div>
                     </div>
                 </div>
@@ -4067,9 +4067,9 @@ export default function Implantation({
             {printOrientationModal && (
                 <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 animate-in fade-in duration-200">
                     <div className="absolute inset-0 bg-slate-900/60 " onClick={() => setPrintOrientationModal(false)} />
-                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm relative overflow-hidden animate-in fade-in zoom-in-95 duration-200 p-6 z-[1001]">
-                        <h3 className="font-bold text-slate-800 text-lg mb-2">{tx(lang,{fr:"Orientation de l'Impression",ar:'اتجاه الطباعة',en:'Print Orientation',es:'Orientación de Impresión',pt:'Orientação de Impressão',tr:'Yazdırma Yönü'})}</h3>
-                        <p className="text-xs text-slate-500 mb-6 leading-relaxed">
+                    <div className="bg-white dark:bg-dk-surface rounded-2xl shadow-2xl w-full max-w-sm relative overflow-hidden animate-in fade-in zoom-in-95 duration-200 p-6 z-[1001]">
+                        <h3 className="font-bold text-slate-800 dark:text-dk-text text-lg mb-2">{tx(lang,{fr:"Orientation de l'Impression",ar:'اتجاه الطباعة',en:'Print Orientation',es:'Orientación de Impresión',pt:'Orientação de Impressão',tr:'Yazdırma Yönü'})}</h3>
+                        <p className="text-xs text-slate-500 dark:text-dk-muted mb-6 leading-relaxed">
                             {tx(lang,{fr:"Choisissez le format d'orientation pour l'exportation du plan d'implantation en PDF / Impression A4 :",ar:'اختر اتجاه التخطيط لتصدير خطة التخطيط إلى PDF / طباعة A4:',en:'Choose the orientation format for exporting the layout plan to PDF / A4 Print:',es:'Elija el formato de orientación para exportar el plano de implantación a PDF / Impresión A4:',pt:'Escolha o formato de orientação para exportar o plano de implantação para PDF / Impressão A4:',tr:'Düzen planını PDF / A4 Yazdırmaya aktarmak için yönlendirme biçimini seçin:'})}
                         </p>
                         <div className="flex flex-col gap-3">
@@ -4078,7 +4078,7 @@ export default function Implantation({
                                     setPrintOrientationModal(false);
                                     printPlanTable('landscape');
                                 }} 
-                                className="w-full py-3 px-4 rounded-xl border-2 border-indigo-100 bg-indigo-50/50 text-indigo-700 font-bold hover:bg-indigo-50 hover:border-indigo-200 transition-colors text-xs flex items-center justify-between"
+                                className="w-full py-3 px-4 rounded-xl border-2 border-indigo-100 bg-indigo-50 dark:bg-dk-accent/20/50 text-indigo-700 dark:text-dk-accent-text font-bold hover:bg-indigo-50 dark:bg-dk-accent/20 hover:border-indigo-200 transition-colors text-xs flex items-center justify-between"
                             >
                                 <span className="flex flex-col items-start text-left">
                                     <span className="font-black text-sm">{tx(lang,{fr:'Paysage (Horizontal)',ar:'أفقي',en:'Landscape (Horizontal)',es:'Horizontal (Paisaje)',pt:'Paisagem (Horizontal)',tr:'Yatay'})}</span>
@@ -4091,17 +4091,17 @@ export default function Implantation({
                                     setPrintOrientationModal(false);
                                     printPlanTable('portrait');
                                 }} 
-                                className="w-full py-3 px-4 rounded-xl border-2 border-slate-100 bg-slate-50/50 text-slate-700 font-bold hover:bg-slate-50 hover:border-slate-200 transition-colors text-xs flex items-center justify-between"
+                                className="w-full py-3 px-4 rounded-xl border-2 border-slate-100 dark:border-dk-border bg-slate-50/50 text-slate-700 dark:text-dk-text-soft font-bold hover:bg-slate-50 dark:hover:bg-dk-elevated/60 hover:border-slate-200 transition-colors text-xs flex items-center justify-between"
                             >
                                 <span className="flex flex-col items-start text-left">
                                     <span className="font-black text-sm">{tx(lang,{fr:'Portrait (Vertical)',ar:'عمودي',en:'Portrait (Vertical)',es:'Vertical (Retrato)',pt:'Retrato (Vertical)',tr:'Dikey'})}</span>
-                                    <span className="text-[10px] text-slate-500 font-normal mt-0.5">{tx(lang,{fr:'Idéal pour une liste de postes linéaire simple',ar:'مثالي لقائمة محطات خطية بسيطة',en:'Ideal for a simple linear station list',es:'Ideal para una lista lineal simple de puestos',pt:'Ideal para uma lista linear simples de postos',tr:'Basit bir doğrusal istasyon listesi için ideal'})}</span>
+                                    <span className="text-[10px] text-slate-500 dark:text-dk-muted font-normal mt-0.5">{tx(lang,{fr:'Idéal pour une liste de postes linéaire simple',ar:'مثالي لقائمة محطات خطية بسيطة',en:'Ideal for a simple linear station list',es:'Ideal para una lista lineal simple de puestos',pt:'Ideal para uma lista linear simples de postos',tr:'Basit bir doğrusal istasyon listesi için ideal'})}</span>
                                 </span>
                                 <Printer className="w-4 h-4 opacity-70 shrink-0" />
                             </button>
                             <button 
                                 onClick={() => setPrintOrientationModal(false)} 
-                                className="w-full py-2.5 rounded-xl border border-slate-200 font-bold text-slate-600 hover:bg-slate-50 transition-colors text-xs mt-2"
+                                className="w-full py-2.5 rounded-xl border border-slate-200 dark:border-dk-border font-bold text-slate-600 dark:text-dk-text-soft hover:bg-slate-50 dark:hover:bg-dk-elevated/60 transition-colors text-xs mt-2"
                             >
                                 {tx(lang,{fr:'Annuler',ar:'إلغاء',en:'Cancel',es:'Cancelar',pt:'Cancelar',tr:'İptal'})}
                             </button>
@@ -4113,24 +4113,24 @@ export default function Implantation({
             {showLoadTemplateModal && (
                 <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
                     <div className="absolute inset-0 bg-slate-900/60 " onClick={() => setShowLoadTemplateModal(false)} />
-                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md relative overflow-hidden animate-in fade-in zoom-in-95 duration-200 flex flex-col max-h-[80vh]">
-                        <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
-                            <h3 className="font-bold text-slate-700">{tx(lang,{fr:'Mes Gabarits',ar:'قوالبي',en:'My Templates',es:'Mis Plantillas',pt:'Meus Modelos',tr:'Şablonlarım'})}</h3>
+                    <div className="bg-white dark:bg-dk-surface rounded-2xl shadow-2xl w-full max-w-md relative overflow-hidden animate-in fade-in zoom-in-95 duration-200 flex flex-col max-h-[80vh]">
+                        <div className="p-4 border-b border-slate-100 dark:border-dk-border flex justify-between items-center bg-slate-50 dark:bg-dk-bg">
+                            <h3 className="font-bold text-slate-700 dark:text-dk-text-soft">{tx(lang,{fr:'Mes Gabarits',ar:'قوالبي',en:'My Templates',es:'Mis Plantillas',pt:'Meus Modelos',tr:'Şablonlarım'})}</h3>
                             <button onClick={() => setShowLoadTemplateModal(false)}><X className="w-5 h-5 text-slate-400 hover:text-slate-600" /></button>
                         </div>
                         <div className="p-2 overflow-y-auto custom-scrollbar flex-1">
                             {savedLayouts.length === 0 ? (
-                                <div className="text-center py-10 text-slate-400 text-sm">{tx(lang,{fr:'Aucun gabarit enregistré.',ar:'لا توجد قوالب محفوظة.',en:'No saved templates.',es:'Ninguna plantilla guardada.',pt:'Nenhum modelo salvo.',tr:'Kayıtlı şablon yok.'})}</div>
+                                <div className="text-center py-10 text-slate-400 dark:text-dk-muted text-sm">{tx(lang,{fr:'Aucun gabarit enregistré.',ar:'لا توجد قوالب محفوظة.',en:'No saved templates.',es:'Ninguna plantilla guardada.',pt:'Nenhum modelo salvo.',tr:'Kayıtlı şablon yok.'})}</div>
                             ) : (
                                 savedLayouts.map(layout => (
-                                    <div key={layout.id} className="flex items-center justify-between p-3 hover:bg-slate-50 rounded-lg border-b border-slate-50 group">
+                                    <div key={layout.id} className="flex items-center justify-between p-3 hover:bg-slate-50 dark:hover:bg-dk-elevated/60 rounded-lg border-b border-slate-50 group">
                                         <div>
-                                            <div className="font-bold text-slate-700 text-sm">{layout.name}</div>
-                                            <div className="text-[10px] text-slate-400">{new Date(layout.date).toLocaleDateString()} • {layout.postes.length} {tx(lang,{fr:'éléments',ar:'عناصر',en:'items',es:'elementos',pt:'elementos',tr:'öğeler'})}</div>
+                                            <div className="font-bold text-slate-700 dark:text-dk-text-soft text-sm">{layout.name}</div>
+                                            <div className="text-[10px] text-slate-400 dark:text-dk-muted">{new Date(layout.date).toLocaleDateString()} • {layout.postes.length} {tx(lang,{fr:'éléments',ar:'عناصر',en:'items',es:'elementos',pt:'elementos',tr:'öğeler'})}</div>
                                         </div>
                                         <div className="flex items-center gap-2">
-                                            <button onClick={() => handleLoadTemplate(layout)} className="px-3 py-1.5 bg-indigo-50 text-indigo-600 rounded-lg text-xs font-bold hover:bg-indigo-100 transition-colors">{tx(lang,{fr:'Charger',ar:'تحميل',en:'Load',es:'Cargar',pt:'Carregar',tr:'Yükle'})}</button>
-                                            <button onClick={() => handleDeleteTemplate(layout.id)} className="p-1.5 text-slate-300 hover:text-rose-500 rounded transition-colors"><Trash2 className="w-4 h-4" /></button>
+                                            <button onClick={() => handleLoadTemplate(layout)} className="px-3 py-1.5 bg-indigo-50 dark:bg-dk-accent/20 text-indigo-600 dark:text-dk-accent-text rounded-lg text-xs font-bold hover:bg-indigo-100 transition-colors">{tx(lang,{fr:'Charger',ar:'تحميل',en:'Load',es:'Cargar',pt:'Carregar',tr:'Yükle'})}</button>
+                                            <button onClick={() => handleDeleteTemplate(layout.id)} className="p-1.5 text-slate-300 dark:text-dk-muted hover:text-rose-500 rounded transition-colors"><Trash2 className="w-4 h-4" /></button>
                                         </div>
                                     </div>
                                 ))
@@ -4143,10 +4143,10 @@ export default function Implantation({
             {showExportOptions && (
                 <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
                     <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setShowExportOptions(false)} />
-                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md relative overflow-hidden animate-in fade-in zoom-in-95 duration-200 border border-slate-100 p-6 flex flex-col">
-                        <div className="flex justify-between items-center mb-5 pb-3 border-b border-slate-100">
-                            <h3 className="font-bold text-slate-800 text-lg flex items-center gap-2">
-                                <Printer className="w-5 h-5 text-indigo-600" />
+                    <div className="bg-white dark:bg-dk-surface rounded-2xl shadow-2xl w-full max-w-md relative overflow-hidden animate-in fade-in zoom-in-95 duration-200 border border-slate-100 dark:border-dk-border p-6 flex flex-col">
+                        <div className="flex justify-between items-center mb-5 pb-3 border-b border-slate-100 dark:border-dk-border">
+                            <h3 className="font-bold text-slate-800 dark:text-dk-text text-lg flex items-center gap-2">
+                                <Printer className="w-5 h-5 text-indigo-600 dark:text-dk-accent-text" />
                                 {tx(lang,{fr:"Options d'export PDF",ar:'خيارات تصدير PDF',en:'PDF Export Options',es:'Opciones de exportación PDF',pt:'Opções de exportação PDF',tr:'PDF Dışa Aktarma Seçenekleri'})}
                             </h3>
                             <button onClick={() => setShowExportOptions(false)} className="text-slate-400 hover:text-slate-600 transition-colors">
@@ -4157,49 +4157,49 @@ export default function Implantation({
                         <div className="space-y-6">
                             {/* Format de page */}
                             <div>
-                                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-wider mb-2.5">{tx(lang,{fr:'Format de page',ar:'تنسيق الصفحة',en:'Page Format',es:'Formato de página',pt:'Formato de página',tr:'Sayfa Biçimi'})}</label>
+                                <label className="block text-[10px] font-black text-slate-400 dark:text-dk-muted uppercase tracking-wider mb-2.5">{tx(lang,{fr:'Format de page',ar:'تنسيق الصفحة',en:'Page Format',es:'Formato de página',pt:'Formato de página',tr:'Sayfa Biçimi'})}</label>
                                 <div className="grid grid-cols-2 gap-3">
                                     <button
                                         type="button"
                                         onClick={() => setExportSettings({ ...exportSettings, pageSize: 'single' })}
                                         className={`p-3 rounded-xl border-2 transition-all flex flex-col items-center gap-1.5 text-center ${
                                             exportSettings.pageSize === 'single'
-                                                ? 'border-indigo-600 bg-indigo-50/30 text-indigo-700 font-bold'
-                                                : 'border-slate-200 hover:border-slate-300 text-slate-500 hover:text-slate-700'
+                                                ? 'border-indigo-600 bg-indigo-50 dark:bg-dk-accent/20/30 text-indigo-700 dark:text-dk-accent-text font-bold'
+                                                : 'border-slate-200 dark:border-dk-border hover:border-slate-300 text-slate-500 hover:text-slate-700'
                                         }`}
                                     >
                                         <span className="text-xs font-bold">{tx(lang,{fr:'Plan Continu',ar:'تخطيط مستمر',en:'Continuous Plan',es:'Plano Continuo',pt:'Plano Contínuo',tr:'Sürekli Plan'})}</span>
-                                        <span className="text-[10px] text-slate-400 font-medium leading-tight">{tx(lang,{fr:'Page unique ajustée au plan',ar:'صفحة واحدة ملائمة للخطة',en:'Single page fitted to plan',es:'Página única ajustada al plano',pt:'Página única ajustada ao plano',tr:'Plana göre ayarlanmış tek sayfa'})}</span>
+                                        <span className="text-[10px] text-slate-400 dark:text-dk-muted font-medium leading-tight">{tx(lang,{fr:'Page unique ajustée au plan',ar:'صفحة واحدة ملائمة للخطة',en:'Single page fitted to plan',es:'Página única ajustada al plano',pt:'Página única ajustada ao plano',tr:'Plana göre ayarlanmış tek sayfa'})}</span>
                                     </button>
                                     <button
                                         type="button"
                                         onClick={() => setExportSettings({ ...exportSettings, pageSize: 'a4' })}
                                         className={`p-3 rounded-xl border-2 transition-all flex flex-col items-center gap-1.5 text-center ${
                                             exportSettings.pageSize === 'a4'
-                                                ? 'border-indigo-600 bg-indigo-50/30 text-indigo-700 font-bold'
-                                                : 'border-slate-200 hover:border-slate-300 text-slate-500 hover:text-slate-700'
+                                                ? 'border-indigo-600 bg-indigo-50 dark:bg-dk-accent/20/30 text-indigo-700 dark:text-dk-accent-text font-bold'
+                                                : 'border-slate-200 dark:border-dk-border hover:border-slate-300 text-slate-500 hover:text-slate-700'
                                         }`}
                                     >
                                         <span className="text-xs font-bold">{tx(lang,{fr:'Format A4',ar:'تنسيق A4',en:'A4 Format',es:'Formato A4',pt:'Formato A4',tr:'A4 Biçimi'})}</span>
-                                        <span className="text-[10px] text-slate-400 font-medium leading-tight">{tx(lang,{fr:'Mise en page découpée A4',ar:'تخطيط مقسم A4',en:'A4 divided layout',es:'Diseño dividido A4',pt:'Layout dividido A4',tr:'A4 bölünmüş düzen'})}</span>
+                                        <span className="text-[10px] text-slate-400 dark:text-dk-muted font-medium leading-tight">{tx(lang,{fr:'Mise en page découpée A4',ar:'تخطيط مقسم A4',en:'A4 divided layout',es:'Diseño dividido A4',pt:'Layout dividido A4',tr:'A4 bölünmüş düzen'})}</span>
                                     </button>
                                 </div>
                             </div>
 
                             {/* Contenu à inclure */}
                             <div className="space-y-4">
-                                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-wider">{tx(lang,{fr:'Contenu à inclure',ar:'المحتوى المراد تضمينه',en:'Content to Include',es:'Contenido a incluir',pt:'Conteúdo a incluir',tr:'Dahil Edilecek İçerik'})}</label>
+                                <label className="block text-[10px] font-black text-slate-400 dark:text-dk-muted uppercase tracking-wider">{tx(lang,{fr:'Contenu à inclure',ar:'المحتوى المراد تضمينه',en:'Content to Include',es:'Contenido a incluir',pt:'Conteúdo a incluir',tr:'Dahil Edilecek İçerik'})}</label>
                                 
                                 <label className="flex items-start gap-3 cursor-pointer select-none">
                                     <input
                                         type="checkbox"
                                         checked={exportSettings.header}
                                         onChange={(e) => setExportSettings({ ...exportSettings, header: e.target.checked })}
-                                        className="mt-0.5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                                        className="mt-0.5 rounded border-slate-300 text-indigo-600 dark:text-dk-accent-text focus:ring-indigo-500"
                                     />
                                     <div className="flex flex-col">
-                                        <span className="text-xs font-bold text-slate-700">{tx(lang,{fr:'En-tête de document',ar:'رأس المستند',en:'Document Header',es:'Encabezado de documento',pt:'Cabeçalho do documento',tr:'Belge Başlığı'})}</span>
-                                        <span className="text-[10px] text-slate-400">{tx(lang,{fr:'Nom du modèle, logo et date de génération',ar:'اسم النموذج والشعار وتاريخ الإنشاء',en:'Model name, logo and generation date',es:'Nombre del modelo, logo y fecha de generación',pt:'Nome do modelo, logotipo e data de geração',tr:'Model adı, logo ve oluşturma tarihi'})}</span>
+                                        <span className="text-xs font-bold text-slate-700 dark:text-dk-text-soft">{tx(lang,{fr:'En-tête de document',ar:'رأس المستند',en:'Document Header',es:'Encabezado de documento',pt:'Cabeçalho do documento',tr:'Belge Başlığı'})}</span>
+                                        <span className="text-[10px] text-slate-400 dark:text-dk-muted">{tx(lang,{fr:'Nom du modèle, logo et date de génération',ar:'اسم النموذج والشعار وتاريخ الإنشاء',en:'Model name, logo and generation date',es:'Nombre del modelo, logo y fecha de generación',pt:'Nome do modelo, logotipo e data de geração',tr:'Model adı, logo ve oluşturma tarihi'})}</span>
                                     </div>
                                 </label>
 
@@ -4208,11 +4208,11 @@ export default function Implantation({
                                         type="checkbox"
                                         checked={exportSettings.stats}
                                         onChange={(e) => setExportSettings({ ...exportSettings, stats: e.target.checked })}
-                                        className="mt-0.5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                                        className="mt-0.5 rounded border-slate-300 text-indigo-600 dark:text-dk-accent-text focus:ring-indigo-500"
                                     />
                                     <div className="flex flex-col">
-                                        <span className="text-xs font-bold text-slate-700">{tx(lang,{fr:'Statistiques globales',ar:'إحصائيات عامة',en:'Global Statistics',es:'Estadísticas globales',pt:'Estatísticas globais',tr:'Genel İstatistikler'})}</span>
-                                        <span className="text-[10px] text-slate-400">{tx(lang,{fr:"Nombre d'opérateurs, temps de cycle, et rendement cible",ar:'عدد المشغلين، وقت الدورة، والإنتاجية المستهدفة',en:'Number of operators, cycle time, and target yield',es:'Número de operadores, tiempo de ciclo y rendimiento objetivo',pt:'Número de operadores, tempo de ciclo e rendimento alvo',tr:'Operatör sayısı, çevrim süresi ve hedef verim'})}</span>
+                                        <span className="text-xs font-bold text-slate-700 dark:text-dk-text-soft">{tx(lang,{fr:'Statistiques globales',ar:'إحصائيات عامة',en:'Global Statistics',es:'Estadísticas globales',pt:'Estatísticas globais',tr:'Genel İstatistikler'})}</span>
+                                        <span className="text-[10px] text-slate-400 dark:text-dk-muted">{tx(lang,{fr:"Nombre d'opérateurs, temps de cycle, et rendement cible",ar:'عدد المشغلين، وقت الدورة، والإنتاجية المستهدفة',en:'Number of operators, cycle time, and target yield',es:'Número de operadores, tiempo de ciclo y rendimiento objetivo',pt:'Número de operadores, tempo de ciclo e rendimento alvo',tr:'Operatör sayısı, çevrim süresi ve hedef verim'})}</span>
                                     </div>
                                 </label>
 
@@ -4221,11 +4221,11 @@ export default function Implantation({
                                         type="checkbox"
                                         checked={exportSettings.machines}
                                         onChange={(e) => setExportSettings({ ...exportSettings, machines: e.target.checked })}
-                                        className="mt-0.5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                                        className="mt-0.5 rounded border-slate-300 text-indigo-600 dark:text-dk-accent-text focus:ring-indigo-500"
                                     />
                                     <div className="flex flex-col">
-                                        <span className="text-xs font-bold text-slate-700">{tx(lang,{fr:'Résumé matériel / machines',ar:'ملخص المعدات / الآلات',en:'Equipment / Machine Summary',es:'Resumen de equipo / máquinas',pt:'Resumo de equipamento / máquinas',tr:'Ekipman / Makine Özeti'})}</span>
-                                        <span className="text-[10px] text-slate-400">{tx(lang,{fr:'Liste récapitulative de toutes les machines requises',ar:'قائمة ملخصة لجميع الآلات المطلوبة',en:'Summary list of all required machines',es:'Lista resumen de todas las máquinas requeridas',pt:'Lista resumo de todas as máquinas necessárias',tr:'Gerekli tüm makinelerin özet listesi'})}</span>
+                                        <span className="text-xs font-bold text-slate-700 dark:text-dk-text-soft">{tx(lang,{fr:'Résumé matériel / machines',ar:'ملخص المعدات / الآلات',en:'Equipment / Machine Summary',es:'Resumen de equipo / máquinas',pt:'Resumo de equipamento / máquinas',tr:'Ekipman / Makine Özeti'})}</span>
+                                        <span className="text-[10px] text-slate-400 dark:text-dk-muted">{tx(lang,{fr:'Liste récapitulative de toutes les machines requises',ar:'قائمة ملخصة لجميع الآلات المطلوبة',en:'Summary list of all required machines',es:'Lista resumen de todas las máquinas requeridas',pt:'Lista resumo de todas as máquinas necessárias',tr:'Gerekli tüm makinelerin özet listesi'})}</span>
                                     </div>
                                 </label>
                             </div>
@@ -4235,7 +4235,7 @@ export default function Implantation({
                             <button
                                 type="button"
                                 onClick={() => setShowExportOptions(false)}
-                                className="flex-1 py-2.5 rounded-xl border border-slate-200 font-bold text-slate-600 hover:bg-slate-50 transition-colors text-xs"
+                                className="flex-1 py-2.5 rounded-xl border border-slate-200 dark:border-dk-border font-bold text-slate-600 dark:text-dk-text-soft hover:bg-slate-50 dark:hover:bg-dk-elevated/60 transition-colors text-xs"
                             >
                                 {tx(lang,{fr:'Annuler',ar:'إلغاء',en:'Cancel',es:'Cancelar',pt:'Cancelar',tr:'İptal'})}
                             </button>
@@ -4243,7 +4243,7 @@ export default function Implantation({
                                 type="button"
                                 onClick={executeExport}
                                 disabled={isExporting}
-                                className="flex-1 py-2.5 rounded-xl bg-indigo-600 text-white font-bold hover:bg-indigo-700 shadow-md shadow-indigo-100 transition-colors text-xs flex items-center justify-center gap-1.5"
+                                className="flex-1 py-2.5 rounded-xl bg-indigo-600 dark:bg-dk-accent text-white font-bold hover:bg-indigo-700 dark:hover:bg-dk-accent-hover shadow-md shadow-indigo-100 transition-colors text-xs flex items-center justify-center gap-1.5"
                             >
                                 {isExporting ? (
                                     <>

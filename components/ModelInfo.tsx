@@ -63,14 +63,14 @@ const ModelInfo: React.FC<ModelInfoProps> = ({
     const costPrice = totalTime * settings.costMinute;
 
     return (
-        <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
+        <div className="bg-white dark:bg-dk-surface rounded-lg border border-slate-200 dark:border-dk-border overflow-hidden">
             {/* Header - Planning Style */}
-            <div className="px-3 sm:px-5 h-auto sm:h-12 border-b border-slate-100 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-0 py-2 sm:py-0">
+            <div className="px-3 sm:px-5 h-auto sm:h-12 border-b border-slate-100 dark:border-dk-border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-0 py-2 sm:py-0">
                 <div className="flex items-center gap-2">
-                    <Shirt className="w-4 h-4 text-slate-400" strokeWidth={1.75} />
+                    <Shirt className="w-4 h-4 text-slate-400 dark:text-dk-muted" strokeWidth={1.75} />
                     <div>
-                        <h2 className="text-[13px] font-semibold text-slate-900 tracking-tight">{tx(lang, {fr:"Fiche de Coût",ar:"بطاقة التكلفة",en:"Cost Sheet",es:"Ficha de Costo",pt:"Ficha de Custo",tr:"Maliyet Kartı"})}</h2>
-                        <p className="text-[11px] text-slate-400">Modèle &amp; paramètres</p>
+                        <h2 className="text-[13px] font-semibold text-slate-900 dark:text-dk-text tracking-tight">{tx(lang, {fr:"Fiche de Coût",ar:"بطاقة التكلفة",en:"Cost Sheet",es:"Ficha de Costo",pt:"Ficha de Custo",tr:"Maliyet Kartı"})}</h2>
+                        <p className="text-[11px] text-slate-400 dark:text-dk-muted">Modèle &amp; paramètres</p>
                     </div>
                 </div>
 
@@ -79,8 +79,8 @@ const ModelInfo: React.FC<ModelInfoProps> = ({
                     {soustraitanceActive ? (
                         <span className="inline-flex items-center gap-1.5">
                             <span className="w-1.5 h-1.5 rounded-full bg-[#2149C1]" />
-                            <span className="text-[11px] sm:text-[12px] text-slate-500">{tx(lang, {fr:"Façon",ar:"تشغيل",en:"Make",es:"Confección",pt:"Confecção",tr:"İşçilik"})}</span>
-                            <span className="text-[11px] sm:text-[12px] font-semibold text-slate-900 tabular-nums">
+                            <span className="text-[11px] sm:text-[12px] text-slate-500 dark:text-dk-muted">{tx(lang, {fr:"Façon",ar:"تشغيل",en:"Make",es:"Confección",pt:"Confecção",tr:"İşçilik"})}</span>
+                            <span className="text-[11px] sm:text-[12px] font-semibold text-slate-900 dark:text-dk-text tabular-nums">
                                 <SensitiveValue field="model.cout_minute">{fmt(laborCost ?? faconPrix)} {currency}</SensitiveValue>
                             </span>
                         </span>
@@ -88,13 +88,13 @@ const ModelInfo: React.FC<ModelInfoProps> = ({
                         <>
                             <span className="inline-flex items-center gap-1.5">
                                 <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />
-                                <span className="text-[11px] sm:text-[12px] text-slate-500">{tx(lang, {fr:"Temps",ar:"الوقت",en:"Time",es:"Tiempo",pt:"Tempo",tr:"Süre"})}</span>
-                                <span className="text-[11px] sm:text-[12px] font-semibold text-slate-900 tabular-nums">{fmt(totalTime)} min</span>
+                                <span className="text-[11px] sm:text-[12px] text-slate-500 dark:text-dk-muted">{tx(lang, {fr:"Temps",ar:"الوقت",en:"Time",es:"Tiempo",pt:"Tempo",tr:"Süre"})}</span>
+                                <span className="text-[11px] sm:text-[12px] font-semibold text-slate-900 dark:text-dk-text tabular-nums">{fmt(totalTime)} min</span>
                             </span>
                             <span className="inline-flex items-center gap-1.5">
                                 <span className="w-1.5 h-1.5 rounded-full bg-[#2149C1]" />
-                                <span className="text-[11px] sm:text-[12px] text-slate-500">{tx(lang, {fr:"Coût",ar:"التكلفة",en:"Cost",es:"Costo",pt:"Custo",tr:"Maliyet"})}</span>
-                                <span className="text-[11px] sm:text-[12px] font-semibold text-slate-900 tabular-nums">
+                                <span className="text-[11px] sm:text-[12px] text-slate-500 dark:text-dk-muted">{tx(lang, {fr:"Coût",ar:"التكلفة",en:"Cost",es:"Costo",pt:"Custo",tr:"Maliyet"})}</span>
+                                <span className="text-[11px] sm:text-[12px] font-semibold text-slate-900 dark:text-dk-text tabular-nums">
                                     <SensitiveValue field="model.cout_minute">{fmt(costPrice)} {currency}</SensitiveValue>
                                 </span>
                             </span>
@@ -109,14 +109,14 @@ const ModelInfo: React.FC<ModelInfoProps> = ({
                 <div className="md:col-span-2 space-y-3 sm:space-y-4 order-2 md:order-1">
                     {/* Model Name */}
                     <div>
-                        <label className="block text-[11px] font-medium text-slate-500 mb-1.5">
+                        <label className="block text-[11px] font-medium text-slate-500 dark:text-dk-muted mb-1.5">
                             {tx(lang, {fr:"Nom du Modèle",ar:"اسم النموذج",en:"Model Name",es:"Nombre del Modelo",pt:"Nome do Modelo",tr:"Model Adı"})}
                         </label>
                         <input
                             type="text"
                             value={productName}
                             onChange={(e) => setProductName(e.target.value)}
-                            className="w-full h-9 px-3 bg-slate-50/60 hover:bg-slate-50 focus:bg-white border border-slate-200 focus:border-slate-300 rounded-md text-[13px] font-medium text-slate-700 focus:ring-2 focus:ring-slate-100 outline-none transition-all"
+                            className="w-full h-9 px-3 bg-slate-50/60 hover:bg-slate-50 dark:hover:bg-dk-elevated/60 focus:bg-white border border-slate-200 dark:border-dk-border focus:border-slate-300 rounded-md text-[13px] font-medium text-slate-700 dark:text-dk-text-soft focus:ring-2 focus:ring-slate-100 outline-none transition-all"
                             placeholder="Ex: 76-34-tf"
                         />
                     </div>
@@ -127,18 +127,18 @@ const ModelInfo: React.FC<ModelInfoProps> = ({
                         <div className="p-3 sm:p-4 rounded-md border border-[#2149C1]/20 bg-[#2149C1]/5">
                             <div className="flex items-center gap-2 mb-1">
                                 <Coins className="w-3.5 h-3.5 text-[#2149C1]" strokeWidth={1.75} />
-                                <span className="text-[12px] font-semibold text-slate-800">
+                                <span className="text-[12px] font-semibold text-slate-800 dark:text-dk-text">
                                     Sous-traitance {faconMode === 'complet' ? '(tout compris)' : '(façon)'}
                                 </span>
                             </div>
-                            <p className="text-[11px] text-slate-500 mb-2.5">
+                            <p className="text-[11px] text-slate-500 dark:text-dk-muted mb-2.5">
                                 {faconMode === 'complet'
                                     ? '{tx(lang, {fr:"Matière + façon confiées au sous-traitant. Le temps et les matières sont masqués.",ar:"المادة والتشغيل مسندان للمقاول من الباطن. الوقت والمواد مخفيان.",en:"Material + make subcontracted. Time and materials hidden.",es:"Material + confección subcontratados. Tiempo y materiales ocultos.",pt:"Material + confecção subcontratados. Tempo e materiais ocultos.",tr:"Malzeme + işçilik taşerona verildi. Süre ve malzemeler gizli."})}'
                                     : '{tx(lang, {fr:"Façon confiée au sous-traitant. Le temps des ouvriers est masqué.",ar:"التشغيل مسند للمقاول من الباطن. وقت العمال مخفي.",en:"Make-only subcontracted. Worker time is hidden.",es:"Confección subcontratada. Tiempo de trabajadores oculto.",pt:"Confecção subcontratada. Tempo dos trabalhadores oculto.",tr:"İşçilik taşerona verildi. İşçi süresi gizli."})}'}
                             </p>
-                            <div className="inline-flex items-center gap-2 px-3 h-9 bg-white border border-slate-200 rounded-md">
-                                <span className="text-[11px] text-slate-500">{tx(lang, {fr:"Prix / pièce",ar:"السعر / قطعة",en:"Price / pc",es:"Precio / pieza",pt:"Preço / peça",tr:"Fiyat / adet"})}</span>
-                                <span className="text-[14px] font-bold text-slate-900 tabular-nums">{fmt(laborCost ?? faconPrix)} {currency}</span>
+                            <div className="inline-flex items-center gap-2 px-3 h-9 bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-md">
+                                <span className="text-[11px] text-slate-500 dark:text-dk-muted">{tx(lang, {fr:"Prix / pièce",ar:"السعر / قطعة",en:"Price / pc",es:"Precio / pieza",pt:"Preço / peça",tr:"Fiyat / adet"})}</span>
+                                <span className="text-[14px] font-bold text-slate-900 dark:text-dk-text tabular-nums">{fmt(laborCost ?? faconPrix)} {currency}</span>
                             </div>
                         </div>
                     ) : (<>
@@ -146,7 +146,7 @@ const ModelInfo: React.FC<ModelInfoProps> = ({
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                         {/* Sewing Time */}
                         <div>
-                            <label className="block text-[11px] font-medium text-slate-500 mb-1.5">
+                            <label className="block text-[11px] font-medium text-slate-500 dark:text-dk-muted mb-1.5">
                                 {tx(lang, {fr:"Temps Couture (min)",ar:"وقت الخياطة (دقيقة)",en:"Sewing Time (min)",es:"Tiempo Costura (min)",pt:"Tempo Costura (min)",tr:"Dikiş Süresi (dk)"})}
                             </label>
                             <div className="relative">
@@ -155,15 +155,15 @@ const ModelInfo: React.FC<ModelInfoProps> = ({
                                     step="0.01"
                                     value={baseTime}
                                     onValueChange={(n) => setBaseTime(n)}
-                                    className="w-full h-9 pl-9 pr-3 bg-slate-50/60 hover:bg-slate-50 focus:bg-white border border-slate-200 focus:border-slate-300 rounded-md text-[13px] font-semibold text-slate-700 focus:ring-2 focus:ring-slate-100 outline-none transition-all tabular-nums"
+                                    className="w-full h-9 pl-9 pr-3 bg-slate-50/60 hover:bg-slate-50 dark:hover:bg-dk-elevated/60 focus:bg-white border border-slate-200 dark:border-dk-border focus:border-slate-300 rounded-md text-[13px] font-semibold text-slate-700 dark:text-dk-text-soft focus:ring-2 focus:ring-slate-100 outline-none transition-all tabular-nums"
                                 />
-                                <Clock className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" strokeWidth={1.75} />
+                                <Clock className="w-3.5 h-3.5 text-slate-400 dark:text-dk-muted absolute left-3 top-1/2 -translate-y-1/2" strokeWidth={1.75} />
                             </div>
                         </div>
 
                         {/* Cost Minute */}
                         <div>
-                            <label className="block text-[11px] font-medium text-slate-500 mb-1.5">
+                            <label className="block text-[11px] font-medium text-slate-500 dark:text-dk-muted mb-1.5">
                                 Coût Minute ({currency})
                             </label>
                             <div className="flex gap-2">
@@ -174,9 +174,9 @@ const ModelInfo: React.FC<ModelInfoProps> = ({
                                         step="0.01"
                                         value={tempSettings.costMinute}
                                         onChange={handleTempSettingChange}
-                                        className="w-full h-9 pl-9 pr-3 bg-slate-50/60 hover:bg-slate-50 focus:bg-white border border-slate-200 focus:border-slate-300 rounded-md text-[13px] font-semibold text-slate-700 focus:ring-2 focus:ring-slate-100 outline-none transition-all tabular-nums"
+                                        className="w-full h-9 pl-9 pr-3 bg-slate-50/60 hover:bg-slate-50 dark:hover:bg-dk-elevated/60 focus:bg-white border border-slate-200 dark:border-dk-border focus:border-slate-300 rounded-md text-[13px] font-semibold text-slate-700 dark:text-dk-text-soft focus:ring-2 focus:ring-slate-100 outline-none transition-all tabular-nums"
                                     />
-                                    <Coins className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" strokeWidth={1.75} />
+                                    <Coins className="w-3.5 h-3.5 text-slate-400 dark:text-dk-muted absolute left-3 top-1/2 -translate-y-1/2" strokeWidth={1.75} />
                                 </div>
                                 <button
                                     onClick={applyCostMinute}
@@ -190,44 +190,44 @@ const ModelInfo: React.FC<ModelInfoProps> = ({
                     </div>
 
                     {/* Cut & Pack Rates - Compact Style */}
-                    <div className="flex flex-wrap items-center gap-2 sm:gap-3 p-2.5 sm:p-3 bg-slate-50/60 border border-slate-200 rounded-md">
+                    <div className="flex flex-wrap items-center gap-2 sm:gap-3 p-2.5 sm:p-3 bg-slate-50/60 border border-slate-200 dark:border-dk-border rounded-md">
                         <div className="flex items-center gap-1.5 sm:gap-2">
-                            <Scissors className="w-3.5 h-3.5 text-slate-400" strokeWidth={1.75} />
-                            <span className="text-[10px] sm:text-[11px] font-medium text-slate-500">{tx(lang, {fr:"Coupe (%)",ar:"القص (%)",en:"Cutting (%)",es:"Corte (%)",pt:"Corte (%)",tr:"Kesim (%)"})}</span>
+                            <Scissors className="w-3.5 h-3.5 text-slate-400 dark:text-dk-muted" strokeWidth={1.75} />
+                            <span className="text-[10px] sm:text-[11px] font-medium text-slate-500 dark:text-dk-muted">{tx(lang, {fr:"Coupe (%)",ar:"القص (%)",en:"Cutting (%)",es:"Corte (%)",pt:"Corte (%)",tr:"Kesim (%)"})}</span>
                             <NumberInput
                                 min={0}
                                 name="cutRate"
                                 value={settings.cutRate}
                                 onChange={handleInstantSettingChange}
-                                className="w-10 sm:w-12 h-6 sm:h-7 px-1 bg-white border border-slate-200 rounded text-center text-[11px] sm:text-[12px] font-semibold text-slate-700 focus:ring-2 focus:ring-slate-100 focus:border-slate-300 outline-none transition-all tabular-nums"
+                                className="w-10 sm:w-12 h-6 sm:h-7 px-1 bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded text-center text-[11px] sm:text-[12px] font-semibold text-slate-700 dark:text-dk-text-soft focus:ring-2 focus:ring-slate-100 focus:border-slate-300 outline-none transition-all tabular-nums"
                             />
                         </div>
 
                         <div className="w-px h-4 sm:h-5 bg-slate-200" />
 
                         <div className="flex items-center gap-1.5 sm:gap-2">
-                            <Package className="w-3.5 h-3.5 text-slate-400" strokeWidth={1.75} />
-                            <span className="text-[10px] sm:text-[11px] font-medium text-slate-500">{tx(lang, {fr:"Emballage (%)",ar:"التغليف (%)",en:"Packaging (%)",es:"Empaque (%)",pt:"Embalagem (%)",tr:"Paketleme (%)"})}</span>
+                            <Package className="w-3.5 h-3.5 text-slate-400 dark:text-dk-muted" strokeWidth={1.75} />
+                            <span className="text-[10px] sm:text-[11px] font-medium text-slate-500 dark:text-dk-muted">{tx(lang, {fr:"Emballage (%)",ar:"التغليف (%)",en:"Packaging (%)",es:"Empaque (%)",pt:"Embalagem (%)",tr:"Paketleme (%)"})}</span>
                             <NumberInput
                                 min={0}
                                 name="packRate"
                                 value={settings.packRate}
                                 onChange={handleInstantSettingChange}
-                                className="w-10 sm:w-12 h-6 sm:h-7 px-1 bg-white border border-slate-200 rounded text-center text-[11px] sm:text-[12px] font-semibold text-slate-700 focus:ring-2 focus:ring-slate-100 focus:border-slate-300 outline-none transition-all tabular-nums"
+                                className="w-10 sm:w-12 h-6 sm:h-7 px-1 bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded text-center text-[11px] sm:text-[12px] font-semibold text-slate-700 dark:text-dk-text-soft focus:ring-2 focus:ring-slate-100 focus:border-slate-300 outline-none transition-all tabular-nums"
                             />
                         </div>
 
                         <div className="flex-1" />
 
                         <div className="inline-flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 h-7 sm:h-8 bg-slate-900 rounded-md">
-                            <span className="text-[10px] sm:text-[11px] font-medium text-slate-300">{tx(lang, {fr:"Total",ar:"المجموع",en:"Total",es:"Total",pt:"Total",tr:"Toplam"})}</span>
+                            <span className="text-[10px] sm:text-[11px] font-medium text-slate-300 dark:text-dk-muted">{tx(lang, {fr:"Total",ar:"المجموع",en:"Total",es:"Total",pt:"Total",tr:"Toplam"})}</span>
                             <span className="text-[12px] sm:text-[13px] font-semibold text-white tabular-nums">{fmt(totalTime)} min</span>
                         </div>
                     </div>
 
                     {/* Cost Breakdown - Visual */}
-                    <div className="p-3 sm:p-4 bg-slate-50/60 border border-slate-200 rounded-md">
-                        <h4 className="text-[10px] sm:text-[11px] font-medium text-slate-500 mb-2 sm:mb-3">
+                    <div className="p-3 sm:p-4 bg-slate-50/60 border border-slate-200 dark:border-dk-border rounded-md">
+                        <h4 className="text-[10px] sm:text-[11px] font-medium text-slate-500 dark:text-dk-muted mb-2 sm:mb-3">
                             {tx(lang, {fr:"Répartition du Temps",ar:"توزيع الوقت",en:"Time distribution",es:"Distribución del tiempo",pt:"Distribuição do tempo",tr:"Süre dağılımı"})}
                         </h4>
 
@@ -254,15 +254,15 @@ const ModelInfo: React.FC<ModelInfoProps> = ({
                         <div className="flex flex-wrap items-center gap-2 sm:gap-4 text-[10px] sm:text-[11px]">
                             <div className="flex items-center gap-1 sm:gap-1.5">
                                 <div className="w-1.5 h-1.5 rounded-full bg-[#2149C1]" />
-                                <span className="text-slate-500">Couture ({((baseTime / totalTime) * 100).toFixed(0)}%)</span>
+                                <span className="text-slate-500 dark:text-dk-muted">Couture ({((baseTime / totalTime) * 100).toFixed(0)}%)</span>
                             </div>
                             <div className="flex items-center gap-1 sm:gap-1.5">
                                 <div className="w-1.5 h-1.5 rounded-full bg-slate-400" />
-                                <span className="text-slate-500">Coupe ({((cutTime / totalTime) * 100).toFixed(0)}%)</span>
+                                <span className="text-slate-500 dark:text-dk-muted">Coupe ({((cutTime / totalTime) * 100).toFixed(0)}%)</span>
                             </div>
                             <div className="flex items-center gap-1 sm:gap-1.5">
                                 <div className="w-1.5 h-1.5 rounded-full bg-slate-300" />
-                                <span className="text-slate-500">Emballage ({((packTime / totalTime) * 100).toFixed(0)}%)</span>
+                                <span className="text-slate-500 dark:text-dk-muted">Emballage ({((packTime / totalTime) * 100).toFixed(0)}%)</span>
                             </div>
                         </div>
                     </div>
@@ -275,7 +275,7 @@ const ModelInfo: React.FC<ModelInfoProps> = ({
                         className={`relative w-full h-[320px] sm:h-[320px] rounded-md border border-dashed transition-all duration-300 flex flex-col items-center justify-center overflow-hidden cursor-pointer
                             ${darkMode
                                 ? 'border-gray-600 bg-gray-800/50 hover:bg-gray-800 hover:border-slate-500'
-                                : 'border-slate-300 bg-slate-50/60 hover:bg-slate-50 hover:border-slate-400'
+                                : 'border-slate-300 bg-slate-50/60 hover:bg-slate-50 dark:hover:bg-dk-elevated/60 hover:border-slate-400'
                             }`}
                         onMouseEnter={() => setIsImageHovered(true)}
                         onMouseLeave={() => setIsImageHovered(false)}
@@ -299,11 +299,11 @@ const ModelInfo: React.FC<ModelInfoProps> = ({
                             </div>
                         ) : (
                             <div className="text-center">
-                                <div className={`p-2 sm:p-2.5 rounded-md mb-1.5 sm:mb-2 inline-flex ${darkMode ? 'bg-gray-700 text-slate-400' : 'bg-white text-slate-400 border border-slate-200'}`}>
+                                <div className={`p-2 sm:p-2.5 rounded-md mb-1.5 sm:mb-2 inline-flex ${darkMode ? 'bg-gray-700 text-slate-400 dark:text-dk-muted' : 'bg-white dark:bg-dk-surface text-slate-400 dark:text-dk-muted border border-slate-200 dark:border-dk-border'}`}>
                                     <Camera className="w-4 h-4 sm:w-5 sm:h-5" strokeWidth={1.75} />
                                 </div>
-                                <span className="text-[11px] sm:text-[12px] font-medium text-slate-600 block mb-0.5">{tx(lang, {fr:"Ajouter Photo",ar:"إضافة صورة",en:"Add Photo",es:"Añadir Foto",pt:"Adicionar Foto",tr:"Fotoğraf Ekle"})}</span>
-                                <span className="text-[10px] sm:text-[11px] text-slate-400">JPG, PNG</span>
+                                <span className="text-[11px] sm:text-[12px] font-medium text-slate-600 dark:text-dk-text-soft block mb-0.5">{tx(lang, {fr:"Ajouter Photo",ar:"إضافة صورة",en:"Add Photo",es:"Añadir Foto",pt:"Adicionar Foto",tr:"Fotoğraf Ekle"})}</span>
+                                <span className="text-[10px] sm:text-[11px] text-slate-400 dark:text-dk-muted">JPG, PNG</span>
                                 <input 
                                     type="file" 
                                     accept="image/*" 

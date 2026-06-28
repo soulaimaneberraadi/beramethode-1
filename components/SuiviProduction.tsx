@@ -1042,12 +1042,12 @@ export default function SuiviProduction({
             {/* Top SaaS Header Bar */}
             <div className="bg-white dark:bg-dk-surface border-b border-slate-200 dark:border-dk-border/60 px-3 py-2.5 sm:px-6 sm:py-4 flex flex-wrap items-center justify-between gap-2 sm:gap-4 shrink-0 shadow-sm z-20">
                 <div className="flex items-center gap-2 sm:gap-3">
-                    <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl sm:rounded-2xl bg-indigo-600 dark:bg-indigo-700 flex items-center justify-center text-white shadow-sm shrink-0">
+                    <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl sm:rounded-2xl bg-indigo-600 dark:bg-dk-accent dark:bg-indigo-700 flex items-center justify-center text-white shadow-sm shrink-0">
                         <Activity className="w-4 h-4 sm:w-5 sm:h-5" />
                     </div>
                     <div>
                         <h1 className="text-[15px] sm:text-lg font-black tracking-tight flex items-center gap-2">
-                            {l.title} <span className="hidden sm:inline text-xs bg-indigo-50 dark:bg-indigo-900/30 border border-indigo-100 dark:border-indigo-800/50 text-indigo-700 dark:text-indigo-300 dark:text-indigo-200 px-2 py-0.5 rounded-lg font-bold">{tx(lang, { fr: 'Grille Directe', ar: 'الجدول المباشر', en: 'Live Grid', es: 'Tabla directa', pt: 'Grelha direta', tr: 'Canlı tablo' })}</span>
+                            {l.title} <span className="hidden sm:inline text-xs bg-indigo-50 dark:bg-dk-accent/20 dark:bg-indigo-900/30 border border-indigo-100 dark:border-indigo-800/50 text-indigo-700 dark:text-dk-accent-text dark:text-indigo-300 dark:text-indigo-200 px-2 py-0.5 rounded-lg font-bold">{tx(lang, { fr: 'Grille Directe', ar: 'الجدول المباشر', en: 'Live Grid', es: 'Tabla directa', pt: 'Grelha direta', tr: 'Canlı tablo' })}</span>
                         </h1>
                         <p className="hidden sm:block text-xs text-slate-400 dark:text-dk-muted font-medium">{l.subtitle}</p>
                     </div>
@@ -1057,8 +1057,8 @@ export default function SuiviProduction({
                 <div className="flex flex-wrap items-center gap-1.5 sm:gap-3">
                     
                     {activeModels.length > 0 ? (
-                        <div className="relative flex items-center gap-2 bg-indigo-50 dark:bg-indigo-900/30/50 border border-indigo-100 dark:border-indigo-800/50 rounded-xl px-3 py-1.5 shadow-sm">
-                            <span className="text-[10px] font-black text-indigo-700 dark:text-indigo-300 dark:text-indigo-200 uppercase tracking-widest">
+                        <div className="relative flex items-center gap-2 bg-indigo-50 dark:bg-dk-accent/20 dark:bg-indigo-900/30/50 border border-indigo-100 dark:border-indigo-800/50 rounded-xl px-3 py-1.5 shadow-sm">
+                            <span className="text-[10px] font-black text-indigo-700 dark:text-dk-accent-text dark:text-indigo-300 dark:text-indigo-200 uppercase tracking-widest">
                                 {l.activeModel} :
                             </span>
                             {/* Color swatch — clic pour changer la couleur de l'OF */}
@@ -1078,7 +1078,7 @@ export default function SuiviProduction({
                                 {activeModel?.image ? (
                                     <img src={activeModel.image} alt="" className="w-7 h-7 rounded-lg object-cover border border-indigo-100 dark:border-indigo-800/50 shrink-0" />
                                 ) : (
-                                    <span className="w-7 h-7 rounded-lg border border-indigo-100 dark:border-indigo-800/50 bg-indigo-50 dark:bg-indigo-900/30 flex items-center justify-center shrink-0 text-indigo-300 dark:text-indigo-200">
+                                    <span className="w-7 h-7 rounded-lg border border-indigo-100 dark:border-indigo-800/50 bg-indigo-50 dark:bg-dk-accent/20 dark:bg-indigo-900/30 flex items-center justify-center shrink-0 text-indigo-300 dark:text-indigo-200">
                                         <ImageIcon className="w-3.5 h-3.5" />
                                     </span>
                                 )}
@@ -1099,7 +1099,7 @@ export default function SuiviProduction({
                                                 <div
                                                     key={m.id}
                                                     className={`w-full flex items-center justify-between px-2 py-1.5 rounded-xl transition-colors ${
-                                                        m.id === selectedActiveModelId ? 'bg-indigo-50 dark:bg-indigo-900/30 ring-1 ring-indigo-200 dark:ring-indigo-900/50' : 'hover:bg-slate-50 dark:bg-dk-bg'
+                                                        m.id === selectedActiveModelId ? 'bg-indigo-50 dark:bg-dk-accent/20 dark:bg-indigo-900/30 ring-1 ring-indigo-200 dark:ring-indigo-900/50' : 'hover:bg-slate-50 dark:hover:bg-dk-elevated/60'
                                                     }`}
                                                 >
                                                     <div
@@ -1128,7 +1128,7 @@ export default function SuiviProduction({
                                                                 e.stopPropagation();
                                                                 setEditingStatusEvent(ev);
                                                             }}
-                                                            className="p-1.5 rounded-lg text-slate-400 dark:text-dk-muted hover:text-slate-600 dark:text-dk-text-soft hover:bg-slate-100 dark:bg-dk-elevated/60 transition-colors"
+                                                            className="p-1.5 rounded-lg text-slate-400 dark:text-dk-muted hover:text-slate-600 hover:bg-slate-100 transition-colors"
                                                             title={tx(lang, { fr: 'Modifier le statut', ar: 'تعديل الحالة', en: 'Change status', es: 'Modificar estado', pt: 'Alterar estado', tr: 'Durumu değiştir' })}
                                                         >
                                                             <MoreVertical className="w-4 h-4" />
@@ -1148,7 +1148,7 @@ export default function SuiviProduction({
                                         <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-dk-muted">
                                             {tx(lang, { fr: 'Couleur du modèle', ar: 'لون النموذج', en: 'Model color', es: 'Color del modelo', pt: 'Cor do modelo', tr: 'Model rengi' })}
                                         </span>
-                                        <button onClick={() => setColorPickerOpen(false)} className="text-slate-300 dark:text-dk-muted hover:text-slate-500 dark:text-dk-muted">
+                                        <button onClick={() => setColorPickerOpen(false)} className="text-slate-300 dark:text-dk-muted hover:text-slate-500">
                                             <X className="w-3.5 h-3.5" />
                                         </button>
                                     </div>
@@ -1216,7 +1216,7 @@ export default function SuiviProduction({
 
                     {/* Week Selector */}
                     <div className="flex items-center bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-xl px-1.5 sm:px-2.5 py-1 shadow-sm gap-1 sm:gap-2">
-                        <button onClick={() => changeWeek(-1)} className="p-1 hover:bg-slate-50 dark:bg-dk-bg rounded-lg text-slate-500 dark:text-dk-muted hover:text-slate-900 transition-colors z-10">
+                        <button onClick={() => changeWeek(-1)} className="p-1 hover:bg-slate-50 dark:hover:bg-dk-elevated/60 rounded-lg text-slate-500 dark:text-dk-muted hover:text-slate-900 transition-colors z-10">
                             <ChevronLeft className="w-4 h-4" />
                         </button>
                         <DateTimePicker
@@ -1230,7 +1230,7 @@ export default function SuiviProduction({
                             settings={settings || DEFAULT_CALENDAR_APP_SETTINGS}
                             showIcon={false}
                             className="relative flex items-center justify-center min-w-0"
-                            inputClassName="min-h-0 w-full border-0 bg-transparent text-center text-[11px] sm:text-xs font-bold text-slate-700 dark:text-dk-text shadow-none outline-none hover:bg-slate-50 dark:bg-dk-bg px-2 py-0.5 rounded-lg transition-colors cursor-pointer select-none"
+                            inputClassName="min-h-0 w-full border-0 bg-transparent text-center text-[11px] sm:text-xs font-bold text-slate-700 dark:text-dk-text shadow-none outline-none hover:bg-slate-50 dark:hover:bg-dk-elevated/60 px-2 py-0.5 rounded-lg transition-colors cursor-pointer select-none"
                             displayValue={
                                 <span className="text-[11px] sm:text-xs font-bold text-slate-700 dark:text-dk-text tabular-nums select-none">
                                     <span className="hidden sm:inline">{tx(lang, { fr: 'Semaine du', ar: 'أسبوع من', en: 'Week from', es: 'Semana del', pt: 'Semana de', tr: 'Hafta başlangıcı' })} </span>
@@ -1238,7 +1238,7 @@ export default function SuiviProduction({
                                 </span>
                             }
                         />
-                        <button onClick={() => changeWeek(1)} className="p-1 hover:bg-slate-50 dark:bg-dk-bg rounded-lg text-slate-500 dark:text-dk-muted hover:text-slate-900 transition-colors z-10">
+                        <button onClick={() => changeWeek(1)} className="p-1 hover:bg-slate-50 dark:hover:bg-dk-elevated/60 rounded-lg text-slate-500 dark:text-dk-muted hover:text-slate-900 transition-colors z-10">
                             <ChevronRight className="w-4 h-4" />
                         </button>
                     </div>
@@ -1276,11 +1276,11 @@ export default function SuiviProduction({
                             title={mobileWeekView ? tx(lang, { fr: 'Vue jour', ar: 'عرض اليوم', en: 'Day view', es: 'Vista día', pt: 'Vista dia', tr: 'Gün görünümü' }) : tx(lang, { fr: 'Vue semaine', ar: 'عرض الأسبوع', en: 'Week view', es: 'Vista semana', pt: 'Vista semana', tr: 'Hafta görünümü' })}
                             className={`flex items-center gap-1.5 px-2 py-1.5 border rounded-xl text-xs font-bold transition-all shadow-sm ${
                                 mobileWeekView
-                                    ? 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-800 dark:text-indigo-200 border-indigo-200 dark:border-indigo-800 ring-2 ring-indigo-500 dark:ring-indigo-800/10'
-                                    : 'bg-white dark:bg-dk-surface text-slate-500 dark:text-dk-muted border-slate-200 dark:border-dk-border hover:bg-slate-50 dark:bg-dk-bg'
+                                    ? 'bg-indigo-50 dark:bg-dk-accent/20 dark:bg-indigo-900/30 text-indigo-800 dark:text-indigo-200 border-indigo-200 dark:border-indigo-800 ring-2 ring-indigo-500 dark:ring-indigo-800/10'
+                                    : 'bg-white dark:bg-dk-surface text-slate-500 dark:text-dk-muted border-slate-200 dark:border-dk-border hover:bg-slate-50 dark:hover:bg-dk-elevated/60'
                             }`}
                         >
-                            {mobileWeekView ? <CalendarDays className="w-4 h-4 text-indigo-600 dark:text-indigo-300 dark:text-indigo-200" /> : <CalendarRange className="w-4 h-4 text-indigo-600 dark:text-indigo-300 dark:text-indigo-200" />}
+                            {mobileWeekView ? <CalendarDays className="w-4 h-4 text-indigo-600 dark:text-dk-accent-text dark:text-indigo-300 dark:text-indigo-200" /> : <CalendarRange className="w-4 h-4 text-indigo-600 dark:text-dk-accent-text dark:text-indigo-300 dark:text-indigo-200" />}
                             <span>{mobileWeekView ? tx(lang, { fr: 'Jour', ar: 'يوم', en: 'Day', es: 'Día', pt: 'Dia', tr: 'Gün' }) : tx(lang, { fr: 'Semaine', ar: 'أسبوع', en: 'Week', es: 'Semana', pt: 'Semana', tr: 'Hafta' })}</span>
                         </button>
                     )}
@@ -1291,16 +1291,16 @@ export default function SuiviProduction({
                         title={tx(lang, { fr: 'Stats', ar: 'المؤشرات', en: 'Stats', es: 'Estadísticas', pt: 'Estatísticas', tr: 'İstatistikler' })}
                         className={`flex items-center gap-1.5 px-2 sm:px-3 py-1.5 border rounded-xl text-xs font-bold transition-all shadow-sm ${
                             showStatsHeader
-                                ? 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-800 dark:text-indigo-200 border-indigo-200 dark:border-indigo-800 ring-2 ring-indigo-500 dark:ring-indigo-800/10'
-                                : 'bg-white dark:bg-dk-surface text-slate-500 dark:text-dk-muted border-slate-200 dark:border-dk-border hover:bg-slate-50 dark:bg-dk-bg'
+                                ? 'bg-indigo-50 dark:bg-dk-accent/20 dark:bg-indigo-900/30 text-indigo-800 dark:text-indigo-200 border-indigo-200 dark:border-indigo-800 ring-2 ring-indigo-500 dark:ring-indigo-800/10'
+                                : 'bg-white dark:bg-dk-surface text-slate-500 dark:text-dk-muted border-slate-200 dark:border-dk-border hover:bg-slate-50 dark:hover:bg-dk-elevated/60'
                         }`}
                     >
-                        <BarChart2 className="w-4 h-4 text-indigo-600 dark:text-indigo-300 dark:text-indigo-200" />
+                        <BarChart2 className="w-4 h-4 text-indigo-600 dark:text-dk-accent-text dark:text-indigo-300 dark:text-indigo-200" />
                         <span className="hidden sm:inline">{tx(lang, { fr: 'Stats', ar: 'المؤشرات', en: 'Stats', es: 'Estadísticas', pt: 'Estatísticas', tr: 'İstatistikler' })}</span>
                     </button>
 
                     {/* Save State Indicator */}
-                    {saveStatus === 'saving' && <span className="text-xs text-indigo-600 dark:text-indigo-300 dark:text-indigo-200 font-semibold animate-pulse">{l.saving}</span>}
+                    {saveStatus === 'saving' && <span className="text-xs text-indigo-600 dark:text-dk-accent-text dark:text-indigo-300 dark:text-indigo-200 font-semibold animate-pulse">{l.saving}</span>}
                     {saveStatus === 'saved' && <span className="text-xs text-emerald-600 dark:text-emerald-300 font-semibold flex items-center gap-1"><CheckCircle className="w-4 h-4" /> {l.saved}</span>}
                     {saveStatus === 'error' && <span className="text-xs text-rose-600 dark:text-rose-300 font-semibold">{l.error}</span>}
                 </div>
@@ -1328,7 +1328,7 @@ export default function SuiviProduction({
                                     type="text"
                                     value={supervisors[selectedChaineId] || ''}
                                     onChange={(e) => setSupervisors({ ...supervisors, [selectedChaineId]: e.target.value.toUpperCase() })}
-                                    className="text-2xl font-black text-slate-800 dark:text-dk-text uppercase tracking-tight bg-slate-50 dark:bg-dk-bg border border-slate-100 dark:border-dk-border/60 hover:border-slate-200 dark:border-dk-border focus:border-indigo-500 focus:bg-white dark:bg-dk-surface rounded-2xl px-4 py-2 w-full transition-all outline-none"
+                                    className="text-2xl font-black text-slate-800 dark:text-dk-text uppercase tracking-tight bg-slate-50 dark:bg-dk-bg border border-slate-100 dark:border-dk-border/60 hover:border-slate-200 focus:border-indigo-500 focus:bg-white rounded-2xl px-4 py-2 w-full transition-all outline-none"
                                     placeholder={tx(lang, { fr: 'Entrer responsable', ar: 'إدخال مسؤول الخط', en: 'Enter supervisor', es: 'Introducir responsable', pt: 'Inserir responsável', tr: 'Sorumlu girin' })}
                                 />
                             </div>
@@ -1345,7 +1345,7 @@ export default function SuiviProduction({
                             </div>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3 flex-1 overflow-y-auto max-h-28 pr-1 no-scrollbar">
                                 {activeModels.map(m => (
-                                    <div key={m.id} className="rounded-2xl border border-slate-100 dark:border-dk-border/60 p-3 bg-slate-50 dark:bg-dk-bg/50 flex items-center justify-between hover:border-slate-200 dark:border-dk-border transition-colors">
+                                    <div key={m.id} className="rounded-2xl border border-slate-100 dark:border-dk-border/60 p-3 bg-slate-50 dark:bg-dk-bg/50 flex items-center justify-between hover:border-slate-200 transition-colors">
                                         <div className="flex items-center gap-2.5 min-w-0">
                                             <span className="w-3.5 h-3.5 rounded-lg shrink-0 border" style={{ backgroundColor: m.style.bg, borderColor: m.style.border }} />
                                             <div className="min-w-0">
@@ -1354,7 +1354,7 @@ export default function SuiviProduction({
                                             </div>
                                         </div>
                                         <div className="text-right shrink-0">
-                                            <p className="text-xs font-black text-indigo-600 dark:text-indigo-300 dark:text-indigo-200 tabular-nums">{m.produced} / {m.target} pcs</p>
+                                            <p className="text-xs font-black text-indigo-600 dark:text-dk-accent-text dark:text-indigo-300 dark:text-indigo-200 tabular-nums">{m.produced} / {m.target} pcs</p>
                                             <p className="text-[9px] font-bold text-slate-400 dark:text-dk-muted">Reste per H: {m.restPerHour}</p>
                                         </div>
                                     </div>
@@ -1426,14 +1426,14 @@ export default function SuiviProduction({
                                     const metrics = getDailyMetrics(day.dateStr);
  
                                     return (
-                                        <tr key={day.dateStr} className={`hover:bg-slate-50 dark:bg-dk-bg/30 transition-colors ${selectedChartDate === day.dateStr ? 'bg-indigo-50 dark:bg-indigo-900/30/20' : ''}`}>
+                                        <tr key={day.dateStr} className={`hover:bg-slate-50 dark:hover:bg-dk-elevated/60 transition-colors ${selectedChartDate === day.dateStr ? 'bg-indigo-50 dark:bg-dk-accent/20 dark:bg-indigo-900/30/20' : ''}`}>
                                             {/* Date */}
                                             <td className={`py-4 px-4 font-mono text-xs text-slate-500 dark:text-dk-muted font-bold sticky left-0 z-10 border-r border-slate-100 dark:border-dk-border/60 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)] ${selectedChartDate === day.dateStr ? 'bg-[#f4f6fe]' : 'bg-white dark:bg-dk-surface'}`}>
                                                 <div className="flex items-center gap-2">
                                                     <button
                                                         type="button"
                                                         onClick={() => selectChartDate(day.dateStr)}
-                                                        className={`w-3 h-3 rounded-full border ${selectedChartDate === day.dateStr ? 'bg-indigo-600 dark:bg-indigo-700 border-indigo-600 dark:border-indigo-800' : 'border-slate-300 dark:border-dk-border'}`}
+                                                        className={`w-3 h-3 rounded-full border ${selectedChartDate === day.dateStr ? 'bg-indigo-600 dark:bg-dk-accent dark:bg-indigo-700 border-indigo-600 dark:border-indigo-800' : 'border-slate-300 dark:border-dk-border'}`}
                                                         title="Sélectionner pour le graphique"
                                                     />
                                                     {day.displayDate}
@@ -1580,13 +1580,13 @@ export default function SuiviProduction({
                                             type="button"
                                             onClick={() => selectChartDate(day.dateStr)}
                                             className={`shrink-0 flex flex-col items-center justify-center rounded-xl border px-3 py-1.5 transition-all ${
-                                                isSel ? 'bg-indigo-600 dark:bg-indigo-700 text-white border-indigo-600 dark:border-indigo-800 shadow-sm' : 'bg-white dark:bg-dk-surface text-slate-600 dark:text-dk-text-soft border-slate-200 dark:border-dk-border hover:bg-slate-50 dark:bg-dk-bg'
+                                                isSel ? 'bg-indigo-600 dark:bg-dk-accent dark:bg-indigo-700 text-white border-indigo-600 dark:border-indigo-800 shadow-sm' : 'bg-white dark:bg-dk-surface text-slate-600 dark:text-dk-text-soft border-slate-200 dark:border-dk-border hover:bg-slate-50 dark:hover:bg-dk-elevated/60'
                                             }`}
                                         >
                                             <span className="text-[11px] font-black leading-tight">{day.label.substring(0, 3)}</span>
                                             <span className={`text-[9px] font-bold tabular-nums ${isSel ? 'text-indigo-100 dark:text-indigo-200' : 'text-slate-400 dark:text-dk-muted'}`}>{day.displayDate.substring(0, 5)}</span>
                                             {dm.totalPiece > 0 && (
-                                                <span className={`mt-0.5 text-[9px] font-black tabular-nums ${isSel ? 'text-white' : 'text-indigo-600 dark:text-indigo-300 dark:text-indigo-200'}`}>{dm.totalPiece}</span>
+                                                <span className={`mt-0.5 text-[9px] font-black tabular-nums ${isSel ? 'text-white' : 'text-indigo-600 dark:text-dk-accent-text dark:text-indigo-300 dark:text-indigo-200'}`}>{dm.totalPiece}</span>
                                             )}
                                         </button>
                                     );
@@ -1657,7 +1657,7 @@ export default function SuiviProduction({
                                                             type="button"
                                                             onClick={() => !isCellLocked && ofId && handleOpenCellModal(selectedChartDate, h.key, h.label)}
                                                             disabled={isCellLocked || !ofId}
-                                                            className="w-8 h-9 shrink-0 flex items-center justify-center rounded-lg text-slate-400 dark:text-dk-muted hover:bg-slate-50 dark:bg-dk-bg disabled:opacity-30"
+                                                            className="w-8 h-9 shrink-0 flex items-center justify-center rounded-lg text-slate-400 dark:text-dk-muted hover:bg-slate-50 dark:hover:bg-dk-elevated/60 disabled:opacity-30"
                                                             title={tx(lang, { fr: 'Détails', ar: 'التفاصيل', en: 'Details', es: 'Detalles', pt: 'Detalhes', tr: 'Ayrıntılar' })}
                                                         >
                                                             <Sliders className="w-3.5 h-3.5" />
@@ -1695,7 +1695,7 @@ export default function SuiviProduction({
                                         <span className="font-black">{m.producedThisWeek} pcs</span>
                                     </span>
                                 ))}
-                                <span className="ml-auto inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 dark:bg-indigo-700 text-white px-2.5 py-0.5 text-[11px] font-black tabular-nums shadow-sm">
+                                <span className="ml-auto inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 dark:bg-dk-accent dark:bg-indigo-700 text-white px-2.5 py-0.5 text-[11px] font-black tabular-nums shadow-sm">
                                     {tx(lang, { fr: 'TOTAL', ar: 'الإجمالي', en: 'TOTAL', es: 'TOTAL', pt: 'TOTAL', tr: 'TOPLAM' })} : {activeModels.reduce((acc, m) => acc + m.producedThisWeek, 0)} pcs
                                 </span>
                             </>
@@ -1705,20 +1705,20 @@ export default function SuiviProduction({
 
                 {/* SVG Live sparkline chart & OEE/TRS KPI dashboard */}
                 {selectedChartDate && activeChartMetrics && (
-                  <Section isMobile={isMobile} title={tx(lang, { fr: 'Rendement & TRS', ar: 'المردودية و TRS', en: 'Efficiency & TRS', es: 'Rendimiento y TRS', pt: 'Rendimento e TRS', tr: 'Verimlilik ve TRS' })} icon={<BarChart2 className="w-4 h-4 text-indigo-600 dark:text-indigo-300 dark:text-indigo-200 shrink-0" />}>
+                  <Section isMobile={isMobile} title={tx(lang, { fr: 'Rendement & TRS', ar: 'المردودية و TRS', en: 'Efficiency & TRS', es: 'Rendimiento y TRS', pt: 'Rendimento e TRS', tr: 'Verimlilik ve TRS' })} icon={<BarChart2 className="w-4 h-4 text-indigo-600 dark:text-dk-accent-text dark:text-indigo-300 dark:text-indigo-200 shrink-0" />}>
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 sm:gap-6 animate-in fade-in duration-300">
                         
                         {/* Sparkline chart */}
                         <div className="lg:col-span-2 bg-white dark:bg-dk-surface border border-slate-100 dark:border-dk-border/60 rounded-3xl p-5 shadow-sm">
                             <div className="flex items-center justify-between border-b border-slate-50 dark:border-dk-border/40 pb-3 mb-4">
                                 <div className="flex items-center gap-2">
-                                    <BarChart2 className="w-5 h-5 text-indigo-600 dark:text-indigo-300 dark:text-indigo-200" />
+                                    <BarChart2 className="w-5 h-5 text-indigo-600 dark:text-dk-accent-text dark:text-indigo-300 dark:text-indigo-200" />
                                     <div>
                                         <h3 className="text-sm font-black text-slate-800 dark:text-dk-text">{l.yieldHour} — {weekDays.find(d => d.dateStr === selectedChartDate)?.label}</h3>
                                         <p className="text-[10px] text-slate-400 dark:text-dk-muted font-medium">{tx(lang, { fr: 'Visualisation de la production par heure de travail', ar: 'عرض الإنتاج حسب كل ساعة عمل', en: 'Production view by work hour', es: 'Visualización de la producción por hora de trabajo', pt: 'Visualização da produção por hora de trabalho', tr: 'Çalışma saatine göre üretim görünümü' })}</p>
                                     </div>
                                 </div>
-                                <span className="text-xs bg-indigo-50 dark:bg-indigo-900/30 border border-indigo-100 dark:border-indigo-800/50 text-indigo-700 dark:text-indigo-300 dark:text-indigo-200 px-2.5 py-0.5 rounded-xl font-black">
+                                <span className="text-xs bg-indigo-50 dark:bg-dk-accent/20 dark:bg-indigo-900/30 border border-indigo-100 dark:border-indigo-800/50 text-indigo-700 dark:text-dk-accent-text dark:text-indigo-300 dark:text-indigo-200 px-2.5 py-0.5 rounded-xl font-black">
                                     {activeChartMetrics.totalPiece} {tx(lang, { fr: 'pièces produites', ar: 'قطعة منتجة', en: 'pieces produced', es: 'piezas producidas', pt: 'peças produzidas', tr: 'adet üretildi' })}
                                 </span>
                             </div>
@@ -1783,9 +1783,9 @@ export default function SuiviProduction({
                                 </div>
                             </div>
 
-                            <div className="mt-4 flex items-center justify-between bg-indigo-50 dark:bg-indigo-900/30/50 border border-indigo-100 dark:border-indigo-800/50 rounded-2xl p-4">
+                            <div className="mt-4 flex items-center justify-between bg-indigo-50 dark:bg-dk-accent/20 dark:bg-indigo-900/30/50 border border-indigo-100 dark:border-indigo-800/50 rounded-2xl p-4">
                                 <div>
-                                    <span className="text-[9px] font-black text-indigo-700 dark:text-indigo-300 dark:text-indigo-200 uppercase tracking-widest block">TRS Score</span>
+                                    <span className="text-[9px] font-black text-indigo-700 dark:text-dk-accent-text dark:text-indigo-300 dark:text-indigo-200 uppercase tracking-widest block">TRS Score</span>
                                     <span className="text-3xl font-black text-indigo-800 dark:text-indigo-200 block mt-1 tabular-nums">{activeChartMetrics.oee}%</span>
                                 </div>
                                 <div className="text-right">
@@ -1830,7 +1830,7 @@ export default function SuiviProduction({
                                             label = tx(lang, { fr: 'Rupt.', ar: 'انقطاع', en: 'Shortage', es: 'Rupt.', pt: 'Rupt.', tr: 'Kesinti' });
                                             tooltipText = `${h.label}: Rupture appro (45m)`;
                                         } else if (qty > 0) {
-                                            bgClass = 'bg-indigo-600 dark:bg-indigo-700/10 text-indigo-700 dark:text-indigo-300 dark:text-indigo-200 border border-indigo-200 dark:border-indigo-800/40 font-black';
+                                            bgClass = 'bg-indigo-600 dark:bg-dk-accent dark:bg-indigo-700/10 text-indigo-700 dark:text-dk-accent-text dark:text-indigo-300 dark:text-indigo-200 border border-indigo-200 dark:border-indigo-800/40 font-black';
                                             label = `${qty} p`;
                                             tooltipText = `${h.label}: Production (${qty} pcs)`;
                                         }
@@ -1859,14 +1859,14 @@ export default function SuiviProduction({
                 )}
 
                 {/* Expandable Sidebar Grid: Sizes & WIP Matrix & Skills Check */}
-                <Section isMobile={isMobile} title={tx(lang, { fr: 'Tailles, WIP & Compétences', ar: 'المقاسات و WIP والكفاءات', en: 'Sizes, WIP & Skills', es: 'Tallas, WIP y competencias', pt: 'Tamanhos, WIP e competências', tr: 'Bedenler, WIP ve yetkinlikler' })} icon={<Layers className="w-4 h-4 text-indigo-600 dark:text-indigo-300 dark:text-indigo-200 shrink-0" />}>
+                <Section isMobile={isMobile} title={tx(lang, { fr: 'Tailles, WIP & Compétences', ar: 'المقاسات و WIP والكفاءات', en: 'Sizes, WIP & Skills', es: 'Tallas, WIP y competencias', pt: 'Tamanhos, WIP e competências', tr: 'Bedenler, WIP ve yetkinlikler' })} icon={<Layers className="w-4 h-4 text-indigo-600 dark:text-dk-accent-text dark:text-indigo-300 dark:text-indigo-200 shrink-0" />}>
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 sm:gap-6">
 
                     {/* WIP & Sizing Control Box */}
                     <div className="lg:col-span-2 bg-white dark:bg-dk-surface border border-slate-100 dark:border-dk-border/60 rounded-3xl p-5 shadow-sm">
                         <div className="flex flex-wrap items-center justify-between border-b border-slate-50 dark:border-dk-border/40 pb-3 mb-4 gap-3">
                             <div className="flex items-center gap-2">
-                                <Layers className="w-5 h-5 text-indigo-600 dark:text-indigo-300 dark:text-indigo-200" />
+                                <Layers className="w-5 h-5 text-indigo-600 dark:text-dk-accent-text dark:text-indigo-300 dark:text-indigo-200" />
                                 <div>
                                     <h3 className="text-sm font-black text-slate-800 dark:text-dk-text flex items-center gap-1.5">
                                         <span>{l.wip}</span>
@@ -1890,7 +1890,7 @@ export default function SuiviProduction({
                                 </thead>
                                 <tbody className="divide-y divide-slate-50">
                                     {sizingData.map(row => (
-                                        <tr key={row.size} className="hover:bg-slate-50 dark:bg-dk-bg/40 transition-colors">
+                                        <tr key={row.size} className="hover:bg-slate-50 dark:hover:bg-dk-elevated/60 transition-colors">
                                             <td className="py-3 px-3 font-black text-slate-800 dark:text-dk-text">{row.size}</td>
                                             
                                             {/* Entree Input */}
@@ -1900,7 +1900,7 @@ export default function SuiviProduction({
                                                     inputMode="numeric"
                                                     value={row.entree}
                                                     onChange={(e) => handleSaveSizes(selectedActiveModelId, row.size, 'entree', Math.max(0, parseInt(e.target.value) || 0))}
-                                                    className="w-20 text-center font-black text-xs bg-slate-50 dark:bg-dk-bg border border-slate-100 dark:border-dk-border/60 rounded-lg py-1 focus:bg-white dark:bg-dk-surface focus:border-indigo-500 outline-none transition-all tabular-nums"
+                                                    className="w-20 text-center font-black text-xs bg-slate-50 dark:bg-dk-bg border border-slate-100 dark:border-dk-border/60 rounded-lg py-1 focus:bg-white focus:border-indigo-500 outline-none transition-all tabular-nums"
                                                 />
                                             </td>
 
@@ -1911,12 +1911,12 @@ export default function SuiviProduction({
                                                     inputMode="numeric"
                                                     value={row.sortie}
                                                     onChange={(e) => handleSaveSizes(selectedActiveModelId, row.size, 'sortie', Math.max(0, parseInt(e.target.value) || 0))}
-                                                    className="w-20 text-center font-black text-xs bg-slate-50 dark:bg-dk-bg border border-slate-100 dark:border-dk-border/60 rounded-lg py-1 focus:bg-white dark:bg-dk-surface focus:border-indigo-500 outline-none transition-all tabular-nums"
+                                                    className="w-20 text-center font-black text-xs bg-slate-50 dark:bg-dk-bg border border-slate-100 dark:border-dk-border/60 rounded-lg py-1 focus:bg-white focus:border-indigo-500 outline-none transition-all tabular-nums"
                                                 />
                                             </td>
 
                                             {/* Calculated WIP */}
-                                            <td className={`py-3 px-3 text-center font-black text-sm tabular-nums ${row.encours > 0 ? 'text-indigo-600 dark:text-indigo-300 dark:text-indigo-200' : 'text-slate-400 dark:text-dk-muted'}`}>
+                                            <td className={`py-3 px-3 text-center font-black text-sm tabular-nums ${row.encours > 0 ? 'text-indigo-600 dark:text-dk-accent-text dark:text-indigo-300 dark:text-indigo-200' : 'text-slate-400 dark:text-dk-muted'}`}>
                                                 {row.encours} pcs
                                             </td>
 
@@ -1944,7 +1944,7 @@ export default function SuiviProduction({
                     <div className="bg-white dark:bg-dk-surface border border-slate-100 dark:border-dk-border/60 rounded-3xl p-5 shadow-sm flex flex-col justify-between">
                         <div>
                             <div className="flex items-center gap-2 border-b border-slate-50 dark:border-dk-border/40 pb-3 mb-4">
-                                <ShieldAlert className="w-5 h-5 text-indigo-600 dark:text-indigo-300 dark:text-indigo-200" />
+                                <ShieldAlert className="w-5 h-5 text-indigo-600 dark:text-dk-accent-text dark:text-indigo-300 dark:text-indigo-200" />
                                 <div>
                                     <h3 className="text-sm font-black text-slate-800 dark:text-dk-text flex items-center gap-1.5">
                                         <span>{tx(lang, { fr: 'Compétences & Gamme', ar: 'الكفاءات و Gamme', en: 'Skills & Routing', es: 'Competencias y gama', pt: 'Competências e gama', tr: 'Yetkinlikler ve rota' })}</span>
@@ -1975,7 +1975,7 @@ export default function SuiviProduction({
                                         <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-dk-muted">{tx(lang, { fr: 'Postes non couverts :', ar: 'المراكز غير المغطاة:', en: 'Uncovered stations:', es: 'Puestos no cubiertos:', pt: 'Postos não cobertos:', tr: 'Kapsanmayan istasyonlar:' })}</p>
                                         {skillCheckResults.errors.map((machine, idx) => (
                                             <div key={idx} className="flex items-center justify-between text-xs font-bold text-slate-700 dark:text-dk-text bg-slate-50 dark:bg-dk-bg border border-slate-100 dark:border-dk-border/60 px-3 py-1.5 rounded-xl">
-                                                <span>Machine: <strong className="text-indigo-600 dark:text-indigo-300 dark:text-indigo-200">{machine}</strong></span>
+                                                <span>Machine: <strong className="text-indigo-600 dark:text-dk-accent-text dark:text-indigo-300 dark:text-indigo-200">{machine}</strong></span>
                                                 <span className="text-[9px] bg-rose-50 dark:bg-rose-900/30 text-rose-500 dark:text-rose-300 px-2 py-0.5 rounded font-black uppercase">{tx(lang, { fr: 'Requis', ar: 'مطلوب', en: 'Required', es: 'Requerido', pt: 'Exigido', tr: 'Gerekli' })}</span>
                                             </div>
                                         ))}
@@ -2002,7 +2002,7 @@ export default function SuiviProduction({
                                                         className={`p-2 rounded-xl border text-left min-w-[110px] max-w-[130px] relative transition-all duration-200 hover:shadow-sm ${
                                                             isMissing 
                                                                 ? 'bg-rose-50 dark:bg-rose-900/30/50 border-rose-200 dark:border-rose-800 ring-1 ring-rose-500/10' 
-                                                                : 'bg-indigo-50 dark:bg-indigo-900/30/20 border-slate-100 dark:border-dk-border/60 hover:border-indigo-200 dark:border-indigo-800'
+                                                                : 'bg-indigo-50 dark:bg-dk-accent/20 dark:bg-indigo-900/30/20 border-slate-100 dark:border-dk-border/60 hover:border-indigo-200 dark:border-indigo-800'
                                                         }`}
                                                     >
                                                         <span className="absolute -top-1.5 -left-1.5 w-4 h-4 rounded-full bg-slate-100 dark:bg-dk-elevated/60 border border-slate-200 dark:border-dk-border flex items-center justify-center text-[8px] font-black text-slate-500 dark:text-dk-muted shadow-sm">
@@ -2012,7 +2012,7 @@ export default function SuiviProduction({
                                                             {op.description || `Op. ${op.order}`}
                                                         </div>
                                                         <div className="flex items-center justify-between gap-1 mt-1 text-[8px] font-bold text-slate-400 dark:text-dk-muted">
-                                                            <span className={`truncate ${isMissing ? 'text-rose-600 dark:text-rose-300' : 'text-indigo-600 dark:text-indigo-300 dark:text-indigo-200'}`}>{machine}</span>
+                                                            <span className={`truncate ${isMissing ? 'text-rose-600 dark:text-rose-300' : 'text-indigo-600 dark:text-dk-accent-text dark:text-indigo-300 dark:text-indigo-200'}`}>{machine}</span>
                                                             <span className="tabular-nums font-mono text-[7px] bg-slate-100 dark:bg-dk-elevated/60 px-0.5 rounded shrink-0">{(op.time || 0).toFixed(1)}s</span>
                                                         </div>
                                                     </div>
@@ -2109,7 +2109,7 @@ export default function SuiviProduction({
                                         {/* Material name */}
                                         <div className="flex items-center gap-2 mb-3">
                                             <Package className="w-4 h-4 text-slate-400 dark:text-dk-muted" />
-                                            <span className="text-sm font-black text-indigo-700 dark:text-indigo-300 dark:text-indigo-200">{alert.materialName}</span>
+                                            <span className="text-sm font-black text-indigo-700 dark:text-dk-accent-text dark:text-indigo-300 dark:text-indigo-200">{alert.materialName}</span>
                                         </div>
 
                                         {/* KPI Grid */}
@@ -2126,9 +2126,9 @@ export default function SuiviProduction({
                                                 <span className="block text-slate-400 dark:text-dk-muted font-bold uppercase">{tx(lang, { fr: 'Sur la chaîne', ar: 'على الخط', en: 'On the line', es: 'En la línea', pt: 'Na linha', tr: 'Hatta' })}</span>
                                                 <span className={`block text-sm font-black tabular-nums ${alert.remainingStock <= 0 ? 'text-rose-600 dark:text-rose-300' : 'text-emerald-600 dark:text-emerald-300'}`}>{alert.remainingStock.toLocaleString()} {alert.unit}</span>
                                             </div>
-                                            <div className="bg-indigo-50 dark:bg-indigo-900/30 rounded-xl p-2 text-center">
+                                            <div className="bg-indigo-50 dark:bg-dk-accent/20 dark:bg-indigo-900/30 rounded-xl p-2 text-center">
                                                 <span className="block text-slate-400 dark:text-dk-muted font-bold uppercase">{tx(lang, { fr: 'Besoin Rest.', ar: 'الاحتياج المتبقي', en: 'Remaining need', es: 'Necesidad restante', pt: 'Necessidade restante', tr: 'Kalan ihtiyaç' })}</span>
-                                                <span className="block text-sm font-black text-indigo-600 dark:text-indigo-300 dark:text-indigo-200 tabular-nums">{alert.remainingNeed.toLocaleString()} {alert.unit}</span>
+                                                <span className="block text-sm font-black text-indigo-600 dark:text-dk-accent-text dark:text-indigo-300 dark:text-indigo-200 tabular-nums">{alert.remainingNeed.toLocaleString()} {alert.unit}</span>
                                             </div>
                                         </div>
 
@@ -2165,7 +2165,7 @@ export default function SuiviProduction({
                 )}
 
                 {/* Legend & Instructions footer */}
-                <Section isMobile={isMobile} title={l.downtimes} icon={<Info className="w-4 h-4 text-indigo-600 dark:text-indigo-300 dark:text-indigo-200 shrink-0" />}>
+                <Section isMobile={isMobile} title={l.downtimes} icon={<Info className="w-4 h-4 text-indigo-600 dark:text-dk-accent-text dark:text-indigo-300 dark:text-indigo-200 shrink-0" />}>
                 <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border/60 rounded-2xl p-3 sm:p-5 shadow-sm text-xs font-semibold text-slate-500 dark:text-dk-muted">
                     <div className="flex flex-wrap items-center gap-4">
                         <span className="font-bold">{l.downtimes} :</span>
@@ -2267,7 +2267,7 @@ function CellDetailsModal({
                     </div>
                     <button 
                         onClick={onClose} 
-                        className="p-1.5 rounded-lg text-slate-400 dark:text-dk-muted hover:text-slate-600 dark:text-dk-text-soft hover:bg-slate-100 dark:bg-dk-elevated/60 transition-colors"
+                        className="p-1.5 rounded-lg text-slate-400 dark:text-dk-muted hover:text-slate-600 hover:bg-slate-100 transition-colors"
                     >
                         <X className="w-5 h-5" />
                     </button>
@@ -2284,7 +2284,7 @@ function CellDetailsModal({
                         <select
                             value={modelId}
                             onChange={(e) => setModelId(e.target.value)}
-                            className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3.5 py-2.5 font-bold text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 focus:bg-white dark:bg-dk-surface transition-all"
+                            className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3.5 py-2.5 font-bold text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 focus:bg-white transition-all"
                         >
                             {activeModels.map(m => (
                                 <option key={m.id} value={m.id}>
@@ -2310,7 +2310,7 @@ function CellDetailsModal({
                                     setQuantity(Math.max(0, parseInt(e.target.value) || 0));
                                     if (downtime) setDowntime(null); // Clear downtime if quantity entered
                                 }}
-                                className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3.5 py-2 font-bold text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 focus:bg-white dark:bg-dk-surface transition-all"
+                                className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3.5 py-2 font-bold text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 focus:bg-white transition-all"
                                 placeholder="0"
                             />
                         </div>
@@ -2327,7 +2327,7 @@ function CellDetailsModal({
                                     setDowntime(val);
                                     if (val) setQuantity(0); // Reset quantity if downtime selected
                                 }}
-                                className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3.5 py-2 font-bold text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 focus:bg-white dark:bg-dk-surface transition-all"
+                                className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3.5 py-2 font-bold text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 focus:bg-white transition-all"
                             >
                                 <option value="">{l.none}</option>
                                 <option value="L">{l.lunch}</option>
@@ -2351,7 +2351,7 @@ function CellDetailsModal({
                                 min={0}
                                 value={defectsQty || ''}
                                 onChange={(e) => setDefectsQty(Math.max(0, parseInt(e.target.value) || 0))}
-                                className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3.5 py-2 font-bold text-slate-800 dark:text-dk-text outline-none focus:border-rose-500 focus:bg-white dark:bg-dk-surface transition-all"
+                                className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3.5 py-2 font-bold text-slate-800 dark:text-dk-text outline-none focus:border-rose-500 focus:bg-white transition-all"
                                 placeholder="0"
                             />
                         </div>
@@ -2364,7 +2364,7 @@ function CellDetailsModal({
                             <select
                                 value={defectType}
                                 onChange={(e) => setDefectType(e.target.value)}
-                                className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3.5 py-2 font-bold text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 focus:bg-white dark:bg-dk-surface transition-all"
+                                className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3.5 py-2 font-bold text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 focus:bg-white transition-all"
                             >
                                 <option value="Couture">{l.sewing}</option>
                                 <option value="Tissu">{l.fabric}</option>
@@ -2386,7 +2386,7 @@ function CellDetailsModal({
                     </button>
                     <button
                         onClick={handleConfirm}
-                        className="px-5 py-2 rounded-xl text-xs font-black bg-indigo-600 dark:bg-indigo-700 text-white hover:bg-indigo-700 shadow-sm transition-colors"
+                        className="px-5 py-2 rounded-xl text-xs font-black bg-indigo-600 dark:bg-dk-accent dark:bg-indigo-700 text-white hover:bg-indigo-700 dark:hover:bg-dk-accent-hover shadow-sm transition-colors"
                     >
                         {l.save}
                     </button>
@@ -2469,7 +2469,7 @@ function StatusChangeModal({
                     </div>
                     <button 
                         onClick={onClose} 
-                        className="p-1.5 rounded-lg text-slate-400 dark:text-dk-muted hover:text-slate-600 dark:text-dk-text-soft hover:bg-slate-100 dark:bg-dk-elevated/60 transition-colors"
+                        className="p-1.5 rounded-lg text-slate-400 dark:text-dk-muted hover:text-slate-600 hover:bg-slate-100 transition-colors"
                     >
                         <X className="w-4 h-4" />
                     </button>
@@ -2488,7 +2488,7 @@ function StatusChangeModal({
                                     className={`flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-xs transition-all text-left ${
                                         isSelected 
                                             ? 'bg-slate-950 dark:bg-dk-bg text-white shadow-md scale-[1.01]' 
-                                            : 'bg-slate-50 dark:bg-dk-bg hover:bg-slate-100 dark:bg-dk-elevated/60 text-slate-700 dark:text-dk-text border border-slate-100 dark:border-dk-border/60/80'
+                                            : 'bg-slate-50 dark:bg-dk-bg hover:bg-slate-100 text-slate-700 dark:text-dk-text border border-slate-100 dark:border-dk-border/60/80'
                                     }`}
                                 >
                                     <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: isSelected ? '#E2E8F0' : s.color }} />
@@ -2504,7 +2504,7 @@ function StatusChangeModal({
                     <button 
                         type="button" 
                         onClick={onClose} 
-                        className="rounded-xl px-4 py-2 font-bold text-slate-500 dark:text-dk-muted hover:bg-slate-100 dark:bg-dk-elevated/60 transition-colors"
+                        className="rounded-xl px-4 py-2 font-bold text-slate-500 dark:text-dk-muted hover:bg-slate-100 transition-colors"
                     >
                         {cancelLabel}
                     </button>

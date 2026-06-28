@@ -523,12 +523,12 @@ export default function MachineEditorModal({
       <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-slate-900/45 backdrop-blur-md" onClick={onClose} />
       <div className="bg-white dark:bg-dk-surface rounded-2xl shadow-2xl dark:shadow-dk-lg w-full max-w-lg relative overflow-hidden animate-in fade-in zoom-in-95 duration-200 border border-slate-200/70 dark:border-dk-border/70 max-h-[90vh] flex flex-col">
-        <div className="bg-slate-50 px-6 py-4 border-b border-slate-100 dark:border-dk-border flex items-center justify-between shrink-0">
+        <div className="bg-slate-50 dark:bg-dk-bg px-6 py-4 border-b border-slate-100 dark:border-dk-border flex items-center justify-between shrink-0">
           <h3 className="font-bold text-slate-800 dark:text-dk-text flex items-center gap-2">
             {initialMachine ? <Edit2 className="w-4 h-4 text-emerald-600" /> : <Plus className="w-4 h-4 text-emerald-600" />}
             {headerTitle}
           </h3>
-          <button type="button" onClick={onClose} className="text-slate-400 dark:text-dk-text-muted hover:text-slate-600 dark:text-dk-text-secondary p-1 hover:bg-slate-200 rounded-lg transition-colors">
+          <button type="button" onClick={onClose} className="text-slate-400 dark:text-dk-text-muted hover:text-slate-600 p-1 hover:bg-slate-200 rounded-lg transition-colors">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -552,7 +552,7 @@ export default function MachineEditorModal({
                     if (errors.name) setErrors(prev => ({ ...prev, name: false }));
                   }}
                   placeholder={tx(lang, {fr:"Poste, ligne, n° série ou plaque — visible dans le parc et l'inventaire",ar:"المنصب، الخط، الرقم التسلسلي أو اللوحة — ظاهر في المخزون",en:"Station, line, serial or plate number — visible in inventory",es:"Puesto, línea, nº serie o placa — visible en el inventario",pt:"Posto, linha, nº série ou placa — visível no inventário",tr:"İstasyon, hat, seri veya plaka numarası — envanterde görünür"})}
-                  className={`w-full rounded-xl px-3 py-2.5 text-slate-700 dark:text-dk-text outline-none transition-all placeholder:text-slate-400 dark:text-dk-text-muted font-mono text-sm ${
+                  className={`w-full rounded-xl px-3 py-2.5 text-slate-700 dark:text-dk-text outline-none transition-all placeholder:text-slate-400 font-mono text-sm ${
                     errors.name ? 'bg-rose-50 dark:bg-rose-950/30 border border-rose-300 dark:border-rose-700 focus:border-rose-500' : 'bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border focus:border-emerald-500 dark:focus:border-emerald-400'
                   }`}
                 />
@@ -631,7 +631,7 @@ export default function MachineEditorModal({
                           setErrors(prev => ({ ...prev, classe: false }));
                         }
                       }}
-                      className="min-w-0 flex-1 rounded-l-xl border-0 bg-transparent px-3 py-2.5 text-sm text-slate-700 dark:text-dk-text outline-none ring-0 placeholder:text-slate-400 dark:text-dk-text-muted"
+                      className="min-w-0 flex-1 rounded-l-xl border-0 bg-transparent px-3 py-2.5 text-sm text-slate-700 dark:text-dk-text outline-none ring-0 placeholder:text-slate-400"
                       placeholder={tx(lang, {fr:'Saisie libre ou liste…',ar:'إدخال حر أو قائمة…',en:'Free input or list…',es:'Entrada libre o lista…',pt:'Entrada livre ou lista…',tr:'Serbest giriş veya liste…'})}
                     />
                     <button
@@ -641,7 +641,7 @@ export default function MachineEditorModal({
                       title={tx(lang, {fr:'Ouvrir la liste des familles',ar:'فتح قائمة العائلات',en:'Open the family list',es:'Abrir la lista de familias',pt:'Abrir a lista de famílias',tr:'Aile listesini aç'})}
                       onMouseDown={e => e.preventDefault()}
                       onClick={() => setTypePickerOpen(o => !o)}
-                      className="flex shrink-0 items-center justify-center border-l border-slate-100 dark:border-dk-border px-2.5 text-slate-500 dark:text-dk-text-muted hover:bg-slate-50 dark:hover:bg-dk-hover hover:text-slate-800 dark:text-dk-text rounded-r-xl transition-colors"
+                      className="flex shrink-0 items-center justify-center border-l border-slate-100 dark:border-dk-border px-2.5 text-slate-500 dark:text-dk-text-muted hover:bg-slate-50 dark:hover:bg-dk-hover hover:text-slate-800 rounded-r-xl transition-colors"
                     >
                       <motion.span animate={{ rotate: typePickerOpen ? 180 : 0 }} transition={{ type: 'spring', stiffness: 320, damping: 22 }}>
                         <ChevronDown className="h-4 w-4" />
@@ -701,8 +701,8 @@ export default function MachineEditorModal({
               </div>
             </div>
 
-            <div className="rounded-xl border border-slate-100 dark:border-dk-border bg-indigo-50/30 p-4 space-y-3">
-              <p className="text-[10px] font-black text-indigo-700 uppercase tracking-wider">{tx(lang, {fr:'Achat',ar:'شراء',en:'Purchase',es:'Compra',pt:'Compra',tr:'Satın alma'})}</p>
+            <div className="rounded-xl border border-slate-100 dark:border-dk-border bg-indigo-50 dark:bg-dk-accent/20/30 p-4 space-y-3">
+              <p className="text-[10px] font-black text-indigo-700 dark:text-dk-accent-text uppercase tracking-wider">{tx(lang, {fr:'Achat',ar:'شراء',en:'Purchase',es:'Compra',pt:'Compra',tr:'Satın alma'})}</p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-semibold text-slate-500 dark:text-dk-text-muted uppercase mb-1.5">{tx(lang, {fr:"Date d'achat",ar:'تاريخ الشراء',en:'Purchase date',es:'Fecha de compra',pt:'Data de compra',tr:'Satın alma tarihi'})}</label>
@@ -741,12 +741,12 @@ export default function MachineEditorModal({
                 <span className="font-bold text-slate-700 dark:text-dk-text">max ~{formatMo(IMG_MAX_BYTES)} Mo</span> chacun (stockage local).
               </p>
               <div className="flex flex-wrap gap-3">
-                <label className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-slate-200 dark:border-dk-border bg-slate-50 cursor-pointer hover:bg-slate-100 dark:hover:bg-dk-hover text-sm font-bold text-slate-700 dark:text-dk-text">
+                <label className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-slate-200 dark:border-dk-border bg-slate-50 dark:bg-dk-bg cursor-pointer hover:bg-slate-100 dark:hover:bg-dk-hover text-sm font-bold text-slate-700 dark:text-dk-text">
                   <ImageIcon className="w-4 h-4 text-indigo-500" />
                   {tx(lang, {fr:'Ajouter une photo',ar:'إضافة صورة',en:'Add a photo',es:'Añadir una foto',pt:'Adicionar foto',tr:'Fotoğraf ekle'})}
                   <input type="file" accept="image/*" className="hidden" onChange={onPickPhoto} />
                 </label>
-                <label className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-slate-200 dark:border-dk-border bg-slate-50 cursor-pointer hover:bg-slate-100 dark:hover:bg-dk-hover text-sm font-bold text-slate-700 dark:text-dk-text">
+                <label className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-slate-200 dark:border-dk-border bg-slate-50 dark:bg-dk-bg cursor-pointer hover:bg-slate-100 dark:hover:bg-dk-hover text-sm font-bold text-slate-700 dark:text-dk-text">
                   <FileText className="w-4 h-4 text-indigo-500" />
                   {tx(lang, {fr:'Ajouter un PDF',ar:'إضافة PDF',en:'Add a PDF',es:'Añadir un PDF',pt:'Adicionar PDF',tr:'PDF ekle'})}
                   <input type="file" accept="application/pdf" className="hidden" onChange={onPickManual} />
@@ -823,9 +823,9 @@ export default function MachineEditorModal({
                     {galleryManuals.map((doc, i) => (
                       <li
                         key={`${i}-${doc.name}`}
-                        className="flex items-center justify-between gap-2 rounded-lg border border-slate-100 dark:border-dk-border bg-slate-50 px-3 py-2"
+                        className="flex items-center justify-between gap-2 rounded-lg border border-slate-100 dark:border-dk-border bg-slate-50 dark:bg-dk-bg px-3 py-2"
                       >
-                        <a href={doc.dataUrl} target="_blank" rel="noreferrer" className="text-sm font-bold text-indigo-600 truncate flex-1 min-w-0">
+                        <a href={doc.dataUrl} target="_blank" rel="noreferrer" className="text-sm font-bold text-indigo-600 dark:text-dk-accent-text truncate flex-1 min-w-0">
                           {doc.name}
                         </a>
                         <button
@@ -938,12 +938,12 @@ export default function MachineEditorModal({
               );
             }}
           >
-            <Download className="h-4 w-4 text-indigo-600" aria-hidden />
+            <Download className="h-4 w-4 text-indigo-600 dark:text-dk-accent-text" aria-hidden />
             {tx(lang, {fr:'Télécharger',ar:'تحميل',en:'Download',es:'Descargar',pt:'Descarregar',tr:'İndir'})}
           </button>
           <button
             type="button"
-            className="pointer-events-auto rounded-full bg-white/15 dark:bg-dk-surface/15 p-2 text-white hover:bg-white/25 dark:bg-dk-surface/25"
+            className="pointer-events-auto rounded-full bg-white/15 dark:bg-dk-surface/15 p-2 text-white hover:bg-white/25"
             onClick={e => {
               e.stopPropagation();
               setPhotoLightboxIndex(null);
@@ -957,7 +957,7 @@ export default function MachineEditorModal({
           <>
             <button
               type="button"
-              className="absolute left-1 top-1/2 z-10 -translate-y-1/2 rounded-full bg-white/15 dark:bg-dk-surface/15 p-2 text-white hover:bg-white/25 dark:bg-dk-surface/25 md:left-4"
+              className="absolute left-1 top-1/2 z-10 -translate-y-1/2 rounded-full bg-white/15 dark:bg-dk-surface/15 p-2 text-white hover:bg-white/25 md:left-4"
               aria-label={tx(lang, {fr:'Photo précédente',ar:'الصورة السابقة',en:'Previous photo',es:'Foto anterior',pt:'Foto anterior',tr:'Önceki fotoğraf'})}
               onClick={e => {
                 e.stopPropagation();
@@ -969,7 +969,7 @@ export default function MachineEditorModal({
             </button>
             <button
               type="button"
-              className="absolute right-1 top-1/2 z-10 -translate-y-1/2 rounded-full bg-white/15 dark:bg-dk-surface/15 p-2 text-white hover:bg-white/25 dark:bg-dk-surface/25 md:right-4"
+              className="absolute right-1 top-1/2 z-10 -translate-y-1/2 rounded-full bg-white/15 dark:bg-dk-surface/15 p-2 text-white hover:bg-white/25 md:right-4"
               aria-label="Photo suivante"
               onClick={e => {
                 e.stopPropagation();

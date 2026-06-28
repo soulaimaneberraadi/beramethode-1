@@ -77,8 +77,8 @@ export default function VueGenerale({
       sub: tx(lang, { fr: `${activeChains} chaîne(s) active(s)`, ar: `${activeChains} خط(وط) نشط(ة)`, en: `${activeChains} active line(s)`, es: `${activeChains} cadena(s) activa(s)`, pt: `${activeChains} linha(s) ativa(s)`, tr: `${activeChains} aktif hat` }),
       icon: Factory,
       color: 'indigo',
-      bg: 'bg-indigo-50',
-      iconBg: 'text-indigo-600',
+      bg: 'bg-indigo-50 dark:bg-dk-accent/20',
+      iconBg: 'text-indigo-600 dark:text-dk-accent-text',
       border: 'border-indigo-100'
     },
     {
@@ -199,8 +199,8 @@ export default function VueGenerale({
           >
             <div className="px-6 py-4 border-b border-slate-100 dark:border-dk-border flex items-center justify-between">
               <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-indigo-50 flex items-center justify-center">
-                  <Factory className="w-4 h-4 text-indigo-600" />
+                <div className="w-8 h-8 rounded-lg bg-indigo-50 dark:bg-dk-accent/20 flex items-center justify-center">
+                  <Factory className="w-4 h-4 text-indigo-600 dark:text-dk-accent-text" />
                 </div>
                 <h2 className="text-sm font-bold text-slate-800 dark:text-dk-text">{tx(lang, { fr: 'Productions Actives', ar: 'الإنتاجات النشطة', en: 'Active Productions', es: 'Producciones Activas', pt: 'Produções Ativas', tr: 'Aktif Üretimler' })}</h2>
               </div>

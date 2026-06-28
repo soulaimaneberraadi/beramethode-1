@@ -370,7 +370,7 @@ export default function GanttView({
                                 type="button"
                                 onClick={() => setSidebarCollapsed(v => !v)}
                                 title={sidebarCollapsed ? tx(lang, {fr: 'Afficher les chaînes', ar: 'إظهار السلاسل', en: 'Show chains', es: 'Mostrar cadenas', pt: 'Mostrar cadeias', tr: 'Zincirleri göster'}) : tx(lang, {fr: 'Réduire la colonne', ar: 'طي العمود', en: 'Collapse column', es: 'Colapsar columna', pt: 'Recolher coluna', tr: 'Sütunu daralt'})}
-                                className={`w-5 h-5 ${sidebarCollapsed ? 'mx-auto' : 'mr-1.5'} text-slate-400 dark:text-dk-muted hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-slate-100 dark:hover:bg-dk-elevated/60 rounded transition-all flex items-center justify-center text-[12px] font-bold`}
+                                className={`w-5 h-5 ${sidebarCollapsed ? 'mx-auto' : 'mr-1.5'} text-slate-400 dark:text-dk-muted hover:text-indigo-600 dark:text-dk-accent-text dark:hover:text-indigo-400 hover:bg-slate-100 dark:hover:bg-dk-elevated/60 rounded transition-all flex items-center justify-center text-[12px] font-bold`}
                             >
                                 {sidebarCollapsed ? '›' : '‹'}
                             </button>

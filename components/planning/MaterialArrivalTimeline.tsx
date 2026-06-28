@@ -206,7 +206,7 @@ export default function MaterialArrivalTimeline({
 
     if (!model) {
         return (
-            <div className={`p-4 rounded-xl bg-amber-500/10 border border-amber-500/20 text-slate-700 space-y-2 ${className}`}>
+            <div className={`p-4 rounded-xl bg-amber-500/10 border border-amber-500/20 text-slate-700 dark:text-dk-text-soft space-y-2 ${className}`}>
                 <div className="flex items-center gap-2 text-[12px] font-bold text-amber-800">
                     <AlertTriangle className="h-4 w-4 shrink-0 text-amber-600" />
                     {tx(lang, {fr:"Modèle introuvable dans la bibliothèque",ar:"النموذج غير موجود في المكتبة",en:"Model not found in library",es:"Modelo no encontrado en biblioteca",pt:"Modelo não encontrado na biblioteca",tr:"Kütüphanede model bulunamadı"})}
@@ -220,7 +220,7 @@ export default function MaterialArrivalTimeline({
 
     if (lines.length === 0) {
         return (
-            <p className={`text-sm text-slate-500 py-2 ${className}`}>
+            <p className={`text-sm text-slate-500 dark:text-dk-muted py-2 ${className}`}>
                 {tx(lang, {fr:"Aucune matière renseignée sur la fiche technique de ce modèle.",ar:"لا توجد مواد مدخلة في البطاقة التقنية لهذا النموذج.",en:"No materials entered on the technical sheet of this model.",es:"Ningún material ingresado en la ficha técnica de este modelo.",pt:"Nenhum material informado na ficha técnica deste modelo.",tr:"Bu modelin teknik kartında malzeme girilmemiş."})}
             </p>
         );
@@ -229,13 +229,13 @@ export default function MaterialArrivalTimeline({
     return (
         <div className={`space-y-3 ${className}`}>
             {/* Stock Reservation card */}
-            <div className="rounded-xl border border-white/20 bg-white/50 backdrop-blur-md p-4 shadow-sm space-y-3">
+            <div className="rounded-xl border border-white/20 bg-white dark:bg-dk-surface/50 backdrop-blur-md p-4 shadow-sm space-y-3">
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                        <Package className="h-4 w-4 text-slate-700" />
-                        <h4 className="text-[12px] font-bold text-slate-900 uppercase tracking-wider">{tx(lang, {fr:"Réservation de stock",ar:"حجز المخزون",en:"Stock reservation",es:"Reserva de stock",pt:"Reserva de estoque",tr:"Stok rezervasyonu"})}</h4>
+                        <Package className="h-4 w-4 text-slate-700 dark:text-dk-text-soft" />
+                        <h4 className="text-[12px] font-bold text-slate-900 dark:text-dk-text uppercase tracking-wider">{tx(lang, {fr:"Réservation de stock",ar:"حجز المخزون",en:"Stock reservation",es:"Reserva de stock",pt:"Reserva de estoque",tr:"Stok rezervasyonu"})}</h4>
                     </div>
-                    {loadingRes && <RefreshCw className="h-3.5 w-3.5 text-slate-400 animate-spin" />}
+                    {loadingRes && <RefreshCw className="h-3.5 w-3.5 text-slate-400 dark:text-dk-muted animate-spin" />}
                 </div>
 
                 {actionError && (
@@ -251,14 +251,14 @@ export default function MaterialArrivalTimeline({
                             <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600 mt-0.5" />
                             <div>
                                 <span className="font-bold">{tx(lang, {fr:"Stock réservé avec succès :",ar:"تم حجز المخزون بنجاح:",en:"Stock reserved successfully:",es:"Stock reservado con éxito:",pt:"Estoque reservado com sucesso:",tr:"Stok başarıyla rezerve edildi:"})}</span>
-                                <p className="mt-0.5 text-slate-600">Ces matières sont verrouillées pour cet OF. Vous pouvez les déduire physiquement lors du lancement de la production.</p>
+                                <p className="mt-0.5 text-slate-600 dark:text-dk-text-soft">Ces matières sont verrouillées pour cet OF. Vous pouvez les déduire physiquement lors du lancement de la production.</p>
                             </div>
                         </div>
 
-                        <div className="overflow-hidden rounded-lg border border-white/20 bg-white/30 backdrop-blur-md text-[11px] shadow-sm">
+                        <div className="overflow-hidden rounded-lg border border-white/20 bg-white dark:bg-dk-surface/30 backdrop-blur-md text-[11px] shadow-sm">
                             <table className="w-full text-left">
                                 <thead>
-                                    <tr className="border-b border-white/20 bg-white/40 font-semibold text-slate-600 backdrop-blur-sm">
+                                    <tr className="border-b border-white/20 bg-white dark:bg-dk-surface/40 font-semibold text-slate-600 dark:text-dk-text-soft backdrop-blur-sm">
                                         <th className="px-2.5 py-1.5">{tx(lang, {fr:"Matière",ar:"المادة",en:"Material",es:"Material",pt:"Material",tr:"Malzeme"})}</th>
                                         <th className="px-2.5 py-1.5">{tx(lang, {fr:"Bain / Var.",ar:"حمام / متغير",en:"Batch / Var.",es:"Baño / Var.",pt:"Banho / Var.",tr:"Parti / Değişken"})}</th>
                                         <th className="px-2.5 py-1.5 text-right">{tx(lang, {fr:"Qté Rés.",ar:"الكمية المحجوزة",en:"Res. Qty",es:"Cant. Res.",pt:"Qtde Res.",tr:"Rez. Miktar"})}</th>
@@ -266,12 +266,12 @@ export default function MaterialArrivalTimeline({
                                 </thead>
                                 <tbody>
                                     {reservations.map((r, i) => (
-                                        <tr key={i} className="border-b border-slate-100 last:border-0">
-                                            <td className="px-2.5 py-1.5 font-medium text-slate-800">{r.productName || `ID: ${r.productId}`}</td>
-                                            <td className="px-2.5 py-1.5 text-slate-500 font-mono">
+                                        <tr key={i} className="border-b border-slate-100 dark:border-dk-border last:border-0">
+                                            <td className="px-2.5 py-1.5 font-medium text-slate-800 dark:text-dk-text">{r.productName || `ID: ${r.productId}`}</td>
+                                            <td className="px-2.5 py-1.5 text-slate-500 dark:text-dk-muted font-mono">
                                                 {r.numBain ? `B:${r.numBain}` : ''} {r.variante ? `V:${r.variante}` : ''} {!r.numBain && !r.variante ? '—' : ''}
                                             </td>
-                                            <td className="px-2.5 py-1.5 text-right font-mono font-bold text-slate-900 tabular-nums">
+                                            <td className="px-2.5 py-1.5 text-right font-mono font-bold text-slate-900 dark:text-dk-text tabular-nums">
                                                 {r.quantite}
                                             </td>
                                         </tr>
@@ -294,23 +294,23 @@ export default function MaterialArrivalTimeline({
                                 type="button"
                                 onClick={handleReleaseReservations}
                                 disabled={loadingRes}
-                                className="h-8 px-3 rounded-lg border border-slate-200 hover:bg-slate-50 text-slate-700 text-[11px] font-bold transition-colors flex items-center justify-center gap-1.5 disabled:opacity-50"
+                                className="h-8 px-3 rounded-lg border border-slate-200 dark:border-dk-border hover:bg-slate-50 dark:hover:bg-dk-elevated/60 text-slate-700 dark:text-dk-text-soft text-[11px] font-bold transition-colors flex items-center justify-center gap-1.5 disabled:opacity-50"
                             >
-                                <Ban className="h-3.5 w-3.5 text-slate-400" />
+                                <Ban className="h-3.5 w-3.5 text-slate-400 dark:text-dk-muted" />
                                 {tx(lang, {fr:"Libérer",ar:"تحرير",en:"Release",es:"Liberar",pt:"Liberar",tr:"Serbest bırak"})}
                             </button>
                         </div>
                     </div>
                 ) : (
                     <div className="space-y-3">
-                        <p className="text-[11px] text-slate-500 leading-normal">
+                        <p className="text-[11px] text-slate-500 dark:text-dk-muted leading-normal">
                             Aucune réservation physique de stock n'a été effectuée pour cet OF. Vous pouvez réserver automatiquement les matières disponibles selon la règle FIFO.
                         </p>
                         <button
                             type="button"
                             onClick={handleReserveFIFO}
                             disabled={loadingRes || !catalogLots.length}
-                            className="w-full h-8 px-3 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-[11px] font-bold shadow-sm transition-colors flex items-center justify-center gap-1.5 disabled:opacity-50"
+                            className="w-full h-8 px-3 rounded-lg bg-indigo-600 dark:bg-dk-accent hover:bg-indigo-700 dark:hover:bg-dk-accent-hover text-white text-[11px] font-bold shadow-sm transition-colors flex items-center justify-center gap-1.5 disabled:opacity-50"
                         >
                             <Sparkles className="h-3.5 w-3.5" />
                             {tx(lang, {fr:"Réserver via FIFO",ar:"حجز عبر FIFO",en:"Reserve via FIFO",es:"Reservar vía FIFO",pt:"Reservar via FIFO",tr:"FIFO ile rezerve et"})}
@@ -367,8 +367,8 @@ export default function MaterialArrivalTimeline({
             )}
 
             {plan.worstArrivalYmd && plan.criticalMaterialName && (
-                <div className="rounded-xl border border-white/20 bg-white/40 backdrop-blur-md px-3 py-2 text-[11px] text-slate-800 shadow-xs">
-                    <span className="font-black uppercase tracking-wide text-slate-600">{tx(lang, {fr:"Chemin critique (estim.)",ar:"المسار الحرج (تقديري)",en:"Critical path (est.)",es:"Ruta crítica (est.)",pt:"Caminho crítico (est.)",tr:"Kritik yol (tah.)"})}</span>
+                <div className="rounded-xl border border-white/20 bg-white dark:bg-dk-surface/40 backdrop-blur-md px-3 py-2 text-[11px] text-slate-800 dark:text-dk-text shadow-xs">
+                    <span className="font-black uppercase tracking-wide text-slate-600 dark:text-dk-text-soft">{tx(lang, {fr:"Chemin critique (estim.)",ar:"المسار الحرج (تقديري)",en:"Critical path (est.)",es:"Ruta crítica (est.)",pt:"Caminho crítico (est.)",tr:"Kritik yol (tah.)"})}</span>
                     <p className="mt-1">
                         Matière la plus tardive : <span className="font-bold">{plan.criticalMaterialName}</span> →{' '}
                         <span className="font-mono font-bold">{plan.worstArrivalYmd}</span>
@@ -391,7 +391,7 @@ export default function MaterialArrivalTimeline({
                     <button
                         type="button"
                         onClick={handleDraftBCs}
-                        className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-[11px] font-bold text-slate-700 hover:bg-slate-50 transition-colors"
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface px-3 py-2 text-[11px] font-bold text-slate-700 dark:text-dk-text-soft hover:bg-slate-50 dark:hover:bg-dk-elevated/60 transition-colors"
                     >
                         <ClipboardList className="h-3.5 w-3.5 shrink-0" aria-hidden />
                         {tx(lang, {fr:"Créer BC brouillon (toutes les lignes)",ar:"إنشاء أمر شراء مسودة (جميع البنود)",en:"Create draft PO (all lines)",es:"Crear borrador de pedido (todas líneas)",pt:"Criar rascunho de compra (todas linhas)",tr:"Taslak sipariş oluştur (tüm satırlar)"})}
@@ -422,17 +422,17 @@ export default function MaterialArrivalTimeline({
                 </p>
             )}
 
-            <div className="overflow-hidden rounded-xl border border-white/20 bg-white/30 backdrop-blur-md shadow-sm">
-                <div className="flex items-center gap-2 border-b border-white/10 bg-white/40 px-3 py-2 backdrop-blur-sm">
+            <div className="overflow-hidden rounded-xl border border-white/20 bg-white dark:bg-dk-surface/30 backdrop-blur-md shadow-sm">
+                <div className="flex items-center gap-2 border-b border-white/10 bg-white dark:bg-dk-surface/40 px-3 py-2 backdrop-blur-sm">
                     <Package className="h-3.5 w-3.5 text-amber-600" aria-hidden />
-                    <span className="text-[10px] font-black uppercase tracking-wider text-slate-500">
+                    <span className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-dk-muted">
                         ETA par matière ({launchYmd ? plan.rows.length : lines.length})
                     </span>
                 </div>
                 <div className="overflow-x-auto">
                     <table className="w-full min-w-[320px] text-left text-xs">
                         <thead>
-                            <tr className="border-b border-white/10 bg-white/20 text-[10px] font-black uppercase tracking-wider text-slate-500 backdrop-blur-xs">
+                            <tr className="border-b border-white/10 bg-white dark:bg-dk-surface/20 text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-dk-muted backdrop-blur-xs">
                                 <th className="px-3 py-2">{tx(lang, {fr:"Matière",ar:"المادة",en:"Material",es:"Material",pt:"Material",tr:"Malzeme"})}</th>
                                 <th className="px-3 py-2 text-right">{tx(lang, {fr:"Qté",ar:"الكمية",en:"Qty",es:"Cant",pt:"Qtde",tr:"Miktar"})}</th>
                                 <th className="px-3 py-2">{tx(lang, {fr:"Fournisseur",ar:"المورد",en:"Supplier",es:"Proveedor",pt:"Fornecedor",tr:"Tedarikçi"})}</th>
@@ -449,8 +449,8 @@ export default function MaterialArrivalTimeline({
                                 </tr>
                             ) : (
                                 plan.rows.map((row, i) => (
-                                    <tr key={`${row.name}-${i}`} className="border-t border-white/10 first:border-t-0 bg-white/20 hover:bg-white/40 transition-colors">
-                                        <td className="max-w-[140px] truncate px-3 py-2 font-semibold text-slate-800">
+                                    <tr key={`${row.name}-${i}`} className="border-t border-white/10 first:border-t-0 bg-white dark:bg-dk-surface/20 hover:bg-white transition-colors">
+                                        <td className="max-w-[140px] truncate px-3 py-2 font-semibold text-slate-800 dark:text-dk-text">
                                             {row.name}
                                             {!row.matched && catalogProducts.length > 0 && (
                                                 <span className="ml-1 text-[9px] font-normal text-amber-600" title="Pas de correspondance catalogue">
@@ -458,12 +458,12 @@ export default function MaterialArrivalTimeline({
                                                 </span>
                                             )}
                                         </td>
-                                        <td className="px-3 py-2 text-right font-mono tabular-nums text-slate-700">
-                                            {row.qty} <span className="text-[10px] text-slate-500">{row.unit}</span>
+                                        <td className="px-3 py-2 text-right font-mono tabular-nums text-slate-700 dark:text-dk-text-soft">
+                                            {row.qty} <span className="text-[10px] text-slate-500 dark:text-dk-muted">{row.unit}</span>
                                         </td>
-                                        <td className="max-w-[100px] truncate px-3 py-2 text-slate-600">{row.supplierName || '—'}</td>
-                                        <td className="px-3 py-2 text-right font-mono tabular-nums text-slate-700">{row.leadWorkingDays}</td>
-                                        <td className="px-3 py-2 font-mono text-[11px] font-bold text-slate-900">{row.estimatedArrivalYmd}</td>
+                                        <td className="max-w-[100px] truncate px-3 py-2 text-slate-600 dark:text-dk-text-soft">{row.supplierName || '—'}</td>
+                                        <td className="px-3 py-2 text-right font-mono tabular-nums text-slate-700 dark:text-dk-text-soft">{row.leadWorkingDays}</td>
+                                        <td className="px-3 py-2 font-mono text-[11px] font-bold text-slate-900 dark:text-dk-text">{row.estimatedArrivalYmd}</td>
                                     </tr>
                                 ))
                             )}

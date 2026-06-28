@@ -169,7 +169,7 @@ export default function GlobalLoader({
                         </div>
 
                         {/* Linear progress bar */}
-                        <div className="h-1.5 w-full bg-slate-100 dark:bg-dk-surface rounded-full overflow-hidden relative border border-slate-200/10">
+                        <div className="h-1.5 w-full bg-slate-100 dark:bg-dk-surface rounded-full overflow-hidden relative border border-slate-200 dark:border-dk-border/10">
                             <div
                                 className="h-full bg-gradient-to-r from-emerald-500 to-teal-400 rounded-full transition-all duration-300 ease-out relative"
                                 style={{ width: `${formattedProgress}%` }}

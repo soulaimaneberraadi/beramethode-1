@@ -50,7 +50,7 @@ export default function QuickFilters({
 
                 {/* Status section */}
                 <div className="flex items-center gap-2">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mr-1.5">
+                    <span className="text-[10px] font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest mr-1.5">
                         {tx(lang, {fr:"Statut",ar:"الحالة",en:"Status",es:"Estado",pt:"Status",tr:"Durum"})}
                     </span>
                     {STATUS_ORDER.map(s => {
@@ -64,7 +64,7 @@ export default function QuickFilters({
                                 className={`inline-flex items-center gap-1.5 h-6 px-2.5 rounded-lg text-[11px] font-bold transition-all duration-200 active:scale-95 ${
                                     active
                                         ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 ring-1 ring-slate-200/60 dark:ring-slate-600/50 shadow-[0_2px_6px_rgba(0,0,0,0.04)]'
-                                        : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-white/60 dark:hover:bg-slate-700/50'
+                                        : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-white dark:hover:bg-slate-700/50'
                                 }`}
                             >
                                 <span className={`w-1.5 h-1.5 rounded-full ${meta.dot}`} />
@@ -77,7 +77,7 @@ export default function QuickFilters({
                 {/* Chaîne section */}
                 {onToggleChain && allChains && allChains.length > 0 && (
                     <div className="flex items-center gap-2 min-w-0">
-                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mr-1.5 shrink-0">
+                        <span className="text-[10px] font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest mr-1.5 shrink-0">
                             {tx(lang, {fr:"Chaîne",ar:"خط الإنتاج",en:"Line",es:"Línea",pt:"Linha",tr:"Hat"})}
                         </span>
                         <div className="flex flex-wrap items-center gap-1.5">
@@ -92,7 +92,7 @@ export default function QuickFilters({
                                         className={`inline-flex items-center gap-1.5 h-6 px-2.5 rounded-lg text-[11px] font-bold transition-all duration-200 active:scale-95 max-w-[10rem] ${
                                             active
                                                 ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 ring-1 ring-slate-200/60 dark:ring-slate-600/50 shadow-[0_2px_6px_rgba(0,0,0,0.04)]'
-                                                : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-white/60 dark:hover:bg-slate-700/50'
+                                                : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-white dark:hover:bg-slate-700/50'
                                         }`}
                                     >
                                         <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${active ? 'bg-indigo-500' : 'bg-slate-350'}`} />
@@ -107,7 +107,7 @@ export default function QuickFilters({
                 {/* Clients section */}
                 {allClients.length > 0 && (
                     <div className="flex items-center gap-2 min-w-0">
-                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mr-1.5 shrink-0">
+                        <span className="text-[10px] font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest mr-1.5 shrink-0">
                             {tx(lang, {fr:"Client",ar:"عميل",en:"Client",es:"Cliente",pt:"Cliente",tr:"Müşteri"})}
                         </span>
                         <div className="flex flex-wrap items-center gap-1.5">
@@ -122,7 +122,7 @@ export default function QuickFilters({
                                         className={`inline-flex items-center gap-1.5 h-6 px-2.5 rounded-lg text-[11px] font-bold transition-all duration-200 active:scale-95 max-w-[10rem] ${
                                             active
                                                 ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 ring-1 ring-slate-200/60 dark:ring-slate-600/50 shadow-[0_2px_6px_rgba(0,0,0,0.04)]'
-                                                : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-white/60 dark:hover:bg-slate-700/50'
+                                                : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-white dark:hover:bg-slate-700/50'
                                         }`}
                                     >
                                         <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: color }} />
@@ -131,7 +131,7 @@ export default function QuickFilters({
                                 );
                             })}
                             {allClients.length > 8 && (
-                                <span className="text-[10px] font-bold text-slate-400">
+                                <span className="text-[10px] font-bold text-slate-400 dark:text-dk-muted">
                                     +{allClients.length - 8} autres
                                 </span>
                             )}
@@ -142,7 +142,7 @@ export default function QuickFilters({
                 {/* Critical Only Filter section */}
                 {onToggleCriticalOnly && (
                     <div className="flex items-center gap-2">
-                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mr-1.5">
+                        <span className="text-[10px] font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest mr-1.5">
                             {tx(lang, {fr:"Filtres",ar:"مرشحات",en:"Filters",es:"Filtros",pt:"Filtros",tr:"Filtreler"})}
                         </span>
                         <button
@@ -151,7 +151,7 @@ export default function QuickFilters({
                             className={`inline-flex items-center gap-1.5 h-6 px-2.5 rounded-lg text-[11px] font-bold transition-all duration-200 active:scale-95 ${
                                 showCriticalOnly
                                     ? 'bg-red-500/10 text-red-700 ring-1 ring-red-550/25 shadow-[0_2px_6px_rgba(239,68,68,0.05)]'
-                                    : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-white/60 dark:hover:bg-slate-700/50'
+                                    : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-white dark:hover:bg-slate-700/50'
                             }`}
                         >
                             <span className={`w-1.5 h-1.5 rounded-full ${showCriticalOnly ? 'bg-red-550' : 'bg-slate-350'}`} />

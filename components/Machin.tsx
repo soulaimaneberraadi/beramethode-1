@@ -377,7 +377,7 @@ export default function Machin({
               <div className="flex items-center gap-3">
                  <button 
                    onClick={() => setCurrentView('menu')}
-                   className="w-10 h-10 rounded-xl bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border text-slate-500 dark:text-dk-muted flex items-center justify-center hover:bg-slate-50 dark:hover:bg-dk-elevated/60 hover:text-slate-800 dark:text-dk-text transition-colors"
+                   className="w-10 h-10 rounded-xl bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border text-slate-500 dark:text-dk-muted flex items-center justify-center hover:bg-slate-50 dark:hover:bg-dk-elevated/60 hover:text-slate-800 transition-colors"
                  >
                    <ChevronLeft className="w-6 h-6" />
                  </button>
@@ -440,8 +440,8 @@ export default function Machin({
                 title={tx(lang, { fr: 'Standards & Temps', ar: 'المعايير والأوقات', en: 'Standards & Times', es: 'Estándares & Tiempos', pt: 'Padrões & Tempos', tr: 'Standartlar & Süreler' })}
                 desc={tx(lang, { fr: 'Configurez les temps standards, les facteurs de complexité et les vitesses.', ar: 'تكوين الأوقات القياسية وعوامل التعقيد والسرعات', en: 'Configure standard times, complexity factors and speeds.', es: 'Configure los tiempos estándar, factores de complejidad y velocidades.', pt: 'Configure os tempos padrão, fatores de complexidade e velocidades.', tr: 'Standart süreleri, karmaşıklık faktörlerini ve hızları yapılandırın.' })}
                 icon={Settings}
-                bgClass="bg-indigo-50"
-                colorClass="text-indigo-600"
+                bgClass="bg-indigo-50 dark:bg-dk-accent/20"
+                colorClass="text-indigo-600 dark:text-dk-accent-text"
                 onClick={() => setCurrentView('standards')}
               />
               <MenuCard 
@@ -473,7 +473,7 @@ export default function Machin({
                   <input 
                     type="text" 
                     placeholder={tx(lang, { fr: 'Rechercher par nom ou classe...', ar: 'البحث بالاسم أو الطبقة...', en: 'Search by name or class...', es: 'Buscar por nombre o clase...', pt: 'Pesquisar por nome ou classe...', tr: 'Ada veya sınıfa göre ara...' })}
-                    className="flex-1 bg-transparent border-none outline-none text-slate-700 dark:text-dk-text-soft placeholder:text-slate-400 dark:text-dk-muted h-10 w-full min-w-0"
+                    className="flex-1 bg-transparent border-none outline-none text-slate-700 dark:text-dk-text-soft placeholder:text-slate-400 h-10 w-full min-w-0"
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                   />
@@ -533,7 +533,7 @@ export default function Machin({
                     <h3 className="font-bold text-slate-800 dark:text-dk-text">{tx(lang, { fr: 'Facteurs de Guide (Complexité)', ar: 'عوامل الدليل (التعقيد)', en: 'Guide Factors (Complexity)', es: 'Factores de Guía (Complejidad)', pt: 'Fatores de Guia (Complexidade)', tr: 'Kılavuz Faktörleri (Karmaşıklık)' })}</h3>
                     <p className="text-xs text-slate-500 dark:text-dk-muted">{tx(lang, { fr: 'Coefficients appliqués selon la difficulté de manipulation.', ar: 'معاملات تُطبق حسب صعوبة التشغيل', en: 'Coefficients applied according to handling difficulty.', es: 'Coeficientes aplicados según la dificultad de manipulación.', pt: 'Coeficientes aplicados conforme a dificuldade de manipulação.', tr: 'Kullanım zorluğuna göre uygulanan katsayılar.' })}</p>
                   </div>
-                  <button onClick={() => openComplexityModal()} className="p-2 bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-lg hover:border-indigo-300 hover:text-indigo-600 transition-colors shadow-sm">
+                  <button onClick={() => openComplexityModal()} className="p-2 bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-lg hover:border-indigo-300 hover:text-indigo-600 dark:text-dk-accent-text transition-colors shadow-sm">
                     <Plus className="w-4 h-4" />
                   </button>
                 </div>
@@ -550,10 +550,10 @@ export default function Machin({
                       {complexityFactors.map(item => (
                         <tr key={item.id} className="hover:bg-slate-50 dark:hover:bg-dk-elevated/60 transition-colors">
                           <td className="py-3 px-6 font-medium text-slate-700 dark:text-dk-text-soft">{item.label}</td>
-                          <td className="py-3 px-6 text-center"><span className="px-2 py-1 bg-indigo-50 text-indigo-700 rounded-md font-bold">{item.value}</span></td>
+                          <td className="py-3 px-6 text-center"><span className="px-2 py-1 bg-indigo-50 dark:bg-dk-accent/20 text-indigo-700 dark:text-dk-accent-text rounded-md font-bold">{item.value}</span></td>
                           <td className="py-3 px-6 text-right">
                             <div className="flex justify-end gap-1">
-                              <button onClick={() => openComplexityModal(item)} className="p-1.5 text-slate-400 dark:text-dk-muted hover:text-indigo-600 rounded"><Edit2 className="w-3.5 h-3.5" /></button>
+                              <button onClick={() => openComplexityModal(item)} className="p-1.5 text-slate-400 dark:text-dk-muted hover:text-indigo-600 dark:text-dk-accent-text rounded"><Edit2 className="w-3.5 h-3.5" /></button>
                               <button onClick={() => setDeleteData({type: 'complexity', id: item.id})} className="p-1.5 text-slate-400 dark:text-dk-muted hover:text-rose-600 rounded"><Trash2 className="w-3.5 h-3.5" /></button>
                             </div>
                           </td>
@@ -655,7 +655,7 @@ export default function Machin({
                   <input 
                     type="text" 
                     placeholder={tx(lang, { fr: 'Rechercher un guide, un pied, une machine...', ar: 'البحث عن دليل أو قدم أو ماكينة...', en: 'Search for a guide, foot, machine...', es: 'Buscar una guía, un pie, una máquina...', pt: 'Pesquisar um guia, um pé, uma máquina...', tr: 'Bir kılavuz, ayak, makine ara...' })}
-                    className="flex-1 bg-transparent border-none outline-none text-slate-700 dark:text-dk-text-soft placeholder:text-slate-400 dark:text-dk-muted h-10 w-full min-w-0"
+                    className="flex-1 bg-transparent border-none outline-none text-slate-700 dark:text-dk-text-soft placeholder:text-slate-400 h-10 w-full min-w-0"
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                   />
@@ -731,7 +731,7 @@ export default function Machin({
               <div className="flex items-center justify-between flex-wrap gap-3">
                 <button
                   onClick={() => setCurrentView('menu')}
-                  className="flex items-center gap-2 px-4 py-2.5 text-slate-600 dark:text-dk-muted font-bold rounded-xl hover:bg-slate-100 dark:hover:bg-dk-elevated dark:bg-dk-elevated transition-colors"
+                  className="flex items-center gap-2 px-4 py-2.5 text-slate-600 dark:text-dk-muted font-bold rounded-xl hover:bg-slate-100 dark:hover:bg-dk-elevated transition-colors"
                 >
                   <ChevronLeft className="w-4 h-4" /> {tx(lang, { fr: 'Retour', ar: 'العودة', en: 'Back', es: 'Volver', pt: 'Voltar', tr: 'Geri' })}
                 </button>
@@ -862,7 +862,7 @@ export default function Machin({
                 {modalType === 'time' && tx(lang, { fr: ' Temps Standard', ar: ' وقت قياسي', en: ' Standard Time', es: ' Tiempo Estándar', pt: ' Tempo Padrão', tr: ' Standart Süre' })}
                 {modalType === 'guide' && tx(lang, { fr: ' Guide / Accessoire', ar: ' دليل / ملحق', en: ' Guide / Accessory', es: ' Guía / Accesorio', pt: ' Guia / Acessório', tr: ' Kılavuz / Aksesuar' })}
               </h3>
-              <button type="button" onClick={closeModal} className="text-slate-400 dark:text-dk-muted hover:text-slate-600 dark:text-dk-muted p-1 hover:bg-slate-200 rounded-lg transition-colors"><X className="w-5 h-5" /></button>
+              <button type="button" onClick={closeModal} className="text-slate-400 dark:text-dk-muted hover:text-slate-600 p-1 hover:bg-slate-200 rounded-lg transition-colors"><X className="w-5 h-5" /></button>
             </div>
             <div className="p-6">
                 {modalType === 'machine' && (
@@ -929,7 +929,7 @@ export default function Machin({
                 <form onSubmit={saveComplexity} className="space-y-4">
                   <div><label className="block text-xs font-semibold text-slate-500 dark:text-dk-muted uppercase mb-1.5">{tx(lang, { fr: 'Description', ar: 'الوصف', en: 'Description', es: 'Descripción', pt: 'Descrição', tr: 'Açıklama' })}</label><input type="text" required value={complexityForm.label} onChange={e => setComplexityForm({...complexityForm, label: e.target.value})} className="w-full bg-slate-50 dark:bg-dk-elevated border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2.5 text-slate-700 dark:text-dk-text-soft outline-none focus:border-indigo-500 transition-all" /></div>
                   <div><label className="block text-xs font-semibold text-slate-500 dark:text-dk-muted uppercase mb-1.5">{tx(lang, { fr: 'Majoration', ar: 'الزيادة', en: 'Surcharge', es: 'Recargo', pt: 'Majoração', tr: 'Zam' })}</label><input type="number" step="0.01" required value={complexityForm.value} onChange={e => setComplexityForm({...complexityForm, value: Number(e.target.value)})} className="w-full bg-slate-50 dark:bg-dk-elevated border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2.5 text-slate-700 dark:text-dk-text-soft outline-none focus:border-indigo-500 transition-all" /></div>
-                  <button type="submit" className="w-full py-2.5 rounded-xl bg-indigo-600 text-white font-medium hover:bg-indigo-700 shadow-lg shadow-indigo-200 transition-all mt-2">{tx(lang, { fr: 'Enregistrer', ar: 'حفظ', en: 'Save', es: 'Guardar', pt: 'Guardar', tr: 'Kaydet' })}</button>
+                  <button type="submit" className="w-full py-2.5 rounded-xl bg-indigo-600 dark:bg-dk-accent text-white font-medium hover:bg-indigo-700 dark:hover:bg-dk-accent-hover shadow-lg shadow-indigo-200 transition-all mt-2">{tx(lang, { fr: 'Enregistrer', ar: 'حفظ', en: 'Save', es: 'Guardar', pt: 'Guardar', tr: 'Kaydet' })}</button>
                 </form>
               )}
               {modalType === 'time' && (

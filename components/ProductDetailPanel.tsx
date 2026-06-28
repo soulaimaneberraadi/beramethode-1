@@ -73,7 +73,7 @@ const CAT_COLORS: Record<string, { bg: string; text: string; border: string }> =
     tissu: { bg: 'bg-blue-50', text: 'text-blue-700', border: 'border-blue-200' },
     fil: { bg: 'bg-purple-50', text: 'text-purple-700', border: 'border-purple-200' },
     bouton: { bg: 'bg-amber-50', text: 'text-amber-700', border: 'border-amber-200' },
-    fermeture: { bg: 'bg-slate-50', text: 'text-slate-700', border: 'border-slate-200' },
+    fermeture: { bg: 'bg-slate-50 dark:bg-dk-bg', text: 'text-slate-700 dark:text-dk-text-soft', border: 'border-slate-200 dark:border-dk-border' },
     etiquette: { bg: 'bg-green-50', text: 'text-green-700', border: 'border-green-200' },
     emballage: { bg: 'bg-orange-50', text: 'text-orange-700', border: 'border-orange-200' },
     autre: { bg: 'bg-rose-50', text: 'text-rose-700', border: 'border-rose-200' },
@@ -178,18 +178,18 @@ export default function ProductDetailPanel({ product, lots, mouvements, onClose,
         <div className="fixed inset-0 z-[100] flex">
             <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={onClose} />
             
-            <div className="relative ml-auto w-full max-w-2xl h-full bg-white shadow-2xl flex flex-col animate-in slide-in-from-right duration-300">
+            <div className="relative ml-auto w-full max-w-2xl h-full bg-white dark:bg-dk-surface shadow-2xl flex flex-col animate-in slide-in-from-right duration-300">
                 
                 <div className={`shrink-0 ${catColor.bg} border-b ${catColor.border}`}>
                     <div className="p-6">
                         <div className="flex items-start justify-between gap-4">
                             <div className="flex items-start gap-4 flex-1 min-w-0">
-                                <div className="w-20 h-20 rounded-2xl bg-white border-2 border-white shadow-lg overflow-hidden shrink-0">
+                                <div className="w-20 h-20 rounded-2xl bg-white dark:bg-dk-surface border-2 border-white shadow-lg overflow-hidden shrink-0">
                                     {product.photo ? (
                                         <img src={product.photo} alt="" className="w-full h-full object-cover" />
                                     ) : (
                                         <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-slate-100 to-slate-200">
-                                            <Package className="w-8 h-8 text-slate-400" />
+                                            <Package className="w-8 h-8 text-slate-400 dark:text-dk-muted" />
                                         </div>
                                     )}
                                 </div>
@@ -199,11 +199,11 @@ export default function ProductDetailPanel({ product, lots, mouvements, onClose,
                                         <span className={`px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wide ${catColor.bg} ${catColor.text} border ${catColor.border}`}>
                                             {product.categorie}
                                         </span>
-                                        <span className="text-xs font-mono text-slate-500">{product.reference}</span>
+                                        <span className="text-xs font-mono text-slate-500 dark:text-dk-muted">{product.reference}</span>
                                     </div>
-                                    <h2 className="text-xl font-black text-slate-800 truncate">{product.designation}</h2>
+                                    <h2 className="text-xl font-black text-slate-800 dark:text-dk-text truncate">{product.designation}</h2>
                                     {product.emplacement && (
-                                        <p className="flex items-center gap-1 text-sm text-slate-500 mt-1">
+                                        <p className="flex items-center gap-1 text-sm text-slate-500 dark:text-dk-muted mt-1">
                                             <MapPin className="w-3.5 h-3.5" />
                                             {product.emplacement}
                                         </p>
@@ -215,7 +215,7 @@ export default function ProductDetailPanel({ product, lots, mouvements, onClose,
                                 {!isEditing ? (
                                     <button
                                         onClick={() => setIsEditing(true)}
-                                        className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white border border-slate-200 text-sm font-bold text-slate-700 hover:bg-slate-50 transition-all shadow-sm"
+                                        className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border text-sm font-bold text-slate-700 dark:text-dk-text-soft hover:bg-slate-50 dark:hover:bg-dk-elevated/60 transition-all shadow-sm"
                                     >
                                         <Edit2 className="w-4 h-4" /> {_({fr:'Modifier',ar:'تعديل',en:'Edit',es:'Editar',pt:'Editar',tr:'Düzenle'})}
                                     </button>
@@ -229,7 +229,7 @@ export default function ProductDetailPanel({ product, lots, mouvements, onClose,
                                 )}
                                 <button
                                     onClick={onClose}
-                                    className="p-2 rounded-xl hover:bg-white/80 text-slate-500 hover:text-slate-800 transition-colors"
+                                    className="p-2 rounded-xl hover:bg-white text-slate-500 hover:text-slate-800 transition-colors"
                                 >
                                     <X className="w-5 h-5" />
                                 </button>
@@ -249,8 +249,8 @@ export default function ProductDetailPanel({ product, lots, mouvements, onClose,
                                 onClick={() => setActiveTab(tab.id as any)}
                                 className={`flex items-center gap-2 px-4 py-2.5 text-sm font-bold rounded-t-xl transition-all ${
                                     activeTab === tab.id
-                                        ? 'bg-white text-slate-800 shadow-sm'
-                                        : 'text-slate-600 hover:text-slate-800 hover:bg-white/50'
+                                        ? 'bg-white dark:bg-dk-surface text-slate-800 dark:text-dk-text shadow-sm'
+                                        : 'text-slate-600 hover:text-slate-800 hover:bg-white'
                                 }`}
                             >
                                 <tab.icon className="w-4 h-4" />
@@ -263,28 +263,28 @@ export default function ProductDetailPanel({ product, lots, mouvements, onClose,
                     </div>
                 </div>
 
-                <div className="flex-1 overflow-y-auto bg-slate-50">
+                <div className="flex-1 overflow-y-auto bg-slate-50 dark:bg-dk-bg">
                     
                     {activeTab === 'overview' && (
                         <div className="p-6 space-y-6">
                             <div className="grid grid-cols-3 gap-4">
-                                <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm">
+                                <div className="bg-white dark:bg-dk-surface rounded-2xl p-5 border border-slate-200 dark:border-dk-border shadow-sm">
                                     <div className="flex items-center justify-between mb-3">
-                                        <Package className="w-5 h-5 text-indigo-600" />
+                                        <Package className="w-5 h-5 text-indigo-600 dark:text-dk-accent-text" />
                                         {currentStock <= product.stockAlerte ? (
                                             <span className="px-2 py-0.5 rounded-full bg-red-100 text-red-700 text-[10px] font-black">{_({fr:'ALERTE',ar:'تنبيه',en:'ALERT',es:'ALERTA',pt:'ALERTA',tr:'UYARI'})}</span>
                                         ) : (
                                             <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 text-[10px] font-black">{_({fr:'OK',ar:'موافق',en:'OK',es:'OK',pt:'OK',tr:'Tamam'})}</span>
                                         )}
                                     </div>
-                                    <p className="text-3xl font-black text-slate-800">{currentStock.toFixed(1)}</p>
-                                    <p className="text-xs text-slate-500 font-bold mt-1">{product.unite} {_({fr:'en stock',ar:'في المخزون',en:'in stock',es:'en stock',pt:'em stock',tr:'stokta'})}</p>
-                                    <div className="mt-2 pt-2 border-t border-slate-100 text-[10px] text-slate-400">
+                                    <p className="text-3xl font-black text-slate-800 dark:text-dk-text">{currentStock.toFixed(1)}</p>
+                                    <p className="text-xs text-slate-500 dark:text-dk-muted font-bold mt-1">{product.unite} {_({fr:'en stock',ar:'في المخزون',en:'in stock',es:'en stock',pt:'em stock',tr:'stokta'})}</p>
+                                    <div className="mt-2 pt-2 border-t border-slate-100 dark:border-dk-border text-[10px] text-slate-400 dark:text-dk-muted">
                                         {_({fr:'Seuil:',ar:'الحد الأدنى:',en:'Threshold:',es:'Umbral:',pt:'Limite:',tr:'Eşik:'})} {product.stockAlerte} {product.unite}
                                     </div>
                                 </div>
 
-                                <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm">
+                                <div className="bg-white dark:bg-dk-surface rounded-2xl p-5 border border-slate-200 dark:border-dk-border shadow-sm">
                                     <div className="flex items-center justify-between mb-3">
                                         <Activity className="w-5 h-5 text-violet-600" />
                                         {consumptionStats.trend > 0 ? (
@@ -297,21 +297,21 @@ export default function ProductDetailPanel({ product, lots, mouvements, onClose,
                                             </span>
                                         ) : null}
                                     </div>
-                                    <p className="text-3xl font-black text-slate-800">{consumptionStats.avgPerWeek.toFixed(1)}</p>
-                                    <p className="text-xs text-slate-500 font-bold mt-1">{product.unite}/{_({fr:'semaine',ar:'أسبوع',en:'week',es:'semana',pt:'semana',tr:'hafta'})}</p>
-                                    <div className="mt-2 pt-2 border-t border-slate-100 text-[10px] text-slate-400">
+                                    <p className="text-3xl font-black text-slate-800 dark:text-dk-text">{consumptionStats.avgPerWeek.toFixed(1)}</p>
+                                    <p className="text-xs text-slate-500 dark:text-dk-muted font-bold mt-1">{product.unite}/{_({fr:'semaine',ar:'أسبوع',en:'week',es:'semana',pt:'semana',tr:'hafta'})}</p>
+                                    <div className="mt-2 pt-2 border-t border-slate-100 dark:border-dk-border text-[10px] text-slate-400 dark:text-dk-muted">
                                         30j: {consumptionStats.totalConsumed.toFixed(1)} {product.unite}
                                     </div>
                                 </div>
 
-                                <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm">
+                                <div className="bg-white dark:bg-dk-surface rounded-2xl p-5 border border-slate-200 dark:border-dk-border shadow-sm">
                                     <div className="flex items-center justify-between mb-3">
                                         <DollarSign className="w-5 h-5 text-emerald-600" />
-                                        <span className="text-[10px] text-slate-400 font-bold">CUMP</span>
+                                        <span className="text-[10px] text-slate-400 dark:text-dk-muted font-bold">CUMP</span>
                                     </div>
-                                    <p className="text-3xl font-black text-slate-800">{stockValue.toLocaleString()}</p>
-                                    <p className="text-xs text-slate-500 font-bold mt-1">{_({fr:'DH valeur stock',ar:'درهم قيمة المخزون',en:'MAD stock value',es:'DH valor stock',pt:'DH valor stock',tr:'Stok değeri (MAD)'})}</p>
-                                    <div className="mt-2 pt-2 border-t border-slate-100 text-[10px] text-slate-400">
+                                    <p className="text-3xl font-black text-slate-800 dark:text-dk-text">{stockValue.toLocaleString()}</p>
+                                    <p className="text-xs text-slate-500 dark:text-dk-muted font-bold mt-1">{_({fr:'DH valeur stock',ar:'درهم قيمة المخزون',en:'MAD stock value',es:'DH valor stock',pt:'DH valor stock',tr:'Stok değeri (MAD)'})}</p>
+                                    <div className="mt-2 pt-2 border-t border-slate-100 dark:border-dk-border text-[10px] text-slate-400 dark:text-dk-muted">
                                         PU: {(product.cump || product.prixUnitaire).toFixed(2)} DH
                                     </div>
                                 </div>
@@ -346,30 +346,30 @@ export default function ProductDetailPanel({ product, lots, mouvements, onClose,
                             )}
 
                             {chainsUsage.length > 0 && (
-                                <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-                                    <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
-                                        <h3 className="font-black text-slate-800 flex items-center gap-2">
-                                            <Factory className="w-4 h-4 text-slate-400" />
+                                <div className="bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border shadow-sm overflow-hidden">
+                                    <div className="px-5 py-4 border-b border-slate-100 dark:border-dk-border flex items-center justify-between">
+                                        <h3 className="font-black text-slate-800 dark:text-dk-text flex items-center gap-2">
+                                            <Factory className="w-4 h-4 text-slate-400 dark:text-dk-muted" />
                                             {_({fr:'Chaînes Utilisatrices',ar:'الخطوط المستخدمة',en:'Using Lines',es:'Líneas Usuarias',pt:'Linhas Utilizadoras',tr:'Kullanan Hatlar'})}
                                         </h3>
-                                        <span className="text-xs text-slate-400 font-bold">{chainsUsage.length} {_({fr:'chaîne(s)',ar:'خط(وط)',en:'line(s)',es:'línea(s)',pt:'linha(s)',tr:'hat'})}</span>
+                                        <span className="text-xs text-slate-400 dark:text-dk-muted font-bold">{chainsUsage.length} {_({fr:'chaîne(s)',ar:'خط(وط)',en:'line(s)',es:'línea(s)',pt:'linha(s)',tr:'hat'})}</span>
                                     </div>
                                     <div className="divide-y divide-slate-50">
                                         {chainsUsage.slice(0, 5).map(ch => (
-                                            <div key={ch.id} className="px-5 py-3 flex items-center justify-between hover:bg-slate-50 transition-colors">
+                                            <div key={ch.id} className="px-5 py-3 flex items-center justify-between hover:bg-slate-50 dark:hover:bg-dk-elevated/60 transition-colors">
                                                 <div className="flex items-center gap-3">
-                                                    <div className="w-10 h-10 rounded-xl bg-indigo-50 flex items-center justify-center">
-                                                        <Factory className="w-5 h-5 text-indigo-600" />
+                                                    <div className="w-10 h-10 rounded-xl bg-indigo-50 dark:bg-dk-accent/20 flex items-center justify-center">
+                                                        <Factory className="w-5 h-5 text-indigo-600 dark:text-dk-accent-text" />
                                                     </div>
                                                     <div>
-                                                        <p className="font-bold text-slate-800">{ch.id}</p>
-                                                        <p className="text-xs text-slate-400">{_({fr:'Dernier:',ar:'آخر:',en:'Last:',es:'Último:',pt:'Último:',tr:'Son:'})} {formatDate(ch.lastUse)}</p>
+                                                        <p className="font-bold text-slate-800 dark:text-dk-text">{ch.id}</p>
+                                                        <p className="text-xs text-slate-400 dark:text-dk-muted">{_({fr:'Dernier:',ar:'آخر:',en:'Last:',es:'Último:',pt:'Último:',tr:'Son:'})} {formatDate(ch.lastUse)}</p>
                                                     </div>
                                                 </div>
                                                 <div className="text-right">
-                                                    <p className="font-black text-slate-700">{ch.qty.toFixed(1)} {product.unite}</p>
+                                                    <p className="font-black text-slate-700 dark:text-dk-text-soft">{ch.qty.toFixed(1)} {product.unite}</p>
                                                     {ch.ofs.length > 0 && (
-                                                        <p className="text-[10px] text-indigo-600 font-bold">{ch.ofs.slice(0, 2).join(', ')}</p>
+                                                        <p className="text-[10px] text-indigo-600 dark:text-dk-accent-text font-bold">{ch.ofs.slice(0, 2).join(', ')}</p>
                                                     )}
                                                 </div>
                                             </div>
@@ -378,15 +378,15 @@ export default function ProductDetailPanel({ product, lots, mouvements, onClose,
                                 </div>
                             )}
 
-                            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-                                <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
-                                    <h3 className="font-black text-slate-800 flex items-center gap-2">
-                                        <History className="w-4 h-4 text-slate-400" />
+                            <div className="bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border shadow-sm overflow-hidden">
+                                <div className="px-5 py-4 border-b border-slate-100 dark:border-dk-border flex items-center justify-between">
+                                    <h3 className="font-black text-slate-800 dark:text-dk-text flex items-center gap-2">
+                                        <History className="w-4 h-4 text-slate-400 dark:text-dk-muted" />
                                         {_({fr:'Activité Récente',ar:'النشاط الأخير',en:'Recent Activity',es:'Actividad Reciente',pt:'Atividade Recente',tr:'Son Aktivite'})}
                                     </h3>
                                     <button 
                                         onClick={() => setActiveTab('history')}
-                                        className="text-xs text-indigo-600 font-bold hover:text-indigo-700 flex items-center gap-1"
+                                        className="text-xs text-indigo-600 dark:text-dk-accent-text font-bold hover:text-indigo-700 dark:text-dk-accent-text flex items-center gap-1"
                                     >
                                         {_({fr:'Voir tout',ar:'عرض الكل',en:'View all',es:'Ver todo',pt:'Ver tudo',tr:'Tümünü gör'})} <ChevronRight className="w-3 h-3" />
                                     </button>
@@ -400,26 +400,26 @@ export default function ProductDetailPanel({ product, lots, mouvements, onClose,
                                                 key={mvt.id}
                                                 type="button"
                                                 onClick={() => onEditMovement?.(mvt)}
-                                                className="w-full text-left px-5 py-3 flex items-center gap-4 hover:bg-slate-50 transition-colors"
+                                                className="w-full text-left px-5 py-3 flex items-center gap-4 hover:bg-slate-50 dark:hover:bg-dk-elevated/60 transition-colors"
                                             >
                                                 <div className={`w-9 h-9 rounded-lg ${conf.bg} flex items-center justify-center shrink-0`}>
                                                     <Icon className={`w-4 h-4 ${conf.color}`} />
                                                 </div>
                                                 <div className="flex-1 min-w-0">
-                                                    <p className="text-sm font-bold text-slate-700 capitalize">{mvt.type.replace('_', ' ')}</p>
-                                                    <p className="text-xs text-slate-400 truncate">{mvt.notes || (mvt.chaineId ? `→ ${mvt.chaineId}` : '—')}</p>
+                                                    <p className="text-sm font-bold text-slate-700 dark:text-dk-text-soft capitalize">{mvt.type.replace('_', ' ')}</p>
+                                                    <p className="text-xs text-slate-400 dark:text-dk-muted truncate">{mvt.notes || (mvt.chaineId ? `→ ${mvt.chaineId}` : '—')}</p>
                                                 </div>
                                                 <div className="text-right shrink-0">
                                                     <p className={`font-black ${mvt.type === 'entree' || mvt.type === 'retour_atelier' ? 'text-emerald-600' : 'text-rose-600'}`}>
                                                         {mvt.type === 'entree' || mvt.type === 'retour_atelier' ? '+' : '-'}{mvt.quantite}
                                                     </p>
-                                                    <p className="text-[10px] text-slate-400">{formatDate(mvt.date)}</p>
+                                                    <p className="text-[10px] text-slate-400 dark:text-dk-muted">{formatDate(mvt.date)}</p>
                                                 </div>
                                             </button>
                                         );
                                     })}
                                     {productMvts.length === 0 && (
-                                        <div className="px-5 py-8 text-center text-slate-400 text-sm">
+                                        <div className="px-5 py-8 text-center text-slate-400 dark:text-dk-muted text-sm">
                                             {_({fr:'Aucun mouvement enregistré',ar:'لا توجد حركات مسجلة',en:'No movements recorded',es:'Sin movimientos registrados',pt:'Nenhum movimento registado',tr:'Kayıtlı hareket yok'})}
                                         </div>
                                     )}
@@ -430,10 +430,10 @@ export default function ProductDetailPanel({ product, lots, mouvements, onClose,
 
                     {activeTab === 'history' && (
                         <div className="p-6">
-                            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-                                <div className="px-5 py-4 border-b border-slate-100">
-                                    <h3 className="font-black text-slate-800">{_({fr:'Historique Complet',ar:'السجل الكامل',en:'Full History',es:'Historial Completo',pt:'Histórico Completo',tr:'Tam Geçmiş'})}</h3>
-                                    <p className="text-xs text-slate-400 mt-0.5">{productMvts.length} {_({fr:'mouvement(s) enregistré(s)',ar:'حركة (حركات) مسجلة',en:'movement(s) recorded',es:'movimiento(s) registrado(s)',pt:'movimento(s) registado(s)',tr:'kayıtlı hareket'})}</p>
+                            <div className="bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border shadow-sm overflow-hidden">
+                                <div className="px-5 py-4 border-b border-slate-100 dark:border-dk-border">
+                                    <h3 className="font-black text-slate-800 dark:text-dk-text">{_({fr:'Historique Complet',ar:'السجل الكامل',en:'Full History',es:'Historial Completo',pt:'Histórico Completo',tr:'Tam Geçmiş'})}</h3>
+                                    <p className="text-xs text-slate-400 dark:text-dk-muted mt-0.5">{productMvts.length} {_({fr:'mouvement(s) enregistré(s)',ar:'حركة (حركات) مسجلة',en:'movement(s) recorded',es:'movimiento(s) registrado(s)',pt:'movimento(s) registado(s)',tr:'kayıtlı hareket'})}</p>
                                 </div>
                                 <div className="max-h-[500px] overflow-y-auto">
                                     {productMvts.map((mvt, i) => {
@@ -444,14 +444,14 @@ export default function ProductDetailPanel({ product, lots, mouvements, onClose,
                                                 key={mvt.id}
                                                 type="button"
                                                 onClick={() => onEditMovement?.(mvt)}
-                                                className={`w-full text-left px-5 py-4 flex gap-4 ${i % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'} hover:bg-slate-100 transition-colors`}
+                                                className={`w-full text-left px-5 py-4 flex gap-4 ${i % 2 === 0 ? 'bg-white dark:bg-dk-surface' : 'bg-slate-50/50'} hover:bg-slate-100 transition-colors`}
                                             >
                                                 <div className={`w-11 h-11 rounded-xl ${conf.bg} flex items-center justify-center shrink-0`}>
                                                     <Icon className={`w-5 h-5 ${conf.color}`} />
                                                 </div>
                                                 <div className="flex-1 min-w-0">
                                                     <div className="flex items-center gap-2 mb-1">
-                                                        <span className="font-black text-slate-800 capitalize">{mvt.type.replace('_', ' ')}</span>
+                                                        <span className="font-black text-slate-800 dark:text-dk-text capitalize">{mvt.type.replace('_', ' ')}</span>
                                                         <span className={`px-2 py-0.5 rounded text-xs font-bold ${
                                                             mvt.type === 'entree' || mvt.type === 'retour_atelier' 
                                                                 ? 'bg-emerald-100 text-emerald-700' 
@@ -460,7 +460,7 @@ export default function ProductDetailPanel({ product, lots, mouvements, onClose,
                                                             {mvt.type === 'entree' || mvt.type === 'retour_atelier' ? '+' : '-'}{mvt.quantite} {product.unite}
                                                         </span>
                                                     </div>
-                                                    <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500">
+                                                    <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500 dark:text-dk-muted">
                                                         <span className="flex items-center gap-1">
                                                             <Calendar className="w-3 h-3" />
                                                             {formatDate(mvt.date)} à {formatTime(mvt.date)}
@@ -472,7 +472,7 @@ export default function ProductDetailPanel({ product, lots, mouvements, onClose,
                                                             </span>
                                                         )}
                                                         {mvt.modeleRef && (
-                                                            <span className="flex items-center gap-1 text-indigo-600 font-bold">
+                                                            <span className="flex items-center gap-1 text-indigo-600 dark:text-dk-accent-text font-bold">
                                                                 <FileText className="w-3 h-3" />
                                                                 {mvt.modeleRef}
                                                             </span>
@@ -491,15 +491,15 @@ export default function ProductDetailPanel({ product, lots, mouvements, onClose,
                                                         )}
                                                     </div>
                                                     {mvt.notes && (
-                                                        <p className="mt-2 text-xs text-slate-600 italic bg-slate-50 rounded-lg px-3 py-2">
+                                                        <p className="mt-2 text-xs text-slate-600 dark:text-dk-text-soft italic bg-slate-50 dark:bg-dk-bg rounded-lg px-3 py-2">
                                                             "{mvt.notes}"
                                                         </p>
                                                     )}
                                                 </div>
                                                 {mvt.prixUnitaire && (
                                                     <div className="text-right shrink-0">
-                                                        <p className="text-sm font-bold text-slate-600">{mvt.prixUnitaire.toFixed(2)} DH</p>
-                                                        <p className="text-[10px] text-slate-400">/{product.unite}</p>
+                                                        <p className="text-sm font-bold text-slate-600 dark:text-dk-text-soft">{mvt.prixUnitaire.toFixed(2)} DH</p>
+                                                        <p className="text-[10px] text-slate-400 dark:text-dk-muted">/{product.unite}</p>
                                                     </div>
                                                 )}
                                             </button>
@@ -508,7 +508,7 @@ export default function ProductDetailPanel({ product, lots, mouvements, onClose,
                                     {productMvts.length === 0 && (
                                         <div className="px-5 py-16 text-center">
                                             <History className="w-12 h-12 text-slate-200 mx-auto mb-3" />
-                                            <p className="text-slate-400 font-bold">{_({fr:'Aucun mouvement',ar:'لا توجد حركات',en:'No movements',es:'Sin movimientos',pt:'Nenhum movimento',tr:'Hareket yok'})}</p>
+                                            <p className="text-slate-400 dark:text-dk-muted font-bold">{_({fr:'Aucun mouvement',ar:'لا توجد حركات',en:'No movements',es:'Sin movimientos',pt:'Nenhum movimento',tr:'Hareket yok'})}</p>
                                         </div>
                                     )}
                                 </div>
@@ -519,7 +519,7 @@ export default function ProductDetailPanel({ product, lots, mouvements, onClose,
                     {activeTab === 'supplier' && (
                         <div className="p-6 space-y-6">
                             <div
-                                className={`bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden ${!isEditing ? 'cursor-pointer hover:shadow-md' : ''}`}
+                                className={`bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border shadow-sm overflow-hidden ${!isEditing ? 'cursor-pointer hover:shadow-md' : ''}`}
                                 onClick={() => {
                                     if (!isEditing) {
                                         setActiveTab('supplier');
@@ -527,26 +527,26 @@ export default function ProductDetailPanel({ product, lots, mouvements, onClose,
                                     }
                                 }}
                             >
-                                <div className="px-5 py-4 border-b border-slate-100 bg-gradient-to-r from-indigo-50 to-purple-50">
+                                <div className="px-5 py-4 border-b border-slate-100 dark:border-dk-border bg-gradient-to-r from-indigo-50 to-purple-50">
                                     <div className="flex items-center gap-3">
-                                        <div className="w-12 h-12 rounded-xl bg-white shadow-sm flex items-center justify-center">
-                                            <Building2 className="w-6 h-6 text-indigo-600" />
+                                        <div className="w-12 h-12 rounded-xl bg-white dark:bg-dk-surface shadow-sm flex items-center justify-center">
+                                            <Building2 className="w-6 h-6 text-indigo-600 dark:text-dk-accent-text" />
                                         </div>
                                         <div className="flex-1 min-w-0">
-                                            <h3 className="font-black text-slate-800">
+                                            <h3 className="font-black text-slate-800 dark:text-dk-text">
                                                 {isEditing ? (
                                                     <input
                                                         type="text"
                                                         value={editData.fournisseurNom || ''}
                                                         onChange={e => setField('fournisseurNom', e.target.value)}
-                                                        className="w-full px-3 py-1 rounded-lg border border-indigo-200 text-slate-800 font-black"
+                                                        className="w-full px-3 py-1 rounded-lg border border-indigo-200 text-slate-800 dark:text-dk-text font-black"
                                                         placeholder={_({fr:'Nom du fournisseur',ar:'اسم المورد',en:'Supplier name',es:'Nombre del proveedor',pt:'Nome do fornecedor',tr:'Tedarikçi adı'})}
                                                     />
                                                 ) : (
                                                     product.fournisseurNom || _({fr:'Non défini',ar:'غير محدد',en:'Not set',es:'No definido',pt:'Não definido',tr:'Tanımlanmamış'})
                                                 )}
                                             </h3>
-                                            <p className="text-xs text-slate-500">{_({fr:'Fournisseur Principal',ar:'المورد الرئيسي',en:'Main Supplier',es:'Proveedor Principal',pt:'Fornecedor Principal',tr:'Ana Tedarikçi'})}</p>
+                                            <p className="text-xs text-slate-500 dark:text-dk-muted">{_({fr:'Fournisseur Principal',ar:'المورد الرئيسي',en:'Main Supplier',es:'Proveedor Principal',pt:'Fornecedor Principal',tr:'Ana Tedarikçi'})}</p>
                                         </div>
                                         {!isEditing && (
                                             <button
@@ -555,7 +555,7 @@ export default function ProductDetailPanel({ product, lots, mouvements, onClose,
                                                     e.stopPropagation();
                                                     setIsEditing(true);
                                                 }}
-                                                className="rounded-full px-3 py-1 text-xs font-black text-indigo-700 bg-indigo-100 hover:bg-indigo-200"
+                                                className="rounded-full px-3 py-1 text-xs font-black text-indigo-700 dark:text-dk-accent-text bg-indigo-100 hover:bg-indigo-200"
                                             >
                                                 {_({fr:'Modifier',ar:'تعديل',en:'Edit',es:'Editar',pt:'Editar',tr:'Düzenle'})}
                                             </button>
@@ -566,7 +566,7 @@ export default function ProductDetailPanel({ product, lots, mouvements, onClose,
                                 <div className="p-5 space-y-4">
                                     <div className="grid grid-cols-2 gap-4">
                                         <div className="space-y-1">
-                                            <label className="text-[10px] font-black text-slate-400 uppercase flex items-center gap-1">
+                                            <label className="text-[10px] font-black text-slate-400 dark:text-dk-muted uppercase flex items-center gap-1">
                                                 <Phone className="w-3 h-3" /> {_({fr:'Téléphone',ar:'الهاتف',en:'Phone',es:'Teléfono',pt:'Telefone',tr:'Telefon'})}
                                             </label>
                                             {isEditing ? (
@@ -574,15 +574,15 @@ export default function ProductDetailPanel({ product, lots, mouvements, onClose,
                                                     type="tel"
                                                     value={editData.fournisseurTel || ''}
                                                     onChange={e => setField('fournisseurTel', e.target.value)}
-                                                    className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm"
+                                                    className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-dk-border text-sm"
                                                     placeholder="+212 5XX-XXXXXX"
                                                 />
                                             ) : (
-                                                <p className="text-sm font-bold text-slate-700">{product.fournisseurTel || '—'}</p>
+                                                <p className="text-sm font-bold text-slate-700 dark:text-dk-text-soft">{product.fournisseurTel || '—'}</p>
                                             )}
                                         </div>
                                         <div className="space-y-1">
-                                            <label className="text-[10px] font-black text-slate-400 uppercase flex items-center gap-1">
+                                            <label className="text-[10px] font-black text-slate-400 dark:text-dk-muted uppercase flex items-center gap-1">
                                                 <Mail className="w-3 h-3" /> Email
                                             </label>
                                             {isEditing ? (
@@ -590,17 +590,17 @@ export default function ProductDetailPanel({ product, lots, mouvements, onClose,
                                                     type="email"
                                                     value={editData.fournisseurEmail || ''}
                                                     onChange={e => setField('fournisseurEmail', e.target.value)}
-                                                    className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm"
+                                                    className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-dk-border text-sm"
                                                     placeholder="contact@fournisseur.ma"
                                                 />
                                             ) : (
-                                                <p className="text-sm font-bold text-slate-700">{product.fournisseurEmail || '—'}</p>
+                                                <p className="text-sm font-bold text-slate-700 dark:text-dk-text-soft">{product.fournisseurEmail || '—'}</p>
                                             )}
                                         </div>
                                     </div>
 
                                     <div className="space-y-1">
-                                        <label className="text-[10px] font-black text-slate-400 uppercase flex items-center gap-1">
+                                        <label className="text-[10px] font-black text-slate-400 dark:text-dk-muted uppercase flex items-center gap-1">
                                             <MapPin className="w-3 h-3" /> {_({fr:'Adresse',ar:'العنوان',en:'Address',es:'Dirección',pt:'Endereço',tr:'Adres'})}
                                         </label>
                                         {isEditing ? (
@@ -608,17 +608,17 @@ export default function ProductDetailPanel({ product, lots, mouvements, onClose,
                                                 type="text"
                                                 value={editData.fournisseurAdresse || ''}
                                                 onChange={e => setField('fournisseurAdresse', e.target.value)}
-                                                className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm"
+                                                className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-dk-border text-sm"
                                                 placeholder={_({fr:'Adresse complète',ar:'العنوان الكامل',en:'Full address',es:'Dirección completa',pt:'Endereço completo',tr:'Tam adres'})}
                                             />
                                         ) : (
-                                            <p className="text-sm font-bold text-slate-700">{product.fournisseurAdresse || '—'}</p>
+                                            <p className="text-sm font-bold text-slate-700 dark:text-dk-text-soft">{product.fournisseurAdresse || '—'}</p>
                                         )}
                                     </div>
 
-                                    <div className="grid grid-cols-2 gap-4 pt-4 border-t border-slate-100">
+                                    <div className="grid grid-cols-2 gap-4 pt-4 border-t border-slate-100 dark:border-dk-border">
                                         <div className="space-y-1">
-                                            <label className="text-[10px] font-black text-slate-400 uppercase flex items-center gap-1">
+                                            <label className="text-[10px] font-black text-slate-400 dark:text-dk-muted uppercase flex items-center gap-1">
                                                 <Hash className="w-3 h-3" /> ICE
                                             </label>
                                             {isEditing ? (
@@ -626,14 +626,14 @@ export default function ProductDetailPanel({ product, lots, mouvements, onClose,
                                                     type="text"
                                                     value={editData.fournisseurIce || ''}
                                                     onChange={e => setField('fournisseurIce', e.target.value)}
-                                                    className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm font-mono"
+                                                    className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-dk-border text-sm font-mono"
                                                 />
                                             ) : (
-                                                <p className="text-sm font-mono text-slate-600">{product.fournisseurIce || '—'}</p>
+                                                <p className="text-sm font-mono text-slate-600 dark:text-dk-text-soft">{product.fournisseurIce || '—'}</p>
                                             )}
                                         </div>
                                         <div className="space-y-1">
-                                            <label className="text-[10px] font-black text-slate-400 uppercase flex items-center gap-1">
+                                            <label className="text-[10px] font-black text-slate-400 dark:text-dk-muted uppercase flex items-center gap-1">
                                                 <FileText className="w-3 h-3" /> RC
                                             </label>
                                             {isEditing ? (
@@ -641,17 +641,17 @@ export default function ProductDetailPanel({ product, lots, mouvements, onClose,
                                                     type="text"
                                                     value={editData.fournisseurRc || ''}
                                                     onChange={e => setField('fournisseurRc', e.target.value)}
-                                                    className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm font-mono"
+                                                    className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-dk-border text-sm font-mono"
                                                 />
                                             ) : (
-                                                <p className="text-sm font-mono text-slate-600">{product.fournisseurRc || '—'}</p>
+                                                <p className="text-sm font-mono text-slate-600 dark:text-dk-text-soft">{product.fournisseurRc || '—'}</p>
                                             )}
                                         </div>
                                     </div>
 
-                                    <div className="grid grid-cols-3 gap-4 pt-4 border-t border-slate-100">
+                                    <div className="grid grid-cols-3 gap-4 pt-4 border-t border-slate-100 dark:border-dk-border">
                                         <div className="space-y-1">
-                                            <label className="text-[10px] font-black text-slate-400 uppercase flex items-center gap-1">
+                                            <label className="text-[10px] font-black text-slate-400 dark:text-dk-muted uppercase flex items-center gap-1">
                                                 <Timer className="w-3 h-3" /> {_({fr:'Délai (jours)',ar:'المهلة (أيام)',en:'Lead time (days)',es:'Plazo (días)',pt:'Prazo (dias)',tr:'Teslim süresi (gün)'})}
                                             </label>
                                             {isEditing ? (
@@ -659,14 +659,14 @@ export default function ProductDetailPanel({ product, lots, mouvements, onClose,
                                                     type="number"
                                                     value={editData.fournisseurDelaiLivraisonJours || ''}
                                                     onChange={e => setField('fournisseurDelaiLivraisonJours', e.target.value ? parseInt(e.target.value) : undefined)}
-                                                    className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm"
+                                                    className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-dk-border text-sm"
                                                 />
                                             ) : (
-                                                <p className="text-sm font-bold text-slate-700">{product.fournisseurDelaiLivraisonJours ?? '—'}</p>
+                                                <p className="text-sm font-bold text-slate-700 dark:text-dk-text-soft">{product.fournisseurDelaiLivraisonJours ?? '—'}</p>
                                             )}
                                         </div>
                                         <div className="space-y-1">
-                                            <label className="text-[10px] font-black text-slate-400 uppercase flex items-center gap-1">
+                                            <label className="text-[10px] font-black text-slate-400 dark:text-dk-muted uppercase flex items-center gap-1">
                                                 <ShoppingCart className="w-3 h-3" /> MOQ
                                             </label>
                                             {isEditing ? (
@@ -674,21 +674,21 @@ export default function ProductDetailPanel({ product, lots, mouvements, onClose,
                                                     type="number"
                                                     value={editData.fournisseurMoq || ''}
                                                     onChange={e => setField('fournisseurMoq', e.target.value ? parseFloat(e.target.value) : undefined)}
-                                                    className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm"
+                                                    className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-dk-border text-sm"
                                                 />
                                             ) : (
-                                                <p className="text-sm font-bold text-slate-700">{product.fournisseurMoq ?? '—'}</p>
+                                                <p className="text-sm font-bold text-slate-700 dark:text-dk-text-soft">{product.fournisseurMoq ?? '—'}</p>
                                             )}
                                         </div>
                                         <div className="space-y-1">
-                                            <label className="text-[10px] font-black text-slate-400 uppercase flex items-center gap-1">
+                                            <label className="text-[10px] font-black text-slate-400 dark:text-dk-muted uppercase flex items-center gap-1">
                                                 <Globe className="w-3 h-3" /> {_({fr:'Devise',ar:'العملة',en:'Currency',es:'Moneda',pt:'Moeda',tr:'Para Birimi'})}
                                             </label>
                                             {isEditing ? (
                                                 <select
                                                     value={editData.fournisseurDevise || ''}
                                                     onChange={e => setField('fournisseurDevise', e.target.value || undefined)}
-                                                    className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm"
+                                                    className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-dk-border text-sm"
                                                 >
                                                     <option value="">—</option>
                                                     <option value="MAD">MAD</option>
@@ -696,13 +696,13 @@ export default function ProductDetailPanel({ product, lots, mouvements, onClose,
                                                     <option value="USD">USD</option>
                                                 </select>
                                             ) : (
-                                                <p className="text-sm font-bold text-slate-700">{product.fournisseurDevise || '—'}</p>
+                                                <p className="text-sm font-bold text-slate-700 dark:text-dk-text-soft">{product.fournisseurDevise || '—'}</p>
                                             )}
                                         </div>
                                     </div>
 
-                                    <div className="space-y-1 pt-4 border-t border-slate-100">
-                                        <label className="text-[10px] font-black text-slate-400 uppercase flex items-center gap-1">
+                                    <div className="space-y-1 pt-4 border-t border-slate-100 dark:border-dk-border">
+                                        <label className="text-[10px] font-black text-slate-400 dark:text-dk-muted uppercase flex items-center gap-1">
                                             <CreditCard className="w-3 h-3" /> {_({fr:'Conditions de Paiement',ar:'شروط الدفع',en:'Payment Terms',es:'Condiciones de Pago',pt:'Condições de Pagamento',tr:'Ödeme Koşulları'})}
                                         </label>
                                         {isEditing ? (
@@ -710,28 +710,28 @@ export default function ProductDetailPanel({ product, lots, mouvements, onClose,
                                                 type="text"
                                                 value={editData.fournisseurConditionsPaiement || ''}
                                                 onChange={e => setField('fournisseurConditionsPaiement', e.target.value)}
-                                                className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm"
+                                                className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-dk-border text-sm"
                                                 placeholder={_({fr:'Ex: 30j fin de mois',ar:'مثال: 30 يوم نهاية الشهر',en:'E.g.: 30 days end of month',es:'Ej: 30 días fin de mes',pt:'Ex: 30 dias fim do mês',tr:'Örn: Ay sonu 30 gün'})}
                                             />
                                         ) : (
-                                            <p className="text-sm font-bold text-slate-700">{product.fournisseurConditionsPaiement || '—'}</p>
+                                            <p className="text-sm font-bold text-slate-700 dark:text-dk-text-soft">{product.fournisseurConditionsPaiement || '—'}</p>
                                         )}
                                     </div>
 
-                                    <div className="space-y-1 pt-4 border-t border-slate-100">
-                                        <label className="text-[10px] font-black text-slate-400 uppercase flex items-center gap-1">
+                                    <div className="space-y-1 pt-4 border-t border-slate-100 dark:border-dk-border">
+                                        <label className="text-[10px] font-black text-slate-400 dark:text-dk-muted uppercase flex items-center gap-1">
                                             <StickyNote className="w-3 h-3" /> {_({fr:'Notes',ar:'ملاحظات',en:'Notes',es:'Notas',pt:'Notas',tr:'Notlar'})}
                                         </label>
                                         {isEditing ? (
                                             <textarea
                                                 value={editData.fournisseurNotes || ''}
                                                 onChange={e => setField('fournisseurNotes', e.target.value)}
-                                                className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm resize-none"
+                                                className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-dk-border text-sm resize-none"
                                                 rows={3}
                                                 placeholder={_({fr:'Notes sur le fournisseur...',ar:'ملاحظات حول المورد...',en:'Notes about the supplier...',es:'Notas sobre el proveedor...',pt:'Notas sobre o fornecedor...',tr:'Tedarikçi hakkında notlar...'})}
                                             />
                                         ) : (
-                                            <p className="text-sm text-slate-600 italic">{product.fournisseurNotes || _({fr:'Aucune note',ar:'لا توجد ملاحظات',en:'No notes',es:'Sin notas',pt:'Sem notas',tr:'Not yok'})}</p>
+                                            <p className="text-sm text-slate-600 dark:text-dk-text-soft italic">{product.fournisseurNotes || _({fr:'Aucune note',ar:'لا توجد ملاحظات',en:'No notes',es:'Sin notas',pt:'Sem notas',tr:'Not yok'})}</p>
                                         )}
                                     </div>
                                 </div>
@@ -749,27 +749,27 @@ export default function ProductDetailPanel({ product, lots, mouvements, onClose,
                                     </h3>
                                     <div className="flex flex-wrap gap-2">
                                         {availableBains.map((b, i) => (
-                                            <div key={i} className="px-3 py-2 bg-white rounded-xl border border-purple-200 shadow-sm">
+                                            <div key={i} className="px-3 py-2 bg-white dark:bg-dk-surface rounded-xl border border-purple-200 shadow-sm">
                                                 <p className="font-black text-purple-700">{b.bain}</p>
-                                                <p className="text-xs text-slate-500">{b.qty.toFixed(1)} {product.unite}</p>
+                                                <p className="text-xs text-slate-500 dark:text-dk-muted">{b.qty.toFixed(1)} {product.unite}</p>
                                             </div>
                                         ))}
                                     </div>
                                 </div>
                             )}
 
-                            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-                                <div className="px-5 py-4 border-b border-slate-100">
-                                    <h3 className="font-black text-slate-800">{_({fr:'Tous les Lots',ar:'جميع الدفعات',en:'All Lots',es:'Todos los Lotes',pt:'Todos os Lotes',tr:'Tüm Partiler'})}</h3>
-                                    <p className="text-xs text-slate-400 mt-0.5">{productLots.length} {_({fr:'lot(s) enregistré(s)',ar:'دفعة (دفعات) مسجلة',en:'lot(s) recorded',es:'lote(s) registrado(s)',pt:'lote(s) registado(s)',tr:'kayıtlı parti(ler)'})}</p>
+                            <div className="bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border shadow-sm overflow-hidden">
+                                <div className="px-5 py-4 border-b border-slate-100 dark:border-dk-border">
+                                    <h3 className="font-black text-slate-800 dark:text-dk-text">{_({fr:'Tous les Lots',ar:'جميع الدفعات',en:'All Lots',es:'Todos los Lotes',pt:'Todos os Lotes',tr:'Tüm Partiler'})}</h3>
+                                    <p className="text-xs text-slate-400 dark:text-dk-muted mt-0.5">{productLots.length} {_({fr:'lot(s) enregistré(s)',ar:'دفعة (دفعات) مسجلة',en:'lot(s) recorded',es:'lote(s) registrado(s)',pt:'lote(s) registado(s)',tr:'kayıtlı parti(ler)'})}</p>
                                 </div>
                                 <div className="max-h-[400px] overflow-y-auto">
                                     {productLots.map((lot, i) => (
-                                        <div key={lot.id} className={`px-5 py-4 flex items-center gap-4 ${i % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'}`}>
+                                        <div key={lot.id} className={`px-5 py-4 flex items-center gap-4 ${i % 2 === 0 ? 'bg-white dark:bg-dk-surface' : 'bg-slate-50/50'}`}>
                                             <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
                                                 lot.quantiteRestante > 0 
                                                     ? 'bg-emerald-50 text-emerald-600' 
-                                                    : 'bg-slate-100 text-slate-400'
+                                                    : 'bg-slate-100 dark:bg-dk-elevated text-slate-400 dark:text-dk-muted'
                                             }`}>
                                                 <Layers className="w-5 h-5" />
                                             </div>
@@ -786,24 +786,24 @@ export default function ProductDetailPanel({ product, lots, mouvements, onClose,
                                                         </span>
                                                     )}
                                                 </div>
-                                                <div className="flex items-center gap-3 text-xs text-slate-500">
+                                                <div className="flex items-center gap-3 text-xs text-slate-500 dark:text-dk-muted">
                                                     <span>{_({fr:'Entrée:',ar:'دخول:',en:'Entry:',es:'Entrada:',pt:'Entrada:',tr:'Giriş:'})} {formatDate(lot.dateEntree)}</span>
                                                     {lot.fournisseur && <span>{_({fr:'Frs:',ar:'المورد:',en:'Supp:',es:'Prov:',pt:'Forn:',tr:'Tedarikçi:'})} {lot.fournisseur}</span>}
                                                     <span>{lot.prixUnitaire.toFixed(2)} DH/{product.unite}</span>
                                                 </div>
                                             </div>
                                             <div className="text-right shrink-0">
-                                                <p className={`text-lg font-black ${lot.quantiteRestante > 0 ? 'text-slate-800' : 'text-slate-400'}`}>
+                                                <p className={`text-lg font-black ${lot.quantiteRestante > 0 ? 'text-slate-800 dark:text-dk-text' : 'text-slate-400 dark:text-dk-muted'}`}>
                                                     {lot.quantiteRestante.toFixed(1)}
                                                 </p>
-                                                <p className="text-[10px] text-slate-400">/ {lot.quantiteInitiale.toFixed(1)} {product.unite}</p>
+                                                <p className="text-[10px] text-slate-400 dark:text-dk-muted">/ {lot.quantiteInitiale.toFixed(1)} {product.unite}</p>
                                             </div>
                                         </div>
                                     ))}
                                     {productLots.length === 0 && (
                                         <div className="px-5 py-16 text-center">
                                             <Layers className="w-12 h-12 text-slate-200 mx-auto mb-3" />
-                                            <p className="text-slate-400 font-bold">{_({fr:'Aucun lot enregistré',ar:'لا توجد دفعات مسجلة',en:'No lots recorded',es:'Sin lotes registrados',pt:'Nenhum lote registado',tr:'Kayıtlı parti yok'})}</p>
+                                            <p className="text-slate-400 dark:text-dk-muted font-bold">{_({fr:'Aucun lot enregistré',ar:'لا توجد دفعات مسجلة',en:'No lots recorded',es:'Sin lotes registrados',pt:'Nenhum lote registado',tr:'Kayıtlı parti yok'})}</p>
                                         </div>
                                     )}
                                 </div>

@@ -19,7 +19,7 @@ export default function FocusBanner({ visible, label, onExit }: Props) {
             <button
                 type="button"
                 onClick={onExit}
-                className="w-5 h-5 flex items-center justify-center rounded-full hover:bg-white/10 transition-colors"
+                className="w-5 h-5 flex items-center justify-center rounded-full hover:bg-white transition-colors"
                 title={tx(lang, { fr: 'Sortir du focus (Esc)', ar: 'الخروج من التركيز (Esc)', en: 'Exit focus (Esc)', es: 'Salir del enfoque (Esc)', pt: 'Sair do foco (Esc)', tr: 'Odağı kapat (Esc)' })}
             >
                 <X className="w-3 h-3" strokeWidth={2} />

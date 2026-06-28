@@ -257,7 +257,7 @@ export default function Pedido({
             READY: { label: tx(lang, { fr: 'Prêt', ar: 'جاهز', en: 'Ready', es: 'Listo', pt: 'Pronto', tr: 'Hazır' }), dot: 'bg-emerald-500', text: 'text-emerald-700', bg: 'bg-emerald-50', border: 'border-emerald-200' },
             BLOCKED: { label: tx(lang, { fr: 'Bloqué', ar: 'متوقف', en: 'Blocked', es: 'Bloqueado', pt: 'Bloqueado', tr: 'Engelli' }), dot: 'bg-red-500', text: 'text-red-700', bg: 'bg-red-50', border: 'border-red-200' },
             IN_PROGRESS: { label: tx(lang, { fr: 'En cours', ar: 'في طور الإنجاز', en: 'In progress', es: 'En curso', pt: 'Em curso', tr: 'Devam ediyor' }), dot: 'bg-[#2149C1]', text: 'text-[#1a3ba5]', bg: 'bg-blue-50', border: 'border-blue-200' },
-            DONE: { label: tx(lang, { fr: 'Terminé', ar: 'مكتمل', en: 'Done', es: 'Terminado', pt: 'Concluído', tr: 'Tamamlandı' }), dot: 'bg-slate-400', text: 'text-slate-600', bg: 'bg-slate-50', border: 'border-slate-200' },
+            DONE: { label: tx(lang, { fr: 'Terminé', ar: 'مكتمل', en: 'Done', es: 'Terminado', pt: 'Concluído', tr: 'Tamamlandı' }), dot: 'bg-slate-400', text: 'text-slate-600 dark:text-dk-text-soft', bg: 'bg-slate-50 dark:bg-dk-bg', border: 'border-slate-200 dark:border-dk-border' },
         };
         return meta[s] || meta.READY;
     };
@@ -614,10 +614,10 @@ export default function Pedido({
         const hasGrid = filteredSizes.length > 0 && filteredColors.length > 0;
 
         return (
-            <div className="border-2 border-indigo-500/30 rounded-xl p-5 bg-indigo-50/10 space-y-5 animate-in fade-in duration-200 shadow-md">
-                <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+            <div className="border-2 border-indigo-500/30 rounded-xl p-5 bg-indigo-50 dark:bg-dk-accent/20/10 space-y-5 animate-in fade-in duration-200 shadow-md">
+                <div className="flex items-center justify-between border-b border-slate-100 dark:border-dk-border pb-3">
                     <h4 className="font-black text-sm text-indigo-900 flex items-center gap-2">
-                        <Calendar className="w-4 h-4 text-indigo-600" />
+                        <Calendar className="w-4 h-4 text-indigo-600 dark:text-dk-accent-text" />
                         {editingEventId === 'new'
                             ? tx(lang, { fr: 'Nouveau lot de livraison', ar: 'إضافة دفعة تسليم جديدة', en: 'New delivery lot', es: 'Nuevo lote de entrega', pt: 'Novo lote de entrega', tr: 'Yeni teslimat partisi' })
                             : tx(lang, { fr: 'Modifier le lot de livraison', ar: 'تعديل دفعة التسليم', en: 'Edit delivery lot', es: 'Editar lote de entrega', pt: 'Editar lote de entrega', tr: 'Teslimat partisini düzenle' })
@@ -628,7 +628,7 @@ export default function Pedido({
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {/* Client name */}
                     <div className="space-y-1">
-                        <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wide">
+                        <label className="text-[11px] font-bold text-slate-400 dark:text-dk-muted uppercase tracking-wide">
                             {tx(lang, { fr: 'Client', ar: 'العميل', en: 'Client', es: 'Cliente', pt: 'Cliente', tr: 'Müşteri' })}
                         </label>
                         <input
@@ -636,13 +636,13 @@ export default function Pedido({
                             value={editDraft.clientName || ''}
                             onChange={(e) => setEditDraft(prev => prev ? { ...prev, clientName: e.target.value } : prev)}
                             placeholder={tx(lang, { fr: 'Nom du Client', ar: 'اسم العميل', en: 'Client Name', es: 'Nombre del Cliente', pt: 'Nome do Cliente', tr: 'Müşteri Adı' })}
-                            className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-slate-800 text-sm font-semibold outline-none focus:ring-2 focus:ring-indigo-500/20 transition-all font-sans"
+                            className="w-full bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2 text-slate-800 dark:text-dk-text text-sm font-semibold outline-none focus:ring-2 focus:ring-indigo-500/20 transition-all font-sans"
                         />
                     </div>
 
                     {/* Suffix / Lot Code */}
                     <div className="space-y-1">
-                        <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wide">
+                        <label className="text-[11px] font-bold text-slate-400 dark:text-dk-muted uppercase tracking-wide">
                             {tx(lang, { fr: 'Code / Libellé du lot (ex: L1)', ar: 'رمز / اسم الدفعة (مثال: L1)', en: 'Lot code / label (e.g. L1)', es: 'Código / etiqueta del lote (ej. L1)', pt: 'Código / rótulo do lote (ex. L1)', tr: 'Parti kodu / etiketi (örn. L1)' })}
                         </label>
                         <input
@@ -650,7 +650,7 @@ export default function Pedido({
                             value={suffix}
                             onChange={(e) => setEditDraft(prev => prev ? { ...prev, modelName: `${articleName || ''} — ${e.target.value}` } : prev)}
                             placeholder="L1"
-                            className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-slate-800 text-sm font-semibold outline-none focus:ring-2 focus:ring-indigo-500/20 transition-all tabular-nums"
+                            className="w-full bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2 text-slate-800 dark:text-dk-text text-sm font-semibold outline-none focus:ring-2 focus:ring-indigo-500/20 transition-all tabular-nums"
                         />
                     </div>
                 </div>
@@ -658,10 +658,10 @@ export default function Pedido({
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     {/* Date de lancement */}
                     <div className="space-y-1">
-                        <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wide">
+                        <label className="text-[11px] font-bold text-slate-400 dark:text-dk-muted uppercase tracking-wide">
                             {tx(lang, { fr: 'Date de lancement', ar: 'تاريخ الإطلاق', en: 'Launch date', es: 'Fecha de lanzamiento', pt: 'Data de lançamento', tr: 'Başlatma tarihi' })}
                         </label>
-                        <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-3 py-1.5 focus-within:ring-2 focus-within:ring-indigo-500/20 transition-all">
+                        <div className="flex items-center gap-2 bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-xl px-3 py-1.5 focus-within:ring-2 focus-within:ring-indigo-500/20 transition-all">
                             <Calendar className="w-4 h-4 text-indigo-500 shrink-0" />
                             <DateTimePicker
                                 value={editDraft.dateLancement || editDraft.startDate || ''}
@@ -672,7 +672,7 @@ export default function Pedido({
                                 } : prev)}
                                 mode="date"
                                 settings={settings}
-                                inputClassName="w-full min-w-0 border-0 bg-transparent shadow-none text-sm font-bold text-slate-700 outline-none focus:ring-0 py-0 px-0 tabular-nums"
+                                inputClassName="w-full min-w-0 border-0 bg-transparent shadow-none text-sm font-bold text-slate-700 dark:text-dk-text-soft outline-none focus:ring-0 py-0 px-0 tabular-nums"
                                 showIcon={false}
                             />
                         </div>
@@ -685,9 +685,9 @@ export default function Pedido({
                                         ...prev, 
                                         isLocked: e.target.checked 
                                     } : prev)}
-                                    className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 h-3.5 w-3.5"
+                                    className="rounded border-slate-300 text-indigo-600 dark:text-dk-accent-text focus:ring-indigo-500 h-3.5 w-3.5"
                                 />
-                                <span className="text-[10px] font-bold text-slate-500 select-none">
+                                <span className="text-[10px] font-bold text-slate-500 dark:text-dk-muted select-none">
                                     {tx(lang, { 
                                         fr: "Figer la date (ne pas décaler)", 
                                         ar: "تثبيت التاريخ (عدم التحريك)", 
@@ -700,10 +700,10 @@ export default function Pedido({
 
                     {/* Delivery Date / DDS */}
                     <div className="space-y-1">
-                        <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wide">
+                        <label className="text-[11px] font-bold text-slate-400 dark:text-dk-muted uppercase tracking-wide">
                             {tx(lang, { fr: 'Date de livraison (DDS)', ar: 'تاريخ التسليم (DDS)', en: 'Delivery date (DDS)', es: 'Fecha de entrega (DDS)', pt: 'Data de entrega (DDS)', tr: 'Teslimat tarihi (DDS)' })}
                         </label>
-                        <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-3 py-1.5 focus-within:ring-2 focus-within:ring-indigo-500/20 transition-all">
+                        <div className="flex items-center gap-2 bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-xl px-3 py-1.5 focus-within:ring-2 focus-within:ring-indigo-500/20 transition-all">
                             <Calendar className="w-4 h-4 text-emerald-500 shrink-0" />
                             <DateTimePicker
                                 value={editDraft.dateExport || editDraft.strictDeadline_DDS || ''}
@@ -714,7 +714,7 @@ export default function Pedido({
                                 } : prev)}
                                 mode="date"
                                 settings={settings}
-                                inputClassName="w-full min-w-0 border-0 bg-transparent shadow-none text-sm font-bold text-slate-700 outline-none focus:ring-0 py-0 px-0 tabular-nums"
+                                inputClassName="w-full min-w-0 border-0 bg-transparent shadow-none text-sm font-bold text-slate-700 dark:text-dk-text-soft outline-none focus:ring-0 py-0 px-0 tabular-nums"
                                 showIcon={false}
                             />
                         </div>
@@ -722,10 +722,10 @@ export default function Pedido({
 
                     {/* Date d'arrivée des matières (fournisseurDate) */}
                     <div className="space-y-1">
-                        <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wide">
+                        <label className="text-[11px] font-bold text-slate-400 dark:text-dk-muted uppercase tracking-wide">
                             {tx(lang, { fr: 'Arrivée des matières', ar: 'وصول المواد (المورد)', en: 'Materials arrival', es: 'Llegada de materiales', pt: 'Chegada dos materiais', tr: 'Malzeme varışı' })}
                         </label>
-                        <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-3 py-1.5 focus-within:ring-2 focus-within:ring-indigo-500/20 transition-all">
+                        <div className="flex items-center gap-2 bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-xl px-3 py-1.5 focus-within:ring-2 focus-within:ring-indigo-500/20 transition-all">
                             <Truck className="w-4 h-4 text-amber-500 shrink-0" />
                             <DateTimePicker
                                 value={editDraft.fournisseurDate || ''}
@@ -735,7 +735,7 @@ export default function Pedido({
                                 } : prev)}
                                 mode="date"
                                 settings={settings}
-                                inputClassName="w-full min-w-0 border-0 bg-transparent shadow-none text-sm font-bold text-slate-700 outline-none focus:ring-0 py-0 px-0 tabular-nums"
+                                inputClassName="w-full min-w-0 border-0 bg-transparent shadow-none text-sm font-bold text-slate-700 dark:text-dk-text-soft outline-none focus:ring-0 py-0 px-0 tabular-nums"
                                 showIcon={false}
                             />
                         </div>
@@ -745,21 +745,21 @@ export default function Pedido({
                 {/* Size Color distribution grid */}
                 {hasGrid ? (
                     <div className="space-y-2">
-                        <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wide flex items-center gap-1.5 font-sans">
+                        <div className="text-[11px] font-bold text-slate-500 dark:text-dk-muted uppercase tracking-wide flex items-center gap-1.5 font-sans">
                             <Grid3X3 className="w-3.5 h-3.5" />
                             {tx(lang, { fr: 'Répartition des quantités du lot', ar: 'التوزيع بالتفصيل للدفعة', en: 'Lot quantity breakdown', es: 'Distribución de cantidades del lote', pt: 'Distribuição das quantidades do lote', tr: 'Parti miktar dağılımı' })}
                         </div>
-                        <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
+                        <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface shadow-sm">
                             <table className="w-full text-xs border-collapse">
                                 <thead>
-                                    <tr className="bg-slate-50 text-slate-500 border-b border-slate-200 font-bold">
-                                        <th className="py-2.5 px-3 text-left border-r border-slate-100 min-w-[120px]">Couleur / Taille</th>
+                                    <tr className="bg-slate-50 dark:bg-dk-bg text-slate-500 dark:text-dk-muted border-b border-slate-200 dark:border-dk-border font-bold">
+                                        <th className="py-2.5 px-3 text-left border-r border-slate-100 dark:border-dk-border min-w-[120px]">Couleur / Taille</th>
                                         {filteredSizes.map((s, i) => (
-                                            <th key={i} className="py-2 px-2 text-center border-r border-slate-100 min-w-[60px]">
+                                            <th key={i} className="py-2 px-2 text-center border-r border-slate-100 dark:border-dk-border min-w-[60px]">
                                                 {s}
                                             </th>
                                         ))}
-                                        <th className="py-2 px-3 text-center bg-indigo-50/50 text-indigo-800 w-20">TOTAL</th>
+                                        <th className="py-2 px-3 text-center bg-indigo-50 dark:bg-dk-accent/20/50 text-indigo-800 w-20">TOTAL</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-100">
@@ -767,7 +767,7 @@ export default function Pedido({
                                         let rowTotal = 0;
                                         return (
                                             <tr key={`${c.id}-${cIdx}`} className="hover:bg-slate-50/30">
-                                                <td className="py-2 px-3 border-r border-slate-100 font-semibold text-slate-700 flex items-center gap-2">
+                                                <td className="py-2 px-3 border-r border-slate-100 dark:border-dk-border font-semibold text-slate-700 dark:text-dk-text-soft flex items-center gap-2">
                                                     <div
                                                     className={`w-3 h-3 rounded-full flex-shrink-0 ${c.id && c.id.startsWith('#') ? '' : 'bg-slate-300'}`}
                                                         style={c.id && c.id.startsWith('#') ? { backgroundColor: c.id } : undefined}
@@ -785,7 +785,7 @@ export default function Pedido({
                                                     const diff = totalVal - targetVal;
                                                     
                                                     return (
-                                                        <td key={s} className="py-2 px-1.5 text-center border-r border-slate-100 align-top">
+                                                        <td key={s} className="py-2 px-1.5 text-center border-r border-slate-100 dark:border-dk-border align-top">
                                                             <div className="flex flex-col items-center gap-1">
                                                                 <input
                                                                     type="number"
@@ -804,12 +804,12 @@ export default function Pedido({
                                                                     className={`w-14 text-center border rounded-lg py-1 tabular-nums text-xs font-semibold focus:ring-2 transition-all outline-none ${
                                                                         diff !== 0 
                                                                             ? 'border-rose-300 focus:border-rose-500 focus:ring-rose-100 bg-rose-50/20 text-rose-700' 
-                                                                            : 'border-slate-200 focus:border-indigo-500 focus:ring-indigo-100 text-slate-800'
+                                                                            : 'border-slate-200 dark:border-dk-border focus:border-indigo-500 focus:ring-indigo-100 text-slate-800 dark:text-dk-text'
                                                                     }`}
                                                                     placeholder="0"
                                                                 />
                                                                 <div className="flex flex-col items-center text-[9px] tabular-nums leading-none">
-                                                                    <span className="text-slate-400">/{targetVal}</span>
+                                                                    <span className="text-slate-400 dark:text-dk-muted">/{targetVal}</span>
                                                                     {diff !== 0 ? (
                                                                         <span className="text-rose-600 font-bold mt-0.5" title={diff > 0 ? tx(lang, { fr: `${diff} de trop`, ar: `${diff} زائد`, en: `${diff} too many`, es: `${diff} de más`, pt: `${diff} a mais`, tr: `${diff} fazla` }) : tx(lang, { fr: `${diff} manquant`, ar: `${diff} ناقص`, en: `${diff} missing`, es: `${diff} faltante`, pt: `${diff} em falta`, tr: `${diff} eksik` })}>
                                                                             {diff > 0 ? `+${diff}` : diff}
@@ -822,7 +822,7 @@ export default function Pedido({
                                                         </td>
                                                     );
                                                 })}
-                                                <td className="py-2 px-3 text-center tabular-nums font-bold bg-slate-50/50 text-slate-700">
+                                                <td className="py-2 px-3 text-center tabular-nums font-bold bg-slate-50/50 text-slate-700 dark:text-dk-text-soft">
                                                     {rowTotal}
                                                 </td>
                                             </tr>
@@ -834,7 +834,7 @@ export default function Pedido({
                     </div>
                 ) : (
                     <div className="space-y-1 max-w-xs">
-                        <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wide">
+                        <label className="text-[11px] font-bold text-slate-400 dark:text-dk-muted uppercase tracking-wide">
                             {tx(lang, { fr: 'Quantité totale', ar: 'الكمية الإجمالية', en: 'Total quantity', es: 'Cantidad total', pt: 'Quantidade total', tr: 'Toplam miktar' })}
                         </label>
                         <input
@@ -842,16 +842,16 @@ export default function Pedido({
                             min="0"
                             value={editDraft.qteTotal || ''}
                             onChange={(e) => setEditDraft(prev => prev ? { ...prev, qteTotal: Math.max(0, parseInt(e.target.value, 10) || 0) } : prev)}
-                            className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-slate-800 text-sm font-semibold outline-none focus:ring-2 focus:ring-indigo-500/20 transition-all tabular-nums"
+                            className="w-full bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2 text-slate-800 dark:text-dk-text text-sm font-semibold outline-none focus:ring-2 focus:ring-indigo-500/20 transition-all tabular-nums"
                         />
                     </div>
                 )}
 
                 {/* Form Buttons */}
-                <div className="flex items-center justify-between pt-3 border-t border-slate-100">
-                    <div className="text-xs text-slate-400 font-bold">
+                <div className="flex items-center justify-between pt-3 border-t border-slate-100 dark:border-dk-border">
+                    <div className="text-xs text-slate-400 dark:text-dk-muted font-bold">
                         {tx(lang, { fr: 'Total calculé:', ar: 'المجموع المحسوب:', en: 'Calculated total:', es: 'Total calculado:', pt: 'Total calculado:', tr: 'Hesaplanan toplam:' })} {' '}
-                        <span className="text-indigo-600 font-black tabular-nums">
+                        <span className="text-indigo-600 dark:text-dk-accent-text font-black tabular-nums">
                             {hasGrid 
                                 ? Object.values(editDraft.sizeColorDistribution || {}).reduce(
                                     (sum, sizeMap) => sum + Object.values(sizeMap).reduce((s, val) => s + (val || 0), 0), 
@@ -875,14 +875,14 @@ export default function Pedido({
                         <button
                             type="button"
                             onClick={handleCancelEdit}
-                            className="inline-flex items-center h-8 px-3 text-xs font-bold text-slate-600 bg-white border border-slate-200 hover:bg-slate-50 rounded-lg transition-colors"
+                            className="inline-flex items-center h-8 px-3 text-xs font-bold text-slate-600 dark:text-dk-text-soft bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border hover:bg-slate-50 dark:hover:bg-dk-elevated/60 rounded-lg transition-colors"
                         >
                             {tx(lang, { fr: 'Annuler', ar: 'إلغاء', en: 'Cancel', es: 'Cancelar', pt: 'Cancelar', tr: 'İptal' })}
                         </button>
                         <button
                             type="button"
                             onClick={handleSaveEdit}
-                            className="inline-flex items-center gap-1.5 h-8 px-4 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors shadow-sm"
+                            className="inline-flex items-center gap-1.5 h-8 px-4 text-xs font-bold text-white bg-indigo-600 dark:bg-dk-accent hover:bg-indigo-700 dark:hover:bg-dk-accent-hover rounded-lg transition-colors shadow-sm"
                         >
                             {tx(lang, { fr: 'Enregistrer', ar: 'حفظ الدفعة', en: 'Save', es: 'Guardar', pt: 'Guardar', tr: 'Kaydet' })}
                         </button>
@@ -896,11 +896,11 @@ export default function Pedido({
         <div className="space-y-5 pb-24 animate-in fade-in slide-in-from-bottom-2 duration-300 relative bg-zinc-50/80 -mx-4 -my-4 px-4 py-4 sm:-mx-6 sm:-my-6 sm:px-6 sm:py-6 lg:-mx-8 lg:-my-8 lg:px-8 lg:py-8 min-h-full overflow-x-hidden">
             
             {/* INDUSTRIAL DASHBOARD OVERVIEW */}
-            <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden">
-                <div className="bg-zinc-50/80 px-5 py-3 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+            <div className="bg-white dark:bg-dk-surface rounded-2xl border border-slate-100 dark:border-dk-border overflow-hidden">
+                <div className="bg-zinc-50/80 px-5 py-3 border-b border-slate-100 dark:border-dk-border flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                     <div className="flex items-center gap-2">
                         <Layers className="w-4 h-4 text-indigo-500 shrink-0" />
-                        <h3 className="font-semibold text-slate-900 text-xs uppercase tracking-wide">
+                        <h3 className="font-semibold text-slate-900 dark:text-dk-text text-xs uppercase tracking-wide">
                             {tx(lang, { fr: 'Tableau de Bord Suivi Commande (Pedido)', ar: 'لوحة تتبع الطلبية (Pedido)', en: 'Order Tracking Dashboard (Pedido)', es: 'Panel de Seguimiento del Pedido (Pedido)', pt: 'Painel de Acompanhamento do Pedido (Pedido)', tr: 'Sipariş Takip Panosu (Pedido)' })}
                         </h3>
                     </div>
@@ -909,7 +909,7 @@ export default function Pedido({
                             totalPlanified === totalCible && totalCible > 0
                                 ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
                                 : totalPlanified > totalCible && totalCible > 0
-                                ? 'bg-indigo-50 text-indigo-700 border-indigo-200'
+                                ? 'bg-indigo-50 dark:bg-dk-accent/20 text-indigo-700 dark:text-dk-accent-text border-indigo-200'
                                 : 'bg-amber-50 text-amber-700 border-amber-200'
                         }`}>
                             {totalPlanified === totalCible && totalCible > 0
@@ -924,28 +924,28 @@ export default function Pedido({
                     {/* 3 KPI cards */}
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         {/* CARD 1: Cible Commandé */}
-                        <div className="bg-white border border-slate-100 rounded-xl p-4 flex items-center justify-between">
+                        <div className="bg-white dark:bg-dk-surface border border-slate-100 dark:border-dk-border rounded-xl p-4 flex items-center justify-between">
                             <div className="space-y-0.5">
-                                <span className="text-[10px] text-slate-500 font-semibold uppercase tracking-wider block">
+                                <span className="text-[10px] text-slate-500 dark:text-dk-muted font-semibold uppercase tracking-wider block">
                                     {tx(lang, { fr: 'Total Commandé (Cible)', ar: 'إجمالي الطلب الأصلي', en: 'Total Ordered (Target)', es: 'Total Pedido (Objetivo)', pt: 'Total Encomendado (Alvo)', tr: 'Toplam Sipariş (Hedef)' })}
                                 </span>
-                                <span className="text-lg font-bold text-slate-900 tabular-nums block">
-                                    {totalCible.toLocaleString()} <span className="text-xs font-medium text-slate-400">pcs</span>
+                                <span className="text-lg font-bold text-slate-900 dark:text-dk-text tabular-nums block">
+                                    {totalCible.toLocaleString()} <span className="text-xs font-medium text-slate-400 dark:text-dk-muted">pcs</span>
                                 </span>
                             </div>
-                            <div className="bg-indigo-50/80 p-2.5 rounded-xl text-indigo-500">
+                            <div className="bg-indigo-50 dark:bg-dk-accent/20/80 p-2.5 rounded-xl text-indigo-500">
                                 <Grid3X3 className="w-4 h-4" />
                             </div>
                         </div>
 
                         {/* CARD 2: Planifié */}
-                        <div className="bg-white border border-slate-100 rounded-xl p-4 flex items-center justify-between">
+                        <div className="bg-white dark:bg-dk-surface border border-slate-100 dark:border-dk-border rounded-xl p-4 flex items-center justify-between">
                             <div className="space-y-0.5">
-                                <span className="text-[10px] text-slate-500 font-semibold uppercase tracking-wider block">
+                                <span className="text-[10px] text-slate-500 dark:text-dk-muted font-semibold uppercase tracking-wider block">
                                     {tx(lang, { fr: 'Total Planifié (Lots)', ar: 'الكمية المخططة', en: 'Total Planned (Lots)', es: 'Total Planificado (Lotes)', pt: 'Total Planeado (Lotes)', tr: 'Toplam Planlanan (Partiler)' })}
                                 </span>
-                                <span className="text-lg font-bold text-slate-900 tabular-nums block">
-                                    {totalPlanified.toLocaleString()} <span className="text-xs font-medium text-slate-400">pcs</span>
+                                <span className="text-lg font-bold text-slate-900 dark:text-dk-text tabular-nums block">
+                                    {totalPlanified.toLocaleString()} <span className="text-xs font-medium text-slate-400 dark:text-dk-muted">pcs</span>
                                 </span>
                                 <span className="text-[9px] block font-medium leading-none">
                                     {totalPlanified === totalCible
@@ -954,15 +954,15 @@ export default function Pedido({
                                     }
                                 </span>
                             </div>
-                            <div className="bg-indigo-50/80 p-2.5 rounded-xl text-indigo-500">
+                            <div className="bg-indigo-50 dark:bg-dk-accent/20/80 p-2.5 rounded-xl text-indigo-500">
                                 <Calendar className="w-4 h-4" />
                             </div>
                         </div>
 
                         {/* CARD 3: Réalisé */}
-                        <div className="bg-white border border-slate-100 rounded-xl p-4 flex items-center justify-between">
+                        <div className="bg-white dark:bg-dk-surface border border-slate-100 dark:border-dk-border rounded-xl p-4 flex items-center justify-between">
                             <div className="space-y-0.5">
-                                <span className="text-[10px] text-slate-500 font-semibold uppercase tracking-wider block">
+                                <span className="text-[10px] text-slate-500 dark:text-dk-muted font-semibold uppercase tracking-wider block">
                                     {tx(lang, { fr: 'Total Produit (Réalisé)', ar: 'الكمية المنتجة', en: 'Total Produced (Done)', es: 'Total Producido (Realizado)', pt: 'Total Produzido (Realizado)', tr: 'Toplam Üretilen (Gerçekleşen)' })}
                                 </span>
                                 <span className="text-lg font-bold text-emerald-600 tabular-nums block">
@@ -980,11 +980,11 @@ export default function Pedido({
 
                     {/* Overall progress bar */}
                     <div className="space-y-1.5">
-                        <div className="flex items-center justify-between text-[11px] font-medium text-slate-500">
+                        <div className="flex items-center justify-between text-[11px] font-medium text-slate-500 dark:text-dk-muted">
                             <span>{tx(lang, { fr: 'Avancement de la commande globale', ar: 'نسبة تقدم إنجاز الطلبية', en: 'Overall order progress', es: 'Avance del pedido global', pt: 'Progresso global do pedido', tr: 'Genel sipariş ilerlemesi' })}</span>
                             <span className="tabular-nums text-emerald-600 font-semibold">{globalCompletionPct}%</span>
                         </div>
-                        <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                        <div className="w-full h-1.5 bg-slate-100 dark:bg-dk-elevated rounded-full overflow-hidden">
                             <div
                                 className="h-full bg-indigo-500 rounded-full transition-all duration-1000"
                                 style={{ width: `${Math.min(100, globalCompletionPct)}%` }}
@@ -1000,18 +1000,18 @@ export default function Pedido({
                 <div className="lg:col-span-7 space-y-6">
 
                     {/* 1. GENERAL INFO CARD - ONLY DATE & HEURE DE LANCEMENT */}
-                    <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden">
-                        <div className="bg-zinc-50/80 px-5 py-3 border-b border-slate-100 flex items-center justify-between">
+                    <div className="bg-white dark:bg-dk-surface rounded-2xl border border-slate-100 dark:border-dk-border overflow-hidden">
+                        <div className="bg-zinc-50/80 px-5 py-3 border-b border-slate-100 dark:border-dk-border flex items-center justify-between">
                             <div className="flex items-center gap-2">
                                 <Calendar className="w-4 h-4 text-indigo-500" />
-                                <h3 className="font-semibold text-slate-900 text-xs uppercase tracking-wide">{pt.launchTitle}</h3>
+                                <h3 className="font-semibold text-slate-900 dark:text-dk-text text-xs uppercase tracking-wide">{pt.launchTitle}</h3>
                             </div>
                         </div>
                         <div className="p-5">
                             <div className="space-y-1">
                                 <div className="flex flex-col sm:flex-row gap-2">
-                                    <div className="flex flex-1 min-w-0 items-center gap-3 bg-white border border-slate-200 rounded-lg px-3 py-2 focus-within:ring-2 focus-within:ring-indigo-100 focus-within:border-indigo-400 transition-all">
-                                        <div className="shrink-0 p-1.5 bg-indigo-50/80 rounded-md text-indigo-500 pointer-events-none" aria-hidden>
+                                    <div className="flex flex-1 min-w-0 items-center gap-3 bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-lg px-3 py-2 focus-within:ring-2 focus-within:ring-indigo-100 focus-within:border-indigo-400 transition-all">
+                                        <div className="shrink-0 p-1.5 bg-indigo-50 dark:bg-dk-accent/20/80 rounded-md text-indigo-500 pointer-events-none" aria-hidden>
                                             <Calendar className="w-4 h-4" />
                                         </div>
                                         <DateTimePicker
@@ -1019,13 +1019,13 @@ export default function Pedido({
                                             onChange={(iso) => handleChange('date', iso.split('T')[0])}
                                             mode="date"
                                             settings={settings}
-                                            inputClassName="w-full min-w-0 border-0 bg-transparent shadow-none text-sm font-semibold text-slate-700 outline-none focus:ring-0 py-0 px-0 tabular-nums"
+                                            inputClassName="w-full min-w-0 border-0 bg-transparent shadow-none text-sm font-semibold text-slate-700 dark:text-dk-text-soft outline-none focus:ring-0 py-0 px-0 tabular-nums"
                                             showIcon={false}
                                         />
                                     </div>
                                     <div
                                         ref={launchTimePickerRef}
-                                        className={`relative flex flex-1 min-w-0 items-center gap-2 sm:gap-3 rounded-lg border bg-white px-3 py-2.5 transition ${launchTimeOpen ? 'border-indigo-400 ring-2 ring-indigo-100' : 'border-slate-200'}`}
+                                        className={`relative flex flex-1 min-w-0 items-center gap-2 sm:gap-3 rounded-lg border bg-white dark:bg-dk-surface px-3 py-2.5 transition ${launchTimeOpen ? 'border-indigo-400 ring-2 ring-indigo-100' : 'border-slate-200 dark:border-dk-border'}`}
                                     >
                                         <Clock className="h-4 w-4 shrink-0 text-indigo-500" aria-hidden />
                                         <div className="relative min-w-0 flex-1">
@@ -1036,15 +1036,15 @@ export default function Pedido({
                                                 aria-haspopup="dialog"
                                                 aria-label={pt.pickLaunchTime}
                                                 onClick={() => setLaunchTimeOpen((o) => !o)}
-                                                className="flex w-full items-center justify-between gap-2 rounded-md border border-slate-200 bg-white py-2 pl-3 pr-2 outline-none transition hover:border-indigo-200 focus-visible:border-indigo-400 focus-visible:ring-2 focus-visible:ring-indigo-100"
+                                                className="flex w-full items-center justify-between gap-2 rounded-md border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface py-2 pl-3 pr-2 outline-none transition hover:border-indigo-200 focus-visible:border-indigo-400 focus-visible:ring-2 focus-visible:ring-indigo-100"
                                             >
-                                                <span className="tabular-nums text-sm font-semibold tracking-tight text-slate-800">
+                                                <span className="tabular-nums text-sm font-semibold tracking-tight text-slate-800 dark:text-dk-text">
                                                     {launchHM.h}:{launchHM.min}
                                                 </span>
-                                                <ChevronDown className={`h-4 w-4 shrink-0 text-slate-400 transition-transform ${launchTimeOpen ? 'rotate-180' : ''}`} aria-hidden />
+                                                <ChevronDown className={`h-4 w-4 shrink-0 text-slate-400 dark:text-dk-muted transition-transform ${launchTimeOpen ? 'rotate-180' : ''}`} aria-hidden />
                                             </button>
                                         </div>
-                                        <span className="hidden shrink-0 text-[10px] font-semibold uppercase tracking-wide text-slate-400 sm:inline">{pt.badge24h}</span>
+                                        <span className="hidden shrink-0 text-[10px] font-semibold uppercase tracking-wide text-slate-400 dark:text-dk-muted sm:inline">{pt.badge24h}</span>
                                     </div>
                                 </div>
                                 {launchTimeOpen && createPortal(
@@ -1059,32 +1059,32 @@ export default function Pedido({
                                             width: Math.max(launchPopPos.width, 300),
                                             zIndex: 9999
                                         }}
-                                        className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl ring-1 ring-black/5"
+                                        className="overflow-hidden rounded-xl border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface shadow-xl ring-1 ring-black/5"
                                     >
-                                        <div className="flex items-center justify-between border-b border-slate-100 bg-zinc-50/80 px-4 py-2">
+                                        <div className="flex items-center justify-between border-b border-slate-100 dark:border-dk-border bg-zinc-50/80 px-4 py-2">
                                             <div>
-                                                <span className="text-[10px] font-semibold uppercase text-slate-500 tracking-widest font-sans">HEURE DE LANCEMENT</span>
+                                                <span className="text-[10px] font-semibold uppercase text-slate-500 dark:text-dk-muted tracking-widest font-sans">HEURE DE LANCEMENT</span>
                                             </div>
-                                            <div className="tabular-nums text-lg font-semibold text-indigo-600 bg-white px-3 py-0.5 rounded-lg border border-slate-200">
+                                            <div className="tabular-nums text-lg font-semibold text-indigo-600 dark:text-dk-accent-text bg-white dark:bg-dk-surface px-3 py-0.5 rounded-lg border border-slate-200 dark:border-dk-border">
                                                 {launchHM.h}:{launchHM.min}
                                             </div>
                                         </div>
 
                                         <div className="p-4 space-y-4">
                                             <div>
-                                                <label className="text-[10px] font-semibold text-slate-500 uppercase block mb-1.5 font-sans">Saisie directe</label>
+                                                <label className="text-[10px] font-semibold text-slate-500 dark:text-dk-muted uppercase block mb-1.5 font-sans">Saisie directe</label>
                                                 <input
                                                     type="time"
                                                     step={300}
                                                     value={`${launchHM.h}:${launchHM.min}`}
                                                     onChange={(e) => handleChange('launchTime', e.target.value)}
-                                                    className="w-full bg-white border border-slate-200 focus:border-indigo-500 rounded-lg px-4 py-2.5 tabular-nums font-semibold text-lg text-center text-slate-800 outline-none transition-colors"
+                                                    className="w-full bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border focus:border-indigo-500 rounded-lg px-4 py-2.5 tabular-nums font-semibold text-lg text-center text-slate-800 dark:text-dk-text outline-none transition-colors"
                                                 />
-                                                <p className="text-[10px] text-slate-400 mt-1 text-center font-sans">Pas de 5 minutes</p>
+                                                <p className="text-[10px] text-slate-400 dark:text-dk-muted mt-1 text-center font-sans">Pas de 5 minutes</p>
                                             </div>
 
                                             <div>
-                                                <label className="text-[10px] font-semibold text-slate-500 uppercase block mb-1.5 font-sans">Raccourcis</label>
+                                                <label className="text-[10px] font-semibold text-slate-500 dark:text-dk-muted uppercase block mb-1.5 font-sans">Raccourcis</label>
                                                 <div className="grid grid-cols-3 gap-1.5 font-sans">
                                                     {['06:00', '07:00', '08:00', '08:30', '09:00', '14:00'].map(t => {
                                                         const active = `${launchHM.h}:${launchHM.min}` === t;
@@ -1093,8 +1093,8 @@ export default function Pedido({
                                                                 key={t}
                                                                 onClick={() => { handleChange('launchTime', t); setLaunchTimeOpen(false); }}
                                                                 className={`py-2 text-xs tabular-nums font-semibold rounded-lg transition-all ${active
-                                                                    ? 'bg-indigo-600 text-white'
-                                                                    : 'bg-slate-100 hover:bg-indigo-50 text-slate-700 hover:text-indigo-700'}`}
+                                                                    ? 'bg-indigo-600 dark:bg-dk-accent text-white'
+                                                                    : 'bg-slate-100 hover:bg-indigo-50 dark:bg-dk-accent/20 text-slate-700 hover:text-indigo-700 dark:text-dk-accent-text'}`}
                                                             >
                                                                 {t}
                                                             </button>
@@ -1104,11 +1104,11 @@ export default function Pedido({
                                             </div>
                                         </div>
 
-                                        <div className="flex items-center justify-between text-[10px] text-slate-400 py-2 px-4 border-t border-slate-100 bg-zinc-50/80 font-sans">
+                                        <div className="flex items-center justify-between text-[10px] text-slate-400 dark:text-dk-muted py-2 px-4 border-t border-slate-100 dark:border-dk-border bg-zinc-50/80 font-sans">
                                             <span>{tx(lang, { fr: 'Tab/flèches pour ajuster', ar: 'علامة التبويب/الأسهم للضبط', en: 'Tab/arrows to adjust', es: 'Tabulador/flechas para ajustar', pt: 'Tab/setas para ajustar', tr: 'Sekme/oklarla ayarla' })}</span>
                                             <button
                                                 onClick={() => setLaunchTimeOpen(false)}
-                                                className="px-2 py-0.5 rounded bg-indigo-600 text-white text-[10px] font-bold hover:bg-indigo-500"
+                                                className="px-2 py-0.5 rounded bg-indigo-600 dark:bg-dk-accent text-white text-[10px] font-bold hover:bg-indigo-500"
                                             >
                                                 OK
                                             </button>
@@ -1116,7 +1116,7 @@ export default function Pedido({
                                     </div>,
                                     document.body
                                 )}
-                                <p className="text-[10px] text-slate-400 mt-2 font-medium">
+                                <p className="text-[10px] text-slate-400 dark:text-dk-muted mt-2 font-medium">
                                     {pt.launchHelp}
                                 </p>
                             </div>
@@ -1130,11 +1130,11 @@ export default function Pedido({
 
                 {/* RIGHT COLUMN: PLANIFIED LOTS & OFs — ACCORDION (5 Cols) */}
                 <div className="lg:col-span-5">
-                    <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden flex flex-col">
-                        <div className="bg-zinc-50/80 px-5 py-3 border-b border-slate-100 flex items-center justify-between">
+                    <div className="bg-white dark:bg-dk-surface rounded-2xl border border-slate-100 dark:border-dk-border overflow-hidden flex flex-col">
+                        <div className="bg-zinc-50/80 px-5 py-3 border-b border-slate-100 dark:border-dk-border flex items-center justify-between">
                             <div className="flex items-center gap-2">
                                 <Calendar className="w-4 h-4 text-indigo-500" />
-                                <h3 className="font-semibold text-slate-900 text-xs uppercase tracking-wide">
+                                <h3 className="font-semibold text-slate-900 dark:text-dk-text text-xs uppercase tracking-wide">
                                     {tx(lang, { fr: 'Lots & OFs Planifiés', ar: 'دفعات التسليم', en: 'Planned Lots & OFs', es: 'Lotes y OF Planificados', pt: 'Lotes e OFs Planeados', tr: 'Planlanan Partiler ve OF' })}
                                 </h3>
                             </div>
@@ -1143,13 +1143,13 @@ export default function Pedido({
                                     <button
                                         type="button"
                                         onClick={startEditNew}
-                                        className="inline-flex items-center gap-1.5 h-8 px-3 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-lg transition-all"
+                                        className="inline-flex items-center gap-1.5 h-8 px-3 bg-indigo-600 dark:bg-dk-accent hover:bg-indigo-700 dark:hover:bg-dk-accent-hover text-white text-xs font-semibold rounded-lg transition-all"
                                     >
                                         <Plus className="w-3.5 h-3.5" />
                                         {tx(lang, { fr: 'Ajouter', ar: 'إضافة دفعة', en: 'Add', es: 'Añadir', pt: 'Adicionar', tr: 'Ekle' })}
                                     </button>
                                 )}
-                                <span className="inline-flex items-center justify-center h-6 min-w-[24px] px-2 bg-indigo-50 text-indigo-600 text-xs font-semibold rounded-full tabular-nums">
+                                <span className="inline-flex items-center justify-center h-6 min-w-[24px] px-2 bg-indigo-50 dark:bg-dk-accent/20 text-indigo-600 dark:text-dk-accent-text text-xs font-semibold rounded-full tabular-nums">
                                     {modelEvents.length}
                                 </span>
                             </div>
@@ -1172,15 +1172,15 @@ export default function Pedido({
                             )}
 
                             {currentModelId && editingEventId === 'new' && (
-                                <div className="p-5 border-b border-slate-100">
+                                <div className="p-5 border-b border-slate-100 dark:border-dk-border">
                                     {renderEditorForm()}
                                 </div>
                             )}
 
                             {modelEvents.length === 0 ? (
                                 editingEventId !== 'new' && (
-                                    <div className="text-center py-16 text-slate-400 text-xs italic flex flex-col items-center justify-center gap-2 font-sans">
-                                        <Calendar className="w-8 h-8 text-slate-300" />
+                                    <div className="text-center py-16 text-slate-400 dark:text-dk-muted text-xs italic flex flex-col items-center justify-center gap-2 font-sans">
+                                        <Calendar className="w-8 h-8 text-slate-300 dark:text-dk-muted" />
                                         <span>
                                             {tx(lang, {
                                                 fr: 'Aucune commande ou lot de livraison planifié pour ce modèle.',
@@ -1197,7 +1197,7 @@ export default function Pedido({
                                 modelEvents.map((evt) => {
                                     if (editingEventId === evt.id) {
                                         return (
-                                            <div key={evt.id} className="p-5 border-b border-slate-100">
+                                            <div key={evt.id} className="p-5 border-b border-slate-100 dark:border-dk-border">
                                                 {renderEditorForm()}
                                             </div>
                                         );
@@ -1223,20 +1223,20 @@ export default function Pedido({
                                     const pct = evt.qteTotal > 0 ? Math.round((produced / evt.qteTotal) * 1000) / 10 : 0;
 
                                     return (
-                                        <div key={evt.id} className={`relative border-b border-slate-100 last:border-b-0 transition-colors ${isExpanded ? 'bg-indigo-50/20' : 'hover:bg-slate-50/50'}`}>
+                                        <div key={evt.id} className={`relative border-b border-slate-100 dark:border-dk-border last:border-b-0 transition-colors ${isExpanded ? 'bg-indigo-50 dark:bg-dk-accent/20/20' : 'hover:bg-slate-50/50'}`}>
                                             {/* ACCORDION HEADER */}
                                             <button
                                                 type="button"
                                                 onClick={() => setExpandedLotId(isExpanded ? null : evt.id)}
-                                                className={`w-full px-4 py-3 flex items-center gap-3 text-left transition-colors hover:bg-slate-50/50 sticky top-0 z-30 bg-white ${isExpanded ? 'border-b border-slate-100 shadow-sm' : ''}`}
+                                                className={`w-full px-4 py-3 flex items-center gap-3 text-left transition-colors hover:bg-slate-50/50 sticky top-0 z-30 bg-white dark:bg-dk-surface ${isExpanded ? 'border-b border-slate-100 dark:border-dk-border shadow-sm' : ''}`}
                                             >
-                                                <div className={`shrink-0 w-6 h-6 rounded-md flex items-center justify-center transition-all ${isExpanded ? 'bg-indigo-100 text-indigo-600 rotate-90' : 'bg-slate-100 text-slate-400'}`}>
+                                                <div className={`shrink-0 w-6 h-6 rounded-md flex items-center justify-center transition-all ${isExpanded ? 'bg-indigo-100 text-indigo-600 dark:text-dk-accent-text rotate-90' : 'bg-slate-100 dark:bg-dk-elevated text-slate-400 dark:text-dk-muted'}`}>
                                                     <ChevronRight className="w-3.5 h-3.5" />
                                                 </div>
                                                 <div className="flex-1 min-w-0">
                                                     <div className="flex items-center gap-2 flex-wrap">
-                                                        <span className="text-indigo-600 bg-indigo-50/80 px-1.5 py-0.5 rounded text-[10px] font-semibold">OF</span>
-                                                        <span className="text-sm font-semibold text-slate-800 truncate">{displayModelName}</span>
+                                                        <span className="text-indigo-600 dark:text-dk-accent-text bg-indigo-50 dark:bg-dk-accent/20/80 px-1.5 py-0.5 rounded text-[10px] font-semibold">OF</span>
+                                                        <span className="text-sm font-semibold text-slate-800 dark:text-dk-text truncate">{displayModelName}</span>
                                                         {isSplit && (
                                                             <span className="inline-flex items-center gap-0.5 bg-amber-50 text-amber-700 border border-amber-200/60 px-1.5 py-0.5 rounded text-[10px] font-semibold">
                                                                 <Scissors className="w-2.5 h-2.5" />{lotSuffix}
@@ -1248,9 +1248,9 @@ export default function Pedido({
                                                             <span className={`w-1.5 h-1.5 rounded-full ${statusMeta.dot}`} />
                                                             {statusMeta.label}
                                                         </span>
-                                                        <span className="text-[11px] tabular-nums font-semibold text-slate-500">{evt.qteTotal} pcs</span>
+                                                        <span className="text-[11px] tabular-nums font-semibold text-slate-500 dark:text-dk-muted">{evt.qteTotal} pcs</span>
                                                         {pct > 0 && (
-                                                            <span className="text-[10px] font-semibold text-indigo-600 tabular-nums">{pct}%</span>
+                                                            <span className="text-[10px] font-semibold text-indigo-600 dark:text-dk-accent-text tabular-nums">{pct}%</span>
                                                         )}
                                                     </div>
                                                 </div>
@@ -1260,7 +1260,7 @@ export default function Pedido({
                                                         tabIndex={0}
                                                         onClick={(e) => { e.stopPropagation(); startEditExisting(evt); }}
                                                         onKeyDown={(e) => { if (e.key === 'Enter') { e.stopPropagation(); startEditExisting(evt); } }}
-                                                        className="shrink-0 p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all cursor-pointer"
+                                                        className="shrink-0 p-1.5 text-slate-400 hover:text-indigo-600 dark:text-dk-accent-text hover:bg-indigo-50 dark:bg-dk-accent/20 rounded-lg transition-all cursor-pointer"
                                                         title={tx(lang, { fr: 'Modifier le lot', ar: 'تعديل الدفعة', en: 'Edit lot', es: 'Editar lote', pt: 'Editar lote', tr: 'Partiyi düzenle' })}
                                                     >
                                                         <Edit className="w-3.5 h-3.5" />
@@ -1273,41 +1273,41 @@ export default function Pedido({
                                                 <div className="px-4 pb-4 space-y-3 animate-in slide-in-from-top-1 duration-200">
                                                     {/* Quick info pills */}
                                                     <div className="grid grid-cols-3 gap-1.5">
-                                                        <div className="bg-white border border-slate-100 rounded-md p-2 flex items-center gap-1.5">
-                                                            <div className="bg-indigo-50/80 p-1 rounded-md text-indigo-500">
+                                                        <div className="bg-white dark:bg-dk-surface border border-slate-100 dark:border-dk-border rounded-md p-2 flex items-center gap-1.5">
+                                                            <div className="bg-indigo-50 dark:bg-dk-accent/20/80 p-1 rounded-md text-indigo-500">
                                                                 <Calendar className="w-3.5 h-3.5" />
                                                             </div>
                                                             <div className="min-w-0">
-                                                                <span className="text-[8px] text-slate-400 font-semibold uppercase block leading-none">
+                                                                <span className="text-[8px] text-slate-400 dark:text-dk-muted font-semibold uppercase block leading-none">
                                                                     {tx(lang, { fr: 'Lancement', ar: 'الإطلاق', en: 'Launch', es: 'Lanzamiento', pt: 'Lançamento', tr: 'Başlatma' })}
                                                                 </span>
-                                                                <span className="font-semibold text-slate-700 tabular-nums text-[11px] block truncate">
+                                                                <span className="font-semibold text-slate-700 dark:text-dk-text-soft tabular-nums text-[11px] block truncate">
                                                                     {(evt.startDate || evt.dateLancement || '-').split('T')[0]}
                                                                 </span>
                                                             </div>
                                                         </div>
-                                                        <div className="bg-white border border-slate-100 rounded-md p-2 flex items-center gap-1.5">
+                                                        <div className="bg-white dark:bg-dk-surface border border-slate-100 dark:border-dk-border rounded-md p-2 flex items-center gap-1.5">
                                                             <div className="bg-blue-50/80 p-1 rounded-md text-blue-500">
                                                                 <Clock className="w-3.5 h-3.5" />
                                                             </div>
                                                             <div className="min-w-0">
-                                                                <span className="text-[8px] text-slate-400 font-semibold uppercase block leading-none">
+                                                                <span className="text-[8px] text-slate-400 dark:text-dk-muted font-semibold uppercase block leading-none">
                                                                     {tx(lang, { fr: 'Fin estimée', ar: 'الانتهاء', en: 'Est. end', es: 'Fin estimado', pt: 'Fim estimado', tr: 'Tahmini bitiş' })}
                                                                 </span>
-                                                                <span className="font-semibold text-slate-700 tabular-nums text-[11px] block truncate">
+                                                                <span className="font-semibold text-slate-700 dark:text-dk-text-soft tabular-nums text-[11px] block truncate">
                                                                     {evt.estimatedEndDate ? evt.estimatedEndDate.split('T')[0] : '-'}
                                                                 </span>
                                                             </div>
                                                         </div>
-                                                        <div className="bg-white border border-slate-100 rounded-md p-2 flex items-center gap-1.5">
+                                                        <div className="bg-white dark:bg-dk-surface border border-slate-100 dark:border-dk-border rounded-md p-2 flex items-center gap-1.5">
                                                             <div className="bg-emerald-50/80 p-1 rounded-md text-emerald-500">
                                                                 <Calendar className="w-3.5 h-3.5" />
                                                             </div>
                                                             <div className="min-w-0">
-                                                                <span className="text-[8px] text-slate-400 font-semibold uppercase block leading-none">
+                                                                <span className="text-[8px] text-slate-400 dark:text-dk-muted font-semibold uppercase block leading-none">
                                                                     {tx(lang, { fr: 'DDS', ar: 'التسليم', en: 'DDS', es: 'DDS', pt: 'DDS', tr: 'DDS' })}
                                                                 </span>
-                                                                <span className="font-semibold text-slate-700 tabular-nums text-[11px] block truncate">
+                                                                <span className="font-semibold text-slate-700 dark:text-dk-text-soft tabular-nums text-[11px] block truncate">
                                                                     {(evt.strictDeadline_DDS || evt.dateExport || '-').split('T')[0]}
                                                                 </span>
                                                             </div>
@@ -1315,24 +1315,24 @@ export default function Pedido({
                                                     </div>
 
                                                     {/* Client & Material arrival */}
-                                                    <div className="bg-white border border-slate-100 rounded-md px-3 py-2 flex flex-wrap items-center justify-between gap-2 text-xs font-sans">
+                                                    <div className="bg-white dark:bg-dk-surface border border-slate-100 dark:border-dk-border rounded-md px-3 py-2 flex flex-wrap items-center justify-between gap-2 text-xs font-sans">
                                                         <div className="flex items-center gap-2">
                                                             <Truck className="w-3.5 h-3.5 text-amber-500" />
-                                                            <span className="font-semibold text-slate-700 tabular-nums text-[11px]">
+                                                            <span className="font-semibold text-slate-700 dark:text-dk-text-soft tabular-nums text-[11px]">
                                                                 {evt.fournisseurDate ? evt.fournisseurDate.split('T')[0] : tx(lang, { fr: 'Non définie', ar: 'غير محدد', en: 'Not defined', es: 'No definida', pt: 'Não definida', tr: 'Tanımsız' })}
                                                             </span>
                                                             {matAv && (
                                                                 <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-bold border ${
                                                                     matAv.color === 'green' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
                                                                     matAv.color === 'yellow' ? 'bg-amber-50 text-amber-700 border-amber-200' :
-                                                                    matAv.color === 'red' ? 'bg-rose-50 text-rose-700 border-rose-200' : 'bg-slate-50 text-slate-500 border-slate-200'
+                                                                    matAv.color === 'red' ? 'bg-rose-50 text-rose-700 border-rose-200' : 'bg-slate-50 dark:bg-dk-bg text-slate-500 dark:text-dk-muted border-slate-200 dark:border-dk-border'
                                                                 }`}>
                                                                     <span>{matAv.emoji}</span>
                                                                     <span>{matAv.label}</span>
                                                                 </span>
                                                             )}
                                                         </div>
-                                                        <span className="font-semibold text-slate-700 bg-slate-50 px-2 py-0.5 rounded border border-slate-100 text-[11px]">
+                                                        <span className="font-semibold text-slate-700 dark:text-dk-text-soft bg-slate-50 dark:bg-dk-bg px-2 py-0.5 rounded border border-slate-100 dark:border-dk-border text-[11px]">
                                                             {evt.clientName || (evt as any).client || '-'}
                                                         </span>
                                                     </div>
@@ -1355,16 +1355,16 @@ export default function Pedido({
                                                     )}
 
                                                     {/* Progress bar */}
-                                                    <div className="bg-white border border-slate-100 rounded-md p-2.5 space-y-1">
-                                                        <div className="flex items-center justify-between text-[11px] font-semibold text-slate-500">
+                                                    <div className="bg-white dark:bg-dk-surface border border-slate-100 dark:border-dk-border rounded-md p-2.5 space-y-1">
+                                                        <div className="flex items-center justify-between text-[11px] font-semibold text-slate-500 dark:text-dk-muted">
                                                             <span>{tx(lang, { fr: 'Production', ar: 'التقدم', en: 'Production', es: 'Producción', pt: 'Produção', tr: 'Üretim' })}</span>
-                                                            <span className="tabular-nums text-indigo-600">
+                                                            <span className="tabular-nums text-indigo-600 dark:text-dk-accent-text">
                                                                 {produced.toLocaleString()} / {evt.qteTotal.toLocaleString()} ({pct}%)
                                                             </span>
                                                         </div>
-                                                        <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                                                        <div className="w-full h-1.5 bg-slate-100 dark:bg-dk-elevated rounded-full overflow-hidden">
                                                             <div 
-                                                                className="h-full bg-indigo-600 rounded-full transition-all duration-500" 
+                                                                className="h-full bg-indigo-600 dark:bg-dk-accent rounded-full transition-all duration-500" 
                                                                 style={{ width: `${Math.min(100, pct)}%` }}
                                                             />
                                                         </div>
@@ -1373,19 +1373,19 @@ export default function Pedido({
                                                     {/* Distribution table */}
                                                     {hasDistribution && (
                                                         <div className="space-y-1.5">
-                                                            <div className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
-                                                                <Grid3X3 className="w-3 h-3 text-slate-400" />
+                                                            <div className="text-[10px] font-semibold text-slate-500 dark:text-dk-muted uppercase tracking-wider flex items-center gap-1.5">
+                                                                <Grid3X3 className="w-3 h-3 text-slate-400 dark:text-dk-muted" />
                                                                 {tx(lang, { fr: 'Répartition', ar: 'التوزيع', en: 'Distribution', es: 'Distribución', pt: 'Distribuição', tr: 'Dağılım' })}
                                                             </div>
-                                                            <div className="overflow-x-auto rounded-lg border border-slate-100 bg-white">
+                                                            <div className="overflow-x-auto rounded-lg border border-slate-100 dark:border-dk-border bg-white dark:bg-dk-surface">
                                                                 <table className="w-full text-[11px] border-collapse">
                                                                     <thead>
-                                                                        <tr className="bg-zinc-50/80 text-slate-500 border-b border-slate-100 font-semibold">
-                                                                            <th className="py-2 px-2.5 text-left font-semibold border-r border-slate-100">Couleur</th>
+                                                                        <tr className="bg-zinc-50/80 text-slate-500 dark:text-dk-muted border-b border-slate-100 dark:border-dk-border font-semibold">
+                                                                            <th className="py-2 px-2.5 text-left font-semibold border-r border-slate-100 dark:border-dk-border">Couleur</th>
                                                                             {filteredSizes.map((s, i) => (
-                                                                                <th key={i} className="py-2 px-2 text-center font-semibold border-r border-slate-100">{s}</th>
+                                                                                <th key={i} className="py-2 px-2 text-center font-semibold border-r border-slate-100 dark:border-dk-border">{s}</th>
                                                                             ))}
-                                                                            <th className="py-2 px-2.5 text-center font-semibold bg-indigo-50/30 text-indigo-700">TOT</th>
+                                                                            <th className="py-2 px-2.5 text-center font-semibold bg-indigo-50 dark:bg-dk-accent/20/30 text-indigo-700 dark:text-dk-accent-text">TOT</th>
                                                                         </tr>
                                                                     </thead>
                                                                     <tbody className="divide-y divide-slate-100">
@@ -1393,7 +1393,7 @@ export default function Pedido({
                                                                             let rowTotal = 0;
                                                                             return (
                                                                                 <tr key={`${c.id}-${cIdx}`} className="hover:bg-slate-50/30">
-                                                                                    <td className="py-1.5 px-2.5 border-r border-slate-100 font-semibold text-slate-600 flex items-center gap-1.5">
+                                                                                    <td className="py-1.5 px-2.5 border-r border-slate-100 dark:border-dk-border font-semibold text-slate-600 dark:text-dk-text-soft flex items-center gap-1.5">
                                                                                         <div
                                                                                             className={`w-2 h-2 rounded-full flex-shrink-0 ${c.id && c.id.startsWith('#') ? '' : 'bg-slate-300'}`}
                                                                                             style={c.id && c.id.startsWith('#') ? { backgroundColor: c.id } : undefined}
@@ -1404,12 +1404,12 @@ export default function Pedido({
                                                                                         const qty = evt.sizeColorDistribution?.[c.id]?.[s] || 0;
                                                                                         rowTotal += qty;
                                                                                         return (
-                                                                                            <td key={s} className="py-1.5 px-1.5 text-center tabular-nums text-slate-600 border-r border-slate-100">
-                                                                                                {qty || <span className="text-slate-300">-</span>}
+                                                                                            <td key={s} className="py-1.5 px-1.5 text-center tabular-nums text-slate-600 dark:text-dk-text-soft border-r border-slate-100 dark:border-dk-border">
+                                                                                                {qty || <span className="text-slate-300 dark:text-dk-muted">-</span>}
                                                                                             </td>
                                                                                         );
                                                                                     })}
-                                                                                    <td className="py-1.5 px-2.5 text-center tabular-nums font-bold bg-slate-50/40 text-slate-700">
+                                                                                    <td className="py-1.5 px-2.5 text-center tabular-nums font-bold bg-slate-50/40 text-slate-700 dark:text-dk-text-soft">
                                                                                         {rowTotal}
                                                                                     </td>
                                                                                 </tr>
@@ -1423,17 +1423,17 @@ export default function Pedido({
 
                                                      {/* Materials Need — clean table with no overflow */}
                                                     <div className="space-y-1.5">
-                                                        <div className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
-                                                            <Package className="w-3 h-3 text-slate-400" />
+                                                        <div className="text-[10px] font-semibold text-slate-500 dark:text-dk-muted uppercase tracking-wider flex items-center gap-1.5">
+                                                            <Package className="w-3 h-3 text-slate-400 dark:text-dk-muted" />
                                                             {tx(lang, { fr: 'Besoin Matières', ar: 'المواد', en: 'Material Needs', es: 'Necesidad de Materiales', pt: 'Necessidade de Materiais', tr: 'Malzeme İhtiyacı' })}
                                                         </div>
-                                                        <div className="rounded-lg border border-slate-100 overflow-hidden">
+                                                        <div className="rounded-lg border border-slate-100 dark:border-dk-border overflow-hidden">
                                                             {(() => {
                                                                 const gq = evt.sizeColorDistribution || {};
                                                                 const materials = data.materials || [];
                                                                 if (materials.length === 0) {
                                                                     return (
-                                                                        <p className="text-[11px] text-slate-400 italic text-center py-3 bg-amber-50/20">
+                                                                        <p className="text-[11px] text-slate-400 dark:text-dk-muted italic text-center py-3 bg-amber-50/20">
                                                                             {tx(lang, { fr: 'Aucune matière définie', ar: 'لا توجد مواد محددة', en: 'No material defined', es: 'Ningún material definido', pt: 'Nenhum material definido', tr: 'Tanımlı malzeme yok' })}
                                                                         </p>
                                                                     );
@@ -1472,7 +1472,7 @@ export default function Pedido({
 
                                                                 if (colorGroups.length === 0) {
                                                                     return (
-                                                                        <p className="text-[11px] text-slate-400 italic text-center py-3 bg-amber-50/20">
+                                                                        <p className="text-[11px] text-slate-400 dark:text-dk-muted italic text-center py-3 bg-amber-50/20">
                                                                             {tx(lang, { fr: 'Aucune matière pour ce lot', ar: 'لا توجد مواد لهذا الدفعة', en: 'No material for this lot', es: 'Ningún material para este lote', pt: 'Nenhum material para este lote', tr: 'Bu parti için malzeme yok' })}
                                                                         </p>
                                                                     );
@@ -1494,19 +1494,19 @@ export default function Pedido({
                                                                             const cHex = cg.colorId && cg.colorId.startsWith('#') ? cg.colorId : null;
                                                                             return (
                                                                                 <div key={cg.colorId} className={`${cgIdx > 0 ? 'border-t border-amber-100/50' : ''}`}>
-                                                                                    <div className="px-3 py-2 bg-white/60 flex items-center justify-between">
+                                                                                    <div className="px-3 py-2 bg-white dark:bg-dk-surface/60 flex items-center justify-between">
                                                                                         <div className="flex items-center gap-2">
                                                                                             <div className={`w-2 h-2 rounded-full shadow-sm ${cHex ? '' : 'bg-slate-300'}`} style={cHex ? { backgroundColor: cHex } : undefined} />
-                                                                                            <span className="text-[11px] font-bold text-slate-700">{cg.colorName}</span>
-                                                                                            <span className="text-[9px] text-slate-400 font-medium">{cg.colorPieces} pcs</span>
+                                                                                            <span className="text-[11px] font-bold text-slate-700 dark:text-dk-text-soft">{cg.colorName}</span>
+                                                                                            <span className="text-[9px] text-slate-400 dark:text-dk-muted font-medium">{cg.colorPieces} pcs</span>
                                                                                         </div>
-                                                                                        <span className="text-[10px] font-bold text-indigo-600 tabular-nums">{fmt(cg.colorTotal)} DH</span>
+                                                                                        <span className="text-[10px] font-bold text-indigo-600 dark:text-dk-accent-text tabular-nums">{fmt(cg.colorTotal)} DH</span>
                                                                                     </div>
                                                                                     <div className="overflow-x-auto bg-amber-50/20">
                                                                                         <table className="w-full text-[11px] border-collapse">
                                                                                             <thead>
-                                                                                                <tr className="text-[9px] uppercase tracking-wider text-slate-400 border-b border-amber-100/30">
-                                                                                                    <th className="sticky left-0 bg-slate-50 border-r border-amber-100/30 z-20 text-left px-3 py-1.5 font-medium min-w-[80px]">{tx(lang, { fr: 'Matière', ar: 'المادة', en: 'Material', es: 'Material', pt: 'Material', tr: 'Malzeme' })}</th>
+                                                                                                <tr className="text-[9px] uppercase tracking-wider text-slate-400 dark:text-dk-muted border-b border-amber-100/30">
+                                                                                                    <th className="sticky left-0 bg-slate-50 dark:bg-dk-bg border-r border-amber-100/30 z-20 text-left px-3 py-1.5 font-medium min-w-[80px]">{tx(lang, { fr: 'Matière', ar: 'المادة', en: 'Material', es: 'Material', pt: 'Material', tr: 'Malzeme' })}</th>
                                                                                                     <th className="text-center px-2 py-1.5 font-medium min-w-[50px]">{tx(lang, { fr: 'Qté', ar: 'الكمية', en: 'Qty', es: 'Cant.', pt: 'Qtd', tr: 'Miktar' })}</th>
                                                                                                     <th className="text-center px-2 py-1.5 font-medium min-w-[60px]">Fournisseur</th>
                                                                                                     <th className="text-center px-2 py-1.5 font-medium min-w-[70px]">Statut</th>
@@ -1517,12 +1517,12 @@ export default function Pedido({
                                                                                             <tbody className="divide-y divide-amber-50/50">
                                                                                                 {cg.colorMats.map((m: any, idx: number) => (
                                                                                                     <tr key={`${m.id}-${idx}`} className="group hover:bg-amber-50/30 transition-colors cursor-pointer" onClick={() => setSelectedMaterial({ ...m, colorName: cg.colorName })}>
-                                                                                                        <td className="sticky left-0 bg-white group-hover:bg-[#fffcf4] z-10 border-r border-amber-100/30 px-3 py-1.5 font-medium text-slate-700 truncate max-w-[100px]" title={m.name}>{m.name}</td>
-                                                                                                        <td className="px-2 py-1.5 text-center tabular-nums text-slate-600 whitespace-nowrap">{m.buyQty} {m.unit}</td>
+                                                                                                        <td className="sticky left-0 bg-white dark:bg-dk-surface group-hover:bg-[#fffcf4] z-10 border-r border-amber-100/30 px-3 py-1.5 font-medium text-slate-700 dark:text-dk-text-soft truncate max-w-[100px]" title={m.name}>{m.name}</td>
+                                                                                                        <td className="px-2 py-1.5 text-center tabular-nums text-slate-600 dark:text-dk-text-soft whitespace-nowrap">{m.buyQty} {m.unit}</td>
                                                                                                         <td className="px-2 py-1.5 text-center">
                                                                                                             {m.fournisseur ? (
-                                                                                                                <span className="text-[9px] font-bold bg-indigo-50 text-indigo-700 px-1.5 py-0.5 rounded whitespace-nowrap">{m.fournisseur}</span>
-                                                                                                            ) : <span className="text-slate-300">—</span>}
+                                                                                                                <span className="text-[9px] font-bold bg-indigo-50 dark:bg-dk-accent/20 text-indigo-700 dark:text-dk-accent-text px-1.5 py-0.5 rounded whitespace-nowrap">{m.fournisseur}</span>
+                                                                                                            ) : <span className="text-slate-300 dark:text-dk-muted">—</span>}
                                                                                                         </td>
                                                                                                         <td className="px-2 py-1.5 text-center">
                                                                                                             {m.isDelivered ? (
@@ -1539,7 +1539,7 @@ export default function Pedido({
                                                                                                                 </span>
                                                                                                             )}
                                                                                                         </td>
-                                                                                                        <td className="px-3 py-1.5 text-right tabular-nums font-semibold text-slate-800 whitespace-nowrap">{fmt(m.cost)} DH</td>
+                                                                                                        <td className="px-3 py-1.5 text-right tabular-nums font-semibold text-slate-800 dark:text-dk-text whitespace-nowrap">{fmt(m.cost)} DH</td>
                                                                                                         <td className="px-2 py-1.5" onClick={(e) => e.stopPropagation()}>
                                                                                                             <div className="flex items-center justify-end gap-1">
                                                                                                                 {!m.isDelivered && currentModelId && (
@@ -1581,14 +1581,14 @@ export default function Pedido({
 
             {/* RECONCILIATION SUMMARY TABLE (AT BOTTOM, SPANS FULL WIDTH) */}
             {(modelEvents.length > 0 || editingEventId !== null) && (
-                <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden p-5 space-y-4">
+                <div className="bg-white dark:bg-dk-surface rounded-2xl border border-slate-100 dark:border-dk-border overflow-hidden p-5 space-y-4">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 font-sans">
                         <div className="space-y-0.5">
-                            <h4 className="font-semibold text-sm text-slate-900 flex items-center gap-2">
-                                <Grid3X3 className="w-4 h-4 text-indigo-600" />
+                            <h4 className="font-semibold text-sm text-slate-900 dark:text-dk-text flex items-center gap-2">
+                                <Grid3X3 className="w-4 h-4 text-indigo-600 dark:text-dk-accent-text" />
                                 {tx(lang, { fr: 'Tableau de Réconciliation & Suivi des Délais', ar: 'جدول مطابقة الكميات مع التوزيع الإجمالي', en: 'Reconciliation & Deadline Tracking Table', es: 'Tabla de Conciliación y Seguimiento de Plazos', pt: 'Tabela de Reconciliação e Acompanhamento de Prazos', tr: 'Mutabakat ve Termin Takip Tablosu' })}
                             </h4>
-                            <p className="text-xs text-slate-500 font-medium">
+                            <p className="text-xs text-slate-500 dark:text-dk-muted font-medium">
                                 {tx(lang, {
                                     fr: 'Comparaison des quantités réparties par lots avec la répartition globale du modèle.',
                                     ar: 'مقارنة الكميات الموزعة على دفعات التسليم مع التوزيع الإجمالي للموديل (المقاسات والألوان).',
@@ -1647,17 +1647,17 @@ export default function Pedido({
                         </div>
                     )}
 
-                    <div className="overflow-x-auto rounded-xl border border-slate-100 bg-white">
+                    <div className="overflow-x-auto rounded-xl border border-slate-100 dark:border-dk-border bg-white dark:bg-dk-surface">
                         <table className="w-full text-xs border-collapse">
                             <thead>
-                                <tr className="bg-zinc-50/80 border-b border-slate-100 text-slate-700 font-sans">
-                                    <th className="py-3 px-3 text-left font-semibold border-r border-slate-100 min-w-[120px] text-[10px] uppercase tracking-wider">Couleur \ Taille</th>
+                                <tr className="bg-zinc-50/80 border-b border-slate-100 dark:border-dk-border text-slate-700 dark:text-dk-text-soft font-sans">
+                                    <th className="py-3 px-3 text-left font-semibold border-r border-slate-100 dark:border-dk-border min-w-[120px] text-[10px] uppercase tracking-wider">Couleur \ Taille</th>
                                     {sizes.filter(s => s.toLowerCase() !== 'total').map((s, i) => (
-                                        <th key={i} className="py-2 px-2 text-center font-semibold border-r border-slate-100 min-w-[80px] text-[10px] uppercase tracking-wider">
+                                        <th key={i} className="py-2 px-2 text-center font-semibold border-r border-slate-100 dark:border-dk-border min-w-[80px] text-[10px] uppercase tracking-wider">
                                             {s}
                                         </th>
                                     ))}
-                                    <th className="py-2 px-3 text-center font-semibold bg-slate-200/80 text-slate-800 w-28 text-[10px] uppercase tracking-wider border-l border-slate-200">TOTAL</th>
+                                    <th className="py-2 px-3 text-center font-semibold bg-slate-200/80 text-slate-800 dark:text-dk-text w-28 text-[10px] uppercase tracking-wider border-l border-slate-200 dark:border-dk-border">TOTAL</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
@@ -1670,7 +1670,7 @@ export default function Pedido({
                                     const hasRowPlanned = plannedRowTotal > 0;
                                     
                                     let rowCellBg = "bg-slate-50/30";
-                                    let rowPlannedColor = "text-slate-700 font-bold";
+                                    let rowPlannedColor = "text-slate-700 dark:text-dk-text-soft font-bold";
                                     if (!isRowMatching) {
                                         rowCellBg = "bg-rose-50/40 hover:bg-rose-50/60 transition-colors";
                                         rowPlannedColor = "text-rose-700 font-black";
@@ -1681,7 +1681,7 @@ export default function Pedido({
 
                                     return (
                                         <tr key={`${c.id}-${cIdx}`} className="hover:bg-slate-50/30 transition-colors">
-                                            <td className="py-2.5 px-3 border-r border-slate-100 font-semibold text-slate-700 flex items-center gap-2 bg-slate-50/20 font-sans">
+                                            <td className="py-2.5 px-3 border-r border-slate-100 dark:border-dk-border font-semibold text-slate-700 dark:text-dk-text-soft flex items-center gap-2 bg-slate-50/20 font-sans">
                                                 <div
                                                     className={`w-3 h-3 rounded-full flex-shrink-0 shadow-sm ${c.id && c.id.startsWith('#') ? '' : 'bg-slate-300'}`}
                                                     style={c.id && c.id.startsWith('#') ? { backgroundColor: c.id } : undefined}
@@ -1695,8 +1695,8 @@ export default function Pedido({
                                                 const isMatching = diff === 0;
                                                 const hasPlanned = plannedVal > 0;
 
-                                                let cellBg = "bg-white";
-                                                let plannedColor = "text-slate-700 font-bold";
+                                                let cellBg = "bg-white dark:bg-dk-surface";
+                                                let plannedColor = "text-slate-700 dark:text-dk-text-soft font-bold";
                                                 if (!isMatching) {
                                                     cellBg = "bg-rose-50/20 hover:bg-rose-50/40 transition-colors";
                                                     plannedColor = "text-rose-700 font-black";
@@ -1704,13 +1704,13 @@ export default function Pedido({
                                                     cellBg = "bg-emerald-50/15 hover:bg-emerald-50/30 transition-colors";
                                                     plannedColor = "text-emerald-700 font-extrabold";
                                                 } else {
-                                                    plannedColor = "text-slate-400 font-medium";
+                                                    plannedColor = "text-slate-400 dark:text-dk-muted font-medium";
                                                 }
                                                 
                                             return (
-                                                <td key={s} className={`py-2 px-2 border-r border-slate-100 text-center tabular-nums ${cellBg}`}>
+                                                <td key={s} className={`py-2 px-2 border-r border-slate-100 dark:border-dk-border text-center tabular-nums ${cellBg}`}>
                                                         <div className="flex flex-col items-center">
-                                                            <span className="text-[9px] text-slate-400 font-medium font-sans">
+                                                            <span className="text-[9px] text-slate-400 dark:text-dk-muted font-medium font-sans">
                                                                 {tx(lang, { fr: 'Cible:', ar: 'الهدف:', en: 'Target:', es: 'Objetivo:', pt: 'Alvo:', tr: 'Hedef:' })} {targetVal}
                                                             </span>
                                                             <span className={`text-xs ${plannedColor}`}>
@@ -1729,9 +1729,9 @@ export default function Pedido({
                                                     </td>
                                                 );
                                             })}
-                                            <td className={`py-2 px-3 text-center tabular-nums border-l border-slate-200 ${rowCellBg}`}>
+                                            <td className={`py-2 px-3 text-center tabular-nums border-l border-slate-200 dark:border-dk-border ${rowCellBg}`}>
                                                 <div className="flex flex-col items-center justify-center">
-                                                    <span className="text-[9px] text-slate-400 font-medium font-sans">{targetRowTotal}</span>
+                                                    <span className="text-[9px] text-slate-400 dark:text-dk-muted font-medium font-sans">{targetRowTotal}</span>
                                                     <span className={`text-xs ${rowPlannedColor}`}>{plannedRowTotal}</span>
                                                     {rowDiff !== 0 && (
                                                         <span className="text-[9px] font-black text-rose-600 bg-rose-50 px-1.5 py-0.5 rounded-md mt-0.5 border border-rose-100 animate-pulse">
@@ -1744,9 +1744,9 @@ export default function Pedido({
                                     );
                                 })}
                             </tbody>
-                            <tfoot className="border-t-2 border-slate-200 font-semibold bg-zinc-50/80 font-sans">
+                            <tfoot className="border-t-2 border-slate-200 dark:border-dk-border font-semibold bg-zinc-50/80 font-sans">
                                 <tr>
-                                    <td className="py-2.5 px-3 text-right uppercase text-[10px] tracking-wider text-slate-500 border-r border-slate-100">Total</td>
+                                    <td className="py-2.5 px-3 text-right uppercase text-[10px] tracking-wider text-slate-500 dark:text-dk-muted border-r border-slate-100 dark:border-dk-border">Total</td>
                                     {sizes.filter(s => s.toLowerCase() !== 'total').map((s, sIdx) => {
                                         const targetColTotal = matrixStats.colTotals[sIdx] || 0;
                                         const plannedColTotal = colors.filter(c => c.name.toLowerCase() !== 'total' && c.id.toLowerCase() !== 'total').reduce((sum, c) => sum + (planifiedTotals[c.id]?.[s] || 0), 0);
@@ -1756,7 +1756,7 @@ export default function Pedido({
                                         const hasColPlanned = plannedColTotal > 0;
                                         
                                         let colCellBg = "bg-slate-50/40";
-                                        let colPlannedColor = "text-slate-700 font-bold";
+                                        let colPlannedColor = "text-slate-700 dark:text-dk-text-soft font-bold";
                                         if (!isColMatching) {
                                             colCellBg = "bg-rose-50/30 hover:bg-rose-50/45 transition-colors";
                                             colPlannedColor = "text-rose-700 font-black";
@@ -1766,9 +1766,9 @@ export default function Pedido({
                                         }
                                         
                                         return (
-                                            <td key={sIdx} className={`py-2 px-2 text-center border-r border-slate-100 tabular-nums ${colCellBg}`}>
+                                            <td key={sIdx} className={`py-2 px-2 text-center border-r border-slate-100 dark:border-dk-border tabular-nums ${colCellBg}`}>
                                                 <div className="flex flex-col items-center justify-center">
-                                                    <span className="text-[9px] text-slate-400 font-medium font-sans">{targetColTotal}</span>
+                                                    <span className="text-[9px] text-slate-400 dark:text-dk-muted font-medium font-sans">{targetColTotal}</span>
                                                     <span className={`text-xs ${colPlannedColor}`}>{plannedColTotal}</span>
                                                     {colDiff !== 0 && (
                                                         <span className="text-[9px] font-black text-rose-600 bg-rose-50 px-1.5 py-0.5 rounded-md mt-0.5 border border-rose-100 animate-pulse">
@@ -1793,16 +1793,16 @@ export default function Pedido({
                                         } else if (hasGrandPlanned) {
                                             grandCellClass = "bg-gradient-to-br from-emerald-500 to-emerald-600 text-white shadow-md rounded-br-xl";
                                         } else {
-                                            grandCellClass = "bg-slate-200 text-slate-700";
+                                            grandCellClass = "bg-slate-200 text-slate-700 dark:text-dk-text-soft";
                                         }
                                         
                                         return (
-                                            <td className={`py-2.5 px-3 text-center border-l border-slate-200 ${grandCellClass}`}>
+                                            <td className={`py-2.5 px-3 text-center border-l border-slate-200 dark:border-dk-border ${grandCellClass}`}>
                                                 <div className="flex flex-col items-center justify-center tabular-nums">
                                                     <span className="text-[9px] opacity-75 font-semibold font-sans">{targetGrandTotal}</span>
                                                     <span className="text-sm font-black">{plannedGrandTotal}</span>
                                                     {grandDiff !== 0 && (
-                                                        <span className="text-[9px] font-black bg-white/20 px-1.5 py-0.5 rounded-md mt-0.5 border border-white/10">
+                                                        <span className="text-[9px] font-black bg-white dark:bg-dk-surface/20 px-1.5 py-0.5 rounded-md mt-0.5 border border-white/10">
                                                             {grandDiff > 0 ? `+${grandDiff}` : grandDiff}
                                                         </span>
                                                     )}
@@ -1820,27 +1820,27 @@ export default function Pedido({
             {/* Material Detail Modal */}
             {confirmModal.open && confirmModal.mat && (
                 <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-200" dir="ltr" onClick={() => setConfirmModal({ open: false, qty: '' })}>
-                    <div className="bg-white rounded-xl border border-slate-100 w-full max-w-sm overflow-hidden animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
-                        <div className="px-5 h-12 border-b border-slate-100 flex items-center gap-2">
+                    <div className="bg-white dark:bg-dk-surface rounded-xl border border-slate-100 dark:border-dk-border w-full max-w-sm overflow-hidden animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
+                        <div className="px-5 h-12 border-b border-slate-100 dark:border-dk-border flex items-center gap-2">
                             <CheckCircle className="w-4 h-4 text-emerald-600" strokeWidth={1.75} />
                             <div>
-                                <h3 className="text-[13px] font-semibold text-slate-900 tracking-tight">{tx(lang, { fr: 'Confirmer réception', ar: 'تأكيد الاستلام', en: 'Confirm reception', es: 'Confirmar recepción', pt: 'Confirmar receção', tr: 'Teslimatı onayla' })}</h3>
-                                <p className="text-[11px] text-slate-400 truncate max-w-[280px]">{confirmModal.mat.name}</p>
+                                <h3 className="text-[13px] font-semibold text-slate-900 dark:text-dk-text tracking-tight">{tx(lang, { fr: 'Confirmer réception', ar: 'تأكيد الاستلام', en: 'Confirm reception', es: 'Confirmar recepción', pt: 'Confirmar receção', tr: 'Teslimatı onayla' })}</h3>
+                                <p className="text-[11px] text-slate-400 dark:text-dk-muted truncate max-w-[280px]">{confirmModal.mat.name}</p>
                             </div>
                         </div>
                         <div className="p-5">
-                            <label className="block text-[11px] font-medium text-slate-500 mb-1.5">{tx(lang, { fr: 'Quantité reçue', ar: 'الكمية المستلمة', en: 'Quantity received', es: 'Cantidad recibida', pt: 'Quantidade recebida', tr: 'Alınan miktar' })} ({confirmModal.mat.unit})</label>
+                            <label className="block text-[11px] font-medium text-slate-500 dark:text-dk-muted mb-1.5">{tx(lang, { fr: 'Quantité reçue', ar: 'الكمية المستلمة', en: 'Quantity received', es: 'Cantidad recibida', pt: 'Quantidade recebida', tr: 'Alınan miktar' })} ({confirmModal.mat.unit})</label>
                             <input
                                 type="number" min="0" step="0.01" autoFocus
                                 value={confirmModal.qty}
                                 onChange={(e) => setConfirmModal(c => ({ ...c, qty: e.target.value }))}
-                                className="w-full h-9 px-3 bg-white hover:bg-slate-50 focus:bg-white border border-slate-200 focus:border-slate-300 rounded-md text-[13px] font-semibold text-slate-700 focus:ring-2 focus:ring-slate-100 outline-none transition-all tabular-nums"
+                                className="w-full h-9 px-3 bg-white dark:bg-dk-surface hover:bg-slate-50 dark:hover:bg-dk-elevated/60 focus:bg-white border border-slate-200 dark:border-dk-border focus:border-slate-300 rounded-md text-[13px] font-semibold text-slate-700 dark:text-dk-text-soft focus:ring-2 focus:ring-slate-100 outline-none transition-all tabular-nums"
                             />
-                            <p className="text-[10.5px] text-slate-400 mt-1.5">{tx(lang, { fr: `Besoin : ${fmt(confirmModal.mat.buyQty)} ${confirmModal.mat.unit}. S'ajoute au stock et lève « Attente » (BR pour le Planning).`, ar: `الاحتياج: ${fmt(confirmModal.mat.buyQty)} ${confirmModal.mat.unit}. يضاف إلى المخزون ويرفع « انتظار » (BR للتخطيط).`, en: `Need: ${fmt(confirmModal.mat.buyQty)} ${confirmModal.mat.unit}. Adds to stock and removes "Waiting" (BR for Planning).`, es: `Necesidad: ${fmt(confirmModal.mat.buyQty)} ${confirmModal.mat.unit}. Se agrega al stock y elimina « Espera » (BR para Planificación).`, pt: `Necessidade: ${fmt(confirmModal.mat.buyQty)} ${confirmModal.mat.unit}. Adiciona ao stock e remove « Espera » (BR para Planeamento).`, tr: `İhtiyaç: ${fmt(confirmModal.mat.buyQty)} ${confirmModal.mat.unit}. Stoka eklenir ve « Bekleme » kaldırılır (Planlama için BR).` })}</p>
+                            <p className="text-[10.5px] text-slate-400 dark:text-dk-muted mt-1.5">{tx(lang, { fr: `Besoin : ${fmt(confirmModal.mat.buyQty)} ${confirmModal.mat.unit}. S'ajoute au stock et lève « Attente » (BR pour le Planning).`, ar: `الاحتياج: ${fmt(confirmModal.mat.buyQty)} ${confirmModal.mat.unit}. يضاف إلى المخزون ويرفع « انتظار » (BR للتخطيط).`, en: `Need: ${fmt(confirmModal.mat.buyQty)} ${confirmModal.mat.unit}. Adds to stock and removes "Waiting" (BR for Planning).`, es: `Necesidad: ${fmt(confirmModal.mat.buyQty)} ${confirmModal.mat.unit}. Se agrega al stock y elimina « Espera » (BR para Planificación).`, pt: `Necessidade: ${fmt(confirmModal.mat.buyQty)} ${confirmModal.mat.unit}. Adiciona ao stock e remove « Espera » (BR para Planeamento).`, tr: `İhtiyaç: ${fmt(confirmModal.mat.buyQty)} ${confirmModal.mat.unit}. Stoka eklenir ve « Bekleme » kaldırılır (Planlama için BR).` })}</p>
                         </div>
-                        <div className="bg-zinc-50/80 px-5 py-4 flex justify-end gap-2.5 border-t border-slate-100">
-<button onClick={() => setConfirmModal({ open: false, qty: '' })} className="px-4 h-9 text-[12px] font-medium text-slate-600 bg-white border border-slate-200 rounded-md hover:bg-slate-50 transition-colors">{tx(lang, { fr: 'Annuler', ar: 'إلغاء', en: 'Cancel', es: 'Cancelar', pt: 'Cancelar', tr: 'İptal' })}</button>
-                                                                                            <button onClick={handleConfirmReception} className="inline-flex items-center gap-1.5 px-4 h-9 text-[12px] font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-md transition-colors">
+                        <div className="bg-zinc-50/80 px-5 py-4 flex justify-end gap-2.5 border-t border-slate-100 dark:border-dk-border">
+<button onClick={() => setConfirmModal({ open: false, qty: '' })} className="px-4 h-9 text-[12px] font-medium text-slate-600 dark:text-dk-text-soft bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-md hover:bg-slate-50 dark:hover:bg-dk-elevated/60 transition-colors">{tx(lang, { fr: 'Annuler', ar: 'إلغاء', en: 'Cancel', es: 'Cancelar', pt: 'Cancelar', tr: 'İptal' })}</button>
+                                                                                            <button onClick={handleConfirmReception} className="inline-flex items-center gap-1.5 px-4 h-9 text-[12px] font-medium text-white bg-indigo-600 dark:bg-dk-accent hover:bg-indigo-700 dark:hover:bg-dk-accent-hover rounded-md transition-colors">
                                                                                                 <CheckCircle className="w-3.5 h-3.5" strokeWidth={2} /> {tx(lang, { fr: 'Confirmer', ar: 'تأكيد', en: 'Confirm', es: 'Confirmar', pt: 'Confirmar', tr: 'Onayla' })}
                             </button>
                         </div>
