@@ -1084,7 +1084,7 @@ export default function Configuration({ settings, setSettings, lang, machines, n
                         {/* Working Days */}
                         <div>
                             <div className="flex items-center justify-between mb-2">
-                                <label className="flex items-center gap-2 block text-xs font-bold uppercase text-slate-500 dark:text-dk-muted">{t.workingDays} <span className="text-[10px] text-indigo-500 bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 px-2 py-0.5 rounded-full border border-indigo-100 font-black tracking-widest">{(settings.workingDays || []).length}/7</span></label>
+                                <label className="flex items-center gap-2 block text-xs font-bold uppercase text-slate-500 dark:text-dk-muted">{t.workingDays} <span className="text-[10px] text-indigo-500 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 px-2 py-0.5 rounded-full border border-indigo-100 font-black tracking-widest">{(settings.workingDays || []).length}/7</span></label>
                                 <div className="flex gap-2">
                                     <button onClick={() => setSettings(prev => ({ ...prev, workingDays: [1, 2, 3, 4, 5, 6, 7] }))} className="text-xs font-bold text-slate-500 hover:text-indigo-600 dark:text-dk-accent-text transition-colors uppercase pr-2 border-r border-slate-200 dark:border-dk-border hidden sm:block">{tx(lang, { fr: 'Tous', ar: 'الكل', en: 'All', es: 'Todos', pt: 'Todos', tr: 'Tümü' })}</button>
                                     <button onClick={() => setShowAgenda(true)} className="text-[11px] font-bold bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text hover:text-indigo-700 dark:text-dk-accent-text hover:bg-indigo-100 border border-indigo-100 px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5 shadow-sm dark:shadow-dk-sm active:scale-95">
@@ -1147,7 +1147,7 @@ export default function Configuration({ settings, setSettings, lang, machines, n
                                                 </div>
                                             </div>
                                         </div>
-                                        <button onClick={() => removePause(pause.id)} className="p-2 text-rose-400 hover:text-rose-600 hover:bg-rose-50 border border-transparent hover:border-rose-100 rounded-lg transition-colors Shrink-0 mt-4 sm:mt-0" title={tx(lang, { fr: 'Supprimer cette pause', ar: 'حذف هذا الاستراحة', en: 'Delete this break', es: 'Eliminar esta pausa', pt: 'Eliminar esta pausa', tr: 'Bu molayı sil' })}>
+                                        <button onClick={() => removePause(pause.id)} className="p-2 text-rose-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/30 border border-transparent hover:border-rose-100 rounded-lg transition-colors Shrink-0 mt-4 sm:mt-0" title={tx(lang, { fr: 'Supprimer cette pause', ar: 'حذف هذا الاستراحة', en: 'Delete this break', es: 'Eliminar esta pausa', pt: 'Eliminar esta pausa', tr: 'Bu molayı sil' })}>
                                             <Trash2 className="w-4 h-4" />
                                         </button>
                                     </div>
@@ -1169,7 +1169,7 @@ export default function Configuration({ settings, setSettings, lang, machines, n
                     <div className="flex items-center gap-2">
                         <ListTodo className="w-5 h-5 text-slate-500 dark:text-dk-muted" />
                         <h2 className="font-bold text-slate-800 dark:text-dk-text">{tx(lang, { fr: 'Systèmes de tailles', ar: 'أنظمة المقاسات', en: 'Size systems', es: 'Sistemas de tallas', pt: 'Sistemas de tamanhos', tr: 'Beden sistemleri' })}</h2>
-                        <span className="text-[10px] font-black uppercase tracking-wider bg-amber-100 text-amber-700 border border-amber-200 px-1.5 py-0.5 rounded">Beta</span>
+                        <span className="text-[10px] font-black uppercase tracking-wider bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800 px-1.5 py-0.5 rounded">Beta</span>
                     </div>
                     <ChevronDown className={`w-5 h-5 text-slate-400 dark:text-dk-muted shrink-0 transition-transform ${openSec['tailles'] ? 'rotate-180' : ''}`} />
                 </div>
@@ -1177,7 +1177,7 @@ export default function Configuration({ settings, setSettings, lang, machines, n
                     {/* Activation de la fonctionnalité (Beta) */}
                     <div className="flex items-center justify-between gap-3 bg-amber-50 dark:bg-amber-900/30/50 border border-amber-100 rounded-xl p-3">
                         <div className="flex items-center gap-2">
-                            <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0" />
+                            <AlertTriangle className="w-4 h-4 text-amber-500 dark:text-amber-400 shrink-0" />
                             <span className="text-sm font-bold text-slate-700 dark:text-dk-text-soft">{tx(lang, { fr: 'Activer la fonctionnalité (Beta)', ar: 'تفعيل ميزة أنظمة المقاسات (تجريبية)', en: 'Enable the feature (Beta)', es: 'Activar la funcionalidad (Beta)', pt: 'Ativar a funcionalidade (Beta)', tr: 'Özelliği etkinleştir (Beta)' })}</span>
                         </div>
                         <button
@@ -1255,7 +1255,7 @@ export default function Configuration({ settings, setSettings, lang, machines, n
                             </div>
                             <button
                                 onClick={() => setSettings(prev => ({ ...prev, tailleSystems: (prev.tailleSystems || []).filter(s => s.id !== sys.id) }))}
-                                className="p-2 text-rose-400 hover:text-rose-600 hover:bg-rose-50 border border-transparent hover:border-rose-100 rounded-lg transition-colors shrink-0"
+                                className="p-2 text-rose-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/30 border border-transparent hover:border-rose-100 rounded-lg transition-colors shrink-0"
                                 title={tx(lang, { fr: 'Supprimer ce système', ar: 'حذف هذا النظام', en: 'Delete this system', es: 'Eliminar este sistema', pt: 'Eliminar este sistema', tr: 'Bu sistemi sil' })}
                             >
                                 <Trash2 className="w-4 h-4" />
@@ -1300,7 +1300,7 @@ export default function Configuration({ settings, setSettings, lang, machines, n
                         </div>
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                             {(settings.organigram || []).map((person) => (
-                                <div key={person.id} className="flex flex-col gap-3 bg-white dark:bg-dk-surface p-5 rounded-2xl border border-slate-200 dark:border-dk-border hover:border-blue-300 hover:shadow-md transition-all relative group overflow-hidden">
+                                <div key={person.id} className="flex flex-col gap-3 bg-white dark:bg-dk-surface p-5 rounded-2xl border border-slate-200 dark:border-dk-border hover:border-blue-300 hover:shadow-md dark:hover:shadow-dk-md transition-all relative group overflow-hidden">
                                     <div className="absolute top-0 left-0 w-1 h-full bg-blue-500 opacity-0 group-hover:opacity-100 transition-opacity"></div>
                                     <button onClick={() => setSettings(prev => ({ ...prev, organigram: prev.organigram.filter(p => p.id !== person.id) }))} className="absolute top-3 right-3 p-1.5 bg-rose-50 dark:bg-rose-900/30 text-rose-500 hover:text-rose-600 hover:bg-rose-100 rounded-lg shadow-sm dark:shadow-dk-sm border border-rose-100 opacity-0 group-hover:opacity-100 transition-all active:scale-90" title={tx(lang, { fr: 'Supprimer', ar: 'حذف', en: 'Delete', es: 'Eliminar', pt: 'Excluir', tr: 'Sil' })}>
                                         <Trash2 className="w-3.5 h-3.5" />
@@ -1332,11 +1332,11 @@ export default function Configuration({ settings, setSettings, lang, machines, n
                         <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/10 rounded-full blur-2xl -translate-y-1/2 translate-x-1/3"></div>
                         <div className="relative z-10 flex flex-col sm:flex-row items-start sm:items-center gap-6">
                             <div className="flex-1">
-                                <label className="block text-lg font-black text-indigo-900 mb-1">{t.chainsCount}</label>
+                                <label className="block text-lg font-black text-indigo-900 dark:text-indigo-300 mb-1">{t.chainsCount}</label>
                                 <p className="text-sm text-indigo-700 dark:text-dk-accent-text/70 font-medium">Modifier ce nombre mettra à jour l'usine numérique (Effet immédiat sur Suivi, Planning, Effectifs).</p>
                             </div>
                             <div className="relative w-40 shrink-0">
-                                <input type="number" min="1" max="50" name="chainsCount" value={settings.chainsCount !== undefined ? settings.chainsCount : 4} onChange={handleChange} className="w-full bg-white dark:bg-dk-surface border-2 border-indigo-200 rounded-xl pl-12 pr-4 py-3 outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/20 font-black text-xl text-indigo-900 transition-all" />
+                                <input type="number" min="1" max="50" name="chainsCount" value={settings.chainsCount !== undefined ? settings.chainsCount : 4} onChange={handleChange} className="w-full bg-white dark:bg-dk-surface border-2 border-indigo-200 rounded-xl pl-12 pr-4 py-3 outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/20 font-black text-xl text-indigo-900 dark:text-indigo-300 transition-all" />
                                 <Building className="w-6 h-6 text-indigo-400 absolute left-4 top-3.5" />
                             </div>
                         </div>
@@ -1393,7 +1393,7 @@ export default function Configuration({ settings, setSettings, lang, machines, n
                                                             <div className="flex-1 w-full">
                                                                 <input type="text" value={person.role} onChange={(e) => setSettings(prev => ({ ...prev, chainStaff: { ...prev.chainStaff, [chainKey]: prev.chainStaff[chainKey].map(p => p.id === person.id ? { ...p, role: e.target.value } : p) } }))} className="w-full bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-xl px-4 py-2.5 outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 text-sm font-medium text-slate-600 dark:text-dk-text-soft transition-all" placeholder={tx(lang, { fr: 'Rôle (ex: Qualité)', ar: 'الدور (مثال: الجودة)', en: 'Role (ex: Quality)', es: 'Rol (ej: Calidad)', pt: 'Função (ex: Qualidade)', tr: 'Rol (örn: Kalite)' })} />
                                                             </div>
-                                                             <button onClick={() => setSettings(prev => ({ ...prev, chainStaff: { ...prev.chainStaff, [chainKey]: prev.chainStaff[chainKey].filter(p => p.id !== person.id) } }))} className="w-full sm:w-10 sm:h-10 text-rose-400 hover:text-rose-600 bg-white dark:bg-dk-surface hover:bg-rose-50 rounded-xl border border-slate-200 dark:border-dk-border hover:border-rose-300 shadow-sm dark:shadow-dk-sm transition-all focus:outline-none shrink-0 flex items-center justify-center active:scale-90 py-2 sm:py-0" title={tx(lang, { fr: 'Supprimer', ar: 'حذف', en: 'Delete', es: 'Eliminar', pt: 'Excluir', tr: 'Sil' })}>
+                                                             <button onClick={() => setSettings(prev => ({ ...prev, chainStaff: { ...prev.chainStaff, [chainKey]: prev.chainStaff[chainKey].filter(p => p.id !== person.id) } }))} className="w-full sm:w-10 sm:h-10 text-rose-400 hover:text-rose-600 bg-white dark:bg-dk-surface hover:bg-rose-50 dark:hover:bg-rose-900/30 rounded-xl border border-slate-200 dark:border-dk-border hover:border-rose-300 shadow-sm dark:shadow-dk-sm transition-all focus:outline-none shrink-0 flex items-center justify-center active:scale-90 py-2 sm:py-0" title={tx(lang, { fr: 'Supprimer', ar: 'حذف', en: 'Delete', es: 'Eliminar', pt: 'Excluir', tr: 'Sil' })}>
                                                                 <Trash2 className="w-4 h-4" />
                                                             </button>
                                                         </div>
@@ -1537,7 +1537,7 @@ export default function Configuration({ settings, setSettings, lang, machines, n
             <div className="bg-white dark:bg-dk-surface rounded-2xl shadow-sm dark:shadow-dk-sm border border-slate-200 dark:border-dk-border overflow-hidden flex flex-col mt-6">
                 <div onClick={() => toggleSec('aps')} className={`px-5 py-4 bg-slate-50 dark:bg-dk-bg flex items-center justify-between cursor-pointer select-none ${openSec['aps'] ? 'border-b border-slate-100 dark:border-dk-border' : ''}`}>
                     <div className="flex items-center gap-2">
-                        <Zap className="w-5 h-5 text-amber-500" />
+                        <Zap className="w-5 h-5 text-amber-500 dark:text-amber-400" />
                         <h2 className="font-bold text-slate-800 dark:text-dk-text">{t.apsTitle}</h2>
                     </div>
                     <ChevronDown className={`w-5 h-5 text-slate-400 dark:text-dk-muted shrink-0 transition-transform ${openSec['aps'] ? 'rotate-180' : ''}`} />
@@ -1636,7 +1636,7 @@ export default function Configuration({ settings, setSettings, lang, machines, n
                                         const rate = settings.chainActivityRate?.[chainKey] ?? 0.85;
 
                                         return (
-                                            <tr key={chainKey} className="hover:bg-slate-50/50">
+                                            <tr key={chainKey} className="hover:bg-slate-50/50 dark:hover:bg-dk-elevated/60">
                                                 <td className="px-6 py-4 font-bold">{chainDisplayName}</td>
                                                 <td className="px-6 py-4">
                                                     <input
@@ -1691,7 +1691,7 @@ export default function Configuration({ settings, setSettings, lang, machines, n
                 <div className="bg-white dark:bg-dk-surface rounded-2xl shadow-sm dark:shadow-dk-sm border border-slate-200 dark:border-dk-border overflow-hidden flex flex-col mt-6">
                     <div onClick={() => toggleSec('nav')} className={`px-5 py-4 bg-slate-50 dark:bg-dk-bg flex items-center justify-between cursor-pointer select-none ${openSec['nav'] ? 'border-b border-slate-100 dark:border-dk-border' : ''}`}>
                         <div className="flex items-center gap-2">
-                            <ListTodo className="w-5 h-5 text-indigo-500" />
+                            <ListTodo className="w-5 h-5 text-indigo-500 dark:text-indigo-400" />
                             <h2 className="font-bold text-slate-800 dark:text-dk-text">
                                 {tx(lang, { fr: 'Configuration de la barre de navigation', ar: 'إعدادات شريط التنقل', en: 'Navigation bar configuration', es: 'Configuración de la barra de navegación', pt: 'Configuração da barra de navegação', tr: 'Gezinme çubuğu yapılandırması' })}
                             </h2>
@@ -1751,7 +1751,7 @@ export default function Configuration({ settings, setSettings, lang, machines, n
                                         onClick={() => setNavConfig({ ...navConfig, style: item.key as any })}
                                         className={`p-4 rounded-xl border-2 font-bold text-sm transition-all text-start flex flex-col gap-1 hover:border-indigo-300 active:scale-98 ${
                                             navConfig.style === item.key
-                                                ? 'bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 border-indigo-500 text-indigo-700 dark:text-dk-accent-text shadow-sm'
+                                                ? 'bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 border-indigo-500 text-indigo-700 dark:text-dk-accent-text shadow-sm dark:shadow-dk-sm'
                                                 : 'bg-white dark:bg-dk-surface border-slate-200 dark:border-dk-border text-slate-600 dark:text-dk-text-soft'
                                         }`}
                                     >
@@ -1879,7 +1879,7 @@ export default function Configuration({ settings, setSettings, lang, machines, n
                                         const isHidden = navConfig.hidden.includes(view);
                                         return (
                                             <div key={view} className={`flex items-center gap-3 p-2.5 rounded-xl border transition-all ${
-                                                isHidden ? 'bg-slate-50 dark:bg-dk-bg border-slate-100 dark:border-dk-border opacity-60' : 'bg-white dark:bg-dk-surface border-slate-200 dark:border-dk-border shadow-sm'
+                                                isHidden ? 'bg-slate-50 dark:bg-dk-bg border-slate-100 dark:border-dk-border opacity-60' : 'bg-white dark:bg-dk-surface border-slate-200 dark:border-dk-border shadow-sm dark:shadow-dk-sm'
                                             }`}>
                                                 {/* Reorder Buttons */}
                                                 <div className="flex flex-col gap-0.5 shrink-0">
@@ -1936,7 +1936,7 @@ export default function Configuration({ settings, setSettings, lang, machines, n
             <div className="bg-white dark:bg-dk-surface rounded-2xl shadow-sm dark:shadow-dk-sm border border-slate-200 dark:border-dk-border overflow-hidden flex flex-col mt-6">
                 <div onClick={() => toggleSec('tasks')} className={`px-5 py-4 bg-slate-50 dark:bg-dk-bg flex items-center justify-between cursor-pointer select-none ${openSec['tasks'] ? 'border-b border-slate-100 dark:border-dk-border' : ''}`}>
                     <div className="flex items-center gap-2">
-                        <ListTodo className="w-5 h-5 text-indigo-500" />
+                        <ListTodo className="w-5 h-5 text-indigo-500 dark:text-indigo-400" />
                         <h2 className="font-bold text-slate-800 dark:text-dk-text">{tx(lang, { fr: 'Gestion des Tâches', ar: 'إدارة المهام', en: 'Task Management', es: 'Gestión de Tareas', pt: 'Gestão de Tarefas', tr: 'Görev Yönetimi' })}</h2>
                     </div>
                     <ChevronDown className={`w-5 h-5 text-slate-400 dark:text-dk-muted shrink-0 transition-transform ${openSec['tasks'] ? 'rotate-180' : ''}`} />
@@ -2040,7 +2040,7 @@ export default function Configuration({ settings, setSettings, lang, machines, n
                                         )}
                                         <button
                                             onClick={() => handleDeleteTask(task.id)}
-                                            className="p-1.5 bg-slate-50 dark:bg-dk-bg text-rose-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg border border-slate-200 dark:border-dk-border hover:border-rose-200 transition-colors"
+                                            className="p-1.5 bg-slate-50 dark:bg-dk-bg text-rose-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/30 rounded-lg border border-slate-200 dark:border-dk-border hover:border-rose-200 transition-colors"
                                             title={tx(lang, { fr: 'Supprimer la tâche', ar: 'حذف المهمة', en: 'Delete task', es: 'Eliminar tarea', pt: 'Eliminar tarefa', tr: 'Görevi sil' })}
                                         >
                                             <Trash2 className="w-3.5 h-3.5" />
