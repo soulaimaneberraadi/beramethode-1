@@ -66,9 +66,9 @@ export default function SaasUIDemo() {
       align: 'center',
       render: (v: string) => {
         const colors: Record<string, string> = {
-          OK: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-          PANNE: 'bg-red-50 text-red-600 border-red-200',
-          MAINT: 'bg-amber-50 text-amber-600 border-amber-200',
+          OK: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-300 dark:border-emerald-700',
+          PANNE: 'bg-red-50 text-red-600 border-red-200 dark:bg-red-900/30 dark:text-red-300 dark:border-red-700',
+          MAINT: 'bg-amber-50 text-amber-600 border-amber-200 dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-700',
         };
         return (
           <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium border ${colors[v] || ''}`}>
@@ -81,12 +81,12 @@ export default function SaasUIDemo() {
   ];
 
   return (
-    <div className="min-h-screen bg-slate-50 p-4 sm:p-6 lg:p-8 space-y-6 max-w-7xl mx-auto">
+    <div className="min-h-screen bg-slate-50 p-4 sm:p-6 lg:p-8 space-y-6 max-w-7xl mx-auto dark:bg-dk-bg">
       {/* ─── Page Header ─── */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-[18px] font-semibold text-slate-900">Saas UI Kit</h1>
-          <p className="text-[12px] text-slate-500 mt-0.5">
+          <h1 className="text-[18px] font-semibold text-slate-900 dark:text-dk-text">Saas UI Kit</h1>
+          <p className="text-[12px] text-slate-500 mt-0.5 dark:text-dk-text-soft">
             {tx(lang, { fr: 'Composants Minimalist SaaS — Responsive, Dense, Professionnel', ar: 'مكونات SaaS بسيطة — سريعة الاستجابة، كثيفة، احترافية', en: 'Minimalist SaaS Components — Responsive, Dense, Professional', es: 'Componentes SaaS Minimalistas — Adaptables, Densos, Profesionales', pt: 'Componentes SaaS Minimalistas — Responsivos, Densos, Profissionais', tr: 'Minimalist SaaS Bileşenleri — Duyarlı, Yoğun, Profesyonel' })}
           </p>
         </div>
@@ -231,7 +231,7 @@ export default function SaasUIDemo() {
       <SaasPanel title={tx(lang, { fr: 'Boutons', ar: 'الأزرار', en: 'Buttons', es: 'Botones', pt: 'Botões', tr: 'Düğmeler' })} icon={Settings} compact>
         <div className="space-y-4">
           <div>
-            <p className="text-[11px] font-medium text-slate-500 mb-2">{tx(lang, { fr: 'Variants', ar: 'الأنواع', en: 'Variants', es: 'Variantes', pt: 'Variantes', tr: 'Çeşitler' })}</p>
+            <p className="text-[11px] font-medium text-slate-500 mb-2 dark:text-dk-muted">{tx(lang, { fr: 'Variants', ar: 'الأنواع', en: 'Variants', es: 'Variantes', pt: 'Variantes', tr: 'Çeşitler' })}</p>
             <SaasButtonGroup>
               <SaasButton variant="primary">Primary</SaasButton>
               <SaasButton variant="secondary">Secondary</SaasButton>
@@ -240,7 +240,7 @@ export default function SaasUIDemo() {
             </SaasButtonGroup>
           </div>
           <div>
-            <p className="text-[11px] font-medium text-slate-500 mb-2">{tx(lang, { fr: 'Tailles', ar: 'الأحجام', en: 'Sizes', es: 'Tamaños', pt: 'Tamanhos', tr: 'Boyutlar' })}</p>
+            <p className="text-[11px] font-medium text-slate-500 mb-2 dark:text-dk-muted">{tx(lang, { fr: 'Tailles', ar: 'الأحجام', en: 'Sizes', es: 'Tamaños', pt: 'Tamanhos', tr: 'Boyutlar' })}</p>
             <SaasButtonGroup>
               <SaasButton size="sm">Small</SaasButton>
               <SaasButton size="md">Medium</SaasButton>
@@ -248,7 +248,7 @@ export default function SaasUIDemo() {
             </SaasButtonGroup>
           </div>
           <div>
-            <p className="text-[11px] font-medium text-slate-500 mb-2">{tx(lang, { fr: 'Avec icônes', ar: 'مع الأيقونات', en: 'With Icons', es: 'Con iconos', pt: 'Com ícones', tr: 'Simgelerle' })}</p>
+            <p className="text-[11px] font-medium text-slate-500 mb-2 dark:text-dk-muted">{tx(lang, { fr: 'Avec icônes', ar: 'مع الأيقونات', en: 'With Icons', es: 'Con iconos', pt: 'Com ícones', tr: 'Simgelerle' })}</p>
             <SaasButtonGroup>
               <SaasButton variant="primary" icon={<Plus className="w-3.5 h-3.5" />}>{tx(lang, { fr: 'Ajouter', ar: 'إضافة', en: 'Add', es: 'Añadir', pt: 'Adicionar', tr: 'Ekle' })}</SaasButton>
               <SaasButton variant="secondary" icon={<Download className="w-3.5 h-3.5" />}>{tx(lang, { fr: 'Exporter', ar: 'تصدير', en: 'Export', es: 'Exportar', pt: 'Exportar', tr: 'Dışa Aktar' })}</SaasButton>
@@ -256,7 +256,7 @@ export default function SaasUIDemo() {
             </SaasButtonGroup>
           </div>
           <div>
-            <p className="text-[11px] font-medium text-slate-500 mb-2">Loading</p>
+            <p className="text-[11px] font-medium text-slate-500 mb-2 dark:text-dk-muted">Loading</p>
             <SaasButtonGroup>
               <SaasButton variant="primary" loading>{tx(lang, { fr: 'Chargement', ar: 'جارٍ التحميل', en: 'Loading', es: 'Cargando', pt: 'A carregar', tr: 'Yükleniyor' })}</SaasButton>
               <SaasButton variant="secondary" loading>{tx(lang, { fr: 'Chargement', ar: 'جارٍ التحميل', en: 'Loading', es: 'Cargando', pt: 'A carregar', tr: 'Yükleniyor' })}</SaasButton>
@@ -296,7 +296,7 @@ export default function SaasUIDemo() {
 
       {/* ─── Footer ─── */}
       <div className="text-center py-4">
-        <p className="text-[10px] text-slate-400">
+        <p className="text-[10px] text-slate-400 dark:text-dk-muted">
           BERAMETHODE Saas UI Kit — {tx(lang, { fr: 'Minimalist, Responsive, Dense', ar: 'بسيط، متجاوب، كثيف', en: 'Minimalist, Responsive, Dense', es: 'Minimalista, Adaptable, Denso', pt: 'Minimalista, Responsivo, Denso', tr: 'Minimalist, Duyarlı, Yoğun' })}
         </p>
       </div>

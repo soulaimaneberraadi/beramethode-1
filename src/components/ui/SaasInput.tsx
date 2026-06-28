@@ -47,22 +47,22 @@ export function SaasInput({
       <div className="relative group">
         {icon && (
           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-            <span className="text-slate-400 group-focus-within:text-slate-600 transition-colors">
+            <span className="text-slate-400 group-focus-within:text-slate-600 transition-colors dark:text-dk-muted dark:group-focus-within:text-dk-text-soft">
               {icon}
             </span>
           </div>
         )}
         <input
           className={`
-            w-full h-8 px-3 text-[12px] text-slate-700
-            bg-slate-50/60 border border-slate-200 rounded-md
-            placeholder:text-slate-400
-            focus:bg-white focus:border-slate-300 focus:ring-2 focus:ring-slate-100 focus:outline-none
+            w-full h-8 px-3 text-[12px] text-slate-700 dark:text-dk-text-soft
+            bg-slate-50/60 border border-slate-200 rounded-md dark:bg-dk-bg/60 dark:border-dk-border
+            placeholder:text-slate-400 dark:placeholder:text-dk-muted
+            focus:bg-white focus:border-slate-300 focus:ring-2 focus:ring-slate-100 focus:outline-none dark:focus:bg-dk-surface dark:focus:border-dk-border dark:focus:ring-white/10
             transition-all duration-150
             disabled:opacity-50 disabled:cursor-not-allowed
             ${icon ? 'pl-9' : ''}
             ${suffix ? 'pr-9' : ''}
-            ${error ? 'border-red-300 focus:border-red-400 focus:ring-red-50' : ''}
+            ${error ? 'border-red-300 focus:border-red-400 focus:ring-red-50 dark:border-red-700 dark:focus:border-red-500' : ''}
             ${className}
           `}
           {...props}
@@ -94,18 +94,18 @@ export function SaasSelect({
   return (
     <div className="space-y-1.5">
       {label && (
-        <label className="text-[11px] font-medium text-slate-500 block">
+        <label className="text-[11px] font-medium text-slate-500 block dark:text-dk-muted">
           {label}
         </label>
       )}
       <select
         className={`
-          w-full h-8 px-3 text-[12px] text-slate-700
-          bg-slate-50/60 border border-slate-200 rounded-md
-          focus:bg-white focus:border-slate-300 focus:ring-2 focus:ring-slate-100 focus:outline-none
+          w-full h-8 px-3 text-[12px] text-slate-700 dark:text-dk-text-soft
+          bg-slate-50/60 border border-slate-200 rounded-md dark:bg-dk-bg/60 dark:border-dk-border
+          focus:bg-white focus:border-slate-300 focus:ring-2 focus:ring-slate-100 focus:outline-none dark:focus:bg-dk-surface dark:focus:border-dk-border dark:focus:ring-white/10
           transition-all duration-150
           disabled:opacity-50 disabled:cursor-not-allowed
-          ${error ? 'border-red-300 focus:border-red-400 focus:ring-red-50' : ''}
+          ${error ? 'border-red-300 focus:border-red-400 focus:ring-red-50 dark:border-red-700 dark:focus:border-red-500' : ''}
           ${className}
         `}
         {...props}
@@ -122,9 +122,9 @@ export function SaasSelect({
         ))}
       </select>
       {hint && !error && (
-        <p className="text-[10px] text-slate-400">{hint}</p>
+        <p className="text-[10px] text-slate-400 dark:text-dk-muted">{hint}</p>
       )}
-      {error && <p className="text-[10px] text-red-500">{error}</p>}
+      {error && <p className="text-[10px] text-red-500 dark:text-red-400">{error}</p>}
     </div>
   );
 }
@@ -140,28 +140,28 @@ export function SaasTextarea({
   return (
     <div className="space-y-1.5">
       {label && (
-        <label className="text-[11px] font-medium text-slate-500 block">
+        <label className="text-[11px] font-medium text-slate-500 block dark:text-dk-muted">
           {label}
         </label>
       )}
       <textarea
         className={`
-          w-full px-3 py-2 text-[12px] text-slate-700
-          bg-slate-50/60 border border-slate-200 rounded-md
-          placeholder:text-slate-400
-          focus:bg-white focus:border-slate-300 focus:ring-2 focus:ring-slate-100 focus:outline-none
+          w-full px-3 py-2 text-[12px] text-slate-700 dark:text-dk-text-soft
+          bg-slate-50/60 border border-slate-200 rounded-md dark:bg-dk-bg/60 dark:border-dk-border
+          placeholder:text-slate-400 dark:placeholder:text-dk-muted
+          focus:bg-white focus:border-slate-300 focus:ring-2 focus:ring-slate-100 focus:outline-none dark:focus:bg-dk-surface dark:focus:border-dk-border dark:focus:ring-white/10
           transition-all duration-150
           disabled:opacity-50 disabled:cursor-not-allowed
           resize-none
-          ${error ? 'border-red-300 focus:border-red-400 focus:ring-red-50' : ''}
+          ${error ? 'border-red-300 focus:border-red-400 focus:ring-red-50 dark:border-red-700 dark:focus:border-red-500' : ''}
           ${className}
         `}
         {...props}
       />
       {hint && !error && (
-        <p className="text-[10px] text-slate-400">{hint}</p>
+        <p className="text-[10px] text-slate-400 dark:text-dk-muted">{hint}</p>
       )}
-      {error && <p className="text-[10px] text-red-500">{error}</p>}
+      {error && <p className="text-[10px] text-red-500 dark:text-red-400">{error}</p>}
     </div>
   );
 }
@@ -196,7 +196,7 @@ export function SaasToggle({
         onClick={() => !disabled && onChange(!checked)}
         className={`
           relative w-8 h-[18px] rounded-full transition-colors duration-200
-          ${checked ? 'bg-slate-900' : 'bg-slate-200'}
+          ${checked ? 'bg-slate-900 dark:bg-dk-accent' : 'bg-slate-200 dark:bg-dk-border'}
         `}
       >
         <span
@@ -208,7 +208,7 @@ export function SaasToggle({
         />
       </button>
       {label && (
-        <span className="text-[12px] text-slate-700">{label}</span>
+        <span className="text-[12px] text-slate-700 dark:text-dk-text-soft">{label}</span>
       )}
     </label>
   );

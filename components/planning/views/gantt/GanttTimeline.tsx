@@ -133,22 +133,13 @@ export default function GanttTimeline({ dates, dayWidth, settings }: Props) {
                         return (
                             <div
                                 key={i}
-                                className={`border-r border-slate-50 dark:border-dk-border/30 last:border-r-0 ${isWeekend ? 'bg-slate-50/40 dark:bg-dk-bg/50' : ''}`}
-                                style={{ width: dayWidth, minWidth: dayWidth }}
-                            />
-                        }
-                        return (
-                            <div
-                                key={i}
-                                className={`relative flex flex-col items-center justify-center border-r border-slate-50 dark:border-dk-border/30 last:border-r-0 transition-colors ${
-                                    isWeekend ? 'bg-slate-50/40 dark:bg-dk-bg/50' : ''
-                                }`}
+                                className={`relative flex flex-col items-center justify-center border-r border-slate-50 dark:border-dk-border/30 last:border-r-0 transition-colors ${isWeekend ? 'bg-slate-50/40 dark:bg-dk-bg/50' : ''}`}
                                 style={{ width: dayWidth, minWidth: dayWidth }}
                             >
                                 {dayWidth >= 50 && (
                                     <span className={`text-[9px] uppercase tracking-wider font-medium ${
-                                        isToday ? 'text-slate-900 dark:text-dk-text' : 'text-slate-400 dark:text-dk-muted'
-                                    }`}>
+                                        isWeekend ? 'text-slate-400 dark:text-dk-muted' : ''
+                                    } ${isToday ? 'text-slate-900 dark:text-dk-text' : 'text-slate-400 dark:text-dk-muted'}`}>
                                         {tx(lang, DAYS_TX[dow])}
                                     </span>
                                 )}

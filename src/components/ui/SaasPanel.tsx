@@ -47,7 +47,7 @@ export default function SaasPanel({
       animate="visible"
       className={`
         bg-white border border-slate-200 rounded-lg
-        overflow-hidden
+        overflow-hidden dark:bg-dk-surface dark:border-dk-border
         ${className}
       `}
     >
@@ -56,28 +56,28 @@ export default function SaasPanel({
         <div
           className={`
             flex items-center justify-between
-            border-b border-slate-100
+            border-b border-slate-100 dark:border-dk-border
             ${compact ? 'px-4 h-10' : 'px-5 h-12'}
           `}
         >
           <div className="flex items-center gap-2.5 min-w-0">
             {Icon && (
               <Icon
-                className="w-4 h-4 text-slate-400 shrink-0"
+                className="w-4 h-4 text-slate-400 shrink-0 dark:text-dk-muted"
                 strokeWidth={1.75}
               />
             )}
             <div className="min-w-0">
               <h3
                 className={`
-                  font-semibold text-slate-900 truncate
+                  font-semibold text-slate-900 truncate dark:text-dk-text
                   ${compact ? 'text-[12px]' : 'text-[13px]'}
                 `}
               >
                 {title}
               </h3>
               {subtitle && (
-                <p className="text-[11px] text-slate-400 truncate mt-0.5">
+                <p className="text-[11px] text-slate-400 truncate mt-0.5 dark:text-dk-muted">
                   {subtitle}
                 </p>
               )}
@@ -95,7 +95,7 @@ export default function SaasPanel({
         <div
           className={`
             flex items-center justify-end gap-2
-            border-t border-slate-100
+            border-t border-slate-100 dark:border-dk-border
             ${compact ? 'px-4 h-10' : 'px-5 h-12'}
           `}
         >
@@ -120,8 +120,8 @@ export function SaasEmpty({
 }) {
   return (
     <div className="flex flex-col items-center justify-center py-12 text-center">
-      {Icon && <Icon className="w-8 h-8 text-slate-300 mb-3" strokeWidth={1.5} />}
-      <p className="text-[13px] text-slate-500 mb-3">{message}</p>
+      {Icon && <Icon className="w-8 h-8 text-slate-300 mb-3 dark:text-dk-muted" strokeWidth={1.5} />}
+      <p className="text-[13px] text-slate-500 mb-3 dark:text-dk-text-soft">{message}</p>
       {action}
     </div>
   );
@@ -130,15 +130,15 @@ export function SaasEmpty({
 /** Section divider inside a panel */
 export function SaasDivider({ label }: { label?: string }) {
   if (!label) {
-    return <div className="border-t border-slate-100 my-4" />;
+    return <div className="border-t border-slate-100 my-4 dark:border-dk-border" />;
   }
   return (
     <div className="flex items-center gap-3 my-4">
-      <div className="h-px flex-1 bg-slate-100" />
-      <span className="text-[10px] font-medium text-slate-400 uppercase tracking-wide shrink-0">
+      <div className="h-px flex-1 bg-slate-100 dark:bg-dk-border" />
+      <span className="text-[10px] font-medium text-slate-400 uppercase tracking-wide shrink-0 dark:text-dk-muted">
         {label}
       </span>
-      <div className="h-px flex-1 bg-slate-100" />
+      <div className="h-px flex-1 bg-slate-100 dark:bg-dk-border" />
     </div>
   );
 }

@@ -141,9 +141,9 @@ export function HRWorkerProfilePanel({ workerId, onClose, onEdit, settings }: Pr
   const autoRecalcHeures = settings?.hrAutoOvertime !== false;
   const comptaRef = settings?.hrComptaPointageRef === 'normales_paie' ? 'normales_paie' : 'pointees';
   const styles = useMemo(() => ({
-    styles.labelStyle: { display: 'block', fontSize: 11, fontWeight: 600, color: isDark ? '#9DB5AB' : '#64748B', marginBottom: 2 } as React.CSSProperties,
-    styles.inputStyle: { border: `1px solid ${isDark ? '#2E463C' : '#E2E8F0'}`, borderRadius: 8, padding: '6px 10px', fontSize: 13, color: isDark ? '#EAF1ED' : '#0F172A', background: isDark ? '#1D2E28' : '#fff' } as React.CSSProperties,
-    styles.btnPrimary: { display: 'inline-flex', alignItems: 'center', padding: '8px 16px', background: '#2F9E64', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 600 } as React.CSSProperties,
+    labelStyle: { display: 'block', fontSize: 11, fontWeight: 600, color: isDark ? '#9DB5AB' : '#64748B', marginBottom: 2 } as React.CSSProperties,
+    inputStyle: { border: `1px solid ${isDark ? '#2E463C' : '#E2E8F0'}`, borderRadius: 8, padding: '6px 10px', fontSize: 13, color: isDark ? '#EAF1ED' : '#0F172A', background: isDark ? '#1D2E28' : '#fff' } as React.CSSProperties,
+    btnPrimary: { display: 'inline-flex', alignItems: 'center', padding: '8px 16px', background: '#2F9E64', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 600 } as React.CSSProperties,
     card: { background: isDark ? '#1D2E28' : '#fff', borderRadius: 12, border: `1px solid ${isDark ? '#2E463C' : '#E2E8F0'}`, padding: 16, marginBottom: 14 } as React.CSSProperties,
     th: { padding: '8px 10px', textAlign: 'left' as const, fontSize: 11, fontWeight: 600, color: isDark ? '#9DB5AB' : '#64748B', borderBottom: `1px solid ${isDark ? '#2E463C' : '#E2E8F0'}` } as React.CSSProperties,
     td: { padding: '8px 10px', fontSize: 12, borderBottom: `1px solid ${isDark ? '#243A31' : '#F1F5F9'}`, color: isDark ? '#C2D2CA' : undefined } as React.CSSProperties,

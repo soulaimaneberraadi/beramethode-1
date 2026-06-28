@@ -147,7 +147,7 @@ export default function PlanningHeader({
                             <button
                                 type="button"
                                 onClick={() => onSearch('')}
-                                className="absolute right-5 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-700"
+                                className="absolute right-5 top-1/2 -translate-y-1/2 p-1 text-slate-400 dark:text-dk-muted hover:text-slate-700 dark:hover:text-dk-text"
                                 aria-label={tx(lang,{fr:"Effacer",ar:"مسح",en:"Clear",es:"Limpiar",pt:"Limpar",tr:"Temizle"})}
                             >
                                 <X className="w-3.5 h-3.5" />
@@ -361,7 +361,7 @@ function StatDotInline({ value, color }: { value: number; color: string }) {
     return (
         <span className="inline-flex items-center gap-1">
             <span className={`w-1.5 h-1.5 rounded-full ${color} animate-pulse`} />
-            <span className="text-[11px] font-bold tabular-nums text-slate-750">{value}</span>
+            <span className="text-[11px] font-bold tabular-nums text-slate-750 dark:text-dk-text-soft">{value}</span>
         </span>
     );
 }

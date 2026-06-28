@@ -60,7 +60,7 @@ export default function CardsView({ events, models, onSelectEvent, onEditEvent }
     }
 
     return (
-        <div className="p-3 sm:p-6 bg-slate-50/30 min-h-full">
+        <div className="p-3 sm:p-6 bg-slate-50/30 dark:bg-dk-bg min-h-full">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
                 {COLUMNS.map(col => {
                     const items = grouped[col.status];
@@ -126,7 +126,7 @@ function EventCard({
             onDoubleClick={onDoubleClick}
             className={`group w-full text-left hover:shadow-[0_2px_8px_rgba(15,23,42,0.04)] rounded-lg p-3 transition-all ${
                 isSub
-                    ? 'bg-indigo-50 dark:bg-dk-accent/20/10 border border-dashed border-indigo-400 hover:border-indigo-500'
+                    ? 'bg-indigo-50 dark:bg-indigo-900/20 border border-dashed border-indigo-400 hover:border-indigo-500'
                     : 'bg-white dark:bg-dk-surface border border-slate-100 dark:border-dk-border hover:border-slate-200'
             }`}
         >
@@ -148,8 +148,8 @@ function EventCard({
                             )}
                             {isSub && (
                                 <span className={`text-[8px] font-black uppercase px-1.5 py-0.25 rounded ${
-                                    event.subcontractStatus === 'COMPLETED' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' :
-                                    event.subcontractStatus === 'SENT' ? 'bg-blue-50 text-blue-700 border border-blue-200' :
+                                    event.subcontractStatus === 'COMPLETED' ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800' :
+                                    event.subcontractStatus === 'SENT' ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 border border-blue-200 dark:border-blue-800' :
                                     'bg-slate-50 dark:bg-dk-bg text-slate-600 dark:text-dk-text-soft border border-slate-200 dark:border-dk-border'
                                 }`} title={event.subcontractorName}>
                                     {event.subcontractStatus || 'PENDING'}
@@ -181,7 +181,7 @@ function EventCard({
                         <span className="tabular-nums">{fmtShort(evStartYmd(event))}</span>
                     </div>
                     {ddsYmd && (
-                        <div className={`flex items-center gap-1 ${delay === 'LATE' ? 'text-red-600 font-semibold' : daysToDDS !== null && daysToDDS <= 7 ? 'text-amber-600 font-medium' : ''}`}>
+                        <div className={`flex items-center gap-1 ${delay === 'LATE' ? 'text-red-600 dark:text-red-400 font-semibold' : daysToDDS !== null && daysToDDS <= 7 ? 'text-amber-600 dark:text-amber-400 font-medium' : ''}`}>
                             <Clock className="w-2.5 h-2.5" strokeWidth={1.75} />
                             <span className="tabular-nums">{fmtShort(ddsYmd)}</span>
                             {daysToDDS !== null && (

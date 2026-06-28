@@ -13,13 +13,13 @@ export interface SaasButtonProps extends React.ButtonHTMLAttributes<HTMLButtonEl
 /* ─── Styles ─── */
 const variantClasses: Record<string, string> = {
   primary:
-    'bg-slate-900 text-white hover:bg-slate-800 active:bg-slate-900 shadow-sm',
+    'bg-slate-900 text-white hover:bg-slate-800 active:bg-slate-900 shadow-sm dark:bg-dk-accent dark:text-dk-text',
   secondary:
-    'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 active:bg-slate-100',
+    'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 active:bg-slate-100 dark:bg-dk-surface dark:text-dk-text-soft dark:border-dk-border dark:hover:bg-dk-elevated/60',
   ghost:
-    'bg-transparent text-slate-600 hover:bg-slate-100 active:bg-slate-200',
+    'bg-transparent text-slate-600 hover:bg-slate-100 active:bg-slate-200 dark:text-dk-text-soft dark:hover:bg-dk-elevated/60',
   danger:
-    'bg-red-600 text-white hover:bg-red-500 active:bg-red-700 shadow-sm',
+    'bg-red-600 text-white hover:bg-red-500 active:bg-red-700 shadow-sm dark:bg-red-700',
 };
 
 const sizeClasses: Record<string, string> = {
@@ -103,7 +103,7 @@ export function SaasIconButton({
         disabled:opacity-50 disabled:cursor-not-allowed
         ${variantClasses[variant]}
         ${sizeMap[size]}
-        ${active ? 'bg-slate-100 text-slate-900' : ''}
+        ${active ? 'bg-slate-100 text-slate-900 dark:bg-dk-elevated dark:text-dk-text' : ''}
         ${props.className || ''}
       `}
       {...props}

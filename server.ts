@@ -19,6 +19,7 @@ import {
   getMyPermissions, listRoles, createRole, deleteRole,
   getRolePermissions, setRolePermissions, setOverride,
   listMembers, addMember, removeMember,
+  getCompanyInfo, updateCompanyInfo,
 } from './server/permissionsController';
 import { getMyProfile, updateMyProfile } from './server/profileController';
 import { getModels, saveModel, deleteModel } from './server/modelController';
@@ -433,7 +434,7 @@ async function startServer() {
     }
   }, 5 * 60 * 1000).unref();
 
-  app.use(express.json({ limit: '10mb' }));
+  app.use(express.json({ limit: '24mb' }));
   app.use(cookieParser());
 
   // ── Active IP block check: blocks IPs with 5+ violations for 30 minutes ──
@@ -622,6 +623,8 @@ async function startServer() {
   app.get('/api/permissions/members', authenticateToken, listMembers);
   app.post('/api/permissions/members', authenticateToken, addMember);
   app.delete('/api/permissions/members/:userId', authenticateToken, removeMember);
+  app.get('/api/permissions/company', authenticateToken, getCompanyInfo);
+  app.put('/api/permissions/company', authenticateToken, updateCompanyInfo);
 
   // ── Multi-workspace : plusieurs sociétés isolées par compte ──
   app.get('/api/workspaces', authenticateToken, listWorkspaces);

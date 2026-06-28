@@ -43,7 +43,8 @@ export default function PermissionsManager() {
   const [confirm, setConfirm] = useState<null | (() => void)>(null);
   const [confirmText, setConfirmText] = useState('');
   const [newRole, setNewRole] = useState<{ name: string; preset: RolePresetKey | '' }>({ name: '', preset: '' });
-  const [newMember, setNewMember] = useState({ email: '', role_id: '' });
+  const [newMember, setNewMember] = useState({ email: '', name: '', password: '', role_id: '' });
+  const [inviteInfo, setInviteInfo] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   const reload = useCallback(async () => {
@@ -96,8 +97,20 @@ export default function PermissionsManager() {
 
   const addMember = async () => {
     if (!newMember.email || !newMember.role_id) return;
-    await api('/api/permissions/members', { method: 'POST', body: JSON.stringify(newMember) });
-    setNewMember({ email: '', role_id: '' }); void reload();
+    const res = await api('/api/permissions/members', { method: 'POST', body: JSON.stringify(newMember) });
+    if (res?.created && res?.tempPassword) {
+      setInviteInfo(tx(lang, {
+        fr: `Compte créé. Mot de passe temporaire : ${res.tempPassword} — à communiquer au membre.`,
+        ar: `تم إنشاء الحساب. كلمة سر مؤقتة: ${res.tempPassword} — بلّغها للعضو.`,
+        en: `Account created. Temporary password: ${res.tempPassword} — share it with the member.`,
+        es: `Cuenta creada. Contraseña temporal: ${res.tempPassword} — compártala con el miembro.`,
+        pt: `Conta criada. Palavra-passe temporária: ${res.tempPassword} — partilhe com o membro.`,
+        tr: `Hesap oluşturuldu. Geçici şifre: ${res.tempPassword} — üyeyle paylaşın.`,
+      }));
+    } else {
+      setInviteInfo(null);
+    }
+    setNewMember({ email: '', name: '', password: '', role_id: '' }); void reload();
   };
 
   const removeMember = (userId: number) => {
@@ -196,14 +209,22 @@ export default function PermissionsManager() {
       {/* Membres */}
       <div className={`rounded-lg border p-4 ${isDark ? 'bg-dk-surface border-dk-border' : 'bg-white dark:bg-dk-surface border-slate-200 dark:border-dk-border'}`}>
         <h3 className={`text-[13px] font-semibold mb-3 flex items-center gap-1.5 ${isDark ? 'text-dk-text' : 'text-slate-900 dark:text-dk-text'}`}><Users size={14} strokeWidth={1.75} className="text-slate-400 dark:text-dk-muted" /> {tx(lang, {fr:"Membres",ar:"الأعضاء",en:"Members",es:"Miembros",pt:"Membros",tr:"Üyeler"})}</h3>
-        <div className="flex flex-wrap gap-2 mb-3">
+        <div className="flex flex-wrap gap-2 mb-2">
+          <input value={newMember.name} onChange={e => setNewMember(s => ({ ...s, name: e.target.value }))} placeholder={tx(lang, {fr:'Nom (optionnel)',ar:'الاسم (اختياري)',en:'Name (optional)',es:'Nombre (opcional)',pt:'Nome (opcional)',tr:'Ad (isteğe bağlı)'})} className={`flex-1 min-w-[120px] ${inputCls}`} />
           <input value={newMember.email} onChange={e => setNewMember(s => ({ ...s, email: e.target.value }))} placeholder={tx(lang, {fr:'E-mail du membre',ar:'البريد الإلكتروني للعضو',en:'Member email',es:'Correo del miembro',pt:'E-mail do membro',tr:'Üye e-posta'})} className={`flex-1 min-w-[160px] ${inputCls}`} />
+          <input type="text" value={newMember.password} onChange={e => setNewMember(s => ({ ...s, password: e.target.value }))} placeholder={tx(lang, {fr:'Mot de passe (auto si vide)',ar:'كلمة السر (تلقائية إن تُركت)',en:'Password (auto if empty)',es:'Contraseña (auto si vacío)',pt:'Palavra-passe (auto se vazio)',tr:'Şifre (boşsa otomatik)'})} className={`flex-1 min-w-[140px] ${inputCls}`} />
           <select value={newMember.role_id} onChange={e => setNewMember(s => ({ ...s, role_id: e.target.value }))} className={`${inputCls} bg-white dark:bg-dk-surface`}>
             <option value="">Rôle…</option>
             {roles.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
           </select>
-          <button onClick={addMember} className="h-8 px-3 rounded-md bg-slate-900 text-white text-[13px] font-medium inline-flex items-center gap-1 hover:bg-slate-800"><UserPlus size={14} strokeWidth={1.75} /> {tx(lang, {fr:"Inviter",ar:"دعوة",en:"Invite",es:"Invitar",pt:"Convidar",tr:"Davet et"})}</button>
+          <button onClick={addMember} className="h-8 px-3 rounded-md bg-slate-900 text-white text-[13px] font-medium inline-flex items-center gap-1 hover:bg-slate-800"><UserPlus size={14} strokeWidth={1.75} /> {tx(lang, {fr:"Ajouter",ar:"إضافة",en:"Add",es:"Añadir",pt:"Adicionar",tr:"Ekle"})}</button>
         </div>
+        {inviteInfo && (
+          <div className={`flex items-start justify-between gap-2 text-[12px] rounded-md px-3 py-2 mb-3 ${isDark ? 'bg-dk-accent/15 text-dk-text' : 'bg-emerald-50 text-emerald-800'}`}>
+            <span className="font-medium break-all">{inviteInfo}</span>
+            <button onClick={() => setInviteInfo(null)} className="shrink-0 opacity-60 hover:opacity-100"><X size={14} strokeWidth={1.75} /></button>
+          </div>
+        )}
         {members.length === 0 && <p className={`text-[13px] py-2 text-center ${isDark ? 'text-dk-muted' : 'text-slate-400 dark:text-dk-muted'}`}>{tx(lang, {fr:'Aucun membre.',ar:'لا يوجد أعضاء.',en:'No members.',es:'Sin miembros.',pt:'Nenhum membro.',tr:'Üye yok.'})}</p>}
         {members.map(m => (
           <div key={m.id} className={`flex items-center justify-between py-2 border-b last:border-0 ${isDark ? 'border-dk-border' : 'border-slate-50'}`}>

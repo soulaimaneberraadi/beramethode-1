@@ -2,6 +2,7 @@ import React from 'react';
 import { Save, AlertTriangle } from 'lucide-react';
 import { tx } from '../lib/i18n';
 import { useLang } from '../src/context/LanguageContext';
+import { useIsDark } from '../src/context/ThemeContext';
 import type { Lang } from '../app/constants';
 
 interface NavConfirmModalProps {
@@ -14,6 +15,7 @@ interface NavConfirmModalProps {
 
 export default function NavConfirmModal({ isOpen, type, user, onConfirm }: NavConfirmModalProps) {
     const { lang } = useLang();
+    const isDark = useIsDark();
     if (!isOpen) return null;
 
     return (
@@ -23,7 +25,9 @@ export default function NavConfirmModal({ isOpen, type, user, onConfirm }: NavCo
         >
             {/* Darker Blur Backdrop */}
             <div
-                className="absolute inset-0 bg-slate-950/40 backdrop-blur-[12px] transition-opacity duration-300"
+                className={`absolute inset-0 transition-opacity duration-300 ${
+                    isDark ? 'bg-black/60 backdrop-blur-[12px]' : 'bg-slate-950/40 backdrop-blur-[12px]'
+                }`}
                 onClick={() => onConfirm('cancel')}
             />
 
@@ -31,14 +35,12 @@ export default function NavConfirmModal({ isOpen, type, user, onConfirm }: NavCo
             <div
                 className="relative w-full max-w-[400px] overflow-hidden"
                 style={{
-                    background: 'rgba(255, 255, 255, 0.94)',
+                    background: isDark ? 'rgba(29, 46, 40, 0.96)' : 'rgba(255, 255, 255, 0.94)',
                     backdropFilter: 'blur(16px)',
                     borderRadius: '24px',
-                    boxShadow: `
-                    0 0 0 1px rgba(0, 0, 0, 0.05),
-                    0 20px 50px -12px rgba(0, 0, 0, 0.3),
-                    0 4px 10px -2px rgba(0, 0, 0, 0.1)
-                `,
+                    boxShadow: isDark 
+                        ? '0 0 0 1px rgba(255, 255, 255, 0.08), 0 20px 50px -12px rgba(0, 0, 0, 0.5), 0 4px 10px -2px rgba(0, 0, 0, 0.2)'
+                        : '0 0 0 1px rgba(0, 0, 0, 0.05), 0 20px 50px -12px rgba(0, 0, 0, 0.3), 0 4px 10px -2px rgba(0, 0, 0, 0.1)',
                     animation: 'modalEntrance 0.35s cubic-bezier(0.16, 1, 0.3, 1) both',
                 }}
             >
@@ -59,14 +61,16 @@ export default function NavConfirmModal({ isOpen, type, user, onConfirm }: NavCo
                         className={`mb-6 w-16 h-16 rounded-2xl flex items-center justify-center transition-transform duration-500`}
                         style={{
                             background: type === 'effectifs'
-                                ? 'rgba(99, 102, 241, 0.12)'
+                                ? (isDark ? 'rgba(99, 102, 241, 0.2)' : 'rgba(99, 102, 241, 0.12)')
                                 : type === 'save'
-                                ? 'rgba(16, 185, 129, 0.1)'
-                                : 'rgba(245, 158, 11, 0.1)',
+                                ? (isDark ? 'rgba(16, 185, 129, 0.18)' : 'rgba(16, 185, 129, 0.1)')
+                                : (isDark ? 'rgba(245, 158, 11, 0.18)' : 'rgba(245, 158, 11, 0.1)'),
                             color: type === 'effectifs'
-                                ? '#4f46e5'
-                                : type === 'save' ? '#059669' : '#d97706',
-                            boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.4)',
+                                ? (isDark ? '#818cf8' : '#4f46e5')
+                                : type === 'save' 
+                                ? (isDark ? '#34d399' : '#059669') 
+                                : (isDark ? '#fbbf24' : '#d97706'),
+                            boxShadow: isDark ? 'inset 0 0 0 1px rgba(255,255,255,0.1)' : 'inset 0 0 0 1px rgba(255,255,255,0.4)',
                             animation: 'iconPulse 2s ease-in-out infinite'
                         }}
                     >
@@ -80,7 +84,9 @@ export default function NavConfirmModal({ isOpen, type, user, onConfirm }: NavCo
                     </div>
 
                     <div className="space-y-2 mb-8">
-                        <h3 className="text-[22px] font-black text-slate-900 tracking-tight leading-tight">
+                        <h3 className={`text-[22px] font-black tracking-tight leading-tight ${
+                            isDark ? 'text-dk-text' : 'text-slate-900'
+                        }`}>
                             {type === 'effectifs'
                                 ? tx(lang, {ar: 'حفظ تأطير اليوم؟', fr: 'Enregistrer les effectifs du jour ?', en: "Save today's staffing?", es: '¿Guardar el personal de hoy?', pt: 'Salvar os efetivos de hoje?', tr: 'Bugünkü personeli kaydet?'})
                                 : type === 'save'
@@ -88,7 +94,9 @@ export default function NavConfirmModal({ isOpen, type, user, onConfirm }: NavCo
                                 : tx(lang, {ar: 'تنبيه: نموذج قيد العمل', fr: 'Modèle en cours', en: 'Model in progress', es: 'Modelo en curso', pt: 'Modelo em andamento', tr: 'Devam eden model'})
                             }
                         </h3>
-                        <p className="text-[14px] text-slate-500 font-medium leading-relaxed max-w-[280px]">
+                        <p className={`text-[14px] font-medium leading-relaxed max-w-[280px] ${
+                            isDark ? 'text-dk-muted' : 'text-slate-500'
+                        }`}>
                             {type === 'effectifs'
                                 ? (user
                                     ? tx(lang, {ar: 'لديك تغييرات على التأطير. أكد لمزامنة الخادم والخروج، أو ألغِ للبقاء.', fr: 'Vous avez modifié des effectifs. Confirmez pour envoyer tout de suite au serveur et quitter, ou annulez pour rester sur cette page.', en: 'You have modified staffing. Confirm to send to server and leave, or cancel to stay.', es: 'Ha modificado el personal. Confirme para enviar al servidor y salir, o cancele para quedarse.', pt: 'Modificou os efetivos. Confirme para enviar ao servidor e sair, ou cancele para ficar.', tr: 'Personeli değiştirdiniz. Sunucuya göndermek ve çıkmak için onaylayın veya kalmak için iptal edin.'})
@@ -108,8 +116,10 @@ export default function NavConfirmModal({ isOpen, type, user, onConfirm }: NavCo
                             onClick={() => onConfirm('yes')}
                             className="group relative w-full h-12 flex items-center justify-center gap-3 rounded-xl font-bold text-[14px] text-white transition-all duration-200 active:scale-[0.98] overflow-hidden"
                             style={{
-                                background: '#0f172a',
-                                boxShadow: '0 8px 20px -6px rgba(15, 23, 42, 0.4)',
+                                background: isDark ? '#2F9E64' : '#0f172a',
+                                boxShadow: isDark 
+                                    ? '0 8px 20px -6px rgba(47, 158, 100, 0.4)'
+                                    : '0 8px 20px -6px rgba(15, 23, 42, 0.4)',
                             }}
                         >
                             <span className="relative z-10">
@@ -128,7 +138,11 @@ export default function NavConfirmModal({ isOpen, type, user, onConfirm }: NavCo
                         <button
                             type="button"
                             onClick={() => onConfirm('no')}
-                            className="w-full h-12 flex items-center justify-center gap-2 rounded-xl font-bold text-[14px] transition-all duration-200 border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 active:scale-[0.98]"
+                            className={`w-full h-12 flex items-center justify-center gap-2 rounded-xl font-bold text-[14px] transition-all duration-200 border active:scale-[0.98] ${
+                                isDark 
+                                    ? 'border-dk-border bg-dk-elevated/40 text-dk-text-soft hover:bg-dk-elevated/80' 
+                                    : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                            }`}
                         >
                             {type === 'save'
                                 ? tx(lang, {ar: 'تجاهل والحذف', fr: 'Quitter sans sauvegarder', en: 'Discard and leave', es: 'Descartar y salir', pt: 'Descartar e sair', tr: 'At ve çık'})
@@ -141,7 +155,9 @@ export default function NavConfirmModal({ isOpen, type, user, onConfirm }: NavCo
                         <button
                             type="button"
                             onClick={() => onConfirm('cancel')}
-                            className="w-full h-10 font-bold text-[12px] text-slate-400 hover:text-slate-600 transition-colors uppercase tracking-widest pt-2"
+                            className={`w-full h-10 font-bold text-[12px] transition-colors uppercase tracking-widest pt-2 ${
+                                isDark ? 'text-dk-muted hover:text-dk-text-soft' : 'text-slate-400 hover:text-slate-600'
+                            }`}
                         >
                             {tx(lang, {ar: 'إلغاء الأمر', fr: 'Annuler', en: 'Cancel', es: 'Cancelar', pt: 'Cancelar', tr: 'İptal'})}
                         </button>

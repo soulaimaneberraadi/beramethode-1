@@ -16,6 +16,8 @@ import {
   Legend,
 } from 'recharts';
 import { ResponsiveChart } from './ui/ResponsiveChart';
+import { useIsDark } from '../src/context/ThemeContext';
+import { chartColors } from '../lib/themeColors';
 import { tx } from '../lib/i18n';
 import { useLang } from '../src/context/LanguageContext';
 
@@ -109,6 +111,8 @@ function useDashboardKpis(liveKPIs: any, activeModelsCount: number, totalEffecti
 
 export default function Dashboard({ models, suivis, planningEvents, settings, setSettings, onOpenAgenda, onNavigateModule }: DashboardProps) {
   const { lang } = useLang();
+  const isDark = useIsDark();
+  const cc = chartColors(isDark);
 
   const [liveKPIs, setLiveKPIs] = useState<any>(null);
   const [kpiLoading, setKpiLoading] = useState(true);
@@ -367,7 +371,7 @@ export default function Dashboard({ models, suivis, planningEvents, settings, se
   }, [productionStats.productionData]);
 
   return (
-    <div className="h-full flex flex-col bg-gradient-to-br from-slate-50 via-white to-slate-50 overflow-hidden">
+    <div className="h-full flex flex-col bg-gradient-to-br from-slate-50 via-white to-slate-50 dark:from-dk-bg dark:via-dk-surface/50 dark:to-dk-bg overflow-hidden">
 
       {/* HEADER */}
       <div className="bg-white/80 dark:bg-dk-surface/80 backdrop-blur-xl border-b border-slate-200 dark:border-dk-border/80 px-3 sm:px-4 md:px-6 py-3 sm:py-4 flex justify-between items-center shrink-0 sticky top-0 z-10">
@@ -433,7 +437,7 @@ export default function Dashboard({ models, suivis, planningEvents, settings, se
           {/* Stock Alert Banner */}
           {liveKPIs?.stock?.alertes?.length > 0 && (
             onNavigateModule ? (
-              <button type="button" onClick={() => onNavigateModule('magasin')} className="w-full text-left rounded-xl sm:rounded-2xl border border-amber-200/80 bg-gradient-to-r from-amber-50 to-orange-50 px-3 sm:px-4 md:px-5 py-3 sm:py-4 flex items-center gap-2 sm:gap-3 cursor-pointer hover:shadow-md hover:border-amber-300 transition-all duration-200">
+              <button type="button" onClick={() => onNavigateModule('magasin')} className="w-full text-left rounded-xl sm:rounded-2xl border border-amber-200/80 dark:border-dk-border/80 bg-gradient-to-r from-amber-50 to-orange-50 dark:from-dk-surface dark:to-dk-elevated px-3 sm:px-4 md:px-5 py-3 sm:py-4 flex items-center gap-2 sm:gap-3 cursor-pointer hover:shadow-md hover:border-amber-300 dark:hover:border-dk-border transition-all duration-200">
                 <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl bg-amber-100 flex items-center justify-center shrink-0">
                   <AlertTriangle className="w-4 h-4 sm:w-5 sm:h-5 text-amber-600" />
                 </div>
@@ -444,7 +448,7 @@ export default function Dashboard({ models, suivis, planningEvents, settings, se
                 <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5 text-amber-600/60 shrink-0" aria-hidden />
               </button>
             ) : (
-              <div className="w-full rounded-xl sm:rounded-2xl border border-amber-200/80 bg-gradient-to-r from-amber-50 to-orange-50 px-3 sm:px-4 md:px-5 py-3 sm:py-4 flex items-center gap-2 sm:gap-3">
+              <div className="w-full rounded-xl sm:rounded-2xl border border-amber-200/80 dark:border-dk-border/80 bg-gradient-to-r from-amber-50 to-orange-50 dark:from-dk-surface dark:to-dk-elevated px-3 sm:px-4 md:px-5 py-3 sm:py-4 flex items-center gap-2 sm:gap-3">
                 <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl bg-amber-100 flex items-center justify-center shrink-0">
                   <AlertTriangle className="w-4 h-4 sm:w-5 sm:h-5 text-amber-600" />
                 </div>
@@ -464,14 +468,14 @@ export default function Dashboard({ models, suivis, planningEvents, settings, se
 
               {/* TASKS */}
               <div className="bg-white dark:bg-dk-surface rounded-xl sm:rounded-2xl border border-slate-200 dark:border-dk-border/80 shadow-sm overflow-hidden flex flex-col">
-                <div className="px-3 sm:px-4 md:px-5 py-3 sm:py-4 bg-gradient-to-r from-slate-50 to-white border-b border-slate-100 dark:border-dk-border flex items-center justify-between">
+                <div className="px-3 sm:px-4 md:px-5 py-3 sm:py-4 bg-gradient-to-r from-slate-50 to-white dark:from-dk-bg dark:to-dk-surface border-b border-slate-100 dark:border-dk-border flex items-center justify-between">
                   <div className="flex items-center gap-2 sm:gap-2.5">
                     <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-indigo-100 flex items-center justify-center">
                       <ListTodo className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-indigo-600 dark:text-dk-accent-text" />
                     </div>
                     <h2 className="font-bold text-slate-800 dark:text-dk-text text-xs sm:text-sm">{tx(lang, { fr: 'Tâches', ar: 'المهام', en: 'Tasks', es: 'Tareas', pt: 'Tarefas', tr: 'Görevler' })}</h2>
                   </div>
-                  <span className="text-[10px] sm:text-xs font-bold px-2 sm:px-2.5 py-1 rounded-full bg-indigo-100 text-indigo-700 dark:text-dk-accent-text">{pendingTasks.length} {tx(lang, { fr: 'en attente', ar: 'قيد الانتظار', en: 'pending', es: 'pendiente(s)', pt: 'pendente(s)', tr: 'beklemede' })}</span>
+                  <span className="text-[10px] sm:text-xs font-bold px-2 sm:px-2.5 py-1 rounded-full bg-indigo-100 text-indigo-700 dark:bg-dk-accent/20 dark:text-dk-accent-text">{pendingTasks.length} {tx(lang, { fr: 'en attente', ar: 'قيد الانتظار', en: 'pending', es: 'pendiente(s)', pt: 'pendente(s)', tr: 'beklemede' })}</span>
                 </div>
                 <div className="p-3 sm:p-4 md:p-5 flex-1 flex flex-col">
                   <p className="text-[10px] sm:text-xs text-slate-400 dark:text-dk-muted mb-3 sm:mb-4 font-medium hidden sm:block">{tx(lang, { fr: "Aujourd'hui et retards. Cliquez pour ouvrir l'Agenda.", ar: 'اليوم والمتأخرات. اضغط لفتح الأجندة.', en: "Today and overdue. Click to open the Agenda.", es: 'Hoy y atrasos. Haga clic para abrir la Agenda.', pt: 'Hoje e atrasos. Clique para abrir a Agenda.', tr: 'Bugün ve geciken görevler. Ajandayı açmak için tıklayın.' })}</p>
@@ -496,7 +500,7 @@ export default function Dashboard({ models, suivis, planningEvents, settings, se
                     ))}
                     {pendingTasks.length === 0 && (
                       <div className="flex flex-col items-center justify-center py-10 sm:py-16 text-center">
-                        <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-xl sm:rounded-2xl bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-200/60 flex items-center justify-center shadow-inner mb-3 sm:mb-4">
+                        <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-xl sm:rounded-2xl bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-dk-surface dark:to-dk-elevated border border-emerald-200/60 dark:border-dk-border/60 flex items-center justify-center shadow-inner mb-3 sm:mb-4">
                           <CheckCircle2 className="w-6 h-6 sm:w-8 sm:h-8 text-emerald-400" strokeWidth={1.5} />
                         </div>
                         <p className="text-xs sm:text-sm font-bold text-slate-400 dark:text-dk-muted">{tx(lang, { fr: 'Aucune tâche', ar: 'لا توجد مهام', en: 'No tasks', es: 'Sin tareas', pt: 'Nenhuma tarefa', tr: 'Görev yok' })}</p>
@@ -509,7 +513,7 @@ export default function Dashboard({ models, suivis, planningEvents, settings, se
 
               {/* CALENDAR */}
               <div className="bg-white dark:bg-dk-surface rounded-xl sm:rounded-2xl border border-slate-200 dark:border-dk-border/80 shadow-sm overflow-hidden">
-                <div className="px-3 sm:px-4 md:px-5 py-3 sm:py-4 bg-gradient-to-r from-slate-50 to-white border-b border-slate-100 dark:border-dk-border flex items-center gap-2 sm:gap-2.5">
+                <div className="px-3 sm:px-4 md:px-5 py-3 sm:py-4 bg-gradient-to-r from-slate-50 to-white dark:from-dk-bg dark:to-dk-surface border-b border-slate-100 dark:border-dk-border flex items-center gap-2 sm:gap-2.5">
                   <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-emerald-100 flex items-center justify-center">
                     <CalendarIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-600" />
                   </div>
@@ -548,7 +552,7 @@ export default function Dashboard({ models, suivis, planningEvents, settings, se
 
             {/* RIGHT AREA: Production Chart */}
             <div className="lg:col-span-2 bg-white dark:bg-dk-surface rounded-xl sm:rounded-2xl border border-slate-200 dark:border-dk-border/80 shadow-sm overflow-hidden flex flex-col">
-              <div className="px-3 sm:px-4 md:px-5 py-3 sm:py-4 bg-gradient-to-r from-slate-50 to-white border-b border-slate-100 dark:border-dk-border flex items-center justify-between flex-wrap gap-2 sm:gap-3">
+              <div className="px-3 sm:px-4 md:px-5 py-3 sm:py-4 bg-gradient-to-r from-slate-50 to-white dark:from-dk-bg dark:to-dk-surface border-b border-slate-100 dark:border-dk-border flex items-center justify-between flex-wrap gap-2 sm:gap-3">
                 <div className="flex items-center gap-2 sm:gap-2.5">
                   <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-indigo-100 flex items-center justify-center">
                     <TrendingUp className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-indigo-600 dark:text-dk-accent-text" />
@@ -590,7 +594,7 @@ export default function Dashboard({ models, suivis, planningEvents, settings, se
 
             {/* EFFICIENCY */}
             <div className="bg-white dark:bg-dk-surface rounded-xl sm:rounded-2xl border border-slate-200 dark:border-dk-border/80 shadow-sm overflow-hidden">
-              <div className="px-3 sm:px-4 md:px-5 py-3 sm:py-4 bg-gradient-to-r from-slate-50 to-white border-b border-slate-100 dark:border-dk-border flex items-center gap-2 sm:gap-2.5">
+              <div className="px-3 sm:px-4 md:px-5 py-3 sm:py-4 bg-gradient-to-r from-slate-50 to-white dark:from-dk-bg dark:to-dk-surface border-b border-slate-100 dark:border-dk-border flex items-center gap-2 sm:gap-2.5">
                 <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-indigo-100 flex items-center justify-center">
                   <Activity className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-indigo-600 dark:text-dk-accent-text" />
                 </div>
@@ -615,7 +619,7 @@ export default function Dashboard({ models, suivis, planningEvents, settings, se
 
             {/* ANDON ALERTS */}
             <div className="bg-white dark:bg-dk-surface rounded-xl sm:rounded-2xl border border-slate-200 dark:border-dk-border/80 shadow-sm overflow-hidden flex flex-col">
-              <div className="px-3 sm:px-4 md:px-5 py-3 sm:py-4 bg-gradient-to-r from-slate-50 to-white border-b border-slate-100 dark:border-dk-border flex items-center gap-2 sm:gap-2.5">
+              <div className="px-3 sm:px-4 md:px-5 py-3 sm:py-4 bg-gradient-to-r from-slate-50 to-white dark:from-dk-bg dark:to-dk-surface border-b border-slate-100 dark:border-dk-border flex items-center gap-2 sm:gap-2.5">
                 <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-rose-100 flex items-center justify-center">
                   <AlertTriangle className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-rose-600" />
                 </div>
@@ -624,22 +628,22 @@ export default function Dashboard({ models, suivis, planningEvents, settings, se
               <div className="p-3 sm:p-4 md:p-5 flex-1" style={{ minHeight: '200px' }}>
                 <div className="h-full overflow-y-auto space-y-2 sm:space-y-3 custom-scrollbar">
                   {productionStats.andonAlerts.map((alert, idx) => (
-                    <div key={idx} className="flex gap-2 sm:gap-3 items-start p-2.5 sm:p-3 md:p-3.5 bg-gradient-to-r from-rose-50 to-orange-50 rounded-lg sm:rounded-xl border border-rose-200/60 hover:shadow-sm transition-all duration-200">
+                    <div key={idx} className="flex gap-2 sm:gap-3 items-start p-2.5 sm:p-3 md:p-3.5 bg-gradient-to-r from-rose-50 to-orange-50 dark:from-dk-surface dark:to-dk-elevated rounded-lg sm:rounded-xl border border-rose-200/60 dark:border-dk-border/60 hover:shadow-sm transition-all duration-200">
                       <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl bg-rose-100 flex items-center justify-center shrink-0">
                         <ShieldAlert className="w-4 h-4 sm:w-5 sm:h-5 text-rose-600" />
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex justify-between items-start gap-2">
-                          <p className="text-xs sm:text-sm font-bold text-rose-900 truncate">{alert.title}</p>
-                          <span className="text-[10px] sm:text-xs font-bold text-rose-500 bg-rose-100 px-1.5 sm:px-2 py-0.5 rounded-full shrink-0">{alert.time}</span>
+                          <p className="text-xs sm:text-sm font-bold text-rose-900 dark:text-dk-text truncate">{alert.title}</p>
+                          <span className="text-[10px] sm:text-xs font-bold text-rose-500 bg-rose-100 dark:text-dk-text-soft dark:bg-dk-elevated px-1.5 sm:px-2 py-0.5 rounded-full shrink-0">{alert.time}</span>
                         </div>
-                        <p className="text-[10px] sm:text-xs text-rose-700 mt-0.5 sm:mt-1 font-medium">{tx(lang, { fr: 'Performance critique à', ar: 'أداء حرج عند', en: 'Critical performance at', es: 'Rendimiento crítico en', pt: 'Desempenho crítico em', tr: 'Kritik performans' })} <span className="font-black text-rose-900">{alert.trs}%</span></p>
+                        <p className="text-[10px] sm:text-xs text-rose-700 dark:text-dk-text-soft mt-0.5 sm:mt-1 font-medium">{tx(lang, { fr: 'Performance critique à', ar: 'أداء حرج عند', en: 'Critical performance at', es: 'Rendimiento crítico en', pt: 'Desempenho crítico em', tr: 'Kritik performans' })} <span className="font-black text-rose-900 dark:text-dk-text">{alert.trs}%</span></p>
                       </div>
                     </div>
                   ))}
                   {productionStats.andonAlerts.length === 0 && (
-                    <div className="flex flex-col items-center justify-center py-10 sm:py-16 text-center">
-                      <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-xl sm:rounded-2xl bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-200/60 flex items-center justify-center shadow-inner mb-3 sm:mb-4">
+                      <div className="flex flex-col items-center justify-center py-10 sm:py-16 text-center">
+                      <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-xl sm:rounded-2xl bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-dk-surface dark:to-dk-elevated border border-emerald-200/60 dark:border-dk-border/60 flex items-center justify-center shadow-inner mb-3 sm:mb-4">
                         <CheckCircle2 className="w-6 h-6 sm:w-8 sm:h-8 text-emerald-400" strokeWidth={1.5} />
                       </div>
                       <p className="text-xs sm:text-sm font-bold text-slate-400 dark:text-dk-muted">{tx(lang, { fr: 'Aucune alerte', ar: 'لا توجد تنبيهات', en: 'No alerts', es: 'Sin alertas', pt: 'Nenhum alerta', tr: 'Uyarı yok' })}</p>
