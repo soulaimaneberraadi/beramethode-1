@@ -81,7 +81,7 @@ const KpiCard = React.memo(function KpiCard({ kpi, showLoading, onNavigateModule
       )}
     </>
   );
-  const shell = 'bg-white dark:bg-dk-surface rounded-xl sm:rounded-2xl p-3 sm:p-4 lg:p-5 border border-slate-200 dark:border-dk-border/80 shadow-sm flex items-center gap-3 sm:gap-4 group hover:shadow-lg hover:border-slate-300 hover:-translate-y-0.5 transition-all duration-300 cursor-pointer';
+  const shell = 'bg-white dark:bg-dk-surface rounded-xl sm:rounded-2xl p-3 sm:p-4 lg:p-5 border border-slate-200 dark:border-dk-border/80 shadow-sm flex items-center gap-3 sm:gap-4 group hover:shadow-lg hover:border-slate-300 dark:hover:border-dk-border hover:-translate-y-0.5 transition-all duration-300 cursor-pointer';
   if (onNavigateModule) {
     return (
       <button key={kpi.key} type="button" onClick={() => onNavigateModule(kpi.nav)} className={`${shell} w-full text-left focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:ring-offset-2`}>
@@ -438,23 +438,23 @@ export default function Dashboard({ models, suivis, planningEvents, settings, se
           {liveKPIs?.stock?.alertes?.length > 0 && (
             onNavigateModule ? (
               <button type="button" onClick={() => onNavigateModule('magasin')} className="w-full text-left rounded-xl sm:rounded-2xl border border-amber-200/80 dark:border-dk-border/80 bg-gradient-to-r from-amber-50 to-orange-50 dark:from-dk-surface dark:to-dk-elevated px-3 sm:px-4 md:px-5 py-3 sm:py-4 flex items-center gap-2 sm:gap-3 cursor-pointer hover:shadow-md hover:border-amber-300 dark:hover:border-dk-border transition-all duration-200">
-                <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl bg-amber-100 flex items-center justify-center shrink-0">
-                  <AlertTriangle className="w-4 h-4 sm:w-5 sm:h-5 text-amber-600" />
+                <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl bg-amber-100 dark:bg-dk-elevated flex items-center justify-center shrink-0">
+                  <AlertTriangle className="w-4 h-4 sm:w-5 sm:h-5 text-amber-600 dark:text-dk-accent-text" />
                 </div>
                 <div className="text-xs sm:text-sm min-w-0 flex-1">
-                  <strong className="text-amber-900 font-bold">{tx(lang, { fr: 'Alertes Stock', ar: 'تنبيهات المخزون', en: 'Stock Alerts', es: 'Alertas de Stock', pt: 'Alertas de Estoque', tr: 'Stok Uyarıları' })} ({liveKPIs.stock.alertes.length})</strong>
-                  <span className="text-amber-700/80 ml-1 sm:ml-2 hidden sm:inline">{liveKPIs.stock.alertes.map((a: any) => `${a.designation} (${a.stock_actuel}/${a.stockAlerte})`).join(' • ')}</span>
+                  <strong className="text-amber-900 dark:text-dk-text font-bold">{tx(lang, { fr: 'Alertes Stock', ar: 'تنبيهات المخزون', en: 'Stock Alerts', es: 'Alertas de Stock', pt: 'Alertas de Estoque', tr: 'Stok Uyarıları' })} ({liveKPIs.stock.alertes.length})</strong>
+                  <span className="text-amber-700/80 dark:text-dk-text-soft/80 ml-1 sm:ml-2 hidden sm:inline">{liveKPIs.stock.alertes.map((a: any) => `${a.designation} (${a.stock_actuel}/${a.stockAlerte})`).join(' • ')}</span>
                 </div>
-                <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5 text-amber-600/60 shrink-0" aria-hidden />
+                <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5 text-amber-600/60 dark:text-dk-muted/60 shrink-0" aria-hidden />
               </button>
             ) : (
               <div className="w-full rounded-xl sm:rounded-2xl border border-amber-200/80 dark:border-dk-border/80 bg-gradient-to-r from-amber-50 to-orange-50 dark:from-dk-surface dark:to-dk-elevated px-3 sm:px-4 md:px-5 py-3 sm:py-4 flex items-center gap-2 sm:gap-3">
-                <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl bg-amber-100 flex items-center justify-center shrink-0">
-                  <AlertTriangle className="w-4 h-4 sm:w-5 sm:h-5 text-amber-600" />
+                <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl bg-amber-100 dark:bg-dk-elevated flex items-center justify-center shrink-0">
+                  <AlertTriangle className="w-4 h-4 sm:w-5 sm:h-5 text-amber-600 dark:text-dk-accent-text" />
                 </div>
                 <div className="text-xs sm:text-sm min-w-0">
-                  <strong className="text-amber-900 font-bold">{tx(lang, { fr: 'Alertes Stock', ar: 'تنبيهات المخزون', en: 'Stock Alerts', es: 'Alertas de Stock', pt: 'Alertas de Estoque', tr: 'Stok Uyarıları' })} ({liveKPIs.stock.alertes.length})</strong>
-                  <span className="text-amber-700/80 ml-1 sm:ml-2 hidden sm:inline">{liveKPIs.stock.alertes.map((a: any) => `${a.designation} (${a.stock_actuel}/${a.stockAlerte})`).join(' • ')}</span>
+                  <strong className="text-amber-900 dark:text-dk-text font-bold">{tx(lang, { fr: 'Alertes Stock', ar: 'تنبيهات المخزون', en: 'Stock Alerts', es: 'Alertas de Stock', pt: 'Alertas de Estoque', tr: 'Stok Uyarıları' })} ({liveKPIs.stock.alertes.length})</strong>
+                  <span className="text-amber-700/80 dark:text-dk-text-soft/80 ml-1 sm:ml-2 hidden sm:inline">{liveKPIs.stock.alertes.map((a: any) => `${a.designation} (${a.stock_actuel}/${a.stockAlerte})`).join(' • ')}</span>
                 </div>
               </div>
             )
@@ -575,13 +575,13 @@ export default function Dashboard({ models, suivis, planningEvents, settings, se
                           <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
                         </linearGradient>
                       </defs>
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                      <XAxis dataKey="time" axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 10, fontWeight: 600 }} dy={10} />
-                      <YAxis axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 10, fontWeight: 600 }} dx={-5} width={30} />
-                      <RechartsTooltip contentStyle={{ borderRadius: '10px', border: 'none', boxShadow: '0 8px 16px rgba(0,0,0,0.1)', fontSize: '11px' }} itemStyle={{ fontWeight: 'bold' }} labelStyle={{ color: '#64748b', fontWeight: 'bold', marginBottom: '4px' }} />
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={cc.grid} />
+                      <XAxis dataKey="time" axisLine={false} tickLine={false} tick={{ fill: cc.axis, fontSize: 10, fontWeight: 600 }} dy={10} />
+                      <YAxis axisLine={false} tickLine={false} tick={{ fill: cc.axis, fontSize: 10, fontWeight: 600 }} dx={-5} width={30} />
+                      <RechartsTooltip contentStyle={{ backgroundColor: cc.tooltipBg, color: cc.tooltipText, borderRadius: '10px', border: 'none', boxShadow: '0 8px 16px rgba(0,0,0,0.1)', fontSize: '11px' }} itemStyle={{ fontWeight: 'bold' }} labelStyle={{ color: cc.tooltipText, fontWeight: 'bold', marginBottom: '4px' }} />
                       <Legend verticalAlign="top" height={36} iconType="circle" wrapperStyle={{ fontSize: '11px' }} />
                       <Area type="monotone" name={tx(lang, { fr: 'P° Réelle', ar: 'الإنتاج الفعلي', en: 'Actual Output', es: 'P° Real', pt: 'P° Real', tr: 'Gerçek Üretim' })} dataKey="pCount" stroke="#6366f1" strokeWidth={2.5} fillOpacity={1} fill="url(#colorCount)" />
-                      <Area type="monotone" name={tx(lang, { fr: 'Objectif', ar: 'الهدف', en: 'Target', es: 'Objetivo', pt: 'Meta', tr: 'Hedef' })} dataKey="target" stroke="#cbd5e1" strokeWidth={2} strokeDasharray="5 5" fill="none" />
+                      <Area type="monotone" name={tx(lang, { fr: 'Objectif', ar: 'الهدف', en: 'Target', es: 'Objetivo', pt: 'Meta', tr: 'Hedef' })} dataKey="target" stroke={cc.grid} strokeWidth={2} strokeDasharray="5 5" fill="none" />
                     </AreaChart>
                   </ResponsiveChart>
                 </div>
@@ -603,11 +603,11 @@ export default function Dashboard({ models, suivis, planningEvents, settings, se
               <div className="p-3 sm:p-4 md:p-5">
                 <div className="h-[180px] sm:h-[200px] w-full">
                   <ResponsiveChart>
-                    <BarChart data={productionStats.efficiencyData} layout="vertical" margin={{ top: 0, right: 10, left: 0, bottom: 0 }}>
-                      <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="#f1f5f9" />
+                      <BarChart data={productionStats.efficiencyData} layout="vertical" margin={{ top: 0, right: 10, left: 0, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke={cc.grid} />
                       <XAxis type="number" domain={[0, 100]} hide />
-                      <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{ fill: '#475569', fontSize: 11, fontWeight: 700 }} width={45} />
-                      <RechartsTooltip cursor={{ fill: '#f8fafc' }} contentStyle={{ borderRadius: '10px', border: 'none', boxShadow: '0 8px 16px rgba(0,0,0,0.1)' }} formatter={(val: number) => [`${val}%`, tx(lang, { fr: 'Rendement', ar: 'المردودية', en: 'Efficiency', es: 'Rendimiento', pt: 'Rendimento', tr: 'Verimlilik' })]} />
+                      <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{ fill: cc.axis, fontSize: 11, fontWeight: 700 }} width={45} />
+                      <RechartsTooltip cursor={{ fill: cc.tooltipBg }} contentStyle={{ backgroundColor: cc.tooltipBg, color: cc.tooltipText, borderRadius: '10px', border: 'none', boxShadow: '0 8px 16px rgba(0,0,0,0.1)' }} formatter={(val: number) => [`${val}%`, tx(lang, { fr: 'Rendement', ar: 'المردودية', en: 'Efficiency', es: 'Rendimiento', pt: 'Rendimento', tr: 'Verimlilik' })]} />
                       <Bar dataKey="rendement" radius={[0, 6, 6, 0]} maxBarSize={20}>
                         {productionStats.efficiencyData.map((entry: any, index: number) => <Cell key={`cell-${index}`} fill={entry.fill} />)}
                       </Bar>

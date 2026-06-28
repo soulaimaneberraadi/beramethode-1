@@ -143,7 +143,7 @@ export default function DateTimePicker({
                     <Calendar className="h-4 w-4 text-[#2149C1]" />
                     {tx(lang, {fr:"Date",ar:"التاريخ",en:"Date",es:"Fecha",pt:"Data",tr:"Tarih"})}
                 </div>
-                <button type="button" className="rounded-lg p-1 text-slate-400 dark:text-dk-muted hover:bg-slate-100" onClick={() => setOpen(false)} aria-label={tx(lang, {fr:"Fermer",ar:"إغلاق",en:"Close",es:"Cerrar",pt:"Fechar",tr:"Kapat"})}>
+                <button type="button" className="rounded-lg p-1 text-slate-400 dark:text-dk-muted hover:bg-slate-100 dark:hover:bg-dk-elevated" onClick={() => setOpen(false)} aria-label={tx(lang, {fr:"Fermer",ar:"إغلاق",en:"Close",es:"Cerrar",pt:"Fechar",tr:"Kapat"})}>
                     <X className="h-4 w-4" />
                 </button>
             </div>
@@ -185,7 +185,7 @@ export default function DateTimePicker({
                 )}
             </div>
             <div className="mt-4 flex justify-end gap-2 border-t border-slate-100 dark:border-dk-border pt-3">
-                <button type="button" className="rounded-xl px-4 py-2 text-sm font-bold text-slate-600 dark:text-dk-text-soft hover:bg-slate-100" onClick={() => setOpen(false)}>
+                <button type="button" className="rounded-xl px-4 py-2 text-sm font-bold text-slate-600 dark:text-dk-text-soft hover:bg-slate-100 dark:hover:bg-dk-elevated" onClick={() => setOpen(false)}>
                     {tx(lang, {fr:"Fermer",ar:"إغلاق",en:"Close",es:"Cerrar",pt:"Fechar",tr:"Kapat"})}
                 </button>
                 {mode === 'datetime' && (

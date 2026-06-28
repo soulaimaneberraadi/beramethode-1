@@ -40,7 +40,7 @@ export function TimelineRow({
 
     return (
         <div
-            className="flex border-b border-slate-50 hover:bg-slate-50/30 transition-colors animate-[planning-fade-in_240ms_ease-out]"
+            className="flex border-b border-slate-50 dark:border-dk-border/30 hover:bg-slate-50/30 dark:hover:bg-dk-elevated/60 transition-colors animate-[planning-fade-in_240ms_ease-out]"
             style={{ animationDelay: `${Math.min(index * 30, 240)}ms` }}
         >
             {/* Sidebar */}
@@ -52,7 +52,7 @@ export function TimelineRow({
                     <span className="w-2 h-2 rounded-full shrink-0" style={{ background: primaryColor }} />
                     <span className="text-[12px] font-semibold text-slate-900 dark:text-dk-text truncate">{chaineId}</span>
                     {conflict && (
-                        <span className="ml-auto text-[9px] font-bold uppercase tracking-wider text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded">
+                        <span className="ml-auto text-[9px] font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30 px-1.5 py-0.5 rounded">
                             {activeModels.length}×
                         </span>
                     )}
@@ -111,7 +111,7 @@ export function TimelineRow({
                             type="button"
                             onClick={() => onSelectCell(chaineId, hk)}
                             className={`shrink-0 relative border-r border-slate-100 dark:border-dk-border transition-all flex items-center justify-center group ${
-                                isCurrent ? 'bg-red-50/30' : ''
+                                isCurrent ? 'bg-red-50/30 dark:bg-red-900/20' : ''
                             } ${isSelected ? 'ring-2 ring-indigo-400 ring-inset z-10' : 'hover:bg-slate-50 dark:hover:bg-dk-elevated/60'}`}
                             style={{ width: HOUR_W, height: ROW_H, ...cellBg }}
                         >
@@ -127,7 +127,7 @@ export function TimelineRow({
                                     )}
                                 </div>
                             ) : (
-                                <span className="text-[18px] text-slate-200 group-hover:text-slate-400 transition-colors">＋</span>
+                                <span className="text-[18px] text-slate-200 dark:text-dk-muted group-hover:text-slate-400 dark:group-hover:text-dk-text-soft transition-colors">＋</span>
                             )}
                         </button>
                     );

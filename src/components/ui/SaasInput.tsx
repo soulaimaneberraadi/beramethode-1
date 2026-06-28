@@ -74,54 +74,6 @@ export function SaasInput({
         )}
       </div>
       {hint && !error && (
-        <p className="text-[10px] text-slate-400">{hint}</p>
-      )}
-      {error && <p className="text-[10px] text-red-500">{error}</p>}
-    </div>
-  );
-}
-
-/* ─── Select ─── */
-export function SaasSelect({
-  label,
-  hint,
-  error,
-  options,
-  placeholder,
-  className = '',
-  ...props
-}: SaasSelectProps) {
-  return (
-    <div className="space-y-1.5">
-      {label && (
-        <label className="text-[11px] font-medium text-slate-500 block dark:text-dk-muted">
-          {label}
-        </label>
-      )}
-      <select
-        className={`
-          w-full h-8 px-3 text-[12px] text-slate-700 dark:text-dk-text-soft
-          bg-slate-50/60 border border-slate-200 rounded-md dark:bg-dk-bg/60 dark:border-dk-border
-          focus:bg-white focus:border-slate-300 focus:ring-2 focus:ring-slate-100 focus:outline-none dark:focus:bg-dk-surface dark:focus:border-dk-border dark:focus:ring-white/10
-          transition-all duration-150
-          disabled:opacity-50 disabled:cursor-not-allowed
-          ${error ? 'border-red-300 focus:border-red-400 focus:ring-red-50 dark:border-red-700 dark:focus:border-red-500' : ''}
-          ${className}
-        `}
-        {...props}
-      >
-        {placeholder && (
-          <option value="" disabled>
-            {placeholder}
-          </option>
-        )}
-        {options.map((opt) => (
-          <option key={opt.value} value={opt.value}>
-            {opt.label}
-          </option>
-        ))}
-      </select>
-      {hint && !error && (
         <p className="text-[10px] text-slate-400 dark:text-dk-muted">{hint}</p>
       )}
       {error && <p className="text-[10px] text-red-500 dark:text-red-400">{error}</p>}

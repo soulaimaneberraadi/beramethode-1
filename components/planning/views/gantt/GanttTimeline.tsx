@@ -125,7 +125,7 @@ export default function GanttTimeline({ dates, dayWidth, settings }: Props) {
                             return (
                                 <div
                                     key={i}
-                                    className={`border-r border-slate-50 last:border-r-0 ${isWeekend ? 'bg-slate-50/40' : ''}`}
+                                    className={`border-r border-slate-50 dark:border-dk-border/30 last:border-r-0 ${isWeekend ? 'bg-slate-50/40 dark:bg-dk-bg/50' : ''}`}
                                     style={{ width: dayWidth, minWidth: dayWidth }}
                                 />
                             );

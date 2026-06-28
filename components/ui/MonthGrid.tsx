@@ -92,7 +92,7 @@ export default function MonthGrid({
                 <button
                     type="button"
                     onClick={onPrevMonth}
-                    className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-800"
+                    className="rounded-lg p-1.5 text-slate-500 dark:text-dk-muted hover:bg-slate-100 dark:hover:bg-dk-elevated hover:text-slate-800 dark:hover:text-dk-text"
                     aria-label={tx(lang,{fr:'Mois précédent',ar:'الشهر السابق',en:'Previous month',es:'Mes anterior',pt:'Mês anterior',tr:'Önceki ay'})}
                 >
                     ‹
@@ -103,7 +103,7 @@ export default function MonthGrid({
                 <button
                     type="button"
                     onClick={onNextMonth}
-                    className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-800"
+                    className="rounded-lg p-1.5 text-slate-500 dark:text-dk-muted hover:bg-slate-100 dark:hover:bg-dk-elevated hover:text-slate-800 dark:hover:text-dk-text"
                     aria-label={tx(lang,{fr:'Mois suivant',ar:'الشهر التالي',en:'Next month',es:'Mes siguiente',pt:'Próximo mês',tr:'Sonraki ay'})}
                 >
                     ›

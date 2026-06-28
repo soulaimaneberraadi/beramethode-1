@@ -378,7 +378,7 @@ export default function ProductionSimulation({
                                     onClick={() => handleSelectModel(m.id)}
                                     className={`w-full text-left p-2 rounded-lg text-xs flex items-center justify-between border transition-all ${
                                         isSelected 
-                                            ? 'border-indigo-500 bg-indigo-50 dark:bg-dk-accent/20/50 text-indigo-950 font-semibold' 
+                                            ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-950 font-semibold' 
                                             : 'border-transparent hover:bg-slate-50 dark:hover:bg-dk-elevated/60 text-slate-700 dark:text-dk-text-soft'
                                     }`}
                                 >
@@ -444,7 +444,7 @@ export default function ProductionSimulation({
                                             onClick={() => handleSelectEvent(ev.id)}
                                             className={`w-full text-left p-2.5 rounded-lg text-xs border transition-all flex items-center justify-between ${
                                                 isSelected
-                                                    ? 'border-indigo-500 bg-indigo-50 dark:bg-dk-accent/20/40 text-indigo-950 font-semibold'
+                                                    ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-950 font-semibold'
                                                     : 'border-slate-100 dark:border-dk-border hover:bg-slate-50 dark:hover:bg-dk-elevated/60 text-slate-700 dark:text-dk-text-soft'
                                             }`}
                                         >
@@ -820,9 +820,9 @@ export default function ProductionSimulation({
                                     )}
 
                                     {/* 3. Sous-traitance */}
-                                    <div className="border border-rose-100 rounded-xl p-3 bg-rose-50/20 hover:bg-rose-50/30 transition-colors">
-                                        <div className="font-bold text-rose-800 flex items-center gap-1">
-                                            <Split className="w-3.5 h-3.5 text-rose-600" />
+                                    <div className="border border-rose-100 dark:border-rose-900/40 rounded-xl p-3 bg-rose-50/20 dark:bg-rose-900/10 hover:bg-rose-50/30 dark:hover:bg-rose-900/20 transition-colors">
+                                        <div className="font-bold text-rose-800 dark:text-rose-300 flex items-center gap-1">
+                                            <Split className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400" />
                                             {tx(lang,{fr:'Option C : Sous-traitance (Monawla)',ar:'الخيار ج: التعاقد من الباطن (مناولة)',en:'Option C: Subcontracting (Monawla)',es:'Opción C: Subcontratación (Monawla)',pt:'Opção C: Subcontratação (Monawla)',tr:'Seçenek C: Taşeronluk (Monawla)'})}
                                         </div>
                                         <div className="text-slate-600 dark:text-dk-text-soft text-[11px] mt-1.5 space-y-1">
@@ -830,7 +830,7 @@ export default function ProductionSimulation({
                                                 • {tx(lang,{fr:'Production en interne',ar:'الإنتاج الداخلي',en:'In-house production',es:'Producción interna',pt:'Produção interna',tr:'Dahili üretim'})} : <span className="font-bold text-slate-800 dark:text-dk-text">{simulationResult.maxInHouseQty}</span> pcs ({tx(lang,{fr:"jusqu'au",ar:'حتى',en:'until',es:'hasta',pt:'até',tr:'kadar'})} {formatDateFr(strictDeadline_DDS)}).
                                             </div>
                                             <div>
-                                                • {tx(lang,{fr:'Quantité à sous-traiter',ar:'الكمية للتعاقد من الباطن',en:'Quantity to subcontract',es:'Cantidad a subcontratar',pt:'Quantidade a subcontratar',tr:'Taşere edilecek miktar'})} : <span className="font-black text-rose-600">{simulationResult.outsourceQty}</span> pcs.
+                                                • {tx(lang,{fr:'Quantité à sous-traiter',ar:'الكمية للتعاقد من الباطن',en:'Quantity to subcontract',es:'Cantidad a subcontratar',pt:'Quantidade a subcontratar',tr:'Taşere edilecek miktar'})} : <span className="font-black text-rose-600 dark:text-rose-400">{simulationResult.outsourceQty}</span> pcs.
                                             </div>
                                         </div>
                                         <button 
@@ -844,9 +844,9 @@ export default function ProductionSimulation({
                                 </div>
                             ) : (
                                 <div className="space-y-3 text-xs">
-                                    <div className="p-3 bg-emerald-50/50 rounded-xl border border-emerald-100">
-                                        <div className="font-bold text-emerald-800">{tx(lang,{fr:'Aucune surcharge détectée',ar:'لم يتم اكتشاف أي حمل زائد',en:'No overload detected',es:'Ninguna sobrecarga detectada',pt:'Nenhuma sobrecarga detetada',tr:'Aşırı yük tespit edilmedi'})}</div>
-                                        <p className="text-[11px] text-emerald-700 mt-1 leading-relaxed">
+                                    <div className="p-3 bg-emerald-50/50 dark:bg-emerald-900/20 rounded-xl border border-emerald-100 dark:border-emerald-900/40">
+                                        <div className="font-bold text-emerald-800 dark:text-emerald-300">{tx(lang,{fr:'Aucune surcharge détectée',ar:'لم يتم اكتشاف أي حمل زائد',en:'No overload detected',es:'Ninguna sobrecarga detectada',pt:'Nenhuma sobrecarga detetada',tr:'Aşırı yük tespit edilmedi'})}</div>
+                                        <p className="text-[11px] text-emerald-700 dark:text-emerald-400 mt-1 leading-relaxed">
                                             {tx(lang,{fr:'La capacité interne est suffisante. Si besoin, vous pouvez libérer du personnel pour d\'autres commandes.',ar:'السعة الداخلية كافية. إذا لزم الأمر، يمكنك تحرير الموظفين لأوامر أخرى.',en:'Internal capacity is sufficient. If needed, you can free up staff for other orders.',es:'La capacidad interna es suficiente. Si es necesario, puede liberar personal para otros pedidos.',pt:'A capacidade interna é suficiente. Se necessário, pode libertar pessoal para outras encomendas.',tr:'Dahili kapasite yeterlidir. Gerekirse diğer siparişler için personeli serbest bırakabilirsiniz.'})}
                                         </p>
                                     </div>
@@ -884,8 +884,8 @@ export default function ProductionSimulation({
                                 {tx(lang,{fr:'Fractionnement de la Commande',ar:'تقسيم الطلب',en:'Order Splitting',es:'División del Pedido',pt:'Divisão da Encomenda',tr:'Sipariş Bölme'})}
                             </h4>
                             <button 
-                                onClick={() => setShowSplitConfirm(false)}
-                                className="p-1 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors"
+onClick={() => setShowSplitConfirm(false)}
+                                                                className="p-1 rounded-full hover:bg-slate-100 dark:hover:bg-dk-elevated text-slate-400 dark:text-dk-muted hover:text-slate-600 dark:hover:text-dk-text transition-colors"
                             >
                                 <X className="w-4 h-4" />
                             </button>
@@ -901,7 +901,7 @@ export default function ProductionSimulation({
                                 <span className="text-slate-500 dark:text-dk-muted">{tx(lang,{fr:'Quantité en interne',ar:'الكمية الداخلية',en:'In-house quantity',es:'Cantidad interna',pt:'Quantidade interna',tr:'Dahili miktar'})} :</span>
                                 <span className="font-black text-slate-800 dark:text-dk-text">{simulationResult.maxInHouseQty} pcs</span>
                             </div>
-                            <div className="flex justify-between border-t border-slate-100 dark:border-dk-border pt-1.5 text-rose-700">
+                            <div className="flex justify-between border-t border-slate-100 dark:border-dk-border pt-1.5 text-rose-700 dark:text-rose-400">
                                 <span className="font-bold">{tx(lang,{fr:'Quantité sous-traitée (Monawla)',ar:'الكمية المتعاقد من باطنها (مناولة)',en:'Subcontracted quantity (Monawla)',es:'Cantidad subcontratada (Monawla)',pt:'Quantidade subcontratada (Monawla)',tr:'Taşere edilen miktar (Monawla)'})} :</span>
                                 <span className="font-black">{simulationResult.outsourceQty} pcs</span>
                             </div>

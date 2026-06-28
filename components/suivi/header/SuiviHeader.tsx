@@ -63,7 +63,7 @@ export default function SuiviHeader({
                         value={searchText}
                         onChange={(e) => onSearch(e.target.value)}
                         placeholder={tx(lang, {fr:"Rechercher un modèle, un client…",ar:"البحث عن نموذج، عميل…",en:"Search for a model, client…",es:"Buscar modelo, cliente…",pt:"Procurar modelo, cliente…",tr:"Model, müşteri ara…"})}
-                        className="w-full h-8 pl-9 pr-3 text-[12px] text-slate-700 dark:text-dk-text-soft placeholder:text-slate-400 bg-slate-50/60 hover:bg-slate-50 dark:hover:bg-dk-elevated/60 focus:bg-white border border-transparent focus:border-slate-200 focus:ring-2 focus:ring-slate-100 rounded-md outline-none transition-all"
+                        className="w-full h-8 pl-9 pr-3 text-[12px] text-slate-700 dark:text-dk-text-soft placeholder:text-slate-400 dark:placeholder:text-dk-muted bg-slate-50/60 hover:bg-slate-50 dark:hover:bg-dk-elevated/60 focus:bg-white border border-transparent focus:border-slate-200 focus:ring-2 focus:ring-slate-100 rounded-md outline-none transition-all"
                     />
                 </div>
 
@@ -84,7 +84,7 @@ export default function SuiviHeader({
                     <button
                         type="button"
                         onClick={() => onDateChange(shiftDate(date, -1))}
-                        className="w-6 h-6 flex items-center justify-center rounded text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
+                        className="w-6 h-6 flex items-center justify-center rounded text-slate-400 dark:text-dk-muted hover:text-slate-700 dark:hover:text-dk-text hover:bg-slate-100 dark:hover:bg-dk-elevated transition-colors"
                         aria-label={tx(lang, {fr:"Jour précédent",ar:"اليوم السابق",en:"Previous day",es:"Día anterior",pt:"Dia anterior",tr:"Önceki gün"})}
                     >
                         <ChevronLeft className="w-3.5 h-3.5" strokeWidth={2} />
@@ -95,7 +95,7 @@ export default function SuiviHeader({
                     <button
                         type="button"
                         onClick={() => onDateChange(shiftDate(date, 1))}
-                        className="w-6 h-6 flex items-center justify-center rounded text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
+                        className="w-6 h-6 flex items-center justify-center rounded text-slate-400 dark:text-dk-muted hover:text-slate-700 dark:hover:text-dk-text hover:bg-slate-100 dark:hover:bg-dk-elevated transition-colors"
                         aria-label={tx(lang, {fr:"Jour suivant",ar:"اليوم التالي",en:"Next day",es:"Día siguiente",pt:"Próximo dia",tr:"Sonraki gün"})}
                     >
                         <ChevronRight className="w-3.5 h-3.5" strokeWidth={2} />
@@ -104,7 +104,7 @@ export default function SuiviHeader({
                         <button
                             type="button"
                             onClick={() => onDateChange(todayYmd())}
-                            className="text-[11px] font-medium text-slate-500 hover:text-slate-900 px-2 h-6 rounded hover:bg-slate-100 transition-colors ml-1"
+                            className="text-[11px] font-medium text-slate-500 dark:text-dk-muted hover:text-slate-900 dark:hover:text-dk-text px-2 h-6 rounded hover:bg-slate-100 dark:hover:bg-dk-elevated transition-colors ml-1"
                         >
                             Aujourd'hui
                         </button>
@@ -134,7 +134,7 @@ function IconButton({
             onClick={onClick}
             title={title}
             className={`relative w-8 h-8 flex items-center justify-center rounded-md transition-colors ${
-                active ? 'bg-slate-100 dark:bg-dk-elevated text-slate-900 dark:text-dk-text' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'
+                active ? 'bg-slate-100 dark:bg-dk-elevated text-slate-900 dark:text-dk-text' : 'text-slate-500 dark:text-dk-muted hover:text-slate-900 dark:hover:text-dk-text hover:bg-slate-100 dark:hover:bg-dk-elevated'
             }`}
         >
             {children}
