@@ -116,6 +116,10 @@ export class ErrorBoundary extends Component<Props, State> {
     this.setState({ reported: true });
   };
 
+  private isDark(): boolean {
+    return typeof document !== 'undefined' && document.documentElement.classList.contains('dark');
+  }
+
   public render() {
     if (!this.state.hasError) return this.props.children;
 
@@ -123,27 +127,28 @@ export class ErrorBoundary extends Component<Props, State> {
     const connection = isConnectionError(err);
     const kind: 'connexion' | 'page' = connection ? 'connexion' : 'page';
     const inline = this.props.inline;
+    const dark = this.isDark();
 
     const _ = (m: {fr:string;ar:string;en:string;es:string;pt:string;tr:string}) => tx(this.context?.lang || 'fr', m);
     const wrapStyle: React.CSSProperties = inline
-      ? { padding: 24, height: '100%', width: '100%', overflow: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#fafafa' }
-      : { padding: 24, height: '100vh', overflow: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#fafafa' };
+      ? { padding: 24, height: '100%', width: '100%', overflow: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'center', background: dark ? '#1D2E28' : '#fafafa' }
+      : { padding: 24, height: '100vh', overflow: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'center', background: dark ? '#1D2E28' : '#fafafa' };
 
     return (
       <div style={wrapStyle}>
-        <div style={{ maxWidth: 520, width: '100%', background: '#fff', border: '1px solid #fecaca', borderRadius: 16, padding: 24, boxShadow: '0 4px 24px rgba(0,0,0,0.06)' }}>
+        <div style={{ maxWidth: 520, width: '100%', background: dark ? '#2a3a34' : '#fff', border: dark ? '1px solid #7f1d1d' : '1px solid #fecaca', borderRadius: 16, padding: 24, boxShadow: dark ? '0 4px 24px rgba(0,0,0,0.3)' : '0 4px 24px rgba(0,0,0,0.06)' }}>
           <div style={{ fontSize: 40, marginBottom: 8 }}>{connection ? '📡' : '⚠️'}</div>
-          <h2 style={{ margin: '0 0 6px', color: '#b91c1c', fontSize: 18, fontWeight: 800 }}>
+          <h2 style={{ margin: '0 0 6px', color: dark ? '#fca5a5' : '#b91c1c', fontSize: 18, fontWeight: 800 }}>
             {connection ? _( {fr:'Problème de connexion',ar:'مشكلة في الاتصال',en:'Connection problem',es:'Problema de conexión',pt:'Problema de conexão',tr:'Bağlantı sorunu'} ) : _( {fr:'Cette page a rencontré une erreur',ar:'واجهت هذه الصفحة خطأً',en:'This page encountered an error',es:'Esta página encontró un error',pt:'Esta página encontrou um erro',tr:'Bu sayfada bir hata oluştu'} )}
           </h2>
-          <p style={{ margin: '0 0 16px', color: '#6b7280', fontSize: 14, lineHeight: 1.5 }}>
+          <p style={{ margin: '0 0 16px', color: dark ? '#94a3b8' : '#6b7280', fontSize: 14, lineHeight: 1.5 }}>
             {connection
               ? _( {fr:"Impossible de joindre le serveur. Vérifiez votre connexion Internet — le reste de l'application continue de fonctionner.",ar:"تعذر الاتصال بالخادم. تحقق من اتصالك بالإنترنت — بقية التطبيق يستمر في العمل.",en:"Unable to reach the server. Check your Internet connection — the rest of the app keeps working.",es:"No se puede conectar al servidor. Verifique su conexión a Internet — el resto de la aplicación sigue funcionando.",pt:"Não foi possível contactar o servidor. Verifique sua conexão com a Internet — o resto do aplicativo continua funcionando.",tr:"Sunucuya ulaşılamıyor. İnternet bağlantınızı kontrol edin — uygulamanın geri kalanı çalışmaya devam ediyor."} )
               : _( {fr:"Le problème est limité à cette page. Vous pouvez réessayer ou revenir au menu sans perdre votre travail.",ar:"المشكلة محصورة في هذه الصفحة. يمكنك إعادة المحاولة أو العودة إلى القائمة دون فقدان عملك.",en:"The problem is limited to this page. You can retry or go back to the menu without losing your work.",es:"El problema se limita a esta página. Puede reintentar o volver al menú sin perder su trabajo.",pt:"O problema está limitado a esta página. Pode tentar novamente ou voltar ao menu sem perder o seu trabalho.",tr:"Sorun bu sayfayla sınırlıdır. Çalışmanızı kaybetmeden yeniden deneyebilir veya menüye dönebilirsiniz."} )}
           </p>
 
           {err?.message && (
-            <pre style={{ background: '#fef2f2', padding: 12, borderRadius: 8, color: '#b91c1c', fontSize: 12, overflow: 'auto', maxHeight: '24vh', margin: '0 0 12px' }}>
+            <pre style={{ background: dark ? '#450a0a' : '#fef2f2', padding: 12, borderRadius: 8, color: dark ? '#fca5a5' : '#b91c1c', fontSize: 12, overflow: 'auto', maxHeight: '24vh', margin: '0 0 12px' }}>
               {err.message}
             </pre>
           )}
@@ -152,14 +157,14 @@ export class ErrorBoundary extends Component<Props, State> {
             <button
               type="button"
               onClick={this.handleRetry}
-              style={{ padding: '10px 16px', fontWeight: 700, borderRadius: 8, border: 'none', background: '#10b981', color: '#fff', cursor: 'pointer' }}
+              style={{ padding: '10px 16px', fontWeight: 700, borderRadius: 8, border: 'none', background: dark ? '#059669' : '#10b981', color: '#fff', cursor: 'pointer' }}
             >
               {_({fr:'Réessayer',ar:'إعادة المحاولة',en:'Retry',es:'Reintentar',pt:'Tentar novamente',tr:'Yeniden dene'})}
             </button>
             <button
               type="button"
               onClick={() => window.location.reload()}
-              style={{ padding: '10px 16px', fontWeight: 700, borderRadius: 8, border: '1px solid #d1d5db', background: '#fff', color: '#374151', cursor: 'pointer' }}
+              style={{ padding: '10px 16px', fontWeight: 700, borderRadius: 8, border: dark ? '1px solid #374151' : '1px solid #d1d5db', background: dark ? '#2a3a34' : '#fff', color: dark ? '#e2e8f0' : '#374151', cursor: 'pointer' }}
             >
               {_({fr:'Recharger',ar:'إعادة تحميل',en:'Reload',es:'Recargar',pt:'Recarregar',tr:'Yenile'})}
             </button>
@@ -167,19 +172,19 @@ export class ErrorBoundary extends Component<Props, State> {
               type="button"
               disabled={this.state.reported}
               onClick={() => this.handleReport(kind)}
-              style={{ padding: '10px 16px', fontWeight: 700, borderRadius: 8, border: '1px solid #b91c1c', background: this.state.reported ? '#f3f4f6' : '#fff', color: this.state.reported ? '#9ca3af' : '#b91c1c', cursor: this.state.reported ? 'default' : 'pointer' }}
+              style={{ padding: '10px 16px', fontWeight: 700, borderRadius: 8, border: dark ? '1px solid #fca5a5' : '1px solid #b91c1c', background: this.state.reported ? (dark ? '#374151' : '#f3f4f6') : (dark ? '#2a3a34' : '#fff'), color: this.state.reported ? (dark ? '#6b7280' : '#9ca3af') : (dark ? '#fca5a5' : '#b91c1c'), cursor: this.state.reported ? 'default' : 'pointer' }}
             >
               {this.state.reported ? '✓ ' + _({fr:'Problème signalé',ar:'تم الإبلاغ',en:'Reported',es:'Reportado',pt:'Reportado',tr:'Raporlandı'}) : _({fr:'Signaler le problème',ar:'الإبلاغ عن المشكلة',en:'Report issue',es:'Reportar problema',pt:'Reportar problema',tr:'Sorunu bildir'})}
             </button>
           </div>
 
           {this.state.reported && (
-            <p style={{ margin: '12px 0 0', color: '#059669', fontSize: 13 }}>
+            <p style={{ margin: '12px 0 0', color: dark ? '#34d399' : '#059669', fontSize: 13 }}>
               {_({fr:'Merci, votre signalement a bien été enregistré. Nous le traitons au plus vite.',ar:'شكراً، تم تسجيل بلاغك بنجاح. سنعالجه في أقرب وقت.',en:'Thank you, your report has been recorded. We will process it as soon as possible.',es:'Gracias, su reporte ha sido registrado. Lo procesaremos lo antes posible.',pt:'Obrigado, seu relato foi registrado. Processaremos o mais rápido possível.',tr:'Teşekkürler, raporunuz kaydedildi. En kısa sürede işleme alacağız.'})}
             </p>
           )}
 
-          <details style={{ whiteSpace: 'pre-wrap', marginTop: 16, color: '#6b7280', fontSize: 12 }}>
+          <details style={{ whiteSpace: 'pre-wrap', marginTop: 16, color: dark ? '#94a3b8' : '#6b7280', fontSize: 12 }}>
             <summary style={{ cursor: 'pointer', fontWeight: 700 }}>{_({fr:'Détails techniques',ar:'تفاصيل تقنية',en:'Technical details',es:'Detalles técnicos',pt:'Detalhes técnicos',tr:'Teknik detaylar'})}</summary>
             {err?.toString()}
             {this.state.errorInfo?.componentStack}
