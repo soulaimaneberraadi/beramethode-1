@@ -41,7 +41,7 @@ export const ResponsiveChart: React.FC<ResponsiveChartProps> = ({ children, clas
   }, []);
 
   return (
-    <div ref={ref} className={className ?? 'w-full h-full'}>
+    <div ref={ref} className={`${className ?? 'w-full h-full'} dark:text-dk-muted`}>
       {ready && (
         <ResponsiveContainer width="100%" height="100%">
           {children}

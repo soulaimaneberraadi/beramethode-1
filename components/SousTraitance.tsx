@@ -1116,7 +1116,7 @@ export default function SousTraitance({ models, settings, onLoadModel }: SousTra
     <div className="flex-1 overflow-y-auto space-y-3.5 lg:space-y-6 p-3 lg:p-6 bg-slate-50 dark:bg-dk-bg text-slate-800 dark:text-dk-text relative font-sans animate-fade-in w-full h-full">
       
       {/* Header Banner - Compact and White - Hidden on Mobile/Tablet */}
-      <div className="hidden lg:block relative overflow-hidden rounded-2xl bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border/60 p-3.5 lg:p-4 shadow-sm dark:shadow-none text-slate-800 dark:text-dk-text">
+      <div className="hidden lg:block relative overflow-hidden rounded-2xl bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border/60 p-3.5 lg:p-4 shadow-sm dark:shadow-dk-sm dark:shadow-none text-slate-800 dark:text-dk-text">
         <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="space-y-0.5">
             <span className="text-[10px] font-black text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text dark:text-dk-accent uppercase tracking-widest block">{tx(lang,{fr:'Plateforme Industrielle',ar:'المنصة الصناعية',en:'Industrial Platform',es:'Plataforma Industrial',pt:'Plataforma Industrial',tr:'Endüstriyel Platform'})}</span>
@@ -1127,7 +1127,7 @@ export default function SousTraitance({ models, settings, onLoadModel }: SousTra
           {activeTab === 'orders' && (
             <button 
               onClick={openAddModal}
-              className="bg-indigo-600 dark:bg-dk-accent hover:bg-indigo-700 dark:hover:bg-dk-accent-hover dark:hover:bg-dk-accent/90 hover:scale-[1.01] active:scale-[0.99] text-white px-4 py-2 rounded-xl transition-all shadow-sm dark:shadow-none flex items-center justify-center gap-2 font-bold w-full sm:w-auto text-xs shrink-0 border border-indigo-600 dark:border-dk-accent"
+              className="bg-indigo-600 dark:bg-dk-accent hover:bg-indigo-700 dark:hover:bg-dk-accent-hover dark:hover:bg-dk-accent/90 hover:scale-[1.01] active:scale-[0.99] text-white px-4 py-2 rounded-xl transition-all shadow-sm dark:shadow-dk-sm dark:shadow-none flex items-center justify-center gap-2 font-bold w-full sm:w-auto text-xs shrink-0 border border-indigo-600 dark:border-dk-accent"
             >
               <Plus className="w-3.5 h-3.5 text-white" />
               <span>{tx(lang,{fr:'Nouvelle Commande',ar:'أمر شراء جديد',en:'New Order',es:'Nuevo Pedido',pt:'Nova Encomenda',tr:'Yeni Sipariş'})}</span>
@@ -1137,31 +1137,31 @@ export default function SousTraitance({ models, settings, onLoadModel }: SousTra
       </div>
 
       {/* Modern Pill-Style Tabs Bar - Compact */}
-      <div className="flex bg-white dark:bg-dk-surface p-0.5 rounded-xl border border-slate-200 dark:border-dk-border/60 overflow-x-auto gap-0.5 shadow-sm dark:shadow-none max-w-max scrollbar-none shrink-0">
+      <div className="flex bg-white dark:bg-dk-surface p-0.5 rounded-xl border border-slate-200 dark:border-dk-border/60 overflow-x-auto gap-0.5 shadow-sm dark:shadow-dk-sm dark:shadow-none max-w-max scrollbar-none shrink-0">
         <button
           onClick={() => setActiveTab('orders')}
-          className={`px-2.5 lg:px-3 py-1.5 rounded-lg font-bold text-[10px] lg:text-xs transition-all flex items-center gap-1 lg:gap-1.5 whitespace-nowrap ${activeTab === 'orders' ? 'bg-indigo-600 dark:bg-dk-accent text-white shadow-sm dark:shadow-none' : 'text-slate-500 dark:text-dk-muted hover:text-slate-800 hover:bg-slate-50 dark:hover:bg-dk-elevated'}`}
+          className={`px-2.5 lg:px-3 py-1.5 rounded-lg font-bold text-[10px] lg:text-xs transition-all flex items-center gap-1 lg:gap-1.5 whitespace-nowrap ${activeTab === 'orders' ? 'bg-indigo-600 dark:bg-dk-accent text-white shadow-sm dark:shadow-dk-sm dark:shadow-none' : 'text-slate-500 dark:text-dk-muted hover:text-slate-800 hover:bg-slate-50 dark:hover:bg-dk-elevated'}`}
         >
           <Package className="w-3 h-3 lg:w-3.5 lg:h-3.5" />
           <span>{tx(lang,{fr:'Commandes',ar:'الطلبيات',en:'Orders',es:'Pedidos',pt:'Encomendas',tr:'Siparişler'})}</span>
         </button>
         <button
           onClick={() => setActiveTab('subcontractors')}
-          className={`px-2.5 lg:px-3 py-1.5 rounded-lg font-bold text-[10px] lg:text-xs transition-all flex items-center gap-1 lg:gap-1.5 whitespace-nowrap ${activeTab === 'subcontractors' ? 'bg-indigo-600 dark:bg-dk-accent text-white shadow-sm dark:shadow-none' : 'text-slate-500 dark:text-dk-muted hover:text-slate-800 hover:bg-slate-50 dark:hover:bg-dk-elevated'}`}
+          className={`px-2.5 lg:px-3 py-1.5 rounded-lg font-bold text-[10px] lg:text-xs transition-all flex items-center gap-1 lg:gap-1.5 whitespace-nowrap ${activeTab === 'subcontractors' ? 'bg-indigo-600 dark:bg-dk-accent text-white shadow-sm dark:shadow-dk-sm dark:shadow-none' : 'text-slate-500 dark:text-dk-muted hover:text-slate-800 hover:bg-slate-50 dark:hover:bg-dk-elevated'}`}
         >
           <Users className="w-3 h-3 lg:w-3.5 lg:h-3.5" />
           <span>{tx(lang,{fr:'Suivi Fournisseurs',ar:'متابعة الموردين',en:'Supplier Tracking',es:'Seguimiento de Proveedores',pt:'Acompanhamento de Fornecedores',tr:'Tedarikçi Takibi'})}</span>
         </button>
         <button
           onClick={() => setActiveTab('stock')}
-          className={`px-2.5 lg:px-3 py-1.5 rounded-lg font-bold text-[10px] lg:text-xs transition-all flex items-center gap-1 lg:gap-1.5 whitespace-nowrap ${activeTab === 'stock' ? 'bg-indigo-600 dark:bg-dk-accent text-white shadow-sm dark:shadow-none' : 'text-slate-500 dark:text-dk-muted hover:text-slate-800 hover:bg-slate-50 dark:hover:bg-dk-elevated'}`}
+          className={`px-2.5 lg:px-3 py-1.5 rounded-lg font-bold text-[10px] lg:text-xs transition-all flex items-center gap-1 lg:gap-1.5 whitespace-nowrap ${activeTab === 'stock' ? 'bg-indigo-600 dark:bg-dk-accent text-white shadow-sm dark:shadow-dk-sm dark:shadow-none' : 'text-slate-500 dark:text-dk-muted hover:text-slate-800 hover:bg-slate-50 dark:hover:bg-dk-elevated'}`}
         >
           <Coins className="w-3 h-3 lg:w-3.5 lg:h-3.5" />
           <span>{tx(lang,{fr:'Stock & Ventes',ar:'المخزون والمبيعات',en:'Stock & Sales',es:'Stock & Ventas',pt:'Stock & Vendas',tr:'Stok & Satışlar'})}</span>
         </button>
         <button
           onClick={() => setActiveTab('groups')}
-          className={`px-2.5 lg:px-3 py-1.5 rounded-lg font-bold text-[10px] lg:text-xs transition-all flex items-center gap-1 lg:gap-1.5 whitespace-nowrap ${activeTab === 'groups' ? 'bg-indigo-600 dark:bg-dk-accent text-white shadow-sm dark:shadow-none' : 'text-slate-500 dark:text-dk-muted hover:text-slate-800 hover:bg-slate-50 dark:hover:bg-dk-elevated'}`}
+          className={`px-2.5 lg:px-3 py-1.5 rounded-lg font-bold text-[10px] lg:text-xs transition-all flex items-center gap-1 lg:gap-1.5 whitespace-nowrap ${activeTab === 'groups' ? 'bg-indigo-600 dark:bg-dk-accent text-white shadow-sm dark:shadow-dk-sm dark:shadow-none' : 'text-slate-500 dark:text-dk-muted hover:text-slate-800 hover:bg-slate-50 dark:hover:bg-dk-elevated'}`}
         >
           <Layers className="w-3 h-3 lg:w-3.5 lg:h-3.5" />
           <span>{tx(lang,{fr:'Groupements',ar:'المجموعات',en:'Groups',es:'Grupos',pt:'Grupos',tr:'Gruplar'})}</span>
@@ -1177,7 +1177,7 @@ export default function SousTraitance({ models, settings, onLoadModel }: SousTra
       )}
 
       {loading ? (
-        <div className="h-64 flex flex-col items-center justify-center bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border/60 shadow-sm dark:shadow-none gap-3">
+        <div className="h-64 flex flex-col items-center justify-center bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border/60 shadow-sm dark:shadow-dk-sm dark:shadow-none gap-3">
           <Loader2 className="w-6 h-6 lg:w-8 lg:h-8 text-indigo-500 dark:text-dk-accent animate-spin" />
           <p className="text-[11px] lg:text-xs text-slate-500 dark:text-dk-muted font-medium">{tx(lang,{fr:'Chargement des données de sous-traitance...',ar:'جاري تحميل بيانات المقاولة من الباطن...',en:'Loading subcontracting data...',es:'Cargando datos de subcontratación...',pt:'A carregar dados de subcontratação...',tr:'Taşeronluk verileri yükleniyor...'})}</p>
         </div>
@@ -1190,7 +1190,7 @@ export default function SousTraitance({ models, settings, onLoadModel }: SousTra
             <div className="space-y-3 lg:space-y-4">
               {/* Clean Minimalist Stats Widgets - Horizontally scrollable on mobile/tablet */}
               <div className="flex flex-row flex-nowrap overflow-x-auto lg:grid lg:grid-cols-4 gap-2 lg:gap-3 pb-1.5 lg:pb-0 scrollbar-none w-full shrink-0">
-                <div className="flex-1 min-w-[110px] lg:min-w-0 bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border/50 p-2 lg:p-2.5 rounded-lg lg:rounded-xl shadow-sm dark:shadow-none flex items-center gap-2 lg:gap-2.5 hover:shadow-md dark:hover:shadow-none transition-all shrink-0">
+                <div className="flex-1 min-w-[110px] lg:min-w-0 bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border/50 p-2 lg:p-2.5 rounded-lg lg:rounded-xl shadow-sm dark:shadow-dk-sm dark:shadow-none flex items-center gap-2 lg:gap-2.5 hover:shadow-md dark:hover:shadow-none transition-all shrink-0">
                   <div className="p-1.5 lg:p-2 bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 dark:bg-dk-elevated text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text dark:text-dk-accent rounded-md lg:rounded-lg shrink-0">
                     <Truck className="w-3.5 h-3.5 lg:w-4 lg:h-4" />
                   </div>
@@ -1199,7 +1199,7 @@ export default function SousTraitance({ models, settings, onLoadModel }: SousTra
                     <span className="text-xs lg:text-sm font-extrabold text-slate-800 dark:text-dk-text tracking-tight block leading-none mt-0.5">{stats.activeOrdersCount}</span>
                   </div>
                 </div>
-                <div className="flex-1 min-w-[110px] lg:min-w-0 bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border/50 p-2 lg:p-2.5 rounded-lg lg:rounded-xl shadow-sm dark:shadow-none flex items-center gap-2 lg:gap-2.5 hover:shadow-md dark:hover:shadow-none transition-all shrink-0">
+                <div className="flex-1 min-w-[110px] lg:min-w-0 bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border/50 p-2 lg:p-2.5 rounded-lg lg:rounded-xl shadow-sm dark:shadow-dk-sm dark:shadow-none flex items-center gap-2 lg:gap-2.5 hover:shadow-md dark:hover:shadow-none transition-all shrink-0">
                   <div className="p-1.5 lg:p-2 bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 dark:bg-dk-elevated text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text dark:text-dk-accent rounded-md lg:rounded-lg shrink-0">
                     <Package className="w-3.5 h-3.5 lg:w-4 lg:h-4" />
                   </div>
@@ -1208,7 +1208,7 @@ export default function SousTraitance({ models, settings, onLoadModel }: SousTra
                     <span className="text-xs lg:text-sm font-extrabold text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text dark:text-dk-accent tracking-tight block leading-none mt-0.5" dir="ltr">{stats.totalQty.toLocaleString()} <span className="text-[9px] lg:text-[10px] font-semibold text-slate-400 dark:text-dk-muted">pcs</span></span>
                   </div>
                 </div>
-                <div className="flex-1 min-w-[110px] lg:min-w-0 bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border/50 p-2 lg:p-2.5 rounded-lg lg:rounded-xl shadow-sm dark:shadow-none flex items-center gap-2 lg:gap-2.5 hover:shadow-md dark:hover:shadow-none transition-all shrink-0">
+                <div className="flex-1 min-w-[110px] lg:min-w-0 bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border/50 p-2 lg:p-2.5 rounded-lg lg:rounded-xl shadow-sm dark:shadow-dk-sm dark:shadow-none flex items-center gap-2 lg:gap-2.5 hover:shadow-md dark:hover:shadow-none transition-all shrink-0">
                   <div className="p-1.5 lg:p-2 bg-emerald-50 dark:bg-emerald-900/30 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400 rounded-md lg:rounded-lg shrink-0">
                     <ShieldCheck className="w-3.5 h-3.5 lg:w-4 lg:h-4" />
                   </div>
@@ -1217,7 +1217,7 @@ export default function SousTraitance({ models, settings, onLoadModel }: SousTra
                     <span className="text-xs lg:text-sm font-extrabold text-emerald-600 dark:text-emerald-400 tracking-tight block leading-none mt-0.5">{stats.avgQualityRate}%</span>
                   </div>
                 </div>
-                <div className="flex-1 min-w-[110px] lg:min-w-0 bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border/50 p-2 lg:p-2.5 rounded-lg lg:rounded-xl shadow-sm dark:shadow-none flex items-center gap-2 lg:gap-2.5 hover:shadow-md dark:hover:shadow-none transition-all shrink-0">
+                <div className="flex-1 min-w-[110px] lg:min-w-0 bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border/50 p-2 lg:p-2.5 rounded-lg lg:rounded-xl shadow-sm dark:shadow-dk-sm dark:shadow-none flex items-center gap-2 lg:gap-2.5 hover:shadow-md dark:hover:shadow-none transition-all shrink-0">
                   <div className="p-1.5 lg:p-2 bg-amber-50 dark:bg-amber-900/30 dark:bg-amber-950/30 text-amber-600 dark:text-amber-400 rounded-md lg:rounded-lg shrink-0">
                     <Clock className="w-3.5 h-3.5 lg:w-4 lg:h-4" />
                   </div>
@@ -1229,7 +1229,7 @@ export default function SousTraitance({ models, settings, onLoadModel }: SousTra
               </div>
 
               {/* Clean Filters Toolbar */}
-              <div className="bg-white dark:bg-dk-surface rounded-xl p-2 lg:p-3 border border-slate-200 dark:border-dk-border/60 shadow-sm dark:shadow-none flex flex-col gap-2.5 w-full shrink-0">
+              <div className="bg-white dark:bg-dk-surface rounded-xl p-2 lg:p-3 border border-slate-200 dark:border-dk-border/60 shadow-sm dark:shadow-dk-sm dark:shadow-none flex flex-col gap-2.5 w-full shrink-0">
                 {/* Search input + Mobile filter toggle */}
                 <div className="flex gap-2 w-full">
                   <div className="relative flex-1">
@@ -1301,7 +1301,7 @@ export default function SousTraitance({ models, settings, onLoadModel }: SousTra
 
               {/* View Rendering */}
               {filteredOrders.length === 0 ? (
-                <div className="bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border/60 p-12 lg:p-16 text-center text-slate-400 dark:text-dk-muted shadow-sm dark:shadow-none">
+                <div className="bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border/60 p-12 lg:p-16 text-center text-slate-400 dark:text-dk-muted shadow-sm dark:shadow-dk-sm dark:shadow-none">
                   <Package className="w-10 h-10 lg:w-12 lg:h-12 mx-auto mb-3 opacity-25 text-slate-350 dark:text-dk-muted" />
                   <p className="text-xs font-semibold">{tx(lang,{fr:'Aucune commande trouvée',ar:'لم يتم العثور على أي طلبية',en:'No orders found',es:'No se encontraron pedidos',pt:'Nenhuma encomenda encontrada',tr:'Sipariş bulunamadı'})}</p>
                 </div>
@@ -1322,7 +1322,7 @@ export default function SousTraitance({ models, settings, onLoadModel }: SousTra
                     return (
                       <div 
                         key={order.id}
-                        className="bg-white dark:bg-dk-surface rounded-3xl border border-slate-200 dark:border-dk-border/60 shadow-sm dark:shadow-none hover:shadow-md dark:hover:shadow-none hover:border-slate-350 transition-all overflow-hidden flex flex-col justify-between group"
+                        className="bg-white dark:bg-dk-surface rounded-3xl border border-slate-200 dark:border-dk-border/60 shadow-sm dark:shadow-dk-sm dark:shadow-none hover:shadow-md dark:hover:shadow-none hover:border-slate-350 transition-all overflow-hidden flex flex-col justify-between group"
                       >
                         <div className="p-4 lg:p-5 space-y-3.5">
                           <div className="flex justify-between items-start">
@@ -1459,7 +1459,7 @@ export default function SousTraitance({ models, settings, onLoadModel }: SousTra
                   })}
                 </div>
               ) : (
-                <div className="bg-white dark:bg-dk-surface rounded-3xl border border-slate-200 dark:border-dk-border/60 shadow-sm dark:shadow-none overflow-hidden">
+                <div className="bg-white dark:bg-dk-surface rounded-3xl border border-slate-200 dark:border-dk-border/60 shadow-sm dark:shadow-dk-sm dark:shadow-none overflow-hidden">
                   <div className="overflow-x-auto">
                     <table className="w-full text-sm text-left">
                       <thead className="bg-slate-50 dark:bg-dk-bg border-b border-slate-100 dark:border-dk-border text-slate-500 dark:text-dk-muted font-semibold text-xs uppercase">
@@ -1530,7 +1530,7 @@ export default function SousTraitance({ models, settings, onLoadModel }: SousTra
                             {/* Floating Action Button (FAB) for Mobile/Tablet */}
                             <button
                               onClick={openAddModal}
-                              className="lg:hidden fixed bottom-6 right-6 w-12 h-12 bg-indigo-600 dark:bg-dk-accent hover:bg-indigo-700 dark:hover:bg-dk-accent-hover dark:hover:bg-dk-accent/90 active:scale-95 text-white rounded-full shadow-lg flex items-center justify-center transition-all z-50 hover:shadow-xl border border-indigo-500 dark:border-dk-accent"
+                              className="lg:hidden fixed bottom-6 right-6 w-12 h-12 bg-indigo-600 dark:bg-dk-accent hover:bg-indigo-700 dark:hover:bg-dk-accent-hover dark:hover:bg-dk-accent/90 active:scale-95 text-white rounded-full shadow-lg dark:shadow-dk-lg flex items-center justify-center transition-all z-50 hover:shadow-xl border border-indigo-500 dark:border-dk-accent"
                               title={tx(lang,{fr:'Nouvelle Commande',ar:'أمر شراء جديد'})}
                             >
                               <Plus className="w-6 h-6 text-white" />
@@ -1544,7 +1544,7 @@ export default function SousTraitance({ models, settings, onLoadModel }: SousTra
           {activeTab === 'subcontractors' && (
             <div className="space-y-6">
               {/* Group filter selection */}
-              <div className="bg-white dark:bg-dk-surface rounded-3xl p-4 border border-slate-200 dark:border-dk-border/60 shadow-sm dark:shadow-none flex flex-col md:flex-row gap-4 items-center justify-between">
+              <div className="bg-white dark:bg-dk-surface rounded-3xl p-4 border border-slate-200 dark:border-dk-border/60 shadow-sm dark:shadow-dk-sm dark:shadow-none flex flex-col md:flex-row gap-4 items-center justify-between">
                 <p className="text-xs font-bold text-slate-500 dark:text-dk-muted uppercase tracking-wider">{tx(lang,{fr:'Filtrer par groupement d\'entreprises :',ar:'تصفية حسب مجموعة الشركات:',en:'Filter by company group:',es:'Filtrar por grupo de empresas:',pt:'Filtrar por grupo de empresas:',tr:'Şirket grubuna göre filtrele:'})}</p>
                 <select
                   value={groupFilter}
@@ -1559,12 +1559,12 @@ export default function SousTraitance({ models, settings, onLoadModel }: SousTra
               </div>
 
               {subcontractorStats.length === 0 ? (
-                <div className="bg-white dark:bg-dk-surface rounded-3xl border border-slate-200 dark:border-dk-border/60 p-16 text-center text-slate-400 dark:text-dk-muted shadow-sm dark:shadow-none">
+                <div className="bg-white dark:bg-dk-surface rounded-3xl border border-slate-200 dark:border-dk-border/60 p-16 text-center text-slate-400 dark:text-dk-muted shadow-sm dark:shadow-dk-sm dark:shadow-none">
                   <Users className="w-12 h-12 mx-auto mb-3 opacity-25 text-slate-350 dark:text-dk-muted" />
                   <p className="text-xs font-semibold">{tx(lang,{fr:'Aucun sous-traitant actif trouvé',ar:'لم يتم العثور على أي مقاول من الباطن نشط',en:'No active subcontractor found',es:'No se encontró ningún subcontratista activo',pt:'Nenhum subcontratado ativo encontrado',tr:'Aktif taşeron bulunamadı'})}</p>
                 </div>
               ) : (
-                <div className="bg-white dark:bg-dk-surface rounded-3xl border border-slate-200 dark:border-dk-border/60 shadow-sm dark:shadow-none overflow-hidden">
+                <div className="bg-white dark:bg-dk-surface rounded-3xl border border-slate-200 dark:border-dk-border/60 shadow-sm dark:shadow-dk-sm dark:shadow-none overflow-hidden">
                   <div className="overflow-x-auto">
                     <table className="w-full text-sm text-left">
                       <thead className="bg-slate-50 dark:bg-dk-bg border-b border-slate-100 dark:border-dk-border text-slate-500 dark:text-dk-muted font-semibold text-xs uppercase">
@@ -1629,7 +1629,7 @@ export default function SousTraitance({ models, settings, onLoadModel }: SousTra
           {/* ======================================= */}
           {activeTab === 'stock' && (
             <div className="space-y-6">
-              <div className="bg-white dark:bg-dk-surface rounded-3xl border border-slate-200 dark:border-dk-border/60 shadow-sm dark:shadow-none overflow-hidden">
+              <div className="bg-white dark:bg-dk-surface rounded-3xl border border-slate-200 dark:border-dk-border/60 shadow-sm dark:shadow-dk-sm dark:shadow-none overflow-hidden">
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm text-left">
                     <thead className="bg-slate-50 dark:bg-dk-bg border-b border-slate-100 dark:border-dk-border text-slate-500 dark:text-dk-muted font-semibold text-xs uppercase">
@@ -1716,7 +1716,7 @@ export default function SousTraitance({ models, settings, onLoadModel }: SousTra
           {activeTab === 'groups' && (
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               {/* Groups List */}
-              <div className="lg:col-span-1 bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border/60 rounded-3xl p-5 shadow-sm dark:shadow-none space-y-4">
+              <div className="lg:col-span-1 bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border/60 rounded-3xl p-5 shadow-sm dark:shadow-dk-sm dark:shadow-none space-y-4">
                 <div className="flex justify-between items-center">
                   <h3 className="font-bold text-slate-800 dark:text-dk-text text-xs md:text-sm uppercase tracking-wider">{tx(lang,{fr:'Groupements enregistrés',ar:'المجموعات المسجلة',en:'Registered Groups',es:'Grupos Registrados',pt:'Grupos Registados',tr:'Kayıtlı Gruplar'})}</h3>
                   <button 
@@ -1756,7 +1756,7 @@ export default function SousTraitance({ models, settings, onLoadModel }: SousTra
               {/* Group Edit Pane */}
               <div className="lg:col-span-2">
                 {isEditingGroup ? (
-                  <form onSubmit={handleSaveGroup} className="bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border/60 rounded-3xl p-5 shadow-sm dark:shadow-none space-y-6">
+                  <form onSubmit={handleSaveGroup} className="bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border/60 rounded-3xl p-5 shadow-sm dark:shadow-dk-sm dark:shadow-none space-y-6">
                     <div className="flex justify-between items-center border-b border-slate-100 dark:border-dk-border pb-3">
                       <h3 className="font-bold text-slate-800 dark:text-dk-text text-xs md:text-sm uppercase tracking-wider">
                         {selectedGroup ? tx(lang,{fr:'Modifier le groupement',ar:'تعديل المجموعة',en:'Edit Group',es:'Editar Grupo',pt:'Editar Grupo',tr:'Grubu Düzenle'}) : tx(lang,{fr:'Créer un nouveau groupement',ar:'إنشاء مجموعة جديدة',en:'Create New Group',es:'Crear Nuevo Grupo',pt:'Criar Novo Grupo',tr:'Yeni Grup Oluştur'})}
@@ -1837,7 +1837,7 @@ export default function SousTraitance({ models, settings, onLoadModel }: SousTra
                         <button 
                           type="submit"
                           disabled={actionLoading}
-                          className="bg-indigo-600 dark:bg-dk-accent hover:bg-indigo-50 dark:bg-dk-accent/20 dark:hover:bg-dk-elevated dark:bg-dk-elevated0 text-white px-5 py-2.5 rounded-xl text-xs font-bold transition-all shadow-md flex items-center gap-2 border border-indigo-500 dark:border-dk-accent/50"
+                          className="bg-indigo-600 dark:bg-dk-accent hover:bg-indigo-50 dark:bg-dk-accent/20 dark:hover:bg-dk-elevated dark:bg-dk-elevated0 text-white px-5 py-2.5 rounded-xl text-xs font-bold transition-all shadow-md dark:shadow-dk-md flex items-center gap-2 border border-indigo-500 dark:border-dk-accent/50"
                         >
                           {actionLoading && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
                           <span>{tx(lang,{fr:'Enregistrer',ar:'حفظ',en:'Save',es:'Guardar',pt:'Guardar',tr:'Kaydet'})}</span>
@@ -1846,7 +1846,7 @@ export default function SousTraitance({ models, settings, onLoadModel }: SousTra
                     </div>
                   </form>
                 ) : (
-                  <div className="bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border/60 rounded-3xl p-16 text-center text-slate-400 dark:text-dk-muted h-full flex flex-col justify-center items-center shadow-sm dark:shadow-none">
+                  <div className="bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border/60 rounded-3xl p-16 text-center text-slate-400 dark:text-dk-muted h-full flex flex-col justify-center items-center shadow-sm dark:shadow-dk-sm dark:shadow-none">
                     <Layers className="w-12 h-12 mb-3 opacity-20 text-slate-400 dark:text-dk-muted" />
                     <p className="text-xs font-semibold">{tx(lang,{fr:'Sélectionnez un groupe pour le modifier ou créez-en un nouveau.',ar:'اختر مجموعة لتعديلها أو أنشئ مجموعة جديدة.',en:'Select a group to edit or create a new one.',es:'Seleccione un grupo para editarlo o cree uno nuevo.',pt:'Selecione um grupo para editar ou crie um novo.',tr:'Düzenlemek için bir grup seçin veya yeni bir tane oluşturun.'})}</p>
                   </div>
@@ -1860,7 +1860,7 @@ export default function SousTraitance({ models, settings, onLoadModel }: SousTra
       {/* ======================================= */}
           {isAddModalOpen && (
         <div className="fixed inset-0 bg-slate-900/55 dark:bg-black/70 backdrop-blur-sm z-[200] flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white dark:bg-dk-surface rounded-3xl shadow-2xl w-full max-w-3xl overflow-hidden flex flex-col max-h-[90vh] text-slate-800 dark:text-dk-text border border-slate-200 dark:border-dk-border">
+          <div className="bg-white dark:bg-dk-surface rounded-3xl shadow-2xl dark:shadow-dk-elevated w-full max-w-3xl overflow-hidden flex flex-col max-h-[90vh] text-slate-800 dark:text-dk-text border border-slate-200 dark:border-dk-border">
             <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-dk-border bg-slate-50 dark:bg-dk-bg/50 dark:bg-dk-surface/50">
               <h2 className="font-bold text-slate-800 dark:text-dk-text text-base flex items-center gap-2">
                 <Truck className="w-5 h-5 text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text dark:text-dk-accent" />
@@ -2243,7 +2243,7 @@ export default function SousTraitance({ models, settings, onLoadModel }: SousTra
                 <button 
                   type="submit"
                   disabled={actionLoading}
-                  className="bg-indigo-600 dark:bg-dk-accent hover:bg-indigo-50 dark:bg-dk-accent/20 dark:hover:bg-dk-elevated dark:bg-dk-elevated0 text-white px-6 py-2.5 rounded-xl font-bold transition-all shadow-md flex items-center gap-2 border border-indigo-500 dark:border-dk-accent/50"
+                  className="bg-indigo-600 dark:bg-dk-accent hover:bg-indigo-50 dark:bg-dk-accent/20 dark:hover:bg-dk-elevated dark:bg-dk-elevated0 text-white px-6 py-2.5 rounded-xl font-bold transition-all shadow-md dark:shadow-dk-md flex items-center gap-2 border border-indigo-500 dark:border-dk-accent/50"
                 >
                   {actionLoading && <Loader2 className="w-4 h-4 animate-spin" />}
                   <span>{tx(lang,{fr:'Créer la Commande',ar:'إنشاء الطلبية',en:'Create Order',es:'Crear Pedido',pt:'Criar Encomenda',tr:'Sipariş Oluştur'})}</span>
@@ -2259,7 +2259,7 @@ export default function SousTraitance({ models, settings, onLoadModel }: SousTra
       {/* ======================================= */}
       {isEditModalOpen && selectedOrder && (
         <div className="fixed inset-0 bg-slate-900/55 dark:bg-black/70 backdrop-blur-sm z-[200] flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white dark:bg-dk-surface rounded-3xl shadow-2xl w-full max-w-3xl overflow-hidden flex flex-col max-h-[90vh] text-slate-800 dark:text-dk-text border border-slate-200 dark:border-dk-border">
+          <div className="bg-white dark:bg-dk-surface rounded-3xl shadow-2xl dark:shadow-dk-elevated w-full max-w-3xl overflow-hidden flex flex-col max-h-[90vh] text-slate-800 dark:text-dk-text border border-slate-200 dark:border-dk-border">
             <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-dk-border bg-slate-50 dark:bg-dk-bg/50 dark:bg-dk-surface/50">
               <h2 className="font-bold text-slate-800 dark:text-dk-text text-base flex items-center gap-2">
                 <Edit2 className="w-5 h-5 text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text dark:text-dk-accent" />
@@ -2642,7 +2642,7 @@ export default function SousTraitance({ models, settings, onLoadModel }: SousTra
                 <button 
                   type="submit"
                   disabled={actionLoading}
-                  className="bg-indigo-600 dark:bg-dk-accent hover:bg-indigo-50 dark:bg-dk-accent/20 dark:hover:bg-dk-elevated dark:bg-dk-elevated0 text-white px-6 py-2.5 rounded-xl font-bold transition-all shadow-md flex items-center gap-2 border border-indigo-500 dark:border-dk-accent/50"
+                  className="bg-indigo-600 dark:bg-dk-accent hover:bg-indigo-50 dark:bg-dk-accent/20 dark:hover:bg-dk-elevated dark:bg-dk-elevated0 text-white px-6 py-2.5 rounded-xl font-bold transition-all shadow-md dark:shadow-dk-md flex items-center gap-2 border border-indigo-500 dark:border-dk-accent/50"
                 >
                   {actionLoading && <Loader2 className="w-4 h-4 animate-spin" />}
                   <span>{tx(lang,{fr:'Enregistrer',ar:'حفظ',en:'Save',es:'Guardar',pt:'Guardar',tr:'Kaydet'})}</span>
@@ -2658,7 +2658,7 @@ export default function SousTraitance({ models, settings, onLoadModel }: SousTra
       {/* ======================================= */}
       {isDetailModalOpen && detailOrder && (
         <div className="fixed inset-0 bg-slate-900/55 dark:bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-3xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[85vh] text-slate-750 dark:text-dk-text">
+          <div className="bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-3xl shadow-2xl dark:shadow-dk-elevated w-full max-w-2xl overflow-hidden flex flex-col max-h-[85vh] text-slate-750 dark:text-dk-text">
             <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-dk-border bg-slate-50 dark:bg-dk-bg/55 dark:bg-dk-surface/55">
               <h2 className="font-bold text-slate-800 dark:text-dk-text text-base">{tx(lang,{fr:'Fiche de Commande Sous-traitance',ar:'بطاقة أمر المقاولة من الباطن',en:'Subcontract Order Sheet',es:'Ficha de Pedido de Subcontratación',pt:'Ficha de Encomenda de Subcontratação',tr:'Taşeron Sipariş Kartı'})}</h2>
               <button onClick={() => setIsDetailModalOpen(false)} className="p-1.5 hover:bg-slate-100 dark:hover:bg-dk-elevated rounded-full transition-colors text-slate-400 dark:text-dk-muted hover:text-slate-600 dark:hover:text-dk-text-soft">
@@ -2762,14 +2762,14 @@ export default function SousTraitance({ models, settings, onLoadModel }: SousTra
             <div className="bg-slate-50 dark:bg-dk-bg border-t border-slate-100 dark:border-dk-border px-6 py-4 flex gap-3 justify-end text-xs font-bold">
               <button 
                 onClick={() => handlePrintDeliveryNote(detailOrder)} 
-                className="bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border hover:bg-slate-50 dark:hover:bg-dk-elevated text-slate-700 dark:text-dk-text-soft px-4 py-2 rounded-xl flex items-center gap-1.5 shadow-sm dark:shadow-none transition-all"
+                className="bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border hover:bg-slate-50 dark:hover:bg-dk-elevated text-slate-700 dark:text-dk-text-soft px-4 py-2 rounded-xl flex items-center gap-1.5 shadow-sm dark:shadow-dk-sm dark:shadow-none transition-all"
               >
                 <Printer className="w-4 h-4" />
                 <span>{tx(lang,{fr:"Imprimer Bon d'Envoi",ar:'طباعة مذكرة الإرسال',en:'Print Delivery Note',es:'Imprimir Nota de Envío',pt:'Imprimir Nota de Remessa',tr:'Sevk İrsaliyesi Yazdır'})}</span>
               </button>
               <button 
                 onClick={() => setIsDetailModalOpen(false)}
-                className="bg-indigo-600 dark:bg-dk-accent hover:bg-indigo-550 text-white px-5 py-2.5 rounded-xl shadow transition-all border border-indigo-600 dark:border-dk-accent"
+                className="bg-indigo-600 dark:bg-dk-accent hover:bg-indigo-550 text-white px-5 py-2.5 rounded-xl shadow dark:shadow-dk-sm transition-all border border-indigo-600 dark:border-dk-accent"
               >
                 {tx(lang,{fr:'Fermer',ar:'إغلاق',en:'Close',es:'Cerrar',pt:'Fechar',tr:'Kapat'})}
               </button>
@@ -2783,7 +2783,7 @@ export default function SousTraitance({ models, settings, onLoadModel }: SousTra
       {/* ======================================= */}
       {isSaleModalOpen && selectedModelForSale && (
         <div className="fixed inset-0 bg-slate-900/55 dark:bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-3xl shadow-2xl w-full max-w-4xl overflow-hidden flex flex-col max-h-[90vh] text-slate-850 dark:text-dk-text">
+          <div className="bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-3xl shadow-2xl dark:shadow-dk-elevated w-full max-w-4xl overflow-hidden flex flex-col max-h-[90vh] text-slate-850 dark:text-dk-text">
             <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-dk-border bg-slate-50 dark:bg-dk-bg/55 dark:bg-dk-surface/55">
               <h2 className="font-bold text-slate-850 dark:text-dk-text text-base flex items-center gap-2">
                 <FileText className="w-5 h-5 text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text dark:text-dk-accent" />
@@ -2974,7 +2974,7 @@ export default function SousTraitance({ models, settings, onLoadModel }: SousTra
                 <button 
                   type="button" 
                   onClick={handlePrintSaleInvoice}
-                  className="px-4 py-2 bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border hover:bg-slate-50 dark:hover:bg-dk-elevated text-slate-700 dark:text-dk-text-soft rounded-xl font-bold flex items-center gap-2 shadow-sm dark:shadow-none transition-all"
+                  className="px-4 py-2 bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border hover:bg-slate-50 dark:hover:bg-dk-elevated text-slate-700 dark:text-dk-text-soft rounded-xl font-bold flex items-center gap-2 shadow-sm dark:shadow-dk-sm dark:shadow-none transition-all"
                 >
                   <Printer className="w-4 h-4" />
                   <span>{tx(lang,{fr:'Imprimer la Facture',ar:'طباعة الفاتورة',en:'Print Invoice',es:'Imprimir Factura',pt:'Imprimir Fatura',tr:'Fatura Yazdır'})}</span>
@@ -2989,7 +2989,7 @@ export default function SousTraitance({ models, settings, onLoadModel }: SousTra
                 <button 
                   type="submit"
                   disabled={actionLoading}
-                  className="bg-indigo-600 dark:bg-dk-accent hover:bg-indigo-550 text-white px-5 py-2.5 rounded-xl font-bold transition-all shadow-md flex items-center gap-2 border border-indigo-600 dark:border-dk-accent"
+                  className="bg-indigo-600 dark:bg-dk-accent hover:bg-indigo-550 text-white px-5 py-2.5 rounded-xl font-bold transition-all shadow-md dark:shadow-dk-md flex items-center gap-2 border border-indigo-600 dark:border-dk-accent"
                 >
                   {actionLoading && <Loader2 className="w-4 h-4 animate-spin" />}
                   <span>{tx(lang,{fr:'Enregistrer la Sortie',ar:'حفظ الإخراج',en:'Save Exit',es:'Guardar Salida',pt:'Guardar Saída',tr:'Çıkışı Kaydet'})}</span>

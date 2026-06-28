@@ -458,7 +458,7 @@ export default function PageMachine({
         <motion.div 
           initial={{ scale: 0.95, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
-          className="bg-white dark:bg-dk-surface rounded-[20px] border border-slate-100 dark:border-dk-border shadow-sm overflow-hidden"
+          className="bg-white dark:bg-dk-surface rounded-[20px] border border-slate-100 dark:border-dk-border shadow-sm dark:shadow-dk-sm overflow-hidden"
         >
            <div className="p-6 md:p-8 border-b border-slate-100 dark:border-dk-border flex flex-col sm:flex-row sm:items-center justify-between gap-6">
               <div className="flex items-center gap-4">
@@ -528,7 +528,7 @@ export default function PageMachine({
          <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
            {/* Left Column: Summary */}
            <div className="xl:col-span-1 space-y-6">
-              <div className="bg-slate-900 rounded-[20px] border border-slate-800 shadow-sm p-6 relative overflow-hidden">
+              <div className="bg-slate-900 rounded-[20px] border border-slate-800 shadow-sm dark:shadow-dk-sm p-6 relative overflow-hidden">
                  <div className="absolute -top-10 -right-10 w-32 h-32 bg-indigo-500/20 rounded-full blur-2xl" />
                   <h2 className="text-2xl font-black text-white tracking-tight mb-1 relative z-10">{tx(lang,{fr:'Magasin Central',ar:'المخزن المركزي',en:'Central Warehouse',es:'Almacén Central',pt:'Armazém Central',tr:'Merkez Depo'})}</h2>
                   <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-indigo-500/20 text-indigo-300 rounded-md text-[10px] font-black uppercase tracking-widest border border-indigo-500/30 relative z-10">
@@ -547,7 +547,7 @@ export default function PageMachine({
               </div>
 
               {/* List of broken machines with ETA */}
-              <div className="bg-white dark:bg-dk-surface rounded-[20px] border border-slate-100 dark:border-dk-border shadow-sm p-6">
+              <div className="bg-white dark:bg-dk-surface rounded-[20px] border border-slate-100 dark:border-dk-border shadow-sm dark:shadow-dk-sm p-6">
                   <h3 className="font-black text-slate-800 dark:text-dk-text text-sm mb-4 flex items-center gap-2"><Wrench className="w-4 h-4 text-amber-500"/> {tx(lang,{fr:'En cours de réparation',ar:'قيد الإصلاح حالياً',en:'Currently under repair',es:'En reparación actualmente',pt:'Atualmente em reparação',tr:'Şu anda tamirde'})}</h3>
                  <div className="space-y-3">
                    {brokenInstances.length === 0 ? (
@@ -582,7 +582,7 @@ export default function PageMachine({
 
            {/* Right Column: Inventory */}
            <div className="xl:col-span-2">
-             <div className="bg-white dark:bg-dk-surface rounded-[20px] border border-slate-100 dark:border-dk-border shadow-sm overflow-hidden flex flex-col h-[700px]">
+             <div className="bg-white dark:bg-dk-surface rounded-[20px] border border-slate-100 dark:border-dk-border shadow-sm dark:shadow-dk-sm overflow-hidden flex flex-col h-[700px]">
                  <div className="p-6 border-b border-slate-50 flex items-center justify-between">
                    <div>
                       <h3 className="font-black text-slate-800 dark:text-dk-text text-lg">{tx(lang,{fr:'Inventaire Magasin',ar:'جرد المخزن',en:'Warehouse Inventory',es:'Inventario de Almacén',pt:'Inventário do Armazém',tr:'Depo Envanteri'})}</h3>
@@ -598,7 +598,7 @@ export default function PageMachine({
                       {unassignedInstances.map(inst => {
                         const c = machines.find(m => m.id === inst.classId || m.classe === inst.classId);
                         return (
-                          <div key={inst.id} onClick={() => { setEditingInstance(inst); setInstanceEditorOpen(true); }} className="bg-white dark:bg-dk-surface p-4 rounded-xl border border-slate-100 dark:border-dk-border shadow-sm flex flex-col gap-3 group/card hover:border-slate-200 transition-colors cursor-pointer">
+                          <div key={inst.id} onClick={() => { setEditingInstance(inst); setInstanceEditorOpen(true); }} className="bg-white dark:bg-dk-surface p-4 rounded-xl border border-slate-100 dark:border-dk-border shadow-sm dark:shadow-dk-sm flex flex-col gap-3 group/card hover:border-slate-200 transition-colors cursor-pointer">
                              <div className="flex items-start justify-between">
                                <div className="flex gap-2.5 items-center">
                                  {inst.machinePhotos && inst.machinePhotos.length > 0 ? (
@@ -683,7 +683,7 @@ export default function PageMachine({
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
           {/* Left Column: Info & Personnel */}
           <div className="xl:col-span-1 space-y-6">
-            <div className="bg-white dark:bg-dk-surface rounded-[20px] border border-slate-100 dark:border-dk-border shadow-sm p-6">
+            <div className="bg-white dark:bg-dk-surface rounded-[20px] border border-slate-100 dark:border-dk-border shadow-sm dark:shadow-dk-sm p-6">
                <h2 className="text-2xl font-black text-slate-900 dark:text-dk-text tracking-tight mb-1">{chain.name}</h2>
                 {activeData ? (
                   <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 rounded-md text-[10px] font-black uppercase tracking-widest border border-emerald-100">
@@ -701,14 +701,14 @@ export default function PageMachine({
                       <label className="block text-[9px] font-black text-slate-400 dark:text-dk-muted uppercase tracking-widest mb-0.5">{tx(lang,{fr:'Chef de Chaîne',ar:'رئيس الخط',en:'Line Manager',es:'Jefe de Línea',pt:'Chefe de Linha',tr:'Hat Yöneticisi'})}</label>
                       <div className="font-bold text-slate-800 dark:text-dk-text text-sm">{activeData?.superviseur || tx(lang,{fr:'Non assigné',ar:'غير معين',en:'Not assigned',es:'No asignado',pt:'Não atribuído',tr:'Atanmamış'})}</div>
                    </div>
-                   <div className="w-8 h-8 rounded-lg bg-indigo-100 text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text flex items-center justify-center text-sm shadow-sm">👨‍💼</div>
+                   <div className="w-8 h-8 rounded-lg bg-indigo-100 text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text flex items-center justify-center text-sm shadow-sm dark:shadow-dk-sm">👨‍💼</div>
                  </div>
                  <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50 dark:bg-dk-bg border border-slate-100 dark:border-dk-border">
                    <div>
                       <label className="block text-[9px] font-black text-slate-400 dark:text-dk-muted uppercase tracking-widest mb-0.5">{tx(lang,{fr:'Chef Mécanicien',ar:'رئيس الميكانيكيين',en:'Head Mechanic',es:'Jefe Mecánico',pt:'Chefe Mecânico',tr:'Baş Tamirci'})}</label>
                       <div className="font-bold text-slate-800 dark:text-dk-text text-sm">{tx(lang,{fr:'Non assigné',ar:'غير معين',en:'Not assigned',es:'No asignado',pt:'Não atribuído',tr:'Atanmamış'})}</div>
                    </div>
-                   <div className="w-8 h-8 rounded-lg bg-amber-100 text-amber-600 dark:text-amber-400 flex items-center justify-center text-sm shadow-sm">🔧</div>
+                   <div className="w-8 h-8 rounded-lg bg-amber-100 text-amber-600 dark:text-amber-400 flex items-center justify-center text-sm shadow-sm dark:shadow-dk-sm">🔧</div>
                  </div>
                </div>
             </div>
@@ -717,7 +717,7 @@ export default function PageMachine({
             {activeModel && (
               <div 
                 onClick={() => setViewingModelId(activeModel.id)}
-                className="bg-white dark:bg-dk-surface rounded-3xl p-6 shadow-sm border border-slate-100 dark:border-dk-border/80 cursor-pointer hover:shadow-xl hover:shadow-indigo-500/5 transition-all duration-300 relative overflow-hidden"
+                className="bg-white dark:bg-dk-surface rounded-3xl p-6 shadow-sm dark:shadow-dk-sm border border-slate-100 dark:border-dk-border/80 cursor-pointer hover:shadow-xl hover:shadow-indigo-500/5 transition-all duration-300 relative overflow-hidden"
               >
                 <div className="absolute -right-16 -top-16 w-48 h-48 bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20/50 rounded-full blur-3xl opacity-50 pointer-events-none" />
 
@@ -737,7 +737,7 @@ export default function PageMachine({
                 {/* Main Identity */}
                 <div className="flex gap-5 items-center mb-8 relative z-10">
                    {activeModel.image ? (
-                     <div className="w-24 h-24 rounded-[20px] overflow-hidden shadow-sm border border-slate-100 dark:border-dk-border shrink-0">
+                     <div className="w-24 h-24 rounded-[20px] overflow-hidden shadow-sm dark:shadow-dk-sm border border-slate-100 dark:border-dk-border shrink-0">
                        <img src={activeModel.image} className="w-full h-full object-cover" />
                      </div>
                    ) : (
@@ -780,7 +780,7 @@ export default function PageMachine({
 
             {/* Next Model Preview */}
             {nextModel && (
-              <div className="bg-white dark:bg-dk-surface rounded-3xl p-5 shadow-sm border border-slate-100 dark:border-dk-border/80 flex flex-col gap-4 relative overflow-hidden group hover:border-slate-200 transition-all">
+              <div className="bg-white dark:bg-dk-surface rounded-3xl p-5 shadow-sm dark:shadow-dk-sm border border-slate-100 dark:border-dk-border/80 flex flex-col gap-4 relative overflow-hidden group hover:border-slate-200 transition-all">
                  <div className="flex items-center justify-between">
                     <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-dk-muted flex items-center gap-1.5">
                        <ArrowUpRight className="w-3 h-3 text-slate-300 dark:text-dk-muted" /> {tx(lang,{fr:'Prévisionnel',ar:'التوقعي',en:'Forecast',es:'Previsional',pt:'Previsional',tr:'Tahmini'})}
@@ -788,7 +788,7 @@ export default function PageMachine({
                  </div>
                  <div className="flex gap-4 items-center">
                     {nextModel.image ? (
-                      <div className="w-14 h-14 rounded-[14px] overflow-hidden shrink-0 shadow-sm border border-slate-100 dark:border-dk-border">
+                      <div className="w-14 h-14 rounded-[14px] overflow-hidden shrink-0 shadow-sm dark:shadow-dk-sm border border-slate-100 dark:border-dk-border">
                         <img src={nextModel.image} className="w-full h-full object-cover" />
                       </div>
                     ) : (
@@ -811,7 +811,7 @@ export default function PageMachine({
           <div className="xl:col-span-2 space-y-6">
             
             {/* TOTAL MATERIEL SUMMARY */}
-            <div className="bg-white dark:bg-dk-surface rounded-[20px] border border-slate-100 dark:border-dk-border shadow-sm p-6">
+            <div className="bg-white dark:bg-dk-surface rounded-[20px] border border-slate-100 dark:border-dk-border shadow-sm dark:shadow-dk-sm p-6">
               <div className="flex items-center justify-between mb-4">
                   <h3 className="font-black text-slate-800 dark:text-dk-text text-sm flex items-center gap-2"><Layers className="w-4 h-4 text-indigo-500" /> {tx(lang,{fr:'Total Matériel de la chaîne',ar:'إجمالي معدات الخط',en:'Total Chain Equipment',es:'Total Equipo de la línea',pt:'Total Equipamento da linha',tr:'Toplam Hat Ekipmanı'})}</h3>
                  <span className="text-xl font-black text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text">{chainInstances.length}</span>
@@ -828,14 +828,14 @@ export default function PageMachine({
                   }, {} as Record<string, number>)).map(([name, count]) => (
                     <div key={name} className="flex justify-between items-center bg-slate-50 dark:bg-dk-bg p-3 rounded-xl border border-slate-100 dark:border-dk-border">
                       <span className="text-xs font-bold text-slate-700 dark:text-dk-text-soft">{name}</span>
-                      <span className="px-2 py-0.5 rounded-md bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border text-[11px] font-black text-slate-800 dark:text-dk-text shadow-sm">{count}</span>
+                      <span className="px-2 py-0.5 rounded-md bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border text-[11px] font-black text-slate-800 dark:text-dk-text shadow-sm dark:shadow-dk-sm">{count}</span>
                     </div>
                   ))}
                 </div>
               )}
             </div>
 
-            <div className="bg-white dark:bg-dk-surface rounded-[20px] border border-slate-100 dark:border-dk-border shadow-sm overflow-hidden flex flex-col h-[700px]">
+            <div className="bg-white dark:bg-dk-surface rounded-[20px] border border-slate-100 dark:border-dk-border shadow-sm dark:shadow-dk-sm overflow-hidden flex flex-col h-[700px]">
                <div className="p-6 border-b border-slate-50 flex items-center justify-between">
                  <div>
                     <h3 className="font-black text-slate-800 dark:text-dk-text text-lg">{tx(lang,{fr:'Parc Machine Local',ar:'أسطول الآلات المحلي',en:'Local Machine Fleet',es:'Parque de Máquinas Local',pt:'Parque de Máquinas Local',tr:'Yerel Makine Filosu'})}</h3>
@@ -858,7 +858,7 @@ export default function PageMachine({
                       {chainInstances.map(inst => {
                         const c = machines.find(m => m.id === inst.classId || m.classe === inst.classId);
                         return (
-                          <div key={inst.id} className="bg-white dark:bg-dk-surface p-4 rounded-xl border border-slate-100 dark:border-dk-border shadow-sm flex flex-col gap-3 group/card hover:border-slate-200 transition-colors">
+                          <div key={inst.id} className="bg-white dark:bg-dk-surface p-4 rounded-xl border border-slate-100 dark:border-dk-border shadow-sm dark:shadow-dk-sm flex flex-col gap-3 group/card hover:border-slate-200 transition-colors">
                             <div className="flex items-start justify-between">
                               <div className="flex gap-2.5 items-center">
                                  {inst.machinePhotos && inst.machinePhotos.length > 0 ? (
@@ -943,7 +943,7 @@ export default function PageMachine({
     };
 
     return (
-      <div className="bg-white dark:bg-dk-surface rounded-[24px] border border-slate-200 dark:border-dk-border/60 shadow-sm overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-400">
+      <div className="bg-white dark:bg-dk-surface rounded-[24px] border border-slate-200 dark:border-dk-border/60 shadow-sm dark:shadow-dk-sm overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-400">
 
         {/* ── Table header */}
         <div className="grid items-center px-5 py-3 bg-slate-50 dark:bg-dk-bg border-b border-slate-100 dark:border-dk-border"
@@ -1091,7 +1091,7 @@ export default function PageMachine({
                     </td>
                     <td className="py-3 px-6 font-bold text-slate-600 dark:text-dk-text-soft text-xs">{c ? c.classe : inst.classId}</td>
                     <td className="py-3 px-6">
-                      <span className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-[10px] font-black uppercase tracking-widest shadow-sm border ${inst.status === 'PANNE' ? 'bg-rose-50 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400 border-rose-100' : 'bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 border-amber-100'}`}>
+                      <span className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-[10px] font-black uppercase tracking-widest shadow-sm dark:shadow-dk-sm border ${inst.status === 'PANNE' ? 'bg-rose-50 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400 border-rose-100' : 'bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 border-amber-100'}`}>
                         {inst.status === 'PANNE' ? <AlertCircle className="w-3 h-3" /> : <Wrench className="w-3 h-3" />}
                         {inst.status === 'PANNE' ? tx(lang,{fr:'Panne (Arrêt)',ar:'عطل (توقف)',en:'Breakdown (Stop)',es:'Avería (Parada)',pt:'Avaria (Paragem)',tr:'Arıza (Duruş)'}) : tx(lang,{fr:'Maintenance',ar:'صيانة',en:'Maintenance',es:'Mantenimiento',pt:'Manutenção',tr:'Bakım'})}
                       </span>
@@ -1165,7 +1165,7 @@ export default function PageMachine({
           
           <div className="flex items-center gap-3 md:gap-5">
             <div className="flex items-center gap-2.5 md:gap-3">
-              <div className="w-8 h-8 md:w-9 md:h-9 rounded-[10px] bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 flex items-center justify-center shadow-lg shadow-indigo-500/25 shrink-0 border border-white/20">
+              <div className="w-8 h-8 md:w-9 md:h-9 rounded-[10px] bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 flex items-center justify-center shadow-lg dark:shadow-dk-lg shadow-indigo-500/25 shrink-0 border border-white/20">
                  <Component className="w-4 h-4 md:w-4.5 md:h-4.5 text-white" strokeWidth={2.5} />
               </div>
               <h1 className="text-base md:text-lg font-black text-slate-900 dark:text-dk-text tracking-tight hidden sm:block drop-shadow-sm">{tx(lang,{fr:'Inventaire',ar:'الجرد',en:'Inventory',es:'Inventario',pt:'Inventário',tr:'Envanter'})}</h1>
@@ -1174,13 +1174,13 @@ export default function PageMachine({
             <div className="h-5 w-px bg-slate-200/60 hidden md:block" />
 
             <div className="hidden lg:flex items-center gap-2 text-[9px] font-black tracking-widest uppercase">
-                <span className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-slate-50 dark:bg-dk-bg/80 border border-slate-100 dark:border-dk-border text-slate-500 dark:text-dk-muted shadow-sm">
+                <span className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-slate-50 dark:bg-dk-bg/80 border border-slate-100 dark:border-dk-border text-slate-500 dark:text-dk-muted shadow-sm dark:shadow-dk-sm">
                   {tx(lang,{fr:'TOTAL',ar:'الإجمالي',en:'TOTAL',es:'TOTAL',pt:'TOTAL',tr:'TOPLAM'})} <span className="text-slate-800 dark:text-dk-text ml-0.5 text-[10px]">{fleetStats.total}</span>
                 </span>
-                <span className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-emerald-50 dark:bg-emerald-900/30/80 border border-emerald-100/50 text-emerald-600 dark:text-emerald-400 shadow-sm">
+                <span className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-emerald-50 dark:bg-emerald-900/30/80 border border-emerald-100/50 text-emerald-600 dark:text-emerald-400 shadow-sm dark:shadow-dk-sm">
                   {tx(lang,{fr:'PRÊTES',ar:'جاهزة',en:'READY',es:'LISTAS',pt:'PRONTAS',tr:'HAZIR'})} <span className="text-emerald-700 ml-0.5 text-[10px]">{fleetStats.ok}</span>
                 </span>
-                <span className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-rose-50 dark:bg-rose-900/30/80 border border-rose-100/50 text-rose-600 dark:text-rose-400 shadow-sm">
+                <span className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-rose-50 dark:bg-rose-900/30/80 border border-rose-100/50 text-rose-600 dark:text-rose-400 shadow-sm dark:shadow-dk-sm">
                   {tx(lang,{fr:'PANNE',ar:'عطل',en:'BREAKDOWN',es:'AVERÍA',pt:'AVARIA',tr:'ARIZA'})} <span className="text-rose-700 ml-0.5 text-[10px]">{fleetStats.panne}</span>
                 </span>
             </div>
@@ -1191,7 +1191,7 @@ export default function PageMachine({
             {(selectedChainId || viewingModelId) && (
                <button 
                  onClick={() => viewingModelId ? setViewingModelId(null) : setSelectedChainId(null)} 
-                 className="flex items-center gap-1 mr-auto px-2.5 md:px-3 py-1.5 bg-white dark:bg-dk-surface text-slate-600 hover:text-slate-900 hover:bg-slate-50 dark:hover:bg-dk-elevated/60 rounded-lg text-[10px] md:text-[11px] font-black uppercase tracking-widest transition-all border border-slate-200 dark:border-dk-border shadow-sm hover:shadow-md"
+                 className="flex items-center gap-1 mr-auto px-2.5 md:px-3 py-1.5 bg-white dark:bg-dk-surface text-slate-600 hover:text-slate-900 hover:bg-slate-50 dark:hover:bg-dk-elevated/60 rounded-lg text-[10px] md:text-[11px] font-black uppercase tracking-widest transition-all border border-slate-200 dark:border-dk-border shadow-sm dark:shadow-dk-sm hover:shadow-md"
                >
                   <ArrowLeft className="w-3.5 h-3.5" /> <span className="hidden sm:inline">{tx(lang,{fr:'Retour',ar:'رجوع',en:'Back',es:'Volver',pt:'Voltar',tr:'Geri'})}</span>
                </button>
@@ -1229,19 +1229,19 @@ export default function PageMachine({
                         value={searchTerm}
                         onChange={e => setSearchTerm(e.target.value)}
                         placeholder={tx(lang,{fr:'Filtrer...',ar:'تصفية...',en:'Filter...',es:'Filtrar...',pt:'Filtrar...',tr:'Filtrele...'})} 
-                        className="w-full bg-slate-50 dark:bg-dk-bg/80 border border-slate-200 dark:border-dk-border/60 rounded-lg py-1.5 md:py-2 pl-8 md:pl-9 pr-3 text-xs font-bold text-slate-800 dark:text-dk-text placeholder-slate-400 focus:outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-500/10 focus:bg-white transition-all shadow-sm"
+                        className="w-full bg-slate-50 dark:bg-dk-bg/80 border border-slate-200 dark:border-dk-border/60 rounded-lg py-1.5 md:py-2 pl-8 md:pl-9 pr-3 text-xs font-bold text-slate-800 dark:text-dk-text placeholder-slate-400 focus:outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-500/10 focus:bg-white transition-all shadow-sm dark:shadow-dk-sm"
                       />
                    </div>
                    
-                   <button onClick={() => setScanOpen(true)} title={tx(lang,{fr:'Scanner une machine',ar:'مسح آلة',en:'Scan a machine',es:'Escanear una máquina',pt:'Escanear uma máquina',tr:'Makine tara'})} className="flex items-center justify-center gap-1.5 px-3 md:px-4 py-1.5 md:py-2 bg-white dark:bg-dk-surface text-slate-700 dark:text-dk-text text-[10px] md:text-[11px] font-black rounded-lg border border-slate-200 dark:border-dk-border shadow-sm hover:border-indigo-300 hover:text-indigo-600 dark:text-dk-accent-text hover:-translate-y-0.5 transition-all tracking-widest uppercase">
+                   <button onClick={() => setScanOpen(true)} title={tx(lang,{fr:'Scanner une machine',ar:'مسح آلة',en:'Scan a machine',es:'Escanear una máquina',pt:'Escanear uma máquina',tr:'Makine tara'})} className="flex items-center justify-center gap-1.5 px-3 md:px-4 py-1.5 md:py-2 bg-white dark:bg-dk-surface text-slate-700 dark:text-dk-text text-[10px] md:text-[11px] font-black rounded-lg border border-slate-200 dark:border-dk-border shadow-sm dark:shadow-dk-sm hover:border-indigo-300 hover:text-indigo-600 dark:text-dk-accent-text hover:-translate-y-0.5 transition-all tracking-widest uppercase">
                      <ScanLine className="w-3.5 h-3.5 md:w-4 md:h-4" /> <span className="hidden sm:inline">{tx(lang,{fr:'Scanner',ar:'مسح',en:'Scan',es:'Escanear',pt:'Escanear',tr:'Tara'})}</span>
                    </button>
 
-                   <button onClick={() => { setExitModalInitialId(null); setExitModalOpen(true); }} title={tx(lang,{fr:'Sortie / Réforme machine',ar:'إخراج / تصفية آلة',en:'Machine exit / disposal',es:'Salida / baja de máquina',pt:'Saída / abate de máquina',tr:'Makine çıkışı / hurda'})} className="flex items-center justify-center gap-1.5 px-3 md:px-4 py-1.5 md:py-2 bg-white dark:bg-dk-surface text-slate-700 dark:text-dk-text text-[10px] md:text-[11px] font-black rounded-lg border border-slate-200 dark:border-dk-border shadow-sm hover:border-rose-300 hover:text-rose-600 hover:-translate-y-0.5 transition-all tracking-widest uppercase">
+                   <button onClick={() => { setExitModalInitialId(null); setExitModalOpen(true); }} title={tx(lang,{fr:'Sortie / Réforme machine',ar:'إخراج / تصفية آلة',en:'Machine exit / disposal',es:'Salida / baja de máquina',pt:'Saída / abate de máquina',tr:'Makine çıkışı / hurda'})} className="flex items-center justify-center gap-1.5 px-3 md:px-4 py-1.5 md:py-2 bg-white dark:bg-dk-surface text-slate-700 dark:text-dk-text text-[10px] md:text-[11px] font-black rounded-lg border border-slate-200 dark:border-dk-border shadow-sm dark:shadow-dk-sm hover:border-rose-300 hover:text-rose-600 hover:-translate-y-0.5 transition-all tracking-widest uppercase">
                      <LogOut className="w-3.5 h-3.5 md:w-4 md:h-4" /> <span className="hidden sm:inline">{tx(lang,{fr:'Sortie',ar:'إخراج',en:'Exit',es:'Salida',pt:'Saída',tr:'Çıkış'})}</span>
                    </button>
 
-                   <button onClick={() => { setEditingInstance(null); setInstanceEditorOpen(true); }} className="flex items-center justify-center gap-1.5 px-3 md:px-4 py-1.5 md:py-2 bg-slate-900 dark:bg-indigo-600 text-white text-[10px] md:text-[11px] font-black rounded-lg shadow-sm hover:bg-slate-800 dark:hover:bg-indigo-500 hover:-translate-y-0.5 transition-all tracking-widest uppercase">
+                   <button onClick={() => { setEditingInstance(null); setInstanceEditorOpen(true); }} className="flex items-center justify-center gap-1.5 px-3 md:px-4 py-1.5 md:py-2 bg-slate-900 dark:bg-indigo-600 text-white text-[10px] md:text-[11px] font-black rounded-lg shadow-sm dark:shadow-dk-sm hover:bg-slate-800 dark:hover:bg-indigo-500 hover:-translate-y-0.5 transition-all tracking-widest uppercase">
                      <Plus className="w-3.5 h-3.5 md:w-4 md:h-4" /> <span className="hidden sm:inline">{tx(lang,{fr:'Ajouter',ar:'إضافة',en:'Add',es:'Añadir',pt:'Adicionar',tr:'Ekle'})}</span>
                    </button>
                 </div>
@@ -1412,14 +1412,14 @@ function InstanceEditorModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-slate-900/40 backdrop-blur-lg animate-in fade-in duration-300">
-      <div className="bg-white dark:bg-dk-surface rounded-[28px] shadow-2xl shadow-indigo-500/10 w-full max-w-md overflow-hidden flex flex-col scale-in-center border border-slate-100 dark:border-dk-border/80">
+      <div className="bg-white dark:bg-dk-surface rounded-[28px] shadow-2xl dark:shadow-dk-elevated shadow-indigo-500/10 w-full max-w-md overflow-hidden flex flex-col scale-in-center border border-slate-100 dark:border-dk-border/80">
         
         {/* Header */}
         <div className="p-6 pb-5 flex items-start justify-between relative overflow-hidden bg-gradient-to-br from-indigo-50/50 via-white to-purple-50/30">
           <div className="absolute top-0 right-0 w-40 h-40 bg-indigo-100/50 rounded-full blur-3xl opacity-60 -mr-10 -mt-10 pointer-events-none" />
           
           <div className="flex gap-3.5 items-center relative z-10">
-            <div className="w-11 h-11 rounded-[16px] bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shrink-0 shadow-lg shadow-indigo-500/25">
+            <div className="w-11 h-11 rounded-[16px] bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shrink-0 shadow-lg dark:shadow-dk-lg shadow-indigo-500/25">
                <Component className="w-5 h-5 text-white" />
             </div>
             <div>
@@ -1444,7 +1444,7 @@ function InstanceEditorModal({
                 value={classId}
                 onChange={e => setClassId(e.target.value)}
                 placeholder={tx(lang,{fr:'Ex: 301, 516...',ar:'مثال: 301، 516...',en:'E.g. 301, 516...',es:'Ej: 301, 516...',pt:'Ex: 301, 516...',tr:'Örn: 301, 516...'})}
-                className="flex-1 bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border/80 rounded-xl px-3.5 py-2.5 text-sm font-bold text-slate-800 dark:text-dk-text focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition-all placeholder-slate-300 shadow-sm"
+                className="flex-1 bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border/80 rounded-xl px-3.5 py-2.5 text-sm font-bold text-slate-800 dark:text-dk-text focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition-all placeholder-slate-300 shadow-sm dark:shadow-dk-sm"
               />
               <datalist id="classes-list">
                 {classes.map(c => <option key={c.id} value={c.classe}>{c.name}</option>)}
@@ -1597,7 +1597,7 @@ function InstanceEditorModal({
                 instances.some(i => i.id !== instance?.id && i.matricule && i.matricule === matricule) ||
                 instances.some(i => i.id !== instance?.id && i.serialNumber && i.serialNumber === serialNumber)
               }
-              className="px-6 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 text-white text-[10px] font-black uppercase tracking-widest rounded-xl shadow-md shadow-indigo-500/20 hover:shadow-lg hover:shadow-indigo-500/30 disabled:opacity-50 disabled:hover:shadow-md transition-all"
+              className="px-6 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 text-white text-[10px] font-black uppercase tracking-widest rounded-xl shadow-md dark:shadow-dk-md shadow-indigo-500/20 hover:shadow-lg hover:shadow-indigo-500/30 disabled:opacity-50 disabled:hover:shadow-md transition-all"
             >
               {tx(lang,{fr:'Enregistrer',ar:'حفظ',en:'Save',es:'Guardar',pt:'Guardar',tr:'Kaydet'})}
             </button>
@@ -1634,14 +1634,14 @@ function ClassEditorModal({
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-3 sm:p-6 bg-slate-900/40 backdrop-blur-lg animate-in fade-in duration-300">
-      <div className="bg-white dark:bg-dk-surface rounded-[28px] shadow-2xl shadow-emerald-500/10 w-full max-w-md overflow-hidden flex flex-col scale-in-center border border-slate-100 dark:border-dk-border/80">
+      <div className="bg-white dark:bg-dk-surface rounded-[28px] shadow-2xl dark:shadow-dk-elevated shadow-emerald-500/10 w-full max-w-md overflow-hidden flex flex-col scale-in-center border border-slate-100 dark:border-dk-border/80">
         
         {/* Header */}
         <div className="p-6 pb-5 flex items-start justify-between relative overflow-hidden bg-gradient-to-br from-emerald-50/50 via-white to-teal-50/30">
           <div className="absolute top-0 right-0 w-40 h-40 bg-emerald-100/50 rounded-full blur-3xl opacity-60 -mr-10 -mt-10 pointer-events-none" />
           
           <div className="flex gap-3.5 items-center relative z-10">
-            <div className="w-11 h-11 rounded-[16px] bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shrink-0 shadow-lg shadow-emerald-500/25">
+            <div className="w-11 h-11 rounded-[16px] bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shrink-0 shadow-lg dark:shadow-dk-lg shadow-emerald-500/25">
                <Plus className="w-5 h-5 text-white" />
             </div>
             <div>
@@ -1729,7 +1729,7 @@ function ClassEditorModal({
                 });
               }}
               disabled={!name.trim() || !classe.trim()}
-              className="px-6 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 text-white text-[10px] font-black uppercase tracking-widest rounded-xl shadow-md shadow-emerald-500/20 hover:shadow-lg hover:shadow-emerald-500/30 disabled:opacity-50 disabled:hover:shadow-md transition-all"
+              className="px-6 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 text-white text-[10px] font-black uppercase tracking-widest rounded-xl shadow-md dark:shadow-dk-md shadow-emerald-500/20 hover:shadow-lg hover:shadow-emerald-500/30 disabled:opacity-50 disabled:hover:shadow-md transition-all"
             >
               {tx(lang,{fr:'Enregistrer',ar:'حفظ',en:'Save',es:'Guardar',pt:'Guardar',tr:'Kaydet'})}
             </button>

@@ -5,6 +5,7 @@ import { Operation, Poste, Machine, ComplexityFactor, StandardTime, SavedLayout,
 import ExcelInput from './ExcelInput';
 import { tx } from '../lib/i18n';
 import { useLang } from '../src/context/LanguageContext';
+import { useIsDark } from '../src/context/ThemeContext';
 import {
     Zap,
     Briefcase,
@@ -237,9 +238,9 @@ const DimensionMarkerVertical = ({ label, height = 'h-full' }: { label: string, 
 );
 
 const SpecialZoneControl = ({ label, type, icon: Icon, color, currentCount, onAdd, onRemove }: any) => (
-    <div className={`flex items-center gap-2 px-2 py-0.5 rounded-lg border ${color.bg} ${color.border} shadow-sm transition-colors`}>
+    <div className={`flex items-center gap-2 px-2 py-0.5 rounded-lg border ${color.bg} ${color.border} shadow-sm dark:shadow-dk-sm transition-colors`}>
         <div className={`flex items-center gap-1 ${color.text}`}><Icon className="w-3 h-3" /><span className="text-[9px] font-bold uppercase">{label}</span></div>
-        <div className="flex items-center bg-white dark:bg-dk-surface rounded border border-slate-200 dark:border-dk-border overflow-hidden shadow-sm">
+        <div className="flex items-center bg-white dark:bg-dk-surface rounded border border-slate-200 dark:border-dk-border overflow-hidden shadow-sm dark:shadow-dk-sm">
             <button onClick={() => onRemove(type)} className="p-0.5 hover:bg-slate-100 text-slate-400 dark:text-dk-muted hover:text-rose-500 transition-colors border-r border-slate-100 dark:border-dk-border"><Minus className="w-2.5 h-2.5" /></button>
             <span className="w-5 text-center text-[9px] font-bold text-slate-700 dark:text-dk-text-soft">{currentCount}</span>
             <button onClick={() => onAdd(type)} className="p-0.5 hover:bg-slate-100 text-slate-400 dark:text-dk-muted hover:text-emerald-500 transition-colors"><Plus className="w-2.5 h-2.5" /></button>
@@ -530,11 +531,11 @@ const LinkOverlay = ({
                         <foreignObject x={p.labelX - (60 / zoom)} y={p.labelY - (15 / zoom)} width={120 / zoom} height={30 / zoom} className="overflow-visible">
                             <div className="flex items-center justify-center gap-1 hover:scale-110 transition-transform origin-center" style={{ transform: `scale(${1 / zoom})` }}>
                                 {p.label ? (
-                                    <div onClick={() => onEditLabel(p.id, p.label)} className="bg-white/90  text-slate-700 dark:text-dk-text-soft text-[10px] font-bold px-2 py-1 rounded-lg shadow-md border border-slate-200 dark:border-dk-border whitespace-nowrap cursor-pointer hover:bg-indigo-50 dark:bg-dk-accent/20 hover:border-indigo-200 max-w-[100px] truncate relative z-50" title={p.label}>{p.label}</div>
+                                    <div onClick={() => onEditLabel(p.id, p.label)} className="bg-white/90  text-slate-700 dark:text-dk-text-soft text-[10px] font-bold px-2 py-1 rounded-lg shadow-md dark:shadow-dk-md border border-slate-200 dark:border-dk-border whitespace-nowrap cursor-pointer hover:bg-indigo-50 dark:bg-dk-accent/20 hover:border-indigo-200 max-w-[100px] truncate relative z-50" title={p.label}>{p.label}</div>
                                 ) : (
-                                    <button onClick={() => onEditLabel(p.id)} className="bg-white dark:bg-dk-surface/90  p-1 rounded-full border border-slate-200 dark:border-dk-border shadow-sm opacity-0 group-hover:opacity-100 transition-opacity text-slate-400 dark:text-dk-muted hover:text-indigo-500 relative z-50"><MessageSquare className="w-3 h-3" /></button>
+                                    <button onClick={() => onEditLabel(p.id)} className="bg-white dark:bg-dk-surface/90  p-1 rounded-full border border-slate-200 dark:border-dk-border shadow-sm dark:shadow-dk-sm opacity-0 group-hover:opacity-100 transition-opacity text-slate-400 dark:text-dk-muted hover:text-indigo-500 relative z-50"><MessageSquare className="w-3 h-3" /></button>
                                 )}
-                                <button onClick={() => onRemoveLink(p.id)} className="bg-white dark:bg-dk-surface/90  text-slate-300 dark:text-dk-muted p-1 rounded-full border border-slate-200 dark:border-dk-border shadow-sm hover:text-rose-500 hover:bg-rose-50 opacity-0 group-hover:opacity-100 transition-opacity relative z-50"><X className="w-3 h-3" /></button>
+                                <button onClick={() => onRemoveLink(p.id)} className="bg-white dark:bg-dk-surface/90  text-slate-300 dark:text-dk-muted p-1 rounded-full border border-slate-200 dark:border-dk-border shadow-sm dark:shadow-dk-sm hover:text-rose-500 hover:bg-rose-50 opacity-0 group-hover:opacity-100 transition-opacity relative z-50"><X className="w-3 h-3" /></button>
                             </div>
                         </foreignObject>
                     </g>
@@ -575,6 +576,7 @@ export default function Implantation({
     setFicheData
 }: ImplantationProps) {
     const { lang } = useLang();
+    const isDark = useIsDark();
 
     const tolerance = ficheData?.toleranceSaturation ?? 115;
     const toleranceRatio = tolerance / 100;
@@ -2681,7 +2683,7 @@ export default function Implantation({
                 onMouseEnter={() => !isMini && setHoveredStationIndex(station.index)}
                 onMouseLeave={() => !isMini && setHoveredStationIndex(null)}
                 style={opacityStyle}
-                className={`relative rounded-xl overflow-hidden group shadow-[0_4px_16px_rgb(0,0,0,0.03)] z-10 ${cardWidthClass} ${cardHeightClass} ${canEdit && isManualMode && !isLinking && layoutType !== 'free' && !isSpacePressed ? 'hover:-translate-y-1 hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)]' : ''} ${cursorClass} ${isActive ? 'ring-4 ring-emerald-400 border-emerald-500 scale-105 shadow-xl z-20' : isLinkSource ? 'ring-4 ring-indigo-500 border-indigo-600 scale-105 shadow-xl z-20 animate-pulse' : isLinkTargetCandidate ? 'cursor-pointer hover:ring-4 hover:ring-indigo-300 hover:border-indigo-400' : isSwapSource ? 'ring-4 ring-indigo-500 border-indigo-600 scale-105 shadow-xl z-20' : isSwapTarget ? 'cursor-pointer hover:ring-4 hover:ring-indigo-300 hover:border-indigo-400' : isPassed ? 'border-emerald-200 opacity-90' : (isMini ? color.border : color.border)} ${isBroken ? 'ring-2 ring-rose-500 border-rose-600 bg-rose-50 dark:bg-rose-900/30/90' : ''} ${miniCardStyle} ${hoverTraceClass} transition-all duration-300 flex flex-col select-none`}
+                className={`relative rounded-xl overflow-hidden group shadow-[0_4px_16px_rgb(0,0,0,0.03)] z-10 ${cardWidthClass} ${cardHeightClass} ${canEdit && isManualMode && !isLinking && layoutType !== 'free' && !isSpacePressed ? 'hover:-translate-y-1 hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)]' : ''} ${cursorClass} ${isActive ? 'ring-4 ring-emerald-400 border-emerald-500 scale-105 shadow-xl dark:shadow-dk-elevated z-20' : isLinkSource ? 'ring-4 ring-indigo-500 border-indigo-600 scale-105 shadow-xl dark:shadow-dk-elevated z-20 animate-pulse' : isLinkTargetCandidate ? 'cursor-pointer hover:ring-4 hover:ring-indigo-300 hover:border-indigo-400' : isSwapSource ? 'ring-4 ring-indigo-500 border-indigo-600 scale-105 shadow-xl dark:shadow-dk-elevated z-20' : isSwapTarget ? 'cursor-pointer hover:ring-4 hover:ring-indigo-300 hover:border-indigo-400' : isPassed ? 'border-emerald-200 opacity-90' : (isMini ? color.border : color.border)} ${isBroken ? 'ring-2 ring-rose-500 border-rose-600 bg-rose-50 dark:bg-rose-900/30/90' : ''} ${miniCardStyle} ${hoverTraceClass} transition-all duration-300 flex flex-col select-none`}
             >
                 <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${isActive ? 'bg-emerald-500' : (isBroken ? 'bg-rose-500' : color.fill)}`}></div>
                 <div className={`px-2 pl-3 py-1.5 flex justify-between items-center ${isActive ? 'bg-emerald-500/90 ' : (isPassed ? 'bg-emerald-50 dark:bg-emerald-900/30/90 ' : (isMini ? color.bg : color.bg + '/90 '))} border-b ${isActive ? 'border-emerald-600' : color.border} transition-colors duration-500 relative`}>
@@ -2693,17 +2695,17 @@ export default function Implantation({
                                 #{station.index}
                             </span>
                         )}
-                        <span className={`text-[10px] font-black ${isActive ? 'text-emerald-600 dark:text-emerald-400 bg-white dark:bg-dk-surface/60' : color.text} w-5 h-5 flex items-center justify-center bg-white dark:bg-dk-surface/40 rounded-md shadow-sm border border-black/5`}> {station.name.replace('P', '').split('.')[0]} </span>
+                        <span className={`text-[10px] font-black ${isActive ? 'text-emerald-600 dark:text-emerald-400 bg-white dark:bg-dk-surface/60' : color.text} w-5 h-5 flex items-center justify-center bg-white dark:bg-dk-surface/40 rounded-md shadow-sm dark:shadow-dk-sm border border-black/5`}> {station.name.replace('P', '').split('.')[0]} </span>
                         <span className={`text-[9px] font-black uppercase truncate max-w-[80px] ${isActive ? 'text-white' : color.text}`} title={station.name}> {station.machine} </span>
                     </div>
 
                     {station.dominantSection === 'PREPARATION' && (
-                        <div className="absolute -top-2 left-1/2 -translate-x-1/2 bg-amber-500 text-white text-[8px] font-black px-2 py-0.5 rounded-sm shadow-sm uppercase tracking-widest z-30 border border-amber-600">
+                        <div className="absolute -top-2 left-1/2 -translate-x-1/2 bg-amber-500 text-white text-[8px] font-black px-2 py-0.5 rounded-sm shadow-sm dark:shadow-dk-sm uppercase tracking-widest z-30 border border-amber-600">
                             PRÉP
                         </div>
                     )}
                     {station.dominantSection === 'MONTAGE' && (
-                        <div className="absolute -top-2 left-1/2 -translate-x-1/2 bg-sky-500 text-white text-[8px] font-black px-2 py-0.5 rounded-sm shadow-sm uppercase tracking-widest z-30 border border-sky-600">
+                        <div className="absolute -top-2 left-1/2 -translate-x-1/2 bg-sky-500 text-white text-[8px] font-black px-2 py-0.5 rounded-sm shadow-sm dark:shadow-dk-sm uppercase tracking-widest z-30 border border-sky-600">
                             MONTAGE
                         </div>
                     )}
@@ -2716,7 +2718,7 @@ export default function Implantation({
                                 const linkToDelete = manualLinks.find(l => l.from === station.id || l.to === station.id);
                                 if (linkToDelete) handleRemoveLink(linkToDelete.id);
                             }}
-                            className="p-1 rounded-full bg-rose-500 text-white shadow-md hover:bg-rose-600 transition-colors z-30"
+                            className="p-1 rounded-full bg-rose-500 text-white shadow-md dark:shadow-dk-md hover:bg-rose-600 transition-colors z-30"
                             title={tx(lang,{fr:'Supprimer la liaison',ar:'حذف الرابط',en:'Delete Link',es:'Eliminar Enlace',pt:'Excluir Ligação',tr:'Bağlantıyı Sil'})}
                         >
                             <Unlink2 className="w-2.5 h-2.5" />
@@ -2747,7 +2749,7 @@ export default function Implantation({
     return (
         <div className="flex flex-col h-full gap-2 relative">
             {/* ... (Header Stats - Hidden in ReadOnly) ... */}
-            {!readOnly && (<div className="bg-slate-50 dark:bg-dk-bg/80 rounded-xl border-2 border-slate-200 dark:border-dk-border shadow-sm mb-2 p-2 flex flex-nowrap items-center gap-2 overflow-x-auto no-scrollbar shrink-0">
+            {!readOnly && (<div className="bg-slate-50 dark:bg-dk-bg/80 rounded-xl border-2 border-slate-200 dark:border-dk-border shadow-sm dark:shadow-dk-sm mb-2 p-2 flex flex-nowrap items-center gap-2 overflow-x-auto no-scrollbar shrink-0">
                 {/* OUVRIERS / HEURES */}
                 <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-50 dark:bg-dk-bg rounded-lg border border-slate-100 dark:border-dk-border shrink-0">
                     <div className="flex flex-col items-center border-r border-slate-200 dark:border-dk-border pr-3 mr-3">
@@ -2883,13 +2885,13 @@ export default function Implantation({
                     {/* TOOLBAR & CONTROLS (Hidden in ReadOnly) */}
                     {!readOnly && (
                         <>
-                            <div className="bg-slate-50 dark:bg-dk-bg/80 rounded-2xl border-2 border-slate-200 dark:border-dk-border shadow-sm p-2.5 flex flex-wrap items-center gap-2 shrink-0 z-30 mb-2 mt-4 relative">
+                            <div className="bg-slate-50 dark:bg-dk-bg/80 rounded-2xl border-2 border-slate-200 dark:border-dk-border shadow-sm dark:shadow-dk-sm p-2.5 flex flex-wrap items-center gap-2 shrink-0 z-30 mb-2 mt-4 relative">
                                 {/* Mode Toggle */}
                                 <div className="flex bg-slate-100 dark:bg-dk-elevated p-0.5 rounded-lg border border-slate-200 dark:border-dk-border">
-                                    <button onClick={activateAutoMode} className={`flex items-center justify-center px-3 py-1.5 rounded-md font-bold transition-all text-xs ${!isManualMode ? 'bg-emerald-500 text-white shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}>
+                                    <button onClick={activateAutoMode} className={`flex items-center justify-center px-3 py-1.5 rounded-md font-bold transition-all text-xs ${!isManualMode ? 'bg-emerald-500 text-white shadow-sm dark:shadow-dk-sm' : 'text-slate-500 hover:text-slate-800'}`}>
                                         {tx(lang,{fr:'Auto',ar:'تلقائي',en:'Auto',es:'Auto',pt:'Auto',tr:'Otomatik'})}
                                     </button>
-                                    <button onClick={activateManualMode} className={`flex items-center justify-center px-3 py-1.5 rounded-md font-bold transition-all text-xs ${isManualMode ? 'bg-amber-500 text-white shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}>
+                                    <button onClick={activateManualMode} className={`flex items-center justify-center px-3 py-1.5 rounded-md font-bold transition-all text-xs ${isManualMode ? 'bg-amber-500 text-white shadow-sm dark:shadow-dk-sm' : 'text-slate-500 hover:text-slate-800'}`}>
                                         {tx(lang,{fr:'Manuel',ar:'يدوي',en:'Manual',es:'Manual',pt:'Manual',tr:'Manuel'})}
                                     </button>
                                 </div>
@@ -2903,7 +2905,7 @@ export default function Implantation({
                                         { id: 'double-zigzag', label: 'Zigzag', icon: ArrowLeftRight },
                                         ...(isManualMode ? [{ id: 'free', label: tx(lang,{fr:'Libre',ar:'حر',en:'Free',es:'Libre',pt:'Livre',tr:'Serbest'}), icon: Move }] : []),
                                     ].map((item) => (
-                                        <button key={item.id} onClick={() => handleLayoutChange(item.id as any)} className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-bold transition-all whitespace-nowrap ${layoutType === item.id ? 'bg-indigo-600 dark:bg-dk-accent text-white shadow-sm' : 'text-slate-500 hover:bg-slate-100 hover:text-indigo-600 dark:text-dk-accent-text'}`}>
+                                        <button key={item.id} onClick={() => handleLayoutChange(item.id as any)} className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-bold transition-all whitespace-nowrap ${layoutType === item.id ? 'bg-indigo-600 dark:bg-dk-accent text-white shadow-sm dark:shadow-dk-sm' : 'text-slate-500 hover:bg-slate-100 hover:text-indigo-600 dark:text-dk-accent-text'}`}>
                                             <item.icon className="w-3.5 h-3.5" />
                                             <span className="hidden xl:inline">{item.label}</span>
                                         </button>
@@ -2925,14 +2927,14 @@ export default function Implantation({
                                 <div className="flex items-center bg-slate-50 dark:bg-dk-bg p-0.5 rounded-lg border border-slate-200 dark:border-dk-border">
                                     <button 
                                         onClick={() => setOrientation('landscape')} 
-                                        className={`px-2.5 py-1.5 rounded-md font-bold transition-all text-xs ${orientation === 'landscape' ? 'bg-indigo-600 dark:bg-dk-accent text-white shadow-sm' : 'text-slate-500 hover:text-indigo-600 dark:text-dk-accent-text hover:bg-slate-100'}`}
+                                        className={`px-2.5 py-1.5 rounded-md font-bold transition-all text-xs ${orientation === 'landscape' ? 'bg-indigo-600 dark:bg-dk-accent text-white shadow-sm dark:shadow-dk-sm' : 'text-slate-500 hover:text-indigo-600 dark:text-dk-accent-text hover:bg-slate-100'}`}
                                         title={tx(lang,{fr:'Implantation Horizontale',ar:'تخطيط أفقي',en:'Horizontal Layout',es:'Disposición Horizontal',pt:'Disposição Horizontal',tr:'Yatay Düzen'})}
                                     >
                                         {tx(lang,{fr:'Paysage',ar:'أفقي',en:'Landscape',es:'Horizontal',pt:'Paisagem',tr:'Yatay'})}
                                     </button>
                                     <button 
                                         onClick={() => setOrientation('portrait')} 
-                                        className={`px-2.5 py-1.5 rounded-md font-bold transition-all text-xs ${orientation === 'portrait' ? 'bg-indigo-600 dark:bg-dk-accent text-white shadow-sm' : 'text-slate-500 hover:text-indigo-600 dark:text-dk-accent-text hover:bg-slate-100'}`}
+                                        className={`px-2.5 py-1.5 rounded-md font-bold transition-all text-xs ${orientation === 'portrait' ? 'bg-indigo-600 dark:bg-dk-accent text-white shadow-sm dark:shadow-dk-sm' : 'text-slate-500 hover:text-indigo-600 dark:text-dk-accent-text hover:bg-slate-100'}`}
                                         title={tx(lang,{fr:'Implantation Verticale',ar:'تخطيط عمودي',en:'Vertical Layout',es:'Disposición Vertical',pt:'Disposição Vertical',tr:'Dikey Düzen'})}
                                     >
                                         {tx(lang,{fr:'Portrait',ar:'عمودي',en:'Portrait',es:'Vertical',pt:'Retrato',tr:'Dikey'})}
@@ -3011,7 +3013,7 @@ export default function Implantation({
 
                             {/* LINKING MODE BANNER */}
                             {isLinking && (
-                                <div className="bg-indigo-600 dark:bg-dk-accent text-white px-4 py-2 text-xs font-bold flex items-center justify-between shadow-md mb-2 rounded-lg animate-in slide-in-from-top-2 z-20">
+                                <div className="bg-indigo-600 dark:bg-dk-accent text-white px-4 py-2 text-xs font-bold flex items-center justify-between shadow-md dark:shadow-dk-md mb-2 rounded-lg animate-in slide-in-from-top-2 z-20">
                                     <div className="flex items-center gap-2">
                                         <MousePointerClick className="w-4 h-4 text-indigo-200" />
                                         <span>{tx(lang,{fr:'Mode Liaison',ar:'وضع الربط',en:'Link Mode',es:'Modo Enlace',pt:'Modo Ligação',tr:'Bağlantı Modu'})} : {linkSource ? tx(lang,{fr:'Sélectionnez la destination...',ar:'اختر الوجهة...',en:'Select destination...',es:'Seleccione el destino...',pt:'Selecione o destino...',tr:'Hedefi seçin...'}) : tx(lang,{fr:'Sélectionnez le poste de départ',ar:'اختر محطة البداية',en:'Select the starting station',es:'Seleccione el puesto de inicio',pt:'Selecione o posto de partida',tr:'Başlangıç istasyonunu seçin'})}</span>
@@ -3027,7 +3029,7 @@ export default function Implantation({
 
                             {/* SWAP MODE BANNER */}
                             {swapSourceId && !isLinking && (
-                                <div className="bg-orange-500 text-white px-4 py-2 text-xs font-bold flex items-center justify-between shadow-md mb-2 rounded-lg animate-in slide-in-from-top-2 z-20">
+                                <div className="bg-orange-500 text-white px-4 py-2 text-xs font-bold flex items-center justify-between shadow-md dark:shadow-dk-md mb-2 rounded-lg animate-in slide-in-from-top-2 z-20">
                                     <div className="flex items-center gap-2">
                                         <SwapIcon className="w-4 h-4" />
                                         <span>{tx(lang,{fr:'Mode Échange Actif : Sélectionnez le poste cible pour échanger.',ar:'وضع التبادل النشط: اختر المحطة المستهدفة للتبادل.',en:'Swap Mode Active: Select the target station to swap.',es:'Modo Intercambio Activo: Seleccione el puesto objetivo.',pt:'Modo Troca Ativo: Selecione o posto alvo.',tr:'Takas Modu Aktif: Hedef istasyonu seçin.'})}</span>
@@ -3043,7 +3045,7 @@ export default function Implantation({
 
                             {/* 2. ZONES INDICATOR */}
                             <div className="bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl p-1.5 flex items-center gap-1 overflow-x-auto text-[10px] font-bold uppercase text-slate-400 dark:text-dk-muted shadow-inner shrink-0 mb-1">
-                                <div className="flex items-center gap-2 px-2 py-0.5 bg-slate-50 dark:bg-dk-bg rounded-lg border border-slate-200 dark:border-dk-border opacity-60 shrink-0"><Package className="w-3 h-3 text-slate-400 dark:text-dk-muted" /> {tx(lang,{fr:'Stock Tissu',ar:'مخزون القماش',en:'Fabric Stock',es:'Stock de Tela',pt:'Estoque de Tecido',tr:'Kumaş Stoku'})}</div><ArrowRight className="w-3 h-3 text-slate-300 dark:text-dk-muted shrink-0" /><div className="flex items-center gap-2 px-2 py-0.5 bg-slate-50 dark:bg-dk-bg rounded-lg border border-slate-200 dark:border-dk-border opacity-60 shrink-0"><Scissors className="w-3 h-3 text-slate-400 dark:text-dk-muted" /> {tx(lang,{fr:'Coupe & Prep',ar:'قص وتحضير',en:'Cutting & Prep',es:'Corte y Prep',pt:'Corte e Prep',tr:'Kesim ve Hazırlık'})}</div><ArrowRight className="w-3 h-3 text-emerald-400 shrink-0" /><div className="flex items-center gap-2 px-2 py-0.5 bg-emerald-50 dark:bg-emerald-900/30 rounded-lg border border-emerald-200 text-emerald-700 shadow-sm shrink-0"><Layers className="w-3 h-3" /> {tx(lang,{fr:'Montage (Atelier)',ar:'تجميع (ورشة)',en:'Assembly (Workshop)',es:'Montaje (Taller)',pt:'Montagem (Oficina)',tr:'Montaj (Atölye)'})}</div><ArrowRight className="w-3 h-3 text-emerald-400 shrink-0" />
+                                <div className="flex items-center gap-2 px-2 py-0.5 bg-slate-50 dark:bg-dk-bg rounded-lg border border-slate-200 dark:border-dk-border opacity-60 shrink-0"><Package className="w-3 h-3 text-slate-400 dark:text-dk-muted" /> {tx(lang,{fr:'Stock Tissu',ar:'مخزون القماش',en:'Fabric Stock',es:'Stock de Tela',pt:'Estoque de Tecido',tr:'Kumaş Stoku'})}</div><ArrowRight className="w-3 h-3 text-slate-300 dark:text-dk-muted shrink-0" /><div className="flex items-center gap-2 px-2 py-0.5 bg-slate-50 dark:bg-dk-bg rounded-lg border border-slate-200 dark:border-dk-border opacity-60 shrink-0"><Scissors className="w-3 h-3 text-slate-400 dark:text-dk-muted" /> {tx(lang,{fr:'Coupe & Prep',ar:'قص وتحضير',en:'Cutting & Prep',es:'Corte y Prep',pt:'Corte e Prep',tr:'Kesim ve Hazırlık'})}</div><ArrowRight className="w-3 h-3 text-emerald-400 shrink-0" /><div className="flex items-center gap-2 px-2 py-0.5 bg-emerald-50 dark:bg-emerald-900/30 rounded-lg border border-emerald-200 text-emerald-700 shadow-sm dark:shadow-dk-sm shrink-0"><Layers className="w-3 h-3" /> {tx(lang,{fr:'Montage (Atelier)',ar:'تجميع (ورشة)',en:'Assembly (Workshop)',es:'Montaje (Taller)',pt:'Montagem (Oficina)',tr:'Montaj (Atölye)'})}</div><ArrowRight className="w-3 h-3 text-emerald-400 shrink-0" />
                                 <div className="flex items-center gap-3">
                                     {swapControlFinition ? (
                                         <>
@@ -3076,11 +3078,11 @@ export default function Implantation({
                                     onClick={() => setIsSidebarOpen(false)}
                                 />
 
-                                <div className={`absolute lg:relative h-full bg-slate-50 dark:bg-dk-bg border-r border-slate-200 dark:border-dk-border shadow-xl z-30 flex flex-col transition-all duration-300 ease-in-out shrink-0 ${isSidebarOpen ? 'w-72 translate-x-0' : 'w-0 -translate-x-full lg:w-8 lg:translate-x-0'}`}>
+                                <div className={`absolute lg:relative h-full bg-slate-50 dark:bg-dk-bg border-r border-slate-200 dark:border-dk-border shadow-xl dark:shadow-dk-elevated z-30 flex flex-col transition-all duration-300 ease-in-out shrink-0 ${isSidebarOpen ? 'w-72 translate-x-0' : 'w-0 -translate-x-full lg:w-8 lg:translate-x-0'}`}>
                                     {/* Toggle Button - Repositioned for Mobile vs Desktop */}
                                     <button
                                         onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-                                        className={`absolute -right-3 top-4 bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border text-slate-500 rounded-full p-1 shadow-md hover:text-indigo-600 dark:text-dk-accent-text z-50 transition-transform active:scale-95 ${!isSidebarOpen && window.innerWidth < 1024 ? 'hidden' : ''}`}
+                                        className={`absolute -right-3 top-4 bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border text-slate-500 rounded-full p-1 shadow-md dark:shadow-dk-md hover:text-indigo-600 dark:text-dk-accent-text z-50 transition-transform active:scale-95 ${!isSidebarOpen && window.innerWidth < 1024 ? 'hidden' : ''}`}
                                     >
                                         {isSidebarOpen ? <ChevronLeft className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
                                     </button>
@@ -3089,7 +3091,7 @@ export default function Implantation({
                                     {!isSidebarOpen && (
                                         <button
                                             onClick={() => setIsSidebarOpen(true)}
-                                            className="lg:hidden absolute top-4 left-4 z-20 bg-slate-50 dark:bg-dk-bg p-2 rounded-lg shadow-md border border-slate-200 dark:border-dk-border text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text"
+                                            className="lg:hidden absolute top-4 left-4 z-20 bg-slate-50 dark:bg-dk-bg p-2 rounded-lg shadow-md dark:shadow-dk-md border border-slate-200 dark:border-dk-border text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text"
                                         >
                                             <Menu className="w-5 h-5" />
                                         </button>
@@ -3107,7 +3109,7 @@ export default function Implantation({
                                             {waitingStations.length > 0 && (
                                                 <button
                                                     onClick={placeAllOnCanvas}
-                                                    className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-indigo-600 dark:bg-dk-accent text-white rounded-lg text-xs font-bold hover:bg-indigo-700 dark:hover:bg-dk-accent-hover transition-colors active:scale-[0.98] shadow-sm"
+                                                    className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-indigo-600 dark:bg-dk-accent text-white rounded-lg text-xs font-bold hover:bg-indigo-700 dark:hover:bg-dk-accent-hover transition-colors active:scale-[0.98] shadow-sm dark:shadow-dk-sm"
                                                 >
                                                     <Layers className="w-3.5 h-3.5" /> {tx(lang,{fr:'Tout placer sur le plan',ar:'وضع الكل على الخطة',en:'Place All on Plan',es:'Colocar todo en el plano',pt:'Colocar tudo no plano',tr:'Tümünü Planda Yerleştir'})}
                                                 </button>
@@ -3253,7 +3255,7 @@ export default function Implantation({
                                     {layoutType === 'free' && (
                                         <div className={`flex flex-col gap-6 p-6 w-full min-w-max pb-32 ${orientation === 'portrait' ? 'rotate-90 origin-center scale-75 mt-40' : ''}`}>
                                             <div className="relative mt-4 flex flex-col">
-                                                <div className="absolute -top-4 left-6 bg-indigo-600 dark:bg-dk-accent/80 backdrop-blur-md text-white px-5 py-1.5 rounded-xl text-xs font-black shadow-lg uppercase tracking-widest border border-white/20 z-20">{tx(lang,{fr:'Plan Libre',ar:'تخطيط حر',en:'Free Plan',es:'Plano Libre',pt:'Plano Livre',tr:'Serbest Plan'})}</div>
+                                                <div className="absolute -top-4 left-6 bg-indigo-600 dark:bg-dk-accent/80 backdrop-blur-md text-white px-5 py-1.5 rounded-xl text-xs font-black shadow-lg dark:shadow-dk-lg uppercase tracking-widest border border-white/20 z-20">{tx(lang,{fr:'Plan Libre',ar:'تخطيط حر',en:'Free Plan',es:'Plano Libre',pt:'Plano Livre',tr:'Serbest Plan'})}</div>
 
                                                 <div className="relative w-[3000px] h-[2000px] mt-4 overflow-hidden">
                                                     {workstations
@@ -3276,7 +3278,7 @@ export default function Implantation({
                                                                 <div
                                                                     key={st.id}
                                                                     id={`station-card-${st.id}`}
-                                                                    className={`absolute select-none transition-shadow ${isDraggingThis ? 'z-[100] shadow-2xl scale-105 cursor-grabbing' : 'z-10'} ${isSpacePressed ? 'cursor-grab' : 'cursor-move hover:z-50'}`}
+                                                                    className={`absolute select-none transition-shadow ${isDraggingThis ? 'z-[100] shadow-2xl dark:shadow-dk-elevated scale-105 cursor-grabbing' : 'z-10'} ${isSpacePressed ? 'cursor-grab' : 'cursor-move hover:z-50'}`}
                                                                     style={{
                                                                         left: x,
                                                                         top: y,
@@ -3290,7 +3292,7 @@ export default function Implantation({
                                                                     }}
                                                                 >
                                                                     {shape === 'circle' ? (
-                                                                        <div className="w-32 h-32 rounded-full border-4 border-dashed border-slate-300 bg-slate-100/80 flex items-center justify-center shadow-sm pointer-events-none">
+                                                                        <div className="w-32 h-32 rounded-full border-4 border-dashed border-slate-300 bg-slate-100/80 flex items-center justify-center shadow-sm dark:shadow-dk-sm pointer-events-none">
                                                                             <div className="text-center">
                                                                                 <div className="text-xs font-bold text-slate-500 dark:text-dk-muted">{st.name}</div>
                                                                                 <div className="text-[10px] text-slate-400 dark:text-dk-muted">{st.machine}</div>
@@ -3324,8 +3326,8 @@ export default function Implantation({
                                                 if (section.theme === 'sky') { bgClass = "bg-sky-600/80"; borderClass = "border-sky-500"; }
 
                                                 return (
-                                                    <div key={section.id} className="relative w-full border-2 border-dashed border-slate-200 dark:border-dk-border rounded-3xl p-8 bg-slate-50 dark:bg-dk-bg/50 mb-6 shadow-sm flex flex-col items-center">
-                                                        <div className={`absolute -top-4 left-6 ${bgClass} backdrop-blur-md text-white px-5 py-1.5 rounded-xl text-xs font-black shadow-lg uppercase tracking-widest border border-white/20 z-20 flex gap-2 items-center`}>
+                                                    <div key={section.id} className="relative w-full border-2 border-dashed border-slate-200 dark:border-dk-border rounded-3xl p-8 bg-slate-50 dark:bg-dk-bg/50 mb-6 shadow-sm dark:shadow-dk-sm flex flex-col items-center">
+                                                        <div className={`absolute -top-4 left-6 ${bgClass} backdrop-blur-md text-white px-5 py-1.5 rounded-xl text-xs font-black shadow-lg dark:shadow-dk-lg uppercase tracking-widest border border-white/20 z-20 flex gap-2 items-center`}>
                                                             {section.name}
                                                             {section.hourly && <span className="bg-white dark:bg-dk-surface/20 px-2 py-0.5 rounded text-[10px]">Obj: {section.hourly} p/h</span>}
                                                         </div>
@@ -3337,7 +3339,7 @@ export default function Implantation({
                                                                     <div className="flex items-center gap-6 pl-8">
                                                                         {topRow.map((st, i) => (
                                                                             <div key={`utop-${st.id}`} className="flex items-center gap-6">
-                                                                                <div id={`station-card-${st.id}`} className={`relative group transition-transform hover:scale-[1.02] shadow-sm hover:shadow-xl rounded-xl border-b-4 ${borderClass}`}>
+                                                                                <div id={`station-card-${st.id}`} className={`relative group transition-transform hover:scale-[1.02] shadow-sm dark:shadow-dk-sm hover:shadow-xl rounded-xl border-b-4 ${borderClass}`}>
                                                                                     {renderStationCard(st)}
                                                                                 </div>
                                                                                 {i < topRow.length - 1 && (() => {
@@ -3379,7 +3381,7 @@ export default function Implantation({
                                                                 <div className="flex justify-end w-full pr-12">
                                                                     <div className="flex flex-col items-center opacity-60">
                                                                         <div className="w-1.5 h-8 rounded bg-slate-300"></div>
-                                                                        <div className="bg-slate-500 text-white text-[8px] font-black px-2 py-1 rounded shadow">{tx(lang,{fr:'U-TURN',ar:'دوران',en:'U-TURN',es:'GIRO',pt:'RETORNO',tr:'U-DÖNÜŞÜ'})}</div>
+                                                                        <div className="bg-slate-500 text-white text-[8px] font-black px-2 py-1 rounded shadow dark:shadow-dk-sm">{tx(lang,{fr:'U-TURN',ar:'دوران',en:'U-TURN',es:'GIRO',pt:'RETORNO',tr:'U-DÖNÜŞÜ'})}</div>
                                                                         <div className="w-1.5 h-8 rounded bg-slate-300"></div>
                                                                     </div>
                                                                 </div>
@@ -3387,11 +3389,11 @@ export default function Implantation({
 
                                                             {bottomRow.length > 0 && (
                                                                 <div className="relative w-full">
-                                                                    <div className="absolute -left-4 top-1/2 -translate-y-1/2 bg-slate-500 text-white text-[9px] font-black px-2 py-1 rounded-lg uppercase tracking-wider shadow">←</div>
+                                                                    <div className="absolute -left-4 top-1/2 -translate-y-1/2 bg-slate-500 text-white text-[9px] font-black px-2 py-1 rounded-lg uppercase tracking-wider shadow dark:shadow-dk-sm">←</div>
                                                                     <div className="flex flex-row-reverse items-center gap-6 pr-8">
                                                                         {bottomRow.map((st, i) => (
                                                                             <div key={`ubottom-${st.id}`} className="flex flex-row-reverse items-center gap-6">
-                                                                                <div id={`station-card-${st.id}`} className={`relative group transition-transform hover:scale-[1.02] shadow-sm hover:shadow-xl rounded-xl border-t-4 ${borderClass}`}>
+                                                                                <div id={`station-card-${st.id}`} className={`relative group transition-transform hover:scale-[1.02] shadow-sm dark:shadow-dk-sm hover:shadow-xl rounded-xl border-t-4 ${borderClass}`}>
                                                                                     {renderStationCard(st)}
                                                                                 </div>
                                                                                 {i < bottomRow.length - 1 && (() => {
@@ -3435,8 +3437,8 @@ export default function Implantation({
                                             
                                             {/* EXPÉDITION */}
                                             <div className="flex justify-start w-full pl-8 mt-4">
-                                                <div className="flex items-center gap-4 bg-slate-800 text-white px-8 py-4 rounded-2xl shadow-2xl border-4 border-slate-700 hover:scale-105 transition-transform">
-                                                    <div className="w-10 h-10 bg-emerald-500 rounded-xl flex items-center justify-center shadow-lg"><Truck className="w-6 h-6 animate-pulse" /></div>
+                                                <div className="flex items-center gap-4 bg-slate-800 text-white px-8 py-4 rounded-2xl shadow-2xl dark:shadow-dk-elevated border-4 border-slate-700 hover:scale-105 transition-transform">
+                                                    <div className="w-10 h-10 bg-emerald-500 rounded-xl flex items-center justify-center shadow-lg dark:shadow-dk-lg"><Truck className="w-6 h-6 animate-pulse" /></div>
                                                     <div className="flex flex-col"><span className="text-[10px] uppercase font-black tracking-widest text-slate-400 dark:text-dk-muted">{tx(lang,{fr:'Terminé',ar:'منتهي',en:'Finished',es:'Terminado',pt:'Terminado',tr:'Bitti'})}</span><span className="text-sm font-black uppercase tracking-widest">{tx(lang,{fr:'EXPÉDITION',ar:'شحن',en:'SHIPPING',es:'EXPEDICIÓN',pt:'EXPEDIÇÃO',tr:'SEVKİYAT'})}</span></div>
                                                 </div>
                                             </div>
@@ -3458,8 +3460,8 @@ export default function Implantation({
                                                 let arrowColor = section.theme === 'amber' ? "#f59e0b" : section.theme === 'sky' ? "#0ea5e9" : "#818cf8";
 
                                                 return (
-                                                    <div key={section.id} className="relative mt-4 flex flex-col w-full border-2 border-dashed border-slate-200 dark:border-dk-border rounded-3xl p-6 bg-slate-50 dark:bg-dk-bg/50 mb-6 shadow-sm">
-                                                        <div className={`absolute -top-4 left-6 ${bgClass} backdrop-blur-md text-white px-5 py-1.5 rounded-xl text-xs font-black shadow-lg uppercase tracking-widest border border-white/20 z-20 flex gap-2 items-center`}>
+                                                    <div key={section.id} className="relative mt-4 flex flex-col w-full border-2 border-dashed border-slate-200 dark:border-dk-border rounded-3xl p-6 bg-slate-50 dark:bg-dk-bg/50 mb-6 shadow-sm dark:shadow-dk-sm">
+                                                        <div className={`absolute -top-4 left-6 ${bgClass} backdrop-blur-md text-white px-5 py-1.5 rounded-xl text-xs font-black shadow-lg dark:shadow-dk-lg uppercase tracking-widest border border-white/20 z-20 flex gap-2 items-center`}>
                                                             {section.name}
                                                             {section.hourly && <span className="bg-white dark:bg-dk-surface/20 px-2 py-0.5 rounded text-[10px]">Obj: {section.hourly} p/h</span>}
                                                         </div>
@@ -3469,7 +3471,7 @@ export default function Implantation({
                                                                 <div className="flex items-center gap-12 relative z-10 w-full justify-start">
                                                                     {sideA.map((st, i) => (
                                                                         <div key={`sideA-${st.id}`} className="flex items-center gap-12 relative">
-                                                                            <div id={`station-card-${st.id}`} className={`relative group transition-transform hover:scale-[1.02] shadow-sm hover:shadow-xl rounded-xl bg-white dark:bg-dk-surface border-b-4 ${borderClassA}`}>
+                                                                            <div id={`station-card-${st.id}`} className={`relative group transition-transform hover:scale-[1.02] shadow-sm dark:shadow-dk-sm hover:shadow-xl rounded-xl bg-white dark:bg-dk-surface border-b-4 ${borderClassA}`}>
                                                                                 {renderStationCard(st)}
                                                                             </div>
                                                                             {i < sideB.length && (() => {
@@ -3511,7 +3513,7 @@ export default function Implantation({
                                                                 <div className="flex items-center gap-12 relative z-10 w-full justify-start translate-x-16">
                                                                     {sideB.map((st, i) => (
                                                                         <div key={`sideB-${st.id}`} className="flex items-center gap-12 relative">
-                                                                            <div id={`station-card-${st.id}`} className={`relative group transition-transform hover:scale-[1.02] shadow-sm hover:shadow-xl rounded-xl bg-white dark:bg-dk-surface border-t-4 ${borderClassB}`}>
+                                                                            <div id={`station-card-${st.id}`} className={`relative group transition-transform hover:scale-[1.02] shadow-sm dark:shadow-dk-sm hover:shadow-xl rounded-xl bg-white dark:bg-dk-surface border-t-4 ${borderClassB}`}>
                                                                                 {renderStationCard(st)}
                                                                             </div>
                                                                             {i + 1 < sideA.length && (() => {
@@ -3556,8 +3558,8 @@ export default function Implantation({
                                             
                                             {/* EXPÉDITION */}
                                             <div className="flex justify-end w-full mt-8 pr-4">
-                                                <div className="flex items-center gap-4 bg-slate-800 text-white px-8 py-4 rounded-2xl shadow-2xl border border-white/20 hover:scale-105 transition-transform">
-                                                    <div className="w-10 h-10 bg-emerald-500 rounded-xl flex items-center justify-center shadow-lg"><Truck className="w-6 h-6 animate-pulse" /></div>
+                                                <div className="flex items-center gap-4 bg-slate-800 text-white px-8 py-4 rounded-2xl shadow-2xl dark:shadow-dk-elevated border border-white/20 hover:scale-105 transition-transform">
+                                                    <div className="w-10 h-10 bg-emerald-500 rounded-xl flex items-center justify-center shadow-lg dark:shadow-dk-lg"><Truck className="w-6 h-6 animate-pulse" /></div>
                                                     <div className="flex flex-col"><span className="text-[10px] uppercase font-black tracking-widest text-slate-400 dark:text-dk-muted">{tx(lang,{fr:'Terminé',ar:'منتهي',en:'Finished',es:'Terminado',pt:'Terminado',tr:'Bitti'})}</span><span className="text-sm font-black uppercase tracking-widest">{tx(lang,{fr:'EXPÉDITION',ar:'شحن',en:'SHIPPING',es:'EXPEDICIÓN',pt:'EXPEDIÇÃO',tr:'SEVKİYAT'})}</span></div>
                                                 </div>
                                             </div>
@@ -3578,7 +3580,7 @@ export default function Implantation({
 
                                                 return (
                                                     <div key={section.id} className="relative mt-4 flex flex-col bg-slate-50 dark:bg-dk-bg/80 rounded-3xl border-2 border-slate-200 dark:border-dk-border p-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)] mb-6">
-                                                        <div className={`absolute -top-4 left-6 ${bgClass} text-white px-5 py-1.5 rounded-xl text-xs font-black shadow-lg uppercase tracking-widest border border-white/20 flex gap-2 items-center z-20`}>
+                                                        <div className={`absolute -top-4 left-6 ${bgClass} text-white px-5 py-1.5 rounded-xl text-xs font-black shadow-lg dark:shadow-dk-lg uppercase tracking-widest border border-white/20 flex gap-2 items-center z-20`}>
                                                             {section.name}
                                                             {section.hourly && <span className="bg-white dark:bg-dk-surface/20 px-2 py-0.5 rounded text-[10px]">Obj: {section.hourly} p/h</span>}
                                                         </div>
@@ -3586,11 +3588,11 @@ export default function Implantation({
                                                         <div className="flex flex-col gap-20 pt-8 w-full">
                                                             {topRow.length > 0 && (
                                                                 <div className="relative">
-                                                                    <div className="absolute -left-2 top-1/2 -translate-y-1/2 bg-slate-500 text-white text-[9px] font-black px-2 py-1 rounded-lg uppercase tracking-wider shadow z-10">A</div>
+                                                                    <div className="absolute -left-2 top-1/2 -translate-y-1/2 bg-slate-500 text-white text-[9px] font-black px-2 py-1 rounded-lg uppercase tracking-wider shadow dark:shadow-dk-sm z-10">A</div>
                                                                     <div className="flex items-center gap-6 pl-8">
                                                                         {topRow.map((st, i) => (
                                                                             <div key={`lineA-${st.id}`} className="flex items-center gap-6">
-                                                                                <div id={`station-card-${st.id}`} className={`relative group transition-transform hover:scale-[1.02] shadow-sm hover:shadow-xl rounded-xl border-b-4 ${borderClass}`}>
+                                                                                <div id={`station-card-${st.id}`} className={`relative group transition-transform hover:scale-[1.02] shadow-sm dark:shadow-dk-sm hover:shadow-xl rounded-xl border-b-4 ${borderClass}`}>
                                                                                     {renderStationCard(st)}
                                                                                 </div>
                                                                                 {i < topRow.length - 1 && (() => {
@@ -3636,11 +3638,11 @@ export default function Implantation({
 
                                                             {bottomRow.length > 0 && (
                                                                 <div className="relative">
-                                                                    <div className="absolute -left-2 top-1/2 -translate-y-1/2 bg-slate-500 text-white text-[9px] font-black px-2 py-1 rounded-lg uppercase tracking-wider shadow z-10">B</div>
+                                                                    <div className="absolute -left-2 top-1/2 -translate-y-1/2 bg-slate-500 text-white text-[9px] font-black px-2 py-1 rounded-lg uppercase tracking-wider shadow dark:shadow-dk-sm z-10">B</div>
                                                                     <div className="flex items-center gap-6 pl-8">
                                                                         {bottomRow.map((st, i) => (
                                                                             <div key={`lineB-${st.id}`} className="flex items-center gap-6">
-                                                                                <div id={`station-card-${st.id}`} className={`relative group transition-transform hover:scale-[1.02] shadow-sm hover:shadow-xl rounded-xl border-t-4 ${borderClass}`}>
+                                                                                <div id={`station-card-${st.id}`} className={`relative group transition-transform hover:scale-[1.02] shadow-sm dark:shadow-dk-sm hover:shadow-xl rounded-xl border-t-4 ${borderClass}`}>
                                                                                     {renderStationCard(st)}
                                                                                 </div>
                                                                                 {i < bottomRow.length - 1 && (() => {
@@ -3690,8 +3692,8 @@ export default function Implantation({
                                             
                                             {/* EXPÉDITION */}
                                             <div className="flex justify-end w-full mt-8 pr-4">
-                                                <div className="flex items-center gap-4 bg-slate-800 text-white px-8 py-4 rounded-2xl shadow-2xl border border-white/20 hover:scale-105 transition-transform">
-                                                    <div className="w-10 h-10 bg-emerald-500 rounded-xl flex items-center justify-center shadow-lg"><Truck className="w-6 h-6 animate-pulse" /></div>
+                                                <div className="flex items-center gap-4 bg-slate-800 text-white px-8 py-4 rounded-2xl shadow-2xl dark:shadow-dk-elevated border border-white/20 hover:scale-105 transition-transform">
+                                                    <div className="w-10 h-10 bg-emerald-500 rounded-xl flex items-center justify-center shadow-lg dark:shadow-dk-lg"><Truck className="w-6 h-6 animate-pulse" /></div>
                                                     <div className="flex flex-col"><span className="text-[10px] uppercase font-black tracking-widest text-slate-400 dark:text-dk-muted">{tx(lang,{fr:'Terminé',ar:'منتهي',en:'Finished',es:'Terminado',pt:'Terminado',tr:'Bitti'})}</span><span className="text-sm font-black uppercase tracking-widest">{tx(lang,{fr:'EXPÉDITION',ar:'شحن',en:'SHIPPING',es:'EXPEDICIÓN',pt:'EXPEDIÇÃO',tr:'SEVKİYAT'})}</span></div>
                                                 </div>
                                             </div>
@@ -3704,7 +3706,7 @@ export default function Implantation({
 
                         {/* FLOATING MATERIAL PANEL */}
                         {showMaterialsPanel && (
-                            <div className="fixed z-[5010] bg-slate-50 dark:bg-dk-bg rounded-2xl border border-slate-200 dark:border-dk-border shadow-xl overflow-hidden flex flex-col" style={{ left: matPanel.x, top: matPanel.y, width: matPanel.w, height: matPanel.h }}>
+                            <div className="fixed z-[5010] bg-slate-50 dark:bg-dk-bg rounded-2xl border border-slate-200 dark:border-dk-border shadow-xl dark:shadow-dk-elevated overflow-hidden flex flex-col" style={{ left: matPanel.x, top: matPanel.y, width: matPanel.w, height: matPanel.h }}>
                                 <div onMouseDown={startDragMat} className="p-4 bg-slate-50 dark:bg-dk-bg border-b border-slate-100 dark:border-dk-border cursor-move select-none flex justify-between items-center">
                                     <h3 className="font-bold text-slate-700 dark:text-dk-text-soft flex items-center gap-2 text-sm pointer-events-none"><Calculator className="w-4 h-4 text-indigo-500" /> {tx(lang,{fr:'Total Matériel',ar:'إجمالي المعدات',en:'Total Equipment',es:'Total Equipo',pt:'Total Equipamento',tr:'Toplam Ekipman'})}</h3>
                                     <button onClick={() => setShowMaterialsPanel(false)} onMouseDown={(e) => e.stopPropagation()} className="text-slate-400 hover:text-slate-600"><X className="w-4 h-4" /></button>
@@ -3722,7 +3724,7 @@ export default function Implantation({
                 {isFullScreen && (
                     <button
                         onClick={toggleFullScreen}
-                        className="absolute top-6 right-6 z-50 p-3 bg-white dark:bg-dk-surface/60 backdrop-blur-xl rounded-full shadow-lg border border-slate-200 dark:border-dk-border/50 text-slate-500 dark:text-dk-muted hover:text-rose-600 hover:bg-white hover:scale-110 active:scale-95 transition-all duration-300 animate-in slide-in-from-top-8 fade-in"
+                        className="absolute top-6 right-6 z-50 p-3 bg-white dark:bg-dk-surface/60 backdrop-blur-xl rounded-full shadow-lg dark:shadow-dk-lg border border-slate-200 dark:border-dk-border/50 text-slate-500 dark:text-dk-muted hover:text-rose-600 hover:bg-white hover:scale-110 active:scale-95 transition-all duration-300 animate-in slide-in-from-top-8 fade-in"
                         title={tx(lang,{fr:'Quitter plein écran (Esc)',ar:'إنهاء ملء الشاشة (Esc)',en:'Exit Fullscreen (Esc)',es:'Salir de pantalla completa (Esc)',pt:'Sair de tela cheia (Esc)',tr:'Tam ekrandan çık (Esc)'})}
                     >
                         <X className="w-5 h-5" />
@@ -3736,7 +3738,7 @@ export default function Implantation({
                         className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
                         onClick={() => resolveSectionTransferDialog('cancel')}
                     />
-                    <div className="relative bg-white dark:bg-dk-surface rounded-2xl shadow-2xl border border-slate-200 dark:border-dk-border w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+                    <div className="relative bg-white dark:bg-dk-surface rounded-2xl shadow-2xl dark:shadow-dk-elevated border border-slate-200 dark:border-dk-border w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-150">
                         <div className="px-5 py-4 border-b border-slate-100 dark:border-dk-border bg-slate-50 dark:bg-dk-bg">
                             <h3 className="text-sm font-black text-slate-800 dark:text-dk-text uppercase tracking-wide">{tx(lang,{fr:'Changement de catégorie poste',ar:'تغيير فئة المحطة',en:'Station Category Change',es:'Cambio de categoría de puesto',pt:'Mudança de categoria de posto',tr:'İstasyon Kategori Değişikliği'})}</h3>
                             <p className="text-xs text-slate-500 dark:text-dk-muted mt-1">
@@ -3808,12 +3810,12 @@ export default function Implantation({
                     {/* BACKDROP */}
                     <div className="absolute inset-0 bg-slate-900/60 " onClick={closeEditModal} />
                     {/* MODAL CONTENT */}
-                    <div className="bg-white dark:bg-dk-surface rounded-2xl shadow-2xl w-full max-w-4xl relative overflow-hidden animate-in fade-in zoom-in-95 duration-200 flex flex-col max-h-[90vh]">
+                    <div className="bg-white dark:bg-dk-surface rounded-2xl shadow-2xl dark:shadow-dk-elevated w-full max-w-4xl relative overflow-hidden animate-in fade-in zoom-in-95 duration-200 flex flex-col max-h-[90vh]">
                         {/* DYNAMIC HEADER COLOR */}
                         <div className={`px-6 py-4 border-b flex justify-between items-center shrink-0 ${editModal.color.bg} ${editModal.color.border}`}>
                             {/* ... same header ... */}
                             <div className="flex items-center gap-3">
-                                <div className={`p-2 bg-white dark:bg-dk-surface rounded-lg shadow-sm border ${editModal.color.border}`}>
+                                <div className={`p-2 bg-white dark:bg-dk-surface rounded-lg shadow-sm dark:shadow-dk-sm border ${editModal.color.border}`}>
                                     <PenTool className={`w-5 h-5 ${editModal.color.text}`} />
                                 </div>
                                 <div>
@@ -3852,8 +3854,8 @@ export default function Implantation({
                         </div>
                         {/* SCROLLABLE TABLE BODY */}
                         <div className="flex-1 overflow-auto custom-scrollbar bg-slate-50 dark:bg-dk-bg p-4">
-                            <table className="w-full text-left border-collapse bg-white dark:bg-dk-surface rounded-xl shadow-sm border border-slate-200 dark:border-dk-border overflow-hidden">
-                                <thead className="bg-slate-100 dark:bg-dk-elevated text-xs font-bold text-slate-500 dark:text-dk-muted uppercase sticky top-0 z-10 shadow-sm">
+                            <table className="w-full text-left border-collapse bg-white dark:bg-dk-surface rounded-xl shadow-sm dark:shadow-dk-sm border border-slate-200 dark:border-dk-border overflow-hidden">
+                                <thead className="bg-slate-100 dark:bg-dk-elevated text-xs font-bold text-slate-500 dark:text-dk-muted uppercase sticky top-0 z-10 shadow-sm dark:shadow-dk-sm">
                                     <tr>
                                         <th className="py-3 px-4 w-12 text-center border-b border-slate-200 dark:border-dk-border">{tx(lang,{fr:'N°',ar:'رقم',en:'No.',es:'N°',pt:'N°',tr:'No'})}</th>
                                         <th className="py-3 px-4 border-b border-slate-200 dark:border-dk-border">{tx(lang,{fr:'Description',ar:'الوصف',en:'Description',es:'Descripción',pt:'Descrição',tr:'Açıklama'})}</th>
@@ -3958,7 +3960,7 @@ export default function Implantation({
                                         </button>
                                         <button
                                             onClick={() => deleteFromModal()}
-                                            className="px-3 py-1.5 bg-rose-600 text-white rounded-lg text-xs font-bold hover:bg-rose-700 shadow-sm transition-colors"
+                                            className="px-3 py-1.5 bg-rose-600 text-white rounded-lg text-xs font-bold hover:bg-rose-700 shadow-sm dark:shadow-dk-sm transition-colors"
                                         >
                                             {tx(lang,{fr:'Confirmer',ar:'تأكيد',en:'Confirm',es:'Confirmar',pt:'Confirmar',tr:'Onayla'})}
                                         </button>
@@ -3966,7 +3968,7 @@ export default function Implantation({
                                 </div>
                             ) : (
                                 <>
-                                    <button onClick={() => setShowDeleteConfirm(true)} className="flex items-center gap-2 px-4 py-2.5 bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border hover:bg-rose-50 hover:border-rose-200 hover:text-rose-600 rounded-xl text-xs font-bold transition-all shadow-sm text-slate-500 dark:text-dk-muted">
+                                    <button onClick={() => setShowDeleteConfirm(true)} className="flex items-center gap-2 px-4 py-2.5 bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border hover:bg-rose-50 hover:border-rose-200 hover:text-rose-600 rounded-xl text-xs font-bold transition-all shadow-sm dark:shadow-dk-sm text-slate-500 dark:text-dk-muted">
                                         <Trash2 className="w-4 h-4" />
                                         <span>{tx(lang,{fr:'Supprimer',ar:'حذف',en:'Delete',es:'Eliminar',pt:'Excluir',tr:'Sil'})}</span>
                                     </button>
@@ -3979,7 +3981,7 @@ export default function Implantation({
                                         </button>
                                         <button
                                             onClick={() => closeEditModal()}
-                                            className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-md shadow-emerald-100 transition-colors"
+                                            className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-md dark:shadow-dk-md shadow-emerald-100 transition-colors"
                                         >
                                             {tx(lang,{fr:'Enregistrer',ar:'حفظ',en:'Save',es:'Guardar',pt:'Salvar',tr:'Kaydet'})}
                                         </button>
@@ -3995,7 +3997,7 @@ export default function Implantation({
             {/* CONTEXT MENU PORTAL */}
             {contextMenu && contextMenu.visible && createPortal(
                 <div
-                    className="absolute z-[9999] bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-xl shadow-2xl py-1 w-56 text-xs font-medium text-slate-700 dark:text-dk-text-soft animate-in fade-in zoom-in-95 duration-100 origin-top-left overflow-hidden ring-4 ring-slate-100/50"
+                    className="absolute z-[9999] bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-xl shadow-2xl dark:shadow-dk-elevated py-1 w-56 text-xs font-medium text-slate-700 dark:text-dk-text-soft animate-in fade-in zoom-in-95 duration-100 origin-top-left overflow-hidden ring-4 ring-slate-100/50"
                     style={{ top: contextMenu.y, left: contextMenu.x }}
                     onClick={(e) => e.stopPropagation()}
                 >
@@ -4029,7 +4031,7 @@ export default function Implantation({
             {/* FREE MODE BACKGROUND CONTEXT MENU */}
             {freeContextMenu && freeContextMenu.visible && createPortal(
                 <div
-                    className="absolute z-[9999] bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-xl shadow-2xl py-1 w-56 text-xs font-medium text-slate-700 dark:text-dk-text-soft animate-in fade-in zoom-in-95 duration-100 origin-top-left overflow-hidden ring-4 ring-slate-100/50"
+                    className="absolute z-[9999] bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-xl shadow-2xl dark:shadow-dk-elevated py-1 w-56 text-xs font-medium text-slate-700 dark:text-dk-text-soft animate-in fade-in zoom-in-95 duration-100 origin-top-left overflow-hidden ring-4 ring-slate-100/50"
                     style={{ top: freeContextMenu.y, left: freeContextMenu.x }}
                     onClick={(e) => e.stopPropagation()}
                 >
@@ -4046,7 +4048,7 @@ export default function Implantation({
             {showSaveTemplateModal && (
                 <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
                     <div className="absolute inset-0 bg-slate-900/60 " onClick={() => setShowSaveTemplateModal(false)} />
-                    <div className="bg-white dark:bg-dk-surface rounded-2xl shadow-2xl w-full max-w-sm relative overflow-hidden animate-in fade-in zoom-in-95 duration-200 p-6">
+                    <div className="bg-white dark:bg-dk-surface rounded-2xl shadow-2xl dark:shadow-dk-elevated w-full max-w-sm relative overflow-hidden animate-in fade-in zoom-in-95 duration-200 p-6">
                         <h3 className="font-bold text-slate-800 dark:text-dk-text text-lg mb-4">{tx(lang,{fr:'Sauvegarder le Gabarit',ar:'حفظ القالب',en:'Save Template',es:'Guardar Plantilla',pt:'Salvar Modelo',tr:'Şablonu Kaydet'})}</h3>
                         <input
                             type="text"
@@ -4058,7 +4060,7 @@ export default function Implantation({
                         />
                         <div className="flex gap-3">
                             <button onClick={() => setShowSaveTemplateModal(false)} className="flex-1 py-2.5 rounded-xl border border-slate-200 dark:border-dk-border font-bold text-slate-600 dark:text-dk-text-soft hover:bg-slate-50 dark:hover:bg-dk-elevated/60 transition-colors text-xs">{tx(lang,{fr:'Annuler',ar:'إلغاء',en:'Cancel',es:'Cancelar',pt:'Cancelar',tr:'İptal'})}</button>
-                            <button onClick={handleSaveTemplate} className="flex-1 py-2.5 rounded-xl bg-indigo-600 dark:bg-dk-accent text-white font-bold hover:bg-indigo-700 dark:hover:bg-dk-accent-hover shadow-md shadow-indigo-200 transition-colors text-xs">{tx(lang,{fr:'Enregistrer',ar:'حفظ',en:'Save',es:'Guardar',pt:'Salvar',tr:'Kaydet'})}</button>
+                            <button onClick={handleSaveTemplate} className="flex-1 py-2.5 rounded-xl bg-indigo-600 dark:bg-dk-accent text-white font-bold hover:bg-indigo-700 dark:hover:bg-dk-accent-hover shadow-md dark:shadow-dk-md shadow-indigo-200 transition-colors text-xs">{tx(lang,{fr:'Enregistrer',ar:'حفظ',en:'Save',es:'Guardar',pt:'Salvar',tr:'Kaydet'})}</button>
                         </div>
                     </div>
                 </div>
@@ -4067,7 +4069,7 @@ export default function Implantation({
             {printOrientationModal && (
                 <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 animate-in fade-in duration-200">
                     <div className="absolute inset-0 bg-slate-900/60 " onClick={() => setPrintOrientationModal(false)} />
-                    <div className="bg-white dark:bg-dk-surface rounded-2xl shadow-2xl w-full max-w-sm relative overflow-hidden animate-in fade-in zoom-in-95 duration-200 p-6 z-[1001]">
+                    <div className="bg-white dark:bg-dk-surface rounded-2xl shadow-2xl dark:shadow-dk-elevated w-full max-w-sm relative overflow-hidden animate-in fade-in zoom-in-95 duration-200 p-6 z-[1001]">
                         <h3 className="font-bold text-slate-800 dark:text-dk-text text-lg mb-2">{tx(lang,{fr:"Orientation de l'Impression",ar:'اتجاه الطباعة',en:'Print Orientation',es:'Orientación de Impresión',pt:'Orientação de Impressão',tr:'Yazdırma Yönü'})}</h3>
                         <p className="text-xs text-slate-500 dark:text-dk-muted mb-6 leading-relaxed">
                             {tx(lang,{fr:"Choisissez le format d'orientation pour l'exportation du plan d'implantation en PDF / Impression A4 :",ar:'اختر اتجاه التخطيط لتصدير خطة التخطيط إلى PDF / طباعة A4:',en:'Choose the orientation format for exporting the layout plan to PDF / A4 Print:',es:'Elija el formato de orientación para exportar el plano de implantación a PDF / Impresión A4:',pt:'Escolha o formato de orientação para exportar o plano de implantação para PDF / Impressão A4:',tr:'Düzen planını PDF / A4 Yazdırmaya aktarmak için yönlendirme biçimini seçin:'})}
@@ -4113,7 +4115,7 @@ export default function Implantation({
             {showLoadTemplateModal && (
                 <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
                     <div className="absolute inset-0 bg-slate-900/60 " onClick={() => setShowLoadTemplateModal(false)} />
-                    <div className="bg-white dark:bg-dk-surface rounded-2xl shadow-2xl w-full max-w-md relative overflow-hidden animate-in fade-in zoom-in-95 duration-200 flex flex-col max-h-[80vh]">
+                    <div className="bg-white dark:bg-dk-surface rounded-2xl shadow-2xl dark:shadow-dk-elevated w-full max-w-md relative overflow-hidden animate-in fade-in zoom-in-95 duration-200 flex flex-col max-h-[80vh]">
                         <div className="p-4 border-b border-slate-100 dark:border-dk-border flex justify-between items-center bg-slate-50 dark:bg-dk-bg">
                             <h3 className="font-bold text-slate-700 dark:text-dk-text-soft">{tx(lang,{fr:'Mes Gabarits',ar:'قوالبي',en:'My Templates',es:'Mis Plantillas',pt:'Meus Modelos',tr:'Şablonlarım'})}</h3>
                             <button onClick={() => setShowLoadTemplateModal(false)}><X className="w-5 h-5 text-slate-400 hover:text-slate-600" /></button>
@@ -4143,7 +4145,7 @@ export default function Implantation({
             {showExportOptions && (
                 <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
                     <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setShowExportOptions(false)} />
-                    <div className="bg-white dark:bg-dk-surface rounded-2xl shadow-2xl w-full max-w-md relative overflow-hidden animate-in fade-in zoom-in-95 duration-200 border border-slate-100 dark:border-dk-border p-6 flex flex-col">
+                    <div className="bg-white dark:bg-dk-surface rounded-2xl shadow-2xl dark:shadow-dk-elevated w-full max-w-md relative overflow-hidden animate-in fade-in zoom-in-95 duration-200 border border-slate-100 dark:border-dk-border p-6 flex flex-col">
                         <div className="flex justify-between items-center mb-5 pb-3 border-b border-slate-100 dark:border-dk-border">
                             <h3 className="font-bold text-slate-800 dark:text-dk-text text-lg flex items-center gap-2">
                                 <Printer className="w-5 h-5 text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text" />
@@ -4243,7 +4245,7 @@ export default function Implantation({
                                 type="button"
                                 onClick={executeExport}
                                 disabled={isExporting}
-                                className="flex-1 py-2.5 rounded-xl bg-indigo-600 dark:bg-dk-accent text-white font-bold hover:bg-indigo-700 dark:hover:bg-dk-accent-hover shadow-md shadow-indigo-100 transition-colors text-xs flex items-center justify-center gap-1.5"
+                                className="flex-1 py-2.5 rounded-xl bg-indigo-600 dark:bg-dk-accent text-white font-bold hover:bg-indigo-700 dark:hover:bg-dk-accent-hover shadow-md dark:shadow-dk-md shadow-indigo-100 transition-colors text-xs flex items-center justify-center gap-1.5"
                             >
                                 {isExporting ? (
                                     <>

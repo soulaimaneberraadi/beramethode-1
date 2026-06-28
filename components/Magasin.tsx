@@ -161,7 +161,7 @@ function ProductModal({ item, onSave, onClose }: { item?: MagasinProduct; onSave
 
     return (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-            <div className="bg-white dark:bg-dk-surface rounded-3xl shadow-2xl w-full max-w-2xl overflow-hidden">
+            <div className="bg-white dark:bg-dk-surface rounded-3xl shadow-2xl dark:shadow-dk-elevated w-full max-w-2xl overflow-hidden">
                 <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-dk-border/60 bg-slate-50 dark:bg-dk-bg/50">
                     <h2 className="font-black text-slate-800 dark:text-dk-text text-lg flex items-center gap-2">{item ? <Edit2 className="w-5 h-5 text-indigo-500 dark:text-indigo-300" /> : <Plus className="w-5 h-5 text-emerald-500 dark:text-emerald-300" />}{item ? tx(lang,{fr:'Modifier Article',ar:'تعديل المادة',en:'Edit Item',es:'Editar Artículo',pt:'Editar Item',tr:'Ürünü Düzenle'}) : tx(lang,{fr:'Nouvel Article',ar:'مادة جديدة',en:'New Item',es:'Nuevo Artículo',pt:'Novo Item',tr:'Yeni Ürün'})}</h2>
                     <button onClick={onClose} className="p-2 hover:bg-rose-50 dark:bg-rose-900/30 rounded-full transition-colors text-slate-400 dark:text-dk-muted hover:text-rose-500 dark:text-rose-300"><X className="w-5 h-5" /></button>
@@ -290,14 +290,14 @@ function BonCommandeModal({
 
     return (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-            <div className="bg-white dark:bg-dk-surface rounded-3xl shadow-2xl w-full max-w-4xl overflow-hidden flex flex-col max-h-[90vh]">
+            <div className="bg-white dark:bg-dk-surface rounded-3xl shadow-2xl dark:shadow-dk-elevated w-full max-w-4xl overflow-hidden flex flex-col max-h-[90vh]">
                 <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-dk-border/60 bg-slate-50 dark:bg-dk-bg/50 shrink-0">
                     <h2 className="font-black text-slate-800 dark:text-dk-text text-lg flex items-center gap-2"><FileText className="w-5 h-5 text-indigo-500 dark:text-indigo-300" /> {tx(lang,{fr:'Éditer Bon de Commande',ar:'تحرير أمر الشراء',en:'Edit Purchase Order',es:'Editar Orden de Compra',pt:'Editar Pedido de Compra',tr:'Satın Alma Siparişini Düzenle'})} - {bc.numero}</h2>
                     <button onClick={onClose} className="p-2 hover:bg-rose-50 dark:bg-rose-900/30 rounded-full transition-colors text-slate-400 dark:text-dk-muted hover:text-rose-500 dark:text-rose-300"><X className="w-5 h-5" /></button>
                 </div>
 
                 <div className="p-6 overflow-y-auto flex-1 space-y-6 bg-slate-50 dark:bg-dk-bg/50">
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-white dark:bg-dk-surface p-4 border rounded-2xl shadow-sm">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-white dark:bg-dk-surface p-4 border rounded-2xl shadow-sm dark:shadow-dk-sm">
                         <div><Lbl t={tx(lang,{fr:'Fournisseur',ar:'المورد',en:'Supplier',es:'Proveedor',pt:'Fornecedor',tr:'Tedarikçi'})} /><input className={inp} value={bc.fournisseurNom} onChange={e => setBc({ ...bc, fournisseurNom: e.target.value })} /></div>
                         <div>
                             <Lbl t={tx(lang,{fr:'Date Prévue',ar:'التاريخ المتوقع',en:'Expected Date',es:'Fecha Prevista',pt:'Data Prevista',tr:'Beklenen Tarih'})} />
@@ -312,7 +312,7 @@ function BonCommandeModal({
                         <div><Lbl t={tx(lang,{fr:'Statut',ar:'الحالة',en:'Status',es:'Estado',pt:'Status',tr:'Durum'})} /><select className={inp} value={bc.statut} onChange={e => setBc({ ...bc, statut: e.target.value as any })}><option value="brouillon">{tx(lang,{fr:'Brouillon',ar:'مسودة',en:'Draft',es:'Borrador',pt:'Rascunho',tr:'Taslak'})}</option><option value="envoye">{tx(lang,{fr:'Envoyé',ar:'مرسل',en:'Sent',es:'Enviado',pt:'Enviado',tr:'Gönderildi'})}</option><option value="valide">{tx(lang,{fr:'Validé/Approuvé',ar:'مُعتمد',en:'Approved',es:'Aprobado',pt:'Aprovado',tr:'Onaylandı'})}</option><option value="livre">{tx(lang,{fr:'Livré totalement',ar:'تم التسليم كلياً',en:'Fully Delivered',es:'Entregado totalmente',pt:'Totalmente Entregue',tr:'Tam Teslim Edildi'})}</option></select></div>
                     </div>
 
-                    <div className="bg-white dark:bg-dk-surface border rounded-2xl shadow-sm overflow-hidden flex flex-col">
+                    <div className="bg-white dark:bg-dk-surface border rounded-2xl shadow-sm dark:shadow-dk-sm overflow-hidden flex flex-col">
                         <div className="p-4 bg-slate-50 dark:bg-dk-bg border-b flex flex-wrap gap-4 items-end">
                             <div className="flex-1 min-w-[200px]"><Lbl t={tx(lang,{fr:'Ajouter un Produit',ar:'إضافة منتج',en:'Add a Product',es:'Agregar un Producto',pt:'Adicionar um Produto',tr:'Ürün Ekle'})} /><select className={inp} value={addPid} onChange={e => setAddPid(e.target.value)}><option value="">{tx(lang, {fr: '-- Sélectionner --', ar: '-- اختر --', en: '-- Select --', es: '-- Seleccionar --', pt: '-- Selecionar --', tr: '-- Seçin --'})}</option>{products.map(p => <option key={p.id} value={p.id}>{p.reference} - {p.designation} (Frs: {p.fournisseurNom || '?'})</option>)}</select></div>
                             <div className="w-32"><Lbl t={tx(lang,{fr:'Quantité',ar:'الكمية',en:'Quantity',es:'Cantidad',pt:'Quantidade',tr:'Miktar'})} /><input type="number" min="0" className={inp} value={addQty} onChange={e => setAddQty(e.target.value.replace(/-/g, ''))} /></div>
@@ -457,7 +457,7 @@ function InvoiceSettingsModal({ template, onSave, onClose }: { template: Invoice
                 {Ic && <Ic className={`w-3.5 h-3.5 transition-colors ${on ? 'text-amber-500 dark:text-amber-300' : 'text-slate-300 dark:text-dk-muted'}`} />}
                 <span className={`flex-1 text-left text-[13px] font-semibold transition-colors ${on ? 'text-slate-700 dark:text-dk-text' : 'text-slate-400 dark:text-dk-muted'}`}>{label}</span>
                 <div className={`relative w-10 h-[22px] rounded-full transition-all duration-300 shrink-0 ${on ? 'bg-gradient-to-r from-amber-400 to-orange-400 shadow-inner' : 'bg-slate-200 dark:bg-dk-border'}`}>
-                    <div className={`absolute top-[3px] w-4 h-4 bg-white dark:bg-dk-surface rounded-full shadow-md transition-all duration-300 ${on ? 'left-[21px] scale-105' : 'left-[3px]'}`} />
+                    <div className={`absolute top-[3px] w-4 h-4 bg-white dark:bg-dk-surface rounded-full shadow-md dark:shadow-dk-md transition-all duration-300 ${on ? 'left-[21px] scale-105' : 'left-[3px]'}`} />
                 </div>
             </button>
         );
@@ -465,7 +465,7 @@ function InvoiceSettingsModal({ template, onSave, onClose }: { template: Invoice
 
     // ─── LIVE DOCUMENT PREVIEW (always visible) ───
     const LivePreview = () => (
-        <div className="bg-white dark:bg-dk-surface rounded-xl border border-slate-200 dark:border-dk-border shadow-lg overflow-hidden h-full" style={{ fontFamily: 'system-ui, -apple-system, sans-serif' }}>
+        <div className="bg-white dark:bg-dk-surface rounded-xl border border-slate-200 dark:border-dk-border shadow-lg dark:shadow-dk-lg overflow-hidden h-full" style={{ fontFamily: 'system-ui, -apple-system, sans-serif' }}>
             {/* Preview header badge */}
             <div className="bg-gradient-to-r from-slate-800 to-slate-700 px-3 py-1.5 flex items-center justify-between">
                 <span className="text-[9px] font-black text-white/70 uppercase tracking-widest flex items-center gap-1.5">
@@ -587,7 +587,7 @@ function InvoiceSettingsModal({ template, onSave, onClose }: { template: Invoice
                 <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-xl" onClick={handleClose} />
 
                 {/* Modal — wider for split panel */}
-                <div className={`relative bg-white dark:bg-dk-surface/95 backdrop-blur-2xl rounded-[24px] shadow-2xl w-full max-w-[1200px] max-h-[92vh] overflow-hidden flex flex-col border border-white/40 ${isClosing ? 'inv-modal-exit' : 'inv-modal-enter'}`}
+                <div className={`relative bg-white dark:bg-dk-surface/95 backdrop-blur-2xl rounded-[24px] shadow-2xl dark:shadow-dk-elevated w-full max-w-[1200px] max-h-[92vh] overflow-hidden flex flex-col border border-white/40 ${isClosing ? 'inv-modal-exit' : 'inv-modal-enter'}`}
                      style={{ boxShadow: '0 32px 64px -12px rgba(0,0,0,0.25), 0 0 0 1px rgba(255,255,255,0.1) inset' }}>
 
                     {/* ─ HEADER ─ warm amber/charcoal */}
@@ -598,7 +598,7 @@ function InvoiceSettingsModal({ template, onSave, onClose }: { template: Invoice
 
                         <div className="relative flex items-center justify-between">
                             <div className="flex items-center gap-4">
-                                <div className="w-11 h-11 bg-amber-50 dark:bg-amber-900/300/15 backdrop-blur-sm rounded-2xl flex items-center justify-center border border-amber-400/20 shadow-lg shadow-amber-900/10">
+                                <div className="w-11 h-11 bg-amber-50 dark:bg-amber-900/300/15 backdrop-blur-sm rounded-2xl flex items-center justify-center border border-amber-400/20 shadow-lg dark:shadow-dk-lg shadow-amber-900/10">
                                     <FileText className="w-5 h-5 text-amber-400 dark:text-amber-300" />
                                 </div>
                                 <div>
@@ -657,7 +657,7 @@ function InvoiceSettingsModal({ template, onSave, onClose }: { template: Invoice
                                             <div className="relative bg-gradient-to-br from-slate-50 to-white rounded-2xl border-2 border-dashed border-slate-200 dark:border-dk-border p-6 text-center group hover:border-amber-300 transition-all duration-300">
                                                 {s.logo ? (
                                                     <div className="space-y-3">
-                                                        <div className="w-24 h-24 mx-auto rounded-2xl bg-white dark:bg-dk-surface shadow-lg border border-slate-100 dark:border-dk-border/60 overflow-hidden p-2">
+                                                        <div className="w-24 h-24 mx-auto rounded-2xl bg-white dark:bg-dk-surface shadow-lg dark:shadow-dk-lg border border-slate-100 dark:border-dk-border/60 overflow-hidden p-2">
                                                             <img src={s.logo} className="w-full h-full object-contain" />
                                                         </div>
                                                         <div className="flex items-center justify-center gap-2">
@@ -846,7 +846,7 @@ function InvoiceSettingsModal({ template, onSave, onClose }: { template: Invoice
                             </button>
                             <button
                                 onClick={handleSave}
-                                className={`px-6 py-2 font-black text-white bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 hover:from-amber-600 hover:via-orange-600 hover:to-amber-700 rounded-xl text-sm flex gap-2 items-center shadow-lg shadow-amber-200/40 transition-all duration-200 hover:scale-[1.02] active:scale-95 ${saveFlash ? 'inv-save-flash' : ''}`}
+                                className={`px-6 py-2 font-black text-white bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 hover:from-amber-600 hover:via-orange-600 hover:to-amber-700 rounded-xl text-sm flex gap-2 items-center shadow-lg dark:shadow-dk-lg shadow-amber-200/40 transition-all duration-200 hover:scale-[1.02] active:scale-95 ${saveFlash ? 'inv-save-flash' : ''}`}
                             >
                                 <Save className="w-4 h-4" /> {tx(lang,{fr:'Sauvegarder',ar:'حفظ',en:'Save',es:'Guardar',pt:'Salvar',tr:'Kaydet'})}
                             </button>
@@ -887,7 +887,7 @@ function InvoicePrinter({ mvt, product, template, onClose, t, lang }: { mvt: Mou
             ` }} />
 
             {/* Toolbar */}
-            <div className="bl-no-print sticky top-0 z-50 bg-white dark:bg-dk-surface border-b border-slate-200 dark:border-dk-border shadow-sm">
+            <div className="bl-no-print sticky top-0 z-50 bg-white dark:bg-dk-surface border-b border-slate-200 dark:border-dk-border shadow-sm dark:shadow-dk-sm">
                 <div className="max-w-4xl mx-auto px-6 py-3 flex items-center justify-between">
                     <div className="flex items-center gap-4">
                         <button onClick={onClose} className="flex items-center gap-2 px-4 py-2 text-slate-600 dark:text-dk-text-soft hover:bg-slate-100 rounded-xl font-bold text-sm transition-colors">
@@ -901,7 +901,7 @@ function InvoicePrinter({ mvt, product, template, onClose, t, lang }: { mvt: Mou
                     </div>
                     <button
                         onClick={() => window.print()}
-                        className="flex items-center gap-2 px-6 py-2.5 bg-indigo-600 dark:bg-dk-accent dark:bg-indigo-700 hover:bg-indigo-700 dark:hover:bg-dk-accent-hover text-white font-black rounded-xl text-sm shadow-lg shadow-indigo-200 dark:shadow-indigo-900/30 transition-all active:scale-95"
+                        className="flex items-center gap-2 px-6 py-2.5 bg-indigo-600 dark:bg-dk-accent dark:bg-indigo-700 hover:bg-indigo-700 dark:hover:bg-dk-accent-hover text-white font-black rounded-xl text-sm shadow-lg dark:shadow-dk-lg shadow-indigo-200 dark:shadow-indigo-900/30 transition-all active:scale-95"
                     >
                         <Printer className="w-4 h-4" /> {tx(lang,{fr:'Imprimer',ar:'طباعة',en:'Print',es:'Imprimir',pt:'Imprimir',tr:'Yazdır'})}
                     </button>
@@ -910,7 +910,7 @@ function InvoicePrinter({ mvt, product, template, onClose, t, lang }: { mvt: Mou
 
             {/* A4 Sheet */}
             <div className="bl-print-root py-8">
-                <div className="bl-sheet bg-white dark:bg-dk-surface max-w-4xl mx-auto shadow-2xl rounded-2xl overflow-hidden" style={{ minHeight: '297mm' }}>
+                <div className="bl-sheet bg-white dark:bg-dk-surface max-w-4xl mx-auto shadow-2xl dark:shadow-dk-elevated rounded-2xl overflow-hidden" style={{ minHeight: '297mm' }}>
                     <div className="p-12">
 
                         {/* === HEADER === */}
@@ -1337,7 +1337,7 @@ function ImageMagnifier({ src, onClose }: { src: string, onClose: () => void }) 
                 <X className="w-6 h-6" />
             </button>
             <div 
-                className="relative max-w-[90vw] max-h-[90vh] bg-white dark:bg-dk-surface p-2 rounded-3xl shadow-2xl animate-in zoom-in-95 duration-300"
+                className="relative max-w-[90vw] max-h-[90vh] bg-white dark:bg-dk-surface p-2 rounded-3xl shadow-2xl dark:shadow-dk-elevated animate-in zoom-in-95 duration-300"
                 onClick={e => e.stopPropagation()}
             >
                 <img 
@@ -1369,7 +1369,7 @@ function ProductPhotoWithPreview({ src, t }: { src: string, t: any }) {
             <div className="relative inline-block">
                 <img 
                     src={src} 
-                    className="w-full h-full object-cover rounded cursor-zoom-in hover:ring-2 hover:ring-indigo-400 transition-all shadow-sm"
+                    className="w-full h-full object-cover rounded cursor-zoom-in hover:ring-2 hover:ring-indigo-400 transition-all shadow-sm dark:shadow-dk-sm"
                     onMouseEnter={handleMouseEnter}
                     onMouseLeave={handleMouseLeave}
                     onClick={(e) => { e.stopPropagation(); setMagnify(true); }}
@@ -1394,7 +1394,7 @@ function CustomProductSelect({ value, onChange, products, lots, t }: any) {
     return (
         <div className="relative">
             <div 
-                className={`w-full border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface rounded-xl px-4 py-2 text-sm outline-none cursor-pointer flex items-center justify-between ${open ? 'ring-2 ring-indigo-300 dark:ring-indigo-800 border-indigo-400 shadow-lg' : ''}`}
+                className={`w-full border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface rounded-xl px-4 py-2 text-sm outline-none cursor-pointer flex items-center justify-between ${open ? 'ring-2 ring-indigo-300 dark:ring-indigo-800 border-indigo-400 shadow-lg dark:shadow-dk-lg' : ''}`}
                 onClick={() => setOpen(!open)}
             >
                 {selected ? (
@@ -1422,7 +1422,7 @@ function CustomProductSelect({ value, onChange, products, lots, t }: any) {
             {open && (
                 <>
                     <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
-                    <div className="absolute top-11 left-0 w-full z-50 bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border shadow-xl rounded-xl mt-1 max-h-64 overflow-y-auto">
+                    <div className="absolute top-11 left-0 w-full z-50 bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border shadow-xl dark:shadow-dk-elevated rounded-xl mt-1 max-h-64 overflow-y-auto">
                         <div 
                             className="p-3 hover:bg-slate-50 dark:hover:bg-dk-elevated/60 cursor-pointer flex items-center border-b" 
                             onClick={() => { onChange(""); setOpen(false); }}
@@ -1986,7 +1986,7 @@ export default function Magasin({ models = [], planningEvents = [], settings }: 
                     <div className="space-y-6 animate-in fade-in zoom-in-95 duration-300">
                         {/* TOP STATS */}
                         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                            <div className="bg-white dark:bg-dk-surface rounded-2xl p-5 border border-slate-200 dark:border-dk-border shadow-sm flex items-center gap-4">
+                            <div className="bg-white dark:bg-dk-surface rounded-2xl p-5 border border-slate-200 dark:border-dk-border shadow-sm dark:shadow-dk-sm flex items-center gap-4">
                                 <div className="w-12 h-12 rounded-xl bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 dark:bg-indigo-900/30 flex items-center justify-center shrink-0">
                                     <Package className="w-6 h-6 text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text dark:text-indigo-300" />
                                 </div>
@@ -1995,7 +1995,7 @@ export default function Magasin({ models = [], planningEvents = [], settings }: 
                                     <p className="text-2xl font-black text-slate-800 dark:text-dk-text">{products.length}</p>
                                 </div>
                             </div>
-                            <div className="bg-white dark:bg-dk-surface rounded-2xl p-5 border border-slate-200 dark:border-dk-border shadow-sm flex items-center gap-4">
+                            <div className="bg-white dark:bg-dk-surface rounded-2xl p-5 border border-slate-200 dark:border-dk-border shadow-sm dark:shadow-dk-sm flex items-center gap-4">
                                 <div className="w-12 h-12 rounded-xl bg-emerald-50 dark:bg-emerald-900/30 flex items-center justify-center shrink-0">
                                     <TrendingUp className="w-6 h-6 text-emerald-600 dark:text-emerald-400 dark:text-emerald-300" />
                                 </div>
@@ -2007,7 +2007,7 @@ export default function Magasin({ models = [], planningEvents = [], settings }: 
                                     </p>
                                 </div>
                             </div>
-                            <div className="bg-white dark:bg-dk-surface rounded-2xl p-5 border border-slate-200 dark:border-dk-border shadow-sm flex items-center gap-4">
+                            <div className="bg-white dark:bg-dk-surface rounded-2xl p-5 border border-slate-200 dark:border-dk-border shadow-sm dark:shadow-dk-sm flex items-center gap-4">
                                 <div className="w-12 h-12 rounded-xl bg-rose-50 dark:bg-rose-900/30 flex items-center justify-center shrink-0">
                                     <AlertTriangle className="w-6 h-6 text-rose-600 dark:text-rose-400 dark:text-rose-300" />
                                 </div>
@@ -2016,7 +2016,7 @@ export default function Magasin({ models = [], planningEvents = [], settings }: 
                                     <p className="text-2xl font-black text-rose-600 dark:text-rose-400 dark:text-rose-300">{alertCount}</p>
                                 </div>
                             </div>
-                            <div className="bg-white dark:bg-dk-surface rounded-2xl p-5 border border-slate-200 dark:border-dk-border shadow-sm flex items-center gap-4">
+                            <div className="bg-white dark:bg-dk-surface rounded-2xl p-5 border border-slate-200 dark:border-dk-border shadow-sm dark:shadow-dk-sm flex items-center gap-4">
                                 <div className="w-12 h-12 rounded-xl bg-blue-50 dark:bg-blue-900/30 flex items-center justify-center shrink-0">
                                     <Activity className="w-6 h-6 text-blue-600 dark:text-blue-400 dark:text-blue-300" />
                                 </div>
@@ -2030,7 +2030,7 @@ export default function Magasin({ models = [], planningEvents = [], settings }: 
                         {/* MIDDLE SECTION: HEALTH & ANTICIPATION */}
                         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                             {/* STOCK HEALTH */}
-                            <div className="bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border shadow-sm p-6 lg:col-span-1 flex flex-col items-center justify-center relative overflow-hidden">
+                            <div className="bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border shadow-sm dark:shadow-dk-sm p-6 lg:col-span-1 flex flex-col items-center justify-center relative overflow-hidden">
                                 <div className="absolute -top-10 -right-10 w-32 h-32 bg-slate-50 dark:bg-dk-bg rounded-full zoom-in-50"></div>
                                 <Layers className="w-10 h-10 text-slate-300 dark:text-dk-muted mb-4" />
                                 <h3 className="font-black text-slate-800 dark:text-dk-text text-lg mb-1">{t('Stock Dormant')}</h3>
@@ -2048,7 +2048,7 @@ export default function Magasin({ models = [], planningEvents = [], settings }: 
                             </div>
 
                             {/* PLANNING ANTICIPATION */}
-                            <div className="bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border shadow-sm p-6 lg:col-span-2 flex flex-col">
+                            <div className="bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border shadow-sm dark:shadow-dk-sm p-6 lg:col-span-2 flex flex-col">
                                 <div className="flex justify-between items-center mb-6">
                                     <div>
                                         <h3 className="font-black text-slate-800 dark:text-dk-text text-lg flex items-center gap-2"><Send className="w-5 h-5 text-indigo-500 dark:text-indigo-300" /> {t('Anticipation Production')}</h3>
@@ -2084,7 +2084,7 @@ export default function Magasin({ models = [], planningEvents = [], settings }: 
                                                     {!isTissuSuffisant && <div className="absolute top-0 right-0 bg-red-500 dark:bg-red-700 text-white text-[9px] font-black px-2 py-0.5 rounded-bl-lg z-10 animate-pulse">STOCK CRITIQUE</div>}
 
                                                     <div className="flex gap-3 mb-3 relative z-0">
-                                                        <div className="w-12 h-16 bg-slate-200 dark:bg-dk-border rounded-xl overflow-hidden shadow-sm shrink-0">
+                                                        <div className="w-12 h-16 bg-slate-200 dark:bg-dk-border rounded-xl overflow-hidden shadow-sm dark:shadow-dk-sm shrink-0">
                                                             {photo ? <img src={photo} className="w-full h-full object-cover" alt="" /> : <Package className="w-6 h-6 m-3 text-slate-400 dark:text-dk-muted" />}
                                                         </div>
                                                         <div className="flex-1 min-w-0">
@@ -2116,7 +2116,7 @@ export default function Magasin({ models = [], planningEvents = [], settings }: 
                         {/* TRANSIT & RECENT ACTIONS */}
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                             {/* EN TRANSIT (Commandes) */}
-                            <div className="bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border shadow-sm overflow-hidden flex flex-col">
+                            <div className="bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border shadow-sm dark:shadow-dk-sm overflow-hidden flex flex-col">
                                 <div className="px-6 py-4 border-b border-slate-100 dark:border-dk-border/60 flex justify-between items-center">
                                     <h3 className="font-bold text-slate-800 dark:text-dk-text flex items-center gap-2"><ArrowDownCircle className="w-4 h-4 text-emerald-500 dark:text-emerald-300" /> {t('Approvisionnements en Transit')}</h3>
                                     <button onClick={() => setTab('commandes')} className="text-[10px] uppercase font-black tracking-widest text-emerald-600 dark:text-emerald-400 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-900/30 px-2 py-1 rounded hover:bg-emerald-100 dark:bg-emerald-900/40 transition-colors">{t('Gérer')}</button>
@@ -2147,7 +2147,7 @@ export default function Magasin({ models = [], planningEvents = [], settings }: 
                             </div>
 
                             {/* RECENT MOVEMENTS */}
-                            <div className="bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border shadow-sm overflow-hidden flex flex-col">
+                            <div className="bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border shadow-sm dark:shadow-dk-sm overflow-hidden flex flex-col">
                                 <div className="px-6 py-4 border-b border-slate-100 dark:border-dk-border/60 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
                                     <div>
                                         <h3 className="font-bold text-slate-800 dark:text-dk-text flex items-center gap-2"><History className="w-4 h-4 text-indigo-500 dark:text-indigo-300" /> {t('Derniers Mouvements')}</h3>
@@ -2201,7 +2201,7 @@ export default function Magasin({ models = [], planningEvents = [], settings }: 
                             }} className="bg-indigo-600 dark:bg-dk-accent dark:bg-indigo-700 text-white px-4 py-2 rounded-xl font-black text-sm hover:bg-indigo-700 dark:hover:bg-dk-accent-hover flex items-center gap-2"><Plus className="w-4 h-4" /> {t('Créer Demande Test')}</button>
                         </div>
 
-                        <div className="bg-white dark:bg-dk-surface rounded-3xl border shadow-sm overflow-hidden">
+                        <div className="bg-white dark:bg-dk-surface rounded-3xl border shadow-sm dark:shadow-dk-sm overflow-hidden">
                             {demandes.length === 0 ? (
                                 <div className="py-24 text-center">
                                     <Package className="w-16 h-16 text-slate-200 dark:text-dk-muted mx-auto mb-4" />
@@ -2216,7 +2216,7 @@ export default function Magasin({ models = [], planningEvents = [], settings }: 
                                             <div key={d.id} className="p-4 md:p-6 flex flex-col md:flex-row gap-6 md:items-center hover:bg-slate-50 dark:hover:bg-dk-elevated/60 transition-colors">
                                                 <div className="flex-1">
                                                     <div className="flex items-center gap-3 mb-1">
-                                                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider border ${d.statut === 'attente' ? 'bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800' : d.statut === 'preparee' ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800' : d.statut === 'rejetee' ? 'bg-rose-50 dark:bg-rose-900/30 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-800' : 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800'}`}>{t(d.statut)}</span>
+                                                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider border ${d i a.statut === 'attente' ? 'bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800' : d i a.statut === 'preparee' ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800' : d i a.statut === 'rejetee' ? 'bg-rose-50 dark:bg-rose-900/30 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-800' : 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800'}`}>{t(d.statut)}</span>
                                                         <span className="text-xs font-bold text-slate-500 dark:text-dk-muted font-mono">{t('Demande du')} {new Date(d.dateDemande).toLocaleDateString()}</span>
                                                         <span className="text-xs bg-slate-100 dark:bg-dk-elevated/60 text-slate-600 dark:text-dk-text-soft px-2 py-0.5 rounded font-bold">{d.demandeur}</span>
                                                     </div>
@@ -2229,7 +2229,7 @@ export default function Magasin({ models = [], planningEvents = [], settings }: 
                                                     <div className="bg-slate-100 dark:bg-dk-elevated/60 rounded-2xl p-4 flex gap-6 text-center shadow-inner">
                                                         <div><div className="text-[10px] font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest mb-1">{t('Demandé')}</div><div className="font-black text-2xl text-slate-800 dark:text-dk-text">{d.quantiteDemandee} <span className="text-sm font-medium">{p?.unite}</span></div></div>
                                                         <div className="w-px bg-slate-200 dark:bg-dk-border" />
-                                                        <div><div className="text-[10px] font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest mb-1">{t('En Stock')}</div><div className={`font-black text-2xl ${st >= d.quantiteDemandee ? 'text-emerald-600 dark:text-emerald-400 dark:text-emerald-300' : 'text-rose-600 dark:text-rose-400 dark:text-rose-300'}`}>{st.toFixed(0)} <span className="text-sm font-medium">{p?.unite}</span></div></div>
+                                                        <div><div className="text-[10px] font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest mb-1">{t('En Stock')}</div><div className={`font-black text-2xl ${st >= d i a.quantiteDemandee ? 'text-emerald-600 dark:text-emerald-400 dark:text-emerald-300' : 'text-rose-600 dark:text-rose-400 dark:text-rose-300'}`}>{st.toFixed(0)} <span className="text-sm font-medium">{p?.unite}</span></div></div>
                                                     </div>
 
                                                     {d.statut === 'attente' && (
@@ -2243,7 +2243,7 @@ export default function Magasin({ models = [], planningEvents = [], settings }: 
                                                                 setBModele(d.modelId);
                                                                 setBNotes(`Sortie générée pour la Demande depuis ${d.demandeur}`);
                                                                 setDemandes?.(ds => ds.map(x => x.id === d.id ? { ...x, statut: 'preparee' } : x));
-                                                            }} className="flex-1 md:flex-none px-6 py-3 bg-indigo-600 dark:bg-dk-accent dark:bg-indigo-700 text-white font-black text-sm rounded-xl hover:bg-indigo-700 dark:hover:bg-dk-accent-hover shadow-sm shadow-indigo-200 dark:shadow-indigo-900/30 transition-all active:scale-95">{t('Préparer')}</button>
+                                                            }} className="flex-1 md:flex-none px-6 py-3 bg-indigo-600 dark:bg-dk-accent dark:bg-indigo-700 text-white font-black text-sm rounded-xl hover:bg-indigo-700 dark:hover:bg-dk-accent-hover shadow-sm dark:shadow-dk-sm shadow-indigo-200 dark:shadow-indigo-900/30 transition-all active:scale-95">{t('Préparer')}</button>
                                                             <button onClick={() => setDemandes?.(ds => ds.map(x => x.id === d.id ? { ...x, statut: 'rejetee' } : x))} className="flex-1 md:flex-none px-4 py-3 bg-white dark:bg-dk-surface border-2 border-slate-200 dark:border-dk-border text-slate-600 dark:text-dk-text-soft font-black text-sm rounded-xl hover:border-rose-200 dark:border-rose-800 hover:text-rose-600 dark:text-rose-300 transition-all active:scale-95">{t('Refuser')}</button>
                                                         </div>
                                                     )}
@@ -2273,16 +2273,16 @@ export default function Magasin({ models = [], planningEvents = [], settings }: 
                                 return (
                                         <div 
                                             key={p.id} 
-                                            className="bg-white dark:bg-dk-surface rounded-2xl border shadow-sm p-4 hover:shadow-md transition-shadow relative overflow-hidden cursor-pointer group" 
+                                            className="bg-white dark:bg-dk-surface rounded-2xl border shadow-sm dark:shadow-dk-sm p-4 hover:shadow-md transition-shadow relative overflow-hidden cursor-pointer group" 
                                             onClick={() => setSelectedProductForDetail(p)}
                                             onContextMenu={(e) => {
                                                 e.preventDefault();
                                                 setContextMenu({ x: e.clientX, y: e.clientY, pid: p.id });
                                             }}
                                         >
-                                         <div className={`absolute top-0 inset-x-0 h-1 ${st === 0 ? 'bg-red-500 dark:bg-red-700' : st <= p.stockAlerte ? 'bg-amber-400 dark:bg-amber-800' : 'bg-emerald-400 dark:bg-emerald-800'}`} />
+                                         <div className={`absolute top-0 inset-x-0 h-1 ${st === 0 ? 'bg-red-500 dark:bg-red-700' : st <= p l.stockAlerte ? 'bg-amber-400 dark:bg-amber-800' : 'bg-emerald-400 dark:bg-emerald-800'}`} />
                                          <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                             <div className="bg-indigo-600 dark:bg-dk-accent dark:bg-indigo-700 text-white text-[10px] font-bold px-2 py-1 rounded-lg shadow-lg">
+                                             <div className="bg-indigo-600 dark:bg-dk-accent dark:bg-indigo-700 text-white text-[10px] font-bold px-2 py-1 rounded-lg shadow-lg dark:shadow-dk-lg">
                                                  Voir détails
                                              </div>
                                          </div>
@@ -2334,7 +2334,7 @@ export default function Magasin({ models = [], planningEvents = [], settings }: 
                                                         {Object.entries(baths).sort((a, b) => b[1] - a[1]).map(([bain, q], idx) => {
                                                             const colorClass = colors[bain.length % colors.length];
                                                             return (
-                                                                <div key={bain} className={`text-xs font-black px-2 py-1 rounded border ${colorClass} flex items-center justify-between min-w-[100px] shadow-sm`}>
+                                                                <div key={bain} className={`text-xs font-black px-2 py-1 rounded border ${colorClass} flex items-center justify-between min-w-[100px] shadow-sm dark:shadow-dk-sm`}>
                                                                     <span>#{bain}</span>
                                                                     <span className="opacity-80 ml-2">{q.toFixed(1)} <span className="text-[10px]">{p.unite}</span></span>
                                                                 </div>
@@ -2357,13 +2357,13 @@ export default function Magasin({ models = [], planningEvents = [], settings }: 
 
                 {contextMenu && (
                     <div 
-                        className="fixed z-[9999] bg-white dark:bg-dk-surface rounded-xl shadow-2xl border border-slate-200 dark:border-dk-border overflow-hidden text-sm w-48 animate-in fade-in zoom-in-95 duration-100"
+                        className="fixed z-[9999] bg-white dark:bg-dk-surface rounded-xl shadow-2xl dark:shadow-dk-elevated border border-slate-200 dark:border-dk-border overflow-hidden text-sm w-48 animate-in fade-in zoom-in-95 duration-100"
                         style={{ top: contextMenu.y, left: contextMenu.x }}
                         onClick={(e) => e.stopPropagation()}
                     >
-                        <button onClick={() => { setTab('bureau'); setBMode('entree'); setBPid(contextMenu.pid); setContextMenu(null); }} className="w-full text-left px-4 py-3 hover:bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 font-bold border-b border-slate-100 dark:border-dk-border/60 flex items-center gap-2 shadow-sm"><ArrowDownCircle className="w-4 h-4" /> {t('Entrée')}</button>
-                        <button onClick={() => { setTab('bureau'); setBMode('sortie'); setBPid(contextMenu.pid); setContextMenu(null); }} className="w-full text-left px-4 py-3 hover:bg-indigo-50 dark:bg-dk-accent/20 dark:bg-indigo-900/30 text-indigo-700 dark:text-dk-accent-text dark:text-indigo-300 font-bold border-b border-slate-100 dark:border-dk-border/60 flex items-center gap-2 shadow-sm"><ArrowUpCircle className="w-4 h-4" /> {t('Sortie')}</button>
-                        <button onClick={() => { setTab('bureau'); setBMode('rebut'); setBPid(contextMenu.pid); setContextMenu(null); }} className="w-full text-left px-4 py-3 hover:bg-rose-50 dark:bg-rose-900/30 text-rose-700 dark:text-rose-300 font-bold border-b border-slate-100 dark:border-dk-border/60 flex items-center gap-2 shadow-sm"><Trash2 className="w-4 h-4" /> {t('Rebut')}</button>
+                        <button onClick={() => { setTab('bureau'); setBMode('entree'); setBPid(contextMenu.pid); setContextMenu(null); }} className="w-full text-left px-4 py-3 hover:bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 font-bold border-b border-slate-100 dark:border-dk-border/60 flex items-center gap-2 shadow-sm dark:shadow-dk-sm"><ArrowDownCircle className="w-4 h-4" /> {t('Entrée')}</button>
+                        <button onClick={() => { setTab('bureau'); setBMode('sortie'); setBPid(contextMenu.pid); setContextMenu(null); }} className="w-full text-left px-4 py-3 hover:bg-indigo-50 dark:bg-dk-accent/20 dark:bg-indigo-900/30 text-indigo-700 dark:text-dk-accent-text dark:text-indigo-300 font-bold border-b border-slate-100 dark:border-dk-border/60 flex items-center gap-2 shadow-sm dark:shadow-dk-sm"><ArrowUpCircle className="w-4 h-4" /> {t('Sortie')}</button>
+                        <button onClick={() => { setTab('bureau'); setBMode('rebut'); setBPid(contextMenu.pid); setContextMenu(null); }} className="w-full text-left px-4 py-3 hover:bg-rose-50 dark:bg-rose-900/30 text-rose-700 dark:text-rose-300 font-bold border-b border-slate-100 dark:border-dk-border/60 flex items-center gap-2 shadow-sm dark:shadow-dk-sm"><Trash2 className="w-4 h-4" /> {t('Rebut')}</button>
                         <button onClick={() => { setTab('bureau'); setBMode('retour_atelier'); setBPid(contextMenu.pid); setContextMenu(null); }} className="w-full text-left px-4 py-3 hover:bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 font-bold flex items-center gap-2"><RefreshCw className="w-4 h-4" /> {t('Retour')}</button>
                     </div>
                 )}
@@ -2391,7 +2391,7 @@ export default function Magasin({ models = [], planningEvents = [], settings }: 
 
                         <div className="grid lg:grid-cols-2 gap-6">
                             {/* Action Form */}
-                            <div className="bg-white dark:bg-dk-surface rounded-2xl border shadow-sm">
+                            <div className="bg-white dark:bg-dk-surface rounded-2xl border shadow-sm dark:shadow-dk-sm">
                                 <div className="grid grid-cols-3 divide-x divide-y border-b text-xs sm:text-sm">
                                     <button onClick={() => setBMode('entree')} className={`col-span-1 p-3 font-black flex flex-col gap-1 items-center justify-center ${bMode === 'entree' ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300' : 'text-slate-500 dark:text-dk-muted hover:bg-slate-50 dark:hover:bg-dk-elevated/60'}`}><ArrowDownCircle className="w-5 h-5" /> {t('Entrée')}</button>
                                     <button onClick={() => setBMode('sortie')} className={`col-span-1 p-3 font-black flex flex-col gap-1 items-center justify-center ${bMode === 'sortie' ? 'bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 dark:bg-indigo-900/30 text-indigo-700 dark:text-dk-accent-text dark:text-indigo-300' : 'text-slate-500 dark:text-dk-muted hover:bg-slate-50 dark:hover:bg-dk-elevated/60'}`}><ArrowUpCircle className="w-5 h-5" /> {t('Sortie')}</button>
@@ -2475,7 +2475,7 @@ export default function Magasin({ models = [], planningEvents = [], settings }: 
                             {/* Right Panel: Lots & History */}
                             <div className="space-y-6 flex flex-col h-full">
                                 {bPid && (
-                                    <div className="bg-white dark:bg-dk-surface rounded-2xl border shadow-sm">
+                                    <div className="bg-white dark:bg-dk-surface rounded-2xl border shadow-sm dark:shadow-dk-sm">
                                         <div className="px-4 py-2 bg-slate-50 dark:bg-dk-bg border-b font-bold text-sm text-slate-600 dark:text-dk-text-soft flex justify-between"><span className="flex items-center gap-1"><Layers className="w-4 h-4" /> {t("Détail des Lots")}</span><span>{t("Traçabilité")}</span></div>
                                         <div className="max-h-[220px] overflow-y-auto divide-y text-sm">
                                             {lots.filter(l => l.productId === bPid && l.quantiteRestante > 0).map((l, i) => (
@@ -2488,7 +2488,7 @@ export default function Magasin({ models = [], planningEvents = [], settings }: 
                                         </div>
                                     </div>
                                 )}
-                                <div className="bg-white dark:bg-dk-surface rounded-2xl border shadow-sm flex-1 overflow-hidden flex flex-col">
+                                <div className="bg-white dark:bg-dk-surface rounded-2xl border shadow-sm dark:shadow-dk-sm flex-1 overflow-hidden flex flex-col">
                                     <div className="px-4 py-3 border-b font-bold text-slate-800 dark:text-dk-text flex items-center justify-between">
                                         <span className="flex items-center gap-2"><History className="w-4 h-4 text-indigo-500 dark:text-indigo-300" /> {t("Registre des Mouvements")}</span>
                                         <button onClick={() => setShowInvoiceSettings(true)} className="p-1.5 text-slate-400 dark:text-dk-muted hover:text-indigo-600 dark:text-dk-accent-text dark:text-indigo-300 hover:bg-indigo-50 dark:bg-dk-accent/20 dark:bg-indigo-900/30 rounded-lg transition-colors" title={t('Configurer le modèle Facture / BL')}>
@@ -2527,7 +2527,7 @@ export default function Magasin({ models = [], planningEvents = [], settings }: 
                 {/* ══ Commandes ══ */}
                 {tab === 'commandes' && (
                     <div className="space-y-6 animate-in fade-in zoom-in-95 duration-300">
-                        <div className="flex justify-between items-center bg-white dark:bg-dk-surface p-4 rounded-2xl border shadow-sm">
+                        <div className="flex justify-between items-center bg-white dark:bg-dk-surface p-4 rounded-2xl border shadow-sm dark:shadow-dk-sm">
                             <div><h2 className="text-xl font-black text-slate-800 dark:text-dk-text flex items-center gap-2"><FileText className="w-5 h-5 text-indigo-500 dark:text-indigo-300" /> {t('Bons de Commande')}</h2><p className="text-sm text-slate-500 dark:text-dk-muted font-bold">{t('Gérez vos réapprovisionnements fournisseurs')}</p></div>
                             <button onClick={() => {
                                 const newBc: BonCommande = { id: uid(), numero: `BC-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`, fournisseurNom: t('Nouveau Fournisseur'), dateCreation: new Date().toISOString(), lignes: [], statut: 'brouillon' };
@@ -2540,7 +2540,7 @@ export default function Magasin({ models = [], planningEvents = [], settings }: 
                         ) : (
                             <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
                                 {commandes.map(c => (
-                                    <div key={c.id} className="bg-white dark:bg-dk-surface rounded-2xl border shadow-sm overflow-hidden flex flex-col relative group">
+                                    <div key={c.id} className="bg-white dark:bg-dk-surface rounded-2xl border shadow-sm dark:shadow-dk-sm overflow-hidden flex flex-col relative group">
                                         <div className={`h-1.5 w-full ${c.statut === 'brouillon' ? 'bg-slate-300 dark:bg-dk-elevated' : c.statut === 'envoye' ? 'bg-amber-400 dark:bg-amber-800' : c.statut === 'valide' ? 'bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 dark:bg-indigo-900/300' : 'bg-emerald-50 dark:bg-emerald-900/300'}`} />
                                         <div className="p-5 flex-1 space-y-4">
                                             <div className="flex justify-between items-start">
@@ -2572,7 +2572,7 @@ export default function Magasin({ models = [], planningEvents = [], settings }: 
                 {/* ══ Inventaire Tournant ══ */}
                 {tab === 'inventaire' && (
                     <div className="space-y-6 animate-in fade-in zoom-in-95 duration-300 max-w-4xl mx-auto">
-                        <div className="bg-white dark:bg-dk-surface p-6 rounded-3xl border shadow-sm">
+                        <div className="bg-white dark:bg-dk-surface p-6 rounded-3xl border shadow-sm dark:shadow-dk-sm">
                             <div className="flex items-center justify-between gap-4 mb-4">
                                 <div className="flex items-center gap-3">
                                     <div className="w-12 h-12 bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400 dark:text-emerald-300 rounded-2xl flex items-center justify-center"><RefreshCw className="w-6 h-6" /></div>
@@ -2595,7 +2595,7 @@ export default function Magasin({ models = [], planningEvents = [], settings }: 
                         </div>
 
                         {invSession && (
-                            <div className="bg-white dark:bg-dk-surface rounded-3xl border shadow-sm overflow-hidden flex flex-col">
+                            <div className="bg-white dark:bg-dk-surface rounded-3xl border shadow-sm dark:shadow-dk-sm overflow-hidden flex flex-col">
                                 <div className="p-4 bg-slate-50 dark:bg-dk-bg border-b flex justify-between items-center">
                                     <div className="font-bold text-slate-700 dark:text-dk-text">{t("Session d'inventaire #")}{invSession.id.toUpperCase()}</div>
                                     <button onClick={() => { if (confirm(t('Annuler cette session ?'))) setInvSession(null); }} className="text-rose-500 dark:text-rose-300 hover:text-rose-600 dark:text-rose-300 font-bold text-sm bg-rose-50 dark:bg-rose-900/30 px-3 py-1 rounded-lg">{t('Annuler')}</button>
@@ -2655,7 +2655,7 @@ export default function Magasin({ models = [], planningEvents = [], settings }: 
                                         if (count > 0) { setLots(newLots); setMvts(newMvts); alert(`${count} ${t('articles mis à jour avec succès !')}`); }
                                         else alert(t('Aucun écart constaté. Inventaire validé.'));
                                         setInvSession(null);
-                                    }} className="w-full py-4 bg-emerald-600 dark:bg-emerald-700 text-white font-black text-lg rounded-2xl hover:bg-emerald-700 flex items-center justify-center gap-2 shadow-lg shadow-emerald-200 dark:shadow-emerald-900/30 transition-transform active:scale-95"><CheckCircle className="w-6 h-6" /> {t("Valider l'inventaire complet")}</button>
+                                    }} className="w-full py-4 bg-emerald-600 dark:bg-emerald-700 text-white font-black text-lg rounded-2xl hover:bg-emerald-700 flex items-center justify-center gap-2 shadow-lg dark:shadow-dk-lg shadow-emerald-200 dark:shadow-emerald-900/30 transition-transform active:scale-95"><CheckCircle className="w-6 h-6" /> {t("Valider l'inventaire complet")}</button>
                                 </div>
                             </div>
                         )}
@@ -2697,7 +2697,7 @@ export default function Magasin({ models = [], planningEvents = [], settings }: 
                                         {alertes.map(p => {
                                             const st = stockQty(lots, p.id);
                                             return (
-                                                <div key={p.id} className="bg-white dark:bg-dk-surface rounded-2xl border border-red-200 dark:border-red-800 overflow-hidden shadow-sm relative group hover:shadow-md transition-shadow">
+                                                <div key={p.id} className="bg-white dark:bg-dk-surface rounded-2xl border border-red-200 dark:border-red-800 overflow-hidden shadow-sm dark:shadow-dk-sm relative group hover:shadow-md transition-shadow">
                                                     <div className="absolute top-0 right-0 bg-red-500 dark:bg-red-700 text-white text-[10px] font-black px-2 py-0.5 rounded-bl-lg">{t('URGENCE ACHAT')}</div>
                                                     <div className="p-4 space-y-3">
                                                         <div className="font-black text-slate-800 dark:text-dk-text text-lg leading-tight mt-2 pr-4">{p.designation}</div>
@@ -2727,9 +2727,9 @@ export default function Magasin({ models = [], planningEvents = [], settings }: 
                                 ) : (
                                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                                         {modelNeeds.map((mn, i) => (
-                                            <div key={i} className="bg-white dark:bg-dk-surface rounded-3xl border border-rose-200 dark:border-rose-800 shadow-sm overflow-hidden flex flex-col">
+                                            <div key={i} className="bg-white dark:bg-dk-surface rounded-3xl border border-rose-200 dark:border-rose-800 shadow-sm dark:shadow-dk-sm overflow-hidden flex flex-col">
                                                 <div className="bg-rose-50 dark:bg-rose-900/30 border-b border-rose-100 dark:border-rose-800/50 p-4 flex gap-4 items-center">
-                                                    <div className="w-12 h-12 bg-white dark:bg-dk-surface rounded-xl shadow-sm overflow-hidden shrink-0">
+                                                    <div className="w-12 h-12 bg-white dark:bg-dk-surface rounded-xl shadow-sm dark:shadow-dk-sm overflow-hidden shrink-0">
                                                         {mn.model.images?.front || mn.model.image ? (
                                                             <img src={mn.model.images?.front || mn.model.image} className="w-full h-full object-cover" />
                                                         ) : (
@@ -2801,14 +2801,14 @@ export default function Magasin({ models = [], planningEvents = [], settings }: 
                     <div className="space-y-6 animate-in fade-in zoom-in-95 duration-300">
                         <div className="flex gap-4 items-center flex-wrap">
                             <h2 className="text-xl font-black text-slate-800 dark:text-dk-text flex-1 flex items-center gap-2"><Recycle className="w-6 h-6 text-emerald-500 dark:text-emerald-300" /> {t('Valorisation : Déchets & Revente')}</h2>
-                            <button onClick={() => alert(t("Fonctionnalité en cours de développement (Phase 6)."))} className="bg-emerald-600 dark:bg-emerald-700 text-white px-4 py-2 rounded-xl font-black text-sm hover:bg-emerald-700 shadow-sm flex items-center gap-2 transition-colors">
+                            <button onClick={() => alert(t("Fonctionnalité en cours de développement (Phase 6)."))} className="bg-emerald-600 dark:bg-emerald-700 text-white px-4 py-2 rounded-xl font-black text-sm hover:bg-emerald-700 shadow-sm dark:shadow-dk-sm flex items-center gap-2 transition-colors">
                                 <Plus className="w-4 h-4" /> {t('Déclarer Nouveau Surplus')}
                             </button>
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             {/* Chutes & Déchets */}
-                            <div className="bg-white dark:bg-dk-surface rounded-3xl border shadow-sm p-6">
+                            <div className="bg-white dark:bg-dk-surface rounded-3xl border shadow-sm dark:shadow-dk-sm p-6">
                                 <h3 className="text-lg font-black text-slate-800 dark:text-dk-text mb-4 flex items-center gap-2"><Trash2 className="w-5 h-5 text-rose-500 dark:text-rose-300" /> {t('Chutes de Coupe (Tissu)')}</h3>
                                 <div className="bg-rose-50 dark:bg-rose-900/30 border border-rose-100 dark:border-rose-800/50 rounded-2xl p-6 text-center mb-6">
                                     <div className="text-4xl font-black text-rose-600 dark:text-rose-400 dark:text-rose-300 mb-2">345 <span className="text-lg">kg</span></div>
@@ -2835,7 +2835,7 @@ export default function Magasin({ models = [], planningEvents = [], settings }: 
                             </div>
 
                             {/* Surplus Fournitures */}
-                            <div className="bg-white dark:bg-dk-surface rounded-3xl border shadow-sm p-6 flex flex-col">
+                            <div className="bg-white dark:bg-dk-surface rounded-3xl border shadow-sm dark:shadow-dk-sm p-6 flex flex-col">
                                 <h3 className="text-lg font-black text-slate-800 dark:text-dk-text mb-4 flex items-center gap-2"><ArrowLeft className="w-5 h-5 text-blue-500 dark:text-blue-300" /> {t('Surplus Fournitures (À revendre)')}</h3>
                                 <div className="bg-blue-50 dark:bg-blue-900/30 border border-blue-100 dark:border-blue-800/50 rounded-2xl p-6 text-center mb-6">
                                     <div className="text-4xl font-black text-blue-600 dark:text-blue-400 dark:text-blue-300 mb-2">1,250 <span className="text-lg">DH</span></div>
@@ -2870,7 +2870,7 @@ export default function Magasin({ models = [], planningEvents = [], settings }: 
                 {/* ══ Traçabilité ══ */}
                 {tab === 'tracabilite' && (
                     <div className="space-y-6 animate-in fade-in zoom-in-95 duration-300 max-w-5xl mx-auto">
-                        <div className="bg-white dark:bg-dk-surface p-6 rounded-3xl border shadow-sm">
+                        <div className="bg-white dark:bg-dk-surface p-6 rounded-3xl border shadow-sm dark:shadow-dk-sm">
                             <div className="flex items-center justify-between gap-4 mb-4">
                                 <h2 className="text-xl font-black text-slate-800 dark:text-dk-text flex items-center gap-2"><LinkIcon className="w-5 h-5 text-indigo-500 dark:text-indigo-300" /> {t('Traçabilité Ascendante / Descendante')}</h2>
                                 <button onClick={exportMouvements} className="px-3 py-2 border rounded-lg hover:bg-slate-50 dark:hover:bg-dk-elevated/60 flex gap-2 items-center text-sm font-bold text-slate-600 dark:text-dk-text-soft" title="Exporter tous les mouvements en CSV"><Download className="w-4 h-4" /> CSV</button>
@@ -2883,7 +2883,7 @@ export default function Magasin({ models = [], planningEvents = [], settings }: 
                         </div>
 
                         {traceQuery.length > 2 ? (
-                            <div className="bg-white dark:bg-dk-surface p-6 rounded-3xl border shadow-sm">
+                            <div className="bg-white dark:bg-dk-surface p-6 rounded-3xl border shadow-sm dark:shadow-dk-sm">
                                 <h3 className="text-lg font-black text-slate-700 dark:text-dk-text mb-6">{t('Résultats pour "')}{traceQuery}"</h3>
                                 <div className="space-y-4 relative before:absolute before:inset-0 before:ml-5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-slate-200 before:to-transparent">
                                     {mvts.filter(m => {
@@ -2902,10 +2902,10 @@ export default function Magasin({ models = [], planningEvents = [], settings }: 
                                                 onClick={() => setSelectedMovement(m)}
                                                 className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active cursor-pointer"
                                             >
-                                                <div className="flex items-center justify-center w-10 h-10 rounded-full border-4 border-white bg-slate-100 dark:bg-dk-elevated/60 text-slate-500 dark:text-dk-muted shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 z-10">
+                                                <div className="flex items-center justify-center w-10 h-10 rounded-full border-4 border-white bg-slate-100 dark:bg-dk-elevated/60 text-slate-500 dark:text-dk-muted shadow dark:shadow-dk-sm shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 z-10">
                                                     {m.type === 'entree' || m.type === 'retour_atelier' ? <TrendingDown className="w-4 h-4 text-emerald-500 dark:text-emerald-300" /> : m.type === 'sortie' || m.type === 'rebut' ? <TrendingUp className="w-4 h-4 text-rose-500 dark:text-rose-300" /> : <RefreshCw className="w-4 h-4 text-amber-500 dark:text-amber-300" />}
                                                 </div>
-                                                <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] bg-white dark:bg-dk-surface p-4 rounded-2xl border shadow-sm">
+                                                <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] bg-white dark:bg-dk-surface p-4 rounded-2xl border shadow-sm dark:shadow-dk-sm">
                                                     <div className="flex justify-between items-start mb-1">
                                                         <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider ${m.type === 'entree' || m.type === 'retour_atelier' ? 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300' : m.type === 'sortie' ? 'bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-dk-accent-text dark:text-indigo-300' : m.type === 'rebut' ? 'bg-rose-100 dark:bg-rose-900/40 text-rose-700 dark:text-rose-300' : m.type === 'regularisation' ? 'bg-purple-100 dark:bg-purple-900/40 text-purple-700' : 'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300'}`}>{t(m.type)}</span>
                                                         <span className="text-xs font-bold text-slate-400 dark:text-dk-muted">{new Date(m.date).toLocaleString()}</span>
@@ -2949,7 +2949,7 @@ export default function Magasin({ models = [], planningEvents = [], settings }: 
                 {/* ══ Factures & BL (Gallery) ══ */}
                 {tab === 'factures' && (
                     <div className="space-y-6 animate-in fade-in zoom-in-95 duration-300">
-                        <div className="bg-white dark:bg-dk-surface p-6 rounded-3xl border shadow-sm">
+                        <div className="bg-white dark:bg-dk-surface p-6 rounded-3xl border shadow-sm dark:shadow-dk-sm">
                             <div className="flex items-center justify-between gap-4 mb-4">
                                 <div>
                                     <h2 className="text-xl font-black text-slate-800 dark:text-dk-text flex items-center gap-2"><FileText className="w-5 h-5 text-indigo-500 dark:text-indigo-300" /> {t('Factures & Bons de Livraison')}</h2>
@@ -3009,7 +3009,7 @@ export default function Magasin({ models = [], planningEvents = [], settings }: 
                                                             role="button"
                                                             tabIndex={0}
                                                             onClick={() => setPrinterMvt(m)}
-                                                            className="group relative bg-white dark:bg-dk-surface rounded-2xl border-2 border-slate-100 dark:border-dk-border/60 hover:border-indigo-300 dark:border-indigo-800 shadow-sm hover:shadow-lg transition-all cursor-pointer overflow-hidden"
+                                                            className="group relative bg-white dark:bg-dk-surface rounded-2xl border-2 border-slate-100 dark:border-dk-border/60 hover:border-indigo-300 dark:border-indigo-800 shadow-sm dark:shadow-dk-sm hover:shadow-lg transition-all cursor-pointer overflow-hidden"
                                                         >
                                                             {/* Thumbnail */}
                                                             <div className="aspect-[3/4] bg-slate-50 dark:bg-dk-bg flex items-center justify-center overflow-hidden relative">
@@ -3023,7 +3023,7 @@ export default function Magasin({ models = [], planningEvents = [], settings }: 
                                                                 )}
                                                                 {/* Overlay on hover */}
                                                                 <div className="absolute inset-0 bg-indigo-600 dark:bg-dk-accent dark:bg-indigo-700/0 group-hover:bg-indigo-600 dark:hover:bg-dk-accent dark:bg-indigo-700/10 transition-colors flex items-center justify-center">
-                                                                    <div className="opacity-0 group-hover:opacity-100 transition-opacity bg-white dark:bg-dk-surface/90 backdrop-blur rounded-xl px-3 py-2 shadow-lg flex items-center gap-2">
+                                                                    <div className="opacity-0 group-hover:opacity-100 transition-opacity bg-white dark:bg-dk-surface/90 backdrop-blur rounded-xl px-3 py-2 shadow-lg dark:shadow-dk-lg flex items-center gap-2">
                                                                         <Printer className="w-4 h-4 text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text dark:text-indigo-300" />
                                                                         <span className="text-xs font-black text-indigo-700 dark:text-dk-accent-text dark:text-indigo-300">{t('Imprimer')}</span>
                                                                     </div>
@@ -3063,7 +3063,7 @@ export default function Magasin({ models = [], planningEvents = [], settings }: 
                     <div className="space-y-6 animate-in fade-in zoom-in-95 duration-300">
                         {/* KPI Cards */}
                         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                            <div className="bg-white dark:bg-dk-surface rounded-2xl p-5 border border-slate-200 dark:border-dk-border shadow-sm flex items-center gap-4">
+                            <div className="bg-white dark:bg-dk-surface rounded-2xl p-5 border border-slate-200 dark:border-dk-border shadow-sm dark:shadow-dk-sm flex items-center gap-4">
                                 <div className="w-12 h-12 rounded-xl bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 dark:bg-indigo-900/30 flex items-center justify-center shrink-0">
                                     <Package className="w-6 h-6 text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text dark:text-indigo-300" />
                                 </div>
@@ -3072,7 +3072,7 @@ export default function Magasin({ models = [], planningEvents = [], settings }: 
                                     <p className="text-2xl font-black text-slate-800 dark:text-dk-text">{finishedGoods.length}</p>
                                 </div>
                             </div>
-                            <div className="bg-white dark:bg-dk-surface rounded-2xl p-5 border border-slate-200 dark:border-dk-border shadow-sm flex items-center gap-4">
+                            <div className="bg-white dark:bg-dk-surface rounded-2xl p-5 border border-slate-200 dark:border-dk-border shadow-sm dark:shadow-dk-sm flex items-center gap-4">
                                 <div className="w-12 h-12 rounded-xl bg-emerald-50 dark:bg-emerald-900/30 flex items-center justify-center shrink-0">
                                     <CheckCircle className="w-6 h-6 text-emerald-600 dark:text-emerald-400 dark:text-emerald-300" />
                                 </div>
@@ -3081,7 +3081,7 @@ export default function Magasin({ models = [], planningEvents = [], settings }: 
                                     <p className="text-2xl font-black text-emerald-600 dark:text-emerald-400 dark:text-emerald-300">{finishedGoods.filter(fg => fg.statut === 'disponible').reduce((s, fg) => s + fg.quantiteRestante, 0).toLocaleString()}</p>
                                 </div>
                             </div>
-                            <div className="bg-white dark:bg-dk-surface rounded-2xl p-5 border border-slate-200 dark:border-dk-border shadow-sm flex items-center gap-4">
+                            <div className="bg-white dark:bg-dk-surface rounded-2xl p-5 border border-slate-200 dark:border-dk-border shadow-sm dark:shadow-dk-sm flex items-center gap-4">
                                 <div className="w-12 h-12 rounded-xl bg-amber-50 dark:bg-amber-900/30 flex items-center justify-center shrink-0">
                                     <Send className="w-6 h-6 text-amber-600 dark:text-amber-400 dark:text-amber-300" />
                                 </div>
@@ -3090,7 +3090,7 @@ export default function Magasin({ models = [], planningEvents = [], settings }: 
                                     <p className="text-2xl font-black text-amber-600 dark:text-amber-400 dark:text-amber-300">{finishedGoods.reduce((s, fg) => s + fg.quantiteExpediee, 0).toLocaleString()}</p>
                                 </div>
                             </div>
-                            <div className="bg-white dark:bg-dk-surface rounded-2xl p-5 border border-slate-200 dark:border-dk-border shadow-sm flex items-center gap-4">
+                            <div className="bg-white dark:bg-dk-surface rounded-2xl p-5 border border-slate-200 dark:border-dk-border shadow-sm dark:shadow-dk-sm flex items-center gap-4">
                                 <div className="w-12 h-12 rounded-xl bg-rose-50 dark:bg-rose-900/30 flex items-center justify-center shrink-0">
                                     <AlertTriangle className="w-6 h-6 text-rose-600 dark:text-rose-400 dark:text-rose-300" />
                                 </div>
@@ -3102,7 +3102,7 @@ export default function Magasin({ models = [], planningEvents = [], settings }: 
                         </div>
 
                         {/* Finished Goods Table */}
-                        <div className="bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border shadow-sm overflow-hidden">
+                        <div className="bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border shadow-sm dark:shadow-dk-sm overflow-hidden">
                             <div className="px-6 py-4 border-b border-slate-100 dark:border-dk-border/60 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
                                 <div>
                                     <h3 className="font-black text-slate-800 dark:text-dk-text text-lg flex items-center gap-2">
@@ -3275,7 +3275,7 @@ export default function Magasin({ models = [], planningEvents = [], settings }: 
 
                         {/* Mouvements récents */}
                         {fgMovements.length > 0 && (
-                            <div className="bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border shadow-sm overflow-hidden">
+                            <div className="bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border shadow-sm dark:shadow-dk-sm overflow-hidden">
                                 <div className="px-6 py-4 border-b border-slate-100 dark:border-dk-border/60">
                                     <h3 className="font-bold text-slate-800 dark:text-dk-text flex items-center gap-2">
                                         <History className="w-4 h-4 text-indigo-500 dark:text-indigo-300" /> {t('Derniers Mouvements PF')}
@@ -3323,7 +3323,7 @@ export default function Magasin({ models = [], planningEvents = [], settings }: 
 
                 {conflictData && (
                     <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-[1000] p-4">
-                        <div className="bg-white dark:bg-dk-surface rounded-3xl shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+                        <div className="bg-white dark:bg-dk-surface rounded-3xl shadow-2xl dark:shadow-dk-elevated w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-200">
                              <div className="p-6">
                                  <h3 className="text-xl font-black text-rose-600 dark:text-rose-400 dark:text-rose-300 flex items-center gap-2 mb-2">
                                      <AlertTriangle className="w-6 h-6" /> Conflit de Réservation
@@ -3367,7 +3367,7 @@ export default function Magasin({ models = [], planningEvents = [], settings }: 
 
                     return (
                         <div className="space-y-6 animate-in fade-in zoom-in-95 duration-300">
-                            <div className="bg-white dark:bg-dk-surface p-6 rounded-3xl border shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+                            <div className="bg-white dark:bg-dk-surface p-6 rounded-3xl border shadow-sm dark:shadow-dk-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
                                 <div>
                                     <h2 className="text-xl font-black text-slate-800 dark:text-dk-text flex items-center gap-2"><MapPin className="w-5 h-5 text-indigo-500 dark:text-indigo-300" /> {t('Cartographie WMS 2D')}</h2>
                                     <p className="text-sm text-slate-500 dark:text-dk-muted font-bold mt-1">{t("Vue de l'entrepôt par rayon. Densité basée sur le volume de stock actic.")}</p>
@@ -3382,15 +3382,15 @@ export default function Magasin({ models = [], planningEvents = [], settings }: 
                             <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
                                 <div className="lg:col-span-3 bg-slate-100 dark:bg-dk-elevated/60 p-8 rounded-3xl border border-slate-200 dark:border-dk-border shadow-inner grid grid-cols-2 md:grid-cols-3 gap-8 overflow-x-auto relative min-h-[500px]">
                                     {/* Mock portes / Layout */}
-                                    <div className="absolute top-0 left-1/2 -translate-x-1/2 bg-white dark:bg-dk-surface px-8 py-2 border-b-2 border-x-2 border-slate-200 dark:border-dk-border rounded-b-xl text-xs font-black text-slate-400 dark:text-dk-muted uppercase tracking-widest shadow-sm">{t('Dock Réception')}</div>
-                                    <div className="absolute bottom-0 left-1/2 -translate-x-1/2 bg-white dark:bg-dk-surface px-8 py-2 border-t-2 border-x-2 border-slate-200 dark:border-dk-border rounded-t-xl text-xs font-black text-slate-400 dark:text-dk-muted uppercase tracking-widest shadow-sm">{t('Expédition / Atelier')}</div>
+                                    <div className="absolute top-0 left-1/2 -translate-x-1/2 bg-white dark:bg-dk-surface px-8 py-2 border-b-2 border-x-2 border-slate-200 dark:border-dk-border rounded-b-xl text-xs font-black text-slate-400 dark:text-dk-muted uppercase tracking-widest shadow-sm dark:shadow-dk-sm">{t('Dock Réception')}</div>
+                                    <div className="absolute bottom-0 left-1/2 -translate-x-1/2 bg-white dark:bg-dk-surface px-8 py-2 border-t-2 border-x-2 border-slate-200 dark:border-dk-border rounded-t-xl text-xs font-black text-slate-400 dark:text-dk-muted uppercase tracking-widest shadow-sm dark:shadow-dk-sm">{t('Expédition / Atelier')}</div>
 
                                     {rayons.map(r => {
                                         const d = wmsData[r];
                                         const isDense = d.totalStock > 5000;
                                         const isMedium = d.totalStock > 1000;
                                         return (
-                                            <div key={r} onClick={() => setSearch(`^${r}`)} className={`cursor-pointer transition-transform hover:scale-105 group relative mt-10 mb-10 bg-white dark:bg-dk-surface rounded-2xl border-4 ${isDense ? 'border-indigo-500 dark:border-indigo-800 shadow-lg shadow-indigo-200 dark:shadow-indigo-900/30' : isMedium ? 'border-indigo-300 dark:border-indigo-800 shadow-md' : 'border-slate-300 dark:border-dk-border'} flex flex-col overflow-hidden h-64`}>
+                                            <div key={r} onClick={() => setSearch(`^${r}`)} className={`cursor-pointer transition-transform hover:scale-105 group relative mt-10 mb-10 bg-white dark:bg-dk-surface rounded-2xl border-4 ${isDense ? 'border-indigo-500 dark:border-indigo-800 shadow-lg dark:shadow-dk-lg shadow-indigo-200 dark:shadow-indigo-900/30' : isMedium ? 'border-indigo-300 dark:border-indigo-800 shadow-md dark:shadow-dk-md' : 'border-slate-300 dark:border-dk-border'} flex flex-col overflow-hidden h-64`}>
                                                 <div className={`p-2 text-center text-white font-black text-lg ${isDense ? 'bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 dark:bg-indigo-900/300' : isMedium ? 'bg-indigo-400 dark:bg-indigo-800' : 'bg-slate-400 dark:bg-dk-muted'}`}>{t('Rayon')} {r}</div>
                                                 <div className="p-4 flex-1 flex flex-col justify-center text-center bg-[radial-gradient(#e5e7eb_1px,transparent_1px)] [background-size:16px_16px]">
                                                     <div className="text-3xl font-black text-slate-800 dark:text-dk-text">{d.items.length} <span className="text-sm text-slate-500 dark:text-dk-muted font-bold block">{t('Réf. Uniques')}</span></div>
@@ -3401,7 +3401,7 @@ export default function Magasin({ models = [], planningEvents = [], settings }: 
                                         );
                                     })}
                                 </div>
-                                <div className="bg-white dark:bg-dk-surface p-6 rounded-3xl border shadow-sm h-[500px] overflow-y-auto flex flex-col">
+                                <div className="bg-white dark:bg-dk-surface p-6 rounded-3xl border shadow-sm dark:shadow-dk-sm h-[500px] overflow-y-auto flex flex-col">
                                     <h3 className="text-sm font-black text-slate-800 dark:text-dk-text mb-4 flex items-center gap-2"><Search className="w-4 h-4 text-indigo-500 dark:text-indigo-300" /> {t('Détails Emplacements')}</h3>
                                     <input placeholder={t("Filtrer... (ex: ^A pour Rayon A)")} value={search} onChange={e => setSearch(e.target.value)} className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-4 py-2 text-sm font-bold mb-4 outline-none focus:border-indigo-500 dark:border-indigo-800" />
                                     <div className="flex-1 overflow-y-auto pr-2 space-y-3">
@@ -3444,7 +3444,7 @@ export default function Magasin({ models = [], planningEvents = [], settings }: 
 
                     return (
                         <div className="space-y-6 animate-in fade-in zoom-in-95 duration-300 max-w-7xl mx-auto">
-                            <div className="bg-gradient-to-r from-slate-800 to-indigo-900 p-8 rounded-3xl text-white shadow-lg relative overflow-hidden">
+                            <div className="bg-gradient-to-r from-slate-800 to-indigo-900 p-8 rounded-3xl text-white shadow-lg dark:shadow-dk-lg relative overflow-hidden">
                                 <div className="absolute top-0 right-0 p-8 opacity-10"><Building2 className="w-48 h-48" /></div>
                                 <h2 className="text-3xl font-black mb-2 flex items-center gap-3"><Building2 className="w-8 h-8 text-indigo-400 dark:text-indigo-300" /> {t('Radar Fournisseurs (Sourcing)')}</h2>
                                 <p className="text-indigo-100 dark:text-indigo-200 font-bold max-w-xl">{t("Évaluez la performance de vos fournisseurs, surveillez l'évolution des prix d'achat (CUMP) et optimisez votre sourcing stratégique.")}</p>
@@ -3452,12 +3452,12 @@ export default function Magasin({ models = [], planningEvents = [], settings }: 
 
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                                 {suppliersData.map(s => (
-                                    <div key={s.name} className="bg-white dark:bg-dk-surface p-6 rounded-3xl border border-slate-200 dark:border-dk-border shadow-sm hover:shadow-md hover:border-indigo-200 dark:border-indigo-800 transition-all group">
+                                    <div key={s.name} className="bg-white dark:bg-dk-surface p-6 rounded-3xl border border-slate-200 dark:border-dk-border shadow-sm dark:shadow-dk-sm hover:shadow-md hover:border-indigo-200 dark:border-indigo-800 transition-all group">
                                         <div className="flex justify-between items-start mb-6">
                                             <div className="w-12 h-12 bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 dark:bg-indigo-900/30 rounded-2xl flex items-center justify-center group-hover:bg-indigo-600 dark:hover:bg-dk-accent dark:bg-indigo-700 transition-colors">
                                                 <Building2 className="w-6 h-6 text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text dark:text-indigo-300 group-hover:text-white transition-colors" />
                                             </div>
-                                            <div className={`px-4 py-2 rounded-xl text-lg font-black border-2 border-dashed ${s.score >= 85 ? 'border-emerald-200 dark:border-emerald-800 text-emerald-600 dark:text-emerald-400 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-900/30' : s.score >= 70 ? 'border-amber-200 dark:border-amber-800 text-amber-600 dark:text-amber-400 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/30' : 'border-rose-200 dark:border-rose-800 text-rose-600 dark:text-rose-400 dark:text-rose-300 bg-rose-50 dark:bg-rose-900/30'}`}>
+                                            <div className={`px-4 py-2 rounded-xl text-lg font-black border-2 border-dashed ${s h.score >= 85 ? 'border-emerald-200 dark:border-emerald-800 text-emerald-600 dark:text-emerald-400 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-900/30' : s h.score >= 70 ? 'border-amber-200 dark:border-amber-800 text-amber-600 dark:text-amber-400 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/30' : 'border-rose-200 dark:border-rose-800 text-rose-600 dark:text-rose-400 dark:text-rose-300 bg-rose-50 dark:bg-rose-900/30'}`}>
                                                 {s.score}/100
                                             </div>
                                         </div>
@@ -3471,7 +3471,7 @@ export default function Magasin({ models = [], planningEvents = [], settings }: 
                                             </div>
                                             <div className="bg-slate-50 dark:bg-dk-bg p-4 rounded-2xl flex justify-between items-center">
                                                 <span className="text-xs font-black text-slate-500 dark:text-dk-muted uppercase tracking-widest">{t('Évolution Prix')}</span>
-                                                <span className={`font-black flex items-center gap-1 ${s.evolution > 0 ? 'text-rose-500 dark:text-rose-300' : s.evolution < 0 ? 'text-emerald-500 dark:text-emerald-300' : 'text-slate-500 dark:text-dk-muted'}`}>
+                                                <span className={`font-black flex items-center gap-1 ${s h.evolution > 0 ? 'text-rose-500 dark:text-rose-300' : s h.evolution < 0 ? 'text-emerald-500 dark:text-emerald-300' : 'text-slate-500 dark:text-dk-muted'}`}>
                                                     {s.evolution > 0 ? '+' : ''}{s.evolution.toFixed(1)}%
                                                 </span>
                                             </div>
@@ -3609,7 +3609,7 @@ export default function Magasin({ models = [], planningEvents = [], settings }: 
 
                     return (
                         <div className="space-y-6 animate-in fade-in zoom-in-95 duration-300 max-w-7xl mx-auto">
-                            <div className="bg-gradient-to-r from-slate-800 to-indigo-900 p-6 rounded-3xl text-white shadow-lg relative overflow-hidden">
+                            <div className="bg-gradient-to-r from-slate-800 to-indigo-900 p-6 rounded-3xl text-white shadow-lg dark:shadow-dk-lg relative overflow-hidden">
                                 <div className="absolute top-0 right-0 p-8 opacity-10"><Download className="w-48 h-48" /></div>
                                 <h2 className="text-2xl font-black mb-1 flex items-center gap-3"><Download className="w-6 h-6 text-indigo-400 dark:text-indigo-300" /> {t('Bons de Réception ( الشحنات الواردة )')}</h2>
                                 <p className="text-indigo-100 dark:text-indigo-200 font-bold max-w-xl">{t("Enregistrez les livraisons partielles ou totales de matières et fournitures (Temykou/Client ou Owned) pour les associer aux ordres de fabrication.")}</p>
@@ -3617,7 +3617,7 @@ export default function Magasin({ models = [], planningEvents = [], settings }: 
 
                             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                                 {/* Form */}
-                                <div className="bg-white dark:bg-dk-surface p-6 rounded-3xl border border-slate-200 dark:border-dk-border shadow-sm space-y-4">
+                                <div className="bg-white dark:bg-dk-surface p-6 rounded-3xl border border-slate-200 dark:border-dk-border shadow-sm dark:shadow-dk-sm space-y-4">
                                     <h3 className="font-black text-slate-800 dark:text-dk-text text-lg border-b pb-2">{t('Nouvelle Réception')}</h3>
                                     
                                     <div>
@@ -3686,13 +3686,13 @@ export default function Magasin({ models = [], planningEvents = [], settings }: 
                                         <label htmlFor="autoAddStock" className="text-xs font-bold text-slate-600 dark:text-dk-text-soft cursor-pointer">{tx(lang,{fr:'Incrémenter automatiquement le stock WMS',ar:'زيادة المخزون تلقائياً في WMS',en:'Auto-increment WMS stock',es:'Incrementar automáticamente el stock WMS',pt:'Incrementar automaticamente o stock WMS',tr:'WMS stokunu otomatik artır'})}</label>
                                     </div>
 
-                                    <button onClick={handleAddReceipt} className="w-full bg-indigo-600 dark:bg-dk-accent dark:bg-indigo-700 hover:bg-indigo-700 dark:hover:bg-dk-accent-hover text-white font-black py-3 rounded-2xl shadow-md transition active:scale-95 flex items-center justify-center gap-2">
+                                    <button onClick={handleAddReceipt} className="w-full bg-indigo-600 dark:bg-dk-accent dark:bg-indigo-700 hover:bg-indigo-700 dark:hover:bg-dk-accent-hover text-white font-black py-3 rounded-2xl shadow-md dark:shadow-dk-md transition active:scale-95 flex items-center justify-center gap-2">
                                         <Plus className="w-4 h-4" /> {tx(lang,{fr:'Enregistrer la réception',ar:'تسجيل الاستلام',en:'Record Receipt',es:'Registrar recepción',pt:'Registar receção',tr:'Teslim Alma Kaydet'})}
                                     </button>
                                 </div>
 
                                 {/* List Table */}
-                                <div className="lg:col-span-2 bg-white dark:bg-dk-surface p-6 rounded-3xl border border-slate-200 dark:border-dk-border shadow-sm flex flex-col h-full overflow-hidden">
+                                <div className="lg:col-span-2 bg-white dark:bg-dk-surface p-6 rounded-3xl border border-slate-200 dark:border-dk-border shadow-sm dark:shadow-dk-sm flex flex-col h-full overflow-hidden">
                                     <h3 className="font-black text-slate-800 dark:text-dk-text text-lg border-b pb-2 mb-4">{t('Historique des Réceptions')}</h3>
                                     <div className="overflow-x-auto flex-1 min-h-[300px]">
                                         <table className="w-full text-left text-sm whitespace-nowrap">
@@ -3726,7 +3726,7 @@ export default function Magasin({ models = [], planningEvents = [], settings }: 
                                                                 <td className="p-3 font-bold text-indigo-700 dark:text-dk-accent-text dark:text-indigo-300">{r.materialName}</td>
                                                                 <td className="p-3 text-right font-black text-slate-800 dark:text-dk-text">{r.qtyReceived.toLocaleString()}</td>
                                                                 <td className="p-3 text-center">
-                                                                    <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase ${r.owner === 'client' ? 'bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-200' : 'bg-blue-100 dark:bg-blue-900/40 text-blue-800 dark:text-blue-200'}`}>
+                                                                    <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase ${r i.owner === 'client' ? 'bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-200' : 'bg-blue-100 dark:bg-blue-900/40 text-blue-800 dark:text-blue-200'}`}>
                                                                         {r.owner === 'client' ? tx(lang,{fr:'Consigné (Temykou)',ar:'مُودع (Temykou)',en:'Consigned (Temykou)',es:'Consignado (Temykou)',pt:'Consignado (Temykou)',tr:'Konsinye (Temykou)'}) : tx(lang,{fr:'Acheté',ar:'مُشترى',en:'Purchased',es:'Comprado',pt:'Comprado',tr:'Satın Alındı'})}
                                                                     </span>
                                                                 </td>
@@ -3876,13 +3876,13 @@ export default function Magasin({ models = [], planningEvents = [], settings }: 
 
                     return (
                         <div className="space-y-6 animate-in fade-in zoom-in-95 duration-300 max-w-7xl mx-auto">
-                            <div className="bg-gradient-to-r from-slate-800 to-indigo-900 p-6 rounded-3xl text-white shadow-lg relative overflow-hidden">
+                            <div className="bg-gradient-to-r from-slate-800 to-indigo-900 p-6 rounded-3xl text-white shadow-lg dark:shadow-dk-lg relative overflow-hidden">
                                 <div className="absolute top-0 right-0 p-8 opacity-10"><Scale className="w-48 h-48" /></div>
                                 <h2 className="text-2xl font-black mb-1 flex items-center gap-3"><Scale className="w-6 h-6 text-indigo-400 dark:text-indigo-300" /> {t('Gestion des Surplus ( الفائض )')}</h2>
                                 <p className="text-indigo-100 dark:text-indigo-200 font-bold max-w-xl">{t("Gérez le reste des matières et fournitures (Temykou) après la clôture des commandes. Transférez-les à un autre modèle ou intégrez-les au stock propre du magasin.")}</p>
                             </div>
 
-                            <div className="bg-white dark:bg-dk-surface p-6 rounded-3xl border border-slate-200 dark:border-dk-border shadow-sm">
+                            <div className="bg-white dark:bg-dk-surface p-6 rounded-3xl border border-slate-200 dark:border-dk-border shadow-sm dark:shadow-dk-sm">
                                 <h3 className="font-black text-slate-800 dark:text-dk-text text-lg border-b pb-2 mb-4">{t('Commandes Clôturées et Restants')}</h3>
                                 
                                 <div className="space-y-6">
@@ -3910,7 +3910,7 @@ export default function Magasin({ models = [], planningEvents = [], settings }: 
                                                         const isConsumed = surplus === 0;
 
                                                         return (
-                                                            <div key={idx} className="bg-white dark:bg-dk-surface p-4 border rounded-xl shadow-sm flex flex-col justify-between">
+                                                            <div key={idx} className="bg-white dark:bg-dk-surface p-4 border rounded-xl shadow-sm dark:shadow-dk-sm flex flex-col justify-between">
                                                                 <div>
                                                                     <div className="flex justify-between items-start">
                                                                         <span className="font-bold text-slate-800 dark:text-dk-text text-sm">{r.materialName}</span>
@@ -3980,7 +3980,7 @@ export default function Magasin({ models = [], planningEvents = [], settings }: 
                             {/* Surplus Actions Modal */}
                             {surplusModal?.open && (
                                 <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-                                    <div className="bg-white dark:bg-dk-surface rounded-3xl shadow-xl w-full max-w-md p-6 overflow-hidden flex flex-col">
+                                    <div className="bg-white dark:bg-dk-surface rounded-3xl shadow-xl dark:shadow-dk-elevated w-full max-w-md p-6 overflow-hidden flex flex-col">
                                         <div className="flex items-center justify-between mb-4 border-b pb-2">
                                             <h3 className="font-black text-slate-800 dark:text-dk-text text-lg flex items-center gap-2">
                                                 <Scale className="w-5 h-5 text-indigo-500 dark:text-indigo-300" /> Action sur Surplus
@@ -3996,8 +3996,8 @@ export default function Magasin({ models = [], planningEvents = [], settings }: 
 
                                         <div className="space-y-4">
                                             <div className="flex bg-slate-100 dark:bg-dk-elevated/60 rounded-lg p-1">
-                                                <button onClick={() => setSurplusActionType('transfer')} className={`flex-1 py-1.5 text-xs font-bold rounded-md transition-all ${surplusActionType === 'transfer' ? 'bg-white dark:bg-dk-surface text-slate-800 dark:text-dk-text shadow-sm' : 'text-slate-500 dark:text-dk-muted'}`}>{tx(lang,{fr:'Transférer',ar:'تحويل',en:'Transfer',es:'Transferir',pt:'Transferir',tr:'Aktar'})}</button>
-                                                <button onClick={() => setSurplusActionType('absorb')} className={`flex-1 py-1.5 text-xs font-bold rounded-md transition-all ${surplusActionType === 'absorb' ? 'bg-white dark:bg-dk-surface text-slate-800 dark:text-dk-text shadow-sm' : 'text-slate-500 dark:text-dk-muted'}`}>{tx(lang,{fr:'Absorber',ar:'استيعاب',en:'Absorb',es:'Absorber',pt:'Absorver',tr:'Em'})}</button>
+                                                <button onClick={() => setSurplusActionType('transfer')} className={`flex-1 py-1.5 text-xs font-bold rounded-md transition-all ${surplusActionType === 'transfer' ? 'bg-white dark:bg-dk-surface text-slate-800 dark:text-dk-text shadow-sm dark:shadow-dk-sm' : 'text-slate-500 dark:text-dk-muted'}`}>{tx(lang,{fr:'Transférer',ar:'تحويل',en:'Transfer',es:'Transferir',pt:'Transferir',tr:'Aktar'})}</button>
+                                                <button onClick={() => setSurplusActionType('absorb')} className={`flex-1 py-1.5 text-xs font-bold rounded-md transition-all ${surplusActionType === 'absorb' ? 'bg-white dark:bg-dk-surface text-slate-800 dark:text-dk-text shadow-sm dark:shadow-dk-sm' : 'text-slate-500 dark:text-dk-muted'}`}>{tx(lang,{fr:'Absorber',ar:'استيعاب',en:'Absorb',es:'Absorber',pt:'Absorver',tr:'Em'})}</button>
                                             </div>
 
                                             {surplusActionType === 'transfer' && (
@@ -4156,7 +4156,7 @@ function MovementDetailModal({ movement, product, stock, draft, setDraft, onSave
 
     return (
         <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
-            <div className="bg-white dark:bg-dk-surface rounded-3xl shadow-2xl w-full max-w-3xl overflow-hidden max-h-[90vh] flex flex-col">
+            <div className="bg-white dark:bg-dk-surface rounded-3xl shadow-2xl dark:shadow-dk-elevated w-full max-w-3xl overflow-hidden max-h-[90vh] flex flex-col">
                 <div className="px-6 py-4 border-b border-slate-200 dark:border-dk-border flex items-center justify-between gap-4">
                     <div>
                         <h2 className="text-lg font-black text-slate-800 dark:text-dk-text flex items-center gap-2"><History className="w-5 h-5 text-indigo-500 dark:text-indigo-300" /> {t('Détails de l\'activité')}</h2>

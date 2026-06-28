@@ -686,14 +686,14 @@ export default function Configuration({ settings, setSettings, lang, machines, n
 
             {/* Success Toast */}
             {showSaveToast && (
-                <div className="fixed top-20 left-1/2 -translate-x-1/2 z-[100] bg-emerald-500 text-white px-6 py-3 rounded-full shadow-lg flex items-center gap-3 animate-in slide-in-from-top-5 duration-300">
+                <div className="fixed top-20 left-1/2 -translate-x-1/2 z-[100] bg-emerald-500 text-white px-6 py-3 rounded-full shadow-lg dark:shadow-dk-lg flex items-center gap-3 animate-in slide-in-from-top-5 duration-300">
                     <CheckCircle className="w-5 h-5" />
                     <span className="font-bold text-sm tracking-wide">{t.saved}</span>
                 </div>
             )}
 
             {/* Header */}
-            <div className="bg-white dark:bg-dk-surface p-4 sm:p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-dk-border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 sticky top-0 z-50">
+            <div className="bg-white dark:bg-dk-surface p-4 sm:p-6 rounded-2xl shadow-sm dark:shadow-dk-sm border border-slate-200 dark:border-dk-border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 sticky top-0 z-50">
                 <div className="flex items-center gap-4 w-full sm:w-auto">
                     <div className="w-12 h-12 bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 rounded-xl flex items-center justify-center text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text border border-indigo-100 shrink-0">
                         <Settings className="w-6 h-6" />
@@ -703,7 +703,7 @@ export default function Configuration({ settings, setSettings, lang, machines, n
                         <p className="text-xs sm:text-sm text-slate-500 dark:text-dk-muted font-medium mt-1">{t.desc}</p>
                     </div>
                 </div>
-                <button onClick={handleSave} className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 sm:px-8 py-3 bg-indigo-600 dark:bg-dk-accent hover:bg-indigo-700 dark:hover:bg-dk-accent-hover text-white font-bold rounded-xl transition-all shadow-lg shadow-indigo-600/30 active:scale-95 group relative overflow-hidden">
+                <button onClick={handleSave} className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 sm:px-8 py-3 bg-indigo-600 dark:bg-dk-accent hover:bg-indigo-700 dark:hover:bg-dk-accent-hover text-white font-bold rounded-xl transition-all shadow-lg dark:shadow-dk-lg shadow-indigo-600/30 active:scale-95 group relative overflow-hidden">
                     <span className="absolute inset-0 w-full h-full bg-white dark:bg-dk-surface/20 -translate-x-full group-hover:animate-[shimmer_1.5s_infinite]"></span>
                     <Save className="w-5 h-5 relative z-10 group-hover:scale-110 transition-transform" />
                     <span className="relative z-10">{t.save}</span>
@@ -715,7 +715,7 @@ export default function Configuration({ settings, setSettings, lang, machines, n
                 {/* LEFT COLUMN: General & Structure Placeholder */}
                 <div className="space-y-6">
                     {/* General Settings */}
-                    <div className="bg-white dark:bg-dk-surface rounded-2xl shadow-sm border border-slate-200 dark:border-dk-border overflow-hidden flex flex-col">
+                    <div className="bg-white dark:bg-dk-surface rounded-2xl shadow-sm dark:shadow-dk-sm border border-slate-200 dark:border-dk-border overflow-hidden flex flex-col">
                         <div onClick={() => toggleSec('gen')} className={`px-5 py-4 bg-slate-50 dark:bg-dk-bg flex items-center gap-2 cursor-pointer select-none ${openSec['gen'] ? 'border-b border-slate-100 dark:border-dk-border' : ''}`}>
                             <Building className="w-5 h-5 text-slate-500 dark:text-dk-muted" />
                             <h2 className="font-bold text-slate-800 dark:text-dk-text">{t.general}</h2>
@@ -873,7 +873,7 @@ export default function Configuration({ settings, setSettings, lang, machines, n
                         </div>
                     </div>
 
-                    <div className="bg-white dark:bg-dk-surface rounded-2xl shadow-sm border border-slate-200 dark:border-dk-border overflow-hidden flex flex-col">
+                    <div className="bg-white dark:bg-dk-surface rounded-2xl shadow-sm dark:shadow-dk-sm border border-slate-200 dark:border-dk-border overflow-hidden flex flex-col">
                         <div onClick={() => toggleSec('rh')} className={`px-5 py-4 bg-slate-50 dark:bg-dk-bg flex items-center gap-2 cursor-pointer select-none ${openSec['rh'] ? 'border-b border-slate-100 dark:border-dk-border' : ''}`}>
                             <Users className="w-5 h-5 text-slate-500 dark:text-dk-muted" />
                             <h2 className="font-bold text-slate-800 dark:text-dk-text">{t.rhComptaTitle}</h2>
@@ -1051,7 +1051,7 @@ export default function Configuration({ settings, setSettings, lang, machines, n
                 </div>
 
                 {/* RIGHT COLUMN: Production Schedule */}
-                <div className="bg-white dark:bg-dk-surface rounded-2xl shadow-sm border border-slate-200 dark:border-dk-border overflow-hidden flex flex-col h-fit">
+                <div className="bg-white dark:bg-dk-surface rounded-2xl shadow-sm dark:shadow-dk-sm border border-slate-200 dark:border-dk-border overflow-hidden flex flex-col h-fit">
                     <div onClick={() => toggleSec('prod')} className={`px-5 py-4 bg-slate-50 dark:bg-dk-bg flex items-center gap-2 cursor-pointer select-none ${openSec['prod'] ? 'border-b border-slate-100 dark:border-dk-border' : ''}`}>
                         <Clock className="w-5 h-5 text-slate-500 dark:text-dk-muted" />
                         <h2 className="font-bold text-slate-800 dark:text-dk-text">{t.production}</h2>
@@ -1063,7 +1063,7 @@ export default function Configuration({ settings, setSettings, lang, machines, n
                         <div>
                             <label className="block text-xs font-bold uppercase text-slate-500 dark:text-dk-muted mb-2">{t.timeFormat}</label>
                             <div className="flex p-1 bg-slate-100 dark:bg-dk-elevated border border-slate-200 dark:border-dk-border rounded-xl relative overflow-hidden">
-                                <div className={`absolute top-1 bottom-1 w-[calc(50%-4px)] bg-white dark:bg-dk-surface rounded-lg shadow-sm border border-slate-200 dark:border-dk-border transition-all duration-300 ${settings.timeFormat === '12h' ? 'left-[calc(50%+2px)]' : 'left-1'}`}></div>
+                                <div className={`absolute top-1 bottom-1 w-[calc(50%-4px)] bg-white dark:bg-dk-surface rounded-lg shadow-sm dark:shadow-dk-sm border border-slate-200 dark:border-dk-border transition-all duration-300 ${settings.timeFormat === '12h' ? 'left-[calc(50%+2px)]' : 'left-1'}`}></div>
                                 <button onClick={() => setSettings(prev => ({ ...prev, timeFormat: '24h' }))} className={`flex-1 py-2 text-sm font-bold rounded-lg transition-colors relative z-10 ${settings.timeFormat === '24h' ? 'text-indigo-700 dark:text-dk-accent-text' : 'text-slate-500 hover:text-slate-700'}`}>{tx(lang, { fr: '24 Heures', ar: '24 ساعة', en: '24 Hours', es: '24 Horas', pt: '24 Horas', tr: '24 Saat' })}</button>
                                 <button onClick={() => setSettings(prev => ({ ...prev, timeFormat: '12h' }))} className={`flex-1 py-2 text-sm font-bold rounded-lg transition-colors relative z-10 ${settings.timeFormat === '12h' ? 'text-indigo-700 dark:text-dk-accent-text' : 'text-slate-500 hover:text-slate-700'}`}>{tx(lang, { fr: '12 Heures (AM/PM)', ar: '12 ساعة (AM/PM)', en: '12 Hours (AM/PM)', es: '12 Horas (AM/PM)', pt: '12 Horas (AM/PM)', tr: '12 Saat (AM/PM)' })}</button>
                             </div>
@@ -1087,7 +1087,7 @@ export default function Configuration({ settings, setSettings, lang, machines, n
                                 <label className="flex items-center gap-2 block text-xs font-bold uppercase text-slate-500 dark:text-dk-muted">{t.workingDays} <span className="text-[10px] text-indigo-500 bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 px-2 py-0.5 rounded-full border border-indigo-100 font-black tracking-widest">{(settings.workingDays || []).length}/7</span></label>
                                 <div className="flex gap-2">
                                     <button onClick={() => setSettings(prev => ({ ...prev, workingDays: [1, 2, 3, 4, 5, 6, 7] }))} className="text-xs font-bold text-slate-500 hover:text-indigo-600 dark:text-dk-accent-text transition-colors uppercase pr-2 border-r border-slate-200 dark:border-dk-border hidden sm:block">{tx(lang, { fr: 'Tous', ar: 'الكل', en: 'All', es: 'Todos', pt: 'Todos', tr: 'Tümü' })}</button>
-                                    <button onClick={() => setShowAgenda(true)} className="text-[11px] font-bold bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text hover:text-indigo-700 dark:text-dk-accent-text hover:bg-indigo-100 border border-indigo-100 px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5 shadow-sm active:scale-95">
+                                    <button onClick={() => setShowAgenda(true)} className="text-[11px] font-bold bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text hover:text-indigo-700 dark:text-dk-accent-text hover:bg-indigo-100 border border-indigo-100 px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5 shadow-sm dark:shadow-dk-sm active:scale-95">
                                         <Calendar className="w-3.5 h-3.5" /> {tx(lang, { fr: 'Agenda', ar: 'التقويم', en: 'Calendar', es: 'Agenda', pt: 'Agenda', tr: 'Takvim' })}
                                     </button>
                                 </div>
@@ -1164,7 +1164,7 @@ export default function Configuration({ settings, setSettings, lang, machines, n
             </div>
 
             {/* FULL WIDTH BLOCK: Systèmes de tailles */}
-            <div className="bg-white dark:bg-dk-surface rounded-2xl shadow-sm border border-slate-200 dark:border-dk-border overflow-hidden flex flex-col mt-6">
+            <div className="bg-white dark:bg-dk-surface rounded-2xl shadow-sm dark:shadow-dk-sm border border-slate-200 dark:border-dk-border overflow-hidden flex flex-col mt-6">
                 <div onClick={() => toggleSec('tailles')} className={`px-5 py-4 bg-slate-50 dark:bg-dk-bg flex items-center justify-between cursor-pointer select-none ${openSec['tailles'] ? 'border-b border-slate-100 dark:border-dk-border' : ''}`}>
                     <div className="flex items-center gap-2">
                         <ListTodo className="w-5 h-5 text-slate-500 dark:text-dk-muted" />
@@ -1272,7 +1272,7 @@ export default function Configuration({ settings, setSettings, lang, machines, n
             </div>
 
             {/* FULL WIDTH BLOCK: Structure & Encadrement */}
-            <div className="bg-white dark:bg-dk-surface rounded-2xl shadow-sm border border-slate-200 dark:border-dk-border overflow-hidden flex flex-col mt-6">
+            <div className="bg-white dark:bg-dk-surface rounded-2xl shadow-sm dark:shadow-dk-sm border border-slate-200 dark:border-dk-border overflow-hidden flex flex-col mt-6">
                 <div onClick={() => toggleSec('struct')} className={`px-5 py-4 bg-slate-50 dark:bg-dk-bg flex items-center justify-between cursor-pointer select-none ${openSec['struct'] ? 'border-b border-slate-100 dark:border-dk-border' : ''}`}>
                     <div className="flex items-center gap-2">
                         <Users className="w-5 h-5 text-slate-500 dark:text-dk-muted" />
@@ -1286,7 +1286,7 @@ export default function Configuration({ settings, setSettings, lang, machines, n
                     <div>
                         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
                             <div className="flex items-center gap-4">
-                                <div className="w-12 h-12 rounded-2xl bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 flex items-center justify-center border border-blue-100 shadow-sm shrink-0">
+                                <div className="w-12 h-12 rounded-2xl bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 flex items-center justify-center border border-blue-100 shadow-sm dark:shadow-dk-sm shrink-0">
                                     <Shield className="w-6 h-6" />
                                 </div>
                                 <div>
@@ -1294,7 +1294,7 @@ export default function Configuration({ settings, setSettings, lang, machines, n
                                     <p className="text-sm text-slate-500 dark:text-dk-muted mt-0.5 font-medium">{tx(lang, { fr: 'Direction, administration, pointeurs, chronométreurs...', ar: 'الإدارة، الإشراف، مراقبو الوقت...', en: 'Management, administration, timekeepers...', es: 'Dirección, administración, cronometradores...', pt: 'Direção, administração, cronometristas...', tr: 'Yönetim, idare, zaman hakemleri...' })}</p>
                                 </div>
                             </div>
-                            <button onClick={() => setSettings(prev => ({ ...prev, organigram: [...(prev.organigram || []), { id: Date.now().toString(), name: '', role: '' }] }))} className="w-full sm:w-auto text-sm font-bold bg-white text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text flex items-center justify-center gap-2 hover:text-indigo-700 dark:text-dk-accent-text hover:bg-indigo-50 dark:bg-dk-accent/20 px-5 py-2.5 rounded-xl transition-all border border-slate-200 dark:border-dk-border shadow-sm active:scale-95">
+                            <button onClick={() => setSettings(prev => ({ ...prev, organigram: [...(prev.organigram || []), { id: Date.now().toString(), name: '', role: '' }] }))} className="w-full sm:w-auto text-sm font-bold bg-white dark:bg-dk-surface text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text flex items-center justify-center gap-2 hover:text-indigo-700 dark:text-dk-accent-text hover:bg-indigo-50 dark:bg-dk-accent/20 px-5 py-2.5 rounded-xl transition-all border border-slate-200 dark:border-dk-border shadow-sm dark:shadow-dk-sm active:scale-95">
                                 <Plus className="w-4 h-4" /> {tx(lang, { fr: 'Ajouter Un Membre', ar: 'إضافة عضو', en: 'Add a Member', es: 'Añadir un miembro', pt: 'Adicionar um membro', tr: 'Üye Ekle' })}
                             </button>
                         </div>
@@ -1302,7 +1302,7 @@ export default function Configuration({ settings, setSettings, lang, machines, n
                             {(settings.organigram || []).map((person) => (
                                 <div key={person.id} className="flex flex-col gap-3 bg-white dark:bg-dk-surface p-5 rounded-2xl border border-slate-200 dark:border-dk-border hover:border-blue-300 hover:shadow-md transition-all relative group overflow-hidden">
                                     <div className="absolute top-0 left-0 w-1 h-full bg-blue-500 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                                    <button onClick={() => setSettings(prev => ({ ...prev, organigram: prev.organigram.filter(p => p.id !== person.id) }))} className="absolute top-3 right-3 p-1.5 bg-rose-50 dark:bg-rose-900/30 text-rose-500 hover:text-rose-600 hover:bg-rose-100 rounded-lg shadow-sm border border-rose-100 opacity-0 group-hover:opacity-100 transition-all active:scale-90" title={tx(lang, { fr: 'Supprimer', ar: 'حذف', en: 'Delete', es: 'Eliminar', pt: 'Excluir', tr: 'Sil' })}>
+                                    <button onClick={() => setSettings(prev => ({ ...prev, organigram: prev.organigram.filter(p => p.id !== person.id) }))} className="absolute top-3 right-3 p-1.5 bg-rose-50 dark:bg-rose-900/30 text-rose-500 hover:text-rose-600 hover:bg-rose-100 rounded-lg shadow-sm dark:shadow-dk-sm border border-rose-100 opacity-0 group-hover:opacity-100 transition-all active:scale-90" title={tx(lang, { fr: 'Supprimer', ar: 'حذف', en: 'Delete', es: 'Eliminar', pt: 'Excluir', tr: 'Sil' })}>
                                         <Trash2 className="w-3.5 h-3.5" />
                                     </button>
                                     <div>
@@ -1357,10 +1357,10 @@ export default function Configuration({ settings, setSettings, lang, machines, n
                                 const chainKey = `CHAINE ${i + 1}`;
                                 const staff = settings.chainStaff?.[chainKey] || [];
                                 return (
-                                    <div key={chainKey} className="bg-white dark:bg-dk-surface border-2 border-slate-100 dark:border-dk-border rounded-3xl overflow-hidden shadow-sm hover:border-emerald-200 transition-colors flex flex-col">
+                                    <div key={chainKey} className="bg-white dark:bg-dk-surface border-2 border-slate-100 dark:border-dk-border rounded-3xl overflow-hidden shadow-sm dark:shadow-dk-sm hover:border-emerald-200 transition-colors flex flex-col">
                                         <div className="bg-emerald-50 dark:bg-emerald-900/30/50 px-5 py-4 flex flex-col sm:flex-row sm:items-center justify-between border-b border-emerald-100 gap-3">
                                             <div className="flex items-center gap-3">
-                                                <div className="w-8 h-8 rounded-xl bg-white dark:bg-dk-surface border border-emerald-200 shadow-sm flex items-center justify-center text-emerald-600 dark:text-emerald-400 font-black text-sm">{i + 1}</div>
+                                                <div className="w-8 h-8 rounded-xl bg-white dark:bg-dk-surface border border-emerald-200 shadow-sm dark:shadow-dk-sm flex items-center justify-center text-emerald-600 dark:text-emerald-400 font-black text-sm">{i + 1}</div>
                                                 <input
                                                     type="text"
                                                     value={settings.chainNames?.[chainKey] || chainKey}
@@ -1378,7 +1378,7 @@ export default function Configuration({ settings, setSettings, lang, machines, n
                                                     ...(prev.chainStaff || {}),
                                                     [chainKey]: [...staff, { id: Date.now().toString(), name: '', role: 'Chef de chaîne' }]
                                                 }
-                                            }))} className="w-full sm:w-auto text-[11px] font-bold uppercase tracking-wider bg-white dark:bg-dk-surface text-slate-600 dark:text-dk-text-soft hover:text-emerald-700 px-4 py-2 rounded-xl shadow-sm border border-slate-200 dark:border-dk-border hover:border-emerald-300 transition-all flex items-center justify-center gap-1.5 active:scale-95">
+                                            }))} className="w-full sm:w-auto text-[11px] font-bold uppercase tracking-wider bg-white dark:bg-dk-surface text-slate-600 dark:text-dk-text-soft hover:text-emerald-700 px-4 py-2 rounded-xl shadow-sm dark:shadow-dk-sm border border-slate-200 dark:border-dk-border hover:border-emerald-300 transition-all flex items-center justify-center gap-1.5 active:scale-95">
                                                 <Plus className="w-3.5 h-3.5" /> Ajouter
                                             </button>
                                         </div>
@@ -1393,7 +1393,7 @@ export default function Configuration({ settings, setSettings, lang, machines, n
                                                             <div className="flex-1 w-full">
                                                                 <input type="text" value={person.role} onChange={(e) => setSettings(prev => ({ ...prev, chainStaff: { ...prev.chainStaff, [chainKey]: prev.chainStaff[chainKey].map(p => p.id === person.id ? { ...p, role: e.target.value } : p) } }))} className="w-full bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-xl px-4 py-2.5 outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 text-sm font-medium text-slate-600 dark:text-dk-text-soft transition-all" placeholder={tx(lang, { fr: 'Rôle (ex: Qualité)', ar: 'الدور (مثال: الجودة)', en: 'Role (ex: Quality)', es: 'Rol (ej: Calidad)', pt: 'Função (ex: Qualidade)', tr: 'Rol (örn: Kalite)' })} />
                                                             </div>
-                                                             <button onClick={() => setSettings(prev => ({ ...prev, chainStaff: { ...prev.chainStaff, [chainKey]: prev.chainStaff[chainKey].filter(p => p.id !== person.id) } }))} className="w-full sm:w-10 sm:h-10 text-rose-400 hover:text-rose-600 bg-white dark:bg-dk-surface hover:bg-rose-50 rounded-xl border border-slate-200 dark:border-dk-border hover:border-rose-300 shadow-sm transition-all focus:outline-none shrink-0 flex items-center justify-center active:scale-90 py-2 sm:py-0" title={tx(lang, { fr: 'Supprimer', ar: 'حذف', en: 'Delete', es: 'Eliminar', pt: 'Excluir', tr: 'Sil' })}>
+                                                             <button onClick={() => setSettings(prev => ({ ...prev, chainStaff: { ...prev.chainStaff, [chainKey]: prev.chainStaff[chainKey].filter(p => p.id !== person.id) } }))} className="w-full sm:w-10 sm:h-10 text-rose-400 hover:text-rose-600 bg-white dark:bg-dk-surface hover:bg-rose-50 rounded-xl border border-slate-200 dark:border-dk-border hover:border-rose-300 shadow-sm dark:shadow-dk-sm transition-all focus:outline-none shrink-0 flex items-center justify-center active:scale-90 py-2 sm:py-0" title={tx(lang, { fr: 'Supprimer', ar: 'حذف', en: 'Delete', es: 'Eliminar', pt: 'Excluir', tr: 'Sil' })}>
                                                                 <Trash2 className="w-4 h-4" />
                                                             </button>
                                                         </div>
@@ -1448,7 +1448,7 @@ export default function Configuration({ settings, setSettings, lang, machines, n
                                 return (
                                     <div
                                         key={`cm-${chainKey}`}
-                                        className="bg-white dark:bg-dk-surface border-2 border-slate-100 dark:border-dk-border rounded-3xl overflow-hidden shadow-sm p-5 flex flex-col gap-3"
+                                        className="bg-white dark:bg-dk-surface border-2 border-slate-100 dark:border-dk-border rounded-3xl overflow-hidden shadow-sm dark:shadow-dk-sm p-5 flex flex-col gap-3"
                                     >
                                         <div className="flex items-center justify-between gap-2 border-b border-slate-100 dark:border-dk-border pb-3">
                                             <span className="font-black text-slate-800 dark:text-dk-text text-sm">{chainDisplayName}</span>
@@ -1534,7 +1534,7 @@ export default function Configuration({ settings, setSettings, lang, machines, n
             </div>
 
             {/* FULL WIDTH BLOCK: Config Moteur APS */}
-            <div className="bg-white dark:bg-dk-surface rounded-2xl shadow-sm border border-slate-200 dark:border-dk-border overflow-hidden flex flex-col mt-6">
+            <div className="bg-white dark:bg-dk-surface rounded-2xl shadow-sm dark:shadow-dk-sm border border-slate-200 dark:border-dk-border overflow-hidden flex flex-col mt-6">
                 <div onClick={() => toggleSec('aps')} className={`px-5 py-4 bg-slate-50 dark:bg-dk-bg flex items-center justify-between cursor-pointer select-none ${openSec['aps'] ? 'border-b border-slate-100 dark:border-dk-border' : ''}`}>
                     <div className="flex items-center gap-2">
                         <Zap className="w-5 h-5 text-amber-500" />
@@ -1688,7 +1688,7 @@ export default function Configuration({ settings, setSettings, lang, machines, n
 
             {/* FULL WIDTH BLOCK: Personnalisation du Menu de Navigation */}
             {navConfig && setNavConfig && (
-                <div className="bg-white dark:bg-dk-surface rounded-2xl shadow-sm border border-slate-200 dark:border-dk-border overflow-hidden flex flex-col mt-6">
+                <div className="bg-white dark:bg-dk-surface rounded-2xl shadow-sm dark:shadow-dk-sm border border-slate-200 dark:border-dk-border overflow-hidden flex flex-col mt-6">
                     <div onClick={() => toggleSec('nav')} className={`px-5 py-4 bg-slate-50 dark:bg-dk-bg flex items-center justify-between cursor-pointer select-none ${openSec['nav'] ? 'border-b border-slate-100 dark:border-dk-border' : ''}`}>
                         <div className="flex items-center gap-2">
                             <ListTodo className="w-5 h-5 text-indigo-500" />
@@ -1781,7 +1781,7 @@ export default function Configuration({ settings, setSettings, lang, machines, n
                                     onClick={() => setNavConfig({ ...navConfig, enabled: !navConfig.enabled })}
                                     className={`w-10 h-5 rounded-full p-0.5 transition-colors relative flex items-center ${navConfig.enabled ? 'bg-emerald-500' : 'bg-slate-300'}`}
                                 >
-                                    <div className={`w-4 h-4 bg-white dark:bg-dk-surface rounded-full shadow-sm transition-transform duration-300 ${navConfig.enabled ? 'translate-x-5' : 'translate-x-0'}`} />
+                                    <div className={`w-4 h-4 bg-white dark:bg-dk-surface rounded-full shadow-sm dark:shadow-dk-sm transition-transform duration-300 ${navConfig.enabled ? 'translate-x-5' : 'translate-x-0'}`} />
                                 </button>
                             </div>
                         )}
@@ -1804,7 +1804,7 @@ export default function Configuration({ settings, setSettings, lang, machines, n
                                                         updated[catIdx] = { ...category, name: e.target.value };
                                                         setNavConfig({ ...navConfig, categories: updated });
                                                     }}
-                                                    className="bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border hover:border-indigo-300 focus:border-indigo-500 outline-none rounded-xl px-3 py-2 text-sm font-bold text-slate-800 dark:text-dk-text flex-1 shadow-sm transition-all"
+                                                    className="bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border hover:border-indigo-300 focus:border-indigo-500 outline-none rounded-xl px-3 py-2 text-sm font-bold text-slate-800 dark:text-dk-text flex-1 shadow-sm dark:shadow-dk-sm transition-all"
                                                     placeholder={tx(lang, { fr: 'Nom de la catégorie', ar: 'اسم الفئة', en: 'Category name', es: 'Nombre de la categoría', pt: 'Nome da categoria', tr: 'Kategori adı' })}
                                                 />
                                                 <span className="text-[10px] font-black uppercase bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 text-indigo-700 dark:text-dk-accent-text px-2 py-1 rounded border border-indigo-100">
@@ -1815,7 +1815,7 @@ export default function Configuration({ settings, setSettings, lang, machines, n
                                                 {category.views.map((view) => {
                                                     const isHidden = navConfig.hidden.includes(view);
                                                     return (
-                                                        <div key={view} className="flex items-center justify-between gap-2 bg-white dark:bg-dk-surface px-3 py-2 rounded-lg border border-slate-200 dark:border-dk-border text-xs font-semibold text-slate-700 dark:text-dk-text-soft shadow-sm">
+                                                        <div key={view} className="flex items-center justify-between gap-2 bg-white dark:bg-dk-surface px-3 py-2 rounded-lg border border-slate-200 dark:border-dk-border text-xs font-semibold text-slate-700 dark:text-dk-text-soft shadow-sm dark:shadow-dk-sm">
                                                             <span className="truncate">{VIEW_LABELS[view]?.[lang] || view}</span>
                                                             <div className="flex items-center gap-1.5 shrink-0">
                                                                 {/* Category Mover selector */}
@@ -1933,7 +1933,7 @@ export default function Configuration({ settings, setSettings, lang, machines, n
             )}
 
             {/* FULL WIDTH BLOCK: Gestion des Tâches (Phase 24) */}
-            <div className="bg-white dark:bg-dk-surface rounded-2xl shadow-sm border border-slate-200 dark:border-dk-border overflow-hidden flex flex-col mt-6">
+            <div className="bg-white dark:bg-dk-surface rounded-2xl shadow-sm dark:shadow-dk-sm border border-slate-200 dark:border-dk-border overflow-hidden flex flex-col mt-6">
                 <div onClick={() => toggleSec('tasks')} className={`px-5 py-4 bg-slate-50 dark:bg-dk-bg flex items-center justify-between cursor-pointer select-none ${openSec['tasks'] ? 'border-b border-slate-100 dark:border-dk-border' : ''}`}>
                     <div className="flex items-center gap-2">
                         <ListTodo className="w-5 h-5 text-indigo-500" />

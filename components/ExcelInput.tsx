@@ -116,7 +116,7 @@ export default function ExcelInput({
         onKeyDown={handleKeyDownInternal}
         onBlur={onBlur}
         onFocus={onFocus}
-        className={`${className} relative z-10 bg-transparent selection:bg-indigo-100 selection:text-slate-700`}
+        className={`${className} relative z-10 bg-transparent selection:bg-indigo-100 selection:text-slate-700 dark:selection:bg-indigo-900/40 dark:selection:text-dk-text-soft`}
         autoComplete="off"
         autoCapitalize="off"
         autoCorrect="off"

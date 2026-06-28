@@ -1625,7 +1625,7 @@ export default function Chronometrage({
         const median = getMedian(rowTRs);
 
         return (
-            <div className="max-w-4xl mx-auto bg-white dark:bg-dk-surface rounded-2xl shadow-2xl border border-indigo-100 overflow-hidden animate-in zoom-in-95 duration-200 flex flex-col text-left">
+            <div className="max-w-4xl mx-auto bg-white dark:bg-dk-surface rounded-2xl shadow-2xl dark:shadow-dk-elevated border border-indigo-100 overflow-hidden animate-in zoom-in-95 duration-200 flex flex-col text-left">
                 {/* Header Info */}
                 <div className="bg-gradient-to-r from-indigo-50/50 to-white px-5 py-4 border-b border-indigo-50 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-left">
                     <div>
@@ -1681,7 +1681,7 @@ export default function Chronometrage({
                                         <div className="relative">
                                             <input
                                                 type="number" step="0.01" min="0"
-                                                className={`w-full py-2 px-2 text-center text-sm font-mono font-bold border rounded-lg bg-slate-50 dark:bg-dk-bg focus:bg-white focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 outline-none transition-all placeholder:text-slate-300 ${INPUT_NO_SPIN} ${hasVal ? trStatusStyles[status] : 'text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface shadow-sm'}`}
+                                                className={`w-full py-2 px-2 text-center text-sm font-mono font-bold border rounded-lg bg-slate-50 dark:bg-dk-bg focus:bg-white focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 outline-none transition-all placeholder:text-slate-300 ${INPUT_NO_SPIN} ${hasVal ? trStatusStyles[status] : 'text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface shadow-sm dark:shadow-dk-sm'}`}
                                                 placeholder="—"
                                                 value={hasVal && typeof val === 'number' ? displayValue(val) : ''}
                                                 onChange={e => handleCellChange(op.id, `tr${trNum}` as keyof ChronoData, e.target.value)}
@@ -1691,7 +1691,7 @@ export default function Chronometrage({
                                                     type="button"
                                                     aria-label={`${tx(lang, { fr: 'Supprimer', ar: 'حذف', en: 'Delete', es: 'Eliminar', pt: 'Excluir', tr: 'Sil' })} TR ${trNum}`}
                                                     onClick={(e) => handleClearTRClick(e, op.id, trNum)}
-                                                    className="absolute -top-1.5 -right-1.5 z-10 flex h-[16px] w-[16px] items-center justify-center rounded-full border border-rose-200 bg-white dark:bg-dk-surface text-rose-500 shadow-sm opacity-0 scale-90 transition-all duration-200 group-hover/cell:opacity-100 group-hover/cell:scale-100 hover:bg-rose-50 hover:text-rose-600"
+                                                    className="absolute -top-1.5 -right-1.5 z-10 flex h-[16px] w-[16px] items-center justify-center rounded-full border border-rose-200 bg-white dark:bg-dk-surface text-rose-500 shadow-sm dark:shadow-dk-sm opacity-0 scale-90 transition-all duration-200 group-hover/cell:opacity-100 group-hover/cell:scale-100 hover:bg-rose-50 hover:text-rose-600"
                                                     title={tx(lang, { fr: 'Supprimer', ar: 'حذف', en: 'Delete', es: 'Eliminar', pt: 'Excluir', tr: 'Sil' })}
                                                 >
                                                     <X className="w-2.5 h-2.5" />
@@ -1709,7 +1709,7 @@ export default function Chronometrage({
                     )}
 
                     {/* Calculations strip */}
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border/80 rounded-xl p-4 shadow-sm">
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border/80 rounded-xl p-4 shadow-sm dark:shadow-dk-sm">
                         <div className="text-center">
                             <span className="text-[10px] font-bold text-slate-400 dark:text-dk-muted uppercase tracking-wide">{tx(lang, { fr: 'T. Moyen', ar: 'الوقت المتوسط', en: 'Avg. Time', es: 'T. Medio', pt: 'T. Médio', tr: 'Ort. Süre' })}</span>
                             <div className="mt-1 relative flex flex-col items-center">
@@ -1771,7 +1771,7 @@ export default function Chronometrage({
                                     return next;
                                 });
                             }}
-                            className="px-4 py-2 rounded-lg text-xs font-black bg-slate-100 dark:bg-dk-elevated hover:bg-slate-200 text-slate-600 dark:text-dk-text-soft transition-colors flex items-center gap-1.5 active:scale-95 shadow-sm"
+                            className="px-4 py-2 rounded-lg text-xs font-black bg-slate-100 dark:bg-dk-elevated hover:bg-slate-200 text-slate-600 dark:text-dk-text-soft transition-colors flex items-center gap-1.5 active:scale-95 shadow-sm dark:shadow-dk-sm"
                         >
                             <X className="w-3.5 h-3.5" /> {tx(lang, { fr: 'Fermer', ar: 'إغلاق', en: 'Close', es: 'Cerrar', pt: 'Fechar', tr: 'Kapat' })}
                         </button>
@@ -1914,7 +1914,7 @@ export default function Chronometrage({
                                                     type="button"
                                                     aria-label={`${tx(lang, { fr: 'Supprimer', ar: 'حذف', en: 'Delete', es: 'Eliminar', pt: 'Excluir', tr: 'Sil' })} TR ${trNum}`}
                                                     onClick={(e) => handleClearTRClick(e, op.id, trNum, stId)}
-                                                    className="absolute -top-1 -right-1 z-10 flex h-[10px] w-[10px] items-center justify-center rounded-full border border-rose-200 bg-white dark:bg-dk-surface text-rose-500 shadow-sm opacity-0 scale-90 transition-all duration-200 group-hover/cell:opacity-100 group-hover/cell:scale-100 hover:bg-rose-50 hover:text-rose-600"
+                                                    className="absolute -top-1 -right-1 z-10 flex h-[10px] w-[10px] items-center justify-center rounded-full border border-rose-200 bg-white dark:bg-dk-surface text-rose-500 shadow-sm dark:shadow-dk-sm opacity-0 scale-90 transition-all duration-200 group-hover/cell:opacity-100 group-hover/cell:scale-100 hover:bg-rose-50 hover:text-rose-600"
                                                     title={tx(lang, { fr: 'Supprimer', ar: 'حذف', en: 'Delete', es: 'Eliminar', pt: 'Excluir', tr: 'Sil' })}
                                                 >
                                                     <X className="w-1.5 h-1.5" />
@@ -1958,7 +1958,7 @@ export default function Chronometrage({
         return (
             <div
                 key={st.id}
-                className="bg-slate-50 dark:bg-dk-bg/20 rounded-xl sm:rounded-2xl border-2 border-dashed border-slate-250 p-3 sm:p-4 flex items-center justify-between gap-3 text-left opacity-60 min-h-[96px] shadow-sm select-none"
+                className="bg-slate-50 dark:bg-dk-bg/20 rounded-xl sm:rounded-2xl border-2 border-dashed border-slate-250 p-3 sm:p-4 flex items-center justify-between gap-3 text-left opacity-60 min-h-[96px] shadow-sm dark:shadow-dk-sm select-none"
             >
                 <div className="flex items-center gap-1.5 sm:gap-2.5 min-w-0 flex-1">
                     {/* Muted Checkbox */}
@@ -2080,7 +2080,7 @@ export default function Chronometrage({
                 <div className="flex items-center justify-between gap-2 pb-2 sm:pb-2.5 border-b border-slate-100 dark:border-dk-border">
                     <div className="flex items-center gap-1.5 sm:gap-2.5 flex-1 min-w-0 flex-wrap sm:flex-nowrap">
                         {/* Checkbox */}
-                        <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-colors shrink-0 ${isCompleted ? 'border-emerald-500 bg-emerald-500 text-white shadow-sm' : 'border-slate-300 bg-white dark:bg-dk-surface'}`}>
+                        <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-colors shrink-0 ${isCompleted ? 'border-emerald-500 bg-emerald-500 text-white shadow-sm dark:shadow-dk-sm' : 'border-slate-300 bg-white dark:bg-dk-surface'}`}>
                             {isCompleted && (
                                 <svg className="w-3.5 h-3.5 stroke-current stroke-[3]" fill="none" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
@@ -2092,7 +2092,7 @@ export default function Chronometrage({
                         {op.photo && (
                             <img
                                 src={op.photo}
-                                className="w-8 h-8 sm:w-9 sm:h-9 object-cover rounded-lg border border-slate-200 dark:border-dk-border shadow-sm shrink-0"
+                                className="w-8 h-8 sm:w-9 sm:h-9 object-cover rounded-lg border border-slate-200 dark:border-dk-border shadow-sm dark:shadow-dk-sm shrink-0"
                                 alt="Op"
                                 onClick={(e) => e.stopPropagation()}
                             />
@@ -2148,14 +2148,14 @@ export default function Chronometrage({
                                             }, 250);
                                         }}
                                         placeholder={tx(lang, { fr: 'Nom / Matricule...', ar: 'الاسم / الرقم الوظيفي...', en: 'Name / ID...', es: 'Nombre / Matrícula...', pt: 'Nome / Matrícula...', tr: 'İsim / Sicil No...' })}
-                                        className="bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border focus:border-indigo-400 focus:bg-white rounded px-2 py-1 sm:py-0.5 outline-none w-full text-[11px] sm:text-xs font-black text-slate-700 dark:text-dk-text-soft placeholder-slate-400 transition-all shadow-sm"
+                                        className="bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border focus:border-indigo-400 focus:bg-white rounded px-2 py-1 sm:py-0.5 outline-none w-full text-[11px] sm:text-xs font-black text-slate-700 dark:text-dk-text-soft placeholder-slate-400 transition-all shadow-sm dark:shadow-dk-sm"
                                     />
 
                                     {/* Liste des effectifs : ancrée juste sous le champ "Opé" */}
                                     {activeOperatorStationId === `${st.id}__${op.id}` && (
                                         <div
                                             onClick={e => e.stopPropagation()}
-                                            className="absolute z-[200] left-0 top-full mt-1.5 w-full sm:w-72 max-h-60 sm:max-h-72 overflow-y-auto bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border/90 rounded-xl sm:rounded-2xl shadow-xl divide-y divide-slate-100 p-1.5"
+                                            className="absolute z-[200] left-0 top-full mt-1.5 w-full sm:w-72 max-h-60 sm:max-h-72 overflow-y-auto bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border/90 rounded-xl sm:rounded-2xl shadow-xl dark:shadow-dk-elevated divide-y divide-slate-100 p-1.5"
                                         >
                                             <div className="px-3 py-2 bg-slate-50 dark:bg-dk-bg/80 rounded-t-lg text-[9px] sm:text-[10px] font-black text-slate-400 dark:text-dk-muted uppercase tracking-wider sticky top-0 z-10 border-b border-slate-100 dark:border-dk-border flex items-center justify-between">
                                                 <span>{tx(lang, { fr: "Membres d'effectifs disponibles", ar: 'أعضاء الفريق المتاحين', en: 'Available staff members', es: 'Miembros de personal disponibles', pt: 'Membros da equipe disponíveis', tr: 'Mevcut personel üyeleri' })}</span>
@@ -2581,7 +2581,7 @@ export default function Chronometrage({
                     };
                     setChronoCustomStations?.(prev => [...prev, newStation]);
                 }}
-                className="w-full bg-slate-50 dark:bg-dk-bg/20 hover:bg-slate-100/40 rounded-xl sm:rounded-2xl border-2 border-dashed border-slate-300 hover:border-indigo-400 py-6 px-4 flex items-center justify-center gap-2 text-center opacity-70 text-slate-400 hover:text-indigo-650 dark:text-dk-accent-text transition-all min-h-[96px] shadow-sm select-none"
+                className="w-full bg-slate-50 dark:bg-dk-bg/20 hover:bg-slate-100/40 rounded-xl sm:rounded-2xl border-2 border-dashed border-slate-300 hover:border-indigo-400 py-6 px-4 flex items-center justify-center gap-2 text-center opacity-70 text-slate-400 hover:text-indigo-650 dark:text-dk-accent-text transition-all min-h-[96px] shadow-sm dark:shadow-dk-sm select-none"
             >
                 <Plus className="w-5 h-5 shrink-0 text-slate-400 group-hover:text-indigo-650 dark:text-dk-accent-text" />
                 <span className="text-xs sm:text-sm font-black uppercase tracking-wide">
@@ -2670,7 +2670,7 @@ export default function Chronometrage({
                                                     type="button"
                                                     aria-label={`${tx(lang, { fr: 'Supprimer', ar: 'حذف', en: 'Delete', es: 'Eliminar', pt: 'Excluir', tr: 'Sil' })} TR ${trNum}`}
                                                     onClick={(e) => handleClearTRClick(e, stationId, trNum)}
-                                                    className="absolute -top-1 -right-1 z-10 flex h-[10px] w-[10px] items-center justify-center rounded-full border border-rose-200 bg-white dark:bg-dk-surface text-rose-500 shadow-sm opacity-0 scale-90 transition-all duration-200 group-hover/cell:opacity-100 group-hover/cell:scale-100 hover:bg-rose-50 hover:text-rose-600"
+                                                    className="absolute -top-1 -right-1 z-10 flex h-[10px] w-[10px] items-center justify-center rounded-full border border-rose-200 bg-white dark:bg-dk-surface text-rose-500 shadow-sm dark:shadow-dk-sm opacity-0 scale-90 transition-all duration-200 group-hover/cell:opacity-100 group-hover/cell:scale-100 hover:bg-rose-50 hover:text-rose-600"
                                                     title={tx(lang, { fr: 'Supprimer', ar: 'حذف', en: 'Delete', es: 'Eliminar', pt: 'Excluir', tr: 'Sil' })}
                                                 >
                                                     <X className="w-1.5 h-1.5" />
@@ -2809,7 +2809,7 @@ export default function Chronometrage({
                 <div className="flex items-start sm:items-center justify-between gap-1.5 sm:gap-2 pb-1.5 sm:pb-2.5 border-b border-slate-100 dark:border-dk-border">
                     <div className="flex items-center gap-1 sm:gap-2.5 min-w-0 flex-1 flex-wrap">
                         {/* Checkbox */}
-                        <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-colors shrink-0 ${isCompleted ? 'border-emerald-500 bg-emerald-500 text-white shadow-sm' : 'border-slate-300 bg-white dark:bg-dk-surface'}`}>
+                        <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-colors shrink-0 ${isCompleted ? 'border-emerald-500 bg-emerald-500 text-white shadow-sm dark:shadow-dk-sm' : 'border-slate-300 bg-white dark:bg-dk-surface'}`}>
                             {isCompleted && (
                                 <svg className="w-3.5 h-3.5 stroke-current stroke-[3]" fill="none" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
@@ -2871,7 +2871,7 @@ export default function Chronometrage({
 
                                 {/* Suggestions d'opérations : ancrées juste sous le champ "Opération / Desc" */}
                                 {activeSuggestionStationId === station.id && suggestions.length > 0 && (
-                                    <div className="absolute z-[150] left-0 top-full mt-1.5 w-full sm:w-80 max-h-56 sm:max-h-72 overflow-y-auto bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border/90 rounded-xl sm:rounded-2xl shadow-xl divide-y divide-slate-100 p-1.5">
+                                    <div className="absolute z-[150] left-0 top-full mt-1.5 w-full sm:w-80 max-h-56 sm:max-h-72 overflow-y-auto bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border/90 rounded-xl sm:rounded-2xl shadow-xl dark:shadow-dk-elevated divide-y divide-slate-100 p-1.5">
                                         {suggestions.map(op => (
                                             <button
                                                 key={op.id}
@@ -2912,7 +2912,7 @@ export default function Chronometrage({
                                             );
                                         }}
                                         placeholder="—"
-                                        className="bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border focus:border-indigo-400 focus:bg-white rounded px-1.5 py-0.5 outline-none w-14 text-[11px] sm:text-xs font-black text-slate-700 dark:text-dk-text-soft placeholder-slate-400 text-center transition-all shadow-sm"
+                                        className="bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border focus:border-indigo-400 focus:bg-white rounded px-1.5 py-0.5 outline-none w-14 text-[11px] sm:text-xs font-black text-slate-700 dark:text-dk-text-soft placeholder-slate-400 text-center transition-all shadow-sm dark:shadow-dk-sm"
                                     />
                                 </div>
 
@@ -2941,14 +2941,14 @@ export default function Chronometrage({
                                                 }, 250);
                                             }}
                                             placeholder={tx(lang, { fr: 'Nom / Matricule...', ar: 'الاسم / الرقم الوظيفي...', en: 'Name / ID...', es: 'Nombre / Matrícula...', pt: 'Nome / Matrícula...', tr: 'İsim / Sicil No...' })}
-                                            className="bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border focus:border-indigo-400 focus:bg-white rounded px-2 py-1 sm:py-0.5 outline-none w-full text-[11px] sm:text-xs font-black text-slate-700 dark:text-dk-text-soft placeholder-slate-400 transition-all shadow-sm"
+                                            className="bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border focus:border-indigo-400 focus:bg-white rounded px-2 py-1 sm:py-0.5 outline-none w-full text-[11px] sm:text-xs font-black text-slate-700 dark:text-dk-text-soft placeholder-slate-400 transition-all shadow-sm dark:shadow-dk-sm"
                                         />
 
                                         {/* Liste des effectifs : ancrée juste sous le champ "Opé" */}
                                         {activeOperatorStationId === station.id && (
                                             <div
                                                 onClick={e => e.stopPropagation()}
-                                                className="absolute z-[200] left-0 top-full mt-1.5 w-full sm:w-72 max-h-60 sm:max-h-72 overflow-y-auto bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border/90 rounded-xl sm:rounded-2xl shadow-xl divide-y divide-slate-100 p-1.5"
+                                                className="absolute z-[200] left-0 top-full mt-1.5 w-full sm:w-72 max-h-60 sm:max-h-72 overflow-y-auto bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border/90 rounded-xl sm:rounded-2xl shadow-xl dark:shadow-dk-elevated divide-y divide-slate-100 p-1.5"
                                             >
                                                 <div className="px-3 py-2 bg-slate-50 dark:bg-dk-bg/80 rounded-t-lg text-[9px] sm:text-[10px] font-black text-slate-400 dark:text-dk-muted uppercase tracking-wider sticky top-0 z-10 border-b border-slate-100 dark:border-dk-border flex items-center justify-between">
                                                     <span>{tx(lang, { fr: "Membres d'effectifs disponibles", ar: 'أعضاء الفريق المتاحين', en: 'Available staff members', es: 'Miembros de personal disponibles', pt: 'Membros da equipe disponíveis', tr: 'Mevcut personel üyeleri' })}</span>
@@ -3098,7 +3098,7 @@ export default function Chronometrage({
                 {/* Stats Section — compact for mobile */}
                 <div className="flex flex-wrap items-stretch gap-1.5 sm:gap-3 min-w-0 flex-1 max-xl:w-full overflow-x-auto max-sm:pb-1 max-sm:-mx-3 max-sm:px-3 sm:overflow-visible custom-scrollbar-hide">
                     {/* OUVRIERS / HEURES — compact mobile */}
-                    <div className="flex items-center gap-1 sm:gap-3 px-1.5 py-0.5 sm:px-3 sm:py-2 bg-slate-50 dark:bg-dk-bg rounded-lg border border-slate-100 dark:border-dk-border shadow-sm shrink-0">
+                    <div className="flex items-center gap-1 sm:gap-3 px-1.5 py-0.5 sm:px-3 sm:py-2 bg-slate-50 dark:bg-dk-bg rounded-lg border border-slate-100 dark:border-dk-border shadow-sm dark:shadow-dk-sm shrink-0">
                         <div className="flex flex-col items-center border-r border-slate-200 dark:border-dk-border pr-1.5 sm:pr-3 mr-1.5 sm:mr-3">
                             <span className="text-[7px] sm:text-[9px] font-bold text-slate-400 dark:text-dk-muted uppercase">{tx(lang, { fr: 'Ouvriers', ar: 'العمال', en: 'Workers', es: 'Operarios', pt: 'Trabalhadores', tr: 'İşçiler' })}</span>
                             <input 
@@ -3123,7 +3123,7 @@ export default function Chronometrage({
                     </div>
 
                     {/* OPERATIONS / CHRONO — compact mobile */}
-                    <div className="flex items-center gap-1 sm:gap-3 px-1.5 py-0.5 sm:px-3 sm:py-2 bg-slate-50 dark:bg-dk-bg rounded-lg border border-slate-100 dark:border-dk-border shadow-sm shrink-0">
+                    <div className="flex items-center gap-1 sm:gap-3 px-1.5 py-0.5 sm:px-3 sm:py-2 bg-slate-50 dark:bg-dk-bg rounded-lg border border-slate-100 dark:border-dk-border shadow-sm dark:shadow-dk-sm shrink-0">
                         <div className="flex flex-col items-center border-r border-slate-200 dark:border-dk-border pr-1.5 sm:pr-3">
                             <span className="text-[7px] sm:text-[10px] font-bold text-slate-500 dark:text-dk-muted uppercase tracking-wider">{tx(lang, { fr: 'Opérations', ar: 'العمليات', en: 'Operations', es: 'Operaciones', pt: 'Operações', tr: 'İşlemler' })}</span>
                             <span className="font-black text-slate-800 dark:text-dk-text text-[10px] sm:text-base">{operations.length}</span>
@@ -3135,7 +3135,7 @@ export default function Chronometrage({
                     </div>
 
                     {/* BF (s) — compact mobile */}
-                    <div className="flex items-center gap-1 sm:gap-3 px-1.5 py-0.5 sm:px-3 sm:py-1.5 bg-emerald-50 dark:bg-emerald-900/30/50 rounded-lg border border-emerald-100 shadow-sm shrink-0">
+                    <div className="flex items-center gap-1 sm:gap-3 px-1.5 py-0.5 sm:px-3 sm:py-1.5 bg-emerald-50 dark:bg-emerald-900/30/50 rounded-lg border border-emerald-100 shadow-sm dark:shadow-dk-sm shrink-0">
                         <div className="flex flex-col items-center">
                             <span className="text-[7px] sm:text-[9px] font-bold text-emerald-600 dark:text-emerald-400 uppercase flex items-center gap-0.5 sm:gap-1"><Zap className="w-2.5 h-2.5 sm:w-3 sm:h-3" /> BF (s)</span>
                             <span
@@ -3164,7 +3164,7 @@ export default function Chronometrage({
                     </div>
 
                     {/* DYNAMIC TARGETS — compact mobile */}
-                    <div className="flex items-center gap-1.5 sm:gap-3 px-1.5 py-0.5 sm:px-3 sm:py-1.5 bg-slate-50 dark:bg-dk-bg/50 rounded-lg border border-slate-100 dark:border-dk-border shadow-sm shrink-0">
+                    <div className="flex items-center gap-1.5 sm:gap-3 px-1.5 py-0.5 sm:px-3 sm:py-1.5 bg-slate-50 dark:bg-dk-bg/50 rounded-lg border border-slate-100 dark:border-dk-border shadow-sm dark:shadow-dk-sm shrink-0">
                         <div className="flex flex-col items-center border-r border-slate-200 dark:border-dk-border pr-1.5 sm:pr-3 mr-0.5 sm:mr-1">
                             <span className="text-[7px] sm:text-[9px] font-bold text-slate-400 dark:text-dk-muted uppercase">P/J</span>
                             <span className="font-black text-slate-700 dark:text-dk-text-soft text-[10px] sm:text-sm leading-none mt-0.5 sm:mt-1">
@@ -3180,7 +3180,7 @@ export default function Chronometrage({
                     </div>
 
                     {/* % RENDU — compact mobile */}
-                    <div className="flex flex-col items-center px-1.5 py-0.5 sm:px-3 sm:py-1.5 bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20/50 rounded-lg border border-indigo-100 shadow-sm shrink-0">
+                    <div className="flex flex-col items-center px-1.5 py-0.5 sm:px-3 sm:py-1.5 bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20/50 rounded-lg border border-indigo-100 shadow-sm dark:shadow-dk-sm shrink-0">
                         <span className="text-[7px] sm:text-[9px] font-bold text-indigo-400 uppercase">% Rendu</span>
                         <div className="flex items-baseline gap-0.5">
                             <input 
@@ -3195,7 +3195,7 @@ export default function Chronometrage({
                     </div>
 
                     {/* Progress bar — compact mobile */}
-                    <div className="flex items-center gap-1 sm:gap-2 px-1.5 py-0.5 sm:px-3 sm:py-2 bg-slate-50 dark:bg-dk-bg/80 rounded-lg border border-slate-100 dark:border-dk-border shadow-sm shrink-0 min-w-[min(100%,100px)] sm:min-w-[160px] xl:flex-1 xl:max-w-[220px]">
+                    <div className="flex items-center gap-1 sm:gap-2 px-1.5 py-0.5 sm:px-3 sm:py-2 bg-slate-50 dark:bg-dk-bg/80 rounded-lg border border-slate-100 dark:border-dk-border shadow-sm dark:shadow-dk-sm shrink-0 min-w-[min(100%,100px)] sm:min-w-[160px] xl:flex-1 xl:max-w-[220px]">
                         <div className="w-full h-1.5 sm:h-2 bg-slate-200 rounded-full overflow-hidden">
                             <div className="h-full bg-gradient-to-r from-indigo-500 to-cyan-400 rounded-full transition-all duration-500" style={{ width: `${progressPercent}%` }} />
                         </div>
@@ -3208,7 +3208,7 @@ export default function Chronometrage({
                     <button
                         type="button"
                         onClick={() => setStickyToolbar(v => !v)}
-                        className={`shrink-0 flex items-center gap-0.5 sm:gap-1.5 px-1.5 py-0.5 sm:px-3 sm:py-2 rounded-lg text-[9px] sm:text-xs font-bold transition-all border shadow-sm min-h-[24px] sm:min-h-[40px] focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-slate-400 focus:outline-none ${stickyToolbar ? 'bg-slate-100 dark:bg-dk-elevated text-slate-800 dark:text-dk-text border-slate-300' : 'bg-white dark:bg-dk-surface text-slate-600 dark:text-dk-text-soft border-slate-200 dark:border-dk-border hover:bg-slate-50 dark:hover:bg-dk-elevated/60'}`}
+                        className={`shrink-0 flex items-center gap-0.5 sm:gap-1.5 px-1.5 py-0.5 sm:px-3 sm:py-2 rounded-lg text-[9px] sm:text-xs font-bold transition-all border shadow-sm dark:shadow-dk-sm min-h-[24px] sm:min-h-[40px] focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-slate-400 focus:outline-none ${stickyToolbar ? 'bg-slate-100 dark:bg-dk-elevated text-slate-800 dark:text-dk-text border-slate-300' : 'bg-white dark:bg-dk-surface text-slate-600 dark:text-dk-text-soft border-slate-200 dark:border-dk-border hover:bg-slate-50 dark:hover:bg-dk-elevated/60'}`}
                         title={stickyToolbar ? tx(lang, { fr: 'Désactiver : la barre défile avec la page', ar: 'تعطيل: شريط التمرير يتحرك مع الصفحة', en: 'Disable: the bar scrolls with the page', es: 'Desactivar: la barra se desplaza con la página', pt: 'Desativar: a barra rola com a página', tr: 'Devre dışı bırak: bar sayfa ile birlikte kayar' }) : tx(lang, { fr: 'Activer : la barre reste fixée en haut au scroll', ar: 'تفعيل: يظل شريط التمرير مثبتًا في الأعلى عند التمرير', en: 'Enable: the bar remains fixed at the top on scroll', es: 'Activar: la barra permanece fija en la parte superior al desplazarse', pt: 'Ativar: a barra permanece fixa no topo ao rolar', tr: 'Etkinleştir: bar kaydırma sırasında üstte sabit kalır' })}
                     >
                         <Pin className={`w-3 h-3 sm:w-4 sm:h-4 shrink-0 ${stickyToolbar ? '' : 'opacity-60'}`} /> <span className="hidden sm:inline">Pin:</span>{stickyToolbar ? 'ON' : 'OFF'}
@@ -3216,7 +3216,7 @@ export default function Chronometrage({
                     <button
                         type="button"
                         onClick={() => setShowTsColumn(v => !v)}
-                        className={`shrink-0 flex items-center gap-0.5 sm:gap-1.5 px-1.5 py-0.5 sm:px-3 sm:py-2 rounded-lg text-[9px] sm:text-xs font-bold transition-all border shadow-sm min-h-[24px] sm:min-h-[40px] focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-amber-400 focus:outline-none ${showTsColumn ? 'bg-amber-50 dark:bg-amber-900/30 text-amber-800 border-amber-200' : 'bg-white dark:bg-dk-surface text-slate-600 dark:text-dk-text-soft border-slate-200 dark:border-dk-border hover:bg-slate-50 dark:hover:bg-dk-elevated/60'}`}
+                        className={`shrink-0 flex items-center gap-0.5 sm:gap-1.5 px-1.5 py-0.5 sm:px-3 sm:py-2 rounded-lg text-[9px] sm:text-xs font-bold transition-all border shadow-sm dark:shadow-dk-sm min-h-[24px] sm:min-h-[40px] focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-amber-400 focus:outline-none ${showTsColumn ? 'bg-amber-50 dark:bg-amber-900/30 text-amber-800 border-amber-200' : 'bg-white dark:bg-dk-surface text-slate-600 dark:text-dk-text-soft border-slate-200 dark:border-dk-border hover:bg-slate-50 dark:hover:bg-dk-elevated/60'}`}
                         title={tx(lang, {
                             fr: "Afficher ou masquer la colonne TS (temps standard gamme)",
                             ar: "إظهار أو إخفاء عمود TS (وقت قياسي للغامة)",
@@ -3234,7 +3234,7 @@ export default function Chronometrage({
                             setTrEnabled(v => !v);
                             setShowTrConfig(false);
                         }}
-                        className={`shrink-0 flex items-center gap-0.5 sm:gap-1.5 px-1.5 py-0.5 sm:px-3 sm:py-2 rounded-lg text-[9px] sm:text-xs font-bold transition-all border shadow-sm min-h-[24px] sm:min-h-[40px] focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-emerald-400 focus:outline-none ${trEnabled ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 border-emerald-200' : 'bg-white dark:bg-dk-surface text-slate-600 dark:text-dk-text-soft border-slate-200 dark:border-dk-border hover:bg-slate-50 dark:hover:bg-dk-elevated/60'}`}
+                        className={`shrink-0 flex items-center gap-0.5 sm:gap-1.5 px-1.5 py-0.5 sm:px-3 sm:py-2 rounded-lg text-[9px] sm:text-xs font-bold transition-all border shadow-sm dark:shadow-dk-sm min-h-[24px] sm:min-h-[40px] focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-emerald-400 focus:outline-none ${trEnabled ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 border-emerald-200' : 'bg-white dark:bg-dk-surface text-slate-600 dark:text-dk-text-soft border-slate-200 dark:border-dk-border hover:bg-slate-50 dark:hover:bg-dk-elevated/60'}`}
                         title={tx(lang, {
                             fr: "Activer / désactiver TR",
                             ar: "تفعيل / تعطيل TR",
@@ -3250,12 +3250,12 @@ export default function Chronometrage({
                     <button
                         onClick={() => setShowTrConfig(!showTrConfig)}
                         disabled={!trEnabled}
-                        className={`shrink-0 flex items-center gap-0.5 sm:gap-1.5 px-1.5 py-0.5 sm:px-3 sm:py-2 rounded-lg text-[9px] sm:text-xs font-bold transition-all border shadow-sm min-h-[24px] sm:min-h-[40px] focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-indigo-400 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed ${showTrConfig ? 'bg-indigo-100 text-indigo-700 dark:text-dk-accent-text border-indigo-200' : 'bg-white dark:bg-dk-surface text-slate-600 dark:text-dk-text-soft border-slate-200 dark:border-dk-border hover:bg-slate-50 dark:hover:bg-dk-elevated/60'}`}
+                        className={`shrink-0 flex items-center gap-0.5 sm:gap-1.5 px-1.5 py-0.5 sm:px-3 sm:py-2 rounded-lg text-[9px] sm:text-xs font-bold transition-all border shadow-sm dark:shadow-dk-sm min-h-[24px] sm:min-h-[40px] focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-indigo-400 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed ${showTrConfig ? 'bg-indigo-100 text-indigo-700 dark:text-dk-accent-text border-indigo-200' : 'bg-white dark:bg-dk-surface text-slate-600 dark:text-dk-text-soft border-slate-200 dark:border-dk-border hover:bg-slate-50 dark:hover:bg-dk-elevated/60'}`}
                     >
                         <Settings className="w-3 h-3 sm:w-4 sm:h-4" /> {tx(lang, { fr: `${trCount} lancers`, ar: `${trCount} دورات`, en: `${trCount} runs`, es: `${trCount} lanzamientos`, pt: `${trCount} lançamentos`, tr: `${trCount} ölçüm` })}
                     </button>
 
-                    <div className="shrink-0 flex items-stretch rounded-lg border border-slate-200 dark:border-dk-border overflow-hidden shadow-sm h-[24px] sm:h-[40px]" title={tx(lang, { fr: "Ordre des opérations : Gamme, implantation (Plantation) ou nouvelle séquence libre (Nouveau)", ar: "ترتيب العمليات: الغامة، التخطيط (Plantation) أو تسلسل حر جديد (Nouveau)", en: "Operation order: Routing, layout (Plantation) or new free sequence (New)", es: "Orden de operaciones: Gama, implantación (Plantation) ou nueva secuencia libre (Nuevo)", pt: "Ordem de operações: Gama, implantação (Plantation) ou nova sequência livre (Novo)", tr: "İşlem sırası: Rota, yerleşim (Plantation) veya yeni serbest sıralama (Yeni)" })}>
+                    <div className="shrink-0 flex items-stretch rounded-lg border border-slate-200 dark:border-dk-border overflow-hidden shadow-sm dark:shadow-dk-sm h-[24px] sm:h-[40px]" title={tx(lang, { fr: "Ordre des opérations : Gamme, implantation (Plantation) ou nouvelle séquence libre (Nouveau)", ar: "ترتيب العمليات: الغامة، التخطيط (Plantation) أو تسلسل حر جديد (Nouveau)", en: "Operation order: Routing, layout (Plantation) or new free sequence (New)", es: "Orden de operaciones: Gama, implantación (Plantation) ou nueva secuencia libre (Nuevo)", pt: "Ordem de operações: Gama, implantação (Plantation) ou nova sequência livre (Novo)", tr: "İşlem sırası: Rota, yerleşim (Plantation) veya yeni serbest sıralama (Yeni)" })}>
                         <button
                             type="button"
                             onClick={() => setOrderSource('gamme')}
@@ -3283,7 +3283,7 @@ export default function Chronometrage({
                     </div>
 
                     {(orderSource === 'new' || orderSource === 'plantation') && (
-                        <div className="shrink-0 flex items-stretch rounded-lg border border-slate-200 dark:border-dk-border overflow-hidden shadow-sm h-[24px] sm:h-[40px]" title={tx(lang, { fr: 'Disposition du terrain', ar: 'تخطيط الميدان', en: 'Floor layout', es: 'Disposición del terreno', pt: 'Disposição do terreno', tr: 'Saha yerleşimi' })}>
+                        <div className="shrink-0 flex items-stretch rounded-lg border border-slate-200 dark:border-dk-border overflow-hidden shadow-sm dark:shadow-dk-sm h-[24px] sm:h-[40px]" title={tx(lang, { fr: 'Disposition du terrain', ar: 'تخطيط الميدان', en: 'Floor layout', es: 'Disposición del terreno', pt: 'Disposição do terreno', tr: 'Saha yerleşimi' })}>
                             <button
                                 type="button"
                                 onClick={() => setChronoLayoutSide?.('left')}
@@ -3308,7 +3308,7 @@ export default function Chronometrage({
                         </div>
                     )}
 
-                    <div className="shrink-0 flex items-stretch rounded-lg border border-slate-200 dark:border-dk-border overflow-hidden shadow-sm h-[24px] sm:h-[40px]">
+                    <div className="shrink-0 flex items-stretch rounded-lg border border-slate-200 dark:border-dk-border overflow-hidden shadow-sm dark:shadow-dk-sm h-[24px] sm:h-[40px]">
                         <button
                             type="button"
                             onClick={() => setOutputMode('PJ')}
@@ -3330,7 +3330,7 @@ export default function Chronometrage({
                     <button
                         type="button"
                         onClick={() => setShowThroughputKpi(v => !v)}
-                        className={`shrink-0 flex items-center gap-0.5 sm:gap-1.5 px-1.5 py-0.5 sm:px-3 sm:py-2 rounded-lg text-[9px] sm:text-xs font-bold transition-all border shadow-sm min-h-[24px] sm:min-h-[40px] focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-orange-400 focus:outline-none ${showThroughputKpi ? 'bg-orange-50 dark:bg-orange-900/30 text-orange-800 border-orange-200' : 'bg-white dark:bg-dk-surface text-slate-600 dark:text-dk-text-soft border-slate-200 dark:border-dk-border hover:bg-slate-50 dark:hover:bg-dk-elevated/60'}`}
+                        className={`shrink-0 flex items-center gap-0.5 sm:gap-1.5 px-1.5 py-0.5 sm:px-3 sm:py-2 rounded-lg text-[9px] sm:text-xs font-bold transition-all border shadow-sm dark:shadow-dk-sm min-h-[24px] sm:min-h-[40px] focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-orange-400 focus:outline-none ${showThroughputKpi ? 'bg-orange-50 dark:bg-orange-900/30 text-orange-800 border-orange-200' : 'bg-white dark:bg-dk-surface text-slate-600 dark:text-dk-text-soft border-slate-200 dark:border-dk-border hover:bg-slate-50 dark:hover:bg-dk-elevated/60'}`}
                         title={tx(lang, { fr: 'Afficher/masquer P° Max / P° Rdt', ar: 'إظهار/إخفاء الإنتاج الأقصى / الإنتاج بالمردود', en: 'Show/hide Max Output / Eff. Output', es: 'Mostrar/ocultar Prod. Máx. / Prod. Rdto.', pt: 'Mostrar/ocultar Prod. Máx. / Prod. Rend.', tr: 'Maks Üretim / Verimli Üretim göster/gizle' })}
                     >
                         <Target className="w-3 h-3 sm:w-4 sm:h-4" /> P° KPI
@@ -3340,7 +3340,7 @@ export default function Chronometrage({
                         <button
                             type="button"
                             onClick={() => setShowUnitMenu(v => !v)}
-                            className={`flex items-center justify-between gap-0.5 sm:gap-2 px-1.5 sm:px-3 py-0.5 sm:py-2 rounded-lg text-left transition-all border shadow-sm min-w-[70px] sm:min-w-[100px] min-h-[24px] sm:min-h-[40px] focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-indigo-400 focus:outline-none ${showUnitMenu ? 'bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 text-indigo-800 border-indigo-200' : 'bg-white dark:bg-dk-surface text-slate-700 dark:text-dk-text-soft border-slate-200 dark:border-dk-border hover:bg-slate-50 dark:hover:bg-dk-elevated/60'}`}
+                            className={`flex items-center justify-between gap-0.5 sm:gap-2 px-1.5 sm:px-3 py-0.5 sm:py-2 rounded-lg text-left transition-all border shadow-sm dark:shadow-dk-sm min-w-[70px] sm:min-w-[100px] min-h-[24px] sm:min-h-[40px] focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-indigo-400 focus:outline-none ${showUnitMenu ? 'bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 text-indigo-800 border-indigo-200' : 'bg-white dark:bg-dk-surface text-slate-700 dark:text-dk-text-soft border-slate-200 dark:border-dk-border hover:bg-slate-50 dark:hover:bg-dk-elevated/60'}`}
                             title={tx(lang, { fr: `Unité : ${getUnitName(unit)}`, ar: `الوحدة: ${getUnitName(unit)}`, en: `Unit: ${getUnitName(unit)}`, es: `Unidad: ${getUnitName(unit)}`, pt: `Unidade: ${getUnitName(unit)}`, tr: `Birim: ${getUnitName(unit)}` })}
                         >
                             <span className="flex flex-col leading-none">
@@ -3350,7 +3350,7 @@ export default function Chronometrage({
                             <ChevronDown className={`w-3 h-3 sm:w-4 sm:h-4 text-slate-400 dark:text-dk-muted transition-transform ${showUnitMenu ? 'rotate-180 text-indigo-500' : ''}`} />
                         </button>
                         {showUnitMenu && (
-                            <div className="absolute right-0 top-[calc(100%+8px)] z-[200] w-[240px] rounded-xl border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface p-2.5 shadow-2xl animate-in fade-in slide-in-from-top-2 duration-150">
+                            <div className="absolute right-0 top-[calc(100%+8px)] z-[200] w-[240px] rounded-xl border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface p-2.5 shadow-2xl dark:shadow-dk-elevated animate-in fade-in slide-in-from-top-2 duration-150">
                                 <div className="px-2 pb-2 border-b border-slate-100 dark:border-dk-border mb-2">
                                     <p className="text-xs font-bold text-slate-700 dark:text-dk-text-soft">{tx(lang, { fr: "Choisir l'unité de temps", ar: 'اختر وحدة الوقت', en: 'Choose time unit', es: 'Elegir unidad de tiempo', pt: 'Escolher unidade de tempo', tr: 'Zaman birimini seçin' })}</p>
                                 </div>
@@ -3360,7 +3360,7 @@ export default function Chronometrage({
                                             key={opt.id}
                                             type="button"
                                             onClick={() => { setUnit(opt.id); setShowUnitMenu(false); }}
-                                            className={`flex items-center justify-center p-2 rounded-lg text-xs font-bold border transition-colors focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-indigo-400 focus:outline-none ${unit === opt.id ? 'bg-indigo-600 dark:bg-dk-accent text-white border-indigo-600 shadow-md' : 'bg-slate-50 dark:bg-dk-bg text-slate-600 dark:text-dk-text-soft border-slate-100 dark:border-dk-border hover:border-slate-300 hover:bg-slate-100'}`}
+                                            className={`flex items-center justify-center p-2 rounded-lg text-xs font-bold border transition-colors focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-indigo-400 focus:outline-none ${unit === opt.id ? 'bg-indigo-600 dark:bg-dk-accent text-white border-indigo-600 shadow-md dark:shadow-dk-md' : 'bg-slate-50 dark:bg-dk-bg text-slate-600 dark:text-dk-text-soft border-slate-100 dark:border-dk-border hover:border-slate-300 hover:bg-slate-100'}`}
                                             title={tx(lang, {
                                                 fr: opt.name,
                                                 ar: opt.id === 'ms' ? 'مللي ثانية' : opt.id === 'cs' ? 'جزء من المئة من الثانية' : opt.id === 'ds' ? 'جزء من العشرة من الثانية' : opt.id === 'sec' ? 'ثواني' : opt.id === 'min' ? 'دقائق' : opt.id === 'cmin' ? 'جزء من المئة من الدقيقة' : opt.id === 'dmin' ? 'جزء من العشرة من الدقيقة' : opt.id === 'hour' ? 'ساعات' : opt.id === 'tmu' ? 'وحدة قياس الوقت (TMU)' : 'دقيقة مسموح بها قياسية (SAM)',
@@ -3381,7 +3381,7 @@ export default function Chronometrage({
             </div>
 
             {trEnabled && showTrConfig && (
-                <div className="bg-gradient-to-r from-indigo-50 to-white rounded-xl border border-indigo-100 shadow-sm p-2 sm:p-3 flex flex-wrap gap-2 items-center animate-in slide-in-from-top-2 duration-200">
+                <div className="bg-gradient-to-r from-indigo-50 to-white rounded-xl border border-indigo-100 shadow-sm dark:shadow-dk-sm p-2 sm:p-3 flex flex-wrap gap-2 items-center animate-in slide-in-from-top-2 duration-200">
                     <span className="text-[10px] sm:text-xs font-bold text-indigo-800 uppercase tracking-wider mr-2 flex items-center gap-1">
                         <Settings className="w-3 h-3 sm:w-4 sm:h-4" /> Nombre de relevés (TR) :
                     </span>
@@ -3390,7 +3390,7 @@ export default function Chronometrage({
                             <button
                                 key={n}
                                 onClick={() => { setTrCount(n); setShowTrConfig(false); }}
-                                className={`w-8 h-8 sm:w-10 sm:h-10 rounded-lg font-black text-[10px] sm:text-sm transition-all shadow-sm focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-indigo-400 focus:outline-none ${trCount === n ? 'bg-indigo-600 dark:bg-dk-accent text-white ring-2 ring-indigo-600 ring-offset-2' : 'bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border text-slate-600 dark:text-dk-text-soft hover:bg-slate-50 dark:hover:bg-dk-elevated/60 hover:border-slate-300'}`}
+                                className={`w-8 h-8 sm:w-10 sm:h-10 rounded-lg font-black text-[10px] sm:text-sm transition-all shadow-sm dark:shadow-dk-sm focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-indigo-400 focus:outline-none ${trCount === n ? 'bg-indigo-600 dark:bg-dk-accent text-white ring-2 ring-indigo-600 ring-offset-2' : 'bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border text-slate-600 dark:text-dk-text-soft hover:bg-slate-50 dark:hover:bg-dk-elevated/60 hover:border-slate-300'}`}
                             >
                                 {n}
                             </button>
@@ -3400,7 +3400,7 @@ export default function Chronometrage({
             )}
 
             {/* ─── MAIN TABLE CARD ─── */}
-            <div className="bg-white dark:bg-dk-surface rounded-xl sm:rounded-2xl border border-slate-200 dark:border-dk-border shadow-lg overflow-visible">
+            <div className="bg-white dark:bg-dk-surface rounded-xl sm:rounded-2xl border border-slate-200 dark:border-dk-border shadow-lg dark:shadow-dk-lg overflow-visible">
 
                 {/* Table Header */}
                 <div className="px-2 py-1.5 sm:px-6 sm:py-5 border-b border-slate-100 dark:border-dk-border flex flex-col md:flex-row md:items-center justify-between gap-1.5 sm:gap-4">
@@ -3432,7 +3432,7 @@ export default function Chronometrage({
                                     const active = sectionFilter === s;
                                     return (
                                         <button key={s} onClick={() => setSectionFilter(s)}
-                                            className={`px-2 py-1 rounded-md text-[10px] sm:text-xs font-bold transition-all focus:outline-none focus:ring-2 focus:ring-indigo-400 ${active ? 'bg-white dark:bg-dk-surface text-slate-800 dark:text-dk-text shadow-sm border border-slate-200 dark:border-dk-border' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'}`}>
+                                            className={`px-2 py-1 rounded-md text-[10px] sm:text-xs font-bold transition-all focus:outline-none focus:ring-2 focus:ring-indigo-400 ${active ? 'bg-white dark:bg-dk-surface text-slate-800 dark:text-dk-text shadow-sm dark:shadow-dk-sm border border-slate-200 dark:border-dk-border' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'}`}>
                                             {s === 'ALL' 
                                                 ? tx(lang, { fr: 'Toutes', ar: 'الكل', en: 'All', es: 'Todas', pt: 'Todas', tr: 'Tümü' }) 
                                                 : s === 'PREPARATION' 
@@ -3707,7 +3707,7 @@ export default function Chronometrage({
                                             return (
                                                 <React.Fragment key={op.id}>
                                                     <tr
-                                                        className={`group transition-colors duration-200 cursor-pointer ${isActive ? 'bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20/60 ring-1 ring-inset ring-indigo-200 shadow-sm' : 'hover:bg-slate-50/90'}`}
+                                                        className={`group transition-colors duration-200 cursor-pointer ${isActive ? 'bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20/60 ring-1 ring-inset ring-indigo-200 shadow-sm dark:shadow-dk-sm' : 'hover:bg-slate-50/90'}`}
                                                         onClick={() => setActiveRowId(isActive ? null : op.id)}
                                                     >
                                                         <td
@@ -3715,7 +3715,7 @@ export default function Chronometrage({
                                                         >
                                                             <div className="flex items-center justify-center">
                                                                 <span
-                                                                    className={`w-8 h-8 rounded-lg flex items-center justify-center font-mono font-black text-xs shadow-sm transition-colors ${primaryPosteColor ? 'text-white ring-1 ring-black/10' : 'bg-slate-100 dark:bg-dk-elevated text-slate-500 group-hover:bg-indigo-100 group-hover:text-indigo-700 dark:text-dk-accent-text'}`}
+                                                                    className={`w-8 h-8 rounded-lg flex items-center justify-center font-mono font-black text-xs shadow-sm dark:shadow-dk-sm transition-colors ${primaryPosteColor ? 'text-white ring-1 ring-black/10' : 'bg-slate-100 dark:bg-dk-elevated text-slate-500 group-hover:bg-indigo-100 group-hover:text-indigo-700 dark:text-dk-accent-text'}`}
                                                                     style={primaryPosteColor ? { backgroundColor: primaryPosteColor.fill ?? '#6366f1' } : undefined}
                                                                 >
                                                                     {index + 1}
@@ -3777,7 +3777,7 @@ export default function Chronometrage({
                                                                     <td key={trNum} className={`px-0.5 py-1.5 ${trNum === trCount ? 'border-r border-slate-200 dark:border-dk-border' : ''} relative group/cell`}>
                                                                         <input
                                                                             type="number" step="0.01" min="0"
-                                                                            className={`w-full pl-1 pr-6 py-1.5 text-center text-[13px] font-mono font-bold border border-transparent rounded-md hover:bg-slate-50 dark:hover:bg-dk-elevated/60 hover:border-slate-200 focus:bg-white focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 outline-none transition-all placeholder:text-slate-300 cursor-text shadow-sm ${INPUT_NO_SPIN} ${hasVal ? trStatusStyles[status] : 'bg-transparent text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text'}`}
+                                                                            className={`w-full pl-1 pr-6 py-1.5 text-center text-[13px] font-mono font-bold border border-transparent rounded-md hover:bg-slate-50 dark:hover:bg-dk-elevated/60 hover:border-slate-200 focus:bg-white focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 outline-none transition-all placeholder:text-slate-300 cursor-text shadow-sm dark:shadow-dk-sm ${INPUT_NO_SPIN} ${hasVal ? trStatusStyles[status] : 'bg-transparent text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text'}`}
                                                                             placeholder="—"
                                                                             value={hasVal && typeof val === 'number' ? displayValue(val) : ''}
                                                                             onClick={(e) => { e.stopPropagation(); }}
@@ -3789,7 +3789,7 @@ export default function Chronometrage({
                                                                                 aria-label={`${tx(lang, { fr: 'Supprimer', ar: 'حذف', en: 'Delete', es: 'Eliminar', pt: 'Excluir', tr: 'Sil' })} TR ${trNum}`}
                                                                                 onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); }}
                                                                                 onClick={(e) => handleClearTRClick(e, op.id, trNum)}
-                                                                                className="absolute right-0.5 top-1/2 -translate-y-1/2 z-10 flex h-[18px] w-[18px] items-center justify-center rounded-md border border-rose-200 bg-white dark:bg-dk-surface/95 text-rose-500 shadow-sm opacity-0 scale-90 pointer-events-none transition-all duration-200 group-hover/cell:opacity-100 group-hover/cell:scale-100 group-hover/cell:pointer-events-auto group-focus-within/cell:opacity-100 group-focus-within/cell:scale-100 group-focus-within/cell:pointer-events-auto hover:bg-rose-50 hover:text-rose-600 hover:shadow active:scale-95"
+                                                                                className="absolute right-0.5 top-1/2 -translate-y-1/2 z-10 flex h-[18px] w-[18px] items-center justify-center rounded-md border border-rose-200 bg-white dark:bg-dk-surface/95 text-rose-500 shadow-sm dark:shadow-dk-sm opacity-0 scale-90 pointer-events-none transition-all duration-200 group-hover/cell:opacity-100 group-hover/cell:scale-100 group-hover/cell:pointer-events-auto group-focus-within/cell:opacity-100 group-focus-within/cell:scale-100 group-focus-within/cell:pointer-events-auto hover:bg-rose-50 hover:text-rose-600 hover:shadow active:scale-95"
                                                                                 title={tx(lang, { fr: 'Supprimer ce relevé', ar: 'حذف هذا التسجيل', en: 'Delete this reading', es: 'Eliminar esta lectura', pt: 'Excluir esta leitura', tr: 'Bu ölçümü sil' })}
                                                                             >
                                                                                 <X className="w-2.5 h-2.5" />
@@ -3807,7 +3807,7 @@ export default function Chronometrage({
                                                                 type="number"
                                                                 step="0.01"
                                                                 min="0"
-                                                                className={`w-full min-w-[3.5rem] px-1 py-1 text-center text-[13px] font-mono font-black rounded-md border border-transparent hover:bg-white hover:border-slate-300 focus:bg-white focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 outline-none transition-all ${INPUT_NO_SPIN} text-indigo-700 dark:text-dk-accent-text shadow-sm`}
+                                                                className={`w-full min-w-[3.5rem] px-1 py-1 text-center text-[13px] font-mono font-black rounded-md border border-transparent hover:bg-white hover:border-slate-300 focus:bg-white focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 outline-none transition-all ${INPUT_NO_SPIN} text-indigo-700 dark:text-dk-accent-text shadow-sm dark:shadow-dk-sm`}
                                                                 title={row.tmManual 
                                                                     ? tx(lang, { fr: 'T.Moy manuel — T.Maj / P° recalculés', ar: 'T.Moy يدوي — إعادة حساب T.Maj / P°', en: 'Manual Mean Time — recalculated Allowed Time / Output', es: 'T.Medio manual — T.Supl. / Prod. recalculados', pt: 'T.Médio manual — T.Supl. / Prod. recalculados', tr: 'Manuel Ortalama Süre — yeniden hesaplanan Toleranslı Süre / Üretim' })
                                                                     : tx(lang, { fr: 'Moyenne des TR — ou saisie manuelle ici', ar: 'متوسط TR — أو إدخال يدوي هنا', en: 'Average of TR — or enter manually here', es: 'Promedio de TR — o ingreso manual aquí', pt: 'Média de TR — ou insira manualmente aqui', tr: 'TR ortalaması — veya buraya manuel olarak girin' })
@@ -3822,7 +3822,7 @@ export default function Chronometrage({
                                                         <td className="px-1.5 py-1.5 text-center" onClick={(e) => e.stopPropagation()}>
                                                             <input
                                                                 type="number" step="0.01" min="0"
-                                                                className={`w-14 mx-auto px-1 py-1 text-center text-[13px] font-mono font-bold text-slate-700 dark:text-dk-text-soft border border-slate-200 dark:border-dk-border rounded-md shadow-sm focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 outline-none transition-all ${INPUT_NO_SPIN}`}
+                                                                className={`w-14 mx-auto px-1 py-1 text-center text-[13px] font-mono font-bold text-slate-700 dark:text-dk-text-soft border border-slate-200 dark:border-dk-border rounded-md shadow-sm dark:shadow-dk-sm focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 outline-none transition-all ${INPUT_NO_SPIN}`}
                                                                 value={displayValue(data.majoration)}
                                                                 onChange={e => handleCellChange(op.id, 'majoration', e.target.value)}
                                                             />
@@ -3860,7 +3860,7 @@ export default function Chronometrage({
                                                     {isExpanded && (
                                                         <tr>
                                                             <td colSpan={desktopColSpan} className="px-6 py-8 bg-slate-50 dark:bg-dk-bg/50 border-b border-slate-200 dark:border-dk-border shadow-inner">
-                                                                <div className="max-w-4xl mx-auto bg-white dark:bg-dk-surface rounded-2xl shadow-2xl border border-indigo-100 overflow-hidden animate-in zoom-in-95 duration-200">
+                                                                <div className="max-w-4xl mx-auto bg-white dark:bg-dk-surface rounded-2xl shadow-2xl dark:shadow-dk-elevated border border-indigo-100 overflow-hidden animate-in zoom-in-95 duration-200">
                                                                     <AdvancedStopwatch
                                                                         key={op.id}
                                                                         onRecord={(time) => handleStopwatchRecord(op.id, time)}
@@ -3968,7 +3968,7 @@ export default function Chronometrage({
                                             <div className="flex items-center justify-between mb-2 sm:mb-3">
                                                 <div className="flex items-center gap-2 flex-1 min-w-0">
                                                     <span
-                                                        className={`w-6 h-6 shrink-0 rounded-lg flex items-center justify-center font-mono text-[10px] font-bold shadow-sm ${primaryPosteColor ? 'text-white ring-1 ring-black/10' : 'bg-slate-100 dark:bg-dk-elevated text-slate-500 dark:text-dk-muted'}`}
+                                                        className={`w-6 h-6 shrink-0 rounded-lg flex items-center justify-center font-mono text-[10px] font-bold shadow-sm dark:shadow-dk-sm ${primaryPosteColor ? 'text-white ring-1 ring-black/10' : 'bg-slate-100 dark:bg-dk-elevated text-slate-500 dark:text-dk-muted'}`}
                                                         style={primaryPosteColor ? { backgroundColor: primaryPosteColor.fill ?? '#6366f1' } : undefined}
                                                     >
                                                         {index + 1}
@@ -4108,27 +4108,27 @@ export default function Chronometrage({
 
             {/* ─── BOTTOM INSIGHT CARD ─── */}
             {operations.length > 0 && totals.tempMajore > 0 && (
-                <div className="bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border shadow-lg p-5 flex flex-col md:flex-row md:items-center justify-between gap-6">
+                <div className="bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border shadow-lg dark:shadow-dk-lg p-5 flex flex-col md:flex-row md:items-center justify-between gap-6">
                     <div className="flex flex-wrap items-center gap-3">
                         <div className="flex flex-col">
                             <span className="text-[10px] font-bold text-slate-400 dark:text-dk-muted uppercase tracking-wider mb-0.5">{tx(lang, { fr: 'Configuration', ar: 'الإعدادات', en: 'Configuration', es: 'Configuración', pt: 'Configuração', tr: 'Yapılandırma' })}</span>
-                            <span className="px-3 py-1.5 rounded-lg bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border font-black text-slate-700 dark:text-dk-text-soft shadow-sm text-sm">{presenceHours.toFixed(1)} h/j</span>
+                            <span className="px-3 py-1.5 rounded-lg bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border font-black text-slate-700 dark:text-dk-text-soft shadow-sm dark:shadow-dk-sm text-sm">{presenceHours.toFixed(1)} h/j</span>
                         </div>
                         <div className="flex flex-col">
                             <span className="text-[10px] font-bold text-emerald-500 uppercase tracking-wider mb-0.5">{tx(lang, { fr: 'Temps de Cycle', ar: 'وقت الدورة', en: 'Cycle Time', es: 'Tiempo de ciclo', pt: 'Tempo de ciclo', tr: 'Döngü Süresi' })}</span>
-                            <span className="px-3 py-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-200 font-black text-emerald-700 shadow-sm text-sm">{totals.tempMajore.toFixed(2)} min</span>
+                            <span className="px-3 py-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-200 font-black text-emerald-700 shadow-sm dark:shadow-dk-sm text-sm">{totals.tempMajore.toFixed(2)} min</span>
                         </div>
                         {showThroughputKpi && (
                             <>
                                 <div className="flex flex-col">
                                     <span className="text-[10px] font-bold text-indigo-500 uppercase tracking-wider mb-0.5">{tx(lang, { fr: 'Rendement', ar: 'المردودية', en: 'Efficiency', es: 'Rendimiento', pt: 'Rendimento', tr: 'Verimlilik' })} {Math.max(1, Math.min(100, efficiency))}%</span>
-                                    <span className="px-3 py-1.5 rounded-lg bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 border border-indigo-200 font-black text-indigo-700 dark:text-dk-accent-text shadow-sm text-sm">
+                                    <span className="px-3 py-1.5 rounded-lg bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 border border-indigo-200 font-black text-indigo-700 dark:text-dk-accent-text shadow-sm dark:shadow-dk-sm text-sm">
                                         {outputMode === 'PJ' ? `${totals.p85Global} pcs/j` : `${formatProductionCell(totals.p85Global || undefined, 'PH')} pcs/h`}
                                     </span>
                                 </div>
                                 <div className="flex flex-col">
                                     <span className="text-[10px] font-bold text-orange-500 uppercase tracking-wider mb-0.5">{tx(lang, { fr: 'Capacité Max', ar: 'السعة القصوى', en: 'Max Capacity', es: 'Capacidad máx.', pt: 'Capacidade máx.', tr: 'Maks Kapasite' })}</span>
-                                    <span className="px-3 py-1.5 rounded-lg bg-orange-50 dark:bg-orange-900/30 border border-orange-200 font-black text-orange-700 shadow-sm text-sm">
+                                    <span className="px-3 py-1.5 rounded-lg bg-orange-50 dark:bg-orange-900/30 border border-orange-200 font-black text-orange-700 shadow-sm dark:shadow-dk-sm text-sm">
                                         {outputMode === 'PJ' ? `${totals.pMaxGlobal} pcs/j` : `${formatProductionCell(totals.pMaxGlobal || undefined, 'PH')} pcs/h`}
                                     </span>
                                 </div>
@@ -4144,15 +4144,15 @@ export default function Chronometrage({
                                 min="1"
                                 value={targetQuantity}
                                 onChange={(e) => setTargetQuantity(Math.max(1, Number(e.target.value) || 1))}
-                                className={`w-28 h-9 px-3 rounded-lg border border-slate-300 text-left font-black text-slate-800 dark:text-dk-text bg-white dark:bg-dk-surface focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent shadow-sm ${INPUT_NO_SPIN}`}
+                                className={`w-28 h-9 px-3 rounded-lg border border-slate-300 text-left font-black text-slate-800 dark:text-dk-text bg-white dark:bg-dk-surface focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent shadow-sm dark:shadow-dk-sm ${INPUT_NO_SPIN}`}
                             />
                         </div>
                         <div className="flex items-center gap-2 mb-1">
-                            <span className="flex flex-col px-3 py-1.5 rounded-lg bg-purple-100 border border-purple-200 font-black text-purple-700 shadow-sm">
+                            <span className="flex flex-col px-3 py-1.5 rounded-lg bg-purple-100 border border-purple-200 font-black text-purple-700 shadow-sm dark:shadow-dk-sm">
                                 <span className="text-[9px] font-bold text-purple-500 uppercase tracking-wider leading-none mb-1">{tx(lang, { fr: 'Délai estimé', ar: 'الوقت المقدر', en: 'Estimated time', es: 'Plazo estimado', pt: 'Prazo estimado', tr: 'Tahmini süre' })}</span>
                                 {estimatedDays > 0 ? estimatedDays.toFixed(1) : '—'} {tx(lang, { fr: 'jours', ar: 'أيام', en: 'days', es: 'días', pt: 'dias', tr: 'gün' })}
                             </span>
-                            <span className="hidden sm:flex flex-col px-3 py-1.5 rounded-lg bg-cyan-50 dark:bg-cyan-900/30 border border-cyan-200 font-black text-cyan-700 shadow-sm">
+                            <span className="hidden sm:flex flex-col px-3 py-1.5 rounded-lg bg-cyan-50 dark:bg-cyan-900/30 border border-cyan-200 font-black text-cyan-700 shadow-sm dark:shadow-dk-sm">
                                 <span className="text-[9px] font-bold text-cyan-500 uppercase tracking-wider leading-none mb-1">{tx(lang, { fr: 'Cadence', ar: 'الإيقاع', en: 'Cadence', es: 'Cadencia', pt: 'Cadência', tr: 'Tempo' })}</span>
                                 {cycleHours.toFixed(2)} h / pce
                             </span>
@@ -4181,7 +4181,7 @@ export default function Chronometrage({
             {/* ─── CREATE SESSION DIALOG ─── */}
             {showCreateDialog && (
                 <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40 backdrop-blur-sm animate-in fade-in duration-150">
-                    <div className="bg-white dark:bg-dk-surface rounded-2xl shadow-2xl border border-slate-200 dark:border-dk-border w-full max-w-md mx-4 overflow-hidden animate-in zoom-in-95 duration-200">
+                    <div className="bg-white dark:bg-dk-surface rounded-2xl shadow-2xl dark:shadow-dk-elevated border border-slate-200 dark:border-dk-border w-full max-w-md mx-4 overflow-hidden animate-in zoom-in-95 duration-200">
                         <div className="px-6 py-5 border-b border-slate-100 dark:border-dk-border flex items-center justify-between">
                             <div>
                                 <h3 className="font-black text-slate-800 dark:text-dk-text text-lg">{tx(lang, { fr: 'Nouvelle Séance Chrono', ar: 'جلسة توقيت جديدة', en: 'New Timing Session', es: 'Nueva Sesión de Cronometraje', pt: 'Nova Sessão de Cronometragem', tr: 'Yeni Kronometre Seansı' })}</h3>
@@ -4262,7 +4262,7 @@ export default function Chronometrage({
                             </button>
                             <button
                                 onClick={createSession}
-                                className="px-6 py-2.5 rounded-xl text-sm font-black bg-indigo-600 dark:bg-dk-accent text-white shadow-md shadow-indigo-200 hover:bg-indigo-700 dark:hover:bg-dk-accent-hover transition-all"
+                                className="px-6 py-2.5 rounded-xl text-sm font-black bg-indigo-600 dark:bg-dk-accent text-white shadow-md dark:shadow-dk-md shadow-indigo-200 hover:bg-indigo-700 dark:hover:bg-dk-accent-hover transition-all"
                             >
                                 <Plus className="w-4 h-4 inline mr-1" /> {tx(lang, { fr: 'Créer la Séance', ar: 'إنشاء الجلسة', en: 'Create Session', es: 'Crear la Sesión', pt: 'Criar Sessão', tr: 'Seans Oluştur' })}
                             </button>
@@ -4274,7 +4274,7 @@ export default function Chronometrage({
             {/* ─── SELECTED SESSION VIEW (Page dédiée) ─── */}
             {selectedSession && (
                 <div className="fixed inset-0 z-[150] bg-white dark:bg-dk-surface overflow-y-auto animate-in fade-in duration-200">
-                    <div className="sticky top-0 z-10 bg-white dark:bg-dk-surface border-b border-slate-200 dark:border-dk-border px-4 sm:px-6 py-3 flex items-center justify-between shadow-sm">
+                    <div className="sticky top-0 z-10 bg-white dark:bg-dk-surface border-b border-slate-200 dark:border-dk-border px-4 sm:px-6 py-3 flex items-center justify-between shadow-sm dark:shadow-dk-sm">
                         <div className="flex items-center gap-3">
                             <button
                                 onClick={() => setSelectedSession(null)}
@@ -4325,7 +4325,7 @@ export default function Chronometrage({
                         </div>
 
                         {/* Bar Chart — Temps majoré par opération */}
-                        <div className="bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border shadow-lg p-5">
+                        <div className="bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border shadow-lg dark:shadow-dk-lg p-5">
                             <h3 className="font-black text-slate-800 dark:text-dk-text text-sm mb-4 flex items-center gap-2">
                                 <BarChart3 className="w-4 h-4 text-indigo-500" /> {tx(lang, { fr: 'Temps Majoré par Opération (min)', ar: 'الوقت المرفّع لكل عملية (min)', en: 'Allowed Time per Operation (min)', es: 'Tiempo Suplementado por Operación (min)', pt: 'Tempo Suplementado por Operação (min)', tr: 'Operasyon Başına Toleranslı Süre (min)' })}
                             </h3>
@@ -4360,7 +4360,7 @@ export default function Chronometrage({
 
                         {/* Comparison Table with other sessions */}
                         {sessions.length > 1 && (
-                            <div className="bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border shadow-lg overflow-hidden">
+                            <div className="bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border shadow-lg dark:shadow-dk-lg overflow-hidden">
                                 <div className="px-5 py-4 border-b border-slate-100 dark:border-dk-border">
                                     <h3 className="font-black text-slate-800 dark:text-dk-text text-sm flex items-center gap-2">
                                         <TrendingUp className="w-4 h-4 text-indigo-500" /> {tx(lang, { fr: 'Comparaison avec les Autres Séances', ar: 'مقارنة مع الجلسات الأخرى', en: 'Comparison with Other Sessions', es: 'Comparación con las Otras Sesiones', pt: 'Comparação com as Outras Sessões', tr: 'Diğer Seanslarla Karşılaştırma' })}
@@ -4372,7 +4372,7 @@ export default function Chronometrage({
                                             <tr className="bg-slate-50 dark:bg-dk-bg text-slate-500 dark:text-dk-muted border-b border-slate-200 dark:border-dk-border">
                                                 <th className="py-2.5 px-3 text-left font-black sticky left-0 bg-slate-50 dark:bg-dk-bg min-w-[140px]">{tx(lang, { fr: 'Opération', ar: 'العملية', en: 'Operation', es: 'Operación', pt: 'Operação', tr: 'Operasyon' })}</th>
                                                 {sessions.map((s, i) => (
-                                                    <th key={s.id} className={`py-2.5 px-2 text-center font-bold min-w-[60px] ${s.id === selectedSession.id ? 'bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 text-indigo-700 dark:text-dk-accent-text' : ''}`} title={s.label}>
+                                                    <th key={s.id} className={`py-2.5 px-2 text-center font-bold min-w-[60px] ${s h.id === selectedSession.id ? 'bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 text-indigo-700 dark:text-dk-accent-text' : ''}`} title={s.label}>
                                                         #{i + 1}
                                                     </th>
                                                 ))}

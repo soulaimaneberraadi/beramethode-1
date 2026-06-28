@@ -76,7 +76,7 @@ export default function PlanningHeader({
 
     if (isMobile) {
         return (
-            <header className="shrink-0 bg-white/80 dark:bg-slate-900/80 border-b border-slate-200/45 dark:border-slate-700/60 backdrop-blur-md shadow-sm">
+            <header className="shrink-0 bg-white/80 dark:bg-slate-900/80 border-b border-slate-200/45 dark:border-slate-700/60 backdrop-blur-md shadow-sm dark:shadow-dk-sm">
                 {/* ROW 1 — title + primary actions */}
                 <div className="px-3 h-12 flex items-center gap-2">
                     <h1 className="text-[15px] font-bold text-slate-900 dark:text-slate-100 tracking-tight">{tx(lang,{fr:"Planning",ar:"التخطيط",en:"Planning",es:"Planificación",pt:"Planejamento",tr:"Planlama"})}</h1>
@@ -110,7 +110,7 @@ export default function PlanningHeader({
                     >
                         <SlidersHorizontal className="w-4 h-4" strokeWidth={2} />
                         {activeFilterCount > 0 && (
-                            <span className="absolute -top-1 -right-1 min-w-[15px] h-[15px] px-1 flex items-center justify-center rounded-full bg-indigo-600 dark:bg-dk-accent text-white text-[9px] font-bold tabular-nums leading-none shadow-sm">
+                            <span className="absolute -top-1 -right-1 min-w-[15px] h-[15px] px-1 flex items-center justify-center rounded-full bg-indigo-600 dark:bg-dk-accent text-white text-[9px] font-bold tabular-nums leading-none shadow-sm dark:shadow-dk-sm">
                                 {activeFilterCount}
                             </span>
                         )}
@@ -123,7 +123,7 @@ export default function PlanningHeader({
                     <button
                         type="button"
                         onClick={onAddEvent}
-                        className="inline-flex items-center justify-center w-9 h-9 rounded-xl bg-indigo-600 dark:bg-dk-accent hover:bg-indigo-700 dark:hover:bg-dk-accent-hover text-white transition-all duration-200 active:scale-95 shadow-sm"
+                        className="inline-flex items-center justify-center w-9 h-9 rounded-xl bg-indigo-600 dark:bg-dk-accent hover:bg-indigo-700 dark:hover:bg-dk-accent-hover text-white transition-all duration-200 active:scale-95 shadow-sm dark:shadow-dk-sm"
                         aria-label={tx(lang,{fr:"Nouvel ordre",ar:"أمر جديد",en:"New order",es:"Nuevo pedido",pt:"Novo pedido",tr:"Yeni sipariş"})}
                     >
                         <Plus className="w-4 h-4" strokeWidth={2.25} />
@@ -171,7 +171,7 @@ export default function PlanningHeader({
 
                 {/* ROW 2 — date nav + view switcher */}
                 <div className="px-3 h-11 flex items-center gap-2 border-t border-slate-200/35 dark:border-slate-700/50 overflow-x-auto">
-                    <div className="flex items-center rounded-xl border border-slate-200/50 dark:border-slate-700/50 bg-slate-100/50 dark:bg-slate-800/50 p-0.5 backdrop-blur-sm shadow-sm shrink-0">
+                    <div className="flex items-center rounded-xl border border-slate-200/50 dark:border-slate-700/50 bg-slate-100/50 dark:bg-slate-800/50 p-0.5 backdrop-blur-sm shadow-sm dark:shadow-dk-sm shrink-0">
                         <button
                             type="button"
                             onClick={() => shift(-1)}
@@ -217,7 +217,7 @@ export default function PlanningHeader({
     }
 
     return (
-        <header className="shrink-0 bg-white/70 dark:bg-slate-900/70 border-b border-slate-200/45 dark:border-slate-700/60 backdrop-blur-md sticky top-0 z-40 shadow-sm">
+        <header className="shrink-0 bg-white/70 dark:bg-slate-900/70 border-b border-slate-200/45 dark:border-slate-700/60 backdrop-blur-md sticky top-0 z-40 shadow-sm dark:shadow-dk-sm">
             {/* ROW 1 — Brand + actions */}
             <div className="px-6 h-14 flex items-center gap-4">
 
@@ -275,7 +275,7 @@ export default function PlanningHeader({
                         title={tx(lang,{fr:"Filtres",ar:"مرشحات",en:"Filters",es:"Filtros",pt:"Filtros",tr:"Filtreler"})}
                         className={`relative inline-flex items-center gap-1.5 h-8 px-2.5 rounded-xl text-[12px] font-bold transition-all duration-200 active:scale-95 border ${
                             filtersOpen || hasActiveFilters
-                                ? 'bg-white dark:bg-slate-700 text-indigo-650 dark:text-dk-accent-text dark:text-indigo-300 border-slate-200/50 dark:border-slate-600/50 shadow-sm'
+                                ? 'bg-white dark:bg-dk-surface text-indigo-650 dark:text-dk-accent-text dark:text-indigo-300 border-slate-200/50 dark:border-dk-border/50 shadow-sm dark:shadow-dk-sm'
                                 : 'text-slate-500 dark:text-slate-400 border-transparent hover:text-slate-850 dark:hover:text-slate-100 hover:bg-white dark:hover:bg-slate-700/60 hover:border-slate-200 dark:hover:border-slate-600/40 hover:shadow-sm'
                         }`}
                     >
@@ -299,7 +299,7 @@ export default function PlanningHeader({
                     <button
                         type="button"
                         onClick={onAddEvent}
-                        className="inline-flex items-center gap-1.5 h-8 px-3 rounded-xl bg-indigo-600 dark:bg-dk-accent hover:bg-indigo-700 dark:hover:bg-dk-accent-hover text-white text-[12px] font-bold transition-all duration-200 shadow-sm hover:shadow-md active:scale-95"
+                        className="inline-flex items-center gap-1.5 h-8 px-3 rounded-xl bg-indigo-600 dark:bg-dk-accent hover:bg-indigo-700 dark:hover:bg-dk-accent-hover text-white text-[12px] font-bold transition-all duration-200 shadow-sm dark:shadow-dk-sm hover:shadow-md active:scale-95"
                     >
                         <Plus className="w-3.5 h-3.5" strokeWidth={2.25} />
                         {tx(lang,{fr:"Nouvel ordre",ar:"أمر جديد",en:"New order",es:"Nuevo pedido",pt:"Novo pedido",tr:"Yeni sipariş"})}
@@ -311,7 +311,7 @@ export default function PlanningHeader({
             <div className="px-6 h-10.5 flex items-center gap-3 border-t border-slate-200/35 dark:border-slate-700/50">
 
                 {/* Date navigation */}
-                <div className="flex items-center rounded-xl border border-slate-200/50 dark:border-slate-700/50 bg-slate-100/50 dark:bg-slate-800/50 p-0.5 backdrop-blur-sm shadow-sm shrink-0">
+                <div className="flex items-center rounded-xl border border-slate-200/50 dark:border-slate-700/50 bg-slate-100/50 dark:bg-slate-800/50 p-0.5 backdrop-blur-sm shadow-sm dark:shadow-dk-sm shrink-0">
                     <button
                         type="button"
                         onClick={() => shift(-1)}
@@ -373,7 +373,7 @@ function MobileMenuBtn({
         <button
             type="button"
             onClick={onClick}
-            className="inline-flex flex-col items-center justify-center gap-1 h-14 rounded-xl bg-slate-100/50 dark:bg-slate-800/50 hover:bg-white dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200/40 dark:border-slate-700/40 shadow-sm transition-all duration-200 active:scale-95"
+            className="inline-flex flex-col items-center justify-center gap-1 h-14 rounded-xl bg-slate-100/50 dark:bg-slate-800/50 hover:bg-white dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200/40 dark:border-slate-700/40 shadow-sm dark:shadow-dk-sm transition-all duration-200 active:scale-95"
         >
             <Icon className={`w-4 h-4 ${accent || ''}`} strokeWidth={2} />
             <span className="text-[10px] font-bold">{label}</span>
@@ -408,7 +408,7 @@ function IconButton({
                 disabled
                     ? 'text-slate-300 dark:text-slate-600 cursor-not-allowed opacity-50'
                     : active
-                        ? 'bg-white dark:bg-slate-700 text-indigo-650 dark:text-dk-accent-text dark:text-indigo-300 border-slate-200/50 dark:border-slate-600/50 shadow-sm'
+                        ? 'bg-white dark:bg-dk-surface text-indigo-650 dark:text-dk-accent-text dark:text-indigo-300 border-slate-200/50 dark:border-dk-border/50 shadow-sm dark:shadow-dk-sm'
                         : 'text-slate-500 dark:text-slate-400 hover:text-slate-850 dark:hover:text-slate-100 hover:bg-white dark:hover:bg-slate-700/60 hover:border-slate-200 dark:hover:border-slate-600/40 hover:shadow-sm'
             }`}
         >
@@ -421,7 +421,7 @@ function Segmented<T extends string>({
     options, value, onChange,
 }: { options: { id: T; label: string }[]; value: T; onChange: (v: T) => void }) {
     return (
-        <div className="inline-flex p-0.5 bg-slate-100/50 dark:bg-slate-800/50 border border-slate-200/50 dark:border-slate-700/50 rounded-xl backdrop-blur-sm shadow-sm">
+        <div className="inline-flex p-0.5 bg-slate-100/50 dark:bg-slate-800/50 border border-slate-200/50 dark:border-slate-700/50 rounded-xl backdrop-blur-sm shadow-sm dark:shadow-dk-sm">
             {options.map(({ id, label }) => (
                 <button
                     key={id}
@@ -429,7 +429,7 @@ function Segmented<T extends string>({
                     onClick={() => onChange(id)}
                     className={`px-3 h-6 text-[10px] font-bold rounded-lg transition-all duration-205 active:scale-95 ${
                         value === id
-                            ? 'bg-white dark:bg-slate-700 text-indigo-650 dark:text-dk-accent-text dark:text-indigo-300 shadow-[0_2px_6px_rgba(99,102,241,0.12)] ring-1 ring-slate-200/30 dark:ring-slate-600/40'
+                            ? 'bg-white dark:bg-dk-surface text-indigo-650 dark:text-dk-accent-text dark:text-indigo-300 shadow-[0_2px_6px_rgba(99,102,241,0.12)] dark:shadow-dk-sm ring-1 ring-slate-200/30 dark:ring-dk-border/40'
                             : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-white dark:hover:bg-slate-700/40'
                     }`}
                 >
