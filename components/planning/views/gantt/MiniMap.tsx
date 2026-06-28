@@ -57,9 +57,9 @@ export default function MiniMap({
     };
 
     return (
-        <div className="shrink-0 border-t border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 px-6 py-2">
+        <div className="shrink-0 border-t border-slate-100 dark:border-dk-border bg-white dark:bg-dk-surface px-6 py-2">
             <div className="flex items-center gap-3">
-                <span className="text-[10px] font-medium text-slate-400 uppercase tracking-wider shrink-0">
+                <span className="text-[10px] font-medium text-slate-400 dark:text-dk-muted uppercase tracking-wider shrink-0">
 {tx(lang, { fr: "Vue d'ensemble", ar: 'نظرة عامة', en: 'Overview', es: 'Vista general', pt: 'Visão geral', tr: 'Genel bakış' })}
                 </span>
                 <div
@@ -73,7 +73,7 @@ export default function MiniMap({
                     {chains.map((_, i) => (
                         <div
                             key={i}
-                            className="absolute left-0 right-0 border-b border-slate-100/50"
+                            className="absolute left-0 right-0 border-b border-slate-100/50 dark:border-dk-border/30"
                             style={{ top: ((i + 1) / chains.length) * MAP_HEIGHT }}
                         />
                     ))}
@@ -118,7 +118,7 @@ export default function MiniMap({
 
                     {/* Viewport indicator */}
                     <div
-                        className="absolute top-0 bottom-0 border-2 border-slate-900/70 rounded-md bg-white/20 pointer-events-none"
+                        className="absolute top-0 bottom-0 border-2 border-slate-900/70 dark:border-dk-accent/70 rounded-md bg-white/20 dark:bg-dk-accent/20 pointer-events-none"
                         style={{
                             left: `${scrollRatio * 100}%`,
                             width: `${Math.min(100, viewportRatio * 100)}%`,
