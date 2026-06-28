@@ -342,9 +342,9 @@ export default function PageMachine({
                               </div>
                               <div className="flex items-center gap-2">
                                 <span className="text-xs font-bold text-slate-600 dark:text-dk-text-soft">{g.actual}<span className="text-slate-400 dark:text-dk-muted">/{g.required}</span></span>
-                                {g.missing > 0 && <span className="text-xs font-black text-rose-500">-{g.missing}</span>}
-                                {g.excess > 0 && <span className="text-xs font-black text-amber-500">+{g.excess}</span>}
-                                {g.missing === 0 && g.excess === 0 && <span className="text-xs text-emerald-500">✓</span>}
+                                {g.missing > 0 && <span className="text-xs font-black text-rose-500 dark:text-rose-400">-{g.missing}</span>}
+                                {g.excess > 0 && <span className="text-xs font-black text-amber-500 dark:text-amber-400">+{g.excess}</span>}
+                                {g.missing === 0 && g.excess === 0 && <span className="text-xs text-emerald-500 dark:text-emerald-400">✓</span>}
                               </div>
                             </div>
                           );
@@ -417,11 +417,11 @@ export default function PageMachine({
           
           {/* Body: Status summary */}
           <div className="flex flex-col flex-1 justify-end space-y-3 mb-2">
-             <div className="flex justify-between items-center bg-emerald-50 dark:bg-emerald-900/30 p-3 md:p-4 rounded-xl border border-emerald-100 group-hover:bg-emerald-100 transition-colors">
+             <div className="flex justify-between items-center bg-emerald-50 dark:bg-emerald-900/30 p-3 md:p-4 rounded-xl border border-emerald-100 dark:border-emerald-800 group-hover:bg-emerald-100 transition-colors">
                 <span className="flex items-center gap-2 text-[10px] font-bold text-emerald-700 uppercase tracking-wider"><CheckCircle2 className="w-4 h-4"/> {tx(lang,{fr:'Prêtes (OK)',ar:'جاهزة (OK)',en:'Ready (OK)',es:'Listas (OK)',pt:'Prontas (OK)',tr:'Hazır (OK)'})}</span>
                <span className="text-lg font-black text-emerald-700">{okC}</span>
              </div>
-             <div className="flex justify-between items-center bg-rose-50 dark:bg-rose-900/30 p-3 md:p-4 rounded-xl border border-rose-100 group-hover:bg-rose-100 transition-colors">
+             <div className="flex justify-between items-center bg-rose-50 dark:bg-rose-900/30 p-3 md:p-4 rounded-xl border border-rose-100 dark:border-rose-800 group-hover:bg-rose-100 transition-colors">
                 <span className="flex items-center gap-2 text-[10px] font-bold text-rose-700 uppercase tracking-wider"><AlertTriangle className="w-4 h-4"/> {tx(lang,{fr:'En Réparation',ar:'قيد الإصلاح',en:'Under Repair',es:'En Reparación',pt:'Em Reparação',tr:'Tamirde'})}</span>
                <span className="text-lg font-black text-rose-700">{brokenCount}</span>
              </div>
@@ -548,7 +548,7 @@ export default function PageMachine({
 
               {/* List of broken machines with ETA */}
               <div className="bg-white dark:bg-dk-surface rounded-[20px] border border-slate-100 dark:border-dk-border shadow-sm dark:shadow-dk-sm p-6">
-                  <h3 className="font-black text-slate-800 dark:text-dk-text text-sm mb-4 flex items-center gap-2"><Wrench className="w-4 h-4 text-amber-500"/> {tx(lang,{fr:'En cours de réparation',ar:'قيد الإصلاح حالياً',en:'Currently under repair',es:'En reparación actualmente',pt:'Atualmente em reparação',tr:'Şu anda tamirde'})}</h3>
+                  <h3 className="font-black text-slate-800 dark:text-dk-text text-sm mb-4 flex items-center gap-2"><Wrench className="w-4 h-4 text-amber-500 dark:text-amber-400"/> {tx(lang,{fr:'En cours de réparation',ar:'قيد الإصلاح حالياً',en:'Currently under repair',es:'En reparación actualmente',pt:'Atualmente em reparação',tr:'Şu anda tamirde'})}</h3>
                  <div className="space-y-3">
                    {brokenInstances.length === 0 ? (
                       <p className="text-xs text-slate-400 dark:text-dk-muted font-bold">{tx(lang,{fr:'Aucune machine en réparation.',ar:'لا توجد آلة قيد الإصلاح.',en:'No machines under repair.',es:'No hay máquinas en reparación.',pt:'Nenhuma máquina em reparação.',tr:'Tamirde makine yok.'})}</p>
@@ -566,7 +566,7 @@ export default function PageMachine({
                                <p className="text-xs font-black text-slate-800 dark:text-dk-text">{inst.matricule || `MAC-${inst.numero}`}</p>
                                <p className="text-[10px] font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest">{c?.classe || inst.classId}</p>
                              </div>
-                             <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-widest border ${inst.status === 'PANNE' ? 'bg-rose-50 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400 border-rose-100' : 'bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 border-amber-100'}`}>{inst.status}</span>
+                             <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-widest border ${inst.status === 'PANNE' ? 'bg-rose-50 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400 border-rose-100 dark:border-rose-800' : 'bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 border-amber-100'}`}>{inst.status}</span>
                            </div>
                             <div className="pt-2 border-t border-slate-200 dark:border-dk-border/60 flex items-center justify-between text-[10px] font-bold text-slate-500 dark:text-dk-muted">
                               <span>{tx(lang,{fr:'Date prévue de remise:',ar:'تاريخ الإرجاع المتوقع:',en:'Expected return date:',es:'Fecha prevista de devolución:',pt:'Data prevista de devolução:',tr:'Beklenen iade tarihi:'})}</span>
@@ -612,8 +612,8 @@ export default function PageMachine({
                                  </div>
                                </div>
                                <div className={`px-2 py-1 rounded text-[9px] font-black uppercase tracking-widest border ${
-                                 inst.status === 'OK' ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 border-emerald-100' :
-                                 inst.status === 'PANNE' ? 'bg-rose-50 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400 border-rose-100' : 'bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 border-amber-100'
+                                 inst.status === 'OK' ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 border-emerald-100 dark:border-emerald-800' :
+                                 inst.status === 'PANNE' ? 'bg-rose-50 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400 border-rose-100 dark:border-rose-800' : 'bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 border-amber-100'
                                }`}>
                                  {inst.status || 'OK'}
                                </div>
@@ -686,7 +686,7 @@ export default function PageMachine({
             <div className="bg-white dark:bg-dk-surface rounded-[20px] border border-slate-100 dark:border-dk-border shadow-sm dark:shadow-dk-sm p-6">
                <h2 className="text-2xl font-black text-slate-900 dark:text-dk-text tracking-tight mb-1">{chain.name}</h2>
                 {activeData ? (
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 rounded-md text-[10px] font-black uppercase tracking-widest border border-emerald-100">
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 rounded-md text-[10px] font-black uppercase tracking-widest border border-emerald-100 dark:border-emerald-800">
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" /> {tx(lang,{fr:'En Production',ar:'قيد الإنتاج',en:'In Production',es:'En Producción',pt:'Em Produção',tr:'Üretimde'})}
                   </span>
                 ) : (
@@ -701,14 +701,14 @@ export default function PageMachine({
                       <label className="block text-[9px] font-black text-slate-400 dark:text-dk-muted uppercase tracking-widest mb-0.5">{tx(lang,{fr:'Chef de Chaîne',ar:'رئيس الخط',en:'Line Manager',es:'Jefe de Línea',pt:'Chefe de Linha',tr:'Hat Yöneticisi'})}</label>
                       <div className="font-bold text-slate-800 dark:text-dk-text text-sm">{activeData?.superviseur || tx(lang,{fr:'Non assigné',ar:'غير معين',en:'Not assigned',es:'No asignado',pt:'Não atribuído',tr:'Atanmamış'})}</div>
                    </div>
-                   <div className="w-8 h-8 rounded-lg bg-indigo-100 text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text flex items-center justify-center text-sm shadow-sm dark:shadow-dk-sm">👨‍💼</div>
+                   <div className="w-8 h-8 rounded-lg bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text flex items-center justify-center text-sm shadow-sm dark:shadow-dk-sm">👨‍💼</div>
                  </div>
                  <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50 dark:bg-dk-bg border border-slate-100 dark:border-dk-border">
                    <div>
                       <label className="block text-[9px] font-black text-slate-400 dark:text-dk-muted uppercase tracking-widest mb-0.5">{tx(lang,{fr:'Chef Mécanicien',ar:'رئيس الميكانيكيين',en:'Head Mechanic',es:'Jefe Mecánico',pt:'Chefe Mecânico',tr:'Baş Tamirci'})}</label>
                       <div className="font-bold text-slate-800 dark:text-dk-text text-sm">{tx(lang,{fr:'Non assigné',ar:'غير معين',en:'Not assigned',es:'No asignado',pt:'Não atribuído',tr:'Atanmamış'})}</div>
                    </div>
-                   <div className="w-8 h-8 rounded-lg bg-amber-100 text-amber-600 dark:text-amber-400 flex items-center justify-center text-sm shadow-sm dark:shadow-dk-sm">🔧</div>
+                   <div className="w-8 h-8 rounded-lg bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 flex items-center justify-center text-sm shadow-sm dark:shadow-dk-sm">🔧</div>
                  </div>
                </div>
             </div>
@@ -872,8 +872,8 @@ export default function PageMachine({
                                 </div>
                               </div>
                               <div className={`px-2 py-1 rounded text-[9px] font-black uppercase tracking-widest border ${
-                                inst.status === 'OK' ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 border-emerald-100' :
-                                inst.status === 'PANNE' ? 'bg-rose-50 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400 border-rose-100' : 'bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 border-amber-100'
+                                inst.status === 'OK' ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 border-emerald-100 dark:border-emerald-800' :
+                                inst.status === 'PANNE' ? 'bg-rose-50 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400 border-rose-100 dark:border-rose-800' : 'bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 border-amber-100'
                               }`}>
                                 {inst.status || 'OK'}
                               </div>
@@ -926,7 +926,7 @@ export default function PageMachine({
 
     const statusBadge = (s?: string) => {
       if (s === 'PANNE') return (
-        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-rose-50 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400 border border-rose-100 text-[9px] font-black uppercase tracking-widest">
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-rose-50 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400 border border-rose-100 dark:border-rose-800 text-[9px] font-black uppercase tracking-widest">
           <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0" /> {tx(lang,{fr:'Panne',ar:'عطل',en:'Breakdown',es:'Avería',pt:'Avaria',tr:'Arıza'})}
         </span>
       );
@@ -936,7 +936,7 @@ export default function PageMachine({
         </span>
       );
       return (
-        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 border border-emerald-100 text-[9px] font-black uppercase tracking-widest">
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 border border-emerald-100 dark:border-emerald-800 text-[9px] font-black uppercase tracking-widest">
           <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" /> {tx(lang,{fr:'OK',ar:'جيد',en:'OK',es:'OK',pt:'OK',tr:'Tam'})}
         </span>
       );
@@ -954,7 +954,7 @@ export default function PageMachine({
         </div>
 
         {/* ── Rows */}
-        <div className="divide-y divide-slate-50">
+        <div className="divide-y divide-slate-50 dark:divide-dk-border">
           {inventoryRows.length === 0 && (
             <div className="py-20 flex flex-col items-center justify-center gap-3 text-center">
               <div className="w-12 h-12 rounded-2xl bg-slate-50 dark:bg-dk-bg border border-slate-100 dark:border-dk-border flex items-center justify-center">
@@ -970,7 +970,7 @@ export default function PageMachine({
               <div
                 key={inst.id}
                 onClick={() => { setEditingInstance(inst); setInstanceEditorOpen(true); }}
-                className="grid items-center px-5 py-3.5 hover:bg-indigo-50 dark:bg-dk-accent/20/30 active:bg-indigo-50 dark:bg-dk-accent/20/60 cursor-pointer transition-colors group"
+                className="grid items-center px-5 py-3.5 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 dark:bg-dk-accent/20/30 active:bg-indigo-50 dark:bg-dk-accent/20/60 cursor-pointer transition-colors group"
                 style={{ gridTemplateColumns: '2fr 3fr 1fr 1fr 1.5fr' }}
               >
                 {/* Matricule & Photo */}
@@ -1007,7 +1007,7 @@ export default function PageMachine({
                       )}
                     </>
                   ) : (
-                    <span className="px-2 py-0.5 rounded-md bg-rose-50 dark:bg-rose-900/30 text-rose-500 border border-rose-100 text-[10px] font-bold">
+                    <span className="px-2 py-0.5 rounded-md bg-rose-50 dark:bg-rose-900/30 text-rose-500 dark:text-rose-400 border border-rose-100 dark:border-rose-800 text-[10px] font-bold">
                       {tx(lang,{fr:'Inconnu',ar:'غير معروف',en:'Unknown',es:'Desconocido',pt:'Desconhecido',tr:'Bilinmiyor'})} — {inst.classId}
                     </span>
                   )}
@@ -1077,27 +1077,27 @@ export default function PageMachine({
                 <th className="py-4 px-6 text-right">{tx(lang,{fr:'Action Rapide',ar:'إجراء سريع',en:'Quick Action',es:'Acción Rápida',pt:'Ação Rápida',tr:'Hızlı İşlem'})}</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-50">
+            <tbody className="divide-y divide-slate-50 dark:divide-dk-border">
               {maintenanceIssueRows.length === 0 ? (
                 <tr><td colSpan={4} className="py-12 text-center text-slate-400 dark:text-dk-muted font-bold text-xs">{tx(lang,{fr:'Aucune intervention requise. Le parc est opérationnel.',ar:'لا يوجد تدخل مطلوب. الأسطول جاهز للتشغيل.',en:'No intervention required. The fleet is operational.',es:'No se requiere intervención. El parque está operativo.',pt:'Nenhuma intervenção necessária. O parque está operacional.',tr:'Müdahale gerekmiyor. Filo çalışır durumda.'})}</td></tr>
               ) : (
                 maintenanceIssueRows.map(inst => {
                   const c = machines.find(m => m.id === inst.classId || m.classe === inst.classId);
                   return (
-                  <tr key={inst.id} className="hover:bg-slate-50/50 transition-colors">
+                  <tr key={inst.id} className="hover:bg-slate-50/50 dark:hover:bg-dk-elevated/60 transition-colors">
                     <td className="py-3 px-6">
                       <div className="font-black text-slate-800 dark:text-dk-text text-[13px]">{inst.matricule || tx(lang,{fr:'N°',ar:'رقم',en:'No.',es:'N°',pt:'N°',tr:'No.'}) + inst.numero}</div>
                       <div className="font-bold text-slate-400 dark:text-dk-muted text-[10px] mt-0.5 uppercase tracking-widest">{inst.brand || tx(lang,{fr:'Marque N/A',ar:'العلامة التجارية N/A',en:'Brand N/A',es:'Marca N/A',pt:'Marca N/A',tr:'Marka N/A'})}</div>
                     </td>
                     <td className="py-3 px-6 font-bold text-slate-600 dark:text-dk-text-soft text-xs">{c ? c.classe : inst.classId}</td>
                     <td className="py-3 px-6">
-                      <span className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-[10px] font-black uppercase tracking-widest shadow-sm dark:shadow-dk-sm border ${inst.status === 'PANNE' ? 'bg-rose-50 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400 border-rose-100' : 'bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 border-amber-100'}`}>
+                      <span className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-[10px] font-black uppercase tracking-widest shadow-sm dark:shadow-dk-sm border ${inst.status === 'PANNE' ? 'bg-rose-50 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400 border-rose-100 dark:border-rose-800' : 'bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 border-amber-100'}`}>
                         {inst.status === 'PANNE' ? <AlertCircle className="w-3 h-3" /> : <Wrench className="w-3 h-3" />}
                         {inst.status === 'PANNE' ? tx(lang,{fr:'Panne (Arrêt)',ar:'عطل (توقف)',en:'Breakdown (Stop)',es:'Avería (Parada)',pt:'Avaria (Paragem)',tr:'Arıza (Duruş)'}) : tx(lang,{fr:'Maintenance',ar:'صيانة',en:'Maintenance',es:'Mantenimiento',pt:'Manutenção',tr:'Bakım'})}
                       </span>
                     </td>
                     <td className="py-3 px-6 text-right">
-                       <button onClick={() => onSaveMachineInstance?.({ ...inst, status: 'OK' }, { created: false })} className="text-[10px] font-black tracking-widest text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/30 hover:bg-emerald-100 border border-emerald-100 px-3 py-1.5 rounded-lg uppercase transition-colors">
+                       <button onClick={() => onSaveMachineInstance?.({ ...inst, status: 'OK' }, { created: false })} className="text-[10px] font-black tracking-widest text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/30 hover:bg-emerald-100 border border-emerald-100 dark:border-emerald-800 px-3 py-1.5 rounded-lg uppercase transition-colors">
                           {tx(lang,{fr:'Marquer Résolu',ar:'تحديد كحل',en:'Mark Resolved',es:'Marcar Resuelto',pt:'Marcar Resolvido',tr:'Çözüldü Olarak İşaretle'})}
                        </button>
                     </td>
@@ -1123,18 +1123,18 @@ export default function PageMachine({
               <th className="py-4 px-6">{tx(lang,{fr:'Opérateur',ar:'المشغل',en:'Operator',es:'Operador',pt:'Operador',tr:'Operatör'})}</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-50">
+          <tbody className="divide-y divide-slate-50 dark:divide-dk-border">
             {historyRows.length === 0 ? (
                <tr><td colSpan={4} className="py-12 text-center text-slate-400 dark:text-dk-muted font-bold text-xs">{tx(lang,{fr:'Aucun historique disponible.',ar:'لا يوجد سجل متاح.',en:'No history available.',es:'No hay historial disponible.',pt:'Nenhum histórico disponível.',tr:'Geçmiş mevcut değil.'})}</td></tr>
             ) : (
               historyRows.map(h => (
-                <tr key={h.id} className="hover:bg-slate-50/50 transition-colors">
+                <tr key={h.id} className="hover:bg-slate-50/50 dark:hover:bg-dk-elevated/60 transition-colors">
                   <td className="py-3 px-6">
                      <div className="font-bold text-slate-800 dark:text-dk-text text-[13px]">{new Date(h.at).toLocaleDateString('fr-FR')}</div>
                      <div className="text-[10px] font-bold text-slate-400 dark:text-dk-muted uppercase">{new Date(h.at).toLocaleTimeString('fr-FR', {hour: '2-digit', minute:'2-digit'})}</div>
                   </td>
                   <td className="py-3 px-6">
-                    {h.kind === 'ADD' ? <span className="text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/30 px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-widest border border-emerald-100">{tx(lang,{fr:'Entrée',ar:'إدخال',en:'Entry',es:'Entrada',pt:'Entrada',tr:'Giriş'})}</span> :
+                    {h.kind === 'ADD' ? <span className="text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/30 px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-widest border border-emerald-100 dark:border-emerald-800">{tx(lang,{fr:'Entrée',ar:'إدخال',en:'Entry',es:'Entrada',pt:'Entrada',tr:'Giriş'})}</span> :
                      h.kind === 'SELL' ? <span className="text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30 px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-widest border border-amber-100">{tx(lang,{fr:'Vente',ar:'بيع',en:'Sale',es:'Venta',pt:'Venda',tr:'Satış'})}</span> :
                      <span className="text-slate-600 dark:text-dk-text-soft bg-slate-100 dark:bg-dk-elevated px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-widest border border-slate-200 dark:border-dk-border">{tx(lang,{fr:'Sortie',ar:'إخراج',en:'Exit',es:'Salida',pt:'Saída',tr:'Çıkış'})}</span>}
                   </td>
@@ -1153,7 +1153,7 @@ export default function PageMachine({
   );
 
   return (
-    <div className="w-full min-h-screen bg-gradient-to-br from-slate-50 via-white to-indigo-50/30 text-slate-900 dark:text-dk-text pb-32 font-sans selection:bg-indigo-100 selection:text-indigo-900">
+    <div className="w-full min-h-screen bg-gradient-to-br from-slate-50 via-white to-indigo-50/30 dark:from-dk-bg dark:via-dk-surface dark:to-dk-bg text-slate-900 dark:text-dk-text pb-32 font-sans selection:bg-indigo-100 selection:text-indigo-900">
       <style>{`
         @keyframes shimmer {
           100% { transform: translateX(100%); }
@@ -1177,10 +1177,10 @@ export default function PageMachine({
                 <span className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-slate-50 dark:bg-dk-bg/80 border border-slate-100 dark:border-dk-border text-slate-500 dark:text-dk-muted shadow-sm dark:shadow-dk-sm">
                   {tx(lang,{fr:'TOTAL',ar:'الإجمالي',en:'TOTAL',es:'TOTAL',pt:'TOTAL',tr:'TOPLAM'})} <span className="text-slate-800 dark:text-dk-text ml-0.5 text-[10px]">{fleetStats.total}</span>
                 </span>
-                <span className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-emerald-50 dark:bg-emerald-900/30/80 border border-emerald-100/50 text-emerald-600 dark:text-emerald-400 shadow-sm dark:shadow-dk-sm">
+                <span className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-emerald-50 dark:bg-emerald-900/30/80 border border-emerald-100/50 dark:border-emerald-800/50 text-emerald-600 dark:text-emerald-400 shadow-sm dark:shadow-dk-sm">
                   {tx(lang,{fr:'PRÊTES',ar:'جاهزة',en:'READY',es:'LISTAS',pt:'PRONTAS',tr:'HAZIR'})} <span className="text-emerald-700 ml-0.5 text-[10px]">{fleetStats.ok}</span>
                 </span>
-                <span className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-rose-50 dark:bg-rose-900/30/80 border border-rose-100/50 text-rose-600 dark:text-rose-400 shadow-sm dark:shadow-dk-sm">
+                <span className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-rose-50 dark:bg-rose-900/30/80 border border-rose-100/50 dark:border-rose-800/50 text-rose-600 dark:text-rose-400 shadow-sm dark:shadow-dk-sm">
                   {tx(lang,{fr:'PANNE',ar:'عطل',en:'BREAKDOWN',es:'AVERÍA',pt:'AVARIA',tr:'ARIZA'})} <span className="text-rose-700 ml-0.5 text-[10px]">{fleetStats.panne}</span>
                 </span>
             </div>
@@ -1460,7 +1460,7 @@ function InstanceEditorModal({
               )}
             </div>
             {!isClassKnown && classId.trim().length > 0 && (
-              <p className="text-[9px] text-amber-500 font-bold mt-2 flex items-center gap-1.5">
+              <p className="text-[9px] text-amber-500 dark:text-amber-400 font-bold mt-2 flex items-center gap-1.5">
                 <AlertTriangle className="w-3.5 h-3.5" /> {tx(lang,{fr:'Classe inconnue, création automatique possible',ar:'فئة غير معروفة، يمكن الإنشاء التلقائي',en:'Unknown class, automatic creation possible',es:'Clase desconocida, creación automática posible',pt:'Classe desconhecida, criação automática possível',tr:'Bilinmeyen sınıf, otomatik oluşturma mümkün'})}
               </p>
             )}
@@ -1475,7 +1475,7 @@ function InstanceEditorModal({
                 className={`w-full bg-slate-50 dark:bg-dk-bg/80 border rounded-xl px-3.5 py-2.5 text-sm font-bold text-slate-800 dark:text-dk-text focus:bg-white focus:outline-none focus:ring-2 transition-all uppercase placeholder-slate-300 ${instances.some(i => i.id !== instance?.id && i.matricule && i.matricule === matricule) ? 'border-rose-400 focus:border-rose-500 focus:ring-rose-100 text-rose-600 dark:text-rose-400' : 'border-slate-200 dark:border-dk-border/80 focus:border-indigo-400 focus:ring-indigo-100'}`}
               />
               {instances.some(i => i.id !== instance?.id && i.matricule && i.matricule === matricule) && (
-                <p className="text-[8px] font-bold text-rose-500 mt-1 ml-0.5">{tx(lang,{fr:'Déjà utilisé',ar:'مستعمل بالفعل',en:'Already used',es:'Ya utilizado',pt:'Já utilizado',tr:'Zaten kullanılıyor'})}</p>
+                <p className="text-[8px] font-bold text-rose-500 dark:text-rose-400 mt-1 ml-0.5">{tx(lang,{fr:'Déjà utilisé',ar:'مستعمل بالفعل',en:'Already used',es:'Ya utilizado',pt:'Já utilizado',tr:'Zaten kullanılıyor'})}</p>
               )}
             </div>
             <div>
@@ -1494,12 +1494,12 @@ function InstanceEditorModal({
                 className={`w-full bg-slate-50 dark:bg-dk-bg/80 border rounded-xl px-3.5 py-2.5 text-sm font-bold text-slate-800 dark:text-dk-text focus:bg-white focus:outline-none focus:ring-2 transition-all placeholder-slate-300 ${instances.some(i => i.id !== instance?.id && i.serialNumber && i.serialNumber === serialNumber) ? 'border-rose-400 focus:border-rose-500 focus:ring-rose-100 text-rose-600 dark:text-rose-400' : 'border-slate-200 dark:border-dk-border/80 focus:border-indigo-400 focus:ring-indigo-100'}`}
               />
               {instances.some(i => i.id !== instance?.id && i.serialNumber && i.serialNumber === serialNumber) && (
-                <p className="text-[8px] font-bold text-rose-500 mt-1 ml-0.5">{tx(lang,{fr:'Déjà utilisé',ar:'مستعمل بالفعل',en:'Already used',es:'Ya utilizado',pt:'Já utilizado',tr:'Zaten kullanılıyor'})}</p>
+                <p className="text-[8px] font-bold text-rose-500 dark:text-rose-400 mt-1 ml-0.5">{tx(lang,{fr:'Déjà utilisé',ar:'مستعمل بالفعل',en:'Already used',es:'Ya utilizado',pt:'Já utilizado',tr:'Zaten kullanılıyor'})}</p>
               )}
             </div>
           </div>
           {(!matricule.trim() && !serialNumber.trim()) && (
-              <p className="text-[9px] font-bold text-amber-500 flex items-center gap-1.5 -mt-1">
+              <p className="text-[9px] font-bold text-amber-500 dark:text-amber-400 flex items-center gap-1.5 -mt-1">
                 <AlertTriangle className="w-3.5 h-3.5" /> {tx(lang,{fr:'Veuillez renseigner au moins une Référence ou un N° de Série.',ar:'يرجى إدخال مرجع أو رقم تسلسلي واحد على الأقل.',en:'Please fill in at least one Reference or Serial No.',es:'Por favor, indique al menos una Referencia o N° de Serie.',pt:'Por favor, preencha pelo menos uma Referência ou N° de Série.',tr:'Lütfen en az bir Referans veya Seri No. girin.'})}
             </p>
           )}
@@ -1529,7 +1529,7 @@ function InstanceEditorModal({
                     onClick={() => setStatus(s)}
                     className={`flex-1 rounded-lg text-[8px] font-black uppercase tracking-widest transition-all flex items-center justify-center ${
                       status === s 
-                        ? s === 'OK' ? 'bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-md shadow-emerald-500/20' : s === 'MAINT' ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-md shadow-amber-500/20' : 'bg-gradient-to-r from-rose-500 to-pink-500 text-white shadow-md shadow-rose-500/20'
+                        ? s === 'OK' ? 'bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-md dark:shadow-dk-md shadow-emerald-500/20' : s === 'MAINT' ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-md dark:shadow-dk-md shadow-amber-500/20' : 'bg-gradient-to-r from-rose-500 to-pink-500 text-white shadow-md dark:shadow-dk-md shadow-rose-500/20'
                         : 'text-slate-400 hover:text-slate-600 hover:bg-slate-200/50'
                     }`}
                   >
@@ -1570,7 +1570,7 @@ function InstanceEditorModal({
           {instance ? (
              <button 
                onClick={() => onDelete(instance.id)}
-               className="px-4 py-2 text-[10px] font-bold text-rose-500 hover:bg-rose-50 hover:text-rose-600 rounded-xl transition-colors"
+               className="px-4 py-2 text-[10px] font-bold text-rose-500 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-900/30 hover:text-rose-600 rounded-xl transition-colors"
              >
                {tx(lang,{fr:'Supprimer',ar:'حذف',en:'Delete',es:'Eliminar',pt:'Eliminar',tr:'Sil'})}
              </button>
