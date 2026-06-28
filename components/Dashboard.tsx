@@ -397,7 +397,7 @@ export default function Dashboard({ models, suivis, planningEvents, settings, se
                 : tx(lang, { fr: 'Hors ligne - cliquer pour rafraichir', ar: 'غير متصل - اضغط للتحديث', en: 'Offline - click to refresh', es: 'Sin conexión - haga clic para actualizar', pt: 'Offline - clique para atualizar', tr: 'Çevrimdışı - yenilemek için tıklayın' })
             }
             aria-label={tx(lang, { fr: 'Rafraichir les KPIs', ar: 'تحديث مؤشرات الأداء', en: 'Refresh KPIs', es: 'Actualizar KPIs', pt: 'Atualizar KPIs', tr: 'KPI\'ları Yenile' })}
-            className="relative w-9 h-9 sm:w-10 sm:h-10 rounded-xl border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface hover:bg-slate-50 dark:bg-dk-bg active:scale-95 transition-all flex items-center justify-center text-slate-600 dark:text-dk-text-soft hover:text-slate-900 disabled:opacity-60 disabled:cursor-not-allowed"
+            className="relative w-9 h-9 sm:w-10 sm:h-10 rounded-xl border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface hover:bg-slate-50 dark:hover:bg-dk-elevated/60 active:scale-95 transition-all flex items-center justify-center text-slate-600 dark:text-dk-text-soft hover:text-slate-900 disabled:opacity-60 disabled:cursor-not-allowed"
           >
             <RefreshCw className={`w-4 h-4 ${kpiLoading ? 'animate-spin' : ''}`} />
             {/* Live status dot: green pulse when SSE stream is active,
@@ -477,7 +477,7 @@ export default function Dashboard({ models, suivis, planningEvents, settings, se
                   <p className="text-[10px] sm:text-xs text-slate-400 dark:text-dk-muted mb-3 sm:mb-4 font-medium hidden sm:block">{tx(lang, { fr: "Aujourd'hui et retards. Cliquez pour ouvrir l'Agenda.", ar: 'اليوم والمتأخرات. اضغط لفتح الأجندة.', en: "Today and overdue. Click to open the Agenda.", es: 'Hoy y atrasos. Haga clic para abrir la Agenda.', pt: 'Hoje e atrasos. Clique para abrir a Agenda.', tr: 'Bugün ve geciken görevler. Ajandayı açmak için tıklayın.' })}</p>
                   <div className="flex-1 overflow-y-auto space-y-2 sm:space-y-3 custom-scrollbar">
                     {pendingTasks.map(task => (
-                      <div key={task.id} className="bg-slate-50 dark:bg-dk-bg/80 dark:bg-dk-bg/80 border border-slate-200 dark:border-dk-border/60 rounded-lg sm:rounded-xl p-2.5 sm:p-3 md:p-3.5 hover:border-indigo-300 hover:shadow-sm transition-all duration-200 flex flex-col gap-2 sm:gap-3">
+                      <div key={task.id} className="bg-slate-50 dark:bg-dk-bg/80 border border-slate-200 dark:border-dk-border/60 rounded-lg sm:rounded-xl p-2.5 sm:p-3 md:p-3.5 hover:border-indigo-300 hover:shadow-sm transition-all duration-200 flex flex-col gap-2 sm:gap-3">
                         <div className="cursor-pointer" onClick={() => onOpenAgenda()}>
                           <div className="flex justify-between items-start mb-1 sm:mb-1.5">
                             <span className="text-[9px] sm:text-[10px] font-bold text-slate-400 dark:text-dk-muted uppercase tracking-wide truncate">{task.assigneeName}</span>
@@ -662,7 +662,7 @@ export default function Dashboard({ models, suivis, planningEvents, settings, se
             <div className="h-1.5 w-full bg-gradient-to-r from-amber-400 to-orange-500" />
             <div className="p-4 sm:p-6 border-b border-slate-100 dark:border-dk-border flex justify-between items-center">
               <h3 className="font-bold text-slate-800 dark:text-dk-text text-base sm:text-lg">{tx(lang, { fr: "Motif d'annulation", ar: 'سبب الإلغاء', en: 'Cancellation reason', es: 'Motivo de cancelación', pt: 'Motivo do cancelamento', tr: 'İptal nedeni' })}</h3>
-              <button onClick={() => { setSkipReasonModal(null); setSkipReasonText(''); }} className="p-2 rounded-xl hover:bg-slate-100 dark:bg-dk-elevated/60 text-slate-400 dark:text-dk-muted hover:text-slate-600 dark:text-dk-text-soft transition-colors">
+              <button onClick={() => { setSkipReasonModal(null); setSkipReasonText(''); }} className="p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-dk-elevated/60 text-slate-400 dark:text-dk-muted hover:text-slate-600 dark:text-dk-text-soft transition-colors">
                 <AlertTriangle className="w-5 h-5 opacity-0" />
               </button>
             </div>
@@ -678,8 +678,8 @@ export default function Dashboard({ models, suivis, planningEvents, settings, se
                 <textarea value={skipReasonText} onChange={(e) => setSkipReasonText(e.target.value)} placeholder={tx(lang, { fr: 'Ex: Machine en panne...', ar: 'مثال: عطل في الآلة...', en: 'E.g.: Machine breakdown...', es: 'Ej: Máquina averiada...', pt: 'Ex: Máquina avariada...', tr: 'Örn: Makine arızası...' })} className="w-full border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface rounded-lg sm:rounded-xl px-3 sm:px-4 py-2.5 sm:py-3 text-xs sm:text-sm outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 transition-all shadow-sm h-20 sm:h-24 resize-none" autoFocus />
               </div>
             </div>
-            <div className="p-3 sm:p-4 bg-slate-50 dark:bg-dk-bg/80 dark:bg-dk-bg/80 border-t border-slate-100 dark:border-dk-border flex justify-end gap-2">
-              <button onClick={() => { setSkipReasonModal(null); setSkipReasonText(''); }} className="px-3 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm font-bold text-slate-600 dark:text-dk-text-soft hover:bg-slate-100 dark:bg-dk-elevated/60 rounded-lg sm:rounded-xl transition-colors">{tx(lang, { fr: 'Annuler', ar: 'إلغاء', en: 'Cancel', es: 'Cancelar', pt: 'Cancelar', tr: 'İptal' })}</button>
+            <div className="p-3 sm:p-4 bg-slate-50 dark:bg-dk-bg/80 border-t border-slate-100 dark:border-dk-border flex justify-end gap-2">
+              <button onClick={() => { setSkipReasonModal(null); setSkipReasonText(''); }} className="px-3 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm font-bold text-slate-600 dark:text-dk-text-soft hover:bg-slate-100 dark:hover:bg-dk-elevated/60 rounded-lg sm:rounded-xl transition-colors">{tx(lang, { fr: 'Annuler', ar: 'إلغاء', en: 'Cancel', es: 'Cancelar', pt: 'Cancelar', tr: 'İptal' })}</button>
               <button onClick={handleSkipSubmit} disabled={!skipReasonText.trim()} className="px-4 sm:px-5 py-2 sm:py-2.5 text-xs sm:text-sm font-bold bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white rounded-lg sm:rounded-xl shadow-lg shadow-amber-500/30 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed">{tx(lang, { fr: 'Confirmer', ar: 'تأكيد', en: 'Confirm', es: 'Confirmar', pt: 'Confirmar', tr: 'Onayla' })}</button>
             </div>
           </div>
