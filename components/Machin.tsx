@@ -548,7 +548,7 @@ export default function Machin({
                     </thead>
                     <tbody className="divide-y divide-slate-100 dark:divide-dk-border text-sm">
                       {complexityFactors.map(item => (
-                        <tr key={item.id} className="hover:bg-slate-50 dark:bg-dk-elevated transition-colors">
+                        <tr key={item.id} className="hover:bg-slate-50 dark:hover:bg-dk-elevated/60 transition-colors">
                           <td className="py-3 px-6 font-medium text-slate-700 dark:text-dk-text-soft">{item.label}</td>
                           <td className="py-3 px-6 text-center"><span className="px-2 py-1 bg-indigo-50 text-indigo-700 rounded-md font-bold">{item.value}</span></td>
                           <td className="py-3 px-6 text-right">
@@ -586,7 +586,7 @@ export default function Machin({
                     </thead>
                     <tbody className="divide-y divide-slate-100 dark:divide-dk-border text-sm">
                       {speedFactors.map(item => (
-                        <tr key={item.id} className="hover:bg-slate-50 dark:bg-dk-elevated transition-colors">
+                        <tr key={item.id} className="hover:bg-slate-50 dark:hover:bg-dk-elevated/60 transition-colors">
                           <td className="py-3 px-6 font-medium text-slate-700 dark:text-dk-text-soft">{item.min} - {item.max} tr/min</td>
                           <td className="py-3 px-6 text-center"><span className="px-2 py-1 bg-emerald-50 text-emerald-700 rounded-md font-bold">{item.value}</span></td>
                           <td className="py-3 px-6 text-right">
@@ -624,7 +624,7 @@ export default function Machin({
                     </thead>
                     <tbody className="divide-y divide-slate-100 dark:divide-dk-border text-sm">
                       {standardTimes.map(item => (
-                        <tr key={item.id} className="hover:bg-slate-50 dark:bg-dk-elevated transition-colors">
+                        <tr key={item.id} className="hover:bg-slate-50 dark:hover:bg-dk-elevated/60 transition-colors">
                           <td className="py-3 px-6 font-medium text-slate-700 dark:text-dk-text-soft">{item.label}</td>
                           <td className="py-3 px-6 text-center">
                             <span className="px-2 py-1 bg-amber-50 text-amber-700 rounded-md font-bold font-mono">
@@ -752,7 +752,7 @@ export default function Machin({
                   </button>
                   <button
                     onClick={() => setFilResetConfirmOpen(true)}
-                    className="flex items-center gap-2 px-4 py-2.5 text-slate-600 dark:text-dk-muted font-bold rounded-xl border border-slate-200 dark:border-dk-border hover:bg-slate-50 dark:bg-dk-elevated transition-colors"
+                    className="flex items-center gap-2 px-4 py-2.5 text-slate-600 dark:text-dk-muted font-bold rounded-xl border border-slate-200 dark:border-dk-border hover:bg-slate-50 dark:hover:bg-dk-elevated/60 transition-colors"
                   >
                     <RotateCcw className="w-4 h-4" /> {tx(lang, { fr: 'Réinitialiser', ar: 'إعادة تعيين', en: 'Reset', es: 'Restablecer', pt: 'Redefinir', tr: 'Sıfırla' })}
                   </button>
@@ -1110,7 +1110,7 @@ export default function Machin({
               </div>
             </div>
             <div className="bg-slate-50 dark:bg-dk-elevated px-6 py-4 border-t border-slate-100 dark:border-dk-border/60 flex gap-3">
-              <button onClick={() => setFilEditIndex(null)} className="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 dark:border-dk-border text-slate-600 dark:text-dk-muted font-medium hover:bg-slate-50 dark:bg-dk-elevated transition-colors">
+              <button onClick={() => setFilEditIndex(null)} className="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 dark:border-dk-border text-slate-600 dark:text-dk-muted font-medium hover:bg-slate-50 dark:hover:bg-dk-elevated/60 transition-colors">
                 {tx(lang, { fr: 'Annuler', ar: 'إلغاء', en: 'Cancel', es: 'Cancelar', pt: 'Cancelar', tr: 'İptal' })}
               </button>
               <button onClick={saveFilEdit} className="flex-1 px-4 py-2.5 rounded-xl bg-purple-600 text-white font-medium hover:bg-purple-700 shadow-lg shadow-purple-200 transition-all active:scale-95 flex items-center justify-center gap-2">
@@ -1131,7 +1131,7 @@ export default function Machin({
             <h3 className="text-lg font-bold text-slate-800 dark:text-dk-text mb-2">{tx(lang, { fr: 'Confirmer les modifications ?', ar: 'تأكيد التعديلات؟', en: 'Confirm changes?', es: '¿Confirmar los cambios?', pt: 'Confirmar as alterações?', tr: 'Değişiklikler onaylansın mı?' })}</h3>
             <p className="text-slate-500 dark:text-dk-muted text-sm mb-6">{tx(lang, { fr: 'Les nouveaux coefficients seront sauvegardés et utilisés pour les calculs futurs.', ar: 'سيتم حفظ المعاملات الجديدة واستخدامها في الحسابات المستقبلية', en: 'The new coefficients will be saved and used for future calculations.', es: 'Los nuevos coeficientes se guardarán y utilizarán para futuros cálculos.', pt: 'Os novos coeficientes serão guardados e utilizados para cálculos futuros.', tr: 'Yeni katsayılar kaydedilecek ve gelecekteki hesaplamalarda kullanılacak.' })}</p>
             <div className="flex gap-3">
-              <button onClick={() => setFilConfirmOpen(false)} className="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 dark:border-dk-border text-slate-600 dark:text-dk-muted font-medium hover:bg-slate-50 dark:bg-dk-elevated transition-colors">{tx(lang, { fr: 'Annuler', ar: 'إلغاء', en: 'Cancel', es: 'Cancelar', pt: 'Cancelar', tr: 'İptal' })}</button>
+              <button onClick={() => setFilConfirmOpen(false)} className="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 dark:border-dk-border text-slate-600 dark:text-dk-muted font-medium hover:bg-slate-50 dark:hover:bg-dk-elevated/60 transition-colors">{tx(lang, { fr: 'Annuler', ar: 'إلغاء', en: 'Cancel', es: 'Cancelar', pt: 'Cancelar', tr: 'İptal' })}</button>
               <button onClick={confirmFilSave} className="flex-1 px-4 py-2.5 rounded-xl bg-purple-600 text-white font-medium hover:bg-purple-700 shadow-lg shadow-purple-200 transition-all active:scale-95">{tx(lang, { fr: 'Confirmer', ar: 'تأكيد', en: 'Confirm', es: 'Confirmar', pt: 'Confirmar', tr: 'Onayla' })}</button>
             </div>
           </div>
@@ -1148,7 +1148,7 @@ export default function Machin({
             <h3 className="text-lg font-bold text-slate-800 dark:text-dk-text mb-2">{tx(lang, { fr: 'Réinitialiser les paramètres ?', ar: 'إعادة تعيين الإعدادات؟', en: 'Reset settings?', es: '¿Restablecer los ajustes?', pt: 'Redefinir as configurações?', tr: 'Ayarlar sıfırlansın mı?' })}</h3>
             <p className="text-slate-500 dark:text-dk-muted text-sm mb-6">{tx(lang, { fr: 'Toutes les modifications seront annulées et les valeurs originales seront restaurées.', ar: 'سيتم إلغاء جميع التعديلات واستعادة القيم الأصلية', en: 'All changes will be cancelled and original values restored.', es: 'Todos los cambios serán cancelados y se restaurarán los valores originales.', pt: 'Todas as alterações serão canceladas e os valores originais serão restaurados.', tr: 'Tüm değişiklikler iptal edilecek ve orijinal değerler geri yüklenecek.' })}</p>
             <div className="flex gap-3">
-              <button onClick={() => setFilResetConfirmOpen(false)} className="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 dark:border-dk-border text-slate-600 dark:text-dk-muted font-medium hover:bg-slate-50 dark:bg-dk-elevated transition-colors">{tx(lang, { fr: 'Annuler', ar: 'إلغاء', en: 'Cancel', es: 'Cancelar', pt: 'Cancelar', tr: 'İptal' })}</button>
+              <button onClick={() => setFilResetConfirmOpen(false)} className="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 dark:border-dk-border text-slate-600 dark:text-dk-muted font-medium hover:bg-slate-50 dark:hover:bg-dk-elevated/60 transition-colors">{tx(lang, { fr: 'Annuler', ar: 'إلغاء', en: 'Cancel', es: 'Cancelar', pt: 'Cancelar', tr: 'İptal' })}</button>
               <button onClick={resetFilDefaults} className="flex-1 px-4 py-2.5 rounded-xl bg-amber-500 text-white font-medium hover:bg-amber-600 shadow-lg shadow-amber-200 transition-all active:scale-95">{tx(lang, { fr: 'Réinitialiser', ar: 'إعادة تعيين', en: 'Reset', es: 'Restablecer', pt: 'Redefinir', tr: 'Sıfırla' })}</button>
             </div>
           </div>
@@ -1165,7 +1165,7 @@ export default function Machin({
             <h3 className="text-lg font-bold text-slate-800 dark:text-dk-text mb-2">{tx(lang, { fr: 'Supprimer l\'élément ?', ar: 'حذف العنصر؟', en: 'Delete item?', es: '¿Eliminar el elemento?', pt: 'Eliminar o elemento?', tr: 'Öğe silinsin mi?' })}</h3>
             <p className="text-slate-500 dark:text-dk-muted text-sm mb-6">{tx(lang, { fr: 'Cette action est irréversible.', ar: 'هذا الإجراء لا يمكن التراجع عنه', en: 'This action is irreversible.', es: 'Esta acción es irreversible.', pt: 'Esta ação é irreversível.', tr: 'Bu işlem geri alınamaz.' })}</p>
             <div className="flex gap-3">
-              <button onClick={() => setDeleteData(null)} className="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 dark:border-dk-border text-slate-600 dark:text-dk-muted font-medium hover:bg-slate-50 dark:bg-dk-elevated transition-colors">{tx(lang, { fr: 'Annuler', ar: 'إلغاء', en: 'Cancel', es: 'Cancelar', pt: 'Cancelar', tr: 'İptal' })}</button>
+              <button onClick={() => setDeleteData(null)} className="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 dark:border-dk-border text-slate-600 dark:text-dk-muted font-medium hover:bg-slate-50 dark:hover:bg-dk-elevated/60 transition-colors">{tx(lang, { fr: 'Annuler', ar: 'إلغاء', en: 'Cancel', es: 'Cancelar', pt: 'Cancelar', tr: 'İptal' })}</button>
               <button onClick={confirmDelete} className="flex-1 px-4 py-2.5 rounded-xl bg-rose-600 text-white font-medium hover:bg-rose-700 shadow-lg shadow-rose-200 transition-all active:scale-95">{tx(lang, { fr: 'Supprimer', ar: 'حذف', en: 'Delete', es: 'Eliminar', pt: 'Eliminar', tr: 'Sil' })}</button>
             </div>
           </div>

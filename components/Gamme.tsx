@@ -2021,41 +2021,41 @@ export default function Gamme({
              <div className="flex flex-wrap sm:flex-nowrap gap-2 w-full sm:w-auto">
                  
                  {/* Selection Mode Toggle */}
-                 <button 
-                   onClick={() => setIsSelectionMode(!isSelectionMode)}
-                   className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-xs font-bold border transition-colors whitespace-nowrap ${
-                       isSelectionMode 
-                       ? 'bg-indigo-600 text-white border-indigo-600 shadow-md shadow-indigo-200' 
-                       : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'
-                   }`}
-                   title={tx(lang,{fr:'Activer/Désactiver le mode sélection',ar:'تفعيل/إلغاء وضع التحديد',en:'Toggle selection mode',es:'Activar/Desactivar selección',pt:'Ativar/Desativar seleção',tr:'Seçim modunu aç/kapat'})}
-                 >
-                   <CheckSquare className="w-4 h-4" />
-                    <span className="hidden sm:inline">{tx(lang,{fr:'Sélection',ar:'تحديد',en:'Select',es:'Selección',pt:'Seleção',tr:'Seç'})}</span>
-                 </button>
+                  <button 
+                    onClick={() => setIsSelectionMode(!isSelectionMode)}
+                    className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-xs font-bold border transition-colors whitespace-nowrap ${
+                        isSelectionMode 
+                        ? 'bg-indigo-600 text-white border-indigo-600 shadow-md shadow-indigo-200 dark:shadow-indigo-900/30' 
+                        : 'bg-white dark:bg-dk-surface text-slate-500 dark:text-dk-text-soft border-slate-200 dark:border-dk-border hover:bg-slate-50 dark:hover:bg-dk-elevated/60'
+                    }`}
+                    title={tx(lang,{fr:'Activer/Désactiver le mode sélection',ar:'تفعيل/إلغاء وضع التحديد',en:'Toggle selection mode',es:'Activar/Desactivar selección',pt:'Ativar/Desativar seleção',tr:'Seçim modunu aç/kapat'})}
+                  >
+                    <CheckSquare className="w-4 h-4" />
+                     <span className="hidden sm:inline">{tx(lang,{fr:'Sélection',ar:'تحديد',en:'Select',es:'Selección',pt:'Seleção',tr:'Seç'})}</span>
+                  </button>
 
-                 <button 
-                   onClick={() => setShowLength(prev => !prev)}
-                   className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-xs font-bold bg-indigo-50 text-indigo-700 border border-indigo-100 hover:bg-indigo-100 transition-colors whitespace-nowrap"
-                 >
-                   <Ruler className="w-4 h-4" />
-                    <span className="hidden sm:inline">{showLength ? tx(lang,{fr:'Masquer L',ar:'إخفاء L',en:'Hide L',es:'Ocultar L',pt:'Ocultar L',tr:'L Gizle'}) : tx(lang,{fr:'Afficher L',ar:'إظهار L',en:'Show L',es:'Mostrar L',pt:'Mostrar L',tr:'L Göster'})}</span>
-                   <span className="sm:hidden">L</span>
-                 </button>
-                 
-                 <button 
-                   onClick={handleAutoAssignGuides}
-                  className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-xs font-bold border transition-colors whitespace-nowrap ${
-                    missingMachineOpIds.length > 0
-                      ? 'border-rose-300 bg-rose-50 text-rose-700 hover:bg-rose-100'
-                      : 'border-amber-200 bg-amber-50 text-amber-900 hover:bg-amber-100 hover:border-amber-300'
-                  }`}
-                   title={tx(lang,{fr:'Attribuer automatiquement les guides',ar:'تعيين الأدلة تلقائياً',en:'Auto-assign guides',es:'Asignar guías automáticamente',pt:'Atribuir guias automaticamente',tr:'Kılavuzları otomatik ata'})}
-                 >
-                   <Wand2 className="w-4 h-4 text-amber-700" />
-                    <span className="hidden sm:inline">{tx(lang,{fr:'Auto-Guides',ar:'تلقائي-أدلة',en:'Auto-Guides',es:'Auto-Guías',pt:'Auto-Guias',tr:'Oto-Kılavuz'})}</span>
-                    <span className="sm:hidden">{tx(lang,{fr:'Auto',ar:'تلقائي',en:'Auto',es:'Auto',pt:'Auto',tr:'Oto'})}</span>
-                 </button>
+                  <button 
+                    onClick={() => setShowLength(prev => !prev)}
+                    className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-xs font-bold bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 border border-indigo-100 dark:border-indigo-800 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-colors whitespace-nowrap"
+                  >
+                    <Ruler className="w-4 h-4" />
+                     <span className="hidden sm:inline">{showLength ? tx(lang,{fr:'Masquer L',ar:'إخفاء L',en:'Hide L',es:'Ocultar L',pt:'Ocultar L',tr:'L Gizle'}) : tx(lang,{fr:'Afficher L',ar:'إظهار L',en:'Show L',es:'Mostrar L',pt:'Mostrar L',tr:'L Göster'})}</span>
+                    <span className="sm:hidden">L</span>
+                  </button>
+                  
+                  <button 
+                    onClick={handleAutoAssignGuides}
+                   className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-xs font-bold border transition-colors whitespace-nowrap ${
+                     missingMachineOpIds.length > 0
+                       ? 'border-rose-300 dark:border-rose-800 bg-rose-50 dark:bg-rose-900/30 text-rose-700 dark:text-rose-300 hover:bg-rose-100 dark:hover:bg-rose-900/50'
+                       : 'border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/30 text-amber-900 dark:text-amber-200 hover:bg-amber-100 dark:hover:bg-amber-900/50 hover:border-amber-300'
+                   }`}
+                    title={tx(lang,{fr:'Attribuer automatiquement les guides',ar:'تعيين الأدلة تلقائياً',en:'Auto-assign guides',es:'Asignar guías automáticamente',pt:'Atribuir guias automaticamente',tr:'Kılavuzları otomatik ata'})}
+                  >
+                    <Wand2 className="w-4 h-4 text-amber-700 dark:text-amber-300" />
+                     <span className="hidden sm:inline">{tx(lang,{fr:'Auto-Guides',ar:'تلقائي-أدلة',en:'Auto-Guides',es:'Auto-Guías',pt:'Auto-Guias',tr:'Oto-Kılavuz'})}</span>
+                     <span className="sm:hidden">{tx(lang,{fr:'Auto',ar:'تلقائي',en:'Auto',es:'Auto',pt:'Auto',tr:'Oto'})}</span>
+                  </button>
 
                  <button 
                    onClick={addOperation}
@@ -2071,15 +2071,13 @@ export default function Gamme({
         {/* TABLE CONTAINER - SCROLLABLE */}
         <div className="flex-1 overflow-x-auto w-full custom-scrollbar">
           <table className="w-full text-left border-collapse min-w-[800px]">
-            {/* ... Rest of Table Render Logic Unchanged ... */}
             <thead>
-              <tr className="bg-white text-slate-500 border-b border-slate-100">
-                {/* CHECKBOX COLUMN - VISIBLE ONLY IN SELECTION MODE */}
+              <tr className="bg-white dark:bg-dk-surface text-slate-500 dark:text-dk-text-soft border-b border-slate-100 dark:border-dk-border">
                 {isSelectionMode && (
-                    <th className="py-4 px-2 w-8 text-center font-bold text-[11px] text-slate-400 sticky left-0 top-0 bg-white z-30 border-r border-slate-100 border-b border-slate-200">
+                    <th className="py-4 px-2 w-8 text-center font-bold text-[11px] text-slate-400 dark:text-dk-muted sticky left-0 top-0 bg-white dark:bg-dk-surface z-30 border-r border-slate-100 dark:border-dk-border border-b border-slate-200 dark:border-dk-border">
                         <button 
                             onClick={handleSelectAll} 
-                            className="hover:text-indigo-600 transition-colors focus:outline-none"
+                            className="hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors focus:outline-none"
                             title={tx(lang,{fr:'Tout sélectionner / Désélectionner',ar:'تحديد الكل / إلغاء التحديد',en:'Select all / Deselect',es:'Seleccionar todo / Deseleccionar',pt:'Selecionar tudo / Desmarcar',tr:'Tümünü seç / Seçimi kaldır'})}
                         >
                             {selectedOpIds.length === operations.length && operations.length > 0 ? (
@@ -2087,29 +2085,28 @@ export default function Gamme({
                                     <Check className="w-3 h-3" />
                                 </div>
                             ) : (
-                                <div className="w-4 h-4 border rounded border-slate-300"></div>
+                                <div className="w-4 h-4 border rounded border-slate-300 dark:border-dk-border"></div>
                             )}
                         </button>
                     </th>
                 )}
                 
-                <th className={`py-4 px-4 w-12 text-center font-bold text-[11px] uppercase tracking-wider text-slate-400 sticky ${isSelectionMode ? 'left-8' : 'left-0'} top-0 bg-white z-30 border-b border-slate-100 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]`}>{tx(lang,{fr:'N°',ar:'رقم',en:'No.',es:'N°',pt:'N°',tr:'No.'})}</th>
+                <th className={`py-4 px-4 w-12 text-center font-bold text-[11px] uppercase tracking-wider text-slate-400 dark:text-dk-muted sticky ${isSelectionMode ? 'left-8' : 'left-0'} top-0 bg-white dark:bg-dk-surface z-30 border-b border-slate-100 dark:border-dk-border`}>{tx(lang,{fr:'N°',ar:'رقم',en:'No.',es:'N°',pt:'N°',tr:'No.'})}</th>
                 
-                {/* SIDE COLUMN HEADER - COMPACT & ALWAYS VISIBLE */}
-                <th className={`py-4 px-1 w-10 text-center font-bold text-[11px] uppercase tracking-wider text-slate-400 sticky ${isSelectionMode ? 'left-20' : 'left-12'} top-0 bg-white z-30 border-r border-slate-50 border-b border-slate-100`} title={tx(lang,{fr:'Côté (G/D)',ar:'جانب (ي/س)',en:'Side (L/R)',es:'Lado (I/D)',pt:'Lado (E/D)',tr:'Yön (S/Sağ)'})}>{tx(lang,{fr:'C',ar:'.ج',en:'S',es:'L',pt:'L',tr:'Y'})}</th>
+                <th className={`py-4 px-1 w-10 text-center font-bold text-[11px] uppercase tracking-wider text-slate-400 dark:text-dk-muted sticky ${isSelectionMode ? 'left-20' : 'left-12'} top-0 bg-white dark:bg-dk-surface z-30 border-r border-slate-50 dark:border-dk-border border-b border-slate-100 dark:border-dk-border`} title={tx(lang,{fr:'Côté (G/D)',ar:'جانب (ي/س)',en:'Side (L/R)',es:'Lado (I/D)',pt:'Lado (E/D)',tr:'Yön (S/Sağ)'})}>{tx(lang,{fr:'C',ar:'.ج',en:'S',es:'L',pt:'L',tr:'Y'})}</th>
                 {sectionSplitEnabled && (
-                  <th className="py-4 px-1 w-10 text-center font-bold text-[11px] uppercase tracking-wider text-slate-400 border-r border-slate-50 sticky top-0 bg-white z-30 border-b border-slate-100" title={tx(lang,{fr:'Section (Préparation / Montage / Global)',ar:'قسم (تحضير / تركيب / عام)',en:'Section (Preparation / Assembly / Global)',es:'Sección (Preparación / Montaje / Global)',pt:'Seção (Preparação / Montagem / Global)',tr:'Bölüm (Hazırlık / Montaj / Genel)'})}>{tx(lang,{fr:'S',ar:'ق',en:'S',es:'S',pt:'S',tr:'B'})}</th>
+                  <th className="py-4 px-1 w-10 text-center font-bold text-[11px] uppercase tracking-wider text-slate-400 dark:text-dk-muted border-r border-slate-50 dark:border-dk-border sticky top-0 bg-white dark:bg-dk-surface z-30 border-b border-slate-100 dark:border-dk-border" title={tx(lang,{fr:'Section (Préparation / Montage / Global)',ar:'قسم (تحضير / تركيب / عام)',en:'Section (Preparation / Assembly / Global)',es:'Sección (Preparación / Montaje / Global)',pt:'Seção (Preparação / Montagem / Global)',tr:'Bölüm (Hazırlık / Montaj / Genel)'})}>{tx(lang,{fr:'S',ar:'ق',en:'S',es:'S',pt:'S',tr:'B'})}</th>
                 )}
                 
-                <th className="py-4 px-4 font-bold text-[11px] uppercase tracking-wider text-slate-400 min-w-[200px] sticky top-0 bg-white z-30 border-b border-slate-100">{tx(lang,{fr:"Description de l'opération",ar:'وصف العملية',en:'Operation Description',es:'Descripción de la operación',pt:'Descrição da operação',tr:'İşlem Tanımı'})}</th>
-                <th className="py-4 px-4 w-40 font-bold text-[11px] uppercase tracking-wider text-slate-400 sticky top-0 bg-white z-30 border-b border-slate-100">{tx(lang,{fr:'Machine',ar:'آلة',en:'Machine',es:'Máquina',pt:'Máquina',tr:'Makine'})}</th>
-                <th className="py-4 px-4 w-24 text-center font-bold text-[11px] uppercase tracking-wider text-slate-400 sticky top-0 bg-white z-30 border-b border-slate-100">{tx(lang,{fr:'F. Guide',ar:'م. دليل',en:'G. Factor',es:'F. Guía',pt:'F. Guia',tr:'R. Faktör'})}</th>
+                <th className="py-4 px-4 font-bold text-[11px] uppercase tracking-wider text-slate-400 dark:text-dk-muted min-w-[200px] sticky top-0 bg-white dark:bg-dk-surface z-30 border-b border-slate-100 dark:border-dk-border">{tx(lang,{fr:"Description de l'opération",ar:'وصف العملية',en:'Operation Description',es:'Descripción de la operación',pt:'Descrição da operação',tr:'İşlem Tanımı'})}</th>
+                <th className="py-4 px-4 w-40 font-bold text-[11px] uppercase tracking-wider text-slate-400 dark:text-dk-muted sticky top-0 bg-white dark:bg-dk-surface z-30 border-b border-slate-100 dark:border-dk-border">{tx(lang,{fr:'Machine',ar:'آلة',en:'Machine',es:'Máquina',pt:'Máquina',tr:'Makine'})}</th>
+                <th className="py-4 px-4 w-24 text-center font-bold text-[11px] uppercase tracking-wider text-slate-400 dark:text-dk-muted sticky top-0 bg-white dark:bg-dk-surface z-30 border-b border-slate-100 dark:border-dk-border">{tx(lang,{fr:'F. Guide',ar:'م. دليل',en:'G. Factor',es:'F. Guía',pt:'F. Guia',tr:'R. Faktör'})}</th>
                 {showLength && (
-                  <th className="py-4 px-4 w-20 text-center font-bold text-[11px] uppercase tracking-wider text-indigo-600 sticky top-0 bg-white z-30 border-b border-slate-100">{tx(lang,{fr:'L / Qté',ar:'L / كم',en:'L / Qty',es:'L / Cant',pt:'L / Qtd',tr:'L / Mikt'})}</th>
+                  <th className="py-4 px-4 w-20 text-center font-bold text-[11px] uppercase tracking-wider text-indigo-600 dark:text-indigo-400 sticky top-0 bg-white dark:bg-dk-surface z-30 border-b border-slate-100 dark:border-dk-border">{tx(lang,{fr:'L / Qté',ar:'L / كم',en:'L / Qty',es:'L / Cant',pt:'L / Qtd',tr:'L / Mikt'})}</th>
                 )}
-                <th className="py-4 px-4 w-24 text-center font-bold text-[11px] uppercase tracking-wider text-orange-600 sticky top-0 bg-white z-30 border-b border-slate-100">{tx(lang,{fr:'Guide',ar:'دليل',en:'Guide',es:'Guía',pt:'Guia',tr:'Kılavuz'})}</th>
-                <th className="py-4 px-4 w-24 text-center font-bold text-[11px] uppercase tracking-wider text-emerald-600 sticky top-0 bg-white z-30 border-b border-slate-100">{tx(lang,{fr:'CHRONO',ar:'CHRONO',en:'CHRONO',es:'CHRONO',pt:'CHRONO',tr:'CHRONO'})}</th>
-                <th className="py-4 px-4 w-10 sticky top-0 bg-white z-30 border-b border-slate-100"></th>
+                <th className="py-4 px-4 w-24 text-center font-bold text-[11px] uppercase tracking-wider text-orange-600 dark:text-orange-400 sticky top-0 bg-white dark:bg-dk-surface z-30 border-b border-slate-100 dark:border-dk-border">{tx(lang,{fr:'Guide',ar:'دليل',en:'Guide',es:'Guía',pt:'Guia',tr:'Kılavuz'})}</th>
+                <th className="py-4 px-4 w-24 text-center font-bold text-[11px] uppercase tracking-wider text-emerald-600 dark:text-emerald-400 sticky top-0 bg-white dark:bg-dk-surface z-30 border-b border-slate-100 dark:border-dk-border">{tx(lang,{fr:'CHRONO',ar:'CHRONO',en:'CHRONO',es:'CHRONO',pt:'CHRONO',tr:'CHRONO'})}</th>
+                <th className="py-4 px-4 w-10 sticky top-0 bg-white dark:bg-dk-surface z-30 border-b border-slate-100 dark:border-dk-border"></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">

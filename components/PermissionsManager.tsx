@@ -113,7 +113,7 @@ export default function PermissionsManager() {
     </button>
   );
 
-  const inputCls = 'px-2.5 h-8 rounded-md border border-slate-200 bg-slate-50/60 focus:bg-white focus:outline-none focus:ring-2 focus:ring-slate-100 text-[13px] text-slate-700';
+  const inputCls = `px-2.5 h-8 rounded-md border focus:outline-none focus:ring-2 text-[13px] ${isDark ? 'bg-dk-bg border-dk-border text-dk-text focus:bg-dk-surface focus:ring-dk-border' : 'bg-slate-50/60 border-slate-200 text-slate-700 focus:bg-white focus:ring-slate-100'}`;
 
   if (loading) return <div className={`p-8 text-[13px] ${isDark ? 'text-dk-muted' : 'text-slate-400'}`}>Chargement…</div>;
 
@@ -121,16 +121,16 @@ export default function PermissionsManager() {
     <div className="max-w-3xl mx-auto p-4 space-y-5" dir="ltr">
       {/* En-tête */}
       <div className="flex items-center gap-2">
-        <Shield size={16} strokeWidth={1.75} className="text-slate-400" />
+        <Shield size={16} strokeWidth={1.75} className="text-slate-400 dark:text-dk-muted" />
         <div>
-          <h2 className="text-[15px] font-semibold text-slate-900">Permissions & Hiérarchie</h2>
-          <p className="text-[11px] text-slate-400">{tx(lang, {fr:"Gérez les rôles, ce que chacun voit et modifie.",ar:"إدارة الأدوار، وما يراه ويعدله كل شخص.",en:"Manage roles, what each person sees and edits.",es:"Gestione roles, lo que cada uno ve y modifica.",pt:"Gerencie funções, o que cada um vê e modifica.",tr:"Rolleri, herkesin ne gördüğünü ve düzenlediğini yönetin."})}</p>
+          <h2 className={`text-[15px] font-semibold ${isDark ? 'text-dk-text' : 'text-slate-900'}`}>Permissions & Hiérarchie</h2>
+          <p className={`text-[11px] ${isDark ? 'text-dk-muted' : 'text-slate-400'}`}>{tx(lang, {fr:"Gérez les rôles, ce que chacun voit et modifie.",ar:"إدارة الأدوار، وما يراه ويعدله كل شخص.",en:"Manage roles, what each person sees and edits.",es:"Gestione roles, lo que cada uno ve y modifica.",pt:"Gerencie funções, o que cada um vê e modifica.",tr:"Rolleri, herkesin ne gördüğünü ve düzenlediğini yönetin."})}</p>
         </div>
       </div>
 
       {/* Rôles */}
-      <div className="bg-white rounded-lg border border-slate-200 p-4">
-        <h3 className="text-[13px] font-semibold text-slate-900 mb-3">{tx(lang, {fr:"Rôles",ar:"الأدوار",en:"Roles",es:"Roles",pt:"Funções",tr:"Roller"})}</h3>
+      <div className={`rounded-lg border p-4 ${isDark ? 'bg-dk-surface border-dk-border' : 'bg-white border-slate-200'}`}>
+        <h3 className={`text-[13px] font-semibold mb-3 ${isDark ? 'text-dk-text' : 'text-slate-900'}`}>{tx(lang, {fr:"Rôles",ar:"الأدوار",en:"Roles",es:"Roles",pt:"Funções",tr:"Roller"})}</h3>
         <div className="flex flex-wrap gap-2 mb-4">
           <input value={newRole.name} onChange={e => setNewRole(s => ({ ...s, name: e.target.value }))} placeholder={tx(lang, {fr:'Nom du rôle',ar:'اسم الدور',en:'Role name',es:'Nombre del rol',pt:'Nome da função',tr:'Rol adı'})} className={`flex-1 min-w-[140px] ${inputCls}`} />
           <select value={newRole.preset} onChange={e => setNewRole(s => ({ ...s, preset: e.target.value as RolePresetKey }))} className={`${inputCls} bg-white`}>
@@ -142,26 +142,26 @@ export default function PermissionsManager() {
 
         {roles.length === 0 && <p className="text-[13px] text-slate-400 py-3 text-center">{tx(lang, {fr:'Aucun rôle. Créez-en un (avec preset pour démarrer vite).',ar:'لا توجد أدوار. أنشئ واحداً (باستخدام قالب للبدء بسرعة).',en:'No roles. Create one (with a preset to start quickly).',es:'Sin roles. Cree uno (con una plantilla para empezar rápido).',pt:'Nenhuma função. Crie uma (com uma predefinição para começar rapidamente).',tr:'Rol yok. Hızlı başlamak için bir ön ayar ile oluşturun.'})}</p>}
 
-        {roles.map(role => (
-          <div key={role.id} className="border border-slate-100 rounded-md mb-1.5 overflow-hidden">
-            <div className="flex items-center justify-between px-3 h-9 cursor-pointer hover:bg-slate-50/60" onClick={() => openRolePerms(role.id)}>
-              <div className="flex items-center gap-2 text-[13px] font-medium text-slate-700">
-                {openRole === role.id ? <ChevronDown size={14} strokeWidth={1.75} className="text-slate-400" /> : <ChevronRight size={14} strokeWidth={1.75} className="text-slate-400" />}
+          {roles.map(role => (
+          <div key={role.id} className={`rounded-md mb-1.5 overflow-hidden ${isDark ? 'border border-dk-border' : 'border border-slate-100'}`}>
+            <div className={`flex items-center justify-between px-3 h-9 cursor-pointer ${isDark ? 'hover:bg-dk-bg/50' : 'hover:bg-slate-50/60'}`} onClick={() => openRolePerms(role.id)}>
+              <div className={`flex items-center gap-2 text-[13px] font-medium ${isDark ? 'text-dk-text' : 'text-slate-700'}`}>
+                {openRole === role.id ? <ChevronDown size={14} strokeWidth={1.75} className="text-slate-400 dark:text-dk-muted" /> : <ChevronRight size={14} strokeWidth={1.75} className="text-slate-400 dark:text-dk-muted" />}
                 {role.name}
-                <span className="text-[10px] text-slate-400 tabular-nums">niv. {role.level}</span>
+                <span className={`text-[10px] tabular-nums ${isDark ? 'text-dk-muted' : 'text-slate-400'}`}>niv. {role.level}</span>
               </div>
-              {!role.is_system && <button onClick={e => { e.stopPropagation(); delRole(role.id); }} className="text-slate-300 hover:text-slate-600"><Trash2 size={13} strokeWidth={1.75} /></button>}
+              {!role.is_system && <button onClick={e => { e.stopPropagation(); delRole(role.id); }} className={`${isDark ? 'text-dk-muted hover:text-dk-text' : 'text-slate-300 hover:text-slate-600'}`}><Trash2 size={13} strokeWidth={1.75} /></button>}
             </div>
 
             {openRole === role.id && (
-              <div className="px-3 pb-3 pt-1 space-y-3 border-t border-slate-50">
+              <div className={`px-3 pb-3 pt-1 space-y-3 border-t ${isDark ? 'border-dk-border' : 'border-slate-50'}`}>
                 <div>
-                  <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1 mt-2">{tx(lang, {fr:"Pages",ar:"الصفحات",en:"Pages",es:"Páginas",pt:"Páginas",tr:"Sayfalar"})}</p>
+                  <p className={`text-[10px] font-semibold uppercase tracking-wide mb-1 mt-2 ${isDark ? 'text-dk-muted' : 'text-slate-400'}`}>{tx(lang, {fr:"Pages",ar:"الصفحات",en:"Pages",es:"Páginas",pt:"Páginas",tr:"Sayfalar"})}</p>
                   {PROTECTED_PAGES.map(pg => {
                     const p = perms[`page|${pg}`] || { can_view: 0, can_edit: 0 };
                     return (
                       <div key={pg} className="flex items-center justify-between py-0.5">
-                        <span className="text-[13px] text-slate-600">{PAGE_LABELS[pg] || pg}</span>
+                        <span className={`text-[13px] ${isDark ? 'text-dk-text' : 'text-slate-600'}`}>{PAGE_LABELS[pg] || pg}</span>
                         <div className="flex gap-1.5">
                           <Toggle on={!!p.can_view} onClick={() => toggle('page', pg, 'view')} icon={Eye} />
                           <Toggle on={!!p.can_edit} onClick={() => toggle('page', pg, 'edit')} icon={Pencil} />
