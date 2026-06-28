@@ -62,7 +62,7 @@ const AnnouncementBar: React.FC = () => {
   return (
     <div className="w-full">
       {visible.map((a) => (
-        <div key={a.id} className={`${LEVEL_STYLE[a.level] || 'bg-slate-700'} text-white text-sm px-4 py-2 flex items-center justify-between gap-3`}>
+        <div key={a.id} className={`${LEVEL_STYLE[a.level] || 'bg-slate-700 dark:bg-slate-800'} text-white text-sm px-4 py-2 flex items-center justify-between gap-3`}>
           <span className="flex-1">{a.message}</span>
           <button onClick={() => dismiss(a.id)} className="opacity-80 hover:opacity-100 text-xs px-2">✕</button>
         </div>
