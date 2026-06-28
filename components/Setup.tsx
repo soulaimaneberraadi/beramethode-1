@@ -556,7 +556,7 @@ export default function Setup({ onComplete }: Props) {
         </div>
 
         {/* Carte principale */}
-        <div dir="ltr" className={`rounded-2xl shadow-sm p-8 ${isDark ? 'bg-dk-surface border border-dk-border' : 'bg-white dark:bg-dk-surface border border-slate-100 dark:border-dk-border'}`}>
+        <div dir="ltr" className={`rounded-2xl shadow-sm dark:shadow-dk-sm p-8 ${isDark ? 'bg-dk-surface border border-dk-border' : 'bg-white dark:bg-dk-surface border border-slate-100 dark:border-dk-border'}`}>
           {/* Indicateur d'étapes */}
           <div className="flex justify-center items-center mb-8">
             <StepDot n={1} step={step} />
@@ -628,7 +628,7 @@ export default function Setup({ onComplete }: Props) {
                   type="button"
                   onClick={handleNext}
                   disabled={!acceptedTerms}
-                  className="w-full py-3 px-6 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold rounded-xl flex items-center justify-center gap-2 transition-colors shadow-sm shadow-emerald-600/25"
+                  className="w-full py-3 px-6 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold rounded-xl flex items-center justify-center gap-2 transition-colors shadow-sm dark:shadow-dk-sm shadow-emerald-600/25"
                 >
                   {tx(lang,{fr:'Commencer',ar:'البدء',en:'Start',es:'Comenzar',pt:'Começar',tr:'Başla'})}
                   <ChevronRight className="w-4 h-4" />
@@ -1041,7 +1041,7 @@ export default function Setup({ onComplete }: Props) {
             animate={{ opacity: 1, scale: 1, y: 0 }}
             transition={{ duration: 0.18, ease: 'easeOut' }}
             onClick={(e) => e.stopPropagation()}
-            className={`w-full max-w-lg max-h-[85vh] flex flex-col rounded-2xl shadow-xl overflow-hidden ${isDark ? 'bg-dk-surface border border-dk-border' : 'bg-white dark:bg-dk-surface border border-slate-100 dark:border-dk-border'}`}
+            className={`w-full max-w-lg max-h-[85vh] flex flex-col rounded-2xl shadow-xl dark:shadow-dk-elevated overflow-hidden ${isDark ? 'bg-dk-surface border border-dk-border' : 'bg-white dark:bg-dk-surface border border-slate-100 dark:border-dk-border'}`}
           >
             <div className={`flex items-center justify-between gap-3 px-5 py-4 border-b ${isDark ? 'border-dk-border' : 'border-slate-100 dark:border-dk-border'}`}>
               <div className="flex items-center gap-2 min-w-0">

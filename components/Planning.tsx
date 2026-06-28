@@ -1220,7 +1220,7 @@ export default function Planning({
             {chainCtxMenu && (
                 <div
                     style={{ position: 'fixed', top: chainCtxMenu.y, left: chainCtxMenu.x, zIndex: 9999 }}
-                    className="bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-xl shadow-xl py-1 min-w-[200px] animate-[planning-fade-up_80ms_ease-out]"
+                    className="bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-xl shadow-xl dark:shadow-dk-elevated py-1 min-w-[200px] animate-[planning-fade-up_80ms_ease-out]"
                     onMouseLeave={() => setChainCtxMenu(null)}
                 >
                     <div className="px-3 py-1.5 border-b border-slate-100 dark:border-dk-border">
@@ -1293,7 +1293,7 @@ export default function Planning({
             )}
 
             {multiIds.size > 0 && (
-                <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 bg-white dark:bg-dk-surface text-slate-800 dark:text-dk-text border border-slate-200/85 dark:border-dk-border rounded-xl shadow-2xl flex items-stretch overflow-hidden animate-[planning-fade-up_180ms_ease-out]">
+                <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 bg-white dark:bg-dk-surface text-slate-800 dark:text-dk-text border border-slate-200/85 dark:border-dk-border rounded-xl shadow-2xl dark:shadow-dk-lg flex items-stretch overflow-hidden animate-[planning-fade-up_180ms_ease-out]">
                     <div className="flex items-center gap-2 px-4 py-2.5 border-r border-slate-150 dark:border-dk-border bg-slate-50 dark:bg-dk-bg/85 dark:bg-dk-bg/50">
                         <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 dark:bg-indigo-900/40 text-indigo-700 dark:text-dk-accent-text dark:text-indigo-300 text-[11px] font-black tabular-nums">{multiIds.size}</span>
                         <span className="text-[12px] font-bold text-slate-700 dark:text-dk-text">{tx(lang, {
@@ -1446,7 +1446,7 @@ export default function Planning({
 
             {deleteConfirm && (
                 <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/40" onClick={() => setDeleteConfirm(null)}>
-                    <div className="bg-white dark:bg-dk-surface rounded-2xl shadow-2xl p-6 max-w-sm w-full" onClick={(e) => e.stopPropagation()}>
+                    <div className="bg-white dark:bg-dk-surface rounded-2xl shadow-2xl dark:shadow-dk-lg p-6 max-w-sm w-full" onClick={(e) => e.stopPropagation()}>
                         <h3 className="text-[16px] font-bold text-gray-900 dark:text-dk-text">{tx(lang, {
                             fr: "Supprimer l'ordre ?",
                             ar: "حذف الطلب؟",
@@ -1481,7 +1481,7 @@ export default function Planning({
                             <button
                                 type="button"
                                 onClick={() => handleDelete(deleteConfirm)}
-                                className="h-8.5 px-4 rounded-xl text-[12px] font-bold bg-red-650 text-white hover:bg-red-700 shadow-sm transition-all duration-200 active:scale-95"
+                                className="h-8.5 px-4 rounded-xl text-[12px] font-bold bg-red-650 text-white hover:bg-red-700 shadow-sm dark:shadow-dk-sm transition-all duration-200 active:scale-95"
                             >
                                 {tx(lang, {
                                     fr: "Supprimer",
@@ -1498,7 +1498,7 @@ export default function Planning({
             )}
 
             {toastMessage && (
-                <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] flex items-center gap-3 px-5 py-3.5 rounded-2xl shadow-xl border bg-white dark:bg-dk-surface border-slate-100 dark:border-dk-border animate-[planning-fade-up_150ms_ease-out]">
+                <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] flex items-center gap-3 px-5 py-3.5 rounded-2xl shadow-xl dark:shadow-dk-elevated border bg-white dark:bg-dk-surface border-slate-100 dark:border-dk-border animate-[planning-fade-up_150ms_ease-out]">
                     <div className={`p-1 rounded-full ${toastMessage.type === 'success' ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400' : 'bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400'}`}>
                         {toastMessage.type === 'success' ? <Check className="w-4 h-4" /> : <AlertCircle className="w-4 h-4" />}
                     </div>

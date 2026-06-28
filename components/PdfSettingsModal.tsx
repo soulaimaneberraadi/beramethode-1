@@ -195,7 +195,7 @@ const PdfSettingsModal: React.FC<PdfSettingsModalProps> = ({
         <div className={`fixed inset-0 z-[110] flex justify-center bg-slate-900/70 backdrop-blur-md animate-in fade-in duration-200 ${isExpanded ? '' : 'items-end md:items-center md:p-4'}`}>
 
             <div
-                className={`shadow-2xl overflow-hidden flex flex-col ${darkMode ? 'bg-gray-900 border border-gray-700' : 'bg-white dark:bg-dk-surface'} ${
+                className={`shadow-2xl dark:shadow-dk-lg overflow-hidden flex flex-col ${darkMode ? 'bg-gray-900 border border-gray-700' : 'bg-white dark:bg-dk-surface'} ${
                     isExpanded
                         ? 'w-full h-full'
                         : 'w-full max-h-[92vh] rounded-t-2xl md:rounded-2xl md:w-[95vw] md:h-[90vh] md:max-w-6xl md:max-h-[90vh]'
@@ -351,8 +351,8 @@ const PdfSettingsModal: React.FC<PdfSettingsModalProps> = ({
                                     onClick={() => setPdfSettings({ ...pdfSettings, colorMode: 'color' })}
                                     className={`flex-1 py-1.5 text-[10px] font-bold rounded-md flex items-center justify-center gap-1.5 transition-all ${pdfSettings.colorMode === 'color'
                                             ? darkMode
-                                                ? 'bg-gray-700 text-purple-400 shadow-sm'
-                                                : 'bg-white dark:bg-dk-surface text-purple-600 dark:text-purple-400 shadow-sm'
+                                                ? 'bg-gray-700 text-purple-400 shadow-sm dark:shadow-dk-sm'
+                                                : 'bg-white dark:bg-dk-surface text-purple-600 dark:text-purple-400 shadow-sm dark:shadow-dk-sm'
                                             : darkMode
                                             ? 'text-gray-400 dark:text-dk-muted'
                                             : 'text-slate-500 dark:text-dk-muted'
@@ -364,8 +364,8 @@ const PdfSettingsModal: React.FC<PdfSettingsModalProps> = ({
                                     onClick={() => setPdfSettings({ ...pdfSettings, colorMode: 'grayscale' })}
                                     className={`flex-1 py-1.5 text-[10px] font-bold rounded-md flex items-center justify-center gap-1.5 transition-all ${pdfSettings.colorMode === 'grayscale'
                                             ? darkMode
-                                                ? 'bg-gray-700 text-white shadow-sm'
-                                                : 'bg-white dark:bg-dk-surface text-slate-800 dark:text-dk-text shadow-sm'
+                                                ? 'bg-gray-700 text-white shadow-sm dark:shadow-dk-sm'
+                                                : 'bg-white dark:bg-dk-surface text-slate-800 dark:text-dk-text shadow-sm dark:shadow-dk-sm'
                                             : darkMode
                                             ? 'text-gray-400 dark:text-dk-muted'
                                             : 'text-slate-500 dark:text-dk-muted'
@@ -458,7 +458,7 @@ const PdfSettingsModal: React.FC<PdfSettingsModalProps> = ({
                             disabled={!isLibLoaded || isGeneratingPdf}
                             className={`w-full py-3 rounded-lg font-bold text-sm flex items-center justify-center gap-2 transition-all active:scale-[0.98] ${isGeneratingPdf
                                     ? 'bg-slate-300 text-slate-500 dark:text-dk-muted cursor-not-allowed'
-                                    : 'bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white shadow-md'
+                                    : 'bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white shadow-md dark:shadow-dk-md'
                                 }`}
                         >
                             {isGeneratingPdf ? (
@@ -503,7 +503,7 @@ const PdfSettingsModal: React.FC<PdfSettingsModalProps> = ({
 
                 <div className={`order-1 md:order-2 flex-shrink-0 h-[52vh] md:h-auto md:flex-1 relative overflow-hidden flex flex-col ${darkMode ? 'bg-gray-950' : 'bg-slate-100 dark:bg-dk-elevated'}`}>
 
-                    <div className="absolute top-3 left-1/2 -translate-x-1/2 z-10 flex items-center gap-0.5 px-1.5 py-1 rounded-full shadow-md border bg-white dark:bg-dk-surface/90 backdrop-blur-sm border-slate-200 dark:border-dk-border">
+                    <div className="absolute top-3 left-1/2 -translate-x-1/2 z-10 flex items-center gap-0.5 px-1.5 py-1 rounded-full shadow-md dark:shadow-dk-md border bg-white dark:bg-dk-surface/90 backdrop-blur-sm border-slate-200 dark:border-dk-border">
                         <div className="px-2 py-0.5 text-[10px] font-bold flex items-center gap-1.5 border-r border-slate-200 dark:border-dk-border">
                             <Layout className="w-3 h-3 text-blue-500" />
                             <span className="text-slate-700 dark:text-dk-text-soft">{isTicket ? _({fr:'Ticket',ar:'تذكرة',en:'Ticket',es:'Ticket',pt:'Ticket',tr:'Bilet'}) : isCompact ? _({fr:'Compact',ar:'مضغوط',en:'Compact',es:'Compacto',pt:'Compacto',tr:'Kompakt'}) : 'A4'}</span>
@@ -566,7 +566,7 @@ const PdfSettingsModal: React.FC<PdfSettingsModalProps> = ({
                         </div>
                     </div>
                     {totalPages && totalPages > 1 && (
-                        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 flex items-center gap-3 px-3 py-1.5 rounded-full shadow-lg border bg-slate-900/90 text-white border-slate-700 backdrop-blur-sm transition-all animate-in fade-in slide-in-from-bottom-2 duration-300">
+                        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 flex items-center gap-3 px-3 py-1.5 rounded-full shadow-lg dark:shadow-dk-lg border bg-slate-900/90 text-white border-slate-700 backdrop-blur-sm transition-all animate-in fade-in slide-in-from-bottom-2 duration-300">
                             <button
                                 onClick={() => setActivePage(p => Math.max(1, p - 1))}
                                 disabled={activePage === 1}

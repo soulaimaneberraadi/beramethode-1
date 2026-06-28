@@ -10,14 +10,14 @@ interface RepartitionMatrixProps {
     data: FicheData;
     setData: React.Dispatch<React.SetStateAction<FicheData>>;
     lang?: Lang;
-    /** Quand true, met à jour data.quantity avec le total de la grille (Pedido le gère déjà de son côté). */
+    /** Quand true, met Ã  jour data.quantity avec le total de la grille (Pedido le gÃ¨re dÃ©jÃ  de son cÃ´tÃ©). */
     syncQuantity?: boolean;
 }
 
 /**
- * Carte « Répartition (Tailles / Couleurs) » réutilisable.
- * Source unique de la grille couleurs × tailles, partagée par Pedido et Fiche Technique.
- * Les données vivent dans FicheData (sizes / colors / gridQuantities) → édition synchronisée partout.
+ * Carte Â« RÃ©partition (Tailles / Couleurs) Â» rÃ©utilisable.
+ * Source unique de la grille couleurs Ã— tailles, partagÃ©e par Pedido et Fiche Technique.
+ * Les donnÃ©es vivent dans FicheData (sizes / colors / gridQuantities) â†’ Ã©dition synchronisÃ©e partout.
  */
 export default function RepartitionMatrix({ data, setData, lang = 'fr', syncQuantity = true }: RepartitionMatrixProps) {
     const sizes = data.sizes || [];
@@ -66,16 +66,16 @@ export default function RepartitionMatrix({ data, setData, lang = 'fr', syncQuan
         return { rowTotals, colTotals, grandTotal };
     }, [sizes, colors, gridQuantities]);
 
-    // Met à jour la quantité globale du modèle quand la matrice change.
+    // Met Ã  jour la quantitÃ© globale du modÃ¨le quand la matrice change.
     useEffect(() => {
         if (syncQuantity && matrixStats.grandTotal > 0) {
             setData(prev => (prev.quantity === matrixStats.grandTotal ? prev : { ...prev, quantity: matrixStats.grandTotal }));
         }
     }, [syncQuantity, matrixStats.grandTotal, setData]);
 
-    // Nettoie les couleurs en double (même id) héritées d'anciens modèles. Les
-    // doublons partagent la même grille (clés `${id}_${taille}`), donc supprimer
-    // l'entrée redondante ne perd aucune quantité et corrige le total double-compté.
+    // Nettoie les couleurs en double (mÃªme id) hÃ©ritÃ©es d'anciens modÃ¨les. Les
+    // doublons partagent la mÃªme grille (clÃ©s `${id}_${taille}`), donc supprimer
+    // l'entrÃ©e redondante ne perd aucune quantitÃ© et corrige le total double-comptÃ©.
     useEffect(() => {
         setData(prev => {
             const cols = prev.colors || [];
@@ -115,23 +115,23 @@ export default function RepartitionMatrix({ data, setData, lang = 'fr', syncQuan
             { name: 'Noir', r: 0, g: 0, b: 0 },
             { name: 'Blanc', r: 255, g: 255, b: 255 },
             { name: 'Rouge', r: 255, g: 0, b: 0 },
-            { name: 'Rouge Foncé', r: 139, g: 0, b: 0 },
+            { name: 'Rouge FoncÃ©', r: 139, g: 0, b: 0 },
             { name: 'Bordeaux', r: 128, g: 0, b: 32 },
             { name: 'Cramoisi', r: 220, g: 20, b: 60 },
             { name: 'Rose', r: 255, g: 105, b: 180 },
             { name: 'Rose Clair', r: 255, g: 182, b: 193 },
             { name: 'Fuchsia', r: 255, g: 0, b: 255 },
             { name: 'Orange', r: 255, g: 165, b: 0 },
-            { name: 'Orange Foncé', r: 255, g: 140, b: 0 },
+            { name: 'Orange FoncÃ©', r: 255, g: 140, b: 0 },
             { name: 'Corail', r: 255, g: 127, b: 80 },
             { name: 'Saumon', r: 250, g: 128, b: 114 },
             { name: 'Jaune', r: 255, g: 255, b: 0 },
-            { name: 'Jaune Doré', r: 255, g: 215, b: 0 },
-            { name: 'Jaune Pâle', r: 255, g: 255, b: 224 },
+            { name: 'Jaune DorÃ©', r: 255, g: 215, b: 0 },
+            { name: 'Jaune PÃ¢le', r: 255, g: 255, b: 224 },
             { name: 'Vert', r: 0, g: 128, b: 0 },
             { name: 'Vert Clair', r: 144, g: 238, b: 144 },
-            { name: 'Vert Foncé', r: 0, g: 100, b: 0 },
-            { name: 'Vert Émeraude', r: 16, g: 185, b: 129 },
+            { name: 'Vert FoncÃ©', r: 0, g: 100, b: 0 },
+            { name: 'Vert Ã‰meraude', r: 16, g: 185, b: 129 },
             { name: 'Lime', r: 0, g: 255, b: 0 },
             { name: 'Olive', r: 128, g: 128, b: 0 },
             { name: 'Kaki', r: 189, g: 183, b: 107 },
@@ -148,11 +148,11 @@ export default function RepartitionMatrix({ data, setData, lang = 'fr', syncQuan
             { name: 'Marron', r: 139, g: 69, b: 19 },
             { name: 'Chocolat', r: 210, g: 105, b: 30 },
             { name: 'Beige', r: 245, g: 245, b: 220 },
-            { name: 'Crème', r: 255, g: 253, b: 208 },
+            { name: 'CrÃ¨me', r: 255, g: 253, b: 208 },
             { name: 'Ivoire', r: 255, g: 255, b: 240 },
             { name: 'Gris', r: 128, g: 128, b: 128 },
             { name: 'Gris Clair', r: 192, g: 192, b: 192 },
-            { name: 'Gris Foncé', r: 64, g: 64, b: 64 },
+            { name: 'Gris FoncÃ©', r: 64, g: 64, b: 64 },
             { name: 'Argent', r: 192, g: 192, b: 192 },
         ];
         let closest = namedColors[0];
@@ -165,7 +165,7 @@ export default function RepartitionMatrix({ data, setData, lang = 'fr', syncQuan
     };
 
     const addVisualColor = (hex: string) => {
-        // Même hex = même couleur (id = hex) : on évite d'ajouter un doublon.
+        // MÃªme hex = mÃªme couleur (id = hex) : on Ã©vite d'ajouter un doublon.
         const detectedName = hexToColorName(hex);
         setColors(prev => prev.some(c => c.id === hex) ? prev : [...prev, { id: hex, name: detectedName }]);
     };
@@ -188,31 +188,31 @@ export default function RepartitionMatrix({ data, setData, lang = 'fr', syncQuan
     };
 
     return (
-        <div className="bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border shadow-sm overflow-hidden">
+        <div className="bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border shadow-sm dark:shadow-dk-sm overflow-hidden">
             <div className="bg-slate-50 dark:bg-dk-bg/50 px-6 py-4 border-b border-slate-150 flex flex-wrap items-end justify-between gap-3">
                 <label className="text-xs font-bold text-slate-500 dark:text-dk-muted uppercase flex items-center gap-2">
                     <Grid3X3 className="w-3.5 h-3.5 text-indigo-500" />
-                    {tx(lang, { fr: 'Répartition (Tailles / Couleurs)', ar: 'توزيع المقاسات والألوان', en: 'Distribution (Sizes / Colors)', es: 'Distribución (Tallas / Colores)', pt: 'Distribuição (Tamanhos / Cores)', tr: 'Dağılım (Bedenler / Renkler)' })}
+                    {tx(lang, { fr: 'RÃ©partition (Tailles / Couleurs)', ar: 'ØªÙˆØ²ÙŠØ¹ Ø§Ù„Ù…Ù‚Ø§Ø³Ø§Øª ÙˆØ§Ù„Ø£Ù„ÙˆØ§Ù†', en: 'Distribution (Sizes / Colors)', es: 'DistribuciÃ³n (Tallas / Colores)', pt: 'DistribuiÃ§Ã£o (Tamanhos / Cores)', tr: 'DaÄŸÄ±lÄ±m (Bedenler / Renkler)' })}
                 </label>
 
                 {/* ADD SIZE INPUT */}
                 <div className="flex items-center bg-slate-100 dark:bg-dk-elevated rounded-lg p-1 border border-slate-200 dark:border-dk-border font-sans">
                     <input
                         type="text"
-                        placeholder={tx(lang, { fr: 'Ajouter Tailles (ex: 36 38 40)', ar: 'أضف مقاسات (مثال: 36 38)', en: 'Add Sizes (e.g. 36 38 40)', es: 'Añadir Tallas (ej: 36 38 40)', pt: 'Adicionar Tamanhos (ex: 36 38 40)', tr: 'Beden Ekle (örn: 36 38 40)' })}
+                        placeholder={tx(lang, { fr: 'Ajouter Tailles (ex: 36 38 40)', ar: 'Ø£Ø¶Ù Ù…Ù‚Ø§Ø³Ø§Øª (Ù…Ø«Ø§Ù„: 36 38)', en: 'Add Sizes (e.g. 36 38 40)', es: 'AÃ±adir Tallas (ej: 36 38 40)', pt: 'Adicionar Tamanhos (ex: 36 38 40)', tr: 'Beden Ekle (Ã¶rn: 36 38 40)' })}
                         className="bg-transparent text-xs px-2 outline-none w-48 text-slate-700 dark:text-dk-text-soft placeholder:text-slate-400 font-semibold"
                         value={newSizeInput}
                         onChange={(e) => setNewSizeInput(e.target.value)}
                         onKeyDown={(e) => e.key === 'Enter' && addSize()}
                     />
-                    <button onClick={addSize} className="bg-white dark:bg-dk-surface rounded p-1 shadow-sm hover:text-indigo-600 dark:text-dk-accent-text transition-colors">
+                    <button onClick={addSize} className="bg-white dark:bg-dk-surface rounded p-1 shadow-sm dark:shadow-dk-sm hover:text-indigo-600 dark:text-dk-accent-text transition-colors">
                         <Plus className="w-3 h-3" />
                     </button>
                 </div>
             </div>
 
             <div className="p-6 space-y-4">
-                <div className="bg-white dark:bg-dk-surface rounded-xl border border-slate-200 dark:border-dk-border shadow-sm overflow-hidden flex flex-col">
+                <div className="bg-white dark:bg-dk-surface rounded-xl border border-slate-200 dark:border-dk-border shadow-sm dark:shadow-dk-sm overflow-hidden flex flex-col">
                     {/* ADD COLOR INPUT */}
                     <div className="bg-slate-50 dark:bg-dk-bg p-2.5 border-b border-slate-200 dark:border-dk-border flex flex-wrap gap-2 items-center font-sans">
                         <label className="relative flex items-center justify-center cursor-pointer shrink-0 animate-in fade-in" title="Choisir une couleur">
@@ -222,7 +222,7 @@ export default function RepartitionMatrix({ data, setData, lang = 'fr', syncQuan
                                 onChange={(e) => setPickedHexColor(e.target.value)}
                                 className="opacity-0 absolute inset-0 w-full h-full cursor-pointer"
                             />
-                            <div className="w-6 h-6 rounded-md border-2 border-slate-300 shadow-sm cursor-pointer hover:scale-110 transition-transform" style={{ backgroundColor: pickedHexColor }}></div>
+                            <div className="w-6 h-6 rounded-md border-2 border-slate-300 shadow-sm dark:shadow-dk-sm cursor-pointer hover:scale-110 transition-transform" style={{ backgroundColor: pickedHexColor }}></div>
                         </label>
                         <span className="px-2 py-0.5 bg-indigo-100 text-indigo-700 dark:text-dk-accent-text text-[11px] font-black rounded-md whitespace-nowrap">
                             {hexToColorName(pickedHexColor)}
@@ -251,7 +251,7 @@ export default function RepartitionMatrix({ data, setData, lang = 'fr', syncQuan
                             }}
                             className="bg-indigo-600 dark:bg-dk-accent hover:bg-indigo-700 dark:hover:bg-dk-accent-hover text-white px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 transition-colors z-20 h-7"
                         >
-                            <Plus className="w-3 h-3" /> {tx(lang, { fr: 'Ajouter', ar: 'إضافة', en: 'Add', es: 'Añadir', pt: 'Adicionar', tr: 'Ekle' })}
+                            <Plus className="w-3 h-3" /> {tx(lang, { fr: 'Ajouter', ar: 'Ø¥Ø¶Ø§ÙØ©', en: 'Add', es: 'AÃ±adir', pt: 'Adicionar', tr: 'Ekle' })}
                         </button>
                     </div>
 
@@ -281,11 +281,11 @@ export default function RepartitionMatrix({ data, setData, lang = 'fr', syncQuan
                                     <th className="py-2 px-3 text-center font-black bg-slate-200 text-slate-800 dark:text-dk-text w-20">TOTAL</th>
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-slate-100">
+                            <tbody className="divide-y divide-slate-100 dark:divide-dk-border">
                                 {colors.length === 0 && (
                                     <tr>
                                         <td colSpan={sizes.length + (sizes.length === 0 ? 3 : 2)} className="py-8 text-center text-slate-400 dark:text-dk-muted italic font-sans">
-                                            {tx(lang, { fr: 'Ajoutez des couleurs pour commencer la répartition.', ar: 'أضف ألوانًا للبدء في تقسيم الكميات.', en: 'Add colors to start the distribution.', es: 'Añada colores para comenzar la distribución.', pt: 'Adicione cores para iniciar a distribuição.', tr: 'Dağılıma başlamak için renk ekleyin.' })}
+                                            {tx(lang, { fr: 'Ajoutez des couleurs pour commencer la rÃ©partition.', ar: 'Ø£Ø¶Ù Ø£Ù„ÙˆØ§Ù†Ù‹Ø§ Ù„Ù„Ø¨Ø¯Ø¡ ÙÙŠ ØªÙ‚Ø³ÙŠÙ… Ø§Ù„ÙƒÙ…ÙŠØ§Øª.', en: 'Add colors to start the distribution.', es: 'AÃ±ada colores para comenzar la distribuciÃ³n.', pt: 'Adicione cores para iniciar a distribuiÃ§Ã£o.', tr: 'DaÄŸÄ±lÄ±ma baÅŸlamak iÃ§in renk ekleyin.' })}
                                         </td>
                                     </tr>
                                 )}
@@ -294,11 +294,11 @@ export default function RepartitionMatrix({ data, setData, lang = 'fr', syncQuan
                                         <td className="py-2 px-3 border-r border-slate-200 dark:border-dk-border font-bold text-slate-700 dark:text-dk-text-soft flex justify-between items-center font-sans">
                                             <div className="flex items-center gap-2">
                                                 <div
-                                                    className={`w-3 h-3 rounded-full flex-shrink-0 shadow-sm ${c.id && c.id.startsWith('#') ? '' : 'bg-slate-300'}`}
+                                                    className={`w-3 h-3 rounded-full flex-shrink-0 shadow-sm dark:shadow-dk-sm ${c.id && c.id.startsWith('#') ? '' : 'bg-slate-300'}`}
                                                     style={c.id && c.id.startsWith('#') ? { backgroundColor: c.id } : undefined}
                                                 />
                                                 <span className="truncate max-w-[150px]" title={c.name}>
-                                                    {c.id && c.id.startsWith('#') && (c.name.includes('personnalisé') || c.name.startsWith('#') || c.name.includes('rgb(') || c.name.includes('Couleur P'))
+                                                    {c.id && c.id.startsWith('#') && (c.name.includes('personnalisÃ©') || c.name.startsWith('#') || c.name.includes('rgb(') || c.name.includes('Couleur P'))
                                                         ? hexToColorName(c.id)
                                                         : c.name}
                                                 </span>

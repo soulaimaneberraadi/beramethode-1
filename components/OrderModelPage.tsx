@@ -8,7 +8,7 @@ import { Material, PurchasingData, AppSettings, FicheData } from '../types';
 import { fmt } from '../constants';
 import SensitiveValue from './ui/SensitiveValue';
 
-// ─── Toast Notification ──────────────────────────────────────────────────────
+// â”€â”€â”€ Toast Notification â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 interface ToastData {
     id: number;
@@ -22,7 +22,7 @@ function ToastContainer({ toasts, onDismiss }: { toasts: ToastData[]; onDismiss:
             {toasts.map(toast => (
                 <div
                     key={toast.id}
-                    className={`flex items-center gap-3 px-5 py-3 rounded-xl shadow-2xl border backdrop-blur-sm text-sm font-bold
+                    className={`flex items-center gap-3 px-5 py-3 rounded-xl shadow-2xl dark:shadow-dk-lg border backdrop-blur-sm text-sm font-bold
                         animate-[slideInRight_0.4s_ease-out]
                         ${toast.type === 'success' ? 'bg-emerald-50 dark:bg-emerald-900/30/95 border-emerald-200 text-emerald-800' : ''}
                         ${toast.type === 'error' ? 'bg-red-50 dark:bg-red-900/30/95 border-red-200 text-red-800' : ''}
@@ -42,7 +42,7 @@ function ToastContainer({ toasts, onDismiss }: { toasts: ToastData[]; onDismiss:
     );
 }
 
-// ─── Props ───────────────────────────────────────────────────────────────────
+// â”€â”€â”€ Props â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 interface OrderModelPageProps {
     productName: string;
@@ -76,7 +76,7 @@ interface OrderModelPageProps {
     deductStock: () => void;
 }
 
-// ─── Color palette for badges ────────────────────────────────────────────────
+// â”€â”€â”€ Color palette for badges â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const BADGE_COLORS = [
     { bg: 'bg-rose-100', text: 'text-rose-700', border: 'border-rose-200', dot: 'bg-rose-500' },
     { bg: 'bg-sky-100', text: 'text-sky-700', border: 'border-sky-200', dot: 'bg-sky-500' },
@@ -88,7 +88,7 @@ const BADGE_COLORS = [
     { bg: 'bg-pink-100', text: 'text-pink-700', border: 'border-pink-200', dot: 'bg-pink-500' },
 ];
 
-// ─── Main Component ──────────────────────────────────────────────────────────
+// â”€â”€â”€ Main Component â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const OrderModelPage: React.FC<OrderModelPageProps> = ({
     productName, productImage, displayDate, currency,
@@ -156,11 +156,11 @@ const OrderModelPage: React.FC<OrderModelPageProps> = ({
     // Confirm order handler
     const handleConfirm = () => {
         if (materials.length === 0) {
-            showToast('error', 'لا توجد مواد لتأكيد الطلبية');
+            showToast('error', 'Ù„Ø§ ØªÙˆØ¬Ø¯ Ù…ÙˆØ§Ø¯ Ù„ØªØ£ÙƒÙŠØ¯ Ø§Ù„Ø·Ù„Ø¨ÙŠØ©');
             return;
         }
         if (orderQty <= 0) {
-            showToast('error', 'يرجى تحديد كمية الطلبية');
+            showToast('error', 'ÙŠØ±Ø¬Ù‰ ØªØ­Ø¯ÙŠØ¯ ÙƒÙ…ÙŠØ© Ø§Ù„Ø·Ù„Ø¨ÙŠØ©');
             return;
         }
 
@@ -170,7 +170,7 @@ const OrderModelPage: React.FC<OrderModelPageProps> = ({
             try {
                 const magasinStr = localStorage.getItem('beramethode_magasin');
                 if (!magasinStr) {
-                    showToast('info', 'لم يتم العثور على بيانات المخزن. تم حفظ الطلبية فقط');
+                    showToast('info', 'Ù„Ù… ÙŠØªÙ… Ø§Ù„Ø¹Ø«ÙˆØ± Ø¹Ù„Ù‰ Ø¨ÙŠØ§Ù†Ø§Øª Ø§Ù„Ù…Ø®Ø²Ù†. ØªÙ… Ø­ÙØ¸ Ø§Ù„Ø·Ù„Ø¨ÙŠØ© ÙÙ‚Ø·');
                     setConfirmLoading(false);
                     return;
                 }
@@ -188,13 +188,13 @@ const OrderModelPage: React.FC<OrderModelPageProps> = ({
 
                 if (updated) {
                     localStorage.setItem('beramethode_magasin', JSON.stringify(magasinData));
-                    showToast('success', `✅ تم تأكيد الطلبية وخصم المخزون بنجاح — ${orderQty} قطعة`);
+                    showToast('success', `âœ… ØªÙ… ØªØ£ÙƒÙŠØ¯ Ø§Ù„Ø·Ù„Ø¨ÙŠØ© ÙˆØ®ØµÙ… Ø§Ù„Ù…Ø®Ø²ÙˆÙ† Ø¨Ù†Ø¬Ø§Ø­ â€” ${orderQty} Ù‚Ø·Ø¹Ø©`);
                 } else {
-                    showToast('info', 'لم يتم العثور على مواد مطابقة في المخزن للخصم');
+                    showToast('info', 'Ù„Ù… ÙŠØªÙ… Ø§Ù„Ø¹Ø«ÙˆØ± Ø¹Ù„Ù‰ Ù…ÙˆØ§Ø¯ Ù…Ø·Ø§Ø¨Ù‚Ø© ÙÙŠ Ø§Ù„Ù…Ø®Ø²Ù† Ù„Ù„Ø®ØµÙ…');
                 }
             } catch (e) {
                 console.error(e);
-                showToast('error', 'حدث خطأ أثناء خصم المخزون');
+                showToast('error', 'Ø­Ø¯Ø« Ø®Ø·Ø£ Ø£Ø«Ù†Ø§Ø¡ Ø®ØµÙ… Ø§Ù„Ù…Ø®Ø²ÙˆÙ†');
             }
             setConfirmLoading(false);
         }, 600);
@@ -204,10 +204,10 @@ const OrderModelPage: React.FC<OrderModelPageProps> = ({
         <div dir="rtl" style={{ fontFamily: "'Inter', sans-serif" }} className="min-h-screen bg-gray-50 dark:bg-dk-bg p-4 pb-24">
             <ToastContainer toasts={toasts} onDismiss={dismissToast} />
 
-            {/* ═══════════════════════════════════════════════════════════════════
-                ORDER HEADER — Model Info with gradient accent
-            ═══════════════════════════════════════════════════════════════════ */}
-            <div className="bg-gradient-to-l from-indigo-600 via-indigo-700 to-violet-800 rounded-2xl p-6 mb-6 shadow-xl shadow-indigo-200/40 relative overflow-hidden">
+            {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+                ORDER HEADER â€” Model Info with gradient accent
+            â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
+            <div className="bg-gradient-to-l from-indigo-600 via-indigo-700 to-violet-800 rounded-2xl p-6 mb-6 shadow-xl dark:shadow-dk-elevated shadow-indigo-200/40 relative overflow-hidden">
                 {/* Decorative */}
                 <div className="absolute top-0 left-0 w-40 h-40 bg-white dark:bg-dk-surface/5 rounded-full -translate-x-16 -translate-y-16" />
                 <div className="absolute bottom-0 right-0 w-32 h-32 bg-white dark:bg-dk-surface/5 rounded-full translate-x-12 translate-y-12" />
@@ -215,7 +215,7 @@ const OrderModelPage: React.FC<OrderModelPageProps> = ({
                 <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center gap-5">
                     {/* Image */}
                     {productImage ? (
-                        <div className="w-20 h-20 rounded-xl overflow-hidden border-2 border-white/20 shadow-lg shrink-0 bg-white dark:bg-dk-surface/10">
+                        <div className="w-20 h-20 rounded-xl overflow-hidden border-2 border-white/20 shadow-lg dark:shadow-dk-lg shrink-0 bg-white dark:bg-dk-surface/10">
                             <img src={productImage} alt={productName} className="w-full h-full object-cover" />
                         </div>
                     ) : (
@@ -227,60 +227,60 @@ const OrderModelPage: React.FC<OrderModelPageProps> = ({
                     {/* Info */}
                     <div className="flex-1">
                         <div className="flex items-center gap-2 flex-wrap">
-                            <p className="text-indigo-200 text-xs font-bold uppercase tracking-widest mb-1">أمر الإنتاج</p>
+                            <p className="text-indigo-200 text-xs font-bold uppercase tracking-widest mb-1">Ø£Ù…Ø± Ø§Ù„Ø¥Ù†ØªØ§Ø¬</p>
                             {ficheData.typeMarche === 'Export' && (
                                 <span className="bg-amber-500/20 text-amber-200 border border-amber-500/30 text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider mb-1 animate-pulse">
-                                    تصدير - يد عاملة فقط (Export)
+                                    ØªØµØ¯ÙŠØ± - ÙŠØ¯ Ø¹Ø§Ù…Ù„Ø© ÙÙ‚Ø· (Export)
                                 </span>
                             )}
                         </div>
                         <h1 className="text-2xl md:text-3xl font-black text-white tracking-tight">
-                            {productName || 'بدون اسم'}
+                            {productName || 'Ø¨Ø¯ÙˆÙ† Ø§Ø³Ù…'}
                         </h1>
                         <div className="flex flex-wrap items-center gap-4 mt-2 text-indigo-100 text-xs font-medium">
                             <span className="flex items-center gap-1.5"><Clock className="w-3.5 h-3.5" /> {displayDate}</span>
-                            <span className="flex items-center gap-1.5"><Clock className="w-3.5 h-3.5" /> الوقت: {fmt(totalTime)} دقيقة</span>
-                            <span className="flex items-center gap-1.5"><Banknote className="w-3.5 h-3.5" /> تكلفة الدقيقة: {fmt(settings.costMinute)} {currency}</span>
+                            <span className="flex items-center gap-1.5"><Clock className="w-3.5 h-3.5" /> Ø§Ù„ÙˆÙ‚Øª: {fmt(totalTime)} Ø¯Ù‚ÙŠÙ‚Ø©</span>
+                            <span className="flex items-center gap-1.5"><Banknote className="w-3.5 h-3.5" /> ØªÙƒÙ„ÙØ© Ø§Ù„Ø¯Ù‚ÙŠÙ‚Ø©: {fmt(settings.costMinute)} {currency}</span>
                         </div>
                     </div>
 
                     {/* Quick Stats Badges */}
                     <div className="flex gap-3 shrink-0 flex-wrap">
                         <div className="bg-white dark:bg-dk-surface/15 backdrop-blur-sm rounded-xl px-4 py-3 text-center border border-white/10">
-                            <p className="text-[10px] font-bold text-indigo-200 uppercase tracking-wider">سعر التكلفة</p>
+                            <p className="text-[10px] font-bold text-indigo-200 uppercase tracking-wider">Ø³Ø¹Ø± Ø§Ù„ØªÙƒÙ„ÙØ©</p>
                             <p className="text-xl font-black text-white"><SensitiveValue field="model.prix_revient">{fmt(costPrice)} <span className="text-xs text-indigo-200">{currency}</span></SensitiveValue></p>
                         </div>
                         <div className="bg-white dark:bg-dk-surface/15 backdrop-blur-sm rounded-xl px-4 py-3 text-center border border-white/10">
-                            <p className="text-[10px] font-bold text-indigo-200 uppercase tracking-wider">سعر البيع</p>
+                            <p className="text-[10px] font-bold text-indigo-200 uppercase tracking-wider">Ø³Ø¹Ø± Ø§Ù„Ø¨ÙŠØ¹</p>
                             <p className="text-xl font-black text-white">{fmt(sellPriceHT)} <span className="text-xs text-indigo-200">{currency}</span></p>
                         </div>
                     </div>
                 </div>
             </div>
 
-            {/* ═══════════════════════════════════════════════════════════════════
-                ORDER CONTROLS — Quantity & Waste
-            ═══════════════════════════════════════════════════════════════════ */}
-            <div className="bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border shadow-sm mb-6 p-5">
+            {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+                ORDER CONTROLS â€” Quantity & Waste
+            â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
+            <div className="bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border shadow-sm dark:shadow-dk-sm mb-6 p-5">
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                     <div className="flex items-center gap-3">
                         <div className="bg-indigo-100 p-2.5 rounded-xl">
                             <ShoppingCart className="w-5 h-5 text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text" />
                         </div>
                         <div>
-                            <h2 className="font-black text-slate-800 dark:text-dk-text text-lg">معلومات الطلبية</h2>
-                            <p className="text-xs text-slate-500 dark:text-dk-muted font-medium">تحديد الكمية ونسبة الهالك</p>
+                            <h2 className="font-black text-slate-800 dark:text-dk-text text-lg">Ù…Ø¹Ù„ÙˆÙ…Ø§Øª Ø§Ù„Ø·Ù„Ø¨ÙŠØ©</h2>
+                            <p className="text-xs text-slate-500 dark:text-dk-muted font-medium">ØªØ­Ø¯ÙŠØ¯ Ø§Ù„ÙƒÙ…ÙŠØ© ÙˆÙ†Ø³Ø¨Ø© Ø§Ù„Ù‡Ø§Ù„Ùƒ</p>
                         </div>
                     </div>
 
                     <div className="flex gap-3 flex-wrap">
                         {/* Order Qty (Read-Only when using Matrix) */}
                         <div className="flex items-center gap-2 bg-slate-50 dark:bg-dk-bg rounded-xl px-4 py-2.5 border border-slate-200 dark:border-dk-border opacity-90 cursor-not-allowed">
-                            <span className="text-xs font-bold text-slate-500 dark:text-dk-muted whitespace-nowrap">الكمية الإجمالية</span>
+                            <span className="text-xs font-bold text-slate-500 dark:text-dk-muted whitespace-nowrap">Ø§Ù„ÙƒÙ…ÙŠØ© Ø§Ù„Ø¥Ø¬Ù…Ø§Ù„ÙŠØ©</span>
                             <div className="w-px h-5 bg-slate-200" />
                             <input
                                 type="number" min="1" value={orderQty} readOnly
-                                title="يتم حساب الكمية الإجمالية من جدول التوزيع أدناه"
+                                title="ÙŠØªÙ… Ø­Ø³Ø§Ø¨ Ø§Ù„ÙƒÙ…ÙŠØ© Ø§Ù„Ø¥Ø¬Ù…Ø§Ù„ÙŠØ© Ù…Ù† Ø¬Ø¯ÙˆÙ„ Ø§Ù„ØªÙˆØ²ÙŠØ¹ Ø£Ø¯Ù†Ø§Ù‡"
                                 className="w-20 text-center font-black text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text bg-transparent outline-none text-lg cursor-not-allowed"
                             />
                             <ShoppingCart className="w-4 h-4 text-slate-400 dark:text-dk-muted" />
@@ -288,7 +288,7 @@ const OrderModelPage: React.FC<OrderModelPageProps> = ({
 
                         {/* Waste Rate */}
                         <div className="flex items-center gap-2 bg-slate-50 dark:bg-dk-bg rounded-xl px-4 py-2.5 border border-slate-200 dark:border-dk-border focus-within:ring-2 focus-within:ring-amber-400 focus-within:border-amber-400 transition-all">
-                            <span className="text-xs font-bold text-slate-500 dark:text-dk-muted whitespace-nowrap">نسبة الهالك</span>
+                            <span className="text-xs font-bold text-slate-500 dark:text-dk-muted whitespace-nowrap">Ù†Ø³Ø¨Ø© Ø§Ù„Ù‡Ø§Ù„Ùƒ</span>
                             <div className="w-px h-5 bg-slate-200" />
                             <input
                                 type="number" min="0" value={wasteRate}
@@ -301,11 +301,11 @@ const OrderModelPage: React.FC<OrderModelPageProps> = ({
                 </div>
             </div>
 
-            {/* ═══════════════════════════════════════════════════════════════════
-                COMMODITIES / MATERIALS — Expandable Section
-            ═══════════════════════════════════════════════════════════════════ */}
-            <div className="bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border shadow-sm mb-6 overflow-hidden">
-                {/* Header — Toggle */}
+            {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+                COMMODITIES / MATERIALS â€” Expandable Section
+            â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
+            <div className="bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border shadow-sm dark:shadow-dk-sm mb-6 overflow-hidden">
+                {/* Header â€” Toggle */}
                 <button
                     onClick={() => setCommoditiesOpen(!commoditiesOpen)}
                     className="w-full px-5 py-4 flex items-center justify-between bg-slate-50 dark:bg-dk-bg border-b border-slate-200 dark:border-dk-border hover:bg-slate-100 transition-colors"
@@ -315,8 +315,8 @@ const OrderModelPage: React.FC<OrderModelPageProps> = ({
                             <Package className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
                         </div>
                         <div className="text-right">
-                            <h3 className="font-black text-slate-800 dark:text-dk-text text-base">المواد الأولية</h3>
-                            <p className="text-xs text-slate-500 dark:text-dk-muted">{materials.length} مادة — الإجمالي: {fmt(totalMaterials)} {currency}</p>
+                            <h3 className="font-black text-slate-800 dark:text-dk-text text-base">Ø§Ù„Ù…ÙˆØ§Ø¯ Ø§Ù„Ø£ÙˆÙ„ÙŠØ©</h3>
+                            <p className="text-xs text-slate-500 dark:text-dk-muted">{materials.length} Ù…Ø§Ø¯Ø© â€” Ø§Ù„Ø¥Ø¬Ù…Ø§Ù„ÙŠ: {fmt(totalMaterials)} {currency}</p>
                         </div>
                     </div>
                     {commoditiesOpen ? <ChevronUp className="w-5 h-5 text-slate-400 dark:text-dk-muted" /> : <ChevronDown className="w-5 h-5 text-slate-400 dark:text-dk-muted" />}
@@ -329,20 +329,20 @@ const OrderModelPage: React.FC<OrderModelPageProps> = ({
                             <table className="w-full block md:table text-sm">
                                 <thead className="hidden md:table-header-group">
                                     <tr className="bg-slate-50 dark:bg-dk-bg text-slate-500 dark:text-dk-muted text-xs font-bold uppercase tracking-wider">
-                                        <th className="px-4 py-3 text-right">المادة</th>
-                                        <th className="px-4 py-3 text-center">المورد</th>
-                                        <th className="px-4 py-3 text-center">السعر</th>
-                                        <th className="px-4 py-3 text-center">الكمية / الوحدة</th>
-                                        <th className="px-4 py-3 text-center">الاحتياج (+{wasteRate}%)</th>
-                                        <th className="px-4 py-3 text-center font-bold text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text">للشراء</th>
-                                        <th className="px-4 py-3 text-center">الإجمالي</th>
+                                        <th className="px-4 py-3 text-right">Ø§Ù„Ù…Ø§Ø¯Ø©</th>
+                                        <th className="px-4 py-3 text-center">Ø§Ù„Ù…ÙˆØ±Ø¯</th>
+                                        <th className="px-4 py-3 text-center">Ø§Ù„Ø³Ø¹Ø±</th>
+                                        <th className="px-4 py-3 text-center">Ø§Ù„ÙƒÙ…ÙŠØ© / Ø§Ù„ÙˆØ­Ø¯Ø©</th>
+                                        <th className="px-4 py-3 text-center">Ø§Ù„Ø§Ø­ØªÙŠØ§Ø¬ (+{wasteRate}%)</th>
+                                        <th className="px-4 py-3 text-center font-bold text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text">Ù„Ù„Ø´Ø±Ø§Ø¡</th>
+                                        <th className="px-4 py-3 text-center">Ø§Ù„Ø¥Ø¬Ù…Ø§Ù„ÙŠ</th>
                                     </tr>
                                 </thead>
-                                <tbody className="block md:table-row-group md:divide-y md:divide-slate-100">
+                                <tbody className="block md:table-row-group md:divide-y md:divide-slate-100 dark:divide-dk-border">
                                     {purchasingData.length === 0 ? (
                                         <tr className="block md:table-row">
                                             <td colSpan={7} className="block md:table-cell px-4 py-8 text-center text-slate-400 dark:text-dk-muted text-sm">
-                                                لا توجد مواد مضافة بعد
+                                                Ù„Ø§ ØªÙˆØ¬Ø¯ Ù…ÙˆØ§Ø¯ Ù…Ø¶Ø§ÙØ© Ø¨Ø¹Ø¯
                                             </td>
                                         </tr>
                                     ) : (
@@ -351,36 +351,36 @@ const OrderModelPage: React.FC<OrderModelPageProps> = ({
                                                 <td className="block md:table-cell px-4 py-2 md:py-3 font-semibold text-slate-800 dark:text-dk-text">
                                                     <div className="flex items-center gap-2">
                                                         <div className="w-2 h-2 rounded-full bg-indigo-400 shrink-0" />
-                                                        {m.name || '—'}
+                                                        {m.name || 'â€”'}
                                                         {m.unit === 'bobine' && (
-                                                            <span className="text-[10px] text-slate-400 dark:text-dk-muted font-normal">({m.threadMeters}م / بكرة)</span>
+                                                            <span className="text-[10px] text-slate-400 dark:text-dk-muted font-normal">({m.threadMeters}Ù… / Ø¨ÙƒØ±Ø©)</span>
                                                         )}
                                                     </div>
                                                 </td>
                                                 <td className="flex md:table-cell items-center justify-between px-4 py-1.5 md:py-3 md:text-center text-xs text-slate-500 dark:text-dk-muted">
-                                                    <span className="md:hidden text-[10px] font-bold text-slate-400 dark:text-dk-muted">المورد</span>
-                                                    <span>{m.fournisseur || '—'}</span>
+                                                    <span className="md:hidden text-[10px] font-bold text-slate-400 dark:text-dk-muted">Ø§Ù„Ù…ÙˆØ±Ø¯</span>
+                                                    <span>{m.fournisseur || 'â€”'}</span>
                                                 </td>
                                                 <td className="flex md:table-cell items-center justify-between px-4 py-1.5 md:py-3 md:text-center text-xs font-medium text-slate-600 dark:text-dk-text-soft">
-                                                    <span className="md:hidden text-[10px] font-bold text-slate-400 dark:text-dk-muted">السعر</span>
+                                                    <span className="md:hidden text-[10px] font-bold text-slate-400 dark:text-dk-muted">Ø§Ù„Ø³Ø¹Ø±</span>
                                                     <span>{isExport ? '0 (Fourni)' : `${m.unitPrice} ${currency}`}</span>
                                                 </td>
                                                 <td className="flex md:table-cell items-center justify-between px-4 py-1.5 md:py-3 md:text-center text-xs text-slate-500 dark:text-dk-muted">
-                                                    <span className="md:hidden text-[10px] font-bold text-slate-400 dark:text-dk-muted">الكمية / الوحدة</span>
+                                                    <span className="md:hidden text-[10px] font-bold text-slate-400 dark:text-dk-muted">Ø§Ù„ÙƒÙ…ÙŠØ© / Ø§Ù„ÙˆØ­Ø¯Ø©</span>
                                                     <span>{fmt(m.qty)} {m.unit}</span>
                                                 </td>
                                                 <td className="flex md:table-cell items-center justify-between px-4 py-1.5 md:py-3 md:text-center text-xs text-slate-500 dark:text-dk-muted">
-                                                    <span className="md:hidden text-[10px] font-bold text-slate-400 dark:text-dk-muted">الاحتياج (+{wasteRate}%)</span>
+                                                    <span className="md:hidden text-[10px] font-bold text-slate-400 dark:text-dk-muted">Ø§Ù„Ø§Ø­ØªÙŠØ§Ø¬ (+{wasteRate}%)</span>
                                                     <span>{fmt(m.totalWithWaste)} {m.unit}</span>
                                                 </td>
                                                 <td className="flex md:table-cell items-center justify-between px-4 py-1.5 md:py-3 md:text-center">
-                                                    <span className="md:hidden text-[10px] font-bold text-slate-400 dark:text-dk-muted">للشراء</span>
+                                                    <span className="md:hidden text-[10px] font-bold text-slate-400 dark:text-dk-muted">Ù„Ù„Ø´Ø±Ø§Ø¡</span>
                                                     <span className="inline-block px-2.5 py-1 rounded-lg text-xs font-bold bg-indigo-100 text-indigo-700 dark:text-dk-accent-text border border-indigo-200">
                                                         {fmt(m.qtyToBuy)} {m.unit}
                                                     </span>
                                                 </td>
                                                 <td className="flex md:table-cell items-center justify-between px-4 py-1.5 md:py-3 mt-1 pt-2 md:mt-0 md:pt-3 border-t md:border-t-0 border-slate-100 dark:border-dk-border md:text-center font-bold text-slate-800 dark:text-dk-text">
-                                                    <span className="md:hidden text-[10px] font-bold text-slate-400 dark:text-dk-muted">الإجمالي</span>
+                                                    <span className="md:hidden text-[10px] font-bold text-slate-400 dark:text-dk-muted">Ø§Ù„Ø¥Ø¬Ù…Ø§Ù„ÙŠ</span>
                                                     <span>{isExport ? 0 : fmt(m.lineCost)} {currency}</span>
                                                 </td>
                                             </tr>
@@ -391,7 +391,7 @@ const OrderModelPage: React.FC<OrderModelPageProps> = ({
                                     <tfoot className="block md:table-footer-group">
                                         <tr className="flex md:table-row items-center justify-between bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 border-t-2 border-indigo-200 rounded-xl md:rounded-none mt-2 md:mt-0 px-2 md:px-0">
                                             <td colSpan={6} className="block md:table-cell px-4 py-3 text-right md:text-left font-black text-indigo-700 dark:text-dk-accent-text text-sm">
-                                                إجمالي تكلفة المواد
+                                                Ø¥Ø¬Ù…Ø§Ù„ÙŠ ØªÙƒÙ„ÙØ© Ø§Ù„Ù…ÙˆØ§Ø¯
                                             </td>
                                             <td className="block md:table-cell px-4 py-3 text-center font-black text-indigo-700 dark:text-dk-accent-text text-base md:text-lg">
                                                 {fmt(totalPurchasingMatCost)} {currency}
@@ -405,19 +405,19 @@ const OrderModelPage: React.FC<OrderModelPageProps> = ({
                 )}
             </div>
 
-            {/* ═══════════════════════════════════════════════════════════════════
-                MATRIX BREAKDOWN — Per-Color & Size Grid with Costs
-            ═══════════════════════════════════════════════════════════════════ */}
+            {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+                MATRIX BREAKDOWN â€” Per-Color & Size Grid with Costs
+            â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
             {colors.length > 0 && (
-                <div className="bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border shadow-sm mb-6 overflow-hidden">
+                <div className="bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border shadow-sm dark:shadow-dk-sm mb-6 overflow-hidden">
                     <div className="px-5 py-4 bg-slate-50 dark:bg-dk-bg border-b border-slate-200 dark:border-dk-border flex items-center justify-between">
                         <div className="flex items-center gap-3">
                             <div className="bg-violet-100 p-2 rounded-lg">
                                 <Palette className="w-5 h-5 text-violet-600" />
                             </div>
                             <div>
-                                <h3 className="font-black text-slate-800 dark:text-dk-text text-base">جدول التوزيع وتكلفة القياسات</h3>
-                                <p className="text-xs text-slate-500 dark:text-dk-muted">توزيع الكميات والتكاليف المحسوبة (تتحدث تلقائياً مع الفيش تكنيك)</p>
+                                <h3 className="font-black text-slate-800 dark:text-dk-text text-base">Ø¬Ø¯ÙˆÙ„ Ø§Ù„ØªÙˆØ²ÙŠØ¹ ÙˆØªÙƒÙ„ÙØ© Ø§Ù„Ù‚ÙŠØ§Ø³Ø§Øª</h3>
+                                <p className="text-xs text-slate-500 dark:text-dk-muted">ØªÙˆØ²ÙŠØ¹ Ø§Ù„ÙƒÙ…ÙŠØ§Øª ÙˆØ§Ù„ØªÙƒØ§Ù„ÙŠÙ Ø§Ù„Ù…Ø­Ø³ÙˆØ¨Ø© (ØªØªØ­Ø¯Ø« ØªÙ„Ù‚Ø§Ø¦ÙŠØ§Ù‹ Ù…Ø¹ Ø§Ù„ÙÙŠØ´ ØªÙƒÙ†ÙŠÙƒ)</p>
                             </div>
                         </div>
                     </div>
@@ -426,10 +426,10 @@ const OrderModelPage: React.FC<OrderModelPageProps> = ({
                         <table className="w-full text-sm border-collapse rounded-xl overflow-hidden border border-slate-200 dark:border-dk-border">
                             <thead>
                                 <tr className="bg-slate-100 dark:bg-dk-elevated text-slate-600 dark:text-dk-text-soft border-b border-slate-200 dark:border-dk-border text-xs uppercase tracking-wider">
-                                    <th className="py-4 px-4 text-right font-black border-l border-slate-200 dark:border-dk-border min-w-[140px]">اللون \ القياس</th>
+                                    <th className="py-4 px-4 text-right font-black border-l border-slate-200 dark:border-dk-border min-w-[140px]">Ø§Ù„Ù„ÙˆÙ† \ Ø§Ù„Ù‚ÙŠØ§Ø³</th>
                                     {sizes.length === 0 && (
                                         <th className="py-4 px-4 text-center font-normal italic text-slate-400 dark:text-dk-muted border-l border-slate-200 dark:border-dk-border">
-                                            لم يتم تحديد قياسات
+                                            Ù„Ù… ÙŠØªÙ… ØªØ­Ø¯ÙŠØ¯ Ù‚ÙŠØ§Ø³Ø§Øª
                                         </th>
                                     )}
                                     {sizes.map((s, i) => (
@@ -437,10 +437,10 @@ const OrderModelPage: React.FC<OrderModelPageProps> = ({
                                             {s}
                                         </th>
                                     ))}
-                                    <th className="py-4 px-4 text-center font-black bg-slate-200 text-slate-800 dark:text-dk-text w-24">المجموع</th>
+                                    <th className="py-4 px-4 text-center font-black bg-slate-200 text-slate-800 dark:text-dk-text w-24">Ø§Ù„Ù…Ø¬Ù…ÙˆØ¹</th>
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-slate-100">
+                            <tbody className="divide-y divide-slate-100 dark:divide-dk-border">
                                 {colors.map((c, cIdx) => {
                                     const rowTotalCost = matrixStats.rowTotals[c.id] * costPerPiece;
                                     const cHex = c.id && c.id.startsWith('#') ? c.id : null;
@@ -450,7 +450,7 @@ const OrderModelPage: React.FC<OrderModelPageProps> = ({
                                             <td className="py-3 px-4 border-l border-slate-200 dark:border-dk-border font-bold text-slate-800 dark:text-dk-text">
                                                 <div className="flex items-center gap-2">
                                                     <div
-                                                        className={`w-3 h-3 rounded-full shadow-sm ${cHex ? '' : palette.dot}`}
+                                                        className={`w-3 h-3 rounded-full shadow-sm dark:shadow-dk-sm ${cHex ? '' : palette.dot}`}
                                                         style={cHex ? { backgroundColor: cHex } : undefined}
                                                     />
                                                     <span className="truncate max-w-[120px]">{c.name}</span>
@@ -499,7 +499,7 @@ const OrderModelPage: React.FC<OrderModelPageProps> = ({
                             <tfoot className="border-t border-slate-200 dark:border-dk-border bg-slate-50 dark:bg-dk-bg">
                                 <tr>
                                     <td className="py-4 px-4 text-left font-black text-slate-600 dark:text-dk-text-soft border-l border-slate-200 dark:border-dk-border">
-                                        الإجمالي
+                                        Ø§Ù„Ø¥Ø¬Ù…Ø§Ù„ÙŠ
                                     </td>
                                     {sizes.length === 0 && (
                                         <td className="py-3 px-4 text-center text-slate-400 dark:text-dk-muted border-l border-slate-200 dark:border-dk-border">-</td>
@@ -519,7 +519,7 @@ const OrderModelPage: React.FC<OrderModelPageProps> = ({
                                     <td className="py-3 px-4 text-center bg-indigo-600 dark:bg-dk-accent text-white shadow-inner relative overflow-hidden">
                                         <div className="absolute top-0 right-0 w-full h-full bg-indigo-500/30 transform -skew-x-12 translate-x-4"></div>
                                         <div className="relative z-10 font-black text-xl">{matrixStats.grandTotal}</div>
-                                        <div className="relative z-10 text-[10px] text-indigo-200 font-bold tracking-wider uppercase mt-1">القطع</div>
+                                        <div className="relative z-10 text-[10px] text-indigo-200 font-bold tracking-wider uppercase mt-1">Ø§Ù„Ù‚Ø·Ø¹</div>
                                     </td>
                                 </tr>
                             </tfoot>
@@ -528,15 +528,15 @@ const OrderModelPage: React.FC<OrderModelPageProps> = ({
                 </div>
             )}
 
-            {/* ═══════════════════════════════════════════════════════════════════
-                SUMMARY DASHBOARD — 4 Cards
-            ═══════════════════════════════════════════════════════════════════ */}
+            {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+                SUMMARY DASHBOARD â€” 4 Cards
+            â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
                 {/* Card 1: Material Budget */}
-                <div className="bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border p-5 shadow-sm hover:shadow-md hover:border-emerald-200 transition-all group">
+                <div className="bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border p-5 shadow-sm dark:shadow-dk-sm hover:shadow-md hover:border-emerald-200 transition-all group">
                     <div className="flex justify-between items-start mb-4">
                         <div>
-                            <p className="text-[10px] font-bold text-slate-500 dark:text-dk-muted uppercase tracking-wider mb-1">ميزانية المواد</p>
+                            <p className="text-[10px] font-bold text-slate-500 dark:text-dk-muted uppercase tracking-wider mb-1">Ù…ÙŠØ²Ø§Ù†ÙŠØ© Ø§Ù„Ù…ÙˆØ§Ø¯</p>
                             <p className="text-2xl font-black text-emerald-600 dark:text-emerald-400">{fmt(totalPurchasingMatCost)} <span className="text-xs text-slate-400 dark:text-dk-muted">{currency}</span></p>
                         </div>
                         <div className="bg-emerald-100 p-2 rounded-lg group-hover:scale-110 transition-transform">
@@ -544,16 +544,16 @@ const OrderModelPage: React.FC<OrderModelPageProps> = ({
                         </div>
                     </div>
                     <div className="flex justify-between text-[11px] text-slate-400 dark:text-dk-muted pt-3 border-t border-slate-100 dark:border-dk-border">
-                        <span>{purchasingData.length} مادة</span>
-                        <span>محسوب على الشراء الفعلي</span>
+                        <span>{purchasingData.length} Ù…Ø§Ø¯Ø©</span>
+                        <span>Ù…Ø­Ø³ÙˆØ¨ Ø¹Ù„Ù‰ Ø§Ù„Ø´Ø±Ø§Ø¡ Ø§Ù„ÙØ¹Ù„ÙŠ</span>
                     </div>
                 </div>
 
                 {/* Card 2: Labor Cost */}
-                <div className="bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border p-5 shadow-sm hover:shadow-md hover:border-blue-200 transition-all group">
+                <div className="bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border p-5 shadow-sm dark:shadow-dk-sm hover:shadow-md hover:border-blue-200 transition-all group">
                     <div className="flex justify-between items-start mb-4">
                         <div>
-                            <p className="text-[10px] font-bold text-slate-500 dark:text-dk-muted uppercase tracking-wider mb-1">تكلفة العمالة</p>
+                            <p className="text-[10px] font-bold text-slate-500 dark:text-dk-muted uppercase tracking-wider mb-1">ØªÙƒÙ„ÙØ© Ø§Ù„Ø¹Ù…Ø§Ù„Ø©</p>
                             <p className="text-2xl font-black text-blue-600 dark:text-blue-400">{fmt(laborCost * orderQty)} <span className="text-xs text-slate-400 dark:text-dk-muted">{currency}</span></p>
                         </div>
                         <div className="bg-blue-100 p-2 rounded-lg group-hover:scale-110 transition-transform">
@@ -561,16 +561,16 @@ const OrderModelPage: React.FC<OrderModelPageProps> = ({
                         </div>
                     </div>
                     <div className="flex justify-between text-[11px] text-slate-400 dark:text-dk-muted pt-3 border-t border-slate-100 dark:border-dk-border">
-                        <span>{orderQty} قطعة × {fmt(laborCost)}/قطعة</span>
-                        <span>تكلفة اليد العاملة</span>
+                        <span>{orderQty} Ù‚Ø·Ø¹Ø© Ã— {fmt(laborCost)}/Ù‚Ø·Ø¹Ø©</span>
+                        <span>ØªÙƒÙ„ÙØ© Ø§Ù„ÙŠØ¯ Ø§Ù„Ø¹Ø§Ù…Ù„Ø©</span>
                     </div>
                 </div>
 
                 {/* Card 3: Cost Per Piece */}
-                <div className="bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border p-5 shadow-sm hover:shadow-md hover:border-amber-200 transition-all group">
+                <div className="bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border p-5 shadow-sm dark:shadow-dk-sm hover:shadow-md hover:border-amber-200 transition-all group">
                     <div className="flex justify-between items-start mb-4">
                         <div>
-                            <p className="text-[10px] font-bold text-slate-500 dark:text-dk-muted uppercase tracking-wider mb-1">تكلفة القطعة</p>
+                            <p className="text-[10px] font-bold text-slate-500 dark:text-dk-muted uppercase tracking-wider mb-1">ØªÙƒÙ„ÙØ© Ø§Ù„Ù‚Ø·Ø¹Ø©</p>
                             <p className="text-2xl font-black text-amber-600 dark:text-amber-400">{fmt(costPerPiece)} <span className="text-xs text-slate-400 dark:text-dk-muted">{currency}</span></p>
                         </div>
                         <div className="bg-amber-100 p-2 rounded-lg group-hover:scale-110 transition-transform">
@@ -578,45 +578,45 @@ const OrderModelPage: React.FC<OrderModelPageProps> = ({
                         </div>
                     </div>
                     <div className="flex justify-between text-[11px] text-slate-400 dark:text-dk-muted pt-3 border-t border-slate-100 dark:border-dk-border">
-                        <span>مواد + عمالة</span>
-                        <span>لكل قطعة واحدة</span>
+                        <span>Ù…ÙˆØ§Ø¯ + Ø¹Ù…Ø§Ù„Ø©</span>
+                        <span>Ù„ÙƒÙ„ Ù‚Ø·Ø¹Ø© ÙˆØ§Ø­Ø¯Ø©</span>
                     </div>
                 </div>
 
-                {/* Card 4: Grand Total — Gradient */}
-                <div className="bg-gradient-to-bl from-indigo-600 to-violet-700 rounded-2xl p-5 shadow-lg shadow-indigo-200/50 text-white relative overflow-hidden group">
+                {/* Card 4: Grand Total â€” Gradient */}
+                <div className="bg-gradient-to-bl from-indigo-600 to-violet-700 rounded-2xl p-5 shadow-lg dark:shadow-dk-lg shadow-indigo-200/50 text-white relative overflow-hidden group">
                     <div className="absolute top-0 left-0 p-4 opacity-10">
                         <Package className="w-20 h-20 transform -rotate-12" />
                     </div>
                     <div className="relative z-10">
-                        <p className="text-[10px] font-bold text-indigo-200 uppercase tracking-wider mb-1">الميزانية الإجمالية</p>
+                        <p className="text-[10px] font-bold text-indigo-200 uppercase tracking-wider mb-1">Ø§Ù„Ù…ÙŠØ²Ø§Ù†ÙŠØ© Ø§Ù„Ø¥Ø¬Ù…Ø§Ù„ÙŠØ©</p>
                         <p className="text-3xl font-black tracking-tight">{fmt(totalProjectCost)} <span className="text-sm text-indigo-200">{currency}</span></p>
                     </div>
                     <div className="relative z-10 flex justify-between items-center text-[11px] text-indigo-100 pt-3 mt-4 border-t border-indigo-500/30">
-                        <span>الكمية: {orderQty} قطعة</span>
-                        <span className="bg-white dark:bg-dk-surface/20 px-2 py-0.5 rounded font-bold">{fmt(costPerPiece)} {currency}/قطعة</span>
+                        <span>Ø§Ù„ÙƒÙ…ÙŠØ©: {orderQty} Ù‚Ø·Ø¹Ø©</span>
+                        <span className="bg-white dark:bg-dk-surface/20 px-2 py-0.5 rounded font-bold">{fmt(costPerPiece)} {currency}/Ù‚Ø·Ø¹Ø©</span>
                     </div>
                 </div>
             </div>
 
-            {/* ═══════════════════════════════════════════════════════════════════
-                PRICING LADDER — Quick View
-            ═══════════════════════════════════════════════════════════════════ */}
-            <div className="bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border shadow-sm mb-6 overflow-hidden">
+            {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+                PRICING LADDER â€” Quick View
+            â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
+            <div className="bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border shadow-sm dark:shadow-dk-sm mb-6 overflow-hidden">
                 <div className="px-5 py-4 bg-slate-50 dark:bg-dk-bg border-b border-slate-200 dark:border-dk-border flex items-center gap-3">
                     <div className="bg-indigo-100 p-2 rounded-lg">
                         <Layers className="w-5 h-5 text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text" />
                     </div>
-                    <h3 className="font-black text-slate-800 dark:text-dk-text text-base">سلم الأسعار</h3>
+                    <h3 className="font-black text-slate-800 dark:text-dk-text text-base">Ø³Ù„Ù… Ø§Ù„Ø£Ø³Ø¹Ø§Ø±</h3>
                 </div>
                 <div className="p-5">
                     <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
                         {[
-                            { label: 'سعر التكلفة (PR)', value: costPrice, color: 'text-slate-800 dark:text-dk-text', field: 'model.prix_revient' },
-                            { label: `سعر البيع HT (+${settings.marginAtelier}%)`, value: sellPriceHT, color: 'text-blue-700', field: null },
-                            { label: `سعر البيع TTC (+${settings.tva}%)`, value: sellPriceTTC, color: 'text-indigo-700 dark:text-dk-accent-text', field: null },
-                            { label: `سعر المحل (+${settings.marginBoutique}%)`, value: boutiquePrice, color: 'text-violet-700', field: null },
-                            { label: 'ربح المصنع / قطعة', value: sellPriceHT - costPrice, color: 'text-emerald-700', field: null },
+                            { label: 'Ø³Ø¹Ø± Ø§Ù„ØªÙƒÙ„ÙØ© (PR)', value: costPrice, color: 'text-slate-800 dark:text-dk-text', field: 'model.prix_revient' },
+                            { label: `Ø³Ø¹Ø± Ø§Ù„Ø¨ÙŠØ¹ HT (+${settings.marginAtelier}%)`, value: sellPriceHT, color: 'text-blue-700', field: null },
+                            { label: `Ø³Ø¹Ø± Ø§Ù„Ø¨ÙŠØ¹ TTC (+${settings.tva}%)`, value: sellPriceTTC, color: 'text-indigo-700 dark:text-dk-accent-text', field: null },
+                            { label: `Ø³Ø¹Ø± Ø§Ù„Ù…Ø­Ù„ (+${settings.marginBoutique}%)`, value: boutiquePrice, color: 'text-violet-700', field: null },
+                            { label: 'Ø±Ø¨Ø­ Ø§Ù„Ù…ØµÙ†Ø¹ / Ù‚Ø·Ø¹Ø©', value: sellPriceHT - costPrice, color: 'text-emerald-700', field: null },
                         ].map((item, i) => (
                             <div key={i} className="text-center p-3 rounded-xl bg-slate-50 dark:bg-dk-bg border border-slate-100 dark:border-dk-border hover:bg-white hover:border-slate-200 hover:shadow-sm transition-all">
                                 <p className="text-[10px] font-bold text-slate-500 dark:text-dk-muted uppercase tracking-wider mb-2">{item.label}</p>
@@ -633,15 +633,15 @@ const OrderModelPage: React.FC<OrderModelPageProps> = ({
                 </div>
             </div>
 
-            {/* ═══════════════════════════════════════════════════════════════════
+            {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
                 CONFIRM BUTTON
-            ═══════════════════════════════════════════════════════════════════ */}
+            â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
             <div className="flex justify-center pt-2 pb-8">
                 <button
                     onClick={handleConfirm}
                     disabled={confirmLoading}
                     className={`
-                        flex items-center gap-3 px-10 py-4 rounded-2xl font-black text-lg shadow-xl
+                        flex items-center gap-3 px-10 py-4 rounded-2xl font-black text-lg shadow-xl dark:shadow-dk-elevated
                         transition-all active:scale-95
                         ${confirmLoading
                             ? 'bg-slate-300 text-slate-500 dark:text-dk-muted cursor-wait shadow-none'
@@ -652,12 +652,12 @@ const OrderModelPage: React.FC<OrderModelPageProps> = ({
                     {confirmLoading ? (
                         <>
                             <div className="w-5 h-5 rounded-full border-2 border-slate-400 border-t-transparent animate-spin" />
-                            جارٍ التأكيد...
+                            Ø¬Ø§Ø±Ù Ø§Ù„ØªØ£ÙƒÙŠØ¯...
                         </>
                     ) : (
                         <>
                             <CheckCircle2 className="w-6 h-6" />
-                            تأكيد الطلبية وخصم المخزون
+                            ØªØ£ÙƒÙŠØ¯ Ø§Ù„Ø·Ù„Ø¨ÙŠØ© ÙˆØ®ØµÙ… Ø§Ù„Ù…Ø®Ø²ÙˆÙ†
                         </>
                     )}
                 </button>

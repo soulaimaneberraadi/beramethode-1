@@ -178,13 +178,13 @@ export default function ProductDetailPanel({ product, lots, mouvements, onClose,
         <div className="fixed inset-0 z-[100] flex">
             <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={onClose} />
             
-            <div className="relative ml-auto w-full max-w-2xl h-full bg-white dark:bg-dk-surface shadow-2xl flex flex-col animate-in slide-in-from-right duration-300">
+            <div className="relative ml-auto w-full max-w-2xl h-full bg-white dark:bg-dk-surface shadow-2xl dark:shadow-dk-lg flex flex-col animate-in slide-in-from-right duration-300">
                 
                 <div className={`shrink-0 ${catColor.bg} border-b ${catColor.border}`}>
                     <div className="p-6">
                         <div className="flex items-start justify-between gap-4">
                             <div className="flex items-start gap-4 flex-1 min-w-0">
-                                <div className="w-20 h-20 rounded-2xl bg-white dark:bg-dk-surface border-2 border-white shadow-lg overflow-hidden shrink-0">
+                                <div className="w-20 h-20 rounded-2xl bg-white dark:bg-dk-surface border-2 border-white shadow-lg dark:shadow-dk-lg overflow-hidden shrink-0">
                                     {product.photo ? (
                                         <img src={product.photo} alt="" className="w-full h-full object-cover" />
                                     ) : (
@@ -215,14 +215,14 @@ export default function ProductDetailPanel({ product, lots, mouvements, onClose,
                                 {!isEditing ? (
                                     <button
                                         onClick={() => setIsEditing(true)}
-                                        className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border text-sm font-bold text-slate-700 dark:text-dk-text-soft hover:bg-slate-50 dark:hover:bg-dk-elevated/60 transition-all shadow-sm"
+                                        className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border text-sm font-bold text-slate-700 dark:text-dk-text-soft hover:bg-slate-50 dark:hover:bg-dk-elevated/60 transition-all shadow-sm dark:shadow-dk-sm"
                                     >
                                         <Edit2 className="w-4 h-4" /> {_({fr:'Modifier',ar:'تعديل',en:'Edit',es:'Editar',pt:'Editar',tr:'Düzenle'})}
                                     </button>
                                 ) : (
                                     <button
                                         onClick={handleSave}
-                                        className="flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-600 text-white text-sm font-bold hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-200"
+                                        className="flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-600 text-white text-sm font-bold hover:bg-emerald-700 transition-all shadow-lg dark:shadow-dk-lg shadow-emerald-200"
                                     >
                                         <Save className="w-4 h-4" /> {_({fr:'Enregistrer',ar:'حفظ',en:'Save',es:'Guardar',pt:'Salvar',tr:'Kaydet'})}
                                     </button>
@@ -249,7 +249,7 @@ export default function ProductDetailPanel({ product, lots, mouvements, onClose,
                                 onClick={() => setActiveTab(tab.id as any)}
                                 className={`flex items-center gap-2 px-4 py-2.5 text-sm font-bold rounded-t-xl transition-all ${
                                     activeTab === tab.id
-                                        ? 'bg-white dark:bg-dk-surface text-slate-800 dark:text-dk-text shadow-sm'
+                                        ? 'bg-white dark:bg-dk-surface text-slate-800 dark:text-dk-text shadow-sm dark:shadow-dk-sm'
                                         : 'text-slate-600 hover:text-slate-800 hover:bg-white'
                                 }`}
                             >
@@ -268,7 +268,7 @@ export default function ProductDetailPanel({ product, lots, mouvements, onClose,
                     {activeTab === 'overview' && (
                         <div className="p-6 space-y-6">
                             <div className="grid grid-cols-3 gap-4">
-                                <div className="bg-white dark:bg-dk-surface rounded-2xl p-5 border border-slate-200 dark:border-dk-border shadow-sm">
+                                <div className="bg-white dark:bg-dk-surface rounded-2xl p-5 border border-slate-200 dark:border-dk-border shadow-sm dark:shadow-dk-sm">
                                     <div className="flex items-center justify-between mb-3">
                                         <Package className="w-5 h-5 text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text" />
                                         {currentStock <= product.stockAlerte ? (
@@ -284,7 +284,7 @@ export default function ProductDetailPanel({ product, lots, mouvements, onClose,
                                     </div>
                                 </div>
 
-                                <div className="bg-white dark:bg-dk-surface rounded-2xl p-5 border border-slate-200 dark:border-dk-border shadow-sm">
+                                <div className="bg-white dark:bg-dk-surface rounded-2xl p-5 border border-slate-200 dark:border-dk-border shadow-sm dark:shadow-dk-sm">
                                     <div className="flex items-center justify-between mb-3">
                                         <Activity className="w-5 h-5 text-violet-600" />
                                         {consumptionStats.trend > 0 ? (
@@ -304,7 +304,7 @@ export default function ProductDetailPanel({ product, lots, mouvements, onClose,
                                     </div>
                                 </div>
 
-                                <div className="bg-white dark:bg-dk-surface rounded-2xl p-5 border border-slate-200 dark:border-dk-border shadow-sm">
+                                <div className="bg-white dark:bg-dk-surface rounded-2xl p-5 border border-slate-200 dark:border-dk-border shadow-sm dark:shadow-dk-sm">
                                     <div className="flex items-center justify-between mb-3">
                                         <DollarSign className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
                                         <span className="text-[10px] text-slate-400 dark:text-dk-muted font-bold">CUMP</span>
@@ -346,7 +346,7 @@ export default function ProductDetailPanel({ product, lots, mouvements, onClose,
                             )}
 
                             {chainsUsage.length > 0 && (
-                                <div className="bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border shadow-sm overflow-hidden">
+                                <div className="bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border shadow-sm dark:shadow-dk-sm overflow-hidden">
                                     <div className="px-5 py-4 border-b border-slate-100 dark:border-dk-border flex items-center justify-between">
                                         <h3 className="font-black text-slate-800 dark:text-dk-text flex items-center gap-2">
                                             <Factory className="w-4 h-4 text-slate-400 dark:text-dk-muted" />
@@ -378,7 +378,7 @@ export default function ProductDetailPanel({ product, lots, mouvements, onClose,
                                 </div>
                             )}
 
-                            <div className="bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border shadow-sm overflow-hidden">
+                            <div className="bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border shadow-sm dark:shadow-dk-sm overflow-hidden">
                                 <div className="px-5 py-4 border-b border-slate-100 dark:border-dk-border flex items-center justify-between">
                                     <h3 className="font-black text-slate-800 dark:text-dk-text flex items-center gap-2">
                                         <History className="w-4 h-4 text-slate-400 dark:text-dk-muted" />
@@ -430,7 +430,7 @@ export default function ProductDetailPanel({ product, lots, mouvements, onClose,
 
                     {activeTab === 'history' && (
                         <div className="p-6">
-                            <div className="bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border shadow-sm overflow-hidden">
+                            <div className="bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border shadow-sm dark:shadow-dk-sm overflow-hidden">
                                 <div className="px-5 py-4 border-b border-slate-100 dark:border-dk-border">
                                     <h3 className="font-black text-slate-800 dark:text-dk-text">{_({fr:'Historique Complet',ar:'السجل الكامل',en:'Full History',es:'Historial Completo',pt:'Histórico Completo',tr:'Tam Geçmiş'})}</h3>
                                     <p className="text-xs text-slate-400 dark:text-dk-muted mt-0.5">{productMvts.length} {_({fr:'mouvement(s) enregistré(s)',ar:'حركة (حركات) مسجلة',en:'movement(s) recorded',es:'movimiento(s) registrado(s)',pt:'movimento(s) registado(s)',tr:'kayıtlı hareket'})}</p>
@@ -519,7 +519,7 @@ export default function ProductDetailPanel({ product, lots, mouvements, onClose,
                     {activeTab === 'supplier' && (
                         <div className="p-6 space-y-6">
                             <div
-                                className={`bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border shadow-sm overflow-hidden ${!isEditing ? 'cursor-pointer hover:shadow-md' : ''}`}
+                                className={`bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border shadow-sm dark:shadow-dk-sm overflow-hidden ${!isEditing ? 'cursor-pointer hover:shadow-md' : ''}`}
                                 onClick={() => {
                                     if (!isEditing) {
                                         setActiveTab('supplier');
@@ -529,7 +529,7 @@ export default function ProductDetailPanel({ product, lots, mouvements, onClose,
                             >
                                 <div className="px-5 py-4 border-b border-slate-100 dark:border-dk-border bg-gradient-to-r from-indigo-50 to-purple-50">
                                     <div className="flex items-center gap-3">
-                                        <div className="w-12 h-12 rounded-xl bg-white dark:bg-dk-surface shadow-sm flex items-center justify-center">
+                                        <div className="w-12 h-12 rounded-xl bg-white dark:bg-dk-surface shadow-sm dark:shadow-dk-sm flex items-center justify-center">
                                             <Building2 className="w-6 h-6 text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text" />
                                         </div>
                                         <div className="flex-1 min-w-0">
@@ -749,7 +749,7 @@ export default function ProductDetailPanel({ product, lots, mouvements, onClose,
                                     </h3>
                                     <div className="flex flex-wrap gap-2">
                                         {availableBains.map((b, i) => (
-                                            <div key={i} className="px-3 py-2 bg-white dark:bg-dk-surface rounded-xl border border-purple-200 shadow-sm">
+                                            <div key={i} className="px-3 py-2 bg-white dark:bg-dk-surface rounded-xl border border-purple-200 shadow-sm dark:shadow-dk-sm">
                                                 <p className="font-black text-purple-700">{b.bain}</p>
                                                 <p className="text-xs text-slate-500 dark:text-dk-muted">{b.qty.toFixed(1)} {product.unite}</p>
                                             </div>
@@ -758,7 +758,7 @@ export default function ProductDetailPanel({ product, lots, mouvements, onClose,
                                 </div>
                             )}
 
-                            <div className="bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border shadow-sm overflow-hidden">
+                            <div className="bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border shadow-sm dark:shadow-dk-sm overflow-hidden">
                                 <div className="px-5 py-4 border-b border-slate-100 dark:border-dk-border">
                                     <h3 className="font-black text-slate-800 dark:text-dk-text">{_({fr:'Tous les Lots',ar:'جميع الدفعات',en:'All Lots',es:'Todos los Lotes',pt:'Todos os Lotes',tr:'Tüm Partiler'})}</h3>
                                     <p className="text-xs text-slate-400 dark:text-dk-muted mt-0.5">{productLots.length} {_({fr:'lot(s) enregistré(s)',ar:'دفعة (دفعات) مسجلة',en:'lot(s) recorded',es:'lote(s) registrado(s)',pt:'lote(s) registado(s)',tr:'kayıtlı parti(ler)'})}</p>
