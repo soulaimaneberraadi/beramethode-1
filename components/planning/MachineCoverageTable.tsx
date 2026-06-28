@@ -46,10 +46,10 @@ export default function MachineCoverageTable({
                 <table className="w-full">
                     <thead>
                         <tr className="bg-slate-50 dark:bg-dk-bg text-left text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-dk-muted">
-                            <th className="px-3 py-2">Classe</th>
-                            <th className="px-3 py-2 text-center">Besoin (ops)</th>
-                            <th className="px-3 py-2 text-center">Sur la ligne</th>
-                            <th className="px-3 py-2 text-right">Statut</th>
+                            <th className="px-3 py-2">{tx(lang, {fr: 'Classe', ar: 'الفئة', en: 'Class', es: 'Clase', pt: 'Classe', tr: 'Sınıf'})}</th>
+                            <th className="px-3 py-2 text-center">{tx(lang, {fr: 'Besoin (ops)', ar: 'الاحتياج (عمليات)', en: 'Need (ops)', es: 'Necesidad (ops)', pt: 'Necessidade (ops)', tr: 'İhtiyaç (işlem)'})}</th>
+                            <th className="px-3 py-2 text-center">{tx(lang, {fr: 'Sur la ligne', ar: 'على الخط', en: 'On the line', es: 'En la línea', pt: 'Na linha', tr: 'Hatta'})}</th>
+                            <th className="px-3 py-2 text-right">{tx(lang, {fr: 'Statut', ar: 'الحالة', en: 'Status', es: 'Estado', pt: 'Status', tr: 'Durum'})}</th>
                         </tr>
                     </thead>
                     <tbody>

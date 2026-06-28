@@ -753,7 +753,7 @@ export default function Pedido({
                             <table className="w-full text-xs border-collapse">
                                 <thead>
                                     <tr className="bg-slate-50 dark:bg-dk-bg text-slate-500 dark:text-dk-muted border-b border-slate-200 dark:border-dk-border font-bold">
-                                        <th className="py-2.5 px-3 text-left border-r border-slate-100 dark:border-dk-border min-w-[120px]">Couleur / Taille</th>
+                                        <th className="py-2.5 px-3 text-left border-r border-slate-100 dark:border-dk-border min-w-[120px]">{tx(lang, {fr: 'Couleur / Taille', ar: 'اللون / القياس', en: 'Color / Size', es: 'Color / Talla', pt: 'Cor / Tamanho', tr: 'Renk / Beden'})}</th>
                                         {filteredSizes.map((s, i) => (
                                             <th key={i} className="py-2 px-2 text-center border-r border-slate-100 dark:border-dk-border min-w-[60px]">
                                                 {s}
@@ -1084,7 +1084,7 @@ export default function Pedido({
                                             </div>
 
                                             <div>
-                                                <label className="text-[10px] font-semibold text-slate-500 dark:text-dk-muted uppercase block mb-1.5 font-sans">Raccourcis</label>
+                                                <label className="text-[10px] font-semibold text-slate-500 dark:text-dk-muted uppercase block mb-1.5 font-sans">{tx(lang, {fr: 'Raccourcis', ar: 'اختصارات', en: 'Shortcuts', es: 'Atajos', pt: 'Atalhos', tr: 'Kısayollar'})}</label>
                                                 <div className="grid grid-cols-3 gap-1.5 font-sans">
                                                     {['06:00', '07:00', '08:00', '08:30', '09:00', '14:00'].map(t => {
                                                         const active = `${launchHM.h}:${launchHM.min}` === t;
@@ -1381,7 +1381,7 @@ export default function Pedido({
                                                                 <table className="w-full text-[11px] border-collapse">
                                                                     <thead>
                                                                         <tr className="bg-zinc-50/80 text-slate-500 dark:text-dk-muted border-b border-slate-100 dark:border-dk-border font-semibold">
-                                                                            <th className="py-2 px-2.5 text-left font-semibold border-r border-slate-100 dark:border-dk-border">Couleur</th>
+                                                                            <th className="py-2 px-2.5 text-left font-semibold border-r border-slate-100 dark:border-dk-border">{tx(lang, {fr: 'Couleur', ar: 'اللون', en: 'Color', es: 'Color', pt: 'Cor', tr: 'Renk'})}</th>
                                                                             {filteredSizes.map((s, i) => (
                                                                                 <th key={i} className="py-2 px-2 text-center font-semibold border-r border-slate-100 dark:border-dk-border">{s}</th>
                                                                             ))}
@@ -1508,10 +1508,10 @@ export default function Pedido({
                                                                                                 <tr className="text-[9px] uppercase tracking-wider text-slate-400 dark:text-dk-muted border-b border-amber-100/30">
                                                                                                     <th className="sticky left-0 bg-slate-50 dark:bg-dk-bg border-r border-amber-100/30 z-20 text-left px-3 py-1.5 font-medium min-w-[80px]">{tx(lang, { fr: 'MatiÃ¨re', ar: 'Ø§Ù„Ù…Ø§Ø¯Ø©', en: 'Material', es: 'Material', pt: 'Material', tr: 'Malzeme' })}</th>
                                                                                                     <th className="text-center px-2 py-1.5 font-medium min-w-[50px]">{tx(lang, { fr: 'QtÃ©', ar: 'Ø§Ù„ÙƒÙ…ÙŠØ©', en: 'Qty', es: 'Cant.', pt: 'Qtd', tr: 'Miktar' })}</th>
-                                                                                                    <th className="text-center px-2 py-1.5 font-medium min-w-[60px]">Fournisseur</th>
-                                                                                                    <th className="text-center px-2 py-1.5 font-medium min-w-[70px]">Statut</th>
+                                                                                                    <th className="text-center px-2 py-1.5 font-medium min-w-[60px]">{tx(lang, {fr: 'Fournisseur', ar: 'المورد', en: 'Supplier', es: 'Proveedor', pt: 'Fornecedor', tr: 'Tedarikçi'})}</th>
+                                                                                                    <th className="text-center px-2 py-1.5 font-medium min-w-[70px]">{tx(lang, {fr: 'Statut', ar: 'الحالة', en: 'Status', es: 'Estado', pt: 'Status', tr: 'Durum'})}</th>
                                                                                                     <th className="text-right px-3 py-1.5 font-medium min-w-[60px]">{tx(lang, { fr: 'CoÃ»t HT', ar: 'Ø§Ù„ØªÙƒÙ„ÙØ© Ø¨Ø¯ÙˆÙ† Ø¶Ø±ÙŠØ¨Ø©', en: 'Cost (excl. tax)', es: 'Costo (sin IVA)', pt: 'Custo (s/ IVA)', tr: 'Maliyet (KDV hariÃ§)' })}</th>
-                                                                                                    <th className="text-center px-2 py-1.5 font-medium min-w-[90px]">Actions</th>
+                                                                                                    <th className="text-center px-2 py-1.5 font-medium min-w-[90px]">{tx(lang, {fr: 'Actions', ar: 'إجراءات', en: 'Actions', es: 'Acciones', pt: 'Ações', tr: 'İşlemler'})}</th>
                                                                                                 </tr>
                                                                                             </thead>
                                                                                             <tbody className="divide-y divide-amber-50/50">
@@ -1529,12 +1529,12 @@ export default function Pedido({
                                                                                                                 <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-emerald-600 dark:text-emerald-400 whitespace-nowrap"><CheckCircle className="w-2.5 h-2.5" /> OK</span>
                                                                                                             ) : m.isPartial ? (
                                                                                                                 <span className="inline-flex flex-col items-center leading-tight">
-                                                                                                                    <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-amber-600 dark:text-amber-400 whitespace-nowrap"><AlertTriangle className="w-2.5 h-2.5" /> Partiel</span>
+                                                                                                                    <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-amber-600 dark:text-amber-400 whitespace-nowrap"><AlertTriangle className="w-2.5 h-2.5" /> {tx(lang, {fr: 'Partiel', ar: 'جزئي', en: 'Partial', es: 'Parcial', pt: 'Parcial', tr: 'Kısmi'})}</span>
                                                                                                                     <span className="text-[8px] text-amber-600 dark:text-amber-400/80 font-medium whitespace-nowrap">{fmt(m.piecesCouvertes)} pcs</span>
                                                                                                                 </span>
                                                                                                             ) : (
                                                                                                                 <span className="inline-flex flex-col items-center leading-tight">
-                                                                                                                    <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-rose-600 dark:text-rose-400 whitespace-nowrap"><Clock className="w-2.5 h-2.5" /> Attente</span>
+                                                                                                                    <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-rose-600 dark:text-rose-400 whitespace-nowrap"><Clock className="w-2.5 h-2.5" /> {tx(lang, {fr: 'Attente', ar: 'انتظار', en: 'Pending', es: 'Pendiente', pt: 'Pendente', tr: 'Beklemede'})}</span>
                                                                                                                     <span className="text-[8px] text-rose-500/80 font-medium whitespace-nowrap">-{fmt(m.manque)}{m.unit}</span>
                                                                                                                 </span>
                                                                                                             )}

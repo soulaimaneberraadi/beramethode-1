@@ -248,7 +248,7 @@ function GanttRow({
                         <div className="flex items-center gap-2">
                             <span className={`w-1.5 h-1.5 rounded-full ${loadColor}`} />
                             <span className="text-[12px] font-medium truncate text-slate-900 dark:text-dk-text">{chain.name}</span>
-                            {isSolo && <span className="ml-auto text-[9px] font-semibold uppercase tracking-wider text-slate-500 dark:text-dk-muted">Solo</span>}
+                            {isSolo && <span className="ml-auto text-[9px] font-semibold uppercase tracking-wider text-slate-500 dark:text-dk-muted">{tx(lang, {fr: 'Solo', ar: 'منفرد', en: 'Solo', es: 'Solo', pt: 'Solo', tr: 'Solo'})}</span>}
                         </div>
                         {rowHeight >= 60 && (
                             <div className="flex flex-col ml-3.5 text-[10px] text-slate-400 dark:text-dk-muted leading-normal max-w-[170px] min-w-0">

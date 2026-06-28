@@ -1012,7 +1012,7 @@ export default function StockExport({ models, suivis, planningEvents = [], setMo
                                             <span className="md:hidden">{tx(lang,{fr:"Tailles",ar:"Ø§Ù„Ù…Ù‚Ø§Ø³Ø§Øª",en:"Sizes",es:"Tallas",pt:"Tamanhos",tr:"Bedenler"})}</span>
                                         </th>
                                         {activeTab === 'finition' && <th className="p-3 text-center bg-rose-50 dark:bg-rose-900/30/40 text-rose-700">{tx(lang,{fr:"DÃ©fauts",ar:"Ø§Ù„Ø¹ÙŠÙˆØ¨",en:"Defects",es:"Defectos",pt:"Defeitos",tr:"Kusurlar"})}</th>}
-                                        <th className="p-3 text-center bg-amber-50 dark:bg-amber-900/30/40 text-amber-700">WIP</th>
+                                        <th className="p-3 text-center bg-amber-50 dark:bg-amber-900/30/40 text-amber-700">{tx(lang, {fr: 'WIP', ar: 'تحت التصنيع', en: 'WIP', es: 'PEP', pt: 'PEP', tr: 'YÜ'})}</th>
                                         <th className="p-3 text-center bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20/40 text-indigo-700 dark:text-dk-accent-text">{activeTab === 'finition' ? tx(lang,{fr:"Cumul",ar:"Ø§Ù„Ø¥Ø¬Ù…Ø§Ù„ÙŠ",en:"Total",es:"Acumulado",pt:"Acumulado",tr:"Toplam"}) : tx(lang,{fr:"DÃ©pÃ´t",ar:"Ø§Ù„Ù…Ø³ØªÙˆØ¯Ø¹",en:"Deposit",es:"DepÃ³sito",pt:"DepÃ³sito",tr:"Depo"})}</th>
                                         <th className="p-3 text-center bg-emerald-50 dark:bg-emerald-900/30/40 text-emerald-700">{tx(lang,{fr:"Reste",ar:"Ø§Ù„Ù…ØªØ¨Ù‚ÙŠ",en:"Remaining",es:"Restante",pt:"Restante",tr:"Kalan"})}</th>
                                     </tr>

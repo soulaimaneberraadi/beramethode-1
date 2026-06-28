@@ -344,11 +344,11 @@ export default function SplitModal({ open, event, models, onClose, onSubmit }: P
                                     <table className="w-full text-[11px] bg-white dark:bg-dk-surface">
                                         <thead>
                                             <tr className="bg-slate-50 dark:bg-dk-bg border-b border-slate-150">
-                                                <th className="px-2 py-1.5 text-left text-slate-500 dark:text-dk-muted font-semibold sticky left-0 bg-slate-50 dark:bg-dk-bg">Couleur</th>
+                                                <th className="px-2 py-1.5 text-left text-slate-500 dark:text-dk-muted font-semibold sticky left-0 bg-slate-50 dark:bg-dk-bg">{tx(lang, {fr: 'Couleur', ar: 'اللون', en: 'Color', es: 'Color', pt: 'Cor', tr: 'Renk'})}</th>
                                                 {sizes.map(s => (
                                                     <th key={s} className="px-2 py-1.5 text-center text-slate-500 dark:text-dk-muted font-semibold min-w-[50px]">{s}</th>
                                                 ))}
-                                                <th className="px-2 py-1.5 text-center font-bold text-slate-700 dark:text-dk-text-soft bg-slate-100 dark:bg-dk-elevated">Total</th>
+                                                <th className="px-2 py-1.5 text-center font-bold text-slate-700 dark:text-dk-text-soft bg-slate-100 dark:bg-dk-elevated">{tx(lang, {fr: 'Total', ar: 'المجموع', en: 'Total', es: 'Total', pt: 'Total', tr: 'Toplam'})}</th>
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-slate-100 dark:divide-dk-border">
@@ -421,7 +421,7 @@ export default function SplitModal({ open, event, models, onClose, onSubmit }: P
                                             />
                                         </div>
                                         <div>
-                                            <label className="text-[9px] font-bold text-slate-500 dark:text-dk-muted uppercase tracking-wider">Livraison</label>
+                                            <label className="text-[9px] font-bold text-slate-500 dark:text-dk-muted uppercase tracking-wider">{tx(lang, {fr: 'Livraison', ar: 'التسليم', en: 'Delivery', es: 'Entrega', pt: 'Entrega', tr: 'Teslimat'})}</label>
                                             <input
                                                 type="date"
                                                 value={lot.deliveryDate}
@@ -430,14 +430,14 @@ export default function SplitModal({ open, event, models, onClose, onSubmit }: P
                                             />
                                         </div>
                                         <div>
-                                            <label className="text-[9px] font-bold text-slate-500 dark:text-dk-muted uppercase tracking-wider">Statut</label>
+                                            <label className="text-[9px] font-bold text-slate-500 dark:text-dk-muted uppercase tracking-wider">{tx(lang, {fr: 'Statut', ar: 'الحالة', en: 'Status', es: 'Estado', pt: 'Status', tr: 'Durum'})}</label>
                                             <select
                                                 value={lot.status}
                                                 onChange={(e) => updateLot(lot.id, 'status', e.target.value)}
                                                 className="w-full h-8 px-2 text-[11px] bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-md outline-none"
                                             >
-                                                <option value="PENDING">En attente</option>
-                                                <option value="READY">PrÃªt</option>
+                                                <option value="PENDING">{tx(lang, {fr: 'En attente', ar: 'قيد الانتظار', en: 'Pending', es: 'Pendiente', pt: 'Pendente', tr: 'Beklemede'})}</option>
+                                                <option value="READY">{tx(lang, {fr: 'Prêt', ar: 'جاهز', en: 'Ready', es: 'Listo', pt: 'Pronto', tr: 'Hazır'})}</option>
                                                 <option value="DELIVERED">LivrÃ©</option>
                                             </select>
                                         </div>
@@ -524,13 +524,13 @@ export default function SplitModal({ open, event, models, onClose, onSubmit }: P
                             className="w-full py-2 border-2 border-dashed border-slate-300 dark:border-dk-border rounded-xl text-[12px] font-semibold text-slate-500 dark:text-dk-muted hover:border-indigo-400 hover:text-indigo-650 dark:text-dk-accent-text hover:bg-slate-50/30 dark:hover:bg-dk-elevated/30 transition-all flex items-center justify-center gap-1.5"
                         >
                             <Plus className="w-3.5 h-3.5" />
-                            Ajouter un lot
+                            {tx(lang, {fr: 'Ajouter un lot', ar: 'إضافة دفعة', en: 'Add a lot', es: 'Agregar lote', pt: 'Adicionar lote', tr: 'Parti ekle'})}
                         </button>
 
                         {/* Summary */}
                         <div className="bg-slate-50 dark:bg-dk-bg rounded-xl p-3 space-y-2">
                             <div className="flex justify-between text-[11px]">
-                                <span className="text-slate-600 dark:text-dk-muted font-medium">Total lots</span>
+                                <span className="text-slate-600 dark:text-dk-muted font-medium">{tx(lang, {fr: 'Total lots', ar: 'إجمالي الدُفعات', en: 'Total lots', es: 'Total lotes', pt: 'Total lotes', tr: 'Toplam partiler'})}</span>
                                 <span className="font-bold tabular-nums text-slate-900 dark:text-dk-text">{lotsTotal} / {total} pcs</span>
                             </div>
                             <div className="flex h-1.5 rounded-full overflow-hidden bg-slate-200 dark:bg-dk-border">

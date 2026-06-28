@@ -64,7 +64,7 @@ export default function SplitResultModal({ open, originalEvent, newEvents, model
                     <div className="flex-1 bg-slate-100 dark:bg-dk-elevated/60 rounded-xl p-3 text-center">
                         <div className="text-[10px] font-bold text-slate-500 dark:text-dk-muted uppercase tracking-wider mb-1">{tx(lang,{fr:'Avant',ar:'قبل',en:'Before',es:'Antes',pt:'Antes',tr:'Önce'})}</div>
                         <div className="text-[20px] font-black text-slate-900 dark:text-dk-text tabular-nums">{originalQty}</div>
-                        <div className="text-[10px] text-slate-500 dark:text-dk-muted">pcs</div>
+                        <div className="text-[10px] text-slate-500 dark:text-dk-muted">{tx(lang, {fr: 'pcs', ar: 'قطعة', en: 'pcs', es: 'pzs', pt: 'pç', tr: 'adet'})}</div>
                     </div>
 
                     {/* Arrow */}

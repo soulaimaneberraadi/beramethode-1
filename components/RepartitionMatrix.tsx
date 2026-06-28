@@ -337,7 +337,7 @@ export default function RepartitionMatrix({ data, setData, lang = 'fr', syncQuan
                             {colors.length > 0 && (
                                 <tfoot className="border-t-2 border-slate-200 dark:border-dk-border font-bold bg-slate-50 dark:bg-dk-bg font-sans">
                                     <tr>
-                                        <td className="py-2 px-3 text-right uppercase text-[10px] tracking-wider text-slate-500 dark:text-dk-muted border-r border-slate-200 dark:border-dk-border">Total</td>
+                                        <td className="py-2 px-3 text-right uppercase text-[10px] tracking-wider text-slate-500 dark:text-dk-muted border-r border-slate-200 dark:border-dk-border">{tx(lang, {fr: 'Total', ar: 'المجموع', en: 'Total', es: 'Total', pt: 'Total', tr: 'Toplam'})}</td>
                                         {sizes.length === 0 && (
                                             <td className="py-2 px-2 text-center text-slate-700 dark:text-dk-text-soft border-r border-slate-200 dark:border-dk-border">-</td>
                                         )}

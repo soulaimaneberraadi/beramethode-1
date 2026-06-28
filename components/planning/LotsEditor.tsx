@@ -66,11 +66,11 @@ export default function LotsEditor({ lots, onChange, settings, defaultDeadline, 
                     local.map(l => (
                         <div key={l.id} className="grid grid-cols-[1fr_1fr_72px_auto] gap-2 items-end text-[11px]">
                             <div>
-                                <label className="text-[9px] font-black uppercase text-slate-400 dark:text-dk-muted">Taille</label>
+                                <label className="text-[9px] font-black uppercase text-slate-400 dark:text-dk-muted">{tx(lang, {fr: 'Taille', ar: 'القياس', en: 'Size', es: 'Talla', pt: 'Tamanho', tr: 'Beden'})}</label>
                                 <input className="mt-0.5 w-full rounded-lg border border-slate-200 dark:border-dk-border px-2 py-1 font-semibold" value={l.taille} onChange={e => update(l.id, { taille: e.target.value })} />
                             </div>
                             <div>
-                                <label className="text-[9px] font-black uppercase text-slate-400 dark:text-dk-muted">Qté</label>
+                                <label className="text-[9px] font-black uppercase text-slate-400 dark:text-dk-muted">{tx(lang, {fr: 'Qté', ar: 'الكمية', en: 'Qty', es: 'Cant.', pt: 'Qtd', tr: 'Miktar'})}</label>
                                 <input
                                     type="number"
                                     min={0}

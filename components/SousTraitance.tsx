@@ -1080,7 +1080,7 @@ export default function SousTraitance({ models, settings, onLoadModel }: SousTra
                 </tr>
               `).join('') : `
                 <tr>
-                  <td style="font-weight: 800; color: #1e1b4b;">Standard</td>
+                  <td style="font-weight: 800; color: #1e1b4b;">{tx(lang, {fr: 'Standard', ar: 'قياسي', en: 'Standard', es: 'Estándar', pt: 'Padrão', tr: 'Standart'})}</td>
                   <td style="font-weight: 600;">
                     ${Object.entries(sizes).map(([sz, q]) => `[${sz}]: ${q} pcs`).join(' | ')}
                   </td>

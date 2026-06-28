@@ -1785,7 +1785,7 @@ export default function SuiviProduction({
 
                             <div className="mt-4 flex items-center justify-between bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 dark:bg-indigo-900/30/50 border border-indigo-100 dark:border-indigo-800/50 rounded-2xl p-4">
                                 <div>
-                                    <span className="text-[9px] font-black text-indigo-700 dark:text-dk-accent-text dark:text-indigo-300 dark:text-indigo-200 uppercase tracking-widest block">TRS Score</span>
+                                    <span className="text-[9px] font-black text-indigo-700 dark:text-dk-accent-text dark:text-indigo-300 dark:text-indigo-200 uppercase tracking-widest block">{tx(lang, {fr: 'TRS Score', ar: 'نقاط TRS', en: 'TRS Score', es: 'Puntaje TRS', pt: 'Pontuação TRS', tr: 'TRS Puanı'})}</span>
                                     <span className="text-3xl font-black text-indigo-800 dark:text-indigo-200 block mt-1 tabular-nums">{activeChartMetrics.oee}%</span>
                                 </div>
                                 <div className="text-right">
@@ -1885,7 +1885,7 @@ export default function SuiviProduction({
                                         <th className="py-2.5 px-3 text-center">{l.inputs}</th>
                                         <th className="py-2.5 px-3 text-center">{l.outputs}</th>
                                         <th className="py-2.5 px-3 text-center">L'encours (WIP)</th>
-                                        <th className="py-2.5 px-3 text-right">Alerte Goulot</th>
+                                        <th className="py-2.5 px-3 text-right">{tx(lang, {fr: 'Alerte Goulot', ar: 'تنبيه الاختناق', en: 'Bottleneck Alert', es: 'Alerta Cuello de Botella', pt: 'Alerta Gargalo', tr: 'Darboğaz Uyarısı'})}</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-50 dark:divide-dk-border">

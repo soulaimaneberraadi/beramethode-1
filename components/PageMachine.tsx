@@ -1701,7 +1701,7 @@ function ClassEditorModal({
               />
             </div>
             <div>
-              <label className="block text-[9px] font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest mb-1.5 ml-0.5">COFS</label>
+              <label className="block text-[9px] font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest mb-1.5 ml-0.5">{tx(lang, {fr: 'COFS', ar: 'COFS', en: 'COFS', es: 'COFS', pt: 'COFS', tr: 'COFS'})}</label>
               <input 
                 type="number" step="0.01" value={cofs} onChange={e => setCofs(Number(e.target.value))}
                 className="w-full bg-slate-50 dark:bg-dk-bg/80 border border-slate-200 dark:border-dk-border/80 rounded-xl px-3.5 py-2.5 text-sm font-bold text-slate-800 dark:text-dk-text focus:bg-white focus:outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 transition-all"

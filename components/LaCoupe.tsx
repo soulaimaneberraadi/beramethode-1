@@ -803,15 +803,18 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                     </div>
                                     <div className="flex items-center gap-2 mt-0.5">
                                         {ref && (
+                                            <>
                                             <span className={`text-[9px] font-medium truncate ${isSelected ? 'text-indigo-500 dark:text-indigo-400' : 'text-slate-400 dark:text-dk-muted'}`}>
                                                 {ref}
                                             </span>
                                             {qte > 0 && (
                                                 <>
-                                                    <span className="text-slate-300 dark:text-dk-muted text-[8px]">Â·</span>
+                                                    <span className="text-slate-300 dark:text-dk-muted text-[8px]">·</span>
                                                     <span className={`text-[9px] font-medium ${isSelected ? 'text-indigo-500 dark:text-indigo-400' : 'text-slate-400 dark:text-dk-muted'}`}>
                                                     {qte} pcs
                                                 </span>
+                                                </>
+                                            )}
                                             </>
                                         )}
                                     </div>
@@ -1092,7 +1095,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                             </div>
                                             <div>
                                                 <div className="flex items-center gap-2 mb-1.5">
-                                                    <span className="px-2 py-0.5 bg-rose-500 text-white text-[9px] font-bold uppercase tracking-wider rounded">OF</span>
+                                                    <span className="px-2 py-0.5 bg-rose-500 text-white text-[9px] font-bold uppercase tracking-wider rounded">{tx(lang, {fr: 'OF', ar: 'أمر تصنيع', en: 'WO', es: 'OF', pt: 'OF', tr: 'ÜS'})}</span>
                                                     <span className="text-slate-400 dark:text-dk-muted text-[11px] font-medium">{tx(lang, { fr: 'RÃ©f', ar: 'Ù…Ø±Ø¬Ø¹', en: 'Ref', es: 'Ref', pt: 'Ref', tr: 'Ref' })}: {ordre.refModele || 'N/A'}</span>
                                                 </div>
                                                 <input

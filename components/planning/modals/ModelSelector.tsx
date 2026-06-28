@@ -489,11 +489,11 @@ export default function ModelSelector({
                         <div className="px-4 py-3 border-t border-slate-100 dark:border-dk-border flex items-center justify-between gap-4 text-[11px]">
                             <div className="flex items-center gap-1.5 text-slate-500 dark:text-dk-muted">
                                 <Clock className="w-3.5 h-3.5" />
-                                <span className="uppercase tracking-wider font-medium">Temps</span>
+                                <span className="uppercase tracking-wider font-medium">{tx(lang, {fr: 'Temps', ar: 'الوقت', en: 'Time', es: 'Tiempo', pt: 'Tempo', tr: 'Süre'})}</span>
                             </div>
                             <div className="flex items-center gap-4 tabular-nums">
-                                <span className="text-slate-600 dark:text-dk-muted">Assemblage <span className="font-semibold text-slate-900 dark:text-dk-text">{formatTime(metrics.assemblageSec)}</span></span>
-                                <span className="text-slate-600 dark:text-dk-muted">Finition <span className="font-semibold text-slate-900 dark:text-dk-text">{formatTime(metrics.finitionSec)}</span></span>
+                                <span className="text-slate-600 dark:text-dk-muted">{tx(lang, {fr: 'Assemblage', ar: 'التجميع', en: 'Assembly', es: 'Ensamblaje', pt: 'Montagem', tr: 'Montaj'})} <span className="font-semibold text-slate-900 dark:text-dk-text">{formatTime(metrics.assemblageSec)}</span></span>
+                                <span className="text-slate-600 dark:text-dk-muted">{tx(lang, {fr: 'Finition', ar: 'التشطيب', en: 'Finishing', es: 'Acabado', pt: 'Acabamento', tr: 'Bitirme'})} <span className="font-semibold text-slate-900 dark:text-dk-text">{formatTime(metrics.finitionSec)}</span></span>
                                 <span className="text-slate-700 dark:text-dk-text-soft font-medium">SAM <span className="font-bold text-slate-900 dark:text-dk-text">{metrics.samFormatted}</span></span>
                             </div>
                         </div>

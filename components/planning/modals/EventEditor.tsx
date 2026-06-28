@@ -599,7 +599,7 @@ export default function EventEditor({ open, mode, initial, models, chains, plann
 
                                 <div className="grid grid-cols-2 gap-4 text-[11px] bg-white/40 dark:bg-dk-surface/40 backdrop-blur-sm p-2.5 rounded-lg border border-white/20 dark:border-dk-border/20 shadow-xs">
                                     <div className="space-y-1">
-                                        <span className="text-slate-400 dark:text-dk-muted font-bold uppercase tracking-wider text-[9px]">Planning</span>
+                                        <span className="text-slate-400 dark:text-dk-muted font-bold uppercase tracking-wider text-[9px]">{tx(lang, {fr: 'Planning', ar: 'التخطيط', en: 'Planning', es: 'Planificación', pt: 'Planejamento', tr: 'Planlama'})}</span>
                                         <div className="space-y-0.5 text-slate-700 dark:text-dk-text-soft font-semibold">
                                             <div className="flex justify-between">
                                                 <span>{tx(lang,{fr:'Début :',ar:'البداية :',en:'Start:',es:'Inicio:',pt:'Início:',tr:'Başlangıç:'})}</span>

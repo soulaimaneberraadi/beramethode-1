@@ -100,7 +100,7 @@ export default function PlanningCardsView({
 
                             <div className="mt-auto pt-3 border-t border-dk-border">
                                 <div className="flex justify-between text-xs mb-1.5 font-semibold">
-                                    <span className="text-dk-muted">{prod} / {qty} <span className="text-dk-text-soft">pcs</span></span>
+                                    <span className="text-dk-muted">{prod} / {qty} <span className="text-dk-text-soft">{tx(lang, {fr: 'pcs', ar: 'قطعة', en: 'pcs', es: 'pzs', pt: 'pç', tr: 'adet'})}</span></span>
                                     <span className="text-dk-muted">{progress}%</span>
                                 </div>
                                 <div className="h-1.5 bg-dk-elevated rounded-full overflow-hidden">

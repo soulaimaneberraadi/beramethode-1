@@ -100,7 +100,7 @@ export default function Facturation({ t }: FacturationProps) {
                                         {new Date(f.date_facture).toLocaleDateString()}
                                     </td>
                                     <td className="px-6 py-4 font-semibold text-slate-700 dark:text-dk-text-soft">
-                                        {f.total_ttc.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} <span className="text-xs text-slate-400 dark:text-dk-muted">MAD</span>
+                                        {f.total_ttc.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} <span className="text-xs text-slate-400 dark:text-dk-muted">{tx(lang, {fr: 'MAD', ar: 'درهم', en: 'MAD', es: 'MAD', pt: 'MAD', tr: 'MAD'})}</span>
                                     </td>
                                     <td className="px-6 py-4">
                                         <StatusBadge status={f.statut} />

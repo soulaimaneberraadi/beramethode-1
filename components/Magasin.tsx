@@ -510,11 +510,11 @@ function InvoiceSettingsModal({ template, onSave, onClose }: { template: Invoice
                 {/* Table */}
                 <div className="border border-slate-100 dark:border-dk-border/60 rounded overflow-hidden">
                     <div className="flex bg-slate-50 dark:bg-dk-bg font-black text-slate-500 dark:text-dk-muted" style={{ fontSize: '5.5px' }}>
-                        <div className="flex-1 p-1">Désignation</div>
+                        <div className="flex-1 p-1">{tx(lang, {fr: 'Désignation', ar: 'التسمية', en: 'Designation', es: 'Designación', pt: 'Designação', tr: 'Tanım'})}</div>
                         {s.showReferenceColumn && <div className="w-10 p-1">Réf</div>}
                         <div className="w-7 p-1 text-center">Qté</div>
                         {s.showPrixColumn && <div className="w-10 p-1 text-right">P.U.</div>}
-                        {s.showTotalColumn && <div className="w-12 p-1 text-right">Total</div>}
+                        {s.showTotalColumn && <div className="w-12 p-1 text-right">{tx(lang, {fr: 'Total', ar: 'المجموع', en: 'Total', es: 'Total', pt: 'Total', tr: 'Toplam'})}</div>}
                     </div>
                     <div className="flex text-slate-600 dark:text-dk-text-soft" style={{ fontSize: '5.5px' }}>
                         <div className="flex-1 p-1">Tissu coton premium</div>
@@ -2216,7 +2216,7 @@ export default function Magasin({ models = [], planningEvents = [], settings }: 
                                             <div key={d.id} className="p-4 md:p-6 flex flex-col md:flex-row gap-6 md:items-center hover:bg-slate-50 dark:hover:bg-dk-elevated/60 transition-colors">
                                                 <div className="flex-1">
                                                     <div className="flex items-center gap-3 mb-1">
-                                                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider border ${d i a.statut === 'attente' ? 'bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800' : d i a.statut === 'preparee' ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800' : d i a.statut === 'rejetee' ? 'bg-rose-50 dark:bg-rose-900/30 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-800' : 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800'}`}>{t(d.statut)}</span>
+                                                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider border ${d.statut === 'attente' ? 'bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800' : d.statut === 'preparee' ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800' : d.statut === 'rejetee' ? 'bg-rose-50 dark:bg-rose-900/30 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-800' : 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800'}`}>{t(d.statut)}</span>
                                                         <span className="text-xs font-bold text-slate-500 dark:text-dk-muted font-mono">{t('Demande du')} {new Date(d.dateDemande).toLocaleDateString()}</span>
                                                         <span className="text-xs bg-slate-100 dark:bg-dk-elevated/60 text-slate-600 dark:text-dk-text-soft px-2 py-0.5 rounded font-bold">{d.demandeur}</span>
                                                     </div>
@@ -2229,7 +2229,7 @@ export default function Magasin({ models = [], planningEvents = [], settings }: 
                                                     <div className="bg-slate-100 dark:bg-dk-elevated/60 rounded-2xl p-4 flex gap-6 text-center shadow-inner">
                                                         <div><div className="text-[10px] font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest mb-1">{t('Demandé')}</div><div className="font-black text-2xl text-slate-800 dark:text-dk-text">{d.quantiteDemandee} <span className="text-sm font-medium">{p?.unite}</span></div></div>
                                                         <div className="w-px bg-slate-200 dark:bg-dk-border" />
-                                                        <div><div className="text-[10px] font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest mb-1">{t('En Stock')}</div><div className={`font-black text-2xl ${st >= d i a.quantiteDemandee ? 'text-emerald-600 dark:text-emerald-400 dark:text-emerald-300' : 'text-rose-600 dark:text-rose-400 dark:text-rose-300'}`}>{st.toFixed(0)} <span className="text-sm font-medium">{p?.unite}</span></div></div>
+                                                        <div><div className="text-[10px] font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest mb-1">{t('En Stock')}</div><div className={`font-black text-2xl ${st >= d.quantiteDemandee ? 'text-emerald-600 dark:text-emerald-400 dark:text-emerald-300' : 'text-rose-600 dark:text-rose-400 dark:text-rose-300'}`}>{st.toFixed(0)} <span className="text-sm font-medium">{p?.unite}</span></div></div>
                                                     </div>
 
                                                     {d.statut === 'attente' && (
@@ -2280,7 +2280,7 @@ export default function Magasin({ models = [], planningEvents = [], settings }: 
                                                 setContextMenu({ x: e.clientX, y: e.clientY, pid: p.id });
                                             }}
                                         >
-                                         <div className={`absolute top-0 inset-x-0 h-1 ${st === 0 ? 'bg-red-500 dark:bg-red-700' : st <= p l.stockAlerte ? 'bg-amber-400 dark:bg-amber-800' : 'bg-emerald-400 dark:bg-emerald-800'}`} />
+                                         <div className={`absolute top-0 inset-x-0 h-1 ${st === 0 ? 'bg-red-500 dark:bg-red-700' : st <= p.stockAlerte ? 'bg-amber-400 dark:bg-amber-800' : 'bg-emerald-400 dark:bg-emerald-800'}`} />
                                          <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
                                              <div className="bg-indigo-600 dark:bg-dk-accent dark:bg-indigo-700 text-white text-[10px] font-bold px-2 py-1 rounded-lg shadow-lg dark:shadow-dk-lg">
                                                  Voir détails
@@ -3457,7 +3457,7 @@ export default function Magasin({ models = [], planningEvents = [], settings }: 
                                             <div className="w-12 h-12 bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 dark:bg-indigo-900/30 rounded-2xl flex items-center justify-center group-hover:bg-indigo-600 dark:hover:bg-dk-accent dark:bg-indigo-700 transition-colors">
                                                 <Building2 className="w-6 h-6 text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text dark:text-indigo-300 group-hover:text-white transition-colors" />
                                             </div>
-                                            <div className={`px-4 py-2 rounded-xl text-lg font-black border-2 border-dashed ${s h.score >= 85 ? 'border-emerald-200 dark:border-emerald-800 text-emerald-600 dark:text-emerald-400 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-900/30' : s h.score >= 70 ? 'border-amber-200 dark:border-amber-800 text-amber-600 dark:text-amber-400 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/30' : 'border-rose-200 dark:border-rose-800 text-rose-600 dark:text-rose-400 dark:text-rose-300 bg-rose-50 dark:bg-rose-900/30'}`}>
+                                             <div className={`px-4 py-2 rounded-xl text-lg font-black border-2 border-dashed ${s.score >= 85 ? 'border-emerald-200 dark:border-emerald-800 text-emerald-600 dark:text-emerald-400 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-900/30' : s.score >= 70 ? 'border-amber-200 dark:border-amber-800 text-amber-600 dark:text-amber-400 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/30' : 'border-rose-200 dark:border-rose-800 text-rose-600 dark:text-rose-400 dark:text-rose-300 bg-rose-50 dark:bg-rose-900/30'}`}>
                                                 {s.score}/100
                                             </div>
                                         </div>
@@ -3471,7 +3471,7 @@ export default function Magasin({ models = [], planningEvents = [], settings }: 
                                             </div>
                                             <div className="bg-slate-50 dark:bg-dk-bg p-4 rounded-2xl flex justify-between items-center">
                                                 <span className="text-xs font-black text-slate-500 dark:text-dk-muted uppercase tracking-widest">{t('Évolution Prix')}</span>
-                                                <span className={`font-black flex items-center gap-1 ${s h.evolution > 0 ? 'text-rose-500 dark:text-rose-300' : s h.evolution < 0 ? 'text-emerald-500 dark:text-emerald-300' : 'text-slate-500 dark:text-dk-muted'}`}>
+                                                <span className={`font-black flex items-center gap-1 ${s.evolution > 0 ? 'text-rose-500 dark:text-rose-300' : s.evolution < 0 ? 'text-emerald-500 dark:text-emerald-300' : 'text-slate-500 dark:text-dk-muted'}`}>
                                                     {s.evolution > 0 ? '+' : ''}{s.evolution.toFixed(1)}%
                                                 </span>
                                             </div>
@@ -3726,7 +3726,7 @@ export default function Magasin({ models = [], planningEvents = [], settings }: 
                                                                 <td className="p-3 font-bold text-indigo-700 dark:text-dk-accent-text dark:text-indigo-300">{r.materialName}</td>
                                                                 <td className="p-3 text-right font-black text-slate-800 dark:text-dk-text">{r.qtyReceived.toLocaleString()}</td>
                                                                 <td className="p-3 text-center">
-                                                                    <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase ${r i.owner === 'client' ? 'bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-200' : 'bg-blue-100 dark:bg-blue-900/40 text-blue-800 dark:text-blue-200'}`}>
+                                                                     <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase ${r.owner === 'client' ? 'bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-200' : 'bg-blue-100 dark:bg-blue-900/40 text-blue-800 dark:text-blue-200'}`}>
                                                                         {r.owner === 'client' ? tx(lang,{fr:'Consigné (Temykou)',ar:'مُودع (Temykou)',en:'Consigned (Temykou)',es:'Consignado (Temykou)',pt:'Consignado (Temykou)',tr:'Konsinye (Temykou)'}) : tx(lang,{fr:'Acheté',ar:'مُشترى',en:'Purchased',es:'Comprado',pt:'Comprado',tr:'Satın Alındı'})}
                                                                     </span>
                                                                 </td>
@@ -3920,7 +3920,7 @@ export default function Magasin({ models = [], planningEvents = [], settings }: 
                                                                     </div>
                                                                     <div className="grid grid-cols-3 gap-2 mt-3 text-center border-y py-2 text-xs">
                                                                         <div>
-                                                                            <span className="block text-[9px] font-bold text-slate-400 dark:text-dk-muted uppercase">Reçu</span>
+                                                                            <span className="block text-[9px] font-bold text-slate-400 dark:text-dk-muted uppercase">{tx(lang, {fr: 'Reçu', ar: 'المستلم', en: 'Received', es: 'Recibido', pt: 'Recebido', tr: 'Alınan'})}</span>
                                                                             <span className="font-bold text-slate-700 dark:text-dk-text">{r.qtyReceived.toLocaleString()}</span>
                                                                         </div>
                                                                         <div>
@@ -3941,7 +3941,7 @@ export default function Magasin({ models = [], planningEvents = [], settings }: 
                                                                             setSurplusActionType('transfer');
                                                                             setSurplusTargetEventId('');
                                                                         }} className="flex-1 py-1.5 bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 dark:bg-indigo-900/30 hover:bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-dk-accent-text dark:text-indigo-300 font-bold text-xs rounded transition-colors uppercase tracking-wider">
-                                                                            Transférer
+                                                                            {tx(lang, {fr: 'Transférer', ar: 'تحويل', en: 'Transfer', es: 'Transferir', pt: 'Transferir', tr: 'Aktar'})}
                                                                         </button>
                                                                         <button onClick={() => {
                                                                             setSurplusModal({ open: true, eventId: ev.id, materialName: r.materialName, surplusQty: surplus, isTemykou: true });
