@@ -60,7 +60,7 @@ export default function Profil() {
             <div className="min-w-0">
               <h1 className="text-[15px] font-semibold text-slate-900 dark:text-dk-text truncate">{form.name || user?.name || tx(lang, { fr: 'Mon profil', ar: 'ملفي الشخصي', en: 'My profile', es: 'Mi perfil', pt: 'Meu perfil', tr: 'Profilim' })}{form.metier && <span className="text-[12px] font-normal text-slate-400 dark:text-dk-muted"> · {form.metier}</span>}</h1>
               <div className="flex items-center gap-2 mt-1">
-                <span className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-md border" style={{ color: ACCENT, borderColor: '#c7d2fe', background: '#eef2ff' }}>
+                <span className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-md border border-indigo-200 dark:border-dk-border bg-indigo-50 dark:bg-dk-accent/20 text-indigo-600 dark:text-dk-accent-text">
                   <Shield size={11} strokeWidth={1.75} /> {roleLabel}
                 </span>
                 {user?.email && (

@@ -207,7 +207,7 @@ export default function VueGenerale({
               <span className="text-[11px] font-semibold text-slate-400 dark:text-dk-muted">{activeEvents.length} OF</span>
             </div>
 
-            <div className="divide-y divide-slate-50">
+            <div className="divide-y divide-slate-50 dark:divide-dk-border/60">
               {recentModels.length === 0 ? (
                 <div className="py-16 flex flex-col items-center justify-center text-center">
                   <div className="w-12 h-12 rounded-2xl bg-slate-50 dark:bg-dk-bg border border-slate-100 dark:border-dk-border flex items-center justify-center mb-3">
@@ -265,8 +265,8 @@ export default function VueGenerale({
             className="bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border/60 overflow-hidden"
           >
             <div className="px-6 py-4 border-b border-slate-100 dark:border-dk-border flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-lg bg-sky-50 flex items-center justify-center">
-                <Layers className="w-4 h-4 text-sky-600" />
+              <div className="w-8 h-8 rounded-lg bg-sky-50 dark:bg-dk-elevated flex items-center justify-center">
+                <Layers className="w-4 h-4 text-sky-600 dark:text-dk-accent-text" />
               </div>
               <h2 className="text-sm font-bold text-slate-800 dark:text-dk-text">{tx(lang, { fr: 'État du Parc', ar: 'حالة الأسطول', en: 'Fleet Status', es: 'Estado del Parque', pt: 'Status do Parque', tr: 'Filo Durumu' })}</h2>
             </div>
@@ -276,7 +276,7 @@ export default function VueGenerale({
               <div className="flex items-center justify-center">
                 <div className="relative w-28 h-28">
                   <svg className="w-full h-full -rotate-90" viewBox="0 0 100 100">
-                    <circle cx="50" cy="50" r="42" fill="none" stroke="#f1f5f9" strokeWidth="8" />
+                    <circle cx="50" cy="50" r="42" fill="none" stroke="#f1f5f9" className="dark:stroke-dk-border" strokeWidth="8" />
                     <circle
                       cx="50" cy="50" r="42" fill="none"
                       stroke={machineHealth >= 80 ? '#10b981' : machineHealth >= 50 ? '#f59e0b' : '#ef4444'}
@@ -295,26 +295,26 @@ export default function VueGenerale({
 
               {/* Status Breakdown */}
               <div className="space-y-2.5">
-                <div className="flex items-center justify-between px-3 py-2.5 rounded-xl bg-emerald-50/50 border border-emerald-100/50">
+                <div className="flex items-center justify-between px-3 py-2.5 rounded-xl bg-emerald-50/50 dark:bg-dk-surface border border-emerald-100/50 dark:border-dk-border">
                   <div className="flex items-center gap-2">
                     <div className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
                     <span className="text-[11px] font-semibold text-slate-600 dark:text-dk-text-soft">{tx(lang, { fr: 'Opérationnelles', ar: 'تعمل بشكل سليم', en: 'Operational', es: 'Operativas', pt: 'Operacionais', tr: 'Çalışır Durumda' })}</span>
                   </div>
-                  <span className="text-sm font-bold text-emerald-700">{okMachines}</span>
+                  <span className="text-sm font-bold text-emerald-700 dark:text-dk-accent-text">{okMachines}</span>
                 </div>
-                <div className="flex items-center justify-between px-3 py-2.5 rounded-xl bg-rose-50/50 border border-rose-100/50">
+                <div className="flex items-center justify-between px-3 py-2.5 rounded-xl bg-rose-50/50 dark:bg-dk-surface border border-rose-100/50 dark:border-dk-border">
                   <div className="flex items-center gap-2">
                     <div className="w-2.5 h-2.5 rounded-full bg-rose-500" />
                     <span className="text-[11px] font-semibold text-slate-600 dark:text-dk-text-soft">{tx(lang, { fr: 'En Panne', ar: 'معطلة', en: 'Broken Down', es: 'Averiadas', pt: 'Com Defeito', tr: 'Arızalı' })}</span>
                   </div>
-                  <span className="text-sm font-bold text-rose-700">{panneMachines}</span>
+                  <span className="text-sm font-bold text-rose-700 dark:text-dk-text">{panneMachines}</span>
                 </div>
-                <div className="flex items-center justify-between px-3 py-2.5 rounded-xl bg-amber-50/50 border border-amber-100/50">
+                <div className="flex items-center justify-between px-3 py-2.5 rounded-xl bg-amber-50/50 dark:bg-dk-surface border border-amber-100/50 dark:border-dk-border">
                   <div className="flex items-center gap-2">
                     <div className="w-2.5 h-2.5 rounded-full bg-amber-500" />
                     <span className="text-[11px] font-semibold text-slate-600 dark:text-dk-text-soft">{tx(lang, { fr: 'Maintenance', ar: 'الصيانة', en: 'Maintenance', es: 'Mantenimiento', pt: 'Manutenção', tr: 'Bakım' })}</span>
                   </div>
-                  <span className="text-sm font-bold text-amber-700">{maintMachines}</span>
+                  <span className="text-sm font-bold text-amber-700 dark:text-dk-text">{maintMachines}</span>
                 </div>
               </div>
 
@@ -342,13 +342,13 @@ export default function VueGenerale({
               <span className="text-[11px] font-semibold text-slate-500 dark:text-dk-muted">{tx(lang, { fr: 'Chaînes', ar: 'الخطوط', en: 'Lines', es: 'Cadenas', pt: 'Linhas', tr: 'Hatlar' })}</span>
               <span className="text-sm font-bold text-slate-800 dark:text-dk-text">{activeChains}/{chainsCount}</span>
             </div>
-            <div className="w-px h-6 bg-slate-200" />
+            <div className="w-px h-6 bg-slate-200 dark:bg-dk-border" />
             <div className="flex items-center gap-2">
               <Calendar className="w-4 h-4 text-slate-400 dark:text-dk-muted" />
               <span className="text-[11px] font-semibold text-slate-500 dark:text-dk-muted">{tx(lang, { fr: 'Modèles', ar: 'النماذج', en: 'Models', es: 'Modelos', pt: 'Modelos', tr: 'Modeller' })}</span>
               <span className="text-sm font-bold text-slate-800 dark:text-dk-text">{models.length}</span>
             </div>
-            <div className="w-px h-6 bg-slate-200" />
+            <div className="w-px h-6 bg-slate-200 dark:bg-dk-border" />
             <div className="flex items-center gap-2">
               <Users className="w-4 h-4 text-slate-400 dark:text-dk-muted" />
               <span className="text-[11px] font-semibold text-slate-500 dark:text-dk-muted">{tx(lang, { fr: 'Effectif', ar: 'العدد', en: 'Staff', es: 'Personal', pt: 'Efetivo', tr: 'Personel' })}</span>
@@ -356,8 +356,8 @@ export default function VueGenerale({
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <TrendingUp className="w-4 h-4 text-emerald-500" />
-            <span className="text-[11px] font-semibold text-emerald-600">{tx(lang, { fr: 'Production en cours', ar: 'الإنتاج جارٍ', en: 'Production in progress', es: 'Producción en curso', pt: 'Produção em andamento', tr: 'Üretim devam ediyor' })}</span>
+            <TrendingUp className="w-4 h-4 text-emerald-500 dark:text-dk-accent" />
+            <span className="text-[11px] font-semibold text-emerald-600 dark:text-dk-accent-text">{tx(lang, { fr: 'Production en cours', ar: 'الإنتاج جارٍ', en: 'Production in progress', es: 'Producción en curso', pt: 'Produção em andamento', tr: 'Üretim devam ediyor' })}</span>
           </div>
         </motion.div>
 
