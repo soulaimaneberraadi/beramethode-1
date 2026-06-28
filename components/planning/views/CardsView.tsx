@@ -48,12 +48,12 @@ export default function CardsView({ events, models, onSelectEvent, onEditEvent }
 
     if (events.length === 0) {
         return (
-            <div className="p-6 bg-slate-50/30 min-h-full flex flex-col items-center justify-center text-center">
-                <div className="w-14 h-14 rounded-2xl bg-white border border-slate-150 flex items-center justify-center mb-4 shadow-sm">
-                    <Layers className="w-6 h-6 text-slate-300" strokeWidth={1.75} />
+            <div className="p-6 bg-slate-50/30 dark:bg-dk-bg min-h-full flex flex-col items-center justify-center text-center">
+                <div className="w-14 h-14 rounded-2xl bg-white dark:bg-dk-surface border border-slate-150 dark:border-dk-border flex items-center justify-center mb-4 shadow-sm">
+                    <Layers className="w-6 h-6 text-slate-300 dark:text-dk-muted" strokeWidth={1.75} />
                 </div>
-                <p className="text-[14px] font-semibold text-slate-700">{tx(lang, { fr: 'Aucun ordre à afficher', ar: 'لا يوجد أمر للعرض', en: 'No orders to display', es: 'Sin órdenes para mostrar', pt: 'Nenhum pedido para exibir', tr: 'Gösterilecek sipariş yok' })}</p>
-                <p className="text-[12px] text-slate-400 mt-1 max-w-[260px]">
+                <p className="text-[14px] font-semibold text-slate-700 dark:text-dk-text-soft">{tx(lang, { fr: 'Aucun ordre à afficher', ar: 'لا يوجد أمر للعرض', en: 'No orders to display', es: 'Sin órdenes para mostrar', pt: 'Nenhum pedido para exibir', tr: 'Gösterilecek sipariş yok' })}</p>
+                <p className="text-[12px] text-slate-400 dark:text-dk-muted mt-1 max-w-[260px]">
                     {tx(lang, { fr: 'Aucun OF ne correspond. Cliquez sur « Planifier » pour en créer un, ou ajustez vos filtres.', ar: 'لا يوجد أمر تصنيع مطابق. انقر على «تخطيط» لإنشاء واحد، أو اضبط عوامل التصفية.', en: 'No matching manufacturing order. Click "Plan" to create one, or adjust your filters.', es: 'Ninguna OF coincide. Haga clic en « Planificar » para crear una, o ajuste sus filtros.', pt: 'Nenhuma OF corresponde. Clique em « Planejar » para criar uma, ou ajuste seus filtros.', tr: 'Eşleşen üretim emri yok. Oluşturmak için « Planla »ya tıklayın veya filtrelerinizi ayarlayın.' })}</p>
             </div>
         );
