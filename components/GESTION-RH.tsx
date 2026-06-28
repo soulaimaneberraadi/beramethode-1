@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useRef, useMemo, Fragment } from 'react';
+﻿import React, { useEffect, useState, useCallback, useRef, useMemo, Fragment } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Users, UserPlus, Clock, BarChart2, DollarSign, FileText,
@@ -25,6 +25,7 @@ import {
 } from '../lib/pointageGrille';
 import { tx, type TxMap } from '../lib/i18n';
 import { useLang } from '../src/context/LanguageContext';
+import { useIsDark } from '../src/context/ThemeContext';
 
 /** Hauteur 1re ligne d'en-tête (px) — offset sticky pour la ligne des libellés de tranches */
 const POINTAGE_THEAD_R1_H = 36;

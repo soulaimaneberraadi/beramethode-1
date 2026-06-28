@@ -5,6 +5,7 @@ import { translations, fmt } from '../constants';
 import { findMagasinItem } from '../lib/magasinMatch';
 import { tx } from '../lib/i18n';
 import { useLang } from '../src/context/LanguageContext';
+import { useIsDark } from '../src/context/ThemeContext';
 import { PieChart, Pie, Cell, Tooltip as RechartsTooltip, Legend } from 'recharts';
 import { ResponsiveChart } from './ui/ResponsiveChart';
 
@@ -60,7 +61,7 @@ export default function CostCalculator({
     // --- UI State Fixed ---
     const { lang } = useLang();
     const currency = initialPropsSettings?.currency || 'DH';
-    const darkMode = false;
+    const darkMode = useIsDark();
     const [viewMode, setViewMode] = useState<'ticket' | 'a4'>('a4'); // Default to A4 as requested
     const docRefA4 = useRef<HTMLDivElement>(null);
     const docRefTicket = useRef<HTMLDivElement>(null);
@@ -939,11 +940,11 @@ export default function CostCalculator({
     };
 
     const bgMain = 'bg-gray-50';
-    const bgCard = 'bg-white border-slate-200 transition-colors';
-    const bgCardHeader = 'bg-white border-slate-100';
-    const textPrimary = 'text-slate-800';
-    const textSecondary = 'text-slate-500';
-    const inputBg = 'bg-slate-50/60 border-slate-200 text-slate-900';
+    const bgCard = darkMode ? 'bg-dk-surface border-dk-border transition-colors' : 'bg-white border-slate-200 transition-colors';
+    const bgCardHeader = darkMode ? 'bg-dk-surface border-dk-border' : 'bg-white border-slate-100';
+    const textPrimary = darkMode ? 'text-dk-text' : 'text-slate-800';
+    const textSecondary = darkMode ? 'text-dk-muted' : 'text-slate-500';
+    const inputBg = darkMode ? 'bg-dk-bg border-dk-border text-dk-text' : 'bg-slate-50/60 border-slate-200 text-slate-900';
     const tableHeader = 'bg-slate-50/60 text-slate-500';
     const tableRowHover = 'hover:bg-slate-50/50';
 

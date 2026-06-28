@@ -2,7 +2,7 @@ import React, { useState, useRef } from 'react';
 import { motion, useMotionValue, useSpring, useTransform, type MotionValue } from 'framer-motion';
 import { Building2, User, Users, StopCircle, ChevronRight, ChevronLeft, CheckCircle2, Loader2, AlertCircle, Eye, EyeOff, ImagePlus, ScrollText, X, Sun, Moon, Monitor, SlidersHorizontal } from 'lucide-react';
 import { AccountType } from '../app/accountTypes';
-import { useTheme } from '../src/context/ThemeContext';
+import { useTheme, useIsDark } from '../src/context/ThemeContext';
 import { DEFAULT_CALENDAR_APP_SETTINGS } from '../lib/defaultCalendarSettings';
 import { tx } from '../lib/i18n';
 import { useLang } from '../src/context/LanguageContext';
@@ -280,6 +280,7 @@ const CGU_SECTIONS: { title: string; body: string }[] = [
 
 export default function Setup({ onComplete }: Props) {
   const { lang } = useLang();
+  const isDark = useIsDark();
   const [step, setStep] = useState<Step>(1);
 
   // ── Traînée de fumée pilotée par la souris ─────────────────────────────────
@@ -498,7 +499,7 @@ export default function Setup({ onComplete }: Props) {
   return (
     <div
       onMouseMove={handlePointerMove}
-      className="relative min-h-screen overflow-hidden bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center p-4"
+      className={`relative min-h-screen overflow-hidden flex items-center justify-center p-4 ${isDark ? 'bg-dk-bg' : 'bg-gradient-to-br from-slate-50 to-slate-100'}`}
     >
       {/* Traînée de fumée émeraude — de la queue (rendue d'abord, dessous) vers
           la tête (rendue en dernier, au-dessus du curseur). */}
@@ -535,7 +536,7 @@ export default function Setup({ onComplete }: Props) {
               transition={{ duration: 4.5, repeat: Infinity, ease: 'easeInOut' }}
             />
             <h1 className="relative text-3xl font-black tracking-tight mb-1">
-              <span className="text-slate-900">BERA</span>
+              <span className={`${isDark ? 'text-dk-text' : 'text-slate-900'}`}>BERA</span>
               {/* Bascule de lumière qui traverse doucement « METHODE ». */}
               <motion.span
                 className="bg-clip-text text-transparent"
@@ -555,7 +556,7 @@ export default function Setup({ onComplete }: Props) {
         </div>
 
         {/* Carte principale */}
-        <div dir="ltr" className="bg-white rounded-2xl shadow-sm border border-slate-100 p-8">
+        <div dir="ltr" className={`rounded-2xl shadow-sm p-8 ${isDark ? 'bg-dk-surface border border-dk-border' : 'bg-white border border-slate-100'}`}>
           {/* Indicateur d'étapes */}
           <div className="flex justify-center items-center mb-8">
             <StepDot n={1} step={step} />
@@ -1040,7 +1041,7 @@ export default function Setup({ onComplete }: Props) {
             animate={{ opacity: 1, scale: 1, y: 0 }}
             transition={{ duration: 0.18, ease: 'easeOut' }}
             onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-lg max-h-[85vh] flex flex-col bg-white rounded-2xl shadow-xl border border-slate-100 overflow-hidden"
+            className={`w-full max-w-lg max-h-[85vh] flex flex-col rounded-2xl shadow-xl overflow-hidden ${isDark ? 'bg-dk-surface border border-dk-border' : 'bg-white border border-slate-100'}`}
           >
             <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-slate-100">
               <div className="flex items-center gap-2 min-w-0">

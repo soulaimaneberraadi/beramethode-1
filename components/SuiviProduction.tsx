@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from 'react';
+﻿import React, { useMemo, useState, useEffect } from 'react';
 import type { AppSettings, ModelData, PlanningEvent, SuiviData, MaterialReceipt, InventoryMovement, MouvementStock, PlanningStatus } from '../types';
 import { deriveHourGrid } from './suivi/shared/hours';
 import { getOFColor, OF_COLOR_CHOICES, type OFStyle } from './suivi/shared/ofColors';
@@ -1037,19 +1037,19 @@ export default function SuiviProduction({
     }, [activeModels, models, mvts, products, selectedChaineId]);
 
     return (
-        <div className="flex flex-col h-full bg-[#fafbfe] overflow-hidden font-sans antialiased text-slate-800">
+        <div className="flex flex-col h-full bg-[#fafbfe] overflow-hidden font-sans antialiased text-slate-800 dark:text-dk-text">
             
             {/* Top SaaS Header Bar */}
-            <div className="bg-white border-b border-slate-200/60 px-3 py-2.5 sm:px-6 sm:py-4 flex flex-wrap items-center justify-between gap-2 sm:gap-4 shrink-0 shadow-sm z-20">
+            <div className="bg-white dark:bg-dk-surface border-b border-slate-200 dark:border-dk-border/60 px-3 py-2.5 sm:px-6 sm:py-4 flex flex-wrap items-center justify-between gap-2 sm:gap-4 shrink-0 shadow-sm z-20">
                 <div className="flex items-center gap-2 sm:gap-3">
-                    <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl sm:rounded-2xl bg-indigo-600 flex items-center justify-center text-white shadow-sm shrink-0">
+                    <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl sm:rounded-2xl bg-indigo-600 dark:bg-indigo-700 flex items-center justify-center text-white shadow-sm shrink-0">
                         <Activity className="w-4 h-4 sm:w-5 sm:h-5" />
                     </div>
                     <div>
                         <h1 className="text-[15px] sm:text-lg font-black tracking-tight flex items-center gap-2">
-                            {l.title} <span className="hidden sm:inline text-xs bg-indigo-50 border border-indigo-100 text-indigo-700 px-2 py-0.5 rounded-lg font-bold">{tx(lang, { fr: 'Grille Directe', ar: 'الجدول المباشر', en: 'Live Grid', es: 'Tabla directa', pt: 'Grelha direta', tr: 'Canlı tablo' })}</span>
+                            {l.title} <span className="hidden sm:inline text-xs bg-indigo-50 dark:bg-indigo-900/30 border border-indigo-100 dark:border-indigo-800/50 text-indigo-700 dark:text-indigo-300 dark:text-indigo-200 px-2 py-0.5 rounded-lg font-bold">{tx(lang, { fr: 'Grille Directe', ar: 'الجدول المباشر', en: 'Live Grid', es: 'Tabla directa', pt: 'Grelha direta', tr: 'Canlı tablo' })}</span>
                         </h1>
-                        <p className="hidden sm:block text-xs text-slate-400 font-medium">{l.subtitle}</p>
+                        <p className="hidden sm:block text-xs text-slate-400 dark:text-dk-muted font-medium">{l.subtitle}</p>
                     </div>
                 </div>
 
@@ -1057,8 +1057,8 @@ export default function SuiviProduction({
                 <div className="flex flex-wrap items-center gap-1.5 sm:gap-3">
                     
                     {activeModels.length > 0 ? (
-                        <div className="relative flex items-center gap-2 bg-indigo-50/50 border border-indigo-100 rounded-xl px-3 py-1.5 shadow-sm">
-                            <span className="text-[10px] font-black text-indigo-700 uppercase tracking-widest">
+                        <div className="relative flex items-center gap-2 bg-indigo-50 dark:bg-indigo-900/30/50 border border-indigo-100 dark:border-indigo-800/50 rounded-xl px-3 py-1.5 shadow-sm">
+                            <span className="text-[10px] font-black text-indigo-700 dark:text-indigo-300 dark:text-indigo-200 uppercase tracking-widest">
                                 {l.activeModel} :
                             </span>
                             {/* Color swatch — clic pour changer la couleur de l'OF */}
@@ -1073,33 +1073,33 @@ export default function SuiviProduction({
                             <button
                                 type="button"
                                 onClick={() => { setModelDropdownOpen(o => !o); setColorPickerOpen(false); }}
-                                className="flex items-center gap-2 bg-transparent text-xs font-black text-indigo-900 outline-none cursor-pointer max-w-[260px]"
+                                className="flex items-center gap-2 bg-transparent text-xs font-black text-indigo-900 dark:text-indigo-200 outline-none cursor-pointer max-w-[260px]"
                             >
                                 {activeModel?.image ? (
-                                    <img src={activeModel.image} alt="" className="w-7 h-7 rounded-lg object-cover border border-indigo-100 shrink-0" />
+                                    <img src={activeModel.image} alt="" className="w-7 h-7 rounded-lg object-cover border border-indigo-100 dark:border-indigo-800/50 shrink-0" />
                                 ) : (
-                                    <span className="w-7 h-7 rounded-lg border border-indigo-100 bg-indigo-50 flex items-center justify-center shrink-0 text-indigo-300">
+                                    <span className="w-7 h-7 rounded-lg border border-indigo-100 dark:border-indigo-800/50 bg-indigo-50 dark:bg-indigo-900/30 flex items-center justify-center shrink-0 text-indigo-300 dark:text-indigo-200">
                                         <ImageIcon className="w-3.5 h-3.5" />
                                     </span>
                                 )}
                                 <span className="truncate">
                                     {activeModel?.reference}{activeModel?.ofTag ? ` · ${activeModel.ofTag}` : ''}
                                 </span>
-                                <ChevronRight className={`w-3.5 h-3.5 shrink-0 text-indigo-400 transition-transform ${modelDropdownOpen ? 'rotate-90' : ''}`} />
+                                <ChevronRight className={`w-3.5 h-3.5 shrink-0 text-indigo-400 dark:text-indigo-300 dark:text-indigo-200 transition-transform ${modelDropdownOpen ? 'rotate-90' : ''}`} />
                             </button>
 
                             {/* Model dropdown popover */}
                             {modelDropdownOpen && (
                                 <>
                                     <div className="fixed inset-0 z-40" onClick={() => setModelDropdownOpen(false)} />
-                                    <div className="absolute top-full left-0 mt-2 z-50 bg-white border border-slate-200 rounded-2xl shadow-xl p-1.5 w-72 max-h-80 overflow-y-auto animate-in fade-in zoom-in-95 duration-150">
+                                    <div className="absolute top-full left-0 mt-2 z-50 bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-2xl shadow-xl p-1.5 w-72 max-h-80 overflow-y-auto animate-in fade-in zoom-in-95 duration-150">
                                         {activeModels.map(m => {
                                             const ev = planningEvents.find(p => p.id === m.planningId);
                                             return (
                                                 <div
                                                     key={m.id}
                                                     className={`w-full flex items-center justify-between px-2 py-1.5 rounded-xl transition-colors ${
-                                                        m.id === selectedActiveModelId ? 'bg-indigo-50 ring-1 ring-indigo-200' : 'hover:bg-slate-50'
+                                                        m.id === selectedActiveModelId ? 'bg-indigo-50 dark:bg-indigo-900/30 ring-1 ring-indigo-200 dark:ring-indigo-900/50' : 'hover:bg-slate-50 dark:bg-dk-bg'
                                                     }`}
                                                 >
                                                     <div
@@ -1107,18 +1107,18 @@ export default function SuiviProduction({
                                                         className="flex items-center gap-2.5 flex-1 min-w-0 cursor-pointer"
                                                     >
                                                         {m.image ? (
-                                                            <img src={m.image} alt="" className="w-9 h-9 rounded-lg object-cover border border-slate-100 shrink-0" />
+                                                            <img src={m.image} alt="" className="w-9 h-9 rounded-lg object-cover border border-slate-100 dark:border-dk-border/60 shrink-0" />
                                                         ) : (
-                                                            <span className="w-9 h-9 rounded-lg border border-slate-100 bg-slate-50 flex items-center justify-center shrink-0 text-slate-300">
+                                                            <span className="w-9 h-9 rounded-lg border border-slate-100 dark:border-dk-border/60 bg-slate-50 dark:bg-dk-bg flex items-center justify-center shrink-0 text-slate-300 dark:text-dk-muted">
                                                                 <ImageIcon className="w-4 h-4" />
                                                             </span>
                                                         )}
                                                         <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: m.style.base }} />
                                                         <div className="min-w-0 flex-1">
-                                                            <p className="text-xs font-black text-slate-800 truncate">
+                                                            <p className="text-xs font-black text-slate-800 dark:text-dk-text truncate">
                                                                 {m.reference}{m.ofTag ? ` · ${m.ofTag}` : ''}
                                                             </p>
-                                                            <p className="text-[10px] text-slate-400 font-bold truncate">{m.name}</p>
+                                                            <p className="text-[10px] text-slate-400 dark:text-dk-muted font-bold truncate">{m.name}</p>
                                                         </div>
                                                     </div>
                                                     {ev && (
@@ -1128,7 +1128,7 @@ export default function SuiviProduction({
                                                                 e.stopPropagation();
                                                                 setEditingStatusEvent(ev);
                                                             }}
-                                                            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+                                                            className="p-1.5 rounded-lg text-slate-400 dark:text-dk-muted hover:text-slate-600 dark:text-dk-text-soft hover:bg-slate-100 dark:bg-dk-elevated/60 transition-colors"
                                                             title={tx(lang, { fr: 'Modifier le statut', ar: 'تعديل الحالة', en: 'Change status', es: 'Modificar estado', pt: 'Alterar estado', tr: 'Durumu değiştir' })}
                                                         >
                                                             <MoreVertical className="w-4 h-4" />
@@ -1143,12 +1143,12 @@ export default function SuiviProduction({
 
                             {/* Palette popover */}
                             {colorPickerOpen && activeModel && (
-                                <div className="absolute top-full left-0 mt-2 z-50 bg-white border border-slate-200 rounded-2xl shadow-xl p-3 w-56 animate-in fade-in zoom-in-95 duration-150">
+                                <div className="absolute top-full left-0 mt-2 z-50 bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-2xl shadow-xl p-3 w-56 animate-in fade-in zoom-in-95 duration-150">
                                     <div className="flex items-center justify-between mb-2">
-                                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-dk-muted">
                                             {tx(lang, { fr: 'Couleur du modèle', ar: 'لون النموذج', en: 'Model color', es: 'Color del modelo', pt: 'Cor do modelo', tr: 'Model rengi' })}
                                         </span>
-                                        <button onClick={() => setColorPickerOpen(false)} className="text-slate-300 hover:text-slate-500">
+                                        <button onClick={() => setColorPickerOpen(false)} className="text-slate-300 dark:text-dk-muted hover:text-slate-500 dark:text-dk-muted">
                                             <X className="w-3.5 h-3.5" />
                                         </button>
                                     </div>
@@ -1158,14 +1158,14 @@ export default function SuiviProduction({
                                                 key={c}
                                                 type="button"
                                                 onClick={() => { setOfColorOverrides(prev => ({ ...prev, [activeModel.id]: c })); setColorPickerOpen(false); }}
-                                                className={`w-6 h-6 rounded-lg border transition-transform hover:scale-110 ${activeModel.style.base === c.toLowerCase() ? 'ring-2 ring-offset-1 ring-indigo-500' : ''}`}
+                                                className={`w-6 h-6 rounded-lg border transition-transform hover:scale-110 ${activeModel.style.base === c.toLowerCase() ? 'ring-2 ring-offset-1 ring-indigo-500 dark:ring-indigo-800' : ''}`}
                                                 style={{ backgroundColor: c, borderColor: c }}
                                                 title={c}
                                             />
                                         ))}
                                     </div>
-                                    <div className="flex items-center justify-between mt-3 pt-2 border-t border-slate-100">
-                                        <label className="flex items-center gap-1.5 text-[10px] font-bold text-slate-500 cursor-pointer">
+                                    <div className="flex items-center justify-between mt-3 pt-2 border-t border-slate-100 dark:border-dk-border/60">
+                                        <label className="flex items-center gap-1.5 text-[10px] font-bold text-slate-500 dark:text-dk-muted cursor-pointer">
                                             <input
                                                 type="color"
                                                 value={activeModel.style.base}
@@ -1177,7 +1177,7 @@ export default function SuiviProduction({
                                         {ofColorOverrides[activeModel.id] && (
                                             <button
                                                 onClick={() => { setOfColorOverrides(prev => { const n = { ...prev }; delete n[activeModel.id]; return n; }); setColorPickerOpen(false); }}
-                                                className="text-[10px] font-bold text-rose-500 hover:text-rose-700"
+                                                className="text-[10px] font-bold text-rose-500 dark:text-rose-300 hover:text-rose-700 dark:text-rose-300"
                                             >
                                                 {tx(lang, { fr: 'Réinitialiser', ar: 'إعادة التعيين', en: 'Reset', es: 'Restablecer', pt: 'Repor', tr: 'Sıfırla' })}
                                             </button>
@@ -1187,26 +1187,26 @@ export default function SuiviProduction({
                             )}
                         </div>
                     ) : (
-                        <div className="flex items-center gap-2 bg-slate-100 border border-slate-200/60 rounded-xl px-3 py-1.5 shadow-sm select-none opacity-60">
-                            <span className="w-7 h-7 rounded-lg border border-slate-200 bg-slate-50 flex items-center justify-center shrink-0 text-slate-400">
+                        <div className="flex items-center gap-2 bg-slate-100 dark:bg-dk-elevated/60 border border-slate-200 dark:border-dk-border/60 rounded-xl px-3 py-1.5 shadow-sm select-none opacity-60">
+                            <span className="w-7 h-7 rounded-lg border border-slate-200 dark:border-dk-border bg-slate-50 dark:bg-dk-bg flex items-center justify-center shrink-0 text-slate-400 dark:text-dk-muted">
                                 <ImageIcon className="w-3.5 h-3.5" />
                             </span>
-                            <span className="text-xs font-bold text-slate-500">
+                            <span className="text-xs font-bold text-slate-500 dark:text-dk-muted">
                                 {tx(lang, { fr: 'Aucun modèle planifié', ar: 'لا يوجد أي نموذج مخطط', en: 'No planned model', es: 'Ningún modelo planificado', pt: 'Nenhum modelo planeado', tr: 'Planlanmış model yok' })}
                             </span>
                         </div>
                     )}
 
                     {/* Chain Picker */}
-                    <div className="bg-slate-100/80 p-0.5 rounded-xl border border-slate-200/50 flex gap-0.5 overflow-x-auto max-w-[280px] sm:max-w-[400px] md:max-w-md no-scrollbar">
+                    <div className="bg-slate-100 dark:bg-dk-elevated/60/80 p-0.5 rounded-xl border border-slate-200 dark:border-dk-border/50 flex gap-0.5 overflow-x-auto max-w-[280px] sm:max-w-[400px] md:max-w-md no-scrollbar">
                         {chainsList.map(cId => (
                             <button
                                 key={cId}
                                 onClick={() => setSelectedChaineId(cId)}
                                 className={`px-3.5 py-1.5 rounded-lg text-xs font-black transition-all shrink-0 ${
                                     selectedChaineId === cId
-                                        ? 'bg-white text-indigo-900 shadow-sm border border-indigo-100/50'
-                                        : 'text-slate-500 hover:text-slate-900'
+                                        ? 'bg-white dark:bg-dk-surface text-indigo-900 dark:text-indigo-200 shadow-sm border border-indigo-100 dark:border-indigo-800/50/50'
+                                        : 'text-slate-500 dark:text-dk-muted hover:text-slate-900'
                                     }`}
                             >
                                 {cId}
@@ -1215,8 +1215,8 @@ export default function SuiviProduction({
                     </div>
 
                     {/* Week Selector */}
-                    <div className="flex items-center bg-white border border-slate-200 rounded-xl px-1.5 sm:px-2.5 py-1 shadow-sm gap-1 sm:gap-2">
-                        <button onClick={() => changeWeek(-1)} className="p-1 hover:bg-slate-50 rounded-lg text-slate-500 hover:text-slate-900 transition-colors z-10">
+                    <div className="flex items-center bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-xl px-1.5 sm:px-2.5 py-1 shadow-sm gap-1 sm:gap-2">
+                        <button onClick={() => changeWeek(-1)} className="p-1 hover:bg-slate-50 dark:bg-dk-bg rounded-lg text-slate-500 dark:text-dk-muted hover:text-slate-900 transition-colors z-10">
                             <ChevronLeft className="w-4 h-4" />
                         </button>
                         <DateTimePicker
@@ -1230,15 +1230,15 @@ export default function SuiviProduction({
                             settings={settings || DEFAULT_CALENDAR_APP_SETTINGS}
                             showIcon={false}
                             className="relative flex items-center justify-center min-w-0"
-                            inputClassName="min-h-0 w-full border-0 bg-transparent text-center text-[11px] sm:text-xs font-bold text-slate-700 shadow-none outline-none hover:bg-slate-50 px-2 py-0.5 rounded-lg transition-colors cursor-pointer select-none"
+                            inputClassName="min-h-0 w-full border-0 bg-transparent text-center text-[11px] sm:text-xs font-bold text-slate-700 dark:text-dk-text shadow-none outline-none hover:bg-slate-50 dark:bg-dk-bg px-2 py-0.5 rounded-lg transition-colors cursor-pointer select-none"
                             displayValue={
-                                <span className="text-[11px] sm:text-xs font-bold text-slate-700 tabular-nums select-none">
+                                <span className="text-[11px] sm:text-xs font-bold text-slate-700 dark:text-dk-text tabular-nums select-none">
                                     <span className="hidden sm:inline">{tx(lang, { fr: 'Semaine du', ar: 'أسبوع من', en: 'Week from', es: 'Semana del', pt: 'Semana de', tr: 'Hafta başlangıcı' })} </span>
                                     {weekDays[0]?.displayDate.substring(0, 5)} <span className="hidden sm:inline">{tx(lang, { fr: 'au', ar: 'إلى', en: 'to', es: 'al', pt: 'a', tr: 'ile' })} {weekDays[5]?.displayDate}</span><span className="sm:hidden">–{weekDays[5]?.displayDate.substring(0, 5)}</span>
                                 </span>
                             }
                         />
-                        <button onClick={() => changeWeek(1)} className="p-1 hover:bg-slate-50 rounded-lg text-slate-500 hover:text-slate-900 transition-colors z-10">
+                        <button onClick={() => changeWeek(1)} className="p-1 hover:bg-slate-50 dark:bg-dk-bg rounded-lg text-slate-500 dark:text-dk-muted hover:text-slate-900 transition-colors z-10">
                             <ChevronRight className="w-4 h-4" />
                         </button>
                     </div>
@@ -1248,8 +1248,8 @@ export default function SuiviProduction({
                         <div className="flex items-center gap-1.5">
                             {/* Supervisor Badge */}
                             {supervisors[selectedChaineId] && (
-                                <div className="flex items-center gap-1 bg-slate-100 border border-slate-200 rounded-xl px-2.5 py-1.5 shadow-sm text-xs font-bold text-slate-600">
-                                    <User className="w-3.5 h-3.5 text-indigo-500" />
+                                <div className="flex items-center gap-1 bg-slate-100 dark:bg-dk-elevated/60 border border-slate-200 dark:border-dk-border rounded-xl px-2.5 py-1.5 shadow-sm text-xs font-bold text-slate-600 dark:text-dk-text-soft">
+                                    <User className="w-3.5 h-3.5 text-indigo-500 dark:text-indigo-300 dark:text-indigo-200" />
                                     <span>{supervisors[selectedChaineId]}</span>
                                 </div>
                             )}
@@ -1257,10 +1257,10 @@ export default function SuiviProduction({
                             {weeklyAverageYield > 0 && (
                                 <div className={`flex items-center gap-1 border rounded-xl px-2.5 py-1.5 shadow-sm text-xs font-bold ${
                                     weeklyAverageYield >= 90 
-                                        ? 'bg-emerald-50 border-emerald-100 text-emerald-700' 
+                                        ? 'bg-emerald-50 dark:bg-emerald-900/30 border-emerald-100 dark:border-emerald-800/50 text-emerald-700 dark:text-emerald-300' 
                                         : weeklyAverageYield >= 80 
-                                            ? 'bg-orange-50 border-orange-100 text-orange-700' 
-                                            : 'bg-rose-50 border-rose-100 text-rose-700'
+                                            ? 'bg-orange-50 dark:bg-orange-900/30 border-orange-100 text-orange-700 dark:text-orange-300' 
+                                            : 'bg-rose-50 dark:bg-rose-900/30 border-rose-100 dark:border-rose-800/50 text-rose-700 dark:text-rose-300'
                                 }`}>
                                     <Activity className="w-3.5 h-3.5" />
                                     <span>{weeklyAverageYield}%</span>
@@ -1276,11 +1276,11 @@ export default function SuiviProduction({
                             title={mobileWeekView ? tx(lang, { fr: 'Vue jour', ar: 'عرض اليوم', en: 'Day view', es: 'Vista día', pt: 'Vista dia', tr: 'Gün görünümü' }) : tx(lang, { fr: 'Vue semaine', ar: 'عرض الأسبوع', en: 'Week view', es: 'Vista semana', pt: 'Vista semana', tr: 'Hafta görünümü' })}
                             className={`flex items-center gap-1.5 px-2 py-1.5 border rounded-xl text-xs font-bold transition-all shadow-sm ${
                                 mobileWeekView
-                                    ? 'bg-indigo-50 text-indigo-800 border-indigo-200 ring-2 ring-indigo-500/10'
-                                    : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'
+                                    ? 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-800 dark:text-indigo-200 border-indigo-200 dark:border-indigo-800 ring-2 ring-indigo-500 dark:ring-indigo-800/10'
+                                    : 'bg-white dark:bg-dk-surface text-slate-500 dark:text-dk-muted border-slate-200 dark:border-dk-border hover:bg-slate-50 dark:bg-dk-bg'
                             }`}
                         >
-                            {mobileWeekView ? <CalendarDays className="w-4 h-4 text-indigo-600" /> : <CalendarRange className="w-4 h-4 text-indigo-600" />}
+                            {mobileWeekView ? <CalendarDays className="w-4 h-4 text-indigo-600 dark:text-indigo-300 dark:text-indigo-200" /> : <CalendarRange className="w-4 h-4 text-indigo-600 dark:text-indigo-300 dark:text-indigo-200" />}
                             <span>{mobileWeekView ? tx(lang, { fr: 'Jour', ar: 'يوم', en: 'Day', es: 'Día', pt: 'Dia', tr: 'Gün' }) : tx(lang, { fr: 'Semaine', ar: 'أسبوع', en: 'Week', es: 'Semana', pt: 'Semana', tr: 'Hafta' })}</span>
                         </button>
                     )}
@@ -1291,18 +1291,18 @@ export default function SuiviProduction({
                         title={tx(lang, { fr: 'Stats', ar: 'المؤشرات', en: 'Stats', es: 'Estadísticas', pt: 'Estatísticas', tr: 'İstatistikler' })}
                         className={`flex items-center gap-1.5 px-2 sm:px-3 py-1.5 border rounded-xl text-xs font-bold transition-all shadow-sm ${
                             showStatsHeader
-                                ? 'bg-indigo-50 text-indigo-800 border-indigo-200 ring-2 ring-indigo-500/10'
-                                : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'
+                                ? 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-800 dark:text-indigo-200 border-indigo-200 dark:border-indigo-800 ring-2 ring-indigo-500 dark:ring-indigo-800/10'
+                                : 'bg-white dark:bg-dk-surface text-slate-500 dark:text-dk-muted border-slate-200 dark:border-dk-border hover:bg-slate-50 dark:bg-dk-bg'
                         }`}
                     >
-                        <BarChart2 className="w-4 h-4 text-indigo-600" />
+                        <BarChart2 className="w-4 h-4 text-indigo-600 dark:text-indigo-300 dark:text-indigo-200" />
                         <span className="hidden sm:inline">{tx(lang, { fr: 'Stats', ar: 'المؤشرات', en: 'Stats', es: 'Estadísticas', pt: 'Estatísticas', tr: 'İstatistikler' })}</span>
                     </button>
 
                     {/* Save State Indicator */}
-                    {saveStatus === 'saving' && <span className="text-xs text-indigo-600 font-semibold animate-pulse">{l.saving}</span>}
-                    {saveStatus === 'saved' && <span className="text-xs text-emerald-600 font-semibold flex items-center gap-1"><CheckCircle className="w-4 h-4" /> {l.saved}</span>}
-                    {saveStatus === 'error' && <span className="text-xs text-rose-600 font-semibold">{l.error}</span>}
+                    {saveStatus === 'saving' && <span className="text-xs text-indigo-600 dark:text-indigo-300 dark:text-indigo-200 font-semibold animate-pulse">{l.saving}</span>}
+                    {saveStatus === 'saved' && <span className="text-xs text-emerald-600 dark:text-emerald-300 font-semibold flex items-center gap-1"><CheckCircle className="w-4 h-4" /> {l.saved}</span>}
+                    {saveStatus === 'error' && <span className="text-xs text-rose-600 dark:text-rose-300 font-semibold">{l.error}</span>}
                 </div>
             </div>
 
@@ -1314,48 +1314,48 @@ export default function SuiviProduction({
                     <div className="grid grid-cols-1 xl:grid-cols-4 gap-6">
                         
                         {/* Supervisor Card */}
-                        <div className="bg-white border border-slate-100 rounded-3xl p-5 shadow-sm flex flex-col justify-between relative overflow-hidden group">
+                        <div className="bg-white dark:bg-dk-surface border border-slate-100 dark:border-dk-border/60 rounded-3xl p-5 shadow-sm flex flex-col justify-between relative overflow-hidden group">
                             <div className="absolute right-0 top-0 w-24 h-24 bg-gradient-to-bl from-indigo-500/5 to-transparent rounded-full blur-xl pointer-events-none"></div>
                             <div className="flex items-center justify-between">
-                                <div className="text-xs font-black uppercase tracking-widest text-slate-400 flex items-center gap-1.5">
-                                    <User className="w-3.5 h-3.5 text-indigo-500" /> 
+                                <div className="text-xs font-black uppercase tracking-widest text-slate-400 dark:text-dk-muted flex items-center gap-1.5">
+                                    <User className="w-3.5 h-3.5 text-indigo-500 dark:text-indigo-300 dark:text-indigo-200" /> 
                                     <span>{l.supervisor}</span>
                                 </div>
-                                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                                <span className="w-2.5 h-2.5 rounded-full bg-emerald-50 dark:bg-emerald-900/300 animate-pulse"></span>
                             </div>
                             <div className="mt-4">
                                 <input
                                     type="text"
                                     value={supervisors[selectedChaineId] || ''}
                                     onChange={(e) => setSupervisors({ ...supervisors, [selectedChaineId]: e.target.value.toUpperCase() })}
-                                    className="text-2xl font-black text-slate-800 uppercase tracking-tight bg-slate-50 border border-slate-100 hover:border-slate-200 focus:border-indigo-500 focus:bg-white rounded-2xl px-4 py-2 w-full transition-all outline-none"
+                                    className="text-2xl font-black text-slate-800 dark:text-dk-text uppercase tracking-tight bg-slate-50 dark:bg-dk-bg border border-slate-100 dark:border-dk-border/60 hover:border-slate-200 dark:border-dk-border focus:border-indigo-500 focus:bg-white dark:bg-dk-surface rounded-2xl px-4 py-2 w-full transition-all outline-none"
                                     placeholder={tx(lang, { fr: 'Entrer responsable', ar: 'إدخال مسؤول الخط', en: 'Enter supervisor', es: 'Introducir responsable', pt: 'Inserir responsável', tr: 'Sorumlu girin' })}
                                 />
                             </div>
-                            <p className="text-[10px] text-slate-400 font-medium mt-3">{tx(lang, { fr: "Chef d'équipe affecté pour le contrôle hebdomadaire", ar: 'مسؤول الفريق المكلف بالمراقبة الأسبوعية', en: 'Team lead assigned for weekly control', es: 'Jefe de equipo asignado al control semanal', pt: 'Chefe de equipa atribuído ao controlo semanal', tr: 'Haftalık kontrol için atanmış ekip lideri' })}</p>
+                            <p className="text-[10px] text-slate-400 dark:text-dk-muted font-medium mt-3">{tx(lang, { fr: "Chef d'équipe affecté pour le contrôle hebdomadaire", ar: 'مسؤول الفريق المكلف بالمراقبة الأسبوعية', en: 'Team lead assigned for weekly control', es: 'Jefe de equipo asignado al control semanal', pt: 'Chefe de equipa atribuído ao controlo semanal', tr: 'Haftalık kontrol için atanmış ekip lideri' })}</p>
                         </div>
 
                         {/* Active Models List Strip */}
-                        <div className="xl:col-span-2 bg-white border border-slate-100 rounded-3xl p-5 shadow-sm flex flex-col justify-between">
-                            <div className="flex items-center justify-between border-b border-slate-50 pb-2">
-                                <span className="text-xs font-black uppercase tracking-widest text-slate-400 flex items-center gap-1.5">
+                        <div className="xl:col-span-2 bg-white dark:bg-dk-surface border border-slate-100 dark:border-dk-border/60 rounded-3xl p-5 shadow-sm flex flex-col justify-between">
+                            <div className="flex items-center justify-between border-b border-slate-50 dark:border-dk-border/40 pb-2">
+                                <span className="text-xs font-black uppercase tracking-widest text-slate-400 dark:text-dk-muted flex items-center gap-1.5">
                                     <span>{l.activeModels}</span>
                                 </span>
-                                <span className="text-[10px] bg-slate-100 text-slate-600 px-2.5 py-0.5 rounded-full font-bold">{tx(lang, { fr: 'Semaine en cours', ar: 'الأسبوع الجاري', en: 'Current week', es: 'Semana actual', pt: 'Semana atual', tr: 'Geçerli hafta' })}</span>
+                                <span className="text-[10px] bg-slate-100 dark:bg-dk-elevated/60 text-slate-600 dark:text-dk-text-soft px-2.5 py-0.5 rounded-full font-bold">{tx(lang, { fr: 'Semaine en cours', ar: 'الأسبوع الجاري', en: 'Current week', es: 'Semana actual', pt: 'Semana atual', tr: 'Geçerli hafta' })}</span>
                             </div>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3 flex-1 overflow-y-auto max-h-28 pr-1 no-scrollbar">
                                 {activeModels.map(m => (
-                                    <div key={m.id} className="rounded-2xl border border-slate-100 p-3 bg-slate-50/50 flex items-center justify-between hover:border-slate-200 transition-colors">
+                                    <div key={m.id} className="rounded-2xl border border-slate-100 dark:border-dk-border/60 p-3 bg-slate-50 dark:bg-dk-bg/50 flex items-center justify-between hover:border-slate-200 dark:border-dk-border transition-colors">
                                         <div className="flex items-center gap-2.5 min-w-0">
                                             <span className="w-3.5 h-3.5 rounded-lg shrink-0 border" style={{ backgroundColor: m.style.bg, borderColor: m.style.border }} />
                                             <div className="min-w-0">
-                                                <p className="text-xs font-black text-slate-800 truncate" title={m.name}>{m.name}</p>
-                                                <p className="text-[10px] text-slate-400 font-bold truncate">Réf: {m.reference} · SAM: {m.sam} min</p>
+                                                <p className="text-xs font-black text-slate-800 dark:text-dk-text truncate" title={m.name}>{m.name}</p>
+                                                <p className="text-[10px] text-slate-400 dark:text-dk-muted font-bold truncate">Réf: {m.reference} · SAM: {m.sam} min</p>
                                             </div>
                                         </div>
                                         <div className="text-right shrink-0">
-                                            <p className="text-xs font-black text-indigo-600 tabular-nums">{m.produced} / {m.target} pcs</p>
-                                            <p className="text-[9px] font-bold text-slate-400">Reste per H: {m.restPerHour}</p>
+                                            <p className="text-xs font-black text-indigo-600 dark:text-indigo-300 dark:text-indigo-200 tabular-nums">{m.produced} / {m.target} pcs</p>
+                                            <p className="text-[9px] font-bold text-slate-400 dark:text-dk-muted">Reste per H: {m.restPerHour}</p>
                                         </div>
                                     </div>
                                 ))}
@@ -1363,27 +1363,27 @@ export default function SuiviProduction({
                         </div>
 
                         {/* Weekly Performance Yield Summary */}
-                        <div className="bg-white border border-slate-100 rounded-3xl p-5 shadow-sm flex flex-col justify-between relative overflow-hidden">
+                        <div className="bg-white dark:bg-dk-surface border border-slate-100 dark:border-dk-border/60 rounded-3xl p-5 shadow-sm flex flex-col justify-between relative overflow-hidden">
                             <div className="absolute right-0 top-0 w-32 h-32 bg-gradient-to-bl from-indigo-500/10 to-transparent rounded-full blur-2xl pointer-events-none"></div>
                             <div className="flex items-center justify-between">
-                                <span className="text-xs font-black uppercase tracking-widest text-slate-400 flex items-center gap-1.5">
+                                <span className="text-xs font-black uppercase tracking-widest text-slate-400 dark:text-dk-muted flex items-center gap-1.5">
                                     <span>{l.yieldAvg}</span>
                                 </span>
-                                <Info className="w-4 h-4 text-slate-300" />
+                                <Info className="w-4 h-4 text-slate-300 dark:text-dk-muted" />
                             </div>
                             <div className="mt-2 flex items-baseline gap-2">
                                 <span className={`text-4xl font-black tracking-tight ${
-                                    weeklyAverageYield >= 90 ? 'text-emerald-600' : weeklyAverageYield >= 80 ? 'text-orange-500' : 'text-rose-600'
+                                    weeklyAverageYield >= 90 ? 'text-emerald-600 dark:text-emerald-300' : weeklyAverageYield >= 80 ? 'text-orange-500 dark:text-orange-300' : 'text-rose-600 dark:text-rose-300'
                                 }`}>
                                     {weeklyAverageYield > 0 ? `${weeklyAverageYield}%` : '—'}
                                 </span>
-                                <span className="text-xs font-bold text-slate-400">{tx(lang, { fr: "d'efficience", ar: 'من الكفاءة', en: 'efficiency', es: 'de eficiencia', pt: 'de eficiência', tr: 'verimlilik' })}</span>
+                                <span className="text-xs font-bold text-slate-400 dark:text-dk-muted">{tx(lang, { fr: "d'efficience", ar: 'من الكفاءة', en: 'efficiency', es: 'de eficiencia', pt: 'de eficiência', tr: 'verimlilik' })}</span>
                             </div>
                             <div className="mt-3">
-                                <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+                                <div className="w-full bg-slate-100 dark:bg-dk-elevated/60 h-2 rounded-full overflow-hidden">
                                     <div 
                                         className={`h-full rounded-full transition-all duration-1000 ${
-                                            weeklyAverageYield >= 90 ? 'bg-emerald-500' : weeklyAverageYield >= 80 ? 'bg-orange-500' : 'bg-rose-500'
+                                            weeklyAverageYield >= 90 ? 'bg-emerald-50 dark:bg-emerald-900/300' : weeklyAverageYield >= 80 ? 'bg-orange-50 dark:bg-orange-900/300' : 'bg-rose-50 dark:bg-rose-900/300'
                                         }`}
                                         style={{ width: `${Math.min(100, weeklyAverageYield)}%` }}
                                     />
@@ -1394,31 +1394,31 @@ export default function SuiviProduction({
                 )}
 
                 {/* Primary Weekly Grid Table */}
-                <div className="bg-white border border-slate-200/60 rounded-2xl shadow-sm overflow-hidden z-10 relative">
+                <div className="bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border/60 rounded-2xl shadow-sm overflow-hidden z-10 relative">
                     {/* ─── Tableau hebdomadaire complet (desktop, ou mobile si vue semaine) ─── */}
                     {(!isMobile || mobileWeekView) && (
                     <div className="overflow-x-auto scrollbar-thin">
                         <table className="w-full text-left border-collapse min-w-[1300px] sm:min-w-[1700px]">
                             <thead>
-                                <tr className="border-b border-slate-100 bg-slate-50/50">
-                                    <th className="py-4 px-4 text-[10px] font-black uppercase tracking-widest text-slate-400 w-28 sticky left-0 bg-slate-50 z-20 border-r border-slate-100/50 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]">{l.date}</th>
-                                    <th className="py-4 px-4 text-[10px] font-black uppercase tracking-widest text-slate-400 w-24 sticky left-[112px] bg-slate-50 z-20 border-r border-slate-100/50 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]">{l.day}</th>
+                                <tr className="border-b border-slate-100 dark:border-dk-border/60 bg-slate-50 dark:bg-dk-bg/50">
+                                    <th className="py-4 px-4 text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-dk-muted w-28 sticky left-0 bg-slate-50 dark:bg-dk-bg z-20 border-r border-slate-100 dark:border-dk-border/60/50 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]">{l.date}</th>
+                                    <th className="py-4 px-4 text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-dk-muted w-24 sticky left-[112px] bg-slate-50 dark:bg-dk-bg z-20 border-r border-slate-100 dark:border-dk-border/60/50 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]">{l.day}</th>
                                     
                                     {/* Hour Headers (Dynamic Shift hours) */}
                                     {hourBlocks.map(h => (
-                                        <th key={h.key} className="py-4 px-2 text-[10px] font-black uppercase tracking-widest text-slate-400 text-center w-28 border-r border-slate-100/50">
+                                        <th key={h.key} className="py-4 px-2 text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-dk-muted text-center w-28 border-r border-slate-100 dark:border-dk-border/60/50">
                                             {h.label}
                                         </th>
                                     ))}
-                                    <th className="py-4 px-3 text-[10px] font-black uppercase tracking-widest text-slate-400 text-center w-24">{l.pJournaliere}</th>
-                                    <th className="py-4 px-3 text-[10px] font-black uppercase tracking-widest text-slate-400 text-center w-20">{l.totalHours}</th>
+                                    <th className="py-4 px-3 text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-dk-muted text-center w-24">{l.pJournaliere}</th>
+                                    <th className="py-4 px-3 text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-dk-muted text-center w-20">{l.totalHours}</th>
                                     
-                                    <th className="py-4 px-3 text-[10px] font-black uppercase tracking-widest text-indigo-500/80 text-center w-24 border-l border-slate-100">
+                                    <th className="py-4 px-3 text-[10px] font-black uppercase tracking-widest text-indigo-500 dark:text-indigo-300 dark:text-indigo-200/80 text-center w-24 border-l border-slate-100 dark:border-dk-border/60">
                                         {l.effectif}
                                     </th>
  
-                                    <th className="py-4 px-3 text-[10px] font-black uppercase tracking-widest text-slate-400 text-center w-32 border-l border-slate-100">{tx(lang, { fr: 'R1 / R2 %', ar: 'مردودية R1 / R2 %', en: 'R1 / R2 %', es: 'R1 / R2 %', pt: 'R1 / R2 %', tr: 'R1 / R2 %' })}</th>
-                                    <th className="py-4 px-3 text-[10px] font-black uppercase tracking-widest text-slate-400 text-center w-28">{l.yieldDay}</th>
+                                    <th className="py-4 px-3 text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-dk-muted text-center w-32 border-l border-slate-100 dark:border-dk-border/60">{tx(lang, { fr: 'R1 / R2 %', ar: 'مردودية R1 / R2 %', en: 'R1 / R2 %', es: 'R1 / R2 %', pt: 'R1 / R2 %', tr: 'R1 / R2 %' })}</th>
+                                    <th className="py-4 px-3 text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-dk-muted text-center w-28">{l.yieldDay}</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-50">
@@ -1426,14 +1426,14 @@ export default function SuiviProduction({
                                     const metrics = getDailyMetrics(day.dateStr);
  
                                     return (
-                                        <tr key={day.dateStr} className={`hover:bg-slate-50/30 transition-colors ${selectedChartDate === day.dateStr ? 'bg-indigo-50/20' : ''}`}>
+                                        <tr key={day.dateStr} className={`hover:bg-slate-50 dark:bg-dk-bg/30 transition-colors ${selectedChartDate === day.dateStr ? 'bg-indigo-50 dark:bg-indigo-900/30/20' : ''}`}>
                                             {/* Date */}
-                                            <td className={`py-4 px-4 font-mono text-xs text-slate-500 font-bold sticky left-0 z-10 border-r border-slate-100 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)] ${selectedChartDate === day.dateStr ? 'bg-[#f4f6fe]' : 'bg-white'}`}>
+                                            <td className={`py-4 px-4 font-mono text-xs text-slate-500 dark:text-dk-muted font-bold sticky left-0 z-10 border-r border-slate-100 dark:border-dk-border/60 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)] ${selectedChartDate === day.dateStr ? 'bg-[#f4f6fe]' : 'bg-white dark:bg-dk-surface'}`}>
                                                 <div className="flex items-center gap-2">
                                                     <button
                                                         type="button"
                                                         onClick={() => selectChartDate(day.dateStr)}
-                                                        className={`w-3 h-3 rounded-full border ${selectedChartDate === day.dateStr ? 'bg-indigo-600 border-indigo-600' : 'border-slate-300'}`}
+                                                        className={`w-3 h-3 rounded-full border ${selectedChartDate === day.dateStr ? 'bg-indigo-600 dark:bg-indigo-700 border-indigo-600 dark:border-indigo-800' : 'border-slate-300 dark:border-dk-border'}`}
                                                         title="Sélectionner pour le graphique"
                                                     />
                                                     {day.displayDate}
@@ -1441,7 +1441,7 @@ export default function SuiviProduction({
                                             </td>
                                             
                                             {/* Day Name */}
-                                            <td className={`py-4 px-4 font-black text-xs text-slate-800 sticky left-[112px] z-10 border-r border-slate-100 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)] ${selectedChartDate === day.dateStr ? 'bg-[#f4f6fe]' : 'bg-white'}`}>
+                                            <td className={`py-4 px-4 font-black text-xs text-slate-800 dark:text-dk-text sticky left-[112px] z-10 border-r border-slate-100 dark:border-dk-border/60 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)] ${selectedChartDate === day.dateStr ? 'bg-[#f4f6fe]' : 'bg-white dark:bg-dk-surface'}`}>
                                                 {day.label}
                                             </td>
 
@@ -1469,7 +1469,7 @@ export default function SuiviProduction({
                                                 const displayValue = cell?.downtime || (cell?.value !== undefined && cell?.value !== null && cell.value !== 0 ? cell.value : '');
 
                                                 return (
-                                                    <td key={h.key} className="p-1 border-r border-slate-100 text-center relative w-28 group">
+                                                    <td key={h.key} className="p-1 border-r border-slate-100 dark:border-dk-border/60 text-center relative w-28 group">
                                                         <input
                                                             type="text"
                                                             inputMode="numeric"
@@ -1491,34 +1491,34 @@ export default function SuiviProduction({
                                                                 cellStyle 
                                                                     ? 'shadow-sm font-bold border-transparent' 
                                                                     : (isCellLocked || !ofId)
-                                                                        ? 'bg-slate-50/50 border-slate-100 text-slate-300' 
-                                                                        : 'bg-white border-slate-200 hover:border-indigo-400 focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600'
+                                                                        ? 'bg-slate-50 dark:bg-dk-bg/50 border-slate-100 dark:border-dk-border/60 text-slate-300 dark:text-dk-muted' 
+                                                                        : 'bg-white dark:bg-dk-surface border-slate-200 dark:border-dk-border hover:border-indigo-400 focus:border-indigo-600 dark:border-indigo-800 focus:ring-1 focus:ring-indigo-600'
                                                             } ${cell?.downtime === 'M' ? 'animate-pulse' : ''}`}
                                                             placeholder="—"
                                                             title={!isCellLocked ? l.doubleClick : undefined}
                                                         />
                                                         {cell?.defectsQty !== undefined && cell.defectsQty > 0 && (
-                                                            <span className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-rose-500 animate-ping" title={`Défauts: ${cell.defectsQty}`} />
+                                                            <span className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-rose-50 dark:bg-rose-900/300 animate-ping" title={`Défauts: ${cell.defectsQty}`} />
                                                         )}
                                                     </td>
                                                 );
                                             })}
 
                                             {/* P. Journaliere */}
-                                            <td className="py-4 px-3 text-center font-black text-slate-800 tabular-nums">
+                                            <td className="py-4 px-3 text-center font-black text-slate-800 dark:text-dk-text tabular-nums">
                                                 {metrics.totalPiece}
                                                 {metrics.totalDefects > 0 && (
-                                                    <span className="block text-[9px] text-rose-500 font-bold">Def: {metrics.totalDefects}</span>
+                                                    <span className="block text-[9px] text-rose-500 dark:text-rose-300 font-bold">Def: {metrics.totalDefects}</span>
                                                 )}
                                             </td>
 
                                             {/* Total Heure */}
-                                            <td className="py-4 px-3 text-center font-mono text-xs text-slate-500 font-bold tabular-nums">{metrics.totalHeur}</td>
+                                            <td className="py-4 px-3 text-center font-mono text-xs text-slate-500 dark:text-dk-muted font-bold tabular-nums">{metrics.totalHeur}</td>
 
                                             {/* Effectif (lecture seule — saisi dans la page Effectifs) */}
-                                            <td className="p-1 text-center border-l border-slate-100 w-24">
+                                            <td className="p-1 text-center border-l border-slate-100 dark:border-dk-border/60 w-24">
                                                 <div
-                                                    className="w-full text-center font-black text-xs bg-slate-50 border border-slate-100 rounded-lg py-1.5 tabular-nums text-slate-700"
+                                                    className="w-full text-center font-black text-xs bg-slate-50 dark:bg-dk-bg border border-slate-100 dark:border-dk-border/60 rounded-lg py-1.5 tabular-nums text-slate-700 dark:text-dk-text"
                                                     title={tx(lang, { fr: 'Saisir dans la page Effectifs', ar: 'يتم إدخاله في صفحة Effectifs', en: 'Enter on the Effectifs page', es: 'Introducir en la página Effectifs', pt: 'Inserir na página Effectifs', tr: 'Effectifs sayfasında girilir' })}
                                                 >
                                                     {metrics.totalM || 0}
@@ -1526,9 +1526,9 @@ export default function SuiviProduction({
                                             </td>
 
                                             {/* R1 / R2 % */}
-                                            <td className="py-4 px-3 text-center border-l border-slate-100">
+                                            <td className="py-4 px-3 text-center border-l border-slate-100 dark:border-dk-border/60">
                                                 {metrics.yields.length === 0 ? (
-                                                    <span className="text-slate-300 font-bold">—</span>
+                                                    <span className="text-slate-300 dark:text-dk-muted font-bold">—</span>
                                                 ) : (
                                                     <div className="flex flex-col gap-1 items-center justify-center">
                                                         {metrics.yields.map((y, idx) => (
@@ -1547,15 +1547,15 @@ export default function SuiviProduction({
                                                 {metrics.rTotalDay > 0 ? (
                                                     <span className={`px-4 py-1.5 rounded-2xl text-xs font-black shadow-sm ${
                                                         metrics.rTotalDay >= 90 
-                                                            ? 'bg-emerald-100 text-emerald-800 border border-emerald-200/50' 
+                                                            ? 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-800 dark:text-emerald-200 border border-emerald-200/50' 
                                                             : metrics.rTotalDay >= 80 
-                                                                ? 'bg-orange-100 text-orange-800 border border-orange-200/50' 
-                                                                : 'bg-rose-100 text-rose-800 border border-rose-200/50'
+                                                                ? 'bg-orange-100 dark:bg-orange-900/40 text-orange-800 border border-orange-200/50' 
+                                                                : 'bg-rose-100 dark:bg-rose-900/40 text-rose-800 border border-rose-200 dark:border-rose-800/50'
                                                     }`}>
                                                         {metrics.rTotalDay}%
                                                     </span>
                                                 ) : (
-                                                    <span className="text-slate-300 font-bold">0%</span>
+                                                    <span className="text-slate-300 dark:text-dk-muted font-bold">0%</span>
                                                 )}
                                             </td>
                                         </tr>
@@ -1580,13 +1580,13 @@ export default function SuiviProduction({
                                             type="button"
                                             onClick={() => selectChartDate(day.dateStr)}
                                             className={`shrink-0 flex flex-col items-center justify-center rounded-xl border px-3 py-1.5 transition-all ${
-                                                isSel ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                                                isSel ? 'bg-indigo-600 dark:bg-indigo-700 text-white border-indigo-600 dark:border-indigo-800 shadow-sm' : 'bg-white dark:bg-dk-surface text-slate-600 dark:text-dk-text-soft border-slate-200 dark:border-dk-border hover:bg-slate-50 dark:bg-dk-bg'
                                             }`}
                                         >
                                             <span className="text-[11px] font-black leading-tight">{day.label.substring(0, 3)}</span>
-                                            <span className={`text-[9px] font-bold tabular-nums ${isSel ? 'text-indigo-100' : 'text-slate-400'}`}>{day.displayDate.substring(0, 5)}</span>
+                                            <span className={`text-[9px] font-bold tabular-nums ${isSel ? 'text-indigo-100 dark:text-indigo-200' : 'text-slate-400 dark:text-dk-muted'}`}>{day.displayDate.substring(0, 5)}</span>
                                             {dm.totalPiece > 0 && (
-                                                <span className={`mt-0.5 text-[9px] font-black tabular-nums ${isSel ? 'text-white' : 'text-indigo-600'}`}>{dm.totalPiece}</span>
+                                                <span className={`mt-0.5 text-[9px] font-black tabular-nums ${isSel ? 'text-white' : 'text-indigo-600 dark:text-indigo-300 dark:text-indigo-200'}`}>{dm.totalPiece}</span>
                                             )}
                                         </button>
                                     );
@@ -1600,13 +1600,13 @@ export default function SuiviProduction({
                                         {/* Résumé jour compact */}
                                         <div className="grid grid-cols-4 gap-1.5">
                                             {[
-                                                { lbl: l.pJournaliere, val: dm.totalPiece, accent: 'text-slate-800' },
-                                                { lbl: l.totalHours, val: dm.totalHeur, accent: 'text-slate-800' },
-                                                { lbl: l.effectif, val: dm.totalM, accent: 'text-slate-800' },
-                                                { lbl: 'R.Day', val: dm.rTotalDay > 0 ? `${dm.rTotalDay}%` : '—', accent: dm.rTotalDay >= 90 ? 'text-emerald-600' : dm.rTotalDay >= 80 ? 'text-orange-500' : 'text-rose-600' },
+                                                { lbl: l.pJournaliere, val: dm.totalPiece, accent: 'text-slate-800 dark:text-dk-text' },
+                                                { lbl: l.totalHours, val: dm.totalHeur, accent: 'text-slate-800 dark:text-dk-text' },
+                                                { lbl: l.effectif, val: dm.totalM, accent: 'text-slate-800 dark:text-dk-text' },
+                                                { lbl: 'R.Day', val: dm.rTotalDay > 0 ? `${dm.rTotalDay}%` : '—', accent: dm.rTotalDay >= 90 ? 'text-emerald-600 dark:text-emerald-300' : dm.rTotalDay >= 80 ? 'text-orange-500 dark:text-orange-300' : 'text-rose-600 dark:text-rose-300' },
                                             ].map((c, i) => (
-                                                <div key={i} className="bg-slate-50 border border-slate-100 rounded-xl px-2 py-1.5 text-center">
-                                                    <span className="block text-[8px] font-black uppercase tracking-wider text-slate-400">{c.lbl}</span>
+                                                <div key={i} className="bg-slate-50 dark:bg-dk-bg border border-slate-100 dark:border-dk-border/60 rounded-xl px-2 py-1.5 text-center">
+                                                    <span className="block text-[8px] font-black uppercase tracking-wider text-slate-400 dark:text-dk-muted">{c.lbl}</span>
                                                     <span className={`block text-[13px] font-black tabular-nums ${c.accent}`}>{c.val}</span>
                                                 </div>
                                             ))}
@@ -1624,7 +1624,7 @@ export default function SuiviProduction({
                                                 const ofId = selectedActiveModelId || activeModels[0]?.id;
                                                 return (
                                                     <div key={h.key} className="flex items-center gap-2">
-                                                        <span className="w-[88px] shrink-0 text-[11px] font-bold text-slate-500 tabular-nums">{h.label}</span>
+                                                        <span className="w-[88px] shrink-0 text-[11px] font-bold text-slate-500 dark:text-dk-muted tabular-nums">{h.label}</span>
                                                         <input
                                                             type="text"
                                                             inputMode="numeric"
@@ -1645,19 +1645,19 @@ export default function SuiviProduction({
                                                                 cellStyle 
                                                                     ? 'shadow-sm border-transparent' 
                                                                     : (isCellLocked || !ofId)
-                                                                        ? 'bg-slate-50/50 border-slate-100 text-slate-300' 
-                                                                        : 'bg-white border-slate-200 focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600'
+                                                                        ? 'bg-slate-50 dark:bg-dk-bg/50 border-slate-100 dark:border-dk-border/60 text-slate-300 dark:text-dk-muted' 
+                                                                        : 'bg-white dark:bg-dk-surface border-slate-200 dark:border-dk-border focus:border-indigo-600 dark:border-indigo-800 focus:ring-1 focus:ring-indigo-600'
                                                             }`}
                                                             placeholder="—"
                                                         />
                                                         {cell?.defectsQty !== undefined && cell.defectsQty > 0 && (
-                                                            <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0" title={`Défauts: ${cell.defectsQty}`} />
+                                                            <span className="w-1.5 h-1.5 rounded-full bg-rose-50 dark:bg-rose-900/300 shrink-0" title={`Défauts: ${cell.defectsQty}`} />
                                                         )}
                                                         <button
                                                             type="button"
                                                             onClick={() => !isCellLocked && ofId && handleOpenCellModal(selectedChartDate, h.key, h.label)}
                                                             disabled={isCellLocked || !ofId}
-                                                            className="w-8 h-9 shrink-0 flex items-center justify-center rounded-lg text-slate-400 hover:bg-slate-50 disabled:opacity-30"
+                                                            className="w-8 h-9 shrink-0 flex items-center justify-center rounded-lg text-slate-400 dark:text-dk-muted hover:bg-slate-50 dark:bg-dk-bg disabled:opacity-30"
                                                             title={tx(lang, { fr: 'Détails', ar: 'التفاصيل', en: 'Details', es: 'Detalles', pt: 'Detalhes', tr: 'Ayrıntılar' })}
                                                         >
                                                             <Sliders className="w-3.5 h-3.5" />
@@ -1673,12 +1673,12 @@ export default function SuiviProduction({
                     )}
 
                     {/* ═══ Ligne TOTAL : production par modèle (OF) + total général ═══ */}
-                    <div className="border-t border-slate-100 bg-slate-50/60 px-4 py-3 flex flex-wrap items-center gap-2">
-                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 mr-1">
+                    <div className="border-t border-slate-100 dark:border-dk-border/60 bg-slate-50 dark:bg-dk-bg/60 px-4 py-3 flex flex-wrap items-center gap-2">
+                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-dk-muted mr-1">
                             {tx(lang, { fr: 'Total production', ar: 'إجمالي الإنتاج', en: 'Total production', es: 'Producción total', pt: 'Produção total', tr: 'Toplam üretim' })} :
                         </span>
                         {activeModels.filter(m => m.producedThisWeek > 0).length === 0 ? (
-                            <span className="text-[11px] text-slate-400 font-medium">
+                            <span className="text-[11px] text-slate-400 dark:text-dk-muted font-medium">
                                 {tx(lang, { fr: 'Aucune production enregistrée cette semaine', ar: 'لا يوجد أي إنتاج مسجل هذا الأسبوع', en: 'No production recorded this week', es: 'No hay producción registrada esta semana', pt: 'Nenhuma produção registada esta semana', tr: 'Bu hafta kayıtlı üretim yok' })}
                             </span>
                         ) : (
@@ -1695,7 +1695,7 @@ export default function SuiviProduction({
                                         <span className="font-black">{m.producedThisWeek} pcs</span>
                                     </span>
                                 ))}
-                                <span className="ml-auto inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 text-white px-2.5 py-0.5 text-[11px] font-black tabular-nums shadow-sm">
+                                <span className="ml-auto inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 dark:bg-indigo-700 text-white px-2.5 py-0.5 text-[11px] font-black tabular-nums shadow-sm">
                                     {tx(lang, { fr: 'TOTAL', ar: 'الإجمالي', en: 'TOTAL', es: 'TOTAL', pt: 'TOTAL', tr: 'TOPLAM' })} : {activeModels.reduce((acc, m) => acc + m.producedThisWeek, 0)} pcs
                                 </span>
                             </>
@@ -1705,26 +1705,26 @@ export default function SuiviProduction({
 
                 {/* SVG Live sparkline chart & OEE/TRS KPI dashboard */}
                 {selectedChartDate && activeChartMetrics && (
-                  <Section isMobile={isMobile} title={tx(lang, { fr: 'Rendement & TRS', ar: 'المردودية و TRS', en: 'Efficiency & TRS', es: 'Rendimiento y TRS', pt: 'Rendimento e TRS', tr: 'Verimlilik ve TRS' })} icon={<BarChart2 className="w-4 h-4 text-indigo-600 shrink-0" />}>
+                  <Section isMobile={isMobile} title={tx(lang, { fr: 'Rendement & TRS', ar: 'المردودية و TRS', en: 'Efficiency & TRS', es: 'Rendimiento y TRS', pt: 'Rendimento e TRS', tr: 'Verimlilik ve TRS' })} icon={<BarChart2 className="w-4 h-4 text-indigo-600 dark:text-indigo-300 dark:text-indigo-200 shrink-0" />}>
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 sm:gap-6 animate-in fade-in duration-300">
                         
                         {/* Sparkline chart */}
-                        <div className="lg:col-span-2 bg-white border border-slate-100 rounded-3xl p-5 shadow-sm">
-                            <div className="flex items-center justify-between border-b border-slate-50 pb-3 mb-4">
+                        <div className="lg:col-span-2 bg-white dark:bg-dk-surface border border-slate-100 dark:border-dk-border/60 rounded-3xl p-5 shadow-sm">
+                            <div className="flex items-center justify-between border-b border-slate-50 dark:border-dk-border/40 pb-3 mb-4">
                                 <div className="flex items-center gap-2">
-                                    <BarChart2 className="w-5 h-5 text-indigo-600" />
+                                    <BarChart2 className="w-5 h-5 text-indigo-600 dark:text-indigo-300 dark:text-indigo-200" />
                                     <div>
-                                        <h3 className="text-sm font-black text-slate-800">{l.yieldHour} — {weekDays.find(d => d.dateStr === selectedChartDate)?.label}</h3>
-                                        <p className="text-[10px] text-slate-400 font-medium">{tx(lang, { fr: 'Visualisation de la production par heure de travail', ar: 'عرض الإنتاج حسب كل ساعة عمل', en: 'Production view by work hour', es: 'Visualización de la producción por hora de trabajo', pt: 'Visualização da produção por hora de trabalho', tr: 'Çalışma saatine göre üretim görünümü' })}</p>
+                                        <h3 className="text-sm font-black text-slate-800 dark:text-dk-text">{l.yieldHour} — {weekDays.find(d => d.dateStr === selectedChartDate)?.label}</h3>
+                                        <p className="text-[10px] text-slate-400 dark:text-dk-muted font-medium">{tx(lang, { fr: 'Visualisation de la production par heure de travail', ar: 'عرض الإنتاج حسب كل ساعة عمل', en: 'Production view by work hour', es: 'Visualización de la producción por hora de trabajo', pt: 'Visualização da produção por hora de trabalho', tr: 'Çalışma saatine göre üretim görünümü' })}</p>
                                     </div>
                                 </div>
-                                <span className="text-xs bg-indigo-50 border border-indigo-100 text-indigo-700 px-2.5 py-0.5 rounded-xl font-black">
+                                <span className="text-xs bg-indigo-50 dark:bg-indigo-900/30 border border-indigo-100 dark:border-indigo-800/50 text-indigo-700 dark:text-indigo-300 dark:text-indigo-200 px-2.5 py-0.5 rounded-xl font-black">
                                     {activeChartMetrics.totalPiece} {tx(lang, { fr: 'pièces produites', ar: 'قطعة منتجة', en: 'pieces produced', es: 'piezas producidas', pt: 'peças produzidas', tr: 'adet üretildi' })}
                                 </span>
                             </div>
 
                             {/* SVG Sparkline drawing */}
-                            <div className="relative h-32 bg-slate-50/50 rounded-2xl border border-slate-100 overflow-hidden flex items-end">
+                            <div className="relative h-32 bg-slate-50 dark:bg-dk-bg/50 rounded-2xl border border-slate-100 dark:border-dk-border/60 overflow-hidden flex items-end">
                                 {chartPathData ? (
                                     <svg className="w-full h-full" viewBox="0 0 500 120" preserveAspectRatio="none">
                                         <defs>
@@ -1749,88 +1749,88 @@ export default function SuiviProduction({
                                         />
                                     </svg>
                                 ) : (
-                                    <div className="w-full h-full flex items-center justify-center text-xs text-slate-400">{tx(lang, { fr: 'Aucune production enregistrée pour ce jour.', ar: 'لا يوجد إنتاج مسجل لهذا اليوم.', en: 'No production recorded for this day.', es: 'No hay producción registrada para este día.', pt: 'Nenhuma produção registada para este dia.', tr: 'Bu gün için kayıtlı üretim yok.' })}</div>
+                                    <div className="w-full h-full flex items-center justify-center text-xs text-slate-400 dark:text-dk-muted">{tx(lang, { fr: 'Aucune production enregistrée pour ce jour.', ar: 'لا يوجد إنتاج مسجل لهذا اليوم.', en: 'No production recorded for this day.', es: 'No hay producción registrada para este día.', pt: 'Nenhuma produção registada para este dia.', tr: 'Bu gün için kayıtlı üretim yok.' })}</div>
                                 )}
                             </div>
                             
                             {/* X-axis labels */}
-                            <div className="flex justify-between px-3 mt-2 text-[8px] font-black text-slate-400 uppercase tracking-wider">
+                            <div className="flex justify-between px-3 mt-2 text-[8px] font-black text-slate-400 dark:text-dk-muted uppercase tracking-wider">
                                 {hourBlocks.map(h => <span key={h.key}>{h.label.split('/')[0]}</span>)}
                             </div>
                         </div>
 
                         {/* OEE / TRS KPI Dashboard */}
-                        <div className="bg-white border border-slate-100 rounded-3xl p-5 shadow-sm flex flex-col justify-between">
-                            <div className="border-b border-slate-50 pb-3 mb-4">
-                                <h3 className="text-sm font-black text-slate-800 flex items-center gap-1.5">
+                        <div className="bg-white dark:bg-dk-surface border border-slate-100 dark:border-dk-border/60 rounded-3xl p-5 shadow-sm flex flex-col justify-between">
+                            <div className="border-b border-slate-50 dark:border-dk-border/40 pb-3 mb-4">
+                                <h3 className="text-sm font-black text-slate-800 dark:text-dk-text flex items-center gap-1.5">
                                     <span>{l.trs}</span>
                                 </h3>
-                                <p className="text-[10px] text-slate-400 font-medium">{tx(lang, { fr: 'Disponibilité × Performance × Qualité', ar: 'التوفر × الأداء × الجودة', en: 'Availability × Performance × Quality', es: 'Disponibilidad × Rendimiento × Calidad', pt: 'Disponibilidade × Desempenho × Qualidade', tr: 'Kullanılabilirlik × Performans × Kalite' })}</p>
+                                <p className="text-[10px] text-slate-400 dark:text-dk-muted font-medium">{tx(lang, { fr: 'Disponibilité × Performance × Qualité', ar: 'التوفر × الأداء × الجودة', en: 'Availability × Performance × Quality', es: 'Disponibilidad × Rendimiento × Calidad', pt: 'Disponibilidade × Desempenho × Qualidade', tr: 'Kullanılabilirlik × Performans × Kalite' })}</p>
                             </div>
                             
                             <div className="grid grid-cols-3 gap-2">
-                                <div className="p-3 bg-slate-50 border border-slate-100 rounded-2xl text-center">
-                                    <span className="text-[9px] font-black text-slate-400 uppercase block">{l.dispo}</span>
-                                    <span className="text-lg font-black text-slate-700 block mt-1 tabular-nums">{activeChartMetrics.availability}%</span>
+                                <div className="p-3 bg-slate-50 dark:bg-dk-bg border border-slate-100 dark:border-dk-border/60 rounded-2xl text-center">
+                                    <span className="text-[9px] font-black text-slate-400 dark:text-dk-muted uppercase block">{l.dispo}</span>
+                                    <span className="text-lg font-black text-slate-700 dark:text-dk-text block mt-1 tabular-nums">{activeChartMetrics.availability}%</span>
                                 </div>
-                                <div className="p-3 bg-slate-50 border border-slate-100 rounded-2xl text-center">
-                                    <span className="text-[9px] font-black text-slate-400 uppercase block">{l.perf}</span>
-                                    <span className="text-lg font-black text-slate-700 block mt-1 tabular-nums">{activeChartMetrics.rTotalDay}%</span>
+                                <div className="p-3 bg-slate-50 dark:bg-dk-bg border border-slate-100 dark:border-dk-border/60 rounded-2xl text-center">
+                                    <span className="text-[9px] font-black text-slate-400 dark:text-dk-muted uppercase block">{l.perf}</span>
+                                    <span className="text-lg font-black text-slate-700 dark:text-dk-text block mt-1 tabular-nums">{activeChartMetrics.rTotalDay}%</span>
                                 </div>
-                                <div className="p-3 bg-slate-50 border border-slate-100 rounded-2xl text-center">
-                                    <span className="text-[9px] font-black text-slate-400 uppercase block">{l.quality}</span>
-                                    <span className="text-lg font-black text-slate-700 block mt-1 tabular-nums">{activeChartMetrics.quality}%</span>
+                                <div className="p-3 bg-slate-50 dark:bg-dk-bg border border-slate-100 dark:border-dk-border/60 rounded-2xl text-center">
+                                    <span className="text-[9px] font-black text-slate-400 dark:text-dk-muted uppercase block">{l.quality}</span>
+                                    <span className="text-lg font-black text-slate-700 dark:text-dk-text block mt-1 tabular-nums">{activeChartMetrics.quality}%</span>
                                 </div>
                             </div>
 
-                            <div className="mt-4 flex items-center justify-between bg-indigo-50/50 border border-indigo-100 rounded-2xl p-4">
+                            <div className="mt-4 flex items-center justify-between bg-indigo-50 dark:bg-indigo-900/30/50 border border-indigo-100 dark:border-indigo-800/50 rounded-2xl p-4">
                                 <div>
-                                    <span className="text-[9px] font-black text-indigo-700 uppercase tracking-widest block">TRS Score</span>
-                                    <span className="text-3xl font-black text-indigo-800 block mt-1 tabular-nums">{activeChartMetrics.oee}%</span>
+                                    <span className="text-[9px] font-black text-indigo-700 dark:text-indigo-300 dark:text-indigo-200 uppercase tracking-widest block">TRS Score</span>
+                                    <span className="text-3xl font-black text-indigo-800 dark:text-indigo-200 block mt-1 tabular-nums">{activeChartMetrics.oee}%</span>
                                 </div>
                                 <div className="text-right">
                                     <span className={`inline-block px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase ${
-                                        activeChartMetrics.oee >= 85 ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
+                                        activeChartMetrics.oee >= 85 ? 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-800 dark:text-emerald-200' : 'bg-amber-100 dark:bg-amber-900/40 text-amber-800'
                                     }`}>
                                         {activeChartMetrics.oee >= 85 ? tx(lang, { fr: 'Excellent', ar: 'ممتاز', en: 'Excellent', es: 'Excelente', pt: 'Excelente', tr: 'Mükemmel' }) : tx(lang, { fr: 'A optimiser', ar: 'قابل للتحسين', en: 'To optimize', es: 'A optimizar', pt: 'A otimizar', tr: 'İyileştirilmeli' })}
                                     </span>
-                                    <p className="text-[9px] text-slate-400 font-bold mt-1">Norme mondiale: 85%</p>
+                                    <p className="text-[9px] text-slate-400 dark:text-dk-muted font-bold mt-1">Norme mondiale: 85%</p>
                                 </div>
                             </div>
 
                             {/* Chronologie Visuelle de la Journée */}
-                            <div className="mt-4 border-t border-slate-100 pt-4">
-                                <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-2">
+                            <div className="mt-4 border-t border-slate-100 dark:border-dk-border/60 pt-4">
+                                <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-dk-muted block mb-2">
                                     {l.timeline} ({weekDays.find(d => d.dateStr === selectedChartDate)?.label})
                                 </span>
-                                <div className="flex items-stretch gap-1 h-8 w-full bg-slate-50 border border-slate-100 rounded-xl p-1 overflow-hidden">
+                                <div className="flex items-stretch gap-1 h-8 w-full bg-slate-50 dark:bg-dk-bg border border-slate-100 dark:border-dk-border/60 rounded-xl p-1 overflow-hidden">
                                     {hourBlocks.map(h => {
                                         const cellMeta = getCellMeta(selectedChartDate, h.key);
                                         const qty = cellMeta?.value || 0;
                                         const dt = cellMeta?.downtime;
                                         
-                                        let bgClass = 'bg-slate-200/50 border border-dashed border-slate-300/30 text-slate-400';
+                                        let bgClass = 'bg-slate-200 dark:bg-dk-border/50 border border-dashed border-slate-300 dark:border-dk-border/30 text-slate-400 dark:text-dk-muted';
                                         let label = '—';
                                         let tooltipText = `${h.label}: Inactif`;
                                         
                                         if (dt === 'L') {
-                                            bgClass = 'bg-slate-400/20 text-slate-600 border border-slate-300/30';
+                                            bgClass = 'bg-slate-400/20 text-slate-600 dark:text-dk-text-soft border border-slate-300 dark:border-dk-border/30';
                                             label = 'L';
                                             tooltipText = `${h.label}: Déjeuner (60m)`;
                                         } else if (dt === 'P') {
-                                            bgClass = 'bg-blue-500/20 text-blue-700 border border-blue-300/30';
+                                            bgClass = 'bg-blue-500 dark:bg-blue-700/20 text-blue-700 dark:text-blue-300 border border-blue-300/30';
                                             label = 'P';
                                             tooltipText = `${h.label}: Pause (15m)`;
                                         } else if (dt === 'M') {
-                                            bgClass = 'bg-rose-500/20 text-rose-700 border border-rose-300/30 animate-pulse';
+                                            bgClass = 'bg-rose-50 dark:bg-rose-900/300/20 text-rose-700 dark:text-rose-300 border border-rose-300 dark:border-rose-800/30 animate-pulse';
                                             label = tx(lang, { fr: 'Panne', ar: 'عطل', en: 'Breakdown', es: 'Avería', pt: 'Avaria', tr: 'Arıza' });
                                             tooltipText = `${h.label}: Panne (30m)`;
                                         } else if (dt === 'S') {
-                                            bgClass = 'bg-amber-500/20 text-amber-700 border border-amber-300/30';
+                                            bgClass = 'bg-amber-50 dark:bg-amber-900/300/20 text-amber-700 dark:text-amber-300 border border-amber-300 dark:border-amber-800/30';
                                             label = tx(lang, { fr: 'Rupt.', ar: 'انقطاع', en: 'Shortage', es: 'Rupt.', pt: 'Rupt.', tr: 'Kesinti' });
                                             tooltipText = `${h.label}: Rupture appro (45m)`;
                                         } else if (qty > 0) {
-                                            bgClass = 'bg-indigo-600/10 text-indigo-700 border border-indigo-200/40 font-black';
+                                            bgClass = 'bg-indigo-600 dark:bg-indigo-700/10 text-indigo-700 dark:text-indigo-300 dark:text-indigo-200 border border-indigo-200 dark:border-indigo-800/40 font-black';
                                             label = `${qty} p`;
                                             tooltipText = `${h.label}: Production (${qty} pcs)`;
                                         }
@@ -1847,7 +1847,7 @@ export default function SuiviProduction({
                                         );
                                     })}
                                 </div>
-                                <div className="flex justify-between px-1 mt-1 text-[8px] font-bold text-slate-400">
+                                <div className="flex justify-between px-1 mt-1 text-[8px] font-bold text-slate-400 dark:text-dk-muted">
                                     <span>{hourBlocks[0]?.label.split('/')[0]}</span>
                                     <span>{hourBlocks[hourBlocks.length - 1]?.label.split('/')[1]}</span>
                                 </div>
@@ -1859,19 +1859,19 @@ export default function SuiviProduction({
                 )}
 
                 {/* Expandable Sidebar Grid: Sizes & WIP Matrix & Skills Check */}
-                <Section isMobile={isMobile} title={tx(lang, { fr: 'Tailles, WIP & Compétences', ar: 'المقاسات و WIP والكفاءات', en: 'Sizes, WIP & Skills', es: 'Tallas, WIP y competencias', pt: 'Tamanhos, WIP e competências', tr: 'Bedenler, WIP ve yetkinlikler' })} icon={<Layers className="w-4 h-4 text-indigo-600 shrink-0" />}>
+                <Section isMobile={isMobile} title={tx(lang, { fr: 'Tailles, WIP & Compétences', ar: 'المقاسات و WIP والكفاءات', en: 'Sizes, WIP & Skills', es: 'Tallas, WIP y competencias', pt: 'Tamanhos, WIP e competências', tr: 'Bedenler, WIP ve yetkinlikler' })} icon={<Layers className="w-4 h-4 text-indigo-600 dark:text-indigo-300 dark:text-indigo-200 shrink-0" />}>
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 sm:gap-6">
 
                     {/* WIP & Sizing Control Box */}
-                    <div className="lg:col-span-2 bg-white border border-slate-100 rounded-3xl p-5 shadow-sm">
-                        <div className="flex flex-wrap items-center justify-between border-b border-slate-50 pb-3 mb-4 gap-3">
+                    <div className="lg:col-span-2 bg-white dark:bg-dk-surface border border-slate-100 dark:border-dk-border/60 rounded-3xl p-5 shadow-sm">
+                        <div className="flex flex-wrap items-center justify-between border-b border-slate-50 dark:border-dk-border/40 pb-3 mb-4 gap-3">
                             <div className="flex items-center gap-2">
-                                <Layers className="w-5 h-5 text-indigo-600" />
+                                <Layers className="w-5 h-5 text-indigo-600 dark:text-indigo-300 dark:text-indigo-200" />
                                 <div>
-                                    <h3 className="text-sm font-black text-slate-800 flex items-center gap-1.5">
+                                    <h3 className="text-sm font-black text-slate-800 dark:text-dk-text flex items-center gap-1.5">
                                         <span>{l.wip}</span>
                                     </h3>
-                                    <p className="text-[10px] text-slate-400 font-medium">{tx(lang, { fr: "Contrôle des flux d'entrées/sorties par taille S, M, L, XL", ar: 'مراقبة تدفقات الإدخال والإخراج حسب المقاسات S و M و L و XL', en: 'Input/output flow control by size S, M, L, XL', es: 'Control de flujos de entrada/salida por talla S, M, L, XL', pt: 'Controlo dos fluxos de entrada/saída por tamanho S, M, L, XL', tr: 'S, M, L, XL bedenlerine göre giriş/çıkış akış kontrolü' })}</p>
+                                    <p className="text-[10px] text-slate-400 dark:text-dk-muted font-medium">{tx(lang, { fr: "Contrôle des flux d'entrées/sorties par taille S, M, L, XL", ar: 'مراقبة تدفقات الإدخال والإخراج حسب المقاسات S و M و L و XL', en: 'Input/output flow control by size S, M, L, XL', es: 'Control de flujos de entrada/salida por talla S, M, L, XL', pt: 'Controlo dos fluxos de entrada/saída por tamanho S, M, L, XL', tr: 'S, M, L, XL bedenlerine göre giriş/çıkış akış kontrolü' })}</p>
                                 </div>
                             </div>
                         </div>
@@ -1880,7 +1880,7 @@ export default function SuiviProduction({
                         <div className="overflow-x-auto">
                             <table className="w-full text-left border-collapse">
                                 <thead>
-                                    <tr className="bg-slate-50/50 text-[10px] font-black uppercase tracking-widest text-slate-400 border-b border-slate-100">
+                                    <tr className="bg-slate-50 dark:bg-dk-bg/50 text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-dk-muted border-b border-slate-100 dark:border-dk-border/60">
                                         <th className="py-2.5 px-3">{l.size}</th>
                                         <th className="py-2.5 px-3 text-center">{l.inputs}</th>
                                         <th className="py-2.5 px-3 text-center">{l.outputs}</th>
@@ -1890,8 +1890,8 @@ export default function SuiviProduction({
                                 </thead>
                                 <tbody className="divide-y divide-slate-50">
                                     {sizingData.map(row => (
-                                        <tr key={row.size} className="hover:bg-slate-50/40 transition-colors">
-                                            <td className="py-3 px-3 font-black text-slate-800">{row.size}</td>
+                                        <tr key={row.size} className="hover:bg-slate-50 dark:bg-dk-bg/40 transition-colors">
+                                            <td className="py-3 px-3 font-black text-slate-800 dark:text-dk-text">{row.size}</td>
                                             
                                             {/* Entree Input */}
                                             <td className="py-3 px-3 text-center">
@@ -1900,7 +1900,7 @@ export default function SuiviProduction({
                                                     inputMode="numeric"
                                                     value={row.entree}
                                                     onChange={(e) => handleSaveSizes(selectedActiveModelId, row.size, 'entree', Math.max(0, parseInt(e.target.value) || 0))}
-                                                    className="w-20 text-center font-black text-xs bg-slate-50 border border-slate-100 rounded-lg py-1 focus:bg-white focus:border-indigo-500 outline-none transition-all tabular-nums"
+                                                    className="w-20 text-center font-black text-xs bg-slate-50 dark:bg-dk-bg border border-slate-100 dark:border-dk-border/60 rounded-lg py-1 focus:bg-white dark:bg-dk-surface focus:border-indigo-500 outline-none transition-all tabular-nums"
                                                 />
                                             </td>
 
@@ -1911,23 +1911,23 @@ export default function SuiviProduction({
                                                     inputMode="numeric"
                                                     value={row.sortie}
                                                     onChange={(e) => handleSaveSizes(selectedActiveModelId, row.size, 'sortie', Math.max(0, parseInt(e.target.value) || 0))}
-                                                    className="w-20 text-center font-black text-xs bg-slate-50 border border-slate-100 rounded-lg py-1 focus:bg-white focus:border-indigo-500 outline-none transition-all tabular-nums"
+                                                    className="w-20 text-center font-black text-xs bg-slate-50 dark:bg-dk-bg border border-slate-100 dark:border-dk-border/60 rounded-lg py-1 focus:bg-white dark:bg-dk-surface focus:border-indigo-500 outline-none transition-all tabular-nums"
                                                 />
                                             </td>
 
                                             {/* Calculated WIP */}
-                                            <td className={`py-3 px-3 text-center font-black text-sm tabular-nums ${row.encours > 0 ? 'text-indigo-600' : 'text-slate-400'}`}>
+                                            <td className={`py-3 px-3 text-center font-black text-sm tabular-nums ${row.encours > 0 ? 'text-indigo-600 dark:text-indigo-300 dark:text-indigo-200' : 'text-slate-400 dark:text-dk-muted'}`}>
                                                 {row.encours} pcs
                                             </td>
 
                                             {/* Bottleneck indicator */}
                                             <td className="py-3 px-3 text-right">
                                                 {row.isBottleneck ? (
-                                                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-rose-50 border border-rose-100 text-rose-600 text-[10px] font-black uppercase tracking-wider animate-pulse">
+                                                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-rose-50 dark:bg-rose-900/30 border border-rose-100 dark:border-rose-800/50 text-rose-600 dark:text-rose-300 text-[10px] font-black uppercase tracking-wider animate-pulse">
                                                         ⚠️ Goulot d'étranglement
                                                     </span>
                                                 ) : (
-                                                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-600 text-[10px] font-black uppercase tracking-wider">
+                                                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-300 text-[10px] font-black uppercase tracking-wider">
                                                         ✅ Fluide
                                                     </span>
                                                 )}
@@ -1941,42 +1941,42 @@ export default function SuiviProduction({
 
                     {/* Skill Matching & Machine Certification Box — masqué si les alertes machines sont désactivées (Configuration) */}
                     {settings.machineAlertsEnabled !== false && (
-                    <div className="bg-white border border-slate-100 rounded-3xl p-5 shadow-sm flex flex-col justify-between">
+                    <div className="bg-white dark:bg-dk-surface border border-slate-100 dark:border-dk-border/60 rounded-3xl p-5 shadow-sm flex flex-col justify-between">
                         <div>
-                            <div className="flex items-center gap-2 border-b border-slate-50 pb-3 mb-4">
-                                <ShieldAlert className="w-5 h-5 text-indigo-600" />
+                            <div className="flex items-center gap-2 border-b border-slate-50 dark:border-dk-border/40 pb-3 mb-4">
+                                <ShieldAlert className="w-5 h-5 text-indigo-600 dark:text-indigo-300 dark:text-indigo-200" />
                                 <div>
-                                    <h3 className="text-sm font-black text-slate-800 flex items-center gap-1.5">
+                                    <h3 className="text-sm font-black text-slate-800 dark:text-dk-text flex items-center gap-1.5">
                                         <span>{tx(lang, { fr: 'Compétences & Gamme', ar: 'الكفاءات و Gamme', en: 'Skills & Routing', es: 'Competencias y gama', pt: 'Competências e gama', tr: 'Yetkinlikler ve rota' })}</span>
                                     </h3>
-                                    <p className="text-[10px] text-slate-400 font-medium">{tx(lang, { fr: "Contrôle de certification d'opératrices par machine", ar: 'مراقبة تأهيل العاملات حسب الآلة', en: 'Operator certification control by machine', es: 'Control de certificación de operarias por máquina', pt: 'Controlo de certificação de operadoras por máquina', tr: 'Makineye göre operatör sertifika kontrolü' })}</p>
+                                    <p className="text-[10px] text-slate-400 dark:text-dk-muted font-medium">{tx(lang, { fr: "Contrôle de certification d'opératrices par machine", ar: 'مراقبة تأهيل العاملات حسب الآلة', en: 'Operator certification control by machine', es: 'Control de certificación de operarias por máquina', pt: 'Controlo de certificação de operadoras por máquina', tr: 'Makineye göre operatör sertifika kontrolü' })}</p>
                                 </div>
                             </div>
 
                             {/* Skills Verification Status */}
                             {skillCheckResults.status === 'OK' ? (
-                                <div className="rounded-2xl bg-emerald-50 border border-emerald-100 p-4 text-emerald-800 flex items-start gap-3">
-                                    <CheckCircle className="w-5 h-5 shrink-0 text-emerald-600" />
+                                <div className="rounded-2xl bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-100 dark:border-emerald-800/50 p-4 text-emerald-800 dark:text-emerald-200 flex items-start gap-3">
+                                    <CheckCircle className="w-5 h-5 shrink-0 text-emerald-600 dark:text-emerald-300" />
                                     <div>
                                         <p className="text-xs font-black uppercase tracking-wider">{tx(lang, { fr: 'Couverture Complète', ar: 'تغطية كاملة', en: 'Complete coverage', es: 'Cobertura completa', pt: 'Cobertura completa', tr: 'Tam kapsama' })}</p>
-                                        <p className="text-[10px] text-emerald-700/80 font-medium mt-1">{tx(lang, { fr: "L'effectif actuel possède toutes les qualifications machine requises dans la gamme opératoire du modèle.", ar: 'يمتلك الفريق الحالي جميع مؤهلات الآلات المطلوبة في غامة عمليات النموذج.', en: 'The current workforce has all machine qualifications required by the model routing.', es: 'El efectivo actual posee todas las cualificaciones de máquina requeridas por la gama del modelo.', pt: 'O efetivo atual possui todas as qualificações de máquina exigidas pela gama do modelo.', tr: 'Mevcut personel, model rotasında gereken tüm makine niteliklerine sahiptir.' })}</p>
+                                        <p className="text-[10px] text-emerald-700 dark:text-emerald-300/80 font-medium mt-1">{tx(lang, { fr: "L'effectif actuel possède toutes les qualifications machine requises dans la gamme opératoire du modèle.", ar: 'يمتلك الفريق الحالي جميع مؤهلات الآلات المطلوبة في غامة عمليات النموذج.', en: 'The current workforce has all machine qualifications required by the model routing.', es: 'El efectivo actual posee todas las cualificaciones de máquina requeridas por la gama del modelo.', pt: 'O efetivo atual possui todas as qualificações de máquina exigidas pela gama do modelo.', tr: 'Mevcut personel, model rotasında gereken tüm makine niteliklerine sahiptir.' })}</p>
                                     </div>
                                 </div>
                             ) : (
                                 <div className="space-y-3">
-                                    <div className="rounded-2xl bg-amber-50 border border-amber-100 p-4 text-amber-900 flex items-start gap-3">
-                                        <AlertCircle className="w-5 h-5 shrink-0 text-amber-600" />
+                                    <div className="rounded-2xl bg-amber-50 dark:bg-amber-900/30 border border-amber-100 dark:border-amber-800/50 p-4 text-amber-900 dark:text-amber-200 flex items-start gap-3">
+                                        <AlertCircle className="w-5 h-5 shrink-0 text-amber-600 dark:text-amber-300" />
                                         <div>
                                             <p className="text-xs font-black uppercase tracking-wider">{tx(lang, { fr: 'Compétences Manquantes', ar: 'كفاءات ناقصة', en: 'Missing skills', es: 'Competencias faltantes', pt: 'Competências em falta', tr: 'Eksik yetkinlikler' })}</p>
                                             <p className="text-[10px] text-amber-800/80 font-medium mt-1">{tx(lang, { fr: "Certaines machines requises par la gamme opératoire n'ont pas d'opérateurs certifiés affectés sur la ligne.", ar: 'بعض الآلات المطلوبة في غامة العمليات لا تملك عاملين مؤهلين مخصصين على الخط.', en: 'Some machines required by the routing do not have certified operators assigned to the line.', es: 'Algunas máquinas requeridas por la gama no tienen operarios certificados asignados a la línea.', pt: 'Algumas máquinas exigidas pela gama não têm operadores certificados atribuídos à linha.', tr: 'Rotada gereken bazı makineler için hatta atanmış sertifikalı operatör yok.' })}</p>
                                         </div>
                                     </div>
                                     <div className="space-y-1.5 mt-2">
-                                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">{tx(lang, { fr: 'Postes non couverts :', ar: 'المراكز غير المغطاة:', en: 'Uncovered stations:', es: 'Puestos no cubiertos:', pt: 'Postos não cobertos:', tr: 'Kapsanmayan istasyonlar:' })}</p>
+                                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-dk-muted">{tx(lang, { fr: 'Postes non couverts :', ar: 'المراكز غير المغطاة:', en: 'Uncovered stations:', es: 'Puestos no cubiertos:', pt: 'Postos não cobertos:', tr: 'Kapsanmayan istasyonlar:' })}</p>
                                         {skillCheckResults.errors.map((machine, idx) => (
-                                            <div key={idx} className="flex items-center justify-between text-xs font-bold text-slate-700 bg-slate-50 border border-slate-100 px-3 py-1.5 rounded-xl">
-                                                <span>Machine: <strong className="text-indigo-600">{machine}</strong></span>
-                                                <span className="text-[9px] bg-rose-50 text-rose-500 px-2 py-0.5 rounded font-black uppercase">{tx(lang, { fr: 'Requis', ar: 'مطلوب', en: 'Required', es: 'Requerido', pt: 'Exigido', tr: 'Gerekli' })}</span>
+                                            <div key={idx} className="flex items-center justify-between text-xs font-bold text-slate-700 dark:text-dk-text bg-slate-50 dark:bg-dk-bg border border-slate-100 dark:border-dk-border/60 px-3 py-1.5 rounded-xl">
+                                                <span>Machine: <strong className="text-indigo-600 dark:text-indigo-300 dark:text-indigo-200">{machine}</strong></span>
+                                                <span className="text-[9px] bg-rose-50 dark:bg-rose-900/30 text-rose-500 dark:text-rose-300 px-2 py-0.5 rounded font-black uppercase">{tx(lang, { fr: 'Requis', ar: 'مطلوب', en: 'Required', es: 'Requerido', pt: 'Exigido', tr: 'Gerekli' })}</span>
                                             </div>
                                         ))}
                                     </div>
@@ -1984,8 +1984,8 @@ export default function SuiviProduction({
                             )}
 
                             {/* Horizontal Operations Flow */}
-                            <div className="mt-4 pt-3 border-t border-slate-100">
-                                <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-2">
+                            <div className="mt-4 pt-3 border-t border-slate-100 dark:border-dk-border/60">
+                                <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-dk-muted block mb-2">
                                     {tx(lang, { fr: 'Flux de Gamme Opératoire', ar: 'تدفق غامة العمليات', en: 'Operating routing flow', es: 'Flujo de gama operativa', pt: 'Fluxo da gama operacional', tr: 'Operasyon rotası akışı' })}
                                 </span>
                                 <div className="flex gap-2 items-center overflow-x-auto pb-3 pt-1 scrollbar-thin scrollbar-thumb-slate-200 scrollbar-track-transparent">
@@ -2001,35 +2001,35 @@ export default function SuiviProduction({
                                                     <div 
                                                         className={`p-2 rounded-xl border text-left min-w-[110px] max-w-[130px] relative transition-all duration-200 hover:shadow-sm ${
                                                             isMissing 
-                                                                ? 'bg-rose-50/50 border-rose-200 ring-1 ring-rose-500/10' 
-                                                                : 'bg-indigo-50/20 border-slate-100 hover:border-indigo-200'
+                                                                ? 'bg-rose-50 dark:bg-rose-900/30/50 border-rose-200 dark:border-rose-800 ring-1 ring-rose-500/10' 
+                                                                : 'bg-indigo-50 dark:bg-indigo-900/30/20 border-slate-100 dark:border-dk-border/60 hover:border-indigo-200 dark:border-indigo-800'
                                                         }`}
                                                     >
-                                                        <span className="absolute -top-1.5 -left-1.5 w-4 h-4 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center text-[8px] font-black text-slate-500 shadow-sm">
+                                                        <span className="absolute -top-1.5 -left-1.5 w-4 h-4 rounded-full bg-slate-100 dark:bg-dk-elevated/60 border border-slate-200 dark:border-dk-border flex items-center justify-center text-[8px] font-black text-slate-500 dark:text-dk-muted shadow-sm">
                                                             {op.order || idx + 1}
                                                         </span>
-                                                        <div className="font-black text-[9px] text-slate-800 truncate" title={op.description}>
+                                                        <div className="font-black text-[9px] text-slate-800 dark:text-dk-text truncate" title={op.description}>
                                                             {op.description || `Op. ${op.order}`}
                                                         </div>
-                                                        <div className="flex items-center justify-between gap-1 mt-1 text-[8px] font-bold text-slate-400">
-                                                            <span className={`truncate ${isMissing ? 'text-rose-600' : 'text-indigo-600'}`}>{machine}</span>
-                                                            <span className="tabular-nums font-mono text-[7px] bg-slate-100 px-0.5 rounded shrink-0">{(op.time || 0).toFixed(1)}s</span>
+                                                        <div className="flex items-center justify-between gap-1 mt-1 text-[8px] font-bold text-slate-400 dark:text-dk-muted">
+                                                            <span className={`truncate ${isMissing ? 'text-rose-600 dark:text-rose-300' : 'text-indigo-600 dark:text-indigo-300 dark:text-indigo-200'}`}>{machine}</span>
+                                                            <span className="tabular-nums font-mono text-[7px] bg-slate-100 dark:bg-dk-elevated/60 px-0.5 rounded shrink-0">{(op.time || 0).toFixed(1)}s</span>
                                                         </div>
                                                     </div>
                                                     {idx < activeModel.gamme.length - 1 && (
-                                                        <span className={`h-0.5 w-3 shrink-0 ${isMissing ? 'bg-rose-200 border-dashed border-t-2' : 'bg-slate-200'}`} />
+                                                        <span className={`h-0.5 w-3 shrink-0 ${isMissing ? 'bg-rose-200 dark:bg-rose-900/50 border-dashed border-t-2' : 'bg-slate-200 dark:bg-dk-border'}`} />
                                                     )}
                                                 </div>
                                             );
                                         })
                                     ) : (
-                                        <div className="text-[10px] text-slate-400 py-2 italic">Aucune gamme opératoire enregistrée.</div>
+                                        <div className="text-[10px] text-slate-400 dark:text-dk-muted py-2 italic">Aucune gamme opératoire enregistrée.</div>
                                     )}
                                 </div>
                             </div>
                         </div>
                         
-                        <p className="text-[10px] text-slate-400 font-medium leading-relaxed border-t border-slate-50 pt-3 mt-4">
+                        <p className="text-[10px] text-slate-400 dark:text-dk-muted font-medium leading-relaxed border-t border-slate-50 dark:border-dk-border/40 pt-3 mt-4">
                             Relie la gamme de montage aux qualifications enregistrées dans la base RH de l'usine pour éviter les baisses de rendement liées au mauvais placement des ouvrières.
                         </p>
                     </div>
@@ -2042,8 +2042,8 @@ export default function SuiviProduction({
                 {consumptionAlerts.length > 0 && (
                     <div className={`rounded-3xl border-2 overflow-hidden shadow-lg ${
                         consumptionAlerts.some(a => a.severity === 'critical')
-                            ? 'border-rose-300 bg-gradient-to-r from-rose-50 via-rose-100/50 to-rose-50'
-                            : 'border-amber-300 bg-gradient-to-r from-amber-50 via-amber-100/50 to-amber-50'
+                            ? 'border-rose-300 dark:border-rose-800 bg-gradient-to-r from-rose-50 via-rose-100/50 to-rose-50'
+                            : 'border-amber-300 dark:border-amber-800 bg-gradient-to-r from-amber-50 via-amber-100/50 to-amber-50'
                     }`}>
                         {/* Animated top stripe */}
                         <div className={`h-1.5 w-full ${
@@ -2056,23 +2056,23 @@ export default function SuiviProduction({
                             <div className="flex items-center gap-3 mb-4">
                                 <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-md ${
                                     consumptionAlerts.some(a => a.severity === 'critical')
-                                        ? 'bg-rose-500 text-white animate-pulse'
-                                        : 'bg-amber-500 text-white'
+                                        ? 'bg-rose-50 dark:bg-rose-900/300 text-white animate-pulse'
+                                        : 'bg-amber-50 dark:bg-amber-900/300 text-white'
                                 }`}>
                                     <AlertTriangle className="w-6 h-6" />
                                 </div>
                                 <div>
-                                    <h3 className="text-base font-black text-slate-800 flex items-center gap-2">
+                                    <h3 className="text-base font-black text-slate-800 dark:text-dk-text flex items-center gap-2">
                                         {tx(lang, { fr: 'Alerte Surconsommation', ar: 'تنبيه الاستهلاك الزائد', en: 'Overconsumption alert', es: 'Alerta de sobreconsumo', pt: 'Alerta de sobreconsumo', tr: 'Fazla tüketim uyarısı' })}
                                         <span className={`text-[10px] px-2 py-0.5 rounded-full font-black uppercase tracking-wider ${
                                             consumptionAlerts.some(a => a.severity === 'critical')
-                                                ? 'bg-rose-100 text-rose-700 border border-rose-200 animate-pulse'
-                                                : 'bg-amber-100 text-amber-700 border border-amber-200'
+                                                ? 'bg-rose-100 dark:bg-rose-900/40 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800 animate-pulse'
+                                                : 'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800'
                                         }`}>
                                             {consumptionAlerts.filter(a => a.severity === 'critical').length} critique(s)
                                         </span>
                                     </h3>
-                                    <p className="text-xs text-slate-500 font-medium">
+                                    <p className="text-xs text-slate-500 dark:text-dk-muted font-medium">
                                         {tx(lang, { fr: 'Le stock restant ne suffira pas à terminer la commande !', ar: 'المخزون المتبقي غير كاف لإتمام الطلبية.', en: 'Remaining stock will not be enough to complete the order.', es: 'El stock restante no bastará para terminar el pedido.', pt: 'O stock restante não será suficiente para concluir a encomenda.', tr: 'Kalan stok siparişi tamamlamak için yeterli olmayacak.' })}
                                     </p>
                                 </div>
@@ -2085,20 +2085,20 @@ export default function SuiviProduction({
                                         key={`${alert.modelId}-${alert.materialName}-${idx}`}
                                         className={`rounded-2xl border p-4 transition-all hover:shadow-md ${
                                             alert.severity === 'critical'
-                                                ? 'bg-white border-rose-200 shadow-sm shadow-rose-100/50'
-                                                : 'bg-white border-amber-200 shadow-sm shadow-amber-100/50'
+                                                ? 'bg-white dark:bg-dk-surface border-rose-200 dark:border-rose-800 shadow-sm shadow-rose-100/50'
+                                                : 'bg-white dark:bg-dk-surface border-amber-200 dark:border-amber-800 shadow-sm shadow-amber-100/50'
                                         }`}
                                     >
                                         {/* Card header */}
                                         <div className="flex items-start justify-between mb-3">
                                             <div className="flex items-center gap-2">
                                                 <span className="w-3 h-3 rounded-md border" style={{ backgroundColor: alert.style.bg, borderColor: alert.style.border }} />
-                                                <span className="text-xs font-black text-slate-800">{alert.modelRef}</span>
+                                                <span className="text-xs font-black text-slate-800 dark:text-dk-text">{alert.modelRef}</span>
                                             </div>
                                             <span className={`text-[9px] px-2 py-0.5 rounded-full font-black uppercase ${
                                                 alert.severity === 'critical'
-                                                    ? 'bg-rose-100 text-rose-700'
-                                                    : 'bg-amber-100 text-amber-700'
+                                                    ? 'bg-rose-100 dark:bg-rose-900/40 text-rose-700 dark:text-rose-300'
+                                                    : 'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300'
                                             }`}>
                                                 {alert.severity === 'critical'
                                                     ? tx(lang, { fr: 'Critique', ar: 'حرج', en: 'Critical', es: 'Crítico', pt: 'Crítico', tr: 'Kritik' })
@@ -2108,50 +2108,50 @@ export default function SuiviProduction({
 
                                         {/* Material name */}
                                         <div className="flex items-center gap-2 mb-3">
-                                            <Package className="w-4 h-4 text-slate-400" />
-                                            <span className="text-sm font-black text-indigo-700">{alert.materialName}</span>
+                                            <Package className="w-4 h-4 text-slate-400 dark:text-dk-muted" />
+                                            <span className="text-sm font-black text-indigo-700 dark:text-indigo-300 dark:text-indigo-200">{alert.materialName}</span>
                                         </div>
 
                                         {/* KPI Grid */}
                                         <div className="grid grid-cols-2 gap-2 text-[10px]">
-                                            <div className="bg-slate-50 rounded-xl p-2 text-center">
-                                                <span className="block text-slate-400 font-bold uppercase">{tx(lang, { fr: 'Sorti Magasin', ar: 'خارج من المخزن', en: 'Issued from stock', es: 'Salida de almacén', pt: 'Saído do armazém', tr: 'Depodan çıkan' })}</span>
-                                                <span className="block text-sm font-black text-slate-700 tabular-nums">{alert.totalReceived.toLocaleString()} {alert.unit}</span>
+                                            <div className="bg-slate-50 dark:bg-dk-bg rounded-xl p-2 text-center">
+                                                <span className="block text-slate-400 dark:text-dk-muted font-bold uppercase">{tx(lang, { fr: 'Sorti Magasin', ar: 'خارج من المخزن', en: 'Issued from stock', es: 'Salida de almacén', pt: 'Saído do armazém', tr: 'Depodan çıkan' })}</span>
+                                                <span className="block text-sm font-black text-slate-700 dark:text-dk-text tabular-nums">{alert.totalReceived.toLocaleString()} {alert.unit}</span>
                                             </div>
-                                            <div className="bg-slate-50 rounded-xl p-2 text-center">
-                                                <span className="block text-slate-400 font-bold uppercase">{tx(lang, { fr: 'Cons. Théor.', ar: 'الاستهلاك النظري', en: 'Theoretical cons.', es: 'Cons. teórica', pt: 'Cons. teórica', tr: 'Teorik tüketim' })}</span>
-                                                <span className="block text-sm font-black text-slate-700 tabular-nums">{alert.consumed.toLocaleString()} {alert.unit}</span>
+                                            <div className="bg-slate-50 dark:bg-dk-bg rounded-xl p-2 text-center">
+                                                <span className="block text-slate-400 dark:text-dk-muted font-bold uppercase">{tx(lang, { fr: 'Cons. Théor.', ar: 'الاستهلاك النظري', en: 'Theoretical cons.', es: 'Cons. teórica', pt: 'Cons. teórica', tr: 'Teorik tüketim' })}</span>
+                                                <span className="block text-sm font-black text-slate-700 dark:text-dk-text tabular-nums">{alert.consumed.toLocaleString()} {alert.unit}</span>
                                             </div>
-                                            <div className={`rounded-xl p-2 text-center ${alert.remainingStock <= 0 ? 'bg-rose-50' : 'bg-emerald-50'}`}>
-                                                <span className="block text-slate-400 font-bold uppercase">{tx(lang, { fr: 'Sur la chaîne', ar: 'على الخط', en: 'On the line', es: 'En la línea', pt: 'Na linha', tr: 'Hatta' })}</span>
-                                                <span className={`block text-sm font-black tabular-nums ${alert.remainingStock <= 0 ? 'text-rose-600' : 'text-emerald-600'}`}>{alert.remainingStock.toLocaleString()} {alert.unit}</span>
+                                            <div className={`rounded-xl p-2 text-center ${alert.remainingStock <= 0 ? 'bg-rose-50 dark:bg-rose-900/30' : 'bg-emerald-50 dark:bg-emerald-900/30'}`}>
+                                                <span className="block text-slate-400 dark:text-dk-muted font-bold uppercase">{tx(lang, { fr: 'Sur la chaîne', ar: 'على الخط', en: 'On the line', es: 'En la línea', pt: 'Na linha', tr: 'Hatta' })}</span>
+                                                <span className={`block text-sm font-black tabular-nums ${alert.remainingStock <= 0 ? 'text-rose-600 dark:text-rose-300' : 'text-emerald-600 dark:text-emerald-300'}`}>{alert.remainingStock.toLocaleString()} {alert.unit}</span>
                                             </div>
-                                            <div className="bg-indigo-50 rounded-xl p-2 text-center">
-                                                <span className="block text-slate-400 font-bold uppercase">{tx(lang, { fr: 'Besoin Rest.', ar: 'الاحتياج المتبقي', en: 'Remaining need', es: 'Necesidad restante', pt: 'Necessidade restante', tr: 'Kalan ihtiyaç' })}</span>
-                                                <span className="block text-sm font-black text-indigo-600 tabular-nums">{alert.remainingNeed.toLocaleString()} {alert.unit}</span>
+                                            <div className="bg-indigo-50 dark:bg-indigo-900/30 rounded-xl p-2 text-center">
+                                                <span className="block text-slate-400 dark:text-dk-muted font-bold uppercase">{tx(lang, { fr: 'Besoin Rest.', ar: 'الاحتياج المتبقي', en: 'Remaining need', es: 'Necesidad restante', pt: 'Necessidade restante', tr: 'Kalan ihtiyaç' })}</span>
+                                                <span className="block text-sm font-black text-indigo-600 dark:text-indigo-300 dark:text-indigo-200 tabular-nums">{alert.remainingNeed.toLocaleString()} {alert.unit}</span>
                                             </div>
                                         </div>
 
                                         {/* Écart (Deviation) bar */}
-                                        <div className="mt-3 pt-3 border-t border-slate-100">
+                                        <div className="mt-3 pt-3 border-t border-slate-100 dark:border-dk-border/60">
                                             <div className="flex items-center justify-between">
-                                                <span className="text-[10px] font-black text-slate-400 uppercase flex items-center gap-1">
+                                                <span className="text-[10px] font-black text-slate-400 dark:text-dk-muted uppercase flex items-center gap-1">
                                                     <TrendingDown className="w-3 h-3" />
                                                     {tx(lang, { fr: 'Surconsommation (Perte)', ar: 'الاستهلاك الزائد (الهدر)', en: 'Overconsumption (loss)', es: 'Sobreconsumo (pérdida)', pt: 'Sobreconsumo (perda)', tr: 'Fazla tüketim (kayıp)' })}
                                                 </span>
-                                                <span className="text-sm font-black tabular-nums text-rose-600">
+                                                <span className="text-sm font-black tabular-nums text-rose-600 dark:text-rose-300">
                                                     +{alert.ecart.toLocaleString()} {alert.unit}
                                                 </span>
                                             </div>
-                                            <div className="w-full bg-slate-100 h-2 rounded-full mt-1.5 overflow-hidden">
+                                            <div className="w-full bg-slate-100 dark:bg-dk-elevated/60 h-2 rounded-full mt-1.5 overflow-hidden">
                                                 <div
                                                     className={`h-full rounded-full transition-all duration-500 ${
-                                                        alert.severity === 'critical' ? 'bg-rose-500 animate-pulse' : 'bg-amber-400'
+                                                        alert.severity === 'critical' ? 'bg-rose-50 dark:bg-rose-900/300 animate-pulse' : 'bg-amber-400 dark:bg-amber-800'
                                                     }`}
                                                     style={{ width: `${Math.min(100, Math.max(5, alert.totalReceived > 0 ? (alert.consumed / alert.totalReceived) * 100 : 100))}%` }}
                                                 />
                                             </div>
-                                            <p className="text-[9px] text-slate-400 font-medium mt-1">
+                                            <p className="text-[9px] text-slate-400 dark:text-dk-muted font-medium mt-1">
                                                 {alert.severity === 'critical'
                                                     ? tx(lang, { fr: 'Gaspillage critique constaté sur la chaîne ! (>20%)', ar: 'تم رصد هدر حرج على الخط (>20%).', en: 'Critical waste detected on the line! (>20%)', es: 'Desperdicio crítico detectado en la línea (>20%).', pt: 'Desperdício crítico detetado na linha (>20%).', tr: 'Hatta kritik fire tespit edildi! (>20%)' })
                                                     : tx(lang, { fr: 'Légère surconsommation constatée (>10%)', ar: 'تم رصد استهلاك زائد طفيف (>10%).', en: 'Slight overconsumption detected (>10%)', es: 'Sobreconsumo ligero detectado (>10%)', pt: 'Sobreconsumo ligeiro detetado (>10%)', tr: 'Hafif fazla tüketim tespit edildi (>10%)' })}
@@ -2165,16 +2165,16 @@ export default function SuiviProduction({
                 )}
 
                 {/* Legend & Instructions footer */}
-                <Section isMobile={isMobile} title={l.downtimes} icon={<Info className="w-4 h-4 text-indigo-600 shrink-0" />}>
-                <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 bg-white border border-slate-200/60 rounded-2xl p-3 sm:p-5 shadow-sm text-xs font-semibold text-slate-500">
+                <Section isMobile={isMobile} title={l.downtimes} icon={<Info className="w-4 h-4 text-indigo-600 dark:text-indigo-300 dark:text-indigo-200 shrink-0" />}>
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border/60 rounded-2xl p-3 sm:p-5 shadow-sm text-xs font-semibold text-slate-500 dark:text-dk-muted">
                     <div className="flex flex-wrap items-center gap-4">
                         <span className="font-bold">{l.downtimes} :</span>
-                        <span className="flex items-center gap-1.5"><span className="w-6 py-0.5 rounded text-[10px] font-black bg-slate-500 text-white text-center">L</span> {l.lunch}</span>
-                        <span className="flex items-center gap-1.5"><span className="w-6 py-0.5 rounded text-[10px] font-black bg-blue-500 text-white text-center">P</span> {l.pause}</span>
-                        <span className="flex items-center gap-1.5"><span className="w-6 py-0.5 rounded text-[10px] font-black bg-rose-500 text-white text-center">M</span> {l.breakdown}</span>
-                        <span className="flex items-center gap-1.5"><span className="w-6 py-0.5 rounded text-[10px] font-black bg-amber-500 text-white text-center">S</span> {l.rupture}</span>
+                        <span className="flex items-center gap-1.5"><span className="w-6 py-0.5 rounded text-[10px] font-black bg-slate-50 dark:bg-dk-bg0 text-white text-center">L</span> {l.lunch}</span>
+                        <span className="flex items-center gap-1.5"><span className="w-6 py-0.5 rounded text-[10px] font-black bg-blue-500 dark:bg-blue-700 text-white text-center">P</span> {l.pause}</span>
+                        <span className="flex items-center gap-1.5"><span className="w-6 py-0.5 rounded text-[10px] font-black bg-rose-50 dark:bg-rose-900/300 text-white text-center">M</span> {l.breakdown}</span>
+                        <span className="flex items-center gap-1.5"><span className="w-6 py-0.5 rounded text-[10px] font-black bg-amber-50 dark:bg-amber-900/300 text-white text-center">S</span> {l.rupture}</span>
                     </div>
-                    <p className="text-slate-400 font-medium">{tx(lang, { fr: 'Les pannes et pauses réduisent automatiquement le temps de travail effectif utilisé pour calculer le rendement (R%).', ar: 'تُخصم الأعطال والاستراحات تلقائياً من وقت العمل الفعلي لحساب المردودية (R%) بدقة.', en: 'Breakdowns and breaks automatically reduce effective work time used to calculate efficiency (R%).', es: 'Las averías y pausas reducen automáticamente el tiempo efectivo usado para calcular el rendimiento (R%).', pt: 'Avarias e pausas reduzem automaticamente o tempo efetivo usado para calcular o rendimento (R%).', tr: 'Arızalar ve molalar, verimlilik (R%) hesabında kullanılan etkin çalışma süresini otomatik olarak azaltır.' })}</p>
+                    <p className="text-slate-400 dark:text-dk-muted font-medium">{tx(lang, { fr: 'Les pannes et pauses réduisent automatiquement le temps de travail effectif utilisé pour calculer le rendement (R%).', ar: 'تُخصم الأعطال والاستراحات تلقائياً من وقت العمل الفعلي لحساب المردودية (R%) بدقة.', en: 'Breakdowns and breaks automatically reduce effective work time used to calculate efficiency (R%).', es: 'Las averías y pausas reducen automáticamente el tiempo efectivo usado para calcular el rendimiento (R%).', pt: 'Avarias e pausas reduzem automaticamente o tempo efetivo usado para calcular o rendimento (R%).', tr: 'Arızalar ve molalar, verimlilik (R%) hesabında kullanılan etkin çalışma süresini otomatik olarak azaltır.' })}</p>
                 </div>
                 </Section>
 
@@ -2254,20 +2254,20 @@ function CellDetailsModal({
 
     return (
         <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
-            <div className="bg-white rounded-3xl max-w-md w-full shadow-2xl overflow-hidden border border-slate-100 animate-in zoom-in-95 duration-200">
+            <div className="bg-white dark:bg-dk-surface rounded-3xl max-w-md w-full shadow-2xl overflow-hidden border border-slate-100 dark:border-dk-border/60 animate-in zoom-in-95 duration-200">
                 {/* Header */}
-                <div className="flex items-center justify-between px-6 py-4 border-b border-slate-50 bg-slate-50/50">
+                <div className="flex items-center justify-between px-6 py-4 border-b border-slate-50 dark:border-dk-border/40 bg-slate-50 dark:bg-dk-bg/50">
                     <div>
-                        <h3 className="text-base font-black text-slate-800 tracking-tight">
+                        <h3 className="text-base font-black text-slate-800 dark:text-dk-text tracking-tight">
                             {l.cellModalTitle}
                         </h3>
-                        <p className="text-[10px] text-slate-400 font-bold uppercase mt-0.5">
+                        <p className="text-[10px] text-slate-400 dark:text-dk-muted font-bold uppercase mt-0.5">
                             {dateStr} · {hourLabel}
                         </p>
                     </div>
                     <button 
                         onClick={onClose} 
-                        className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+                        className="p-1.5 rounded-lg text-slate-400 dark:text-dk-muted hover:text-slate-600 dark:text-dk-text-soft hover:bg-slate-100 dark:bg-dk-elevated/60 transition-colors"
                     >
                         <X className="w-5 h-5" />
                     </button>
@@ -2278,13 +2278,13 @@ function CellDetailsModal({
                     
                     {/* Model Select */}
                     <div className="space-y-1">
-                        <label className="block text-[10px] font-black uppercase tracking-wider text-slate-400">
+                        <label className="block text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-dk-muted">
                             {l.activeModel}
                         </label>
                         <select
                             value={modelId}
                             onChange={(e) => setModelId(e.target.value)}
-                            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 font-bold text-slate-800 outline-none focus:border-indigo-500 focus:bg-white transition-all"
+                            className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3.5 py-2.5 font-bold text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 focus:bg-white dark:bg-dk-surface transition-all"
                         >
                             {activeModels.map(m => (
                                 <option key={m.id} value={m.id}>
@@ -2298,7 +2298,7 @@ function CellDetailsModal({
                     <div className="grid grid-cols-2 gap-4">
                         {/* Quantity */}
                         <div className="space-y-1">
-                            <label className="block text-[10px] font-black uppercase tracking-wider text-slate-400">
+                            <label className="block text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-dk-muted">
                                 {l.quantity}
                             </label>
                             <input
@@ -2310,14 +2310,14 @@ function CellDetailsModal({
                                     setQuantity(Math.max(0, parseInt(e.target.value) || 0));
                                     if (downtime) setDowntime(null); // Clear downtime if quantity entered
                                 }}
-                                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 font-bold text-slate-800 outline-none focus:border-indigo-500 focus:bg-white transition-all"
+                                className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3.5 py-2 font-bold text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 focus:bg-white dark:bg-dk-surface transition-all"
                                 placeholder="0"
                             />
                         </div>
 
                         {/* Downtime */}
                         <div className="space-y-1">
-                            <label className="block text-[10px] font-black uppercase tracking-wider text-slate-400">
+                            <label className="block text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-dk-muted">
                                 {l.downtimes}
                             </label>
                             <select
@@ -2327,7 +2327,7 @@ function CellDetailsModal({
                                     setDowntime(val);
                                     if (val) setQuantity(0); // Reset quantity if downtime selected
                                 }}
-                                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 font-bold text-slate-800 outline-none focus:border-indigo-500 focus:bg-white transition-all"
+                                className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3.5 py-2 font-bold text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 focus:bg-white dark:bg-dk-surface transition-all"
                             >
                                 <option value="">{l.none}</option>
                                 <option value="L">{l.lunch}</option>
@@ -2339,10 +2339,10 @@ function CellDetailsModal({
                     </div>
 
                     {/* Defects row */}
-                    <div className="grid grid-cols-2 gap-4 pt-2 border-t border-slate-50">
+                    <div className="grid grid-cols-2 gap-4 pt-2 border-t border-slate-50 dark:border-dk-border/40">
                         {/* Defects Qty */}
                         <div className="space-y-1">
-                            <label className="block text-[10px] font-black uppercase tracking-wider text-rose-500 font-bold">
+                            <label className="block text-[10px] font-black uppercase tracking-wider text-rose-500 dark:text-rose-300 font-bold">
                                 {l.defects}
                             </label>
                             <input
@@ -2351,20 +2351,20 @@ function CellDetailsModal({
                                 min={0}
                                 value={defectsQty || ''}
                                 onChange={(e) => setDefectsQty(Math.max(0, parseInt(e.target.value) || 0))}
-                                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 font-bold text-slate-800 outline-none focus:border-rose-500 focus:bg-white transition-all"
+                                className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3.5 py-2 font-bold text-slate-800 dark:text-dk-text outline-none focus:border-rose-500 focus:bg-white dark:bg-dk-surface transition-all"
                                 placeholder="0"
                             />
                         </div>
 
                         {/* Defect Type */}
                         <div className="space-y-1">
-                            <label className="block text-[10px] font-black uppercase tracking-wider text-slate-400">
+                            <label className="block text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-dk-muted">
                                 {l.defectType}
                             </label>
                             <select
                                 value={defectType}
                                 onChange={(e) => setDefectType(e.target.value)}
-                                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 font-bold text-slate-800 outline-none focus:border-indigo-500 focus:bg-white transition-all"
+                                className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3.5 py-2 font-bold text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 focus:bg-white dark:bg-dk-surface transition-all"
                             >
                                 <option value="Couture">{l.sewing}</option>
                                 <option value="Tissu">{l.fabric}</option>
@@ -2377,16 +2377,16 @@ function CellDetailsModal({
                 </div>
 
                 {/* Footer Buttons */}
-                <div className="flex items-center justify-end gap-2 border-t border-slate-50 px-6 py-4 bg-slate-50/50">
+                <div className="flex items-center justify-end gap-2 border-t border-slate-50 dark:border-dk-border/40 px-6 py-4 bg-slate-50 dark:bg-dk-bg/50">
                     <button
                         onClick={onClose}
-                        className="px-4 py-2 rounded-xl text-xs font-bold text-slate-500 hover:bg-slate-200/50 transition-colors"
+                        className="px-4 py-2 rounded-xl text-xs font-bold text-slate-500 dark:text-dk-muted hover:bg-slate-200 dark:bg-dk-border/50 transition-colors"
                     >
                         {l.close}
                     </button>
                     <button
                         onClick={handleConfirm}
-                        className="px-5 py-2 rounded-xl text-xs font-black bg-indigo-600 text-white hover:bg-indigo-700 shadow-sm transition-colors"
+                        className="px-5 py-2 rounded-xl text-xs font-black bg-indigo-600 dark:bg-indigo-700 text-white hover:bg-indigo-700 shadow-sm transition-colors"
                     >
                         {l.save}
                     </button>
@@ -2414,12 +2414,12 @@ function Section({ title, isMobile, children, defaultOpen = false, icon, badge }
             <button
                 type="button"
                 onClick={() => setOpen(o => !o)}
-                className="w-full flex items-center gap-2 px-3 py-2.5 text-left bg-white border border-slate-200/60 rounded-2xl shadow-sm"
+                className="w-full flex items-center gap-2 px-3 py-2.5 text-left bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border/60 rounded-2xl shadow-sm"
             >
                 {icon}
-                <span className="text-[13px] font-black text-slate-800 flex-1 truncate">{title}</span>
+                <span className="text-[13px] font-black text-slate-800 dark:text-dk-text flex-1 truncate">{title}</span>
                 {badge}
-                <ChevronRight className={`w-4 h-4 text-slate-400 shrink-0 transition-transform ${open ? 'rotate-90' : ''}`} />
+                <ChevronRight className={`w-4 h-4 text-slate-400 dark:text-dk-muted shrink-0 transition-transform ${open ? 'rotate-90' : ''}`} />
             </button>
             {open && <div className="mt-1.5 animate-in fade-in duration-200">{children}</div>}
         </div>
@@ -2456,20 +2456,20 @@ function StatusChangeModal({
 
     return (
         <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
-            <div className="bg-white rounded-3xl max-w-sm w-full shadow-2xl overflow-hidden border border-slate-100 animate-in zoom-in-95 duration-200">
+            <div className="bg-white dark:bg-dk-surface rounded-3xl max-w-sm w-full shadow-2xl overflow-hidden border border-slate-100 dark:border-dk-border/60 animate-in zoom-in-95 duration-200">
                 {/* Header */}
-                <div className="flex items-center justify-between px-6 py-4 border-b border-slate-50 bg-slate-50/50">
+                <div className="flex items-center justify-between px-6 py-4 border-b border-slate-50 dark:border-dk-border/40 bg-slate-50 dark:bg-dk-bg/50">
                     <div>
-                        <h3 className="text-sm font-black text-slate-800 tracking-tight uppercase">
+                        <h3 className="text-sm font-black text-slate-800 dark:text-dk-text tracking-tight uppercase">
                             {title}
                         </h3>
-                        <p className="text-[10px] text-slate-400 font-bold uppercase mt-0.5 mt-1">
+                        <p className="text-[10px] text-slate-400 dark:text-dk-muted font-bold uppercase mt-0.5 mt-1">
                             {event.modelName || 'Modèle'} {event.qteTotal ? `· ${event.qteTotal} pcs` : ''}
                         </p>
                     </div>
                     <button 
                         onClick={onClose} 
-                        className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+                        className="p-1.5 rounded-lg text-slate-400 dark:text-dk-muted hover:text-slate-600 dark:text-dk-text-soft hover:bg-slate-100 dark:bg-dk-elevated/60 transition-colors"
                     >
                         <X className="w-4 h-4" />
                     </button>
@@ -2487,8 +2487,8 @@ function StatusChangeModal({
                                     onClick={() => setSelectedStatus(s.key)}
                                     className={`flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-xs transition-all text-left ${
                                         isSelected 
-                                            ? 'bg-slate-950 text-white shadow-md scale-[1.01]' 
-                                            : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-100/80'
+                                            ? 'bg-slate-950 dark:bg-dk-bg text-white shadow-md scale-[1.01]' 
+                                            : 'bg-slate-50 dark:bg-dk-bg hover:bg-slate-100 dark:bg-dk-elevated/60 text-slate-700 dark:text-dk-text border border-slate-100 dark:border-dk-border/60/80'
                                     }`}
                                 >
                                     <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: isSelected ? '#E2E8F0' : s.color }} />
@@ -2500,11 +2500,11 @@ function StatusChangeModal({
                 </div>
 
                 {/* Footer */}
-                <div className="px-6 py-4 border-t border-slate-50 bg-slate-50/30 flex justify-end gap-2 text-xs">
+                <div className="px-6 py-4 border-t border-slate-50 dark:border-dk-border/40 bg-slate-50 dark:bg-dk-bg/30 flex justify-end gap-2 text-xs">
                     <button 
                         type="button" 
                         onClick={onClose} 
-                        className="rounded-xl px-4 py-2 font-bold text-slate-500 hover:bg-slate-100 transition-colors"
+                        className="rounded-xl px-4 py-2 font-bold text-slate-500 dark:text-dk-muted hover:bg-slate-100 dark:bg-dk-elevated/60 transition-colors"
                     >
                         {cancelLabel}
                     </button>
