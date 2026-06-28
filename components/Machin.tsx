@@ -377,7 +377,7 @@ export default function Machin({
               <div className="flex items-center gap-3">
                  <button 
                    onClick={() => setCurrentView('menu')}
-                   className="w-10 h-10 rounded-xl bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border text-slate-500 dark:text-dk-muted flex items-center justify-center hover:bg-slate-50 dark:bg-dk-elevated hover:text-slate-800 dark:text-dk-text transition-colors"
+                   className="w-10 h-10 rounded-xl bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border text-slate-500 dark:text-dk-muted flex items-center justify-center hover:bg-slate-50 dark:hover:bg-dk-elevated/60 hover:text-slate-800 dark:text-dk-text transition-colors"
                  >
                    <ChevronLeft className="w-6 h-6" />
                  </button>
@@ -505,10 +505,10 @@ export default function Machin({
                     </thead>
                     <tbody className="divide-y divide-slate-100 dark:divide-dk-border">
                       {filteredMachines.map((machine) => (
-                        <tr key={machine.id} className={`group transition-colors hover:bg-slate-50 dark:bg-dk-elevated/80 ${!machine.active ? 'opacity-60 bg-slate-50 dark:bg-dk-elevated/50' : ''}`}>
-                          <td className="py-2.5 px-4"><div className="flex items-center gap-3"><div className={`w-8 h-8 rounded-lg flex items-center justify-center ${machine.active ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 text-slate-400 dark:text-dk-muted'}`}><Scissors className="w-4 h-4" /></div><span className="font-semibold text-slate-700 dark:text-dk-text-soft text-sm">{machine.name}</span></div></td>
-                          <td className="py-2.5 px-4 text-center"><span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-slate-100 text-slate-600 dark:text-dk-muted border border-slate-200 dark:border-dk-border">{machine.machineCategory || '—'}</span></td>
-                          <td className="py-2.5 px-4 text-center"><span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-slate-100 text-slate-600 dark:text-dk-muted border border-slate-200 dark:border-dk-border">{machine.classe}</span></td>
+                        <tr key={machine.id} className={`group transition-colors hover:bg-slate-50 dark:hover:bg-dk-elevated/60 ${!machine.active ? 'opacity-60 bg-slate-50 dark:bg-dk-elevated/50' : ''}`}>
+                          <td className="py-2.5 px-4"><div className="flex items-center gap-3"><div className={`w-8 h-8 rounded-lg flex items-center justify-center ${machine.active ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 dark:bg-dk-elevated text-slate-400 dark:text-dk-muted'}`}><Scissors className="w-4 h-4" /></div><span className="font-semibold text-slate-700 dark:text-dk-text-soft text-sm">{machine.name}</span></div></td>
+                          <td className="py-2.5 px-4 text-center"><span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-slate-100 dark:bg-dk-elevated text-slate-600 dark:text-dk-muted border border-slate-200 dark:border-dk-border">{machine.machineCategory || '—'}</span></td>
+                          <td className="py-2.5 px-4 text-center"><span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-slate-100 dark:bg-dk-elevated text-slate-600 dark:text-dk-muted border border-slate-200 dark:border-dk-border">{machine.classe}</span></td>
                           <td className="py-2.5 px-4 text-center text-slate-600 dark:text-dk-muted font-mono text-sm">{machine.speed}</td>
                           <td className="py-2.5 px-4 text-center text-slate-600 dark:text-dk-muted font-mono text-sm">{machine.speedMajor}</td>
                           <td className="py-2.5 px-4 text-center"><span className="font-bold text-slate-700 dark:text-dk-text-soft text-sm">{machine.cofs}</span></td>
@@ -731,7 +731,7 @@ export default function Machin({
               <div className="flex items-center justify-between flex-wrap gap-3">
                 <button
                   onClick={() => setCurrentView('menu')}
-                  className="flex items-center gap-2 px-4 py-2.5 text-slate-600 dark:text-dk-muted font-bold rounded-xl hover:bg-slate-100 transition-colors"
+                  className="flex items-center gap-2 px-4 py-2.5 text-slate-600 dark:text-dk-muted font-bold rounded-xl hover:bg-slate-100 dark:hover:bg-dk-elevated dark:bg-dk-elevated transition-colors"
                 >
                   <ChevronLeft className="w-4 h-4" /> {tx(lang, { fr: 'Retour', ar: 'العودة', en: 'Back', es: 'Volver', pt: 'Voltar', tr: 'Geri' })}
                 </button>
@@ -805,7 +805,7 @@ export default function Machin({
                         >
                           <td className="p-3 font-bold text-slate-700 dark:text-dk-text-soft">{stitch.name}</td>
                           <td className="p-3 text-center">
-                            <span className="bg-slate-100 text-slate-600 dark:text-dk-muted px-2 py-0.5 rounded text-xs font-mono font-bold">
+                            <span className="bg-slate-100 dark:bg-dk-elevated text-slate-600 dark:text-dk-muted px-2 py-0.5 rounded text-xs font-mono font-bold">
                               {stitch.isoNumber}
                             </span>
                           </td>
@@ -820,7 +820,7 @@ export default function Machin({
                             </span>
                           </td>
                           <td className="p-3">
-                            <span className="bg-slate-100 text-slate-600 dark:text-dk-muted px-2 py-0.5 rounded text-xs font-mono">
+                            <span className="bg-slate-100 dark:bg-dk-elevated text-slate-600 dark:text-dk-muted px-2 py-0.5 rounded text-xs font-mono">
                               {stitch.machineCode || '—'}
                             </span>
                           </td>
