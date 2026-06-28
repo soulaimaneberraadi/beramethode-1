@@ -181,14 +181,14 @@ export default function AppHeader({
     };
 
     return (
-        <header className="bg-white border-b border-gray-100 shadow-[0_1px_2px_0_rgba(0,0,0,0.02)] z-[100] shrink-0 h-12 sticky top-0 print:hidden">
+        <header className="bg-white dark:bg-dk-surface border-b border-gray-100 dark:border-dk-border shadow-[0_1px_2px_0_rgba(0,0,0,0.02)] z-[100] shrink-0 h-12 sticky top-0 print:hidden">
             <div className="h-full px-3 sm:px-4 flex items-center justify-between">
                 {/* Left: Hamburger (mobile) + Logo */}
                 <div className="flex items-center gap-2 sm:gap-3">
                     {/* Hamburger Menu Button - toujours dispo sur mobile (la nav desktop est cachée < md) */}
                     <button onClick={() => setMobileMenuOpen(v => !v)}
                         aria-label="Menu"
-                        className={`${navConfig.style === 'mobile-only' ? 'flex' : 'md:hidden flex'} items-center justify-center w-8 h-8 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 text-gray-500 hover:text-gray-900 transition-colors shrink-0`}>
+                        className={`${navConfig.style === 'mobile-only' ? 'flex' : 'md:hidden flex'} items-center justify-center w-8 h-8 rounded-lg border border-gray-200 dark:border-dk-border bg-white dark:bg-dk-surface hover:bg-gray-50 dark:hover:bg-dk-elevated/60 text-gray-500 dark:text-dk-text-soft hover:text-gray-900 dark:hover:text-dk-text transition-colors shrink-0`}>
                         {mobileMenuOpen ? <X className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
                     </button>
 
@@ -200,7 +200,7 @@ export default function AppHeader({
                         className="group relative inline-flex items-center justify-center px-1 py-0.5 rounded-sm border-none transition-all duration-200 hover:-translate-y-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/60"
                     >
                         <span
-                            className={`relative font-extrabold text-base sm:text-lg tracking-tight transition-all duration-200 [text-shadow:none] group-hover:[text-shadow:0_1px_3px_rgba(16,185,129,0.4),0_2px_8px_rgba(16,185,129,0.22)] ${currentView === 'dashboard' ? 'text-gray-900' : 'text-gray-800 group-hover:text-emerald-700'}`}
+                            className={`relative font-extrabold text-base sm:text-lg tracking-tight transition-all duration-200 [text-shadow:none] group-hover:[text-shadow:0_1px_3px_rgba(16,185,129,0.4),0_2px_8px_rgba(16,185,129,0.22)] ${currentView === 'dashboard' ? 'text-gray-900 dark:text-dk-text' : 'text-gray-800 dark:text-dk-text group-hover:text-emerald-700 dark:group-hover:text-emerald-400'}`}
                         >
                             BERA<span className="text-emerald-600">METHODE</span>
                         </span>
@@ -211,21 +211,21 @@ export default function AppHeader({
 
                     {/* AUTO-SAVE INDICATOR */}
                     {currentView === 'ingenierie' && (
-                        <div className="ml-2 sm:ml-4 flex items-center gap-1.5 px-2 py-1 bg-slate-50 rounded-full border border-slate-100">
+                        <div className="ml-2 sm:ml-4 flex items-center gap-1.5 px-2 py-1 bg-slate-50 dark:bg-dk-surface rounded-full border border-slate-100 dark:border-dk-border">
                             {saveStatus === 'saved' ? (
                                 <>
                                     <CheckCircle2 className="w-3 h-3 text-emerald-500" />
-                                    <span className="text-[10px] font-bold text-slate-400 hidden md:inline">{t.saved}</span>
+                                    <span className="text-[10px] font-bold text-slate-400 dark:text-dk-muted hidden md:inline">{t.saved}</span>
                                 </>
                             ) : saveStatus === 'saving' ? (
                                 <>
                                     <div className="w-3 h-3 rounded-full border-2 border-indigo-500 border-t-transparent animate-spin"></div>
-                                    <span className="text-[10px] font-bold text-indigo-400 hidden md:inline">{t.saving}</span>
+                                    <span className="text-[10px] font-bold text-indigo-400 dark:text-indigo-300 hidden md:inline">{t.saving}</span>
                                 </>
                             ) : (
                                 <>
                                     <CloudOff className="w-3 h-3 text-amber-500" />
-                                    <span className="text-[10px] font-bold text-amber-500 hidden md:inline">{t.unsaved}</span>
+                                    <span className="text-[10px] font-bold text-amber-500 dark:text-amber-400 hidden md:inline">{t.unsaved}</span>
                                 </>
                             )}
                         </div>
@@ -241,7 +241,7 @@ export default function AppHeader({
                         <button
                             onClick={() => scrollNav('left')}
                             type="button"
-                            className="absolute left-0 top-0 bottom-0 z-10 w-8 bg-white/40 hover:bg-white/60 backdrop-blur-md border-r border-slate-200/50 text-slate-600 hover:text-indigo-600 transition-all duration-200 active:bg-white/80 opacity-0 group-hover/nav:opacity-100 flex items-center justify-center cursor-pointer"
+                            className="absolute left-0 top-0 bottom-0 z-10 w-8 bg-white/40 dark:bg-dk-bg/40 hover:bg-white/60 dark:hover:bg-dk-surface/60 backdrop-blur-md border-r border-slate-200/50 dark:border-dk-border text-slate-600 dark:text-dk-text-soft hover:text-indigo-600 dark:hover:text-indigo-400 transition-all duration-200 active:bg-white/80 dark:active:bg-dk-surface/80 opacity-0 group-hover/nav:opacity-100 flex items-center justify-center cursor-pointer"
                             title={t.prev}
                         >
                             <ChevronLeft className="w-3.5 h-3.5" />
@@ -330,7 +330,7 @@ export default function AppHeader({
                         <button
                             onClick={() => scrollNav('right')}
                             type="button"
-                            className="absolute right-0 top-0 bottom-0 z-10 w-8 bg-white/40 hover:bg-white/60 backdrop-blur-md border-l border-slate-200/50 text-slate-600 hover:text-indigo-600 transition-all duration-200 active:bg-white/80 opacity-0 group-hover/nav:opacity-100 flex items-center justify-center cursor-pointer"
+                            className="absolute right-0 top-0 bottom-0 z-10 w-8 bg-white/40 dark:bg-dk-bg/40 hover:bg-white/60 dark:hover:bg-dk-surface/60 backdrop-blur-md border-l border-slate-200/50 dark:border-dk-border text-slate-600 dark:text-dk-text-soft hover:text-indigo-600 dark:hover:text-indigo-400 transition-all duration-200 active:bg-white/80 dark:active:bg-dk-surface/80 opacity-0 group-hover/nav:opacity-100 flex items-center justify-center cursor-pointer"
                             title={t.next}
                         >
                             <ChevronRight className="w-3.5 h-3.5" />
@@ -349,7 +349,7 @@ export default function AppHeader({
                                 a.download = 'beramethode-backup.sqlite';
                                 a.click();
                             }}
-                            className="hidden md:flex items-center justify-center w-8 h-8 rounded-full bg-white border border-gray-100 text-gray-400 hover:text-blue-600 hover:border-blue-100 transition-colors cursor-pointer"
+                            className="hidden md:flex items-center justify-center w-8 h-8 rounded-full bg-white dark:bg-dk-surface border border-gray-100 dark:border-dk-border text-gray-400 dark:text-dk-muted hover:text-blue-600 dark:hover:text-blue-400 hover:border-blue-100 dark:hover:border-blue-800 transition-colors cursor-pointer"
                             title={tx(lang, {fr:"Télécharger la base de données (Sauvegarde DB)",ar:"تحميل قاعدة البيانات (نسخة احتياطية)",en:"Download database (DB backup)",es:"Descargar base de datos (Respaldo DB)",pt:"Baixar banco de dados (Backup DB)",tr:"Veritabanını indir (DB yedekleme)"})}
                         >
                             <Database className="w-3.5 h-3.5" />
@@ -364,8 +364,8 @@ export default function AppHeader({
                     <button
                         onClick={() => handleNavigation('profil')}
                         className={`flex items-center gap-2 pl-1 pr-1 py-1 rounded-full border transition-all ${currentView === 'profil'
-                            ? 'bg-emerald-50 border-emerald-200'
-                            : 'bg-white border-gray-100 hover:border-gray-200'
+                            ? 'bg-emerald-50 dark:bg-emerald-900/30 border-emerald-200 dark:border-emerald-800'
+                            : 'bg-white dark:bg-dk-surface border-gray-100 dark:border-dk-border hover:border-gray-200 dark:hover:border-dk-elevated'
                             }`}
                     >
                         <div className="w-6 h-6 rounded-full bg-gradient-to-tr from-gray-700 to-gray-600 flex items-center justify-center text-[10px] font-bold text-white shadow-sm">
@@ -375,7 +375,7 @@ export default function AppHeader({
 
                     <button
                         onClick={logout}
-                        className="flex items-center justify-center w-8 h-8 rounded-full bg-white border border-gray-100 text-gray-400 hover:text-red-600 hover:border-red-100 transition-colors cursor-pointer"
+                        className="flex items-center justify-center w-8 h-8 rounded-full bg-white dark:bg-dk-surface border border-gray-100 dark:border-dk-border text-gray-400 dark:text-dk-muted hover:text-red-600 dark:hover:text-red-400 hover:border-red-100 dark:hover:border-red-800 transition-colors cursor-pointer"
                         title={t.logout}
                     >
                         <LogOut className="w-3.5 h-3.5" />
@@ -475,7 +475,7 @@ function WorkspaceSwitcher({ lang }: { lang: Lang }) {
                 onClick={openMenu}
                 disabled={busy}
                 title={tx(lang, { fr: 'Changer de société', ar: 'تبديل الشركة', en: 'Switch workspace', es: 'Cambiar empresa', pt: 'Trocar empresa', tr: 'Çalışma alanını değiştir' })}
-                className="hidden sm:flex items-center gap-1.5 max-w-[180px] pl-2 pr-1.5 py-1 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 text-gray-700 transition-colors disabled:opacity-50"
+                className="hidden sm:flex items-center gap-1.5 max-w-[180px] pl-2 pr-1.5 py-1 rounded-lg border border-gray-200 dark:border-dk-border bg-white dark:bg-dk-surface hover:bg-gray-50 dark:hover:bg-dk-elevated/60 text-gray-700 dark:text-dk-text transition-colors disabled:opacity-50"
             >
                 <Factory className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
                 <span className="text-[11px] font-bold truncate">{active?.name || '—'}</span>
@@ -487,9 +487,9 @@ function WorkspaceSwitcher({ lang }: { lang: Lang }) {
                     <div className="fixed inset-0 z-[190]" onClick={() => setOpen(false)} />
                     <div
                         style={{ position: 'fixed', top: pos.top, left: pos.left }}
-                        className="w-60 bg-white border border-gray-100 rounded-xl shadow-lg p-1.5 z-[200] flex flex-col gap-0.5 animate-in fade-in zoom-in-95 duration-150"
+                        className="w-60 bg-white dark:bg-dk-surface border border-gray-100 dark:border-dk-border rounded-xl shadow-lg p-1.5 z-[200] flex flex-col gap-0.5 animate-in fade-in zoom-in-95 duration-150"
                     >
-                        <div className="px-2.5 py-1.5 text-[9px] font-bold uppercase tracking-wide text-gray-400">
+                        <div className="px-2.5 py-1.5 text-[9px] font-bold uppercase tracking-wide text-gray-400 dark:text-dk-muted">
                             {tx(lang, { fr: 'Sociétés', ar: 'الشركات', en: 'Workspaces', es: 'Empresas', pt: 'Empresas', tr: 'Çalışma alanları' })}
                         </div>
                         {list.map(w => (
@@ -497,7 +497,7 @@ function WorkspaceSwitcher({ lang }: { lang: Lang }) {
                                 key={w.ownerId}
                                 onClick={() => switchTo(w.ownerId)}
                                 className={`flex items-center gap-2 w-full px-2.5 py-2 rounded-lg transition-all text-[12px] font-bold text-start ${
-                                    w.isActive ? 'bg-indigo-50 text-indigo-700' : 'text-gray-600 hover:bg-gray-50'
+                                    w.isActive ? 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300' : 'text-gray-600 dark:text-dk-text-soft hover:bg-gray-50 dark:hover:bg-dk-elevated/60'
                                 }`}
                             >
                                 <Factory className="w-3.5 h-3.5 shrink-0 opacity-70" />
@@ -506,7 +506,7 @@ function WorkspaceSwitcher({ lang }: { lang: Lang }) {
                             </button>
                         ))}
 
-                        <div className="h-px bg-gray-100 my-1" />
+                        <div className="h-px bg-gray-100 dark:bg-dk-border my-1" />
 
                         {adding ? (
                             <div className="flex items-center gap-1 px-1.5 py-1">
@@ -516,7 +516,7 @@ function WorkspaceSwitcher({ lang }: { lang: Lang }) {
                                     onChange={e => setNewName(e.target.value)}
                                     onKeyDown={e => { if (e.key === 'Enter') create(); if (e.key === 'Escape') setAdding(false); }}
                                     placeholder={tx(lang, { fr: 'Nom de la société', ar: 'اسم الشركة', en: 'Workspace name', es: 'Nombre', pt: 'Nome', tr: 'Ad' })}
-                                    className="flex-1 min-w-0 px-2 py-1.5 text-[12px] rounded-lg border border-gray-200 focus:border-indigo-300 focus:outline-none"
+                                    className="flex-1 min-w-0 px-2 py-1.5 text-[12px] rounded-lg border border-gray-200 dark:border-dk-border dark:bg-dk-bg dark:text-dk-text focus:border-indigo-300 dark:focus:border-indigo-500 focus:outline-none"
                                 />
                                 <button
                                     onClick={create}
@@ -529,7 +529,7 @@ function WorkspaceSwitcher({ lang }: { lang: Lang }) {
                         ) : (
                             <button
                                 onClick={() => setAdding(true)}
-                                className="flex items-center gap-2 w-full px-2.5 py-2 rounded-lg text-[12px] font-bold text-emerald-700 hover:bg-emerald-50 text-start"
+                                className="flex items-center gap-2 w-full px-2.5 py-2 rounded-lg text-[12px] font-bold text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 text-start"
                             >
                                 <span className="w-3.5 h-3.5 flex items-center justify-center text-base leading-none">+</span>
                                 {tx(lang, { fr: 'Nouvelle société', ar: 'شركة جديدة', en: 'New workspace', es: 'Nueva empresa', pt: 'Nova empresa', tr: 'Yeni çalışma alanı' })}
@@ -557,7 +557,7 @@ function NavButton({ view, currentView, onClick, activeClass, icon, label }: {
             onClick={() => onClick(view)}
             className={`shrink-0 flex items-center gap-2 px-3 py-1.5 rounded-lg transition-all text-[11px] font-bold uppercase tracking-wide whitespace-nowrap border ${currentView === view
                 ? activeClass
-                : 'bg-transparent border-transparent text-gray-500 hover:text-gray-900 hover:bg-gray-50'
+                : 'bg-transparent border-transparent text-gray-500 dark:text-dk-text-soft hover:text-gray-900 dark:hover:text-dk-text hover:bg-gray-50 dark:hover:bg-dk-elevated/60'
                 }`}
         >
             {icon}
@@ -619,10 +619,10 @@ function NavDropdown({ label, views, currentView, activeClass, align = 'left', c
             <button
                 ref={btnRef}
                 onClick={() => (open ? hide() : show())}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all text-[11px] font-extrabold uppercase tracking-wide whitespace-nowrap border ${
+                className={                `flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all text-[11px] font-extrabold uppercase tracking-wide whitespace-nowrap border ${
                     isActive || open
                         ? activeClass
-                        : 'bg-transparent border-transparent text-gray-500 hover:text-gray-900 hover:bg-gray-50'
+                        : 'bg-transparent border-transparent text-gray-500 dark:text-dk-text-soft hover:text-gray-900 dark:hover:text-dk-text hover:bg-gray-50 dark:hover:bg-dk-elevated/60'
                 }`}
             >
                 {label}
@@ -638,7 +638,7 @@ function NavDropdown({ label, views, currentView, activeClass, align = 'left', c
                         top: pos.top,
                         ...(align === 'right' ? { right: pos.right } : { left: pos.left }),
                     }}
-                    className="w-48 bg-white border border-gray-100 rounded-xl shadow-lg p-1.5 z-[200] flex flex-col gap-0.5 animate-in fade-in zoom-in-95 duration-150"
+                    className="w-48 bg-white dark:bg-dk-surface border border-gray-100 dark:border-dk-border rounded-xl shadow-lg p-1.5 z-[200] flex flex-col gap-0.5 animate-in fade-in zoom-in-95 duration-150"
                 >
                     {children}
                 </div>,
@@ -664,7 +664,7 @@ function DropdownItem({ view, currentView, onClick, activeClass, icon, label }: 
             className={`flex items-center gap-2 w-full px-3 py-2 rounded-lg transition-all text-[10.5px] font-bold uppercase tracking-wide text-start border ${
                 isActive
                     ? activeClass
-                    : 'bg-transparent border-transparent text-gray-500 hover:text-gray-900 hover:bg-gray-50'
+                    : 'bg-transparent border-transparent text-gray-500 dark:text-dk-text-soft hover:text-gray-900 dark:hover:text-dk-text hover:bg-gray-50 dark:hover:bg-dk-elevated/60'
             }`}
         >
             {icon}
