@@ -165,7 +165,7 @@ const FactureUploader: React.FC<FactureUploaderProps> = ({ modelId, materialName
                                     <p className="text-[11px] text-slate-400 dark:text-dk-muted truncate">{materialName}</p>
                                 </div>
                             </div>
-                            <button onClick={() => setOpen(false)} className="p-1.5 rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors shrink-0">
+                            <button onClick={() => setOpen(false)} className="p-1.5 rounded-md text-slate-400 dark:text-dk-muted hover:text-slate-700 hover:bg-slate-100 transition-colors shrink-0">
                                 <X className="w-4 h-4" strokeWidth={1.75} />
                             </button>
                         </div>

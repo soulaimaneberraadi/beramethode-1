@@ -685,7 +685,7 @@ const OrderSimulation: React.FC<OrderSimulationProps> = ({
                 </div>
 
                 {/* Confirm & Deduct Action */}
-                <div className="flex justify-end pt-4 border-t border-slate-100 dark:border-gray-800">
+                <div className="flex justify-end pt-4 border-t border-slate-100 dark:border-dk-border dark:border-gray-800">
                     <button
                         onClick={deductStock}
                         className="inline-flex items-center gap-1.5 h-9 px-4 bg-slate-900 text-white text-[12px] font-medium rounded-md hover:bg-slate-800 transition-colors"

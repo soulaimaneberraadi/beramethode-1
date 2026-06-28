@@ -1379,10 +1379,10 @@ export default function Balancing({
       {/* 2. CONTROLS (VIEW SWITCHER + ACTIONS) */}
       <div className="flex flex-col sm:flex-row justify-between items-end gap-3 px-2">
          <div className="flex bg-slate-100/80 p-1 rounded-xl shadow-inner border border-slate-200 dark:border-dk-border">
-             <button onClick={() => setViewMode('grouped')} className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all ${viewMode === 'grouped' ? 'bg-white dark:bg-dk-surface text-slate-700 dark:text-dk-text-soft shadow-sm dark:shadow-dk-sm ring-1 ring-slate-100' : 'text-slate-400 hover:text-slate-600'}`}>
+             <button onClick={() => setViewMode('grouped')} className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all ${viewMode === 'grouped' ? 'bg-white dark:bg-dk-surface text-slate-700 dark:text-dk-text-soft shadow-sm dark:shadow-dk-sm ring-1 ring-slate-100' : 'text-slate-400 dark:text-dk-muted hover:text-slate-600'}`}>
                 <LayoutList className="w-4 h-4" /> {tx(lang,{fr:'Vue Par Poste',ar:'عرض حسب المحطة',en:'View By Station',es:'Vista Por Puesto',pt:'Vista Por Posto',tr:'İstasyon Görünümü'})}
              </button>
-             <button onClick={() => setViewMode('matrix')} className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all ${viewMode === 'matrix' ? 'bg-white dark:bg-dk-surface text-slate-700 dark:text-dk-text-soft shadow-sm dark:shadow-dk-sm ring-1 ring-slate-100' : 'text-slate-400 hover:text-slate-600'}`}>
+             <button onClick={() => setViewMode('matrix')} className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all ${viewMode === 'matrix' ? 'bg-white dark:bg-dk-surface text-slate-700 dark:text-dk-text-soft shadow-sm dark:shadow-dk-sm ring-1 ring-slate-100' : 'text-slate-400 dark:text-dk-muted hover:text-slate-600'}`}>
                 <TableProperties className="w-4 h-4" /> {tx(lang,{fr:'Matrice',ar:'مصفوفة',en:'Matrix',es:'Matriz',pt:'Matriz',tr:'Matris'})}
              </button>
          </div>
@@ -1647,7 +1647,7 @@ export default function Balancing({
                                         <th className="py-2 sm:py-3 px-2 sm:px-6 text-center">{tx(lang,{fr:'N. Requis',ar:'العدد المطلوب',en:'Required N.',es:'N. Requerido',pt:'N. Necessário',tr:'Gerekli S.'})}</th>
                                     </tr>
                                 </thead>
-                                <tbody className="divide-y divide-slate-100 text-xs">
+                                <tbody className="divide-y divide-slate-100 dark:divide-dk-border text-xs">
                                     {machineRequirements.map((row, idx) => (
                                         <tr key={idx} className="hover:bg-slate-50 dark:hover:bg-dk-elevated/60 transition-colors">
                                             <td className="py-2 sm:py-3 px-2 sm:px-6 font-bold text-slate-700 dark:text-dk-text-soft">{row.name}</td>
@@ -1722,13 +1722,13 @@ export default function Balancing({
        {showInsertModal && createPortal(
            <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
                 <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setShowInsertModal(false)} />
-                <div className="bg-white dark:bg-dk-surface rounded-2xl shadow-2xl dark:shadow-dk-lg w-full max-w-sm relative overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+                <div className="bg-white dark:bg-dk-surface rounded-2xl shadow-2xl dark:shadow-dk-elevated dark:shadow-dk-lg w-full max-w-sm relative overflow-hidden animate-in fade-in zoom-in-95 duration-200">
                     <div className="px-6 py-4 border-b border-slate-100 dark:border-dk-border flex justify-between items-center bg-white dark:bg-dk-surface">
                         <h3 className="font-bold text-slate-800 dark:text-dk-text flex items-center gap-2">
                             <ListPlus className="w-5 h-5 text-indigo-500" />
                             {tx(lang,{fr:'Insérer un Poste',ar:'إضافة محطة',en:'Insert Station',es:'Insertar Puesto',pt:'Inserir Posto',tr:'İstasyon Ekle'})}
                         </h3>
-                        <button onClick={() => setShowInsertModal(false)} className="text-slate-400 hover:text-slate-600 transition-colors"><X className="w-5 h-5" /></button>
+                        <button onClick={() => setShowInsertModal(false)} className="text-slate-400 dark:text-dk-muted hover:text-slate-600 transition-colors"><X className="w-5 h-5" /></button>
                     </div>
                     
                     <form onSubmit={handleInsertSubmit} className="p-6 space-y-4">
@@ -1794,7 +1794,7 @@ export default function Balancing({
        {/* CONTEXT MENU PORTAL */}
        {contextMenu && contextMenu.visible && createPortal(
            <div 
-               className="absolute z-[9999] bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-xl shadow-2xl dark:shadow-dk-lg py-1 w-56 text-xs font-medium text-slate-700 dark:text-dk-text-soft animate-in fade-in zoom-in-95 duration-100 origin-top-left overflow-hidden ring-4 ring-slate-100/50"
+               className="absolute z-[9999] bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-xl shadow-2xl dark:shadow-dk-elevated dark:shadow-dk-lg py-1 w-56 text-xs font-medium text-slate-700 dark:text-dk-text-soft animate-in fade-in zoom-in-95 duration-100 origin-top-left overflow-hidden ring-4 ring-slate-100/50"
                style={{ top: contextMenu.y, left: contextMenu.x }}
                onClick={(e) => e.stopPropagation()} 
            >

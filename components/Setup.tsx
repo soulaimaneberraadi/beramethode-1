@@ -152,7 +152,7 @@ function Field({
             onClick={() => setShow((s) => !s)}
             tabIndex={-1}
             aria-label={show ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
-            className="absolute inset-y-0 right-0 flex items-center pr-3.5 text-slate-400 hover:text-slate-600 transition-colors"
+            className="absolute inset-y-0 right-0 flex items-center pr-3.5 text-slate-400 dark:text-dk-muted hover:text-slate-600 transition-colors"
           >
             {show ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
           </button>
@@ -668,7 +668,7 @@ export default function Setup({ onComplete }: Props) {
                 <button
                   type="button"
                   onClick={handleBack}
-                  className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-800 transition-colors"
+                  className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-dk-muted hover:text-slate-800 transition-colors"
                 >
                   <ChevronLeft className="w-4 h-4" />
                   {tx(lang,{fr:'Retour',ar:'رجوع',en:'Back',es:'Volver',pt:'Voltar',tr:'Geri'})}
@@ -997,7 +997,7 @@ export default function Setup({ onComplete }: Props) {
                   type="button"
                   onClick={() => handleSubmit()}
                   disabled={loading}
-                  className="text-xs text-slate-500 hover:text-slate-700 transition-colors px-2 disabled:opacity-40"
+                  className="text-xs text-slate-500 dark:text-dk-muted hover:text-slate-700 transition-colors px-2 disabled:opacity-40"
                 >
                   {tx(lang,{fr:'Passer',ar:'تخطي',en:'Skip',es:'Saltar',pt:'Saltar',tr:'Atla'})}
                 </button>
@@ -1052,7 +1052,7 @@ export default function Setup({ onComplete }: Props) {
                 type="button"
                 onClick={() => setShowTerms(false)}
                 aria-label={tx(lang,{fr:'Fermer',ar:'\u0625\u063a\u0644\u0627\u0642',en:'Close',es:'Cerrar',pt:'Fechar',tr:'Kapat'})}
-                className="text-slate-400 hover:text-slate-600 transition-colors shrink-0"
+                className="text-slate-400 dark:text-dk-muted hover:text-slate-600 transition-colors shrink-0"
               >
                 <X className="w-5 h-5" />
               </button>

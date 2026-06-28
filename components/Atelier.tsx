@@ -170,14 +170,14 @@ export default function Atelier({ models, planningEvents, suivis, settings, hand
                         <Factory className="w-6 h-6 text-orange-500" />
                         {tx(lang, { fr: 'Atelier de Production', ar: 'ورشة الإنتاج', en: 'Production Workshop', es: 'Taller de Producción', pt: 'Oficina de Produção', tr: 'Üretim Atölyesi' })}
                     </h1>
-                    <p className="text-slate-500 dark:text-dk-text-soft mt-1">{tx(lang, { fr: "Interface Chef d'Atelier : Planning du jour, Demandes Magasin, Clôtures d'OF.", ar: 'واجهة رئيس الورشة: تخطيط اليوم، طلبات المخزن، إغلاق OF.', en: "Workshop Manager Interface: Today's planning, Warehouse requests, OF closures.", es: 'Interfaz del Jefe de Taller: Planificación del día, Solicitudes de Almacén, Cierres de OF.', pt: 'Interface do Chefe de Oficina: Planejamento do dia, Solicitações de Armazém, Encerramentos de OF.', tr: 'Atölye Şefi Arayüzü: Günün planlaması, Depo talepleri, OF kapatmaları.' })}</p>
+                    <p className="text-slate-500 dark:text-dk-muted dark:text-dk-text-soft mt-1">{tx(lang, { fr: "Interface Chef d'Atelier : Planning du jour, Demandes Magasin, Clôtures d'OF.", ar: 'واجهة رئيس الورشة: تخطيط اليوم، طلبات المخزن، إغلاق OF.', en: "Workshop Manager Interface: Today's planning, Warehouse requests, OF closures.", es: 'Interfaz del Jefe de Taller: Planificación del día, Solicitudes de Almacén, Cierres de OF.', pt: 'Interface do Chefe de Oficina: Planejamento do dia, Solicitações de Armazém, Encerramentos de OF.', tr: 'Atölye Şefi Arayüzü: Günün planlaması, Depo talepleri, OF kapatmaları.' })}</p>
                 </div>
                 <div className="flex items-center gap-4">
                     <input
                         type="date"
                         value={selectedDate}
                         onChange={e => setSelectedDate(e.target.value)}
-                        className="bg-slate-50 dark:bg-dk-bg dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-xl px-4 py-2 text-sm font-bold text-slate-700 dark:text-dk-text outline-none focus:border-orange-500"
+                        className="bg-slate-50 dark:bg-dk-bg dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-xl px-4 py-2 text-sm font-bold text-slate-700 dark:text-dk-text-soft dark:text-dk-text outline-none focus:border-orange-500"
                     />
                 </div>
             </div>
@@ -192,7 +192,7 @@ export default function Atelier({ models, planningEvents, suivis, settings, hand
                     <button
                         key={t.id}
                         onClick={() => setTab(t.id as any)}
-                        className={`py-3 text-sm font-bold flex items-center gap-2 relative transition-colors whitespace-nowrap ${tab === t.id ? 'text-orange-600 dark:text-orange-400' : 'text-slate-500 dark:text-dk-text-soft hover:text-slate-800 dark:hover:text-dk-text'}`}
+                        className={`py-3 text-sm font-bold flex items-center gap-2 relative transition-colors whitespace-nowrap ${tab === t.id ? 'text-orange-600 dark:text-orange-400' : 'text-slate-500 dark:text-dk-muted dark:text-dk-text-soft hover:text-slate-800 dark:hover:text-dk-text'}`}
                     >
                         <t.icon className="w-4 h-4" />{t.label}
                         {tab === t.id && <div className="absolute bottom-0 inset-x-0 h-1 bg-orange-600 rounded-t-full" />}
@@ -212,7 +212,7 @@ export default function Atelier({ models, planningEvents, suivis, settings, hand
                                     <Factory className="w-6 h-6 text-orange-600 dark:text-orange-400" />
                                 </div>
                                 <div>
-                                    <p className="text-sm font-bold text-slate-500 dark:text-dk-text-soft">{tx(lang, { fr: 'OF en cours', ar: 'OF قيد التنفيذ', en: 'OF in progress', es: 'OF en curso', pt: 'OF em andamento', tr: 'Devam eden OF' })}</p>
+                                    <p className="text-sm font-bold text-slate-500 dark:text-dk-muted dark:text-dk-text-soft">{tx(lang, { fr: 'OF en cours', ar: 'OF قيد التنفيذ', en: 'OF in progress', es: 'OF en curso', pt: 'OF em andamento', tr: 'Devam eden OF' })}</p>
                                     <p className="text-3xl font-black text-slate-800 dark:text-dk-text">{todayEvents.length}</p>
                                 </div>
                             </div>
@@ -221,7 +221,7 @@ export default function Atelier({ models, planningEvents, suivis, settings, hand
                                     <Package className="w-6 h-6 text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text dark:text-indigo-400" />
                                 </div>
                                 <div>
-                                    <p className="text-sm font-bold text-slate-500 dark:text-dk-text-soft">{tx(lang, { fr: 'Total Pièces Prévues', ar: 'إجمالي القطع المخططة', en: 'Total Planned Pieces', es: 'Total Piezas Previstas', pt: 'Total de Peças Previstas', tr: 'Toplam Planlanan Parça' })}</p>
+                                    <p className="text-sm font-bold text-slate-500 dark:text-dk-muted dark:text-dk-text-soft">{tx(lang, { fr: 'Total Pièces Prévues', ar: 'إجمالي القطع المخططة', en: 'Total Planned Pieces', es: 'Total Piezas Previstas', pt: 'Total de Peças Previstas', tr: 'Toplam Planlanan Parça' })}</p>
                                     <p className="text-3xl font-black text-slate-800 dark:text-dk-text">{todayEvents.reduce((s, e) => s + e.qteTotal, 0).toLocaleString()}</p>
                                 </div>
                             </div>
@@ -230,7 +230,7 @@ export default function Atelier({ models, planningEvents, suivis, settings, hand
                                     <CheckCircle2 className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />
                                 </div>
                                 <div>
-                                    <p className="text-sm font-bold text-slate-500 dark:text-dk-text-soft">{tx(lang, { fr: 'OF Terminés (Total)', ar: 'OF منتهية (الإجمالي)', en: 'Completed OF (Total)', es: 'OF Terminadas (Total)', pt: 'OF Concluídas (Total)', tr: 'Tamamlanan OF (Toplam)' })}</p>
+                                    <p className="text-sm font-bold text-slate-500 dark:text-dk-muted dark:text-dk-text-soft">{tx(lang, { fr: 'OF Terminés (Total)', ar: 'OF منتهية (الإجمالي)', en: 'Completed OF (Total)', es: 'OF Terminadas (Total)', pt: 'OF Concluídas (Total)', tr: 'Tamamlanan OF (Toplam)' })}</p>
                                     <p className="text-3xl font-black text-slate-800 dark:text-dk-text">{planningEvents.filter(e => e.status === 'DONE').length}</p>
                                 </div>
                             </div>
@@ -244,7 +244,7 @@ export default function Atelier({ models, planningEvents, suivis, settings, hand
                             {todayEvents.length === 0 ? (
                                 <div className="col-span-full py-12 text-center bg-white dark:bg-dk-surface rounded-3xl border border-slate-200 dark:border-dk-border border-dashed">
                                     <FileText className="w-12 h-12 text-slate-300 dark:text-dk-muted mx-auto mb-3" />
-                                    <p className="text-slate-500 dark:text-dk-text-soft font-bold">{tx(lang, { fr: 'Aucun lancement prévu pour cette journée.', ar: 'لا يوجد إطلاق مبرمج لهذا اليوم.', en: 'No launch scheduled for this day.', es: 'Ningún lanzamiento previsto para este día.', pt: 'Nenhum lançamento previsto para este dia.', tr: 'Bu gün için planlanmış bir başlatma yok.' })}</p>
+                                    <p className="text-slate-500 dark:text-dk-muted dark:text-dk-text-soft font-bold">{tx(lang, { fr: 'Aucun lancement prévu pour cette journée.', ar: 'لا يوجد إطلاق مبرمج لهذا اليوم.', en: 'No launch scheduled for this day.', es: 'Ningún lanzamiento previsto para este día.', pt: 'Nenhum lançamento previsto para este dia.', tr: 'Bu gün için planlanmış bir başlatma yok.' })}</p>
                                 </div>
                             ) : (
                                 todayEvents.map(evt => {
@@ -271,14 +271,14 @@ export default function Atelier({ models, planningEvents, suivis, settings, hand
                                                             {settings.chainNames?.[evt.chaineId] || evt.chaineId}
                                                         </div>
                                                         <h4 className="font-black text-lg text-slate-800 dark:text-dk-text leading-tight">{mName}</h4>
-                                                        <p className="text-xs text-slate-500 dark:text-dk-text-soft font-bold">{evt.qteTotal.toLocaleString()} pcs • OF-{evt.id.substring(0, 6)}</p>
+                                                        <p className="text-xs text-slate-500 dark:text-dk-muted dark:text-dk-text-soft font-bold">{evt.qteTotal.toLocaleString()} pcs • OF-{evt.id.substring(0, 6)}</p>
                                                     </div>
                                                 </div>
                                             </div>
 
                                             <div className="mt-auto">
                                                 <div className="flex justify-between text-xs font-bold mb-1">
-                                                    <span className="text-slate-500 dark:text-dk-text-soft">{tx(lang, { fr: 'Avancement', ar: 'التقدّم', en: 'Progress', es: 'Progreso', pt: 'Progresso', tr: 'İlerleme' })} ({totalProduced}/{evt.qteTotal})</span>
+                                                    <span className="text-slate-500 dark:text-dk-muted dark:text-dk-text-soft">{tx(lang, { fr: 'Avancement', ar: 'التقدّم', en: 'Progress', es: 'Progreso', pt: 'Progresso', tr: 'İlerleme' })} ({totalProduced}/{evt.qteTotal})</span>
                                                     <span className={`${progress >= 80 ? 'text-emerald-600 dark:text-emerald-400' : progress >= 40 ? 'text-orange-600 dark:text-orange-400' : 'text-rose-600 dark:text-rose-400'}`}>{progress}%</span>
                                                 </div>
                                                 <div className="w-full bg-slate-100 dark:bg-dk-elevated/60 h-2 rounded-full overflow-hidden">
@@ -287,7 +287,7 @@ export default function Atelier({ models, planningEvents, suivis, settings, hand
                                             </div>
 
                                             <div className="mt-6 pt-4 border-t border-slate-100 dark:border-dk-border flex gap-2">
-                                                <button onClick={() => { setTab('demandes'); setDemandeOF(evt.id); }} className="flex-1 bg-slate-50 dark:bg-dk-bg dark:bg-dk-elevated/60 hover:bg-slate-100 dark:hover:bg-dk-elevated text-slate-700 dark:text-dk-text font-bold text-xs py-2 rounded-xl transition-colors border border-slate-200 dark:border-dk-border flex items-center justify-center gap-1">
+                                                <button onClick={() => { setTab('demandes'); setDemandeOF(evt.id); }} className="flex-1 bg-slate-50 dark:bg-dk-bg dark:bg-dk-elevated/60 hover:bg-slate-100 dark:hover:bg-dk-elevated text-slate-700 dark:text-dk-text-soft dark:text-dk-text font-bold text-xs py-2 rounded-xl transition-colors border border-slate-200 dark:border-dk-border flex items-center justify-center gap-1">
                                                     <Plus className="w-3.5 h-3.5" /> {tx(lang, { fr: 'Demander Matière', ar: 'طلب مادة', en: 'Request Material', es: 'Solicitar Material', pt: 'Solicitar Material', tr: 'Malzeme Talep Et' })}
                                                 </button>
                                                 <button onClick={() => { setTab('cloture'); setClotureOF(evt.id); }} className="flex-1 bg-slate-800 dark:bg-dk-accent hover:bg-slate-700 dark:hover:bg-green-600 text-white font-bold text-xs py-2 rounded-xl transition-colors flex items-center justify-center gap-1">
@@ -309,22 +309,22 @@ export default function Atelier({ models, planningEvents, suivis, settings, hand
                             <h2 className="text-2xl font-black text-slate-800 dark:text-dk-text mb-6 flex items-center gap-3">
                                 <Package className="w-6 h-6 text-indigo-500" /> {tx(lang, { fr: "Nouvelle Demande d'Appro", ar: 'طلب توريد جديد', en: 'New Supply Request', es: 'Nueva Solicitud de Suministro', pt: 'Novo Pedido de Abastecimento', tr: 'Yeni Tedarik Talebi' })}
                             </h2>
-                            <p className="text-slate-500 dark:text-dk-text-soft font-bold text-sm mb-6">{tx(lang, { fr: 'Créez un ticket pour demander de la matière supplémentaire au magasin de manière tracée.', ar: 'أنشئ تذكرة لطلب مواد إضافية من المخزن بشكل متتبَّع.', en: 'Create a ticket to request additional material from the warehouse in a tracked way.', es: 'Cree un ticket para solicitar material adicional al almacén de forma trazable.', pt: 'Crie um chamado para solicitar material adicional ao armazém de forma rastreável.', tr: 'Depodan ek malzeme talep etmek için izlenebilir bir talep oluşturun.' })}</p>
+                            <p className="text-slate-500 dark:text-dk-muted dark:text-dk-text-soft font-bold text-sm mb-6">{tx(lang, { fr: 'Créez un ticket pour demander de la matière supplémentaire au magasin de manière tracée.', ar: 'أنشئ تذكرة لطلب مواد إضافية من المخزن بشكل متتبَّع.', en: 'Create a ticket to request additional material from the warehouse in a tracked way.', es: 'Cree un ticket para solicitar material adicional al almacén de forma trazable.', pt: 'Crie um chamado para solicitar material adicional ao armazém de forma rastreável.', tr: 'Depodan ek malzeme talep etmek için izlenebilir bir talep oluşturun.' })}</p>
 
                             {demandeSent ? (
                                 <div className="py-12 text-center">
                                     <CheckCircle2 className="w-16 h-16 text-emerald-500 mx-auto mb-4" />
                                     <p className="text-2xl font-black text-emerald-700">{tx(lang, { fr: 'Demande envoyée !', ar: 'تم إرسال الطلب!', en: 'Request sent!', es: '¡Solicitud enviada!', pt: 'Pedido enviado!', tr: 'Talep gönderildi!' })}</p>
-                                    <p className="text-slate-500 dark:text-dk-text-soft font-bold mt-2">{tx(lang, { fr: 'Le magasinier a reçu votre demande et peut la valider depuis son module.', ar: 'استلم أمين المخزن طلبك ويمكنه التحقق منه من وحدته.', en: 'The storekeeper has received your request and can validate it from their module.', es: 'El almacenero recibió su solicitud y puede validarla desde su módulo.', pt: 'O almoxarife recebeu seu pedido e pode validá-lo em seu módulo.', tr: 'Depo sorumlusu talebinizi aldı ve kendi modülünden onaylayabilir.' })}</p>
+                                    <p className="text-slate-500 dark:text-dk-muted dark:text-dk-text-soft font-bold mt-2">{tx(lang, { fr: 'Le magasinier a reçu votre demande et peut la valider depuis son module.', ar: 'استلم أمين المخزن طلبك ويمكنه التحقق منه من وحدته.', en: 'The storekeeper has received your request and can validate it from their module.', es: 'El almacenero recibió su solicitud y puede validarla desde su módulo.', pt: 'O almoxarife recebeu seu pedido e pode validá-lo em seu módulo.', tr: 'Depo sorumlusu talebinizi aldı ve kendi modülünden onaylayabilir.' })}</p>
                                 </div>
                             ) : (
                                 <div className="space-y-5">
                                     <div>
-                                        <label className="block text-xs font-bold text-slate-500 dark:text-dk-text-soft uppercase tracking-widest mb-1.5">{tx(lang, { fr: "Pour l'OF / Modèle", ar: 'لأجل OF / النموذج', en: 'For the OF / Model', es: 'Para el OF / Modelo', pt: 'Para a OF / Modelo', tr: 'OF / Model için' })} *</label>
+                                        <label className="block text-xs font-bold text-slate-500 dark:text-dk-muted dark:text-dk-text-soft uppercase tracking-widest mb-1.5">{tx(lang, { fr: "Pour l'OF / Modèle", ar: 'لأجل OF / النموذج', en: 'For the OF / Model', es: 'Para el OF / Modelo', pt: 'Para a OF / Modelo', tr: 'OF / Model için' })} *</label>
                                         <select
                                             value={demandeOF}
                                             onChange={e => setDemandeOF(e.target.value)}
-                                            className="w-full bg-slate-50 dark:bg-dk-bg dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-xl px-4 py-3 font-bold text-slate-700 dark:text-dk-text outline-none focus:border-indigo-500"
+                                            className="w-full bg-slate-50 dark:bg-dk-bg dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-xl px-4 py-3 font-bold text-slate-700 dark:text-dk-text-soft dark:text-dk-text outline-none focus:border-indigo-500"
                                         >
                                             <option value="">{tx(lang, { fr: "Sélectionner l'OF en cours...", ar: 'حدّد OF الجاري...', en: 'Select the current OF...', es: 'Seleccionar el OF en curso...', pt: 'Selecionar a OF em andamento...', tr: 'Devam eden OF seçin...' })}</option>
                                             {activeEvents.map(e => (
@@ -335,18 +335,18 @@ export default function Atelier({ models, planningEvents, suivis, settings, hand
                                         </select>
                                     </div>
                                     <div>
-                                        <label className="block text-xs font-bold text-slate-500 dark:text-dk-text-soft uppercase tracking-widest mb-1.5">{tx(lang, { fr: 'Article Demandé (Référence Magasin)', ar: 'المادة المطلوبة (مرجع المخزن)', en: 'Requested Article (Warehouse Reference)', es: 'Artículo Solicitado (Referencia de Almacén)', pt: 'Artigo Solicitado (Referência de Armazém)', tr: 'Talep Edilen Ürün (Depo Referansı)' })} *</label>
+                                        <label className="block text-xs font-bold text-slate-500 dark:text-dk-muted dark:text-dk-text-soft uppercase tracking-widest mb-1.5">{tx(lang, { fr: 'Article Demandé (Référence Magasin)', ar: 'المادة المطلوبة (مرجع المخزن)', en: 'Requested Article (Warehouse Reference)', es: 'Artículo Solicitado (Referencia de Almacén)', pt: 'Artigo Solicitado (Referência de Armazém)', tr: 'Talep Edilen Ürün (Depo Referansı)' })} *</label>
                                         <input
                                             type="text"
                                             value={demandeArticle}
                                             onChange={e => setDemandeArticle(e.target.value)}
                                             placeholder={tx(lang, { fr: 'Ex: Fil de couture Noir 120, Zip 15cm...', ar: 'مثال: خيط حياكة أسود 120، سحاب 15 سم...', en: 'E.g.: Black sewing thread 120, Zip 15cm...', es: 'Ej: Hilo de costura Negro 120, Cremallera 15cm...', pt: 'Ex: Fio de costura Preto 120, Zíper 15cm...', tr: 'Örn: Siyah dikiş ipliği 120, Fermuar 15cm...' })}
-                                            className="w-full bg-slate-50 dark:bg-dk-bg dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-xl px-4 py-3 font-medium text-slate-700 dark:text-dk-text outline-none focus:border-indigo-500"
+                                            className="w-full bg-slate-50 dark:bg-dk-bg dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-xl px-4 py-3 font-medium text-slate-700 dark:text-dk-text-soft dark:text-dk-text outline-none focus:border-indigo-500"
                                         />
                                     </div>
                                     <div className="grid grid-cols-2 gap-4">
                                         <div>
-                                            <label className="block text-xs font-bold text-slate-500 dark:text-dk-text-soft uppercase tracking-widest mb-1.5">{tx(lang, { fr: 'Quantité', ar: 'الكمية', en: 'Quantity', es: 'Cantidad', pt: 'Quantidade', tr: 'Miktar' })} *</label>
+                                            <label className="block text-xs font-bold text-slate-500 dark:text-dk-muted dark:text-dk-text-soft uppercase tracking-widest mb-1.5">{tx(lang, { fr: 'Quantité', ar: 'الكمية', en: 'Quantity', es: 'Cantidad', pt: 'Quantidade', tr: 'Miktar' })} *</label>
                                             <input
                                                 type="number"
                                                 min="1"
@@ -357,23 +357,23 @@ export default function Atelier({ models, planningEvents, suivis, settings, hand
                                             />
                                         </div>
                                         <div>
-                                            <label className="block text-xs font-bold text-slate-500 dark:text-dk-text-soft uppercase tracking-widest mb-1.5">{tx(lang, { fr: 'Demandeur', ar: 'الطالب', en: 'Requester', es: 'Solicitante', pt: 'Solicitante', tr: 'Talep Eden' })}</label>
+                                            <label className="block text-xs font-bold text-slate-500 dark:text-dk-muted dark:text-dk-text-soft uppercase tracking-widest mb-1.5">{tx(lang, { fr: 'Demandeur', ar: 'الطالب', en: 'Requester', es: 'Solicitante', pt: 'Solicitante', tr: 'Talep Eden' })}</label>
                                             <input
                                                 type="text"
                                                 value={demandeDemandeur}
                                                 onChange={e => setDemandeDemandeur(e.target.value)}
                                                 placeholder={tx(lang, { fr: 'Nom du Chef', ar: 'اسم الرئيس', en: 'Manager Name', es: 'Nombre del Jefe', pt: 'Nome do Chefe', tr: 'Şef Adı' })}
-                                                className="w-full bg-slate-50 dark:bg-dk-bg dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-xl px-4 py-3 font-bold text-slate-700 dark:text-dk-text outline-none focus:border-indigo-500"
+                                                className="w-full bg-slate-50 dark:bg-dk-bg dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-xl px-4 py-3 font-bold text-slate-700 dark:text-dk-text-soft dark:text-dk-text outline-none focus:border-indigo-500"
                                             />
                                         </div>
                                     </div>
                                     <div>
-                                        <label className="block text-xs font-bold text-slate-500 dark:text-dk-text-soft uppercase tracking-widest mb-1.5">{tx(lang, { fr: 'Motif / Note', ar: 'السبب / ملاحظة', en: 'Reason / Note', es: 'Motivo / Nota', pt: 'Motivo / Nota', tr: 'Sebep / Not' })}</label>
+                                        <label className="block text-xs font-bold text-slate-500 dark:text-dk-muted dark:text-dk-text-soft uppercase tracking-widest mb-1.5">{tx(lang, { fr: 'Motif / Note', ar: 'السبب / ملاحظة', en: 'Reason / Note', es: 'Motivo / Nota', pt: 'Motivo / Nota', tr: 'Sebep / Not' })}</label>
                                         <textarea
                                             value={demandeMotif}
                                             onChange={e => setDemandeMotif(e.target.value)}
                                             placeholder={tx(lang, { fr: 'Ex: Chutes de coupe, Quantité initiale insuffisante...', ar: 'مثال: نفايات القص، الكمية الأولية غير كافية...', en: 'E.g.: Cutting waste, Initial quantity insufficient...', es: 'Ej: Recortes de corte, Cantidad inicial insuficiente...', pt: 'Ex: Resíduos de corte, Quantidade inicial insuficiente...', tr: 'Örn: Kesim fireleri, İlk miktar yetersiz...' })}
-                                            className="w-full bg-slate-50 dark:bg-dk-bg dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-xl px-4 py-3 font-medium text-slate-700 dark:text-dk-text outline-none focus:border-indigo-500 h-24 resize-none"
+                                            className="w-full bg-slate-50 dark:bg-dk-bg dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-xl px-4 py-3 font-medium text-slate-700 dark:text-dk-text-soft dark:text-dk-text outline-none focus:border-indigo-500 h-24 resize-none"
                                         />
                                     </div>
                                     <div className="pt-4">
@@ -397,22 +397,22 @@ export default function Atelier({ models, planningEvents, suivis, settings, hand
                             <h2 className="text-2xl font-black text-slate-800 dark:text-dk-text mb-2 flex items-center gap-3">
                                 <AlertCircle className="w-6 h-6 text-rose-500" /> {tx(lang, { fr: 'Clôture de Lancement (OF)', ar: 'إغلاق الإطلاق (OF)', en: 'Launch Closure (OF)', es: 'Cierre de Lanzamiento (OF)', pt: 'Encerramento de Lançamento (OF)', tr: 'Başlatma Kapatma (OF)' })}
                             </h2>
-                            <p className="text-slate-500 dark:text-dk-text-soft font-bold text-sm mb-8">{tx(lang, { fr: "Déclarez la fin de production d'un OF pour mettre à jour les stocks finis et retourner les excédents matières au Magasin.", ar: 'صرّح بانتهاء إنتاج OF لتحديث المخزون الجاهز وإرجاع فائض المواد إلى المخزن.', en: 'Declare the end of production of an OF to update finished stocks and return material surpluses to the warehouse.', es: 'Declare el fin de producción de un OF para actualizar los stocks terminados y devolver los excedentes de material al Almacén.', pt: 'Declare o fim da produção de uma OF para atualizar os estoques finalizados e devolver os excedentes de material ao Armazém.', tr: 'Bitmiş stokları güncellemek ve fazla malzemeyi depoya geri göndermek için bir OF üretiminin sona erdiğini bildirin.' })}</p>
+                            <p className="text-slate-500 dark:text-dk-muted dark:text-dk-text-soft font-bold text-sm mb-8">{tx(lang, { fr: "Déclarez la fin de production d'un OF pour mettre à jour les stocks finis et retourner les excédents matières au Magasin.", ar: 'صرّح بانتهاء إنتاج OF لتحديث المخزون الجاهز وإرجاع فائض المواد إلى المخزن.', en: 'Declare the end of production of an OF to update finished stocks and return material surpluses to the warehouse.', es: 'Declare el fin de producción de un OF para actualizar los stocks terminados y devolver los excedentes de material al Almacén.', pt: 'Declare o fim da produção de uma OF para atualizar os estoques finalizados e devolver os excedentes de material ao Armazém.', tr: 'Bitmiş stokları güncellemek ve fazla malzemeyi depoya geri göndermek için bir OF üretiminin sona erdiğini bildirin.' })}</p>
 
                             {clotureDone ? (
                                 <div className="py-12 text-center">
                                     <CheckCircle2 className="w-16 h-16 text-emerald-500 mx-auto mb-4" />
                                     <p className="text-2xl font-black text-emerald-700">{tx(lang, { fr: 'OF Clôturé avec succès !', ar: 'تم إغلاق OF بنجاح!', en: 'OF Closed successfully!', es: '¡OF Cerrada con éxito!', pt: 'OF Encerrada com sucesso!', tr: 'OF başarıyla kapatıldı!' })}</p>
-                                    <p className="text-slate-500 dark:text-dk-text-soft font-bold mt-2">{tx(lang, { fr: 'Le statut a été mis à jour, les retours matière ont été enregistrés dans le Magasin.', ar: 'تم تحديث الحالة، وتم تسجيل مرتجعات المواد في المخزن.', en: 'The status has been updated, the material returns have been recorded in the Warehouse.', es: 'El estado ha sido actualizado, las devoluciones de material han sido registradas en el Almacén.', pt: 'O status foi atualizado, as devoluções de material foram registradas no Armazém.', tr: 'Durum güncellendi, malzeme iadeleri Depoya kaydedildi.' })}</p>
+                                    <p className="text-slate-500 dark:text-dk-muted dark:text-dk-text-soft font-bold mt-2">{tx(lang, { fr: 'Le statut a été mis à jour, les retours matière ont été enregistrés dans le Magasin.', ar: 'تم تحديث الحالة، وتم تسجيل مرتجعات المواد في المخزن.', en: 'The status has been updated, the material returns have been recorded in the Warehouse.', es: 'El estado ha sido actualizado, las devoluciones de material han sido registradas en el Almacén.', pt: 'O status foi atualizado, as devoluções de material foram registradas no Armazém.', tr: 'Durum güncellendi, malzeme iadeleri Depoya kaydedildi.' })}</p>
                                 </div>
                             ) : (
                                 <div className="space-y-6">
                                     <div>
-                                        <label className="block text-xs font-black text-slate-700 dark:text-dk-text uppercase tracking-widest mb-2">{tx(lang, { fr: "1. Sélectionner l'OF à clôturer", ar: '1. حدّد OF لإغلاقه', en: '1. Select the OF to close', es: '1. Seleccionar el OF a cerrar', pt: '1. Selecionar a OF a encerrar', tr: '1. Kapatılacak OF\'yi seçin' })}</label>
+                                        <label className="block text-xs font-black text-slate-700 dark:text-dk-text-soft dark:text-dk-text uppercase tracking-widest mb-2">{tx(lang, { fr: "1. Sélectionner l'OF à clôturer", ar: '1. حدّد OF لإغلاقه', en: '1. Select the OF to close', es: '1. Seleccionar el OF a cerrar', pt: '1. Selecionar a OF a encerrar', tr: '1. Kapatılacak OF\'yi seçin' })}</label>
                                         <select
                                             value={clotureOF}
                                             onChange={e => setClotureOF(e.target.value)}
-                                            className="w-full bg-slate-50 dark:bg-dk-bg dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-xl px-4 py-3 font-bold text-slate-700 dark:text-dk-text outline-none focus:border-rose-400 focus:ring-2 focus:ring-rose-100 dark:focus:ring-rose-900/30 transition-all"
+                                            className="w-full bg-slate-50 dark:bg-dk-bg dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-xl px-4 py-3 font-bold text-slate-700 dark:text-dk-text-soft dark:text-dk-text outline-none focus:border-rose-400 focus:ring-2 focus:ring-rose-100 dark:focus:ring-rose-900/30 transition-all"
                                         >
                                             <option value="">{tx(lang, { fr: 'Sélectionner...', ar: 'اختر...', en: 'Select...', es: 'Seleccionar...', pt: 'Selecionar...', tr: 'Seçin...' })}</option>
                                             {activeEvents.map(e => (
@@ -467,7 +467,7 @@ export default function Atelier({ models, planningEvents, suivis, settings, hand
                                             <span>{tx(lang, { fr: 'Retours Magasin (Matière non consommée)', ar: 'مرتجعات المخزن (المواد غير المستهلكة)', en: 'Warehouse Returns (Unconsumed Material)', es: 'Devoluciones de Almacén (Material no consumido)', pt: 'Devoluções de Armazém (Material não consumido)', tr: 'Depo İadeleri (Kullanılmayan Malzeme)' })}</span>
                                             <button
                                                 onClick={() => setRetourLines(prev => [...prev, { ref: '', qty: 0 }])}
-                                                className="text-xs font-bold bg-slate-100 dark:bg-dk-elevated/60 hover:bg-slate-200 dark:hover:bg-dk-elevated text-slate-700 dark:text-dk-text px-3 py-1 rounded-lg transition-colors flex items-center gap-1"
+                                                className="text-xs font-bold bg-slate-100 dark:bg-dk-elevated/60 hover:bg-slate-200 dark:hover:bg-dk-elevated text-slate-700 dark:text-dk-text-soft dark:text-dk-text px-3 py-1 rounded-lg transition-colors flex items-center gap-1"
                                             >
                                                 + {tx(lang, { fr: 'Ajouter Ligne', ar: 'إضافة سطر', en: 'Add Line', es: 'Añadir Línea', pt: 'Adicionar Linha', tr: 'Satır Ekle' })}
                                             </button>
@@ -481,14 +481,14 @@ export default function Atelier({ models, planningEvents, suivis, settings, hand
                                                     value={line.ref}
                                                     onChange={e => setRetourLines(prev => prev.map((l, i) => i === idx ? { ...l, ref: e.target.value } : l))}
                                                     placeholder={tx(lang, { fr: 'Réf Matière', ar: 'مرجع المادة', en: 'Material Ref', es: 'Ref Material', pt: 'Ref Material', tr: 'Malzeme Ref' })}
-                                                    className="flex-1 bg-slate-50 dark:bg-dk-bg dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-lg px-3 py-2 text-sm font-bold text-slate-700 dark:text-dk-text outline-none"
+                                                    className="flex-1 bg-slate-50 dark:bg-dk-bg dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-lg px-3 py-2 text-sm font-bold text-slate-700 dark:text-dk-text-soft dark:text-dk-text outline-none"
                                                 />
                                                 <input
                                                     type="number"
                                                     value={line.qty || ''}
                                                     onChange={e => setRetourLines(prev => prev.map((l, i) => i === idx ? { ...l, qty: parseInt(e.target.value) || 0 } : l))}
                                                     placeholder={tx(lang, { fr: 'Qté', ar: 'الكمية', en: 'Qty', es: 'Cant.', pt: 'Qtd', tr: 'Adet' })}
-                                                    className="w-24 bg-slate-50 dark:bg-dk-bg dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-lg px-3 py-2 text-sm font-black text-center text-slate-700 dark:text-dk-text outline-none"
+                                                    className="w-24 bg-slate-50 dark:bg-dk-bg dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-lg px-3 py-2 text-sm font-black text-center text-slate-700 dark:text-dk-text-soft dark:text-dk-text outline-none"
                                                 />
                                                 {retourLines.length > 1 && (
                                                     <button

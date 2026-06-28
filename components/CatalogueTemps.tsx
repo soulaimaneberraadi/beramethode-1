@@ -409,7 +409,7 @@ export default function CatalogueTemps({ models, onOpenWorker }: CatalogueTempsP
                 <div className="px-3 sm:px-6 h-12 sm:h-14 flex items-center gap-2 sm:gap-4">
                     <div className="flex items-baseline gap-2 shrink-0">
                         <h1 className="text-[14px] sm:text-[15px] font-semibold text-slate-900 dark:text-dk-text tracking-tight whitespace-nowrap">{tx(lang, { fr: "Catalogue de Temps", ar: "كتالوج الأوقات", en: "Time Catalogue", es: "Catálogo de Tiempos", pt: "Catálogo de Tempos", tr: "Süre Kataloğu" })}</h1>
-                        <span className="hidden sm:inline text-[12px] text-slate-400 dark:text-dk-text-muted">{tx(lang, { fr: "Temps réels · Chrono", ar: "أوقات حقيقية · Chrono", en: "Real times · Chrono", es: "Tiempos reales · Chrono", pt: "Tempos reais · Chrono", tr: "Gerçek süreler · Chrono" })}</span>
+                        <span className="hidden sm:inline text-[12px] text-slate-400 dark:text-dk-muted dark:text-dk-text-muted">{tx(lang, { fr: "Temps réels · Chrono", ar: "أوقات حقيقية · Chrono", en: "Real times · Chrono", es: "Tiempos reales · Chrono", pt: "Tempos reais · Chrono", tr: "Gerçek süreler · Chrono" })}</span>
                     </div>
 
                     <div className="hidden md:flex items-center gap-4 ml-1">
@@ -419,7 +419,7 @@ export default function CatalogueTemps({ models, onOpenWorker }: CatalogueTempsP
                     </div>
 
                     <div className="flex-1 min-w-0 max-w-md mx-auto relative">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 dark:text-dk-text-muted" strokeWidth={2} />
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 dark:text-dk-muted dark:text-dk-text-muted" strokeWidth={2} />
                         <input
                             type="text"
                             value={query}
@@ -432,10 +432,10 @@ export default function CatalogueTemps({ models, onOpenWorker }: CatalogueTempsP
                                 pt: "Pesquisar uma operação, máquina, operador…",
                                 tr: "Bir operasyon, makine, operatör ara…",
                             })}
-                            className="w-full h-9 pl-9 pr-9 text-[12px] text-slate-700 dark:text-dk-text placeholder:text-slate-400 bg-white/70 dark:bg-dk-surface/70 hover:bg-white/90 dark:hover:bg-dk-hover/90 focus:bg-white border border-white/70 focus:border-indigo-200 focus:ring-2 focus:ring-indigo-100 rounded-xl outline-none transition-all shadow-[0_1px_2px_rgba(15,23,42,0.04)]"
+                            className="w-full h-9 pl-9 pr-9 text-[12px] text-slate-700 dark:text-dk-text-soft dark:text-dk-text placeholder:text-slate-400 bg-white/70 dark:bg-dk-surface/70 hover:bg-white/90 dark:hover:bg-dk-hover/90 focus:bg-white border border-white/70 focus:border-indigo-200 focus:ring-2 focus:ring-indigo-100 rounded-xl outline-none transition-all shadow-[0_1px_2px_rgba(15,23,42,0.04)]"
                         />
                         {query && (
-                            <button type="button" onClick={() => setQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 p-0.5 text-slate-400 dark:text-dk-text-muted hover:text-slate-700">
+                            <button type="button" onClick={() => setQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 p-0.5 text-slate-400 dark:text-dk-muted dark:text-dk-text-muted hover:text-slate-700">
                                 <X className="w-3.5 h-3.5" />
                             </button>
                         )}
@@ -485,7 +485,7 @@ export default function CatalogueTemps({ models, onOpenWorker }: CatalogueTempsP
                         </button>
                     )}
                     <button type="button" onClick={() => setSortBy(s => s === 'count' ? 'time' : s === 'time' ? 'alpha' : 'count')}
-                        className="shrink-0 inline-flex items-center gap-1.5 h-8 px-2.5 rounded-lg text-[11px] font-medium text-slate-600 dark:text-dk-text-secondary bg-white/60 dark:bg-dk-surface/60 hover:bg-white dark:hover:bg-dk-hover/90 border border-white/70 transition-colors">
+                        className="shrink-0 inline-flex items-center gap-1.5 h-8 px-2.5 rounded-lg text-[11px] font-medium text-slate-600 dark:text-dk-text-soft dark:text-dk-text-secondary bg-white/60 dark:bg-dk-surface/60 hover:bg-white dark:hover:bg-dk-hover/90 border border-white/70 transition-colors">
                         <ArrowUpDown className="w-3 h-3" strokeWidth={2} />
                         {sortBy === 'count' ? tx(lang, { fr: 'Fréquence', ar: 'التكرار', en: 'Frequency', es: 'Frecuencia', pt: 'Frequência', tr: 'Sıklık' })
                             : sortBy === 'time' ? tx(lang, { fr: 'Temps', ar: 'الوقت', en: 'Time', es: 'Tiempo', pt: 'Tempo', tr: 'Süre' })
@@ -528,9 +528,9 @@ export default function CatalogueTemps({ models, onOpenWorker }: CatalogueTempsP
                                             <div>
                                                 <div className="flex items-baseline gap-1">
                                                     <span className="text-[22px] font-black text-slate-900 dark:text-dk-text tabular-nums leading-none">{fmtTime(e.avg)}</span>
-                                                    <span className="text-[11px] font-medium text-slate-400 dark:text-dk-text-muted">{unitSuffix}</span>
+                                                    <span className="text-[11px] font-medium text-slate-400 dark:text-dk-muted dark:text-dk-text-muted">{unitSuffix}</span>
                                                 </div>
-                                                <span className="text-[10px] text-slate-400 dark:text-dk-text-muted">
+                                                <span className="text-[10px] text-slate-400 dark:text-dk-muted dark:text-dk-text-muted">
                                                     {e.measuredCount > 0 ? tx(lang, {
                                                         fr: `temps moyen · ${e.measuredCount}/${e.count} mesuré`,
                                                         ar: `الوقت المتوسط · ${e.measuredCount}/${e.count} مقاس`,
@@ -548,9 +548,9 @@ export default function CatalogueTemps({ models, onOpenWorker }: CatalogueTempsP
                                                     })}
                                                 </span>
                                             </div>
-                                            <div className="text-right text-[10px] text-slate-500 dark:text-dk-text-muted tabular-nums">
-                                                <div>{tx(lang, { fr: "min", ar: "أدنى", en: "min", es: "mín", pt: "mín", tr: "min" })} <span className="font-semibold text-slate-700 dark:text-dk-text">{fmtTime(e.min)}</span></div>
-                                                <div>{tx(lang, { fr: "max", ar: "أعلى", en: "max", es: "máx", pt: "máx", tr: "maks" })} <span className="font-semibold text-slate-700 dark:text-dk-text">{fmtTime(e.max)}</span></div>
+                                            <div className="text-right text-[10px] text-slate-500 dark:text-dk-muted dark:text-dk-text-muted tabular-nums">
+                                                <div>{tx(lang, { fr: "min", ar: "أدنى", en: "min", es: "mín", pt: "mín", tr: "min" })} <span className="font-semibold text-slate-700 dark:text-dk-text-soft dark:text-dk-text">{fmtTime(e.min)}</span></div>
+                                                <div>{tx(lang, { fr: "max", ar: "أعلى", en: "max", es: "máx", pt: "máx", tr: "maks" })} <span className="font-semibold text-slate-700 dark:text-dk-text-soft dark:text-dk-text">{fmtTime(e.max)}</span></div>
                                             </div>
                                         </div>
 
@@ -659,9 +659,9 @@ function DetailPanel({ entry, fmt, unitSuffix, reliability, onClose, onOpenWorke
                                     <div className="min-w-0">
                                         <p className="text-[12px] font-medium text-slate-800 dark:text-dk-text truncate">
                                             {s.modelName}
-                                            {s.client !== '—' && <span className="text-slate-400 dark:text-dk-text-muted font-normal"> · {s.client}</span>}
+                                            {s.client !== '—' && <span className="text-slate-400 dark:text-dk-muted dark:text-dk-text-muted font-normal"> · {s.client}</span>}
                                         </p>
-                                        <p className="text-[10px] text-slate-400 dark:text-dk-text-muted truncate flex items-center gap-1.5">
+                                        <p className="text-[10px] text-slate-400 dark:text-dk-muted dark:text-dk-text-muted truncate flex items-center gap-1.5">
                                             <span className="truncate">{s.matiere}</span>
                                             {s.operator && (onOpenWorker ? (
                                                 <button type="button" onClick={(e) => { e.stopPropagation(); onOpenWorker(s.operator!); }}
@@ -688,7 +688,7 @@ function DetailPanel({ entry, fmt, unitSuffix, reliability, onClose, onOpenWorke
                                             pt: "TS da gama (estimado)",
                                             tr: "TS rotası (tahmini)",
                                         })} />
-                                        {fmt(s.timeMin)}<span className="text-[9px] font-normal text-slate-400 dark:text-dk-text-muted ml-0.5">{unitSuffix}</span>
+                                        {fmt(s.timeMin)}<span className="text-[9px] font-normal text-slate-400 dark:text-dk-muted dark:text-dk-text-muted ml-0.5">{unitSuffix}</span>
                                     </span>
                                 </div>
                             </div>
@@ -710,7 +710,7 @@ function DetailPanel({ entry, fmt, unitSuffix, reliability, onClose, onOpenWorke
                     </div>
                     <header className="px-4 pt-1 pb-3 flex items-start justify-between gap-3 shrink-0 border-b border-slate-100 dark:border-dk-border">
                         {titleBlock}
-                        <button type="button" onClick={onClose} className="shrink-0 p-1.5 rounded-md text-slate-400 dark:text-dk-text-muted hover:text-slate-700 hover:bg-slate-100 dark:hover:bg-dk-hover transition-colors" aria-label={tx(lang, { fr: "Fermer", ar: "إغلاق", en: "Close", es: "Cerrar", pt: "Fechar", tr: "Kapat" })}>
+                        <button type="button" onClick={onClose} className="shrink-0 p-1.5 rounded-md text-slate-400 dark:text-dk-muted dark:text-dk-text-muted hover:text-slate-700 hover:bg-slate-100 dark:hover:bg-dk-hover transition-colors" aria-label={tx(lang, { fr: "Fermer", ar: "إغلاق", en: "Close", es: "Cerrar", pt: "Fechar", tr: "Kapat" })}>
                             <X className="w-4 h-4" />
                         </button>
                     </header>
@@ -727,7 +727,7 @@ function DetailPanel({ entry, fmt, unitSuffix, reliability, onClose, onOpenWorke
             <style>{`@keyframes catfade{from{opacity:0;transform:translateX(8px)}to{opacity:1;transform:translateX(0)}}`}</style>
             <div className="sticky top-0 z-10 bg-white/85 dark:bg-dk-surface/85 backdrop-blur-xl px-4 py-3 border-b border-slate-100 dark:border-dk-border flex items-start justify-between gap-2">
                 {titleBlock}
-                <button type="button" onClick={onClose} className="shrink-0 p-1 rounded-lg text-slate-400 dark:text-dk-text-muted hover:text-slate-700 hover:bg-slate-100 dark:hover:bg-dk-hover/60"><X className="w-4 h-4" /></button>
+                <button type="button" onClick={onClose} className="shrink-0 p-1 rounded-lg text-slate-400 dark:text-dk-muted dark:text-dk-text-muted hover:text-slate-700 hover:bg-slate-100 dark:hover:bg-dk-hover/60"><X className="w-4 h-4" /></button>
             </div>
             {body}
         </aside>
@@ -738,8 +738,8 @@ function DetailPanel({ entry, fmt, unitSuffix, reliability, onClose, onOpenWorke
 function Stat({ icon: Icon, label, value }: { icon: any; label: string; value: number }) {
     return (
         <div className="inline-flex items-center gap-1.5">
-            <Icon className="w-3.5 h-3.5 text-slate-400 dark:text-dk-text-muted" strokeWidth={2} />
-            <span className="text-[12px] text-slate-500 dark:text-dk-text-muted">{label}</span>
+            <Icon className="w-3.5 h-3.5 text-slate-400 dark:text-dk-muted dark:text-dk-text-muted" strokeWidth={2} />
+            <span className="text-[12px] text-slate-500 dark:text-dk-muted dark:text-dk-text-muted">{label}</span>
             <span className="text-[12px] font-semibold tabular-nums text-slate-800 dark:text-dk-text">{value}</span>
         </div>
     );
@@ -791,7 +791,7 @@ function FilterSelect({
             <button ref={btnRef} type="button" onClick={() => open ? setOpen(false) : openMenu()}
                 className={`inline-flex items-center gap-1.5 h-8 px-2.5 rounded-lg text-[11px] font-medium transition-all border max-w-[180px] ${
                     value ? 'bg-slate-900 text-white border-slate-900 shadow-[0_4px_12px_-4px_rgba(15,23,42,0.5)]'
-                        : 'bg-white/60 dark:bg-dk-surface/60 text-slate-600 dark:text-dk-text-secondary border-white/70 hover:bg-white dark:hover:bg-dk-hover/90'
+                        : 'bg-white/60 dark:bg-dk-surface/60 text-slate-600 dark:text-dk-text-soft dark:text-dk-text-secondary border-white/70 hover:bg-white dark:hover:bg-dk-hover/90'
                 }`}>
                 <Icon className="w-3 h-3 shrink-0" strokeWidth={2} />
                 <span className="truncate">{shown}</span>
@@ -803,17 +803,17 @@ function FilterSelect({
                     style={{ position: 'fixed', top: coords.top, left: coords.left, width: coords.width }}
                     className="z-[300] max-h-[60vh] overflow-auto rounded-xl bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border shadow-[0_16px_48px_-12px_rgba(15,23,42,0.45)] p-1 animate-[catfade_120ms_ease-out]">
                     <button type="button" onClick={() => { onChange(null); setOpen(false); }}
-                        className={`w-full flex items-center justify-between gap-2 px-2.5 py-2 rounded-lg text-[12px] transition-colors ${!value ? 'bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 text-indigo-700 dark:text-dk-accent-text font-semibold' : 'text-slate-600 dark:text-dk-text-secondary hover:bg-slate-100 dark:hover:bg-dk-hover'}`}>
+                        className={`w-full flex items-center justify-between gap-2 px-2.5 py-2 rounded-lg text-[12px] transition-colors ${!value ? 'bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 text-indigo-700 dark:text-dk-accent-text font-semibold' : 'text-slate-600 dark:text-dk-text-soft dark:text-dk-text-secondary hover:bg-slate-100 dark:hover:bg-dk-hover'}`}>
                         <span>{allLabel}</span>{!value && <Check className="w-3.5 h-3.5" />}
                     </button>
                     {options.map(o => {
                         const active = value === o.name;
                         return (
                             <button key={o.name} type="button" onClick={() => { onChange(active ? null : o.name); setOpen(false); }}
-                                className={`w-full flex items-center justify-between gap-2 px-2.5 py-2 rounded-lg text-[12px] transition-colors ${active ? 'bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 text-indigo-700 dark:text-dk-accent-text font-semibold' : 'text-slate-700 dark:text-dk-text hover:bg-slate-100 dark:hover:bg-dk-hover'}`}>
+                                className={`w-full flex items-center justify-between gap-2 px-2.5 py-2 rounded-lg text-[12px] transition-colors ${active ? 'bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 text-indigo-700 dark:text-dk-accent-text font-semibold' : 'text-slate-700 dark:text-dk-text-soft dark:text-dk-text hover:bg-slate-100 dark:hover:bg-dk-hover'}`}>
                                 <span className="truncate text-left">{display ? display(o.name) : o.name}</span>
                                 <span className="shrink-0 inline-flex items-center gap-1.5">
-                                    {o.n > 0 && <span className="text-[10px] text-slate-400 dark:text-dk-text-muted tabular-nums">{o.n}</span>}
+                                    {o.n > 0 && <span className="text-[10px] text-slate-400 dark:text-dk-muted dark:text-dk-text-muted tabular-nums">{o.n}</span>}
                                     {active && <Check className="w-3.5 h-3.5" />}
                                 </span>
                             </button>
@@ -840,7 +840,7 @@ function FilterSelect({
 
 function Tag({ children, icon: Icon }: { children: React.ReactNode; icon?: any }) {
     return (
-        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-slate-100/80 text-slate-600 dark:text-dk-text-secondary text-[10px] font-medium max-w-full truncate">
+        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-slate-100/80 text-slate-600 dark:text-dk-text-soft dark:text-dk-text-secondary text-[10px] font-medium max-w-full truncate">
             {Icon && <Icon className="w-2.5 h-2.5 shrink-0" strokeWidth={2} />}<span className="truncate">{children}</span>
         </span>
     );
@@ -849,7 +849,7 @@ function Tag({ children, icon: Icon }: { children: React.ReactNode; icon?: any }
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
     return (
         <div>
-            <p className="text-[10px] font-bold text-slate-400 dark:text-dk-text-muted uppercase tracking-wider mb-1.5">{title}</p>
+            <p className="text-[10px] font-bold text-slate-400 dark:text-dk-muted dark:text-dk-text-muted uppercase tracking-wider mb-1.5">{title}</p>
             {children}
         </div>
     );
@@ -861,8 +861,8 @@ function KpiCard({ icon: Icon, label, value, suffix, accent }: { icon: any; labe
             <div className={`w-5 h-5 rounded-md bg-gradient-to-br ${accent} flex items-center justify-center mb-1`}>
                 <Icon className="w-3 h-3 text-white" strokeWidth={2.2} />
             </div>
-            <p className="text-[9px] text-slate-400 dark:text-dk-text-muted uppercase tracking-wide font-bold">{label}</p>
-            <p className="text-[15px] font-black text-slate-900 dark:text-dk-text tabular-nums leading-tight">{value}<span className="text-[9px] font-normal text-slate-400 dark:text-dk-text-muted ml-0.5">{suffix}</span></p>
+            <p className="text-[9px] text-slate-400 dark:text-dk-muted dark:text-dk-text-muted uppercase tracking-wide font-bold">{label}</p>
+            <p className="text-[15px] font-black text-slate-900 dark:text-dk-text tabular-nums leading-tight">{value}<span className="text-[9px] font-normal text-slate-400 dark:text-dk-muted dark:text-dk-text-muted ml-0.5">{suffix}</span></p>
         </div>
     );
 }
@@ -891,7 +891,7 @@ function EmptyState({ hasData }: { hasData: boolean }) {
                     tr: 'Kronometre ölçümü bulunamadı',
                 })}
             </h3>
-            <p className="text-[12px] text-slate-500 dark:text-dk-text-muted mt-1 max-w-sm">
+            <p className="text-[12px] text-slate-500 dark:text-dk-muted dark:text-dk-text-muted mt-1 max-w-sm">
                 {hasData
                     ? tx(lang, {
                         fr: 'Essayez un autre terme de recherche ou ajustez les filtres.',
@@ -919,7 +919,7 @@ function Segmented<T extends string>({ options, value, onChange }: { options: { 
         <div className="shrink-0 inline-flex p-0.5 bg-white/60 dark:bg-dk-surface/60 border border-white/70 rounded-lg backdrop-blur-md">
             {options.map(({ id, label }) => (
                 <button key={id} type="button" onClick={() => onChange(id)}
-                    className={`px-2.5 h-6 text-[11px] font-medium rounded-md transition-all ${value === id ? 'bg-slate-900 text-white shadow-sm dark:shadow-dk-sm' : 'text-slate-500 dark:text-dk-text-muted hover:text-slate-800'}`}>
+                    className={`px-2.5 h-6 text-[11px] font-medium rounded-md transition-all ${value === id ? 'bg-slate-900 text-white shadow-sm dark:shadow-dk-sm' : 'text-slate-500 dark:text-dk-muted dark:text-dk-text-muted hover:text-slate-800'}`}>
                     {label}
                 </button>
             ))}

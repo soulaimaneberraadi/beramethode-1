@@ -22,7 +22,7 @@ function ToastContainer({ toasts, onDismiss }: { toasts: ToastData[]; onDismiss:
             {toasts.map(toast => (
                 <div
                     key={toast.id}
-                    className={`flex items-center gap-3 px-5 py-3 rounded-xl shadow-2xl dark:shadow-dk-lg border backdrop-blur-sm text-sm font-bold
+                    className={`flex items-center gap-3 px-5 py-3 rounded-xl shadow-2xl dark:shadow-dk-elevated dark:shadow-dk-lg border backdrop-blur-sm text-sm font-bold
                         animate-[slideInRight_0.4s_ease-out]
                         ${toast.type === 'success' ? 'bg-emerald-50 dark:bg-emerald-900/30/95 border-emerald-200 text-emerald-800' : ''}
                         ${toast.type === 'error' ? 'bg-red-50 dark:bg-red-900/30/95 border-red-200 text-red-800' : ''}
@@ -466,7 +466,7 @@ const OrderModelPage: React.FC<OrderModelPageProps> = ({
                                                 const qty = Number(val) || 0;
                                                 const cost = qty * costPerPiece;
                                                 return (
-                                                    <td key={sIdx} className="p-0 border-l border-slate-100 dark:border-dk-border bg-white hover:bg-indigo-50 dark:bg-dk-accent/20/50 transition-colors relative">
+                                                    <td key={sIdx} className="p-0 border-l border-slate-100 dark:border-dk-border bg-white dark:bg-dk-surface hover:bg-indigo-50 dark:bg-dk-accent/20/50 transition-colors relative">
                                                         <input
                                                             type="number" min="0"
                                                             className="w-full text-center py-3 bg-transparent outline-none focus:text-indigo-700 dark:text-dk-accent-text font-bold text-base placeholder:text-slate-200"

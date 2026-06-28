@@ -93,7 +93,7 @@ export default function Facturation({ t }: FacturationProps) {
                                     </td>
                                 </tr>
                             ) : filtered.map(f => (
-                                <tr key={f.id} className="hover:bg-slate-50/50 transition-colors group">
+                                <tr key={f.id} className="hover:bg-slate-50/50 dark:hover:bg-dk-elevated/60 transition-colors group">
                                     <td className="px-6 py-4 font-medium text-slate-900 dark:text-dk-text">{f.numero}</td>
                                     <td className="px-6 py-4 text-slate-600 dark:text-dk-text-soft">{f.tiers_nom}</td>
                                     <td className="px-6 py-4 text-slate-600 dark:text-dk-text-soft">
@@ -110,7 +110,7 @@ export default function Facturation({ t }: FacturationProps) {
                                             <button className="p-2 text-slate-400 dark:text-dk-muted hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
                                                 <Printer className="w-4 h-4" />
                                             </button>
-                                            <button className="p-2 text-slate-400 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors">
+                                            <button className="p-2 text-slate-400 dark:text-dk-muted hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors">
                                                 <Edit className="w-4 h-4" />
                                             </button>
                                         </div>
@@ -153,7 +153,7 @@ export default function Facturation({ t }: FacturationProps) {
                                     </td>
                                 </tr>
                             ) : filtered.map(bl => (
-                                <tr key={bl.id} className="hover:bg-slate-50/50 transition-colors group">
+                                <tr key={bl.id} className="hover:bg-slate-50/50 dark:hover:bg-dk-elevated/60 transition-colors group">
                                     <td className="px-6 py-4 font-medium text-slate-900 dark:text-dk-text">{bl.numero}</td>
                                     <td className="px-6 py-4 text-slate-600 dark:text-dk-text-soft">{bl.tiers_nom}</td>
                                     <td className="px-6 py-4 text-slate-600 dark:text-dk-text-soft">
@@ -168,7 +168,7 @@ export default function Facturation({ t }: FacturationProps) {
                                             <button className="p-2 text-slate-400 dark:text-dk-muted hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
                                                 <Printer className="w-4 h-4" />
                                             </button>
-                                            <button className="p-2 text-slate-400 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors">
+                                            <button className="p-2 text-slate-400 dark:text-dk-muted hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors">
                                                 <Edit className="w-4 h-4" />
                                             </button>
                                         </div>

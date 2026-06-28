@@ -121,7 +121,7 @@ export default function SuiviEffectifsModal({ open, suivi, onClose, onConfirm }:
             }}
         >
             <div
-                className={`w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl border shadow-2xl dark:shadow-dk-lg ${isDark ? 'border-dk-border bg-dk-surface' : 'border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface'}`}
+                className={`w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl border shadow-2xl dark:shadow-dk-elevated dark:shadow-dk-lg ${isDark ? 'border-dk-border bg-dk-surface' : 'border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface'}`}
                 onMouseDown={e => e.stopPropagation()}
             >
                 <div className={`flex items-center justify-between gap-3 border-b px-4 py-3 ${isDark ? 'border-dk-border' : 'border-slate-100 dark:border-dk-border'}`}>
@@ -131,7 +131,7 @@ export default function SuiviEffectifsModal({ open, suivi, onClose, onConfirm }:
                     <button
                         type="button"
                         onClick={onClose}
-                        className={`p-2 rounded-lg ${isDark ? 'text-dk-muted hover:text-dk-text hover:bg-dk-bg' : 'text-slate-400 hover:text-slate-700 hover:bg-slate-100'}`}
+                        className={`p-2 rounded-lg ${isDark ? 'text-dk-muted hover:text-dk-text hover:bg-dk-bg' : 'text-slate-400 dark:text-dk-muted hover:text-slate-700 hover:bg-slate-100'}`}
                         aria-label={tx(lang, {fr:"Fermer",ar:"إغلاق",en:"Close",es:"Cerrar",pt:"Fechar",tr:"Kapat"})}
                     >
                         <X className="w-5 h-5" />

@@ -424,7 +424,7 @@ export default function AnalyseTechnologique({
                 <th className={`${headerClass} text-center w-16 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700`}>{tx(lang, { fr: 'Secondes', ar: 'الثواني', en: 'Seconds', es: 'Segundos', pt: 'Segundos', tr: 'Saniye' })}</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-50">
+            <tbody className="divide-y divide-slate-50 dark:divide-dk-border">
               {operations.map((op, index) => {
                 const machine = getMachine(op.machineId, op.machineName);
                 const machineNameUpper = (machine.name || 'MAN').toUpperCase();

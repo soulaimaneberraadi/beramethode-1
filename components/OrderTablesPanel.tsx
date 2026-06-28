@@ -124,7 +124,7 @@ const OrderTablesPanel: React.FC<OrderTablesPanelProps> = ({
                                     const cHex = c.id && c.id.startsWith('#') ? c.id : null;
                                     const dot = DOT_COLORS[cIdx % DOT_COLORS.length];
                                     return (
-                                        <tr key={`${c.id}-${cIdx}`} className="hover:bg-slate-50/50 group">
+                                        <tr key={`${c.id}-${cIdx}`} className="hover:bg-slate-50/50 dark:hover:bg-dk-elevated/60 group">
                                             <td className="py-2.5 px-3 border-r border-slate-100 dark:border-dk-border font-medium text-slate-700 dark:text-dk-text-soft text-[12px]">
                                                 <div className="flex items-center gap-2">
                                                     <div
@@ -238,7 +238,7 @@ const OrderTablesPanel: React.FC<OrderTablesPanelProps> = ({
                                             const cHex = c.id && c.id.startsWith('#') ? c.id : null;
                                             const dot = DOT_COLORS[cIdx % DOT_COLORS.length];
                                             return (
-                                                <tr key={c.id} className="hover:bg-slate-50/50">
+                                                <tr key={c.id} className="hover:bg-slate-50/50 dark:hover:bg-dk-elevated/60">
                                                     <td className="py-2.5 px-3 font-medium text-slate-700 dark:text-dk-text-soft text-[12px]">
                                                         <div className="flex items-center gap-2">
                                                             <div className={`w-2.5 h-2.5 rounded-full ${cHex ? '' : dot}`} style={cHex ? { backgroundColor: cHex } : undefined} />

@@ -1140,28 +1140,28 @@ export default function SousTraitance({ models, settings, onLoadModel }: SousTra
       <div className="flex bg-white dark:bg-dk-surface p-0.5 rounded-xl border border-slate-200 dark:border-dk-border/60 overflow-x-auto gap-0.5 shadow-sm dark:shadow-dk-sm dark:shadow-none max-w-max scrollbar-none shrink-0">
         <button
           onClick={() => setActiveTab('orders')}
-          className={`px-2.5 lg:px-3 py-1.5 rounded-lg font-bold text-[10px] lg:text-xs transition-all flex items-center gap-1 lg:gap-1.5 whitespace-nowrap ${activeTab === 'orders' ? 'bg-indigo-600 dark:bg-dk-accent text-white shadow-sm dark:shadow-dk-sm dark:shadow-none' : 'text-slate-500 dark:text-dk-muted hover:text-slate-800 hover:bg-slate-50 dark:hover:bg-dk-elevated'}`}
+          className={`px-2.5 lg:px-3 py-1.5 rounded-lg font-bold text-[10px] lg:text-xs transition-all flex items-center gap-1 lg:gap-1.5 whitespace-nowrap ${activeTab === 'orders' ? 'bg-indigo-600 dark:bg-dk-accent text-white shadow-sm dark:shadow-dk-sm dark:shadow-none' : 'text-slate-500 dark:text-dk-muted hover:text-slate-800 hover:bg-slate-50 dark:hover:bg-dk-elevated/60 dark:hover:bg-dk-elevated'}`}
         >
           <Package className="w-3 h-3 lg:w-3.5 lg:h-3.5" />
           <span>{tx(lang,{fr:'Commandes',ar:'الطلبيات',en:'Orders',es:'Pedidos',pt:'Encomendas',tr:'Siparişler'})}</span>
         </button>
         <button
           onClick={() => setActiveTab('subcontractors')}
-          className={`px-2.5 lg:px-3 py-1.5 rounded-lg font-bold text-[10px] lg:text-xs transition-all flex items-center gap-1 lg:gap-1.5 whitespace-nowrap ${activeTab === 'subcontractors' ? 'bg-indigo-600 dark:bg-dk-accent text-white shadow-sm dark:shadow-dk-sm dark:shadow-none' : 'text-slate-500 dark:text-dk-muted hover:text-slate-800 hover:bg-slate-50 dark:hover:bg-dk-elevated'}`}
+          className={`px-2.5 lg:px-3 py-1.5 rounded-lg font-bold text-[10px] lg:text-xs transition-all flex items-center gap-1 lg:gap-1.5 whitespace-nowrap ${activeTab === 'subcontractors' ? 'bg-indigo-600 dark:bg-dk-accent text-white shadow-sm dark:shadow-dk-sm dark:shadow-none' : 'text-slate-500 dark:text-dk-muted hover:text-slate-800 hover:bg-slate-50 dark:hover:bg-dk-elevated/60 dark:hover:bg-dk-elevated'}`}
         >
           <Users className="w-3 h-3 lg:w-3.5 lg:h-3.5" />
           <span>{tx(lang,{fr:'Suivi Fournisseurs',ar:'متابعة الموردين',en:'Supplier Tracking',es:'Seguimiento de Proveedores',pt:'Acompanhamento de Fornecedores',tr:'Tedarikçi Takibi'})}</span>
         </button>
         <button
           onClick={() => setActiveTab('stock')}
-          className={`px-2.5 lg:px-3 py-1.5 rounded-lg font-bold text-[10px] lg:text-xs transition-all flex items-center gap-1 lg:gap-1.5 whitespace-nowrap ${activeTab === 'stock' ? 'bg-indigo-600 dark:bg-dk-accent text-white shadow-sm dark:shadow-dk-sm dark:shadow-none' : 'text-slate-500 dark:text-dk-muted hover:text-slate-800 hover:bg-slate-50 dark:hover:bg-dk-elevated'}`}
+          className={`px-2.5 lg:px-3 py-1.5 rounded-lg font-bold text-[10px] lg:text-xs transition-all flex items-center gap-1 lg:gap-1.5 whitespace-nowrap ${activeTab === 'stock' ? 'bg-indigo-600 dark:bg-dk-accent text-white shadow-sm dark:shadow-dk-sm dark:shadow-none' : 'text-slate-500 dark:text-dk-muted hover:text-slate-800 hover:bg-slate-50 dark:hover:bg-dk-elevated/60 dark:hover:bg-dk-elevated'}`}
         >
           <Coins className="w-3 h-3 lg:w-3.5 lg:h-3.5" />
           <span>{tx(lang,{fr:'Stock & Ventes',ar:'المخزون والمبيعات',en:'Stock & Sales',es:'Stock & Ventas',pt:'Stock & Vendas',tr:'Stok & Satışlar'})}</span>
         </button>
         <button
           onClick={() => setActiveTab('groups')}
-          className={`px-2.5 lg:px-3 py-1.5 rounded-lg font-bold text-[10px] lg:text-xs transition-all flex items-center gap-1 lg:gap-1.5 whitespace-nowrap ${activeTab === 'groups' ? 'bg-indigo-600 dark:bg-dk-accent text-white shadow-sm dark:shadow-dk-sm dark:shadow-none' : 'text-slate-500 dark:text-dk-muted hover:text-slate-800 hover:bg-slate-50 dark:hover:bg-dk-elevated'}`}
+          className={`px-2.5 lg:px-3 py-1.5 rounded-lg font-bold text-[10px] lg:text-xs transition-all flex items-center gap-1 lg:gap-1.5 whitespace-nowrap ${activeTab === 'groups' ? 'bg-indigo-600 dark:bg-dk-accent text-white shadow-sm dark:shadow-dk-sm dark:shadow-none' : 'text-slate-500 dark:text-dk-muted hover:text-slate-800 hover:bg-slate-50 dark:hover:bg-dk-elevated/60 dark:hover:bg-dk-elevated'}`}
         >
           <Layers className="w-3 h-3 lg:w-3.5 lg:h-3.5" />
           <span>{tx(lang,{fr:'Groupements',ar:'المجموعات',en:'Groups',es:'Grupos',pt:'Grupos',tr:'Gruplar'})}</span>
@@ -1474,7 +1474,7 @@ export default function SousTraitance({ models, settings, onLoadModel }: SousTra
                       </thead>
                       <tbody className="divide-y divide-slate-100 dark:divide-dk-border text-slate-700 dark:text-dk-text-soft bg-white dark:bg-dk-surface">
                         {filteredOrders.map(order => (
-                          <tr key={order.id} className="hover:bg-slate-50 dark:hover:bg-dk-elevated/50 transition-colors group">
+                          <tr key={order.id} className="hover:bg-slate-50 dark:hover:bg-dk-elevated/60 dark:hover:bg-dk-elevated/50 transition-colors group">
                             <td className="px-6 py-4 font-semibold">
                               <span className="text-[9px] text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text dark:text-dk-accent block font-normal uppercase">{order.clientName || 'N/A'}</span>
                               <span className="text-slate-900 dark:text-dk-text">{order.modelName}</span>
@@ -1585,7 +1585,7 @@ export default function SousTraitance({ models, settings, onLoadModel }: SousTra
                             : 0;
 
                           return (
-                            <tr key={stat.name} className="hover:bg-slate-50 dark:hover:bg-dk-elevated/50 transition-colors">
+                            <tr key={stat.name} className="hover:bg-slate-50 dark:hover:bg-dk-elevated/60 dark:hover:bg-dk-elevated/50 transition-colors">
                               <td className="px-6 py-4">
                                 <span className="font-semibold block text-slate-800 dark:text-dk-text">{stat.name}</span>
                                 <span className="text-xs text-slate-500 dark:text-dk-muted">{stat.phone}</span>
@@ -1646,7 +1646,7 @@ export default function SousTraitance({ models, settings, onLoadModel }: SousTra
                     </thead>
                     <tbody className="divide-y divide-slate-100 dark:divide-dk-border text-slate-700 dark:text-dk-text-soft bg-white dark:bg-dk-surface">
                       {modelStockStats.map(item => (
-                        <tr key={item.model.id} className="hover:bg-slate-50 dark:hover:bg-dk-elevated/50 transition-colors">
+                        <tr key={item.model.id} className="hover:bg-slate-50 dark:hover:bg-dk-elevated/60 dark:hover:bg-dk-elevated/50 transition-colors">
                           <td className="px-6 py-4">
                             <div className="flex items-center gap-3">
                               <div className="w-10 h-10 bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-lg overflow-hidden shrink-0 flex items-center justify-center">
@@ -1692,7 +1692,7 @@ export default function SousTraitance({ models, settings, onLoadModel }: SousTra
                             <button
                               disabled={item.remainingStock <= 0}
                               onClick={() => openSaleModal(item)}
-                              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-sm dark:shadow-none ${
+                              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-sm dark:shadow-dk-sm dark:shadow-none ${
                                 item.remainingStock > 0 
                                   ? 'bg-indigo-600 dark:bg-dk-accent hover:bg-indigo-50 dark:bg-dk-accent/20 dark:hover:bg-dk-elevated dark:bg-dk-elevated0 text-white hover:scale-[1.02]' 
                                   : 'bg-slate-100 dark:bg-dk-elevated text-slate-400 dark:text-dk-muted cursor-not-allowed border border-slate-200 dark:border-dk-border'
@@ -1799,7 +1799,7 @@ export default function SousTraitance({ models, settings, onLoadModel }: SousTra
                                 className={`p-2.5 rounded-lg border cursor-pointer transition-all flex items-center gap-3 text-xs ${
                                   isChecked 
                                     ? 'bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 dark:bg-dk-elevated border-indigo-200 dark:border-dk-accent/40 text-indigo-900 dark:text-dk-accent font-semibold' 
-                                    : 'bg-white dark:bg-dk-surface border-slate-100 dark:border-dk-border hover:border-slate-200 dark:hover:border-dk-border text-slate-600 dark:text-dk-text-soft shadow-sm dark:shadow-none'
+                                    : 'bg-white dark:bg-dk-surface border-slate-100 dark:border-dk-border hover:border-slate-200 dark:hover:border-dk-border text-slate-600 dark:text-dk-text-soft shadow-sm dark:shadow-dk-sm dark:shadow-none'
                                 }`}
                               >
                                 <input 
@@ -1830,7 +1830,7 @@ export default function SousTraitance({ models, settings, onLoadModel }: SousTra
                         <button 
                           type="button" 
                           onClick={() => setIsEditingGroup(false)}
-                          className="px-4 py-2 border border-slate-200 dark:border-dk-border hover:bg-slate-50 dark:hover:bg-dk-elevated text-slate-500 dark:text-dk-muted rounded-xl text-xs font-bold transition-all"
+                          className="px-4 py-2 border border-slate-200 dark:border-dk-border hover:bg-slate-50 dark:hover:bg-dk-elevated/60 dark:hover:bg-dk-elevated text-slate-500 dark:text-dk-muted rounded-xl text-xs font-bold transition-all"
                         >
                           {tx(lang,{fr:'Annuler',ar:'إلغاء',en:'Cancel',es:'Cancelar',pt:'Cancelar',tr:'İptal'})}
                         </button>
@@ -2236,7 +2236,7 @@ export default function SousTraitance({ models, settings, onLoadModel }: SousTra
                 <button 
                   type="button" 
                   onClick={() => setIsAddModalOpen(false)}
-                  className="px-5 py-2.5 border border-slate-200 dark:border-dk-border hover:bg-slate-50 dark:hover:bg-dk-elevated text-slate-500 dark:text-dk-muted rounded-xl font-bold transition-all"
+                  className="px-5 py-2.5 border border-slate-200 dark:border-dk-border hover:bg-slate-50 dark:hover:bg-dk-elevated/60 dark:hover:bg-dk-elevated text-slate-500 dark:text-dk-muted rounded-xl font-bold transition-all"
                 >
                   {tx(lang,{fr:'Annuler',ar:'إلغاء',en:'Cancel',es:'Cancelar',pt:'Cancelar',tr:'İptal'})}
                 </button>
@@ -2635,7 +2635,7 @@ export default function SousTraitance({ models, settings, onLoadModel }: SousTra
                 <button 
                   type="button" 
                   onClick={() => setIsEditModalOpen(false)}
-                  className="px-5 py-2.5 border border-slate-200 dark:border-dk-border hover:bg-slate-50 dark:hover:bg-dk-elevated text-slate-500 dark:text-dk-muted rounded-xl font-bold transition-all"
+                  className="px-5 py-2.5 border border-slate-200 dark:border-dk-border hover:bg-slate-50 dark:hover:bg-dk-elevated/60 dark:hover:bg-dk-elevated text-slate-500 dark:text-dk-muted rounded-xl font-bold transition-all"
                 >
                   {tx(lang,{fr:'Annuler',ar:'إلغاء',en:'Cancel',es:'Cancelar',pt:'Cancelar',tr:'İptal'})}
                 </button>
@@ -2762,7 +2762,7 @@ export default function SousTraitance({ models, settings, onLoadModel }: SousTra
             <div className="bg-slate-50 dark:bg-dk-bg border-t border-slate-100 dark:border-dk-border px-6 py-4 flex gap-3 justify-end text-xs font-bold">
               <button 
                 onClick={() => handlePrintDeliveryNote(detailOrder)} 
-                className="bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border hover:bg-slate-50 dark:hover:bg-dk-elevated text-slate-700 dark:text-dk-text-soft px-4 py-2 rounded-xl flex items-center gap-1.5 shadow-sm dark:shadow-dk-sm dark:shadow-none transition-all"
+                className="bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border hover:bg-slate-50 dark:hover:bg-dk-elevated/60 dark:hover:bg-dk-elevated text-slate-700 dark:text-dk-text-soft px-4 py-2 rounded-xl flex items-center gap-1.5 shadow-sm dark:shadow-dk-sm dark:shadow-none transition-all"
               >
                 <Printer className="w-4 h-4" />
                 <span>{tx(lang,{fr:"Imprimer Bon d'Envoi",ar:'طباعة مذكرة الإرسال',en:'Print Delivery Note',es:'Imprimir Nota de Envío',pt:'Imprimir Nota de Remessa',tr:'Sevk İrsaliyesi Yazdır'})}</span>
@@ -2974,7 +2974,7 @@ export default function SousTraitance({ models, settings, onLoadModel }: SousTra
                 <button 
                   type="button" 
                   onClick={handlePrintSaleInvoice}
-                  className="px-4 py-2 bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border hover:bg-slate-50 dark:hover:bg-dk-elevated text-slate-700 dark:text-dk-text-soft rounded-xl font-bold flex items-center gap-2 shadow-sm dark:shadow-dk-sm dark:shadow-none transition-all"
+                  className="px-4 py-2 bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border hover:bg-slate-50 dark:hover:bg-dk-elevated/60 dark:hover:bg-dk-elevated text-slate-700 dark:text-dk-text-soft rounded-xl font-bold flex items-center gap-2 shadow-sm dark:shadow-dk-sm dark:shadow-none transition-all"
                 >
                   <Printer className="w-4 h-4" />
                   <span>{tx(lang,{fr:'Imprimer la Facture',ar:'طباعة الفاتورة',en:'Print Invoice',es:'Imprimir Factura',pt:'Imprimir Fatura',tr:'Fatura Yazdır'})}</span>
@@ -2982,7 +2982,7 @@ export default function SousTraitance({ models, settings, onLoadModel }: SousTra
                 <button 
                   type="button" 
                   onClick={() => setIsSaleModalOpen(false)}
-                  className="px-4 py-2 border border-slate-200 dark:border-dk-border hover:bg-slate-50 dark:hover:bg-dk-elevated text-slate-500 dark:text-dk-muted rounded-xl font-bold transition-all"
+                  className="px-4 py-2 border border-slate-200 dark:border-dk-border hover:bg-slate-50 dark:hover:bg-dk-elevated/60 dark:hover:bg-dk-elevated text-slate-500 dark:text-dk-muted rounded-xl font-bold transition-all"
                 >
                   {tx(lang,{fr:'Annuler',ar:'إلغاء',en:'Cancel',es:'Cancelar',pt:'Cancelar',tr:'İptal'})}
                 </button>

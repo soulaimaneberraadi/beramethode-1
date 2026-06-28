@@ -86,7 +86,7 @@ function CalcModeToggle({ calcMode, onChange }: { calcMode: 'poste' | 'indice'; 
     const { lang } = useLang();
     const _ = useCallback((m: TxMap) => tx(lang, m), [lang]);
     const tab = (active: boolean) =>
-        `px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${active ? 'bg-white dark:bg-dk-surface text-slate-900 dark:text-dk-text shadow-sm dark:shadow-dk-sm' : 'text-slate-500 hover:text-slate-700'}`;
+        `px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${active ? 'bg-white dark:bg-dk-surface text-slate-900 dark:text-dk-text shadow-sm dark:shadow-dk-sm' : 'text-slate-500 dark:text-dk-muted hover:text-slate-700'}`;
     return (
         <div className="flex flex-wrap items-center justify-between gap-2">
             <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-400 dark:text-dk-muted">{_({ fr: 'MÃ©thode de calcul', ar: 'Ø·Ø±ÙŠÙ‚Ø© Ø§Ù„Ø­Ø³Ø§Ø¨', en: 'Calculation method', es: 'MÃ©todo de cÃ¡lculo', pt: 'MÃ©todo de cÃ¡lculo', tr: 'Hesaplama yÃ¶ntemi' })}</span>
@@ -292,7 +292,7 @@ function IndiceEstimatePanel({
                                 <button
                                     type="button"
                                     onClick={onResetIndice}
-                                    className="font-semibold text-slate-500 hover:text-slate-700 transition-colors"
+                                    className="font-semibold text-slate-500 dark:text-dk-muted hover:text-slate-700 transition-colors"
                                 >
                                     {_({ fr: 'dÃ©faut', ar: 'Ø§ÙØªØ±Ø§Ø¶ÙŠ', en: 'default', es: 'defecto', pt: 'padrÃ£o', tr: 'varsayÄ±lan' })} ({garment.indice})
                                 </button>
@@ -1120,13 +1120,13 @@ export default function ThreadCalculator({
                                 <p className="text-[12px] text-slate-500 dark:text-dk-muted mt-0.5 truncate">{_({ fr: 'Consommation de fil automatique', ar: 'Ø§Ø³ØªÙ‡Ù„Ø§Ùƒ Ø§Ù„Ø®ÙŠØ· Ø§Ù„ØªÙ„Ù‚Ø§Ø¦ÙŠ', en: 'Automatic thread consumption', es: 'Consumo de hilo automÃ¡tico', pt: 'Consumo de fio automÃ¡tico', tr: 'Otomatik iplik tÃ¼ketimi' })}</p>
                             </div>
                             <div className="flex items-center gap-1 shrink-0">
-                                <button onClick={() => window.print()} className="p-1.5 rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors" title={_({ fr: 'Imprimer le rapport de fil', ar: 'Ø·Ø¨Ø§Ø¹Ø© ØªÙ‚Ø±ÙŠØ± Ø§Ù„Ø®ÙŠØ·', en: 'Print thread report', es: 'Imprimir informe de hilo', pt: 'Imprimir relatÃ³rio de fio', tr: 'Ä°plik raporunu yazdÄ±r' })} aria-label={_({ fr: 'Imprimer', ar: 'Ø·Ø¨Ø§Ø¹Ø©', en: 'Print', es: 'Imprimir', pt: 'Imprimir', tr: 'YazdÄ±r' })}>
+                                <button onClick={() => window.print()} className="p-1.5 rounded-md text-slate-400 dark:text-dk-muted hover:text-slate-700 hover:bg-slate-100 transition-colors" title={_({ fr: 'Imprimer le rapport de fil', ar: 'Ø·Ø¨Ø§Ø¹Ø© ØªÙ‚Ø±ÙŠØ± Ø§Ù„Ø®ÙŠØ·', en: 'Print thread report', es: 'Imprimir informe de hilo', pt: 'Imprimir relatÃ³rio de fio', tr: 'Ä°plik raporunu yazdÄ±r' })} aria-label={_({ fr: 'Imprimer', ar: 'Ø·Ø¨Ø§Ø¹Ø©', en: 'Print', es: 'Imprimir', pt: 'Imprimir', tr: 'YazdÄ±r' })}>
                                     <Printer className="w-4 h-4" />
                                 </button>
-                                <button onClick={() => setIsExpanded(true)} className="p-1.5 rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors" title={_({ fr: 'Agrandir (page complÃ¨te)', ar: 'ØªÙƒØ¨ÙŠØ± (ØµÙØ­Ø© ÙƒØ§Ù…Ù„Ø©)', en: 'Expand (full page)', es: 'Ampliar (pÃ¡gina completa)', pt: 'Ampliar (pÃ¡gina completa)', tr: 'BÃ¼yÃ¼t (tam sayfa)' })} aria-label={_({ fr: 'Agrandir', ar: 'ØªÙƒØ¨ÙŠØ±', en: 'Expand', es: 'Ampliar', pt: 'Ampliar', tr: 'BÃ¼yÃ¼t' })}>
+                                <button onClick={() => setIsExpanded(true)} className="p-1.5 rounded-md text-slate-400 dark:text-dk-muted hover:text-slate-700 hover:bg-slate-100 transition-colors" title={_({ fr: 'Agrandir (page complÃ¨te)', ar: 'ØªÙƒØ¨ÙŠØ± (ØµÙØ­Ø© ÙƒØ§Ù…Ù„Ø©)', en: 'Expand (full page)', es: 'Ampliar (pÃ¡gina completa)', pt: 'Ampliar (pÃ¡gina completa)', tr: 'BÃ¼yÃ¼t (tam sayfa)' })} aria-label={_({ fr: 'Agrandir', ar: 'ØªÙƒØ¨ÙŠØ±', en: 'Expand', es: 'Ampliar', pt: 'Ampliar', tr: 'BÃ¼yÃ¼t' })}>
                                     <Maximize2 className="w-4 h-4" />
                                 </button>
-                                <button onClick={onClose} className="p-1.5 rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors" aria-label={_({ fr: 'Fermer', ar: 'Ø¥ØºÙ„Ø§Ù‚', en: 'Close', es: 'Cerrar', pt: 'Fechar', tr: 'Kapat' })}>
+                                <button onClick={onClose} className="p-1.5 rounded-md text-slate-400 dark:text-dk-muted hover:text-slate-700 hover:bg-slate-100 transition-colors" aria-label={_({ fr: 'Fermer', ar: 'Ø¥ØºÙ„Ø§Ù‚', en: 'Close', es: 'Cerrar', pt: 'Fechar', tr: 'Kapat' })}>
                                     <X className="w-4 h-4" />
                                 </button>
                             </div>

@@ -1230,9 +1230,9 @@ export default function SuiviProduction({
                             settings={settings || DEFAULT_CALENDAR_APP_SETTINGS}
                             showIcon={false}
                             className="relative flex items-center justify-center min-w-0"
-                            inputClassName="min-h-0 w-full border-0 bg-transparent text-center text-[11px] sm:text-xs font-bold text-slate-700 dark:text-dk-text shadow-none outline-none hover:bg-slate-50 dark:hover:bg-dk-elevated/60 px-2 py-0.5 rounded-lg transition-colors cursor-pointer select-none"
+                            inputClassName="min-h-0 w-full border-0 bg-transparent text-center text-[11px] sm:text-xs font-bold text-slate-700 dark:text-dk-text-soft dark:text-dk-text shadow-none outline-none hover:bg-slate-50 dark:hover:bg-dk-elevated/60 px-2 py-0.5 rounded-lg transition-colors cursor-pointer select-none"
                             displayValue={
-                                <span className="text-[11px] sm:text-xs font-bold text-slate-700 dark:text-dk-text tabular-nums select-none">
+                                <span className="text-[11px] sm:text-xs font-bold text-slate-700 dark:text-dk-text-soft dark:text-dk-text tabular-nums select-none">
                                     <span className="hidden sm:inline">{tx(lang, { fr: 'Semaine du', ar: 'أسبوع من', en: 'Week from', es: 'Semana del', pt: 'Semana de', tr: 'Hafta başlangıcı' })} </span>
                                     {weekDays[0]?.displayDate.substring(0, 5)} <span className="hidden sm:inline">{tx(lang, { fr: 'au', ar: 'إلى', en: 'to', es: 'al', pt: 'a', tr: 'ile' })} {weekDays[5]?.displayDate}</span><span className="sm:hidden">–{weekDays[5]?.displayDate.substring(0, 5)}</span>
                                 </span>
@@ -1518,7 +1518,7 @@ export default function SuiviProduction({
                                             {/* Effectif (lecture seule — saisi dans la page Effectifs) */}
                                             <td className="p-1 text-center border-l border-slate-100 dark:border-dk-border/60 w-24">
                                                 <div
-                                                    className="w-full text-center font-black text-xs bg-slate-50 dark:bg-dk-bg border border-slate-100 dark:border-dk-border/60 rounded-lg py-1.5 tabular-nums text-slate-700 dark:text-dk-text"
+                                                    className="w-full text-center font-black text-xs bg-slate-50 dark:bg-dk-bg border border-slate-100 dark:border-dk-border/60 rounded-lg py-1.5 tabular-nums text-slate-700 dark:text-dk-text-soft dark:text-dk-text"
                                                     title={tx(lang, { fr: 'Saisir dans la page Effectifs', ar: 'يتم إدخاله في صفحة Effectifs', en: 'Enter on the Effectifs page', es: 'Introducir en la página Effectifs', pt: 'Inserir na página Effectifs', tr: 'Effectifs sayfasında girilir' })}
                                                 >
                                                     {metrics.totalM || 0}
@@ -1771,15 +1771,15 @@ export default function SuiviProduction({
                             <div className="grid grid-cols-3 gap-2">
                                 <div className="p-3 bg-slate-50 dark:bg-dk-bg border border-slate-100 dark:border-dk-border/60 rounded-2xl text-center">
                                     <span className="text-[9px] font-black text-slate-400 dark:text-dk-muted uppercase block">{l.dispo}</span>
-                                    <span className="text-lg font-black text-slate-700 dark:text-dk-text block mt-1 tabular-nums">{activeChartMetrics.availability}%</span>
+                                    <span className="text-lg font-black text-slate-700 dark:text-dk-text-soft dark:text-dk-text block mt-1 tabular-nums">{activeChartMetrics.availability}%</span>
                                 </div>
                                 <div className="p-3 bg-slate-50 dark:bg-dk-bg border border-slate-100 dark:border-dk-border/60 rounded-2xl text-center">
                                     <span className="text-[9px] font-black text-slate-400 dark:text-dk-muted uppercase block">{l.perf}</span>
-                                    <span className="text-lg font-black text-slate-700 dark:text-dk-text block mt-1 tabular-nums">{activeChartMetrics.rTotalDay}%</span>
+                                    <span className="text-lg font-black text-slate-700 dark:text-dk-text-soft dark:text-dk-text block mt-1 tabular-nums">{activeChartMetrics.rTotalDay}%</span>
                                 </div>
                                 <div className="p-3 bg-slate-50 dark:bg-dk-bg border border-slate-100 dark:border-dk-border/60 rounded-2xl text-center">
                                     <span className="text-[9px] font-black text-slate-400 dark:text-dk-muted uppercase block">{l.quality}</span>
-                                    <span className="text-lg font-black text-slate-700 dark:text-dk-text block mt-1 tabular-nums">{activeChartMetrics.quality}%</span>
+                                    <span className="text-lg font-black text-slate-700 dark:text-dk-text-soft dark:text-dk-text block mt-1 tabular-nums">{activeChartMetrics.quality}%</span>
                                 </div>
                             </div>
 
@@ -1974,7 +1974,7 @@ export default function SuiviProduction({
                                     <div className="space-y-1.5 mt-2">
                                         <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-dk-muted">{tx(lang, { fr: 'Postes non couverts :', ar: 'المراكز غير المغطاة:', en: 'Uncovered stations:', es: 'Puestos no cubiertos:', pt: 'Postos não cobertos:', tr: 'Kapsanmayan istasyonlar:' })}</p>
                                         {skillCheckResults.errors.map((machine, idx) => (
-                                            <div key={idx} className="flex items-center justify-between text-xs font-bold text-slate-700 dark:text-dk-text bg-slate-50 dark:bg-dk-bg border border-slate-100 dark:border-dk-border/60 px-3 py-1.5 rounded-xl">
+                                            <div key={idx} className="flex items-center justify-between text-xs font-bold text-slate-700 dark:text-dk-text-soft dark:text-dk-text bg-slate-50 dark:bg-dk-bg border border-slate-100 dark:border-dk-border/60 px-3 py-1.5 rounded-xl">
                                                 <span>Machine: <strong className="text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text dark:text-indigo-300 dark:text-indigo-200">{machine}</strong></span>
                                                 <span className="text-[9px] bg-rose-50 dark:bg-rose-900/30 text-rose-500 dark:text-rose-300 px-2 py-0.5 rounded font-black uppercase">{tx(lang, { fr: 'Requis', ar: 'مطلوب', en: 'Required', es: 'Requerido', pt: 'Exigido', tr: 'Gerekli' })}</span>
                                             </div>
@@ -2116,11 +2116,11 @@ export default function SuiviProduction({
                                         <div className="grid grid-cols-2 gap-2 text-[10px]">
                                             <div className="bg-slate-50 dark:bg-dk-bg rounded-xl p-2 text-center">
                                                 <span className="block text-slate-400 dark:text-dk-muted font-bold uppercase">{tx(lang, { fr: 'Sorti Magasin', ar: 'خارج من المخزن', en: 'Issued from stock', es: 'Salida de almacén', pt: 'Saído do armazém', tr: 'Depodan çıkan' })}</span>
-                                                <span className="block text-sm font-black text-slate-700 dark:text-dk-text tabular-nums">{alert.totalReceived.toLocaleString()} {alert.unit}</span>
+                                                <span className="block text-sm font-black text-slate-700 dark:text-dk-text-soft dark:text-dk-text tabular-nums">{alert.totalReceived.toLocaleString()} {alert.unit}</span>
                                             </div>
                                             <div className="bg-slate-50 dark:bg-dk-bg rounded-xl p-2 text-center">
                                                 <span className="block text-slate-400 dark:text-dk-muted font-bold uppercase">{tx(lang, { fr: 'Cons. Théor.', ar: 'الاستهلاك النظري', en: 'Theoretical cons.', es: 'Cons. teórica', pt: 'Cons. teórica', tr: 'Teorik tüketim' })}</span>
-                                                <span className="block text-sm font-black text-slate-700 dark:text-dk-text tabular-nums">{alert.consumed.toLocaleString()} {alert.unit}</span>
+                                                <span className="block text-sm font-black text-slate-700 dark:text-dk-text-soft dark:text-dk-text tabular-nums">{alert.consumed.toLocaleString()} {alert.unit}</span>
                                             </div>
                                             <div className={`rounded-xl p-2 text-center ${alert.remainingStock <= 0 ? 'bg-rose-50 dark:bg-rose-900/30' : 'bg-emerald-50 dark:bg-emerald-900/30'}`}>
                                                 <span className="block text-slate-400 dark:text-dk-muted font-bold uppercase">{tx(lang, { fr: 'Sur la chaîne', ar: 'على الخط', en: 'On the line', es: 'En la línea', pt: 'Na linha', tr: 'Hatta' })}</span>
@@ -2254,7 +2254,7 @@ function CellDetailsModal({
 
     return (
         <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
-            <div className="bg-white dark:bg-dk-surface rounded-3xl max-w-md w-full shadow-2xl dark:shadow-dk-lg overflow-hidden border border-slate-100 dark:border-dk-border/60 animate-in zoom-in-95 duration-200">
+            <div className="bg-white dark:bg-dk-surface rounded-3xl max-w-md w-full shadow-2xl dark:shadow-dk-elevated dark:shadow-dk-lg overflow-hidden border border-slate-100 dark:border-dk-border/60 animate-in zoom-in-95 duration-200">
                 {/* Header */}
                 <div className="flex items-center justify-between px-6 py-4 border-b border-slate-50 dark:border-dk-border/40 bg-slate-50 dark:bg-dk-bg/50">
                     <div>
@@ -2456,7 +2456,7 @@ function StatusChangeModal({
 
     return (
         <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
-            <div className="bg-white dark:bg-dk-surface rounded-3xl max-w-sm w-full shadow-2xl dark:shadow-dk-lg overflow-hidden border border-slate-100 dark:border-dk-border/60 animate-in zoom-in-95 duration-200">
+            <div className="bg-white dark:bg-dk-surface rounded-3xl max-w-sm w-full shadow-2xl dark:shadow-dk-elevated dark:shadow-dk-lg overflow-hidden border border-slate-100 dark:border-dk-border/60 animate-in zoom-in-95 duration-200">
                 {/* Header */}
                 <div className="flex items-center justify-between px-6 py-4 border-b border-slate-50 dark:border-dk-border/40 bg-slate-50 dark:bg-dk-bg/50">
                     <div>
@@ -2488,7 +2488,7 @@ function StatusChangeModal({
                                     className={`flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-xs transition-all text-left ${
                                         isSelected 
                                             ? 'bg-slate-950 dark:bg-dk-bg text-white shadow-md dark:shadow-dk-md scale-[1.01]' 
-                                            : 'bg-slate-50 dark:bg-dk-bg hover:bg-slate-100 text-slate-700 dark:text-dk-text border border-slate-100 dark:border-dk-border/60/80'
+                                            : 'bg-slate-50 dark:bg-dk-bg hover:bg-slate-100 text-slate-700 dark:text-dk-text-soft dark:text-dk-text border border-slate-100 dark:border-dk-border/60/80'
                                     }`}
                                 >
                                     <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: isSelected ? '#E2E8F0' : s.color }} />

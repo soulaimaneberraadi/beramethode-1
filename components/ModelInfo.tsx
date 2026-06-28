@@ -290,7 +290,7 @@ const ModelInfo: React.FC<ModelInfoProps> = ({
                                 <div className={`absolute inset-0 bg-black/40 transition-opacity duration-300 flex items-center justify-center ${isImageHovered ? 'opacity-100' : 'opacity-0'}`}>
                                     <button
                                         onClick={(e) => { e.preventDefault(); setProductImage(null); }}
-                                        className="transform scale-90 hover:scale-100 transition-all duration-200 bg-red-500 hover:bg-red-600 text-white p-2 sm:p-2.5 rounded-full shadow-lg flex items-center gap-1 sm:gap-1.5"
+                                        className="transform scale-90 hover:scale-100 transition-all duration-200 bg-red-500 hover:bg-red-600 text-white p-2 sm:p-2.5 rounded-full shadow-lg dark:shadow-dk-lg flex items-center gap-1 sm:gap-1.5"
                                     >
                                         <Trash2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                                         <span className="text-[9px] sm:text-[10px] font-bold">{tx(lang, {fr:"Supprimer",ar:"حذف",en:"Delete",es:"Eliminar",pt:"Excluir",tr:"Sil"})}</span>

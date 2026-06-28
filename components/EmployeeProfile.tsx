@@ -80,7 +80,7 @@ export default function EmployeeProfile({ employee, tasks, onClose }: EmployeePr
           exit={{ opacity: 0 }}
         >
           <motion.div
-            className="w-full max-w-5xl h-[90vh] lg:h-auto lg:max-h-[85vh] rounded-[2.5rem] border border-white/20 bg-white dark:bg-dk-surface shadow-2xl dark:shadow-dk-lg overflow-hidden flex flex-col"
+            className="w-full max-w-5xl h-[90vh] lg:h-auto lg:max-h-[85vh] rounded-[2.5rem] border border-white/20 bg-white dark:bg-dk-surface shadow-2xl dark:shadow-dk-elevated dark:shadow-dk-lg overflow-hidden flex flex-col"
             initial={{ y: 50, scale: 0.95, opacity: 0 }}
             animate={{ y: 0, scale: 1, opacity: 1 }}
             exit={{ y: 30, scale: 0.95, opacity: 0 }}
@@ -89,7 +89,7 @@ export default function EmployeeProfile({ employee, tasks, onClose }: EmployeePr
             <div className="relative px-8 py-10 border-b border-slate-100 dark:border-dk-border bg-gradient-to-br from-slate-50 dark:from-dk-bg to-white dark:to-dk-surface">
               <div className="flex flex-col md:flex-row items-center md:items-start justify-between gap-6">
                 <div className="flex flex-col md:flex-row items-center gap-6">
-                  <div className="w-24 h-24 rounded-3xl bg-gradient-to-br from-indigo-500 to-indigo-700 flex items-center justify-center text-white text-4xl font-black shadow-2xl dark:shadow-dk-lg shadow-indigo-200 dark:shadow-indigo-900/30">
+                  <div className="w-24 h-24 rounded-3xl bg-gradient-to-br from-indigo-500 to-indigo-700 flex items-center justify-center text-white text-4xl font-black shadow-2xl dark:shadow-dk-elevated dark:shadow-dk-lg shadow-indigo-200 dark:shadow-indigo-900/30">
                     {employee.fullName.charAt(0)}
                   </div>
                   <div className="text-center md:text-left">
@@ -105,14 +105,14 @@ export default function EmployeeProfile({ employee, tasks, onClose }: EmployeePr
                 </div>
 
                 <div className="flex flex-wrap justify-center gap-4">
-                  <div className="bg-white dark:bg-dk-elevated border border-slate-100 dark:border-dk-border shadow-sm dark:shadow-dk-sm rounded-2xl p-4 flex flex-col items-center min-w-[120px]">
+                  <div className="bg-white dark:bg-dk-surface dark:bg-dk-elevated border border-slate-100 dark:border-dk-border shadow-sm dark:shadow-dk-sm rounded-2xl p-4 flex flex-col items-center min-w-[120px]">
                     <span className="text-[10px] font-black uppercase text-slate-400 dark:text-dk-muted tracking-widest mb-1">{tx(lang, {fr:'Score Performance', ar:'درجة الأداء', en:'Performance Score', es:'Puntuación de Rendimiento', pt:'Pontuação de Desempenho', tr:'Performans Skoru'})}</span>
                     <span className="text-2xl font-black text-emerald-600 dark:text-emerald-400 leading-none">{data.completionRate}%</span>
-                    <div className="w-full bg-slate-100 dark:bg-dk-bg h-1 rounded-full mt-2 overflow-hidden">
+                    <div className="w-full bg-slate-100 dark:bg-dk-elevated dark:bg-dk-bg h-1 rounded-full mt-2 overflow-hidden">
                       <div className="bg-emerald-500 h-full" style={{ width: `${data.completionRate}%` }} />
                     </div>
                   </div>
-                  <div className="bg-white dark:bg-dk-elevated border border-slate-100 dark:border-dk-border shadow-sm dark:shadow-dk-sm rounded-2xl p-4 flex flex-col items-center min-w-[120px]">
+                  <div className="bg-white dark:bg-dk-surface dark:bg-dk-elevated border border-slate-100 dark:border-dk-border shadow-sm dark:shadow-dk-sm rounded-2xl p-4 flex flex-col items-center min-w-[120px]">
                     <span className="text-[10px] font-black uppercase text-slate-400 dark:text-dk-muted tracking-widest mb-1">{tx(lang, {fr:'Activités du Mois', ar:'أنشطة الشهر', en:'Monthly Activities', es:'Actividades del Mes', pt:'Atividades do Mês', tr:'Aylık Aktiviteler'})}</span>
                     <span className="text-2xl font-black text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text leading-none">{data.monthDone}</span>
                     <span className="text-[10px] font-bold text-slate-400 dark:text-dk-muted mt-1 uppercase tracking-tighter">{tx(lang, {fr:'Tasks Termitées', ar:'المهام المنجزة', en:'Tasks Completed', es:'Tareas Completadas', pt:'Tarefas Concluídas', tr:'Tamamlanan Görevler'})}</span>
@@ -156,7 +156,7 @@ export default function EmployeeProfile({ employee, tasks, onClose }: EmployeePr
                       whileHover={{ x: 5 }}
                     >
                       <p className="text-sm font-black text-slate-800 dark:text-dk-text mb-1 group-hover:text-indigo-600 dark:text-dk-accent-text dark:group-hover:text-dk-accent-text transition-colors">{task.title}</p>
-                      <p className="text-xs text-slate-500 dark:text-dk-text-soft leading-relaxed mb-4 line-clamp-3">{task.description || '—'}</p>
+                      <p className="text-xs text-slate-500 dark:text-dk-muted dark:text-dk-text-soft leading-relaxed mb-4 line-clamp-3">{task.description || '—'}</p>
                       <div className="flex items-center justify-between">
                          <span className="flex items-center gap-1.5 text-[10px] font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest">
                            <Calendar className="w-3 h-3" /> {formatDate(task.createdAt, lang)}
@@ -188,7 +188,7 @@ export default function EmployeeProfile({ employee, tasks, onClose }: EmployeePr
                 <div className="flex-1 overflow-y-auto pr-2 space-y-4 custom-scrollbar">
                   {data.done.map(task => (
                     <div key={task.id} className="relative pl-8 pb-4 group last:pb-0">
-                      <div className="absolute left-[11px] top-6 bottom-0 w-[2px] bg-slate-100 dark:bg-dk-border group-last:hidden" />
+                      <div className="absolute left-[11px] top-6 bottom-0 w-[2px] bg-slate-100 dark:bg-dk-elevated dark:bg-dk-border group-last:hidden" />
                       <div className="absolute left-0 top-1 w-6 h-6 rounded-full bg-emerald-50 dark:bg-emerald-900/30 dark:bg-green-900/30 border-2 border-emerald-500 flex items-center justify-center z-10">
                         <CheckCircle2 className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
                       </div>
@@ -198,7 +198,7 @@ export default function EmployeeProfile({ employee, tasks, onClose }: EmployeePr
                           <p className="text-sm font-black text-slate-800 dark:text-dk-text">{task.title}</p>
                           <span className="text-[10px] font-black text-emerald-600 dark:text-emerald-400 dark:text-green-300 bg-emerald-50 dark:bg-emerald-900/30 dark:bg-green-900/30 px-2 py-0.5 rounded">{tx(lang, {fr:'TERMINÉ', ar:'مُنْجَز', en:'COMPLETED', es:'TERMINADO', pt:'CONCLUÍDO', tr:'TAMAMLANDI'})}</span>
                         </div>
-                        <p className="text-xs text-slate-500 dark:text-dk-text-soft mb-3">{task.description || tx(lang, {fr:'Action réalisée conformément aux instructions.', ar:'تم تنفيذ الإجراء وفقاً للتعليمات.', en:'Action completed as per instructions.', es:'Acción realizada según instrucciones.', pt:'Ação realizada conforme as instruções.', tr:'İşlem talimatlara uygun şekilde gerçekleştirildi.'})}</p>
+                        <p className="text-xs text-slate-500 dark:text-dk-muted dark:text-dk-text-soft mb-3">{task.description || tx(lang, {fr:'Action réalisée conformément aux instructions.', ar:'تم تنفيذ الإجراء وفقاً للتعليمات.', en:'Action completed as per instructions.', es:'Acción realizada según instrucciones.', pt:'Ação realizada conforme as instruções.', tr:'İşlem talimatlara uygun şekilde gerçekleştirildi.'})}</p>
                         <div className="flex items-center gap-4 text-[10px] font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest">
                           <span className="flex items-center gap-1"><Clock3 className="w-3 h-3 text-slate-300 dark:text-dk-muted" /> {formatDate(task.completedAt, lang)}</span>
                           <span className="flex items-center gap-1"><User className="w-3 h-3 text-slate-300 dark:text-dk-muted" /> {tx(lang, {fr:'Par:', ar:'بواسطة:', en:'By:', es:'Por:', pt:'Por:', tr:'Tarafından:'})} {task.assignedBy}</span>
@@ -220,7 +220,7 @@ export default function EmployeeProfile({ employee, tasks, onClose }: EmployeePr
             <div className="px-8 py-4 bg-slate-50 dark:bg-dk-bg border-t border-slate-100 dark:border-dk-border flex items-center justify-between">
               <p className="text-[10px] font-bold text-slate-400 dark:text-dk-muted tracking-widest uppercase">{tx(lang, {fr:'Expert RH Module • BERAMETHODE', ar:'خبير الموارد البشرية • BERAMETHODE', en:'HR Expert Module • BERAMETHODE', es:'Módulo Experto RH • BERAMETHODE', pt:'Módulo Especialista RH • BERAMETHODE', tr:'İK Uzman Modülü • BERAMETHODE'})}</p>
               <div className="flex gap-2">
-                 <button className="px-4 py-2 rounded-xl text-[11px] font-black bg-white dark:bg-dk-elevated border border-slate-200 dark:border-dk-border text-slate-600 dark:text-dk-text-soft hover:bg-slate-100 dark:hover:bg-dk-elevated/60 transition-all">
+                 <button className="px-4 py-2 rounded-xl text-[11px] font-black bg-white dark:bg-dk-surface dark:bg-dk-elevated border border-slate-200 dark:border-dk-border text-slate-600 dark:text-dk-text-soft hover:bg-slate-100 dark:hover:bg-dk-elevated/60 transition-all">
                    {tx(lang, {fr:'GÉNÉRER RAPPORT', ar:'توليد تقرير', en:'GENERATE REPORT', es:'GENERAR INFORME', pt:'GERAR RELATÓRIO', tr:'RAPOR OLUŞTUR'})}
                  </button>
                  <button 

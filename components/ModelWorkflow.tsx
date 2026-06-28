@@ -412,7 +412,7 @@ export default function ModelWorkflow({
                                             ? 'bg-indigo-600 dark:bg-dk-accent text-white shadow-md dark:shadow-dk-md shadow-indigo-200'
                                             : isPast
                                                 ? 'text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/30/50 hover:bg-emerald-100'
-                                                : 'text-slate-400 dark:text-dk-muted hover:text-slate-600 dark:hover:text-dk-text hover:bg-slate-50 dark:hover:bg-dk-bg'
+                                                : 'text-slate-400 dark:text-dk-muted hover:text-slate-600 dark:hover:text-dk-text hover:bg-slate-50 dark:hover:bg-dk-elevated/60 dark:hover:bg-dk-bg'
                                             }`}
                                     >
                                         {isPast ? <CheckCircle2 className="w-3.5 h-3.5" /> : <step.icon className={`w-3.5 h-3.5 ${isActive ? 'text-indigo-200' : 'text-slate-400 dark:text-dk-muted'}`} />}
@@ -443,7 +443,7 @@ export default function ModelWorkflow({
                         disabled={currentIndex === 0}
                         className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all shadow-sm dark:shadow-dk-sm border ${currentIndex === 0
                             ? 'opacity-40 cursor-not-allowed border-slate-200 dark:border-dk-border text-slate-300 dark:text-dk-muted bg-white dark:bg-dk-surface'
-                            : 'bg-white dark:bg-dk-surface border-slate-200 dark:border-dk-border hover:bg-slate-50 dark:hover:bg-dk-bg text-slate-600 dark:text-dk-text-soft'
+                            : 'bg-white dark:bg-dk-surface border-slate-200 dark:border-dk-border hover:bg-slate-50 dark:hover:bg-dk-elevated/60 dark:hover:bg-dk-bg text-slate-600 dark:text-dk-text-soft'
                             }`}
                         title={st.back}
                     >
@@ -453,7 +453,7 @@ export default function ModelWorkflow({
 
                     <button
                         onClick={handleSave}
-                        className="flex items-center gap-2 px-3 py-2.5 bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border hover:bg-slate-50 dark:hover:bg-dk-bg text-slate-600 dark:text-dk-text-soft rounded-xl text-xs font-bold shadow-sm dark:shadow-dk-sm transition-all"
+                        className="flex items-center gap-2 px-3 py-2.5 bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border hover:bg-slate-50 dark:hover:bg-dk-elevated/60 dark:hover:bg-dk-bg text-slate-600 dark:text-dk-text-soft rounded-xl text-xs font-bold shadow-sm dark:shadow-dk-sm transition-all"
                         title={st.save}
                     >
                         <Save className="w-4 h-4" />
@@ -478,7 +478,7 @@ export default function ModelWorkflow({
                 {/* FLOATING ERROR MESSAGE (4s with shake animation) */}
                 {validationError && (
                     <div className="fixed top-24 left-1/2 -translate-x-1/2 z-[100] animate-in slide-in-from-top-4 duration-300">
-                        <div className="bg-rose-600 text-white px-6 py-4 rounded-2xl shadow-2xl dark:shadow-dk-lg flex items-center gap-3 border-2 border-rose-400 backdrop-blur-sm animate-pulse">
+                        <div className="bg-rose-600 text-white px-6 py-4 rounded-2xl shadow-2xl dark:shadow-dk-elevated dark:shadow-dk-lg flex items-center gap-3 border-2 border-rose-400 backdrop-blur-sm animate-pulse">
                             <AlertTriangle className="w-6 h-6 text-rose-100 animate-bounce" />
                             <span className="font-black text-base tracking-wide">{validationError}</span>
                         </div>

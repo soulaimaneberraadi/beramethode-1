@@ -172,7 +172,7 @@ export default function MachineExitModal({
       aria-modal="true"
       aria-labelledby="machine-exit-title"
     >
-      <div className="bg-white dark:bg-dk-surface rounded-t-3xl sm:rounded-3xl shadow-2xl dark:shadow-dk-lg w-full max-w-lg max-h-[92vh] overflow-hidden flex flex-col border border-slate-200 dark:border-dk-border">
+      <div className="bg-white dark:bg-dk-surface rounded-t-3xl sm:rounded-3xl shadow-2xl dark:shadow-dk-elevated dark:shadow-dk-lg w-full max-w-lg max-h-[92vh] overflow-hidden flex flex-col border border-slate-200 dark:border-dk-border">
         <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 dark:border-dk-border bg-slate-50 dark:bg-dk-bg/90 shrink-0">
           <div className="flex items-center gap-3 min-w-0">
             <div className="w-10 h-10 rounded-2xl bg-rose-100 text-rose-700 flex items-center justify-center shrink-0">
@@ -182,7 +182,7 @@ export default function MachineExitModal({
               <h2 id="machine-exit-title" className="text-base font-black text-slate-900 dark:text-dk-text truncate">
                 {tx(lang,{fr:'Retirer du parc',ar:'إزالة من الأسطول',en:'Remove from fleet',es:'Retirar del parque',pt:'Retirar do parque',tr:'Filodan çıkar'})}
               </h2>
-              <p className="text-[10px] font-bold text-slate-500 dark:text-dk-text-muted uppercase tracking-tight">
+              <p className="text-[10px] font-bold text-slate-500 dark:text-dk-muted dark:text-dk-text-muted uppercase tracking-tight">
                 {tx(lang,{fr:'Sortie ou vente — la machine reste dans l\'historique',ar:'خروج أو بيع — تبقى الآلة في السجل',en:'Exit or sale — the machine remains in history',es:'Salida o venta — la máquina permanece en el historial',pt:'Saída ou venda — a máquina permanece no histórico',tr:'Çıkış veya satış — makine geçmişte kalır'})}
               </p>
             </div>
@@ -190,7 +190,7 @@ export default function MachineExitModal({
           <button
             type="button"
             onClick={onClose}
-            className="p-2 rounded-xl text-slate-400 dark:text-dk-text-muted hover:bg-slate-200/80 transition-colors shrink-0"
+            className="p-2 rounded-xl text-slate-400 dark:text-dk-muted dark:text-dk-text-muted hover:bg-slate-200/80 transition-colors shrink-0"
             aria-label={tx(lang,{fr:'Fermer',ar:'إغلاق',en:'Close',es:'Cerrar',pt:'Fechar',tr:'Kapat'})}
           >
             <X className="w-5 h-5" />
@@ -199,7 +199,7 @@ export default function MachineExitModal({
 
         <div className="overflow-y-auto custom-scrollbar p-5 space-y-5">
           <label className="flex flex-col gap-1.5">
-            <span className="text-[10px] font-black text-slate-400 dark:text-dk-text-muted uppercase tracking-tight">{tx(lang,{fr:'Machine',ar:'الآلة',en:'Machine',es:'Máquina',pt:'Máquina',tr:'Makine'})}</span>
+            <span className="text-[10px] font-black text-slate-400 dark:text-dk-muted dark:text-dk-text-muted uppercase tracking-tight">{tx(lang,{fr:'Machine',ar:'الآلة',en:'Machine',es:'Máquina',pt:'Máquina',tr:'Makine'})}</span>
             <select
               value={machineId}
               onChange={e => setMachineId(e.target.value)}
@@ -225,7 +225,7 @@ export default function MachineExitModal({
               className={`flex items-center justify-center gap-2 rounded-2xl border px-3 py-3 text-xs font-black uppercase tracking-tight transition-colors ${
                 kind === 'EXIT'
                   ? 'border-rose-300 dark:border-rose-700 bg-rose-50 dark:bg-rose-900/30 dark:bg-rose-950/30 text-rose-800 ring-1 ring-rose-200'
-                  : 'border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface text-slate-500 dark:text-dk-text-muted hover:bg-slate-50 dark:hover:bg-dk-hover'
+                  : 'border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface text-slate-500 dark:text-dk-muted dark:text-dk-text-muted hover:bg-slate-50 dark:hover:bg-dk-elevated/60 dark:hover:bg-dk-hover'
               }`}
             >
               <PackageMinus className="w-4 h-4 shrink-0" />
@@ -237,7 +237,7 @@ export default function MachineExitModal({
               className={`flex items-center justify-center gap-2 rounded-2xl border px-3 py-3 text-xs font-black uppercase tracking-tight transition-colors ${
                 kind === 'SELL'
                   ? 'border-amber-300 bg-amber-50 dark:bg-amber-900/30 dark:bg-amber-950/30 text-amber-900 ring-1 ring-amber-200'
-                  : 'border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface text-slate-500 dark:text-dk-text-muted hover:bg-slate-50 dark:hover:bg-dk-hover'
+                  : 'border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface text-slate-500 dark:text-dk-muted dark:text-dk-text-muted hover:bg-slate-50 dark:hover:bg-dk-elevated/60 dark:hover:bg-dk-hover'
               }`}
             >
               <ShoppingBag className="w-4 h-4 shrink-0" />
@@ -246,7 +246,7 @@ export default function MachineExitModal({
           </div>
 
           <label className="flex flex-col gap-1.5">
-            <span className="text-[10px] font-black text-slate-400 dark:text-dk-text-muted uppercase tracking-tight">
+            <span className="text-[10px] font-black text-slate-400 dark:text-dk-muted dark:text-dk-text-muted uppercase tracking-tight">
               {tx(lang,{fr:'Votre nom',ar:'الاسم الكامل',en:'Your name',es:'Su nombre',pt:'O seu nome',tr:'Adınız'})}
             </span>
             <input
@@ -260,7 +260,7 @@ export default function MachineExitModal({
           </label>
 
           <label className="flex flex-col gap-1.5">
-            <span className="text-[10px] font-black text-slate-400 dark:text-dk-text-muted uppercase tracking-tight">{tx(lang,{fr:'Détails / motif',ar:'التفاصيل / السبب',en:'Details / reason',es:'Detalles / motivo',pt:'Detalhes / motivo',tr:'Detaylar / neden'})}</span>
+            <span className="text-[10px] font-black text-slate-400 dark:text-dk-muted dark:text-dk-text-muted uppercase tracking-tight">{tx(lang,{fr:'Détails / motif',ar:'التفاصيل / السبب',en:'Details / reason',es:'Detalles / motivo',pt:'Detalhes / motivo',tr:'Detaylar / neden'})}</span>
             <textarea
               value={details}
               onChange={e => setDetails(e.target.value)}
@@ -275,7 +275,7 @@ export default function MachineExitModal({
           </label>
 
           <div className="rounded-2xl border border-slate-200 dark:border-dk-border bg-slate-50 dark:bg-dk-bg/80 p-4 space-y-3">
-            <div className="flex items-start gap-2 text-xs text-slate-600 dark:text-dk-text-secondary font-bold leading-snug">
+            <div className="flex items-start gap-2 text-xs text-slate-600 dark:text-dk-text-soft dark:text-dk-text-secondary font-bold leading-snug">
               <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" aria-hidden />
               <span>
                 {tx(lang,{fr:'Confirmez l\'identité avec le ',ar:'أكد الهوية باستخدام ',en:'Confirm identity with the ',es:'Confirme la identidad con la ',pt:'Confirme a identidade com a ',tr:'Kimliği şununla onaylayın: '})}
@@ -293,7 +293,7 @@ export default function MachineExitModal({
                 type="button"
                 onClick={() => setConfirmMode('MAT')}
                 className={`flex-1 py-2 text-[10px] font-black uppercase tracking-tight ${
-                  confirmMode === 'MAT' ? 'bg-indigo-600 dark:bg-dk-accent text-white' : 'text-slate-500 dark:text-dk-text-muted hover:bg-slate-50 dark:hover:bg-dk-hover'
+                  confirmMode === 'MAT' ? 'bg-indigo-600 dark:bg-dk-accent text-white' : 'text-slate-500 dark:text-dk-muted dark:text-dk-text-muted hover:bg-slate-50 dark:hover:bg-dk-elevated/60 dark:hover:bg-dk-hover'
                 }`}
               >
                 {tx(lang,{fr:'Matricule / ID',ar:'رقم الآلة / المعرف',en:'Registration / ID',es:'Matrícula / ID',pt:'Matrícula / ID',tr:'Kayıt No / Kimlik'})}
@@ -302,7 +302,7 @@ export default function MachineExitModal({
                 type="button"
                 onClick={() => setConfirmMode('QR')}
                 className={`flex-1 py-2 text-[10px] font-black uppercase tracking-tight ${
-                  confirmMode === 'QR' ? 'bg-indigo-600 dark:bg-dk-accent text-white' : 'text-slate-500 dark:text-dk-text-muted hover:bg-slate-50 dark:hover:bg-dk-hover'
+                  confirmMode === 'QR' ? 'bg-indigo-600 dark:bg-dk-accent text-white' : 'text-slate-500 dark:text-dk-muted dark:text-dk-text-muted hover:bg-slate-50 dark:hover:bg-dk-elevated/60 dark:hover:bg-dk-hover'
                 }`}
               >
                 {tx(lang,{fr:'Contenu QR',ar:'محتوى QR',en:'QR content',es:'Contenido QR',pt:'Conteúdo QR',tr:'QR içeriği'})}
@@ -333,7 +333,7 @@ export default function MachineExitModal({
                 <div className="flex flex-wrap gap-2">
                   <label
                     htmlFor={cameraInputId}
-                    className={`relative inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface text-xs font-black text-slate-700 dark:text-dk-text hover:bg-slate-50 dark:hover:bg-dk-hover overflow-hidden ${
+                    className={`relative inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface text-xs font-black text-slate-700 dark:text-dk-text-soft dark:text-dk-text hover:bg-slate-50 dark:hover:bg-dk-elevated/60 dark:hover:bg-dk-hover overflow-hidden ${
                       decodeBusy ? 'opacity-50 pointer-events-none' : 'cursor-pointer'
                     }`}
                   >
@@ -350,7 +350,7 @@ export default function MachineExitModal({
                     <Camera className="w-4 h-4 text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text pointer-events-none shrink-0" aria-hidden />
                     <span className="pointer-events-none">{decodeBusy ? tx(lang,{fr:'Décodage…',ar:'فك الترميز…',en:'Decoding…',es:'Decodificando…',pt:'A descodificar…',tr:'Kod çözülüyor…'}) : tx(lang,{fr:'Photo / fichier QR',ar:'صورة / ملف QR',en:'QR photo / file',es:'Foto / archivo QR',pt:'Foto / ficheiro QR',tr:'QR fotoğrafı / dosyası'})}</span>
                   </label>
-                  <span className="text-[10px] font-bold text-slate-400 dark:text-dk-text-muted self-center flex items-center gap-1">
+                  <span className="text-[10px] font-bold text-slate-400 dark:text-dk-muted dark:text-dk-text-muted self-center flex items-center gap-1">
                     <QrCode className="w-3.5 h-3.5" /> {tx(lang,{fr:'Chrome recommandé pour la lecture auto',ar:'يوصى باستخدام Chrome للقراءة التلقائية',en:'Chrome recommended for auto reading',es:'Chrome recomendado para lectura automática',pt:'Chrome recomendado para leitura automática',tr:'Otomatik okuma için Chrome önerilir'})}
                   </span>
                 </div>
@@ -367,7 +367,7 @@ export default function MachineExitModal({
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-3 rounded-2xl border border-slate-200 dark:border-dk-border text-sm font-black text-slate-600 dark:text-dk-text-secondary hover:bg-slate-50 dark:hover:bg-dk-hover"
+            className="px-4 py-3 rounded-2xl border border-slate-200 dark:border-dk-border text-sm font-black text-slate-600 dark:text-dk-text-soft dark:text-dk-text-secondary hover:bg-slate-50 dark:hover:bg-dk-elevated/60 dark:hover:bg-dk-hover"
           >
             {tx(lang,{fr:'Annuler',ar:'إلغاء',en:'Cancel',es:'Cancelar',pt:'Cancelar',tr:'İptal'})}
           </button>

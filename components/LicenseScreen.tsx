@@ -51,7 +51,7 @@ export default function LicenseScreen({ onValidated }: { onValidated: () => void
             <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-emerald-600/20 rounded-full blur-[120px]"></div>
             <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-indigo-600 dark:bg-dk-accent/20 rounded-full blur-[120px]"></div>
 
-            <div className="max-w-md w-full relative z-10 backdrop-blur-xl bg-slate-800/50 p-8 rounded-3xl border border-slate-700 shadow-2xl">
+            <div className="max-w-md w-full relative z-10 backdrop-blur-xl bg-slate-800/50 p-8 rounded-3xl border border-slate-700 shadow-2xl dark:shadow-dk-elevated">
                 <div className="flex flex-col items-center justify-center text-center mb-8">
                     <div className="w-16 h-16 bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center rounded-2xl mb-4">
                         <Lock className="w-8 h-8 text-emerald-400" />

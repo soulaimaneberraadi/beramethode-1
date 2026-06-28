@@ -85,19 +85,19 @@ const SousTraitanceModal: React.FC<SousTraitanceModalProps> = ({ currency, value
                                         className={`text-left p-3 rounded-md border transition-all ${selected ? 'border-slate-900 dark:border-dk-accent bg-slate-50 dark:bg-dk-bg dark:bg-dk-elevated/60 ring-1 ring-slate-900 dark:ring-dk-accent' : 'border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface hover:bg-slate-50 dark:hover:bg-dk-elevated/60'}`}
                                     >
                                         <div className="flex items-center justify-between mb-1.5">
-                                            <span className={`inline-flex items-center gap-1.5 text-[12px] font-semibold ${selected ? 'text-slate-900 dark:text-dk-accent' : 'text-slate-700 dark:text-dk-text-soft'}`}>
+                                            <span className={`inline-flex items-center gap-1.5 text-[12px] font-semibold ${selected ? 'text-slate-900 dark:text-dk-text dark:text-dk-accent' : 'text-slate-700 dark:text-dk-text-soft'}`}>
                                                 {m.icon} {m.title}
                                             </span>
-                                            {selected && <Check className="w-3.5 h-3.5 text-slate-900 dark:text-dk-accent" strokeWidth={2.5} />}
+                                            {selected && <Check className="w-3.5 h-3.5 text-slate-900 dark:text-dk-text dark:text-dk-accent" strokeWidth={2.5} />}
                                         </div>
-                                        <p className="text-[10.5px] leading-snug text-slate-500 dark:text-dk-text-soft">{m.desc}</p>
+                                        <p className="text-[10.5px] leading-snug text-slate-500 dark:text-dk-muted dark:text-dk-text-soft">{m.desc}</p>
                                     </button>
                                 );
                             })}
                         </div>
 
                         <div>
-                            <label className="block text-[11px] font-medium text-slate-500 dark:text-dk-text-soft mb-1.5">
+                            <label className="block text-[11px] font-medium text-slate-500 dark:text-dk-muted dark:text-dk-text-soft mb-1.5">
                                 Prix sous-traitance / pièce ({currency})
                             </label>
                             <div className="relative">
@@ -107,7 +107,7 @@ const SousTraitanceModal: React.FC<SousTraitanceModalProps> = ({ currency, value
                                     step="0.01"
                                     value={prixStr}
                                     onChange={(e) => setPrixStr(e.target.value)}
-                                    className="w-full h-9 pl-9 pr-3 bg-slate-50 dark:bg-dk-bg/60 dark:bg-dk-bg/60 hover:bg-slate-50 dark:hover:bg-dk-elevated/60 focus:bg-white dark:focus:bg-dk-surface border border-slate-200 dark:border-dk-border focus:border-slate-300 dark:focus:border-dk-accent rounded-md text-[13px] font-semibold text-slate-700 dark:text-dk-text focus:ring-2 focus:ring-slate-100 dark:focus:ring-dk-border outline-none transition-all tabular-nums"
+                                    className="w-full h-9 pl-9 pr-3 bg-slate-50 dark:bg-dk-bg/60 dark:bg-dk-bg/60 hover:bg-slate-50 dark:hover:bg-dk-elevated/60 focus:bg-white dark:focus:bg-dk-surface border border-slate-200 dark:border-dk-border focus:border-slate-300 dark:focus:border-dk-accent rounded-md text-[13px] font-semibold text-slate-700 dark:text-dk-text-soft dark:text-dk-text focus:ring-2 focus:ring-slate-100 dark:focus:ring-dk-border outline-none transition-all tabular-nums"
                                     placeholder="0.00"
                                 />
                                 <Coins className="w-3.5 h-3.5 text-slate-400 dark:text-dk-muted absolute left-3 top-1/2 -translate-y-1/2" strokeWidth={1.75} />
@@ -124,7 +124,7 @@ const SousTraitanceModal: React.FC<SousTraitanceModalProps> = ({ currency, value
                 <div className="bg-slate-50 dark:bg-dk-bg px-5 py-4 flex justify-end gap-2.5 border-t border-slate-100 dark:border-dk-border">
                     <button
                         onClick={onClose}
-                        className="px-4 h-9 text-[12px] font-medium text-slate-600 dark:text-dk-text-soft bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-md hover:bg-slate-50 dark:hover:bg-dk-elevated transition-colors"
+                        className="px-4 h-9 text-[12px] font-medium text-slate-600 dark:text-dk-text-soft bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-md hover:bg-slate-50 dark:hover:bg-dk-elevated/60 dark:hover:bg-dk-elevated transition-colors"
                     >
                         {tx(lang, {fr:"Annuler",ar:"إلغاء",en:"Cancel",es:"Cancelar",pt:"Cancelar",tr:"İptal"})}
                     </button>

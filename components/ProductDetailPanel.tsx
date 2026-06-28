@@ -178,7 +178,7 @@ export default function ProductDetailPanel({ product, lots, mouvements, onClose,
         <div className="fixed inset-0 z-[100] flex">
             <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={onClose} />
             
-            <div className="relative ml-auto w-full max-w-2xl h-full bg-white dark:bg-dk-surface shadow-2xl dark:shadow-dk-lg flex flex-col animate-in slide-in-from-right duration-300">
+            <div className="relative ml-auto w-full max-w-2xl h-full bg-white dark:bg-dk-surface shadow-2xl dark:shadow-dk-elevated dark:shadow-dk-lg flex flex-col animate-in slide-in-from-right duration-300">
                 
                 <div className={`shrink-0 ${catColor.bg} border-b ${catColor.border}`}>
                     <div className="p-6">
@@ -229,7 +229,7 @@ export default function ProductDetailPanel({ product, lots, mouvements, onClose,
                                 )}
                                 <button
                                     onClick={onClose}
-                                    className="p-2 rounded-xl hover:bg-white text-slate-500 hover:text-slate-800 transition-colors"
+                                    className="p-2 rounded-xl hover:bg-white text-slate-500 dark:text-dk-muted hover:text-slate-800 transition-colors"
                                 >
                                     <X className="w-5 h-5" />
                                 </button>
@@ -250,7 +250,7 @@ export default function ProductDetailPanel({ product, lots, mouvements, onClose,
                                 className={`flex items-center gap-2 px-4 py-2.5 text-sm font-bold rounded-t-xl transition-all ${
                                     activeTab === tab.id
                                         ? 'bg-white dark:bg-dk-surface text-slate-800 dark:text-dk-text shadow-sm dark:shadow-dk-sm'
-                                        : 'text-slate-600 hover:text-slate-800 hover:bg-white'
+                                        : 'text-slate-600 dark:text-dk-text-soft hover:text-slate-800 hover:bg-white'
                                 }`}
                             >
                                 <tab.icon className="w-4 h-4" />
@@ -354,7 +354,7 @@ export default function ProductDetailPanel({ product, lots, mouvements, onClose,
                                         </h3>
                                         <span className="text-xs text-slate-400 dark:text-dk-muted font-bold">{chainsUsage.length} {_({fr:'chaîne(s)',ar:'خط(وط)',en:'line(s)',es:'línea(s)',pt:'linha(s)',tr:'hat'})}</span>
                                     </div>
-                                    <div className="divide-y divide-slate-50">
+                                    <div className="divide-y divide-slate-50 dark:divide-dk-border">
                                         {chainsUsage.slice(0, 5).map(ch => (
                                             <div key={ch.id} className="px-5 py-3 flex items-center justify-between hover:bg-slate-50 dark:hover:bg-dk-elevated/60 transition-colors">
                                                 <div className="flex items-center gap-3">
@@ -391,7 +391,7 @@ export default function ProductDetailPanel({ product, lots, mouvements, onClose,
                                         {_({fr:'Voir tout',ar:'عرض الكل',en:'View all',es:'Ver todo',pt:'Ver tudo',tr:'Tümünü gör'})} <ChevronRight className="w-3 h-3" />
                                     </button>
                                 </div>
-                                <div className="divide-y divide-slate-50">
+                                <div className="divide-y divide-slate-50 dark:divide-dk-border">
                                     {productMvts.slice(0, 4).map(mvt => {
                                         const conf = MVT_ICONS[mvt.type] || MVT_ICONS.sortie;
                                         const Icon = conf.icon;

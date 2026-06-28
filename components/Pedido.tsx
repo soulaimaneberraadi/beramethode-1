@@ -1094,7 +1094,7 @@ export default function Pedido({
                                                                 onClick={() => { handleChange('launchTime', t); setLaunchTimeOpen(false); }}
                                                                 className={`py-2 text-xs tabular-nums font-semibold rounded-lg transition-all ${active
                                                                     ? 'bg-indigo-600 dark:bg-dk-accent text-white'
-                                                                    : 'bg-slate-100 hover:bg-indigo-50 dark:bg-dk-accent/20 text-slate-700 hover:text-indigo-700 dark:text-dk-accent-text'}`}
+                                                                    : 'bg-slate-100 dark:bg-dk-elevated hover:bg-indigo-50 dark:bg-dk-accent/20 text-slate-700 dark:text-dk-text-soft hover:text-indigo-700 dark:text-dk-accent-text'}`}
                                                             >
                                                                 {t}
                                                             </button>
@@ -1223,12 +1223,12 @@ export default function Pedido({
                                     const pct = evt.qteTotal > 0 ? Math.round((produced / evt.qteTotal) * 1000) / 10 : 0;
 
                                     return (
-                                        <div key={evt.id} className={`relative border-b border-slate-100 dark:border-dk-border last:border-b-0 transition-colors ${isExpanded ? 'bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20/20' : 'hover:bg-slate-50/50'}`}>
+                                        <div key={evt.id} className={`relative border-b border-slate-100 dark:border-dk-border last:border-b-0 transition-colors ${isExpanded ? 'bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20/20' : 'hover:bg-slate-50/50 dark:hover:bg-dk-elevated/60'}`}>
                                             {/* ACCORDION HEADER */}
                                             <button
                                                 type="button"
                                                 onClick={() => setExpandedLotId(isExpanded ? null : evt.id)}
-                                                className={`w-full px-4 py-3 flex items-center gap-3 text-left transition-colors hover:bg-slate-50/50 sticky top-0 z-30 bg-white dark:bg-dk-surface ${isExpanded ? 'border-b border-slate-100 dark:border-dk-border shadow-sm dark:shadow-dk-sm' : ''}`}
+                                                className={`w-full px-4 py-3 flex items-center gap-3 text-left transition-colors hover:bg-slate-50/50 dark:hover:bg-dk-elevated/60 sticky top-0 z-30 bg-white dark:bg-dk-surface ${isExpanded ? 'border-b border-slate-100 dark:border-dk-border shadow-sm dark:shadow-dk-sm' : ''}`}
                                             >
                                                 <div className={`shrink-0 w-6 h-6 rounded-md flex items-center justify-center transition-all ${isExpanded ? 'bg-indigo-100 text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text rotate-90' : 'bg-slate-100 dark:bg-dk-elevated text-slate-400 dark:text-dk-muted'}`}>
                                                     <ChevronRight className="w-3.5 h-3.5" />
@@ -1260,7 +1260,7 @@ export default function Pedido({
                                                         tabIndex={0}
                                                         onClick={(e) => { e.stopPropagation(); startEditExisting(evt); }}
                                                         onKeyDown={(e) => { if (e.key === 'Enter') { e.stopPropagation(); startEditExisting(evt); } }}
-                                                        className="shrink-0 p-1.5 text-slate-400 hover:text-indigo-600 dark:text-dk-accent-text hover:bg-indigo-50 dark:bg-dk-accent/20 rounded-lg transition-all cursor-pointer"
+                                                        className="shrink-0 p-1.5 text-slate-400 dark:text-dk-muted hover:text-indigo-600 dark:text-dk-accent-text hover:bg-indigo-50 dark:bg-dk-accent/20 rounded-lg transition-all cursor-pointer"
                                                         title={tx(lang, { fr: 'Modifier le lot', ar: 'ØªØ¹Ø¯ÙŠÙ„ Ø§Ù„Ø¯ÙØ¹Ø©', en: 'Edit lot', es: 'Editar lote', pt: 'Editar lote', tr: 'Partiyi dÃ¼zenle' })}
                                                     >
                                                         <Edit className="w-3.5 h-3.5" />

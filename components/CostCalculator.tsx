@@ -946,7 +946,7 @@ export default function CostCalculator({
     const textSecondary = darkMode ? 'text-dk-muted' : 'text-slate-500 dark:text-dk-muted';
     const inputBg = darkMode ? 'bg-dk-bg border-dk-border text-dk-text' : 'bg-slate-50 dark:bg-dk-bg/60 border-slate-200 dark:border-dk-border text-slate-900 dark:text-dk-text';
     const tableHeader = 'bg-slate-50 dark:bg-dk-bg/60 text-slate-500 dark:text-dk-muted';
-    const tableRowHover = 'hover:bg-slate-50/50';
+    const tableRowHover = 'hover:bg-slate-50/50 dark:hover:bg-dk-elevated/60';
 
     return (
         <div dir="ltr" className={`min-h-screen ${bgMain} p-2 sm:p-4 pb-24 transition-colors duration-300`}>
@@ -1072,13 +1072,13 @@ export default function CostCalculator({
                         <div className="inline-flex p-0.5 bg-slate-100/60 rounded-md" title="Source du temps de couture">
                             <button
                                 onClick={() => setTimeSource('gamme')}
-                                className={`px-2 sm:px-2.5 h-6 sm:h-7 text-[10px] sm:text-[11px] font-medium rounded transition-all ${timeSource === 'gamme' ? 'bg-white dark:bg-dk-surface text-slate-900 dark:text-dk-text shadow-[0_1px_2px_rgba(15,23,42,0.06)]' : 'text-slate-500 hover:text-slate-700'}`}
+                                className={`px-2 sm:px-2.5 h-6 sm:h-7 text-[10px] sm:text-[11px] font-medium rounded transition-all ${timeSource === 'gamme' ? 'bg-white dark:bg-dk-surface text-slate-900 dark:text-dk-text shadow-[0_1px_2px_rgba(15,23,42,0.06)]' : 'text-slate-500 dark:text-dk-muted hover:text-slate-700'}`}
                             >
                                 Gamme ({initialTotalTime} min)
                             </button>
                             <button
                                 onClick={() => setTimeSource('chrono')}
-                                className={`px-2 sm:px-2.5 h-6 sm:h-7 text-[10px] sm:text-[11px] font-medium rounded transition-all inline-flex items-center gap-1 ${timeSource === 'chrono' ? 'bg-white dark:bg-dk-surface text-slate-900 dark:text-dk-text shadow-[0_1px_2px_rgba(15,23,42,0.06)]' : 'text-slate-500 hover:text-slate-700'}`}
+                                className={`px-2 sm:px-2.5 h-6 sm:h-7 text-[10px] sm:text-[11px] font-medium rounded transition-all inline-flex items-center gap-1 ${timeSource === 'chrono' ? 'bg-white dark:bg-dk-surface text-slate-900 dark:text-dk-text shadow-[0_1px_2px_rgba(15,23,42,0.06)]' : 'text-slate-500 dark:text-dk-muted hover:text-slate-700'}`}
                             >
                                 <Clock className="w-2.5 h-2.5 sm:w-3 sm:h-3" strokeWidth={1.75} /> Chrono ({chronoTotalTime} min)
                             </button>
@@ -1271,8 +1271,8 @@ export default function CostCalculator({
                     <div className="w-full">
                         <div className={`rounded-lg border overflow-hidden flex flex-col bg-white dark:bg-dk-surface border-slate-200 dark:border-dk-border`}>
                             <div className={`p-1.5 border-b flex gap-1 bg-slate-50 dark:bg-dk-bg/60 border-slate-100 dark:border-dk-border print:hidden`}>
-                                <button onClick={() => setViewMode('ticket')} className={`flex-1 flex items-center justify-center gap-1.5 h-8 rounded-md text-[12px] font-medium transition-all ${viewMode === 'ticket' ? 'bg-white dark:bg-dk-surface text-slate-900 dark:text-dk-text shadow-[0_1px_2px_rgba(15,23,42,0.06)]' : `text-slate-500 hover:text-slate-700`}`}><Receipt className="w-3.5 h-3.5" strokeWidth={1.75} /> {t.viewTicket}</button>
-                                <button onClick={() => setViewMode('a4')} className={`flex-1 flex items-center justify-center gap-1.5 h-8 rounded-md text-[12px] font-medium transition-all ${viewMode === 'a4' ? 'bg-white dark:bg-dk-surface text-slate-900 dark:text-dk-text shadow-[0_1px_2px_rgba(15,23,42,0.06)]' : `text-slate-500 hover:text-slate-700`}`}><FileText className="w-3.5 h-3.5" strokeWidth={1.75} /> Export Fiche A4 ({t.viewDoc})</button>
+                                <button onClick={() => setViewMode('ticket')} className={`flex-1 flex items-center justify-center gap-1.5 h-8 rounded-md text-[12px] font-medium transition-all ${viewMode === 'ticket' ? 'bg-white dark:bg-dk-surface text-slate-900 dark:text-dk-text shadow-[0_1px_2px_rgba(15,23,42,0.06)]' : `text-slate-500 dark:text-dk-muted hover:text-slate-700`}`}><Receipt className="w-3.5 h-3.5" strokeWidth={1.75} /> {t.viewTicket}</button>
+                                <button onClick={() => setViewMode('a4')} className={`flex-1 flex items-center justify-center gap-1.5 h-8 rounded-md text-[12px] font-medium transition-all ${viewMode === 'a4' ? 'bg-white dark:bg-dk-surface text-slate-900 dark:text-dk-text shadow-[0_1px_2px_rgba(15,23,42,0.06)]' : `text-slate-500 dark:text-dk-muted hover:text-slate-700`}`}><FileText className="w-3.5 h-3.5" strokeWidth={1.75} /> Export Fiche A4 ({t.viewDoc})</button>
                             </div>
 
                             {viewMode === 'ticket' && (
@@ -1304,7 +1304,7 @@ export default function CostCalculator({
                                         <h2 className={`text-[13px] font-semibold text-slate-900 dark:text-dk-text`}>Fiche de Coût A4</h2>
                                         <div className="flex items-center gap-2">
                                              {mainTotalPages > 1 && (
-                                                 <div className="flex items-center gap-2 px-3 py-1 bg-slate-900/95 text-white rounded-full border border-slate-800 shadow-md">
+                                                 <div className="flex items-center gap-2 px-3 py-1 bg-slate-900/95 text-white rounded-full border border-slate-800 shadow-md dark:shadow-dk-md">
                                                      <button
                                                          onClick={() => setMainActivePage(p => Math.max(1, p - 1))}
                                                          disabled={mainActivePage === 1}
@@ -1368,7 +1368,7 @@ export default function CostCalculator({
             {/* Confirm Modal */}
             {confirmDialog.isOpen && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center p-2 sm:p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-200">
-                    <div className="bg-white dark:bg-dk-surface rounded-2xl shadow-xl w-full max-w-md sm:max-w-lg overflow-hidden animate-in zoom-in-95 duration-200">
+                    <div className="bg-white dark:bg-dk-surface rounded-2xl shadow-xl dark:shadow-dk-elevated w-full max-w-md sm:max-w-lg overflow-hidden animate-in zoom-in-95 duration-200">
                         <div className="p-6">
                             <div className="flex items-start gap-4">
                                 <div className={`p-3 rounded-full shrink-0 ${

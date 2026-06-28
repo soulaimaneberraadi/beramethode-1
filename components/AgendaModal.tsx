@@ -473,7 +473,7 @@ export default function AgendaModal({ isOpen, onClose, settings, setSettings, la
 
     return (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
-            <div className={`rounded-2xl shadow-2xl dark:shadow-dk-lg w-full max-w-5xl flex flex-col md:flex-row overflow-hidden max-h-[90vh] ${isDark ? 'bg-dk-surface border border-dk-border' : 'bg-white dark:bg-dk-surface'}`} dir={lang === 'ar' ? 'rtl' : 'ltr'}>
+            <div className={`rounded-2xl shadow-2xl dark:shadow-dk-elevated dark:shadow-dk-lg w-full max-w-5xl flex flex-col md:flex-row overflow-hidden max-h-[90vh] ${isDark ? 'bg-dk-surface border border-dk-border' : 'bg-white dark:bg-dk-surface'}`} dir={lang === 'ar' ? 'rtl' : 'ltr'}>
 
                 {/* Calendar Column */}
                 <div className="flex-1 p-6 overflow-y-auto">
@@ -484,7 +484,7 @@ export default function AgendaModal({ isOpen, onClose, settings, setSettings, la
                             <h2 className={`text-xl font-black ${isDark ? 'text-dk-text' : 'text-slate-800 dark:text-dk-text'}`}>{t.title}</h2>
                             <span className="text-xs font-black bg-indigo-100 text-indigo-700 dark:text-dk-accent-text px-2 py-0.5 rounded-full border border-indigo-200">{countryLabel}</span>
                         </div>
-                        <button onClick={onClose} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full transition-colors"><X className="w-5 h-5" /></button>
+                        <button onClick={onClose} className="p-2 text-slate-400 dark:text-dk-muted hover:text-slate-600 hover:bg-slate-100 rounded-full transition-colors"><X className="w-5 h-5" /></button>
                     </div>
 
                     {/* Working Hours Banner */}
@@ -504,9 +504,9 @@ export default function AgendaModal({ isOpen, onClose, settings, setSettings, la
 
                     {/* Month Nav */}
                     <div className="flex justify-between items-center mb-4 bg-slate-50 dark:bg-dk-bg p-2 rounded-xl">
-                        <button onClick={handlePrevMonth} className="p-2 text-slate-500 hover:text-indigo-600 dark:text-dk-accent-text hover:bg-indigo-50 dark:bg-dk-accent/20 rounded-lg transition-colors"><ChevronLeft className="w-5 h-5" /></button>
+                        <button onClick={handlePrevMonth} className="p-2 text-slate-500 dark:text-dk-muted hover:text-indigo-600 dark:text-dk-accent-text hover:bg-indigo-50 dark:bg-dk-accent/20 rounded-lg transition-colors"><ChevronLeft className="w-5 h-5" /></button>
                         <span className="font-bold text-slate-700 dark:text-dk-text-soft">{t.months[month]} {year}</span>
-                        <button onClick={handleNextMonth} className="p-2 text-slate-500 hover:text-indigo-600 dark:text-dk-accent-text hover:bg-indigo-50 dark:bg-dk-accent/20 rounded-lg transition-colors"><ChevronRight className="w-5 h-5" /></button>
+                        <button onClick={handleNextMonth} className="p-2 text-slate-500 dark:text-dk-muted hover:text-indigo-600 dark:text-dk-accent-text hover:bg-indigo-50 dark:bg-dk-accent/20 rounded-lg transition-colors"><ChevronRight className="w-5 h-5" /></button>
                     </div>
 
                     {/* Day Headers */}
@@ -678,7 +678,7 @@ export default function AgendaModal({ isOpen, onClose, settings, setSettings, la
                                         {t.reset}
                                     </button>
                                 )}
-                                <button onClick={() => setSelectedDate(null)} className="w-full text-slate-400 hover:text-slate-600 text-xs font-bold py-1 transition-colors">
+                                <button onClick={() => setSelectedDate(null)} className="w-full text-slate-400 dark:text-dk-muted hover:text-slate-600 text-xs font-bold py-1 transition-colors">
                                     Annuler
                                 </button>
                             </div>

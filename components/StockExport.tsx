@@ -920,7 +920,7 @@ export default function StockExport({ models, suivis, planningEvents = [], setMo
                                                     {grid.keys.map((key, i) => {
                                                         const rowTotal = cols.reduce((s2, c) => s2 + (Number(getHourlyValue(activeModel, key, c)) || 0), 0);
                                                         return (
-                                                            <tr key={key} className="border-b border-slate-100 dark:border-dk-border hover:bg-slate-50/50">
+                                                            <tr key={key} className="border-b border-slate-100 dark:border-dk-border hover:bg-slate-50/50 dark:hover:bg-dk-elevated/60">
                                                                 <td className="p-2 md:p-3 lg:px-6 font-black text-slate-700 dark:text-dk-text-soft">{grid.hours[i]}</td>
                                                                 {cols.map(c => (
                                                                     <td key={c} className="p-1.5 md:p-2 lg:px-6 text-center">
@@ -1033,7 +1033,7 @@ export default function StockExport({ models, suivis, planningEvents = [], setMo
                                         const atRisk = cad.atRisk;
                                         const tight = !atRisk && reste > 0 && days !== null && days > 0 && days <= 3;
                                         return (
-                                            <tr key={model.id} className="border-b border-slate-100 dark:border-dk-border hover:bg-slate-50/50 transition-colors">
+                                            <tr key={model.id} className="border-b border-slate-100 dark:border-dk-border hover:bg-slate-50/50 dark:hover:bg-dk-elevated/60 transition-colors">
                                                 <td className="p-3 sticky left-0 bg-white dark:bg-dk-surface z-10">
                                                     <div className="font-black text-slate-800 dark:text-dk-text text-sm truncate max-w-[120px] sm:max-w-none">{model?.meta_data?.nom_modele || tx(lang,{fr:"Sans Nom",ar:"Ø¨Ø¯ÙˆÙ† Ø§Ø³Ù…",en:"Unnamed",es:"Sin Nombre",pt:"Sem Nome",tr:"Ä°simsiz"})}</div>
                                                     <div className="text-[10px] text-slate-400 dark:text-dk-muted font-bold truncate">{tx(lang,{fr:"RÃ©f:",ar:"Ø§Ù„Ù…Ø±Ø¬Ø¹:",en:"Ref:",es:"Ref:",pt:"Ref:",tr:"Ref:"})} {model?.meta_data?.reference || 'N/A'}</div>
@@ -1177,7 +1177,7 @@ export default function StockExport({ models, suivis, planningEvents = [], setMo
 
                                         return (
                                             <React.Fragment key={model.id}>
-                                                <tr className={`border-b border-slate-100 dark:border-dk-border hover:bg-slate-50/50 transition-colors ${isExpanded ? 'bg-slate-50 dark:bg-dk-bg/20' : ''}`}>
+                                                <tr className={`border-b border-slate-100 dark:border-dk-border hover:bg-slate-50/50 dark:hover:bg-dk-elevated/60 transition-colors ${isExpanded ? 'bg-slate-50 dark:bg-dk-bg/20' : ''}`}>
                                                     <td className="p-3 md:p-4 text-center sticky left-0 bg-white dark:bg-dk-surface z-10">
                                                         <button 
                                                             onClick={() => setExpandedModelId(isExpanded ? null : model.id)}

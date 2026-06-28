@@ -195,7 +195,7 @@ const PdfSettingsModal: React.FC<PdfSettingsModalProps> = ({
         <div className={`fixed inset-0 z-[110] flex justify-center bg-slate-900/70 backdrop-blur-md animate-in fade-in duration-200 ${isExpanded ? '' : 'items-end md:items-center md:p-4'}`}>
 
             <div
-                className={`shadow-2xl dark:shadow-dk-lg overflow-hidden flex flex-col ${darkMode ? 'bg-gray-900 border border-gray-700' : 'bg-white dark:bg-dk-surface'} ${
+                className={`shadow-2xl dark:shadow-dk-elevated dark:shadow-dk-lg overflow-hidden flex flex-col ${darkMode ? 'bg-gray-900 border border-gray-700' : 'bg-white dark:bg-dk-surface'} ${
                     isExpanded
                         ? 'w-full h-full'
                         : 'w-full max-h-[92vh] rounded-t-2xl md:rounded-2xl md:w-[95vw] md:h-[90vh] md:max-w-6xl md:max-h-[90vh]'

@@ -489,7 +489,7 @@ export default function Dashboard({ models, suivis, planningEvents, settings, se
                               <CalendarClock className="w-2.5 h-2.5 sm:w-3 sm:h-3" /> {task.date}
                             </span>
                           </div>
-                          <p className="text-xs sm:text-sm font-bold text-slate-700 dark:text-dk-text leading-tight">{task.text}</p>
+                          <p className="text-xs sm:text-sm font-bold text-slate-700 dark:text-dk-text-soft dark:text-dk-text leading-tight">{task.text}</p>
                         </div>
                         <div className="flex gap-1.5 sm:gap-2 pt-2 sm:pt-2.5 border-t border-slate-200 dark:border-dk-border/60">
                           <button onClick={(e) => { e.stopPropagation(); handleUpdateTaskStatus(task.id, 'DONE_OK'); }} className="flex-1 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 hover:bg-emerald-100 text-[9px] sm:text-[10px] font-bold py-1.5 sm:py-2 rounded-lg transition-colors border border-emerald-200/60">OK</button>
@@ -662,7 +662,7 @@ export default function Dashboard({ models, suivis, planningEvents, settings, se
       {/* SKIP MODAL */}
       {skipReasonModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 dark:bg-dk-bg/80 backdrop-blur-sm p-3 sm:p-4">
-          <div className="bg-white dark:bg-dk-surface rounded-xl sm:rounded-2xl w-full max-w-sm sm:max-w-md overflow-hidden shadow-2xl dark:shadow-dk-lg border border-slate-200 dark:border-dk-border/80">
+          <div className="bg-white dark:bg-dk-surface rounded-xl sm:rounded-2xl w-full max-w-sm sm:max-w-md overflow-hidden shadow-2xl dark:shadow-dk-elevated dark:shadow-dk-lg border border-slate-200 dark:border-dk-border/80">
             <div className="h-1.5 w-full bg-gradient-to-r from-amber-400 to-orange-500" />
             <div className="p-4 sm:p-6 border-b border-slate-100 dark:border-dk-border flex justify-between items-center">
               <h3 className="font-bold text-slate-800 dark:text-dk-text text-base sm:text-lg">{tx(lang, { fr: "Motif d'annulation", ar: 'سبب الإلغاء', en: 'Cancellation reason', es: 'Motivo de cancelación', pt: 'Motivo do cancelamento', tr: 'İptal nedeni' })}</h3>

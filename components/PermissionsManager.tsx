@@ -240,10 +240,10 @@ export default function PermissionsManager() {
       {/* Confirmation */}
       {confirm && (
         <div className="fixed inset-0 bg-slate-900/30 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setConfirm(null)}>
-          <div className={`rounded-lg border shadow-lg p-5 max-w-sm w-full ${isDark ? 'bg-dk-surface border-dk-border' : 'bg-white dark:bg-dk-surface border-slate-200 dark:border-dk-border'}`} onClick={e => e.stopPropagation()}>
+          <div className={`rounded-lg border shadow-lg dark:shadow-dk-lg p-5 max-w-sm w-full ${isDark ? 'bg-dk-surface border-dk-border' : 'bg-white dark:bg-dk-surface border-slate-200 dark:border-dk-border'}`} onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-2">
               <h4 className={`text-[13px] font-semibold ${isDark ? 'text-dk-text' : 'text-slate-900 dark:text-dk-text'}`}>{tx(lang, {fr:"Confirmation",ar:"تأكيد",en:"Confirmation",es:"Confirmación",pt:"Confirmação",tr:"Onay"})}</h4>
-              <button onClick={() => setConfirm(null)} className={`${isDark ? 'text-dk-muted hover:text-dk-text' : 'text-slate-400 hover:text-slate-600'}`}><X size={16} strokeWidth={1.75} /></button>
+              <button onClick={() => setConfirm(null)} className={`${isDark ? 'text-dk-muted hover:text-dk-text' : 'text-slate-400 dark:text-dk-muted hover:text-slate-600'}`}><X size={16} strokeWidth={1.75} /></button>
             </div>
             <p className={`text-[13px] mb-4 ${isDark ? 'text-dk-muted' : 'text-slate-500 dark:text-dk-muted'}`}>{confirmText}</p>
             <div className="flex gap-2 justify-end">

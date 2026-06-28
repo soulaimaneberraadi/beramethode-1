@@ -123,7 +123,7 @@ export default function RendementBoard({ models, planningEvents, suivis, setting
                 </div>
                 <div className="flex bg-slate-100 dark:bg-dk-elevated p-1 rounded-xl">
                     {tabs.map(t => (
-                        <button key={t.id} onClick={() => setTab(t.id)} className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all ${tab === t.id ? 'bg-white dark:bg-dk-elevated text-indigo-700 dark:text-dk-accent-text shadow-sm dark:shadow-dk-sm dark:shadow-none' : 'text-slate-500 dark:text-dk-muted hover:text-slate-700 dark:hover:text-dk-text-soft'}`}>
+                        <button key={t.id} onClick={() => setTab(t.id)} className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all ${tab === t.id ? 'bg-white dark:bg-dk-surface dark:bg-dk-elevated text-indigo-700 dark:text-dk-accent-text shadow-sm dark:shadow-dk-sm dark:shadow-none' : 'text-slate-500 dark:text-dk-muted hover:text-slate-700 dark:hover:text-dk-text-soft'}`}>
                             <t.icon className="w-3.5 h-3.5" /> {t.label}
                         </button>
                     ))}

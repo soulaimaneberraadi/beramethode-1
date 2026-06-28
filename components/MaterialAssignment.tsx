@@ -77,7 +77,7 @@ const MaterialAssignment: React.FC<MaterialAssignmentProps> = ({
             onClick={onClick}
             className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium transition-all duration-150 ${active
                 ? 'bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 text-indigo-700 dark:text-dk-accent-text ring-1 ring-indigo-200'
-                : 'bg-slate-50 dark:bg-dk-bg text-slate-500 hover:bg-slate-100 hover:text-slate-700'}`}
+                : 'bg-slate-50 dark:bg-dk-bg text-slate-500 dark:text-dk-muted hover:bg-slate-100 hover:text-slate-700'}`}
         >
             {hex && <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: hex }} />}
             {children}
@@ -95,7 +95,7 @@ const MaterialAssignment: React.FC<MaterialAssignmentProps> = ({
 
     return (
         <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-slate-950/30 backdrop-blur-sm p-0 md:p-4">
-            <div className="bg-white dark:bg-dk-surface w-full max-h-[92vh] md:max-w-3xl md:max-h-[88vh] rounded-t-2xl md:rounded-2xl shadow-2xl dark:shadow-dk-lg overflow-hidden flex flex-col animate-in fade-in slide-in-from-bottom-4 duration-200">
+            <div className="bg-white dark:bg-dk-surface w-full max-h-[92vh] md:max-w-3xl md:max-h-[88vh] rounded-t-2xl md:rounded-2xl shadow-2xl dark:shadow-dk-elevated dark:shadow-dk-lg overflow-hidden flex flex-col animate-in fade-in slide-in-from-bottom-4 duration-200">
 
                 {/* Header — Clean flat */}
                 <div className="px-6 py-4 flex items-center justify-between shrink-0 border-b border-slate-100 dark:border-dk-border">
@@ -109,7 +109,7 @@ const MaterialAssignment: React.FC<MaterialAssignmentProps> = ({
                         </div>
                     </div>
                     <button onClick={onClose}
-                        className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors">
+                        className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 dark:text-dk-muted hover:text-slate-600 hover:bg-slate-100 transition-colors">
                         <X className="w-4 h-4" />
                     </button>
                 </div>
@@ -138,7 +138,7 @@ const MaterialAssignment: React.FC<MaterialAssignmentProps> = ({
                     </FilterSelect>
                     {hasFilters && (
                         <button onClick={resetFilters}
-                            className="inline-flex items-center gap-1 h-9 px-3 text-[11px] font-medium text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors">
+                            className="inline-flex items-center gap-1 h-9 px-3 text-[11px] font-medium text-slate-500 dark:text-dk-muted hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors">
                             <RotateCcw className="w-3 h-3" /> {tx(lang, {fr:'Réinitialiser',ar:'إعادة تعيين',en:'Reset',es:'Restablecer',pt:'Repor',tr:'Sıfırla'})}
                         </button>
                     )}
@@ -179,7 +179,7 @@ const MaterialAssignment: React.FC<MaterialAssignmentProps> = ({
                                     </div>
                                     {isAssigned && (
                                         <button onClick={() => resetMaterial(m)}
-                                            className="text-[10px] font-medium text-slate-400 hover:text-indigo-600 dark:text-dk-accent-text hover:bg-indigo-50 dark:bg-dk-accent/20 px-2 py-1 rounded-md transition-colors shrink-0">
+                                            className="text-[10px] font-medium text-slate-400 dark:text-dk-muted hover:text-indigo-600 dark:text-dk-accent-text hover:bg-indigo-50 dark:bg-dk-accent/20 px-2 py-1 rounded-md transition-colors shrink-0">
                                             {tx(lang, {fr:'Réinitialiser',ar:'إعادة تعيين',en:'Reset',es:'Restablecer',pt:'Repor',tr:'Sıfırla'})}
                                         </button>
                                     )}
