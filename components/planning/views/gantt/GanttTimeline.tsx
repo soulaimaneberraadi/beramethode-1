@@ -79,14 +79,14 @@ export default function GanttTimeline({ dates, dayWidth, settings }: Props) {
     }
 
     return (
-        <div className="sticky top-0 z-[29] bg-white dark:bg-slate-900">
+        <div className="sticky top-0 z-[29] bg-white dark:bg-dk-bg">
             {/* Bande année (uniquement si très dézoomé) */}
             {showYears && (
-                <div className="flex h-5 border-b border-slate-100 dark:border-slate-800">
+                <div className="flex h-5 border-b border-slate-100 dark:border-dk-border">
                     {years.map((y, i) => (
                         <div
                             key={i}
-                            className="flex items-center px-2 text-[10px] font-semibold text-slate-700 dark:text-slate-300 border-r border-slate-100 dark:border-slate-800 last:border-r-0"
+                            className="flex items-center px-2 text-[10px] font-semibold text-slate-700 dark:text-dk-text-soft border-r border-slate-100 dark:border-dk-border last:border-r-0"
                             style={{ width: y.span * dayWidth }}
                         >
                             {y.label}
@@ -97,11 +97,11 @@ export default function GanttTimeline({ dates, dayWidth, settings }: Props) {
 
             {/* Bande mois */}
             {showMonths && (
-                <div className="flex h-7 border-b border-slate-100 dark:border-slate-800">
+                <div className="flex h-7 border-b border-slate-100 dark:border-dk-border">
                     {months.map((m, i) => (
                         <div
                             key={i}
-                            className="flex items-center px-3 text-[11px] font-medium text-slate-700 dark:text-slate-300 border-r border-slate-100 dark:border-slate-800 last:border-r-0"
+                            className="flex items-center px-3 text-[11px] font-medium text-slate-700 dark:text-dk-text-soft border-r border-slate-100 dark:border-dk-border last:border-r-0"
                             style={{ width: m.span * dayWidth }}
                         >
                             <span className="capitalize truncate">{m.label}</span>
@@ -112,7 +112,7 @@ export default function GanttTimeline({ dates, dayWidth, settings }: Props) {
 
             {/* Bande jours (uniquement si zoom suffisant) */}
             {showDays && (
-                <div className="flex h-9 border-b border-slate-100 dark:border-slate-800">
+                <div className="flex h-9 border-b border-slate-100 dark:border-dk-border">
                     {dates.map((d, i) => {
                         const key = planningLocalDateKey(d);
                         const isToday = key === todayKey;
@@ -133,20 +133,27 @@ export default function GanttTimeline({ dates, dayWidth, settings }: Props) {
                         return (
                             <div
                                 key={i}
-                                className={`relative flex flex-col items-center justify-center border-r border-slate-50 last:border-r-0 transition-colors ${
-                                    isWeekend ? 'bg-slate-50/40' : ''
+                                className={`border-r border-slate-50 dark:border-dk-border/30 last:border-r-0 ${isWeekend ? 'bg-slate-50/40 dark:bg-dk-bg/50' : ''}`}
+                                style={{ width: dayWidth, minWidth: dayWidth }}
+                            />
+                        }
+                        return (
+                            <div
+                                key={i}
+                                className={`relative flex flex-col items-center justify-center border-r border-slate-50 dark:border-dk-border/30 last:border-r-0 transition-colors ${
+                                    isWeekend ? 'bg-slate-50/40 dark:bg-dk-bg/50' : ''
                                 }`}
                                 style={{ width: dayWidth, minWidth: dayWidth }}
                             >
                                 {dayWidth >= 50 && (
                                     <span className={`text-[9px] uppercase tracking-wider font-medium ${
-                                        isToday ? 'text-slate-900' : 'text-slate-400'
+                                        isToday ? 'text-slate-900 dark:text-dk-text' : 'text-slate-400 dark:text-dk-muted'
                                     }`}>
                                         {tx(lang, DAYS_TX[dow])}
                                     </span>
                                 )}
                                 <span className={`text-[12px] tabular-nums font-medium ${
-                                    isToday ? 'text-slate-900 font-bold' : isWeekend ? 'text-slate-400' : 'text-slate-700'
+                                    isToday ? 'text-slate-900 dark:text-dk-text font-bold' : isWeekend ? 'text-slate-400 dark:text-dk-muted' : 'text-slate-700 dark:text-dk-text-soft'
                                 }`}>
                                     {d.getDate()}
                                 </span>
@@ -161,13 +168,13 @@ export default function GanttTimeline({ dates, dayWidth, settings }: Props) {
 
             {/* Bande heures (uniquement si très zoomé) */}
             {showHours && (
-                <div className="flex h-5 border-b border-slate-100 dark:border-slate-800">
+                <div className="flex h-5 border-b border-slate-100 dark:border-dk-border">
                     {dates.map((d, i) => {
                         const isToday = planningLocalDateKey(d) === todayKey;
                         return (
                             <div
                                 key={i}
-                                className="flex items-center border-r border-slate-50 last:border-r-0"
+                                className="flex items-center border-r border-slate-50 dark:border-dk-border/30 last:border-r-0"
                                 style={{ width: dayWidth, minWidth: dayWidth }}
                             >
                                 {/* 4 graduations 8h / 12h / 14h / 18h */}
@@ -175,7 +182,7 @@ export default function GanttTimeline({ dates, dayWidth, settings }: Props) {
                                     <span
                                         key={k}
                                         className={`flex-1 text-center text-[9px] font-medium tabular-nums ${
-                                            isToday ? 'text-slate-700' : 'text-slate-400'
+                                            isToday ? 'text-slate-700 dark:text-dk-text-soft' : 'text-slate-400 dark:text-dk-muted'
                                         }`}
                                     >
                                         {h}
