@@ -49,8 +49,8 @@ const SyncIndicator: React.FC = () => {
         <div
             className={`hidden md:flex items-center justify-center w-8 h-8 rounded-full border transition-colors ${
                 syncing
-                    ? 'bg-white border-gray-100 text-emerald-500'
-                    : 'bg-emerald-50 border-emerald-100 text-emerald-600'
+                    ? 'bg-white dark:bg-dk-surface border-gray-100 dark:border-dk-border text-emerald-500'
+                    : 'bg-emerald-50 dark:bg-emerald-900/30 border-emerald-100 dark:border-emerald-800 text-emerald-600 dark:text-emerald-300'
             }`}
             title={syncing ? tx(lang,{fr:"Synchronisation en cours…",ar:"المزامنة جارية…",en:"Syncing…",es:"Sincronizando…",pt:"Sincronizando…",tr:"Senkronize ediliyor…"}) : tx(lang,{fr:"Synchronisé",ar:"تمت المزامنة",en:"Synced",es:"Sincronizado",pt:"Sincronizado",tr:"Senkronize edildi"})}
             aria-live="polite"
