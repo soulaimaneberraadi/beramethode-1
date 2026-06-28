@@ -271,7 +271,7 @@ export default function EventDetailPanel({
                         <button
                             type="button"
                             onClick={() => setIsExpanded(e => !e)}
-                            className="p-1 rounded-xl text-slate-400 dark:text-dk-muted hover:text-slate-700 dark:hover:text-dk-text hover:bg-slate-100/70 dark:hover:bg-dk-elevated/60 border border-transparent hover:border-slate-200 dark:hover:border-dk-border/30 transition-all duration-200 active:scale-95 shadow-sm"
+                            className="p-1 rounded-xl text-slate-400 dark:text-dk-muted hover:text-slate-700 dark:hover:text-dk-text hover:bg-slate-100/70 dark:hover:bg-dk-elevated/60 border border-transparent hover:border-slate-200 dark:hover:border-dk-border/30 transition-all duration-200 active:scale-95 shadow-sm dark:shadow-dk-sm"
                             aria-label={isExpanded ? tx(lang, { fr: 'Réduire', ar: 'تصغير', en: 'Minimize', es: 'Reducir', pt: 'Reduzir', tr: 'Küçült' }) : tx(lang, { fr: 'Agrandir', ar: 'تكبير', en: 'Maximize', es: 'Ampliar', pt: 'Ampliar', tr: 'Büyüt' })}
                         >
                             {isExpanded ? <Minimize2 className="w-4 h-4" strokeWidth={2} /> : <Maximize2 className="w-4 h-4" strokeWidth={2} />}
@@ -280,7 +280,7 @@ export default function EventDetailPanel({
                     <button
                         type="button"
                         onClick={onClose}
-                        className="p-1 rounded-xl text-slate-400 dark:text-dk-muted hover:text-slate-700 dark:hover:text-dk-text hover:bg-slate-100/70 dark:hover:bg-dk-elevated/60 border border-transparent hover:border-slate-200 dark:hover:border-dk-border/30 transition-all duration-200 active:scale-95 shadow-sm"
+                        className="p-1 rounded-xl text-slate-400 dark:text-dk-muted hover:text-slate-700 dark:hover:text-dk-text hover:bg-slate-100/70 dark:hover:bg-dk-elevated/60 border border-transparent hover:border-slate-200 dark:hover:border-dk-border/30 transition-all duration-200 active:scale-95 shadow-sm dark:shadow-dk-sm"
                         aria-label={tx(lang, { fr: 'Fermer', ar: 'إغلاق', en: 'Close', es: 'Cerrar', pt: 'Fechar', tr: 'Kapat' })}
                     >
                         <X className="w-4 h-4" strokeWidth={2} />
@@ -288,7 +288,7 @@ export default function EventDetailPanel({
                 </div>
 
                 <div className="flex items-start gap-3 pr-8">
-                    <div className="w-11 h-11 rounded-xl flex items-center justify-center text-sm font-black text-white shrink-0 shadow-sm" style={{ background: getClientColor(client) }}>
+                    <div className="w-11 h-11 rounded-xl flex items-center justify-center text-sm font-black text-white shrink-0 shadow-sm dark:shadow-dk-sm" style={{ background: getClientColor(client) }}>
                         {(client || '?')[0].toUpperCase()}
                     </div>
                     <div className="min-w-0">
@@ -317,8 +317,8 @@ export default function EventDetailPanel({
                         onClick={() => onChangeStatus(event.status === 'BLOCKED_STOCK' ? 'READY' : 'BLOCKED_STOCK')}
                         className={`inline-flex items-center gap-1 h-6 px-2.5 rounded-xl text-[10px] font-bold uppercase tracking-wider transition-all border ${
                             event.status === 'BLOCKED_STOCK'
-                                ? 'bg-amber-100 text-amber-800 border-amber-200 hover:bg-amber-200 shadow-sm active:scale-95'
-                                : 'bg-white dark:bg-dk-surface text-slate-650 border-slate-200 dark:border-dk-border/60 hover:bg-amber-50 hover:text-amber-700 hover:border-amber-200 shadow-sm active:scale-95'
+                                ? 'bg-amber-100 text-amber-800 border-amber-200 hover:bg-amber-200 shadow-sm dark:shadow-dk-sm active:scale-95'
+                                : 'bg-white dark:bg-dk-surface text-slate-650 border-slate-200 dark:border-dk-border/60 hover:bg-amber-50 hover:text-amber-700 hover:border-amber-200 shadow-sm dark:shadow-dk-sm active:scale-95'
                         }`}
                     >
                         {event.status === 'BLOCKED_STOCK' ? tx(lang, { fr: '▶ Reprendre', ar: '▶ استئناف', en: '▶ Resume', es: '▶ Reanudar', pt: '▶ Retomar', tr: '▶ Devam' }) : tx(lang, { fr: '⏸ En Pause', ar: '⏸ إيقاف مؤقت', en: '⏸ Pause', es: '⏸ Pausa', pt: '⏸ Pausa', tr: '⏸ Duraklat' })}
@@ -384,7 +384,7 @@ export default function EventDetailPanel({
                                     value={quickAddVal || ''}
                                     onChange={(e) => setQuickAddVal(Number(e.target.value) || 0)}
                                     placeholder={tx(lang, { fr: '+ pcs', ar: '+ قطعة', en: '+ pcs', es: '+ uds', pt: '+ peças', tr: '+ adet' })}
-                                    className="flex-1 h-7.5 px-2.5 text-[12px] font-bold tabular-nums bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-lg focus:border-indigo-500/40 focus:ring-4 focus:ring-indigo-500/10 outline-none shadow-sm transition-all duration-200"
+                                    className="flex-1 h-7.5 px-2.5 text-[12px] font-bold tabular-nums bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-lg focus:border-indigo-500/40 focus:ring-4 focus:ring-indigo-500/10 outline-none shadow-sm dark:shadow-dk-sm transition-all duration-200"
                                     autoFocus
                                 />
                                 <button
@@ -394,7 +394,7 @@ export default function EventDetailPanel({
                                         setQuickAddOpen(false);
                                         setQuickAddVal(0);
                                     }}
-                                    className="h-7.5 px-3 text-[11px] font-bold bg-slate-900 text-white hover:bg-slate-800 rounded-lg shadow-sm transition-all duration-200 active:scale-95"
+                                    className="h-7.5 px-3 text-[11px] font-bold bg-slate-900 text-white hover:bg-slate-800 rounded-lg shadow-sm dark:shadow-dk-sm transition-all duration-200 active:scale-95"
                                 >
                                     {tx(lang, { fr: 'OK', ar: 'موافق', en: 'OK', es: 'OK', pt: 'OK', tr: 'Tamam' })}
                                 </button>
@@ -410,7 +410,7 @@ export default function EventDetailPanel({
                             <button
                                 type="button"
                                 onClick={() => setQuickAddOpen(true)}
-                                className="h-7.5 px-3 text-[11px] font-bold text-slate-650 hover:text-slate-900 hover:bg-white border border-slate-200 dark:border-dk-border/50 hover:border-slate-300 rounded-lg shadow-sm transition-all duration-200 active:scale-95 inline-flex items-center gap-1.5"
+                                className="h-7.5 px-3 text-[11px] font-bold text-slate-650 hover:text-slate-900 hover:bg-white border border-slate-200 dark:border-dk-border/50 hover:border-slate-300 rounded-lg shadow-sm dark:shadow-dk-sm transition-all duration-200 active:scale-95 inline-flex items-center gap-1.5"
                             >
                                 <Plus className="w-3.5 h-3.5 text-slate-500 dark:text-dk-muted" strokeWidth={2.25} />
                                 {tx(lang, { fr: 'Ajouter une production', ar: 'إضافة إنتاج', en: 'Add production', es: 'Añadir producción', pt: 'Adicionar produção', tr: 'Üretim ekle' })}
@@ -511,7 +511,7 @@ export default function EventDetailPanel({
                                 <select
                                     value={event.subcontractStatus || 'PENDING'}
                                     onChange={(e) => onUpdateEvent?.({ subcontractStatus: e.target.value as any })}
-                                    className="h-7 px-2 text-[11px] font-bold bg-white dark:bg-dk-surface border border-slate-200/60 dark:border-dk-border rounded-lg focus:border-indigo-500/40 outline-none text-slate-800 dark:text-dk-text shadow-sm cursor-pointer"
+                                    className="h-7 px-2 text-[11px] font-bold bg-white dark:bg-dk-surface border border-slate-200/60 dark:border-dk-border rounded-lg focus:border-indigo-500/40 outline-none text-slate-800 dark:text-dk-text shadow-sm dark:shadow-dk-sm cursor-pointer"
                                 >
                                     <option value="PENDING">{tx(lang, { fr: 'En attente', ar: 'قيد الانتظار', en: 'Pending', es: 'Pendiente', pt: 'Pendente', tr: 'Beklemede' })}</option>
                                     <option value="SENT">{tx(lang, { fr: 'Envoyé', ar: 'أُرسل', en: 'Sent', es: 'Enviado', pt: 'Enviado', tr: 'Gönderildi' })}</option>
@@ -564,7 +564,7 @@ export default function EventDetailPanel({
                                     onClick={() => onChangeStatus(s)}
                                     className={`h-8 px-2.5 rounded-lg text-[11px] font-bold transition-all duration-200 active:scale-95 flex items-center gap-1.5 ${
                                         isActive
-                                            ? 'bg-slate-900 dark:bg-dk-accent text-white dark:text-dk-accent-text shadow-md'
+                                            ? 'bg-slate-900 dark:bg-dk-accent text-white dark:text-dk-accent-text shadow-md dark:shadow-dk-md'
                                             : 'bg-slate-100/50 dark:bg-dk-elevated/30 text-slate-700 dark:text-dk-text-soft hover:bg-white dark:hover:bg-dk-surface border border-transparent hover:border-slate-200 dark:hover:border-dk-border/30'
                                     }`}
                                 >
@@ -646,7 +646,7 @@ export default function EventDetailPanel({
                         <button
                             type="button"
                             onClick={() => onChangeStatus('DONE')}
-                            className="inline-flex items-center gap-1.5 h-7.5 px-3 rounded-lg text-[11px] font-bold bg-emerald-600 text-white hover:bg-emerald-700 transition-colors shadow-sm active:scale-95"
+                            className="inline-flex items-center gap-1.5 h-7.5 px-3 rounded-lg text-[11px] font-bold bg-emerald-600 text-white hover:bg-emerald-700 transition-colors shadow-sm dark:shadow-dk-sm active:scale-95"
                         >
                             <CheckCircle2 className="w-3 h-3" />
                             {tx(lang, { fr: 'Modèle fini', ar: 'نموذج منتهٍ', en: 'Model completed', es: 'Modelo terminado', pt: 'Modelo concluído', tr: 'Model tamamlandı' })}
@@ -697,7 +697,7 @@ function ActionBtn({
             className={`inline-flex items-center gap-1.5 h-7.5 px-2.5 rounded-lg text-[11px] font-bold transition-all duration-200 active:scale-95 border ${
                 danger
                     ? 'text-red-650 bg-red-500/5 hover:bg-red-500/10 hover:text-red-700 border-red-200/20 hover:border-red-200/40 dark:text-red-400 dark:hover:text-red-300 dark:border-red-800/20 dark:hover:border-red-800/40'
-                    : 'text-slate-650 bg-slate-100/50 hover:bg-white hover:text-slate-900 border-slate-200/30 hover:border-slate-250/50 shadow-sm dark:bg-dk-elevated/30 dark:hover:bg-dk-surface dark:hover:text-dk-text dark:border-dk-border/30 dark:hover:border-dk-border/50'
+                    : 'text-slate-650 bg-slate-100/50 hover:bg-white hover:text-slate-900 border-slate-200/30 hover:border-slate-250/50 shadow-sm dark:shadow-dk-sm dark:bg-dk-elevated/30 dark:hover:bg-dk-surface dark:hover:text-dk-text dark:border-dk-border/30 dark:hover:border-dk-border/50'
             }`}
         >
             <Icon className="w-3.5 h-3.5" strokeWidth={2.25} />

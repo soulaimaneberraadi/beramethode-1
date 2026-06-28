@@ -214,12 +214,12 @@ export default function EventBar({
                             </span>
                         )}
                         {event.status === 'BLOCKED_STOCK' && (
-                            <span className="flex items-center gap-1 text-[9px] font-extrabold text-amber-800 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800 px-1.5 py-0.5 rounded shrink-0 shadow-sm">
+                            <span className="flex items-center gap-1 text-[9px] font-extrabold text-amber-800 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800 px-1.5 py-0.5 rounded shrink-0 shadow-sm dark:shadow-dk-sm">
                                 ⏸ {tx(lang, { fr: 'EN PAUSE', ar: 'متوقف', en: 'PAUSED', es: 'EN PAUSA', pt: 'EM PAUSA', tr: 'DURAKLATILDI' })}
                             </span>
                         )}
                         {delay === 'LATE' && !event.isSubcontracted && (
-                            <span className="flex items-center gap-1 text-[9px] font-bold text-red-600 dark:text-red-400 bg-red-55 dark:bg-red-900/30 border border-red-200 dark:border-red-800 px-1 py-0.5 rounded shrink-0 animate-pulse shadow-sm">
+                            <span className="flex items-center gap-1 text-[9px] font-bold text-red-600 dark:text-red-400 bg-red-55 dark:bg-red-900/30 border border-red-200 dark:border-red-800 px-1 py-0.5 rounded shrink-0 animate-pulse shadow-sm dark:shadow-dk-sm">
                                 <AlertCircle className="w-3 h-3 text-red-500 dark:text-red-400" />
                                 {tx(lang, { fr: 'RETARD', ar: 'متأخر', en: 'LATE', es: 'RETRASO', pt: 'ATRASO', tr: 'GEÇİKME' })}
                             </span>

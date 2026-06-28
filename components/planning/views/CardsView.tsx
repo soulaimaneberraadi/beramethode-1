@@ -49,7 +49,7 @@ export default function CardsView({ events, models, onSelectEvent, onEditEvent }
     if (events.length === 0) {
         return (
             <div className="p-6 bg-slate-50 dark:bg-dk-bg/30 dark:bg-dk-bg min-h-full flex flex-col items-center justify-center text-center">
-                <div className="w-14 h-14 rounded-2xl bg-white dark:bg-dk-surface border border-slate-150 dark:border-dk-border flex items-center justify-center mb-4 shadow-sm">
+                <div className="w-14 h-14 rounded-2xl bg-white dark:bg-dk-surface border border-slate-150 dark:border-dk-border flex items-center justify-center mb-4 shadow-sm dark:shadow-dk-sm">
                     <Layers className="w-6 h-6 text-slate-300 dark:text-dk-muted" strokeWidth={1.75} />
                 </div>
                 <p className="text-[14px] font-semibold text-slate-700 dark:text-dk-text-soft">{tx(lang, { fr: 'Aucun ordre à afficher', ar: 'لا يوجد أمر للعرض', en: 'No orders to display', es: 'Sin órdenes para mostrar', pt: 'Nenhum pedido para exibir', tr: 'Gösterilecek sipariş yok' })}</p>

@@ -353,7 +353,7 @@ export default function ProductionSimulation({
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 
                 {/* 1. Sélection du Modèle */}
-                <div className="bg-white dark:bg-dk-surface rounded-xl border border-slate-200 dark:border-dk-border p-4 shadow-sm flex flex-col h-[280px]">
+                <div className="bg-white dark:bg-dk-surface rounded-xl border border-slate-200 dark:border-dk-border p-4 shadow-sm dark:shadow-dk-sm flex flex-col h-[280px]">
                     <h3 className="text-xs font-bold text-slate-700 dark:text-dk-text-soft uppercase tracking-wide mb-3 flex items-center gap-1.5">
                         <Activity className="w-4 h-4 text-indigo-500" />
                         {tx(lang,{fr:'1. Choisir un Modèle',ar:'1. اختر نموذجًا',en:'1. Choose a Model',es:'1. Elegir un Modelo',pt:'1. Escolher um Modelo',tr:'1. Bir Model Seçin'})}
@@ -405,7 +405,7 @@ export default function ProductionSimulation({
                 </div>
 
                 {/* 2. Sélection du Lot / Commande */}
-                <div className="bg-white dark:bg-dk-surface rounded-xl border border-slate-200 dark:border-dk-border p-4 shadow-sm flex flex-col h-[280px]">
+                <div className="bg-white dark:bg-dk-surface rounded-xl border border-slate-200 dark:border-dk-border p-4 shadow-sm dark:shadow-dk-sm flex flex-col h-[280px]">
                     <h3 className="text-xs font-bold text-slate-700 dark:text-dk-text-soft uppercase tracking-wide mb-3 flex items-center gap-1.5">
                         <Truck className="w-4 h-4 text-emerald-500" />
                         {tx(lang,{fr:'2. Sélectionner un Lot existant (Optionnel)',ar:'2. حدد دفعة موجودة (اختياري)',en:'2. Select an Existing Lot (Optional)',es:'2. Seleccionar un Lote existente (Opcional)',pt:'2. Selecionar um Lote existente (Opcional)',tr:'2. Mevcut Bir Parti Seçin (İsteğe Bağlı)'})}
@@ -479,7 +479,7 @@ export default function ProductionSimulation({
                 </div>
 
                 {/* 3. Récapitulatif du Modèle Sélectionné */}
-                <div className="bg-white dark:bg-dk-surface rounded-xl border border-slate-200 dark:border-dk-border p-4 shadow-sm flex flex-col h-[280px]">
+                <div className="bg-white dark:bg-dk-surface rounded-xl border border-slate-200 dark:border-dk-border p-4 shadow-sm dark:shadow-dk-sm flex flex-col h-[280px]">
                     <h3 className="text-xs font-bold text-slate-700 dark:text-dk-text-soft uppercase tracking-wide mb-3 flex items-center gap-1.5">
                         <Info className="w-4 h-4 text-blue-500" />
                         {tx(lang,{fr:'Informations Modèle',ar:'معلومات النموذج',en:'Model Information',es:'Información del Modelo',pt:'Informações do Modelo',tr:'Model Bilgileri'})}
@@ -519,7 +519,7 @@ export default function ProductionSimulation({
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
                     
                     {/* Colonne gauche : Curseurs & Paramètres de simulation */}
-                    <div className="lg:col-span-2 bg-white dark:bg-dk-surface rounded-xl border border-slate-200 dark:border-dk-border p-5 shadow-sm space-y-5">
+                    <div className="lg:col-span-2 bg-white dark:bg-dk-surface rounded-xl border border-slate-200 dark:border-dk-border p-5 shadow-sm dark:shadow-dk-sm space-y-5">
                         <h3 className="text-sm font-bold text-slate-800 dark:text-dk-text border-b border-slate-100 dark:border-dk-border pb-2 flex items-center gap-1.5">
                             <Sliders className="w-4 h-4 text-indigo-500" />
                             {tx(lang,{fr:'Ajuster les Paramètres de Simulation',ar:'ضبط معلمات المحاكاة',en:'Adjust Simulation Parameters',es:'Ajustar los Parámetros de Simulación',pt:'Ajustar os Parâmetros de Simulação',tr:'Simülasyon Parametrelerini Ayarla'})}
@@ -702,7 +702,7 @@ export default function ProductionSimulation({
                     <div className="space-y-6">
                         
                         {/* A. Résultats de la Simulation */}
-                        <div className="bg-white dark:bg-dk-surface rounded-xl border border-slate-200 dark:border-dk-border p-5 shadow-sm space-y-4">
+                        <div className="bg-white dark:bg-dk-surface rounded-xl border border-slate-200 dark:border-dk-border p-5 shadow-sm dark:shadow-dk-sm space-y-4">
                             <h3 className="text-sm font-bold text-slate-800 dark:text-dk-text border-b border-slate-100 dark:border-dk-border pb-2 flex items-center gap-1.5">
                                 <TrendingUp className="w-4 h-4 text-indigo-500" />
                                 {tx(lang,{fr:"Résultats d'Estimation",ar:'نتائج التقدير',en:'Estimation Results',es:'Resultados de Estimación',pt:'Resultados da Estimativa',tr:'Tahmin Sonuçları'})}
@@ -776,7 +776,7 @@ export default function ProductionSimulation({
                         </div>
 
                         {/* B. Recommandations d'optimisation */}
-                        <div className="bg-white dark:bg-dk-surface rounded-xl border border-slate-200 dark:border-dk-border p-5 shadow-sm space-y-4">
+                        <div className="bg-white dark:bg-dk-surface rounded-xl border border-slate-200 dark:border-dk-border p-5 shadow-sm dark:shadow-dk-sm space-y-4">
                             <h3 className="text-sm font-bold text-slate-800 dark:text-dk-text border-b border-slate-100 dark:border-dk-border pb-2 flex items-center gap-1.5">
                                 <UserCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                                 {tx(lang,{fr:'Solutions Recommandées',ar:'الحلول الموصى بها',en:'Recommended Solutions',es:'Soluciones Recomendadas',pt:'Soluções Recomendadas',tr:'Önerilen Çözümler'})}
@@ -835,7 +835,7 @@ export default function ProductionSimulation({
                                         </div>
                                         <button 
                                             onClick={() => setShowSplitConfirm(true)}
-                                            className="mt-3 w-full bg-rose-600 hover:bg-rose-700 text-white text-[11px] font-bold py-1.5 px-3 rounded-lg transition-all flex items-center justify-center gap-1 shadow-sm active:scale-95"
+                                            className="mt-3 w-full bg-rose-600 hover:bg-rose-700 text-white text-[11px] font-bold py-1.5 px-3 rounded-lg transition-all flex items-center justify-center gap-1 shadow-sm dark:shadow-dk-sm active:scale-95"
                                         >
                                             <Truck className="w-3.5 h-3.5" />
                                             {tx(lang,{fr:'Appliquer le Plan de Sous-traitance',ar:'تطبيق خطة التعاقد من الباطن',en:'Apply Subcontracting Plan',es:'Aplicar el Plan de Subcontratación',pt:'Aplicar o Plano de Subcontratação',tr:'Taşeron Planını Uygula'})}
@@ -876,7 +876,7 @@ export default function ProductionSimulation({
             {/* MODAL DE CONFIRMATION DE SCINDEMENT / SOUS-TRAITANCE */}
             {showSplitConfirm && simulationResult && selectedModel && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-                    <div className="bg-white dark:bg-dk-surface rounded-xl border border-slate-200 dark:border-dk-border shadow-xl w-full max-w-md p-5 flex flex-col space-y-4 animate-in zoom-in-95 duration-200">
+                    <div className="bg-white dark:bg-dk-surface rounded-xl border border-slate-200 dark:border-dk-border shadow-xl dark:shadow-dk-elevated w-full max-w-md p-5 flex flex-col space-y-4 animate-in zoom-in-95 duration-200">
                         
                         <div className="flex justify-between items-center border-b border-slate-100 dark:border-dk-border pb-2">
                             <h4 className="font-bold text-slate-800 dark:text-dk-text text-sm flex items-center gap-1.5">
@@ -960,7 +960,7 @@ onClick={() => setShowSplitConfirm(false)}
                             </button>
                             <button
                                 onClick={handleConfirmSplit}
-                                className="px-4 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-xs font-bold transition-all shadow-sm active:scale-95"
+                                className="px-4 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-xs font-bold transition-all shadow-sm dark:shadow-dk-sm active:scale-95"
                             >
                                 {tx(lang,{fr:'Confirmer et Planifier',ar:'تأكيد وتخطيط',en:'Confirm and Schedule',es:'Confirmar y Planificar',pt:'Confirmar e Planear',tr:'Onayla ve Planla'})}
                             </button>
