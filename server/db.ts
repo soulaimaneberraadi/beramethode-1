@@ -806,26 +806,9 @@ db.exec(`
   )
 `);
 
-// Insert default lines if empty
-try {
-  const lineCount = db.prepare('SELECT COUNT(*) as count FROM production_lines').get() as { count: number };
-  if (lineCount.count === 0) {
-    db.prepare("INSERT INTO production_lines (name, status, progress, efficiency, model, operator, alert, alertMsg) VALUES ('CHAINE A', 'prod', 78, 94, 'POLO M/C', 12, 0, '')").run();
-    db.prepare("INSERT INTO production_lines (name, status, progress, efficiency, model, operator, alert, alertMsg) VALUES ('CHAINE B', 'prod', 45, 88, 'VESTE SLIM', 18, 1, 'Rupture Fil')").run();
-    db.prepare("INSERT INTO production_lines (name, status, progress, efficiency, model, operator, alert, alertMsg) VALUES ('CHAINE C', 'prod', 92, 97, 'CHEMISE CL', 10, 0, '')").run();
-    db.prepare("INSERT INTO production_lines (name, status, progress, efficiency, model, operator, alert, alertMsg) VALUES ('CHAINE D', 'stop', 0, 0, '---', 0, 0, '')").run();
-    db.prepare("INSERT INTO production_lines (name, status, progress, efficiency, model, operator, alert, alertMsg) VALUES ('CHAINE E', 'setup', 15, 55, 'JUPE MIDI', 8, 0, '')").run();
-    db.prepare("INSERT INTO production_lines (name, status, progress, efficiency, model, operator, alert, alertMsg) VALUES ('CHAINE F', 'prod', 62, 91, 'VESTE JEAN', 15, 0, '')").run();
-    
-    // Seed some daily data
-    db.prepare("INSERT INTO production_daily (date, name, output, target, efficiency) VALUES ('2026-04-06', 'Lun', 400, 500, 80)").run();
-    db.prepare("INSERT INTO production_daily (date, name, output, target, efficiency) VALUES ('2026-04-07', 'Mar', 520, 500, 104)").run();
-    db.prepare("INSERT INTO production_daily (date, name, output, target, efficiency) VALUES ('2026-04-08', 'Mer', 480, 500, 96)").run();
-    db.prepare("INSERT INTO production_daily (date, name, output, target, efficiency) VALUES ('2026-04-09', 'Jeu', 610, 500, 122)").run();
-    db.prepare("INSERT INTO production_daily (date, name, output, target, efficiency) VALUES ('2026-04-10', 'Ven', 550, 500, 110)").run();
-    db.prepare("INSERT INTO production_daily (date, name, output, target, efficiency) VALUES ('2026-04-11', 'Sam', 300, 400, 75)").run();
-  }
-} catch(e) {}
+// NB : les lignes/journalières de démo SuiviLive sont désormais amorcées PAR
+// WORKSPACE à la demande (productionController.seedDemoLines / getProductionDaily),
+// et non plus en global ici — sinon elles seraient partagées entre tous les workspaces.
 
 // CREATE SUBCONTRACT ORDERS TABLE
 db.exec(`
@@ -1636,6 +1619,20 @@ try {
 try { db.exec('ALTER TABLE models ADD COLUMN owner_id INTEGER'); } catch { /* colonne déjà présente */ }
 try { db.exec('UPDATE models SET owner_id = user_id WHERE owner_id IS NULL'); } catch (e) { console.error('[db] models owner_id backfill error:', e); }
 try { db.exec('CREATE INDEX IF NOT EXISTS idx_models_owner ON models(owner_id)'); } catch { /* ignore */ }
+
+// Cloisonnement par workspace des données SuiviLive (démo) : production_lines /
+// production_daily étaient globales (partagées entre tous les workspaces). On ajoute
+// owner_id ; les lignes existantes (seed démo) sont rattachées au workspace primaire
+// (plus petit owner_id). Le controller réamorce des lignes démo par workspace au besoin.
+try { db.exec('ALTER TABLE production_lines ADD COLUMN owner_id INTEGER'); } catch { /* déjà présente */ }
+try { db.exec('ALTER TABLE production_daily ADD COLUMN owner_id INTEGER'); } catch { /* déjà présente */ }
+try {
+  const primaryOwner = (db.prepare('SELECT MIN(owner_id) AS o FROM workspaces').get() as { o?: number } | undefined)?.o;
+  if (primaryOwner) {
+    db.prepare('UPDATE production_lines SET owner_id = ? WHERE owner_id IS NULL').run(primaryOwner);
+    db.prepare('UPDATE production_daily SET owner_id = ? WHERE owner_id IS NULL').run(primaryOwner);
+  }
+} catch (e) { console.error('[db] production_* owner_id backfill error:', e); }
 
 // Rapports de crash envoyés par le frontend (Error Boundary ou window.onerror)
 db.exec(`

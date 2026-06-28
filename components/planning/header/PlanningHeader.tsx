@@ -141,7 +141,7 @@ export default function PlanningHeader({
                             value={searchText}
                             onChange={(e) => onSearch(e.target.value)}
                             placeholder={tx(lang,{fr:"Rechercher un OF, un client…",ar:"البحث عن أمر تصنيع، عميل…",en:"Search for a WO, a client…",es:"Buscar OF, cliente…",pt:"Procurar OF, cliente…",tr:"İş emri, müşteri ara…"})}
-                            className="w-full h-9 pl-9 pr-9 text-[13px] text-slate-700 placeholder:text-slate-450 bg-slate-100/40 focus:bg-white border border-slate-200/40 focus:border-indigo-500/50 focus:ring-4 focus:ring-indigo-500/10 focus:shadow-sm rounded-xl outline-none transition-all duration-300 backdrop-blur-sm"
+                            className="w-full h-9 pl-9 pr-9 text-[13px] text-slate-700 dark:text-slate-200 placeholder:text-slate-450 dark:placeholder:text-slate-500 bg-slate-100/40 dark:bg-slate-800/40 focus:bg-white border border-slate-200/40 dark:border-slate-700/40 focus:border-indigo-500/50 focus:ring-4 focus:ring-indigo-500/10 focus:shadow-sm rounded-xl outline-none transition-all duration-300 backdrop-blur-sm"
                         />
                         {searchText && (
                             <button
@@ -170,23 +170,23 @@ export default function PlanningHeader({
                 )}
 
                 {/* ROW 2 — date nav + view switcher */}
-                <div className="px-3 h-11 flex items-center gap-2 border-t border-slate-200/35 overflow-x-auto">
-                    <div className="flex items-center rounded-xl border border-slate-200/50 bg-slate-100/50 p-0.5 backdrop-blur-sm shadow-sm shrink-0">
+                <div className="px-3 h-11 flex items-center gap-2 border-t border-slate-200/35 dark:border-slate-700/50 overflow-x-auto">
+                    <div className="flex items-center rounded-xl border border-slate-200/50 dark:border-slate-700/50 bg-slate-100/50 dark:bg-slate-800/50 p-0.5 backdrop-blur-sm shadow-sm shrink-0">
                         <button
                             type="button"
                             onClick={() => shift(-1)}
-                            className="w-6 h-6 flex items-center justify-center rounded-lg text-slate-500 hover:bg-white hover:text-slate-800 hover:shadow-[0_1px_3px_rgba(0,0,0,0.05)] transition-all duration-200 active:scale-95"
+                            className="w-6 h-6 flex items-center justify-center rounded-lg text-slate-500 dark:text-slate-400 hover:bg-white dark:hover:bg-slate-700 hover:text-slate-800 dark:hover:text-slate-100 hover:shadow-[0_1px_3px_rgba(0,0,0,0.05)] transition-all duration-200 active:scale-95"
                             aria-label={tx(lang,{fr:"Mois précédent",ar:"الشهر السابق",en:"Previous month",es:"Mes anterior",pt:"Mês anterior",tr:"Önceki ay"})}
                         >
                             <ChevronLeft className="w-4 h-4" strokeWidth={2} />
                         </button>
-                        <span className="text-[10px] font-bold text-slate-700 px-1 capitalize tabular-nums min-w-[6.5rem] text-center">
+                        <span className="text-[10px] font-bold text-slate-700 dark:text-slate-200 px-1 capitalize tabular-nums min-w-[6.5rem] text-center">
                             {fmtMonthYear(currentDate)}
                         </span>
                         <button
                             type="button"
                             onClick={() => shift(1)}
-                            className="w-6 h-6 flex items-center justify-center rounded-lg text-slate-500 hover:bg-white hover:text-slate-800 hover:shadow-[0_1px_3px_rgba(0,0,0,0.05)] transition-all duration-200 active:scale-95"
+                            className="w-6 h-6 flex items-center justify-center rounded-lg text-slate-500 dark:text-slate-400 hover:bg-white dark:hover:bg-slate-700 hover:text-slate-800 dark:hover:text-slate-100 hover:shadow-[0_1px_3px_rgba(0,0,0,0.05)] transition-all duration-200 active:scale-95"
                             aria-label={tx(lang,{fr:"Mois suivant",ar:"الشهر التالي",en:"Next month",es:"Mes siguiente",pt:"Próximo mês",tr:"Sonraki ay"})}
                         >
                             <ChevronRight className="w-4 h-4" strokeWidth={2} />
@@ -195,7 +195,7 @@ export default function PlanningHeader({
                         <button
                             type="button"
                             onClick={onToday}
-                            className="px-2 py-1 rounded-lg text-[10px] font-bold text-indigo-655 hover:bg-white hover:text-indigo-700 hover:shadow-[0_1px_3px_rgba(0,0,0,0.05)] transition-all duration-200 active:scale-95"
+                            className="px-2 py-1 rounded-lg text-[10px] font-bold text-indigo-655 dark:text-indigo-300 hover:bg-white dark:hover:bg-slate-700 hover:text-indigo-700 dark:hover:text-indigo-200 hover:shadow-[0_1px_3px_rgba(0,0,0,0.05)] transition-all duration-200 active:scale-95"
                         >
                             {tx(lang,{fr:"Auj.",ar:"اليوم",en:"Today",es:"Hoy",pt:"Hoje",tr:"Bugün"})}
                         </button>
@@ -243,7 +243,7 @@ export default function PlanningHeader({
                         value={searchText}
                         onChange={(e) => onSearch(e.target.value)}
                         placeholder={tx(lang,{fr:"Rechercher un OF, un client…",ar:"البحث عن أمر تصنيع، عميل…",en:"Search for a WO, a client…",es:"Buscar OF, cliente…",pt:"Procurar OF, cliente…",tr:"İş emri, müşteri ara…"})}
-                        className="w-full h-8 pl-9 pr-3 text-[12px] text-slate-700 placeholder:text-slate-450 bg-slate-100/40 hover:bg-slate-100/70 focus:bg-white/85 border border-slate-200/40 focus:border-indigo-500/50 focus:ring-4 focus:ring-indigo-500/10 focus:shadow-md rounded-xl outline-none transition-all duration-300 backdrop-blur-sm"
+                        className="w-full h-8 pl-9 pr-3 text-[12px] text-slate-700 dark:text-slate-200 placeholder:text-slate-450 dark:placeholder:text-slate-500 bg-slate-100/40 dark:bg-slate-800/40 hover:bg-slate-100/70 focus:bg-white/85 border border-slate-200/40 dark:border-slate-700/40 focus:border-indigo-500/50 focus:ring-4 focus:ring-indigo-500/10 focus:shadow-md rounded-xl outline-none transition-all duration-300 backdrop-blur-sm"
                     />
                 </div>
 
@@ -275,8 +275,8 @@ export default function PlanningHeader({
                         title={tx(lang,{fr:"Filtres",ar:"مرشحات",en:"Filters",es:"Filtros",pt:"Filtros",tr:"Filtreler"})}
                         className={`relative inline-flex items-center gap-1.5 h-8 px-2.5 rounded-xl text-[12px] font-bold transition-all duration-200 active:scale-95 border ${
                             filtersOpen || hasActiveFilters
-                                ? 'bg-white text-indigo-650 border-slate-200/50 shadow-sm'
-                                : 'text-slate-500 border-transparent hover:text-slate-850 hover:bg-white/75 hover:border-slate-200/40 hover:shadow-sm'
+                                ? 'bg-white dark:bg-slate-700 text-indigo-650 dark:text-indigo-300 border-slate-200/50 dark:border-slate-600/50 shadow-sm'
+                                : 'text-slate-500 dark:text-slate-400 border-transparent hover:text-slate-850 dark:hover:text-slate-100 hover:bg-white/75 dark:hover:bg-slate-700/60 hover:border-slate-200/40 dark:hover:border-slate-600/40 hover:shadow-sm'
                         }`}
                     >
                         <SlidersHorizontal className="w-3.5 h-3.5" strokeWidth={2} />
@@ -308,25 +308,25 @@ export default function PlanningHeader({
             </div>
 
             {/* ROW 2 — date nav + view switcher */}
-            <div className="px-6 h-10.5 flex items-center gap-3 border-t border-slate-200/35">
+            <div className="px-6 h-10.5 flex items-center gap-3 border-t border-slate-200/35 dark:border-slate-700/50">
 
                 {/* Date navigation */}
-                <div className="flex items-center rounded-xl border border-slate-200/50 bg-slate-100/50 p-0.5 backdrop-blur-sm shadow-sm shrink-0">
+                <div className="flex items-center rounded-xl border border-slate-200/50 dark:border-slate-700/50 bg-slate-100/50 dark:bg-slate-800/50 p-0.5 backdrop-blur-sm shadow-sm shrink-0">
                     <button
                         type="button"
                         onClick={() => shift(-1)}
-                        className="w-6 h-6 flex items-center justify-center rounded-lg text-slate-500 hover:bg-white hover:text-slate-800 hover:shadow-[0_1px_3px_rgba(0,0,0,0.05)] transition-all duration-200 active:scale-95"
+                        className="w-6 h-6 flex items-center justify-center rounded-lg text-slate-500 dark:text-slate-400 hover:bg-white dark:hover:bg-slate-700 hover:text-slate-800 dark:hover:text-slate-100 hover:shadow-[0_1px_3px_rgba(0,0,0,0.05)] transition-all duration-200 active:scale-95"
                         aria-label={tx(lang,{fr:"Mois précédent",ar:"الشهر السابق",en:"Previous month",es:"Mes anterior",pt:"Mês anterior",tr:"Önceki ay"})}
                     >
                         <ChevronLeft className="w-3.5 h-3.5" strokeWidth={2} />
                     </button>
-                    <span className="text-[10px] font-bold text-slate-700 px-2 min-w-[7rem] text-center capitalize tabular-nums">
+                    <span className="text-[10px] font-bold text-slate-700 dark:text-slate-200 px-2 min-w-[7rem] text-center capitalize tabular-nums">
                         {fmtMonthYear(currentDate)}
                     </span>
                     <button
                         type="button"
                         onClick={() => shift(1)}
-                        className="w-6 h-6 flex items-center justify-center rounded-lg text-slate-500 hover:bg-white hover:text-slate-800 hover:shadow-[0_1px_3px_rgba(0,0,0,0.05)] transition-all duration-200 active:scale-95"
+                        className="w-6 h-6 flex items-center justify-center rounded-lg text-slate-500 dark:text-slate-400 hover:bg-white dark:hover:bg-slate-700 hover:text-slate-800 dark:hover:text-slate-100 hover:shadow-[0_1px_3px_rgba(0,0,0,0.05)] transition-all duration-200 active:scale-95"
                         aria-label={tx(lang,{fr:"Mois suivant",ar:"الشهر التالي",en:"Next month",es:"Mes siguiente",pt:"Próximo mês",tr:"Sonraki ay"})}
                     >
                         <ChevronRight className="w-3.5 h-3.5" strokeWidth={2} />
@@ -335,7 +335,7 @@ export default function PlanningHeader({
                     <button
                         type="button"
                         onClick={onToday}
-                        className="px-2 py-1 rounded-lg text-[10px] font-bold text-indigo-650 hover:bg-white hover:text-indigo-700 hover:shadow-[0_1px_3px_rgba(0,0,0,0.05)] transition-all duration-200 active:scale-95"
+                        className="px-2 py-1 rounded-lg text-[10px] font-bold text-indigo-650 dark:text-indigo-300 hover:bg-white dark:hover:bg-slate-700 hover:text-indigo-700 dark:hover:text-indigo-200 hover:shadow-[0_1px_3px_rgba(0,0,0,0.05)] transition-all duration-200 active:scale-95"
                     >
                         {tx(lang,{fr:"Aujourd'hui",ar:"اليوم",en:"Today",es:"Hoy",pt:"Hoje",tr:"Bugün"})}
                     </button>
@@ -373,7 +373,7 @@ function MobileMenuBtn({
         <button
             type="button"
             onClick={onClick}
-            className="inline-flex flex-col items-center justify-center gap-1 h-14 rounded-xl bg-slate-100/50 hover:bg-white text-slate-700 border border-slate-200/40 shadow-sm transition-all duration-200 active:scale-95"
+            className="inline-flex flex-col items-center justify-center gap-1 h-14 rounded-xl bg-slate-100/50 dark:bg-slate-800/50 hover:bg-white dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200/40 dark:border-slate-700/40 shadow-sm transition-all duration-200 active:scale-95"
         >
             <Icon className={`w-4 h-4 ${accent || ''}`} strokeWidth={2} />
             <span className="text-[10px] font-bold">{label}</span>
@@ -385,10 +385,10 @@ function MobileMenuBtn({
 
 function Stat({ label, value, color, emphasize }: { label: string; value: number; color: string; emphasize?: boolean }) {
     return (
-        <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-slate-100/50 border border-slate-200/10 backdrop-blur-sm shadow-[0_1px_2px_rgba(0,0,0,0.01)] text-[11px] font-medium text-slate-650">
+        <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-slate-100/50 dark:bg-slate-800/50 border border-slate-200/10 dark:border-slate-700/30 backdrop-blur-sm shadow-[0_1px_2px_rgba(0,0,0,0.01)] text-[11px] font-medium text-slate-650 dark:text-slate-300">
             <span className={`w-1.5 h-1.5 rounded-full ${color} ${emphasize && value > 0 ? 'animate-pulse' : ''}`} />
             <span className="text-[11px] text-slate-500 font-bold">{label}</span>
-            <span className={`text-[11px] font-extrabold tabular-nums ${emphasize && value > 0 ? 'text-slate-900' : 'text-slate-700'}`}>
+            <span className={`text-[11px] font-extrabold tabular-nums ${emphasize && value > 0 ? 'text-slate-900 dark:text-slate-100' : 'text-slate-700 dark:text-slate-300'}`}>
                 {value}
             </span>
         </div>
@@ -406,10 +406,10 @@ function IconButton({
             disabled={disabled}
             className={`relative w-8 h-8 flex items-center justify-center rounded-xl transition-all duration-200 active:scale-95 border border-transparent ${
                 disabled
-                    ? 'text-slate-300 cursor-not-allowed opacity-50'
+                    ? 'text-slate-300 dark:text-slate-600 cursor-not-allowed opacity-50'
                     : active
-                        ? 'bg-white text-indigo-650 border-slate-200/50 shadow-sm'
-                        : 'text-slate-500 hover:text-slate-850 hover:bg-white/75 hover:border-slate-200/40 hover:shadow-sm'
+                        ? 'bg-white dark:bg-slate-700 text-indigo-650 dark:text-indigo-300 border-slate-200/50 dark:border-slate-600/50 shadow-sm'
+                        : 'text-slate-500 dark:text-slate-400 hover:text-slate-850 dark:hover:text-slate-100 hover:bg-white/75 dark:hover:bg-slate-700/60 hover:border-slate-200/40 dark:hover:border-slate-600/40 hover:shadow-sm'
             }`}
         >
             {children}
@@ -421,7 +421,7 @@ function Segmented<T extends string>({
     options, value, onChange,
 }: { options: { id: T; label: string }[]; value: T; onChange: (v: T) => void }) {
     return (
-        <div className="inline-flex p-0.5 bg-slate-100/50 border border-slate-200/50 rounded-xl backdrop-blur-sm shadow-sm">
+        <div className="inline-flex p-0.5 bg-slate-100/50 dark:bg-slate-800/50 border border-slate-200/50 dark:border-slate-700/50 rounded-xl backdrop-blur-sm shadow-sm">
             {options.map(({ id, label }) => (
                 <button
                     key={id}
@@ -429,8 +429,8 @@ function Segmented<T extends string>({
                     onClick={() => onChange(id)}
                     className={`px-3 h-6 text-[10px] font-bold rounded-lg transition-all duration-205 active:scale-95 ${
                         value === id
-                            ? 'bg-white text-indigo-650 shadow-[0_2px_6px_rgba(99,102,241,0.12)] ring-1 ring-slate-200/30'
-                            : 'text-slate-500 hover:text-slate-700 hover:bg-white/40'
+                            ? 'bg-white dark:bg-slate-700 text-indigo-650 dark:text-indigo-300 shadow-[0_2px_6px_rgba(99,102,241,0.12)] ring-1 ring-slate-200/30 dark:ring-slate-600/40'
+                            : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-white/40 dark:hover:bg-slate-700/40'
                     }`}
                 >
                     {label}

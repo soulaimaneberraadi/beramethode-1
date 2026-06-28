@@ -91,13 +91,14 @@ export const listWorkspaces = (req: Request, res: Response) => {
 export const createWorkspace = async (req: Request, res: Response) => {
   try {
     const userId = uid(req);
-    const { name, specialty, logo } = req.body || {};
+    const { name, specialty, logo, accountType } = req.body || {};
     if (!name || typeof name !== 'string' || !name.trim()) {
       return res.status(400).json({ ok: false, error: 'name requis' });
     }
     const wsName = name.trim();
     const specialtyValue = typeof specialty === 'string' && specialty.trim() ? specialty.trim() : null;
     const logoValue = typeof logo === 'string' && logo.startsWith('data:image/') ? logo : null;
+    const accountTypeValue = accountType === 'client' || accountType === 'personnel' ? accountType : 'societe';
 
     // Le primaire doit exister pour pouvoir y revenir après basculement.
     ensurePrimaryWorkspace(userId);
@@ -127,8 +128,8 @@ export const createWorkspace = async (req: Request, res: Response) => {
       ).run(`member-${ownerId}-${userId}`, ownerId, userId, patronRoleId);
 
       db.prepare(
-        `INSERT INTO workspaces (owner_id, account_user_id, name, logo, specialty) VALUES (?, ?, ?, ?, ?)`
-      ).run(ownerId, userId, wsName, logoValue, specialtyValue);
+        `INSERT INTO workspaces (owner_id, account_user_id, name, logo, specialty, account_type) VALUES (?, ?, ?, ?, ?, ?)`
+      ).run(ownerId, userId, wsName, logoValue, specialtyValue, accountTypeValue);
 
       // Bascule immédiate sur le nouveau workspace.
       db.prepare('UPDATE users SET active_owner_id = ? WHERE id = ?').run(ownerId, userId);

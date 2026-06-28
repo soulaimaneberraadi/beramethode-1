@@ -47,9 +47,9 @@ const LAST_PULLED_AT_KEY = 'beramethode_last_pulled_at';
  */
 export const clearLocalAppData = () => {
   for (const k of SYNC_KEYS) {
-    try { localStorage.removeItem(pkey(k)); } catch { /* ignore */ }
+    try { localStorage.removeItem(k); } catch { /* ignore */ }
   }
-  try { localStorage.removeItem(pkey('__bera_sqlite_export__')); } catch { /* ignore */ }
+  try { localStorage.removeItem('__bera_sqlite_export__'); } catch { /* ignore */ }
   try { localStorage.removeItem(LAST_PULLED_AT_KEY); } catch { /* ignore */ }
   try {
     sessionStorage.removeItem('beramethode_pulled_once');
@@ -70,12 +70,12 @@ const savePrefixedBackup = (email: string) => {
   for (const k of SYNC_KEYS) {
     try {
       const v = localStorage.getItem(k);
-      if (v != null) localStorage.setItem(pkey(k), v);
+      if (v != null) localStorage.setItem(pkey(k, email), v);
     } catch { /* ignore */ }
   }
   try {
     const exp = localStorage.getItem('__bera_sqlite_export__');
-    if (exp) localStorage.setItem(pkey('__bera_sqlite_export__'), exp);
+    if (exp) localStorage.setItem(pkey('__bera_sqlite_export__', email), exp);
   } catch { /* ignore */ }
 };
 
@@ -87,12 +87,12 @@ const restorePrefixedBackup = (email: string): boolean => {
   let found = false;
   for (const k of SYNC_KEYS) {
     try {
-      const v = localStorage.getItem(pkey(k));
+      const v = localStorage.getItem(pkey(k, email));
       if (v != null) { localStorage.setItem(k, v); found = true; }
     } catch { /* ignore */ }
   }
   try {
-    const exp = localStorage.getItem(pkey('__bera_sqlite_export__'));
+    const exp = localStorage.getItem(pkey('__bera_sqlite_export__', email));
     if (exp) { localStorage.setItem('__bera_sqlite_export__', exp); found = true; }
   } catch { /* ignore */ }
   return found;
@@ -107,15 +107,21 @@ export const ensureLocalDataOwner = (userId: string) => {
       savePrefixedBackup(prev);
       // 2. Clear current unprefixed localStorage
       clearLocalAppData();
-      // 3. Try restoring the new user's prefixed backup (data survives cloud failure)
+    }
+    // 3. Update LAST_SYNC_USER_KEY BEFORE restore so pkey() returns new user's prefix
+    localStorage.setItem(LAST_SYNC_USER_KEY, userId);
+    if (prev && prev !== userId) {
+      // 4. Try restoring the new user's prefixed backup
       restorePrefixedBackup(userId);
     }
-    localStorage.setItem(LAST_SYNC_USER_KEY, userId);
   } catch { /* ignore */ }
 };
 
 let syncTimer: ReturnType<typeof setTimeout> | null = null;
 let isApplyingRemote = false;
+
+/** Keep a reference to the original setItem so each startCloudSync patches from the same base. */
+const ORIGINAL_SET_ITEM = Storage.prototype.setItem;
 // Canal Realtime de type *Broadcast* uniquement (pas de postgres_changes).
 // Broadcast est un simple relais WebSocket : il ne lit jamais le WAL ni la base,
 // donc aucune charge DB. Sert à notifier les autres appareils qu'un pull est
@@ -278,12 +284,13 @@ const replaceImages = async (o: any): Promise<any> => {
 const collectLocalSnapshot = (): Record<string, unknown> => {
   const out: Record<string, unknown> = {};
   for (const k of SYNC_KEYS) {
+    const v = lsGet(k);
+    if (v == null) continue;
     try {
-      const v = lsGet(k);
-      if (v != null) out[k] = JSON.parse(v);
+      out[k] = JSON.parse(v);
     } catch {
-      const raw = lsGet(k);
-      if (raw != null) out[k] = raw;
+      // Valeur brute non-JSON : on la conserve telle quelle.
+      out[k] = v;
     }
   }
   try {
@@ -346,7 +353,11 @@ export const pushSnapshotToCloud = async (userId: string): Promise<boolean> => {
   const lib = (snapshot as any).beramethode_library;
   const plan = (snapshot as any).beramethode_planning;
   const sqlExp = (snapshot as any).__sqlite_export__;
-  if ((!Array.isArray(lib) || !lib.length) && (!Array.isArray(plan) || !plan.length) && (!sqlExp || !Object.keys(sqlExp).length)) {
+  const allEmpty = SYNC_KEYS.every(k => {
+    const v = (snapshot as any)[k];
+    return v == null || (Array.isArray(v) && v.length === 0) || (typeof v === 'object' && v.constructor === Object && !Object.keys(v).length);
+  });
+  if (allEmpty) {
     console.warn('[cloudSync] push annulé: snapshot local vide');
     return true; // rien d'important à pousser — une purge ne perdrait rien
   }
@@ -479,9 +490,10 @@ export const startCloudSync = (userId: string) => {
   if (!userId) return;
 
   // Push à chaque écriture d'une clé synchronisée, regroupé via PUSH_DEBOUNCE_MS.
-  const originalSetItem = Storage.prototype.setItem;
+  // Restore original first to prevent stacking layers of monkey-patches on repeated calls.
+  Storage.prototype.setItem = ORIGINAL_SET_ITEM;
   Storage.prototype.setItem = function (key: string, value: string) {
-    originalSetItem.call(this, key, value);
+    ORIGINAL_SET_ITEM.call(this, key, value);
     if (this === localStorage && isSyncKey(key, SYNC_KEYS) && !isApplyingRemote) {
       if (syncTimer) clearTimeout(syncTimer);
       syncTimer = setTimeout(() => pushSnapshotToCloud(userId), PUSH_DEBOUNCE_MS);
@@ -504,4 +516,6 @@ export const startCloudSync = (userId: string) => {
 export const stopCloudSync = () => {
   if (syncTimer) { clearTimeout(syncTimer); syncTimer = null; }
   if (syncChannel) { syncChannel.unsubscribe(); syncChannel = null; }
+  // Restore original setItem so no further writes trigger push
+  Storage.prototype.setItem = ORIGINAL_SET_ITEM;
 };

@@ -27,7 +27,7 @@ const VIEW_LABEL_TX: Record<string, TxMap> = {
 export default function ViewSwitcher({ value, onChange }: Props) {
     const { lang } = useLang();
     return (
-        <div className="inline-flex rounded-xl border border-slate-200/50 bg-slate-100/50 p-0.5 backdrop-blur-sm shadow-sm">
+        <div className="inline-flex rounded-xl border border-slate-200/50 dark:border-slate-700/50 bg-slate-100/50 dark:bg-slate-800/50 p-0.5 backdrop-blur-sm shadow-sm">
             {OPTIONS.map(({ id, label }) => (
                 <button
                     key={id}
@@ -35,8 +35,8 @@ export default function ViewSwitcher({ value, onChange }: Props) {
                     onClick={() => onChange(id)}
                     className={`px-3 py-1 rounded-lg text-[10px] font-bold transition-all duration-200 active:scale-95 ${
                         value === id
-                            ? 'bg-white text-indigo-650 shadow-[0_2px_8px_rgba(99,102,241,0.12)] ring-1 ring-slate-200/30'
-                            : 'text-slate-500 hover:text-slate-800 hover:bg-white/40'
+                            ? 'bg-white dark:bg-slate-700 text-indigo-650 dark:text-indigo-300 shadow-[0_2px_8px_rgba(99,102,241,0.12)] ring-1 ring-slate-200/30 dark:ring-slate-600/40'
+                            : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-100 hover:bg-white/40 dark:hover:bg-slate-700/40'
                     }`}
                 >
                     {tx(lang, VIEW_LABEL_TX[label])}

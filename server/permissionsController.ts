@@ -99,10 +99,18 @@ export const getMyPermissions = (req: Request, res: Response) => {
     // visibles côté frontend. Défaut 'societe' si colonne/ligne absente.
     let accountType = 'societe';
     try {
-      const row = db
-        .prepare('SELECT account_type FROM company_settings WHERE id = 1')
-        .get() as { account_type?: string } | undefined;
-      if (row?.account_type) accountType = row.account_type;
+      // Par workspace actif (meta.ownerId) ; repli sur le singleton pour le primaire/legacy.
+      const wsRow = db
+        .prepare('SELECT account_type FROM workspaces WHERE owner_id = ?')
+        .get(meta.ownerId) as { account_type?: string } | undefined;
+      if (wsRow?.account_type) {
+        accountType = wsRow.account_type;
+      } else {
+        const row = db
+          .prepare('SELECT account_type FROM company_settings WHERE id = 1')
+          .get() as { account_type?: string } | undefined;
+        if (row?.account_type) accountType = row.account_type;
+      }
     } catch { /* colonne absente (ancienne base) => societe */ }
     res.json({
       ok: true,

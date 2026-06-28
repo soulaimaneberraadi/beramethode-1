@@ -54,7 +54,7 @@ export default function QuickStats({ active, blocked, late, onClickActive, onCli
                     title={`${label} : ${value}`}
                 >
                     <Icon className={`w-3 h-3 ${color}`} strokeWidth={2.25} />
-                    <span className="text-[10px] font-medium text-slate-600">{label}</span>
+                    <span className="text-[10px] font-medium text-slate-600 dark:text-slate-400">{label}</span>
                     <span className={`text-[11px] font-bold tabular-nums ${color}`}>{value}</span>
                 </button>
             ))}
