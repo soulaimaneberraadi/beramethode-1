@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 
 export type ThemeMode = 'light' | 'dark' | 'system';
 
@@ -57,4 +57,16 @@ export function useTheme(): ThemeContextType {
     throw new Error('useTheme must be used within a ThemeProvider');
   }
   return context;
+}
+
+export function useIsDark(): boolean {
+  const { theme } = useTheme();
+  const [sys, setSys] = useState(() => matchMedia('(prefers-color-scheme:dark)').matches);
+  useEffect(() => {
+    const m = matchMedia('(prefers-color-scheme:dark)');
+    const h = () => setSys(m.matches);
+    m.addEventListener('change', h);
+    return () => m.removeEventListener('change', h);
+  }, []);
+  return theme === 'dark' || (theme === 'system' && sys);
 }

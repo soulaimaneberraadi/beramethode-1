@@ -9,6 +9,8 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;700;900&display=swap" rel="stylesheet">
+    <meta name="theme-color" content="#f8fafc" media="(prefers-color-scheme: light)">
+    <meta name="theme-color" content="#14211C" media="(prefers-color-scheme: dark)">
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
       tailwind.config = {
@@ -17,12 +19,33 @@
           extend: {
             fontFamily: {
               sans: ['Cairo', 'ui-sans-serif', 'system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'Helvetica Neue', 'Arial', 'sans-serif'],
-            }
+            },
+            colors: {
+              dk: {
+                bg:            '#14211C',
+                surface:       '#1D2E28',
+                elevated:      '#26392F',
+                border:        '#2E463C',
+                'border-soft': '#243A31',
+                text:          '#EAF1ED',
+                'text-soft':   '#C2D2CA',
+                muted:         '#9DB5AB',
+                accent:        '#2F9E64',
+                'accent-hover':'#37B473',
+                'accent-text': '#6EE7B7',
+              },
+            },
           }
         }
       }
     </script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <!-- Anti-FOUC: يطبق الثيم قبل أول رسم -->
+    <script>
+      (function(){try{var t=localStorage.getItem('bera_theme');
+       var d=t==='dark'||((!t||t==='system')&&matchMedia('(prefers-color-scheme:dark)').matches);
+       if(d)document.documentElement.classList.add('dark');}catch(e){}})();
+    </script>
 
     <style>
       /* Premium subtle scrollbars */
@@ -192,6 +215,43 @@
         .gestion-rh-head-compact {
           padding: 10px 12px !important;
         }
+      }
+
+      /* ===== DARK MODE — Forest Green #1D2E28 ===== */
+      :root { color-scheme: light; }
+      .dark { color-scheme: dark; }
+
+      .dark .glass-surface,
+      .dark .glass-surface-interactive {
+        background: rgba(29,46,40,0.72);
+        border-color: rgba(157,181,171,0.12);
+      }
+      .dark .glass-surface-elevated {
+        background: rgba(38,57,47,0.85);
+        border-color: rgba(157,181,171,0.18);
+      }
+      .dark .glass-surface-interactive:hover {
+        background: rgba(38,57,47,0.88);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.35);
+      }
+      .dark .glass-card {
+        background: rgba(20,33,28,0.72) !important;
+        border-color: rgba(157,181,171,0.10) !important;
+      }
+
+      .dark .ptg-row:hover { background: rgba(38,57,47,0.6) !important; }
+      .dark .ptg-row:hover td:first-child { background: rgba(38,57,47,0.6) !important; }
+
+      .dark ::-webkit-scrollbar-thumb {
+        background: rgba(194,210,202,0.18) !important;
+      }
+      .dark ::-webkit-scrollbar-thumb:hover {
+        background: rgba(194,210,202,0.3) !important;
+      }
+
+      @media print {
+        :root, .dark { color-scheme: light; }
+        .dark * { background: #fff !important; color: #000 !important; }
       }
     </style>
   </head>
