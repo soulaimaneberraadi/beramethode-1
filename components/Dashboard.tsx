@@ -1,6 +1,6 @@
 import React, { useMemo, useState, useEffect, useCallback, useRef } from 'react';
 import { ModelData, SuiviData, PlanningEvent, AppSettings, AppTask } from '../types';
-import { Users, Activity, Layers, TrendingUp, Download, AlertTriangle, ShieldAlert, CheckCircle2, CalendarClock, ChevronRight, Factory, Package, DollarSign, RefreshCw, Calendar as CalendarIcon } from 'lucide-react';
+import { Users, Activity, Layers, TrendingUp, Download, AlertTriangle, ShieldAlert, CheckCircle2, CalendarClock, ChevronRight, Factory, Package, DollarSign, Calendar as CalendarIcon } from 'lucide-react';
 import {
   LineChart,
   Line,
@@ -481,20 +481,6 @@ export default function Dashboard({ models, suivis, planningEvents, settings, se
               {tx(lang, { fr: 'MAJ', ar: 'تحديث', en: 'Upd.', es: 'Act.', pt: 'Atu.', tr: 'Gün.' })} {relTime(lastUpdate, nowTick, lang)}
             </span>
           )}
-          <button
-            type="button"
-            onClick={fetchKPIs}
-            disabled={kpiLoading}
-            title={
-              liveConnected
-                ? tx(lang, { fr: `En direct${lastUpdate ? ` - dernier MAJ ${new Date(lastUpdate).toLocaleTimeString()}` : ''}`, ar: `مباشر${lastUpdate ? ` - آخر تحديث ${new Date(lastUpdate).toLocaleTimeString()}` : ''}`, en: `Live${lastUpdate ? ` - last update ${new Date(lastUpdate).toLocaleTimeString()}` : ''}`, es: `En directo${lastUpdate ? ` - última actualización ${new Date(lastUpdate).toLocaleTimeString()}` : ''}`, pt: `Em direto${lastUpdate ? ` - última atualização ${new Date(lastUpdate).toLocaleTimeString()}` : ''}`, tr: `Canlı${lastUpdate ? ` - son güncelleme ${new Date(lastUpdate).toLocaleTimeString()}` : ''}` })
-                : tx(lang, { fr: 'Hors ligne - cliquer pour rafraichir', ar: 'غير متصل - اضغط للتحديث', en: 'Offline - click to refresh', es: 'Sin conexión - haga clic para actualizar', pt: 'Offline - clique para atualizar', tr: 'Çevrimdışı - yenilemek için tıklayın' })
-            }
-            aria-label={tx(lang, { fr: 'Rafraichir les KPIs', ar: 'تحديث مؤشرات الأداء', en: 'Refresh KPIs', es: 'Actualizar KPIs', pt: 'Atualizar KPIs', tr: 'KPI\'ları Yenile' })}
-            className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface hover:bg-slate-50 dark:hover:bg-dk-elevated/60 active:scale-95 transition-all flex items-center justify-center text-slate-600 dark:text-dk-text-soft hover:text-slate-900 disabled:opacity-60 disabled:cursor-not-allowed"
-          >
-            <RefreshCw className={`w-4 h-4 ${kpiLoading ? 'animate-spin' : ''}`} />
-          </button>
         </div>
       </div>
 
