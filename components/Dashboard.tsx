@@ -397,6 +397,16 @@ export default function Dashboard({ models, suivis, planningEvents, settings, se
     catch { return ''; }
   }, [lang]);
 
+  // Variation de production vs hier (données locales = fiable, pas d'estimation).
+  const prodTrend = useMemo(() => {
+    const d = new Date();
+    d.setDate(d.getDate() - 1);
+    const yStr = d.toISOString().split('T')[0];
+    const yProd = suivis.filter(s => s.date === yStr).reduce((a, s) => a + (s.totalHeure || 0), 0);
+    if (yProd <= 0) return null;
+    return Math.round(((productionStats.pJournaliere - yProd) / yProd) * 100);
+  }, [suivis, productionStats.pJournaliere]);
+
   const [skipReasonModal, setSkipReasonModal] = useState<AppTask | null>(null);
   const [skipReasonText, setSkipReasonText] = useState('');
 
@@ -467,7 +477,7 @@ export default function Dashboard({ models, suivis, planningEvents, settings, se
         </div>
         <div className="flex items-center gap-2 sm:gap-3 shrink-0">
           {/* Pastille de statut live — lisible d'un coup d'œil */}
-          <span className={`hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-bold border ${liveConnected ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 border-emerald-200/70 dark:border-emerald-900/40' : 'bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 border-amber-200/70 dark:border-amber-900/40'}`}>
+          <span className={`inline-flex items-center gap-1.5 px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-lg text-[10px] sm:text-[11px] font-bold border ${liveConnected ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 border-emerald-200/70 dark:border-emerald-900/40' : 'bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 border-amber-200/70 dark:border-amber-900/40'}`}>
             <span className={`w-1.5 h-1.5 rounded-full ${liveConnected ? 'bg-emerald-500 animate-pulse' : 'bg-amber-400'}`} aria-hidden />
             {liveConnected ? tx(lang, { fr: 'En direct', ar: 'مباشر', en: 'Live', es: 'En directo', pt: 'Em direto', tr: 'Canlı' }) : tx(lang, { fr: 'Hors ligne', ar: 'غير متصل', en: 'Offline', es: 'Sin conexión', pt: 'Offline', tr: 'Çevrimdışı' })}
           </span>
@@ -526,6 +536,11 @@ export default function Dashboard({ models, suivis, planningEvents, settings, se
                   <div className="flex items-baseline gap-2 mt-1.5 flex-wrap">
                     <span className="text-3xl sm:text-4xl font-black text-slate-800 dark:text-dk-text tracking-tight tabular-nums leading-none">{pj.toLocaleString()}</span>
                     <span className="text-sm text-slate-400 dark:text-dk-muted font-medium">/ {target.toLocaleString()} {tx(lang, { fr: 'pcs', ar: 'قطعة', en: 'pcs', es: 'pzs', pt: 'pçs', tr: 'adet' })}</span>
+                    {prodTrend !== null && (
+                      <span className={`inline-flex items-center gap-0.5 text-[11px] font-bold px-1.5 py-0.5 rounded-md ${prodTrend >= 0 ? 'text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/25' : 'text-rose-700 dark:text-rose-400 bg-rose-50 dark:bg-rose-900/25'}`} title={tx(lang, { fr: 'vs hier', ar: 'مقارنة بالأمس', en: 'vs yesterday', es: 'vs ayer', pt: 'vs ontem', tr: 'düne göre' })}>
+                        {prodTrend >= 0 ? '↑' : '↓'} {prodTrend >= 0 ? '+' : ''}{prodTrend}%
+                      </span>
+                    )}
                   </div>
                   <div className="mt-3 h-2 rounded-full bg-slate-100 dark:bg-dk-elevated/60 overflow-hidden">
                     <div className="h-full rounded-full transition-all duration-500" style={{ width: `${pct}%`, backgroundColor: pct >= 100 ? '#10b981' : '#6366f1' }} />
@@ -540,7 +555,7 @@ export default function Dashboard({ models, suivis, planningEvents, settings, se
                   </div>
                 </div>
                 {/* TRS ring */}
-                <button type="button" onClick={() => onNavigateModule?.('rendement')} aria-label={tx(lang, { fr: 'Voir le rendement', ar: 'عرض المردودية', en: 'View efficiency', es: 'Ver rendimiento', pt: 'Ver rendimento', tr: 'Verimliliği gör' })} className="py-4 sm:py-0 sm:px-5 flex items-center justify-center gap-3 group hover:bg-slate-50/70 dark:hover:bg-dk-bg/40 sm:rounded-lg transition-colors">
+                <button type="button" onClick={() => onNavigateModule?.('rendement')} aria-label={tx(lang, { fr: 'Voir le rendement', ar: 'عرض المردودية', en: 'View efficiency', es: 'Ver rendimiento', pt: 'Ver rendimento', tr: 'Verimliliği gör' })} title={tx(lang, { fr: 'TRS = Disponibilité × Performance × Qualité', ar: 'TRS = التوفّر × الأداء × الجودة', en: 'TRS = Availability × Performance × Quality', es: 'TRS = Disponibilidad × Rendimiento × Calidad', pt: 'TRS = Disponibilidade × Desempenho × Qualidade', tr: 'TRS = Kullanılabilirlik × Performans × Kalite' })} className="py-4 sm:py-0 sm:px-5 flex items-center justify-center gap-3 group hover:bg-slate-50/70 dark:hover:bg-dk-bg/40 sm:rounded-lg transition-colors">
                   <div className="relative w-[78px] h-[78px] shrink-0">
                     <svg width="78" height="78" viewBox="0 0 78 78" className="-rotate-90">
                       <circle cx="39" cy="39" r="32" fill="none" className="stroke-slate-100 dark:stroke-dk-bg" strokeWidth="8" />
