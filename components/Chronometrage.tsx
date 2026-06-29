@@ -4372,7 +4372,7 @@ export default function Chronometrage({
                                             <tr className="bg-slate-50 dark:bg-dk-bg text-slate-500 dark:text-dk-muted border-b border-slate-200 dark:border-dk-border">
                                                 <th className="py-2.5 px-3 text-left font-black sticky left-0 bg-slate-50 dark:bg-dk-bg min-w-[140px]">{tx(lang, { fr: 'Opération', ar: 'العملية', en: 'Operation', es: 'Operación', pt: 'Operação', tr: 'Operasyon' })}</th>
                                                 {sessions.map((s, i) => (
-                                                    <th key={s.id} className={`py-2.5 px-2 text-center font-bold min-w-[60px] ${s h.id === selectedSession.id ? 'bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 text-indigo-700 dark:text-dk-accent-text' : ''}`} title={s.label}>
+                                                    <th key={s.id} className={`py-2.5 px-2 text-center font-bold min-w-[60px] ${s.id === selectedSession.id ? 'bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 text-indigo-700 dark:text-dk-accent-text' : ''}`} title={s.label}>
                                                         #{i + 1}
                                                     </th>
                                                 ))}
