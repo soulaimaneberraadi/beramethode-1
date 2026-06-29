@@ -462,13 +462,8 @@ export default function Dashboard({ models, suivis, planningEvents, settings, se
       {/* HEADER */}
       <div className="bg-white dark:bg-dk-surface border-b border-slate-200 dark:border-dk-border px-3 sm:px-4 md:px-6 py-3 sm:py-4 flex justify-between items-center shrink-0 sticky top-0 z-10">
         <div className="flex items-center gap-2 sm:gap-3 md:gap-4 min-w-0">
-          <div className="shrink-0">
-            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-indigo-50 dark:bg-dk-accent/15 border border-indigo-100 dark:border-dk-border flex items-center justify-center text-indigo-600 dark:text-dk-accent-text">
-              <TrendingUp className="w-4.5 h-4.5 sm:w-5 sm:h-5" strokeWidth={2.2} />
-            </div>
-          </div>
           <div className="min-w-0">
-            <h1 className="text-base sm:text-lg md:text-xl font-black text-slate-800 dark:text-dk-text tracking-tight truncate">{tx(lang, { fr: 'Tableau de Bord', ar: 'لوحة القيادة', en: 'Dashboard', es: 'Panel de Control', pt: 'Painel de Controle', tr: 'Kontrol Paneli' })}</h1>
+            <h1 className="text-lg sm:text-xl md:text-2xl font-black text-slate-800 dark:text-dk-text tracking-tight truncate">{tx(lang, { fr: 'Tableau de Bord', ar: 'لوحة القيادة', en: 'Dashboard', es: 'Panel de Control', pt: 'Painel de Controle', tr: 'Kontrol Paneli' })}</h1>
             <p className="text-[10px] sm:text-xs text-slate-400 dark:text-dk-muted font-medium hidden sm:block">
               <span className="text-slate-500 dark:text-dk-text-soft font-semibold">{greeting}</span>
               {todayLabel ? <span className="capitalize"> · {todayLabel}</span> : null}
@@ -496,17 +491,9 @@ export default function Dashboard({ models, suivis, planningEvents, settings, se
                 : tx(lang, { fr: 'Hors ligne - cliquer pour rafraichir', ar: 'غير متصل - اضغط للتحديث', en: 'Offline - click to refresh', es: 'Sin conexión - haga clic para actualizar', pt: 'Offline - clique para atualizar', tr: 'Çevrimdışı - yenilemek için tıklayın' })
             }
             aria-label={tx(lang, { fr: 'Rafraichir les KPIs', ar: 'تحديث مؤشرات الأداء', en: 'Refresh KPIs', es: 'Actualizar KPIs', pt: 'Atualizar KPIs', tr: 'KPI\'ları Yenile' })}
-            className="relative w-9 h-9 sm:w-10 sm:h-10 rounded-xl border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface hover:bg-slate-50 dark:hover:bg-dk-elevated/60 active:scale-95 transition-all flex items-center justify-center text-slate-600 dark:text-dk-text-soft hover:text-slate-900 disabled:opacity-60 disabled:cursor-not-allowed"
+            className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface hover:bg-slate-50 dark:hover:bg-dk-elevated/60 active:scale-95 transition-all flex items-center justify-center text-slate-600 dark:text-dk-text-soft hover:text-slate-900 disabled:opacity-60 disabled:cursor-not-allowed"
           >
             <RefreshCw className={`w-4 h-4 ${kpiLoading ? 'animate-spin' : ''}`} />
-            <span
-              className={`absolute top-1 right-1 w-1.5 h-1.5 rounded-full ${
-                liveConnected
-                  ? 'bg-emerald-500 animate-pulse'
-                  : 'bg-amber-400'
-              }`}
-              aria-hidden
-            />
           </button>
         </div>
       </div>
