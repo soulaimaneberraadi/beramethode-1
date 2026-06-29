@@ -2,13 +2,16 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
 import {
   Trash2, Shield, User, Search, AlertCircle, Download, GitMerge, Database,
-  Building2, Users, ImageUp, Check, ChevronRight,
+  Building2, Users, ImageUp, Check, ChevronRight, KeyRound, SlidersHorizontal,
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { tx } from '../../lib/i18n';
 import { useLang } from '../context/LanguageContext';
 import { usePermissions } from '../context/PermissionsContext';
 import PermissionsManager from '../../components/PermissionsManager';
+import LicenseActivation from '../../components/LicenseActivation';
+import { CompanyParamsSection, StructureSection } from '../../components/admin/AdminConfigSections';
+import type { AppSettings, Machine } from '../../types';
 
 interface UserData {
   id: number;
@@ -29,7 +32,14 @@ interface CompanyInfo {
   profileMeta: Record<string, any> | null;
 }
 
-type Tab = 'company' | 'team' | 'users' | 'data';
+type Tab = 'company' | 'team' | 'users' | 'data' | 'license';
+
+interface AdminDashboardProps {
+  settings: AppSettings;
+  setSettings: React.Dispatch<React.SetStateAction<AppSettings>>;
+  machines: Machine[];
+  lang?: any;
+}
 
 // ── Étiquettes des types de compte (multilingue) ────────────────────────────
 const TYPE_LABEL = (t: AccountType, lang: any) => ({
@@ -46,7 +56,7 @@ const TYPE_DESC = (t: AccountType, lang: any) => ({
 const api = (url: string, opts?: RequestInit) =>
   fetch(url, { credentials: 'include', headers: { 'Content-Type': 'application/json' }, ...opts }).then(r => r.json());
 
-export default function AdminDashboard() {
+export default function AdminDashboard({ settings, setSettings, machines }: AdminDashboardProps) {
   const { user } = useAuth();
   const { lang } = useLang();
   const { accountType: ctxAccountType, refresh: refreshPermissions } = usePermissions();
@@ -206,6 +216,7 @@ export default function AdminDashboard() {
     { key: 'team', label: tx(lang, { fr: 'Équipe & rôles', ar: 'الفريق والصلاحيات', en: 'Team & roles', es: 'Equipo y roles', pt: 'Equipa e funções', tr: 'Ekip ve roller' }), icon: Shield, show: isSociete },
     { key: 'users', label: tx(lang, { fr: 'Comptes', ar: 'الحسابات', en: 'Accounts', es: 'Cuentas', pt: 'Contas', tr: 'Hesaplar' }), icon: Users, show: true },
     { key: 'data', label: tx(lang, { fr: 'Données', ar: 'البيانات', en: 'Data', es: 'Datos', pt: 'Dados', tr: 'Veri' }), icon: Database, show: true },
+    { key: 'license', label: tx(lang, { fr: 'Licence', ar: 'الترخيص', en: 'License', es: 'Licencia', pt: 'Licença', tr: 'Lisans' }), icon: KeyRound, show: true },
   ];
   const visibleTabs = TABS.filter(t => t.show);
   const activeTab = visibleTabs.some(t => t.key === tab) ? tab : 'company';
@@ -333,13 +344,26 @@ export default function AdminDashboard() {
                 )}
               </>
             )}
+
+            {/* Paramètres de production de l'entreprise (devise, coût minute, horaires) */}
+            <div className="pt-2">
+              <div className="flex items-center gap-2 mb-3">
+                <SlidersHorizontal className="w-4 h-4 text-emerald-600 dark:text-emerald-400" strokeWidth={1.75} />
+                <h2 className="text-sm font-bold text-slate-700 dark:text-dk-text uppercase tracking-wide">{tx(lang, { fr: 'Paramètres de production', ar: 'إعدادات الإنتاج', en: 'Production settings', es: 'Ajustes de producción', pt: 'Definições de produção', tr: 'Üretim ayarları' })}</h2>
+              </div>
+              <CompanyParamsSection settings={settings} setSettings={setSettings} lang={lang} />
+            </div>
           </div>
         )}
 
         {/* ── TEAM TAB (société) ──────────────────────────────────────────── */}
         {activeTab === 'team' && (
-          <div className="bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border shadow-sm">
-            <PermissionsManager />
+          <div className="space-y-6">
+            <div className="bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border shadow-sm">
+              <PermissionsManager />
+            </div>
+            {/* Structure & encadrement (organigramme, chaînes, machines par chaîne) */}
+            <StructureSection settings={settings} setSettings={setSettings} lang={lang} machines={machines} />
           </div>
         )}
 
@@ -446,6 +470,18 @@ export default function AdminDashboard() {
                 {mergeResult && <div className={`text-xs font-medium p-3 rounded-lg ${mergeResult.startsWith('✅') ? 'bg-emerald-50 dark:bg-emerald-900/30 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300' : 'bg-rose-50 dark:bg-rose-900/30 dark:bg-rose-900/20 text-rose-700 dark:text-rose-300'}`}>{mergeResult}</div>}
               </div>
             </div>
+          </div>
+        )}
+
+        {/* ── LICENSE TAB ─────────────────────────────────────────────────── */}
+        {activeTab === 'license' && (
+          <div className="bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border shadow-sm p-5 sm:p-6 space-y-4 max-w-2xl">
+            <div className="flex items-center gap-2">
+              <KeyRound className="w-4 h-4 text-emerald-600 dark:text-emerald-400" strokeWidth={1.75} />
+              <h2 className="text-sm font-bold text-slate-700 dark:text-dk-text uppercase tracking-wide">{tx(lang, { fr: 'Licence / Abonnement', ar: 'الترخيص / الاشتراك', en: 'License / Subscription', es: 'Licencia / Suscripción', pt: 'Licença / Subscrição', tr: 'Lisans / Abonelik' })}</h2>
+            </div>
+            <p className="text-xs text-slate-500 dark:text-dk-muted">{tx(lang, { fr: 'Activez BERAMETHODE avec votre clé de licence.', ar: 'فعّل BERAMETHODE باستعمال مفتاح الترخيص الخاص بك.', en: 'Activate BERAMETHODE with your license key.', es: 'Active BERAMETHODE con su clave de licencia.', pt: 'Ative o BERAMETHODE com a sua chave de licença.', tr: 'BERAMETHODE’u lisans anahtarınızla etkinleştirin.' })}</p>
+            <LicenseActivation lang={lang === 'ar' ? 'ar' : 'fr'} />
           </div>
         )}
 

@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect, useCallback, useRef, Suspense, lazy } from 'react';
 import { preloadAllChunks } from './lib/preloader';
+import { lsGet, lsSet } from './lib/storageKeys';
 import './src/context/ThemeContext';
 import GlobalLoader from './components/GlobalLoader';
 import { ErrorBoundary } from './components/ErrorBoundary';
@@ -86,6 +87,16 @@ type HistoryState = {
 };
 
 const IS_STATIC = import.meta.env.VITE_STATIC_MODE === 'true';
+
+// Lecture des clés synchronisées : on lit la clé *préfixée par compte* (même
+// convention que cloudSync + apiShim). Repli sur l'ancienne clé non-préfixée
+// pour migrer en douceur les anciennes données locales (une seule fois : le
+// prochain lsSet réécrit en version préfixée).
+const lsGetMig = (key: string): string | null => {
+    const scoped = lsGet(key);
+    if (scoped != null) return scoped;
+    try { return localStorage.getItem(key); } catch { return null; }
+};
 
 export default function App() {
     const { user, loading: authLoading, logout: authLogout, login } = useAuth();
@@ -243,7 +254,7 @@ export default function App() {
             { id: 'config', name: 'Config', views: ['machin', 'rendement', 'pageMachine', 'config'] }
         ];
         try {
-            const s = localStorage.getItem('bera_nav_config');
+            const s = lsGetMig('bera_nav_config');
             if (s) {
                 const parsed = JSON.parse(s);
                 if (!parsed.style) parsed.style = 'dropdown';
@@ -305,7 +316,7 @@ export default function App() {
             categories: defaultCategories
         };
     });
-    const saveNavConfig = (cfg: typeof navConfig) => { setNavConfig(cfg); localStorage.setItem('bera_nav_config', JSON.stringify(cfg)); };
+    const saveNavConfig = (cfg: typeof navConfig) => { setNavConfig(cfg); lsSet('bera_nav_config', JSON.stringify(cfg)); };
     const navOrder = navConfig.order.length ? navConfig.order : defaultNavOrder;
     // Config de nav effective : fusionne les modules masqués par la licence,
     // les permissions, et le type de compte (société = rien masqué).
@@ -390,9 +401,9 @@ export default function App() {
 
     useEffect(() => {
         const loadFromLocal = () => {
-            try { const s = localStorage.getItem('beramethode_planning'); setPlanningEvents(s ? JSON.parse(s) : []); } catch { setPlanningEvents([]); }
-            try { const s = localStorage.getItem('beramethode_suivis'); setSuivis(s ? JSON.parse(s) : []); } catch { setSuivis([]); }
-            try { const s = localStorage.getItem('beramethode_demandesAppro'); setDemandesAppro(s ? JSON.parse(s) : []); } catch { setDemandesAppro([]); }
+            try { const s = lsGetMig('beramethode_planning'); setPlanningEvents(s ? JSON.parse(s) : []); } catch { setPlanningEvents([]); }
+            try { const s = lsGetMig('beramethode_suivis'); setSuivis(s ? JSON.parse(s) : []); } catch { setSuivis([]); }
+            try { const s = lsGetMig('beramethode_demandesAppro'); setDemandesAppro(s ? JSON.parse(s) : []); } catch { setDemandesAppro([]); }
         };
         if (user && !IS_STATIC) {
             // Nouveau compte / rechargement : on bloque l'auto-save tant que le GET
@@ -431,10 +442,14 @@ export default function App() {
     useEffect(() => {
         if (!user || IS_STATIC) {
             // Guest & static (Vercel): persist to localStorage; cloudSync handles upstream sync.
-            localStorage.setItem('beramethode_planning', JSON.stringify(planningEvents));
+            // ⚠️ On n'écrit JAMAIS un tableau vide : au montage l'état initial est []
+            // AVANT que loadFromLocal n'hydrate, et comme on lit/écrit désormais la
+            // MÊME clé préfixée, un écrit vide effacerait les données (perte). Même
+            // garde que la persistance de `models` (models.length > 0).
+            if (planningEvents.length > 0) lsSet('beramethode_planning', JSON.stringify(planningEvents));
             if (!user) {
-                localStorage.setItem('beramethode_suivis', JSON.stringify(suivis));
-                localStorage.setItem('beramethode_demandesAppro', JSON.stringify(demandesAppro));
+                if (suivis.length > 0) lsSet('beramethode_suivis', JSON.stringify(suivis));
+                if (demandesAppro.length > 0) lsSet('beramethode_demandesAppro', JSON.stringify(demandesAppro));
             }
             return;
         }
@@ -449,7 +464,8 @@ export default function App() {
     useEffect(() => {
         if (!user) return;
         if (IS_STATIC) {
-            localStorage.setItem('beramethode_suivis', JSON.stringify(suivis));
+            // Idem : ne pas écraser un suivi existant par [] avant hydratation.
+            if (suivis.length > 0) lsSet('beramethode_suivis', JSON.stringify(suivis));
             return;
         }
         // Tant que le GET initial n'a pas répondu, on ne POST pas (état encore à []).
@@ -480,15 +496,15 @@ export default function App() {
     const [layoutMemory, setLayoutMemory] = useState<Record<string, { id: string, x?: number, y?: number, isPlaced?: boolean, rotation?: number }[]>>({});
     const [activeLayout, setActiveLayout] = useState<'zigzag' | 'free' | 'line' | 'double-zigzag'>('double-zigzag');
     const [manualLinks, setManualLinks] = useState<ManualLink[]>(() => {
-        try { const saved = localStorage.getItem('beramethode_manual_links'); return saved ? JSON.parse(saved) : []; } catch { return []; }
+        try { const saved = lsGetMig('beramethode_manual_links'); return saved ? JSON.parse(saved) : []; } catch { return []; }
     });
     const [savedPlantations, setSavedPlantations] = useState<{ id: string, name: string, date: string, layoutType: string, postes: { id: string, x?: number, y?: number, isPlaced?: boolean, rotation?: number }[] }[]>([]);
 
     const [globalSettings, setGlobalSettings] = useState<AppSettings>(() => {
-        try { const saved = localStorage.getItem('beramethode_settings'); return saved ? JSON.parse(saved) : DEFAULT_SETTINGS; } catch { return DEFAULT_SETTINGS; }
+        try { const saved = lsGetMig('beramethode_settings'); return saved ? JSON.parse(saved) : DEFAULT_SETTINGS; } catch { return DEFAULT_SETTINGS; }
     });
 
-    useEffect(() => { localStorage.setItem('beramethode_settings', JSON.stringify(globalSettings)); }, [globalSettings]);
+    useEffect(() => { lsSet('beramethode_settings', JSON.stringify(globalSettings)); }, [globalSettings]);
 
     const [machines, setMachines] = useState<Machine[]>(loadMachinesFromStorage);
     const [machineFleetHistory, setMachineFleetHistory] = useState<MachineFleetHistoryEntry[]>(loadMachineFleetHistoryFromStorage);
@@ -967,7 +983,7 @@ export default function App() {
     // Autosave effect moved below useAppModelManager to allow silent background saving of model data
 
     useEffect(() => {
-        localStorage.setItem('beramethode_manual_links', JSON.stringify(manualLinks));
+        lsSet('beramethode_manual_links', JSON.stringify(manualLinks));
         if (!user || IS_STATIC) return;
         const timer = setTimeout(() => {
             fetch('/api/settings', { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ manual_links: manualLinks }) }).catch(() => { });
@@ -1054,7 +1070,7 @@ export default function App() {
             // Persist locally if offline/guest
             if (!user) {
                 try {
-                    localStorage.setItem('beramethode_planning', JSON.stringify(rolled));
+                    lsSet('beramethode_planning', JSON.stringify(rolled));
                 } catch (e) {}
             }
 
@@ -1064,7 +1080,7 @@ export default function App() {
 
     useEffect(() => {
         const loadFromLocal = () => {
-            const savedLibrary = localStorage.getItem(LIBRARY_KEY);
+            const savedLibrary = lsGetMig(LIBRARY_KEY);
             if (savedLibrary) {
                 try {
                     const parsed = JSON.parse(savedLibrary);
@@ -1110,7 +1126,7 @@ export default function App() {
     useEffect(() => {
         if ((!user || IS_STATIC) && models.length > 0) {
             try {
-                localStorage.setItem(LIBRARY_KEY, JSON.stringify(models));
+                lsSet(LIBRARY_KEY, JSON.stringify(models));
             } catch (e) {
                 console.error("Failed to save Library (Quota?)", e);
             }
@@ -1228,7 +1244,7 @@ export default function App() {
                             try {
                                 const savedLang = localStorage.getItem('bera_lang');
                                 if (savedLang && ['fr', 'ar', 'en', 'es', 'pt', 'tr'].includes(savedLang)) setLang(savedLang as Lang);
-                                const savedSettings = localStorage.getItem('beramethode_settings');
+                                const savedSettings = lsGetMig('beramethode_settings');
                                 if (savedSettings) setGlobalSettings({ ...DEFAULT_SETTINGS, ...JSON.parse(savedSettings) });
                             } catch { /* non bloquant */ }
                         }}
@@ -1804,7 +1820,13 @@ export default function App() {
                         </div>
                     )}
 
-                    {currentView === 'admin' && user?.role === 'admin' && <AdminDashboard />}
+                    {currentView === 'admin' && user?.role === 'admin' && (
+                        <AdminDashboard
+                            settings={globalSettings}
+                            setSettings={setGlobalSettings}
+                            machines={machines}
+                        />
+                    )}
 
                     {currentView === 'sousTraitance' && (
                         <div className="flex-1 min-h-0 flex flex-col overflow-hidden w-full">
