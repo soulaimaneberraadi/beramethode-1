@@ -19,9 +19,9 @@ const OPTIONS: { id: ViewKind; label: string }[] = [
 
 const VIEW_LABEL_TX: Record<string, TxMap> = {
     'Gantt': { fr: 'Gantt', ar: 'Gantt', en: 'Gantt', es: 'Gantt', pt: 'Gantt', tr: 'Gantt' },
-    'Calendrier': { fr: 'Calendrier', ar: 'ØªÙ‚ÙˆÙŠÙ…', en: 'Calendar', es: 'Calendario', pt: 'CalendÃ¡rio', tr: 'Takvim' },
-    'Cartes': { fr: 'Cartes', ar: 'Ø¨Ø·Ø§Ù‚Ø§Øª', en: 'Cards', es: 'Tarjetas', pt: 'CartÃµes', tr: 'Kartlar' },
-    'Simulateur': { fr: 'Simulateur', ar: 'Ù…Ø­Ø§ÙƒÙŠ', en: 'Simulator', es: 'Simulador', pt: 'Simulador', tr: 'SimÃ¼latÃ¶r' },
+    'Calendrier': { fr: 'Calendrier', ar: 'تقويم', en: 'Calendar', es: 'Calendario', pt: 'Calendário', tr: 'Takvim' },
+    'Cartes': { fr: 'Cartes', ar: 'بطاقات', en: 'Cards', es: 'Tarjetas', pt: 'Cartões', tr: 'Kartlar' },
+    'Simulateur': { fr: 'Simulateur', ar: 'محاكي', en: 'Simulator', es: 'Simulador', pt: 'Simulador', tr: 'Simülatör' },
 };
 
 export default function ViewSwitcher({ value, onChange }: Props) {

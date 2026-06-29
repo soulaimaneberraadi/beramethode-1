@@ -36,39 +36,39 @@ const PEDIDO_LABELS = {
         identification: 'Identification de la Commande',
         client: 'Client',
         clientPlaceholder: 'Nom du Client',
-        modelRef: 'ModÃ¨le / RÃ©f',
-        modelPlaceholder: 'RÃ©fÃ©rence ModÃ¨le',
-        category: 'CatÃ©gorie',
+        modelRef: 'Modèle / Réf',
+        modelPlaceholder: 'Référence Modèle',
+        category: 'Catégorie',
         optional: 'facultatif',
         categoryPlaceholder: 'Famille produit (ex. T-Shirt)',
-        categoryHelp: 'Laisse vide si besoin : tu peux passer aux Ã©tapes suivantes et enregistrer sans catÃ©gorie.',
+        categoryHelp: 'Laisse vide si besoin : tu peux passer aux étapes suivantes et enregistrer sans catégorie.',
         launchTitle: 'Date & heure de lancement',
         chooseDate: 'Choisir une date',
-        pickLaunchTime: 'Choisir lâ€™heure de lancement',
+        pickLaunchTime: 'Choisir l’heure de lancement',
         timePickerDialog: 'Grille heure et minutes',
         hoursHeading: 'Heures (24h)',
         minutesHeading: 'Minutes',
         badge24h: '24h',
-        launchHelp: 'Heure en 24 h â€” alignÃ©e avec le Planning et le Suivi Ã  lâ€™enregistrement du modÃ¨le.',
+        launchHelp: 'Heure en 24 h — alignée avec le Planning et le Suivi à l’enregistrement du modèle.',
     },
     ar: {
-        identification: 'ØªØ¹Ø±ÙŠÙ Ø§Ù„Ø·Ù„Ø¨ÙŠØ©',
-        client: 'Ø§Ù„Ø¹Ù…ÙŠÙ„',
-        clientPlaceholder: 'Ø§Ø³Ù… Ø§Ù„Ø¹Ù…ÙŠÙ„',
-        modelRef: 'Ø§Ù„Ù…ÙˆØ¯ÙŠÙ„ / Ø§Ù„Ù…Ø±Ø¬Ø¹',
-        modelPlaceholder: 'Ù…Ø±Ø¬Ø¹ Ø§Ù„Ù…ÙˆØ¯ÙŠÙ„',
-        category: 'Ø§Ù„ÙØ¦Ø©',
-        optional: 'Ø§Ø®ØªÙŠØ§Ø±ÙŠ',
-        categoryPlaceholder: 'Ø¹Ø§Ø¦Ù„Ø© Ø§Ù„Ù…Ù†ØªØ¬ (Ù…Ø«Ø§Ù„: T-Shirt)',
-        categoryHelp: 'ÙŠÙ…ÙƒÙ† ØªØ±ÙƒÙ‡ ÙØ§Ø±ØºÙ‹Ø§: Ø§Ù„Ù…ØªØ§Ø¨Ø¹Ø© Ø¥Ù„Ù‰ Ø§Ù„Ù…Ø±Ø§Ø­Ù„ Ø§Ù„ØªØ§Ù„ÙŠØ© ÙˆØ§Ù„Ø­ÙØ¸ Ø¯ÙˆÙ† ÙØ¦Ø©.',
-        launchTitle: 'ØªØ§Ø±ÙŠØ® ÙˆÙˆÙ‚Øª Ø§Ù„Ø§Ù†Ø·Ù„Ø§Ù‚',
-        chooseDate: 'Ø§Ø®ØªØ± ØªØ§Ø±ÙŠØ®Ù‹Ø§',
-        pickLaunchTime: 'Ø§Ø®ØªØ± ÙˆÙ‚Øª Ø§Ù„Ø§Ù†Ø·Ù„Ø§Ù‚',
-        timePickerDialog: 'Ø¬Ø¯ÙˆÙ„ Ø§Ù„Ø³Ø§Ø¹Ø§Øª ÙˆØ§Ù„Ø¯Ù‚Ø§Ø¦Ù‚',
-        hoursHeading: 'Ø³Ø§Ø¹Ø§Øª (24)',
-        minutesHeading: 'Ø¯Ù‚Ø§Ø¦Ù‚',
+        identification: 'تعريف الطلبية',
+        client: 'العميل',
+        clientPlaceholder: 'اسم العميل',
+        modelRef: 'الموديل / المرجع',
+        modelPlaceholder: 'مرجع الموديل',
+        category: 'الفئة',
+        optional: 'اختياري',
+        categoryPlaceholder: 'عائلة المنتج (مثال: T-Shirt)',
+        categoryHelp: 'يمكن تركه فارغًا: المتابعة إلى المراحل التالية والحفظ دون فئة.',
+        launchTitle: 'تاريخ ووقت الانطلاق',
+        chooseDate: 'اختر تاريخًا',
+        pickLaunchTime: 'اختر وقت الانطلاق',
+        timePickerDialog: 'جدول الساعات والدقائق',
+        hoursHeading: 'ساعات (24)',
+        minutesHeading: 'دقائق',
         badge24h: '24',
-        launchHelp: 'ØªÙˆÙ‚ÙŠØª 24 Ø³Ø§Ø¹Ø© â€” ÙŠØªÙˆØ§ÙÙ‚ Ù…Ø¹ Ø§Ù„ØªØ®Ø·ÙŠØ· ÙˆØ§Ù„Ù…ØªØ§Ø¨Ø¹Ø© Ø¹Ù†Ø¯ Ø­ÙØ¸ Ø§Ù„Ù†Ù…ÙˆØ°Ø¬.',
+        launchHelp: 'توقيت 24 ساعة — يتوافق مع التخطيط والمتابعة عند حفظ النموذج.',
     },
     en: {
         identification: 'Order Identification',
@@ -87,64 +87,64 @@ const PEDIDO_LABELS = {
         hoursHeading: 'Hours (24h)',
         minutesHeading: 'Minutes',
         badge24h: '24h',
-        launchHelp: 'Time in 24h â€” aligned with the Planning and Tracking when the model is saved.',
+        launchHelp: 'Time in 24h — aligned with the Planning and Tracking when the model is saved.',
     },
     es: {
-        identification: 'IdentificaciÃ³n del Pedido',
+        identification: 'Identificación del Pedido',
         client: 'Cliente',
         clientPlaceholder: 'Nombre del Cliente',
         modelRef: 'Modelo / Ref',
         modelPlaceholder: 'Referencia del Modelo',
-        category: 'CategorÃ­a',
+        category: 'Categoría',
         optional: 'opcional',
         categoryPlaceholder: 'Familia de producto (ej. T-Shirt)',
-        categoryHelp: 'DÃ©jalo vacÃ­o si lo necesitas: puedes pasar a los siguientes pasos y guardar sin categorÃ­a.',
+        categoryHelp: 'Déjalo vacío si lo necesitas: puedes pasar a los siguientes pasos y guardar sin categoría.',
         launchTitle: 'Fecha y hora de lanzamiento',
         chooseDate: 'Elegir una fecha',
         pickLaunchTime: 'Elegir la hora de lanzamiento',
-        timePickerDialog: 'CuadrÃ­cula de horas y minutos',
+        timePickerDialog: 'Cuadrícula de horas y minutos',
         hoursHeading: 'Horas (24h)',
         minutesHeading: 'Minutos',
         badge24h: '24h',
-        launchHelp: 'Hora en 24h â€” alineada con la PlanificaciÃ³n y el Seguimiento al guardar el modelo.',
+        launchHelp: 'Hora en 24h — alineada con la Planificación y el Seguimiento al guardar el modelo.',
     },
     pt: {
-        identification: 'IdentificaÃ§Ã£o do Pedido',
+        identification: 'Identificação do Pedido',
         client: 'Cliente',
         clientPlaceholder: 'Nome do Cliente',
         modelRef: 'Modelo / Ref',
-        modelPlaceholder: 'ReferÃªncia do Modelo',
+        modelPlaceholder: 'Referência do Modelo',
         category: 'Categoria',
         optional: 'opcional',
-        categoryPlaceholder: 'FamÃ­lia de produto (ex. T-Shirt)',
-        categoryHelp: 'Deixe vazio se necessÃ¡rio: pode passar para as etapas seguintes e guardar sem categoria.',
-        launchTitle: 'Data e hora de lanÃ§amento',
+        categoryPlaceholder: 'Família de produto (ex. T-Shirt)',
+        categoryHelp: 'Deixe vazio se necessário: pode passar para as etapas seguintes e guardar sem categoria.',
+        launchTitle: 'Data e hora de lançamento',
         chooseDate: 'Escolher uma data',
-        pickLaunchTime: 'Escolher a hora de lanÃ§amento',
+        pickLaunchTime: 'Escolher a hora de lançamento',
         timePickerDialog: 'Grelha de horas e minutos',
         hoursHeading: 'Horas (24h)',
         minutesHeading: 'Minutos',
         badge24h: '24h',
-        launchHelp: 'Hora em 24h â€” alinhada com o Planeamento e o Acompanhamento ao guardar o modelo.',
+        launchHelp: 'Hora em 24h — alinhada com o Planeamento e o Acompanhamento ao guardar o modelo.',
     },
     tr: {
-        identification: 'SipariÅŸ TanÄ±mÄ±',
-        client: 'MÃ¼ÅŸteri',
-        clientPlaceholder: 'MÃ¼ÅŸteri AdÄ±',
+        identification: 'Sipariş Tanımı',
+        client: 'Müşteri',
+        clientPlaceholder: 'Müşteri Adı',
         modelRef: 'Model / Ref',
-        modelPlaceholder: 'Model ReferansÄ±',
+        modelPlaceholder: 'Model Referansı',
         category: 'Kategori',
-        optional: 'isteÄŸe baÄŸlÄ±',
-        categoryPlaceholder: 'ÃœrÃ¼n ailesi (Ã¶rn. T-Shirt)',
-        categoryHelp: 'Gerekirse boÅŸ bÄ±rak: sonraki adÄ±mlara geÃ§ip kategorisiz kaydedebilirsin.',
-        launchTitle: 'BaÅŸlatma tarihi ve saati',
-        chooseDate: 'Bir tarih seÃ§',
-        pickLaunchTime: 'BaÅŸlatma saatini seÃ§',
+        optional: 'isteğe bağlı',
+        categoryPlaceholder: 'Ürün ailesi (örn. T-Shirt)',
+        categoryHelp: 'Gerekirse boş bırak: sonraki adımlara geçip kategorisiz kaydedebilirsin.',
+        launchTitle: 'Başlatma tarihi ve saati',
+        chooseDate: 'Bir tarih seç',
+        pickLaunchTime: 'Başlatma saatini seç',
         timePickerDialog: 'Saat ve dakika tablosu',
         hoursHeading: 'Saatler (24s)',
         minutesHeading: 'Dakikalar',
         badge24h: '24s',
-        launchHelp: '24 saat formatÄ±nda â€” model kaydedildiÄŸinde Planlama ve Takip ile hizalÄ±.',
+        launchHelp: '24 saat formatında — model kaydedildiğinde Planlama ve Takip ile hizalı.',
     },
 } as const;
 
@@ -179,7 +179,7 @@ export default function Pedido({
     const [selectedMaterial, setSelectedMaterial] = useState<any>(null);
     const [magasinData, setMagasinData] = useState<any[]>([]);
 
-    // Confirmation de rÃ©ception (entrÃ©e stock + BR pour le Planning)
+    // Confirmation de réception (entrée stock + BR pour le Planning)
     const [confirmModal, setConfirmModal] = useState<{ open: boolean; mat?: any; qty: string }>({ open: false, qty: '' });
 
     const handleConfirmReception = () => {
@@ -215,18 +215,18 @@ export default function Pedido({
             if (articleName && e.modelName && e.modelName.toLowerCase().includes(articleName.toLowerCase())) return true;
             return false;
         });
-        // Les pididos / lots sont affichÃ©s par ordre de livraison (le plus proche en premier).
+        // Les pididos / lots sont affichés par ordre de livraison (le plus proche en premier).
         const livraisonKey = (e: typeof filtered[number]) =>
             (e.strictDeadline_DDS || e.dateExport || '9999-12-31').split('T')[0];
         return [...filtered].sort((a, b) => livraisonKey(a).localeCompare(livraisonKey(b)));
     }, [planningEvents, currentModelId, articleName]);
 
-    /** Prochain code de lot auto-incrÃ©mentÃ© (L1 â†’ L2 â†’ â€¦ â†’ Ln+1) selon les lots existants du modÃ¨le. */
+    /** Prochain code de lot auto-incrémenté (L1 → L2 → … → Ln+1) selon les lots existants du modèle. */
     const nextLotCode = useMemo(() => {
         let max = 0;
         modelEvents.forEach(e => {
             const name = e.modelName || '';
-            const suffix = name.includes(' â€” ') ? name.split(' â€” ').slice(1).join(' â€” ') : name;
+            const suffix = name.includes(' — ') ? name.split(' — ').slice(1).join(' — ') : name;
             const m = suffix.trim().match(/^L\s*(\d+)/i);
             if (m) max = Math.max(max, parseInt(m[1], 10));
         });
@@ -236,7 +236,7 @@ export default function Pedido({
     const getStatusMeta = (status: string | undefined) => {
         if (status === 'EXTERNAL_PROCESS') {
             return {
-                label: tx(lang, { fr: 'Proc. Externe', ar: 'Ø¹Ù…Ù„ÙŠØ© Ø®Ø§Ø±Ø¬ÙŠØ©', en: 'Ext. Process', es: 'Proc. Externo', pt: 'Proc. Externo', tr: 'DÄ±ÅŸ Ä°ÅŸlem' }),
+                label: tx(lang, { fr: 'Proc. Externe', ar: 'عملية خارجية', en: 'Ext. Process', es: 'Proc. Externo', pt: 'Proc. Externo', tr: 'Dış İşlem' }),
                 dot: 'bg-amber-500',
                 text: 'text-amber-700',
                 bg: 'bg-amber-50 dark:bg-amber-900/30',
@@ -245,7 +245,7 @@ export default function Pedido({
         }
         if (status === 'BLOCKED_STOCK') {
             return {
-                label: tx(lang, { fr: 'BloquÃ© stock', ar: 'Ù…ØªÙˆÙ‚Ù / Ø­Ø§Ø¨Ø³', en: 'Stock blocked', es: 'Stock bloqueado', pt: 'Stock bloqueado', tr: 'Stok engelli' }),
+                label: tx(lang, { fr: 'Bloqué stock', ar: 'متوقف / حابس', en: 'Stock blocked', es: 'Stock bloqueado', pt: 'Stock bloqueado', tr: 'Stok engelli' }),
                 dot: 'bg-red-500',
                 text: 'text-red-700',
                 bg: 'bg-red-50 dark:bg-red-900/30',
@@ -254,10 +254,10 @@ export default function Pedido({
         }
         const s = status === 'DONE' ? 'DONE' : status === 'BLOCKED_STOCK' ? 'BLOCKED' : (status === 'IN_PROGRESS' || status === 'ON_TRACK' || status === 'AT_RISK' || status === 'OFF_TRACK') ? 'IN_PROGRESS' : 'READY';
         const meta = {
-            READY: { label: tx(lang, { fr: 'PrÃªt', ar: 'Ø¬Ø§Ù‡Ø²', en: 'Ready', es: 'Listo', pt: 'Pronto', tr: 'HazÄ±r' }), dot: 'bg-emerald-500', text: 'text-emerald-700', bg: 'bg-emerald-50 dark:bg-emerald-900/30', border: 'border-emerald-200' },
-            BLOCKED: { label: tx(lang, { fr: 'BloquÃ©', ar: 'Ù…ØªÙˆÙ‚Ù', en: 'Blocked', es: 'Bloqueado', pt: 'Bloqueado', tr: 'Engelli' }), dot: 'bg-red-500', text: 'text-red-700', bg: 'bg-red-50 dark:bg-red-900/30', border: 'border-red-200' },
-            IN_PROGRESS: { label: tx(lang, { fr: 'En cours', ar: 'ÙÙŠ Ø·ÙˆØ± Ø§Ù„Ø¥Ù†Ø¬Ø§Ø²', en: 'In progress', es: 'En curso', pt: 'Em curso', tr: 'Devam ediyor' }), dot: 'bg-[#2149C1]', text: 'text-[#1a3ba5]', bg: 'bg-blue-50 dark:bg-blue-900/30', border: 'border-blue-200' },
-            DONE: { label: tx(lang, { fr: 'TerminÃ©', ar: 'Ù…ÙƒØªÙ…Ù„', en: 'Done', es: 'Terminado', pt: 'ConcluÃ­do', tr: 'TamamlandÄ±' }), dot: 'bg-slate-400', text: 'text-slate-600 dark:text-dk-text-soft', bg: 'bg-slate-50 dark:bg-dk-bg', border: 'border-slate-200 dark:border-dk-border' },
+            READY: { label: tx(lang, { fr: 'Prêt', ar: 'جاهز', en: 'Ready', es: 'Listo', pt: 'Pronto', tr: 'Hazır' }), dot: 'bg-emerald-500', text: 'text-emerald-700', bg: 'bg-emerald-50 dark:bg-emerald-900/30', border: 'border-emerald-200' },
+            BLOCKED: { label: tx(lang, { fr: 'Bloqué', ar: 'متوقف', en: 'Blocked', es: 'Bloqueado', pt: 'Bloqueado', tr: 'Engelli' }), dot: 'bg-red-500', text: 'text-red-700', bg: 'bg-red-50 dark:bg-red-900/30', border: 'border-red-200' },
+            IN_PROGRESS: { label: tx(lang, { fr: 'En cours', ar: 'في طور الإنجاز', en: 'In progress', es: 'En curso', pt: 'Em curso', tr: 'Devam ediyor' }), dot: 'bg-[#2149C1]', text: 'text-[#1a3ba5]', bg: 'bg-blue-50 dark:bg-blue-900/30', border: 'border-blue-200' },
+            DONE: { label: tx(lang, { fr: 'Terminé', ar: 'مكتمل', en: 'Done', es: 'Terminado', pt: 'Concluído', tr: 'Tamamlandı' }), dot: 'bg-slate-400', text: 'text-slate-600 dark:text-dk-text-soft', bg: 'bg-slate-50 dark:bg-dk-bg', border: 'border-slate-200 dark:border-dk-border' },
         };
         return meta[s] || meta.READY;
     };
@@ -296,7 +296,7 @@ export default function Pedido({
             status: 'READY',
             sizeColorDistribution: initialDist,
             qteTotal: 0,
-            modelName: `${articleName || ''} â€” ${nextLotCode}`
+            modelName: `${articleName || ''} — ${nextLotCode}`
         });
         setEditingEventId('new');
     };
@@ -308,12 +308,12 @@ export default function Pedido({
 
     const deleteEvent = (eventId: string) => {
         const confirmMsg = tx(lang, {
-            fr: 'ÃŠtes-vous sÃ»r de vouloir supprimer ce lot ? Il sera Ã©galement retirÃ© du planning.',
-            ar: 'Ù‡Ù„ Ø£Ù†Øª Ù…ØªØ£ÙƒØ¯ Ù…Ù† Ø±ØºØ¨ØªÙƒ ÙÙŠ Ø­Ø°Ù Ù‡Ø°Ù‡ Ø§Ù„Ø¯ÙØ¹Ø©ØŸ Ø³ÙŠØªÙ… Ø¥Ø²Ø§Ù„ØªÙ‡Ø§ Ù…Ù† Ø¬Ø¯ÙˆÙ„ Ø§Ù„ØªØ®Ø·ÙŠØ· Ø£ÙŠØ¶Ø§Ù‹.',
+            fr: 'Êtes-vous sûr de vouloir supprimer ce lot ? Il sera également retiré du planning.',
+            ar: 'هل أنت متأكد من رغبتك في حذف هذه الدفعة؟ سيتم إزالتها من جدول التخطيط أيضاً.',
             en: 'Are you sure you want to delete this lot? It will also be removed from the planning.',
-            es: 'Â¿Seguro que quieres eliminar este lote? TambiÃ©n se eliminarÃ¡ de la planificaciÃ³n.',
-            pt: 'Tem a certeza de que deseja eliminar este lote? TambÃ©m serÃ¡ removido do planeamento.',
-            tr: 'Bu partiyi silmek istediÄŸinizden emin misiniz? Planlamadan da kaldÄ±rÄ±lacaktÄ±r.',
+            es: '¿Seguro que quieres eliminar este lote? También se eliminará de la planificación.',
+            pt: 'Tem a certeza de que deseja eliminar este lote? Também será removido do planeamento.',
+            tr: 'Bu partiyi silmek istediğinizden emin misiniz? Planlamadan da kaldırılacaktır.',
         });
         if (window.confirm(confirmMsg)) {
             if (setPlanningEvents) {
@@ -326,17 +326,17 @@ export default function Pedido({
         if (!editDraft || !setPlanningEvents) return;
         
         const fullName = editDraft.modelName || '';
-        const parts = fullName.split(' â€” ');
-        const suffix = parts.length > 1 ? parts.slice(1).join(' â€” ').trim() : fullName.trim();
+        const parts = fullName.split(' — ');
+        const suffix = parts.length > 1 ? parts.slice(1).join(' — ').trim() : fullName.trim();
         
         if (!suffix) {
             alert(tx(lang, {
-                fr: 'Veuillez saisir un libellÃ© ou suffixe pour le lot (ex: L1).',
-                ar: 'ÙŠØ±Ø¬Ù‰ Ø¥Ø¯Ø®Ø§Ù„ Ø±Ù…Ø² Ø£Ùˆ Ø§Ø³Ù… Ø§Ù„Ø¯ÙØ¹Ø© (Ù…Ø«Ø§Ù„: L1)',
+                fr: 'Veuillez saisir un libellé ou suffixe pour le lot (ex: L1).',
+                ar: 'يرجى إدخال رمز أو اسم الدفعة (مثال: L1)',
                 en: 'Please enter a label or suffix for the lot (e.g. L1).',
                 es: 'Introduce una etiqueta o sufijo para el lote (ej. L1).',
-                pt: 'Introduza um rÃ³tulo ou sufixo para o lote (ex. L1).',
-                tr: 'Parti iÃ§in bir etiket veya sonek girin (Ã¶rn. L1).',
+                pt: 'Introduza um rótulo ou sufixo para o lote (ex. L1).',
+                tr: 'Parti için bir etiket veya sonek girin (örn. L1).',
             }));
             return;
         }
@@ -355,7 +355,7 @@ export default function Pedido({
         const finalDraft: PlanningEvent = {
             ...editDraft,
             modelId: editDraft.modelId || currentModelId || '',
-            modelName: `${articleName || ''} â€” ${suffix}`,
+            modelName: `${articleName || ''} — ${suffix}`,
             qteTotal: calculatedTotal,
             totalQuantity: calculatedTotal,
             startDate: editDraft.dateLancement,
@@ -380,7 +380,7 @@ export default function Pedido({
         setEditDraft(null);
     };
 
-    // -- MATRIX STATE (lecture seule ici ; l'Ã©dition se fait via <RepartitionMatrix />) --
+    // -- MATRIX STATE (lecture seule ici ; l'édition se fait via <RepartitionMatrix />) --
     const sizes = data.sizes || [];
     const colors = data.colors || [];
     const gridQuantities = data.gridQuantities || {};
@@ -606,8 +606,8 @@ export default function Pedido({
         if (!editDraft) return null;
         
         const fullName = editDraft.modelName || '';
-        const parts = fullName.split(' â€” ');
-        const suffix = parts.length > 1 ? parts.slice(1).join(' â€” ') : '';
+        const parts = fullName.split(' — ');
+        const suffix = parts.length > 1 ? parts.slice(1).join(' — ') : '';
         
         const filteredSizes = (sizes || []).filter(s => s.toLowerCase() !== 'total');
         const filteredColors = (colors || []).filter(c => c.name.toLowerCase() !== 'total' && c.id.toLowerCase() !== 'total');
@@ -619,8 +619,8 @@ export default function Pedido({
                     <h4 className="font-black text-sm text-indigo-900 flex items-center gap-2">
                         <Calendar className="w-4 h-4 text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text" />
                         {editingEventId === 'new'
-                            ? tx(lang, { fr: 'Nouveau lot de livraison', ar: 'Ø¥Ø¶Ø§ÙØ© Ø¯ÙØ¹Ø© ØªØ³Ù„ÙŠÙ… Ø¬Ø¯ÙŠØ¯Ø©', en: 'New delivery lot', es: 'Nuevo lote de entrega', pt: 'Novo lote de entrega', tr: 'Yeni teslimat partisi' })
-                            : tx(lang, { fr: 'Modifier le lot de livraison', ar: 'ØªØ¹Ø¯ÙŠÙ„ Ø¯ÙØ¹Ø© Ø§Ù„ØªØ³Ù„ÙŠÙ…', en: 'Edit delivery lot', es: 'Editar lote de entrega', pt: 'Editar lote de entrega', tr: 'Teslimat partisini dÃ¼zenle' })
+                            ? tx(lang, { fr: 'Nouveau lot de livraison', ar: 'إضافة دفعة تسليم جديدة', en: 'New delivery lot', es: 'Nuevo lote de entrega', pt: 'Novo lote de entrega', tr: 'Yeni teslimat partisi' })
+                            : tx(lang, { fr: 'Modifier le lot de livraison', ar: 'تعديل دفعة التسليم', en: 'Edit delivery lot', es: 'Editar lote de entrega', pt: 'Editar lote de entrega', tr: 'Teslimat partisini düzenle' })
                         }
                     </h4>
                 </div>
@@ -629,13 +629,13 @@ export default function Pedido({
                     {/* Client name */}
                     <div className="space-y-1">
                         <label className="text-[11px] font-bold text-slate-400 dark:text-dk-muted uppercase tracking-wide">
-                            {tx(lang, { fr: 'Client', ar: 'Ø§Ù„Ø¹Ù…ÙŠÙ„', en: 'Client', es: 'Cliente', pt: 'Cliente', tr: 'MÃ¼ÅŸteri' })}
+                            {tx(lang, { fr: 'Client', ar: 'العميل', en: 'Client', es: 'Cliente', pt: 'Cliente', tr: 'Müşteri' })}
                         </label>
                         <input
                             type="text"
                             value={editDraft.clientName || ''}
                             onChange={(e) => setEditDraft(prev => prev ? { ...prev, clientName: e.target.value } : prev)}
-                            placeholder={tx(lang, { fr: 'Nom du Client', ar: 'Ø§Ø³Ù… Ø§Ù„Ø¹Ù…ÙŠÙ„', en: 'Client Name', es: 'Nombre del Cliente', pt: 'Nome do Cliente', tr: 'MÃ¼ÅŸteri AdÄ±' })}
+                            placeholder={tx(lang, { fr: 'Nom du Client', ar: 'اسم العميل', en: 'Client Name', es: 'Nombre del Cliente', pt: 'Nome do Cliente', tr: 'Müşteri Adı' })}
                             className="w-full bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2 text-slate-800 dark:text-dk-text text-sm font-semibold outline-none focus:ring-2 focus:ring-indigo-500/20 transition-all font-sans"
                         />
                     </div>
@@ -643,12 +643,12 @@ export default function Pedido({
                     {/* Suffix / Lot Code */}
                     <div className="space-y-1">
                         <label className="text-[11px] font-bold text-slate-400 dark:text-dk-muted uppercase tracking-wide">
-                            {tx(lang, { fr: 'Code / LibellÃ© du lot (ex: L1)', ar: 'Ø±Ù…Ø² / Ø§Ø³Ù… Ø§Ù„Ø¯ÙØ¹Ø© (Ù…Ø«Ø§Ù„: L1)', en: 'Lot code / label (e.g. L1)', es: 'CÃ³digo / etiqueta del lote (ej. L1)', pt: 'CÃ³digo / rÃ³tulo do lote (ex. L1)', tr: 'Parti kodu / etiketi (Ã¶rn. L1)' })}
+                            {tx(lang, { fr: 'Code / Libellé du lot (ex: L1)', ar: 'رمز / اسم الدفعة (مثال: L1)', en: 'Lot code / label (e.g. L1)', es: 'Código / etiqueta del lote (ej. L1)', pt: 'Código / rótulo do lote (ex. L1)', tr: 'Parti kodu / etiketi (örn. L1)' })}
                         </label>
                         <input
                             type="text"
                             value={suffix}
-                            onChange={(e) => setEditDraft(prev => prev ? { ...prev, modelName: `${articleName || ''} â€” ${e.target.value}` } : prev)}
+                            onChange={(e) => setEditDraft(prev => prev ? { ...prev, modelName: `${articleName || ''} — ${e.target.value}` } : prev)}
                             placeholder="L1"
                             className="w-full bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2 text-slate-800 dark:text-dk-text text-sm font-semibold outline-none focus:ring-2 focus:ring-indigo-500/20 transition-all tabular-nums"
                         />
@@ -659,7 +659,7 @@ export default function Pedido({
                     {/* Date de lancement */}
                     <div className="space-y-1">
                         <label className="text-[11px] font-bold text-slate-400 dark:text-dk-muted uppercase tracking-wide">
-                            {tx(lang, { fr: 'Date de lancement', ar: 'ØªØ§Ø±ÙŠØ® Ø§Ù„Ø¥Ø·Ù„Ø§Ù‚', en: 'Launch date', es: 'Fecha de lanzamiento', pt: 'Data de lanÃ§amento', tr: 'BaÅŸlatma tarihi' })}
+                            {tx(lang, { fr: 'Date de lancement', ar: 'تاريخ الإطلاق', en: 'Launch date', es: 'Fecha de lanzamiento', pt: 'Data de lançamento', tr: 'Başlatma tarihi' })}
                         </label>
                         <div className="flex items-center gap-2 bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-xl px-3 py-1.5 focus-within:ring-2 focus-within:ring-indigo-500/20 transition-all">
                             <Calendar className="w-4 h-4 text-indigo-500 shrink-0" />
@@ -689,8 +689,8 @@ export default function Pedido({
                                 />
                                 <span className="text-[10px] font-bold text-slate-500 dark:text-dk-muted select-none">
                                     {tx(lang, { 
-                                        fr: "Figer la date (ne pas dÃ©caler)", 
-                                        ar: "ØªØ«Ø¨ÙŠØª Ø§Ù„ØªØ§Ø±ÙŠØ® (Ø¹Ø¯Ù… Ø§Ù„ØªØ­Ø±ÙŠÙƒ)", 
+                                        fr: "Figer la date (ne pas décaler)", 
+                                        ar: "تثبيت التاريخ (عدم التحريك)", 
                                         en: "Lock date (do not shift)" 
                                     })}
                                 </span>
@@ -701,7 +701,7 @@ export default function Pedido({
                     {/* Delivery Date / DDS */}
                     <div className="space-y-1">
                         <label className="text-[11px] font-bold text-slate-400 dark:text-dk-muted uppercase tracking-wide">
-                            {tx(lang, { fr: 'Date de livraison (DDS)', ar: 'ØªØ§Ø±ÙŠØ® Ø§Ù„ØªØ³Ù„ÙŠÙ… (DDS)', en: 'Delivery date (DDS)', es: 'Fecha de entrega (DDS)', pt: 'Data de entrega (DDS)', tr: 'Teslimat tarihi (DDS)' })}
+                            {tx(lang, { fr: 'Date de livraison (DDS)', ar: 'تاريخ التسليم (DDS)', en: 'Delivery date (DDS)', es: 'Fecha de entrega (DDS)', pt: 'Data de entrega (DDS)', tr: 'Teslimat tarihi (DDS)' })}
                         </label>
                         <div className="flex items-center gap-2 bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-xl px-3 py-1.5 focus-within:ring-2 focus-within:ring-indigo-500/20 transition-all">
                             <Calendar className="w-4 h-4 text-emerald-500 shrink-0" />
@@ -720,10 +720,10 @@ export default function Pedido({
                         </div>
                     </div>
 
-                    {/* Date d'arrivÃ©e des matiÃ¨res (fournisseurDate) */}
+                    {/* Date d'arrivée des matières (fournisseurDate) */}
                     <div className="space-y-1">
                         <label className="text-[11px] font-bold text-slate-400 dark:text-dk-muted uppercase tracking-wide">
-                            {tx(lang, { fr: 'ArrivÃ©e des matiÃ¨res', ar: 'ÙˆØµÙˆÙ„ Ø§Ù„Ù…ÙˆØ§Ø¯ (Ø§Ù„Ù…ÙˆØ±Ø¯)', en: 'Materials arrival', es: 'Llegada de materiales', pt: 'Chegada dos materiais', tr: 'Malzeme varÄ±ÅŸÄ±' })}
+                            {tx(lang, { fr: 'Arrivée des matières', ar: 'وصول المواد (المورد)', en: 'Materials arrival', es: 'Llegada de materiales', pt: 'Chegada dos materiais', tr: 'Malzeme varışı' })}
                         </label>
                         <div className="flex items-center gap-2 bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-xl px-3 py-1.5 focus-within:ring-2 focus-within:ring-indigo-500/20 transition-all">
                             <Truck className="w-4 h-4 text-amber-500 shrink-0" />
@@ -747,7 +747,7 @@ export default function Pedido({
                     <div className="space-y-2">
                         <div className="text-[11px] font-bold text-slate-500 dark:text-dk-muted uppercase tracking-wide flex items-center gap-1.5 font-sans">
                             <Grid3X3 className="w-3.5 h-3.5" />
-                            {tx(lang, { fr: 'RÃ©partition des quantitÃ©s du lot', ar: 'Ø§Ù„ØªÙˆØ²ÙŠØ¹ Ø¨Ø§Ù„ØªÙØµÙŠÙ„ Ù„Ù„Ø¯ÙØ¹Ø©', en: 'Lot quantity breakdown', es: 'DistribuciÃ³n de cantidades del lote', pt: 'DistribuiÃ§Ã£o das quantidades do lote', tr: 'Parti miktar daÄŸÄ±lÄ±mÄ±' })}
+                            {tx(lang, { fr: 'Répartition des quantités du lot', ar: 'التوزيع بالتفصيل للدفعة', en: 'Lot quantity breakdown', es: 'Distribución de cantidades del lote', pt: 'Distribuição das quantidades do lote', tr: 'Parti miktar dağılımı' })}
                         </div>
                         <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface shadow-sm dark:shadow-dk-sm">
                             <table className="w-full text-xs border-collapse">
@@ -811,11 +811,11 @@ export default function Pedido({
                                                                 <div className="flex flex-col items-center text-[9px] tabular-nums leading-none">
                                                                     <span className="text-slate-400 dark:text-dk-muted">/{targetVal}</span>
                                                                     {diff !== 0 ? (
-                                                                        <span className="text-rose-600 dark:text-rose-400 font-bold mt-0.5" title={diff > 0 ? tx(lang, { fr: `${diff} de trop`, ar: `${diff} Ø²Ø§Ø¦Ø¯`, en: `${diff} too many`, es: `${diff} de mÃ¡s`, pt: `${diff} a mais`, tr: `${diff} fazla` }) : tx(lang, { fr: `${diff} manquant`, ar: `${diff} Ù†Ø§Ù‚Øµ`, en: `${diff} missing`, es: `${diff} faltante`, pt: `${diff} em falta`, tr: `${diff} eksik` })}>
+                                                                        <span className="text-rose-600 dark:text-rose-400 font-bold mt-0.5" title={diff > 0 ? tx(lang, { fr: `${diff} de trop`, ar: `${diff} زائد`, en: `${diff} too many`, es: `${diff} de más`, pt: `${diff} a mais`, tr: `${diff} fazla` }) : tx(lang, { fr: `${diff} manquant`, ar: `${diff} ناقص`, en: `${diff} missing`, es: `${diff} faltante`, pt: `${diff} em falta`, tr: `${diff} eksik` })}>
                                                                             {diff > 0 ? `+${diff}` : diff}
                                                                         </span>
                                                                     ) : (
-                                                                        qty > 0 && <span className="text-emerald-600 dark:text-emerald-400 font-bold mt-0.5">âœ“</span>
+                                                                        qty > 0 && <span className="text-emerald-600 dark:text-emerald-400 font-bold mt-0.5">✓</span>
                                                                     )}
                                                                 </div>
                                                             </div>
@@ -835,7 +835,7 @@ export default function Pedido({
                 ) : (
                     <div className="space-y-1 max-w-xs">
                         <label className="text-[11px] font-bold text-slate-400 dark:text-dk-muted uppercase tracking-wide">
-                            {tx(lang, { fr: 'QuantitÃ© totale', ar: 'Ø§Ù„ÙƒÙ…ÙŠØ© Ø§Ù„Ø¥Ø¬Ù…Ø§Ù„ÙŠØ©', en: 'Total quantity', es: 'Cantidad total', pt: 'Quantidade total', tr: 'Toplam miktar' })}
+                            {tx(lang, { fr: 'Quantité totale', ar: 'الكمية الإجمالية', en: 'Total quantity', es: 'Cantidad total', pt: 'Quantidade total', tr: 'Toplam miktar' })}
                         </label>
                         <input
                             type="number"
@@ -850,7 +850,7 @@ export default function Pedido({
                 {/* Form Buttons */}
                 <div className="flex items-center justify-between pt-3 border-t border-slate-100 dark:border-dk-border">
                     <div className="text-xs text-slate-400 dark:text-dk-muted font-bold">
-                        {tx(lang, { fr: 'Total calculÃ©:', ar: 'Ø§Ù„Ù…Ø¬Ù…ÙˆØ¹ Ø§Ù„Ù…Ø­Ø³ÙˆØ¨:', en: 'Calculated total:', es: 'Total calculado:', pt: 'Total calculado:', tr: 'Hesaplanan toplam:' })} {' '}
+                        {tx(lang, { fr: 'Total calculé:', ar: 'المجموع المحسوب:', en: 'Calculated total:', es: 'Total calculado:', pt: 'Total calculado:', tr: 'Hesaplanan toplam:' })} {' '}
                         <span className="text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text font-black tabular-nums">
                             {hasGrid 
                                 ? Object.values(editDraft.sizeColorDistribution || {}).reduce(
@@ -869,7 +869,7 @@ export default function Pedido({
                                 className="inline-flex items-center gap-1.5 h-8 px-3 text-xs font-bold text-rose-600 dark:text-rose-400 border border-rose-200 bg-rose-50 dark:bg-rose-900/30 hover:bg-rose-100 rounded-lg transition-colors"
                             >
                                 <Trash2 className="w-3.5 h-3.5" />
-                                {tx(lang, { fr: 'Supprimer', ar: 'Ø­Ø°Ù', en: 'Delete', es: 'Eliminar', pt: 'Eliminar', tr: 'Sil' })}
+                                {tx(lang, { fr: 'Supprimer', ar: 'حذف', en: 'Delete', es: 'Eliminar', pt: 'Eliminar', tr: 'Sil' })}
                             </button>
                         )}
                         <button
@@ -877,14 +877,14 @@ export default function Pedido({
                             onClick={handleCancelEdit}
                             className="inline-flex items-center h-8 px-3 text-xs font-bold text-slate-600 dark:text-dk-text-soft bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border hover:bg-slate-50 dark:hover:bg-dk-elevated/60 rounded-lg transition-colors"
                         >
-                            {tx(lang, { fr: 'Annuler', ar: 'Ø¥Ù„ØºØ§Ø¡', en: 'Cancel', es: 'Cancelar', pt: 'Cancelar', tr: 'Ä°ptal' })}
+                            {tx(lang, { fr: 'Annuler', ar: 'إلغاء', en: 'Cancel', es: 'Cancelar', pt: 'Cancelar', tr: 'İptal' })}
                         </button>
                         <button
                             type="button"
                             onClick={handleSaveEdit}
                             className="inline-flex items-center gap-1.5 h-8 px-4 text-xs font-bold text-white bg-indigo-600 dark:bg-dk-accent hover:bg-indigo-700 dark:hover:bg-dk-accent-hover rounded-lg transition-colors shadow-sm dark:shadow-dk-sm"
                         >
-                            {tx(lang, { fr: 'Enregistrer', ar: 'Ø­ÙØ¸ Ø§Ù„Ø¯ÙØ¹Ø©', en: 'Save', es: 'Guardar', pt: 'Guardar', tr: 'Kaydet' })}
+                            {tx(lang, { fr: 'Enregistrer', ar: 'حفظ الدفعة', en: 'Save', es: 'Guardar', pt: 'Guardar', tr: 'Kaydet' })}
                         </button>
                     </div>
                 </div>
@@ -901,7 +901,7 @@ export default function Pedido({
                     <div className="flex items-center gap-2">
                         <Layers className="w-4 h-4 text-indigo-500 shrink-0" />
                         <h3 className="font-semibold text-slate-900 dark:text-dk-text text-xs uppercase tracking-wide">
-                            {tx(lang, { fr: 'Tableau de Bord Suivi Commande (Pedido)', ar: 'Ù„ÙˆØ­Ø© ØªØªØ¨Ø¹ Ø§Ù„Ø·Ù„Ø¨ÙŠØ© (Pedido)', en: 'Order Tracking Dashboard (Pedido)', es: 'Panel de Seguimiento del Pedido (Pedido)', pt: 'Painel de Acompanhamento do Pedido (Pedido)', tr: 'SipariÅŸ Takip Panosu (Pedido)' })}
+                            {tx(lang, { fr: 'Tableau de Bord Suivi Commande (Pedido)', ar: 'لوحة تتبع الطلبية (Pedido)', en: 'Order Tracking Dashboard (Pedido)', es: 'Panel de Seguimiento del Pedido (Pedido)', pt: 'Painel de Acompanhamento do Pedido (Pedido)', tr: 'Sipariş Takip Panosu (Pedido)' })}
                         </h3>
                     </div>
                     <div className="shrink-0">
@@ -913,8 +913,8 @@ export default function Pedido({
                                 : 'bg-amber-50 dark:bg-amber-900/30 text-amber-700 border-amber-200'
                         }`}>
                             {totalPlanified === totalCible && totalCible > 0
-                                ? tx(lang, { fr: 'Plan AlignÃ©e 100%', ar: 'ØªØºØ·ÙŠØ© ÙƒØ§Ù…Ù„Ø© 100%', en: 'Plan Aligned 100%', es: 'Plan Alineado 100%', pt: 'Plano Alinhado 100%', tr: 'Plan HizalÄ± %100' })
-                                : tx(lang, { fr: `Couverture : ${plannedCoverPct}%`, ar: `Ø§Ù„ØªØºØ·ÙŠØ©: ${plannedCoverPct}%`, en: `Coverage: ${plannedCoverPct}%`, es: `Cobertura: ${plannedCoverPct}%`, pt: `Cobertura: ${plannedCoverPct}%`, tr: `Kapsama: %${plannedCoverPct}` })
+                                ? tx(lang, { fr: 'Plan Alignée 100%', ar: 'تغطية كاملة 100%', en: 'Plan Aligned 100%', es: 'Plan Alineado 100%', pt: 'Plano Alinhado 100%', tr: 'Plan Hizalı %100' })
+                                : tx(lang, { fr: `Couverture : ${plannedCoverPct}%`, ar: `التغطية: ${plannedCoverPct}%`, en: `Coverage: ${plannedCoverPct}%`, es: `Cobertura: ${plannedCoverPct}%`, pt: `Cobertura: ${plannedCoverPct}%`, tr: `Kapsama: %${plannedCoverPct}` })
                             }
                         </span>
                     </div>
@@ -923,11 +923,11 @@ export default function Pedido({
                 <div className="p-5 space-y-4">
                     {/* 3 KPI cards */}
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        {/* CARD 1: Cible CommandÃ© */}
+                        {/* CARD 1: Cible Commandé */}
                         <div className="bg-white dark:bg-dk-surface border border-slate-100 dark:border-dk-border rounded-xl p-4 flex items-center justify-between">
                             <div className="space-y-0.5">
                                 <span className="text-[10px] text-slate-500 dark:text-dk-muted font-semibold uppercase tracking-wider block">
-                                    {tx(lang, { fr: 'Total CommandÃ© (Cible)', ar: 'Ø¥Ø¬Ù…Ø§Ù„ÙŠ Ø§Ù„Ø·Ù„Ø¨ Ø§Ù„Ø£ØµÙ„ÙŠ', en: 'Total Ordered (Target)', es: 'Total Pedido (Objetivo)', pt: 'Total Encomendado (Alvo)', tr: 'Toplam SipariÅŸ (Hedef)' })}
+                                    {tx(lang, { fr: 'Total Commandé (Cible)', ar: 'إجمالي الطلب الأصلي', en: 'Total Ordered (Target)', es: 'Total Pedido (Objetivo)', pt: 'Total Encomendado (Alvo)', tr: 'Toplam Sipariş (Hedef)' })}
                                 </span>
                                 <span className="text-lg font-bold text-slate-900 dark:text-dk-text tabular-nums block">
                                     {totalCible.toLocaleString()} <span className="text-xs font-medium text-slate-400 dark:text-dk-muted">pcs</span>
@@ -938,19 +938,19 @@ export default function Pedido({
                             </div>
                         </div>
 
-                        {/* CARD 2: PlanifiÃ© */}
+                        {/* CARD 2: Planifié */}
                         <div className="bg-white dark:bg-dk-surface border border-slate-100 dark:border-dk-border rounded-xl p-4 flex items-center justify-between">
                             <div className="space-y-0.5">
                                 <span className="text-[10px] text-slate-500 dark:text-dk-muted font-semibold uppercase tracking-wider block">
-                                    {tx(lang, { fr: 'Total PlanifiÃ© (Lots)', ar: 'Ø§Ù„ÙƒÙ…ÙŠØ© Ø§Ù„Ù…Ø®Ø·Ø·Ø©', en: 'Total Planned (Lots)', es: 'Total Planificado (Lotes)', pt: 'Total Planeado (Lotes)', tr: 'Toplam Planlanan (Partiler)' })}
+                                    {tx(lang, { fr: 'Total Planifié (Lots)', ar: 'الكمية المخططة', en: 'Total Planned (Lots)', es: 'Total Planificado (Lotes)', pt: 'Total Planeado (Lotes)', tr: 'Toplam Planlanan (Partiler)' })}
                                 </span>
                                 <span className="text-lg font-bold text-slate-900 dark:text-dk-text tabular-nums block">
                                     {totalPlanified.toLocaleString()} <span className="text-xs font-medium text-slate-400 dark:text-dk-muted">pcs</span>
                                 </span>
                                 <span className="text-[9px] block font-medium leading-none">
                                     {totalPlanified === totalCible
-                                        ? <span className="text-emerald-600 dark:text-emerald-400">âœ“ {tx(lang, { fr: 'AlignÃ©', ar: 'Ù…Ø·Ø§Ø¨Ù‚', en: 'Aligned', es: 'Alineado', pt: 'Alinhado', tr: 'HizalÄ±' })}</span>
-                                        : <span className="text-amber-600 dark:text-amber-400">{tx(lang, { fr: `Ã‰cart : ${totalPlanified - totalCible}`, ar: `ÙØ±Ù‚: ${totalPlanified - totalCible}`, en: `Gap: ${totalPlanified - totalCible}`, es: `Diferencia: ${totalPlanified - totalCible}`, pt: `DiferenÃ§a: ${totalPlanified - totalCible}`, tr: `Fark: ${totalPlanified - totalCible}` })}</span>
+                                        ? <span className="text-emerald-600 dark:text-emerald-400">✓ {tx(lang, { fr: 'Aligné', ar: 'مطابق', en: 'Aligned', es: 'Alineado', pt: 'Alinhado', tr: 'Hizalı' })}</span>
+                                        : <span className="text-amber-600 dark:text-amber-400">{tx(lang, { fr: `Écart : ${totalPlanified - totalCible}`, ar: `فرق: ${totalPlanified - totalCible}`, en: `Gap: ${totalPlanified - totalCible}`, es: `Diferencia: ${totalPlanified - totalCible}`, pt: `Diferença: ${totalPlanified - totalCible}`, tr: `Fark: ${totalPlanified - totalCible}` })}</span>
                                     }
                                 </span>
                             </div>
@@ -959,17 +959,17 @@ export default function Pedido({
                             </div>
                         </div>
 
-                        {/* CARD 3: RÃ©alisÃ© */}
+                        {/* CARD 3: Réalisé */}
                         <div className="bg-white dark:bg-dk-surface border border-slate-100 dark:border-dk-border rounded-xl p-4 flex items-center justify-between">
                             <div className="space-y-0.5">
                                 <span className="text-[10px] text-slate-500 dark:text-dk-muted font-semibold uppercase tracking-wider block">
-                                    {tx(lang, { fr: 'Total Produit (RÃ©alisÃ©)', ar: 'Ø§Ù„ÙƒÙ…ÙŠØ© Ø§Ù„Ù…Ù†ØªØ¬Ø©', en: 'Total Produced (Done)', es: 'Total Producido (Realizado)', pt: 'Total Produzido (Realizado)', tr: 'Toplam Ãœretilen (GerÃ§ekleÅŸen)' })}
+                                    {tx(lang, { fr: 'Total Produit (Réalisé)', ar: 'الكمية المنتجة', en: 'Total Produced (Done)', es: 'Total Producido (Realizado)', pt: 'Total Produzido (Realizado)', tr: 'Toplam Üretilen (Gerçekleşen)' })}
                                 </span>
                                 <span className="text-lg font-bold text-emerald-600 dark:text-emerald-400 tabular-nums block">
                                     {totalProduced.toLocaleString()} <span className="text-xs font-medium text-emerald-400">pcs</span>
                                 </span>
                                 <span className="text-[9px] text-indigo-500 font-medium block leading-none">
-                                    {globalCompletionPct}% {tx(lang, { fr: 'PrÃªt', ar: 'Ø¬Ø§Ù‡Ø²', en: 'Ready', es: 'Listo', pt: 'Pronto', tr: 'HazÄ±r' })}
+                                    {globalCompletionPct}% {tx(lang, { fr: 'Prêt', ar: 'جاهز', en: 'Ready', es: 'Listo', pt: 'Pronto', tr: 'Hazır' })}
                                 </span>
                             </div>
                             <div className="bg-emerald-50 dark:bg-emerald-900/30/80 p-2.5 rounded-xl text-emerald-600 dark:text-emerald-400">
@@ -981,7 +981,7 @@ export default function Pedido({
                     {/* Overall progress bar */}
                     <div className="space-y-1.5">
                         <div className="flex items-center justify-between text-[11px] font-medium text-slate-500 dark:text-dk-muted">
-                            <span>{tx(lang, { fr: 'Avancement de la commande globale', ar: 'Ù†Ø³Ø¨Ø© ØªÙ‚Ø¯Ù… Ø¥Ù†Ø¬Ø§Ø² Ø§Ù„Ø·Ù„Ø¨ÙŠØ©', en: 'Overall order progress', es: 'Avance del pedido global', pt: 'Progresso global do pedido', tr: 'Genel sipariÅŸ ilerlemesi' })}</span>
+                            <span>{tx(lang, { fr: 'Avancement de la commande globale', ar: 'نسبة تقدم إنجاز الطلبية', en: 'Overall order progress', es: 'Avance del pedido global', pt: 'Progresso global do pedido', tr: 'Genel sipariş ilerlemesi' })}</span>
                             <span className="tabular-nums text-emerald-600 dark:text-emerald-400 font-semibold">{globalCompletionPct}%</span>
                         </div>
                         <div className="w-full h-1.5 bg-slate-100 dark:bg-dk-elevated rounded-full overflow-hidden">
@@ -1105,7 +1105,7 @@ export default function Pedido({
                                         </div>
 
                                         <div className="flex items-center justify-between text-[10px] text-slate-400 dark:text-dk-muted py-2 px-4 border-t border-slate-100 dark:border-dk-border bg-zinc-50/80 font-sans">
-                                            <span>{tx(lang, { fr: 'Tab/flÃ¨ches pour ajuster', ar: 'Ø¹Ù„Ø§Ù…Ø© Ø§Ù„ØªØ¨ÙˆÙŠØ¨/Ø§Ù„Ø£Ø³Ù‡Ù… Ù„Ù„Ø¶Ø¨Ø·', en: 'Tab/arrows to adjust', es: 'Tabulador/flechas para ajustar', pt: 'Tab/setas para ajustar', tr: 'Sekme/oklarla ayarla' })}</span>
+                                            <span>{tx(lang, { fr: 'Tab/flèches pour ajuster', ar: 'علامة التبويب/الأسهم للضبط', en: 'Tab/arrows to adjust', es: 'Tabulador/flechas para ajustar', pt: 'Tab/setas para ajustar', tr: 'Sekme/oklarla ayarla' })}</span>
                                             <button
                                                 onClick={() => setLaunchTimeOpen(false)}
                                                 className="px-2 py-0.5 rounded bg-indigo-600 dark:bg-dk-accent text-white text-[10px] font-bold hover:bg-indigo-500"
@@ -1123,19 +1123,19 @@ export default function Pedido({
                         </div>
                     </div>
 
-                    {/* 2. RÃ‰PARTITION (TAILLES / COULEURS) CARD â€” composant partagÃ© avec la Fiche Technique */}
+                    {/* 2. RÉPARTITION (TAILLES / COULEURS) CARD — composant partagé avec la Fiche Technique */}
                     <RepartitionMatrix data={data} setData={setData} lang={lang as 'fr' | 'ar'} syncQuantity={false} />
 
                 </div>
 
-                {/* RIGHT COLUMN: PLANIFIED LOTS & OFs â€” ACCORDION (5 Cols) */}
+                {/* RIGHT COLUMN: PLANIFIED LOTS & OFs — ACCORDION (5 Cols) */}
                 <div className="lg:col-span-5">
                     <div className="bg-white dark:bg-dk-surface rounded-2xl border border-slate-100 dark:border-dk-border overflow-hidden flex flex-col">
                         <div className="bg-zinc-50/80 px-5 py-3 border-b border-slate-100 dark:border-dk-border flex items-center justify-between">
                             <div className="flex items-center gap-2">
                                 <Calendar className="w-4 h-4 text-indigo-500" />
                                 <h3 className="font-semibold text-slate-900 dark:text-dk-text text-xs uppercase tracking-wide">
-                                    {tx(lang, { fr: 'Lots & OFs PlanifiÃ©s', ar: 'Ø¯ÙØ¹Ø§Øª Ø§Ù„ØªØ³Ù„ÙŠÙ…', en: 'Planned Lots & OFs', es: 'Lotes y OF Planificados', pt: 'Lotes e OFs Planeados', tr: 'Planlanan Partiler ve OF' })}
+                                    {tx(lang, { fr: 'Lots & OFs Planifiés', ar: 'دفعات التسليم', en: 'Planned Lots & OFs', es: 'Lotes y OF Planificados', pt: 'Lotes e OFs Planeados', tr: 'Planlanan Partiler ve OF' })}
                                 </h3>
                             </div>
                             <div className="flex items-center gap-2">
@@ -1146,7 +1146,7 @@ export default function Pedido({
                                         className="inline-flex items-center gap-1.5 h-8 px-3 bg-indigo-600 dark:bg-dk-accent hover:bg-indigo-700 dark:hover:bg-dk-accent-hover text-white text-xs font-semibold rounded-lg transition-all"
                                     >
                                         <Plus className="w-3.5 h-3.5" />
-                                        {tx(lang, { fr: 'Ajouter', ar: 'Ø¥Ø¶Ø§ÙØ© Ø¯ÙØ¹Ø©', en: 'Add', es: 'AÃ±adir', pt: 'Adicionar', tr: 'Ekle' })}
+                                        {tx(lang, { fr: 'Ajouter', ar: 'إضافة دفعة', en: 'Add', es: 'Añadir', pt: 'Adicionar', tr: 'Ekle' })}
                                     </button>
                                 )}
                                 <span className="inline-flex items-center justify-center h-6 min-w-[24px] px-2 bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text text-xs font-semibold rounded-full tabular-nums">
@@ -1160,12 +1160,12 @@ export default function Pedido({
                                     <Calendar className="w-5 h-5 text-amber-500 shrink-0" />
                                     <span>
                                         {tx(lang, {
-                                            fr: 'Veuillez d\'abord enregistrer le modÃ¨le pour pouvoir planifier et diviser les commandes.',
-                                            ar: 'ÙŠØ±Ø¬Ù‰ Ø­ÙØ¸ Ø§Ù„Ù†Ù…ÙˆØ°Ø¬ Ø£ÙˆÙ„Ø§Ù‹ Ù„ØªØªÙ…ÙƒÙ† Ù…Ù† Ø¥Ø¶Ø§ÙØ© ÙˆØªÙ‚Ø³ÙŠÙ… Ø·Ù„Ø¨ÙŠØ§Øª Ù‡Ø°Ø§ Ø§Ù„Ù…ÙˆØ¯ÙŠÙ„.',
+                                            fr: 'Veuillez d\'abord enregistrer le modèle pour pouvoir planifier et diviser les commandes.',
+                                            ar: 'يرجى حفظ النموذج أولاً لتتمكن من إضافة وتقسيم طلبيات هذا الموديل.',
                                             en: 'Please save the model first to be able to plan and split the orders.',
                                             es: 'Guarda primero el modelo para poder planificar y dividir los pedidos.',
                                             pt: 'Guarde primeiro o modelo para poder planear e dividir as encomendas.',
-                                            tr: 'SipariÅŸleri planlayÄ±p bÃ¶lebilmek iÃ§in Ã¶nce modeli kaydedin.',
+                                            tr: 'Siparişleri planlayıp bölebilmek için önce modeli kaydedin.',
                                         })}
                                     </span>
                                 </div>
@@ -1183,12 +1183,12 @@ export default function Pedido({
                                         <Calendar className="w-8 h-8 text-slate-300 dark:text-dk-muted" />
                                         <span>
                                             {tx(lang, {
-                                                fr: 'Aucune commande ou lot de livraison planifiÃ© pour ce modÃ¨le.',
-                                                ar: 'Ù„Ø§ ØªÙˆØ¬Ø¯ Ø·Ù„Ø¨ÙŠØ§Øª Ø£Ùˆ Ø¯ÙØ¹Ø§Øª ØªØ³Ù„ÙŠÙ… Ù…Ø¨Ø±Ù…Ø¬Ø© Ù„Ù‡Ø°Ø§ Ø§Ù„Ù…ÙˆØ¯ÙŠÙ„ Ø­Ø§Ù„ÙŠØ§Ù‹ ÙÙŠ Ø¬Ø¯ÙˆÙ„ Ø§Ù„ØªØ®Ø·ÙŠØ·.',
+                                                fr: 'Aucune commande ou lot de livraison planifié pour ce modèle.',
+                                                ar: 'لا توجد طلبيات أو دفعات تسليم مبرمجة لهذا الموديل حالياً في جدول التخطيط.',
                                                 en: 'No order or delivery lot planned for this model.',
-                                                es: 'NingÃºn pedido o lote de entrega planificado para este modelo.',
+                                                es: 'Ningún pedido o lote de entrega planificado para este modelo.',
                                                 pt: 'Nenhuma encomenda ou lote de entrega planeado para este modelo.',
-                                                tr: 'Bu model iÃ§in planlanmÄ±ÅŸ sipariÅŸ veya teslimat partisi yok.',
+                                                tr: 'Bu model için planlanmış sipariş veya teslimat partisi yok.',
                                             })}
                                         </span>
                                     </div>
@@ -1208,9 +1208,9 @@ export default function Pedido({
                                     const filteredSizes = sizes.filter(s => s.toLowerCase() !== 'total');
                                     const filteredColors = colors.filter(c => c.name.toLowerCase() !== 'total' && c.id.toLowerCase() !== 'total');
 
-                                    const isSplit = evt.modelName?.includes(' â€” ') || (evt.lots_data && evt.lots_data.length > 0);
-                                    const lotSuffix = evt.modelName?.includes(' â€” ') ? evt.modelName.split(' â€” ').slice(1).join(' â€” ') : '';
-                                    const displayModelName = evt.modelName?.includes(' â€” ') ? evt.modelName.split(' â€” ')[0] : (evt.modelName || articleName);
+                                    const isSplit = evt.modelName?.includes(' — ') || (evt.lots_data && evt.lots_data.length > 0);
+                                    const lotSuffix = evt.modelName?.includes(' — ') ? evt.modelName.split(' — ').slice(1).join(' — ') : '';
+                                    const displayModelName = evt.modelName?.includes(' — ') ? evt.modelName.split(' — ')[0] : (evt.modelName || articleName);
                                     
                                     const matAv = getMaterialAvailability(lang, evt.modelId, [{ id: evt.modelId, ficheData: data } as any], evt.qteTotal, evt.qteTotal);
                                     
@@ -1261,7 +1261,7 @@ export default function Pedido({
                                                         onClick={(e) => { e.stopPropagation(); startEditExisting(evt); }}
                                                         onKeyDown={(e) => { if (e.key === 'Enter') { e.stopPropagation(); startEditExisting(evt); } }}
                                                         className="shrink-0 p-1.5 text-slate-400 dark:text-dk-muted hover:text-indigo-600 dark:text-dk-accent-text hover:bg-indigo-50 dark:bg-dk-accent/20 rounded-lg transition-all cursor-pointer"
-                                                        title={tx(lang, { fr: 'Modifier le lot', ar: 'ØªØ¹Ø¯ÙŠÙ„ Ø§Ù„Ø¯ÙØ¹Ø©', en: 'Edit lot', es: 'Editar lote', pt: 'Editar lote', tr: 'Partiyi dÃ¼zenle' })}
+                                                        title={tx(lang, { fr: 'Modifier le lot', ar: 'تعديل الدفعة', en: 'Edit lot', es: 'Editar lote', pt: 'Editar lote', tr: 'Partiyi düzenle' })}
                                                     >
                                                         <Edit className="w-3.5 h-3.5" />
                                                     </div>
@@ -1279,7 +1279,7 @@ export default function Pedido({
                                                             </div>
                                                             <div className="min-w-0">
                                                                 <span className="text-[8px] text-slate-400 dark:text-dk-muted font-semibold uppercase block leading-none">
-                                                                    {tx(lang, { fr: 'Lancement', ar: 'Ø§Ù„Ø¥Ø·Ù„Ø§Ù‚', en: 'Launch', es: 'Lanzamiento', pt: 'LanÃ§amento', tr: 'BaÅŸlatma' })}
+                                                                    {tx(lang, { fr: 'Lancement', ar: 'الإطلاق', en: 'Launch', es: 'Lanzamiento', pt: 'Lançamento', tr: 'Başlatma' })}
                                                                 </span>
                                                                 <span className="font-semibold text-slate-700 dark:text-dk-text-soft tabular-nums text-[11px] block truncate">
                                                                     {(evt.startDate || evt.dateLancement || '-').split('T')[0]}
@@ -1292,7 +1292,7 @@ export default function Pedido({
                                                             </div>
                                                             <div className="min-w-0">
                                                                 <span className="text-[8px] text-slate-400 dark:text-dk-muted font-semibold uppercase block leading-none">
-                                                                    {tx(lang, { fr: 'Fin estimÃ©e', ar: 'Ø§Ù„Ø§Ù†ØªÙ‡Ø§Ø¡', en: 'Est. end', es: 'Fin estimado', pt: 'Fim estimado', tr: 'Tahmini bitiÅŸ' })}
+                                                                    {tx(lang, { fr: 'Fin estimée', ar: 'الانتهاء', en: 'Est. end', es: 'Fin estimado', pt: 'Fim estimado', tr: 'Tahmini bitiş' })}
                                                                 </span>
                                                                 <span className="font-semibold text-slate-700 dark:text-dk-text-soft tabular-nums text-[11px] block truncate">
                                                                     {evt.estimatedEndDate ? evt.estimatedEndDate.split('T')[0] : '-'}
@@ -1305,7 +1305,7 @@ export default function Pedido({
                                                             </div>
                                                             <div className="min-w-0">
                                                                 <span className="text-[8px] text-slate-400 dark:text-dk-muted font-semibold uppercase block leading-none">
-                                                                    {tx(lang, { fr: 'DDS', ar: 'Ø§Ù„ØªØ³Ù„ÙŠÙ…', en: 'DDS', es: 'DDS', pt: 'DDS', tr: 'DDS' })}
+                                                                    {tx(lang, { fr: 'DDS', ar: 'التسليم', en: 'DDS', es: 'DDS', pt: 'DDS', tr: 'DDS' })}
                                                                 </span>
                                                                 <span className="font-semibold text-slate-700 dark:text-dk-text-soft tabular-nums text-[11px] block truncate">
                                                                     {(evt.strictDeadline_DDS || evt.dateExport || '-').split('T')[0]}
@@ -1319,7 +1319,7 @@ export default function Pedido({
                                                         <div className="flex items-center gap-2">
                                                             <Truck className="w-3.5 h-3.5 text-amber-500" />
                                                             <span className="font-semibold text-slate-700 dark:text-dk-text-soft tabular-nums text-[11px]">
-                                                                {evt.fournisseurDate ? evt.fournisseurDate.split('T')[0] : tx(lang, { fr: 'Non dÃ©finie', ar: 'ØºÙŠØ± Ù…Ø­Ø¯Ø¯', en: 'Not defined', es: 'No definida', pt: 'NÃ£o definida', tr: 'TanÄ±msÄ±z' })}
+                                                                {evt.fournisseurDate ? evt.fournisseurDate.split('T')[0] : tx(lang, { fr: 'Non définie', ar: 'غير محدد', en: 'Not defined', es: 'No definida', pt: 'Não definida', tr: 'Tanımsız' })}
                                                             </span>
                                                             {matAv && (
                                                                 <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-bold border ${
@@ -1343,12 +1343,12 @@ export default function Pedido({
                                                             <AlertTriangle className="w-3.5 h-3.5 shrink-0 text-rose-600 dark:text-rose-400 mt-0.5" />
                                                             <p className="font-bold">
                                                                 {tx(lang, {
-                                                                    fr: `Conflit : lancement ${launchDateStr} < arrivÃ©e ${matArrivalDateStr}`,
-                                                                    ar: `ØªØ¹Ø§Ø±Ø¶: Ø§Ù„Ø¥Ø·Ù„Ø§Ù‚ (${launchDateStr}) ÙŠØ³Ø¨Ù‚ Ø§Ù„ÙˆØµÙˆÙ„ (${matArrivalDateStr})`,
+                                                                    fr: `Conflit : lancement ${launchDateStr} < arrivée ${matArrivalDateStr}`,
+                                                                    ar: `تعارض: الإطلاق (${launchDateStr}) يسبق الوصول (${matArrivalDateStr})`,
                                                                     en: `Conflict: launch ${launchDateStr} < arrival ${matArrivalDateStr}`,
                                                                     es: `Conflicto: lanzamiento ${launchDateStr} < llegada ${matArrivalDateStr}`,
-                                                                    pt: `Conflito: lanÃ§amento ${launchDateStr} < chegada ${matArrivalDateStr}`,
-                                                                    tr: `Ã‡akÄ±ÅŸma: baÅŸlatma ${launchDateStr} < varÄ±ÅŸ ${matArrivalDateStr}`,
+                                                                    pt: `Conflito: lançamento ${launchDateStr} < chegada ${matArrivalDateStr}`,
+                                                                    tr: `Çakışma: başlatma ${launchDateStr} < varış ${matArrivalDateStr}`,
                                                                 })}
                                                             </p>
                                                         </div>
@@ -1357,7 +1357,7 @@ export default function Pedido({
                                                     {/* Progress bar */}
                                                     <div className="bg-white dark:bg-dk-surface border border-slate-100 dark:border-dk-border rounded-md p-2.5 space-y-1">
                                                         <div className="flex items-center justify-between text-[11px] font-semibold text-slate-500 dark:text-dk-muted">
-                                                            <span>{tx(lang, { fr: 'Production', ar: 'Ø§Ù„ØªÙ‚Ø¯Ù…', en: 'Production', es: 'ProducciÃ³n', pt: 'ProduÃ§Ã£o', tr: 'Ãœretim' })}</span>
+                                                            <span>{tx(lang, { fr: 'Production', ar: 'التقدم', en: 'Production', es: 'Producción', pt: 'Produção', tr: 'Üretim' })}</span>
                                                             <span className="tabular-nums text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text">
                                                                 {produced.toLocaleString()} / {evt.qteTotal.toLocaleString()} ({pct}%)
                                                             </span>
@@ -1375,7 +1375,7 @@ export default function Pedido({
                                                         <div className="space-y-1.5">
                                                             <div className="text-[10px] font-semibold text-slate-500 dark:text-dk-muted uppercase tracking-wider flex items-center gap-1.5">
                                                                 <Grid3X3 className="w-3 h-3 text-slate-400 dark:text-dk-muted" />
-                                                                {tx(lang, { fr: 'RÃ©partition', ar: 'Ø§Ù„ØªÙˆØ²ÙŠØ¹', en: 'Distribution', es: 'DistribuciÃ³n', pt: 'DistribuiÃ§Ã£o', tr: 'DaÄŸÄ±lÄ±m' })}
+                                                                {tx(lang, { fr: 'Répartition', ar: 'التوزيع', en: 'Distribution', es: 'Distribución', pt: 'Distribuição', tr: 'Dağılım' })}
                                                             </div>
                                                             <div className="overflow-x-auto rounded-lg border border-slate-100 dark:border-dk-border bg-white dark:bg-dk-surface">
                                                                 <table className="w-full text-[11px] border-collapse">
@@ -1421,11 +1421,11 @@ export default function Pedido({
                                                         </div>
                                                     )}
 
-                                                     {/* Materials Need â€” clean table with no overflow */}
+                                                     {/* Materials Need — clean table with no overflow */}
                                                     <div className="space-y-1.5">
                                                         <div className="text-[10px] font-semibold text-slate-500 dark:text-dk-muted uppercase tracking-wider flex items-center gap-1.5">
                                                             <Package className="w-3 h-3 text-slate-400 dark:text-dk-muted" />
-                                                            {tx(lang, { fr: 'Besoin MatiÃ¨res', ar: 'Ø§Ù„Ù…ÙˆØ§Ø¯', en: 'Material Needs', es: 'Necesidad de Materiales', pt: 'Necessidade de Materiais', tr: 'Malzeme Ä°htiyacÄ±' })}
+                                                            {tx(lang, { fr: 'Besoin Matières', ar: 'المواد', en: 'Material Needs', es: 'Necesidad de Materiales', pt: 'Necessidade de Materiais', tr: 'Malzeme İhtiyacı' })}
                                                         </div>
                                                         <div className="rounded-lg border border-slate-100 dark:border-dk-border overflow-hidden">
                                                             {(() => {
@@ -1434,7 +1434,7 @@ export default function Pedido({
                                                                 if (materials.length === 0) {
                                                                     return (
                                                                         <p className="text-[11px] text-slate-400 dark:text-dk-muted italic text-center py-3 bg-amber-50 dark:bg-amber-900/30/20">
-                                                                            {tx(lang, { fr: 'Aucune matiÃ¨re dÃ©finie', ar: 'Ù„Ø§ ØªÙˆØ¬Ø¯ Ù…ÙˆØ§Ø¯ Ù…Ø­Ø¯Ø¯Ø©', en: 'No material defined', es: 'NingÃºn material definido', pt: 'Nenhum material definido', tr: 'TanÄ±mlÄ± malzeme yok' })}
+                                                                            {tx(lang, { fr: 'Aucune matière définie', ar: 'لا توجد مواد محددة', en: 'No material defined', es: 'Ningún material definido', pt: 'Nenhum material definido', tr: 'Tanımlı malzeme yok' })}
                                                                         </p>
                                                                     );
                                                                 }
@@ -1473,7 +1473,7 @@ export default function Pedido({
                                                                 if (colorGroups.length === 0) {
                                                                     return (
                                                                         <p className="text-[11px] text-slate-400 dark:text-dk-muted italic text-center py-3 bg-amber-50 dark:bg-amber-900/30/20">
-                                                                            {tx(lang, { fr: 'Aucune matiÃ¨re pour ce lot', ar: 'Ù„Ø§ ØªÙˆØ¬Ø¯ Ù…ÙˆØ§Ø¯ Ù„Ù‡Ø°Ø§ Ø§Ù„Ø¯ÙØ¹Ø©', en: 'No material for this lot', es: 'NingÃºn material para este lote', pt: 'Nenhum material para este lote', tr: 'Bu parti iÃ§in malzeme yok' })}
+                                                                            {tx(lang, { fr: 'Aucune matière pour ce lot', ar: 'لا توجد مواد لهذا الدفعة', en: 'No material for this lot', es: 'Ningún material para este lote', pt: 'Nenhum material para este lote', tr: 'Bu parti için malzeme yok' })}
                                                                         </p>
                                                                     );
                                                                 }
@@ -1506,11 +1506,11 @@ export default function Pedido({
                                                                                         <table className="w-full text-[11px] border-collapse">
                                                                                             <thead>
                                                                                                 <tr className="text-[9px] uppercase tracking-wider text-slate-400 dark:text-dk-muted border-b border-amber-100/30">
-                                                                                                    <th className="sticky left-0 bg-slate-50 dark:bg-dk-bg border-r border-amber-100/30 z-20 text-left px-3 py-1.5 font-medium min-w-[80px]">{tx(lang, { fr: 'MatiÃ¨re', ar: 'Ø§Ù„Ù…Ø§Ø¯Ø©', en: 'Material', es: 'Material', pt: 'Material', tr: 'Malzeme' })}</th>
-                                                                                                    <th className="text-center px-2 py-1.5 font-medium min-w-[50px]">{tx(lang, { fr: 'QtÃ©', ar: 'Ø§Ù„ÙƒÙ…ÙŠØ©', en: 'Qty', es: 'Cant.', pt: 'Qtd', tr: 'Miktar' })}</th>
+                                                                                                    <th className="sticky left-0 bg-slate-50 dark:bg-dk-bg border-r border-amber-100/30 z-20 text-left px-3 py-1.5 font-medium min-w-[80px]">{tx(lang, { fr: 'Matière', ar: 'المادة', en: 'Material', es: 'Material', pt: 'Material', tr: 'Malzeme' })}</th>
+                                                                                                    <th className="text-center px-2 py-1.5 font-medium min-w-[50px]">{tx(lang, { fr: 'Qté', ar: 'الكمية', en: 'Qty', es: 'Cant.', pt: 'Qtd', tr: 'Miktar' })}</th>
                                                                                                     <th className="text-center px-2 py-1.5 font-medium min-w-[60px]">{tx(lang, {fr: 'Fournisseur', ar: 'المورد', en: 'Supplier', es: 'Proveedor', pt: 'Fornecedor', tr: 'Tedarikçi'})}</th>
                                                                                                     <th className="text-center px-2 py-1.5 font-medium min-w-[70px]">{tx(lang, {fr: 'Statut', ar: 'الحالة', en: 'Status', es: 'Estado', pt: 'Status', tr: 'Durum'})}</th>
-                                                                                                    <th className="text-right px-3 py-1.5 font-medium min-w-[60px]">{tx(lang, { fr: 'CoÃ»t HT', ar: 'Ø§Ù„ØªÙƒÙ„ÙØ© Ø¨Ø¯ÙˆÙ† Ø¶Ø±ÙŠØ¨Ø©', en: 'Cost (excl. tax)', es: 'Costo (sin IVA)', pt: 'Custo (s/ IVA)', tr: 'Maliyet (KDV hariÃ§)' })}</th>
+                                                                                                    <th className="text-right px-3 py-1.5 font-medium min-w-[60px]">{tx(lang, { fr: 'Coût HT', ar: 'التكلفة بدون ضريبة', en: 'Cost (excl. tax)', es: 'Costo (sin IVA)', pt: 'Custo (s/ IVA)', tr: 'Maliyet (KDV hariç)' })}</th>
                                                                                                     <th className="text-center px-2 py-1.5 font-medium min-w-[90px]">{tx(lang, {fr: 'Actions', ar: 'إجراءات', en: 'Actions', es: 'Acciones', pt: 'Ações', tr: 'İşlemler'})}</th>
                                                                                                 </tr>
                                                                                             </thead>
@@ -1522,7 +1522,7 @@ export default function Pedido({
                                                                                                         <td className="px-2 py-1.5 text-center">
                                                                                                             {m.fournisseur ? (
                                                                                                                 <span className="text-[9px] font-bold bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 text-indigo-700 dark:text-dk-accent-text px-1.5 py-0.5 rounded whitespace-nowrap">{m.fournisseur}</span>
-                                                                                                            ) : <span className="text-slate-300 dark:text-dk-muted">â€”</span>}
+                                                                                                            ) : <span className="text-slate-300 dark:text-dk-muted">—</span>}
                                                                                                         </td>
                                                                                                         <td className="px-2 py-1.5 text-center">
                                                                                                             {m.isDelivered ? (
@@ -1546,9 +1546,9 @@ export default function Pedido({
                                                                                                                     <button
                                                                                                                         onClick={(e) => { e.stopPropagation(); setConfirmModal({ open: true, mat: m, qty: String(Math.round(m.buyQty)) }); }}
                                                                                                                         className="inline-flex items-center gap-1 h-6 px-2 text-[10px] font-bold text-emerald-700 border border-emerald-200 bg-emerald-50 dark:bg-emerald-900/30 hover:bg-emerald-100 rounded-md transition-colors whitespace-nowrap"
-                                                                                                                        title={tx(lang, { fr: 'Confirmer rÃ©ception', ar: 'ØªØ£ÙƒÙŠØ¯ Ø§Ù„Ø§Ø³ØªÙ„Ø§Ù…', en: 'Confirm reception', es: 'Confirmar recepciÃ³n', pt: 'Confirmar receÃ§Ã£o', tr: 'TeslimatÄ± onayla' })}
+                                                                                                                        title={tx(lang, { fr: 'Confirmer réception', ar: 'تأكيد الاستلام', en: 'Confirm reception', es: 'Confirmar recepción', pt: 'Confirmar receção', tr: 'Teslimatı onayla' })}
                                                                                                                     >
-                                                                                                                        <CheckCircle className="w-3 h-3" /> {tx(lang, { fr: 'ReÃ§u', ar: 'ØªÙ… Ø§Ù„Ø§Ø³ØªÙ„Ø§Ù…', en: 'Received', es: 'Recibido', pt: 'Recebido', tr: 'AlÄ±ndÄ±' })}
+                                                                                                                        <CheckCircle className="w-3 h-3" /> {tx(lang, { fr: 'Reçu', ar: 'تم الاستلام', en: 'Received', es: 'Recibido', pt: 'Recebido', tr: 'Alındı' })}
                                                                                                                     </button>
                                                                                                                 )}
                                                                                                                 <FactureUploader modelId={currentModelId || undefined} materialName={m.name} />
@@ -1586,28 +1586,28 @@ export default function Pedido({
                         <div className="space-y-0.5">
                             <h4 className="font-semibold text-sm text-slate-900 dark:text-dk-text flex items-center gap-2">
                                 <Grid3X3 className="w-4 h-4 text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text" />
-                                {tx(lang, { fr: 'Tableau de RÃ©conciliation & Suivi des DÃ©lais', ar: 'Ø¬Ø¯ÙˆÙ„ Ù…Ø·Ø§Ø¨Ù‚Ø© Ø§Ù„ÙƒÙ…ÙŠØ§Øª Ù…Ø¹ Ø§Ù„ØªÙˆØ²ÙŠØ¹ Ø§Ù„Ø¥Ø¬Ù…Ø§Ù„ÙŠ', en: 'Reconciliation & Deadline Tracking Table', es: 'Tabla de ConciliaciÃ³n y Seguimiento de Plazos', pt: 'Tabela de ReconciliaÃ§Ã£o e Acompanhamento de Prazos', tr: 'Mutabakat ve Termin Takip Tablosu' })}
+                                {tx(lang, { fr: 'Tableau de Réconciliation & Suivi des Délais', ar: 'جدول مطابقة الكميات مع التوزيع الإجمالي', en: 'Reconciliation & Deadline Tracking Table', es: 'Tabla de Conciliación y Seguimiento de Plazos', pt: 'Tabela de Reconciliação e Acompanhamento de Prazos', tr: 'Mutabakat ve Termin Takip Tablosu' })}
                             </h4>
                             <p className="text-xs text-slate-500 dark:text-dk-muted font-medium">
                                 {tx(lang, {
-                                    fr: 'Comparaison des quantitÃ©s rÃ©parties par lots avec la rÃ©partition globale du modÃ¨le.',
-                                    ar: 'Ù…Ù‚Ø§Ø±Ù†Ø© Ø§Ù„ÙƒÙ…ÙŠØ§Øª Ø§Ù„Ù…ÙˆØ²Ø¹Ø© Ø¹Ù„Ù‰ Ø¯ÙØ¹Ø§Øª Ø§Ù„ØªØ³Ù„ÙŠÙ… Ù…Ø¹ Ø§Ù„ØªÙˆØ²ÙŠØ¹ Ø§Ù„Ø¥Ø¬Ù…Ø§Ù„ÙŠ Ù„Ù„Ù…ÙˆØ¯ÙŠÙ„ (Ø§Ù„Ù…Ù‚Ø§Ø³Ø§Øª ÙˆØ§Ù„Ø£Ù„ÙˆØ§Ù†).',
+                                    fr: 'Comparaison des quantités réparties par lots avec la répartition globale du modèle.',
+                                    ar: 'مقارنة الكميات الموزعة على دفعات التسليم مع التوزيع الإجمالي للموديل (المقاسات والألوان).',
                                     en: 'Comparison of the quantities split across lots with the overall model distribution.',
-                                    es: 'ComparaciÃ³n de las cantidades repartidas por lotes con la distribuciÃ³n global del modelo.',
-                                    pt: 'ComparaÃ§Ã£o das quantidades distribuÃ­das por lotes com a distribuiÃ§Ã£o global do modelo.',
-                                    tr: 'Partilere daÄŸÄ±tÄ±lan miktarlarÄ±n modelin genel daÄŸÄ±lÄ±mÄ±yla karÅŸÄ±laÅŸtÄ±rÄ±lmasÄ±.',
+                                    es: 'Comparación de las cantidades repartidas por lotes con la distribución global del modelo.',
+                                    pt: 'Comparação das quantidades distribuídas por lotes com a distribuição global do modelo.',
+                                    tr: 'Partilere dağıtılan miktarların modelin genel dağılımıyla karşılaştırılması.',
                                 })}
                             </p>
                         </div>
                         {reconciliationDiscrepancies.hasErrors ? (
                             <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-rose-50 dark:bg-rose-900/30 text-rose-700 border border-rose-200/60 animate-pulse">
                                 <AlertTriangle className="w-3.5 h-3.5" />
-                                {tx(lang, { fr: 'Attention : Ã‰cart dÃ©tectÃ© !', ar: 'Ø§Ù†ØªØ¨Ø§Ù‡: Ù‡Ù†Ø§Ùƒ ÙØ±ÙˆÙ‚Ø§Øª!', en: 'Warning: Discrepancy detected!', es: 'Â¡AtenciÃ³n: discrepancia detectada!', pt: 'AtenÃ§Ã£o: discrepÃ¢ncia detetada!', tr: 'Dikkat: TutarsÄ±zlÄ±k tespit edildi!' })}
+                                {tx(lang, { fr: 'Attention : Écart détecté !', ar: 'انتباه: هناك فروقات!', en: 'Warning: Discrepancy detected!', es: '¡Atención: discrepancia detectada!', pt: 'Atenção: discrepância detetada!', tr: 'Dikkat: Tutarsızlık tespit edildi!' })}
                             </span>
                         ) : (
                             <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 border border-emerald-200/60">
                                 <CheckCircle className="w-3.5 h-3.5" />
-                                {tx(lang, { fr: 'Correspondance parfaite 100%', ar: 'Ù…Ø·Ø§Ø¨Ù‚Ø© ØªØ§Ù…Ø© 100%', en: 'Perfect match 100%', es: 'Coincidencia perfecta 100%', pt: 'CorrespondÃªncia perfeita 100%', tr: 'Tam eÅŸleÅŸme %100' })}
+                                {tx(lang, { fr: 'Correspondance parfaite 100%', ar: 'مطابقة تامة 100%', en: 'Perfect match 100%', es: 'Coincidencia perfecta 100%', pt: 'Correspondência perfeita 100%', tr: 'Tam eşleşme %100' })}
                             </span>
                         )}
                     </div>
@@ -1618,12 +1618,12 @@ export default function Pedido({
                             <div className="space-y-1">
                                 <p className="font-semibold text-rose-950">
                                     {tx(lang, {
-                                        fr: 'Veuillez ajuster les cases indiquÃ©es en rouge. Le total des lots ne correspond pas Ã  la cible :',
-                                        ar: 'ÙŠØ±Ø¬Ù‰ Ù…Ø±Ø§Ø¬Ø¹Ø© Ø§Ù„Ø®Ø§Ù†Ø§Øª Ø§Ù„Ù…Ø´Ø§Ø± Ø¥Ù„ÙŠÙ‡Ø§ Ø¨Ø§Ù„Ù„ÙˆÙ† Ø§Ù„Ø£Ø­Ù…Ø±. Ù…Ø¬Ù…ÙˆØ¹ ÙƒÙ…ÙŠØ§Øª Ø§Ù„Ø¯ÙØ¹Ø§Øª Ù„Ø§ ÙŠØ·Ø§Ø¨Ù‚ Ø§Ù„ØªÙˆØ²ÙŠØ¹ Ø§Ù„Ø¥Ø¬Ù…Ø§Ù„ÙŠ:',
+                                        fr: 'Veuillez ajuster les cases indiquées en rouge. Le total des lots ne correspond pas à la cible :',
+                                        ar: 'يرجى مراجعة الخانات المشار إليها باللون الأحمر. مجموع كميات الدفعات لا يطابق التوزيع الإجمالي:',
                                         en: 'Please adjust the cells highlighted in red. The lot total does not match the target:',
                                         es: 'Ajuste las casillas marcadas en rojo. El total de los lotes no coincide con el objetivo:',
-                                        pt: 'Ajuste as cÃ©lulas assinaladas a vermelho. O total dos lotes nÃ£o corresponde ao alvo:',
-                                        tr: 'KÄ±rmÄ±zÄ± iÅŸaretli hÃ¼creleri dÃ¼zeltin. Parti toplamÄ± hedefle uyuÅŸmuyor:',
+                                        pt: 'Ajuste as células assinaladas a vermelho. O total dos lotes não corresponde ao alvo:',
+                                        tr: 'Kırmızı işaretli hücreleri düzeltin. Parti toplamı hedefle uyuşmuyor:',
                                     })}
                                 </p>
                                 <ul className="list-disc pl-5 space-y-0.5 tabular-nums text-[10px] text-rose-700 font-medium">
@@ -1635,7 +1635,7 @@ export default function Pedido({
                                                  const plannedVal = planifiedTotals[c.id]?.[s] || 0;
                                                  return (
                                                     <li key={`${c.id}_${s}`}>
-                                                        {c.name} ({s}) : {plannedVal} {tx(lang, { fr: 'planifiÃ©', ar: 'Ù…Ø®Ø·Ø·', en: 'planned', es: 'planificado', pt: 'planeado', tr: 'planlanan' })} / {targetVal} {tx(lang, { fr: 'cible', ar: 'Ø§Ù„Ù‡Ø¯Ù', en: 'target', es: 'objetivo', pt: 'alvo', tr: 'hedef' })} ({diffVal > 0 ? tx(lang, { fr: `+${diffVal} de trop`, ar: `+${diffVal} Ø²Ø§Ø¦Ø¯`, en: `+${diffVal} too many`, es: `+${diffVal} de mÃ¡s`, pt: `+${diffVal} a mais`, tr: `+${diffVal} fazla` }) : tx(lang, { fr: `${diffVal} manquant`, ar: `${diffVal} Ù†Ø§Ù‚Øµ`, en: `${diffVal} missing`, es: `${diffVal} faltante`, pt: `${diffVal} em falta`, tr: `${diffVal} eksik` })})
+                                                        {c.name} ({s}) : {plannedVal} {tx(lang, { fr: 'planifié', ar: 'مخطط', en: 'planned', es: 'planificado', pt: 'planeado', tr: 'planlanan' })} / {targetVal} {tx(lang, { fr: 'cible', ar: 'الهدف', en: 'target', es: 'objetivo', pt: 'alvo', tr: 'hedef' })} ({diffVal > 0 ? tx(lang, { fr: `+${diffVal} de trop`, ar: `+${diffVal} زائد`, en: `+${diffVal} too many`, es: `+${diffVal} de más`, pt: `+${diffVal} a mais`, tr: `+${diffVal} fazla` }) : tx(lang, { fr: `${diffVal} manquant`, ar: `${diffVal} ناقص`, en: `${diffVal} missing`, es: `${diffVal} faltante`, pt: `${diffVal} em falta`, tr: `${diffVal} eksik` })})
                                                     </li>
                                                  );
                                             }
@@ -1711,7 +1711,7 @@ export default function Pedido({
                                                 <td key={s} className={`py-2 px-2 border-r border-slate-100 dark:border-dk-border text-center tabular-nums ${cellBg}`}>
                                                         <div className="flex flex-col items-center">
                                                             <span className="text-[9px] text-slate-400 dark:text-dk-muted font-medium font-sans">
-                                                                {tx(lang, { fr: 'Cible:', ar: 'Ø§Ù„Ù‡Ø¯Ù:', en: 'Target:', es: 'Objetivo:', pt: 'Alvo:', tr: 'Hedef:' })} {targetVal}
+                                                                {tx(lang, { fr: 'Cible:', ar: 'الهدف:', en: 'Target:', es: 'Objetivo:', pt: 'Alvo:', tr: 'Hedef:' })} {targetVal}
                                                             </span>
                                                             <span className={`text-xs ${plannedColor}`}>
                                                                 {plannedVal}
@@ -1824,24 +1824,24 @@ export default function Pedido({
                         <div className="px-5 h-12 border-b border-slate-100 dark:border-dk-border flex items-center gap-2">
                             <CheckCircle className="w-4 h-4 text-emerald-600 dark:text-emerald-400" strokeWidth={1.75} />
                             <div>
-                                <h3 className="text-[13px] font-semibold text-slate-900 dark:text-dk-text tracking-tight">{tx(lang, { fr: 'Confirmer rÃ©ception', ar: 'ØªØ£ÙƒÙŠØ¯ Ø§Ù„Ø§Ø³ØªÙ„Ø§Ù…', en: 'Confirm reception', es: 'Confirmar recepciÃ³n', pt: 'Confirmar receÃ§Ã£o', tr: 'TeslimatÄ± onayla' })}</h3>
+                                <h3 className="text-[13px] font-semibold text-slate-900 dark:text-dk-text tracking-tight">{tx(lang, { fr: 'Confirmer réception', ar: 'تأكيد الاستلام', en: 'Confirm reception', es: 'Confirmar recepción', pt: 'Confirmar receção', tr: 'Teslimatı onayla' })}</h3>
                                 <p className="text-[11px] text-slate-400 dark:text-dk-muted truncate max-w-[280px]">{confirmModal.mat.name}</p>
                             </div>
                         </div>
                         <div className="p-5">
-                            <label className="block text-[11px] font-medium text-slate-500 dark:text-dk-muted mb-1.5">{tx(lang, { fr: 'QuantitÃ© reÃ§ue', ar: 'Ø§Ù„ÙƒÙ…ÙŠØ© Ø§Ù„Ù…Ø³ØªÙ„Ù…Ø©', en: 'Quantity received', es: 'Cantidad recibida', pt: 'Quantidade recebida', tr: 'AlÄ±nan miktar' })} ({confirmModal.mat.unit})</label>
+                            <label className="block text-[11px] font-medium text-slate-500 dark:text-dk-muted mb-1.5">{tx(lang, { fr: 'Quantité reçue', ar: 'الكمية المستلمة', en: 'Quantity received', es: 'Cantidad recibida', pt: 'Quantidade recebida', tr: 'Alınan miktar' })} ({confirmModal.mat.unit})</label>
                             <input
                                 type="number" min="0" step="0.01" autoFocus
                                 value={confirmModal.qty}
                                 onChange={(e) => setConfirmModal(c => ({ ...c, qty: e.target.value }))}
                                 className="w-full h-9 px-3 bg-white dark:bg-dk-surface hover:bg-slate-50 dark:hover:bg-dk-elevated/60 focus:bg-white border border-slate-200 dark:border-dk-border focus:border-slate-300 rounded-md text-[13px] font-semibold text-slate-700 dark:text-dk-text-soft focus:ring-2 focus:ring-slate-100 outline-none transition-all tabular-nums"
                             />
-                            <p className="text-[10.5px] text-slate-400 dark:text-dk-muted mt-1.5">{tx(lang, { fr: `Besoin : ${fmt(confirmModal.mat.buyQty)} ${confirmModal.mat.unit}. S'ajoute au stock et lÃ¨ve Â« Attente Â» (BR pour le Planning).`, ar: `Ø§Ù„Ø§Ø­ØªÙŠØ§Ø¬: ${fmt(confirmModal.mat.buyQty)} ${confirmModal.mat.unit}. ÙŠØ¶Ø§Ù Ø¥Ù„Ù‰ Ø§Ù„Ù…Ø®Ø²ÙˆÙ† ÙˆÙŠØ±ÙØ¹ Â« Ø§Ù†ØªØ¸Ø§Ø± Â» (BR Ù„Ù„ØªØ®Ø·ÙŠØ·).`, en: `Need: ${fmt(confirmModal.mat.buyQty)} ${confirmModal.mat.unit}. Adds to stock and removes "Waiting" (BR for Planning).`, es: `Necesidad: ${fmt(confirmModal.mat.buyQty)} ${confirmModal.mat.unit}. Se agrega al stock y elimina Â« Espera Â» (BR para PlanificaciÃ³n).`, pt: `Necessidade: ${fmt(confirmModal.mat.buyQty)} ${confirmModal.mat.unit}. Adiciona ao stock e remove Â« Espera Â» (BR para Planeamento).`, tr: `Ä°htiyaÃ§: ${fmt(confirmModal.mat.buyQty)} ${confirmModal.mat.unit}. Stoka eklenir ve Â« Bekleme Â» kaldÄ±rÄ±lÄ±r (Planlama iÃ§in BR).` })}</p>
+                            <p className="text-[10.5px] text-slate-400 dark:text-dk-muted mt-1.5">{tx(lang, { fr: `Besoin : ${fmt(confirmModal.mat.buyQty)} ${confirmModal.mat.unit}. S'ajoute au stock et lève « Attente » (BR pour le Planning).`, ar: `الاحتياج: ${fmt(confirmModal.mat.buyQty)} ${confirmModal.mat.unit}. يضاف إلى المخزون ويرفع « انتظار » (BR للتخطيط).`, en: `Need: ${fmt(confirmModal.mat.buyQty)} ${confirmModal.mat.unit}. Adds to stock and removes "Waiting" (BR for Planning).`, es: `Necesidad: ${fmt(confirmModal.mat.buyQty)} ${confirmModal.mat.unit}. Se agrega al stock y elimina « Espera » (BR para Planificación).`, pt: `Necessidade: ${fmt(confirmModal.mat.buyQty)} ${confirmModal.mat.unit}. Adiciona ao stock e remove « Espera » (BR para Planeamento).`, tr: `İhtiyaç: ${fmt(confirmModal.mat.buyQty)} ${confirmModal.mat.unit}. Stoka eklenir ve « Bekleme » kaldırılır (Planlama için BR).` })}</p>
                         </div>
                         <div className="bg-zinc-50/80 px-5 py-4 flex justify-end gap-2.5 border-t border-slate-100 dark:border-dk-border">
-<button onClick={() => setConfirmModal({ open: false, qty: '' })} className="px-4 h-9 text-[12px] font-medium text-slate-600 dark:text-dk-text-soft bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-md hover:bg-slate-50 dark:hover:bg-dk-elevated/60 transition-colors">{tx(lang, { fr: 'Annuler', ar: 'Ø¥Ù„ØºØ§Ø¡', en: 'Cancel', es: 'Cancelar', pt: 'Cancelar', tr: 'Ä°ptal' })}</button>
+<button onClick={() => setConfirmModal({ open: false, qty: '' })} className="px-4 h-9 text-[12px] font-medium text-slate-600 dark:text-dk-text-soft bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-md hover:bg-slate-50 dark:hover:bg-dk-elevated/60 transition-colors">{tx(lang, { fr: 'Annuler', ar: 'إلغاء', en: 'Cancel', es: 'Cancelar', pt: 'Cancelar', tr: 'İptal' })}</button>
                                                                                             <button onClick={handleConfirmReception} className="inline-flex items-center gap-1.5 px-4 h-9 text-[12px] font-medium text-white bg-indigo-600 dark:bg-dk-accent hover:bg-indigo-700 dark:hover:bg-dk-accent-hover rounded-md transition-colors">
-                                                                                                <CheckCircle className="w-3.5 h-3.5" strokeWidth={2} /> {tx(lang, { fr: 'Confirmer', ar: 'ØªØ£ÙƒÙŠØ¯', en: 'Confirm', es: 'Confirmar', pt: 'Confirmar', tr: 'Onayla' })}
+                                                                                                <CheckCircle className="w-3.5 h-3.5" strokeWidth={2} /> {tx(lang, { fr: 'Confirmer', ar: 'تأكيد', en: 'Confirm', es: 'Confirmar', pt: 'Confirmar', tr: 'Onayla' })}
                             </button>
                         </div>
                     </div>

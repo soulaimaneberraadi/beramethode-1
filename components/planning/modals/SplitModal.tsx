@@ -221,19 +221,19 @@ export default function SplitModal({ open, event, models, onClose, onSubmit }: P
         <Modal
             open={open}
             onClose={onClose}
-            title={tx(lang,{fr:"Fractionner l'ordre",ar:'ØªÙ‚Ø³ÙŠÙ… Ø§Ù„Ø·Ù„Ø¨',en:'Split Order',es:'Dividir pedido',pt:'Dividir pedido',tr:'SipariÅŸi BÃ¶l'})}
-            subtitle={`${client} Â· ${modelName}`}
+            title={tx(lang,{fr:"Fractionner l'ordre",ar:'تقسيم الطلب',en:'Split Order',es:'Dividir pedido',pt:'Dividir pedido',tr:'Siparişi Böl'})}
+            subtitle={`${client} · ${modelName}`}
             size="lg"
             footer={
                 <>
-                    <Button variant="ghost" onClick={onClose}>{tx(lang,{fr:'Annuler',ar:'Ø¥Ù„ØºØ§Ø¡',en:'Cancel',es:'Cancelar',pt:'Cancelar',tr:'Ä°ptal'})}</Button>
+                    <Button variant="ghost" onClick={onClose}>{tx(lang,{fr:'Annuler',ar:'إلغاء',en:'Cancel',es:'Cancelar',pt:'Cancelar',tr:'İptal'})}</Button>
                     {mode === 'simple' ? (
                         <Button variant="primary" onClick={handleSimpleSubmit} disabled={!valid}>
-                            {tx(lang,{fr:'Fractionner',ar:'ØªÙ‚Ø³ÙŠÙ…',en:'Split',es:'Dividir',pt:'Dividir',tr:'BÃ¶l'})}
+                            {tx(lang,{fr:'Fractionner',ar:'تقسيم',en:'Split',es:'Dividir',pt:'Dividir',tr:'Böl'})}
                         </Button>
                     ) : (
                         <Button variant="primary" onClick={handleLotsSubmit} disabled={!lotsValid}>
-                            {tx(lang,{fr:'CrÃ©er les lots',ar:'Ø¥Ù†Ø´Ø§Ø¡ Ø§Ù„Ø¯ÙØ¹Ø§Øª',en:'Create lots',es:'Crear lotes',pt:'Criar lotes',tr:'Partiler oluÅŸtur'})}
+                            {tx(lang,{fr:'Créer les lots',ar:'إنشاء الدفعات',en:'Create lots',es:'Crear lotes',pt:'Criar lotes',tr:'Partiler oluştur'})}
                         </Button>
                     )}
                 </>
@@ -251,7 +251,7 @@ export default function SplitModal({ open, event, models, onClose, onSubmit }: P
                     </div>
                     <div className="text-right">
                         <div className="text-[18px] font-black text-slate-900 dark:text-dk-text tabular-nums">{total}</div>
-                        <div className="text-[10px] text-slate-500 dark:text-dk-muted">{tx(lang,{fr:'pcs total',ar:'Ø¥Ø¬Ù…Ø§Ù„ÙŠ Ø§Ù„Ù‚Ø·Ø¹',en:'pcs total',es:'pcs total',pt:'pcs total',tr:'toplam adet'})}</div>
+                        <div className="text-[10px] text-slate-500 dark:text-dk-muted">{tx(lang,{fr:'pcs total',ar:'إجمالي القطع',en:'pcs total',es:'pcs total',pt:'pcs total',tr:'toplam adet'})}</div>
                     </div>
                 </div>
 
@@ -265,7 +265,7 @@ export default function SplitModal({ open, event, models, onClose, onSubmit }: P
                         }`}
                     >
                         <Scissors className="w-3.5 h-3.5" />
-                        {tx(lang,{fr:'Simple',ar:'Ø¨Ø³ÙŠØ·',en:'Simple',es:'Simple',pt:'Simples',tr:'Basit'})}
+                        {tx(lang,{fr:'Simple',ar:'بسيط',en:'Simple',es:'Simple',pt:'Simples',tr:'Basit'})}
                     </button>
                     <button
                         type="button"
@@ -275,7 +275,7 @@ export default function SplitModal({ open, event, models, onClose, onSubmit }: P
                         }`}
                     >
                         <Package className="w-3.5 h-3.5" />
-                        {tx(lang,{fr:'Par lots / Livraisons',ar:'Ø¯ÙØ¹Ø§Øª / ØªØ³Ù„ÙŠÙ…Ø§Øª',en:'By lots / Deliveries',es:'Por lotes / Entregas',pt:'Por lotes / Entregas',tr:'Partiler / Teslimatlar'})}
+                        {tx(lang,{fr:'Par lots / Livraisons',ar:'دفعات / تسليمات',en:'By lots / Deliveries',es:'Por lotes / Entregas',pt:'Por lotes / Entregas',tr:'Partiler / Teslimatlar'})}
                     </button>
                 </div>
 
@@ -283,7 +283,7 @@ export default function SplitModal({ open, event, models, onClose, onSubmit }: P
                     <>
                         {/* Simple split */}
                         <div className="text-[13px] text-slate-600 dark:text-dk-text-soft">
-                            {tx(lang,{fr:'QuantitÃ© Ã  transfÃ©rer vers un nouvel ordre :',ar:'Ø§Ù„ÙƒÙ…ÙŠØ© Ø§Ù„Ù…Ø±Ø§Ø¯ Ù†Ù‚Ù„Ù‡Ø§ Ø¥Ù„Ù‰ Ø·Ù„Ø¨ Ø¬Ø¯ÙŠØ¯:',en:'Quantity to transfer to a new order:',es:'Cantidad a transferir a un nuevo pedido:',pt:'Quantidade a transferir para um novo pedido:',tr:'Yeni sipariÅŸe aktarÄ±lacak miktar:'})}
+                            {tx(lang,{fr:'Quantité à transférer vers un nouvel ordre :',ar:'الكمية المراد نقلها إلى طلب جديد:',en:'Quantity to transfer to a new order:',es:'Cantidad a transferir a un nuevo pedido:',pt:'Quantidade a transferir para um novo pedido:',tr:'Yeni siparişe aktarılacak miktar:'})}
                         </div>
 
                         <div className="space-y-2">
@@ -304,7 +304,7 @@ export default function SplitModal({ open, event, models, onClose, onSubmit }: P
                                     min={1}
                                     max={total - 1}
                                 />
-                                <span className="text-[12px] text-slate-500 dark:text-dk-muted tabular-nums">{tx(lang,{fr:'sur',ar:'Ù…Ù†',en:'of',es:'de',pt:'de',tr:'/ toplam'})} {total}</span>
+                                <span className="text-[12px] text-slate-500 dark:text-dk-muted tabular-nums">{tx(lang,{fr:'sur',ar:'من',en:'of',es:'de',pt:'de',tr:'/ toplam'})} {total}</span>
                             </div>
                         </div>
 
@@ -338,7 +338,7 @@ export default function SplitModal({ open, event, models, onClose, onSubmit }: P
                             <div className="bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl p-3 space-y-2">
                                 <div className="text-[11px] font-bold text-slate-700 dark:text-dk-text-soft uppercase tracking-wider flex items-center gap-1.5">
                                     <Grid3X3 className="w-3.5 h-3.5 text-indigo-500" />
-                                    Reste Ã  attribuer par taille/couleur
+                                    Reste à attribuer par taille/couleur
                                 </div>
                                 <div className="overflow-x-auto border border-slate-150 rounded-lg">
                                     <table className="w-full text-[11px] bg-white dark:bg-dk-surface">
@@ -408,7 +408,7 @@ export default function SplitModal({ open, event, models, onClose, onSubmit }: P
 
                                     <div className="grid grid-cols-3 gap-2">
                                         <div>
-                                            <label className="text-[9px] font-bold text-slate-500 dark:text-dk-muted uppercase tracking-wider">QuantitÃ©</label>
+                                            <label className="text-[9px] font-bold text-slate-500 dark:text-dk-muted uppercase tracking-wider">Quantité</label>
                                             <input
                                                 type="number"
                                                 value={lot.quantity || ''}
@@ -438,7 +438,7 @@ export default function SplitModal({ open, event, models, onClose, onSubmit }: P
                                             >
                                                 <option value="PENDING">{tx(lang, {fr: 'En attente', ar: 'قيد الانتظار', en: 'Pending', es: 'Pendiente', pt: 'Pendente', tr: 'Beklemede'})}</option>
                                                 <option value="READY">{tx(lang, {fr: 'Prêt', ar: 'جاهز', en: 'Ready', es: 'Listo', pt: 'Pronto', tr: 'Hazır'})}</option>
-                                                <option value="DELIVERED">LivrÃ©</option>
+                                                <option value="DELIVERED">Livré</option>
                                             </select>
                                         </div>
                                     </div>
@@ -453,7 +453,7 @@ export default function SplitModal({ open, event, models, onClose, onSubmit }: P
                                             >
                                                 <span className="flex items-center gap-1.5">
                                                     <Grid3X3 className="w-3.5 h-3.5 text-indigo-500" />
-                                                    RÃ©partition Tailles / Couleurs
+                                                    Répartition Tailles / Couleurs
                                                 </span>
                                                 {expandedLotId === lot.id ? (
                                                     <ChevronUp className="w-3.5 h-3.5 text-slate-500 dark:text-dk-muted" />
@@ -541,17 +541,17 @@ export default function SplitModal({ open, event, models, onClose, onSubmit }: P
                             </div>
                             {lotsTotal > total && (
                                 <div className="text-[10px] text-red-600 dark:text-red-400 font-semibold flex items-center gap-1 animate-pulse">
-                                    <span>âš </span> ExcÃ©dent de {lotsTotal - total} pcs
+                                    <span>⚠</span> Excédent de {lotsTotal - total} pcs
                                 </div>
                             )}
                             {hasGrid && hasOverAllocation && (
                                 <div className="text-[10px] text-red-650 font-bold flex items-center gap-1 animate-pulse">
-                                    <span>âš </span> Certaines tailles/couleurs sont sur-allouÃ©es (vÃ©rifier les valeurs nÃ©gatives du reste Ã  attribuer)
+                                    <span>⚠</span> Certaines tailles/couleurs sont sur-allouées (vérifier les valeurs négatives du reste à attribuer)
                                 </div>
                             )}
                             {lotsRemain > 0 && lots.length > 0 && (
                                 <div className="text-[10px] text-slate-550 font-medium">
-                                    Reste Ã  attribuer : {lotsRemain} pcs
+                                    Reste à attribuer : {lotsRemain} pcs
                                 </div>
                             )}
                         </div>

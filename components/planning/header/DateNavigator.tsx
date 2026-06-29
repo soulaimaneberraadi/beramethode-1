@@ -23,7 +23,7 @@ export default function DateNavigator({ currentDate, onChange, onToday }: Props)
                 type="button"
                 onClick={() => shift(-1)}
                 className="p-1 rounded-lg text-slate-500 dark:text-dk-muted hover:bg-white dark:hover:bg-dk-elevated/60 hover:text-slate-800 dark:hover:text-slate-100 hover:shadow-[0_1px_3px_rgba(0,0,0,0.05)] transition-all duration-200 active:scale-95"
-                aria-label={tx(lang,{fr:"Mois prÃ©cÃ©dent",ar:"Ø§Ù„Ø´Ù‡Ø± Ø§Ù„Ø³Ø§Ø¨Ù‚",en:"Previous month",es:"Mes anterior",pt:"MÃªs anterior",tr:"Ã–nceki ay"})}
+                aria-label={tx(lang,{fr:"Mois précédent",ar:"الشهر السابق",en:"Previous month",es:"Mes anterior",pt:"Mês anterior",tr:"Önceki ay"})}
             >
                 <ChevronLeft className="w-3.5 h-3.5" />
             </button>
@@ -34,7 +34,7 @@ export default function DateNavigator({ currentDate, onChange, onToday }: Props)
                 type="button"
                 onClick={() => shift(1)}
                 className="p-1 rounded-lg text-slate-500 dark:text-dk-muted hover:bg-white dark:hover:bg-dk-elevated/60 hover:text-slate-800 dark:hover:text-slate-100 hover:shadow-[0_1px_3px_rgba(0,0,0,0.05)] transition-all duration-200 active:scale-95"
-                aria-label={tx(lang,{fr:"Mois suivant",ar:"Ø§Ù„Ø´Ù‡Ø± Ø§Ù„ØªØ§Ù„ÙŠ",en:"Next month",es:"Mes siguiente",pt:"PrÃ³ximo mÃªs",tr:"Sonraki ay"})}
+                aria-label={tx(lang,{fr:"Mois suivant",ar:"الشهر التالي",en:"Next month",es:"Mes siguiente",pt:"Próximo mês",tr:"Sonraki ay"})}
             >
                 <ChevronRight className="w-3.5 h-3.5" />
             </button>
@@ -43,9 +43,9 @@ export default function DateNavigator({ currentDate, onChange, onToday }: Props)
                 type="button"
                 onClick={onToday}
                 className="px-2 py-1 rounded-lg text-[10px] font-bold text-indigo-650 dark:text-dk-accent-text dark:text-indigo-300 hover:bg-white dark:hover:bg-dk-elevated/60 hover:text-indigo-700 dark:text-dk-accent-text dark:hover:text-indigo-200 hover:shadow-[0_1px_3px_rgba(0,0,0,0.05)] transition-all duration-200 active:scale-95"
-                title={tx(lang,{fr:"Aujourd'hui",ar:"Ø§Ù„ÙŠÙˆÙ…",en:"Today",es:"Hoy",pt:"Hoje",tr:"BugÃ¼n"})}
+                title={tx(lang,{fr:"Aujourd'hui",ar:"اليوم",en:"Today",es:"Hoy",pt:"Hoje",tr:"Bugün"})}
             >
-                {tx(lang,{fr:"Aujourd'hui",ar:"Ø§Ù„ÙŠÙˆÙ…",en:"Today",es:"Hoy",pt:"Hoje",tr:"BugÃ¼n"})}
+                {tx(lang,{fr:"Aujourd'hui",ar:"اليوم",en:"Today",es:"Hoy",pt:"Hoje",tr:"Bugün"})}
             </button>
         </div>
     );

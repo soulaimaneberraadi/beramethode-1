@@ -37,7 +37,7 @@ export const MaterialsList = ({
             {materials.map((item: Material) => (
               <tr key={item.id} className="hover:bg-slate-50 dark:hover:bg-dk-elevated/60 transition-colors group">
                 <td className="p-2">
-                  <input type="text" value={item.name} onChange={(e) => updateMaterial(item.id, 'name', e.target.value)} className="w-full rounded border border-slate-200 dark:border-dk-border px-2 py-1 outline-none focus:border-blue-500" placeholder={tx(lang, {fr:'Nomâ€¦',ar:'Ø§Ù„Ø§Ø³Ù…â€¦',en:'Nameâ€¦',es:'Nombreâ€¦',pt:'Nomeâ€¦',tr:'Adâ€¦'})} />
+                  <input type="text" value={item.name} onChange={(e) => updateMaterial(item.id, 'name', e.target.value)} className="w-full rounded border border-slate-200 dark:border-dk-border px-2 py-1 outline-none focus:border-blue-500" placeholder={tx(lang, {fr:'Nom…',ar:'الاسم…',en:'Name…',es:'Nombre…',pt:'Nome…',tr:'Ad…'})} />
                 </td>
                 <td className="p-2">
                   <input type="number" min="0" value={item.unitPrice} onChange={(e) => updateMaterial(item.id, 'unitPrice', e.target.value)} className="w-full rounded border border-slate-200 dark:border-dk-border px-2 py-1 text-center outline-none focus:border-blue-500" />

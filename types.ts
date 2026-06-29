@@ -384,6 +384,10 @@ export interface AppSettings {
   subcontractDefaultCostPerPiece?: number;
   /** Temps de changement de série par défaut en minutes (ex: 120 pour 2 heures) */
   changeoverDurationMins?: number;
+
+  /** Salle (hall/workshop) hierarchy — optional, graceful degradation to single default */
+  salleNames?: Record<string, string>;          // salleId → display name
+  chaineToSalle?: Record<string, string>;        // chaineId → salleId
 }
 
 export interface PdfSettings {

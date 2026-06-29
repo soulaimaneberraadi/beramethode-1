@@ -4,15 +4,15 @@ import { tx } from '../../../lib/i18n';
 import type { TxMap } from '../../../lib/i18n';
 import { useLang } from '../../../src/context/LanguageContext';
 
-// Zoom est dÃ©sormais une largeur de jour en pixels (continue).
-// Plage : 8px (vue annÃ©e) â†’ 800px (vue heures).
+// Zoom est désormais une largeur de jour en pixels (continue).
+// Plage : 8px (vue année) → 800px (vue heures).
 export type ZoomLevel = number;
 
 export const ZOOM_MIN = 8;
 export const ZOOM_MAX = 800;
 export const ZOOM_DEFAULT = 110;
 
-// Compat : on garde le type littÃ©ral pour l'orchestrateur
+// Compat : on garde le type littéral pour l'orchestrateur
 export type ZoomKind = 'daily' | 'weekly' | 'monthly';
 
 interface Props {
@@ -21,16 +21,16 @@ interface Props {
 }
 
 const PRESETS: { label: string; value: number }[] = [
-    { label: 'AnnÃ©e', value: 12 },
+    { label: 'Année', value: 12 },
     { label: 'Mois', value: 38 },
     { label: 'Semaine', value: 110 },
     { label: 'Jour', value: 260 },
     { label: 'Heure', value: 600 },
 ];
 
-/** Ã‰tiquette synthÃ©tique pour l'affichage courant. */
+/** Étiquette synthétique pour l'affichage courant. */
 export function zoomLabel(v: number): string {
-    if (v < 18) return 'AnnÃ©e';
+    if (v < 18) return 'Année';
     if (v < 60) return 'Mois';
     if (v < 180) return 'Semaine';
     if (v < 420) return 'Jour';
@@ -38,11 +38,11 @@ export function zoomLabel(v: number): string {
 }
 
 const ZOOM_LABEL_TX: Record<string, TxMap> = {
-    'AnnÃ©e': { fr:'AnnÃ©e', ar:'Ø³Ù†Ø©', en:'Year', es:'AÃ±o', pt:'Ano', tr:'YÄ±l' },
-    'Mois': { fr:'Mois', ar:'Ø´Ù‡Ø±', en:'Month', es:'Mes', pt:'MÃªs', tr:'Ay' },
-    'Semaine': { fr:'Semaine', ar:'Ø£Ø³Ø¨ÙˆØ¹', en:'Week', es:'Semana', pt:'Semana', tr:'Hafta' },
-    'Jour': { fr:'Jour', ar:'ÙŠÙˆÙ…', en:'Day', es:'DÃ­a', pt:'Dia', tr:'GÃ¼n' },
-    'Heure': { fr:'Heure', ar:'Ø³Ø§Ø¹Ø©', en:'Hour', es:'Hora', pt:'Hora', tr:'Saat' },
+    'Année': { fr:'Année', ar:'سنة', en:'Year', es:'Año', pt:'Ano', tr:'Yıl' },
+    'Mois': { fr:'Mois', ar:'شهر', en:'Month', es:'Mes', pt:'Mês', tr:'Ay' },
+    'Semaine': { fr:'Semaine', ar:'أسبوع', en:'Week', es:'Semana', pt:'Semana', tr:'Hafta' },
+    'Jour': { fr:'Jour', ar:'يوم', en:'Day', es:'Día', pt:'Dia', tr:'Gün' },
+    'Heure': { fr:'Heure', ar:'ساعة', en:'Hour', es:'Hora', pt:'Hora', tr:'Saat' },
 };
 
 export default function ZoomSwitcher({ value, onChange }: Props) {
@@ -57,7 +57,7 @@ export default function ZoomSwitcher({ value, onChange }: Props) {
                 onClick={decrement}
                 disabled={value <= ZOOM_MIN}
                 className="w-6 h-6 flex items-center justify-center rounded-lg text-slate-500 dark:text-dk-muted hover:text-slate-900 dark:hover:text-slate-100 hover:bg-white dark:hover:bg-dk-elevated/60 disabled:opacity-20 disabled:cursor-not-allowed transition-all duration-200 active:scale-95"
-                title={tx(lang,{fr:'DÃ©zoomer',ar:'ØªØµØºÙŠØ±',en:'Zoom out',es:'Alejar',pt:'Reduzir zoom',tr:'UzaklaÅŸtÄ±r'})}
+                title={tx(lang,{fr:'Dézoomer',ar:'تصغير',en:'Zoom out',es:'Alejar',pt:'Reduzir zoom',tr:'Uzaklaştır'})}
             >
                 <ZoomOut className="w-3 h-3" strokeWidth={2} />
             </button>
@@ -71,7 +71,7 @@ export default function ZoomSwitcher({ value, onChange }: Props) {
                 value={value}
                 onChange={(e) => onChange(Number(e.target.value))}
                 className="w-20 accent-indigo-650 cursor-pointer h-1 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none"
-                title={`Zoom : ${tx(lang, ZOOM_LABEL_TX[zoomLabel(value)])} (${Math.round(value)}px/${tx(lang,{fr:'jour',ar:'ÙŠÙˆÙ…',en:'day',es:'dÃ­a',pt:'dia',tr:'gÃ¼n'})})`}
+                title={`Zoom : ${tx(lang, ZOOM_LABEL_TX[zoomLabel(value)])} (${Math.round(value)}px/${tx(lang,{fr:'jour',ar:'يوم',en:'day',es:'día',pt:'dia',tr:'gün'})})`}
             />
 
             <button
@@ -79,7 +79,7 @@ export default function ZoomSwitcher({ value, onChange }: Props) {
                 onClick={increment}
                 disabled={value >= ZOOM_MAX}
                 className="w-6 h-6 flex items-center justify-center rounded-lg text-slate-500 dark:text-dk-muted hover:text-slate-900 dark:hover:text-slate-100 hover:bg-white dark:hover:bg-dk-elevated/60 disabled:opacity-20 disabled:cursor-not-allowed transition-all duration-200 active:scale-95"
-                title={tx(lang,{fr:'Zoomer',ar:'ØªÙƒØ¨ÙŠØ±',en:'Zoom in',es:'Acercar',pt:'Ampliar zoom',tr:'YakÄ±nlaÅŸtÄ±r'})}
+                title={tx(lang,{fr:'Zoomer',ar:'تكبير',en:'Zoom in',es:'Acercar',pt:'Ampliar zoom',tr:'Yakınlaştır'})}
             >
                 <ZoomIn className="w-3 h-3" strokeWidth={2} />
             </button>
