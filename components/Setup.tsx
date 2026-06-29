@@ -4,6 +4,7 @@ import { Building2, User, Users, StopCircle, ChevronRight, ChevronLeft, CheckCir
 import { AccountType } from '../app/accountTypes';
 import { useTheme, useIsDark } from '../src/context/ThemeContext';
 import { DEFAULT_CALENDAR_APP_SETTINGS } from '../lib/defaultCalendarSettings';
+import { lsGet, lsSet } from '../lib/storageKeys';
 import { tx } from '../lib/i18n';
 import { useLang } from '../src/context/LanguageContext';
 
@@ -416,10 +417,10 @@ export default function Setup({ onComplete }: Props) {
   const persistPreferences = () => {
     try {
       localStorage.setItem('bera_lang', prefLang);
-      const raw = localStorage.getItem('beramethode_settings');
+      const raw = lsGet('beramethode_settings') ?? localStorage.getItem('beramethode_settings');
       const base = raw ? JSON.parse(raw) : DEFAULT_CALENDAR_APP_SETTINGS;
       const next = { ...DEFAULT_CALENDAR_APP_SETTINGS, ...base, currency: prefCurrency };
-      localStorage.setItem('beramethode_settings', JSON.stringify(next));
+      lsSet('beramethode_settings', JSON.stringify(next));
     } catch { /* non bloquant : valeurs par défaut conservées */ }
     // Le thème est déjà appliqué/persisté en direct via ThemeContext (bera_theme).
   };

@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { Users, ChevronDown, UserCog, Factory, Plus, Trash2, Check, X, Settings2, LayoutGrid, Globe, EyeOff, Eye, ChevronLeft, ChevronRight, Calculator, TrendingUp, TrendingDown, Activity, CalendarDays, MessageSquare, Sparkles, FileDown } from 'lucide-react';
 import { tx } from '../lib/i18n';
+import { lsGet, lsSet } from '../lib/storageKeys';
 import { useLang } from '../src/context/LanguageContext';
 import { ComposedChart, Line, Area, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts';
 import { ResponsiveChart } from './ui/ResponsiveChart';
@@ -260,7 +261,7 @@ export default function Effectifs({
   // Custom roles state
   const [roles, setRoles] = useState<RoleDefinition[]>(() => {
     try {
-      const saved = localStorage.getItem('BERA_CUSTOM_ROLES');
+      const saved = lsGet('BERA_CUSTOM_ROLES') ?? localStorage.getItem('BERA_CUSTOM_ROLES');
       return saved ? JSON.parse(saved) : DEFAULT_ROLES;
     } catch {
       return DEFAULT_ROLES;
@@ -269,10 +270,10 @@ export default function Effectifs({
 
   const [customPartitions, setCustomPartitions] = useState<CustomPartition[]>(() => {
     try {
-      const saved = localStorage.getItem('BERA_CUSTOM_PARTITIONS');
+      const saved = lsGet('BERA_CUSTOM_PARTITIONS') ?? localStorage.getItem('BERA_CUSTOM_PARTITIONS');
       if (saved) return JSON.parse(saved);
       // Migration from old salles
-      const savedSalles = localStorage.getItem('BERA_SALLES');
+      const savedSalles = lsGet('BERA_SALLES') ?? localStorage.getItem('BERA_SALLES');
       if (savedSalles) {
         return [{ id: 'SALLES', name: tx(lang,{fr:'Par Salle',ar:'حسب القاعة',en:'By Room',es:'Por Sala',pt:'Por Sala',tr:'Odaya Göre'}), items: JSON.parse(savedSalles) }];
       }
@@ -302,8 +303,8 @@ export default function Effectifs({
     } catch { return DEFAULT_CATEGORY_CONFIG; }
   });
 
-  useEffect(() => { localStorage.setItem('BERA_CUSTOM_ROLES', JSON.stringify(roles)); }, [roles]);
-  useEffect(() => { localStorage.setItem('BERA_CUSTOM_PARTITIONS', JSON.stringify(customPartitions)); }, [customPartitions]);
+  useEffect(() => { lsSet('BERA_CUSTOM_ROLES', JSON.stringify(roles)); }, [roles]);
+  useEffect(() => { lsSet('BERA_CUSTOM_PARTITIONS', JSON.stringify(customPartitions)); }, [customPartitions]);
   useEffect(() => { localStorage.setItem('BERA_CATEGORY_CONFIGS', JSON.stringify(categoryConfigs)); }, [categoryConfigs]);
 
   const analyticsFilterChain =

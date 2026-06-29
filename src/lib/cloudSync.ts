@@ -57,63 +57,31 @@ export const clearLocalAppData = () => {
   } catch { /* ignore */ }
 };
 
-/**
- * À appeler AVANT pullSnapshotFromCloud au login : si le compte diffère du
- * dernier compte synchronisé sur ce navigateur, on purge les données locales
- * pour que le pull reparte d'une base propre (aucune donnée de l'ancien compte).
- */
-/**
- * Save all sync keys from their unprefixed location to a user-prefixed backup.
- * Used before switching users so the old user's data is never lost.
- */
-const savePrefixedBackup = (email: string) => {
-  for (const k of SYNC_KEYS) {
-    try {
-      const v = localStorage.getItem(k);
-      if (v != null) localStorage.setItem(pkey(k, email), v);
-    } catch { /* ignore */ }
-  }
-  try {
-    const exp = localStorage.getItem('__bera_sqlite_export__');
-    if (exp) localStorage.setItem(pkey('__bera_sqlite_export__', email), exp);
-  } catch { /* ignore */ }
-};
-
-/**
- * Restore sync keys from a user-prefixed backup into unprefixed localStorage.
- * Returns true if backup was found and restored.
- */
-const restorePrefixedBackup = (email: string): boolean => {
-  let found = false;
-  for (const k of SYNC_KEYS) {
-    try {
-      const v = localStorage.getItem(pkey(k, email));
-      if (v != null) { localStorage.setItem(k, v); found = true; }
-    } catch { /* ignore */ }
-  }
-  try {
-    const exp = localStorage.getItem(pkey('__bera_sqlite_export__', email));
-    if (exp) { localStorage.setItem('__bera_sqlite_export__', exp); found = true; }
-  } catch { /* ignore */ }
-  return found;
-};
+// NOTE : les anciennes fonctions savePrefixedBackup/restorePrefixedBackup
+// (copie non-préfixé ↔ préfixé au changement de compte) ont été supprimées.
+// Désormais TOUTES les couches (App.tsx, apiShim, cloudSync) lisent/écrivent
+// directement les clés préfixées par compte via pkey()/lsGet()/lsSet(), donc
+// l'isolation par compte est garantie par le suffixe ; aucune copie n'est
+// nécessaire — et l'ancien savePrefixedBackup écrasait même les données
+// préfixées du compte précédent par des clés non-préfixées vides (perte de
+// données). Voir ensureLocalDataOwner ci-dessous.
 
 export const ensureLocalDataOwner = (userId: string) => {
   if (!userId) return;
   try {
     const prev = localStorage.getItem(LAST_SYNC_USER_KEY);
+    // Toutes les données métier sont désormais stockées PAR COMPTE via pkey()
+    // (App.tsx + apiShim + cloudSync utilisent tous les clés préfixées). Changer
+    // de compte = changer le suffixe pk() ; aucune copie préfixée↔non-préfixée
+    // n'est nécessaire — et surtout, l'ancien savePrefixedBackup() écrasait les
+    // données préfixées du compte précédent avec les clés non-préfixées (vides),
+    // d'où une perte de données. On se contente donc de purger les anciennes
+    // clés non-préfixées (legacy) et le marqueur de pull, pour forcer un pull
+    // frais du nouveau compte.
     if (prev && prev !== userId) {
-      // 1. Save current user's data under their prefixed keys
-      savePrefixedBackup(prev);
-      // 2. Clear current unprefixed localStorage
       clearLocalAppData();
     }
-    // 3. Update LAST_SYNC_USER_KEY BEFORE restore so pkey() returns new user's prefix
     localStorage.setItem(LAST_SYNC_USER_KEY, userId);
-    if (prev && prev !== userId) {
-      // 4. Try restoring the new user's prefixed backup
-      restorePrefixedBackup(userId);
-    }
   } catch { /* ignore */ }
 };
 

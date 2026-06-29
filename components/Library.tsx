@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { useAuth } from '../src/context/AuthContext';
 import { useLang } from '../src/context/LanguageContext';
 import { tx } from '../lib/i18n';
+import { lsGet, lsSet } from '../lib/storageKeys';
 import { pushSnapshotToCloud } from '../src/lib/cloudSync';
 import { Search, FolderOpen, MoreVertical, FileJson, Clock, Users, Calendar, Download, Copy, Trash2, Edit2, SortAsc, Scissors, Filter, Upload, AlertTriangle, Plus, Share2, LayoutGrid, ZoomIn, ZoomOut, List as ListIcon, Database, UploadCloud, DownloadCloud, CheckCircle2, Loader2 } from 'lucide-react';
 import { ModelData } from '../types';
@@ -95,8 +96,8 @@ export default function Library({
     const handleBackupDatabase = () => {
         setDbStatus('processing');
         try {
-            const library = localStorage.getItem('beramethode_library');
-            const autosave = localStorage.getItem('beramethode_autosave_v1');
+            const library = lsGet('beramethode_library') ?? localStorage.getItem('beramethode_library');
+            const autosave = lsGet('beramethode_autosave_v1') ?? localStorage.getItem('beramethode_autosave_v1');
             const layouts = localStorage.getItem('beramethode_layouts');
             const backupData = { type: 'BERAMETHODE_FULL_BACKUP', date: new Date().toISOString(), version: 1, data: { library: library ? JSON.parse(library) : [], autosave: autosave ? JSON.parse(autosave) : null, layouts: layouts ? JSON.parse(layouts) : [] } };
             const jsonString = JSON.stringify(backupData, null, 2);
@@ -136,8 +137,8 @@ export default function Library({
             try {
                 const json = JSON.parse(event.target?.result as string);
                 if (json.type !== 'BERAMETHODE_FULL_BACKUP' || !json.data) throw new Error(tx(lang, { fr: "Format de fichier invalide", ar: "صيغة الملف غير صالحة", en: "Invalid file format", es: "Formato de archivo no válido", pt: "Formato de arquivo inválido", tr: "Geçersiz dosya biçimi" }));
-                if (json.data.library) localStorage.setItem('beramethode_library', JSON.stringify(json.data.library));
-                if (json.data.autosave) localStorage.setItem('beramethode_autosave_v1', JSON.stringify(json.data.autosave));
+                if (json.data.library) lsSet('beramethode_library', JSON.stringify(json.data.library));
+                if (json.data.autosave) lsSet('beramethode_autosave_v1', JSON.stringify(json.data.autosave));
                 if (json.data.layouts) localStorage.setItem('beramethode_layouts', JSON.stringify(json.data.layouts));
                 setDbStatus('success');
                 alert(tx(lang, { fr: "Restauration terminée avec succès ! La page va se recharger.", ar: "تمت الاستعادة بنجاح! ستُعاد تحميل الصفحة.", en: "Restore completed successfully! The page will reload.", es: "¡Restauración completada con éxito! La página se recargará.", pt: "Restauração concluída com sucesso! A página será recarregada.", tr: "Geri yükleme başarıyla tamamlandı! Sayfa yeniden yüklenecek." }));
