@@ -1,6 +1,6 @@
-import React, { useMemo, useState, useEffect, useCallback } from 'react';
+import React, { useMemo, useState, useEffect, useCallback, useRef } from 'react';
 import { ModelData, SuiviData, PlanningEvent, AppSettings, AppTask } from '../types';
-import { Users, Activity, Layers, TrendingUp, Download, AlertTriangle, ShieldAlert, CheckCircle2, ListTodo, CalendarClock, ChevronRight, Factory, Package, DollarSign, RefreshCw, Calendar as CalendarIcon } from 'lucide-react';
+import { Users, Activity, Layers, TrendingUp, Download, AlertTriangle, ShieldAlert, CheckCircle2, CalendarClock, ChevronRight, Factory, Package, DollarSign, RefreshCw, Calendar as CalendarIcon } from 'lucide-react';
 import {
   LineChart,
   Line,
@@ -52,55 +52,111 @@ const Sparkline = React.memo(function Sparkline({ data, color }: { data: any[], 
   );
 });
 
-const KpiCard = React.memo(function KpiCard({ kpi, showLoading, onNavigateModule }: {
+/**
+ * Compte de 0 → cible à l'entrée, puis anime de la valeur précédente vers la
+ * nouvelle à chaque mise à jour live (easeOutCubic, ~900 ms). Chiffre « vivant ».
+ */
+function useCountUp(target: number, duration = 900) {
+  const [val, setVal] = useState(0);
+  const fromRef = useRef(0);
+  useEffect(() => {
+    const safeTarget = Number.isFinite(target) ? target : 0;
+    const from = fromRef.current;
+    if (from === safeTarget) { setVal(safeTarget); return; }
+    let raf = 0;
+    const start = performance.now();
+    const tick = (now: number) => {
+      const t = Math.min(1, (now - start) / duration);
+      const eased = 1 - Math.pow(1 - t, 3);
+      setVal(from + (safeTarget - from) * eased);
+      if (t < 1) { raf = requestAnimationFrame(tick); }
+      else { fromRef.current = safeTarget; setVal(safeTarget); }
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [target, duration]);
+  return val;
+}
+
+/** Abréviation lisible : 1 234 → « 1.2k », 2 500 000 → « 2.5M ». */
+function fmtCompact(n: number): string {
+  if (!Number.isFinite(n)) return '—';
+  const abs = Math.abs(n);
+  if (abs >= 1_000_000) return `${(n / 1_000_000).toFixed(abs >= 10_000_000 ? 0 : 1)}M`;
+  if (abs >= 1_000) return `${(n / 1_000).toFixed(abs >= 10_000 ? 0 : 1)}k`;
+  return String(Math.round(n));
+}
+/** Valeur réelle complète (séparateurs de milliers) — affichée au survol. */
+function fmtFull(n: number): string {
+  return Number.isFinite(n) ? Math.round(n).toLocaleString() : '—';
+}
+
+const KPI_ACCENT: Record<string, string> = {
+  of: '#6366f1', 'eff-rh': '#10b981', stock: '#f59e0b', avances: '#8b5cf6',
+  modeles: '#0ea5e9', 'eff-suivi': '#14b8a6', trs: '#f43f5e', pj: '#3b82f6',
+};
+
+const KpiCard = React.memo(function KpiCard({ kpi, showLoading, onNavigateModule, index = 0 }: {
   kpi: ReturnType<typeof useDashboardKpis>[number];
   showLoading: boolean;
   onNavigateModule?: (view: DashboardNavTarget) => void;
+  index?: number;
 }) {
+  const accent = KPI_ACCENT[kpi.key] || '#6366f1';
+  // Valeur réelle complète (présente sur les KPI abrégés : stock, avances) ⇒ tooltip.
+  const fullValue = (kpi as { fullValue?: string }).fullValue;
+  // Entrée décalée (stagger) via le keyframe `fadeInUp` défini dans index.html.
+  // (Les utilitaires animate-in de tailwindcss-animate ne sont PAS chargés sur
+  // le CDN Tailwind — d'où l'animation inline qui, elle, fonctionne.)
+  const delayStyle = { borderLeftColor: accent, animation: 'fadeInUp 0.5s ease-out both', animationDelay: `${index * 60}ms` } as React.CSSProperties;
   const Inner = (
     <>
-      <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-xl ${kpi.iconBg} flex items-center justify-center shrink-0 transition-all duration-300 group-hover:scale-110 group-hover:shadow-lg`}>
-        <kpi.icon className={`w-5 h-5 sm:w-6 sm:h-6 ${kpi.iconColor}`} />
-      </div>
-      <div className="min-w-0 flex-1">
+      <div className="flex items-center gap-2 mb-2">
+        <div className={`w-7 h-7 rounded-lg ${kpi.iconBg} flex items-center justify-center shrink-0`}>
+          <kpi.icon className={`w-4 h-4 ${kpi.iconColor}`} />
+        </div>
         <p className="text-[10px] sm:text-[11px] font-bold text-slate-400 dark:text-dk-muted uppercase tracking-wider truncate">{kpi.label}</p>
-        <div className="flex items-center gap-2">
-          <p className="text-xl sm:text-2xl lg:text-3xl font-black text-slate-800 dark:text-dk-text leading-none tabular-nums tracking-tight">
-            {showLoading ? <span className="text-slate-200 animate-pulse">···</span> : kpi.value}
-          </p>
-          {kpi.sparkData && kpi.sparkData.length > 0 && (
-            <Sparkline data={kpi.sparkData} color={kpi.sparkColor || '#6366f1'} />
-          )}
-        </div>
-        <p className="text-[10px] sm:text-xs text-slate-500 dark:text-dk-muted mt-1 font-medium truncate">{kpi.sub}</p>
+        {onNavigateModule && (
+          <ChevronRight className="w-3.5 h-3.5 text-slate-300 dark:text-dk-muted ml-auto opacity-0 group-hover:opacity-100 transition-opacity shrink-0" aria-hidden />
+        )}
       </div>
-      {onNavigateModule && (
-        <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-slate-100 dark:bg-dk-elevated/60 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-200 group-hover:bg-indigo-100 shrink-0">
-          <ChevronRight className="w-3 h-3 sm:w-4 sm:h-4 text-slate-400 dark:text-dk-muted group-hover:text-indigo-600 dark:text-dk-accent-text" aria-hidden />
-        </div>
-      )}
+      <div className="flex items-end justify-between gap-2">
+        <p title={fullValue} className={`text-xl sm:text-2xl font-black text-slate-800 dark:text-dk-text leading-none tabular-nums tracking-tight ${fullValue ? 'cursor-help decoration-dotted decoration-slate-300 underline-offset-4 hover:underline' : ''}`}>
+          {showLoading ? <span className="text-slate-200 animate-pulse">···</span> : kpi.value}
+        </p>
+        {kpi.sparkData && kpi.sparkData.length > 0 && (
+          <Sparkline data={kpi.sparkData} color={kpi.sparkColor || '#6366f1'} />
+        )}
+      </div>
+      <p className="text-[10px] sm:text-xs text-slate-500 dark:text-dk-muted mt-1.5 font-medium truncate">{kpi.sub}</p>
     </>
   );
-  const shell = 'bg-white dark:bg-dk-surface rounded-xl sm:rounded-2xl p-3 sm:p-4 lg:p-5 border border-slate-200 dark:border-dk-border/80 shadow-sm dark:shadow-dk-sm flex items-center gap-3 sm:gap-4 group hover:shadow-lg hover:border-slate-300 dark:hover:border-dk-border hover:-translate-y-0.5 transition-all duration-300 cursor-pointer';
+  const shell = 'bg-white dark:bg-dk-surface rounded-xl p-3 sm:p-3.5 border border-slate-200 dark:border-dk-border border-l-[3px] shadow-sm dark:shadow-dk-sm flex flex-col group hover:border-slate-300 dark:hover:border-dk-border/90 hover:shadow-md transition-all duration-200 cursor-pointer';
   if (onNavigateModule) {
     return (
-      <button key={kpi.key} type="button" onClick={() => onNavigateModule(kpi.nav)} className={`${shell} w-full text-left focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:ring-offset-2`}>
+      <button key={kpi.key} type="button" onClick={() => onNavigateModule(kpi.nav)} style={delayStyle} className={`${shell} w-full text-left focus:outline-none focus:ring-2 focus:ring-indigo-500/20`}>
         {Inner}
       </button>
     );
   }
-  return <div key={kpi.key} className={shell}>{Inner}</div>;
+  return <div key={kpi.key} style={delayStyle} className={shell}>{Inner}</div>;
 });
 
 function useDashboardKpis(liveKPIs: any, activeModelsCount: number, totalEffectif: number, globalTRS: number, pJournaliere: number, lang: string) {
   return useMemo(() => {
-    const stockVal = liveKPIs?.stock?.valeur_totale != null ? `${(liveKPIs.stock.valeur_totale / 1000).toFixed(1)}k` : '—';
-    const avancesVal = liveKPIs?.rh?.avances_encours != null ? `${(liveKPIs.rh.avances_encours / 1000).toFixed(1)}k` : '—';
+    const stockRaw = liveKPIs?.stock?.valeur_totale;
+    const avancesRaw = liveKPIs?.rh?.avances_encours;
+    const stockVal = stockRaw != null ? fmtCompact(stockRaw) : '—';
+    const avancesVal = avancesRaw != null ? fmtCompact(avancesRaw) : '—';
+    // Valeur réelle complète, révélée au survol (title) — l'abréviation ne doit
+    // jamais masquer le chiffre exact dans un contexte financier.
+    const stockFull = stockRaw != null ? fmtFull(stockRaw) : undefined;
+    const avancesFull = avancesRaw != null ? fmtFull(avancesRaw) : undefined;
     return [
       { key: 'of', label: tx(lang, { fr: 'OF En Cours', ar: 'أوامر الإنتاج الجارية', en: 'OF In Progress', es: 'OF En Curso', pt: 'OF Em Andamento', tr: 'Devam Eden OF' }), value: liveKPIs?.planning?.en_cours ?? '—', sub: tx(lang, { fr: `${liveKPIs?.planning?.avancement ?? 0}% avancement`, ar: `${liveKPIs?.planning?.avancement ?? 0}% تقدّم`, en: `${liveKPIs?.planning?.avancement ?? 0}% progress`, es: `${liveKPIs?.planning?.avancement ?? 0}% avance`, pt: `${liveKPIs?.planning?.avancement ?? 0}% progresso`, tr: `${liveKPIs?.planning?.avancement ?? 0}% ilerleme` }), icon: Factory, iconBg: 'bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20', iconColor: 'text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text', nav: 'planning' as DashboardNavTarget, valueFromApi: true, sparkData: liveKPIs?.charts?.spark_ofs || [], sparkColor: '#6366f1' },
       { key: 'eff-rh', label: tx(lang, { fr: 'Effectif Actif', ar: 'العمالة النشطة', en: 'Active Workforce', es: 'Plantilla Activa', pt: 'Efetivo Ativo', tr: 'Aktif Personel' }), value: liveKPIs?.effectifs?.total ?? '—', sub: tx(lang, { fr: `${liveKPIs?.effectifs?.presents ?? 0} présents`, ar: `${liveKPIs?.effectifs?.presents ?? 0} حاضرون`, en: `${liveKPIs?.effectifs?.presents ?? 0} present`, es: `${liveKPIs?.effectifs?.presents ?? 0} presentes`, pt: `${liveKPIs?.effectifs?.presents ?? 0} presentes`, tr: `${liveKPIs?.effectifs?.presents ?? 0} mevcut` }), icon: Users, iconBg: 'bg-emerald-50 dark:bg-emerald-900/30', iconColor: 'text-emerald-600 dark:text-emerald-400', nav: 'effectifs' as DashboardNavTarget, valueFromApi: true, sparkData: liveKPIs?.charts?.spark_presence || [], sparkColor: '#10b981' },
-      { key: 'stock', label: tx(lang, { fr: 'Valeur Stock', ar: 'قيمة المخزون', en: 'Stock Value', es: 'Valor de Stock', pt: 'Valor de Estoque', tr: 'Stok Değeri' }), value: stockVal, sub: tx(lang, { fr: `${liveKPIs?.stock?.nb_alertes ?? 0} alerte(s)`, ar: `${liveKPIs?.stock?.nb_alertes ?? 0} تنبيه`, en: `${liveKPIs?.stock?.nb_alertes ?? 0} alert(s)`, es: `${liveKPIs?.stock?.nb_alertes ?? 0} alerta(s)`, pt: `${liveKPIs?.stock?.nb_alertes ?? 0} alerta(s)`, tr: `${liveKPIs?.stock?.nb_alertes ?? 0} uyarı` }), icon: Package, iconBg: 'bg-amber-50 dark:bg-amber-900/30', iconColor: 'text-amber-600 dark:text-amber-400', nav: 'magasin' as DashboardNavTarget, valueFromApi: true, sparkData: (liveKPIs?.charts?.mouvements_7j || []).map((m:any) => ({ value: m.total_entrees })), sparkColor: '#f59e0b' },
-      { key: 'avances', label: tx(lang, { fr: 'Avances', ar: 'السلفات', en: 'Advances', es: 'Anticipos', pt: 'Adiantamentos', tr: 'Avanslar' }), value: avancesVal, sub: tx(lang, { fr: `${liveKPIs?.rh?.demandes_attente ?? 0} demande(s)`, ar: `${liveKPIs?.rh?.demandes_attente ?? 0} طلب`, en: `${liveKPIs?.rh?.demandes_attente ?? 0} request(s)`, es: `${liveKPIs?.rh?.demandes_attente ?? 0} solicitud(es)`, pt: `${liveKPIs?.rh?.demandes_attente ?? 0} pedido(s)`, tr: `${liveKPIs?.rh?.demandes_attente ?? 0} talep` }), icon: DollarSign, iconBg: 'bg-violet-50', iconColor: 'text-violet-600', nav: 'effectifs' as DashboardNavTarget, valueFromApi: true, sparkData: [], sparkColor: '#8b5cf6' },
+      { key: 'stock', label: tx(lang, { fr: 'Valeur Stock', ar: 'قيمة المخزون', en: 'Stock Value', es: 'Valor de Stock', pt: 'Valor de Estoque', tr: 'Stok Değeri' }), value: stockVal, fullValue: stockFull, sub: tx(lang, { fr: `${liveKPIs?.stock?.nb_alertes ?? 0} alerte(s)`, ar: `${liveKPIs?.stock?.nb_alertes ?? 0} تنبيه`, en: `${liveKPIs?.stock?.nb_alertes ?? 0} alert(s)`, es: `${liveKPIs?.stock?.nb_alertes ?? 0} alerta(s)`, pt: `${liveKPIs?.stock?.nb_alertes ?? 0} alerta(s)`, tr: `${liveKPIs?.stock?.nb_alertes ?? 0} uyarı` }), icon: Package, iconBg: 'bg-amber-50 dark:bg-amber-900/30', iconColor: 'text-amber-600 dark:text-amber-400', nav: 'magasin' as DashboardNavTarget, valueFromApi: true, sparkData: (liveKPIs?.charts?.mouvements_7j || []).map((m:any) => ({ value: m.total_entrees })), sparkColor: '#f59e0b' },
+      { key: 'avances', label: tx(lang, { fr: 'Avances', ar: 'السلفات', en: 'Advances', es: 'Anticipos', pt: 'Adiantamentos', tr: 'Avanslar' }), value: avancesVal, fullValue: avancesFull, sub: tx(lang, { fr: `${liveKPIs?.rh?.demandes_attente ?? 0} demande(s)`, ar: `${liveKPIs?.rh?.demandes_attente ?? 0} طلب`, en: `${liveKPIs?.rh?.demandes_attente ?? 0} request(s)`, es: `${liveKPIs?.rh?.demandes_attente ?? 0} solicitud(es)`, pt: `${liveKPIs?.rh?.demandes_attente ?? 0} pedido(s)`, tr: `${liveKPIs?.rh?.demandes_attente ?? 0} talep` }), icon: DollarSign, iconBg: 'bg-violet-50', iconColor: 'text-violet-600', nav: 'effectifs' as DashboardNavTarget, valueFromApi: true, sparkData: [], sparkColor: '#8b5cf6' },
       { key: 'modeles', label: tx(lang, { fr: 'Modèles Actifs', ar: 'النماذج النشطة', en: 'Active Models', es: 'Modelos Activos', pt: 'Modelos Ativos', tr: 'Aktif Modeller' }), value: activeModelsCount.toString(), sub: tx(lang, { fr: 'En planification', ar: 'في التخطيط', en: 'In planning', es: 'En planificación', pt: 'Em planejamento', tr: 'Planlamada' }), icon: Layers, iconBg: 'bg-sky-50 dark:bg-sky-900/30', iconColor: 'text-sky-600 dark:text-sky-400', nav: 'library' as DashboardNavTarget, valueFromApi: false, sparkData: [], sparkColor: '#06b6d4' },
       { key: 'eff-suivi', label: tx(lang, { fr: 'Effectif Présent', ar: 'العمالة الحاضرة', en: 'Present Workforce', es: 'Plantilla Presente', pt: 'Efetivo Presente', tr: 'Mevcut Personel' }), value: totalEffectif.toString(), sub: tx(lang, { fr: "Aujourd'hui", ar: 'اليوم', en: 'Today', es: 'Hoy', pt: 'Hoje', tr: 'Bugün' }), icon: Users, iconBg: 'bg-teal-50 dark:bg-teal-900/30', iconColor: 'text-teal-600 dark:text-teal-400', nav: 'suivi' as DashboardNavTarget, valueFromApi: false, sparkData: [], sparkColor: '#14b8a6' },
       { key: 'trs', label: tx(lang, { fr: 'T.R.S Global', ar: 'TRS الإجمالي', en: 'Global TRS', es: 'TRS Global', pt: 'TRS Global', tr: 'Genel TRS' }), value: `${globalTRS}%`, sub: tx(lang, { fr: 'Synthèse du jour', ar: 'ملخص اليوم', en: "Today's summary", es: 'Resumen del día', pt: 'Resumo do dia', tr: 'Günün özeti' }), icon: Activity, iconBg: 'bg-rose-50 dark:bg-rose-900/30', iconColor: 'text-rose-600 dark:text-rose-400', nav: 'rendement' as DashboardNavTarget, valueFromApi: false, sparkData: [], sparkColor: '#f43f5e' },
@@ -116,17 +172,11 @@ export default function Dashboard({ models, suivis, planningEvents, settings, se
 
   const [liveKPIs, setLiveKPIs] = useState<any>(null);
   const [kpiLoading, setKpiLoading] = useState(true);
-  // "live" turns true as soon as the SSE stream delivers its first message.
-  // Used only by the small refresh button — no banner, no toast.
   const [liveConnected, setLiveConnected] = useState(false);
   const [lastUpdate, setLastUpdate] = useState<number | null>(null);
 
   const IS_STATIC = import.meta.env.VITE_STATIC_MODE === 'true';
 
-  // One-shot fetch — used for the manual Refresh button and as a fallback
-  // when the SSE stream is unavailable (e.g. static deploy, proxy issue).
-  // We only flip kpiLoading when the SSE stream is *not* connected, so a
-  // manual refresh while live doesn't briefly grey out the values.
   const fetchKPIs = useCallback(() => {
     if (IS_STATIC) {
       setKpiLoading(false);
@@ -145,10 +195,6 @@ export default function Dashboard({ models, suivis, planningEvents, settings, se
       .catch(() => setKpiLoading(false));
   }, [IS_STATIC, liveConnected]);
 
-  // Instant push updates via Server-Sent Events (WhatsApp-style).
-  // The server pushes a new payload only when the underlying data changes
-  // (event-driven via the in-process bus), so the UI stays in sync with
-  // effectively zero perceptible delay.
   useEffect(() => {
     if (IS_STATIC) {
       setKpiLoading(false);
@@ -172,7 +218,7 @@ export default function Dashboard({ models, suivis, planningEvents, settings, se
       es = new EventSource('/api/dashboard/kpis/stream', { withCredentials: true });
 
       es.addEventListener('kpis', (evt: MessageEvent) => {
-        consecutiveErrors = 0; // any successful push resets the failure budget
+        consecutiveErrors = 0;
         try {
           const data = JSON.parse(evt.data);
           setLiveKPIs(data);
@@ -190,9 +236,6 @@ export default function Dashboard({ models, suivis, planningEvents, settings, se
 
       es.onerror = () => {
         consecutiveErrors += 1;
-        // EventSource silently retries forever; we need our own ceiling so a
-        // 401 / 404 / server shutdown eventually triggers the HTTP fallback
-        // instead of looping invisibly in the background.
         const definitivelyClosed = es && es.readyState === 2;
         const tooManyFailures = consecutiveErrors >= MAX_ERRORS_BEFORE_FALLBACK;
         if (definitivelyClosed || tooManyFailures) {
@@ -212,9 +255,6 @@ export default function Dashboard({ models, suivis, planningEvents, settings, se
     };
   }, [IS_STATIC, fetchKPIs]);
 
-  // Derive a minimal KPI shape from local state when the backend is absent
-  // (Vercel static deployment). Stock / HR cards still read '—' because that
-  // data lives in tables that are not synced to Supabase.
   const staticLiveKPIs = useMemo(() => {
     if (!IS_STATIC) return null;
     const en_cours = planningEvents.filter(e => e.status === 'IN_PROGRESS').length;
@@ -316,10 +356,29 @@ export default function Dashboard({ models, suivis, planningEvents, settings, se
     });
     if (eData.length === 0) eData.push({ name: 'CH 1', rendement: 0, fill: '#6366f1' });
 
-    return { totalEffectif: effectif, globalTRS: overallTRS, pJournaliere: totalH, productionData: pData, efficiencyData: eData, andonAlerts: alerts };
+    return { totalEffectif: effectif, globalTRS: overallTRS, pJournaliere: totalH, totalTarget, productionData: pData, efficiencyData: eData, andonAlerts: alerts };
   }, [suivis, planningEvents, todayDateStr, lang]);
 
   const mergedDashboardKpis = useDashboardKpis(effectiveLiveKPIs, activeModelsCount, productionStats.totalEffectif, productionStats.globalTRS, productionStats.pJournaliere, lang);
+
+  // Valeurs animées du Hero (compteur + remplissage anneau/barre depuis 0).
+  const ofNumeric = Number(effectiveLiveKPIs?.planning?.en_cours);
+  const animProd = useCountUp(productionStats.pJournaliere);
+  const animTrs = useCountUp(productionStats.globalTRS);
+  const animOf = useCountUp(Number.isFinite(ofNumeric) ? ofNumeric : 0);
+
+  // Salutation selon l'heure + date du jour localisée — touche humaine et vivante.
+  const greeting = useMemo(() => {
+    const h = new Date().getHours();
+    if (h < 12) return tx(lang, { fr: 'Bonjour', ar: 'صباح الخير', en: 'Good morning', es: 'Buenos días', pt: 'Bom dia', tr: 'Günaydın' });
+    if (h < 18) return tx(lang, { fr: 'Bon après-midi', ar: 'مساء الخير', en: 'Good afternoon', es: 'Buenas tardes', pt: 'Boa tarde', tr: 'İyi günler' });
+    return tx(lang, { fr: 'Bonsoir', ar: 'مساء الخير', en: 'Good evening', es: 'Buenas noches', pt: 'Boa noite', tr: 'İyi akşamlar' });
+  }, [lang]);
+  const todayLabel = useMemo(() => {
+    const localeMap: Record<string, string> = { fr: 'fr-FR', ar: 'ar-MA', es: 'es-ES', en: 'en-US', pt: 'pt-PT', tr: 'tr-TR' };
+    try { return new Date().toLocaleDateString(localeMap[lang] || 'fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }); }
+    catch { return ''; }
+  }, [lang]);
 
   const [skipReasonModal, setSkipReasonModal] = useState<AppTask | null>(null);
   const [skipReasonText, setSkipReasonText] = useState('');
@@ -344,7 +403,7 @@ export default function Dashboard({ models, suivis, planningEvents, settings, se
   }, [skipReasonModal, skipReasonText, handleUpdateTaskStatus]);
 
   const todayStr = new Date().toISOString().split('T')[0];
-  const pendingTasks = useMemo(() => 
+  const pendingTasks = useMemo(() =>
     (settings.tasks || []).filter(t => t.status === 'PENDING' && t.date <= todayStr),
     [settings.tasks, todayStr]
   );
@@ -371,26 +430,30 @@ export default function Dashboard({ models, suivis, planningEvents, settings, se
   }, [productionStats.productionData]);
 
   return (
-    <div className="h-full flex flex-col bg-gradient-to-br from-slate-50 via-white to-slate-50 dark:from-dk-bg dark:via-dk-surface/50 dark:to-dk-bg overflow-hidden">
+    <div className="h-full flex flex-col bg-slate-50 dark:bg-dk-bg overflow-hidden">
 
       {/* HEADER */}
-      <div className="bg-white/80 dark:bg-dk-surface/80 backdrop-blur-xl border-b border-slate-200 dark:border-dk-border/80 px-3 sm:px-4 md:px-6 py-3 sm:py-4 flex justify-between items-center shrink-0 sticky top-0 z-10">
+      <div className="bg-white dark:bg-dk-surface border-b border-slate-200 dark:border-dk-border px-3 sm:px-4 md:px-6 py-3 sm:py-4 flex justify-between items-center shrink-0 sticky top-0 z-10">
         <div className="flex items-center gap-2 sm:gap-3 md:gap-4 min-w-0">
-          <div className="relative shrink-0">
-            <div className="w-10 h-10 sm:w-11 sm:h-11 md:w-12 md:h-12 rounded-[18px] bg-[linear-gradient(135deg,#4f46e5_0%,#7c3aed_48%,#0f766e_100%)] flex items-center justify-center text-white shadow-[0_18px_38px_-18px_rgba(79,70,229,0.7)] ring-1 ring-white/50">
-              <TrendingUp className="w-4.5 h-4.5 sm:w-5 sm:h-5" strokeWidth={2.3} />
+          <div className="shrink-0">
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-indigo-50 dark:bg-dk-accent/15 border border-indigo-100 dark:border-dk-border flex items-center justify-center text-indigo-600 dark:text-dk-accent-text">
+              <TrendingUp className="w-4.5 h-4.5 sm:w-5 sm:h-5" strokeWidth={2.2} />
             </div>
-            <div className="absolute inset-0 rounded-[18px] bg-white dark:bg-dk-surface/20 blur-xl scale-90 -z-10" />
-            <div className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 sm:w-3 sm:h-3 bg-emerald-400 rounded-full border-2 border-white" />
           </div>
           <div className="min-w-0">
             <h1 className="text-base sm:text-lg md:text-xl font-black text-slate-800 dark:text-dk-text tracking-tight truncate">{tx(lang, { fr: 'Tableau de Bord', ar: 'لوحة القيادة', en: 'Dashboard', es: 'Panel de Control', pt: 'Painel de Controle', tr: 'Kontrol Paneli' })}</h1>
-            <p className="text-[10px] sm:text-xs text-slate-400 dark:text-dk-muted font-medium hidden sm:block">{tx(lang, { fr: "Vue d'ensemble synchronisee automatiquement", ar: 'نظرة عامة تتزامن آلياً', en: 'Overview synchronized automatically', es: 'Vista general sincronizada automáticamente', pt: 'Visão geral sincronizada automaticamente', tr: 'Otomatik senkronize edilen genel görünüm' })}</p>
+            <p className="text-[10px] sm:text-xs text-slate-400 dark:text-dk-muted font-medium hidden sm:block">
+              <span className="text-slate-500 dark:text-dk-text-soft font-semibold">{greeting}</span>
+              {todayLabel ? <span className="capitalize"> · {todayLabel}</span> : null}
+            </p>
           </div>
         </div>
         <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-          {/* Bouton Refresh manuel — discret, sans bannière. Les KPIs se
-              mettent a jour en temps reel via SSE (push instantane). */}
+          {/* Pastille de statut live — lisible d'un coup d'œil */}
+          <span className={`hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-bold border ${liveConnected ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 border-emerald-200/70 dark:border-emerald-900/40' : 'bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 border-amber-200/70 dark:border-amber-900/40'}`}>
+            <span className={`w-1.5 h-1.5 rounded-full ${liveConnected ? 'bg-emerald-500 animate-pulse' : 'bg-amber-400'}`} aria-hidden />
+            {liveConnected ? tx(lang, { fr: 'En direct', ar: 'مباشر', en: 'Live', es: 'En directo', pt: 'Em direto', tr: 'Canlı' }) : tx(lang, { fr: 'Hors ligne', ar: 'غير متصل', en: 'Offline', es: 'Sin conexión', pt: 'Offline', tr: 'Çevrimdışı' })}
+          </span>
           <button
             type="button"
             onClick={fetchKPIs}
@@ -404,8 +467,6 @@ export default function Dashboard({ models, suivis, planningEvents, settings, se
             className="relative w-9 h-9 sm:w-10 sm:h-10 rounded-xl border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface hover:bg-slate-50 dark:hover:bg-dk-elevated/60 active:scale-95 transition-all flex items-center justify-center text-slate-600 dark:text-dk-text-soft hover:text-slate-900 disabled:opacity-60 disabled:cursor-not-allowed"
           >
             <RefreshCw className={`w-4 h-4 ${kpiLoading ? 'animate-spin' : ''}`} />
-            {/* Live status dot: green pulse when SSE stream is active,
-                amber when we fell back to polling. */}
             <span
               className={`absolute top-1 right-1 w-1.5 h-1.5 rounded-full ${
                 liveConnected
@@ -420,14 +481,86 @@ export default function Dashboard({ models, suivis, planningEvents, settings, se
 
       {/* SCROLLABLE CONTENT */}
       <div className="flex-1 overflow-y-auto">
-        <div className="w-full max-w-[1400px] mx-auto p-3 sm:p-4 md:p-6 space-y-4 sm:space-y-5 md:space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+        <div className="w-full max-w-[1400px] mx-auto p-3 sm:p-4 md:p-6 space-y-4 sm:space-y-5 md:space-y-6">
 
-          {/* KPIs - 2 cols mobile, 4 cols desktop */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 md:gap-4">
-            {mergedDashboardKpis.map(kpi => (
+          {/* HERO — pulse usine : production du jour, TRS, OF en cours */}
+          {(() => {
+            const target = productionStats.totalTarget;
+            const pj = Math.round(animProd);
+            const pct = target > 0 ? Math.min(100, Math.round((animProd / target) * 100)) : 0;
+            const trs = Math.round(animTrs);
+            const ringC = 201;
+            const ringOffset = ringC * (1 - Math.min(100, Math.max(0, animTrs)) / 100);
+            const realTrs = productionStats.globalTRS;
+            const trsColor = realTrs >= 75 ? '#10b981' : realTrs >= 50 ? '#f59e0b' : '#f43f5e';
+            const ofRaw = effectiveLiveKPIs?.planning?.en_cours;
+            const ofEnCours = Number.isFinite(ofNumeric) ? Math.round(animOf) : (ofRaw ?? '—');
+            const ofAvancement = effectiveLiveKPIs?.planning?.avancement ?? 0;
+            return (
+              <div style={{ animation: 'fadeInUp 0.5s ease-out both' }} className="bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border shadow-sm dark:shadow-dk-sm p-4 sm:p-5 grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-slate-100 dark:divide-dk-border">
+                {/* Production du jour */}
+                <div className="pb-4 sm:pb-0 sm:pr-5">
+                  <p className="text-[11px] font-bold text-slate-400 dark:text-dk-muted uppercase tracking-wider">{tx(lang, { fr: 'Production du jour', ar: 'إنتاج اليوم', en: "Today's output", es: 'Producción del día', pt: 'Produção do dia', tr: 'Günün üretimi' })}</p>
+                  <div className="flex items-baseline gap-2 mt-1.5 flex-wrap">
+                    <span className="text-3xl sm:text-4xl font-black text-slate-800 dark:text-dk-text tracking-tight tabular-nums leading-none">{pj.toLocaleString()}</span>
+                    <span className="text-sm text-slate-400 dark:text-dk-muted font-medium">/ {target.toLocaleString()} {tx(lang, { fr: 'pcs', ar: 'قطعة', en: 'pcs', es: 'pzs', pt: 'pçs', tr: 'adet' })}</span>
+                  </div>
+                  <div className="mt-3 h-2 rounded-full bg-slate-100 dark:bg-dk-elevated/60 overflow-hidden">
+                    <div className="h-full rounded-full transition-all duration-500" style={{ width: `${pct}%`, backgroundColor: pct >= 100 ? '#10b981' : '#6366f1' }} />
+                  </div>
+                  <div className="flex items-center gap-2 mt-1.5">
+                    <p className="text-[11px] text-slate-500 dark:text-dk-muted font-medium">{pct}% {tx(lang, { fr: "de l'objectif", ar: 'من الهدف', en: 'of target', es: 'del objetivo', pt: 'da meta', tr: 'hedeften' })}</p>
+                    {pct >= 100 && (
+                      <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/25 border border-emerald-200/70 dark:border-emerald-900/40 px-1.5 py-0.5 rounded-md">
+                        <CheckCircle2 className="w-3 h-3" /> {tx(lang, { fr: 'Objectif atteint', ar: 'تحقّق الهدف', en: 'Target reached', es: 'Objetivo logrado', pt: 'Meta atingida', tr: 'Hedefe ulaşıldı' })}
+                      </span>
+                    )}
+                  </div>
+                </div>
+                {/* TRS ring */}
+                <button type="button" onClick={() => onNavigateModule?.('rendement')} aria-label={tx(lang, { fr: 'Voir le rendement', ar: 'عرض المردودية', en: 'View efficiency', es: 'Ver rendimiento', pt: 'Ver rendimento', tr: 'Verimliliği gör' })} className="py-4 sm:py-0 sm:px-5 flex items-center justify-center gap-3 group hover:bg-slate-50/70 dark:hover:bg-dk-bg/40 sm:rounded-lg transition-colors">
+                  <div className="relative w-[78px] h-[78px] shrink-0">
+                    <svg width="78" height="78" viewBox="0 0 78 78" className="-rotate-90">
+                      <circle cx="39" cy="39" r="32" fill="none" className="stroke-slate-100 dark:stroke-dk-bg" strokeWidth="8" />
+                      <circle cx="39" cy="39" r="32" fill="none" stroke={trsColor} strokeWidth="8" strokeLinecap="round" strokeDasharray={ringC} strokeDashoffset={ringOffset} className="transition-all duration-700" />
+                    </svg>
+                    <div className="absolute inset-0 flex flex-col items-center justify-center">
+                      <span className="text-lg font-black text-slate-800 dark:text-dk-text leading-none tabular-nums">{trs}%</span>
+                      <span className="text-[8px] font-bold text-slate-400 dark:text-dk-muted uppercase tracking-wider mt-0.5">TRS</span>
+                    </div>
+                  </div>
+                  <div className="text-left">
+                    <p className="text-[11px] font-bold text-slate-400 dark:text-dk-muted uppercase tracking-wider">{tx(lang, { fr: 'T.R.S Global', ar: 'TRS الإجمالي', en: 'Global TRS', es: 'TRS Global', pt: 'TRS Global', tr: 'Genel TRS' })}</p>
+                    <p className="text-xs text-slate-500 dark:text-dk-muted mt-0.5 font-medium">{tx(lang, { fr: 'Synthèse du jour', ar: 'ملخص اليوم', en: "Today's summary", es: 'Resumen del día', pt: 'Resumo do dia', tr: 'Günün özeti' })}</p>
+                  </div>
+                </button>
+                {/* OF en cours */}
+                <button type="button" onClick={() => onNavigateModule?.('planning')} aria-label={tx(lang, { fr: 'Voir le planning', ar: 'عرض التخطيط', en: 'View planning', es: 'Ver planificación', pt: 'Ver planejamento', tr: 'Planlamayı gör' })} className="pt-4 sm:pt-0 sm:pl-5 flex items-center gap-3 group hover:bg-slate-50/70 dark:hover:bg-dk-bg/40 sm:rounded-lg transition-colors">
+                  <div className="w-12 h-12 rounded-xl bg-indigo-50 dark:bg-dk-accent/20 flex items-center justify-center shrink-0">
+                    <Factory className="w-6 h-6 text-indigo-600 dark:text-dk-accent-text" />
+                  </div>
+                  <div className="text-left min-w-0">
+                    <p className="text-[11px] font-bold text-slate-400 dark:text-dk-muted uppercase tracking-wider truncate">{tx(lang, { fr: 'OF en cours', ar: 'أوامر الإنتاج الجارية', en: 'OF in progress', es: 'OF en curso', pt: 'OF em andamento', tr: 'Devam eden OF' })}</p>
+                    <p className="text-3xl font-black text-slate-800 dark:text-dk-text leading-none tabular-nums mt-1">{ofEnCours}</p>
+                    <div className="mt-1.5 h-1.5 rounded-full bg-slate-100 dark:bg-dk-elevated/60 overflow-hidden max-w-[120px]">
+                      <div className="h-full rounded-full bg-indigo-500 dark:bg-dk-accent transition-all duration-500" style={{ width: `${Math.min(100, Math.max(0, ofAvancement))}%` }} />
+                    </div>
+                    <p className="text-[11px] text-slate-500 dark:text-dk-muted mt-1 font-medium">{ofAvancement}% {tx(lang, { fr: 'avancement', ar: 'تقدّم', en: 'progress', es: 'avance', pt: 'progresso', tr: 'ilerleme' })}</p>
+                  </div>
+                </button>
+              </div>
+            );
+          })()}
+
+          {/* KPIs secondaires — accent par catégorie (hors Hero).
+              On masque aussi 'eff-suivi' : doublon de 'eff-rh' (même effectif,
+              les présents figurent déjà dans le sous-titre de « Effectif Actif »). */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3">
+            {mergedDashboardKpis.filter(kpi => !['of', 'trs', 'pj', 'eff-suivi'].includes(kpi.key)).map((kpi, i) => (
               <KpiCard
                 key={kpi.key}
                 kpi={kpi}
+                index={i}
                 showLoading={kpiLoading && kpi.valueFromApi}
                 onNavigateModule={onNavigateModule}
               />
@@ -437,7 +570,7 @@ export default function Dashboard({ models, suivis, planningEvents, settings, se
           {/* Stock Alert Banner */}
           {liveKPIs?.stock?.alertes?.length > 0 && (
             onNavigateModule ? (
-              <button type="button" onClick={() => onNavigateModule('magasin')} className="w-full text-left rounded-xl sm:rounded-2xl border border-amber-200/80 dark:border-dk-border/80 bg-gradient-to-r from-amber-50 to-orange-50 dark:from-dk-surface dark:to-dk-elevated px-3 sm:px-4 md:px-5 py-3 sm:py-4 flex items-center gap-2 sm:gap-3 cursor-pointer hover:shadow-md hover:border-amber-300 dark:hover:border-dk-border transition-all duration-200">
+              <button type="button" onClick={() => onNavigateModule('magasin')} className="w-full text-left rounded-xl sm:rounded-2xl border border-amber-200/80 dark:border-dk-border/80 bg-amber-50 dark:bg-dk-elevated/50 px-3 sm:px-4 md:px-5 py-3 sm:py-4 flex items-center gap-2 sm:gap-3 cursor-pointer hover:shadow-md hover:border-amber-300 dark:hover:border-dk-border transition-all duration-200">
                 <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl bg-amber-100 dark:bg-dk-elevated flex items-center justify-center shrink-0">
                   <AlertTriangle className="w-4 h-4 sm:w-5 sm:h-5 text-amber-600 dark:text-amber-400 dark:text-dk-accent-text" />
                 </div>
@@ -448,7 +581,7 @@ export default function Dashboard({ models, suivis, planningEvents, settings, se
                 <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5 text-amber-600 dark:text-amber-400/60 dark:text-dk-muted/60 shrink-0" aria-hidden />
               </button>
             ) : (
-              <div className="w-full rounded-xl sm:rounded-2xl border border-amber-200/80 dark:border-dk-border/80 bg-gradient-to-r from-amber-50 to-orange-50 dark:from-dk-surface dark:to-dk-elevated px-3 sm:px-4 md:px-5 py-3 sm:py-4 flex items-center gap-2 sm:gap-3">
+              <div className="w-full rounded-xl sm:rounded-2xl border border-amber-200/80 dark:border-dk-border/80 bg-amber-50 dark:bg-dk-elevated/50 px-3 sm:px-4 md:px-5 py-3 sm:py-4 flex items-center gap-2 sm:gap-3">
                 <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl bg-amber-100 dark:bg-dk-elevated flex items-center justify-center shrink-0">
                   <AlertTriangle className="w-4 h-4 sm:w-5 sm:h-5 text-amber-600 dark:text-amber-400 dark:text-dk-accent-text" />
                 </div>
@@ -460,113 +593,26 @@ export default function Dashboard({ models, suivis, planningEvents, settings, se
             )
           )}
 
-          {/* MAIN GRID: Production Chart + Tasks + Calendar + Efficiency + Alerts */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-5 md:gap-6">
+          {/* MAIN GRID : Production chart + Centre d'action */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-5 md:gap-6" style={{ animation: 'fadeInUp 0.5s ease-out both', animationDelay: '120ms' }}>
 
-            {/* LEFT COL: Tasks + Calendar */}
-            <div className="lg:col-span-1 space-y-4 sm:space-y-5 md:space-y-6">
-
-              {/* TASKS */}
-              <div className="bg-white dark:bg-dk-surface rounded-xl sm:rounded-2xl border border-slate-200 dark:border-dk-border/80 shadow-sm dark:shadow-dk-sm overflow-hidden flex flex-col">
-                <div className="px-3 sm:px-4 md:px-5 py-3 sm:py-4 bg-gradient-to-r from-slate-50 to-white dark:from-dk-bg dark:to-dk-surface border-b border-slate-100 dark:border-dk-border flex items-center justify-between">
-                  <div className="flex items-center gap-2 sm:gap-2.5">
-                    <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-indigo-100 flex items-center justify-center">
-                      <ListTodo className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text" />
-                    </div>
-                    <h2 className="font-bold text-slate-800 dark:text-dk-text text-xs sm:text-sm">{tx(lang, { fr: 'Tâches', ar: 'المهام', en: 'Tasks', es: 'Tareas', pt: 'Tarefas', tr: 'Görevler' })}</h2>
-                  </div>
-                  <span className="text-[10px] sm:text-xs font-bold px-2 sm:px-2.5 py-1 rounded-full bg-indigo-100 text-indigo-700 dark:bg-dk-accent/20 dark:text-dk-accent-text">{pendingTasks.length} {tx(lang, { fr: 'en attente', ar: 'قيد الانتظار', en: 'pending', es: 'pendiente(s)', pt: 'pendente(s)', tr: 'beklemede' })}</span>
-                </div>
-                <div className="p-3 sm:p-4 md:p-5 flex-1 flex flex-col">
-                  <p className="text-[10px] sm:text-xs text-slate-400 dark:text-dk-muted mb-3 sm:mb-4 font-medium hidden sm:block">{tx(lang, { fr: "Aujourd'hui et retards. Cliquez pour ouvrir l'Agenda.", ar: 'اليوم والمتأخرات. اضغط لفتح الأجندة.', en: "Today and overdue. Click to open the Agenda.", es: 'Hoy y atrasos. Haga clic para abrir la Agenda.', pt: 'Hoje e atrasos. Clique para abrir a Agenda.', tr: 'Bugün ve geciken görevler. Ajandayı açmak için tıklayın.' })}</p>
-                  <div className="flex-1 overflow-y-auto space-y-2 sm:space-y-3 custom-scrollbar">
-                    {pendingTasks.map(task => (
-                      <div key={task.id} className="bg-slate-50 dark:bg-dk-bg/80 border border-slate-200 dark:border-dk-border/60 rounded-lg sm:rounded-xl p-2.5 sm:p-3 md:p-3.5 hover:border-indigo-300 hover:shadow-sm transition-all duration-200 flex flex-col gap-2 sm:gap-3">
-                        <div className="cursor-pointer" onClick={() => onOpenAgenda()}>
-                          <div className="flex justify-between items-start mb-1 sm:mb-1.5">
-                            <span className="text-[9px] sm:text-[10px] font-bold text-slate-400 dark:text-dk-muted uppercase tracking-wide truncate">{task.assigneeName}</span>
-                            <span className={`text-[9px] sm:text-[10px] font-bold px-1.5 sm:px-2 py-0.5 rounded-full flex items-center gap-1 shrink-0 ${task.date < todayStr ? 'text-rose-600 dark:text-rose-400 bg-rose-100 border border-rose-200' : 'text-amber-600 dark:text-amber-400 bg-amber-100 border border-amber-200'}`}>
-                              <CalendarClock className="w-2.5 h-2.5 sm:w-3 sm:h-3" /> {task.date}
-                            </span>
-                          </div>
-                          <p className="text-xs sm:text-sm font-bold text-slate-700 dark:text-dk-text-soft dark:text-dk-text leading-tight">{task.text}</p>
-                        </div>
-                        <div className="flex gap-1.5 sm:gap-2 pt-2 sm:pt-2.5 border-t border-slate-200 dark:border-dk-border/60">
-                          <button onClick={(e) => { e.stopPropagation(); handleUpdateTaskStatus(task.id, 'DONE_OK'); }} className="flex-1 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 hover:bg-emerald-100 text-[9px] sm:text-[10px] font-bold py-1.5 sm:py-2 rounded-lg transition-colors border border-emerald-200/60">OK</button>
-                          <button onClick={(e) => { e.stopPropagation(); handleUpdateTaskStatus(task.id, 'DONE_NOT_OK'); }} className="flex-1 bg-rose-50 dark:bg-rose-900/30 text-rose-700 hover:bg-rose-100 text-[9px] sm:text-[10px] font-bold py-1.5 sm:py-2 rounded-lg transition-colors border border-rose-200/60">NOT OK</button>
-                          <button onClick={(e) => { e.stopPropagation(); setSkipReasonModal(task as AppTask); }} className="flex-1 bg-slate-100 dark:bg-dk-elevated/60 text-slate-600 dark:text-dk-text-soft hover:bg-slate-200 text-[9px] sm:text-[10px] font-bold py-1.5 sm:py-2 rounded-lg transition-colors border border-slate-200 dark:border-dk-border/60">{tx(lang, { fr: 'IGNORER', ar: 'تجاوز', en: 'SKIP', es: 'OMITIR', pt: 'IGNORAR', tr: 'ATLA' })}</button>
-                        </div>
-                      </div>
-                    ))}
-                    {pendingTasks.length === 0 && (
-                      <div className="flex flex-col items-center justify-center py-10 sm:py-16 text-center">
-                        <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-xl sm:rounded-2xl bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-dk-surface dark:to-dk-elevated border border-emerald-200/60 dark:border-dk-border/60 flex items-center justify-center shadow-inner mb-3 sm:mb-4">
-                          <CheckCircle2 className="w-6 h-6 sm:w-8 sm:h-8 text-emerald-400" strokeWidth={1.5} />
-                        </div>
-                        <p className="text-xs sm:text-sm font-bold text-slate-400 dark:text-dk-muted">{tx(lang, { fr: 'Aucune tâche', ar: 'لا توجد مهام', en: 'No tasks', es: 'Sin tareas', pt: 'Nenhuma tarefa', tr: 'Görev yok' })}</p>
-                        <p className="text-[10px] sm:text-xs text-slate-300 dark:text-dk-muted mt-1 hidden sm:block">{tx(lang, { fr: 'Tout est à jour', ar: 'كل شيء محدّث', en: 'Everything is up to date', es: 'Todo está actualizado', pt: 'Tudo está atualizado', tr: 'Her şey güncel' })}</p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {/* CALENDAR */}
-              <div className="bg-white dark:bg-dk-surface rounded-xl sm:rounded-2xl border border-slate-200 dark:border-dk-border/80 shadow-sm dark:shadow-dk-sm overflow-hidden">
-                <div className="px-3 sm:px-4 md:px-5 py-3 sm:py-4 bg-gradient-to-r from-slate-50 to-white dark:from-dk-bg dark:to-dk-surface border-b border-slate-100 dark:border-dk-border flex items-center gap-2 sm:gap-2.5">
-                  <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-emerald-100 flex items-center justify-center">
-                    <CalendarIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-600 dark:text-emerald-400" />
-                  </div>
-                  <h2 className="font-bold text-slate-800 dark:text-dk-text text-xs sm:text-sm">{tx(lang, { fr: 'Planning', ar: 'التخطيط', en: 'Planning', es: 'Planificación', pt: 'Planejamento', tr: 'Planlama' })}</h2>
-                </div>
-                <div className="p-3 sm:p-4 md:p-5">
-                  <div className="grid grid-cols-7 gap-0.5 sm:gap-1 text-center mb-2 sm:mb-3">
-                    {currentWeekDayLabels.map((d, idx) => (
-                      <div key={idx} className="text-[9px] sm:text-[10px] font-bold text-slate-400 dark:text-dk-muted py-1 sm:py-1.5">{d}</div>
-                    ))}
-                  </div>
-                  <div className="grid grid-cols-7 gap-0.5 sm:gap-1.5">
-                    {Array.from({ length: firstDayOfMonth }).map((_, i) => <div key={`e-${i}`} />)}
-                    {Array.from({ length: daysInMonth }).map((_, i) => {
-                      const day = i + 1;
-                      const hasProd = (liveKPIs?.charts?.calendar_prod_days || []).includes(day);
-                      const isToday = day === new Date().getDate();
-                      return (
-                        <div key={i} className={`relative rounded-lg sm:rounded-xl border flex items-center justify-center text-[10px] sm:text-xs font-medium py-1.5 sm:py-2 transition-all duration-200
-                          ${isToday ? 'border-indigo-500 bg-gradient-to-br from-indigo-500 to-indigo-600 text-white font-bold shadow-md dark:shadow-dk-md sm:shadow-lg shadow-indigo-500/30 scale-105' : 'border-slate-100 dark:border-dk-border hover:border-slate-200'}
-                          ${hasProd && !isToday ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 border-emerald-200/60 font-bold' : ''}
-                        `}>
-                          {day}
-                          {hasProd && !isToday && <div className="absolute -bottom-0.5 w-1 sm:w-1.5 h-1 sm:h-1.5 bg-emerald-500 rounded-full shadow-sm dark:shadow-dk-sm" />}
-                        </div>
-                      );
-                    })}
-                  </div>
-                  <div className="mt-3 sm:mt-5 pt-3 sm:pt-4 border-t border-slate-100 dark:border-dk-border flex gap-3 sm:gap-4 text-[10px] sm:text-xs">
-                    <div className="flex items-center gap-1.5 sm:gap-2 font-medium text-slate-500 dark:text-dk-muted"><div className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded bg-emerald-100 border border-emerald-200" /> {tx(lang, { fr: 'Prod', ar: 'إنتاج', en: 'Prod', es: 'Prod', pt: 'Prod', tr: 'Üretim' })}</div>
-                    <div className="flex items-center gap-1.5 sm:gap-2 font-medium text-slate-500 dark:text-dk-muted"><div className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded bg-indigo-500 shadow-sm dark:shadow-dk-sm" /> {tx(lang, { fr: "Aujourd'hui", ar: 'اليوم', en: 'Today', es: 'Hoy', pt: 'Hoje', tr: 'Bugün' })}</div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* RIGHT AREA: Production Chart */}
-            <div className="lg:col-span-2 bg-white dark:bg-dk-surface rounded-xl sm:rounded-2xl border border-slate-200 dark:border-dk-border/80 shadow-sm dark:shadow-dk-sm overflow-hidden flex flex-col">
-              <div className="px-3 sm:px-4 md:px-5 py-3 sm:py-4 bg-gradient-to-r from-slate-50 to-white dark:from-dk-bg dark:to-dk-surface border-b border-slate-100 dark:border-dk-border flex items-center justify-between flex-wrap gap-2 sm:gap-3">
+            {/* Production chart */}
+            <div className="lg:col-span-2 bg-white dark:bg-dk-surface rounded-xl border border-slate-200 dark:border-dk-border shadow-sm overflow-hidden flex flex-col">
+              <div className="px-3 sm:px-4 md:px-5 py-3 sm:py-4 bg-slate-50/70 dark:bg-dk-bg/40 border-b border-slate-100 dark:border-dk-border flex items-center justify-between flex-wrap gap-2 sm:gap-3">
                 <div className="flex items-center gap-2 sm:gap-2.5">
-                  <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-indigo-100 flex items-center justify-center">
-                    <TrendingUp className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text" />
+                  <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-indigo-100 dark:bg-dk-accent/20 flex items-center justify-center">
+                    <TrendingUp className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-indigo-600 dark:text-dk-accent-text" />
                   </div>
                   <h2 className="font-bold text-slate-800 dark:text-dk-text text-xs sm:text-sm">{tx(lang, { fr: 'Évolution Production', ar: 'تطور الإنتاج', en: 'Production Trend', es: 'Evolución de Producción', pt: 'Evolução da Produção', tr: 'Üretim Trendi' })}</h2>
                 </div>
-                <button onClick={handleExportCSV} className="inline-flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-lg sm:rounded-xl bg-gradient-to-r from-indigo-500 to-indigo-600 hover:from-indigo-600 hover:to-indigo-700 text-white font-bold text-[10px] sm:text-xs shadow-lg dark:shadow-dk-lg shadow-indigo-500/30 transition-all duration-200 hover:shadow-xl hover:-translate-y-0.5">
+                <button onClick={handleExportCSV} className="inline-flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-[10px] sm:text-xs transition-colors duration-200">
                   <Download className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
                   <span className="hidden sm:inline">{tx(lang, { fr: 'Export CSV', ar: 'تصدير CSV', en: 'Export CSV', es: 'Exportar CSV', pt: 'Exportar CSV', tr: 'CSV Dışa Aktar' })}</span>
                   <span className="sm:hidden">CSV</span>
                 </button>
               </div>
               <div className="p-3 sm:p-4 md:p-5 flex-1">
-                <div className="h-[250px] sm:h-[300px] md:h-[350px] w-full">
+                <div className="h-[250px] sm:h-[300px] md:h-[340px] w-full">
                   <ResponsiveChart>
                     <AreaChart data={productionStats.productionData} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
                       <defs>
@@ -587,16 +633,74 @@ export default function Dashboard({ models, suivis, planningEvents, settings, se
                 </div>
               </div>
             </div>
+
+            {/* Centre d'action : alertes Andon (urgence haute) + tâches */}
+            <div className="lg:col-span-1 bg-white dark:bg-dk-surface rounded-xl border border-slate-200 dark:border-dk-border shadow-sm overflow-hidden flex flex-col">
+              <div className="px-3 sm:px-4 md:px-5 py-3 sm:py-4 bg-slate-50/70 dark:bg-dk-bg/40 border-b border-slate-100 dark:border-dk-border flex items-center gap-2 sm:gap-2.5">
+                <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-rose-100 dark:bg-rose-900/30 flex items-center justify-center">
+                  <ShieldAlert className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-rose-600 dark:text-rose-400" />
+                </div>
+                <h2 className="font-bold text-slate-800 dark:text-dk-text text-xs sm:text-sm">{tx(lang, { fr: "Centre d'action", ar: 'مركز الإجراءات', en: 'Action center', es: 'Centro de acción', pt: 'Centro de ação', tr: 'Eylem merkezi' })}</h2>
+                {(productionStats.andonAlerts.length + pendingTasks.length) > 0 && (
+                  <span className="ml-auto text-[10px] sm:text-xs font-bold px-2 py-1 rounded-full bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300">{productionStats.andonAlerts.length + pendingTasks.length}</span>
+                )}
+              </div>
+              <div className="p-3 sm:p-4 flex-1" style={{ minHeight: '260px' }}>
+                <div className="h-full overflow-y-auto space-y-2 sm:space-y-2.5 custom-scrollbar">
+                  {productionStats.andonAlerts.map((alert, idx) => (
+                    <div key={`andon-${idx}`} className="flex gap-2.5 items-start p-2.5 sm:p-3 bg-rose-50 dark:bg-dk-elevated/50 rounded-lg border border-rose-200/60 dark:border-dk-border/60">
+                      <div className="w-8 h-8 rounded-lg bg-rose-100 dark:bg-rose-900/40 flex items-center justify-center shrink-0">
+                        <ShieldAlert className="w-4 h-4 text-rose-600 dark:text-rose-400" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex justify-between items-start gap-2">
+                          <p className="text-xs sm:text-sm font-bold text-rose-900 dark:text-dk-text truncate">{alert.title}</p>
+                          <span className="text-[10px] font-bold text-rose-500 bg-rose-100 dark:bg-dk-elevated dark:text-dk-text-soft px-1.5 py-0.5 rounded-full shrink-0">{alert.time}</span>
+                        </div>
+                        <p className="text-[10px] sm:text-xs text-rose-700 dark:text-dk-text-soft mt-0.5 font-medium">{tx(lang, { fr: 'Performance critique à', ar: 'أداء حرج عند', en: 'Critical performance at', es: 'Rendimiento crítico en', pt: 'Desempenho crítico em', tr: 'Kritik performans' })} <span className="font-black text-rose-900 dark:text-dk-text">{alert.trs}%</span></p>
+                      </div>
+                    </div>
+                  ))}
+                  {pendingTasks.map(task => (
+                    <div key={task.id} className="bg-slate-50 dark:bg-dk-bg/80 border border-slate-200 dark:border-dk-border/60 rounded-lg p-2.5 sm:p-3 flex flex-col gap-2">
+                      <div className="cursor-pointer" onClick={() => onOpenAgenda()}>
+                        <div className="flex justify-between items-start mb-1">
+                          <span className="text-[9px] sm:text-[10px] font-bold text-slate-400 dark:text-dk-muted uppercase tracking-wide truncate">{task.assigneeName}</span>
+                          <span className={`text-[9px] sm:text-[10px] font-bold px-1.5 py-0.5 rounded-full flex items-center gap-1 shrink-0 ${task.date < todayStr ? 'text-rose-600 dark:text-rose-400 bg-rose-100 border border-rose-200' : 'text-amber-600 dark:text-amber-400 bg-amber-100 border border-amber-200'}`}>
+                            <CalendarClock className="w-2.5 h-2.5 sm:w-3 sm:h-3" /> {task.date}
+                          </span>
+                        </div>
+                        <p className="text-xs sm:text-sm font-bold text-slate-700 dark:text-dk-text leading-tight">{task.text}</p>
+                      </div>
+                      <div className="flex gap-1.5 pt-2 border-t border-slate-200 dark:border-dk-border/60">
+                        <button onClick={(e) => { e.stopPropagation(); handleUpdateTaskStatus(task.id, 'DONE_OK'); }} className="flex-1 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 text-[9px] sm:text-[10px] font-bold py-1.5 rounded-lg transition-colors border border-emerald-200/60">OK</button>
+                        <button onClick={(e) => { e.stopPropagation(); handleUpdateTaskStatus(task.id, 'DONE_NOT_OK'); }} className="flex-1 bg-rose-50 dark:bg-rose-900/30 text-rose-700 dark:text-rose-300 hover:bg-rose-100 text-[9px] sm:text-[10px] font-bold py-1.5 rounded-lg transition-colors border border-rose-200/60">NOT OK</button>
+                        <button onClick={(e) => { e.stopPropagation(); setSkipReasonModal(task as AppTask); }} className="flex-1 bg-slate-100 dark:bg-dk-elevated/60 text-slate-600 dark:text-dk-text-soft hover:bg-slate-200 text-[9px] sm:text-[10px] font-bold py-1.5 rounded-lg transition-colors border border-slate-200 dark:border-dk-border/60">{tx(lang, { fr: 'IGNORER', ar: 'تجاوز', en: 'SKIP', es: 'OMITIR', pt: 'IGNORAR', tr: 'ATLA' })}</button>
+                      </div>
+                    </div>
+                  ))}
+                  {productionStats.andonAlerts.length === 0 && pendingTasks.length === 0 && (
+                    <div className="flex flex-col items-center justify-center py-12 text-center">
+                      <div className="w-14 h-14 rounded-2xl bg-emerald-50 dark:bg-dk-elevated/50 border border-emerald-200/60 dark:border-dk-border/60 flex items-center justify-center mb-3">
+                        <CheckCircle2 className="w-7 h-7 text-emerald-400" strokeWidth={1.5} />
+                      </div>
+                      <p className="text-xs sm:text-sm font-bold text-slate-400 dark:text-dk-muted">{tx(lang, { fr: 'Tout est sous contrôle', ar: 'كل شيء تحت السيطرة', en: 'All under control', es: 'Todo bajo control', pt: 'Tudo sob controle', tr: 'Her şey kontrol altında' })}</p>
+                      <p className="text-[10px] sm:text-xs text-slate-300 dark:text-dk-muted mt-1">{tx(lang, { fr: 'Aucune alerte ni tâche', ar: 'لا تنبيهات ولا مهام', en: 'No alerts or tasks', es: 'Sin alertas ni tareas', pt: 'Sem alertas ou tarefas', tr: 'Uyarı veya görev yok' })}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
           </div>
 
-          {/* BOTTOM GRID: Efficiency + Alerts */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-5 md:gap-6">
+          {/* BOTTOM GRID : Rendement chaînes + Calendrier */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-5 md:gap-6" style={{ animation: 'fadeInUp 0.5s ease-out both', animationDelay: '200ms' }}>
 
-            {/* EFFICIENCY */}
-            <div className="bg-white dark:bg-dk-surface rounded-xl sm:rounded-2xl border border-slate-200 dark:border-dk-border/80 shadow-sm dark:shadow-dk-sm overflow-hidden">
-              <div className="px-3 sm:px-4 md:px-5 py-3 sm:py-4 bg-gradient-to-r from-slate-50 to-white dark:from-dk-bg dark:to-dk-surface border-b border-slate-100 dark:border-dk-border flex items-center gap-2 sm:gap-2.5">
-                <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-indigo-100 flex items-center justify-center">
-                  <Activity className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text" />
+            {/* RENDEMENT CHAÎNES */}
+            <div className="lg:col-span-2 bg-white dark:bg-dk-surface rounded-xl border border-slate-200 dark:border-dk-border shadow-sm overflow-hidden">
+              <div className="px-3 sm:px-4 md:px-5 py-3 sm:py-4 bg-slate-50/70 dark:bg-dk-bg/40 border-b border-slate-100 dark:border-dk-border flex items-center gap-2 sm:gap-2.5">
+                <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-indigo-100 dark:bg-dk-accent/20 flex items-center justify-center">
+                  <Activity className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-indigo-600 dark:text-dk-accent-text" />
                 </div>
                 <h2 className="font-bold text-slate-800 dark:text-dk-text text-xs sm:text-sm">{tx(lang, { fr: 'Rendement Chaînes', ar: 'مردودية الخطوط', en: 'Line Efficiency', es: 'Rendimiento de Líneas', pt: 'Rendimento das Linhas', tr: 'Hat Verimliliği' })}</h2>
               </div>
@@ -617,39 +721,40 @@ export default function Dashboard({ models, suivis, planningEvents, settings, se
               </div>
             </div>
 
-            {/* ANDON ALERTS */}
-            <div className="bg-white dark:bg-dk-surface rounded-xl sm:rounded-2xl border border-slate-200 dark:border-dk-border/80 shadow-sm dark:shadow-dk-sm overflow-hidden flex flex-col">
-              <div className="px-3 sm:px-4 md:px-5 py-3 sm:py-4 bg-gradient-to-r from-slate-50 to-white dark:from-dk-bg dark:to-dk-surface border-b border-slate-100 dark:border-dk-border flex items-center gap-2 sm:gap-2.5">
-                <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-rose-100 flex items-center justify-center">
-                  <AlertTriangle className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-rose-600 dark:text-rose-400" />
+            {/* CALENDRIER PRODUCTION */}
+            <div className="lg:col-span-1 bg-white dark:bg-dk-surface rounded-xl border border-slate-200 dark:border-dk-border shadow-sm overflow-hidden">
+              <div className="px-3 sm:px-4 md:px-5 py-3 sm:py-4 bg-slate-50/70 dark:bg-dk-bg/40 border-b border-slate-100 dark:border-dk-border flex items-center gap-2 sm:gap-2.5">
+                <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center">
+                  <CalendarIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-600 dark:text-emerald-400" />
                 </div>
-                <h2 className="font-bold text-slate-800 dark:text-dk-text text-xs sm:text-sm">{tx(lang, { fr: 'Alertes Andon', ar: 'تنبيهات Andon', en: 'Andon Alerts', es: 'Alertas Andon', pt: 'Alertas Andon', tr: 'Andon Uyarıları' })}</h2>
+                <h2 className="font-bold text-slate-800 dark:text-dk-text text-xs sm:text-sm">{tx(lang, { fr: 'Planning', ar: 'التخطيط', en: 'Planning', es: 'Planificación', pt: 'Planejamento', tr: 'Planlama' })}</h2>
               </div>
-              <div className="p-3 sm:p-4 md:p-5 flex-1" style={{ minHeight: '200px' }}>
-                <div className="h-full overflow-y-auto space-y-2 sm:space-y-3 custom-scrollbar">
-                  {productionStats.andonAlerts.map((alert, idx) => (
-                    <div key={idx} className="flex gap-2 sm:gap-3 items-start p-2.5 sm:p-3 md:p-3.5 bg-gradient-to-r from-rose-50 to-orange-50 dark:from-dk-surface dark:to-dk-elevated rounded-lg sm:rounded-xl border border-rose-200/60 dark:border-dk-border/60 hover:shadow-sm transition-all duration-200">
-                      <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl bg-rose-100 flex items-center justify-center shrink-0">
-                        <ShieldAlert className="w-4 h-4 sm:w-5 sm:h-5 text-rose-600 dark:text-rose-400" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex justify-between items-start gap-2">
-                          <p className="text-xs sm:text-sm font-bold text-rose-900 dark:text-dk-text truncate">{alert.title}</p>
-                          <span className="text-[10px] sm:text-xs font-bold text-rose-500 bg-rose-100 dark:text-dk-text-soft dark:bg-dk-elevated px-1.5 sm:px-2 py-0.5 rounded-full shrink-0">{alert.time}</span>
-                        </div>
-                        <p className="text-[10px] sm:text-xs text-rose-700 dark:text-dk-text-soft mt-0.5 sm:mt-1 font-medium">{tx(lang, { fr: 'Performance critique à', ar: 'أداء حرج عند', en: 'Critical performance at', es: 'Rendimiento crítico en', pt: 'Desempenho crítico em', tr: 'Kritik performans' })} <span className="font-black text-rose-900 dark:text-dk-text">{alert.trs}%</span></p>
-                      </div>
-                    </div>
+              <div className="p-3 sm:p-4 md:p-5">
+                <div className="grid grid-cols-7 gap-0.5 sm:gap-1 text-center mb-2 sm:mb-3">
+                  {currentWeekDayLabels.map((d, idx) => (
+                    <div key={idx} className="text-[9px] sm:text-[10px] font-bold text-slate-400 dark:text-dk-muted py-1 sm:py-1.5">{d}</div>
                   ))}
-                  {productionStats.andonAlerts.length === 0 && (
-                      <div className="flex flex-col items-center justify-center py-10 sm:py-16 text-center">
-                      <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-xl sm:rounded-2xl bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-dk-surface dark:to-dk-elevated border border-emerald-200/60 dark:border-dk-border/60 flex items-center justify-center shadow-inner mb-3 sm:mb-4">
-                        <CheckCircle2 className="w-6 h-6 sm:w-8 sm:h-8 text-emerald-400" strokeWidth={1.5} />
+                </div>
+                <div className="grid grid-cols-7 gap-0.5 sm:gap-1.5">
+                  {Array.from({ length: firstDayOfMonth }).map((_, i) => <div key={`e-${i}`} />)}
+                  {Array.from({ length: daysInMonth }).map((_, i) => {
+                    const day = i + 1;
+                    const hasProd = (liveKPIs?.charts?.calendar_prod_days || []).includes(day);
+                    const isToday = day === new Date().getDate();
+                    return (
+                      <div key={i} className={`relative rounded-lg border flex items-center justify-center text-[10px] sm:text-xs font-medium py-1.5 sm:py-2 transition-colors duration-200
+                        ${isToday ? 'border-indigo-600 bg-indigo-600 text-white font-bold' : 'border-slate-100 dark:border-dk-border hover:border-slate-200 dark:hover:border-dk-border/80'}
+                        ${hasProd && !isToday ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 border-emerald-200/60 font-bold' : ''}
+                      `}>
+                        {day}
+                        {hasProd && !isToday && <div className="absolute -bottom-0.5 w-1 sm:w-1.5 h-1 sm:h-1.5 bg-emerald-500 rounded-full" />}
                       </div>
-                      <p className="text-xs sm:text-sm font-bold text-slate-400 dark:text-dk-muted">{tx(lang, { fr: 'Aucune alerte', ar: 'لا توجد تنبيهات', en: 'No alerts', es: 'Sin alertas', pt: 'Nenhum alerta', tr: 'Uyarı yok' })}</p>
-                      <p className="text-[10px] sm:text-xs text-slate-300 dark:text-dk-muted mt-1 hidden sm:block">{tx(lang, { fr: 'Tout fonctionne normalement', ar: 'كل شيء يعمل بشكل طبيعي', en: 'Everything is running normally', es: 'Todo funciona normalmente', pt: 'Tudo está funcionando normalmente', tr: 'Her şey normal çalışıyor' })}</p>
-                    </div>
-                  )}
+                    );
+                  })}
+                </div>
+                <div className="mt-3 sm:mt-4 pt-3 sm:pt-4 border-t border-slate-100 dark:border-dk-border flex gap-3 sm:gap-4 text-[10px] sm:text-xs">
+                  <div className="flex items-center gap-1.5 sm:gap-2 font-medium text-slate-500 dark:text-dk-muted"><div className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded bg-emerald-100 border border-emerald-200" /> {tx(lang, { fr: 'Prod', ar: 'إنتاج', en: 'Prod', es: 'Prod', pt: 'Prod', tr: 'Üretim' })}</div>
+                  <div className="flex items-center gap-1.5 sm:gap-2 font-medium text-slate-500 dark:text-dk-muted"><div className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded bg-indigo-600" /> {tx(lang, { fr: "Aujourd'hui", ar: 'اليوم', en: 'Today', es: 'Hoy', pt: 'Hoje', tr: 'Bugün' })}</div>
                 </div>
               </div>
             </div>
@@ -662,8 +767,8 @@ export default function Dashboard({ models, suivis, planningEvents, settings, se
       {/* SKIP MODAL */}
       {skipReasonModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 dark:bg-dk-bg/80 backdrop-blur-sm p-3 sm:p-4">
-          <div className="bg-white dark:bg-dk-surface rounded-xl sm:rounded-2xl w-full max-w-sm sm:max-w-md overflow-hidden shadow-2xl dark:shadow-dk-elevated dark:shadow-dk-lg border border-slate-200 dark:border-dk-border/80">
-            <div className="h-1.5 w-full bg-gradient-to-r from-amber-400 to-orange-500" />
+          <div className="bg-white dark:bg-dk-surface rounded-xl sm:rounded-2xl w-full max-w-sm sm:max-w-md overflow-hidden shadow-xl dark:shadow-dk-lg border border-slate-200 dark:border-dk-border">
+            <div className="h-1 w-full bg-amber-500" />
             <div className="p-4 sm:p-6 border-b border-slate-100 dark:border-dk-border flex justify-between items-center">
               <h3 className="font-bold text-slate-800 dark:text-dk-text text-base sm:text-lg">{tx(lang, { fr: "Motif d'annulation", ar: 'سبب الإلغاء', en: 'Cancellation reason', es: 'Motivo de cancelación', pt: 'Motivo do cancelamento', tr: 'İptal nedeni' })}</h3>
               <button onClick={() => { setSkipReasonModal(null); setSkipReasonText(''); }} className="p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-dk-elevated/60 text-slate-400 dark:text-dk-muted hover:text-slate-600 transition-colors">
@@ -671,7 +776,7 @@ export default function Dashboard({ models, suivis, planningEvents, settings, se
               </button>
             </div>
             <div className="p-4 sm:p-6 space-y-3 sm:space-y-4">
-              <div className="bg-gradient-to-r from-amber-50 to-orange-50 dark:from-dk-surface dark:to-dk-elevated text-amber-800 dark:text-dk-text-soft p-3 sm:p-4 rounded-lg sm:rounded-xl text-xs sm:text-sm border border-amber-200/60 dark:border-dk-border/60 flex gap-2 sm:gap-3 items-start">
+              <div className="bg-amber-50 dark:bg-dk-elevated/50 text-amber-800 dark:text-dk-text-soft p-3 sm:p-4 rounded-lg sm:rounded-xl text-xs sm:text-sm border border-amber-200/60 dark:border-dk-border/60 flex gap-2 sm:gap-3 items-start">
                 <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-amber-100 dark:bg-dk-elevated flex items-center justify-center shrink-0">
                   <AlertTriangle className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-600 dark:text-amber-400 dark:text-dk-accent-text" />
                 </div>
@@ -684,7 +789,7 @@ export default function Dashboard({ models, suivis, planningEvents, settings, se
             </div>
             <div className="p-3 sm:p-4 bg-slate-50 dark:bg-dk-bg/80 border-t border-slate-100 dark:border-dk-border flex justify-end gap-2">
               <button onClick={() => { setSkipReasonModal(null); setSkipReasonText(''); }} className="px-3 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm font-bold text-slate-600 dark:text-dk-text-soft hover:bg-slate-100 dark:hover:bg-dk-elevated/60 rounded-lg sm:rounded-xl transition-colors">{tx(lang, { fr: 'Annuler', ar: 'إلغاء', en: 'Cancel', es: 'Cancelar', pt: 'Cancelar', tr: 'İptal' })}</button>
-              <button onClick={handleSkipSubmit} disabled={!skipReasonText.trim()} className="px-4 sm:px-5 py-2 sm:py-2.5 text-xs sm:text-sm font-bold bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white rounded-lg sm:rounded-xl shadow-lg dark:shadow-dk-lg shadow-amber-500/30 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed">{tx(lang, { fr: 'Confirmer', ar: 'تأكيد', en: 'Confirm', es: 'Confirmar', pt: 'Confirmar', tr: 'Onayla' })}</button>
+              <button onClick={handleSkipSubmit} disabled={!skipReasonText.trim()} className="px-4 sm:px-5 py-2 sm:py-2.5 text-xs sm:text-sm font-bold bg-amber-500 hover:bg-amber-600 text-white rounded-lg transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed">{tx(lang, { fr: 'Confirmer', ar: 'تأكيد', en: 'Confirm', es: 'Confirmar', pt: 'Confirmar', tr: 'Onayla' })}</button>
             </div>
           </div>
         </div>
