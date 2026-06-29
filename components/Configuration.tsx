@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import { Settings, Clock, Calendar, Coins, Users, Shield, Save, Building, Plus, Trash2, CheckCircle, ListTodo, CalendarClock, AlertTriangle, Check, X, SkipForward, Factory, Zap, ChevronDown, Loader2 } from 'lucide-react';
+import { Settings, Users, Shield, Save, Building, Plus, Trash2, CheckCircle, ListTodo, CalendarClock, AlertTriangle, Check, X, SkipForward, Factory, Zap, ChevronDown, Loader2 } from 'lucide-react';
 import { AppSettings, AppTask, Machine } from '../types';
 import { useTheme } from '../src/context/ThemeContext';
 import { isMachineOperational } from '../utils/machineMatch';
@@ -488,7 +488,7 @@ export default function Configuration({ settings, setSettings, lang, machines, n
                             <div className="mt-auto pt-4 border-t border-slate-100 dark:border-dk-border">
                                 <div className="bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 text-indigo-700 dark:text-dk-accent-text p-4 rounded-xl text-sm font-medium border border-indigo-100 flex items-start gap-3">
                                     <Settings className="w-5 h-5 shrink-0 mt-0.5" />
-                                    <p>Les paramètres globaux (Devise, Coût Minute, Horaires) sont synchronisés instantanément sur toutes les pages de l'application.</p>
+                                    <p>{tx(lang, { fr: "L'apparence et la langue s'appliquent instantanément. Les paramètres d'entreprise (devise, coût minute, horaires, structure) sont désormais dans la page Admin.", ar: 'المظهر واللغة يُطبَّقان فوراً. إعدادات الشركة (العملة، تكلفة الدقيقة، أوقات العمل، الهيكلة) أصبحت في صفحة المشرف.', en: 'Appearance and language apply instantly. Company settings (currency, cost/minute, working hours, structure) are now in the Admin page.', es: 'La apariencia y el idioma se aplican al instante. Los ajustes de empresa (moneda, coste/minuto, horarios, estructura) están ahora en la página de Admin.', pt: 'A aparência e o idioma aplicam-se instantaneamente. As definições da empresa (moeda, custo/minuto, horários, estrutura) estão agora na página de Admin.', tr: 'Görünüm ve dil anında uygulanır. Şirket ayarları (para birimi, dakika maliyeti, çalışma saatleri, yapı) artık Admin sayfasında.' })}</p>
                                 </div>
                             </div>
                         </div>
