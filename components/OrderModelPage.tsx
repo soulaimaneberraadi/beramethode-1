@@ -24,9 +24,9 @@ function ToastContainer({ toasts, onDismiss }: { toasts: ToastData[]; onDismiss:
                     key={toast.id}
                     className={`flex items-center gap-3 px-5 py-3 rounded-xl shadow-2xl dark:shadow-dk-elevated dark:shadow-dk-lg border backdrop-blur-sm text-sm font-bold
                         animate-[slideInRight_0.4s_ease-out]
-                        ${toast.type === 'success' ? 'bg-emerald-50 dark:bg-emerald-900/30/95 border-emerald-200 text-emerald-800' : ''}
-                        ${toast.type === 'error' ? 'bg-red-50 dark:bg-red-900/30/95 border-red-200 text-red-800' : ''}
-                        ${toast.type === 'info' ? 'bg-blue-50 dark:bg-blue-900/30/95 border-blue-200 text-blue-800' : ''}
+                        ${toast.type === 'success' ? 'bg-emerald-50 dark:bg-emerald-900/95 border-emerald-200 text-emerald-800' : ''}
+                        ${toast.type === 'error' ? 'bg-red-50 dark:bg-red-900/95 border-red-200 text-red-800' : ''}
+                        ${toast.type === 'info' ? 'bg-blue-50 dark:bg-blue-900/95 border-blue-200 text-blue-800' : ''}
                     `}
                 >
                     {toast.type === 'success' && <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0" />}
@@ -347,7 +347,7 @@ const OrderModelPage: React.FC<OrderModelPageProps> = ({
                                         </tr>
                                     ) : (
                                         purchasingData.map(m => (
-                                            <tr key={m.id} className="block md:table-row border border-slate-200 dark:border-dk-border rounded-xl mb-3 p-2 md:p-0 md:mb-0 md:border-0 md:rounded-none hover:bg-indigo-50 dark:bg-dk-accent/20/30 transition-colors group">
+                                            <tr key={m.id} className="block md:table-row border border-slate-200 dark:border-dk-border rounded-xl mb-3 p-2 md:p-0 md:mb-0 md:border-0 md:rounded-none hover:bg-indigo-50 dark:bg-dk-accent/30 transition-colors group">
                                                 <td className="block md:table-cell px-4 py-2 md:py-3 font-semibold text-slate-800 dark:text-dk-text">
                                                     <div className="flex items-center gap-2">
                                                         <div className="w-2 h-2 rounded-full bg-indigo-400 shrink-0" />
@@ -437,7 +437,7 @@ const OrderModelPage: React.FC<OrderModelPageProps> = ({
                                             {s}
                                         </th>
                                     ))}
-                                    <th className="py-4 px-4 text-center font-black bg-slate-200 text-slate-800 dark:text-dk-text w-24">المجموع</th>
+                                    <th className="py-4 px-4 text-center font-black bg-slate-200 dark:bg-dk-elevated text-slate-800 dark:text-dk-text w-24">المجموع</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100 dark:divide-dk-border">
@@ -446,7 +446,7 @@ const OrderModelPage: React.FC<OrderModelPageProps> = ({
                                     const cHex = c.id && c.id.startsWith('#') ? c.id : null;
                                     const palette = BADGE_COLORS[cIdx % BADGE_COLORS.length];
                                     return (
-                                        <tr key={`${c.id}-${cIdx}`} className="hover:bg-indigo-50 dark:bg-dk-accent/20/20 group">
+                                        <tr key={`${c.id}-${cIdx}`} className="hover:bg-indigo-50 dark:bg-dk-accent/20 group">
                                             <td className="py-3 px-4 border-l border-slate-200 dark:border-dk-border font-bold text-slate-800 dark:text-dk-text">
                                                 <div className="flex items-center gap-2">
                                                     <div
@@ -466,7 +466,7 @@ const OrderModelPage: React.FC<OrderModelPageProps> = ({
                                                 const qty = Number(val) || 0;
                                                 const cost = qty * costPerPiece;
                                                 return (
-                                                    <td key={sIdx} className="p-0 border-l border-slate-100 dark:border-dk-border bg-white dark:bg-dk-surface hover:bg-indigo-50 dark:bg-dk-accent/20/50 transition-colors relative">
+                                                    <td key={sIdx} className="p-0 border-l border-slate-100 dark:border-dk-border bg-white dark:bg-dk-surface hover:bg-indigo-50 dark:bg-dk-accent/50 transition-colors relative">
                                                         <input
                                                             type="number" min="0"
                                                             className="w-full text-center py-3 bg-transparent outline-none focus:text-indigo-700 dark:text-dk-accent-text font-bold text-base placeholder:text-slate-200"

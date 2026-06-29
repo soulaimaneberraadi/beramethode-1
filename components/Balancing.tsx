@@ -1274,7 +1274,7 @@ export default function Balancing({
             </div>
 
             {/* BF / MIN TOTALES */}
-            <div className="flex items-center gap-2 px-2 py-1 sm:px-3 sm:py-1.5 bg-emerald-50 dark:bg-emerald-900/30/50 rounded-lg border border-emerald-100 shrink-0">
+            <div className="flex items-center gap-2 px-2 py-1 sm:px-3 sm:py-1.5 bg-emerald-50 dark:bg-emerald-900/50 rounded-lg border border-emerald-100 shrink-0">
                 <div className="flex flex-col items-center border-r border-emerald-100 pr-3 mr-3">
                     <span className="text-[9px] font-bold text-emerald-600 dark:text-emerald-400 uppercase flex items-center gap-1"><Zap className="w-3 h-3" /> BF (s)</span>
                     <span className="font-black text-emerald-700 text-sm">{(bf * 60).toFixed(1)}</span>
@@ -1286,7 +1286,7 @@ export default function Balancing({
             </div>
 
             {/* P/H 100% */}
-            <div className="flex flex-col items-center px-3 py-1.5 bg-orange-50 dark:bg-orange-900/30/50 rounded-lg border border-orange-100 shrink-0">
+            <div className="flex flex-col items-center px-3 py-1.5 bg-orange-50 dark:bg-orange-900/50 rounded-lg border border-orange-100 shrink-0">
                 <span className="text-[9px] font-bold text-orange-400 uppercase">{tx(lang,{fr:'P/H (100%)',ar:'ق/س (100%)',en:'P/H (100%)',es:'P/H (100%)',pt:'P/H (100%)',tr:'A/S (100%)'})}</span>
                 <span className="font-black text-orange-500 text-sm leading-none mt-1">
                     {tempsArticle > 0 ? Math.round((presenceTime * numWorkers) / tempsArticle / (presenceTime / 60)) : 0}
@@ -1310,7 +1310,7 @@ export default function Balancing({
             </div>
 
             {/* RENDU */}
-            <div className="flex flex-col items-center px-2 py-1 sm:px-3 sm:py-1.5 bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20/50 rounded-lg border border-indigo-100 shrink-0">
+            <div className="flex flex-col items-center px-2 py-1 sm:px-3 sm:py-1.5 bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/50 rounded-lg border border-indigo-100 shrink-0">
                 <span className="text-[9px] font-bold text-indigo-400 uppercase">{tx(lang,{fr:'% Rendu',ar:'% الإنتاجية',en:'% Yield',es:'% Rendimiento',pt:'% Rendimento',tr:'% Verim'})}</span>
                 <div className="flex items-baseline gap-0.5">
                     <input 
@@ -1325,7 +1325,7 @@ export default function Balancing({
             </div>
 
             {/* TOLÉRANCE SATURATION */}
-            <div className="flex flex-col items-center px-2 py-1 sm:px-3 sm:py-1.5 bg-rose-50 dark:bg-rose-900/30/50 rounded-lg border border-rose-100 shrink-0">
+            <div className="flex flex-col items-center px-2 py-1 sm:px-3 sm:py-1.5 bg-rose-50 dark:bg-rose-900/50 rounded-lg border border-rose-100 shrink-0">
                 <span className="text-[9px] font-bold text-rose-400 uppercase">{tx(lang,{fr:'Tolérance',ar:'التسامح',en:'Tolerance',es:'Tolerancia',pt:'Tolerância',tr:'Tolerans'})}</span>
                 <div className="flex items-baseline gap-0.5">
                     <input 

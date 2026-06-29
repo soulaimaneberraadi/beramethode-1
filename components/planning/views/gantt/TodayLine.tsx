@@ -19,10 +19,15 @@ export default function TodayLine({ offsetPx, height, pulseKey }: Props) {
         return () => clearTimeout(t);
     }, [pulseKey]);
 
+    const isRtl = lang === 'ar';
     return (
         <div
             className="absolute top-0 z-[25] pointer-events-none"
-            style={{ left: offsetPx, height }}
+            style={{ 
+                left: isRtl ? 'auto' : offsetPx, 
+                right: isRtl ? offsetPx : 'auto', 
+                height 
+            }}
         >
             {/* Main line - more visible */}
             <div className={`absolute top-0 left-0 w-0.5 h-full transition-all duration-300 ${

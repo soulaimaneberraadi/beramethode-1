@@ -193,6 +193,38 @@ const PdfSettingsModal: React.FC<PdfSettingsModalProps> = ({
 
     return (
         <div className={`fixed inset-0 z-[110] flex justify-center bg-slate-900/70 backdrop-blur-md animate-in fade-in duration-200 ${isExpanded ? '' : 'items-end md:items-center md:p-4'}`}>
+            <style dangerouslySetInnerHTML={{ __html: `
+                #pdf-print-area {
+                    background-color: white !important;
+                    color: #1e293b !important;
+                }
+                #pdf-print-area .dark\\:bg-dk-bg,
+                #pdf-print-area [class*="dark:bg-dk-bg"] {
+                    background-color: #f8fafc !important;
+                }
+                #pdf-print-area .dark\\:bg-blue-900\\/30 {
+                    background-color: #eff6ff !important;
+                }
+                #pdf-print-area .dark\\:text-blue-400 {
+                    color: #2563eb !important;
+                }
+                #pdf-print-area .dark\\:text-green-400 {
+                    color: #16a34a !important;
+                }
+                #pdf-print-area .dark\\:text-emerald-400 {
+                    color: #059669 !important;
+                }
+                #pdf-print-area .dark\\:bg-gray-900\\/50 {
+                    background-color: rgba(241, 245, 249, 0.5) !important;
+                }
+                #pdf-print-area .dark\\:border-dk-border {
+                    border-color: #e2e8f0 !important;
+                }
+                #pdf-print-area .dark\\:text-dk-text,
+                #pdf-print-area .dark\\:text-dk-text-soft {
+                    color: #1e293b !important;
+                }
+            ` }} />
 
             <div
                 className={`shadow-2xl dark:shadow-dk-elevated dark:shadow-dk-lg overflow-hidden flex flex-col ${darkMode ? 'bg-gray-900 border border-gray-700' : 'bg-white dark:bg-dk-surface'} ${

@@ -229,6 +229,8 @@ export type FicheData = {
     mode: 'facon' | 'complet';
     prix: number;
   };
+  /** Saved state for the Thread Calculator modal (prices, waste, bobbin, etc.) */
+  threadCalcState?: any;
 };
 
 // --- NEW TYPES FOR COST CALCULATOR ---

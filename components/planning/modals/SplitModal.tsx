@@ -356,9 +356,11 @@ export default function SplitModal({ open, event, models, onClose, onSubmit }: P
                                                 const rowRemaining = Object.values(remainingDistribution[color.id] || {}).reduce((s, q) => s + q, 0);
                                                 return (
                                                     <tr key={`${color.id}-${cIdx}`} className="hover:bg-slate-50/50 dark:hover:bg-dk-elevated/40">
-                                                        <td className="px-2 py-1.5 sticky left-0 bg-white dark:bg-dk-surface border-r border-slate-100 dark:border-dk-border flex items-center gap-1.5">
-                                                            <div className="w-2.5 h-2.5 rounded-full border border-slate-300" style={{ background: color.id }} />
-                                                            <span className="truncate max-w-[80px] text-slate-750 dark:text-dk-text-soft font-medium">{color.name}</span>
+                                                        <td className="px-2 py-1.5 sticky left-0 bg-white dark:bg-dk-surface border-r border-slate-100 dark:border-dk-border">
+                                                            <div className="flex items-center gap-1.5">
+                                                                <div className="w-2.5 h-2.5 rounded-full border border-slate-300" style={{ background: color.id }} />
+                                                                <span className="truncate max-w-[80px] text-slate-750 dark:text-dk-text-soft font-medium">{color.name}</span>
+                                                            </div>
                                                         </td>
                                                         {sizes.map(size => {
                                                             const qtyVal = remainingDistribution[color.id]?.[size] ?? 0;
@@ -481,9 +483,11 @@ export default function SplitModal({ open, event, models, onClose, onSubmit }: P
                                                                     const colorTotal = Object.values(colorMap).reduce((s, q) => s + q, 0);
                                                                     return (
                                                                         <tr key={`${color.id}-${cIdx}`} className="hover:bg-slate-50/30 dark:hover:bg-dk-elevated/30">
-                                                                            <td className="px-2 py-1 sticky left-0 bg-white dark:bg-dk-surface border-r border-slate-100 dark:border-dk-border flex items-center gap-1">
-                                                                                <div className="w-2.5 h-2.5 rounded-full border border-slate-350" style={{ background: color.id }} />
-                                                                                <span className="truncate max-w-[60px] text-slate-750 font-medium">{color.name}</span>
+                                                                            <td className="px-2 py-1 sticky left-0 bg-white dark:bg-dk-surface border-r border-slate-100 dark:border-dk-border">
+                                                                                <div className="flex items-center gap-1">
+                                                                                    <div className="w-2.5 h-2.5 rounded-full border border-slate-350" style={{ background: color.id }} />
+                                                                                    <span className="truncate max-w-[60px] text-slate-750 font-medium">{color.name}</span>
+                                                                                </div>
                                                                             </td>
                                                                             {sizes.map(size => {
                                                                                 const val = colorMap[size] || 0;
@@ -500,7 +504,7 @@ export default function SplitModal({ open, event, models, onClose, onSubmit }: P
                                                                                     </td>
                                                                                 );
                                                                             })}
-                                                                            <td className="px-2 py-1 text-center font-bold font-mono text-indigo-650 dark:text-dk-accent-text bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20/20">
+                                                                            <td className="px-2 py-1 text-center font-bold font-mono text-indigo-650 dark:text-dk-accent-text bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20">
                                                                                 {colorTotal}
                                                                             </td>
                                                                         </tr>

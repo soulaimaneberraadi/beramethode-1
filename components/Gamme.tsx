@@ -1818,7 +1818,7 @@ export default function Gamme({
                 </div>
             </div>
 
-            <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-50 dark:bg-emerald-900/30/50 dark:bg-emerald-900/20 rounded-lg border border-emerald-100 dark:border-emerald-900/30 shrink-0">
+            <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-50 dark:bg-emerald-900/50 dark:bg-emerald-900/20 rounded-lg border border-emerald-100 dark:border-emerald-900/30 shrink-0">
                 <div className="flex flex-col items-center border-r border-emerald-100 dark:border-emerald-900/30 pr-3 mr-3">
                     <span className="text-[9px] font-bold text-emerald-600 dark:text-emerald-400 uppercase flex items-center gap-1"><Zap className="w-3 h-3" />{tx(lang,{fr:'BF (s)',ar:'BF (ث)',en:'BF (s)',es:'BF (s)',pt:'BF (s)',tr:'BF (s)'})}</span>
                     <span className="font-black text-emerald-700 dark:text-emerald-300 text-sm">{(bf * 60).toFixed(1)}</span>
@@ -1829,7 +1829,7 @@ export default function Gamme({
                 </div>
             </div>
 
-            <div className="flex flex-col items-center px-3 py-1.5 bg-orange-50 dark:bg-orange-900/30/50 dark:bg-orange-900/20 rounded-lg border border-orange-100 dark:border-orange-900/30 shrink-0">
+            <div className="flex flex-col items-center px-3 py-1.5 bg-orange-50 dark:bg-orange-900/50 dark:bg-orange-900/20 rounded-lg border border-orange-100 dark:border-orange-900/30 shrink-0">
                 <span className="text-[9px] font-bold text-orange-400 dark:text-orange-300 uppercase">{tx(lang,{fr:'P/H (100%)',ar:'P/H (100%)',en:'P/H (100%)',es:'P/H (100%)',pt:'P/H (100%)',tr:'P/H (100%)'})}</span>
                 <span className="font-black text-orange-500 dark:text-orange-300 text-sm leading-none mt-1">
                     {Math.round((tempsArticle > 0 && presenceTime > 0) ? ((presenceTime * numWorkers) / tempsArticle) / (presenceTime / 60) : 0)}
@@ -1851,7 +1851,7 @@ export default function Gamme({
                 </div>
             </div>
 
-            <div className="flex flex-col items-center px-3 py-1.5 bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20/50 dark:bg-indigo-900/20 rounded-lg border border-indigo-100 dark:border-indigo-900/30 shrink-0">
+            <div className="flex flex-col items-center px-3 py-1.5 bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/50 dark:bg-indigo-900/20 rounded-lg border border-indigo-100 dark:border-indigo-900/30 shrink-0">
                 <span className="text-[9px] font-bold text-indigo-400 dark:text-indigo-300 uppercase">{tx(lang,{fr:'% Rendu',ar:'% إنتاجية',en:'% Yield',es:'% Rendim.',pt:'% Rendim.',tr:'% Verim'})}</span>
                 <div className="flex items-baseline gap-0.5">
                     <input 
@@ -1939,8 +1939,8 @@ export default function Gamme({
         {guideFeedback && createPortal(
             <div className={`fixed top-24 right-4 sm:right-6 z-[9999] rounded-2xl border px-4 py-3 shadow-2xl dark:shadow-dk-elevated dark:shadow-dk-lg backdrop-blur-sm max-w-sm animate-in fade-in slide-in-from-top-2 duration-200 ${
                 guideFeedback.tone === 'warning'
-                  ? 'bg-rose-50 dark:bg-rose-900/30/95 dark:bg-rose-900/40 border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300'
-                  : 'bg-emerald-50 dark:bg-emerald-900/30/95 dark:bg-emerald-900/40 border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300'
+                  ? 'bg-rose-50 dark:bg-rose-900/95 dark:bg-rose-900/40 border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300'
+                  : 'bg-emerald-50 dark:bg-emerald-900/95 dark:bg-emerald-900/40 border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300'
             }`}>
                 <div className="flex items-start gap-2">
                     <AlertTriangle className={`w-4 h-4 mt-0.5 shrink-0 ${guideFeedback.tone === 'warning' ? 'text-rose-500 dark:text-rose-400' : 'text-emerald-500 dark:text-emerald-400'}`} />
@@ -2127,7 +2127,7 @@ export default function Gamme({
                 const isForced = op.forcedTime !== undefined && op.forcedTime !== null;
                 const chronoInputClass = isForced 
                     ? "bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800 focus:border-purple-500 focus:bg-purple-100 dark:focus:bg-purple-900/50 font-black shadow-sm dark:shadow-dk-sm"
-                    : (isMachine ? 'bg-slate-50 dark:bg-dk-bg dark:bg-dk-surface text-slate-600 dark:text-dk-text-soft dark:text-dk-text border-slate-200 dark:border-dk-border focus:bg-white dark:focus:bg-dk-elevated focus:border-indigo-300' : 'bg-emerald-50 dark:bg-emerald-900/30/40 dark:bg-emerald-900/20 border-emerald-100 dark:border-emerald-900/30 text-emerald-700 dark:text-emerald-300 focus:border-emerald-500 focus:bg-white dark:focus:bg-dk-surface');
+                    : (isMachine ? 'bg-slate-50 dark:bg-dk-bg dark:bg-dk-surface text-slate-600 dark:text-dk-text-soft dark:text-dk-text border-slate-200 dark:border-dk-border focus:bg-white dark:focus:bg-dk-elevated focus:border-indigo-300' : 'bg-emerald-50 dark:bg-emerald-900/40 dark:bg-emerald-900/20 border-emerald-100 dark:border-emerald-900/30 text-emerald-700 dark:text-emerald-300 focus:border-emerald-500 focus:bg-white dark:focus:bg-dk-surface');
 
                 const currentGuide = op.guideFactor ?? 1.1;
                 const assignedGuideName = op.guideName || (op.guideId ? guides.find(g => g.id === op.guideId)?.name : '') || '';
@@ -2361,7 +2361,7 @@ export default function Gamme({
                           suggestions={machineSuggestions}
                           value={machineValue}
                           onChange={(val) => handleMachineChange(op.id, val)}
-                          className={`w-full bg-slate-100/50 border border-slate-200 dark:border-dk-border rounded-lg px-2 py-2 text-xs outline-none focus:border-emerald-500 focus:bg-white transition-all placeholder:text-slate-400 ${shouldHighlightMachine ? 'text-rose-600 dark:text-rose-400 font-bold border-rose-300 bg-rose-50 dark:bg-rose-900/30/70 ring-1 ring-rose-100' : 'text-slate-700 dark:text-dk-text-soft'}`}
+                          className={`w-full bg-slate-100/50 border border-slate-200 dark:border-dk-border rounded-lg px-2 py-2 text-xs outline-none focus:border-emerald-500 focus:bg-white transition-all placeholder:text-slate-400 ${shouldHighlightMachine ? 'text-rose-600 dark:text-rose-400 font-bold border-rose-300 bg-rose-50 dark:bg-rose-900/70 ring-1 ring-rose-100' : 'text-slate-700 dark:text-dk-text-soft'}`}
                           placeholder={tx(lang,{fr:'Mac',ar:'آلة',en:'Mach',es:'Máq',pt:'Máq',tr:'Mak'})}
                           containerClassName="w-full"
                           disabled={isLinkingMode}
@@ -2399,7 +2399,7 @@ export default function Gamme({
                             className={`w-full border rounded-lg px-1 py-2 text-center text-xs font-mono font-bold outline-none transition-all ${
                                 isCounterMachine 
                                 ? 'bg-amber-50 dark:bg-amber-900/30 text-amber-700 border-amber-200 focus:border-amber-400' 
-                                : 'bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20/30 text-indigo-700 dark:text-dk-accent-text border-indigo-100 focus:border-indigo-500'
+                                : 'bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/30 text-indigo-700 dark:text-dk-accent-text border-indigo-100 focus:border-indigo-500'
                             }`}
                             placeholder={isCounterMachine ? tx(lang,{fr:'Qté',ar:'كم',en:'Qty',es:'Cant',pt:'Qtd',tr:'Mikt'}) : "-"}
                           />
@@ -2838,7 +2838,7 @@ export default function Gamme({
             <div className="overflow-y-auto overflow-x-hidden custom-scrollbar flex-1 py-1">
             {isSelectionMode && selectedOpIds.length > 0 && !selectedOpIds.includes(contextMenu.opId!) && (
                 <>
-                    <button onClick={() => handleContextAction('targetThis')} className="w-full text-left px-4 py-3 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 flex items-center gap-2.5 transition-all group text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-900/30/50 dark:bg-emerald-900/20 hover:translate-x-0.5">
+                    <button onClick={() => handleContextAction('targetThis')} className="w-full text-left px-4 py-3 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 flex items-center gap-2.5 transition-all group text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-900/50 dark:bg-emerald-900/20 hover:translate-x-0.5">
                         <ArrowLeftToLine className="w-4 h-4 text-emerald-600 dark:text-emerald-400" /> 
                         <span>🏁 {tx(lang,{fr:'Lier la sélection ici (Flux)',ar:'ربط التحديد هنا (تدفق)',en:'Link selection here (Flow)',es:'Enlazar selección aquí (Flujo)',pt:'Vincular seleção aqui (Fluxo)',tr:'Seçimi buraya bağla (Akış)'})}</span>
                     </button>

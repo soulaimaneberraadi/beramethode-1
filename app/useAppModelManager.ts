@@ -5,6 +5,7 @@ const launchDateTimeIso = (date: string, launchTime?: string) => {
     const t = launchTime && /^\d{2}:\d{2}$/.test(launchTime) ? launchTime : '08:00';
     return `${date}T${t}:00`;
 };
+const IS_STATIC = import.meta.env.VITE_STATIC_MODE === 'true';
 import { AUTO_SAVE_KEY } from './constants';
 import { tx } from '../lib/i18n';
 import { useLang } from '../src/context/LanguageContext';
@@ -124,17 +125,17 @@ export function useAppModelManager({
             ev.modelId === modelToSave.id
                 ? { 
                     ...ev, 
-                    dateLancement: launchDateTimeIso(ficheData.date, ficheData.launchTime), 
-                    startDate: ficheData.date,
-                    typeMarche: ficheData.typeMarche ?? 'Local',
-                    facteurPlanning: ficheData.facteurPlanning ?? 60,
-                    bufferLancement: ficheData.bufferLancement ?? 120,
+                    dateLancement: ev.dateLancement || launchDateTimeIso(ficheData.date, ficheData.launchTime), 
+                    startDate: ev.startDate || ficheData.date,
+                    typeMarche: ev.typeMarche ?? ficheData.typeMarche ?? 'Local',
+                    facteurPlanning: ev.facteurPlanning ?? ficheData.facteurPlanning ?? 60,
+                    bufferLancement: ev.bufferLancement ?? ficheData.bufferLancement ?? 120,
                   }
                 : ev
         ));
 
         // 3. UPDATE OR ADD
-        if (user) {
+        if (user && !IS_STATIC) {
             fetch('/api/models', {
                 credentials: 'include',
                 method: 'POST',
@@ -249,7 +250,7 @@ export function useAppModelManager({
             deleteManualLinksByModel(id);
             if (currentModelId === id) setCurrentModelId(null);
         };
-        if (user) {
+        if (user && !IS_STATIC) {
             fetch(`/api/models/${id}`, { credentials: 'include', method: 'DELETE' })
                 .then(res => { if (res.ok) removeLocal(); })
                 .catch(err => console.error(err));
@@ -282,7 +283,9 @@ export function useAppModelManager({
 
     const createNewProject = useCallback(() => {
         localStorage.removeItem(AUTO_SAVE_KEY);
-        fetch('/api/settings', { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ autosave_workspace: null }) }).catch(() => {});
+        if (!IS_STATIC) {
+            fetch('/api/settings', { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ autosave_workspace: null }) }).catch(() => {});
+        }
         setCurrentModelId(null);
         setArticleName('');
         setOperations([]);

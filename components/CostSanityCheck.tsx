@@ -120,7 +120,7 @@ const CostSanityCheck: React.FC<CostSanityCheckProps> = ({
     const [open, setOpen] = useState(false);
 
     return (
-        <div className={`rounded-lg border overflow-hidden ${allOk ? 'border-emerald-200 bg-emerald-50 dark:bg-emerald-900/30/40' : 'border-amber-300 bg-amber-50 dark:bg-amber-900/30/50'}`}>
+        <div className={`rounded-lg border overflow-hidden ${allOk ? 'border-emerald-200 bg-emerald-50 dark:bg-emerald-900/40' : 'border-amber-300 bg-amber-50 dark:bg-amber-900/50'}`}>
             <button
                 onClick={() => setOpen(o => !o)}
                 className="w-full px-4 h-11 flex items-center justify-between"

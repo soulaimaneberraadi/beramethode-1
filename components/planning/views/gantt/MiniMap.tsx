@@ -26,6 +26,7 @@ export default function MiniMap({
     scrollLeft, viewportWidth, contentWidth, onJumpTo,
 }: Props) {
     const { lang } = useLang();
+    const isRtl = lang === 'ar';
     const ref = useRef<HTMLDivElement>(null);
     const MAP_HEIGHT = 36;
 
@@ -51,7 +52,8 @@ export default function MiniMap({
         if (!ref.current) return;
         const rect = ref.current.getBoundingClientRect();
         const x = e.clientX - rect.left;
-        const ratio = x / rect.width;
+        const baseRatio = x / rect.width;
+        const ratio = isRtl ? 1 - baseRatio : baseRatio;
         // centrer la vue sur ce point
         onJumpTo(Math.max(0, ratio * contentWidth - viewportWidth / 2));
     };
@@ -88,16 +90,20 @@ export default function MiniMap({
                         if (e < first.getTime() || s > last.getTime()) return null;
                         const leftRatio = Math.max(0, (s - first.getTime()) / totalMs);
                         const widthRatio = Math.max(0.005, (e - s) / totalMs);
-                        const chainIdx = chains.findIndex(c => c.id === ev.chaineId);
-                        if (chainIdx < 0) return null;
-                        const color = (ev.modelId || evModelName(ev, models)) ? getModelColor(ev.modelId || evModelName(ev, models)) : (ev.color || getModelColor(evClientName(ev, models)));
-                        const topRatio = chainIdx / chains.length;
+                        
+                        const chainIndex = chains.findIndex(c => c.id === ev.chaineId);
+                        if (chainIndex === -1) return null;
+                        
+                        const topRatio = chainIndex / chains.length;
+                        const color = getModelColor(ev.modelId || evModelName(ev, models));
+                        
                         return (
                             <div
                                 key={ev.id}
                                 className="absolute rounded-[1px]"
                                 style={{
-                                    left: `${leftRatio * 100}%`,
+                                    left: isRtl ? 'auto' : `${leftRatio * 100}%`,
+                                    right: isRtl ? `${leftRatio * 100}%` : 'auto',
                                     width: `${widthRatio * 100}%`,
                                     top: `${topRatio * 100}%`,
                                     height: `${(1 / chains.length) * MAP_HEIGHT - 1}px`,
@@ -112,7 +118,10 @@ export default function MiniMap({
                     {todayPos >= 0 && (
                         <div
                             className="absolute top-0 bottom-0 w-px bg-orange-500"
-                            style={{ left: `${todayPos * 100}%` }}
+                            style={{
+                                left: isRtl ? 'auto' : `${todayPos * 100}%`,
+                                right: isRtl ? `${todayPos * 100}%` : 'auto',
+                            }}
                         />
                     )}
 
@@ -120,7 +129,8 @@ export default function MiniMap({
                     <div
                         className="absolute top-0 bottom-0 border-2 border-slate-900/70 dark:border-dk-accent/70 rounded-md bg-white/20 dark:bg-dk-accent/20 pointer-events-none"
                         style={{
-                            left: `${scrollRatio * 100}%`,
+                            left: isRtl ? 'auto' : `${scrollRatio * 100}%`,
+                            right: isRtl ? `${scrollRatio * 100}%` : 'auto',
                             width: `${Math.min(100, viewportRatio * 100)}%`,
                         }}
                     />

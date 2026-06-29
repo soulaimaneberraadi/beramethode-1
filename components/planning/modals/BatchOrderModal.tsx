@@ -158,7 +158,7 @@ function ModelPicker({ models, value, onChange }: { models: ModelData[]; value: 
                                     key={m.id}
                                     type="button"
                                     onClick={() => handleSelect(m.id)}
-                                    className={`w-full px-3 py-2 flex items-center gap-2.5 text-left hover:bg-slate-50 dark:hover:bg-dk-elevated/60 transition-colors ${m.id === value ? 'bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20/70' : ''}`}
+                                    className={`w-full px-3 py-2 flex items-center gap-2.5 text-left hover:bg-slate-50 dark:hover:bg-dk-elevated/60 transition-colors ${m.id === value ? 'bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/70' : ''}`}
                                 >
                                     {thumb ? (
                                         <img src={thumb} alt="" className="w-8 h-8 rounded-lg object-cover border border-slate-200 dark:border-dk-border shrink-0" />
@@ -294,7 +294,7 @@ export default function BatchOrderModal({ open, models, chains, computeEndDate, 
         >
             <div className="space-y-5">
                 {/* ── chain + start date ── */}
-                <div className="grid grid-cols-2 gap-3 p-4 bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20/40 rounded-xl border border-indigo-100">
+                <div className="grid grid-cols-2 gap-3 p-4 bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/40 rounded-xl border border-indigo-100">
                     <div className="space-y-1.5">
                         <label className="block text-[11px] font-medium text-slate-600 dark:text-dk-muted">{tx(lang, {fr:"Chaîne cible",ar:"السلسلة المستهدفة",en:"Target chain",es:"Cadena objetivo",pt:"Cadeia alvo",tr:"Hedef zincir"})}</label>
                         <select
@@ -430,7 +430,7 @@ export default function BatchOrderModal({ open, models, chains, computeEndDate, 
                     <button
                         type="button"
                         onClick={addRow}
-                        className="w-full py-2.5 border-2 border-dashed border-slate-200 dark:border-dk-border rounded-xl text-[12px] font-semibold text-slate-400 dark:text-dk-muted hover:border-indigo-400 hover:text-indigo-600 dark:text-dk-accent-text hover:bg-indigo-50 dark:bg-dk-accent/20/30 transition-all flex items-center justify-center gap-1.5 group"
+                        className="w-full py-2.5 border-2 border-dashed border-slate-200 dark:border-dk-border rounded-xl text-[12px] font-semibold text-slate-400 dark:text-dk-muted hover:border-indigo-400 hover:text-indigo-600 dark:text-dk-accent-text hover:bg-indigo-50 dark:bg-dk-accent/30 transition-all flex items-center justify-center gap-1.5 group"
                     >
                         <Plus className="w-4 h-4 group-hover:scale-110 transition-transform" />
                         {tx(lang, {fr:"Ajouter un modèle",ar:"إضافة نموذج",en:"Add a model",es:"Añadir un modelo",pt:"Adicionar um modelo",tr:"Model ekle"})}

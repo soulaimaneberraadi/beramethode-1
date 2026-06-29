@@ -701,7 +701,7 @@ export default function MachineEditorModal({
               </div>
             </div>
 
-            <div className="rounded-xl border border-slate-100 dark:border-dk-border bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20/30 p-4 space-y-3">
+            <div className="rounded-xl border border-slate-100 dark:border-dk-border bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/30 p-4 space-y-3">
               <p className="text-[10px] font-black text-indigo-700 dark:text-dk-accent-text uppercase tracking-wider">{tx(lang, {fr:'Achat',ar:'شراء',en:'Purchase',es:'Compra',pt:'Compra',tr:'Satın alma'})}</p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>

@@ -1135,7 +1135,7 @@ export default function ThreadCalculator({
                         <div className="hidden md:flex bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-5 items-center justify-between">
                             <div className="flex items-center gap-3">
                                 <div className="bg-white dark:bg-dk-surface/20 p-2 rounded-xl">
-                                    <Scissors className="w-6 h-6" />
+                                    <Scissors className="w-6 h-6 text-blue-600 dark:text-blue-400" />
                                 </div>
                                 <div>
                                     <h2 className="text-xl font-black">{_({ fr: 'Calcul Fil', ar: 'حساب الخيط', en: 'Thread Calculation', es: 'Cálculo de Hilo', pt: 'Cálculo de Fio', tr: 'İplik Hesaplama' })}</h2>
@@ -1286,7 +1286,7 @@ export default function ThreadCalculator({
                                     {opsData.map((op, index) => (
                                         <tr
                                             key={op.operation.id}
-                                            className={`${op.selected ? 'bg-blue-50 dark:bg-blue-900/30/50' : 'bg-white dark:bg-dk-surface'} hover:bg-blue-50 transition-colors`}
+                                            className={`${op.selected ? 'bg-blue-50 dark:bg-blue-950/50' : 'bg-white dark:bg-dk-surface'} hover:bg-blue-50/50 dark:hover:bg-dk-elevated/40 transition-colors`}
                                         >
                                             <td className="p-3">
                                                 <button
@@ -1333,7 +1333,7 @@ export default function ThreadCalculator({
                                                         onFocus={(e) => e.target.select()}
                                                         onKeyDown={(e) => ['-', 'e', 'E', '+', '.', ','].includes(e.key) && e.preventDefault()}
                                                         placeholder="-"
-                                                        className="w-16 px-1 py-1 text-center text-xs font-mono font-bold bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20/30 text-indigo-700 dark:text-dk-accent-text border border-indigo-100 rounded-lg outline-none focus:border-indigo-500 transition-colors"
+                                                        className="w-16 px-1 py-1 text-center text-xs font-mono font-bold bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/30 text-indigo-700 dark:text-dk-accent-text border border-indigo-100 rounded-lg outline-none focus:border-indigo-500 transition-colors"
                                                         title={op.isPerPiece ? _({ fr: 'Nombre de pièces (boutonnière / bouton / bride)', ar: 'عدد القطع (عروة / زر / رباط)', en: 'Number of pieces (buttonhole / button / tie)', es: 'Número de piezas (ojal / botón / atadura)', pt: 'Número de peças (casa / botão / amarra)', tr: 'Parça sayısı (ilik / düğme / bağ)' }) : _({ fr: 'Longueur de couture en cm', ar: 'طول الخياطة بالسنتيمتر', en: 'Seam length in cm', es: 'Longitud de costura en cm', pt: 'Comprimento da costura em cm', tr: 'Dikiş uzunluğu (cm)' })}
                                                         aria-label={op.isPerPiece ? `${_({ fr: 'Nombre de pièces pour opération', ar: 'عدد القطع للعملية', en: 'Number of pieces for operation', es: 'Número de piezas para operación', pt: 'Número de peças para operação', tr: 'İşlem için parça sayısı' })} ${op.operation.order}` : `${_({ fr: 'Longueur de couture en cm pour opération', ar: 'طول الخياطة بالسنتيمتر للعملية', en: 'Seam length in cm for operation', es: 'Longitud de costura en cm para operación', pt: 'Comprimento da costura em cm para operação', tr: 'İşlem için dikiş uzunluğu (cm)' })} ${op.operation.order}`}
                                                     />
@@ -1359,7 +1359,7 @@ export default function ThreadCalculator({
                                                         onFocus={(e) => e.target.select()}
                                                         onKeyDown={(e) => ['-', 'e', 'E', '+', '.'].includes(e.key) && e.preventDefault()}
                                                         placeholder="0.00"
-                                                        className="w-16 px-1 py-1 text-center text-xs font-mono font-bold bg-emerald-50 dark:bg-emerald-900/30/30 text-emerald-700 border border-emerald-100 rounded-lg outline-none focus:border-emerald-500 transition-colors placeholder:text-emerald-300 placeholder:font-normal"
+                                                        className="w-16 px-1 py-1 text-center text-xs font-mono font-bold bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 border border-emerald-100 rounded-lg outline-none focus:border-emerald-500 transition-colors placeholder:text-emerald-300 placeholder:font-normal"
                                                         title={`${op.threadMetersPerUnit.toFixed(2)} m ÷ ${selectedBobbinSize} ${_({ fr: 'm/bobine', ar: 'م/بكرة', en: 'm/bobbin', es: 'm/bobina', pt: 'm/bobina', tr: 'm/bobin' })}`}
                                                         aria-label={`${_({ fr: 'Bobines par unité pour opération', ar: 'بكرات لكل وحدة للعملية', en: 'Bobbins per unit for operation', es: 'Bobinas por unidad para operación', pt: 'Bobinas por unidade para operação', tr: 'İşlem için birim başına bobin' })} ${op.operation.order}`}
                                                     />
@@ -1388,7 +1388,7 @@ export default function ThreadCalculator({
 
                         <div className="block md:hidden divide-y divide-slate-100 dark:divide-dk-border bg-white dark:bg-dk-surface">
                             {opsData.map((op, index) => (
-                                <div key={op.operation.id} className={`p-4 transition-colors ${op.selected ? 'bg-blue-50 dark:bg-blue-900/30/20' : 'bg-white dark:bg-dk-surface'}`}>
+                                <div key={op.operation.id} className={`p-4 transition-colors ${op.selected ? 'bg-blue-50 dark:bg-blue-950/40' : 'bg-white dark:bg-dk-surface'}`}>
                                     <div className="flex items-start gap-3">
                                         <button
                                             onClick={() => toggleOperation(index)}
@@ -1435,7 +1435,7 @@ export default function ThreadCalculator({
                                                     onFocus={(e) => e.target.select()}
                                                     onKeyDown={(e) => ['-', 'e', 'E', '+', '.', ','].includes(e.key) && e.preventDefault()}
                                                     placeholder="-"
-                                                    className="w-full px-2 py-1 text-center text-xs font-mono font-bold bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20/30 text-indigo-700 dark:text-dk-accent-text border border-indigo-100 rounded-lg outline-none focus:border-indigo-500"
+                                                    className="w-full px-2 py-1 text-center text-xs font-mono font-bold bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 text-indigo-700 dark:text-dk-accent-text border border-indigo-100 rounded-lg outline-none focus:border-indigo-500"
                                                 />
                                                 <span className="text-[10px] text-slate-400 dark:text-dk-muted font-bold">{op.isPerPiece ? _({ fr: 'pc', ar: 'قطعة', en: 'pc', es: 'pz', pt: 'pç', tr: 'ad' }) : 'cm'}</span>
                                             </div>
@@ -1453,7 +1453,7 @@ export default function ThreadCalculator({
                                                     onFocus={(e) => e.target.select()}
                                                     onKeyDown={(e) => ['-', 'e', 'E', '+', '.'].includes(e.key) && e.preventDefault()}
                                                     placeholder="0.00"
-                                                    className="w-full px-2 py-1 text-center text-xs font-mono font-bold bg-emerald-50 dark:bg-emerald-900/30/30 text-emerald-700 border border-emerald-100 rounded-lg outline-none focus:border-emerald-500"
+                                                    className="w-full px-2 py-1 text-center text-xs font-mono font-bold bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 border border-emerald-100 rounded-lg outline-none focus:border-emerald-500"
                                                 />
                                                 <span className="text-[10px] text-slate-400 dark:text-dk-muted font-bold">{_({ fr: 'bob', ar: 'بكرة', en: 'bob', es: 'bob', pt: 'bob', tr: 'bob' })}</span>
                                             </div>
@@ -1659,7 +1659,7 @@ export default function ThreadCalculator({
                 <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-5 flex items-center justify-between shrink-0">
                     <div className="flex items-center gap-3">
                         <div className="bg-white dark:bg-dk-surface/20 p-2 rounded-xl">
-                            <Scissors className="w-6 h-6" />
+                            <Scissors className="w-6 h-6 text-blue-600 dark:text-blue-400" />
                         </div>
                         <div>
                             <h2 className="text-xl font-black">{_({ fr: 'Calcul Fil', ar: 'حساب الخيط', en: 'Thread Calculation', es: 'Cálculo de Hilo', pt: 'Cálculo de Fio', tr: 'İplik Hesaplama' })}</h2>
@@ -1728,6 +1728,8 @@ export default function ThreadCalculator({
                     <label className="text-xs font-bold text-slate-500 dark:text-dk-muted">{_({ fr: 'TYPE FIL:', ar: 'نوع الخيط:', en: 'THREAD TYPE:', es: 'TIPO HILO:', pt: 'TIPO FIO:', tr: 'İPLİK TÜRÜ:' })}</label>
                     <ThreadTypesManager
                         availableThreadTypes={availableThreadTypes}
+                        threadPrices={threadPrices}
+                        onUpdatePrice={updateThreadPrice}
                         onAdd={addThreadTypeValue}
                         onRename={renameThreadTypeValue}
                         onDelete={deleteThreadTypeValue}
@@ -1794,7 +1796,7 @@ export default function ThreadCalculator({
                                 </thead>
                                 <tbody className="divide-y divide-slate-100 dark:divide-dk-border">
                                     {opsData.map((op, index) => (
-                                        <tr key={op.operation.id} className={`${op.selected ? 'bg-blue-50 dark:bg-blue-900/30/50' : 'bg-white dark:bg-dk-surface'} hover:bg-blue-50 transition-colors`}>
+                                        <tr key={op.operation.id} className={`${op.selected ? 'bg-blue-50 dark:bg-blue-950/50' : 'bg-white dark:bg-dk-surface'} hover:bg-blue-50/50 dark:hover:bg-dk-elevated/40 transition-colors`}>
                                             <td className="p-3">
                                                 <button onClick={() => toggleOperation(index)} className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${op.selected ? 'bg-blue-500 border-blue-500 text-white' : 'border-slate-300 hover:border-blue-400'}`} aria-label={op.selected ? `${_({ fr: 'Désélectionner opération', ar: 'إلغاء تحديد العملية', en: 'Deselect operation', es: 'Deseleccionar operación', pt: 'Desmarcar operação', tr: 'İşlemin seçimini kaldır' })} ${op.operation.order}` : `${_({ fr: 'Sélectionner opération', ar: 'تحديد العملية', en: 'Select operation', es: 'Seleccionar operación', pt: 'Selecionar operação', tr: 'İşlemi seç' })} ${op.operation.order}`} aria-pressed={op.selected}>
                                                     {op.selected && <Check className="w-3 h-3" />}
@@ -1816,7 +1818,7 @@ export default function ThreadCalculator({
                                             </td>
                                             <td className="p-3 text-center">
                                                 <div className="flex items-center justify-center gap-1">
-                                                    <input type="number" min="0" step="1" value={op.lengthCm === 0 ? '' : op.lengthCm} onChange={(e) => updateLength(index, Number(e.target.value))} onFocus={(e) => e.target.select()} onKeyDown={(e) => ['-', 'e', 'E', '+', '.', ','].includes(e.key) && e.preventDefault()} placeholder="-" className="w-16 px-1 py-1 text-center text-xs font-mono font-bold bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20/30 text-indigo-700 dark:text-dk-accent-text border border-indigo-100 rounded-lg outline-none focus:border-indigo-500 transition-colors" title={op.isPerPiece ? _({ fr: 'Nombre de pièces (boutonnière / bouton / bride)', ar: 'عدد القطع (عروة / زر / رباط)', en: 'Number of pieces (buttonhole / button / tie)', es: 'Número de piezas (ojal / botón / atadura)', pt: 'Número de peças (casa / botão / amarra)', tr: 'Parça sayısı (ilik / düğme / bağ)' }) : _({ fr: 'Longueur de couture en cm', ar: 'طول الخياطة بالسنتيمتر', en: 'Seam length in cm', es: 'Longitud de costura en cm', pt: 'Comprimento da costura em cm', tr: 'Dikiş uzunluğu (cm)' })} aria-label={op.isPerPiece ? `${_({ fr: 'Nombre de pièces pour opération', ar: 'عدد القطع للعملية', en: 'Number of pieces for operation', es: 'Número de piezas para operación', pt: 'Número de peças para operação', tr: 'İşlem için parça sayısı' })} ${op.operation.order}` : `${_({ fr: 'Longueur de couture en cm pour opération', ar: 'طول الخياطة بالسنتيمتر للعملية', en: 'Seam length in cm for operation', es: 'Longitud de costura en cm para operación', pt: 'Comprimento da costura em cm para operação', tr: 'İşlem için dikiş uzunluğu (cm)' })} ${op.operation.order}`} />
+                                                    <input type="number" min="0" step="1" value={op.lengthCm === 0 ? '' : op.lengthCm} onChange={(e) => updateLength(index, Number(e.target.value))} onFocus={(e) => e.target.select()} onKeyDown={(e) => ['-', 'e', 'E', '+', '.', ','].includes(e.key) && e.preventDefault()} placeholder="-" className="w-16 px-1 py-1 text-center text-xs font-mono font-bold bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 text-indigo-700 dark:text-dk-accent-text border border-indigo-100 rounded-lg outline-none focus:border-indigo-500 transition-colors" title={op.isPerPiece ? _({ fr: 'Nombre de pièces (boutonnière / bouton / bride)', ar: 'عدد القطع (عروة / زر / رباط)', en: 'Number of pieces (buttonhole / button / tie)', es: 'Número de piezas (ojal / botón / atadura)', pt: 'Número de peças (casa / botão / amarra)', tr: 'Parça sayısı (ilik / düğme / bağ)' }) : _({ fr: 'Longueur de couture en cm', ar: 'طول الخياطة بالسنتيمتر', en: 'Seam length in cm', es: 'Longitud de costura en cm', pt: 'Comprimento da costura em cm', tr: 'Dikiş uzunluğu (cm)' })} aria-label={op.isPerPiece ? `${_({ fr: 'Nombre de pièces pour opération', ar: 'عدد القطع للعملية', en: 'Number of pieces for operation', es: 'Número de piezas para operación', pt: 'Número de peças para operação', tr: 'İşlem için parça sayısı' })} ${op.operation.order}` : `${_({ fr: 'Longueur de couture en cm pour opération', ar: 'طول الخياطة بالسنتيمتر للعملية', en: 'Seam length in cm for operation', es: 'Longitud de costura en cm para operación', pt: 'Comprimento da costura em cm para operação', tr: 'İşlem için dikiş uzunluğu (cm)' })} ${op.operation.order}`} />
                                                     <span className="text-[10px] text-slate-400 dark:text-dk-muted">{op.isPerPiece ? _({ fr: 'pc', ar: 'قطعة', en: 'pc', es: 'pz', pt: 'pç', tr: 'ad' }) : 'cm'}</span>
                                                 </div>
                                             </td>
@@ -1837,7 +1839,7 @@ export default function ThreadCalculator({
                                                         onFocus={(e) => e.target.select()}
                                                         onKeyDown={(e) => ['-', 'e', 'E', '+', '.'].includes(e.key) && e.preventDefault()}
                                                         placeholder="0.00"
-                                                        className="w-16 px-1 py-1 text-center text-xs font-mono font-bold bg-emerald-50 dark:bg-emerald-900/30/30 text-emerald-700 border border-emerald-100 rounded-lg outline-none focus:border-emerald-500 transition-colors placeholder:text-emerald-300 placeholder:font-normal"
+                                                        className="w-16 px-1 py-1 text-center text-xs font-mono font-bold bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 border border-emerald-100 rounded-lg outline-none focus:border-emerald-500 transition-colors placeholder:text-emerald-300 placeholder:font-normal"
                                                         title={`${op.threadMetersPerUnit.toFixed(2)} m ÷ ${selectedBobbinSize} ${_({ fr: 'm/bobine', ar: 'م/بكرة', en: 'm/bobbin', es: 'm/bobina', pt: 'm/bobina', tr: 'm/bobin' })}`}
                                                         aria-label={`${_({ fr: 'Bobines par unité pour opération', ar: 'بكرات لكل وحدة للعملية', en: 'Bobbins per unit for operation', es: 'Bobinas por unidad para operación', pt: 'Bobinas por unidade para operação', tr: 'İşlem için birim başına bobin' })} ${op.operation.order}`}
                                                     />
@@ -1866,7 +1868,7 @@ export default function ThreadCalculator({
 
                         <div className="block md:hidden divide-y divide-slate-100 dark:divide-dk-border bg-white dark:bg-dk-surface">
                             {opsData.map((op, index) => (
-                                <div key={op.operation.id} className={`p-4 transition-colors ${op.selected ? 'bg-blue-50 dark:bg-blue-900/30/20' : 'bg-white dark:bg-dk-surface'}`}>
+                                <div key={op.operation.id} className={`p-4 transition-colors ${op.selected ? 'bg-blue-50 dark:bg-blue-950/40' : 'bg-white dark:bg-dk-surface'}`}>
                                     <div className="flex items-start gap-3">
                                         <button
                                             onClick={() => toggleOperation(index)}
@@ -1913,7 +1915,7 @@ export default function ThreadCalculator({
                                                     onFocus={(e) => e.target.select()}
                                                     onKeyDown={(e) => ['-', 'e', 'E', '+', '.', ','].includes(e.key) && e.preventDefault()}
                                                     placeholder="-"
-                                                    className="w-full px-2 py-1 text-center text-xs font-mono font-bold bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20/30 text-indigo-700 dark:text-dk-accent-text border border-indigo-100 rounded-lg outline-none focus:border-indigo-500"
+                                                    className="w-full px-2 py-1 text-center text-xs font-mono font-bold bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 text-indigo-700 dark:text-dk-accent-text border border-indigo-100 rounded-lg outline-none focus:border-indigo-500"
                                                 />
                                                 <span className="text-[10px] text-slate-400 dark:text-dk-muted font-bold">{op.isPerPiece ? _({ fr: 'pc', ar: 'قطعة', en: 'pc', es: 'pz', pt: 'pç', tr: 'ad' }) : 'cm'}</span>
                                             </div>
@@ -1931,7 +1933,7 @@ export default function ThreadCalculator({
                                                     onFocus={(e) => e.target.select()}
                                                     onKeyDown={(e) => ['-', 'e', 'E', '+', '.'].includes(e.key) && e.preventDefault()}
                                                     placeholder="0.00"
-                                                    className="w-full px-2 py-1 text-center text-xs font-mono font-bold bg-emerald-50 dark:bg-emerald-900/30/30 text-emerald-700 border border-emerald-100 rounded-lg outline-none focus:border-emerald-500"
+                                                    className="w-full px-2 py-1 text-center text-xs font-mono font-bold bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 border border-emerald-100 rounded-lg outline-none focus:border-emerald-500"
                                                 />
                                                 <span className="text-[10px] text-slate-400 dark:text-dk-muted font-bold">{_({ fr: 'bob', ar: 'بكرة', en: 'bob', es: 'bob', pt: 'bob', tr: 'bob' })}</span>
                                             </div>
@@ -2175,7 +2177,7 @@ function ThreadTypesManager({ availableThreadTypes, threadPrices, onAdd, onRenam
                                 onChange={(e) => setNewInput(e.target.value)}
                                 onKeyDown={(e) => { if (e.key === 'Enter') handleAdd(); if (e.key === 'Escape') setOpen(false); }}
                                 placeholder={_({ fr: 'Nouveau type (ex: Polyester Tex 27)', ar: 'نوع جديد (مثال: بوليستر Tex 27)', en: 'New type (ex: Polyester Tex 27)', es: 'Nuevo tipo (ej: Polyester Tex 27)', pt: 'Novo tipo (ex: Poliéster Tex 27)', tr: 'Yeni tür (ör: Polyester Tex 27)' })}
-                                className="flex-1 min-w-0 px-2 py-1 text-xs border border-amber-200 rounded-lg font-mono bg-amber-50 dark:bg-amber-900/30/50 outline-none focus:border-amber-500"
+                                className="flex-1 min-w-0 px-2 py-1 text-xs border border-amber-200 rounded-lg font-mono bg-amber-50 dark:bg-amber-900/30 outline-none focus:border-amber-500"
                                 aria-label={_({ fr: 'Nouveau type de fil', ar: 'نوع خيط جديد', en: 'New thread type', es: 'Nuevo tipo de hilo', pt: 'Novo tipo de fio', tr: 'Yeni iplik türü' })}
                             />
                             <button type="button" onClick={handleAdd} className="p-1.5 bg-amber-500 text-white rounded-lg hover:bg-amber-600 transition-colors shrink-0" aria-label={_({ fr: 'Ajouter ce type', ar: 'إضافة هذا النوع', en: 'Add this type', es: 'Añadir este tipo', pt: 'Adicionar este tipo', tr: 'Bu türü ekle' })}><Plus className="w-4 h-4" /></button>
@@ -2401,7 +2403,7 @@ function ColorThreadCell({
                 <select
                     value={op.threadType}
                     onChange={(e) => onUpdateThreadType(index, e.target.value)}
-                    className="w-36 px-2 py-1 text-xs font-mono bg-amber-50 dark:bg-amber-900/30/30 text-amber-700 border border-amber-100 rounded-lg outline-none focus:border-amber-500 transition-colors"
+                    className="w-36 px-2 py-1 text-xs font-mono bg-amber-50 dark:bg-amber-900/30 text-amber-700 border border-amber-100 rounded-lg outline-none focus:border-amber-500 transition-colors"
                     title={_({ fr: 'Type de fil utilisé pour cette opération', ar: 'نوع الخيط المستخدم لهذه العملية', en: 'Thread type used for this operation', es: 'Tipo de hilo usado para esta operación', pt: 'Tipo de fio usado para esta operação', tr: 'Bu işlem için kullanılan iplik türü' })}
                     aria-label={`${_({ fr: 'Type de fil pour opération', ar: 'نوع الخيط للعملية', en: 'Thread type for operation', es: 'Tipo de hilo para operación', pt: 'Tipo de fio para operação', tr: 'İşlem için iplik türü' })} ${op.operation.order}`}
                 >
@@ -2434,7 +2436,7 @@ function ColorThreadCell({
                             value={ct.threadType}
                             onChange={(e) => onSetColorThreadType(index, c.id, e.target.value)}
                             disabled={!ct.active}
-                            className="flex-1 min-w-0 px-1 py-0.5 text-[11px] font-mono bg-amber-50 dark:bg-amber-900/30/30 text-amber-700 border border-amber-100 rounded outline-none focus:border-amber-500 transition-colors disabled:opacity-40"
+                            className="flex-1 min-w-0 px-1 py-0.5 text-[11px] font-mono bg-amber-50 dark:bg-amber-900/30 text-amber-700 border border-amber-100 rounded outline-none focus:border-amber-500 transition-colors disabled:opacity-40"
                             title={`${_({ fr: 'Type de fil pour', ar: 'نوع الخيط لـ', en: 'Thread type for', es: 'Tipo de hilo para', pt: 'Tipo de fio para', tr: 'İplik türü' })} ${c.name} (${_({ fr: 'vide = même fil que l\'opération', ar: 'فارغ = نفس خيط العملية', en: 'empty = same thread as operation', es: 'vacío = mismo hilo que la operación', pt: 'vazio = mesmo fio da operação', tr: 'boş = işlemle aynı iplik' })})`}
                             aria-label={`${_({ fr: 'Type de fil', ar: 'نوع الخيط', en: 'Thread type', es: 'Tipo de hilo', pt: 'Tipo de fio', tr: 'İplik türü' })} ${c.name} ${_({ fr: 'opération', ar: 'عملية', en: 'operation', es: 'operación', pt: 'operação', tr: 'işlem' })} ${op.operation.order}`}
                         >

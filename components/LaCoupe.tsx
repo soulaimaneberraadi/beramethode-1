@@ -1264,7 +1264,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                                                                 min="0"
                                                                                 value={line.ratios?.[s] || ''}
                                                                                 onChange={e => handleUpdateMatelasRatio(line.id, s, Number(e.target.value))}
-                                                                                className="w-full text-center py-1.5 px-1 bg-emerald-50 dark:bg-emerald-900/30/30 border border-slate-200 dark:border-dk-border rounded text-[12px] font-semibold text-emerald-700 dark:text-emerald-300 outline-none focus:bg-emerald-50 dark:focus:bg-emerald-900/30 focus:border-emerald-400"
+                                                                                className="w-full text-center py-1.5 px-1 bg-emerald-50 dark:bg-emerald-900/30 border border-slate-200 dark:border-dk-border rounded text-[12px] font-semibold text-emerald-700 dark:text-emerald-300 outline-none focus:bg-emerald-50 dark:focus:bg-emerald-900/30 focus:border-emerald-400"
                                                                                 placeholder="0"
                                                                             />
                                                                         </td>
@@ -1304,7 +1304,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                                                 {sizes.map((s, idx) => (
                                                                     <th key={idx} className="py-2 px-1 text-center font-bold">{s}</th>
                                                                 ))}
-                                                                <th className="py-2 px-2.5 text-center font-bold bg-slate-200 text-slate-700 dark:text-dk-text-soft w-16">{tx(lang, { fr: 'Total', ar: 'المجموع', en: 'Total', es: 'Total', pt: 'Total', tr: 'Toplam' })}</th>
+                                                                <th className="py-2 px-2.5 text-center font-bold bg-slate-200 dark:bg-dk-elevated text-slate-700 dark:text-dk-text-soft w-16">{tx(lang, { fr: 'Total', ar: 'المجموع', en: 'Total', es: 'Total', pt: 'Total', tr: 'Toplam' })}</th>
                                                             </tr>
                                                         </thead>
                                                         <tbody className="divide-y divide-slate-100 dark:divide-dk-border">
@@ -1321,9 +1321,9 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                                                 <td className="py-2 px-2.5 text-center font-bold bg-slate-100 dark:bg-dk-elevated text-slate-700 dark:text-dk-text-soft">{matrixStats.grandTotal}</td>
                                                             </tr>
                                                             <tr>
-                                                                <td className="py-2 px-2.5 font-semibold text-indigo-700 dark:text-dk-accent-text bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20/10">{tx(lang, { fr: 'Réalisé (Coupe)', ar: 'المحقق (القص)', en: 'Actual (Cut)', es: 'Realizado (Corte)', pt: 'Realizado (Corte)', tr: 'Gerçekleşen (Kesim)' })}</td>
+                                                                <td className="py-2 px-2.5 font-semibold text-indigo-700 dark:text-dk-accent-text bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/10">{tx(lang, { fr: 'Réalisé (Coupe)', ar: 'المحقق (القص)', en: 'Actual (Cut)', es: 'Realizado (Corte)', pt: 'Realizado (Corte)', tr: 'Gerçekleşen (Kesim)' })}</td>
                                                                 {sizes.map((s, idx) => (
-                                                                    <td key={idx} className="py-2 px-1 text-center font-bold text-indigo-700 dark:text-dk-accent-text bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20/10">
+                                                                    <td key={idx} className="py-2 px-1 text-center font-bold text-indigo-700 dark:text-dk-accent-text bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/10">
                                                                         {matelasCalculations.perSize[s] || 0}
                                                                     </td>
                                                                 ))}
@@ -1337,7 +1337,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                                                         <td
                                                                             key={idx}
                                                                             className={`py-2 px-1 text-center font-bold ${
-                                                                                diff === 0 ? 'text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/30/20' : diff > 0 ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30/20' : 'text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-900/30/20'
+                                                                                diff === 0 ? 'text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20' : diff > 0 ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20' : 'text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-900/20'
                                                                             }`}
                                                                         >
                                                                             {diff > 0 ? `+${diff}` : diff}
@@ -1378,7 +1378,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                                         {(() => {
                                                             const solde = (ordre.tissuRecu || 0) - matelasCalculations.totalFabric;
                                                             return (
-                                                                <div className={`rounded-lg p-2 border ${solde >= 0 ? 'bg-emerald-50 dark:bg-emerald-900/30/55 border-emerald-100 text-emerald-800' : 'bg-rose-50 dark:bg-rose-900/30/55 border-rose-100 text-rose-800'}`}>
+                                                                <div className={`rounded-lg p-2 border ${solde >= 0 ? 'bg-emerald-50 dark:bg-emerald-900/55 border-emerald-100 text-emerald-800' : 'bg-rose-50 dark:bg-rose-900/55 border-rose-100 text-rose-800'}`}>
                                                                     <p className="text-[9px] font-bold uppercase opacity-80">{tx(lang, { fr: 'Reste (DIF)', ar: 'المتبقي', en: 'Remaining (DIF)', es: 'Restante (DIF)', pt: 'Restante (DIF)', tr: 'Kalan (DIF)' })}</p>
                                                                     <p className="text-sm font-bold mt-0.5">{solde.toFixed(1)} m</p>
                                                                 </div>
@@ -1520,7 +1520,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                                         ) : s}
                                                     </th>
                                                 ))}
-                                                <th className="py-3 px-3 text-center font-bold bg-slate-200 text-slate-800 dark:text-dk-text w-20">{tx(lang, { fr: 'Total', ar: 'المجموع', en: 'Total', es: 'Total', pt: 'Total', tr: 'Toplam' })}</th>
+                                                <th className="py-3 px-3 text-center font-bold bg-slate-200 dark:bg-dk-elevated text-slate-800 dark:text-dk-text w-20">{tx(lang, { fr: 'Total', ar: 'المجموع', en: 'Total', es: 'Total', pt: 'Total', tr: 'Toplam' })}</th>
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-slate-100 dark:divide-dk-border">
@@ -2088,7 +2088,7 @@ function CalendarView({ models, onOpen, getProgress }: {
                             currentMonth.getMonth() === new Date().getMonth() &&
                             currentMonth.getFullYear() === new Date().getFullYear();
                         return (
-                            <div key={idx} className={`h-28 border-r border-b border-slate-100 dark:border-dk-border p-1.5 overflow-y-auto transition-colors ${isToday ? 'bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20/40' : 'bg-white dark:bg-dk-surface hover:bg-slate-50/50'}`}>
+                            <div key={idx} className={`h-28 border-r border-b border-slate-100 dark:border-dk-border p-1.5 overflow-y-auto transition-colors ${isToday ? 'bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/40' : 'bg-white dark:bg-dk-surface hover:bg-slate-50/50'}`}>
                                 <div className={`text-[11px] font-bold mb-1 flex items-center justify-between ${isToday ? 'text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text' : 'text-slate-500 dark:text-dk-muted'}`}>
                                     <span>{day}</span>
                                     {isToday && <span className="w-1.5 h-1.5 rounded-full bg-indigo-500" />}

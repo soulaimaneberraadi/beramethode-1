@@ -167,8 +167,12 @@ function GanttRow({
         const barHeight = compact ? 32 : 56;
         const topOffset = lane * rowHeight + (rowHeight - barHeight) / 2;
 
+        const isRtl = lang === 'ar';
+        const offsetPx = Math.max(0, offsetDays * dayWidth) + 4;
+
         return {
-            left: `${Math.max(0, offsetDays * dayWidth) + 4}px`,
+            left: isRtl ? 'auto' : `${offsetPx}px`,
+            right: isRtl ? `${offsetPx}px` : 'auto',
             width: `${durationDays * dayWidth - 8}px`,
             top: `${topOffset}px`,
             transform: 'none',

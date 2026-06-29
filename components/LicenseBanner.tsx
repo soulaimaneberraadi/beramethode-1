@@ -7,8 +7,11 @@
 
 import React from 'react';
 import { useLicense } from '../src/context/LicenseContext';
+import { tx } from '../lib/i18n';
+import { useLang } from '../src/context/LanguageContext';
 
 const LicenseBanner: React.FC = () => {
+  const { lang } = useLang();
   const { enforced, readOnly, license } = useLicense();
   if (!enforced) return null;
 

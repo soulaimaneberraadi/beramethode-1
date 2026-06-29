@@ -719,7 +719,7 @@ export default function PageMachine({
                 onClick={() => setViewingModelId(activeModel.id)}
                 className="bg-white dark:bg-dk-surface rounded-3xl p-6 shadow-sm dark:shadow-dk-sm border border-slate-100 dark:border-dk-border/80 cursor-pointer hover:shadow-xl hover:shadow-indigo-500/5 transition-all duration-300 relative overflow-hidden"
               >
-                <div className="absolute -right-16 -top-16 w-48 h-48 bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20/50 rounded-full blur-3xl opacity-50 pointer-events-none" />
+                <div className="absolute -right-16 -top-16 w-48 h-48 bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/50 rounded-full blur-3xl opacity-50 pointer-events-none" />
 
                 {/* Header */}
                 <div className="flex items-center justify-between mb-6 relative z-10">
@@ -970,7 +970,7 @@ export default function PageMachine({
               <div
                 key={inst.id}
                 onClick={() => { setEditingInstance(inst); setInstanceEditorOpen(true); }}
-                className="grid items-center px-5 py-3.5 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 dark:bg-dk-accent/20/30 active:bg-indigo-50 dark:bg-dk-accent/20/60 cursor-pointer transition-colors group"
+                className="grid items-center px-5 py-3.5 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 dark:bg-dk-accent/30 active:bg-indigo-50 dark:bg-dk-accent/60 cursor-pointer transition-colors group"
                 style={{ gridTemplateColumns: '2fr 3fr 1fr 1fr 1.5fr' }}
               >
                 {/* Matricule & Photo */}
@@ -1177,10 +1177,10 @@ export default function PageMachine({
                 <span className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-slate-50 dark:bg-dk-bg/80 border border-slate-100 dark:border-dk-border text-slate-500 dark:text-dk-muted shadow-sm dark:shadow-dk-sm">
                   {tx(lang,{fr:'TOTAL',ar:'الإجمالي',en:'TOTAL',es:'TOTAL',pt:'TOTAL',tr:'TOPLAM'})} <span className="text-slate-800 dark:text-dk-text ml-0.5 text-[10px]">{fleetStats.total}</span>
                 </span>
-                <span className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-emerald-50 dark:bg-emerald-900/30/80 border border-emerald-100/50 dark:border-emerald-800/50 text-emerald-600 dark:text-emerald-400 shadow-sm dark:shadow-dk-sm">
+                <span className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-emerald-50 dark:bg-emerald-900/80 border border-emerald-100/50 dark:border-emerald-800/50 text-emerald-600 dark:text-emerald-400 shadow-sm dark:shadow-dk-sm">
                   {tx(lang,{fr:'PRÊTES',ar:'جاهزة',en:'READY',es:'LISTAS',pt:'PRONTAS',tr:'HAZIR'})} <span className="text-emerald-700 ml-0.5 text-[10px]">{fleetStats.ok}</span>
                 </span>
-                <span className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-rose-50 dark:bg-rose-900/30/80 border border-rose-100/50 dark:border-rose-800/50 text-rose-600 dark:text-rose-400 shadow-sm dark:shadow-dk-sm">
+                <span className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-rose-50 dark:bg-rose-900/80 border border-rose-100/50 dark:border-rose-800/50 text-rose-600 dark:text-rose-400 shadow-sm dark:shadow-dk-sm">
                   {tx(lang,{fr:'PANNE',ar:'عطل',en:'BREAKDOWN',es:'AVERÍA',pt:'AVARIA',tr:'ARIZA'})} <span className="text-rose-700 ml-0.5 text-[10px]">{fleetStats.panne}</span>
                 </span>
             </div>

@@ -111,7 +111,7 @@ export function TimelineRow({
                             type="button"
                             onClick={() => onSelectCell(chaineId, hk)}
                             className={`shrink-0 relative border-r border-slate-100 dark:border-dk-border transition-all flex items-center justify-center group ${
-                                isCurrent ? 'bg-red-50 dark:bg-red-900/30/30 dark:bg-red-900/20' : ''
+                                isCurrent ? 'bg-red-50 dark:bg-red-900/30 dark:bg-red-900/20' : ''
                             } ${isSelected ? 'ring-2 ring-indigo-400 ring-inset z-10' : 'hover:bg-slate-50 dark:hover:bg-dk-elevated/60'}`}
                             style={{ width: HOUR_W, height: ROW_H, ...cellBg }}
                         >

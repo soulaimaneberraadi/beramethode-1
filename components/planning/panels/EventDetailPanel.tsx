@@ -21,7 +21,7 @@ const getExtendedStatusMeta = (status: string | undefined, lang: string) => {
             text: 'text-amber-700',
             bg: 'bg-amber-50 dark:bg-amber-900/30',
             border: 'border-amber-200/50',
-            softBg: 'bg-amber-50 dark:bg-amber-900/30/60',
+            softBg: 'bg-amber-50 dark:bg-amber-900/60',
         };
     }
     if (status === 'BLOCKED_STOCK') {
@@ -31,7 +31,7 @@ const getExtendedStatusMeta = (status: string | undefined, lang: string) => {
             text: 'text-red-700',
             bg: 'bg-red-50 dark:bg-red-900/30',
             border: 'border-red-200',
-            softBg: 'bg-red-50 dark:bg-red-900/30/60',
+            softBg: 'bg-red-50 dark:bg-red-900/60',
         };
     }
     const ws = toWorkStatus(status);

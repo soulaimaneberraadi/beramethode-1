@@ -79,7 +79,7 @@ export const OrderSimulation = ({
   const totalProjectCost = totalPurchasingMatCost + (laborCost * orderQty);
   return (
     <div className="bg-white dark:bg-dk-surface rounded-xl border border-indigo-100 shadow-sm dark:shadow-dk-sm overflow-hidden">
-      <div className="px-4 py-3 border-b border-indigo-100 bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20/50 flex flex-col sm:flex-row justify-between items-center gap-3">
+      <div className="px-4 py-3 border-b border-indigo-100 bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/50 flex flex-col sm:flex-row justify-between items-center gap-3">
         <div className="flex items-center gap-2">
           <TrendingUp className="w-4 h-4 text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text" />
           <h2 className="font-bold text-indigo-900 text-sm">{t.needs}</h2>
@@ -114,7 +114,7 @@ export const OrderSimulation = ({
                   <tr key={m.id} className="hover:bg-slate-50 dark:hover:bg-dk-elevated/60">
                     <td className="px-3 py-1.5 font-medium text-slate-700 dark:text-dk-text-soft">{m.name}</td>
                     <td className="px-3 py-1.5 text-center text-slate-500 dark:text-dk-muted">{m.unitPrice}</td>
-                    <td className="px-3 py-1.5 text-center font-bold text-indigo-700 dark:text-dk-accent-text bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20/50">{fmt(m.qtyToBuy)} {m.unit}</td>
+                    <td className="px-3 py-1.5 text-center font-bold text-indigo-700 dark:text-dk-accent-text bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/50">{fmt(m.qtyToBuy)} {m.unit}</td>
                     <td className="px-3 py-1.5 text-right font-bold text-slate-700 dark:text-dk-text-soft">{fmt(m.lineCost)} {currency}</td>
                   </tr>
                 ))}

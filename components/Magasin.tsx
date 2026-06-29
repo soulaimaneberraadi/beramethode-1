@@ -550,7 +550,7 @@ function InvoiceSettingsModal({ template, onSave, onClose }: { template: Invoice
                 </div>}
 
                 {/* Notes */}
-                {s.showNotesSection && <div className="bg-amber-50 dark:bg-amber-900/30/50 rounded p-1.5"><span className="font-bold text-amber-500 dark:text-amber-300" style={{ fontSize: '5.5px' }}>Notes:</span> <span className="text-slate-400 dark:text-dk-muted" style={{ fontSize: '4.5px' }}>Observations...</span></div>}
+                {s.showNotesSection && <div className="bg-amber-50 dark:bg-amber-900/50 rounded p-1.5"><span className="font-bold text-amber-500 dark:text-amber-300" style={{ fontSize: '5.5px' }}>Notes:</span> <span className="text-slate-400 dark:text-dk-muted" style={{ fontSize: '4.5px' }}>Observations...</span></div>}
 
                 {/* Signatures */}
                 {s.showSignatureZone && <div className="grid grid-cols-2 gap-3 pt-1.5 border-t border-dashed border-slate-200 dark:border-dk-border">
@@ -594,11 +594,11 @@ function InvoiceSettingsModal({ template, onSave, onClose }: { template: Invoice
                     <div className="relative px-7 py-4 shrink-0 overflow-hidden">
                         <div className="absolute inset-0 bg-gradient-to-br from-slate-800 via-slate-900 to-slate-800" />
                         <div className="absolute inset-0" style={{ background: 'radial-gradient(ellipse at 70% 50%, rgba(245,158,11,0.12) 0%, transparent 60%)' }} />
-                        <div className="absolute top-0 right-0 w-40 h-40 bg-amber-50 dark:bg-amber-900/300/5 rounded-full -translate-y-1/2 translate-x-1/4" />
+                        <div className="absolute top-0 right-0 w-40 h-40 bg-amber-50 dark:bg-amber-900/5 rounded-full -translate-y-1/2 translate-x-1/4" />
 
                         <div className="relative flex items-center justify-between">
                             <div className="flex items-center gap-4">
-                                <div className="w-11 h-11 bg-amber-50 dark:bg-amber-900/300/15 backdrop-blur-sm rounded-2xl flex items-center justify-center border border-amber-400/20 shadow-lg dark:shadow-dk-lg shadow-amber-900/10">
+                                <div className="w-11 h-11 bg-amber-50 dark:bg-amber-900/15 backdrop-blur-sm rounded-2xl flex items-center justify-center border border-amber-400/20 shadow-lg dark:shadow-dk-lg shadow-amber-900/10">
                                     <FileText className="w-5 h-5 text-amber-400 dark:text-amber-300" />
                                 </div>
                                 <div>
@@ -618,7 +618,7 @@ function InvoiceSettingsModal({ template, onSave, onClose }: { template: Invoice
                         {/* ══ LEFT SIDE: Vertical Tabs + Settings ══ */}
                         <div className="flex-1 flex min-w-0">
                             {/* Vertical Tab Bar */}
-                            <div className="w-[52px] shrink-0 bg-slate-50 dark:bg-dk-bg/80 border-r border-slate-100 dark:border-dk-border/60/80 py-3 flex flex-col items-center gap-1">
+                            <div className="w-[52px] shrink-0 bg-slate-50 dark:bg-dk-bg/80 border-r border-slate-100 dark:border-dk-border/80 py-3 flex flex-col items-center gap-1">
                                 {INV_SETTINGS_TABS.map(tab => {
                                     const isActive = activeTab === tab.id;
                                     const Icon = tab.icon;
@@ -735,7 +735,7 @@ function InvoiceSettingsModal({ template, onSave, onClose }: { template: Invoice
                                                     { key: 'rc' as keyof InvoiceTemplate, label: 'RC', ph: 'CS 12345' },
                                                     { key: 'if_number' as keyof InvoiceTemplate, label: 'IF', ph: '12345678' },
                                                 ].map(f => (
-                                                    <div key={f.key} className="bg-amber-50 dark:bg-amber-900/30/30 rounded-xl p-3 border border-amber-100 dark:border-amber-800/50/40">
+                                                    <div key={f.key} className="bg-amber-50 dark:bg-amber-900/30 rounded-xl p-3 border border-amber-100 dark:border-amber-800/40">
                                                         <label className="text-[10px] font-black text-amber-600 dark:text-amber-400 dark:text-amber-300 uppercase tracking-widest flex items-center gap-1"><Hash className="w-3 h-3" /> {f.label}</label>
                                                         <input className={invInp} value={s[f.key] as string} onChange={e => setS(p => ({ ...p, [f.key]: e.target.value }))} placeholder={f.ph} />
                                                     </div>
@@ -790,7 +790,7 @@ function InvoiceSettingsModal({ template, onSave, onClose }: { template: Invoice
                                             </div>
 
                                             {/* Table columns */}
-                                            <div className="bg-emerald-50 dark:bg-emerald-900/30/30 rounded-xl p-3.5 border border-emerald-100 dark:border-emerald-800/50/40">
+                                            <div className="bg-emerald-50 dark:bg-emerald-900/30 rounded-xl p-3.5 border border-emerald-100 dark:border-emerald-800/40">
                                                 <h4 className="text-[10px] font-black text-emerald-500 dark:text-emerald-300 uppercase tracking-widest mb-2.5 flex items-center gap-1.5"><Table className="w-3.5 h-3.5" /> {tx(lang,{fr:'Tableau',ar:'الجدول',en:'Table',es:'Tabla',pt:'Tabela',tr:'Tablo'})}</h4>
                                                 <div className="space-y-1.5">
                                                     <Toggle k="showReferenceColumn" label={tx(lang,{fr:'Colonne Référence',ar:'عمود المرجع',en:'Reference Column',es:'Columna Referencia',pt:'Coluna Referência',tr:'Referans Sütunu'})} icon={Hash} />
@@ -801,7 +801,7 @@ function InvoiceSettingsModal({ template, onSave, onClose }: { template: Invoice
                                             </div>
 
                                             {/* General sections */}
-                                            <div className="bg-amber-50 dark:bg-amber-900/30/30 rounded-xl p-3.5 border border-amber-100 dark:border-amber-800/50/40">
+                                            <div className="bg-amber-50 dark:bg-amber-900/30 rounded-xl p-3.5 border border-amber-100 dark:border-amber-800/40">
                                                 <h4 className="text-[10px] font-black text-amber-500 dark:text-amber-300 uppercase tracking-widest mb-2.5 flex items-center gap-1.5"><LayoutGrid className="w-3.5 h-3.5" /> {tx(lang,{fr:'Sections',ar:'الأقسام',en:'Sections',es:'Secciones',pt:'Seções',tr:'Bölümler'})}</h4>
                                                 <div className="space-y-1.5">
                                                     <Toggle k="showPartiesSection" label={tx(lang,{fr:'Émetteur / Destinataire',ar:'المرسل / المستلم',en:'Sender / Recipient',es:'Emisor / Destinatario',pt:'Remetente / Destinatário',tr:'Gönderen / Alıcı'})} icon={Building2} />
@@ -832,7 +832,7 @@ function InvoiceSettingsModal({ template, onSave, onClose }: { template: Invoice
                     </div>
 
                     {/* ─ FOOTER ─ */}
-                    <div className="px-7 py-3.5 bg-gradient-to-t from-slate-50/90 to-white/80 border-t border-slate-100 dark:border-dk-border/60/80 flex items-center justify-between shrink-0">
+                    <div className="px-7 py-3.5 bg-gradient-to-t from-slate-50/90 to-white/80 border-t border-slate-100 dark:border-dk-border/80 flex items-center justify-between shrink-0">
                         <div className="text-xs text-slate-400 dark:text-dk-muted font-medium">
                             {!s.raisonSociale ? (
                                 <span className="flex items-center gap-1.5 text-amber-500 dark:text-amber-300"><AlertTriangle className="w-3.5 h-3.5" /> {tx(lang,{fr:'Raison sociale requise',ar:'الاسم التجاري مطلوب',en:'Company name required',es:'Razón social requerida',pt:'Razão social obrigatória',tr:'Şirket adı gerekli'})}</span>
@@ -2434,7 +2434,7 @@ export default function Magasin({ models = [], planningEvents = [], settings }: 
 
                                                     {(bMode === 'sortie' || bMode === 'reservation' || bMode === 'rebut') && (
                                                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                                            {bMode !== 'rebut' && <div><Lbl t={t("Chaîne")} /><input className={inp} value={bChaine} onChange={e => setBChaine(e.target.value)} readOnly={!!bureauProduct.chaineExclusive} style={bureauProduct.chaineExclusive ? { background: '#f5f3ff' } : {}} /></div>}
+                                                            {bMode !== 'rebut' && <div><Lbl t={t("Chaîne")} /><input className={`${inp} ${bureauProduct.chaineExclusive ? 'bg-[#f5f3ff] dark:bg-dk-elevated' : ''}`} value={bChaine} onChange={e => setBChaine(e.target.value)} readOnly={!!bureauProduct.chaineExclusive} /></div>}
                                                             <div><Lbl t={t("Ordre de Fab. (OF)")} /><input className={inp} value={bModele} onChange={e => setBModele(e.target.value)} /></div>
                                                             <div className="col-span-2 flex border rounded-xl overflow-hidden mt-1 text-sm font-bold">
                                                                 <button onClick={() => setBMethod('FIFO')} className={`flex-1 py-1.5 ${bMethod === 'FIFO' ? 'bg-indigo-600 dark:bg-dk-accent dark:bg-indigo-700 text-white' : 'bg-slate-50 dark:bg-dk-bg text-slate-500 dark:text-dk-muted hover:bg-slate-100'}`}>{t('FIFO (Premier entré)')}</button>

@@ -487,7 +487,7 @@ const OrderSimulation: React.FC<OrderSimulationProps> = ({
                                             </td>
                                         </tr>
                                         {rowSubs.map((sub, idx) => (
-                                            <tr key={`${m.id}-sub-${idx}`} className="block md:table-row bg-amber-50 dark:bg-amber-900/30/60 border border-dashed md:border-0 md:border-t border-amber-200 rounded-xl md:rounded-none mb-3 md:mb-0 p-2 md:p-0">
+                                            <tr key={`${m.id}-sub-${idx}`} className="block md:table-row bg-amber-50 dark:bg-amber-900/60 border border-dashed md:border-0 md:border-t border-amber-200 rounded-xl md:rounded-none mb-3 md:mb-0 p-2 md:p-0">
                                                 <td className="block md:table-cell px-4 py-2 text-[11px] text-amber-800 flex items-center gap-2 font-bold">
                                                     <div className="w-3 h-3 border-l-2 border-b-2 border-amber-400 md:ml-4 rounded-bl"></div>
                                                     {tx(lang,{fr:'Substitut',ar:'بديل',en:'Substitute',es:'Sustituto',pt:'Substituto',tr:'Yedek'})}: {sub.subName}

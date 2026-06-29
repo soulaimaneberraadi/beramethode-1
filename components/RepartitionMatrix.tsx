@@ -278,7 +278,7 @@ export default function RepartitionMatrix({ data, setData, lang = 'fr', syncQuan
                                             </button>
                                         </th>
                                     ))}
-                                    <th className="py-2 px-3 text-center font-black bg-slate-200 text-slate-800 dark:text-dk-text w-20">TOTAL</th>
+                                    <th className="py-2 px-3 text-center font-black bg-slate-200 dark:bg-dk-elevated text-slate-800 dark:text-dk-text w-20">TOTAL</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100 dark:divide-dk-border">
@@ -291,21 +291,23 @@ export default function RepartitionMatrix({ data, setData, lang = 'fr', syncQuan
                                 )}
                                 {colors.map((c, cIdx) => (
                                     <tr key={`${c.id}-${cIdx}`} className="hover:bg-slate-50 dark:hover:bg-dk-elevated/60 group">
-                                        <td className="py-2 px-3 border-r border-slate-200 dark:border-dk-border font-bold text-slate-700 dark:text-dk-text-soft flex justify-between items-center font-sans">
-                                            <div className="flex items-center gap-2">
-                                                <div
-                                                    className={`w-3 h-3 rounded-full flex-shrink-0 shadow-sm dark:shadow-dk-sm ${c.id && c.id.startsWith('#') ? '' : 'bg-slate-300'}`}
-                                                    style={c.id && c.id.startsWith('#') ? { backgroundColor: c.id } : undefined}
-                                                />
-                                                <span className="truncate max-w-[150px]" title={c.name}>
-                                                    {c.id && c.id.startsWith('#') && (c.name.includes('personnalisé') || c.name.startsWith('#') || c.name.includes('rgb(') || c.name.includes('Couleur P'))
-                                                        ? hexToColorName(c.id)
-                                                        : c.name}
-                                                </span>
+                                        <td className="py-2 px-3 border-r border-slate-200 dark:border-dk-border font-bold text-slate-700 dark:text-dk-text-soft font-sans">
+                                            <div className="flex justify-between items-center">
+                                                <div className="flex items-center gap-2">
+                                                    <div
+                                                        className={`w-3 h-3 rounded-full flex-shrink-0 shadow-sm dark:shadow-dk-sm ${c.id && c.id.startsWith('#') ? '' : 'bg-slate-300'}`}
+                                                        style={c.id && c.id.startsWith('#') ? { backgroundColor: c.id } : undefined}
+                                                    />
+                                                    <span className="truncate max-w-[150px]" title={c.name}>
+                                                        {c.id && c.id.startsWith('#') && (c.name.includes('personnalisé') || c.name.startsWith('#') || c.name.includes('rgb(') || c.name.includes('Couleur P'))
+                                                            ? hexToColorName(c.id)
+                                                            : c.name}
+                                                    </span>
+                                                </div>
+                                                <button onClick={() => removeColor(c.id)} className="text-slate-300 dark:text-dk-muted hover:text-rose-500 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                    <Trash2 className="w-3.5 h-3.5" />
+                                                </button>
                                             </div>
-                                            <button onClick={() => removeColor(c.id)} className="text-slate-300 dark:text-dk-muted hover:text-rose-500 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                <Trash2 className="w-3.5 h-3.5" />
-                                            </button>
                                         </td>
                                         {sizes.length === 0 && (
                                             <td className="p-2 border-r border-slate-100 dark:border-dk-border bg-slate-50 dark:bg-dk-bg/30 text-center text-slate-300 dark:text-dk-muted text-[10px] italic">

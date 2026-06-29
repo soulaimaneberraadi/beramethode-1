@@ -2,6 +2,8 @@ import React, { useMemo, useState, useEffect } from 'react';
 import type { Lot, ModelData, AppSettings } from '../../types';
 import DateTimePicker from '../ui/DateTimePicker';
 import { newLotId, splitLotsFromModelGrid, totalLotsQty } from '../../utils/lots';
+import { tx } from '../../lib/i18n';
+import { useLang } from '../../src/context/LanguageContext';
 
 export interface LotsEditorProps {
     lots: Lot[];
@@ -13,6 +15,7 @@ export interface LotsEditorProps {
 }
 
 export default function LotsEditor({ lots, onChange, settings, defaultDeadline, model, orderQty }: LotsEditorProps) {
+    const { lang } = useLang();
     const [local, setLocal] = useState<Lot[]>(() => (lots.length ? lots.map(l => ({ ...l })) : []));
 
     useEffect(() => {

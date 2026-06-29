@@ -636,8 +636,8 @@ export default function Dashboard({ models, suivis, planningEvents, settings, se
                       <YAxis axisLine={false} tickLine={false} tick={{ fill: cc.axis, fontSize: 10, fontWeight: 600 }} dx={-5} width={30} />
                       <RechartsTooltip contentStyle={{ backgroundColor: cc.tooltipBg, color: cc.tooltipText, borderRadius: '10px', border: 'none', boxShadow: '0 8px 16px rgba(0,0,0,0.1)', fontSize: '11px' }} itemStyle={{ fontWeight: 'bold' }} labelStyle={{ color: cc.tooltipText, fontWeight: 'bold', marginBottom: '4px' }} />
                       <Legend verticalAlign="top" height={36} iconType="circle" wrapperStyle={{ fontSize: '11px' }} />
-                      <Area type="monotone" name={tx(lang, { fr: 'P° Réelle', ar: 'الإنتاج الفعلي', en: 'Actual Output', es: 'P° Real', pt: 'P° Real', tr: 'Gerçek Üretim' })} dataKey="pCount" stroke="#6366f1" strokeWidth={2.5} fillOpacity={1} fill="url(#colorCount)" />
-                      <Area type="monotone" name={tx(lang, { fr: 'Objectif', ar: 'الهدف', en: 'Target', es: 'Objetivo', pt: 'Meta', tr: 'Hedef' })} dataKey="target" stroke={cc.grid} strokeWidth={2} strokeDasharray="5 5" fill="none" />
+                      <Area type="monotone" isAnimationActive={false} name={tx(lang, { fr: 'P° Réelle', ar: 'الإنتاج الفعلي', en: 'Actual Output', es: 'P° Real', pt: 'P° Real', tr: 'Gerçek Üretim' })} dataKey="pCount" stroke="#6366f1" strokeWidth={2.5} fillOpacity={1} fill="url(#colorCount)" />
+                      <Area type="monotone" isAnimationActive={false} name={tx(lang, { fr: 'Objectif', ar: 'الهدف', en: 'Target', es: 'Objetivo', pt: 'Meta', tr: 'Hedef' })} dataKey="target" stroke={cc.grid} strokeWidth={2} strokeDasharray="5 5" fill="none" />
                     </AreaChart>
                   </ResponsiveChart>
                 </div>
@@ -722,7 +722,7 @@ export default function Dashboard({ models, suivis, planningEvents, settings, se
                       <XAxis type="number" domain={[0, 100]} hide />
                       <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{ fill: cc.axis, fontSize: 11, fontWeight: 700 }} width={45} />
                       <RechartsTooltip cursor={{ fill: cc.tooltipBg }} contentStyle={{ backgroundColor: cc.tooltipBg, color: cc.tooltipText, borderRadius: '10px', border: 'none', boxShadow: '0 8px 16px rgba(0,0,0,0.1)' }} formatter={(val: number) => [`${val}%`, tx(lang, { fr: 'Rendement', ar: 'المردودية', en: 'Efficiency', es: 'Rendimiento', pt: 'Rendimento', tr: 'Verimlilik' })]} />
-                      <Bar dataKey="rendement" radius={[0, 6, 6, 0]} maxBarSize={20}>
+                      <Bar dataKey="rendement" isAnimationActive={false} radius={[0, 6, 6, 0]} maxBarSize={20}>
                         {productionStats.efficiencyData.map((entry: any, index: number) => <Cell key={`cell-${index}`} fill={entry.fill} />)}
                       </Bar>
                     </BarChart>

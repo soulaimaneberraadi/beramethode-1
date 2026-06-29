@@ -86,6 +86,7 @@ export default function DowntimePareto({ downtimeByCode }: Props) {
               <Bar
                 yAxisId="left"
                 dataKey="minutes"
+                isAnimationActive={false}
                 name={tx(lang, { fr: 'Minutes', ar: 'دقائق' })}
                 fill="#fecdd3"
                 radius={[2, 2, 0, 0]}
@@ -93,6 +94,7 @@ export default function DowntimePareto({ downtimeByCode }: Props) {
               <Line
                 yAxisId="right"
                 type="monotone"
+                isAnimationActive={false}
                 dataKey="cumulative"
                 name={tx(lang, { fr: 'Cumul %', ar: 'النسبة المتراكمة' })}
                 stroke="#6366f1"

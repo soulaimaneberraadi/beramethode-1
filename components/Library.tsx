@@ -312,7 +312,7 @@ export default function Library({
                                         onContextMenu={(e) => { e.preventDefault(); setContextMenu({ x: e.pageX, y: e.pageY, modelId: model.id }); }}
                                         className="group bg-white dark:bg-dk-surface rounded-xl border border-slate-200 dark:border-dk-border shadow-sm dark:shadow-dk-sm dark:shadow-dk-elevated hover:shadow-md dark:hover:shadow-dk-elevated hover:border-indigo-300 dark:hover:border-dk-accent hover:-translate-y-1 transition-all duration-200 cursor-pointer overflow-hidden flex flex-col h-full"
                                     >
-                                        <div className="aspect-[4/3] bg-slate-50 dark:bg-dk-bg border-b border-slate-100 dark:border-dk-border flex items-center justify-center group-hover:bg-indigo-50 dark:bg-dk-accent/20/20 dark:group-hover:bg-dk-elevated/20 transition-colors relative overflow-hidden">
+                                        <div className="aspect-[4/3] bg-slate-50 dark:bg-dk-bg border-b border-slate-100 dark:border-dk-border flex items-center justify-center group-hover:bg-indigo-50 dark:bg-dk-accent/20 dark:group-hover:bg-dk-elevated/20 transition-colors relative overflow-hidden">
                                             {model.image ? (
                                                 <img src={model.image} alt={model.meta_data.nom_modele} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
                                             ) : (

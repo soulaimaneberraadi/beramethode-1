@@ -839,7 +839,7 @@ export default function EventEditor({ open, mode, initial, models, chains, plann
                                                                     />
                                                                 </td>
                                                             ))}
-                                                            <td className="px-4 py-2 text-center bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20/30">
+                                                            <td className="px-4 py-2 text-center bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/30">
                                                                 <span className="text-[13px] font-bold text-indigo-700 dark:text-dk-accent-text tabular-nums">
                                                                     {colorTotal}
                                                                 </span>
@@ -934,7 +934,7 @@ export default function EventEditor({ open, mode, initial, models, chains, plann
                                                                     />
                                                                 </td>
                                                             ))}
-                                                            <td className="px-4 py-2 text-center bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20/30">
+                                                            <td className="px-4 py-2 text-center bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/30">
                                                                 <span className="text-[13px] font-bold text-indigo-700 dark:text-dk-accent-text tabular-nums">
                                                                     {colorTotal}
                                                                 </span>
@@ -987,7 +987,7 @@ export default function EventEditor({ open, mode, initial, models, chains, plann
                                         <table className="w-full text-sm">
                                             <thead>
                                                 <tr className="bg-emerald-500/10 border-b border-emerald-500/20 backdrop-blur-sm">
-                                                    <th className="px-4 py-3 text-left text-[11px] font-bold text-emerald-800 uppercase tracking-wider sticky left-0 bg-emerald-50 dark:bg-emerald-900/30/90 backdrop-blur-md border-r border-emerald-500/10 z-10">
+                                                    <th className="px-4 py-3 text-left text-[11px] font-bold text-emerald-800 uppercase tracking-wider sticky left-0 bg-emerald-50 dark:bg-emerald-900/90 backdrop-blur-md border-r border-emerald-500/10 z-10">
                                                         {tx(lang,{fr:'Couleur \\ Taille',ar:'اللون \\ المقاس',en:'Color \\ Size',es:'Color \\ Talla',pt:'Cor \\ Tamanho',tr:'Renk \\ Beden'})}
                                                     </th>
                                                     {sizes.map(size => (
@@ -1007,7 +1007,7 @@ export default function EventEditor({ open, mode, initial, models, chains, plann
                                                     const colorTotal = Math.max(0, colorTotalTotal - colorSubTotal);
                                                     return (
                                                         <tr key={`${color.id}-${cIdx}`} className="hover:bg-white/50 dark:hover:bg-dk-elevated/40 transition-colors">
-                                                            <td className="px-4 py-2 sticky left-0 bg-emerald-50 dark:bg-emerald-900/30/95 backdrop-blur-md z-10 border-r border-emerald-500/20">
+                                                            <td className="px-4 py-2 sticky left-0 bg-emerald-50 dark:bg-emerald-900/95 backdrop-blur-md z-10 border-r border-emerald-500/20">
                                                                 <div className="flex items-center gap-2">
                                                                     <div 
                                                                         className="w-3 h-3 rounded-full border border-slate-300 dark:border-dk-muted shadow-sm dark:shadow-dk-sm" 
@@ -1028,7 +1028,7 @@ export default function EventEditor({ open, mode, initial, models, chains, plann
                                                                     </td>
                                                                 );
                                                             })}
-                                                            <td className="px-4 py-2 text-center bg-emerald-50 dark:bg-emerald-900/30/50">
+                                                            <td className="px-4 py-2 text-center bg-emerald-50 dark:bg-emerald-900/50">
                                                                 <span className="text-[13px] font-bold text-emerald-700 tabular-nums">
                                                                     {colorTotal}
                                                                 </span>
@@ -1039,7 +1039,7 @@ export default function EventEditor({ open, mode, initial, models, chains, plann
                                             </tbody>
                                             <tfoot>
                                                 <tr className="bg-emerald-500/20 border-t border-emerald-500/35 backdrop-blur-sm">
-                                                    <td className="px-4 py-3 text-right text-[11px] font-bold text-emerald-800 uppercase sticky left-0 bg-emerald-50 dark:bg-emerald-900/30/95 backdrop-blur-md border-r border-emerald-500/20 z-10">
+                                                    <td className="px-4 py-3 text-right text-[11px] font-bold text-emerald-800 uppercase sticky left-0 bg-emerald-50 dark:bg-emerald-900/95 backdrop-blur-md border-r border-emerald-500/20 z-10">
                                                         Total
                                                     </td>
                                                     {sizes.map(size => {
@@ -1166,7 +1166,7 @@ export default function EventEditor({ open, mode, initial, models, chains, plann
 
                 {/* Validation */}
                 {draftIssues.length > 0 && (
-                    <div className="rounded-lg bg-amber-50 dark:bg-amber-900/30/40 border border-amber-100 p-3 space-y-1.5">
+                    <div className="rounded-lg bg-amber-50 dark:bg-amber-900/40 border border-amber-100 p-3 space-y-1.5">
                         <div className="flex items-center gap-1.5 text-[11px] font-medium text-amber-800">
                             <AlertTriangle className="w-3 h-3" strokeWidth={2} />
                             {draftIssues.length} {tx(lang,{fr:'point',ar:'نقطة',en:'point',es:'punto',pt:'ponto',tr:'nokta'})}{draftIssues.length > 1 ? 's' : ''} {tx(lang,{fr:"d'attention",ar:"تحتاج انتباهاً",en:"requires attention",es:"de atención",pt:"de atenção",tr:"dikkat gerektiriyor"})}

@@ -185,7 +185,7 @@ const FactureUploader: React.FC<FactureUploaderProps> = ({ modelId, materialName
                                 <button
                                     onClick={() => cameraRef.current?.click()}
                                     disabled={uploading}
-                                    className="flex flex-col items-center justify-center gap-1.5 py-4 rounded-lg border border-dashed border-emerald-300 bg-emerald-50 dark:bg-emerald-900/30/20 hover:bg-emerald-50/40 hover:border-emerald-400 transition-colors text-emerald-700 disabled:opacity-60"
+                                    className="flex flex-col items-center justify-center gap-1.5 py-4 rounded-lg border border-dashed border-emerald-300 bg-emerald-50 dark:bg-emerald-900/20 hover:bg-emerald-50/40 hover:border-emerald-400 transition-colors text-emerald-700 disabled:opacity-60"
                                 >
                                     {uploading ? <Loader2 className="w-5 h-5 animate-spin animate-spin-slow" /> : <Camera className="w-5 h-5" strokeWidth={1.75} />}
                                     <span className="text-[12px] font-medium">{uploading ? tx(lang, {fr:'Enregistrement…', ar:'جارٍ الحفظ…', en:'Saving…', es:'Guardando…', pt:'Salvando…', tr:'Kaydediliyor…'}) : tx(lang, {fr:'Prendre une photo', ar:'التقاط صورة', en:'Take a photo', es:'Tomar una foto', pt:'Tirar uma foto', tr:'Fotoğraf çek'})}</span>

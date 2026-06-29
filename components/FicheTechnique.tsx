@@ -637,7 +637,7 @@ export default function FicheTechnique({
 
                     {/* PRODUCTION & DATA LINKED CARD */}
                     <div className="bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border shadow-sm dark:shadow-dk-sm overflow-hidden">
-                        <div className="bg-emerald-50 dark:bg-emerald-900/30/50 dark:bg-emerald-900/20 px-4 sm:px-6 py-3 border-b border-emerald-100 dark:border-emerald-900/30 flex items-center gap-2">
+                        <div className="bg-emerald-50 dark:bg-emerald-900/50 dark:bg-emerald-900/20 px-4 sm:px-6 py-3 border-b border-emerald-100 dark:border-emerald-900/30 flex items-center gap-2">
                             <Factory className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                             <h3 className="font-bold text-emerald-800 dark:text-emerald-300 text-sm uppercase tracking-wide">
                                 {tx(lang, {fr: 'Données Techniques & Production',ar: 'البيانات التقنية والإنتاج',en: 'Technical & Production Data',es: 'Datos técnicos y de producción',pt: 'Dados técnicos e de produção',tr: 'Teknik ve Üretim Verileri'})}
@@ -743,7 +743,7 @@ export default function FicheTechnique({
 
                     {/* PLANNING & RISK CONTROLS CARD */}
                     <div className="bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border shadow-sm dark:shadow-dk-sm overflow-hidden">
-                        <div className="bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20/50 dark:bg-indigo-900/20 px-4 sm:px-6 py-3 border-b border-indigo-100 dark:border-indigo-900/30 flex items-center gap-2">
+                        <div className="bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/50 dark:bg-indigo-900/20 px-4 sm:px-6 py-3 border-b border-indigo-100 dark:border-indigo-900/30 flex items-center gap-2">
                             <TrendingUp className="w-4 h-4 text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text dark:text-indigo-400" />
                             <h3 className="font-bold text-indigo-800 dark:text-indigo-300 text-sm uppercase tracking-wide">
                                 {tx(lang, {fr: "Contrôles de Planification & Risques",ar: "مراقبة التخطيط والمخاطر",en: "Planning & Risk Controls",es: "Controles de planificación y riesgos",pt: "Controlos de planeamento e riscos",tr: "Planlama ve Risk Kontrolleri"})}

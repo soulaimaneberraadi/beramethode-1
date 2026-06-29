@@ -5,8 +5,8 @@ export function getCurrentEmail(): string | null {
   try { return localStorage.getItem(LAST_USER_KEY); } catch { return null; }
 }
 
-export function pkey(base: string): string {
-  const email = getCurrentEmail();
+export function pkey(base: string, emailOverride?: string): string {
+  const email = emailOverride ?? getCurrentEmail();
   if (!email) return base;
   return `${base}${SEP}${email}`;
 }

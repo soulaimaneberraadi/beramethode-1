@@ -1,13 +1,11 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { Banknote, Receipt, LayoutTemplate, FileDown, Clock, FileText, PieChart as PieChartIcon, SlidersHorizontal, Scissors, Trash2, Check, AlertTriangle, Factory, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Banknote, Receipt, LayoutTemplate, FileDown, Clock, FileText, SlidersHorizontal, Scissors, Trash2, Check, AlertTriangle, Factory, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Material, AppSettings, PdfSettings, FicheData, PurchasingData } from '../types';
 import { translations, fmt } from '../constants';
 import { findMagasinItem } from '../lib/magasinMatch';
 import { tx } from '../lib/i18n';
 import { useLang } from '../src/context/LanguageContext';
 import { useIsDark } from '../src/context/ThemeContext';
-import { PieChart, Pie, Cell, Tooltip as RechartsTooltip, Legend } from 'recharts';
-import { ResponsiveChart } from './ui/ResponsiveChart';
 
 import ModelInfo from './ModelInfo';
 import MaterialsList from './MaterialsList';
@@ -572,7 +570,7 @@ export default function CostCalculator({
         }));
     };
 
-    const applyThreadMaterials = (threadMaterials: Material[]) => {
+    const applyThreadMaterials = useCallback((threadMaterials: Material[]) => {
         // Remove existing thread materials (those starting with "Fil ")
         const filtered = materials.filter(m => !m.name.startsWith('Fil '));
         // Add new thread materials with new IDs
@@ -580,7 +578,20 @@ export default function CostCalculator({
         const newMaterials = threadMaterials.map((m, i) => ({ ...m, id: maxId + i + 1 }));
         setMaterials([...filtered, ...newMaterials]);
         setShowThreadCalc(false);
-    };
+    }, [materials]);
+
+    const handleSaveThreadCalcState = useCallback((state: any) => {
+        setFicheData(prev => {
+            if (JSON.stringify(prev.threadCalcState) === JSON.stringify(state)) {
+                return prev;
+            }
+            return { ...prev, threadCalcState: state };
+        });
+    }, [setFicheData]);
+
+    const handleCloseThreadCalc = useCallback(() => {
+        setShowThreadCalc(false);
+    }, []);
 
     // Enregistre la config sous-traitance dans le modèle (hide-only, non destructif).
     const applySousTraitance = (value: SousTraitance) => {
@@ -1130,16 +1141,17 @@ export default function CostCalculator({
                                     </span>
                                 )}
                             </button>
+
                             {!stComplet && (
                                 <button
                                     onClick={() => setShowThreadCalc(true)}
-                                    className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md bg-slate-900 hover:bg-slate-800 text-white text-[12px] font-medium transition-colors"
+                                    className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md bg-slate-900 dark:bg-dk-accent hover:bg-slate-800 dark:hover:bg-dk-accent-hover text-white text-[12px] font-medium transition-colors"
                                 >
                                     <Scissors className="w-3.5 h-3.5" strokeWidth={1.75} />
-                                    Calcul Fil
+                                    {tx(lang, {fr: 'Calcul Fil', ar: 'حساب الخيط', en: 'Thread Calculation', es: 'Cálculo de Hilo', pt: 'Cálculo de Fio', tr: 'İplik Hesaplama'})}
                                     {operations.length > 0 && (
-                                        <span className="bg-white dark:bg-dk-surface/15 px-1.5 py-0.5 rounded text-[11px] font-medium tabular-nums">
-                                            {operations.length} op.
+                                        <span className="bg-white/20 dark:bg-white/15 px-1.5 py-0.5 rounded text-[11px] font-medium tabular-nums">
+                                            {operations.length} {tx(lang, {fr: 'op.', ar: 'عملية', en: 'op.', es: 'op.', pt: 'op.', tr: 'op.'})}
                                         </span>
                                     )}
                                 </button>
@@ -1237,15 +1249,36 @@ export default function CostCalculator({
                                     <div className="w-44 h-44 shrink-0 flex flex-col relative">
                                         <h4 className="text-[11px] font-medium text-slate-500 dark:text-dk-muted text-center absolute -top-1 left-0 right-0 z-10">{tx(lang,{fr:'Répartition Coût (PR)',ar:'توزيع التكلفة (س ت)',en:'Cost Breakdown (CP)',es:'Desglose de Costo (PC)',pt:'Repartição de Custo (CP)',tr:'Maliyet Dağılımı (MF)'})}</h4>
                                         {totalMaterials > 0 || laborCost > 0 ? (
-                                            <ResponsiveChart>
-                                                <PieChart>
-                                                    <Pie data={costDataForChart} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={30} outerRadius={60} stroke="none">
-                                                        {costDataForChart.map((entry, index) => (<Cell key={`cell-${index}`} fill={entry.color} />))}
-                                                    </Pie>
-                                                    <RechartsTooltip formatter={(val: number) => `${fmt(val)} ${currency}`} />
-                                                    <Legend layout="horizontal" verticalAlign="bottom" align="center" iconType="circle" wrapperStyle={{ fontSize: '10px' }} />
-                                                </PieChart>
-                                            </ResponsiveChart>
+                                            <svg viewBox="0 0 120 120" className="w-full h-full">
+                                                {(() => {
+                                                    const total = costDataForChart.reduce((s, d) => s + d.value, 0);
+                                                    if (total <= 0) return null;
+                                                    const r = 37.5, circ = 2 * Math.PI * r;
+                                                    let offset = 0;
+                                                    return costDataForChart.map((entry, i) => {
+                                                        const pct = entry.value / total;
+                                                        const len = circ * pct;
+                                                        const seg = (
+                                                            <circle key={i} cx="60" cy="60" r={r} fill="none" stroke={entry.color} strokeWidth="25"
+                                                                strokeDasharray={`${len} ${circ - len}`}
+                                                                strokeDashoffset={-offset}
+                                                                transform="rotate(-90 60 60)"
+                                                                className="hover:opacity-80 transition-opacity cursor-pointer"
+                                                            >
+                                                                <title>{entry.name}: {fmt(entry.value)} {currency} ({Math.round(pct * 100)}%)</title>
+                                                            </circle>
+                                                        );
+                                                        offset += len;
+                                                        return seg;
+                                                    });
+                                                })()}
+                                                <text x="60" y="54" textAnchor="middle" className="fill-slate-800 dark:fill-dk-text font-bold text-[9px]" dominantBaseline="middle">
+                                                    {fmt(costDataForChart.reduce((s, d) => s + d.value, 0))}
+                                                </text>
+                                                <text x="60" y="64" textAnchor="middle" className="fill-slate-400 dark:fill-dk-muted text-[6px]" dominantBaseline="middle">
+                                                    {currency}
+                                                </text>
+                                            </svg>
                                         ) : (
                                             <div className="w-full h-full flex items-center justify-center text-xs text-slate-400 dark:text-dk-muted font-medium">{tx(lang,{fr:'Aucune donnée',ar:'لا توجد بيانات',en:'No data',es:'Sin datos',pt:'Sem dados',tr:'Veri yok'})}</div>
                                         )}
@@ -1420,9 +1453,9 @@ export default function CostCalculator({
                     gridQuantities={ficheData.gridQuantities}
                     modelCategory={ficheData.category}
                     onApply={applyThreadMaterials}
-                    onClose={() => setShowThreadCalc(false)}
+                    onClose={handleCloseThreadCalc}
                     threadCalcState={ficheData.threadCalcState}
-                    onSaveState={(state) => setFicheData(prev => ({ ...prev, threadCalcState: state }))}
+                    onSaveState={handleSaveThreadCalcState}
                 />
             )}
 

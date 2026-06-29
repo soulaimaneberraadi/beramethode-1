@@ -82,6 +82,7 @@ export default function SalleComparison({ salles, onSalleClick }: Props) {
               />
               <Bar
                 dataKey="rPercent"
+                isAnimationActive={false}
                 radius={[0, 4, 4, 0]}
                 cursor={onSalleClick ? 'pointer' : 'default'}
                 minPointSize={4}

@@ -223,8 +223,8 @@ export default function CatalogueTemps({ models, onOpenWorker }: CatalogueTempsP
             // opId → opérateur (depuis stations chrono)
             const opOperator = new Map<string, string>();
             (m.chronoCustomStations || []).forEach(st => {
-                if (st.linkedOperationId && (st.operatorName || st.name)) {
-                    opOperator.set(st.linkedOperationId, (st.operatorName || st.name)!);
+                if (st.linkedOperationId && st.operatorName && st.operatorName.trim()) {
+                    opOperator.set(st.linkedOperationId, st.operatorName.trim());
                 }
             });
 
@@ -402,7 +402,7 @@ export default function CatalogueTemps({ models, onOpenWorker }: CatalogueTempsP
     return (
         <div className="h-full flex flex-col font-sans text-slate-800 dark:text-dk-text antialiased relative overflow-hidden">
             {/* Fond sobre */}
-            <div className="absolute inset-0 -z-10 bg-[#f7f8fb]" />
+            <div className="absolute inset-0 -z-10 bg-[#f7f8fb] dark:bg-dk-bg" />
 
             {/* ── HEADER (glass) ── */}
             <header className="shrink-0 sticky top-0 z-20 bg-white/65 dark:bg-dk-surface/65 backdrop-blur-xl border-b border-white/60 shadow-[0_1px_0_rgba(255,255,255,0.6)_inset,0_8px_30px_-18px_rgba(15,23,42,0.25)]">
@@ -480,7 +480,7 @@ export default function CatalogueTemps({ models, onOpenWorker }: CatalogueTempsP
 
                     {hasActiveFilters && (
                         <button type="button" onClick={resetFilters}
-                            className="shrink-0 inline-flex items-center gap-1 h-8 px-2.5 rounded-lg text-[11px] font-medium text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-900/30/70 dark:bg-rose-950/30 hover:bg-rose-100 transition-colors">
+                            className="shrink-0 inline-flex items-center gap-1 h-8 px-2.5 rounded-lg text-[11px] font-medium text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-900/70 dark:bg-rose-950/30 hover:bg-rose-100 transition-colors">
                             <X className="w-3 h-3" /> {tx(lang, { fr: "Réinitialiser", ar: "إعادة تعيين", en: "Reset", es: "Restablecer", pt: "Redefinir", tr: "Sıfırla" })}
                         </button>
                     )}
@@ -654,7 +654,7 @@ function DetailPanel({ entry, fmt, unitSuffix, reliability, onClose, onOpenWorke
                         const pct = entry.max > 0 ? (s.timeMin / entry.max) * 100 : 0;
                         return (
                             <div key={`${s.modelId}-${i}`} className="relative rounded-lg bg-slate-50 dark:bg-dk-bg border border-slate-100 dark:border-dk-border px-2.5 py-1.5 overflow-hidden">
-                                <div className="absolute inset-y-0 left-0 bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20/70" style={{ width: `${pct}%` }} />
+                                <div className="absolute inset-y-0 left-0 bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/70" style={{ width: `${pct}%` }} />
                                 <div className="relative flex items-center justify-between gap-2">
                                     <div className="min-w-0">
                                         <p className="text-[12px] font-medium text-slate-800 dark:text-dk-text truncate">
@@ -840,7 +840,7 @@ function FilterSelect({
 
 function Tag({ children, icon: Icon }: { children: React.ReactNode; icon?: any }) {
     return (
-        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-slate-100/80 text-slate-600 dark:text-dk-text-soft dark:text-dk-text-secondary text-[10px] font-medium max-w-full truncate">
+        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-slate-100/80 dark:bg-slate-800/80 text-slate-600 dark:text-slate-300 text-[10px] font-medium max-w-full truncate">
             {Icon && <Icon className="w-2.5 h-2.5 shrink-0" strokeWidth={2} />}<span className="truncate">{children}</span>
         </span>
     );

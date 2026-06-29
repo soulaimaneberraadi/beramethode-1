@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import { Settings, Clock, Calendar, Coins, Users, Shield, Save, Building, Plus, Trash2, CheckCircle, ListTodo, CalendarClock, AlertTriangle, Check, X, SkipForward, Factory, Zap, ChevronDown } from 'lucide-react';
+import { Settings, Clock, Calendar, Coins, Users, Shield, Save, Building, Plus, Trash2, CheckCircle, ListTodo, CalendarClock, AlertTriangle, Check, X, SkipForward, Factory, Zap, ChevronDown, Loader2 } from 'lucide-react';
 import { AppSettings, AppTask, Machine } from '../types';
 import { useTheme } from '../src/context/ThemeContext';
 import { isMachineOperational } from '../utils/machineMatch';
@@ -472,7 +472,20 @@ const VIEW_LABELS: Record<string, Partial<Record<Lang, string>> & { fr: string }
 export default function Configuration({ settings, setSettings, lang, machines, navConfig, setNavConfig, currentLang, onSetLang }: ConfigurationProps) {
     const t = pickT(TRANSLATIONS, lang);
     const [showSaveToast, setShowSaveToast] = useState(false);
+    const [isSaving, setIsSaving] = useState(false);
     const [showAgenda, setShowAgenda] = useState(false);
+
+    // Mode "brouillon" : les modifications restent locales à cette page et ne touchent
+    // au reste de l'app (ni ne sont persistées) qu'au clic explicite sur "Enregistrer".
+    const [draft, setDraftState] = useState<AppSettings>(settings);
+    const [isDirty, setIsDirty] = useState(false);
+    useEffect(() => {
+        if (!isDirty) setDraftState(settings);
+    }, [settings, isDirty]);
+    const setDraft: typeof setSettings = (updater) => {
+        setDraftState(prev => (typeof updater === 'function' ? (updater as (p: AppSettings) => AppSettings)(prev) : updater));
+        setIsDirty(true);
+    };
 
     // Sections repliables (mobile/tablette < xl) — repliées par défaut, toujours ouvertes en desktop (xl)
     const [openSec, setOpenSec] = useState<Record<string, boolean>>({});
@@ -494,10 +507,10 @@ export default function Configuration({ settings, setSettings, lang, machines, n
                 if (r0 != null) setSageR(Math.min(60, Math.max(1, parseInt(String(r0), 10) || 15)));
                 if (w0 != null && /^\d{1,2}:\d{2}/.test(String(w0))) setSageW(String(w0).match(/^\d{1,2}:\d{2}/)![0]);
                 if (a0 !== undefined) setSageA(a0 !== 'false' && a0 !== false);
-                setTrCfg(parsePointageTranchesFromSettings(d.hr_pointage_tranches, settings));
+                setTrCfg(parsePointageTranchesFromSettings(d.hr_pointage_tranches, draft));
             })
             .catch(() => {});
-    }, [settings]);
+    }, [draft]);
     useEffect(() => { loadSage(); }, [loadSage]);
     const saveSage = () => {
         setSageBusy(true);
@@ -564,7 +577,7 @@ export default function Configuration({ settings, setSettings, lang, machines, n
     };
 
     const resetTranches = () => {
-        setTrCfg(buildPointageTranchesFromAppSettings(settings));
+        setTrCfg(buildPointageTranchesFromAppSettings(draft));
     };
 
     // --- TASK STATE ---
@@ -588,7 +601,7 @@ export default function Configuration({ settings, setSettings, lang, machines, n
             createdAt: new Date().toISOString()
         };
 
-        setSettings(prev => ({
+        setDraft(prev => ({
             ...prev,
             tasks: [...(prev.tasks || []), newTask]
         }));
@@ -599,7 +612,7 @@ export default function Configuration({ settings, setSettings, lang, machines, n
 
     const handleDeleteTask = (taskId: string) => {
         if (confirm('Êtes-vous sûr de vouloir supprimer cette tâche ?')) {
-            setSettings(prev => ({
+            setDraft(prev => ({
                 ...prev,
                 tasks: prev.tasks?.filter(t => t.id !== taskId) || []
             }));
@@ -607,7 +620,7 @@ export default function Configuration({ settings, setSettings, lang, machines, n
     };
 
     const updateTaskStatus = (taskId: string, newStatus: 'PENDING' | 'DONE_OK' | 'DONE_NOT_OK' | 'SKIPPED', reason?: string) => {
-        setSettings(prev => ({
+        setDraft(prev => ({
             ...prev,
             tasks: prev.tasks?.map(t => {
                 if (t.id === taskId) {
@@ -620,14 +633,14 @@ export default function Configuration({ settings, setSettings, lang, machines, n
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         const { name, value, type } = e.target;
-        setSettings(prev => ({
+        setDraft(prev => ({
             ...prev,
             [name]: type === 'number' ? (value === '' ? '' : Number(value)) : value
         }));
     };
 
     const toggleWorkingDay = (dayIndex: number) => {
-        setSettings(prev => {
+        setDraft(prev => {
             const current = prev.workingDays || [];
             const days = current.includes(dayIndex)
                 ? current.filter(d => d !== dayIndex)
@@ -637,14 +650,14 @@ export default function Configuration({ settings, setSettings, lang, machines, n
     };
 
     const addPause = () => {
-        setSettings(prev => ({
+        setDraft(prev => ({
             ...prev,
             pauses: [...(prev.pauses || []), { id: Date.now().toString(), name: 'Nouvelle Pause', start: '12:00', end: '13:00', durationMin: 60 }]
         }));
     };
 
     const updatePause = (id: string, field: 'start' | 'end' | 'name', value: string) => {
-        setSettings(prev => ({
+        setDraft(prev => ({
             ...prev,
             pauses: (prev.pauses || []).map(p => {
                 if (p.id !== id) return p;
@@ -662,15 +675,31 @@ export default function Configuration({ settings, setSettings, lang, machines, n
     };
 
     const removePause = (id: string) => {
-        setSettings(prev => ({
+        setDraft(prev => ({
             ...prev,
             pauses: (prev.pauses || []).filter(p => p.id !== id)
         }));
     };
 
-    const handleSave = () => {
-        setShowSaveToast(true);
-        setTimeout(() => setShowSaveToast(false), 3000);
+    const handleSave = async () => {
+        setIsSaving(true);
+        try {
+            const res = await fetch('/api/settings', {
+                method: 'POST',
+                credentials: 'include',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ global_settings: draft }),
+            });
+            if (!res.ok) throw new Error('save failed');
+            setSettings(draft); // applique le brouillon au reste de l'app seulement maintenant
+            setIsDirty(false);
+            setShowSaveToast(true);
+            setTimeout(() => setShowSaveToast(false), 3000);
+        } catch (e) {
+            console.error('Erreur sauvegarde settings:', e);
+        } finally {
+            setIsSaving(false);
+        }
     };
 
     React.useEffect(() => {
@@ -701,12 +730,25 @@ export default function Configuration({ settings, setSettings, lang, machines, n
                     <div>
                         <h1 className="text-xl sm:text-2xl font-black text-slate-800 dark:text-dk-text tracking-tight">{t.title}</h1>
                         <p className="text-xs sm:text-sm text-slate-500 dark:text-dk-muted font-medium mt-1">{t.desc}</p>
+                        {isDirty && !isSaving && (
+                            <p className="text-[11px] font-bold text-amber-600 dark:text-amber-400 mt-1 flex items-center gap-1">
+                                <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                                {tx(lang, { fr: 'Modifications non enregistrées', ar: 'تعديلات غير محفوظة', en: 'Unsaved changes', es: 'Cambios sin guardar', pt: 'Alterações não guardadas', tr: 'Kaydedilmemiş değişiklikler' })}
+                            </p>
+                        )}
                     </div>
                 </div>
-                <button onClick={handleSave} className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 sm:px-8 py-3 bg-indigo-600 dark:bg-dk-accent hover:bg-indigo-700 dark:hover:bg-dk-accent-hover text-white font-bold rounded-xl transition-all shadow-lg dark:shadow-dk-lg shadow-indigo-600/30 active:scale-95 group relative overflow-hidden">
+                <button onClick={handleSave} disabled={isSaving} className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 sm:px-8 py-3 bg-indigo-600 dark:bg-dk-accent hover:bg-indigo-700 dark:hover:bg-dk-accent-hover disabled:opacity-70 disabled:cursor-not-allowed text-white font-bold rounded-xl transition-all shadow-lg dark:shadow-dk-lg shadow-indigo-600/30 active:scale-95 group relative overflow-hidden">
                     <span className="absolute inset-0 w-full h-full bg-white dark:bg-dk-surface/20 -translate-x-full group-hover:animate-[shimmer_1.5s_infinite]"></span>
-                    <Save className="w-5 h-5 relative z-10 group-hover:scale-110 transition-transform" />
-                    <span className="relative z-10">{t.save}</span>
+                    {isSaving ? (
+                        <Loader2 className="w-5 h-5 relative z-10 animate-spin" />
+                    ) : (
+                        <Save className="w-5 h-5 relative z-10 group-hover:scale-110 transition-transform" />
+                    )}
+                    <span className="relative z-10">{isSaving ? '...' : t.save}</span>
+                    {isDirty && !isSaving && (
+                        <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+                    )}
                 </button>
             </div>
 
@@ -724,7 +766,7 @@ export default function Configuration({ settings, setSettings, lang, machines, n
                         <div className={`p-5 space-y-6 flex-1 ${openSec['gen'] ? '' : 'hidden'}`}>
                             <div>
                                 <label className="block text-xs font-bold uppercase text-slate-500 dark:text-dk-muted mb-2">{t.currency}</label>
-                                <select name="currency" value={settings.currency} onChange={handleChange} className="w-full bg-slate-50 dark:bg-dk-bg border-2 border-slate-200 dark:border-dk-border rounded-xl px-4 py-3 outline-none focus:border-indigo-500 font-bold text-slate-700 dark:text-dk-text-soft transition-all cursor-pointer">
+                                <select name="currency" value={draft.currency} onChange={handleChange} className="w-full bg-slate-50 dark:bg-dk-bg border-2 border-slate-200 dark:border-dk-border rounded-xl px-4 py-3 outline-none focus:border-indigo-500 font-bold text-slate-700 dark:text-dk-text-soft transition-all cursor-pointer">
                                     {CURRENCIES.map(c => (
                                         <option key={c.code} value={c.code}>{c.label}</option>
                                     ))}
@@ -733,7 +775,7 @@ export default function Configuration({ settings, setSettings, lang, machines, n
                             <div>
                                 <label className="block text-xs font-bold uppercase text-slate-500 dark:text-dk-muted mb-2">{t.costMinute}</label>
                                 <div className="relative">
-                                    <input type="number" step="0.01" name="costMinute" value={settings.costMinute} onChange={handleChange} className="w-full bg-slate-50 dark:bg-dk-bg border-2 border-slate-200 dark:border-dk-border rounded-xl pl-11 pr-4 py-3 outline-none focus:border-indigo-500 font-black text-lg text-slate-800 dark:text-dk-text transition-all" />
+                                    <input type="number" step="0.01" name="costMinute" value={draft.costMinute} onChange={handleChange} className="w-full bg-slate-50 dark:bg-dk-bg border-2 border-slate-200 dark:border-dk-border rounded-xl pl-11 pr-4 py-3 outline-none focus:border-indigo-500 font-black text-lg text-slate-800 dark:text-dk-text transition-all" />
                                     <Coins className="w-5 h-5 text-slate-400 dark:text-dk-muted absolute left-4 top-3.5" />
                                 </div>
                             </div>
@@ -756,11 +798,11 @@ export default function Configuration({ settings, setSettings, lang, machines, n
                                     <button
                                         type="button"
                                         role="switch"
-                                        aria-checked={settings.machineAlertsEnabled !== false}
-                                        onClick={() => setSettings(prev => ({ ...prev, machineAlertsEnabled: prev.machineAlertsEnabled === false ? true : false }))}
-                                        className={`relative w-12 h-7 rounded-full transition-colors shrink-0 ${settings.machineAlertsEnabled !== false ? 'bg-indigo-600 dark:bg-dk-accent' : 'bg-slate-300'}`}
+                                        aria-checked={draft.machineAlertsEnabled !== false}
+                                        onClick={() => setDraft(prev => ({ ...prev, machineAlertsEnabled: prev.machineAlertsEnabled === false ? true : false }))}
+                                        className={`relative w-12 h-7 rounded-full transition-colors shrink-0 ${draft.machineAlertsEnabled !== false ? 'bg-indigo-600 dark:bg-dk-accent' : 'bg-slate-300'}`}
                                     >
-                                        <span className={`absolute top-1 w-5 h-5 bg-white dark:bg-dk-surface rounded-full shadow transition-all ${settings.machineAlertsEnabled !== false ? 'left-6' : 'left-1'}`}></span>
+                                        <span className={`absolute top-1 w-5 h-5 bg-white dark:bg-dk-surface rounded-full shadow transition-all ${draft.machineAlertsEnabled !== false ? 'left-6' : 'left-1'}`}></span>
                                     </button>
                                 </div>
 
@@ -884,8 +926,8 @@ export default function Configuration({ settings, setSettings, lang, machines, n
                                 <input
                                     type="checkbox"
                                     className="mt-1 rounded border-slate-300 text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text focus:ring-indigo-500"
-                                    checked={settings.hrAutoOvertime !== false}
-                                    onChange={e => setSettings(prev => ({ ...prev, hrAutoOvertime: e.target.checked }))}
+                                    checked={draft.hrAutoOvertime !== false}
+                                    onChange={e => setDraft(prev => ({ ...prev, hrAutoOvertime: e.target.checked }))}
                                 />
                                 <span>
                                     <span className="font-bold text-slate-800 dark:text-dk-text text-sm block">{t.rhAutoOvertime}</span>
@@ -896,9 +938,9 @@ export default function Configuration({ settings, setSettings, lang, machines, n
                                 <label className="block text-xs font-bold uppercase text-slate-500 dark:text-dk-muted mb-2">{t.rhComptaRef}</label>
                                 <select
                                     name="hrComptaPointageRef"
-                                    value={settings.hrComptaPointageRef === 'normales_paie' ? 'normales_paie' : 'pointees'}
+                                    value={draft.hrComptaPointageRef === 'normales_paie' ? 'normales_paie' : 'pointees'}
                                     onChange={e =>
-                                        setSettings(prev => ({
+                                        setDraft(prev => ({
                                             ...prev,
                                             hrComptaPointageRef: e.target.value === 'normales_paie' ? 'normales_paie' : 'pointees',
                                         }))
@@ -1063,9 +1105,9 @@ export default function Configuration({ settings, setSettings, lang, machines, n
                         <div>
                             <label className="block text-xs font-bold uppercase text-slate-500 dark:text-dk-muted mb-2">{t.timeFormat}</label>
                             <div className="flex p-1 bg-slate-100 dark:bg-dk-elevated border border-slate-200 dark:border-dk-border rounded-xl relative overflow-hidden">
-                                <div className={`absolute top-1 bottom-1 w-[calc(50%-4px)] bg-white dark:bg-dk-surface rounded-lg shadow-sm dark:shadow-dk-sm border border-slate-200 dark:border-dk-border transition-all duration-300 ${settings.timeFormat === '12h' ? 'left-[calc(50%+2px)]' : 'left-1'}`}></div>
-                                <button onClick={() => setSettings(prev => ({ ...prev, timeFormat: '24h' }))} className={`flex-1 py-2 text-sm font-bold rounded-lg transition-colors relative z-10 ${settings.timeFormat === '24h' ? 'text-indigo-700 dark:text-dk-accent-text' : 'text-slate-500 hover:text-slate-700'}`}>{tx(lang, { fr: '24 Heures', ar: '24 ساعة', en: '24 Hours', es: '24 Horas', pt: '24 Horas', tr: '24 Saat' })}</button>
-                                <button onClick={() => setSettings(prev => ({ ...prev, timeFormat: '12h' }))} className={`flex-1 py-2 text-sm font-bold rounded-lg transition-colors relative z-10 ${settings.timeFormat === '12h' ? 'text-indigo-700 dark:text-dk-accent-text' : 'text-slate-500 hover:text-slate-700'}`}>{tx(lang, { fr: '12 Heures (AM/PM)', ar: '12 ساعة (AM/PM)', en: '12 Hours (AM/PM)', es: '12 Horas (AM/PM)', pt: '12 Horas (AM/PM)', tr: '12 Saat (AM/PM)' })}</button>
+                                <div className={`absolute top-1 bottom-1 w-[calc(50%-4px)] bg-white dark:bg-dk-surface rounded-lg shadow-sm dark:shadow-dk-sm border border-slate-200 dark:border-dk-border transition-all duration-300 ${draft.timeFormat === '12h' ? 'left-[calc(50%+2px)]' : 'left-1'}`}></div>
+                                <button onClick={() => setDraft(prev => ({ ...prev, timeFormat: '24h' }))} className={`flex-1 py-2 text-sm font-bold rounded-lg transition-colors relative z-10 ${draft.timeFormat === '24h' ? 'text-indigo-700 dark:text-dk-accent-text' : 'text-slate-500 hover:text-slate-700'}`}>{tx(lang, { fr: '24 Heures', ar: '24 ساعة', en: '24 Hours', es: '24 Horas', pt: '24 Horas', tr: '24 Saat' })}</button>
+                                <button onClick={() => setDraft(prev => ({ ...prev, timeFormat: '12h' }))} className={`flex-1 py-2 text-sm font-bold rounded-lg transition-colors relative z-10 ${draft.timeFormat === '12h' ? 'text-indigo-700 dark:text-dk-accent-text' : 'text-slate-500 hover:text-slate-700'}`}>{tx(lang, { fr: '12 Heures (AM/PM)', ar: '12 ساعة (AM/PM)', en: '12 Hours (AM/PM)', es: '12 Horas (AM/PM)', pt: '12 Horas (AM/PM)', tr: '12 Saat (AM/PM)' })}</button>
                             </div>
                         </div>
 
@@ -1073,20 +1115,20 @@ export default function Configuration({ settings, setSettings, lang, machines, n
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div>
                                 <label className="block text-xs font-bold uppercase text-slate-500 dark:text-dk-muted mb-2">{t.workingHoursStart}</label>
-                                <input type="time" name="workingHoursStart" value={settings.workingHoursStart} onChange={handleChange} className="w-full bg-slate-50 dark:bg-dk-bg border-2 border-slate-200 dark:border-dk-border rounded-xl px-4 py-3 outline-none focus:border-indigo-500 font-bold text-lg text-slate-700 dark:text-dk-text-soft transition-all text-center" />
+                                <input type="time" name="workingHoursStart" value={draft.workingHoursStart} onChange={handleChange} className="w-full bg-slate-50 dark:bg-dk-bg border-2 border-slate-200 dark:border-dk-border rounded-xl px-4 py-3 outline-none focus:border-indigo-500 font-bold text-lg text-slate-700 dark:text-dk-text-soft transition-all text-center" />
                             </div>
                             <div>
                                 <label className="block text-xs font-bold uppercase text-slate-500 dark:text-dk-muted mb-2">{t.workingHoursEnd}</label>
-                                <input type="time" name="workingHoursEnd" value={settings.workingHoursEnd} onChange={handleChange} className="w-full bg-slate-50 dark:bg-dk-bg border-2 border-slate-200 dark:border-dk-border rounded-xl px-4 py-3 outline-none focus:border-indigo-500 font-bold text-lg text-slate-700 dark:text-dk-text-soft transition-all text-center" />
+                                <input type="time" name="workingHoursEnd" value={draft.workingHoursEnd} onChange={handleChange} className="w-full bg-slate-50 dark:bg-dk-bg border-2 border-slate-200 dark:border-dk-border rounded-xl px-4 py-3 outline-none focus:border-indigo-500 font-bold text-lg text-slate-700 dark:text-dk-text-soft transition-all text-center" />
                             </div>
                         </div>
 
                         {/* Working Days */}
                         <div>
                             <div className="flex items-center justify-between mb-2">
-                                <label className="flex items-center gap-2 block text-xs font-bold uppercase text-slate-500 dark:text-dk-muted">{t.workingDays} <span className="text-[10px] text-indigo-500 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 px-2 py-0.5 rounded-full border border-indigo-100 font-black tracking-widest">{(settings.workingDays || []).length}/7</span></label>
+                                <label className="flex items-center gap-2 block text-xs font-bold uppercase text-slate-500 dark:text-dk-muted">{t.workingDays} <span className="text-[10px] text-indigo-500 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 px-2 py-0.5 rounded-full border border-indigo-100 font-black tracking-widest">{(draft.workingDays || []).length}/7</span></label>
                                 <div className="flex gap-2">
-                                    <button onClick={() => setSettings(prev => ({ ...prev, workingDays: [1, 2, 3, 4, 5, 6, 7] }))} className="text-xs font-bold text-slate-500 hover:text-indigo-600 dark:text-dk-accent-text transition-colors uppercase pr-2 border-r border-slate-200 dark:border-dk-border hidden sm:block">{tx(lang, { fr: 'Tous', ar: 'الكل', en: 'All', es: 'Todos', pt: 'Todos', tr: 'Tümü' })}</button>
+                                    <button onClick={() => setDraft(prev => ({ ...prev, workingDays: [1, 2, 3, 4, 5, 6, 7] }))} className="text-xs font-bold text-slate-500 hover:text-indigo-600 dark:text-dk-accent-text transition-colors uppercase pr-2 border-r border-slate-200 dark:border-dk-border hidden sm:block">{tx(lang, { fr: 'Tous', ar: 'الكل', en: 'All', es: 'Todos', pt: 'Todos', tr: 'Tümü' })}</button>
                                     <button onClick={() => setShowAgenda(true)} className="text-[11px] font-bold bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text hover:text-indigo-700 dark:text-dk-accent-text hover:bg-indigo-100 border border-indigo-100 px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5 shadow-sm dark:shadow-dk-sm active:scale-95">
                                         <Calendar className="w-3.5 h-3.5" /> {tx(lang, { fr: 'Agenda', ar: 'التقويم', en: 'Calendar', es: 'Agenda', pt: 'Agenda', tr: 'Takvim' })}
                                     </button>
@@ -1094,7 +1136,7 @@ export default function Configuration({ settings, setSettings, lang, machines, n
                             </div>
                             <div className="grid grid-cols-4 sm:flex sm:flex-wrap gap-2">
                                 {[1, 2, 3, 4, 5, 6, 7].map((dayCode, idx) => {
-                                    const isActive = (settings.workingDays || []).includes(dayCode);
+                                    const isActive = (draft.workingDays || []).includes(dayCode);
                                     return (
                                         <button
                                             key={dayCode}
@@ -1124,7 +1166,7 @@ export default function Configuration({ settings, setSettings, lang, machines, n
                             </div>
 
                             <div className="space-y-3">
-                                {(settings.pauses || []).map((pause, index) => (
+                                {(draft.pauses || []).map((pause, index) => (
                                     <div key={pause.id} className="flex flex-col sm:flex-row items-center gap-3 bg-slate-50 dark:bg-dk-bg p-3 rounded-xl border border-slate-200 dark:border-dk-border hover:border-indigo-200 transition-colors">
                                         <span className="text-xs font-bold text-slate-400 dark:text-dk-muted w-6 text-center">{index + 1}.</span>
                                         <div className="flex-1 flex flex-col xl:flex-row gap-3 w-full">
@@ -1152,7 +1194,7 @@ export default function Configuration({ settings, setSettings, lang, machines, n
                                         </button>
                                     </div>
                                 ))}
-                                {(settings.pauses || []).length === 0 && (
+                                {(draft.pauses || []).length === 0 && (
                                     <p className="text-sm text-slate-500 dark:text-dk-muted italic text-center py-4 bg-slate-50 dark:bg-dk-bg rounded-lg border border-dashed border-slate-200 dark:border-dk-border">{tx(lang, { fr: 'Aucune pause définie pour le moment.', ar: 'لا توجد أي استراحة معرفة حالياً.', en: 'No break defined at the moment.', es: 'Ninguna pausa definida por el momento.', pt: 'Nenhuma pausa definida de momento.', tr: 'Henüz mola tanımlanmamış.' })}</p>
                                 )}
                             </div>
@@ -1175,21 +1217,21 @@ export default function Configuration({ settings, setSettings, lang, machines, n
                 </div>
                 <div className={`p-6 md:p-8 space-y-4 ${openSec['tailles'] ? '' : 'hidden'}`}>
                     {/* Activation de la fonctionnalité (Beta) */}
-                    <div className="flex items-center justify-between gap-3 bg-amber-50 dark:bg-amber-900/30/50 border border-amber-100 rounded-xl p-3">
+                    <div className="flex items-center justify-between gap-3 bg-amber-50 dark:bg-amber-900/50 border border-amber-100 rounded-xl p-3">
                         <div className="flex items-center gap-2">
                             <AlertTriangle className="w-4 h-4 text-amber-500 dark:text-amber-400 shrink-0" />
                             <span className="text-sm font-bold text-slate-700 dark:text-dk-text-soft">{tx(lang, { fr: 'Activer la fonctionnalité (Beta)', ar: 'تفعيل ميزة أنظمة المقاسات (تجريبية)', en: 'Enable the feature (Beta)', es: 'Activar la funcionalidad (Beta)', pt: 'Ativar a funcionalidade (Beta)', tr: 'Özelliği etkinleştir (Beta)' })}</span>
                         </div>
                         <button
-                            onClick={() => setSettings(prev => ({ ...prev, tailleSystemsEnabled: prev.tailleSystemsEnabled === false ? true : false }))}
-                            className={`relative w-11 h-6 rounded-full transition-colors shrink-0 ${settings.tailleSystemsEnabled !== false ? 'bg-emerald-500' : 'bg-slate-300'}`}
-                            title={settings.tailleSystemsEnabled !== false ? 'Désactiver' : 'Activer'}
+                            onClick={() => setDraft(prev => ({ ...prev, tailleSystemsEnabled: prev.tailleSystemsEnabled === false ? true : false }))}
+                            className={`relative w-11 h-6 rounded-full transition-colors shrink-0 ${draft.tailleSystemsEnabled !== false ? 'bg-emerald-500' : 'bg-slate-300'}`}
+                            title={draft.tailleSystemsEnabled !== false ? 'Désactiver' : 'Activer'}
                         >
-                            <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white dark:bg-dk-surface rounded-full shadow transition-transform ${settings.tailleSystemsEnabled !== false ? 'translate-x-5' : ''}`} />
+                            <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white dark:bg-dk-surface rounded-full shadow transition-transform ${draft.tailleSystemsEnabled !== false ? 'translate-x-5' : ''}`} />
                         </button>
                     </div>
 
-                    {settings.tailleSystemsEnabled === false ? (
+                    {draft.tailleSystemsEnabled === false ? (
                         <p className="text-sm text-slate-400 dark:text-dk-muted italic text-center py-6 bg-slate-50 dark:bg-dk-bg rounded-lg border border-dashed border-slate-200 dark:border-dk-border">
                             {tx(lang, { fr: 'Fonctionnalité désactivée. Activez-la pour définir des systèmes de tailles.', ar: 'الميزة موقوفة. فعّلها للتعريف بأنظمة المقاسات.', en: 'Feature disabled. Enable it to define size systems.', es: 'Funcionalidad desactivada. Actívela para definir sistemas de tallas.', pt: 'Funcionalidade desativada. Ative-a para definir sistemas de tamanhos.', tr: 'Özellik devre dışı. Beden sistemlerini tanımlamak için etkinleştirin.' })}
                         </p>
@@ -1198,9 +1240,9 @@ export default function Configuration({ settings, setSettings, lang, machines, n
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                         <p className="text-sm text-slate-500 dark:text-dk-muted font-medium">Définissez les systèmes de tailles de l'usine : alpha (S/M/L), numérique (36-44), en gros (sans tailles) ou personnalisé.</p>
                         <div className="flex items-center gap-2 shrink-0">
-                            {(settings.tailleSystems || []).length === 0 && (
+                            {(draft.tailleSystems || []).length === 0 && (
                                 <button
-                                    onClick={() => setSettings(prev => ({ ...prev, tailleSystems: [
+                                    onClick={() => setDraft(prev => ({ ...prev, tailleSystems: [
                                         { id: 'sys_alpha', label: 'Alpha', mode: 'alpha', sizes: ['S', 'M', 'L', 'XL', 'XXL'] },
                                         { id: 'sys_num', label: 'Numérique', mode: 'numerique', sizes: ['36', '38', '40', '42', '44'] },
                                         { id: 'sys_gros', label: 'En gros', mode: 'gros', sizes: [] },
@@ -1211,7 +1253,7 @@ export default function Configuration({ settings, setSettings, lang, machines, n
                                 </button>
                             )}
                             <button
-                                onClick={() => setSettings(prev => ({ ...prev, tailleSystems: [...(prev.tailleSystems || []), { id: Date.now().toString(), label: '', mode: 'alpha', sizes: [] }] }))}
+                                onClick={() => setDraft(prev => ({ ...prev, tailleSystems: [...(prev.tailleSystems || []), { id: Date.now().toString(), label: '', mode: 'alpha', sizes: [] }] }))}
                                 className="text-xs font-bold bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text flex items-center gap-1 hover:text-indigo-700 dark:text-dk-accent-text hover:bg-indigo-100 px-3 py-1.5 rounded-lg transition-colors border border-indigo-100"
                             >
                                 <Plus className="w-3.5 h-3.5" /> Ajouter un système
@@ -1219,13 +1261,13 @@ export default function Configuration({ settings, setSettings, lang, machines, n
                         </div>
                     </div>
 
-                    {(settings.tailleSystems || []).map(sys => (
+                    {(draft.tailleSystems || []).map(sys => (
                         <div key={sys.id} className="flex flex-col sm:flex-row sm:items-end gap-3 bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl p-3">
                             <div className="flex-1">
                                 <label className="block text-[11px] font-black text-slate-500 dark:text-dk-muted mb-1">{tx(lang, { fr: 'Nom', ar: 'الاسم', en: 'Name', es: 'Nombre', pt: 'Nome', tr: 'Ad' })}</label>
                                 <input
                                     value={sys.label}
-                                    onChange={e => setSettings(prev => ({ ...prev, tailleSystems: (prev.tailleSystems || []).map(s => s.id === sys.id ? { ...s, label: e.target.value } : s) }))}
+                                    onChange={e => setDraft(prev => ({ ...prev, tailleSystems: (prev.tailleSystems || []).map(s => s.id === sys.id ? { ...s, label: e.target.value } : s) }))}
                                     placeholder={tx(lang, { fr: 'ex: Alpha', ar: 'مثال: ألفا', en: 'e.g., Alpha', es: 'ej: Alpha', pt: 'ex: Alpha', tr: 'örn: Alfa' })}
                                     className="w-full bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-lg px-3 py-2 text-sm font-bold outline-none focus:border-indigo-500"
                                 />
@@ -1234,7 +1276,7 @@ export default function Configuration({ settings, setSettings, lang, machines, n
                                 <label className="block text-[11px] font-black text-slate-500 dark:text-dk-muted mb-1">{tx(lang, { fr: 'Type', ar: 'النوع', en: 'Type', es: 'Tipo', pt: 'Tipo', tr: 'Tür' })}</label>
                                 <select
                                     value={sys.mode}
-                                    onChange={e => { const mode = e.target.value as 'alpha' | 'numerique' | 'gros' | 'custom'; setSettings(prev => ({ ...prev, tailleSystems: (prev.tailleSystems || []).map(s => s.id === sys.id ? { ...s, mode, sizes: mode === 'gros' ? [] : s.sizes } : s) })); }}
+                                    onChange={e => { const mode = e.target.value as 'alpha' | 'numerique' | 'gros' | 'custom'; setDraft(prev => ({ ...prev, tailleSystems: (prev.tailleSystems || []).map(s => s.id === sys.id ? { ...s, mode, sizes: mode === 'gros' ? [] : s.sizes } : s) })); }}
                                     className="bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-lg px-3 py-2 text-sm font-bold outline-none focus:border-indigo-500"
                                 >
                                     <option value="alpha">{tx(lang, { fr: 'Alpha (S/M/L)', ar: 'ألفا (S/M/L)', en: 'Alpha (S/M/L)', es: 'Alfa (S/M/L)', pt: 'Alfa (S/M/L)', tr: 'Alfa (S/M/L)' })}</option>
@@ -1248,13 +1290,13 @@ export default function Configuration({ settings, setSettings, lang, machines, n
                                 <input
                                     disabled={sys.mode === 'gros'}
                                     value={sys.sizes.join(' ')}
-                                    onChange={e => setSettings(prev => ({ ...prev, tailleSystems: (prev.tailleSystems || []).map(s => s.id === sys.id ? { ...s, sizes: e.target.value.trim().split(/\s+/).filter(Boolean) } : s) }))}
+                                    onChange={e => setDraft(prev => ({ ...prev, tailleSystems: (prev.tailleSystems || []).map(s => s.id === sys.id ? { ...s, sizes: e.target.value.trim().split(/\s+/).filter(Boolean) } : s) }))}
                                     placeholder={sys.mode === 'gros' ? tx(lang, { fr: '— aucune taille —', ar: '— بدون مقاسات —', en: '— no sizes —', es: '— sin tallas —', pt: '— sem tamanhos —', tr: '— beden yok —' }) : 'S M L XL XXL'}
                                     className="w-full bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-lg px-3 py-2 text-sm font-bold outline-none focus:border-indigo-500 disabled:bg-slate-100 disabled:text-slate-400"
                                 />
                             </div>
                             <button
-                                onClick={() => setSettings(prev => ({ ...prev, tailleSystems: (prev.tailleSystems || []).filter(s => s.id !== sys.id) }))}
+                                onClick={() => setDraft(prev => ({ ...prev, tailleSystems: (prev.tailleSystems || []).filter(s => s.id !== sys.id) }))}
                                 className="p-2 text-rose-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/30 border border-transparent hover:border-rose-100 rounded-lg transition-colors shrink-0"
                                 title={tx(lang, { fr: 'Supprimer ce système', ar: 'حذف هذا النظام', en: 'Delete this system', es: 'Eliminar este sistema', pt: 'Eliminar este sistema', tr: 'Bu sistemi sil' })}
                             >
@@ -1263,7 +1305,7 @@ export default function Configuration({ settings, setSettings, lang, machines, n
                         </div>
                     ))}
 
-                    {(settings.tailleSystems || []).length === 0 && (
+                    {(draft.tailleSystems || []).length === 0 && (
                         <p className="text-sm text-slate-500 dark:text-dk-muted italic text-center py-4 bg-slate-50 dark:bg-dk-bg rounded-lg border border-dashed border-slate-200 dark:border-dk-border">{tx(lang, { fr: 'Aucun système de tailles défini.', ar: 'لا يوجد أي نظام مقاسات معرف.', en: 'No size system defined.', es: 'Ningún sistema de tallas definido.', pt: 'Nenhum sistema de tamanhos definido.', tr: 'Beden sistemi tanımlanmamış.' })}</p>
                     )}
                     </>
@@ -1294,28 +1336,28 @@ export default function Configuration({ settings, setSettings, lang, machines, n
                                     <p className="text-sm text-slate-500 dark:text-dk-muted mt-0.5 font-medium">{tx(lang, { fr: 'Direction, administration, pointeurs, chronométreurs...', ar: 'الإدارة، الإشراف، مراقبو الوقت...', en: 'Management, administration, timekeepers...', es: 'Dirección, administración, cronometradores...', pt: 'Direção, administração, cronometristas...', tr: 'Yönetim, idare, zaman hakemleri...' })}</p>
                                 </div>
                             </div>
-                            <button onClick={() => setSettings(prev => ({ ...prev, organigram: [...(prev.organigram || []), { id: Date.now().toString(), name: '', role: '' }] }))} className="w-full sm:w-auto text-sm font-bold bg-white dark:bg-dk-surface text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text flex items-center justify-center gap-2 hover:text-indigo-700 dark:text-dk-accent-text hover:bg-indigo-50 dark:bg-dk-accent/20 px-5 py-2.5 rounded-xl transition-all border border-slate-200 dark:border-dk-border shadow-sm dark:shadow-dk-sm active:scale-95">
+                            <button onClick={() => setDraft(prev => ({ ...prev, organigram: [...(prev.organigram || []), { id: Date.now().toString(), name: '', role: '' }] }))} className="w-full sm:w-auto text-sm font-bold bg-white dark:bg-dk-surface text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text flex items-center justify-center gap-2 hover:text-indigo-700 dark:text-dk-accent-text hover:bg-indigo-50 dark:bg-dk-accent/20 px-5 py-2.5 rounded-xl transition-all border border-slate-200 dark:border-dk-border shadow-sm dark:shadow-dk-sm active:scale-95">
                                 <Plus className="w-4 h-4" /> {tx(lang, { fr: 'Ajouter Un Membre', ar: 'إضافة عضو', en: 'Add a Member', es: 'Añadir un miembro', pt: 'Adicionar um membro', tr: 'Üye Ekle' })}
                             </button>
                         </div>
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                            {(settings.organigram || []).map((person) => (
+                            {(draft.organigram || []).map((person) => (
                                 <div key={person.id} className="flex flex-col gap-3 bg-white dark:bg-dk-surface p-5 rounded-2xl border border-slate-200 dark:border-dk-border hover:border-blue-300 hover:shadow-md dark:hover:shadow-dk-md transition-all relative group overflow-hidden">
                                     <div className="absolute top-0 left-0 w-1 h-full bg-blue-500 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                                    <button onClick={() => setSettings(prev => ({ ...prev, organigram: prev.organigram.filter(p => p.id !== person.id) }))} className="absolute top-3 right-3 p-1.5 bg-rose-50 dark:bg-rose-900/30 text-rose-500 hover:text-rose-600 hover:bg-rose-100 rounded-lg shadow-sm dark:shadow-dk-sm border border-rose-100 opacity-0 group-hover:opacity-100 transition-all active:scale-90" title={tx(lang, { fr: 'Supprimer', ar: 'حذف', en: 'Delete', es: 'Eliminar', pt: 'Excluir', tr: 'Sil' })}>
+                                    <button onClick={() => setDraft(prev => ({ ...prev, organigram: prev.organigram.filter(p => p.id !== person.id) }))} className="absolute top-3 right-3 p-1.5 bg-rose-50 dark:bg-rose-900/30 text-rose-500 hover:text-rose-600 hover:bg-rose-100 rounded-lg shadow-sm dark:shadow-dk-sm border border-rose-100 opacity-0 group-hover:opacity-100 transition-all active:scale-90" title={tx(lang, { fr: 'Supprimer', ar: 'حذف', en: 'Delete', es: 'Eliminar', pt: 'Excluir', tr: 'Sil' })}>
                                         <Trash2 className="w-3.5 h-3.5" />
                                     </button>
                                     <div>
                                         <label className="text-[10px] uppercase font-bold text-slate-400 dark:text-dk-muted mb-1 block">{tx(lang, { fr: 'Nom Complet', ar: 'الاسم الكامل', en: 'Full Name', es: 'Nombre Completo', pt: 'Nome Completo', tr: 'Tam Ad' })}</label>
-                                        <input type="text" value={person.name} onChange={(e) => setSettings(prev => ({ ...prev, organigram: prev.organigram.map(p => p.id === person.id ? { ...p, name: e.target.value } : p) }))} className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2 outline-none focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-100 text-sm font-bold text-slate-800 dark:text-dk-text placeholder:text-slate-300 transition-all font-sans" placeholder={tx(lang, { fr: 'ex: Ahmed', ar: 'مثال: أحمد', en: 'e.g., Ahmed', es: 'ej: Ahmed', pt: 'ex: Ahmed', tr: 'örn: Ahmed' })} />
+                                        <input type="text" value={person.name} onChange={(e) => setDraft(prev => ({ ...prev, organigram: prev.organigram.map(p => p.id === person.id ? { ...p, name: e.target.value } : p) }))} className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2 outline-none focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-100 text-sm font-bold text-slate-800 dark:text-dk-text placeholder:text-slate-300 transition-all font-sans" placeholder={tx(lang, { fr: 'ex: Ahmed', ar: 'مثال: أحمد', en: 'e.g., Ahmed', es: 'ej: Ahmed', pt: 'ex: Ahmed', tr: 'örn: Ahmed' })} />
                                     </div>
                                     <div>
                                         <label className="text-[10px] uppercase font-bold text-slate-400 dark:text-dk-muted mb-1 block">{tx(lang, { fr: 'Rôle / Poste', ar: 'الدور / المنصب', en: 'Role / Position', es: 'Rol / Puesto', pt: 'Função / Cargo', tr: 'Rol / Pozisyon' })}</label>
-                                        <input type="text" value={person.role} onChange={(e) => setSettings(prev => ({ ...prev, organigram: prev.organigram.map(p => p.id === person.id ? { ...p, role: e.target.value } : p) }))} className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2 outline-none focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-100 text-sm font-medium text-slate-600 dark:text-dk-text-soft placeholder:text-slate-300 transition-all" placeholder={tx(lang, { fr: 'ex: Directeur', ar: 'مثال: مدير', en: 'e.g., Director', es: 'ej: Director', pt: 'ex: Diretor', tr: 'örn: Müdür' })} />
+                                        <input type="text" value={person.role} onChange={(e) => setDraft(prev => ({ ...prev, organigram: prev.organigram.map(p => p.id === person.id ? { ...p, role: e.target.value } : p) }))} className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2 outline-none focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-100 text-sm font-medium text-slate-600 dark:text-dk-text-soft placeholder:text-slate-300 transition-all" placeholder={tx(lang, { fr: 'ex: Directeur', ar: 'مثال: مدير', en: 'e.g., Director', es: 'ej: Director', pt: 'ex: Diretor', tr: 'örn: Müdür' })} />
                                     </div>
                                 </div>
                             ))}
-                            {(!settings.organigram || settings.organigram.length === 0) && (
+                            {(!draft.organigram || draft.organigram.length === 0) && (
                                 <div className="sm:col-span-2 lg:col-span-3 xl:col-span-4 p-8 border-2 border-dashed border-slate-200 dark:border-dk-border rounded-3xl text-center flex flex-col items-center justify-center gap-3 bg-slate-50 dark:bg-dk-bg">
                                     <Shield className="w-10 h-10 text-slate-300 dark:text-dk-muted" />
                                     <span className="text-slate-500 dark:text-dk-muted font-bold text-sm">{tx(lang, { fr: 'Aucun responsable général défini.', ar: 'لا يوجد أي مسؤول عام معرف.', en: 'No supervisor defined.', es: 'Ningún responsable general definido.', pt: 'Nenhum responsável geral definido.', tr: 'Hiçbir yönetici tanımlanmamış.' })}</span>
@@ -1336,7 +1378,7 @@ export default function Configuration({ settings, setSettings, lang, machines, n
                                 <p className="text-sm text-indigo-700 dark:text-dk-accent-text/70 font-medium">Modifier ce nombre mettra à jour l'usine numérique (Effet immédiat sur Suivi, Planning, Effectifs).</p>
                             </div>
                             <div className="relative w-40 shrink-0">
-                                <input type="number" min="1" max="50" name="chainsCount" value={settings.chainsCount !== undefined ? settings.chainsCount : 4} onChange={handleChange} className="w-full bg-white dark:bg-dk-surface border-2 border-indigo-200 rounded-xl pl-12 pr-4 py-3 outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/20 font-black text-xl text-indigo-900 dark:text-indigo-300 transition-all" />
+                                <input type="number" min="1" max="50" name="chainsCount" value={draft.chainsCount !== undefined ? draft.chainsCount : 4} onChange={handleChange} className="w-full bg-white dark:bg-dk-surface border-2 border-indigo-200 rounded-xl pl-12 pr-4 py-3 outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/20 font-black text-xl text-indigo-900 dark:text-indigo-300 transition-all" />
                                 <Building className="w-6 h-6 text-indigo-400 absolute left-4 top-3.5" />
                             </div>
                         </div>
@@ -1353,18 +1395,18 @@ export default function Configuration({ settings, setSettings, lang, machines, n
                         </div>
 
                         <div className="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3 gap-6">
-                            {Array.from({ length: settings.chainsCount || 4 }).map((_, i) => {
+                            {Array.from({ length: draft.chainsCount || 4 }).map((_, i) => {
                                 const chainKey = `CHAINE ${i + 1}`;
-                                const staff = settings.chainStaff?.[chainKey] || [];
+                                const staff = draft.chainStaff?.[chainKey] || [];
                                 return (
                                     <div key={chainKey} className="bg-white dark:bg-dk-surface border-2 border-slate-100 dark:border-dk-border rounded-3xl overflow-hidden shadow-sm dark:shadow-dk-sm hover:border-emerald-200 transition-colors flex flex-col">
-                                        <div className="bg-emerald-50 dark:bg-emerald-900/30/50 px-5 py-4 flex flex-col sm:flex-row sm:items-center justify-between border-b border-emerald-100 gap-3">
+                                        <div className="bg-emerald-50 dark:bg-emerald-900/50 px-5 py-4 flex flex-col sm:flex-row sm:items-center justify-between border-b border-emerald-100 gap-3">
                                             <div className="flex items-center gap-3">
                                                 <div className="w-8 h-8 rounded-xl bg-white dark:bg-dk-surface border border-emerald-200 shadow-sm dark:shadow-dk-sm flex items-center justify-center text-emerald-600 dark:text-emerald-400 font-black text-sm">{i + 1}</div>
                                                 <input
                                                     type="text"
-                                                    value={settings.chainNames?.[chainKey] || chainKey}
-                                                    onChange={(e) => setSettings(prev => ({
+                                                    value={draft.chainNames?.[chainKey] || chainKey}
+                                                    onChange={(e) => setDraft(prev => ({
                                                         ...prev,
                                                         chainNames: { ...(prev.chainNames || {}), [chainKey]: e.target.value || chainKey }
                                                     }))}
@@ -1372,7 +1414,7 @@ export default function Configuration({ settings, setSettings, lang, machines, n
                                                     placeholder={tx(lang, { fr: 'Nom de la chaîne...', ar: 'اسم الخط...', en: 'Chain name...', es: 'Nombre de la cadena...', pt: 'Nome da cadeia...', tr: 'Hat adı...' })}
                                                 />
                                             </div>
-                                            <button onClick={() => setSettings(prev => ({
+                                            <button onClick={() => setDraft(prev => ({
                                                 ...prev,
                                                 chainStaff: {
                                                     ...(prev.chainStaff || {}),
@@ -1388,12 +1430,12 @@ export default function Configuration({ settings, setSettings, lang, machines, n
                                                     {staff.map((person) => (
                                                         <div key={person.id} className="flex flex-col sm:flex-row items-center gap-3 group relative bg-slate-50 dark:bg-dk-bg p-3 rounded-2xl border border-slate-100 dark:border-dk-border hover:border-emerald-200 transition-colors">
                                                             <div className="flex-1 w-full">
-                                                                <input type="text" value={person.name} onChange={(e) => setSettings(prev => ({ ...prev, chainStaff: { ...prev.chainStaff, [chainKey]: prev.chainStaff[chainKey].map(p => p.id === person.id ? { ...p, name: e.target.value } : p) } }))} className="w-full bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-xl px-4 py-2.5 outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 text-sm font-bold text-slate-700 dark:text-dk-text-soft transition-all" placeholder={tx(lang, { fr: 'Nom Complet', ar: 'الاسم الكامل', en: 'Full Name', es: 'Nombre Completo', pt: 'Nome Completo', tr: 'Tam Ad' })} />
+                                                                <input type="text" value={person.name} onChange={(e) => setDraft(prev => ({ ...prev, chainStaff: { ...prev.chainStaff, [chainKey]: prev.chainStaff[chainKey].map(p => p.id === person.id ? { ...p, name: e.target.value } : p) } }))} className="w-full bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-xl px-4 py-2.5 outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 text-sm font-bold text-slate-700 dark:text-dk-text-soft transition-all" placeholder={tx(lang, { fr: 'Nom Complet', ar: 'الاسم الكامل', en: 'Full Name', es: 'Nombre Completo', pt: 'Nome Completo', tr: 'Tam Ad' })} />
                                                             </div>
                                                             <div className="flex-1 w-full">
-                                                                <input type="text" value={person.role} onChange={(e) => setSettings(prev => ({ ...prev, chainStaff: { ...prev.chainStaff, [chainKey]: prev.chainStaff[chainKey].map(p => p.id === person.id ? { ...p, role: e.target.value } : p) } }))} className="w-full bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-xl px-4 py-2.5 outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 text-sm font-medium text-slate-600 dark:text-dk-text-soft transition-all" placeholder={tx(lang, { fr: 'Rôle (ex: Qualité)', ar: 'الدور (مثال: الجودة)', en: 'Role (ex: Quality)', es: 'Rol (ej: Calidad)', pt: 'Função (ex: Qualidade)', tr: 'Rol (örn: Kalite)' })} />
+                                                                <input type="text" value={person.role} onChange={(e) => setDraft(prev => ({ ...prev, chainStaff: { ...prev.chainStaff, [chainKey]: prev.chainStaff[chainKey].map(p => p.id === person.id ? { ...p, role: e.target.value } : p) } }))} className="w-full bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-xl px-4 py-2.5 outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 text-sm font-medium text-slate-600 dark:text-dk-text-soft transition-all" placeholder={tx(lang, { fr: 'Rôle (ex: Qualité)', ar: 'الدور (مثال: الجودة)', en: 'Role (ex: Quality)', es: 'Rol (ej: Calidad)', pt: 'Função (ex: Qualidade)', tr: 'Rol (örn: Kalite)' })} />
                                                             </div>
-                                                             <button onClick={() => setSettings(prev => ({ ...prev, chainStaff: { ...prev.chainStaff, [chainKey]: prev.chainStaff[chainKey].filter(p => p.id !== person.id) } }))} className="w-full sm:w-10 sm:h-10 text-rose-400 hover:text-rose-600 bg-white dark:bg-dk-surface hover:bg-rose-50 dark:hover:bg-rose-900/30 rounded-xl border border-slate-200 dark:border-dk-border hover:border-rose-300 shadow-sm dark:shadow-dk-sm transition-all focus:outline-none shrink-0 flex items-center justify-center active:scale-90 py-2 sm:py-0" title={tx(lang, { fr: 'Supprimer', ar: 'حذف', en: 'Delete', es: 'Eliminar', pt: 'Excluir', tr: 'Sil' })}>
+                                                             <button onClick={() => setDraft(prev => ({ ...prev, chainStaff: { ...prev.chainStaff, [chainKey]: prev.chainStaff[chainKey].filter(p => p.id !== person.id) } }))} className="w-full sm:w-10 sm:h-10 text-rose-400 hover:text-rose-600 bg-white dark:bg-dk-surface hover:bg-rose-50 dark:hover:bg-rose-900/30 rounded-xl border border-slate-200 dark:border-dk-border hover:border-rose-300 shadow-sm dark:shadow-dk-sm transition-all focus:outline-none shrink-0 flex items-center justify-center active:scale-90 py-2 sm:py-0" title={tx(lang, { fr: 'Supprimer', ar: 'حذف', en: 'Delete', es: 'Eliminar', pt: 'Excluir', tr: 'Sil' })}>
                                                                 <Trash2 className="w-4 h-4" />
                                                             </button>
                                                         </div>
@@ -1438,13 +1480,13 @@ export default function Configuration({ settings, setSettings, lang, machines, n
                             </div>
                         </div>
                         <div className="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3 gap-6">
-                            {Array.from({ length: settings.chainsCount || 4 }).map((_, i) => {
+                            {Array.from({ length: draft.chainsCount || 4 }).map((_, i) => {
                                 const chainKey = `CHAINE ${i + 1}`;
                                 const baseIds = machines.filter(isMachineOperational).map(m => m.id);
-                                const explicit = settings.chainMachines?.[chainKey];
+                                const explicit = draft.chainMachines?.[chainKey];
                                 const selected =
                                     explicit != null && explicit.length > 0 ? explicit.filter(id => baseIds.includes(id)) : baseIds;
-                                const chainDisplayName = settings.chainNames?.[chainKey] || chainKey;
+                                const chainDisplayName = draft.chainNames?.[chainKey] || chainKey;
                                 return (
                                     <div
                                         key={`cm-${chainKey}`}
@@ -1455,7 +1497,7 @@ export default function Configuration({ settings, setSettings, lang, machines, n
                                             <button
                                                 type="button"
                                                 onClick={() =>
-                                                    setSettings(prev => {
+                                                    setDraft(prev => {
                                                         const cm = { ...(prev.chainMachines || {}) };
                                                         delete cm[chainKey];
                                                         const keys = Object.keys(cm);
@@ -1489,7 +1531,7 @@ export default function Configuration({ settings, setSettings, lang, machines, n
                                                                 disabled={!usable}
                                                                 onChange={() => {
                                                                     if (!usable) return;
-                                                                    setSettings(prev => {
+                                                                    setDraft(prev => {
                                                                         const b = machines.filter(isMachineOperational).map(x => x.id);
                                                                         const cur =
                                                                             prev.chainMachines?.[chainKey]?.length
@@ -1559,8 +1601,8 @@ export default function Configuration({ settings, setSettings, lang, machines, n
                                         type="radio"
                                         name="capacityMode"
                                         value="STATIC"
-                                        checked={(settings.capacityMode || 'STATIC') === 'STATIC'}
-                                        onChange={() => setSettings(prev => ({ ...prev, capacityMode: 'STATIC' }))}
+                                        checked={(draft.capacityMode || 'STATIC') === 'STATIC'}
+                                        onChange={() => setDraft(prev => ({ ...prev, capacityMode: 'STATIC' }))}
                                         className="text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text focus:ring-indigo-500"
                                     />
                                     <span>{t.apsModeStatic}</span>
@@ -1570,8 +1612,8 @@ export default function Configuration({ settings, setSettings, lang, machines, n
                                         type="radio"
                                         name="capacityMode"
                                         value="DYNAMIC"
-                                        checked={settings.capacityMode === 'DYNAMIC'}
-                                        onChange={() => setSettings(prev => ({ ...prev, capacityMode: 'DYNAMIC' }))}
+                                        checked={draft.capacityMode === 'DYNAMIC'}
+                                        onChange={() => setDraft(prev => ({ ...prev, capacityMode: 'DYNAMIC' }))}
                                         className="text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text focus:ring-indigo-500"
                                     />
                                     <span>{t.apsModeDynamic}</span>
@@ -1586,10 +1628,10 @@ export default function Configuration({ settings, setSettings, lang, machines, n
                             </label>
                             <input
                                 type="number"
-                                value={settings.overtimeCostPerHour ?? 25}
+                                value={draft.overtimeCostPerHour ?? 25}
                                 onChange={e => {
                                     const val = parseFloat(e.target.value) || 0;
-                                    setSettings(prev => ({ ...prev, overtimeCostPerHour: val }));
+                                    setDraft(prev => ({ ...prev, overtimeCostPerHour: val }));
                                 }}
                                 className="w-full bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-xl px-4 py-2.5 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 text-sm font-bold text-slate-700 dark:text-dk-text-soft transition-all"
                                 min={0}
@@ -1603,10 +1645,10 @@ export default function Configuration({ settings, setSettings, lang, machines, n
                             </label>
                             <input
                                 type="number"
-                                value={settings.subcontractDefaultCostPerPiece ?? 15}
+                                value={draft.subcontractDefaultCostPerPiece ?? 15}
                                 onChange={e => {
                                     const val = parseFloat(e.target.value) || 0;
-                                    setSettings(prev => ({ ...prev, subcontractDefaultCostPerPiece: val }));
+                                    setDraft(prev => ({ ...prev, subcontractDefaultCostPerPiece: val }));
                                 }}
                                 className="w-full bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-xl px-4 py-2.5 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 text-sm font-bold text-slate-700 dark:text-dk-text-soft transition-all"
                                 min={0}
@@ -1629,11 +1671,11 @@ export default function Configuration({ settings, setSettings, lang, machines, n
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-100 dark:divide-dk-border text-sm font-medium text-slate-700 dark:text-dk-text-soft">
-                                    {Array.from({ length: settings.chainsCount || 4 }).map((_, i) => {
+                                    {Array.from({ length: draft.chainsCount || 4 }).map((_, i) => {
                                         const chainKey = `CHAINE ${i + 1}`;
-                                        const chainDisplayName = settings.chainNames?.[chainKey] || chainKey;
-                                        const operators = settings.chainOperators?.[chainKey] ?? 30;
-                                        const rate = settings.chainActivityRate?.[chainKey] ?? 0.85;
+                                        const chainDisplayName = draft.chainNames?.[chainKey] || chainKey;
+                                        const operators = draft.chainOperators?.[chainKey] ?? 30;
+                                        const rate = draft.chainActivityRate?.[chainKey] ?? 0.85;
 
                                         return (
                                             <tr key={chainKey} className="hover:bg-slate-50/50 dark:hover:bg-dk-elevated/60">
@@ -1644,7 +1686,7 @@ export default function Configuration({ settings, setSettings, lang, machines, n
                                                         value={operators}
                                                         onChange={e => {
                                                             const val = parseInt(e.target.value, 10) || 0;
-                                                            setSettings(prev => ({
+                                                            setDraft(prev => ({
                                                                 ...prev,
                                                                 chainOperators: {
                                                                     ...(prev.chainOperators || {}),
@@ -1663,7 +1705,7 @@ export default function Configuration({ settings, setSettings, lang, machines, n
                                                         value={rate}
                                                         onChange={e => {
                                                             const val = parseFloat(e.target.value) || 0;
-                                                            setSettings(prev => ({
+                                                            setDraft(prev => ({
                                                                 ...prev,
                                                                 chainActivityRate: {
                                                                     ...(prev.chainActivityRate || {}),
@@ -1972,13 +2014,13 @@ export default function Configuration({ settings, setSettings, lang, machines, n
                             >
                                 <option value="">{tx(lang, { fr: 'Choisir un responsable...', ar: 'اختر مسؤولاً...', en: 'Choose a person...', es: 'Elegir un responsable...', pt: 'Escolher um responsável...', tr: 'Bir sorumlu seçin...' })}</option>
                                 <optgroup label={tx(lang, { fr: 'Direction', ar: 'الإدارة', en: 'Management', es: 'Dirección', pt: 'Direção', tr: 'Yönetim' })}>
-                                    {settings.organigram?.map(p => (
+                                    {draft.organigram?.map(p => (
                                         <option key={p.id} value={`${p.name}|${p.role}`}>{p.name} ({p.role})</option>
                                     ))}
                                 </optgroup>
-                                {Array.from({ length: settings.chainsCount || 4 }).map((_, i) => {
+                                {Array.from({ length: draft.chainsCount || 4 }).map((_, i) => {
                                     const chainKey = `CHAINE ${i + 1}`;
-                                    const staff = settings.chainStaff?.[chainKey] || [];
+                                    const staff = draft.chainStaff?.[chainKey] || [];
                                     if (staff.length === 0) return null;
                                     return (
                                         <optgroup key={chainKey} label={chainKey}>
@@ -2001,12 +2043,12 @@ export default function Configuration({ settings, setSettings, lang, machines, n
 
                     {/* Tasks List (Admin View) */}
                     <div className="space-y-3 mt-6">
-                        <h3 className="text-sm font-bold text-slate-700 dark:text-dk-text-soft mb-4">{tx(lang, { fr: 'Toutes les tâches', ar: 'جميع المهام', en: 'All tasks', es: 'Todas las tareas', pt: 'Todas as tarefas', tr: 'Tüm görevler' })} ({settings.tasks?.length || 0})</h3>
-                        {(!settings.tasks || settings.tasks.length === 0) && (
+                        <h3 className="text-sm font-bold text-slate-700 dark:text-dk-text-soft mb-4">{tx(lang, { fr: 'Toutes les tâches', ar: 'جميع المهام', en: 'All tasks', es: 'Todas las tareas', pt: 'Todas as tarefas', tr: 'Tüm görevler' })} ({draft.tasks?.length || 0})</h3>
+                        {(!draft.tasks || draft.tasks.length === 0) && (
                             <p className="text-sm text-slate-500 dark:text-dk-muted italic bg-white dark:bg-dk-surface p-4 rounded-xl border border-dashed border-slate-200 dark:border-dk-border text-center">{tx(lang, { fr: 'Aucune tâche active.', ar: 'لا توجد أي مهمة نشطة.', en: 'No active task.', es: 'Ninguna tarea activa.', pt: 'Nenhuma tarefa ativa.', tr: 'Aktif görev yok.' })}</p>
                         )}
                         <div className="max-h-96 overflow-y-auto pr-2 custom-scrollbar space-y-2">
-                            {settings.tasks?.slice().reverse().map(task => (
+                            {draft.tasks?.slice().reverse().map(task => (
                                 <div key={task.id} className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border p-3 rounded-xl gap-4 hover:border-indigo-200 transition-colors group">
                                     <div className="flex-1">
                                         <div className="flex items-center gap-2 mb-1">
@@ -2058,7 +2100,7 @@ export default function Configuration({ settings, setSettings, lang, machines, n
                 <LicenseActivation lang={lang === 'ar' ? 'ar' : 'fr'} />
             </div>
 
-            <AgendaModal isOpen={showAgenda} onClose={() => setShowAgenda(false)} settings={settings} setSettings={setSettings} lang={lang} />
+            <AgendaModal isOpen={showAgenda} onClose={() => setShowAgenda(false)} settings={draft} setSettings={setDraft} lang={lang} />
         </div >
     );
 }

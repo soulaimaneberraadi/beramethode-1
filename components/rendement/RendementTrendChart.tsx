@@ -85,6 +85,7 @@ export default function RendementTrendChart({ data }: Props) {
               />
               <Area
                 type="monotone"
+                isAnimationActive={false}
                 dataKey="rPercent"
                 name={tx(lang, { fr: 'R%', ar: 'العائد%' })}
                 stroke="#6366f1"
@@ -96,6 +97,7 @@ export default function RendementTrendChart({ data }: Props) {
               />
               <Area
                 type="monotone"
+                isAnimationActive={false}
                 dataKey="trs"
                 name="TRS"
                 stroke="#f59e0b"

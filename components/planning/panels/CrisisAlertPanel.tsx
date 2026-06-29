@@ -246,7 +246,7 @@ export default function CrisisAlertPanel({
     };
 
     return (
-        <div className="shrink-0 border-b border-red-100 dark:border-red-900/30 bg-red-50 dark:bg-red-900/30/20 dark:bg-red-900/10">
+        <div className="shrink-0 border-b border-red-100 dark:border-red-900/30 bg-red-50 dark:bg-red-900/20 dark:bg-red-900/10">
             <button
                 type="button"
                 onClick={() => setExpanded(v => !v)}

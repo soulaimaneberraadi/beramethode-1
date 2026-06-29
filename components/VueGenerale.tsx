@@ -295,21 +295,21 @@ export default function VueGenerale({
 
               {/* Status Breakdown */}
               <div className="space-y-2.5">
-                <div className="flex items-center justify-between px-3 py-2.5 rounded-xl bg-emerald-50 dark:bg-emerald-900/30/50 dark:bg-dk-surface border border-emerald-100/50 dark:border-dk-border">
+                <div className="flex items-center justify-between px-3 py-2.5 rounded-xl bg-emerald-50 dark:bg-emerald-900/50 dark:bg-dk-surface border border-emerald-100/50 dark:border-dk-border">
                   <div className="flex items-center gap-2">
                     <div className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
                     <span className="text-[11px] font-semibold text-slate-600 dark:text-dk-text-soft">{tx(lang, { fr: 'Opérationnelles', ar: 'تعمل بشكل سليم', en: 'Operational', es: 'Operativas', pt: 'Operacionais', tr: 'Çalışır Durumda' })}</span>
                   </div>
                   <span className="text-sm font-bold text-emerald-700 dark:text-dk-accent-text">{okMachines}</span>
                 </div>
-                <div className="flex items-center justify-between px-3 py-2.5 rounded-xl bg-rose-50 dark:bg-rose-900/30/50 dark:bg-dk-surface border border-rose-100/50 dark:border-dk-border">
+                <div className="flex items-center justify-between px-3 py-2.5 rounded-xl bg-rose-50 dark:bg-rose-900/50 dark:bg-dk-surface border border-rose-100/50 dark:border-dk-border">
                   <div className="flex items-center gap-2">
                     <div className="w-2.5 h-2.5 rounded-full bg-rose-500" />
                     <span className="text-[11px] font-semibold text-slate-600 dark:text-dk-text-soft">{tx(lang, { fr: 'En Panne', ar: 'معطلة', en: 'Broken Down', es: 'Averiadas', pt: 'Com Defeito', tr: 'Arızalı' })}</span>
                   </div>
                   <span className="text-sm font-bold text-rose-700 dark:text-dk-text">{panneMachines}</span>
                 </div>
-                <div className="flex items-center justify-between px-3 py-2.5 rounded-xl bg-amber-50 dark:bg-amber-900/30/50 dark:bg-dk-surface border border-amber-100/50 dark:border-dk-border">
+                <div className="flex items-center justify-between px-3 py-2.5 rounded-xl bg-amber-50 dark:bg-amber-900/50 dark:bg-dk-surface border border-amber-100/50 dark:border-dk-border">
                   <div className="flex items-center gap-2">
                     <div className="w-2.5 h-2.5 rounded-full bg-amber-500" />
                     <span className="text-[11px] font-semibold text-slate-600 dark:text-dk-text-soft">{tx(lang, { fr: 'Maintenance', ar: 'الصيانة', en: 'Maintenance', es: 'Mantenimiento', pt: 'Manutenção', tr: 'Bakım' })}</span>

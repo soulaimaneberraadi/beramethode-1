@@ -13,6 +13,7 @@ import DateTimePicker from './ui/DateTimePicker';
 import { DEFAULT_CALENDAR_APP_SETTINGS } from '../lib/defaultCalendarSettings';
 import { tx } from '../lib/i18n';
 import { useLang } from '../src/context/LanguageContext';
+import { useIsDark } from '../src/context/ThemeContext';
 
 interface Props {
     models: ModelData[];
@@ -100,6 +101,7 @@ export default function SuiviProduction({
 }: Props) {
     // 1. Core States
     const { lang } = useLang();
+    const isDark = useIsDark();
     const isMobile = useIsMobile();
     const [localSelectedChaineId, localSetSelectedChaineId] = useState<string>('CHAINE 1');
     const selectedChaineId = propSelectedChaineId !== undefined ? propSelectedChaineId : localSelectedChaineId;
@@ -1057,7 +1059,7 @@ export default function SuiviProduction({
                 <div className="flex flex-wrap items-center gap-1.5 sm:gap-3">
                     
                     {activeModels.length > 0 ? (
-                        <div className="relative flex items-center gap-2 bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 dark:bg-indigo-900/30/50 border border-indigo-100 dark:border-indigo-800/50 rounded-xl px-3 py-1.5 shadow-sm dark:shadow-dk-sm">
+                        <div className="relative flex items-center gap-2 bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 dark:bg-indigo-900/50 border border-indigo-100 dark:border-indigo-800/50 rounded-xl px-3 py-1.5 shadow-sm dark:shadow-dk-sm">
                             <span className="text-[10px] font-black text-indigo-700 dark:text-dk-accent-text dark:text-indigo-300 dark:text-indigo-200 uppercase tracking-widest">
                                 {l.activeModel} :
                             </span>
@@ -1198,14 +1200,14 @@ export default function SuiviProduction({
                     )}
 
                     {/* Chain Picker */}
-                    <div className="bg-slate-100 dark:bg-dk-elevated/60/80 p-0.5 rounded-xl border border-slate-200 dark:border-dk-border/50 flex gap-0.5 overflow-x-auto max-w-[280px] sm:max-w-[400px] md:max-w-md no-scrollbar">
+                    <div className="bg-slate-100 dark:bg-dk-elevated/80 p-0.5 rounded-xl border border-slate-200 dark:border-dk-border/50 flex gap-0.5 overflow-x-auto max-w-[280px] sm:max-w-[400px] md:max-w-md no-scrollbar">
                         {chainsList.map(cId => (
                             <button
                                 key={cId}
                                 onClick={() => setSelectedChaineId(cId)}
                                 className={`px-3.5 py-1.5 rounded-lg text-xs font-black transition-all shrink-0 ${
                                     selectedChaineId === cId
-                                        ? 'bg-white dark:bg-dk-surface text-indigo-900 dark:text-indigo-200 shadow-sm dark:shadow-dk-sm border border-indigo-100 dark:border-indigo-800/50/50'
+                                        ? 'bg-white dark:bg-dk-surface text-indigo-900 dark:text-indigo-200 shadow-sm dark:shadow-dk-sm border border-indigo-100 dark:border-indigo-800/50'
                                         : 'text-slate-500 dark:text-dk-muted hover:text-slate-900'
                                     }`}
                             >
@@ -1401,12 +1403,12 @@ export default function SuiviProduction({
                         <table className="w-full text-left border-collapse min-w-[1300px] sm:min-w-[1700px]">
                             <thead>
                                 <tr className="border-b border-slate-100 dark:border-dk-border/60 bg-slate-50 dark:bg-dk-bg/50">
-                                    <th className="py-4 px-4 text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-dk-muted w-28 sticky left-0 bg-slate-50 dark:bg-dk-bg z-20 border-r border-slate-100 dark:border-dk-border/60/50 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]">{l.date}</th>
-                                    <th className="py-4 px-4 text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-dk-muted w-24 sticky left-[112px] bg-slate-50 dark:bg-dk-bg z-20 border-r border-slate-100 dark:border-dk-border/60/50 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]">{l.day}</th>
+                                    <th className="py-4 px-4 text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-dk-muted w-28 sticky left-0 bg-slate-50 dark:bg-dk-bg z-20 border-r border-slate-100 dark:border-dk-border/50 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]">{l.date}</th>
+                                    <th className="py-4 px-4 text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-dk-muted w-24 sticky left-[112px] bg-slate-50 dark:bg-dk-bg z-20 border-r border-slate-100 dark:border-dk-border/50 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]">{l.day}</th>
                                     
                                     {/* Hour Headers (Dynamic Shift hours) */}
                                     {hourBlocks.map(h => (
-                                        <th key={h.key} className="py-4 px-2 text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-dk-muted text-center w-28 border-r border-slate-100 dark:border-dk-border/60/50">
+                                        <th key={h.key} className="py-4 px-2 text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-dk-muted text-center w-28 border-r border-slate-100 dark:border-dk-border/50">
                                             {h.label}
                                         </th>
                                     ))}
@@ -1426,7 +1428,7 @@ export default function SuiviProduction({
                                     const metrics = getDailyMetrics(day.dateStr);
  
                                     return (
-                                        <tr key={day.dateStr} className={`hover:bg-slate-50 dark:hover:bg-dk-elevated/60 transition-colors ${selectedChartDate === day.dateStr ? 'bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 dark:bg-indigo-900/30/20' : ''}`}>
+                                        <tr key={day.dateStr} className={`hover:bg-slate-50 dark:hover:bg-dk-elevated/60 transition-colors ${selectedChartDate === day.dateStr ? 'bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 dark:bg-indigo-900/20' : ''}`}>
                                             {/* Date */}
                                              <td className={`py-4 px-4 font-mono text-xs text-slate-500 dark:text-dk-muted font-bold sticky left-0 z-10 border-r border-slate-100 dark:border-dk-border/60 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)] ${selectedChartDate === day.dateStr ? 'bg-[#f4f6fe] dark:bg-dk-elevated' : 'bg-white dark:bg-dk-surface'}`}>
                                                 <div className="flex items-center gap-2">
@@ -1451,10 +1453,10 @@ export default function SuiviProduction({
                                                 const cellStyle = (() => {
                                                     if (cell?.downtime) {
                                                         const dt = cell.downtime;
-                                                        if (dt === 'L') return { backgroundColor: '#f1f5f9', color: '#475569', borderColor: '#cbd5e1' };
-                                                        if (dt === 'P') return { backgroundColor: '#eff6ff', color: '#1d4ed8', borderColor: '#bfdbfe' };
-                                                        if (dt === 'M') return { backgroundColor: '#fef2f2', color: '#b91c1c', borderColor: '#fecaca', fontWeight: 'bold' };
-                                                        if (dt === 'S') return { backgroundColor: '#fffbeb', color: '#b45309', borderColor: '#fde68a', fontWeight: 'bold' };
+                                                        if (dt === 'L') return isDark ? { backgroundColor: '#1c1c1c', color: '#94A3B8', borderColor: '#2E463C' } : { backgroundColor: '#f1f5f9', color: '#475569', borderColor: '#cbd5e1' };
+                                                        if (dt === 'P') return isDark ? { backgroundColor: '#1a2a3d', color: '#60A5FA', borderColor: '#1e3a5f' } : { backgroundColor: '#eff6ff', color: '#1d4ed8', borderColor: '#bfdbfe' };
+                                                        if (dt === 'M') return isDark ? { backgroundColor: '#3d1a1a', color: '#F87171', borderColor: '#5f1e1e', fontWeight: 'bold' } : { backgroundColor: '#fef2f2', color: '#b91c1c', borderColor: '#fecaca', fontWeight: 'bold' };
+                                                        if (dt === 'S') return isDark ? { backgroundColor: '#3d2e1a', color: '#fbbf24', borderColor: '#78350f', fontWeight: 'bold' } : { backgroundColor: '#fffbeb', color: '#b45309', borderColor: '#fde68a', fontWeight: 'bold' };
                                                     }
                                                     if (cell?.model) {
                                                         return { backgroundColor: cell.model.style.bg, color: cell.model.style.text, borderColor: cell.model.style.border };
@@ -1783,7 +1785,7 @@ export default function SuiviProduction({
                                 </div>
                             </div>
 
-                            <div className="mt-4 flex items-center justify-between bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 dark:bg-indigo-900/30/50 border border-indigo-100 dark:border-indigo-800/50 rounded-2xl p-4">
+                            <div className="mt-4 flex items-center justify-between bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 dark:bg-indigo-900/50 border border-indigo-100 dark:border-indigo-800/50 rounded-2xl p-4">
                                 <div>
                                     <span className="text-[9px] font-black text-indigo-700 dark:text-dk-accent-text dark:text-indigo-300 dark:text-indigo-200 uppercase tracking-widest block">{tx(lang, {fr: 'TRS Score', ar: 'نقاط TRS', en: 'TRS Score', es: 'Puntaje TRS', pt: 'Pontuação TRS', tr: 'TRS Puanı'})}</span>
                                     <span className="text-3xl font-black text-indigo-800 dark:text-indigo-200 block mt-1 tabular-nums">{activeChartMetrics.oee}%</span>
@@ -1822,11 +1824,11 @@ export default function SuiviProduction({
                                             label = 'P';
                                             tooltipText = `${h.label}: Pause (15m)`;
                                         } else if (dt === 'M') {
-                                            bgClass = 'bg-rose-50 dark:bg-rose-900/300/20 text-rose-700 dark:text-rose-300 border border-rose-300 dark:border-rose-800/30 animate-pulse';
+                                            bgClass = 'bg-rose-50 dark:bg-rose-900/20 text-rose-700 dark:text-rose-300 border border-rose-300 dark:border-rose-800/30 animate-pulse';
                                             label = tx(lang, { fr: 'Panne', ar: 'عطل', en: 'Breakdown', es: 'Avería', pt: 'Avaria', tr: 'Arıza' });
                                             tooltipText = `${h.label}: Panne (30m)`;
                                         } else if (dt === 'S') {
-                                            bgClass = 'bg-amber-50 dark:bg-amber-900/300/20 text-amber-700 dark:text-amber-300 border border-amber-300 dark:border-amber-800/30';
+                                            bgClass = 'bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 border border-amber-300 dark:border-amber-800/30';
                                             label = tx(lang, { fr: 'Rupt.', ar: 'انقطاع', en: 'Shortage', es: 'Rupt.', pt: 'Rupt.', tr: 'Kesinti' });
                                             tooltipText = `${h.label}: Rupture appro (45m)`;
                                         } else if (qty > 0) {
@@ -2001,8 +2003,8 @@ export default function SuiviProduction({
                                                     <div 
                                                         className={`p-2 rounded-xl border text-left min-w-[110px] max-w-[130px] relative transition-all duration-200 hover:shadow-sm dark:hover:shadow-dk-sm ${
                                                             isMissing 
-                                                                ? 'bg-rose-50 dark:bg-rose-900/30/50 border-rose-200 dark:border-rose-800 ring-1 ring-rose-500/10' 
-                                                                : 'bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 dark:bg-indigo-900/30/20 border-slate-100 dark:border-dk-border/60 hover:border-indigo-200 dark:border-indigo-800'
+                                                                ? 'bg-rose-50 dark:bg-rose-900/50 border-rose-200 dark:border-rose-800 ring-1 ring-rose-500/10' 
+                                                                : 'bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 dark:bg-indigo-900/20 border-slate-100 dark:border-dk-border/60 hover:border-indigo-200 dark:border-indigo-800'
                                                         }`}
                                                     >
                                                         <span className="absolute -top-1.5 -left-1.5 w-4 h-4 rounded-full bg-slate-100 dark:bg-dk-elevated/60 border border-slate-200 dark:border-dk-border flex items-center justify-center text-[8px] font-black text-slate-500 dark:text-dk-muted shadow-sm dark:shadow-dk-sm">
@@ -2488,7 +2490,7 @@ function StatusChangeModal({
                                     className={`flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-xs transition-all text-left ${
                                         isSelected 
                                             ? 'bg-slate-950 dark:bg-dk-bg text-white shadow-md dark:shadow-dk-md scale-[1.01]' 
-                                            : 'bg-slate-50 dark:bg-dk-bg hover:bg-slate-100 text-slate-700 dark:text-dk-text-soft dark:text-dk-text border border-slate-100 dark:border-dk-border/60/80'
+                                            : 'bg-slate-50 dark:bg-dk-bg hover:bg-slate-100 text-slate-700 dark:text-dk-text-soft dark:text-dk-text border border-slate-100 dark:border-dk-border/80'
                                     }`}
                                 >
                                     <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: isSelected ? '#E2E8F0' : s.color }} />

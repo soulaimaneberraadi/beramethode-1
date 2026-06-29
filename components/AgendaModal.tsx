@@ -542,7 +542,7 @@ export default function AgendaModal({ isOpen, onClose, settings, setSettings, la
                             } else {
                                 bgClass = hasException
                                     ? 'bg-rose-100 border-rose-500 text-rose-900 shadow-md dark:shadow-dk-md shadow-rose-100 font-black'
-                                    : 'bg-rose-50 dark:bg-rose-900/30/60 border-rose-100 text-rose-400 hover:bg-rose-50 hover:border-rose-200';
+                                    : 'bg-rose-50 dark:bg-rose-900/60 border-rose-100 text-rose-400 hover:bg-rose-50 hover:border-rose-200';
                             }
 
                             if (isSelected) bgClass += ' ring-2 ring-indigo-500 ring-offset-1 shadow-md dark:shadow-dk-md scale-105 z-10';

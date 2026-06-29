@@ -913,7 +913,7 @@ export default function StockExport({ models, suivis, planningEvents = [], setMo
                                                     <tr className="bg-slate-50 dark:bg-dk-bg border-b border-slate-200 dark:border-dk-border text-[10px] uppercase tracking-wider text-slate-500 dark:text-dk-muted font-black">
                                                             <th className="p-2 md:p-3 lg:px-6">{tx(lang,{fr:"H",ar:"س",en:"H",es:"H",pt:"H",tr:"S"})}</th>
                                                             {cols.map(c => <th key={c} className="p-2 md:p-3 lg:px-6 text-center">{c}</th>)}
-                                                            <th className="p-2 md:p-3 lg:px-6 text-center bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20/40 text-indigo-700 dark:text-dk-accent-text">{tx(lang,{fr:"Tot",ar:"المجموع",en:"Tot",es:"Tot",pt:"Tot",tr:"Top"})}</th>
+                                                            <th className="p-2 md:p-3 lg:px-6 text-center bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/40 text-indigo-700 dark:text-dk-accent-text">{tx(lang,{fr:"Tot",ar:"المجموع",en:"Tot",es:"Tot",pt:"Tot",tr:"Top"})}</th>
                                                     </tr>
                                                 </thead>
                                                 <tbody>
@@ -1011,10 +1011,10 @@ export default function StockExport({ models, suivis, planningEvents = [], setMo
                                             <span className="hidden md:inline">{tx(lang,{fr:"Tailles —",ar:"المقاسات —",en:"Sizes —",es:"Tallas —",pt:"Tamanhos —",tr:"Bedenler —"})} {activeTab === 'finition' ? tx(lang,{fr:"sortie finition",ar:"مخرجات التشطيب",en:"finishing output",es:"salida acabado",pt:"saída acabamento",tr:"bitirme çıktısı"}) : tx(lang,{fr:"reçu dépôt",ar:"الوارد للمستودع",en:"received at deposit",es:"recibido depósito",pt:"recebido depósito",tr:"depoya alınan"})}</span>
                                             <span className="md:hidden">{tx(lang,{fr:"Tailles",ar:"المقاسات",en:"Sizes",es:"Tallas",pt:"Tamanhos",tr:"Bedenler"})}</span>
                                         </th>
-                                        {activeTab === 'finition' && <th className="p-3 text-center bg-rose-50 dark:bg-rose-900/30/40 text-rose-700">{tx(lang,{fr:"Défauts",ar:"العيوب",en:"Defects",es:"Defectos",pt:"Defeitos",tr:"Kusurlar"})}</th>}
-                                        <th className="p-3 text-center bg-amber-50 dark:bg-amber-900/30/40 text-amber-700">{tx(lang, {fr: 'WIP', ar: 'تحت التصنيع', en: 'WIP', es: 'PEP', pt: 'PEP', tr: 'YÜ'})}</th>
-                                        <th className="p-3 text-center bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20/40 text-indigo-700 dark:text-dk-accent-text">{activeTab === 'finition' ? tx(lang,{fr:"Cumul",ar:"الإجمالي",en:"Total",es:"Acumulado",pt:"Acumulado",tr:"Toplam"}) : tx(lang,{fr:"Dépôt",ar:"المستودع",en:"Deposit",es:"Depósito",pt:"Depósito",tr:"Depo"})}</th>
-                                        <th className="p-3 text-center bg-emerald-50 dark:bg-emerald-900/30/40 text-emerald-700">{tx(lang,{fr:"Reste",ar:"المتبقي",en:"Remaining",es:"Restante",pt:"Restante",tr:"Kalan"})}</th>
+                                        {activeTab === 'finition' && <th className="p-3 text-center bg-rose-50 dark:bg-rose-900/40 text-rose-700">{tx(lang,{fr:"Défauts",ar:"العيوب",en:"Defects",es:"Defectos",pt:"Defeitos",tr:"Kusurlar"})}</th>}
+                                        <th className="p-3 text-center bg-amber-50 dark:bg-amber-900/40 text-amber-700">{tx(lang, {fr: 'WIP', ar: 'تحت التصنيع', en: 'WIP', es: 'PEP', pt: 'PEP', tr: 'YÜ'})}</th>
+                                        <th className="p-3 text-center bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/40 text-indigo-700 dark:text-dk-accent-text">{activeTab === 'finition' ? tx(lang,{fr:"Cumul",ar:"الإجمالي",en:"Total",es:"Acumulado",pt:"Acumulado",tr:"Toplam"}) : tx(lang,{fr:"Dépôt",ar:"المستودع",en:"Deposit",es:"Depósito",pt:"Depósito",tr:"Depo"})}</th>
+                                        <th className="p-3 text-center bg-emerald-50 dark:bg-emerald-900/40 text-emerald-700">{tx(lang,{fr:"Reste",ar:"المتبقي",en:"Remaining",es:"Restante",pt:"Restante",tr:"Kalan"})}</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -1064,22 +1064,22 @@ export default function StockExport({ models, suivis, planningEvents = [], setMo
                                                     )}
                                                 </td>
                                                 {activeTab === 'finition' && (
-                                                    <td className="p-2 text-center bg-rose-50 dark:bg-rose-900/30/20">
+                                                    <td className="p-2 text-center bg-rose-50 dark:bg-rose-900/20">
                                                         <input
                                                             type="number"
                                                             value={getDefautsToday(model)}
                                                             onChange={(e) => handleUpdateDefauts(model, Math.max(0, parseInt(e.target.value) || 0))}
                                                             placeholder="0"
-                                                            className="w-12 md:w-14 text-center font-bold text-xs bg-rose-50 dark:bg-rose-900/30/50 border border-rose-100 rounded-lg py-2 md:py-1 focus:bg-white focus:border-rose-400 outline-none transition-all text-rose-700"
+                                                            className="w-12 md:w-14 text-center font-bold text-xs bg-rose-50 dark:bg-rose-900/50 border border-rose-100 rounded-lg py-2 md:py-1 focus:bg-white focus:border-rose-400 outline-none transition-all text-rose-700"
                                                         />
                                                         {getModelDefauts(model) > 0 && (
                                                             <div className="text-[9px] text-rose-500 font-bold mt-0.5">{tx(lang,{fr:"cumul",ar:"الإجمالي",en:"total",es:"acum.",pt:"acum.",tr:"toplam"})} {getModelDefauts(model).toLocaleString()}</div>
                                                         )}
                                                     </td>
                                                 )}
-                                                <td className="p-3 text-center font-bold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30/20">{wip.toLocaleString()}</td>
-                                                <td className="p-3 text-center font-black text-sm text-indigo-700 dark:text-dk-accent-text bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20/30">{cumul.toLocaleString()}</td>
-                                                <td className="p-3 text-center bg-emerald-50 dark:bg-emerald-900/30/30">
+                                                <td className="p-3 text-center font-bold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20">{wip.toLocaleString()}</td>
+                                                <td className="p-3 text-center font-black text-sm text-indigo-700 dark:text-dk-accent-text bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/30">{cumul.toLocaleString()}</td>
+                                                <td className="p-3 text-center bg-emerald-50 dark:bg-emerald-900/30">
                                                     <div className={`font-black text-sm ${atRisk ? 'text-rose-700' : 'text-emerald-700'}`}>{reste.toLocaleString()} pcs</div>
                                                     {days !== null && (
                                                         <div className={`text-[10px] font-bold ${days < 0 ? 'text-rose-600 dark:text-rose-400' : (atRisk || tight) ? 'text-amber-600 dark:text-amber-400' : 'text-slate-500 dark:text-dk-muted'}`}>
@@ -1225,7 +1225,7 @@ export default function StockExport({ models, suivis, planningEvents = [], setMo
                                                             <td className="p-3 md:p-4 font-bold text-xs text-slate-600 dark:text-dk-text-soft text-center hidden lg:table-cell">
                                                                 {agg.unitPrice.toFixed(2)}
                                                             </td>
-                                                            <td className="p-3 md:p-4 font-black text-xs text-emerald-700 bg-emerald-50 dark:bg-emerald-900/30/30 text-center hidden lg:table-cell">
+                                                            <td className="p-3 md:p-4 font-black text-xs text-emerald-700 bg-emerald-50 dark:bg-emerald-900/30 text-center hidden lg:table-cell">
                                                                 {agg.stockValue.toLocaleString()}
                                                             </td>
                                                         </>

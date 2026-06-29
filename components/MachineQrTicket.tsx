@@ -5,6 +5,7 @@ import type { CompanyProfile, Machine } from '../types';
 import { buildMachineQrPayload } from '../lib/machineQrPayload';
 import { tx } from '../lib/i18n';
 import { useLang } from '../src/context/LanguageContext';
+import { useIsDark } from '../src/context/ThemeContext';
 
 function formatAddress(p: CompanyProfile): string | null {
   const parts = [
@@ -16,9 +17,9 @@ function formatAddress(p: CompanyProfile): string | null {
 
 function getStatusTranslations(lang: string) {
   return {
-    PANNE: { label: tx(lang,{fr:'Panne',ar:'عطل',en:'Breakdown',es:'Avería',pt:'Avaria',tr:'Arıza'}), color: '#ef4444', bg: '#fef2f2', dot: '#ef4444' },
-    MAINT: { label: tx(lang,{fr:'Maintenance',ar:'صيانة',en:'Maintenance',es:'Mantenimiento',pt:'Manutenção',tr:'Bakım'}), color: '#d97706', bg: '#fffbeb', dot: '#d97706' },
-    default: { label: tx(lang,{fr:'Opérationnel',ar:'جاهز',en:'Operational',es:'Operativo',pt:'Operacional',tr:'Çalışır'}), color: '#16a34a', bg: '#f0fdf4', dot: '#16a34a' },
+    PANNE: { label: tx(lang,{fr:'Panne',ar:'عطل',en:'Breakdown',es:'Avería',pt:'Avaria',tr:'Arıza'}), color: '#ef4444', bg: '#fef2f2', darkBg: '#3d1a1a', dot: '#ef4444' },
+    MAINT: { label: tx(lang,{fr:'Maintenance',ar:'صيانة',en:'Maintenance',es:'Mantenimiento',pt:'Manutenção',tr:'Bakım'}), color: '#d97706', bg: '#fffbeb', darkBg: '#3d2e1a', dot: '#d97706' },
+    default: { label: tx(lang,{fr:'Opérationnel',ar:'جاهز',en:'Operational',es:'Operativo',pt:'Operacional',tr:'Çalışır'}), color: '#16a34a', bg: '#f0fdf4', darkBg: '#1a3a2a', dot: '#16a34a' },
   };
 }
 
@@ -179,6 +180,7 @@ export function MachineQrTicket({
 }) {
   const qrRef  = useRef<HTMLDivElement>(null);
   const { lang } = useLang();
+  const isDark = useIsDark();
   const displayName = (companyProfile.companyName || companyProfile.legalName || '').trim() || 'BERAMETHODE';
   const addressLine  = formatAddress(companyProfile);
   const phone        = (companyProfile.phone || '').trim();
@@ -281,7 +283,7 @@ export function MachineQrTicket({
                 </div>
                 <div
                   className="flex items-center gap-1 shrink-0 rounded-full px-2 py-0.5 border text-[7px] font-black uppercase tracking-wide"
-                  style={{ background: st.bg, borderColor: st.dot, color: st.color }}
+                  style={{ background: isDark ? st.darkBg : st.bg, borderColor: st.dot, color: st.color }}
                 >
                   <span className="w-1.5 h-1.5 rounded-full" style={{ background: st.dot }} />
                   {st.label}

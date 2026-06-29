@@ -2596,8 +2596,8 @@ export default function Implantation({
 
     const renderStationCard = (station: Workstation, isGrid = false, isMini = false) => {
         const color = station.color; const isVide = station.machine === 'VIDE'; const timeInSeconds = Math.round(station.totalTime * 60); const hasNotes = station.notes && station.notes.trim().length > 0; const hasOperator = station.operatorName && station.operatorName.trim().length > 0; const isOverridden = station.timeOverride !== undefined; const mySimIndex = station.index - 1; const isActive = !isMini && simStep === mySimIndex; const isPassed = simStep > mySimIndex; const isControl = station.machine.toUpperCase().includes('CONTROLE'); const isFer = station.machine.toUpperCase().includes('FER') || station.machine.toUpperCase().includes('REPASSAGE'); const isFinition = station.machine.toUpperCase().includes('FINITION'); const isBroken = station.notes?.includes('#PANNE');
-        let bodyBgClass = 'bg-white dark:bg-dk-surface/10 backdrop-blur-sm'; if (isControl) bodyBgClass = 'bg-orange-50 dark:bg-orange-900/30/30 backdrop-blur-sm'; if (isFer) bodyBgClass = 'bg-rose-50 dark:bg-rose-900/30/30 backdrop-blur-sm'; if (isFinition) bodyBgClass = 'bg-purple-50 dark:bg-purple-900/30/30 backdrop-blur-sm'; const isSpecial = isControl || isFer || isFinition;
-        const isFeeder = station.isFeeder; if (isFeeder) bodyBgClass = 'bg-blue-50 dark:bg-blue-900/30/60';
+        let bodyBgClass = 'bg-white dark:bg-dk-surface/10 backdrop-blur-sm'; if (isControl) bodyBgClass = 'bg-orange-50 dark:bg-orange-900/30 backdrop-blur-sm'; if (isFer) bodyBgClass = 'bg-rose-50 dark:bg-rose-900/30 backdrop-blur-sm'; if (isFinition) bodyBgClass = 'bg-purple-50 dark:bg-purple-900/30 backdrop-blur-sm'; const isSpecial = isControl || isFer || isFinition;
+        const isFeeder = station.isFeeder; if (isFeeder) bodyBgClass = 'bg-blue-50 dark:bg-blue-900/60';
         const isSwapSource = swapSourceId === station.id; const isSwapTarget = swapSourceId && swapSourceId !== station.id; const isLinkSource = linkSource === station.id; const isLinkTargetCandidate = isLinking && linkSource && linkSource !== station.id;
         const cardHeightClass = isGrid ? 'min-h-[140px]' : (isMini ? 'min-h-[80px]' : 'h-full min-h-[140px]'); const cardWidthClass = isMini ? 'w-full' : (isGrid ? 'w-full' : 'w-44 sm:w-48 shrink-0');
 
@@ -2683,10 +2683,10 @@ export default function Implantation({
                 onMouseEnter={() => !isMini && setHoveredStationIndex(station.index)}
                 onMouseLeave={() => !isMini && setHoveredStationIndex(null)}
                 style={opacityStyle}
-                className={`relative rounded-xl overflow-hidden group shadow-[0_4px_16px_rgb(0,0,0,0.03)] z-10 ${cardWidthClass} ${cardHeightClass} ${canEdit && isManualMode && !isLinking && layoutType !== 'free' && !isSpacePressed ? 'hover:-translate-y-1 hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)]' : ''} ${cursorClass} ${isActive ? 'ring-4 ring-emerald-400 border-emerald-500 scale-105 shadow-xl dark:shadow-dk-elevated z-20' : isLinkSource ? 'ring-4 ring-indigo-500 border-indigo-600 scale-105 shadow-xl dark:shadow-dk-elevated z-20 animate-pulse' : isLinkTargetCandidate ? 'cursor-pointer hover:ring-4 hover:ring-indigo-300 hover:border-indigo-400' : isSwapSource ? 'ring-4 ring-indigo-500 border-indigo-600 scale-105 shadow-xl dark:shadow-dk-elevated z-20' : isSwapTarget ? 'cursor-pointer hover:ring-4 hover:ring-indigo-300 hover:border-indigo-400' : isPassed ? 'border-emerald-200 opacity-90' : (isMini ? color.border : color.border)} ${isBroken ? 'ring-2 ring-rose-500 border-rose-600 bg-rose-50 dark:bg-rose-900/30/90' : ''} ${miniCardStyle} ${hoverTraceClass} transition-all duration-300 flex flex-col select-none`}
+                className={`relative rounded-xl overflow-hidden group shadow-[0_4px_16px_rgb(0,0,0,0.03)] z-10 ${cardWidthClass} ${cardHeightClass} ${canEdit && isManualMode && !isLinking && layoutType !== 'free' && !isSpacePressed ? 'hover:-translate-y-1 hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)]' : ''} ${cursorClass} ${isActive ? 'ring-4 ring-emerald-400 border-emerald-500 scale-105 shadow-xl dark:shadow-dk-elevated z-20' : isLinkSource ? 'ring-4 ring-indigo-500 border-indigo-600 scale-105 shadow-xl dark:shadow-dk-elevated z-20 animate-pulse' : isLinkTargetCandidate ? 'cursor-pointer hover:ring-4 hover:ring-indigo-300 hover:border-indigo-400' : isSwapSource ? 'ring-4 ring-indigo-500 border-indigo-600 scale-105 shadow-xl dark:shadow-dk-elevated z-20' : isSwapTarget ? 'cursor-pointer hover:ring-4 hover:ring-indigo-300 hover:border-indigo-400' : isPassed ? 'border-emerald-200 opacity-90' : (isMini ? color.border : color.border)} ${isBroken ? 'ring-2 ring-rose-500 border-rose-600 bg-rose-50 dark:bg-rose-900/90' : ''} ${miniCardStyle} ${hoverTraceClass} transition-all duration-300 flex flex-col select-none`}
             >
                 <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${isActive ? 'bg-emerald-500' : (isBroken ? 'bg-rose-500' : color.fill)}`}></div>
-                <div className={`px-2 pl-3 py-1.5 flex justify-between items-center ${isActive ? 'bg-emerald-500/90 ' : (isPassed ? 'bg-emerald-50 dark:bg-emerald-900/30/90 ' : (isMini ? color.bg : color.bg + '/90 '))} border-b ${isActive ? 'border-emerald-600' : color.border} transition-colors duration-500 relative`}>
+                <div className={`px-2 pl-3 py-1.5 flex justify-between items-center ${isActive ? 'bg-emerald-500/90 ' : (isPassed ? 'bg-emerald-50 dark:bg-emerald-900/90 ' : (isMini ? color.bg : color.bg + '/90 '))} border-b ${isActive ? 'border-emerald-600' : color.border} transition-colors duration-500 relative`}>
                     {isOverridden && <div className="absolute top-1 right-1 w-2 h-2 rounded-full bg-purple-500 ring-1 ring-white animate-pulse" title={tx(lang,{fr:'Temps Forcé',ar:'وقت إجباري',en:'Forced Time',es:'Tiempo Forzado',pt:'Tempo Forçado',tr:'Zorunlu Süre'})}></div>}
                     {isBroken && <div className="absolute top-1 right-3 w-3 h-3 text-rose-600 dark:text-rose-400 animate-pulse"><AlertTriangle className="w-3 h-3 fill-current" /></div>}
                     <div className="flex items-center gap-1.5">
@@ -2776,7 +2776,7 @@ export default function Implantation({
                 </div>
 
                 {/* BF / MIN TOTALES */}
-                <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-50 dark:bg-emerald-900/30/50 rounded-lg border border-emerald-100 shrink-0">
+                <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-50 dark:bg-emerald-900/50 rounded-lg border border-emerald-100 shrink-0">
                     <div className="flex flex-col items-center border-r border-emerald-100 pr-3 mr-3">
                         <span className="text-[9px] font-bold text-emerald-600 dark:text-emerald-400 uppercase flex items-center gap-1"><Zap className="w-3 h-3" /> BF (s)</span>
                         <span className="font-black text-emerald-700 text-sm">{(bf * 60).toFixed(1)}</span>
@@ -2788,7 +2788,7 @@ export default function Implantation({
                 </div>
 
                 {/* P/H 100% */}
-                <div className="flex flex-col items-center px-3 py-1.5 bg-orange-50 dark:bg-orange-900/30/50 rounded-lg border border-orange-100 shrink-0">
+                <div className="flex flex-col items-center px-3 py-1.5 bg-orange-50 dark:bg-orange-900/50 rounded-lg border border-orange-100 shrink-0">
                     <span className="text-[9px] font-bold text-orange-400 uppercase">P/H (100%)</span>
                     <span className="font-black text-orange-500 text-sm leading-none mt-1">{Math.round(prodHour100)}</span>
                 </div>
@@ -2810,7 +2810,7 @@ export default function Implantation({
                 </div>
 
                 {/* RENDU */}
-                <div className="flex flex-col items-center px-3 py-1.5 bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20/50 rounded-lg border border-indigo-100 shrink-0">
+                <div className="flex flex-col items-center px-3 py-1.5 bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/50 rounded-lg border border-indigo-100 shrink-0">
                     <span className="text-[9px] font-bold text-indigo-400 uppercase">{tx(lang,{fr:'% Rendu',ar:'% الإنتاجية',en:'% Yield',es:'% Rendimiento',pt:'% Rendimento',tr:'% Verim'})}</span>
                     <div className="flex items-baseline gap-0.5">
                         <input
@@ -2826,7 +2826,7 @@ export default function Implantation({
 
                 {/* TOLÉRANCE SATURATION */}
                 {setFicheData && (
-                    <div className="flex flex-col items-center px-3 py-1.5 bg-rose-50 dark:bg-rose-900/30/50 rounded-lg border border-rose-100 shrink-0">
+                    <div className="flex flex-col items-center px-3 py-1.5 bg-rose-50 dark:bg-rose-900/50 rounded-lg border border-rose-100 shrink-0">
                         <span className="text-[9px] font-bold text-rose-400 uppercase">{tx(lang,{fr:'Tolérance',ar:'التسامح',en:'Tolerance',es:'Tolerancia',pt:'Tolerância',tr:'Tolerans'})}</span>
                         <div className="flex items-baseline gap-0.5">
                             <input
@@ -3299,7 +3299,7 @@ export default function Implantation({
                                                                             </div>
                                                                         </div>
                                                                     ) : shape === 'zone' ? (
-                                                                        <div className="w-48 h-32 border-2 border-dashed border-indigo-300 bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20/30 rounded-xl flex items-center justify-center pointer-events-none">
+                                                                        <div className="w-48 h-32 border-2 border-dashed border-indigo-300 bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/30 rounded-xl flex items-center justify-center pointer-events-none">
                                                                             <span className="text-xs font-bold text-indigo-400 uppercase tracking-widest">{tx(lang,{fr:'Zone',ar:'منطقة',en:'Zone',es:'Zona',pt:'Zona',tr:'Bölge'})} {st.name}</span>
                                                                         </div>
                                                                     ) : (
@@ -4080,7 +4080,7 @@ export default function Implantation({
                                     setPrintOrientationModal(false);
                                     printPlanTable('landscape');
                                 }} 
-                                className="w-full py-3 px-4 rounded-xl border-2 border-indigo-100 bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20/50 text-indigo-700 dark:text-dk-accent-text font-bold hover:bg-indigo-50 dark:bg-dk-accent/20 hover:border-indigo-200 transition-colors text-xs flex items-center justify-between"
+                                className="w-full py-3 px-4 rounded-xl border-2 border-indigo-100 bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/50 text-indigo-700 dark:text-dk-accent-text font-bold hover:bg-indigo-50 dark:bg-dk-accent/20 hover:border-indigo-200 transition-colors text-xs flex items-center justify-between"
                             >
                                 <span className="flex flex-col items-start text-left">
                                     <span className="font-black text-sm">{tx(lang,{fr:'Paysage (Horizontal)',ar:'أفقي',en:'Landscape (Horizontal)',es:'Horizontal (Paisaje)',pt:'Paisagem (Horizontal)',tr:'Yatay'})}</span>
@@ -4166,7 +4166,7 @@ export default function Implantation({
                                         onClick={() => setExportSettings({ ...exportSettings, pageSize: 'single' })}
                                         className={`p-3 rounded-xl border-2 transition-all flex flex-col items-center gap-1.5 text-center ${
                                             exportSettings.pageSize === 'single'
-                                                ? 'border-indigo-600 bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20/30 text-indigo-700 dark:text-dk-accent-text font-bold'
+                                                ? 'border-indigo-600 bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/30 text-indigo-700 dark:text-dk-accent-text font-bold'
                                                 : 'border-slate-200 dark:border-dk-border hover:border-slate-300 text-slate-500 hover:text-slate-700'
                                         }`}
                                     >
@@ -4178,7 +4178,7 @@ export default function Implantation({
                                         onClick={() => setExportSettings({ ...exportSettings, pageSize: 'a4' })}
                                         className={`p-3 rounded-xl border-2 transition-all flex flex-col items-center gap-1.5 text-center ${
                                             exportSettings.pageSize === 'a4'
-                                                ? 'border-indigo-600 bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20/30 text-indigo-700 dark:text-dk-accent-text font-bold'
+                                                ? 'border-indigo-600 bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/30 text-indigo-700 dark:text-dk-accent-text font-bold'
                                                 : 'border-slate-200 dark:border-dk-border hover:border-slate-300 text-slate-500 hover:text-slate-700'
                                         }`}
                                     >

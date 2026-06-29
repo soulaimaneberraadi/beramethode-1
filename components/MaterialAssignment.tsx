@@ -159,7 +159,7 @@ const MaterialAssignment: React.FC<MaterialAssignmentProps> = ({
                         return (
                             <div key={m.id}
                                 className={`border rounded-xl p-4 transition-all duration-150 ${isAssigned
-                                    ? 'border-indigo-100 bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20/30'
+                                    ? 'border-indigo-100 bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/30'
                                     : 'border-slate-100 dark:border-dk-border bg-white dark:bg-dk-surface hover:border-slate-200'}`}>
 
                                 {/* Material Header */}

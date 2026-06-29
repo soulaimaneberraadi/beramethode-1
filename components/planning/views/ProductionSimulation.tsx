@@ -421,7 +421,7 @@ export default function ProductionSimulation({
                                     }}
                                     className={`w-full text-left p-2.5 rounded-lg text-xs border transition-all flex items-center justify-between ${
                                         selectedEventId === ''
-                                            ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-900/30/30 text-emerald-950 font-semibold'
+                                            ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-950 font-semibold'
                                             : 'border-slate-100 dark:border-dk-border hover:bg-slate-50 dark:hover:bg-dk-elevated/60 text-slate-700 dark:text-dk-text-soft'
                                     }`}
                                 >
@@ -820,7 +820,7 @@ export default function ProductionSimulation({
                                     )}
 
                                     {/* 3. Sous-traitance */}
-                                    <div className="border border-rose-100 dark:border-rose-900/40 rounded-xl p-3 bg-rose-50 dark:bg-rose-900/30/20 dark:bg-rose-900/10 hover:bg-rose-50/30 dark:hover:bg-rose-900/20 transition-colors">
+                                    <div className="border border-rose-100 dark:border-rose-900/40 rounded-xl p-3 bg-rose-50 dark:bg-rose-900/20 dark:bg-rose-900/10 hover:bg-rose-50/30 dark:hover:bg-rose-900/20 transition-colors">
                                         <div className="font-bold text-rose-800 dark:text-rose-300 flex items-center gap-1">
                                             <Split className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400" />
                                             {tx(lang,{fr:'Option C : Sous-traitance (Monawla)',ar:'الخيار ج: التعاقد من الباطن (مناولة)',en:'Option C: Subcontracting (Monawla)',es:'Opción C: Subcontratación (Monawla)',pt:'Opção C: Subcontratação (Monawla)',tr:'Seçenek C: Taşeronluk (Monawla)'})}
@@ -844,7 +844,7 @@ export default function ProductionSimulation({
                                 </div>
                             ) : (
                                 <div className="space-y-3 text-xs">
-                                    <div className="p-3 bg-emerald-50 dark:bg-emerald-900/30/50 dark:bg-emerald-900/20 rounded-xl border border-emerald-100 dark:border-emerald-900/40">
+                                    <div className="p-3 bg-emerald-50 dark:bg-emerald-900/50 dark:bg-emerald-900/20 rounded-xl border border-emerald-100 dark:border-emerald-900/40">
                                         <div className="font-bold text-emerald-800 dark:text-emerald-300">{tx(lang,{fr:'Aucune surcharge détectée',ar:'لم يتم اكتشاف أي حمل زائد',en:'No overload detected',es:'Ninguna sobrecarga detectada',pt:'Nenhuma sobrecarga detetada',tr:'Aşırı yük tespit edilmedi'})}</div>
                                         <p className="text-[11px] text-emerald-700 dark:text-emerald-400 mt-1 leading-relaxed">
                                             {tx(lang,{fr:'La capacité interne est suffisante. Si besoin, vous pouvez libérer du personnel pour d\'autres commandes.',ar:'السعة الداخلية كافية. إذا لزم الأمر، يمكنك تحرير الموظفين لأوامر أخرى.',en:'Internal capacity is sufficient. If needed, you can free up staff for other orders.',es:'La capacidad interna es suficiente. Si es necesario, puede liberar personal para otros pedidos.',pt:'A capacidade interna é suficiente. Se necessário, pode libertar pessoal para outras encomendas.',tr:'Dahili kapasite yeterlidir. Gerekirse diğer siparişler için personeli serbest bırakabilirsiniz.'})}

@@ -431,7 +431,7 @@ export default function ModelSelector({
                                         type="button"
                                         onClick={() => handleSelect(m.id)}
                                         className={`w-full px-3 py-2.5 flex items-center gap-3 text-left hover:bg-slate-50 dark:hover:bg-dk-elevated/60 transition-colors ${
-                                            isSelected ? 'bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20/70' : ''
+                                            isSelected ? 'bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/70' : ''
                                         }`}
                                     >
                                         {mThumb ? (
@@ -504,7 +504,7 @@ export default function ModelSelector({
                         <PredictionRow prediction={prediction} quantity={quantity} pcsPerDay={metrics.pcsPerDay} />
                     )}
                     {!prediction && quantity > 0 && metrics.samSeconds <= 0 && (
-                        <div className="px-4 py-3 border-t border-slate-100 dark:border-dk-border text-[11px] text-amber-700 bg-amber-50 dark:bg-amber-900/30/40 flex items-center gap-2">
+                        <div className="px-4 py-3 border-t border-slate-100 dark:border-dk-border text-[11px] text-amber-700 bg-amber-50 dark:bg-amber-900/40 flex items-center gap-2">
                             <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
                             SAM non défini sur ce modèle — impossible de calculer la date de fin.
                         </div>
@@ -519,8 +519,8 @@ function StatCell({
     label, value, accent, hint,
 }: { label: string; value: string; accent: 'indigo' | 'emerald'; hint?: string }) {
     const cls = accent === 'indigo'
-        ? 'bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20/40 text-indigo-700 dark:text-dk-accent-text'
-        : 'bg-emerald-50 dark:bg-emerald-900/30/40 text-emerald-700';
+        ? 'bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/40 text-indigo-700 dark:text-dk-accent-text'
+        : 'bg-emerald-50 dark:bg-emerald-900/40 text-emerald-700';
     const hintCls = accent === 'indigo' ? 'text-indigo-500/80' : 'text-emerald-600 dark:text-emerald-400/80';
     return (
         <div className={`px-3 py-2.5 ${cls}`}>
@@ -537,9 +537,9 @@ function PredictionRow({
     const { lang } = useLang();
     const { daysNeeded, finishDate, status, diffDays } = prediction;
     const config = {
-        on_time: { cls: 'bg-emerald-50 dark:bg-emerald-900/30/60 text-emerald-700 border-emerald-200', icon: CheckCircle2, label: tx(lang, {fr:'Dans les délais',ar:'في الموعد',en:'On time',es:'A tiempo',pt:'No prazo',tr:'Zamanında'}) },
-        at_risk: { cls: 'bg-amber-50 dark:bg-amber-900/30/60 text-amber-700 border-amber-200', icon: AlertCircle, label: 'Risque de retard' },
-        late: { cls: 'bg-red-50 dark:bg-red-900/30/60 text-red-700 border-red-200', icon: AlertTriangle, label: 'En retard' },
+        on_time: { cls: 'bg-emerald-50 dark:bg-emerald-900/60 text-emerald-700 border-emerald-200', icon: CheckCircle2, label: tx(lang, {fr:'Dans les délais',ar:'في الموعد',en:'On time',es:'A tiempo',pt:'No prazo',tr:'Zamanında'}) },
+        at_risk: { cls: 'bg-amber-50 dark:bg-amber-900/60 text-amber-700 border-amber-200', icon: AlertCircle, label: 'Risque de retard' },
+        late: { cls: 'bg-red-50 dark:bg-red-900/60 text-red-700 border-red-200', icon: AlertTriangle, label: 'En retard' },
         unknown: { cls: 'bg-slate-50 dark:bg-dk-bg text-slate-700 dark:text-dk-text-soft border-slate-200 dark:border-dk-border', icon: Calendar, label: tx(lang, {fr:'Prévision',ar:'توقع',en:'Forecast',es:'Previsión',pt:'Previsão',tr:'Tahmin'}) },
     }[status];
     const Icon = config.icon;

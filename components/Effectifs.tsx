@@ -127,7 +127,7 @@ const EditableText = ({ value, onSave, className, textClassName, autoWidth, minW
       onChange={e => setVal(e.target.value)}
       onBlur={() => onSave(val)}
       onKeyDown={e => { if (e.key === 'Enter') { e.currentTarget.blur(); } }}
-      className={`bg-amber-50 dark:bg-amber-900/30/50 border border-amber-200 hover:border-amber-300 focus:bg-amber-50 focus:border-amber-400 rounded px-2 py-0.5 outline-none focus:ring-2 ring-amber-500/20 transition-all ${autoWidth || minWidth ? '' : 'w-full'} ${textClassName || className}`}
+      className={`bg-amber-50 dark:bg-amber-900/50 border border-amber-200 hover:border-amber-300 focus:bg-amber-50 focus:border-amber-400 rounded px-2 py-0.5 outline-none focus:ring-2 ring-amber-500/20 transition-all ${autoWidth || minWidth ? '' : 'w-full'} ${textClassName || className}`}
       style={computedStyle}
     />
   );
@@ -927,7 +927,7 @@ export default function Effectifs({
   };
 
   return (
-    <div className="flex-1 min-h-0 w-full overflow-y-auto bg-gradient-to-b from-slate-50 via-[#fafafa] to-slate-100">
+    <div className="flex-1 min-h-0 w-full overflow-y-auto bg-gradient-to-b from-slate-50 via-[#fafafa] to-slate-100 dark:from-dk-bg dark:via-dk-bg dark:to-dk-bg">
       {obsCommentOpen && obsCommentAnchor && (
         <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="bg-white dark:bg-dk-surface rounded-2xl shadow-xl dark:shadow-dk-elevated w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-200 border border-slate-200 dark:border-dk-border">
@@ -1202,7 +1202,7 @@ export default function Effectifs({
 
         {/* EDIT CONFIG PANEL */}
         {isEditMode && (
-          <div className="bg-amber-50 dark:bg-amber-900/30/50 border border-amber-200 rounded-2xl p-5 shadow-sm dark:shadow-dk-sm mb-2 flex flex-col gap-6">
+          <div className="bg-amber-50 dark:bg-amber-900/50 border border-amber-200 rounded-2xl p-5 shadow-sm dark:shadow-dk-sm mb-2 flex flex-col gap-6">
             <div>
               <div className="flex items-center justify-between mb-4">
                 <h3 className="font-bold text-amber-900 flex items-center gap-2"><LayoutGrid className="w-4 h-4"/> {tx(lang,{fr:'Gestion des Répartitions Personnalisées',ar:'إدارة التقسيمات المخصصة',en:'Custom Partitions Management',es:'Gestión de Distribuciones Personalizadas',pt:'Gestão de Partições Personalizadas',tr:'Özel Bölüm Yönetimi'})}</h3>
@@ -1271,7 +1271,7 @@ export default function Effectifs({
         )}
 
         {isAddingRole && (
-          <div className="px-5 py-4 bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20/50 border border-indigo-100 rounded-2xl flex flex-wrap items-end gap-4 shadow-sm dark:shadow-dk-sm mb-4">
+          <div className="px-5 py-4 bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/50 border border-indigo-100 rounded-2xl flex flex-wrap items-end gap-4 shadow-sm dark:shadow-dk-sm mb-4">
             <div>
               <label className="block text-xs font-bold text-indigo-800 mb-1">{tx(lang,{fr:'Catégorie',ar:'الفئة',en:'Category',es:'Categoría',pt:'Categoria',tr:'Kategori'})}</label>
               <div className="flex gap-2">
@@ -1428,7 +1428,7 @@ export default function Effectifs({
                           }}
                           className={`relative px-2 py-2 sm:px-4 sm:py-3 font-bold text-center text-xs sm:text-sm min-w-[4.5rem] sm:min-w-[6rem] cursor-context-menu ${
                             c.type === 'custom' && c.isHistorical
-                              ? 'bg-amber-50 dark:bg-amber-900/30/95 text-amber-950 border-l border-amber-200/80'
+                              ? 'bg-amber-50 dark:bg-amber-900/95 text-amber-950 border-l border-amber-200/80'
                               : 'text-slate-800 dark:text-dk-text'
                           }`}
                         >
@@ -1515,7 +1515,7 @@ export default function Effectifs({
                           return (
                             <td
                               key={`${row.id}-${c.id}`}
-                              className={`px-2 py-2 text-center ${c.type === 'custom' && c.isHistorical ? 'bg-amber-50 dark:bg-amber-900/30/50' : ''}`}
+                              className={`px-2 py-2 text-center ${c.type === 'custom' && c.isHistorical ? 'bg-amber-50 dark:bg-amber-900/50' : ''}`}
                             >
                               <input
                                 type="number"
@@ -1670,18 +1670,19 @@ export default function Effectifs({
                           <Tooltip content={<CustomTooltip />} cursor={{ fill: '#f8fafc', stroke: '#e2e8f0', strokeWidth: 1, strokeDasharray: '3 3' }} />
                           <Area 
                             type="monotone" 
+                            isAnimationActive={false}
                             dataKey="total" 
                             stroke="none" 
                             fill="url(#colorTotal)" 
                           />
                           <Line 
                             type="monotone" 
+                            isAnimationActive={false}
                             dataKey="total" 
                             stroke="#6366f1" 
                             strokeWidth={3} 
                             dot={renderChartDot}
                             activeDot={renderChartActiveDot}
-                            animationDuration={1500}
                           />
                         </ComposedChart>
                       </ResponsiveChart>

@@ -329,7 +329,7 @@ export default function AnalyseTechnologique({
             </div>
 
             {/* BF / MIN TOTALES */}
-            <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-50 dark:bg-emerald-900/30/50 rounded-lg border border-emerald-100 shrink-0">
+            <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-50 dark:bg-emerald-900/50 rounded-lg border border-emerald-100 shrink-0">
                 <div className="flex flex-col items-center border-r border-emerald-100 pr-3 mr-3">
                     <span className="text-[9px] font-bold text-emerald-600 dark:text-emerald-400 uppercase flex items-center gap-1"><Zap className="w-3 h-3" /> BF (s)</span>
                     <span className="font-black text-emerald-700 text-sm">{(bf * 60).toFixed(1)}</span>
@@ -341,13 +341,13 @@ export default function AnalyseTechnologique({
             </div>
 
             {/* P/H 100% */}
-            <div className="flex flex-col items-center px-3 py-1.5 bg-orange-50 dark:bg-orange-900/30/50 rounded-lg border border-orange-100 shrink-0">
+            <div className="flex flex-col items-center px-3 py-1.5 bg-orange-50 dark:bg-orange-900/50 rounded-lg border border-orange-100 shrink-0">
                 <span className="text-[9px] font-bold text-orange-400 uppercase">{tx(lang, { fr: 'P/H (100%)', ar: 'قطعة/ساعة (100%)', en: 'P/H (100%)', es: 'P/H (100%)', pt: 'P/H (100%)', tr: 'P/S (100%)' })}</span>
                 <span className="font-black text-orange-500 text-sm leading-none mt-1">{Math.round(prodHour100)}</span>
             </div>
 
             {/* RENDU */}
-            <div className="flex flex-col items-center px-3 py-1.5 bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20/50 rounded-lg border border-indigo-100 shrink-0">
+            <div className="flex flex-col items-center px-3 py-1.5 bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/50 rounded-lg border border-indigo-100 shrink-0">
                 <span className="text-[9px] font-bold text-indigo-400 uppercase">{tx(lang, { fr: '% Rendu', ar: 'الإنتاجية %', en: 'Efficiency %', es: '% Rendimiento', pt: '% Rendimento', tr: 'Verim %' })}</span>
                 <div className="flex items-baseline gap-0.5">
                     <input 
@@ -544,7 +544,7 @@ export default function AnalyseTechnologique({
                             value={op.length === 0 ? '' : op.length} 
                             onChange={(e) => updateOperation(op.id, 'length', Math.floor(Number(e.target.value)))} 
                             onFocus={(e) => e.target.select()} 
-                            className={`${inputClass} font-bold ${isCounterMachine ? 'text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30/50' : ''}`} 
+                            className={`${inputClass} font-bold ${isCounterMachine ? 'text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/50' : ''}`} 
                             placeholder={isCounterMachine ? tx(lang, { fr: 'Qté', ar: 'الكمية', en: 'Qty', es: 'Cant.', pt: 'Qtd', tr: 'Adet' }) : '-'}
                         />
                     </td>
@@ -556,11 +556,11 @@ export default function AnalyseTechnologique({
                     <td className="py-1.5 px-1 text-center"><input type="number" step="0.01" value={stop} onChange={(e) => updateOperation(op.id, 'startStop', e.target.value)} onFocus={(e) => e.target.select()} className={inputClass + " text-slate-400 dark:text-dk-muted"} disabled={isMan || disabledIfForced}/></td>
                     <td className="py-1.5 px-1 text-center bg-slate-50 dark:bg-dk-bg/50 border-l border-slate-100 dark:border-dk-border font-mono text-[10px] text-slate-500 dark:text-dk-muted">{tMachineCalc.toFixed(2)}</td>
                     <td className="py-1.5 px-1 text-center bg-slate-50 dark:bg-dk-bg/50"><input type="number" step="0.01" value={tManuelCalc === 0 ? '' : tManuelCalc} onChange={(e) => updateOperation(op.id, 'manualTime', e.target.value)} onFocus={(e) => e.target.select()} className={inputClass + " text-slate-600 dark:text-dk-text-soft"} placeholder={tx(lang, { fr: 'Auto', ar: 'تلقائي', en: 'Auto', es: 'Auto', pt: 'Auto', tr: 'Otomatik' })} disabled={disabledIfForced}/></td>
-                    <td className="py-1.5 px-1 text-center bg-yellow-50 dark:bg-yellow-900/30/30"><input type="number" step="0.01" value={maj} onChange={(e) => updateOperation(op.id, 'majoration', e.target.value)} onFocus={(e) => e.target.select()} className={inputClass + " font-bold text-yellow-700"} disabled={disabledIfForced}/></td>
+                    <td className="py-1.5 px-1 text-center bg-yellow-50 dark:bg-yellow-900/30"><input type="number" step="0.01" value={maj} onChange={(e) => updateOperation(op.id, 'majoration', e.target.value)} onFocus={(e) => e.target.select()} className={inputClass + " font-bold text-yellow-700"} disabled={disabledIfForced}/></td>
                     
                     {/* RESULTATS */}
-                    <td className="py-1.5 px-1 text-center bg-emerald-50 dark:bg-emerald-900/30/30 border-l border-emerald-100 font-black text-emerald-700 text-xs">{tTotalMin.toFixed(2)}</td>
-                    <td className="py-1.5 px-1 text-center bg-emerald-50 dark:bg-emerald-900/30/30 text-emerald-600 dark:text-emerald-400 text-[10px] font-bold">{tTotalSec.toFixed(1)}</td>
+                    <td className="py-1.5 px-1 text-center bg-emerald-50 dark:bg-emerald-900/30 border-l border-emerald-100 font-black text-emerald-700 text-xs">{tTotalMin.toFixed(2)}</td>
+                    <td className="py-1.5 px-1 text-center bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 text-[10px] font-bold">{tTotalSec.toFixed(1)}</td>
                   </tr>
                 );
               })}

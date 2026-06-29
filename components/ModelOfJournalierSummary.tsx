@@ -345,7 +345,7 @@ function JournalierTableBlock({
                                 type="number"
                                 min={0}
                                 step={1}
-                                className={`${inputCls} ${conflict ? 'border-amber-300 bg-amber-50 dark:bg-amber-900/30/80' : ''}`}
+                                className={`${inputCls} ${conflict ? 'border-amber-300 bg-amber-50 dark:bg-amber-900/80' : ''}`}
                                 value={show ? String(v) : ''}
                                 onChange={e => onUpdateHourly(s.id, k, e.target.value)}
                                 placeholder="—"
@@ -362,10 +362,10 @@ function JournalierTableBlock({
                         </td>
                       );
                     })}
-                    <td className="px-2 py-1.5 text-center font-black text-emerald-800 bg-emerald-50 dark:bg-emerald-900/30/50 border-r border-slate-100 dark:border-dk-border tabular-nums">
+                    <td className="px-2 py-1.5 text-center font-black text-emerald-800 bg-emerald-50 dark:bg-emerald-900/50 border-r border-slate-100 dark:border-dk-border tabular-nums">
                       {p}
                     </td>
-                    <td className="px-2 py-1.5 text-center font-black text-amber-800 bg-amber-50 dark:bg-amber-900/30/40 tabular-nums">{c}</td>
+                    <td className="px-2 py-1.5 text-center font-black text-amber-800 bg-amber-50 dark:bg-amber-900/40 tabular-nums">{c}</td>
                   </tr>
                 );
               })

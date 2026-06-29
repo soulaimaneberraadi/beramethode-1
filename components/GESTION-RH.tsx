@@ -48,21 +48,21 @@ const ROLE_COLORS: Record<HRWorkerRole, string> = {
   OPERATOR: '#3B82F6', SUPERVISOR: '#8B5CF6', MECHANIC: '#F59E0B',
   ADMIN: '#EF4444', QC: '#10B981', IRON: '#EC4899', CUTTER: '#F97316', PACKER: '#6366F1'
 };
-const STATUS_CONFIG: Record<HRPointageStatus, { label: TxMap; color: string; bg: string }> = {
-  PRESENT:  { label: { fr: 'Présent',  ar: 'حاضر', en: 'Present', es: 'Presente', pt: 'Presente', tr: 'Mevcut' },  color: '#059669', bg: '#ecfdf5' },
-  RETARD:   { label: { fr: 'Retard',   ar: 'متأخر', en: 'Late', es: 'Tarde', pt: 'Atrasado', tr: 'Geç' },   color: '#d97706', bg: '#fffbeb' },
-  ABSENT:   { label: { fr: 'Absent',   ar: 'غائب', en: 'Absent', es: 'Ausente', pt: 'Ausente', tr: 'Yok' },   color: '#dc2626', bg: '#fef2f2' },
-  CONGE:    { label: { fr: 'Congé',    ar: 'عطلة', en: 'Leave', es: 'Vacaciones', pt: 'Férias', tr: 'İzin' },    color: '#2563eb', bg: '#eff6ff' },
-  MALADIE:  { label: { fr: 'Maladie',  ar: 'مرض', en: 'Sick', es: 'Enfermedad', pt: 'Doente', tr: 'Hasta' },  color: '#7c3aed', bg: '#f5f3ff' },
-  MISSION:  { label: { fr: 'Mission',  ar: 'مهمة', en: 'Mission', es: 'Misión', pt: 'Missão', tr: 'Görev' },  color: '#0d9488', bg: '#f0fdfa' },
-  FERIE:    { label: { fr: 'Férié',    ar: 'عطلة رسمية', en: 'Holiday', es: 'Festivo', pt: 'Feriado', tr: 'Tatil' },    color: '#4b5563', bg: '#f9fafb' },
+const STATUS_CONFIG: Record<HRPointageStatus, { label: TxMap; color: string; bg: string; darkBg: string }> = {
+  PRESENT:  { label: { fr: 'Présent',  ar: 'حاضر', en: 'Present', es: 'Presente', pt: 'Presente', tr: 'Mevcut' },  color: '#059669', bg: '#ecfdf5', darkBg: '#1a3a2a' },
+  RETARD:   { label: { fr: 'Retard',   ar: 'متأخر', en: 'Late', es: 'Tarde', pt: 'Atrasado', tr: 'Geç' },   color: '#d97706', bg: '#fffbeb', darkBg: '#3d2e1a' },
+  ABSENT:   { label: { fr: 'Absent',   ar: 'غائب', en: 'Absent', es: 'Ausente', pt: 'Ausente', tr: 'Yok' },   color: '#dc2626', bg: '#fef2f2', darkBg: '#3d1a1a' },
+  CONGE:    { label: { fr: 'Congé',    ar: 'عطلة', en: 'Leave', es: 'Vacaciones', pt: 'Férias', tr: 'İzin' },    color: '#2563eb', bg: '#eff6ff', darkBg: '#1a2a3d' },
+  MALADIE:  { label: { fr: 'Maladie',  ar: 'مرض', en: 'Sick', es: 'Enfermedad', pt: 'Doente', tr: 'Hasta' },  color: '#7c3aed', bg: '#f5f3ff', darkBg: '#1e1a3d' },
+  MISSION:  { label: { fr: 'Mission',  ar: 'مهمة', en: 'Mission', es: 'Misión', pt: 'Missão', tr: 'Görev' },  color: '#0d9488', bg: '#f0fdfa', darkBg: '#1a3a2a' },
+  FERIE:    { label: { fr: 'Férié',    ar: 'عطلة رسمية', en: 'Holiday', es: 'Festivo', pt: 'Feriado', tr: 'Tatil' },    color: '#4b5563', bg: '#f9fafb', darkBg: '#1c1c1c' },
 };
-const AVANCE_STATUS: Record<string, { label: TxMap; color: string; bg: string }> = {
-  DEMANDE:   { label: { fr: 'En attente', ar: 'قيد الانتظار', en: 'Pending', es: 'Pendiente', pt: 'Pendente', tr: 'Beklemede' }, color: '#d97706', bg: '#fffbeb' },
-  APPROUVE:  { label: { fr: 'Approuvé',  ar: 'موافق عليه', en: 'Approved', es: 'Aprobado', pt: 'Aprovado', tr: 'Onaylandı' },  color: '#059669', bg: '#ecfdf5' },
-  EN_COURS:  { label: { fr: 'En cours',  ar: 'قيد التنفيذ', en: 'In progress', es: 'En curso', pt: 'Em andamento', tr: 'Devam ediyor' },  color: '#2563eb', bg: '#eff6ff' },
-  REMBOURSE: { label: { fr: 'Remboursé', ar: 'مردود', en: 'Reimbursed', es: 'Reembolsado', pt: 'Reembolsado', tr: 'Geri ödendi' }, color: '#4b5563', bg: '#f9fafb' },
-  REFUSE:    { label: { fr: 'Refusé',    ar: 'مرفوض', en: 'Refused', es: 'Rechazado', pt: 'Recusado', tr: 'Reddedildi' },    color: '#dc2626', bg: '#fef2f2' },
+const AVANCE_STATUS: Record<string, { label: TxMap; color: string; bg: string; darkBg: string }> = {
+  DEMANDE:   { label: { fr: 'En attente', ar: 'قيد الانتظار', en: 'Pending', es: 'Pendiente', pt: 'Pendente', tr: 'Beklemede' }, color: '#d97706', bg: '#fffbeb', darkBg: '#3d2e1a' },
+  APPROUVE:  { label: { fr: 'Approuvé',  ar: 'موافق عليه', en: 'Approved', es: 'Aprobado', pt: 'Aprovado', tr: 'Onaylandı' },  color: '#059669', bg: '#ecfdf5', darkBg: '#1a3a2a' },
+  EN_COURS:  { label: { fr: 'En cours',  ar: 'قيد التنفيذ', en: 'In progress', es: 'En curso', pt: 'Em andamento', tr: 'Devam ediyor' },  color: '#2563eb', bg: '#eff6ff', darkBg: '#1a2a3d' },
+  REMBOURSE: { label: { fr: 'Remboursé', ar: 'مردود', en: 'Reimbursed', es: 'Reembolsado', pt: 'Reembolsado', tr: 'Geri ödendi' }, color: '#4b5563', bg: '#f9fafb', darkBg: '#1c1c1c' },
+  REFUSE:    { label: { fr: 'Refusé',    ar: 'مرفوض', en: 'Refused', es: 'Rechazado', pt: 'Recusado', tr: 'Reddedildi' },    color: '#dc2626', bg: '#fef2f2', darkBg: '#3d1a1a' },
 };
 
 const ABSENCE_LIKE: HRPointageStatus[] = ['CONGE', 'MALADIE', 'MISSION', 'FERIE'];
@@ -448,7 +448,7 @@ function WorkerModal({ worker, onClose, onSave, transportLignes }: { worker: Par
 
           {subTab === 'financier' && (
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-              <div style={{ gridColumn: '1/-1', background: '#F0F9FF', borderRadius: 10, padding: '10px 14px', fontSize: 12, color: '#0369A1' }}>
+              <div style={{ gridColumn: '1/-1', background: isDark ? '#0c2d4a' : '#F0F9FF', borderRadius: 10, padding: '10px 14px', fontSize: 12, color: isDark ? '#7dd3fc' : '#0369A1' }}>
                 {tx(lang, { fr: 'ℹ️ Ces données sont confidentielles — non exposées aux ouvriers via BERAOUVIER', ar: 'ℹ️ هذه البيانات سرية — لا يطلع عليها العمال عبر BERAOUVIER', en: 'ℹ️ This data is confidential — not exposed to workers via BERAOUVIER', es: 'ℹ️ Estos datos son confidenciales — no expuestos a los trabajadores via BERAOUVIER', pt: 'ℹ️ Estes dados são confidenciais — não expostos aos trabalhadores via BERAOUVIER', tr: 'ℹ️ Bu veriler gizlidir — BERAOUVIER üzerinden işçilere gösterilmez' })}
               </div>
               <Field label={tx(lang, { fr: 'Salaire Base (MAD)', ar: 'Salaire Base (MAD)', en: 'Salaire Base (MAD)', es: 'Salaire Base (MAD)', pt: 'Salaire Base (MAD)', tr: 'Salaire Base (MAD)' })} value={form.salaire_base ?? 0} onChange={v => set('salaire_base', parseFloat(v) || 0)} type="number" />
@@ -618,9 +618,9 @@ function StatistiquesTab({ workers, pointages, suivis, planningEvents, selectedD
         {/* Global KPIs */}
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 12 }}>
           {[
-            { label: tx(lang, { fr: 'Total Effectif', ar: 'إجمالي العمال', en: 'Total Staff', es: 'Total Efectivo', pt: 'Total Efetivo', tr: 'Toplam Personel' }), val: workers.length, bg: '#EFF6FF', color: '#1D4ED8' },
-            { label: tx(lang, { fr: 'Présents', ar: 'حاضرون', en: 'Present', es: 'Presentes', pt: 'Presentes', tr: 'Mevcut' }), val: totalPresents, bg: '#ECFDF5', color: '#065F46' },
-            { label: tx(lang, { fr: 'Absents', ar: 'غائبون', en: 'Absent', es: 'Ausentes', pt: 'Ausentes', tr: 'Yok' }), val: totalAbsents, bg: '#FEF2F2', color: '#991B1B' },
+            { label: tx(lang, { fr: 'Total Effectif', ar: 'إجمالي العمال', en: 'Total Staff', es: 'Total Efectivo', pt: 'Total Efetivo', tr: 'Toplam Personel' }), val: workers.length, bg: isDark ? '#1e2a4a' : '#EFF6FF', color: isDark ? '#93c5fd' : '#1D4ED8' },
+            { label: tx(lang, { fr: 'Présents', ar: 'حاضرون', en: 'Present', es: 'Presentes', pt: 'Presentes', tr: 'Mevcut' }), val: totalPresents, bg: isDark ? '#1a3a2a' : '#ECFDF5', color: isDark ? '#6ee7b7' : '#065F46' },
+            { label: tx(lang, { fr: 'Absents', ar: 'غائبون', en: 'Absent', es: 'Ausentes', pt: 'Ausentes', tr: 'Yok' }), val: totalAbsents, bg: isDark ? '#3a1a1a' : '#FEF2F2', color: isDark ? '#fca5a5' : '#991B1B' },
           ].map(k => (
             <div key={k.label} style={{ padding: '8px 16px', borderRadius: 10, background: k.bg, textAlign: 'center' }}>
               <div style={{ fontSize: 20, fontWeight: 800, color: k.color }}>{k.val}</div>
@@ -688,9 +688,9 @@ function StatistiquesTab({ workers, pointages, suivis, planningEvents, selectedD
               <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
                 {[
                   { label: tx(lang, { fr: 'Total', ar: 'المجموع', en: 'Total', es: 'Total', pt: 'Total', tr: 'Toplam' }), val: ch.total, bg: isDark ? '#14211C' : '#F8FAFC', color: '#374151' },
-                  { label: tx(lang, { fr: 'Présents', ar: 'حاضرون', en: 'Present', es: 'Presentes', pt: 'Presentes', tr: 'Mevcut' }), val: ch.presents, bg: '#ECFDF5', color: '#065F46' },
-                  { label: tx(lang, { fr: 'Absents', ar: 'غائبون', en: 'Absent', es: 'Ausentes', pt: 'Ausentes', tr: 'Yok' }), val: ch.absents, bg: '#FEF2F2', color: '#991B1B' },
-                  ...(ch.todayProduced > 0 ? [{ label: tx(lang, { fr: 'Pcs/jour', ar: 'قطعة/يوم', en: 'Pcs/day', es: 'Pzs/día', pt: 'Peças/dia', tr: 'Adet/gün' }), val: ch.todayProduced, bg: '#EEF2FF', color: '#4F46E5' }] : []),
+                  { label: tx(lang, { fr: 'Présents', ar: 'حاضرون', en: 'Present', es: 'Presentes', pt: 'Presentes', tr: 'Mevcut' }), val: ch.presents, bg: isDark ? '#1a3a2a' : '#ECFDF5', color: isDark ? '#6ee7b7' : '#065F46' },
+                  { label: tx(lang, { fr: 'Absents', ar: 'غائبون', en: 'Absent', es: 'Ausentes', pt: 'Ausentes', tr: 'Yok' }), val: ch.absents, bg: isDark ? '#3a1a1a' : '#FEF2F2', color: isDark ? '#fca5a5' : '#991B1B' },
+                  ...(ch.todayProduced > 0 ? [{ label: tx(lang, { fr: 'Pcs/jour', ar: 'قطعة/يوم', en: 'Pcs/day', es: 'Pzs/día', pt: 'Peças/dia', tr: 'Adet/gün' }), val: ch.todayProduced, bg: isDark ? '#1e1a3a' : '#EEF2FF', color: isDark ? '#a5b4fc' : '#4F46E5' }] : []),
                 ].map(k => (
                   <div key={k.label} style={{ flex: 1, padding: '6px 8px', borderRadius: 8, background: k.bg, textAlign: 'center' }}>
                     <div style={{ fontSize: 15, fontWeight: 800, color: k.color }}>{k.val}</div>
@@ -724,7 +724,7 @@ function StatistiquesTab({ workers, pointages, suivis, planningEvents, selectedD
         {/* Emballage */}
         <div style={{ background: isDark ? '#1D2E28' : '#fff', borderRadius: 14, padding: 18, boxShadow: '0 2px 8px rgba(0,0,0,0.07)', border: isDark ? '1px solid #2E463C' : '1px solid #F1F5F9' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
-            <div style={{ width: 36, height: 36, borderRadius: 10, background: '#FFF7ED', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <div style={{ width: 36, height: 36, borderRadius: 10, background: isDark ? '#3d2e1a' : '#FFF7ED', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <span style={{ fontSize: 18 }}>📦</span>
             </div>
             <div>
@@ -740,7 +740,7 @@ function StatistiquesTab({ workers, pointages, suivis, planningEvents, selectedD
                 return (
                   <div key={w.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 10px', background: isDark ? '#14211C' : '#F8FAFC', borderRadius: 8 }}>
                     <span style={{ fontSize: 12, fontWeight: 600, color: '#374151' }}>{w.full_name}</span>
-                    <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 10, background: sc.bg, color: sc.color }}>{tx(lang, sc.label)}</span>
+                    <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 10, background: isDark ? sc.darkBg : sc.bg, color: sc.color }}>{tx(lang, sc.label)}</span>
                   </div>
                 );
               })}
@@ -753,7 +753,7 @@ function StatistiquesTab({ workers, pointages, suivis, planningEvents, selectedD
         {/* Administration */}
         <div style={{ background: isDark ? '#1D2E28' : '#fff', borderRadius: 14, padding: 18, boxShadow: '0 2px 8px rgba(0,0,0,0.07)', border: `1px solid ${isDark ? '#1D2E28' : '#F1F5F9'}` }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
-            <div style={{ width: 36, height: 36, borderRadius: 10, background: '#FFF5F5', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <div style={{ width: 36, height: 36, borderRadius: 10, background: isDark ? '#3d1a1a' : '#FFF5F5', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <span style={{ fontSize: 18 }}>🏢</span>
             </div>
             <div>
@@ -769,7 +769,7 @@ function StatistiquesTab({ workers, pointages, suivis, planningEvents, selectedD
                 return (
                   <div key={w.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 10px', background: isDark ? '#14211C' : '#F8FAFC', borderRadius: 8 }}>
                     <span style={{ fontSize: 12, fontWeight: 600, color: '#374151' }}>{w.full_name}</span>
-                    <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 10, background: sc.bg, color: sc.color }}>{tx(lang, sc.label)}</span>
+                    <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 10, background: isDark ? sc.darkBg : sc.bg, color: sc.color }}>{tx(lang, sc.label)}</span>
                   </div>
                 );
               })}
@@ -850,7 +850,7 @@ function StatistiquesTab({ workers, pointages, suivis, planningEvents, selectedD
                                 <div style={{ width: 40, height: 40, borderRadius: '50%', background: w.photo ? 'transparent' : ROLE_COLORS[roleK] + '20', border: `2px solid ${ROLE_COLORS[roleK]}`, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                   {w.photo ? <img src={w.photo} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" /> : <span style={{ fontSize: 14, fontWeight: 800, color: ROLE_COLORS[roleK] }}>{(w.full_name || '?')[0]}</span>}
                                 </div>
-                                <div style={{ position: 'absolute', bottom: -1, right: -1, width: 10, height: 10, borderRadius: '50%', background: sc.color, border: `2px solid #fff` }} title={tx(lang, sc.label)} />
+                                <div style={{ position: 'absolute', bottom: -1, right: -1, width: 10, height: 10, borderRadius: '50%', background: sc.color, border: `2px solid ${isDark ? '#1D2E28' : '#fff'}` }} title={tx(lang, sc.label)} />
                               </div>
                               <div style={{ minWidth: 0 }}>
                                 <div style={{ fontWeight: 700, fontSize: 13, color: isDark ? '#EAF1ED' : '#0F172A', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>{w.full_name}</div>
@@ -872,7 +872,7 @@ function StatistiquesTab({ workers, pointages, suivis, planningEvents, selectedD
                                 <div style={{ fontSize: 11, fontWeight: 700, color: isDark ? '#C2D2CA' : '#475569' }}>
                                   {tx(lang, { fr: 'Parda:', ar: 'الوردية:', en: 'Shift:', es: 'Turno:', pt: 'Turno:', tr: 'Vardiya:' })} <span style={{ color: '#1E293B' }}>{w.equipe || tx(lang, { fr: '—', ar: '—', en: '—', es: '—', pt: '—', tr: '—' })}</span>
                                 </div>
-                                <div style={{ fontSize: 10, fontWeight: 600, padding: '2px 8px', borderRadius: 8, background: sc.bg, color: sc.color, marginTop: 4, display: 'inline-block' }}>
+                                <div style={{ fontSize: 10, fontWeight: 600, padding: '2px 8px', borderRadius: 8, background: isDark ? sc.darkBg : sc.bg, color: sc.color, marginTop: 4, display: 'inline-block' }}>
                                   {tx(lang, sc.label)}
                                 </div>
                               </div>
@@ -1015,7 +1015,7 @@ function InvitationsTab({
   return (
     <div>
       {withPerson.length === 0 && (
-        <div style={{ marginBottom: 16, padding: 12, borderRadius: 10, background: '#FEF3C7', color: '#92400E', fontSize: 13 }}>
+        <div style={{ marginBottom: 16, padding: 12, borderRadius: 10, background: isDark ? '#3d2e1a' : '#FEF3C7', color: isDark ? '#fcd34d' : '#92400E', fontSize: 13 }}>
           {tx(lang, { fr: 'Aucun <strong>person_id</strong> encore : ouvrez chaque fiche depuis l\'annuaire (ou enregistrez un ouvrier) pour générer les liens, puis revenez ici.', ar: 'لا يوجد <strong>person_id</strong> بعد: افتح كل ملف من الدليل (أو سجّل عاملاً) لإنشاء الروابط، ثم عد إلى هنا.', en: 'No <strong>person_id</strong> yet: open each record from the directory (or register a worker) to generate links, then come back here.', es: 'Aún no hay <strong>person_id</strong>: abra cada ficha desde el directorio (o registre un operario) para generar los enlaces, luego vuelva aquí.', pt: 'Nenhum <strong>person_id</strong> ainda: abra cada ficha do diretório (ou registre um operário) para gerar os links, depois volte aqui.', tr: 'Henüz <strong>person_id</strong> yok: bağlantıları oluşturmak için her kaydı rehberden açın (veya bir işçi kaydedin), ardından buraya geri dönün.' })}
         </div>
       )}
@@ -1735,7 +1735,7 @@ export default function GestionRH({
   );
 
   return (
-    <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, background: '#F8F9FA', overflow: 'hidden' }}>
+    <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, background: isDark ? '#14211C' : '#F8F9FA', overflow: 'hidden' }}>
 
       <AnimatePresence>
         {profileWorkerId && (
@@ -1854,13 +1854,13 @@ export default function GestionRH({
         }}
       >
         {loadError && (
-          <div style={{ marginBottom: 16, padding: '12px 16px', borderRadius: 10, background: '#FEF2F2', border: '1px solid #FECACA', color: '#991B1B', fontSize: 13, fontWeight: 600 }}>
+          <div style={{ marginBottom: 16, padding: '12px 16px', borderRadius: 10, background: isDark ? '#3d1a1a' : '#FEF2F2', border: `1px solid ${isDark ? '#7f1d1d' : '#FECACA'}`, color: isDark ? '#fca5a5' : '#991B1B', fontSize: 13, fontWeight: 600 }}>
             {loadError}
           </div>
         )}
         {!loading && !loadError && claimPreview?.canClaim && (
-          <div style={{ marginBottom: 16, padding: '14px 18px', borderRadius: 12, background: 'linear-gradient(90deg, #FFFBEB 0%, #FEF3C7 100%)', border: '1px solid #FCD34D', display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-            <div style={{ fontSize: 13, color: '#78350F', lineHeight: 1.4 }}>
+          <div style={{ marginBottom: 16, padding: '14px 18px', borderRadius: 12, background: isDark ? '#2a1f0a' : 'linear-gradient(90deg, #FFFBEB 0%, #FEF3C7 100%)', border: `1px solid ${isDark ? '#78350f' : '#FCD34D'}`, display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+            <div style={{ fontSize: 13, color: isDark ? '#fbbf24' : '#78350F', lineHeight: 1.4 }}>
               {(() => { const msg = tx(lang, { fr: `<strong>${claimPreview.guestCount} ouvrier${claimPreview.guestCount !== 1 ? 's' : ''}</strong> enregistré${claimPreview.guestCount !== 1 ? 's' : ''} sur l’ancien compte invité (fiches locales). Votre compte n’en a pas encore : vous pouvez tout rattacher pour que le comptage soit <strong>réel</strong> ici.`, ar: `<strong>${claimPreview.guestCount} عامل</strong> مسجل على حساب الزائر القديم (ملفات محلية). حسابك لا يملك أي عامل بعد: يمكنك ربط الكل ليكون العدد <strong>حقيقياً</strong> هنا.`, en: `<strong>${claimPreview.guestCount} worker${claimPreview.guestCount !== 1 ? 's' : ''}</strong> recorded on the old guest account (local records). Your account doesn't have any yet: you can attach them all so the count is <strong>real</strong> here.`, es: `<strong>${claimPreview.guestCount} operario${claimPreview.guestCount !== 1 ? 's' : ''}</strong> registrado${claimPreview.guestCount !== 1 ? 's' : ''} en la cuenta de invitado anterior (fichas locales). Su cuenta aún no tiene ninguno: puede vincularlos todos para que el recuento sea <strong>real</strong> aquí.`, pt: `<strong>${claimPreview.guestCount} operário${claimPreview.guestCount !== 1 ? 's' : ''}</strong> registrado${claimPreview.guestCount !== 1 ? 's' : ''} na conta de convidado antiga (registros locais). Sua conta ainda não tem nenhum: você pode vincular todos para que a contagem seja <strong>real</strong> aqui.`, tr: `Eski misafir hesabında kayıtlı <strong>${claimPreview.guestCount} işçi</strong> (yerel kayıtlar). Hesabınızda henüz yok: sayının <strong>gerçek</strong> olması için hepsini bağlayabilirsiniz.` }); return <span dangerouslySetInnerHTML={{ __html: msg }} />; })()}
             </div>
             <button
@@ -2303,25 +2303,25 @@ export default function GestionRH({
                       <thead style={{ position: 'sticky', top: 0, zIndex: 40, background: isDark ? '#1D2E28' : '#fff' }}>
                         <tr style={{ background: isDark ? '#14211C' : '#F8FAFC' }}>
                           {/* Sans 2e ligne d’en-tête (tranches masquées), rowSpan doit être 1 sinon le tableau HTML est invalide / affichage cassé */}
-                          <th rowSpan={showTranches ? 2 : 1} style={{ padding: '4px 6px', textAlign: 'left', fontSize: '9px', fontWeight: 800, color: isDark ? '#94A3B8' : '#64748B', textTransform: 'uppercase', letterSpacing: '0.04em', borderBottom: `1px solid #e2e8f0`, position: 'sticky', left: 0, zIndex: 50, background: isDark ? '#14211C' : '#F8FAFC', boxShadow: '2px 0 4px -2px rgba(0,0,0,0.06)', minWidth: '168px' }}>{tx(lang, { fr: 'Ouvrier', ar: 'العامل', en: 'Worker', es: 'Operario', pt: 'Operário', tr: 'İşçi' })}</th>
+                          <th rowSpan={showTranches ? 2 : 1} style={{ padding: '4px 6px', textAlign: 'left', fontSize: '9px', fontWeight: 800, color: isDark ? '#94A3B8' : '#64748B', textTransform: 'uppercase', letterSpacing: '0.04em', borderBottom: `1px solid ${isDark ? '#2E463C' : '#e2e8f0'}`, position: 'sticky', left: 0, zIndex: 50, background: isDark ? '#14211C' : '#F8FAFC', boxShadow: '2px 0 4px -2px rgba(0,0,0,0.06)', minWidth: '168px' }}>{tx(lang, { fr: 'Ouvrier', ar: 'العامل', en: 'Worker', es: 'Operario', pt: 'Operário', tr: 'İşçi' })}</th>
                           {showTranches && (
-                            <th colSpan={pointageTrancheColCount} style={{ padding: '3px 4px', textAlign: 'center', fontSize: '8px', fontWeight: 800, color: '#4f46e5', textTransform: 'uppercase', letterSpacing: '0.04em', borderBottom: `1px solid #e2e8f0`, background: '#f5f3ff' }}>{tx(lang, { fr: 'Tranches', ar: 'الفترات', en: 'Slots', es: 'Franjas', pt: 'Intervalos', tr: 'Dilimler' })}</th>
+                            <th colSpan={pointageTrancheColCount} style={{ padding: '3px 4px', textAlign: 'center', fontSize: '8px', fontWeight: 800, color: isDark ? '#a5b4fc' : '#4f46e5', textTransform: 'uppercase', letterSpacing: '0.04em', borderBottom: `1px solid ${isDark ? '#2E463C' : '#e2e8f0'}`, background: isDark ? '#1e1a3d' : '#f5f3ff' }}>{tx(lang, { fr: 'Tranches', ar: 'الفترات', en: 'Slots', es: 'Franjas', pt: 'Intervalos', tr: 'Dilimler' })}</th>
                           )}
-                          <th rowSpan={showTranches ? 2 : 1} style={{ padding: '4px 6px', textAlign: 'left', fontSize: '9px', fontWeight: 800, color: isDark ? '#94A3B8' : '#64748B', textTransform: 'uppercase', letterSpacing: '0.04em', borderBottom: `1px solid #e2e8f0`, width: '92px' }}>{tx(lang, { fr: 'Entrée', ar: 'الدخول', en: 'Entry', es: 'Entrada', pt: 'Entrada', tr: 'Giriş' })}</th>
-                          <th rowSpan={showTranches ? 2 : 1} style={{ padding: '4px 6px', textAlign: 'left', fontSize: '9px', fontWeight: 800, color: isDark ? '#94A3B8' : '#64748B', textTransform: 'uppercase', letterSpacing: '0.04em', borderBottom: `1px solid #e2e8f0`, width: '92px' }}>{tx(lang, { fr: 'Sortie', ar: 'الخروج', en: 'Exit', es: 'Salida', pt: 'Saída', tr: 'Çıkış' })}</th>
-                          <th rowSpan={showTranches ? 2 : 1} style={{ padding: '4px 4px', textAlign: 'center', fontSize: '9px', fontWeight: 800, color: isDark ? '#94A3B8' : '#64748B', textTransform: 'uppercase', letterSpacing: '0.04em', borderBottom: `1px solid #e2e8f0`, width: '62px' }}>H.N.</th>
-                          <th rowSpan={showTranches ? 2 : 1} style={{ padding: '4px 4px', textAlign: 'center', fontSize: '9px', fontWeight: 800, color: isDark ? '#94A3B8' : '#64748B', textTransform: 'uppercase', letterSpacing: '0.04em', borderBottom: `1px solid #e2e8f0`, width: '62px' }}>25%</th>
-                          <th rowSpan={showTranches ? 2 : 1} style={{ padding: '4px 4px', textAlign: 'center', fontSize: '9px', fontWeight: 800, color: isDark ? '#94A3B8' : '#64748B', textTransform: 'uppercase', letterSpacing: '0.04em', borderBottom: `1px solid #e2e8f0`, width: '62px' }}>50%</th>
-                          <th rowSpan={showTranches ? 2 : 1} style={{ padding: '4px 6px', textAlign: 'right', fontSize: '9px', fontWeight: 800, color: isDark ? '#94A3B8' : '#64748B', textTransform: 'uppercase', letterSpacing: '0.04em', borderBottom: `1px solid #e2e8f0`, width: '108px' }}>{tx(lang, { fr: 'Statut', ar: 'الحالة', en: 'Status', es: 'Estado', pt: 'Status', tr: 'Durum' })}</th>
+                          <th rowSpan={showTranches ? 2 : 1} style={{ padding: '4px 6px', textAlign: 'left', fontSize: '9px', fontWeight: 800, color: isDark ? '#94A3B8' : '#64748B', textTransform: 'uppercase', letterSpacing: '0.04em', borderBottom: `1px solid ${isDark ? '#2E463C' : '#e2e8f0'}`, width: '92px' }}>{tx(lang, { fr: 'Entrée', ar: 'الدخول', en: 'Entry', es: 'Entrada', pt: 'Entrada', tr: 'Giriş' })}</th>
+                          <th rowSpan={showTranches ? 2 : 1} style={{ padding: '4px 6px', textAlign: 'left', fontSize: '9px', fontWeight: 800, color: isDark ? '#94A3B8' : '#64748B', textTransform: 'uppercase', letterSpacing: '0.04em', borderBottom: `1px solid ${isDark ? '#2E463C' : '#e2e8f0'}`, width: '92px' }}>{tx(lang, { fr: 'Sortie', ar: 'الخروج', en: 'Exit', es: 'Salida', pt: 'Saída', tr: 'Çıkış' })}</th>
+                          <th rowSpan={showTranches ? 2 : 1} style={{ padding: '4px 4px', textAlign: 'center', fontSize: '9px', fontWeight: 800, color: isDark ? '#94A3B8' : '#64748B', textTransform: 'uppercase', letterSpacing: '0.04em', borderBottom: `1px solid ${isDark ? '#2E463C' : '#e2e8f0'}`, width: '62px' }}>H.N.</th>
+                          <th rowSpan={showTranches ? 2 : 1} style={{ padding: '4px 4px', textAlign: 'center', fontSize: '9px', fontWeight: 800, color: isDark ? '#94A3B8' : '#64748B', textTransform: 'uppercase', letterSpacing: '0.04em', borderBottom: `1px solid ${isDark ? '#2E463C' : '#e2e8f0'}`, width: '62px' }}>25%</th>
+                          <th rowSpan={showTranches ? 2 : 1} style={{ padding: '4px 4px', textAlign: 'center', fontSize: '9px', fontWeight: 800, color: isDark ? '#94A3B8' : '#64748B', textTransform: 'uppercase', letterSpacing: '0.04em', borderBottom: `1px solid ${isDark ? '#2E463C' : '#e2e8f0'}`, width: '62px' }}>50%</th>
+                          <th rowSpan={showTranches ? 2 : 1} style={{ padding: '4px 6px', textAlign: 'right', fontSize: '9px', fontWeight: 800, color: isDark ? '#94A3B8' : '#64748B', textTransform: 'uppercase', letterSpacing: '0.04em', borderBottom: `1px solid ${isDark ? '#2E463C' : '#e2e8f0'}`, width: '108px' }}>{tx(lang, { fr: 'Statut', ar: 'الحالة', en: 'Status', es: 'Estado', pt: 'Status', tr: 'Durum' })}</th>
                         </tr>
                         {showTranches && (
                           <tr style={{ background: isDark ? '#14211C' : '#F8FAFC' }}>
                             {pointageTranches.slots.map((slot, gi) => (
                               <Fragment key={`slot-h-${gi}`}>
                                 {pointageTranches.sepAfterIndex >= 0 && gi === pointageTranches.sepAfterIndex + 1 && (
-                                  <th style={{ padding: '1px', textAlign: 'center', fontSize: '7px', fontWeight: 900, color: isDark ? '#64748B' : '#94A3B8', borderBottom: `1px solid #e2e8f0`, position: 'sticky', top: '22px', zIndex: 40 }}>—</th>
+                                  <th style={{ padding: '1px', textAlign: 'center', fontSize: '7px', fontWeight: 900, color: isDark ? '#64748B' : '#94A3B8', borderBottom: `1px solid ${isDark ? '#2E463C' : '#e2e8f0'}`, position: 'sticky', top: '22px', zIndex: 40 }}>—</th>
                                 )}
-                                <th style={{ padding: '1px 2px', textAlign: 'center', fontSize: '7px', fontWeight: 900, color: isDark ? '#94A3B8' : '#64748B', borderBottom: `1px solid #e2e8f0`, minWidth: '40px', position: 'sticky', top: '22px', zIndex: 40, background: isDark ? '#14211C' : '#F8FAFC' }}>{slot.label}</th>
+                                <th style={{ padding: '1px 2px', textAlign: 'center', fontSize: '7px', fontWeight: 900, color: isDark ? '#94A3B8' : '#64748B', borderBottom: `1px solid ${isDark ? '#2E463C' : '#e2e8f0'}`, minWidth: '40px', position: 'sticky', top: '22px', zIndex: 40, background: isDark ? '#14211C' : '#F8FAFC' }}>{slot.label}</th>
                               </Fragment>
                             ))}
                           </tr>
@@ -2362,13 +2362,13 @@ export default function GestionRH({
                                       style={{ position: 'relative', cursor: 'pointer', flexShrink: 0 }}
                                     >
                                       {w.photo ? (
-                                        <img src={w.photo} alt="" style={{ width: '28px', height: '28px', borderRadius: '8px', objectFit: 'cover', border: `1px solid #fff`, boxShadow: '0 1px 2px rgba(0,0,0,0.06)' }} />
+                                        <img src={w.photo} alt="" style={{ width: '28px', height: '28px', borderRadius: '8px', objectFit: 'cover', border: `1px solid ${isDark ? '#1D2E28' : '#fff'}`, boxShadow: '0 1px 2px rgba(0,0,0,0.06)' }} />
                                       ) : (
-                                        <div style={{ width: '28px', height: '28px', borderRadius: '8px', background: '#eef2ff', color: '#4f46e5', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 800, border: `1px solid #fff`, boxShadow: '0 1px 2px rgba(0,0,0,0.06)' }}>
+                                        <div style={{ width: '28px', height: '28px', borderRadius: '8px', background: '#eef2ff', color: '#4f46e5', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 800, border: `1px solid ${isDark ? '#1D2E28' : '#fff'}`, boxShadow: '0 1px 2px rgba(0,0,0,0.06)' }}>
                                           {w.full_name.charAt(0)}
                                         </div>
                                       )}
-                                      <div style={{ position: 'absolute', bottom: '-1px', right: '-1px', width: '7px', height: '7px', borderRadius: '50%', background: conf.color, border: `1px solid #fff` }} />
+                                      <div style={{ position: 'absolute', bottom: '-1px', right: '-1px', width: '7px', height: '7px', borderRadius: '50%', background: conf.color, border: `1px solid ${isDark ? '#1D2E28' : '#fff'}` }} />
                                     </div>
                                     <div style={{ overflow: 'hidden', minWidth: 0 }}>
                                       <div 
@@ -2416,8 +2416,8 @@ export default function GestionRH({
                                               width: '24px',
                                               height: '22px',
                                               borderRadius: '5px',
-                                              border: displayGrille[gi] ? 'none' : `1px solid #e2e8f0`,
-                                              background: displayGrille[gi] ? 'linear-gradient(135deg, #4f46e5 0%, #3b82f6 100%)' : '#fafafa',
+                                              border: displayGrille[gi] ? 'none' : `1px solid ${isDark ? '#2E463C' : '#e2e8f0'}`,
+                                              background: displayGrille[gi] ? 'linear-gradient(135deg, #4f46e5 0%, #3b82f6 100%)' : isDark ? '#14211C' : '#fafafa',
                                               cursor: gridDisabled ? 'not-allowed' : 'pointer',
                                               display: 'flex',
                                               alignItems: 'center',
@@ -2441,7 +2441,7 @@ export default function GestionRH({
                                     defaultValue={normalizeTimeForInput(ptg?.heure_entree as string)}
                                     onBlur={e => savePointageRow(w.id, 'heure_entree', e.target.value, ptg)}
                                     disabled={gridDisabled}
-                                    style={{ ..._inputStyle, padding: '3px 6px', borderRadius: '6px', background: gridDisabled ? isDark ? '#14211C' : '#f8fafc' : isDark ? '#1D2E28' : '#fff', opacity: gridDisabled ? 0.45 : 1, border: gridDisabled ? `1px solid ${isDark ? '#1D2E28' : '#f1f5f9'}` : `1px solid #e2e8f0`, width: '86px', fontVariantNumeric: 'tabular-nums', fontWeight: 600, fontSize: '11px', color: isDark ? '#EAF1ED' : '#1E293B' }}
+                                    style={{ ..._inputStyle, padding: '3px 6px', borderRadius: '6px', background: gridDisabled ? isDark ? '#14211C' : '#f8fafc' : isDark ? '#1D2E28' : '#fff', opacity: gridDisabled ? 0.45 : 1, border: gridDisabled ? `1px solid ${isDark ? '#1D2E28' : '#f1f5f9'}` : `1px solid ${isDark ? '#2E463C' : '#e2e8f0'}`, width: '86px', fontVariantNumeric: 'tabular-nums', fontWeight: 600, fontSize: '11px', color: isDark ? '#EAF1ED' : '#1E293B' }}
                                   />
                                 </td>
                                 <td style={{ padding: '3px 4px' }}>
@@ -2450,7 +2450,7 @@ export default function GestionRH({
                                     defaultValue={normalizeTimeForInput(ptg?.heure_sortie as string)}
                                     onBlur={e => savePointageRow(w.id, 'heure_sortie', e.target.value, ptg)}
                                     disabled={gridDisabled}
-                                    style={{ ..._inputStyle, padding: '3px 6px', borderRadius: '6px', background: gridDisabled ? isDark ? '#14211C' : '#f8fafc' : isDark ? '#1D2E28' : '#fff', opacity: gridDisabled ? 0.45 : 1, border: gridDisabled ? `1px solid ${isDark ? '#1D2E28' : '#f1f5f9'}` : `1px solid #e2e8f0`, width: '86px', fontVariantNumeric: 'tabular-nums', fontWeight: 600, fontSize: '11px', color: isDark ? '#EAF1ED' : '#1E293B' }}
+                                    style={{ ..._inputStyle, padding: '3px 6px', borderRadius: '6px', background: gridDisabled ? isDark ? '#14211C' : '#f8fafc' : isDark ? '#1D2E28' : '#fff', opacity: gridDisabled ? 0.45 : 1, border: gridDisabled ? `1px solid ${isDark ? '#1D2E28' : '#f1f5f9'}` : `1px solid ${isDark ? '#2E463C' : '#e2e8f0'}`, width: '86px', fontVariantNumeric: 'tabular-nums', fontWeight: 600, fontSize: '11px', color: isDark ? '#EAF1ED' : '#1E293B' }}
                                   />
                                 </td>
 
@@ -2480,7 +2480,7 @@ export default function GestionRH({
                                       fontSize: '10px',
                                       fontWeight: 800,
                                       border: 'none',
-                                      background: conf.bg,
+                                      background: isDark ? conf.darkBg : conf.bg,
                                       color: conf.color,
                                       cursor: 'pointer',
                                       outline: 'none',
@@ -2604,8 +2604,8 @@ export default function GestionRH({
                               <td style={{ padding: '10px 14px', textAlign: 'center' }}>
                                 {prod?.taux_qualite != null ? (
                                   <span style={{ padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 700,
-                                    background: prod.taux_qualite >= 95 ? '#D1FAE5' : prod.taux_qualite >= 85 ? '#FEF3C7' : '#FEE2E2',
-                                    color: prod.taux_qualite >= 95 ? '#065F46' : prod.taux_qualite >= 85 ? '#92400E' : '#991B1B' }}>
+                                    background: prod.taux_qualite >= 95 ? isDark ? '#1a3a2a' : '#D1FAE5' : prod.taux_qualite >= 85 ? isDark ? '#3d2e1a' : '#FEF3C7' : isDark ? '#3d1a1a' : '#FEE2E2',
+                                    color: prod.taux_qualite >= 95 ? isDark ? '#6ee7b7' : '#065F46' : prod.taux_qualite >= 85 ? isDark ? '#fcd34d' : '#92400E' : isDark ? '#fca5a5' : '#991B1B' }}>
                                     {prod.taux_qualite.toFixed(1)}%
                                   </span>
                                 ) : '—'}
@@ -2629,7 +2629,7 @@ export default function GestionRH({
             {/* ═══ AVANCES ═══ */}
             {tab === 'avances' && (
               <div>
-                <div style={{ background: '#FEF3C7', borderRadius: 12, padding: '12px 16px', marginBottom: 16, fontSize: 13, color: '#92400E', display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div style={{ background: isDark ? '#3d2e1a' : '#FEF3C7', borderRadius: 12, padding: '12px 16px', marginBottom: 16, fontSize: 13, color: isDark ? '#fcd34d' : '#92400E', display: 'flex', alignItems: 'center', gap: 10 }}>
                   <AlertTriangle size={16} />
                   <span>{tx(lang, { fr: '<strong>Article 385 — Code du Travail Marocain :</strong> La déduction mensuelle ne peut excéder 1/10ème du salaire net. Plafond appliqué automatiquement.', ar: '<strong>المادة 385 — مدونة الشغل المغربية:</strong> لا يمكن أن يتجاوز الخصم الشهري 1/10 من الراتب الصافي. تم تطبيق الحد الأقصى تلقائياً.', en: '<strong>Article 385 — Moroccan Labor Code:</strong> Monthly deduction cannot exceed 1/10 of net salary. Cap applied automatically.', es: '<strong>Artículo 385 — Código del Trabajo Marroquí:</strong> La deducción mensual no puede exceder 1/10 del salario neto. Límite aplicado automáticamente.', pt: '<strong>Artigo 385 — Código do Trabalho Marroquino:</strong> A dedução mensal não pode exceder 1/10 do salário líquido. Limite aplicado automaticamente.', tr: '<strong>Madde 385 — Fas Çalışma Kanunu:</strong> Aylık kesinti net maaşın 1/10\'unu aşamaz. Sınır otomatik olarak uygulandı.' })}</span>
                 </div>
@@ -2645,7 +2645,7 @@ export default function GestionRH({
                       </thead>
                       <tbody>
                         {avances.map((a: any) => {
-                          const sc = AVANCE_STATUS[a.statut] || { label: a.statut, color: '#374151', bg: '#F3F4F6' };
+                          const sc = AVANCE_STATUS[a.statut] || { label: a.statut, color: '#374151', bg: '#F3F4F6', darkBg: '#1c1c1c' };
                           return (
                             <tr key={a.id} style={{ borderBottom: `1px solid ${isDark ? '#1D2E28' : '#F1F5F9'}` }}>
                               <td style={{ padding: '10px 14px' }}>
@@ -2665,15 +2665,15 @@ export default function GestionRH({
                                 {a.solde_restant != null ? `${a.solde_restant?.toLocaleString()} MAD` : '—'}
                               </td>
                               <td style={{ padding: '10px 14px' }}>
-                                <span style={{ padding: '3px 10px', borderRadius: 20, fontSize: 11, fontWeight: 700, background: sc.bg, color: sc.color }}>{tx(lang, sc.label)}</span>
+                                <span style={{ padding: '3px 10px', borderRadius: 20, fontSize: 11, fontWeight: 700, background: isDark ? sc.darkBg : sc.bg, color: sc.color }}>{tx(lang, sc.label)}</span>
                               </td>
                               <td style={{ padding: '10px 14px' }}>
                                 {a.statut === 'DEMANDE' && (
                                   <div style={{ display: 'flex', gap: 6 }}>
                                     <button onClick={() => handleAvanceStatut(a.id, 'APPROUVE')}
-                                      style={{ padding: '4px 10px', border: 'none', borderRadius: 6, background: '#D1FAE5', color: '#065F46', cursor: 'pointer', fontSize: 11, fontWeight: 600 }}>{tx(lang, { fr: '✓ Approuver', ar: '✓ موافقة', en: '✓ Approve', es: '✓ Aprobar', pt: '✓ Aprovar', tr: '✓ Onayla' })}</button>
+                                      style={{ padding: '4px 10px', border: 'none', borderRadius: 6, background: isDark ? '#1a3a2a' : '#D1FAE5', color: isDark ? '#6ee7b7' : '#065F46', cursor: 'pointer', fontSize: 11, fontWeight: 600 }}>{tx(lang, { fr: '✓ Approuver', ar: '✓ موافقة', en: '✓ Approve', es: '✓ Aprobar', pt: '✓ Aprovar', tr: '✓ Onayla' })}</button>
                                     <button onClick={() => handleAvanceStatut(a.id, 'REFUSE')}
-                                      style={{ padding: '4px 10px', border: 'none', borderRadius: 6, background: '#FEE2E2', color: '#991B1B', cursor: 'pointer', fontSize: 11, fontWeight: 600 }}>{tx(lang, { fr: '✗ Refuser', ar: '✗ رفض', en: '✗ Refuse', es: '✗ Rechazar', pt: '✗ Recusar', tr: '✗ Reddet' })}</button>
+                                      style={{ padding: '4px 10px', border: 'none', borderRadius: 6, background: isDark ? '#3d1a1a' : '#FEE2E2', color: isDark ? '#fca5a5' : '#991B1B', cursor: 'pointer', fontSize: 11, fontWeight: 600 }}>{tx(lang, { fr: '✗ Refuser', ar: '✗ رفض', en: '✗ Refuse', es: '✗ Rechazar', pt: '✗ Recusar', tr: '✗ Reddet' })}</button>
                                   </div>
                                 )}
                               </td>
@@ -2955,7 +2955,7 @@ export default function GestionRH({
                                 </div>
                               </div>
                               <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                                <span style={{ background: '#EEF2FF', color: isDark ? '#818cf8' : '#2149C1', fontSize: 11, fontWeight: 700, padding: '4px 10px', borderRadius: 12 }}>
+                                <span style={{ background: isDark ? '#1e1a3d' : '#EEF2FF', color: isDark ? '#818cf8' : '#2149C1', fontSize: 11, fontWeight: 700, padding: '4px 10px', borderRadius: 12 }}>
                                   {tx(lang, { fr: 'Présents', ar: 'الحاضرون', en: 'Present', es: 'Presentes', pt: 'Presentes', tr: 'Mevcut' })}: {presentWorkers.length} / {assignedWorkers.length} ({tx(lang, { fr: 'Capacité', ar: 'السعة', en: 'Capacity', es: 'Capacidad', pt: 'Capacidade', tr: 'Kapasite' })}: {l.capacite || '—'})
                                 </span>
                                 <button onClick={handleCopyWhatsApp} style={{ ..._btnSecondary, fontSize: 11, padding: '4px 10px' }}>
@@ -2976,7 +2976,7 @@ export default function GestionRH({
                                       </div>
                                     </div>
                                     {w.phone && (
-                                      <a href={`tel:${w.phone}`} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 28, height: 28, borderRadius: '50%', background: '#E0F2FE', color: '#0369A1' }}>
+                                      <a href={`tel:${w.phone}`} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 28, height: 28, borderRadius: '50%', background: isDark ? '#1a2a3d' : '#E0F2FE', color: isDark ? '#7dd3fc' : '#0369A1' }}>
                                         <Phone size={14} />
                                       </a>
                                     )}
@@ -3018,7 +3018,7 @@ export default function GestionRH({
                               <h4 style={{ margin: 0, fontSize: 15, fontWeight: 700, color: isDark ? '#EAF1ED' : '#1E293B' }}>
                                 {l.code_ligne ? `[${l.code_ligne}] ` : ''}{l.nom}
                               </h4>
-                              <span style={{ fontSize: 11, background: '#F0FDF4', color: '#166534', padding: '2px 8px', borderRadius: 10, fontWeight: 700 }}>
+                              <span style={{ fontSize: 11, background: isDark ? '#1a3a2a' : '#F0FDF4', color: isDark ? '#6ee7b7' : '#166534', padding: '2px 8px', borderRadius: 10, fontWeight: 700 }}>
                                 Capacité: {l.capacite || 0}
                               </span>
                             </div>
@@ -3038,7 +3038,7 @@ export default function GestionRH({
                               <Edit3 size={12} style={{ marginRight: 4 }} /> {tx(lang, { fr: 'Modifier', ar: 'تعديل', en: 'Edit', es: 'Editar', pt: 'Editar', tr: 'Düzenle' })}
                             </button>
                             <button onClick={() => handleDeleteLigne(l.id, l.nom)}
-                              style={{ padding: '4px 8px', border: '1px solid #FEE2E2', borderRadius: 6, background: '#FFF5F5', color: '#991B1B', cursor: 'pointer', fontSize: 11, fontWeight: 600, display: 'flex', alignItems: 'center' }}>
+                              style={{ padding: '4px 8px', border: `1px solid ${isDark ? '#7f1d1d' : '#FEE2E2'}`, borderRadius: 6, background: isDark ? '#3d1a1a' : '#FFF5F5', color: isDark ? '#fca5a5' : '#991B1B', cursor: 'pointer', fontSize: 11, fontWeight: 600, display: 'flex', alignItems: 'center' }}>
                               <Trash2 size={12} style={{ marginRight: 4 }} /> {tx(lang, { fr: 'Supprimer', ar: 'حذف', en: 'Delete', es: 'Eliminar', pt: 'Excluir', tr: 'Sil' })}
                             </button>
                           </div>
@@ -3148,7 +3148,7 @@ export default function GestionRH({
                     </div>
                   )}
 
-                  <div style={{ background: '#FEF3C7', borderRadius: 8, padding: 10, fontSize: 12, color: '#92400E', marginBottom: 16 }}>
+                  <div style={{ background: isDark ? '#3d2e1a' : '#FEF3C7', borderRadius: 8, padding: 10, fontSize: 12, color: isDark ? '#fcd34d' : '#92400E', marginBottom: 16 }}>
                     {tx(lang, { fr: '⚖️ Conforme Art. 385 — Déduction avances plafonnée automatiquement à 1/10ème du salaire net', ar: '⚖️ وفقاً للمادة 385 — خصم السلفات محدود تلقائياً بـ 1/10 من الراتب الصافي', en: '⚖️ Under Art. 385 — Advance deductions automatically capped at 1/10 of net salary', es: '⚖️ Conforme Art. 385 — Deducción de anticipos limitada automáticamente a 1/10 del salario neto', pt: '⚖️ Conforme Art. 385 — Dedução de adiantamentos limitada automaticamente a 1/10 do salário líquido', tr: '⚖️ Madde 385 uyarınca — Avans kesintileri otomatik olarak net maaşın 1/10\'u ile sınırlıdır' })}
                   </div>
 
