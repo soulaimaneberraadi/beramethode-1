@@ -24,6 +24,10 @@ import {
     ChevronLeft,
     ChevronRight,
     Clock,
+    LayoutGrid,
+    Calendar,
+    TrendingUp,
+    FileText,
 } from 'lucide-react';
 import type { Lang } from './constants';
 import { TRANSLATIONS, CATEGORY_TRANSLATIONS } from './constants';
@@ -61,12 +65,12 @@ export const VIEW_DEFS: Record<string, { label: string | ViewLabelFn; icon: Reac
     },
     dashboard: {
         label: (l: any) => tx(l, { fr: 'Tableau de bord', ar: 'لوحة التحكم', en: 'Dashboard', es: 'Panel', pt: 'Painel', tr: 'Gösterge Paneli' }),
-        icon: <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect width="7" height="9" x="3" y="3" rx="1" /><rect width="7" height="5" x="14" y="3" rx="1" /><rect width="7" height="9" x="14" y="12" rx="1" /><rect width="7" height="5" x="3" y="16" rx="1" /></svg>,
+        icon: <LayoutGrid className="w-3.5 h-3.5" />,
         activeClass: 'bg-indigo-50 dark:bg-indigo-900/30 border-indigo-100 text-indigo-700'
     },
     planning: {
         label: (l: any) => tx(l, { fr: 'Planning', ar: 'التخطيط', en: 'Planning', es: 'Planificación', pt: 'Planeamento', tr: 'Planlama' }),
-        icon: <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M19 4H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2Z" /><path d="M16 2v4" /><path d="M8 2v4" /><path d="M3 10h18" /></svg>,
+        icon: <Calendar className="w-3.5 h-3.5" />,
         activeClass: 'bg-blue-50 dark:bg-blue-900/30 border-blue-100 text-blue-700'
     },
     suivi: {
@@ -76,7 +80,7 @@ export const VIEW_DEFS: Record<string, { label: string | ViewLabelFn; icon: Reac
     },
     rendement: {
         label: (l: any) => tx(l, { fr: 'Rendement', ar: 'الإنتاجية', en: 'Yield', es: 'Rendimiento', pt: 'Rendimento', tr: 'Verim' }),
-        icon: <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18" /><polyline points="17 6 23 6 23 12" /></svg>,
+        icon: <TrendingUp className="w-3.5 h-3.5" />,
         activeClass: 'bg-violet-50 dark:bg-violet-900/30 border-violet-100 dark:border-violet-800 text-violet-700 dark:text-violet-300'
     },
     ingenierie: {
@@ -106,7 +110,7 @@ export const VIEW_DEFS: Record<string, { label: string | ViewLabelFn; icon: Reac
     },
     gestionRh: {
         label: (l: any) => tx(l, { fr: 'Gestion RH', ar: 'إدارة الموارد البشرية', en: 'HR Management', es: 'Gestión RRHH', pt: 'Gestão RH', tr: 'İK Yönetimi' }),
-        icon: <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>,
+        icon: <Users className="w-3.5 h-3.5" />,
         activeClass: 'bg-sky-50 dark:bg-sky-900/30 border-sky-100 text-sky-700'
     },
     magasin: {
@@ -121,7 +125,7 @@ export const VIEW_DEFS: Record<string, { label: string | ViewLabelFn; icon: Reac
     },
     facturation: {
         label: (l: any) => tx(l, { fr: 'Facturation', ar: 'الفوترة', en: 'Invoicing', es: 'Facturación', pt: 'Faturação', tr: 'Faturalama' }),
-        icon: <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>,
+        icon: <FileText className="w-3.5 h-3.5" />,
         activeClass: 'bg-blue-50 dark:bg-blue-900/30 border-blue-100 text-blue-700'
     },
     library: {
@@ -132,7 +136,7 @@ export const VIEW_DEFS: Record<string, { label: string | ViewLabelFn; icon: Reac
     pageMachine: {
         label: (l: any) => tx(l, { fr: 'Suivi des Machines', ar: 'متابعة الآلات', en: 'Machine Monitoring', es: 'Seguimiento de Máquinas', pt: 'Acompanhamento de Máquinas', tr: 'Makine Takibi' }),
         icon: <Activity className="w-3.5 h-3.5" />,
-        activeClass: 'bg-fuchsia-50 border-fuchsia-100 text-fuchsia-700'
+        activeClass: 'bg-fuchsia-50 dark:bg-fuchsia-900/30 border-fuchsia-100 text-fuchsia-700'
     },
     machin: {
         label: (l: any) => tx(l, { fr: 'Catalogue & Paramètres', ar: 'الكتالوج والإعدادات', en: 'Catalog & Settings', es: 'Catálogo y Ajustes', pt: 'Catálogo e Definições', tr: 'Katalog ve Ayarlar' }),
@@ -368,7 +372,7 @@ export default function AppHeader({
                             : 'bg-white dark:bg-dk-surface border-gray-100 dark:border-dk-border hover:border-gray-200 dark:hover:border-dk-elevated'
                             }`}
                     >
-                        <div className="w-6 h-6 rounded-full bg-gradient-to-tr from-gray-700 to-gray-600 flex items-center justify-center text-[10px] font-bold text-white shadow-sm">
+                        <div className="w-6 h-6 rounded-full bg-gradient-to-tr from-gray-700 to-gray-600 flex items-center justify-center text-[10px] font-bold text-white shadow-sm dark:shadow-dk-sm">
                             {user?.name ? user.name.substring(0, 2).toUpperCase() : 'SB'}
                         </div>
                     </button>

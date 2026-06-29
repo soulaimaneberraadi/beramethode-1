@@ -89,7 +89,7 @@ export default function LotsEditor({ lots, onChange, settings, defaultDeadline, 
                                     inputClassName="mt-0.5 w-full rounded-lg border border-slate-200 dark:border-dk-border px-2 py-1 text-left text-[11px] font-semibold"
                                 />
                             </div>
-                            <button type="button" onClick={() => remove(l.id)} className="rounded-lg border border-red-100 px-2 py-1 text-red-500 hover:bg-red-50">
+                            <button type="button" onClick={() => remove(l.id)} className="rounded-lg border border-red-100 dark:border-red-800/30 px-2 py-1 text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30">
                                 ×
                             </button>
                         </div>

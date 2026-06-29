@@ -452,7 +452,7 @@ export default function AdminDashboard() {
         {/* CREATE USER MODAL */}
         {showCreateModal && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowCreateModal(false)}>
-            <div className="bg-white dark:bg-dk-surface rounded-2xl p-6 w-full max-w-md shadow-2xl" onClick={e => e.stopPropagation()}>
+            <div className="bg-white dark:bg-dk-surface rounded-2xl p-6 w-full max-w-md shadow-2xl dark:shadow-dk-elevated" onClick={e => e.stopPropagation()}>
               <h2 className="text-lg font-bold mb-4 text-slate-800 dark:text-dk-text">{tx(lang, { fr: 'Créer un compte', ar: 'إنشاء حساب', en: 'Create an account', es: 'Crear una cuenta', pt: 'Criar uma conta', tr: 'Hesap oluştur' })}</h2>
               <form onSubmit={handleCreateUser} className="space-y-4">
                 <div>

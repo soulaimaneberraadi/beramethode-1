@@ -47,7 +47,7 @@ export default function NetworkAccessPanel({ isDark }: { isDark: boolean }) {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 0.6 }}
-      className={`fixed bottom-4 right-4 z-20 rounded-2xl backdrop-blur-xl border shadow-lg max-w-xs dark:bg-dk-bg/5 dark:text-dk-text ${
+      className={`fixed bottom-4 right-4 z-20 rounded-2xl backdrop-blur-xl border shadow-lg dark:shadow-dk-lg max-w-xs dark:bg-dk-bg/5 dark:text-dk-text ${
         isDark ? 'bg-white/5 border-white/10' : 'bg-white/70 border-white/40'
       }`}
     >
@@ -66,11 +66,11 @@ export default function NetworkAccessPanel({ isDark }: { isDark: boolean }) {
         )}
         <span className={`text-xs font-bold uppercase tracking-wider flex-1 text-left ${
           isDark ? 'text-slate-200' : 'text-slate-700'
-        }`}>
+        } dark:text-dk-text-soft`}>
           {statusLabel}
         </span>
         {addresses.length > 0 && (
-          <span className={`text-[10px] ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+          <span className={`text-[10px] ${isDark ? 'text-slate-400' : 'text-slate-500'} dark:text-dk-muted`}>
             {collapsed ? '▴' : '▾'}
           </span>
         )}
@@ -104,12 +104,12 @@ export default function NetworkAccessPanel({ isDark }: { isDark: boolean }) {
                         <Check className="w-3 h-3" /> {tx(lang, {fr:"Copié",ar:"تم النسخ",en:"Copied",es:"Copiado",pt:"Copiado",tr:"Kopyalandı"})}
                       </span>
                     ) : (
-                      <Copy className={`w-3 h-3 ${isDark ? 'text-slate-500' : 'text-slate-400'}`} />
+                      <Copy className={`w-3 h-3 ${isDark ? 'text-slate-500' : 'text-slate-400'} dark:text-dk-muted`} />
                     )}
                   </button>
                 );
               })}
-              <p className={`text-[10px] pt-1 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
+              <p className={`text-[10px] pt-1 ${isDark ? 'text-slate-500' : 'text-slate-400'} dark:text-dk-muted`}>
                 {tx(lang, {fr:"Tapez cette adresse depuis un autre appareil sur le même WiFi.",ar:"اكتب هذا العنوان من جهاز آخر على نفس WiFi",en:"Type this address from another device on the same WiFi",es:"Escriba esta dirección desde otro dispositivo en el mismo WiFi",pt:"Digite este endereço de outro dispositivo no mesmo WiFi",tr:"Aynı WiFi üzerindeki başka bir cihazdan bu adresi yazın"})}
               </p>
             </div>
@@ -122,7 +122,7 @@ export default function NetworkAccessPanel({ isDark }: { isDark: boolean }) {
             exit={{ height: 0, opacity: 0 }}
             className="overflow-hidden"
           >
-            <p className={`px-4 py-3 text-[11px] ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+            <p className={`px-4 py-3 text-[11px] ${isDark ? 'text-slate-400' : 'text-slate-500'} dark:text-dk-muted`}>
               {tx(lang, {fr:"Le serveur ne répond pas. Vérifiez que",ar:"الخادم لا يستجيب. تأكد من أن",en:"The server is not responding. Make sure",es:"El servidor no responde. Verifique que",pt:"O servidor não responde. Verifique se",tr:"Sunucu yanıt vermiyor. Şunun çalıştığından emin olun:"})} <code className="font-mono">npm run dev</code> {tx(lang, {fr:"est lancé.",ar:"قيد التشغيل.",en:"is running.",es:"está en ejecución.",pt:"está em execução.",tr:"çalışıyor."})}
             </p>
           </motion.div>

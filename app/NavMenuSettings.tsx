@@ -46,8 +46,8 @@ export default function NavMenuSettings({ navConfig, saveNavConfig, defaultNavOr
                     <p className="text-[11px] text-slate-400 dark:text-dk-muted">{tx(lang, { fr: 'Afficher le bouton menu rapide dans la barre de navigation', ar: 'إظهار زر القائمة السريعة في شريط التنقل', en: 'Show the quick menu button in the navigation bar', es: 'Mostrar el botón de menú rápido en la barra de navegación', pt: 'Mostrar o botão de menu rápido na barra de navegação', tr: 'Gezinme çubuğunda hızlı menü düğmesini göster' })}</p>
                 </div>
                 <button onClick={() => setDraft({ ...draft, enabled: !draft.enabled })}
-                    className={`w-10 h-5 rounded-full p-0.5 transition-colors relative flex items-center ${draft.enabled ? 'bg-emerald-500' : 'bg-slate-300'}`}>
-                    <div className={`w-4 h-4 bg-white rounded-full shadow-sm transition-transform duration-300 ${draft.enabled ? 'translate-x-5' : 'translate-x-0'}`} />
+                    className={`w-10 h-5 rounded-full p-0.5 transition-colors relative flex items-center ${draft.enabled ? 'bg-emerald-500' : 'bg-slate-300 dark:bg-dk-border'}`}>
+                    <div className={`w-4 h-4 bg-white rounded-full shadow-sm dark:shadow-dk-sm transition-transform duration-300 ${draft.enabled ? 'translate-x-5' : 'translate-x-0'}`} />
                 </button>
             </div>
             <div className="space-y-1.5 mb-5">

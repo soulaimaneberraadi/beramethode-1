@@ -140,7 +140,7 @@ export default function NavConfirmModal({ isOpen, type, user, onConfirm }: NavCo
                             className={`w-full h-12 flex items-center justify-center gap-2 rounded-xl font-bold text-[14px] transition-all duration-200 border active:scale-[0.98] ${
                                 isDark 
                                     ? 'border-dk-border bg-dk-elevated/40 text-dk-text-soft hover:bg-dk-elevated/80' 
-                                    : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                                    : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50 dark:border-dk-border dark:bg-dk-surface dark:text-dk-text-soft dark:hover:bg-dk-elevated/60'
                             }`}
                         >
                             {type === 'save'
@@ -155,7 +155,7 @@ export default function NavConfirmModal({ isOpen, type, user, onConfirm }: NavCo
                             type="button"
                             onClick={() => onConfirm('cancel')}
                             className={`w-full h-10 font-bold text-[12px] transition-colors uppercase tracking-widest pt-2 ${
-                                isDark ? 'text-dk-muted hover:text-dk-text-soft' : 'text-slate-400 hover:text-slate-600'
+                                isDark ? 'text-dk-muted hover:text-dk-text-soft' : 'text-slate-400 hover:text-slate-600 dark:text-dk-muted dark:hover:text-dk-text-soft'
                             }`}
                         >
                             {tx(lang, {ar: 'إلغاء الأمر', fr: 'Annuler', en: 'Cancel', es: 'Cancelar', pt: 'Cancelar', tr: 'İptal'})}

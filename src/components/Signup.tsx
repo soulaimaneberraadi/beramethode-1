@@ -242,7 +242,7 @@ export default function Signup({ onSwitch, onGuest }: { onSwitch: () => void; on
             whileTap={{ scale: 0.98 }}
             type="submit"
             disabled={isLoading}
-            className="w-full flex justify-center items-center gap-2 py-4 px-4 border border-transparent text-sm font-bold rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-offset-2 bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 hover:shadow-emerald-500/20 shadow-lg transition-all duration-200 cursor-pointer disabled:opacity-70 disabled:cursor-not-allowed"
+            className="w-full flex justify-center items-center gap-2 py-4 px-4 border border-transparent text-sm font-bold rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-offset-2 bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 hover:shadow-emerald-500/20 shadow-lg dark:shadow-dk-lg transition-all duration-200 cursor-pointer disabled:opacity-70 disabled:cursor-not-allowed"
           >
             {isLoading ? (
               <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -268,7 +268,7 @@ export default function Signup({ onSwitch, onGuest }: { onSwitch: () => void; on
                   type="button"
                   onClick={handleGoogleLogin}
                   disabled={isLoading}
-                  className="mt-4 w-full flex justify-center items-center gap-3 border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 hover:border-slate-300 py-3.5 px-4 rounded-xl shadow-sm cursor-pointer text-sm font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 transition-all duration-200 disabled:opacity-70 disabled:cursor-not-allowed dark:border-dk-border dark:bg-dk-surface dark:text-dk-text-soft dark:hover:bg-dk-elevated/60"
+                  className="mt-4 w-full flex justify-center items-center gap-3 border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 hover:border-slate-300 py-3.5 px-4 rounded-xl shadow-sm dark:shadow-dk-sm cursor-pointer text-sm font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 transition-all duration-200 disabled:opacity-70 disabled:cursor-not-allowed dark:border-dk-border dark:bg-dk-surface dark:text-dk-text-soft dark:hover:bg-dk-elevated/60"
                 >
                   <GoogleIcon className="w-5 h-5" />
                   {tx(lang, {fr:'Continuer avec Google',ar:'المتابعة عبر Google',en:'Continue with Google',es:'Continuar con Google',pt:'Continuar com Google',tr:'Google ile devam et'})}
@@ -281,7 +281,7 @@ export default function Signup({ onSwitch, onGuest }: { onSwitch: () => void; on
                   whileTap={{ scale: 0.98 }}
                   type="button"
                   onClick={onGuest}
-                  className="mt-3 w-full flex justify-center items-center gap-2 border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:border-slate-300 py-3.5 px-4 rounded-xl shadow-sm cursor-pointer text-sm font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 transition-all duration-200 dark:border-dk-border dark:bg-dk-surface dark:text-dk-text-soft dark:hover:bg-dk-elevated/60"
+                  className="mt-3 w-full flex justify-center items-center gap-2 border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:border-slate-300 py-3.5 px-4 rounded-xl shadow-sm dark:shadow-dk-sm cursor-pointer text-sm font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 transition-all duration-200 dark:border-dk-border dark:bg-dk-surface dark:text-dk-text-soft dark:hover:bg-dk-elevated/60"
                 >
                   <User className="w-4 h-4" />
                   {tx(lang, {fr:'Continuer en tant qu\'invité',ar:'المتابعة كزائر',en:'Continue as guest',es:'Continuar como invitado',pt:'Continuar como convidado',tr:'Misafir olarak devam et'})}

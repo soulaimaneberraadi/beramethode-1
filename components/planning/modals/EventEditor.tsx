@@ -815,7 +815,7 @@ export default function EventEditor({ open, mode, initial, models, chains, plann
                                                 {colors.map((color, cIdx) => {
                                                     const colorTotal = Object.values(distribution[color.id] || {}).reduce((a, b) => a + b, 0);
                                                     return (
-                                                        <tr key={`${color.id}-${cIdx}`} className="hover:bg-white/50 transition-colors">
+                                                        <tr key={`${color.id}-${cIdx}`} className="hover:bg-white/50 dark:hover:bg-dk-elevated/40 transition-colors">
                                                             <td className="px-4 py-2 sticky left-0 bg-white/90 dark:bg-dk-surface/90 backdrop-blur-md z-10 border-r border-white/20 dark:border-dk-border/20">
                                                                 <div className="flex items-center gap-2">
                                                                     <div 
@@ -909,7 +909,7 @@ export default function EventEditor({ open, mode, initial, models, chains, plann
                                                 {colors.map((color, cIdx) => {
                                                     const colorTotal = Object.values(subcontractDist[color.id] || {}).reduce((a, b) => a + b, 0);
                                                     return (
-                                                        <tr key={`${color.id}-${cIdx}`} className="hover:bg-white/50 transition-colors">
+                                                        <tr key={`${color.id}-${cIdx}`} className="hover:bg-white/50 dark:hover:bg-dk-elevated/40 transition-colors">
                                                             <td className="px-4 py-2 sticky left-0 bg-white/90 dark:bg-dk-surface/90 backdrop-blur-md z-10 border-r border-white/20 dark:border-dk-border/20">
                                                                 <div className="flex items-center gap-2">
                                                                     <div 
@@ -1006,7 +1006,7 @@ export default function EventEditor({ open, mode, initial, models, chains, plann
                                                     const colorSubTotal = Object.values(subcontractDist[color.id] || {}).reduce((a, b) => a + b, 0);
                                                     const colorTotal = Math.max(0, colorTotalTotal - colorSubTotal);
                                                     return (
-                                                        <tr key={`${color.id}-${cIdx}`} className="hover:bg-white/50 transition-colors">
+                                                        <tr key={`${color.id}-${cIdx}`} className="hover:bg-white/50 dark:hover:bg-dk-elevated/40 transition-colors">
                                                             <td className="px-4 py-2 sticky left-0 bg-emerald-50 dark:bg-emerald-900/30/95 backdrop-blur-md z-10 border-r border-emerald-500/20">
                                                                 <div className="flex items-center gap-2">
                                                                     <div 

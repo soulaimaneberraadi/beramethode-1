@@ -40,7 +40,7 @@ export function SaasInput({
   return (
     <div className="space-y-1.5">
       {label && (
-        <label className="text-[11px] font-medium text-slate-500 block">
+        <label className="text-[11px] font-medium text-slate-500 dark:text-dk-muted block">
           {label}
         </label>
       )}
@@ -153,7 +153,7 @@ export function SaasToggle({
       >
         <span
           className={`
-            absolute top-[2px] w-[14px] h-[14px] rounded-full bg-white shadow-sm
+            absolute top-[2px] w-[14px] h-[14px] rounded-full bg-white shadow-sm dark:shadow-dk-sm
             transition-transform duration-200
             ${checked ? 'translate-x-[16px]' : 'translate-x-[2px]'}
           `}

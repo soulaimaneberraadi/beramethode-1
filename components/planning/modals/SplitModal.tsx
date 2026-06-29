@@ -355,7 +355,7 @@ export default function SplitModal({ open, event, models, onClose, onSubmit }: P
                                             {colors.map((color, cIdx) => {
                                                 const rowRemaining = Object.values(remainingDistribution[color.id] || {}).reduce((s, q) => s + q, 0);
                                                 return (
-                                                    <tr key={`${color.id}-${cIdx}`} className="hover:bg-slate-50/50">
+                                                    <tr key={`${color.id}-${cIdx}`} className="hover:bg-slate-50/50 dark:hover:bg-dk-elevated/40">
                                                         <td className="px-2 py-1.5 sticky left-0 bg-white dark:bg-dk-surface border-r border-slate-100 dark:border-dk-border flex items-center gap-1.5">
                                                             <div className="w-2.5 h-2.5 rounded-full border border-slate-300" style={{ background: color.id }} />
                                                             <span className="truncate max-w-[80px] text-slate-750 dark:text-dk-text-soft font-medium">{color.name}</span>
@@ -480,7 +480,7 @@ export default function SplitModal({ open, event, models, onClose, onSubmit }: P
                                                                     const colorMap = lot.sizeColorDistribution?.[color.id] || {};
                                                                     const colorTotal = Object.values(colorMap).reduce((s, q) => s + q, 0);
                                                                     return (
-                                                                        <tr key={`${color.id}-${cIdx}`} className="hover:bg-slate-50/30">
+                                                                        <tr key={`${color.id}-${cIdx}`} className="hover:bg-slate-50/30 dark:hover:bg-dk-elevated/30">
                                                                             <td className="px-2 py-1 sticky left-0 bg-white dark:bg-dk-surface border-r border-slate-100 dark:border-dk-border flex items-center gap-1">
                                                                                 <div className="w-2.5 h-2.5 rounded-full border border-slate-350" style={{ background: color.id }} />
                                                                                 <span className="truncate max-w-[60px] text-slate-750 font-medium">{color.name}</span>
