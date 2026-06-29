@@ -91,6 +91,17 @@ function fmtFull(n: number): string {
   return Number.isFinite(n) ? Math.round(n).toLocaleString() : '—';
 }
 
+/** Temps relatif localisé : « à l'instant », « il y a 2 min », « il y a 1 h ». */
+function relTime(ts: number, now: number, lang: string): string {
+  const sec = Math.max(0, Math.round((now - ts) / 1000));
+  if (sec < 10) return tx(lang, { fr: "à l'instant", ar: 'الآن', en: 'just now', es: 'ahora', pt: 'agora', tr: 'şimdi' });
+  if (sec < 60) return tx(lang, { fr: `il y a ${sec}s`, ar: `قبل ${sec} ث`, en: `${sec}s ago`, es: `hace ${sec}s`, pt: `há ${sec}s`, tr: `${sec}sn önce` });
+  const min = Math.round(sec / 60);
+  if (min < 60) return tx(lang, { fr: `il y a ${min} min`, ar: `قبل ${min} د`, en: `${min} min ago`, es: `hace ${min} min`, pt: `há ${min} min`, tr: `${min} dk önce` });
+  const hr = Math.round(min / 60);
+  return tx(lang, { fr: `il y a ${hr} h`, ar: `قبل ${hr} س`, en: `${hr}h ago`, es: `hace ${hr}h`, pt: `há ${hr}h`, tr: `${hr}sa önce` });
+}
+
 const KPI_ACCENT: Record<string, string> = {
   of: '#6366f1', 'eff-rh': '#10b981', stock: '#f59e0b', avances: '#8b5cf6',
   modeles: '#0ea5e9', 'eff-suivi': '#14b8a6', trs: '#f43f5e', pj: '#3b82f6',
@@ -122,7 +133,7 @@ const KpiCard = React.memo(function KpiCard({ kpi, showLoading, onNavigateModule
       </div>
       <div className="flex items-end justify-between gap-2">
         <p title={fullValue} className={`text-xl sm:text-2xl font-black text-slate-800 dark:text-dk-text leading-none tabular-nums tracking-tight ${fullValue ? 'cursor-help decoration-dotted decoration-slate-300 underline-offset-4 hover:underline' : ''}`}>
-          {showLoading ? <span className="text-slate-200 animate-pulse">···</span> : kpi.value}
+          {showLoading ? <span className="inline-block h-5 sm:h-6 w-16 rounded-md bg-slate-200 dark:bg-dk-elevated/70 animate-pulse align-middle" aria-hidden /> : kpi.value}
         </p>
         {kpi.sparkData && kpi.sparkData.length > 0 && (
           <Sparkline data={kpi.sparkData} color={kpi.sparkColor || '#6366f1'} />
@@ -174,6 +185,12 @@ export default function Dashboard({ models, suivis, planningEvents, settings, se
   const [kpiLoading, setKpiLoading] = useState(true);
   const [liveConnected, setLiveConnected] = useState(false);
   const [lastUpdate, setLastUpdate] = useState<number | null>(null);
+  // Horloge légère (30 s) pour rafraîchir l'affichage « MAJ il y a … ».
+  const [nowTick, setNowTick] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNowTick(Date.now()), 30000);
+    return () => clearInterval(id);
+  }, []);
 
   const IS_STATIC = import.meta.env.VITE_STATIC_MODE === 'true';
 
@@ -454,6 +471,11 @@ export default function Dashboard({ models, suivis, planningEvents, settings, se
             <span className={`w-1.5 h-1.5 rounded-full ${liveConnected ? 'bg-emerald-500 animate-pulse' : 'bg-amber-400'}`} aria-hidden />
             {liveConnected ? tx(lang, { fr: 'En direct', ar: 'مباشر', en: 'Live', es: 'En directo', pt: 'Em direto', tr: 'Canlı' }) : tx(lang, { fr: 'Hors ligne', ar: 'غير متصل', en: 'Offline', es: 'Sin conexión', pt: 'Offline', tr: 'Çevrimdışı' })}
           </span>
+          {lastUpdate && (
+            <span className="hidden md:inline text-[10px] text-slate-400 dark:text-dk-muted font-medium whitespace-nowrap">
+              {tx(lang, { fr: 'MAJ', ar: 'تحديث', en: 'Upd.', es: 'Act.', pt: 'Atu.', tr: 'Gün.' })} {relTime(lastUpdate, nowTick, lang)}
+            </span>
+          )}
           <button
             type="button"
             onClick={fetchKPIs}
